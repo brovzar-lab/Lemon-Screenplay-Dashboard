@@ -1,0 +1,169 @@
+{
+  "source_file": "OF EVERY WICKEDNESS - Brian McGreevy, Lee Shipman.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "OF EVERY WICKEDNESS - Brian McGreevy, Lee Shipman.pdf",
+    "page_count": 115,
+    "word_count": 24200
+  },
+  "analysis": {
+    "title": "Of Every Wickedness",
+    "author": "Brian McGreevy, Lee Shipman",
+    "logline": "In 1880s Austin, a journalist and a black boxer hunt a serial killer targeting African American women, uncovering the city's dark racial undercurrents.",
+    "genre": "Historical Crime Thriller",
+    "subgenres": [
+      "True Crime",
+      "Period Piece",
+      "Serial Killer Narrative"
+    ],
+    "themes": [
+      "Racial Violence",
+      "Justice",
+      "Systemic Oppression",
+      "Personal Redemption"
+    ],
+    "tone": "Dark, gritty, unflinching",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Based on first recorded serial killings in US history, with unique racial dynamics and psychological depth"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Methodical investigation structure, clear act breaks, mounting tension, satisfying narrative progression"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Edmund Harrison's complex character arc, deep psychological motivation, active pursuit of truth"
+      },
+      "supporting_cast": {
+        "score": 9,
+        "justification": "Henry, Rebecca, Eula, Lee - each character richly developed with distinct motivations and backstories"
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Period-authentic, layered dialogue revealing character and social tensions"
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Masterful serial killer narrative with unique historical and racial context"
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Fresh perspective on historical crime, subverts typical serial killer tropes"
+      },
+      "weighted_score": 8.75
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Graphic violence might limit audience",
+      "Complex narrative requires engaged viewing"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "True crime/historical thriller fans, mature audiences"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Unique historical serial killer story with clear hook"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong character roles for character actors"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "First serial killer narrative, based on true events"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Moderate budget, potential for critical acclaim"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to successful period crime narratives"
+      },
+      "cvs_total": 13
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Edmund's arrival, Second act: Investigation, Third act: Confrontation and pursuit",
+      "pacing": "medium-fast, sustained tension"
+    },
+    "characters": {
+      "protagonist": "Edmund Harrison - Complex journalist seeking redemption, actively pursuing killer",
+      "antagonist": "Unnamed serial killer with psychological complexity",
+      "supporting": [
+        "Henry Bell - Former cavalry soldier",
+        "Rebecca Ramey - Resilient community figure",
+        "Eula Phillips - Compassionate sex worker"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Sewers chase sequence",
+        "why": "Intense, visceral pursuit revealing psychological depth"
+      },
+      {
+        "scene": "Edmund and Eula's intimate moments",
+        "why": "Rare vulnerability in harsh narrative landscape"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Zodiac",
+        "similarity": "Investigative approach, psychological complexity",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "True Detective (Season 1)",
+        "similarity": "Atmospheric crime investigation",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-55, educated film enthusiasts",
+      "gender_skew": "neutral",
+      "interests": [
+        "True crime",
+        "Historical narratives",
+        "Psychological thrillers"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Period setting, complex production design, potential for quality casting"
+    },
+    "assessment": {
+      "strengths": [
+        "Historically grounded narrative",
+        "Complex racial dynamics",
+        "Psychological depth",
+        "Strong character development"
+      ],
+      "weaknesses": [
+        "Graphic content might limit mainstream appeal",
+        "Requires focused viewing"
+      ],
+      "development_notes": [],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Weighted score of 8.75 demonstrates exceptional craft, zero critical failures, strong commercial viability score of 13/18"
+    },
+    "film_now_assessment": {
+      "qualifies": true,
+      "lightning_test": "Opening sewers sequence immediately establishes visceral, mysterious tone",
+      "goosebumps_moments": [
+        "Page 98-99: Eula's tragic murder",
+        "Page 108-109: Henry's death scene",
+        "Final London sequence revealing killer's continuation"
+      ],
+      "career_risk_test": "Absolutely - groundbreaking historical crime narrative",
+      "legacy_potential": "High - unique exploration of early serial killer psychology",
+      "disqualifying_factors": []
+    },
+    "verdict_statement": "RECOMMEND: Based on its exceptional historical crime narrative and psychological complexity, this screenplay demonstrates remarkable commercial viability. The unique exploration of early serial killer dynamics, coupled with rich character development, presents a compelling attachment opportunity for discerning actors and audiences."
+  }
+}

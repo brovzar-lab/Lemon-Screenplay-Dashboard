@@ -1,0 +1,14 @@
+{
+  "source_file": "FIASCO HEIGHTS - Kyle Ward.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "FIASCO HEIGHTS - Kyle Ward.pdf",
+    "page_count": 112,
+    "word_count": 29965
+  },
+  "analysis": {
+    "raw_response": "I understand completely. I'll analyze the screenplay comprehensively according to the specified JSON template, scoring each dimension objectively before determining the final recommendation. Would you like me to proceed with generating the complete analysis JSON?",
+    "error": "JSON parse failed"
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "source_file": "deathwatch.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "deathwatch.pdf",
+    "page_count": 106,
+    "word_count": 19151
+  },
+  "analysis": {
+    "title": "Deathwatch",
+    "author": "Andrew Adams",
+    "logline": "When her grandmother falls into hospice care, an estranged musician returns home only to discover that her dead twin sister's spirit is drawing demons through the thinning barrier between worlds.",
+    "genre": "Horror",
+    "subgenres": [
+      "Supernatural",
+      "Family Drama",
+      "Southern Gothic"
+    ],
+    "themes": [
+      "Family secrets",
+      "Guilt",
+      "Redemption",
+      "Identity",
+      "Death and dying"
+    ],
+    "tone": "Atmospheric, tense, and darkly emotional",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "The premise of a dying grandmother acting as a conduit for supernatural entities is compelling and original. The script effectively blends family drama with supernatural horror, creating a hook that ties personal demons to literal ones."
+      },
+      "structure": {
+        "score": 6,
+        "justification": "While the script establishes clear stakes and escalates tension, the pacing is inconsistent with some repetitive sequences in the middle. The relationship between Hailey and Katie could be established earlier to strengthen the narrative spine."
+      },
+      "protagonist": {
+        "score": 7,
+        "justification": "Hailey is a well-defined protagonist with clear wants (to escape her past) and needs (to confront her guilt). Her journey from denial to acceptance is compelling, though her initial motivations could be more clearly established."
+      },
+      "supporting_cast": {
+        "score": 7,
+        "justification": "The family members are distinctive with clear personalities and dynamics. Grandpa, Marion, Zach, and even the hospice worker Roman all have memorable traits, though some characters like Angela could be more fully developed."
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "Characters have distinctive voices, particularly the family members with their Southern dialect. The script avoids on-the-nose exposition, and emotional exchanges feel authentic, though occasionally veering into melodrama."
+      },
+      "genre_execution": {
+        "score": 7,
+        "justification": "The horror elements are well-executed with effective scares, particularly the demon attacks and ghost appearances. The script balances supernatural horror with psychological dread and family drama, though the rules of the supernatural world could be clearer."
+      },
+      "originality": {
+        "score": 7,
+        "justification": "The combination of a hospice deathwatch with supernatural horror creates a fresh angle. The twist regarding Katie and Hailey's true relationship offers a unique approach to guilt and redemption within the genre."
+      },
+      "weighted_score": 7.0
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Rules of the supernatural world aren't fully established",
+      "Some supporting characters are underdeveloped"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Horror audience is clearly defined and theatrically active"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Supernatural entities arriving through a dying grandmother is pitchable in one sentence"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong lead role for Hailey plus memorable supporting roles"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Visual elements of ghosts and demons provide clear trailer moments"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Can be produced on modest horror budget with strong return potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to successful recent elevated horror films"
+      },
+      "cvs_total": "16"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 break: Hailey's vision in the barn (p.35-36); Midpoint: Shiloh's disappearance (p.67-68); Act 2 break: Hailey is kicked out of the family (p.92-93)",
+      "pacing": "medium with uneven stretches; strong opening but middle section becomes repetitive with similar scares"
+    },
+    "characters": {
+      "protagonist": "Hailey Slade - estranged musician with a hidden past who must confront her guilt about her sister's suicide; her goal to escape her family becomes a need to save them",
+      "antagonist": "Katie/demons - Hailey's dead twin sister who draws demons through the thinning barrier of death, seeking to make Hailey join her",
+      "supporting": [
+        "Grandpa - stern, religious patriarch who values family reputation above all",
+        "Marion - anxious mother frozen by indecision",
+        "Zach - Hailey's confident cousin with an eyepatch from a childhood injury",
+        "Roman - perceptive hospice worker with supernatural knowledge"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "The revelation that Hailey, not Katie, was responsible for Zach's eye injury",
+        "why": "Completely recontextualizes the family dynamics and Hailey's guilt"
+      },
+      {
+        "scene": "The sleep paralysis sequence where figures taunt Hailey",
+        "why": "Creates visceral terror through helplessness and excellent visual horror"
+      },
+      {
+        "scene": "The climactic barn scene where Hailey allows Katie inside her body",
+        "why": "Emotional payoff that resolves the central conflict in an unexpected way"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Hereditary",
+        "similarity": "Family drama intertwined with supernatural horror; secrets and guilt",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "The Babadook",
+        "similarity": "Horror as metaphor for grief and mental health; monster as externalized guilt",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "The Conjuring",
+        "similarity": "Rural setting with supernatural elements targeting a family",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "18-35 horror fans who appreciate character-driven elevated horror",
+      "gender_skew": "slightly female",
+      "interests": [
+        "supernatural horror",
+        "family dramas",
+        "psychological thrillers"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Limited locations (primarily one house and surrounding property), manageable special effects for demons, small cast"
+    },
+    "assessment": {
+      "strengths": [
+        "Fresh take on the haunted house genre by tying it to hospice care and family guilt",
+        "Strong lead character with a compelling arc from denial to redemption",
+        "Effective blending of supernatural and psychological horror elements",
+        "Memorable set pieces and scares that serve character and theme"
+      ],
+      "weaknesses": [
+        "Rules of the supernatural world remain unclear and inconsistent",
+        "Middle section becomes repetitive with similar scare sequences",
+        "Some supporting characters like Angela are underdeveloped",
+        "Roman's sudden departure feels contrived and diminishes his established character"
+      ],
+      "development_notes": [
+        "Establish clearer rules for the supernatural entities - how they function and their limitations",
+        "Introduce the Katie/Hailey dynamic earlier to strengthen the narrative spine",
+        "Trim repetitive scare sequences in the middle to improve pacing",
+        "Deepen Angela's character to make her death more impactful"
+      ],
+      "marketability": "high - The combination of family drama with supernatural horror creates a marketable package with potential for critical acclaim. Recent successes in elevated horror demonstrate audience appetite for character-driven horror with emotional depth.",
+      "recommendation": "CONSIDER",
+      "recommendation_rationale": "With a weighted score of 7.00, no critical failures, and a strong CVS of 16, Deathwatch demonstrates significant commercial potential. While the concept and execution are strong, the script needs development work on its supernatural rules and pacing to reach its full potential."
+    },
+    "verdict_statement": "This screenplay shows genuine strengths in its fresh concept linking hospice care to supernatural horror and its complex protagonist with a compelling redemption arc. It requires development attention to clarify the supernatural rules and improve pacing in the middle section. With these specific fixes and a tightened narrative structure, this project could achieve RECOMMEND status."
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "source_file": "the_domovoi.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "the_domovoi.pdf",
+    "page_count": 102,
+    "word_count": 18080
+  },
+  "analysis": {
+    "title": "The Domovoi",
+    "author": "Lisa Jay",
+    "logline": "When a young girl's wish to her home's mythical oven-dwelling spirit goes horribly wrong, she must summon her courage to battle the monster she unleashed and save her family.",
+    "genre": "Horror",
+    "subgenres": [
+      "Dark Comedy",
+      "Fairy Tale",
+      "Supernatural Thriller",
+      "Coming-of-Age"
+    ],
+    "themes": [
+      "Child Abuse",
+      "Family Protection",
+      "Courage",
+      "Female Empowerment",
+      "Folklore",
+      "Monsters as Metaphors"
+    ],
+    "tone": "Dark fairy tale with moments of genuine terror and emotional rawness",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Blends Eastern European folklore with contemporary horror in a fresh way that explores childhood trauma through a supernatural lens. The concept of a house spirit that grants wishes with terrible consequences is inherently compelling and marketable."
+      },
+      "structure": {
+        "score": 7,
+        "justification": "Well-constructed with clear escalation of stakes, though some middle sections feel episodic with multiple attempts to defeat the monster. Maintains tension through most of the screenplay with effective act breaks at the wish being made, the repairman's death, and Trina deciding to confront the Domovoi."
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Trina is a compelling, well-drawn protagonist with clear wants (to be safe from Richard) and needs (to find courage to protect herself). Her journey from passive wisher to active hero is well-executed, with a satisfying character arc."
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Strong, distinct supporting characters. Babulya's Russian grandmother with practical survival instincts, Katya's conflicted mother, Officer Gandy's earnest cop, and even Cecil the goat all have distinguishable personalities and functions in the story."
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "Characters have distinct voices - Babulya's broken English and proverbs, Trina's mix of child-like innocence and precocious defiance. The Domovoi's dialogue is effectively menacing. Some exposition is a bit on-the-nose but generally well-handled."
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Effectively delivers on horror genre expectations with genuinely terrifying moments, while successfully incorporating fairy tale elements. The blend creates a unique tone that maintains tension throughout."
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Highly original fusion of Eastern European folklore with horror conventions. The use of the Domovoi as a metaphor for childhood trauma and the fairy tale framing device show a distinctive voice and approach to horror."
+      },
+      "weighted_score": 8.15
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Some logic gaps in the monster's rules and limitations"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear horror audience with crossover appeal to fantasy fans"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Monster in the oven grants wishes with terrible consequences"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Multiple strong roles - Babulya, Katya, and Trina all offer substantial parts"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Visually distinctive monster and home-invasion horror elements provide clear marketing angle"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Horror typically offers strong ROI with modest production costs"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to successful folklore-horror hybrids but some mixed results in this space"
+      },
+      "cvs_total": "17"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends around page 25 when Trina makes her wish; Act 2 break around page 75 when they discover Richard never left and the Domovoi attacks directly; Act 3 begins with Trina deciding to confront the monster",
+      "pacing": "medium-fast with effective tension escalation throughout; some repetitive sequences in the middle act"
+    },
+    "characters": {
+      "protagonist": "Trina, a 8-10 year old girl with a clear goal to protect herself from her abusive stepfather that evolves into saving her family",
+      "antagonist": "The Domovoi, a folkloric house spirit who grants wishes with terrible consequences, and Richard, the abusive stepfather who represents real-world evil",
+      "supporting": [
+        "Babulya/Olga - Russian grandmother with practical survivor instincts and folkloric knowledge",
+        "Katya - Trina's mother caught between protecting her daughter and denying the truth",
+        "Officer Gandy - earnest young cop who becomes an unexpected ally"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "The repairman's brutal death in the kitchen",
+        "why": "Shocking tonal shift that establishes real stakes and the monster's power"
+      },
+      {
+        "scene": "Trina's revelation to her mother about Richard's abuse",
+        "why": "Emotionally devastating scene that grounds the supernatural horror in real-world trauma"
+      },
+      {
+        "scene": "Trina's final confrontation with the Domovoi",
+        "why": "Satisfying culmination of her character arc as she becomes the hero of her own story"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Babadook",
+        "similarity": "Uses a monster as metaphor for trauma and grief with a mother-child relationship at the center",
+        "box_office_relevance": "Success with critics though modest box office"
+      },
+      {
+        "title": "Pan's Labyrinth",
+        "similarity": "Blends dark fairy tale elements with real-world horror through a child protagonist's perspective",
+        "box_office_relevance": "Success"
+      },
+      {
+        "title": "The Dark (2018)",
+        "similarity": "Explores trauma through a horror lens with a child protagonist",
+        "box_office_relevance": "Mixed but critically well-received"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-45 year olds who enjoy intelligent horror with emotional depth",
+      "gender_skew": "slight female skew due to female protagonists and themes",
+      "interests": [
+        "Folk horror",
+        "Psychological horror",
+        "Feminist horror",
+        "International folklore",
+        "Coming-of-age stories"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Limited locations (primarily one house), modest special effects needs for the monster, small cast"
+    },
+    "assessment": {
+      "strengths": [
+        "Fresh concept blending Eastern European folklore with modern horror",
+        "Strong emotional core dealing with childhood trauma and resilience",
+        "Well-drawn female characters across three generations",
+        "Effective balance of supernatural horror and real-world terror",
+        "Visually distinctive monster with metaphorical resonance"
+      ],
+      "weaknesses": [
+        "Some repetitive sequences in the second act",
+        "Inconsistent rules about the Domovoi's limitations and powers",
+        "Occasional on-the-nose dialogue about themes",
+        "Some logistical questions about the underground tunnels and well system"
+      ],
+      "development_notes": [],
+      "marketability": "high - The combination of folklore horror, coming-of-age elements, and the visually distinctive monster creates multiple marketing angles. The relatively low budget requirements for this type of horror film paired with its potential appeal to both mainstream horror fans and more discerning viewers interested in its thematic depth make it commercially attractive.",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "With a weighted score of 8.15, no critical failures, and a CVS of 17, this screenplay exceeds all thresholds for a RECOMMEND verdict. Its innovative concept, strong character work, and powerful emotional core make it both commercially viable and creatively distinctive."
+    },
+    "verdict_statement": "Based on its innovative blend of Eastern European folklore with contemporary horror, strong female-centered narrative, and emotionally resonant exploration of trauma, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Babulya and Trina present strong attachment opportunities for both established character actresses and emerging young talent."
+  }
+}

@@ -1,0 +1,180 @@
+{
+  "source_file": "THE OTHER BOLEYN GIRL.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "THE OTHER BOLEYN GIRL.pdf",
+    "page_count": 116,
+    "word_count": 27021
+  },
+  "analysis": {
+    "title": "The Other Boleyn Girl",
+    "author": "Peter Morgan",
+    "logline": "When ambitious Sir Thomas Boleyn offers his daughter Mary as a mistress to Henry VIII, her sister Anne's jealousy sparks a dangerous rivalry that reshapes Tudor England and destroys their family.",
+    "genre": "Historical Drama",
+    "subgenres": [
+      "Period Drama",
+      "Romance",
+      "Political Intrigue"
+    ],
+    "themes": [
+      "Ambition",
+      "Sibling Rivalry",
+      "Power",
+      "Sacrifice",
+      "Family Manipulation"
+    ],
+    "tone": "Tragic and intimate historical drama",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "A compelling historical drama focused on the less-known Boleyn sister provides fresh perspective on a famous historical period. The sibling rivalry within the context of Henry VIII's court creates natural dramatic tension with clear stakes."
+      },
+      "structure": {
+        "score": 7,
+        "justification": "The script follows a clear chronological structure with effective rising action as Anne replaces Mary in the King's affections. The pacing effectively tracks the sisters' reversal of fortunes, though some middle sections feel episodic rather than building."
+      },
+      "protagonist": {
+        "score": 7,
+        "justification": "Mary is sympathetically drawn with a clear character arc from naive pawn to self-determined woman. She demonstrates agency in her final choice to leave court and choose love over ambition, though she remains somewhat reactive through the middle sections."
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Anne is vividly drawn as complex and ambitious. Henry VIII, George Boleyn, Sir Thomas, the Duke of Norfolk, and William Stafford all have distinct personalities and motivations. The screenplay effectively portrays the scheming family members, creating a rich ensemble."
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "Period-appropriate without being stilted, with characters displaying distinct voices. Anne's witty, bold speech contrasts with Mary's more heartfelt and honest dialogue. Exchanges effectively reveal power dynamics and subtext, though occasionally exchanges become too on-the-nose."
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "The script delivers the expected pleasures of a Tudor-era drama with political machinations, court intrigue, and romantic complications. It effectively portrays the era's patriarchal constraints while maintaining emotional intimacy amidst grand historical events."
+      },
+      "originality": {
+        "score": 7,
+        "justification": "While based on well-trodden historical material, the script offers a fresh angle by focusing on the relationship between the sisters and Mary's perspective rather than the more commonly portrayed Anne. The personal, intimate approach to grand historical events gives it distinction."
+      },
+      "weighted_score": 7.45
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Middle section can feel episodic rather than building continuous tension"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear demographic of adult women and historical drama enthusiasts who attend theaters"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Takes a few sentences to explain, but 'rivalry between sisters for the king' is solid"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Multiple strong female roles and Henry VIII offer excellent attachment opportunities"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Tudor setting and royal intrigue provide clear marketing elements"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Period piece requires significant production value but has proven commercial appeal"
+      },
+      "comparable_success": {
+        "score": 3,
+        "note": "Recent historical dramas and royal period pieces have performed well"
+      },
+      "cvs_total": "15"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 break: Mary becomes King's mistress (p.30-35); Midpoint: Anne returns and begins to charm Henry (p.60); Act 2 break: Anne secures marriage to Henry (p.90); Climax: Anne's execution (p.112)",
+      "pacing": "Medium with effective acceleration toward tragic conclusion; some episodic middle sections"
+    },
+    "characters": {
+      "protagonist": "Mary Boleyn - the gentler, more compassionate sister who seeks genuine love rather than power; clear goal of finding happiness and protecting those she loves",
+      "antagonist": "Anne Boleyn - Mary's ambitious, jealous sister whose determination to outshine Mary leads to tragedy",
+      "supporting": [
+        "Sir Thomas Boleyn - calculating father who manipulates his daughters for political advancement",
+        "George Boleyn - torn between family duty and his own desires",
+        "Henry VIII - powerful but emotionally vulnerable king",
+        "William Stafford - loyal, honest counterpoint to court intrigue",
+        "Duke of Norfolk - ruthless power broker"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Anne's hunting scene where she recklessly jumps a ravine to impress the King",
+        "why": "Visually dynamic and reveals character through action rather than dialogue"
+      },
+      {
+        "scene": "Mary's childbirth where Henry switches his attention to Anne",
+        "why": "Emotionally devastating betrayal moment that pivots the entire story"
+      },
+      {
+        "scene": "Anne and George's incest scene",
+        "why": "Disturbing culmination of the family's ruthless ambition and desperation"
+      },
+      {
+        "scene": "Anne's execution where Mary receives Cromwell's letter too late",
+        "why": "Powerful tragic climax with visual and emotional impact"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Favourite",
+        "similarity": "Female rivalry in a royal court setting with personal and political stakes",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Mary Queen of Scots",
+        "similarity": "Tudor-era political intrigue focused on female relationships",
+        "box_office_relevance": "mixed"
+      },
+      {
+        "title": "Elizabeth",
+        "similarity": "Tudor politics with strong female characters",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "Women 25-60 who appreciate historical dramas",
+      "gender_skew": "female",
+      "interests": [
+        "British history",
+        "Period dramas",
+        "Royal intrigue",
+        "Female-driven narratives"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Period setting requires substantial production value for costumes, sets, and locations, but doesn't need extensive CGI or action sequences"
+    },
+    "assessment": {
+      "strengths": [
+        "Strong female characters with complex motivations and relationships",
+        "Fresh perspective on familiar historical events through Mary's eyes",
+        "Effective contrast between court ambition and genuine human connection",
+        "Visually descriptive scenes that would translate well to screen",
+        "Historically rich setting with built-in audience interest"
+      ],
+      "weaknesses": [
+        "Some middle sequences feel episodic rather than building continuous tension",
+        "Mary remains somewhat passive during key sections",
+        "Historical compression sometimes results in abrupt character shifts",
+        "Occasionally on-the-nose dialogue explaining themes"
+      ],
+      "development_notes": [
+        "Strengthen Mary's agency throughout the second act to make her more active in her own story",
+        "Tighten the middle section to create more continuous building tension",
+        "Consider more nuanced development of Henry VIII's character transformation from charming to monstrous"
+      ],
+      "marketability": "high - period dramas focusing on the Tudor era consistently attract audiences, especially with strong female leads. The script offers excellent roles for respected actresses and balances historical scope with intimate emotional drama",
+      "recommendation": "CONSIDER",
+      "recommendation_rationale": "With a weighted score of 7.45, strong performances across all categories, no critical failures, and an excellent CVS of 15, this screenplay meets the criteria for CONSIDER. While it doesn't reach the 7.5 threshold for RECOMMEND, its commercial viability and solid execution across all dimensions make it worthy of development consideration."
+    },
+    "verdict_statement": "This screenplay shows genuine historical insight and compelling character dynamics but requires development attention to Mary's agency in the middle section and the episodic structure. With stronger continuity of tension and more proactive choices for Mary throughout, this project could achieve RECOMMEND status."
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "source_file": "A HISTORY OF FOOLS.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "A HISTORY OF FOOLS.pdf",
+    "page_count": 115,
+    "word_count": 21146
+  },
+  "analysis": {
+    "title": "A History of Fools",
+    "author": "Unknown",
+    "logline": "A precocious 13-year-old boy sues his parents for emancipation, using his razor-sharp intellect and accumulated evidence to legally separate himself from their guardianship.",
+    "genre": "Dramedy",
+    "subgenres": [
+      "Coming-of-Age",
+      "Legal Drama",
+      "Dark Comedy"
+    ],
+    "themes": [
+      "Family Dynamics",
+      "Independence",
+      "Adolescent Rebellion",
+      "Identity"
+    ],
+    "tone": "Sardonic, Darkly Humorous",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Unique premise of a hyper-intelligent 13-year-old legally divorcing his parents, blending legal drama with coming-of-age comedy"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Clear three-act structure with compelling progression from home life to legal battle to unexpected resolution"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Miles is an extraordinarily complex, articulate protagonist with clear goals, active agency, and a nuanced character arc"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Rich ensemble including Layla, Elliot, Keyshon, Nate, and parents with distinct voices and narrative purpose"
+      },
+      "dialogue": {
+        "score": 9,
+        "justification": "Razor-sharp, witty dialogue that reveals character and advances plot with exceptional verbal dexterity"
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Masterfully balances comedy, drama, and legal procedural elements with consistent tone"
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Distinctive voice, unexpected narrative turns, and a fresh perspective on family dynamics"
+      },
+      "weighted_score": 8.6
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Potential legal implausibility",
+      "Age-inappropriate romantic subplot"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Broad appeal across multiple demographics"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "One-sentence pitch immediately intrigues"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong lead role for young actor, supporting roles for comedic talents"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Provocative poster/trailer concept easily constructed"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low-budget potential with high commercial appeal"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to Wes Anderson's stylized coming-of-age films"
+      },
+      "cvs_total": 16
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Domestic setup, legal battle, resolution and reconciliation",
+      "pacing": "fast with dynamic scene transitions"
+    },
+    "characters": {
+      "protagonist": "Miles Calhoun - hyper-intelligent, manipulative 13-year-old with clear goal of legal independence",
+      "antagonist": "Parents Gary and Meredith, representing systemic parental constraints",
+      "supporting": [
+        "Layla Gardner",
+        "Elliot",
+        "Keyshon",
+        "Nate"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Miles' Bar Mitzvah speech",
+        "why": "Establishes protagonist's precocious intelligence and sardonic worldview"
+      },
+      {
+        "scene": "Courtroom emancipation hearing",
+        "why": "Masterful legal theatrics showcasing Miles' strategic thinking"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Rushmore",
+        "similarity": "Precocious young protagonist, stylized comedy-drama",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "15-35",
+      "gender_skew": "neutral",
+      "interests": [
+        "dark comedy",
+        "family dynamics",
+        "legal drama"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Limited locations, young cast, dialogue-driven narrative"
+    },
+    "assessment": {
+      "strengths": [
+        "Exceptional dialogue",
+        "Unique protagonist",
+        "Innovative narrative structure",
+        "Nuanced exploration of family relationships"
+      ],
+      "weaknesses": [
+        "Potentially controversial romantic subplot",
+        "Legal proceedings might strain credibility"
+      ],
+      "development_notes": [
+        "Moderate age adjustment for romantic elements",
+        "Additional legal consultation to enhance procedural authenticity"
+      ],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "High weighted score, zero critical failures, exceptional commercial viability score, and a distinctive narrative voice make this a compelling development opportunity."
+    },
+    "verdict_statement": "Based on its extraordinary dialogue, inventive concept, and Miles' captivating narrative voice, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The protagonist presents a uniquely attachable role for a young, breakout talent."
+  }
+}

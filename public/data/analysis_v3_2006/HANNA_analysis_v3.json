@@ -1,0 +1,158 @@
+{
+  "source_file": "HANNA.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "HANNA.pdf",
+    "page_count": 117,
+    "word_count": 26802
+  },
+  "analysis": {
+    "title": "Hanna",
+    "author": "Seth Lochhead & David Farr",
+    "logline": "A genetically enhanced teenage assassin trained by her father escapes CIA pursuit to uncover her mysterious origins and confront the woman responsible for her creation.",
+    "genre": "Spy Thriller",
+    "subgenres": [
+      "Action",
+      "Coming-of-Age",
+      "Espionage"
+    ],
+    "themes": [
+      "Identity",
+      "Nature vs. Nurture",
+      "Survival",
+      "Childhood Manipulation"
+    ],
+    "tone": "Intense, Cerebral, Visceral",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Unique twist on assassin genre with genetic modification backstory, compelling protagonist journey of self-discovery"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Tight three-act structure with clear progression, propulsive pacing, and organic plot development"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Hanna is complex, active, with clear goals and profound character arc from trained weapon to self-actualized individual"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Rich supporting characters like Erik, Marissa, Sophie provide depth and narrative complexity"
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "Crisp, efficient dialogue revealing character through subtext, occasional naturalistic teen interactions"
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Masterful blend of spy thriller mechanics with coming-of-age emotional landscape"
+      },
+      "originality": {
+        "score": 8,
+        "justification": "Fresh take on genetic modification narrative, subverts typical female action protagonist tropes"
+      },
+      "weighted_score": 8.45
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasional exposition-heavy sequences"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Wide appeal across action and coming-of-age demographics"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Instantly pitchable premise"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong lead role for young actress"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Trailer-ready action sequences, intriguing genetic modification angle"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Moderate budget action film with franchise potential"
+      },
+      "comparable_success": {
+        "score": 3,
+        "note": "Similar to Bourne series success"
+      },
+      "cvs_total": 16
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Forest training, Second act: Escape/Discovery, Third act: Confrontation at Galinka",
+      "pacing": "fast with strategic emotional breathers"
+    },
+    "characters": {
+      "protagonist": "Hanna - Genetically modified teenage assassin seeking identity, hyper-competent yet emotionally naive",
+      "antagonist": "Marissa Wiegler - CIA operative responsible for genetic modification program, cold and calculating",
+      "supporting": [
+        "Erik Heller - Surrogate father/trainer",
+        "Sophie - Teenage friend providing emotional contrast"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Hanna's escape from CIA facility",
+        "why": "Demonstrates protagonist's training and capabilities through ingenious, methodical breakout"
+      },
+      {
+        "scene": "Confrontation at Wilhelm Grimm House",
+        "why": "Intense psychological revelation about Hanna's true origins"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Bourne Identity",
+        "similarity": "Genetically enhanced protagonist discovering true identity",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Leon: The Professional",
+        "similarity": "Young assassin trained by father figure",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "16-35",
+      "gender_skew": "neutral",
+      "interests": [
+        "Action movies",
+        "Spy thrillers",
+        "Coming-of-age narratives"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Requires substantial action choreography and production design, but not massive blockbuster scale"
+    },
+    "assessment": {
+      "strengths": [
+        "Unique protagonist arc",
+        "Innovative genetic modification narrative",
+        "Tight action sequences",
+        "Emotional depth unusual in action genre"
+      ],
+      "weaknesses": [
+        "Some expositional dialogue",
+        "Potential complexity for mainstream audiences"
+      ],
+      "development_notes": [
+        "Streamline genetic modification exposition",
+        "Clarify Sophie's narrative function"
+      ],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Exceptional weighted score of 8.45, zero critical failures, strong commercial viability score of 16, and breakthrough protagonist journey make this a compelling development opportunity."
+    },
+    "verdict_statement": "Based on its innovative narrative approach, complex protagonist, and commercial potential, this screenplay demonstrates remarkable craft execution that warrants immediate development consideration. Hanna presents a uniquely castable lead role that could launch a breakthrough performance for a young actress."
+  }
+}

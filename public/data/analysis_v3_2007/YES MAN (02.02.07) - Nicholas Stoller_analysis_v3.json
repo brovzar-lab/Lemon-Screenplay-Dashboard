@@ -1,0 +1,168 @@
+{
+  "source_file": "YES MAN (02.02.07) - Nicholas Stoller.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "YES MAN (02.02.07) - Nicholas Stoller.pdf",
+    "page_count": 133,
+    "word_count": 21749
+  },
+  "analysis": {
+    "title": "Yes Man",
+    "author": "Nicholas Stoller",
+    "logline": "A demotivated bank teller commits to saying 'yes' to every opportunity, transforming his life through radical openness but risking losing himself in the process.",
+    "genre": "Comedy",
+    "subgenres": [
+      "Romantic Comedy",
+      "Personal Growth"
+    ],
+    "themes": [
+      "Embracing Life",
+      "Overcoming Fear",
+      "Personal Transformation"
+    ],
+    "tone": "Comedic with emotional sincerity",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Highly relatable premise with clear comedic potential. Unique exploration of personal transformation through a singular behavioral constraint."
+      },
+      "structure": {
+        "score": 7,
+        "justification": "Solid three-act structure with clear progression. Episodic nature of 'yes' adventures creates consistent comedic momentum."
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Carl has clear character arc from passive to active. Transformation feels earned through consistent challenges and personal growth."
+      },
+      "supporting_cast": {
+        "score": 7,
+        "justification": "Diverse and memorable characters like Renee, Peter, Norman provide strong narrative and comedic support."
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "Sharp, witty exchanges. Characters have distinct voices. Good balance of humor and emotional authenticity."
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Delivers robust comedy while maintaining emotional core. Skillfully navigates comedic set pieces and character development."
+      },
+      "originality": {
+        "score": 7,
+        "justification": "Unique take on self-help philosophy. Creative exploration of 'yes' as a life strategy with unexpected narrative turns."
+      },
+      "weighted_score": 7.55
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasionally episodic narrative structure",
+      "Some comedic sequences feel slightly forced"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Broad appeal across 18-45 demographic"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Instantly comprehensible one-sentence pitch"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong comedic lead role with romantic elements"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Clear trailer concept with universal relatability"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low-medium budget with high commercial potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to successful comedy transformational narratives"
+      },
+      "cvs_total": 16
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Inciting incident at Sanji's seminar, midpoint at bank promotion, third act breakup and redemption",
+      "pacing": "fast with consistent comedic momentum"
+    },
+    "characters": {
+      "protagonist": "Carl Kendall - passive bank teller transforming through radical 'yes' commitment",
+      "antagonist": "Carl's own passive nature, secondarily Chris Parker representing corporate cynicism",
+      "supporting": [
+        "Renee (love interest)",
+        "Peter (best friend)",
+        "Norman (quirky boss)",
+        "Sanji (motivational guru)"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Sanji's seminar and initial 'yes' commitment",
+        "why": "Establishes high-concept premise with comedic energy"
+      },
+      {
+        "scene": "Karaoke at Senor Frog's",
+        "why": "Hilarious sequence showing Carl's transformation"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Liar Liar",
+        "similarity": "Comedic transformation through behavioral constraint",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-40 urban professionals",
+      "gender_skew": "neutral",
+      "interests": [
+        "self-improvement",
+        "comedy",
+        "romantic relationships"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Minimal special effects, character-driven comedy"
+    },
+    "assessment": {
+      "strengths": [
+        "Unique high-concept premise",
+        "Strong character transformation",
+        "Consistent comedic energy",
+        "Emotionally satisfying arc"
+      ],
+      "weaknesses": [
+        "Occasionally loose narrative structure",
+        "Some repetitive comedic beats"
+      ],
+      "development_notes": [
+        "Tighten second act narrative progression",
+        "Reduce episodic feel of 'yes' adventures"
+      ],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Strong weighted score of 7.55 with no critical failures. Demonstrates clear commercial potential with universal comedic premise and emotional resonance."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Sanji's seminar sequence provides immediate narrative hook",
+      "goosebumps_moments": [
+        "Page 106: Carl's redemptive moment choosing personal growth",
+        "Page 128: Wedding shower sequence showing Carl's transformed generosity"
+      ],
+      "career_risk_test": "Solid commercial potential, but lacks absolute breakthrough originality",
+      "legacy_potential": "Moderate - represents zeitgeist of personal transformation comedy",
+      "disqualifying_factors": [
+        "Some narrative inconsistencies",
+        "Not quite singular enough for FILM NOW"
+      ]
+    },
+    "verdict_statement": "Based on strong comedic execution and clear commercial appeal, this screenplay demonstrates compelling character transformation and consistent entertainment value. The central role of Carl presents an attractive opportunity for a charismatic comedic lead, with a narrative that balances humor and heart. Development investment could further refine the already promising material."
+  }
+}

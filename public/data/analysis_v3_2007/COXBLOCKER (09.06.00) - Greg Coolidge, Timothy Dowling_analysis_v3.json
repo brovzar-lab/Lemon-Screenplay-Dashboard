@@ -1,0 +1,171 @@
+{
+  "source_file": "COXBLOCKER (09.06.00) - Greg Coolidge, Timothy Dowling.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "COXBLOCKER (09.06.00) - Greg Coolidge, Timothy Dowling.pdf",
+    "page_count": 119,
+    "word_count": 22463
+  },
+  "analysis": {
+    "title": "Cockblockers",
+    "author": "Greg Coolidge, Timothy Dowling",
+    "logline": "A socially awkward young man learns the art of 'cockblocking' to win back the girl of his dreams from a predatory gym trainer.",
+    "genre": "Comedy",
+    "subgenres": [
+      "Romantic Comedy",
+      "Coming-of-Age"
+    ],
+    "themes": [
+      "Male Social Dynamics",
+      "Self-Confidence",
+      "Romantic Pursuit"
+    ],
+    "tone": "Raunchy, irreverent comedy with underlying heart",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Unique exploration of male social dynamics through comedic lens of 'cockblocking', offers fresh take on romantic comedy tropes"
+      },
+      "structure": {
+        "score": 7,
+        "justification": "Clear three-act structure, consistent narrative momentum, some predictable rom-com beats but executed with energy"
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Cliff is relatable underdog with clear goal, sympathetic vulnerability, and active character arc of gaining confidence"
+      },
+      "supporting_cast": {
+        "score": 7,
+        "justification": "Earl, Fisher, and Rod are distinctive characters with memorable quirks and narrative functions"
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Sharp, witty exchanges, distinct character voices, multiple laugh-out-loud moments"
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Delivers expected rom-com pleasures while subverting expectations with crude humor and meta-commentary"
+      },
+      "originality": {
+        "score": 7,
+        "justification": "Innovative concept of 'cockblocking' as narrative engine, fresh perspective on male romantic competition"
+      },
+      "weighted_score": 7.65
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasionally relies on crude humor that might alienate some viewers",
+      "Some potentially problematic gender dynamics"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear 18-35 male demographic with crossover appeal"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Instantly pitch-able one-sentence concept"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong comedic ensemble roles"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Provocative title and concept create immediate curiosity"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low-budget comedy with high commercial potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to Judd Apatow-style comedies"
+      },
+      "cvs_total": 16
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act ends when Cliff meets Earl, second act culminates in pier confrontation, third act resolves romantic conflict",
+      "pacing": "fast with consistent comedic momentum"
+    },
+    "characters": {
+      "protagonist": "Cliff Canter - socially awkward young man seeking romantic connection, goal is to win Molly's heart",
+      "antagonist": "Rod - predatory gym trainer actively sabotaging Cliff's romantic prospects",
+      "supporting": [
+        "Earl - mysterious locker room veteran who becomes Cliff's mentor",
+        "Fisher - comedic best friend providing support and comic relief"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Earl's backstory about 1970s fashion and first cockblock",
+        "why": "Hilarious character history that provides unexpected depth"
+      },
+      {
+        "scene": "Pier confrontation revealing Rod's true nature",
+        "why": "Narrative climax that resolves multiple story threads"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The 40-Year-Old Virgin",
+        "similarity": "Similar crude humor, male perspective on romantic pursuit",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Superbad",
+        "similarity": "Comedic exploration of male social dynamics",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "18-35 males",
+      "gender_skew": "male",
+      "interests": [
+        "comedy",
+        "dating",
+        "male friendship"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Minimal locations, ensemble comedy cast, limited special effects"
+    },
+    "assessment": {
+      "strengths": [
+        "Innovative comedic concept",
+        "Strong ensemble chemistry",
+        "Distinctive character voices",
+        "Unexpected emotional depth"
+      ],
+      "weaknesses": [
+        "Occasionally relies on crude humor",
+        "Some potentially problematic gender representations"
+      ],
+      "development_notes": [
+        "Refine female characters' agency",
+        "Moderate some of the more extreme comedic moments"
+      ],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Strong weighted score of 7.65, zero critical failures, high commercial viability score of 16, and clear audience appeal make this a compelling development opportunity"
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Opening scene with Cliff, horse, and condom immediately establishes unique comedic voice",
+      "goosebumps_moments": [
+        "Page 108: Cliff's honest speech about Rod's insincerity",
+        "Page 114: Earl's proud observation about Cliff's confidence"
+      ],
+      "career_risk_test": "Promising, but not quite legacy-defining material",
+      "legacy_potential": "Moderate - could become cult comedy classic",
+      "disqualifying_factors": [
+        "Lacks absolute narrative innovation",
+        "Some comedic moments might feel dated quickly"
+      ]
+    },
+    "verdict_statement": "Based on its innovative concept of exploring male social dynamics through the lens of 'cockblocking', this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Cliff presents a strong attachment opportunity for an emerging comedic lead, with potential for breakout ensemble comedy success."
+  }
+}

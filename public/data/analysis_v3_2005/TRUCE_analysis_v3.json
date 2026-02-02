@@ -1,0 +1,138 @@
+{
+  "source_file": "TRUCE.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "TRUCE.pdf",
+    "page_count": 111,
+    "word_count": 0
+  },
+  "analysis": {
+    "title": "TRUCE",
+    "author": "Unknown",
+    "logline": "Unable to provide a logline as no screenplay text was included in the submission.",
+    "genre": "Unable to determine",
+    "subgenres": [
+      "Unable to determine"
+    ],
+    "themes": [
+      "Unable to determine"
+    ],
+    "tone": "Unable to determine",
+    "dimension_scores": {
+      "concept": {
+        "score": 1,
+        "justification": "Unable to evaluate as no screenplay text was provided."
+      },
+      "structure": {
+        "score": 1,
+        "justification": "Unable to evaluate as no screenplay text was provided."
+      },
+      "protagonist": {
+        "score": 1,
+        "justification": "Unable to evaluate as no screenplay text was provided."
+      },
+      "supporting_cast": {
+        "score": 1,
+        "justification": "Unable to evaluate as no screenplay text was provided."
+      },
+      "dialogue": {
+        "score": 1,
+        "justification": "Unable to evaluate as no screenplay text was provided."
+      },
+      "genre_execution": {
+        "score": 1,
+        "justification": "Unable to evaluate as no screenplay text was provided."
+      },
+      "originality": {
+        "score": 1,
+        "justification": "Unable to evaluate as no screenplay text was provided."
+      },
+      "weighted_score": "1.00"
+    },
+    "critical_failures": [
+      "No screenplay text provided for analysis"
+    ],
+    "major_weaknesses": [
+      "No screenplay text provided for analysis"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 1,
+        "note": "Unable to determine as no screenplay text was provided"
+      },
+      "high_concept": {
+        "score": 1,
+        "note": "Unable to determine as no screenplay text was provided"
+      },
+      "cast_attachability": {
+        "score": 1,
+        "note": "Unable to determine as no screenplay text was provided"
+      },
+      "marketing_hook": {
+        "score": 1,
+        "note": "Unable to determine as no screenplay text was provided"
+      },
+      "budget_return_ratio": {
+        "score": 1,
+        "note": "Unable to determine as no screenplay text was provided"
+      },
+      "comparable_success": {
+        "score": 1,
+        "note": "Unable to determine as no screenplay text was provided"
+      },
+      "cvs_total": "6"
+    },
+    "structure_analysis": {
+      "format_quality": "Unable to determine",
+      "act_breaks": "Unable to determine",
+      "pacing": "Unable to determine"
+    },
+    "characters": {
+      "protagonist": "Unable to determine",
+      "antagonist": "Unable to determine",
+      "supporting": [
+        "Unable to determine"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Unable to determine",
+        "why": "Unable to determine"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Unable to determine",
+        "similarity": "Unable to determine",
+        "box_office_relevance": "Unable to determine"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "Unable to determine",
+      "gender_skew": "Unable to determine",
+      "interests": [
+        "Unable to determine"
+      ]
+    },
+    "budget_tier": {
+      "category": "Unable to determine",
+      "justification": "Unable to determine as no screenplay text was provided"
+    },
+    "assessment": {
+      "strengths": [
+        "Unable to determine as no screenplay text was provided"
+      ],
+      "weaknesses": [
+        "No screenplay text provided for analysis"
+      ],
+      "development_notes": [
+        "Cannot provide development notes without screenplay content"
+      ],
+      "marketability": "Unable to determine as no screenplay text was provided",
+      "recommendation": "PASS",
+      "recommendation_rationale": "Unable to evaluate as the provided submission contains no actual screenplay text despite listing a page count of 111. Without content to analyze, the screenplay automatically receives the lowest possible scores across all categories."
+    },
+    "verdict_statement": "While the submission indicates a screenplay titled 'TRUCE' with 111 pages, no actual screenplay text was provided for analysis. Without content to evaluate, it is impossible to assess the script's merits or commercial potential. A complete submission with the full screenplay text would be required for proper evaluation."
+  }
+}

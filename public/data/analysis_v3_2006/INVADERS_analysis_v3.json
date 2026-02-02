@@ -1,0 +1,160 @@
+{
+  "source_file": "INVADERS.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "INVADERS.pdf",
+    "page_count": 104,
+    "word_count": 19516
+  },
+  "analysis": {
+    "title": "Invaders",
+    "author": "Unknown",
+    "logline": "A high-stakes heist involving a stolen video revealing a presidential scandal spirals into an international conspiracy where a professional thief becomes the key to preventing potential global conflict.",
+    "genre": "Thriller",
+    "subgenres": [
+      "Heist",
+      "Espionage",
+      "Action"
+    ],
+    "themes": [
+      "Betrayal",
+      "Power Corruption",
+      "International Geopolitics"
+    ],
+    "tone": "Dark, cynical, high-tension",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Unique premise involving stolen presidential video with potential global conflict implications. Clear high-stakes narrative with multiple intriguing layers."
+      },
+      "structure": {
+        "score": 7,
+        "justification": "Solid three-act structure with complex plot progression. Some pacing issues in middle act but strong narrative momentum."
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Cale is active, resourceful, morally complex thief with clear goals and compelling character arc. Demonstrates agency throughout narrative."
+      },
+      "supporting_cast": {
+        "score": 7,
+        "justification": "Distinct characters like Duke, Maddox, and Louisa have clear motivations and unique voices. Ensemble feels authentic and interconnected."
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "Sharp, cynical dialogue with strong subtext. Characters have distinctive voices and reveal character through speech."
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Masterful thriller mechanics. Delivers expected genre pleasures with unexpected twists. Action sequences feel organic and high-stakes."
+      },
+      "originality": {
+        "score": 7,
+        "justification": "Fresh take on geopolitical thriller. Innovative plot mechanics and unexpected narrative turns distinguish it from standard genre fare."
+      },
+      "weighted_score": 7.55
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasionally convoluted plot mechanics",
+      "Some exposition-heavy dialogue sequences"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear demographic of action/thriller fans aged 25-45"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "One-sentence pitch sells itself immediately"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Multiple compelling roles for mid-tier action stars"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Presidential scandal plus international conspiracy creates strong trailer potential"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Moderate budget required with high commercial potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to successful conspiracy thrillers"
+      },
+      "cvs_total": 15
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Heist setup, Second act: Global conspiracy unfolding, Third act: Final confrontation and resolution",
+      "pacing": "fast with strategic slower character development moments"
+    },
+    "characters": {
+      "protagonist": "Cale Fallon - Professional thief forced into larger geopolitical conflict, goal is survival and potential profit",
+      "antagonist": "Maddox - CIA-adjacent operative with complex motivations around preventing video's release",
+      "supporting": [
+        "Duke: Complex betrayer",
+        "Louisa: Ambiguous government agent",
+        "Prince Mohammed: International power broker"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Container ship confrontation",
+        "why": "High-stakes action sequence with multiple narrative reversals"
+      },
+      {
+        "scene": "Torture sequence at the Chateau",
+        "why": "Demonstrates narrative's willingness to explore dark psychological territory"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Mission: Impossible",
+        "similarity": "Complex international espionage plot with multiple betrayals",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Body of Lies",
+        "similarity": "Geopolitical thriller with moral ambiguity",
+        "box_office_relevance": "mixed"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-45 years old",
+      "gender_skew": "neutral",
+      "interests": [
+        "Action",
+        "Espionage",
+        "Political Thrillers"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Requires significant production value for international locations and action sequences"
+    },
+    "assessment": {
+      "strengths": [
+        "Complex, engaging plot",
+        "Strong protagonist with clear agency",
+        "Innovative thriller mechanics",
+        "High-stakes narrative with global implications"
+      ],
+      "weaknesses": [
+        "Occasional plot complexity risks audience confusion",
+        "Some exposition-heavy dialogue"
+      ],
+      "development_notes": [
+        "Tighten middle act pacing",
+        "Clarify some plot mechanics",
+        "Trim expository dialogue"
+      ],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Strong weighted score of 7.55, zero critical failures, robust commercial viability score of 15, and clear commercial potential in the thriller genre."
+    },
+    "verdict_statement": "Based on its innovative geopolitical thriller mechanics and Cale Fallon's compelling character journey, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Cale presents a strong attachment opportunity for a rising or established action star."
+  }
+}

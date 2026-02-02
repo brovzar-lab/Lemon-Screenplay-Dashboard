@@ -1,0 +1,158 @@
+{
+  "source_file": "MAXX POWERS AND THE LOVE TRIANGLE OF DOOM.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "MAXX POWERS AND THE LOVE TRIANGLE OF DOOM.pdf",
+    "page_count": 111,
+    "word_count": 235
+  },
+  "analysis": {
+    "title": "MAXX POWERS AND THE LOVE TRIANGLE OF DOOM",
+    "author": "Jonathan Aibel & Glenn Berger",
+    "logline": "A superhero with emotional detachment issues attends couples therapy with his girlfriend while presumably battling his world-destroying arch-enemy brother.",
+    "genre": "Action-Comedy",
+    "subgenres": [
+      "Superhero",
+      "Romantic Comedy",
+      "Satire"
+    ],
+    "themes": [
+      "Emotional vulnerability",
+      "Family dysfunction",
+      "Relationship struggles"
+    ],
+    "tone": "Self-aware comedy with superhero satire",
+    "dimension_scores": {
+      "concept": {
+        "score": 7,
+        "justification": "The concept of a superhero in couples therapy provides a fresh hook and comedic premise with strong potential. It combines superhero tropes with relationship drama in a potentially marketable way, though we see only the opening scene."
+      },
+      "structure": {
+        "score": 4,
+        "justification": "With only the opening scene available, structure cannot be properly evaluated. The opening establishes character and premise but doesn't indicate how the narrative will progress."
+      },
+      "protagonist": {
+        "score": 6,
+        "justification": "Maxx is established as emotionally stunted with clear character flaws that create potential for growth. His superhero status contrasted with emotional unavailability creates an interesting character dynamic, though we don't yet see his goals clearly articulated."
+      },
+      "supporting_cast": {
+        "score": 5,
+        "justification": "Only Laura and an unnamed therapist appear in this excerpt. Laura shows personality as a strong, frustrated partner, but we don't get enough of the supporting cast to fully evaluate."
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "The dialogue effectively establishes character through voice - Maxx's emotional avoidance contrasts with Laura's frustration. The therapy session dialogue efficiently delivers backstory with humor."
+      },
+      "genre_execution": {
+        "score": 6,
+        "justification": "The excerpt shows promise in blending superhero and relationship comedy elements, but with so little material, it's difficult to assess how well the genre requirements will be executed throughout."
+      },
+      "originality": {
+        "score": 7,
+        "justification": "The therapy session setup for a superhero is a fresh angle that suggests the writers have a specific voice and perspective on superhero tropes. The casual revelation of Maxx's dramatic backstory shows comedic potential."
+      },
+      "weighted_score": "6.05"
+    },
+    "critical_failures": [
+      "Insufficient material to evaluate complete screenplay"
+    ],
+    "major_weaknesses": [
+      "Cannot assess full narrative arc with only the opening scene"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Likely appeals to superhero fans and comedy audiences"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Superhero in couples therapy is easily pitchable"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Maxx offers potential star vehicle for action actor with comedy chops"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Visual contrast of superhero in therapy provides clear marketing imagery"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Likely mid-budget superhero comedy with reasonable returns"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Self-aware superhero films have performed well recently"
+      },
+      "cvs_total": "13"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "cannot determine from excerpt",
+      "pacing": "cannot determine from excerpt"
+    },
+    "characters": {
+      "protagonist": "Maxx Powers, emotionally stunted superhero with troubled past; goals unclear from excerpt",
+      "antagonist": "Referenced as his brother who is now his arch-enemy, but not shown in excerpt",
+      "supporting": [
+        "Laura Ladd - Maxx's girlfriend who is frustrated with his emotional unavailability",
+        "Therapist - unseen character facilitating the session"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Therapy session reveal of Maxx's dramatic backstory",
+        "why": "Efficiently delivers exposition with humor through Maxx's matter-of-fact delivery of extreme circumstances"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Deadpool",
+        "similarity": "Self-aware superhero with personal problems",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "The Incredibles",
+        "similarity": "Superhero with domestic/relationship challenges",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "18-34 year olds who enjoy superhero films with comedy",
+      "gender_skew": "neutral",
+      "interests": [
+        "Superhero films",
+        "Comedy",
+        "Relationship stories",
+        "Action"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Superhero films typically require VFX budget, though comedy focus may reduce some costs"
+    },
+    "assessment": {
+      "strengths": [
+        "Strong high-concept premise that blends superhero and relationship comedy genres",
+        "Efficient character establishment through dialogue and situation",
+        "Potential for both action set-pieces and character-driven comedy",
+        "Fresh take on superhero tropes through psychological lens"
+      ],
+      "weaknesses": [
+        "Insufficient material to evaluate complete screenplay structure and execution",
+        "Cannot assess whether concept sustains through full narrative",
+        "Unable to evaluate action elements, plot progression, or full character arcs"
+      ],
+      "development_notes": [
+        "Need to review complete screenplay to provide meaningful development guidance",
+        "Based on excerpt, ensure the superhero action integrates meaningfully with relationship therapy storyline",
+        "Balance comedy with emotional stakes to create investment in Maxx's growth"
+      ],
+      "marketability": "medium-high - concept is easily pitchable and could appeal to broad audience if executed well",
+      "recommendation": "PASS",
+      "recommendation_rationale": "Despite promising concept and dialogue, the critical failure of insufficient material makes comprehensive evaluation impossible. Cannot recommend based on a single scene with no indication of full narrative structure, plot development, or character arcs."
+    },
+    "verdict_statement": "While demonstrating a promising high-concept premise and efficient character establishment, this screenplay excerpt is far too limited to evaluate properly. The development investment required to address the complete absence of plot, structure, and character arc information exceeds the value of the current material."
+  }
+}

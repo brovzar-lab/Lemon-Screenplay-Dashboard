@@ -1,0 +1,173 @@
+{
+  "source_file": "ART OF MAKING MONEY (10.29.07) - Frank Baldwin.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "ART OF MAKING MONEY (10.29.07) - Frank Baldwin.pdf",
+    "page_count": 132,
+    "word_count": 28668
+  },
+  "analysis": {
+    "title": "Art of Making Money",
+    "author": "Frank Baldwin",
+    "logline": "A talented young counterfeiter navigates family trauma, criminal ambition, and the pursuit of the American Dream by perfecting the art of printing undetectable fake currency.",
+    "genre": "Crime Drama",
+    "subgenres": [
+      "Biographical",
+      "Heist",
+      "Family Drama"
+    ],
+    "themes": [
+      "Generational Trauma",
+      "Economic Desperation",
+      "Freedom",
+      "Redemption"
+    ],
+    "tone": "Gritty, darkly humorous, tragic",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Unique exploration of counterfeiting as a deeply personal journey of economic survival and self-discovery"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Tight three-act structure tracking protagonist's evolution from petty criminal to master counterfeiter, with clear progression and meaningful complications"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Art Williams is a complex, fully realized character with clear motivations, generational trauma, and a nuanced moral journey"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Rich ensemble including Karen, Natalie, Casey, and Art Sr. each bring distinct perspectives and narrative weight"
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Sharp, authentic dialogue that reveals character and captures specific cultural/regional authenticity"
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Masterful crime drama that transcends genre expectations by focusing on human motivation and systemic economic pressures"
+      },
+      "originality": {
+        "score": 8,
+        "justification": "Fresh take on counterfeiting narrative that explores deeper psychological and economic themes"
+      },
+      "weighted_score": 8.45
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasional pacing issues in middle act",
+      "Some repetitive criminal montage sequences"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Broad appeal across crime drama, true crime, and character study fans"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Instantly compelling one-sentence pitch about counterfeiting as personal liberation"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Multiple compelling roles for mid-career actors"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Visually dynamic story of money-making with clear trailer potential"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Moderate budget required with strong indie/streaming potential"
+      },
+      "comparable_success": {
+        "score": 3,
+        "note": "Similar to Catch Me If You Can, American Hustle"
+      },
+      "cvs_total": 17
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act ends with Art learning counterfeiting, second act covers his rise, third act focuses on consequences",
+      "pacing": "medium-fast with consistent narrative momentum"
+    },
+    "characters": {
+      "protagonist": "Art Williams - Ambitious counterfeiter driven by economic desperation and generational trauma",
+      "antagonist": "Multiple antagonistic forces including law enforcement, criminal organizations, and systemic economic barriers",
+      "supporting": [
+        "Karen (ex-wife/cop)",
+        "Natalie (partner)",
+        "Casey/Joey/Don (criminal compatriots)",
+        "Art Sr. (father)"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Art learning counterfeiting techniques from DaVinci",
+        "why": "Masterful sequence showing technical process as metaphorical liberation"
+      },
+      {
+        "scene": "Art's reunion with his father",
+        "why": "Emotionally complex moment revealing generational patterns of survival"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Catch Me If You Can",
+        "similarity": "Complex cat-and-mouse narrative about charismatic criminal",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "American Hustle",
+        "similarity": "Stylish crime narrative exploring economic desperation",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-45 years old",
+      "gender_skew": "neutral",
+      "interests": [
+        "Crime dramas",
+        "Economic storytelling",
+        "Character studies"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Requires period setting, multiple locations, and strong cast"
+    },
+    "assessment": {
+      "strengths": [
+        "Nuanced exploration of economic survival",
+        "Complex character development",
+        "Authentic dialogue",
+        "Technical detail of counterfeiting process"
+      ],
+      "weaknesses": [
+        "Some repetitive narrative sequences",
+        "Potential audience challenge with moral ambiguity"
+      ],
+      "development_notes": [
+        "Tighten middle act pacing",
+        "Further distinguish supporting characters"
+      ],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Weighted score of 8.45 demonstrates exceptional craft across multiple dimensions. Strong commercial viability with CVS of 17/18 and no critical failures present."
+    },
+    "film_now_assessment": {
+      "qualifies": true,
+      "lightning_test": "Art learning counterfeiting from DaVinci, revealing economic desperation and artistic ambition",
+      "goosebumps_moments": [
+        "Page 5: Art's childhood trauma of parental abandonment",
+        "Page 60: Art's emotional reunion with Mikey",
+        "Page 125: Art's final confrontation with systemic limitations"
+      ],
+      "career_risk_test": "Absolutely. Represents a nuanced exploration of economic survival with exceptional narrative complexity",
+      "legacy_potential": "High - offers profound commentary on economic mobility and generational trauma",
+      "disqualifying_factors": []
+    },
+    "verdict_statement": "FILM NOW: ART OF MAKING MONEY represents exceptional material that demands immediate greenlight consideration. The Lightning: A counterfeiter's journey from economic desperation to artistic mastery. The Craft: Weighted score of 8.45 with no dimension below 8. The Commercial Case: CVS of 17/18. Multiple star-making roles. Urgency: This screenplay will not remain available."
+  }
+}

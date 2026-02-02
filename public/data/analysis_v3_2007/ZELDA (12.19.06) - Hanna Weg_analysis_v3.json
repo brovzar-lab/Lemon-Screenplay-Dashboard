@@ -1,0 +1,176 @@
+{
+  "source_file": "ZELDA (12.19.06) - Hanna Weg.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "ZELDA (12.19.06) - Hanna Weg.pdf",
+    "page_count": 132,
+    "word_count": 30608
+  },
+  "analysis": {
+    "title": "Zelda",
+    "author": "Hanna Weg",
+    "logline": "The passionate and tumultuous life story of Zelda Fitzgerald, exploring her complex relationship with F. Scott Fitzgerald and her struggle for artistic identity in the Jazz Age.",
+    "genre": "Biographical Drama",
+    "subgenres": [
+      "Period Piece",
+      "Literary Adaptation",
+      "Romance"
+    ],
+    "themes": [
+      "Artistic Ambition",
+      "Creative Frustration",
+      "Marital Dynamics",
+      "Mental Health",
+      "Self-Identity"
+    ],
+    "tone": "Tragic, Romantic, Introspective",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Intimate portrait of iconic literary couple, exploring Zelda's untold perspective with remarkable depth and psychological complexity"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Episodic yet cohesive narrative tracking Zelda's life from youthful exuberance through mental decline, with clear emotional throughlines"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Zelda is a multi-dimensional character with profound agency, internal conflict, and a heartbreaking artistic journey"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Scott Fitzgerald, Dr. Meyer, and supporting characters like Sara Murphy feel fully realized with distinct perspectives"
+      },
+      "dialogue": {
+        "score": 9,
+        "justification": "Rich, period-authentic dialogue with layers of subtext, revealing psychological nuances and period dynamics"
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Masterful handling of biographical drama, balancing historical accuracy with emotional depth"
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Unique focus on Zelda's perspective, challenging traditional narrative about the Fitzgeralds"
+      },
+      "weighted_score": 8.65
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasionally episodic pacing",
+      "Some scenes feel slightly self-indulgent"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Literary drama fans, awards season audiences, mature viewers interested in artistic biographies"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Requires contextual explanation about the Fitzgeralds"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Significant roles for leading dramatic actors"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Requires careful positioning to highlight emotional journey"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Potential for critical acclaim but limited commercial appeal"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Mixed performance of literary biopics"
+      },
+      "cvs_total": 14
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Early life/Jazz Age, European period, mental health decline",
+      "pacing": "medium, with emotional momentum maintaining interest"
+    },
+    "characters": {
+      "protagonist": "Zelda Fitzgerald - ambitious, complex woman seeking artistic identity, struggling against societal and marital constraints",
+      "antagonist": "Societal expectations and her own psychological limitations",
+      "supporting": [
+        "Scott Fitzgerald - passionate but destructive husband",
+        "Dr. Meyer - compassionate psychiatric professional",
+        "Sara Murphy - supportive friend"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Cliff diving sequence in France",
+        "why": "Perfectly captures the Fitzgeralds' risk-taking spirit and complex emotional dynamic"
+      },
+      {
+        "scene": "Zelda's ballet training montage",
+        "why": "Visceral representation of artistic determination and psychological fragmentation"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Midnight in Paris",
+        "similarity": "Jazz Age literary milieu",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Girl, Interrupted",
+        "similarity": "Female psychological journey",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "35-65, educated, culturally sophisticated",
+      "gender_skew": "neutral",
+      "interests": [
+        "Literature",
+        "Art History",
+        "Psychological Drama",
+        "20th Century Cultural History"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Period piece requiring detailed production design, name actors, multiple international locations"
+    },
+    "assessment": {
+      "strengths": [
+        "Extraordinary psychological depth",
+        "Beautifully crafted dialogue",
+        "Unique female perspective on artistic struggle"
+      ],
+      "weaknesses": [
+        "Potentially challenging commercial appeal",
+        "Complex narrative might intimidate mainstream audiences"
+      ],
+      "development_notes": [
+        "Tighten episodic structure",
+        "Clarify thematic progression"
+      ],
+      "marketability": "medium",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "High weighted score, no critical failures, strong artistic merit and potential for awards recognition"
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Opening scene of Zelda in psychiatric clinic, revealing her complex relationship with Scott",
+      "goosebumps_moments": [
+        "Page 26: First dance scene between Zelda and Scott",
+        "Page 93: Zelda's breakdown at the party",
+        "Page 130: Final confrontation about artistic identity"
+      ],
+      "career_risk_test": "Would cautiously recommend with significant development",
+      "legacy_potential": "High - offers nuanced historical reexamination of artistic partnership",
+      "disqualifying_factors": [
+        "Requires careful casting",
+        "Potential marketing challenges"
+      ]
+    },
+    "verdict_statement": "Based on its extraordinary psychological depth and Zelda's compelling artistic journey, this screenplay demonstrates significant craft and emotional resonance. The nuanced exploration of creative frustration and marital dynamics presents a rich, development-worthy project with strong potential for critical acclaim."
+  }
+}

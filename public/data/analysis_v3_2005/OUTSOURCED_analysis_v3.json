@@ -1,0 +1,119 @@
+{
+  "source_file": "OUTSOURCED.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "OUTSOURCED.pdf",
+    "page_count": 108,
+    "word_count": 0
+  },
+  "analysis": {
+    "title": "Outsourced",
+    "author": "Unknown",
+    "logline": "No script content was provided in the submission to generate a logline.",
+    "genre": "Undetermined",
+    "subgenres": [],
+    "themes": [],
+    "tone": "Unknown",
+    "dimension_scores": {
+      "concept": {
+        "score": 1,
+        "justification": "No script content was provided to evaluate the concept."
+      },
+      "structure": {
+        "score": 1,
+        "justification": "No script content was provided to evaluate the structure."
+      },
+      "protagonist": {
+        "score": 1,
+        "justification": "No script content was provided to evaluate the protagonist."
+      },
+      "supporting_cast": {
+        "score": 1,
+        "justification": "No script content was provided to evaluate the supporting cast."
+      },
+      "dialogue": {
+        "score": 1,
+        "justification": "No script content was provided to evaluate the dialogue."
+      },
+      "genre_execution": {
+        "score": 1,
+        "justification": "No script content was provided to evaluate genre execution."
+      },
+      "originality": {
+        "score": 1,
+        "justification": "No script content was provided to evaluate originality."
+      },
+      "weighted_score": "1.00"
+    },
+    "critical_failures": [
+      "No script content provided for evaluation"
+    ],
+    "major_weaknesses": [
+      "No script content provided for evaluation"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 1,
+        "note": "Cannot determine without script content"
+      },
+      "high_concept": {
+        "score": 1,
+        "note": "Cannot determine without script content"
+      },
+      "cast_attachability": {
+        "score": 1,
+        "note": "Cannot determine without script content"
+      },
+      "marketing_hook": {
+        "score": 1,
+        "note": "Cannot determine without script content"
+      },
+      "budget_return_ratio": {
+        "score": 1,
+        "note": "Cannot determine without script content"
+      },
+      "comparable_success": {
+        "score": 1,
+        "note": "Cannot determine without script content"
+      },
+      "cvs_total": "6"
+    },
+    "structure_analysis": {
+      "format_quality": "unknown",
+      "act_breaks": "unknown",
+      "pacing": "unknown"
+    },
+    "characters": {
+      "protagonist": "Cannot identify without script content",
+      "antagonist": "Cannot identify without script content",
+      "supporting": []
+    },
+    "standout_scenes": [],
+    "comparable_films": [],
+    "target_audience": {
+      "primary_demographic": "unknown",
+      "gender_skew": "unknown",
+      "interests": []
+    },
+    "budget_tier": {
+      "category": "unknown",
+      "justification": "Cannot determine without script content"
+    },
+    "assessment": {
+      "strengths": [
+        "Cannot identify without script content"
+      ],
+      "weaknesses": [
+        "No script content was provided for evaluation"
+      ],
+      "development_notes": [
+        "Cannot provide development notes without script content"
+      ],
+      "marketability": "Cannot determine without script content",
+      "recommendation": "PASS",
+      "recommendation_rationale": "No script content was provided for evaluation. The screenplay document appears to be blank or corrupted. Unable to assess any creative or commercial elements."
+    },
+    "verdict_statement": "While I cannot comment on any strengths due to lack of content, this screenplay cannot be evaluated as no actual script content was provided in the submission. The development investment required would essentially be creating an entirely new screenplay, as there is no material to work with."
+  }
+}

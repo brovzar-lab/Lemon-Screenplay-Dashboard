@@ -1,0 +1,176 @@
+{
+  "source_file": "this_wedding_is_fucked.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "this_wedding_is_fucked.pdf",
+    "page_count": 107,
+    "word_count": 18475
+  },
+  "analysis": {
+    "title": "This Wedding Is Fucked",
+    "author": "Erica Bardin & Susan Graham",
+    "logline": "When ex-couple Melissa and Jonathan find themselves as maid of honor and best man at her sister's destination wedding, their escalating revenge pranks spiral out of control, threatening both the ceremony and their own unresolved feelings.",
+    "genre": "Comedy",
+    "subgenres": [
+      "Romantic Comedy",
+      "Wedding Comedy"
+    ],
+    "themes": [
+      "breakups",
+      "unresolved relationships",
+      "revenge",
+      "growing up",
+      "accepting change",
+      "compromise"
+    ],
+    "tone": "Raunchy, farcical comedy with moments of genuine emotional resonance",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "The premise of warring exes sabotaging a destination wedding is immediately clear, commercially appealing, and offers rich comedic potential. The concept requires minimal explanation and provides a perfect sandbox for escalating comedy."
+      },
+      "structure": {
+        "score": 7,
+        "justification": "The screenplay has a clear structure with strong time markers (countdown to wedding), effective act breaks, and escalating complications. The pacing occasionally slackens in the second act with repetitive prank sequences, but maintains momentum toward the climactic hotel fire."
+      },
+      "protagonist": {
+        "score": 7,
+        "justification": "Melissa and Jonathan function as dual protagonists with clear, opposing goals that evolve naturally. Both have agency, drive the plot forward, and experience meaningful character arcs as they realize their pettiness has damaged others. Their transformation feels earned through catastrophe."
+      },
+      "supporting_cast": {
+        "score": 7,
+        "justification": "The ensemble is colorful and distinct, particularly Nicole (high-strung bride), Bradford (Melissa's fake gay boyfriend), and Jasper (Jonathan's crass friend). Minor characters like Vlad and Gabi have memorable personalities. Some secondary characters (Leah, Bette, Edward) remain somewhat underdeveloped."
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "The dialogue is sharp, contemporary, and character-specific. Nicole's control-freak dialogue contrasts with Bradford's theatrical speech patterns. The script includes numerous quotable lines (\"Don't tase me bro\"), effective running gags, and strong comedic rhythm."
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "The screenplay delivers the expected comedy set pieces of wedding films (rehearsal dinners, toasts gone wrong) with fresh, outrageous twists. It balances raunchy humor with emotional stakes effectively, and the escalation of pranks pays off in satisfying ways."
+      },
+      "originality": {
+        "score": 7,
+        "justification": "While working within familiar wedding comedy and ex-lovers territory, the script finds fresh angles through its dual-protagonist perspective, audacious pranks (taser card game, kidnapping), and willingness to go big (literally burning down the wedding venue)."
+      },
+      "weighted_score": "7.45"
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Some supporting characters remain underdeveloped despite screen time"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear appeal to 18-35 demographic who attend R-rated comedies"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Instantly graspable premise that sells itself in one sentence"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Multiple showy roles for comedy stars in both lead and supporting positions"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Visual gags and outrageous scenarios make for strong trailer/poster material"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Can be produced at moderate budget with excellent return potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Recent R-rated wedding comedies show mixed box office, but strong streaming performance"
+      },
+      "cvs_total": "17"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends around p.25 with the couple's breakup, Act 2 begins with arrival at the wedding destination, midpoint occurs with the whale watching incident (p.50-55), Act 3 begins with the hotel fire and culminates in redemption",
+      "pacing": "Fast overall with strong momentum, though some repetition in the second act prank sequences creates minor drag"
+    },
+    "characters": {
+      "protagonist": "Melissa - photographer with career ambitions whose breakup wounds make her increasingly vindictive; clear goal of 'winning' against her ex",
+      "antagonist": "Jonathan - startup CEO and Melissa's ex who escalates pranks to prove he's better off without her",
+      "supporting": [
+        "Nicole (uptight bride with a pregnancy secret)",
+        "Nick (easygoing groom caught in the crossfire)",
+        "Bradford (Melissa's fake gay boyfriend with perfect abs)",
+        "Jasper (Jonathan's crude, scheming friend)",
+        "Robyn (Jonathan's model-perfect fake date)"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "The 'Don't tase me bro' card game",
+        "why": "Perfectly escalates the absurdity while showcasing character dynamics"
+      },
+      {
+        "scene": "Whale watching boat disaster with shark fin",
+        "why": "Blends physical comedy, revenge, and consequences in a memorable setpiece"
+      },
+      {
+        "scene": "The climactic fight in the banquet hall that burns down the hotel",
+        "why": "Visually spectacular payoff that literally and figuratively burns down the characters' facades"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Bridesmaids",
+        "similarity": "R-rated wedding comedy with female perspective and outrageous physical comedy",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Wedding Crashers",
+        "similarity": "R-rated wedding comedy with romantic elements and escalating situations",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Palm Springs",
+        "similarity": "Wedding setting with modern relationship dynamics and existential themes",
+        "box_office_relevance": "streaming success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "18-40 adults who enjoy R-rated comedies",
+      "gender_skew": "neutral with slight female tilt",
+      "interests": [
+        "contemporary relationship comedy",
+        "wedding films",
+        "raunchy humor",
+        "rom-com with edge"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Single location (tropical resort) with moderate cast size and limited effects needs beyond the climactic fire"
+    },
+    "assessment": {
+      "strengths": [
+        "Strong, commercially viable premise that's easy to market",
+        "Sharp, contemporary dialogue with memorable lines and distinct character voices",
+        "Effective escalation of comedic situations that builds to a satisfying climax",
+        "Dual protagonist structure gives both male and female perspectives equal weight",
+        "Balance of outrageous comedy with genuine emotional stakes"
+      ],
+      "weaknesses": [
+        "Some repetitive pranking in the second act creates pacing issues",
+        "Several supporting characters remain thinly sketched despite screen time",
+        "A few plot contrivances strain credibility even for a comedy (the shark)",
+        "The redemption requires significant suspension of disbelief after catastrophic damage"
+      ],
+      "development_notes": [
+        "Streamline the second act by cutting 1-2 prank sequences to improve pacing",
+        "Develop Leah and Bette beyond their current function as minor comic relief",
+        "Consider more grounded consequences for the hotel destruction in the resolution"
+      ],
+      "marketability": "high - The premise is immediately graspable, offers multiple casting opportunities for comedy stars, and includes visual set pieces perfect for trailers. The wedding comedy genre continues to perform well, especially with edgier takes.",
+      "recommendation": "CONSIDER",
+      "recommendation_rationale": "With a weighted score of 7.45, strong commercial viability score of 17, and no critical failures, this screenplay demonstrates significant potential. While it falls just short of RECOMMEND thresholds, the commercial appeal, castability, and quality of comedic execution make it worthy of serious consideration."
+    },
+    "verdict_statement": "This screenplay shows genuine strength in its instantly graspable concept, sharp dialogue, and escalating comedic scenarios, but requires development attention to pacing issues in the second act and underdeveloped supporting characters. With tightening of the repetitive prank sequences and more dimensional secondary characters, this project could achieve RECOMMEND status."
+  }
+}

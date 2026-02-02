@@ -1,0 +1,147 @@
+{
+  "source_file": "BLACK LIST 2007.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "BLACK LIST 2007.pdf",
+    "page_count": 37,
+    "word_count": 7520
+  },
+  "analysis": {
+    "title": "The Black List 2007",
+    "author": "Various",
+    "logline": "A compilation of 2007's most-liked unproduced screenplays, highlighting emerging talent and innovative storytelling across multiple genres.",
+    "genre": "Industry Document",
+    "subgenres": [
+      "Script Catalog",
+      "Development Resource"
+    ],
+    "themes": [
+      "Potential",
+      "Creative Diversity",
+      "Emerging Talent"
+    ],
+    "tone": "Analytical and Celebratory",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Innovative approach to showcasing unproduced screenwriting talent, providing industry-wide perspective on emerging scripts"
+      },
+      "structure": {
+        "score": 7,
+        "justification": "Clear organizational structure with script details, agent/manager information, and production status"
+      },
+      "protagonist": {
+        "score": 6,
+        "justification": "N/A - compilation document, but each script represents unique narrative potential"
+      },
+      "supporting_cast": {
+        "score": 7,
+        "justification": "Diverse range of scripts representing multiple genres and storytelling approaches"
+      },
+      "dialogue": {
+        "score": 6,
+        "justification": "Brief loglines suggest narrative diversity and potential narrative voices"
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Comprehensive representation across multiple genres with clear categorization"
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Groundbreaking industry resource highlighting undiscovered screenwriting talent"
+      },
+      "weighted_score": 7.35
+    },
+    "critical_failures": [],
+    "major_weaknesses": [],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Film industry professionals, screenwriters, development executives"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Immediately understandable industry resource"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Scripts show strong casting potential across multiple projects"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Annual curated list of most promising unproduced screenplays"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Minimal production cost, significant industry impact"
+      },
+      "comparable_success": {
+        "score": 3,
+        "note": "Annual tradition with proven track record of identifying breakthrough scripts"
+      },
+      "cvs_total": 17
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Organized by script mentions/popularity",
+      "pacing": "fast with comprehensive overview"
+    },
+    "characters": {
+      "protagonist": "The Black List itself - a curated collection representing industry's most promising unproduced screenplays",
+      "antagonist": null,
+      "supporting": [
+        "150+ film executives and high-level assistants who contributed"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Compilation methodology explanation",
+        "why": "Transparent process of script selection"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Previous Black List editions",
+        "similarity": "Annual industry resource highlighting emerging screenwriting talent",
+        "box_office_relevance": "Success - many listed scripts became major films"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "Film industry professionals 25-50",
+      "gender_skew": "neutral",
+      "interests": [
+        "Screenwriting",
+        "Film Development",
+        "Emerging Talent"
+      ]
+    },
+    "budget_tier": {
+      "category": "micro",
+      "justification": "Compilation document with minimal production costs"
+    },
+    "assessment": {
+      "strengths": [
+        "Comprehensive overview of unproduced screenwriting talent",
+        "Transparent selection methodology",
+        "Diverse genre representation"
+      ],
+      "weaknesses": [],
+      "development_notes": [],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "The Black List 2007 demonstrates exceptional value as an industry resource, with a weighted score of 7.35 and a commercial viability score of 17/18, representing a critical tool for identifying emerging screenwriting talent."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": null,
+      "goosebumps_moments": [],
+      "career_risk_test": "Not applicable - industry resource, not a singular screenplay",
+      "legacy_potential": "High - has become an annual industry tradition",
+      "disqualifying_factors": [
+        "Not a singular narrative screenplay"
+      ]
+    },
+    "verdict_statement": "Based on its comprehensive representation of emerging screenwriting talent, this Black List compilation demonstrates significant industry value, providing a nuanced snapshot of 2007's most promising unproduced screenplays. Its transparent methodology and diverse genre representation make it an essential resource for film development professionals."
+  }
+}

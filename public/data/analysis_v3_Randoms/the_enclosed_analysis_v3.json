@@ -1,0 +1,171 @@
+{
+  "source_file": "the_enclosed.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "the_enclosed.pdf",
+    "page_count": 106,
+    "word_count": 22950
+  },
+  "analysis": {
+    "title": "The Enclosed",
+    "author": "Chris Basler",
+    "logline": "A medieval anchoress who has spent ten years locked in a church cell discovers a skull she believes belongs to a saint, only to be terrorized by a demon that wants it back.",
+    "genre": "Horror",
+    "subgenres": [
+      "Period Horror",
+      "Gothic Horror",
+      "Psychological Horror",
+      "Religious Horror"
+    ],
+    "themes": [
+      "Faith",
+      "Isolation",
+      "Guilt",
+      "Sexuality",
+      "Redemption",
+      "Truth vs. Delusion"
+    ],
+    "tone": "Gothic, Atmospheric, Claustrophobic, Psychologically Intense",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "A medieval woman who has vowed to live her entire life in a single cell attached to a church discovers what she believes is a saint's skull, only to be terrorized by a demon that wants it back. The premise is unique, provocative, and instantly engaging with religious horror elements that create a clear high-concept horror framework."
+      },
+      "structure": {
+        "score": 7,
+        "justification": "The script utilizes the confined space brilliantly, creating a strong three-act structure despite physical limitations. The grave-digging, skull discovery, and demonic encounters escalate logically. The use of memory/flashback sequences provides necessary context while maintaining tension, though some transitions could be smoother."
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Brigid is a complex, flawed, yet compelling protagonist. Her religious devotion masks deeper guilt about abandoning Roslyn. She actively drives the story through her choices (digging the grave, praying to the skull, confronting the demon) and undergoes a genuine transformation when she finally faces her past. Her arc from false piety to genuine faith is well-executed."
+      },
+      "supporting_cast": {
+        "score": 7,
+        "justification": "Arild/The Girl and Roslyn are well-drawn characters with clear motivations. Father Ambrose and Goodie Maeve serve their functions effectively. The supporting cast all have distinctive voices and purposes, though some (like Julia) could be more fully developed."
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "The dialogue excels at capturing period-appropriate speech without becoming stilted. Each character has a distinct voice - Brigid's formal religious speech contrasts with The Girl/Arild's more modern sensibilities. The arguments between Brigid and Arild are particularly well-written, with layers of subtext and emotion."
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "The script delivers effectively on its horror promises with genuinely unsettling imagery (the demon, Roslyn's drowning, the crucifix scene) and psychological terror. It masterfully builds tension in a confined space, creating an atmosphere of dread while exploring religious themes in a way that enhances rather than distracts from the horror elements."
+      },
+      "originality": {
+        "score": 9,
+        "justification": "The concept of a medieval anchoress fighting a demon while confined to a single cell is remarkably fresh. The script blends historical religious practices with supernatural horror in ways rarely seen in modern film. The setting, time period, and central conflict all feel distinctive and novel."
+      },
+      "weighted_score": 7.85
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Some transitions between reality and memory/vision sequences could be clearer for audiences"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Horror audience identifiable but period setting may narrow appeal"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Unique premise sells itself: 'medieval nun locked in a cell fights a demon'"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Brigid and Arild/The Girl are both showcase roles for actresses"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Visual of anchoress in cell with demon provides clear marketing imagery"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Limited locations and small cast suggest favorable budget-to-return potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Recent religious horror films have performed well but period setting adds risk"
+      },
+      "cvs_total": "16"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends around page 30 with skull discovery; Act 2 break around page 75 when Arild reveals true nature",
+      "pacing": "medium with effective use of time cuts to maintain momentum in the confined setting"
+    },
+    "characters": {
+      "protagonist": "Brigid, a devout but guilt-ridden anchoress whose goal to serve God is complicated by her unresolved past",
+      "antagonist": "Arild/The Girl, a demon masquerading as a saint who seeks to reclaim her skull and freedom",
+      "supporting": [
+        "Roslyn, Brigid's former lover whose memory haunts her",
+        "Father Ambrose, the disdainful priest",
+        "Goodie Maeve, Brigid's servant and connection to outside world"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Brigid witnessing her past self with Roslyn in the church",
+        "why": "Emotional revelation of her true motivations and sexual identity"
+      },
+      {
+        "scene": "The demon's first full appearance in Brigid's cell",
+        "why": "Visually striking horror moment that effectively pays off building tension"
+      },
+      {
+        "scene": "The final confrontation in the grave",
+        "why": "Thematically rich battle that resolves both external and internal conflicts"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Witch",
+        "similarity": "Period religious horror with female protagonist wrestling with faith and sexuality",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Saint Maud",
+        "similarity": "Religious devotion leading to psychological horror and isolation",
+        "box_office_relevance": "mixed (COVID release but critical success)"
+      },
+      {
+        "title": "The Others",
+        "similarity": "Confined setting with supernatural elements and twist revelations",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-49 year old sophisticated horror fans",
+      "gender_skew": "female",
+      "interests": [
+        "elevated horror",
+        "psychological thrillers",
+        "period films",
+        "LGBTQ+ themes"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Single primary location, limited cast, period setting requires some production design investment but could be executed effectively on modest budget"
+    },
+    "assessment": {
+      "strengths": [
+        "Unique, high-concept premise with immediate hook",
+        "Psychologically complex protagonist with well-executed character arc",
+        "Effective use of confined space to create tension and horror",
+        "Strong dialogue that balances period authenticity with accessibility",
+        "Thematically rich exploration of faith, guilt, and sexuality"
+      ],
+      "weaknesses": [
+        "Some transitions between reality and memory/vision could be clearer",
+        "Period setting may limit commercial appeal for mainstream audiences",
+        "Religious elements may alienate some viewers if marketed incorrectly"
+      ],
+      "development_notes": [],
+      "marketability": "medium-high with proper positioning as elevated horror in the vein of The Witch, Saint Maud, and other A24-style horror films with strong female protagonists",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "With a weighted score of 7.85, no critical failures, a strong CVS of 16, and distinctive originality that sets it apart in the marketplace, this script meets all the criteria for a RECOMMEND. The combination of commercial potential and artistic merit makes it worthy of immediate development consideration."
+    },
+    "verdict_statement": "Based on its unique premise, complex protagonist, and effective horror execution, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Brigid and Arild present strong attachment opportunities for actresses seeking challenging, showcase performances."
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "source_file": "JUNO.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "JUNO.pdf",
+    "page_count": 102,
+    "word_count": 19795
+  },
+  "analysis": {
+    "title": "Juno",
+    "author": "Diablo Cody",
+    "logline": "A witty, independent-minded teenager navigates an unplanned pregnancy by arranging to give her baby to a seemingly perfect couple, only to discover complicated truths about adulthood, love, and what makes a family.",
+    "genre": "Comedy-Drama",
+    "subgenres": [
+      "Coming-of-Age",
+      "Teen Pregnancy",
+      "Indie Comedy"
+    ],
+    "themes": [
+      "Growing up",
+      "Responsibility",
+      "Unconventional family",
+      "Finding your own path",
+      "Love"
+    ],
+    "tone": "Quirky, sardonic humor with genuine emotional depth",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Teen pregnancy isn't new territory, but the fresh approach of a sardonic, independent protagonist choosing adoption with an unconventional perspective makes this concept stand out. The hook is simple yet compelling: what happens when a teenager decides to find parents for her unborn child but gets emotionally entangled in the process?"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "The screenplay follows a clear seasonal structure (fall through summer) that tracks Juno's pregnancy. Act breaks are well-defined, with the first turning point being Juno's decision to pursue adoption, midpoint revealing deeper connection with Mark, and climax showing Mark's revelation and Juno's ultimate emotional growth."
+      },
+      "protagonist": {
+        "score": 10,
+        "justification": "Juno is an unforgettable character with a distinct voice. Her goals shift organically: first trying to 'solve' her pregnancy, then finding the right parents, ultimately discovering what she values in relationships. Her transformation from glib teen to someone with genuine emotional maturity feels earned through her experiences. Perfect actor-bait role."
+      },
+      "supporting_cast": {
+        "score": 9,
+        "justification": "Nearly every character feels three-dimensional. Mac (dad), Bren (stepmom), Bleeker (boyfriend), Leah (friend), Mark and Vanessa (adoptive parents) all have distinct personalities, voices, and motivations that extend beyond serving Juno's story. Each character feels like they could carry their own film."
+      },
+      "dialogue": {
+        "score": 9,
+        "justification": "Incredibly distinctive voice throughout, with each character sounding different yet belonging to the same world. Juno's dialogue especially crackles with originality ('This is one doodle that can't be un-did, homeskillet'). Exposition is handled naturally, and subtext abounds in conversations between Mark/Vanessa and Juno/Bleeker."
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "The script delivers both as a comedy and drama. The comedic elements (Juno's sarcasm, situational humor) are balanced perfectly with the emotional weight of teen pregnancy, adoption, and coming-of-age. It successfully navigates both tones without undermining either."
+      },
+      "originality": {
+        "score": 10,
+        "justification": "The script announces a wholly original voice through its unique dialogue style, unconventional protagonist, and fresh take on pregnancy. While the premise could be conventional, the execution feels entirely new, particularly in Juno's agency and the complex portrayal of adoption dynamics."
+      },
+      "weighted_score": "9.15"
+    },
+    "critical_failures": [],
+    "major_weaknesses": [],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear appeal to both teen and adult audiences, with potential for strong female viewership"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Easily pitchable: 'Sardonic teen gives her baby to a couple who aren't what they seem'"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Multiple juicy roles for various age ranges"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Distinctive visual style and voice can be clearly conveyed in trailers"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low-budget needs with high potential return"
+      },
+      "comparable_success": {
+        "score": 3,
+        "note": "Indie crossover potential similar to 'Little Miss Sunshine,' 'Napoleon Dynamite'"
+      },
+      "cvs_total": "18"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends ~p.25 with Juno choosing adoption; Act 2 midpoint ~p.55 with Juno developing connection with Mark; Act 2 ends ~p.85 with Mark's revelation about leaving Vanessa",
+      "pacing": "medium with excellent momentum, never dwelling too long on any situation while allowing emotional moments proper weight"
+    },
+    "characters": {
+      "protagonist": "Juno MacGuff, a sardonic, intelligent 16-year-old who approaches her pregnancy with surprising maturity beneath her flippant exterior; clear goal of finding the right parents for her baby",
+      "antagonist": "No traditional antagonist - conflicts arise from circumstances and interpersonal tensions, particularly Mark's immaturity and Juno's own emotional growth",
+      "supporting": [
+        "Paulie Bleeker - sweet, passive father of the baby with understated depth",
+        "Mac MacGuff - supportive, straightforward father with unexpected wisdom",
+        "Bren - practical, no-nonsense stepmother who shows surprising loyalty",
+        "Leah - loyal, boy-obsessed best friend who provides comic relief and support",
+        "Mark Loring - initially cool adoptive father whose immaturity creates conflict",
+        "Vanessa Loring - driven, maternal adoptive mother with emotional complexity"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Juno's first visit to Women's Choice clinic and encounter with Su-Chin",
+        "why": "Perfectly blends humor with a pivotal moment that changes Juno's direction"
+      },
+      {
+        "scene": "Juno and Mark dancing in the basement",
+        "why": "Beautifully builds tension and reveals character while setting up major conflict"
+      },
+      {
+        "scene": "Mac's advice to Juno about finding someone who loves you for who you are",
+        "why": "Emotionally resonant wisdom that crystallizes Juno's character development"
+      },
+      {
+        "scene": "Final scene of Juno and Bleeker playing music together",
+        "why": "Perfect resolution that shows growth while maintaining authentic character voices"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Little Miss Sunshine",
+        "similarity": "Quirky indie comedy-drama with heart and distinctive characters",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Napoleon Dynamite",
+        "similarity": "Distinctive dialogue and unconventional protagonist in suburban setting",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Ghost World",
+        "similarity": "Sardonic female protagonist navigating post-high school decisions",
+        "box_office_relevance": "mixed but cult classic status"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "15-35 year olds who appreciate indie sensibilities",
+      "gender_skew": "slight female skew but with universal appeal",
+      "interests": [
+        "indie music",
+        "alternative culture",
+        "smart comedies",
+        "coming-of-age stories"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Contemporary setting, no special effects, limited locations, character-driven story requiring quality cast but no stars needed"
+    },
+    "assessment": {
+      "strengths": [
+        "Exceptionally strong, unique protagonist voice in Juno",
+        "Perfectly balanced tone between comedy and emotional weight",
+        "Distinctive dialogue that creates immediate identity",
+        "Complex, non-stereotypical characters throughout",
+        "Satisfying emotional arc that maintains character integrity"
+      ],
+      "weaknesses": [
+        "Some dialogue may be too stylized for some audiences",
+        "The 'hipness' of certain cultural references may date the script over time"
+      ],
+      "development_notes": [],
+      "marketability": "high - unique voice in a relatable story with broad appeal beyond the indie audience, potential for awards recognition with the right cast",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "With an exceptional weighted score of 9.15, zero critical failures, and perfect CVS of 18, this screenplay exceeds all threshold requirements for a RECOMMEND. The combination of commercial viability and artistic merit makes this an exceptional opportunity."
+    },
+    "verdict_statement": "Based on its wholly original voice, unforgettable protagonist, and perfect balance of comedy and emotional depth, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Juno presents a tremendous attachment opportunity for a young actress capable of delivering both witty dialogue and genuine emotional growth."
+  }
+}

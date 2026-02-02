@@ -1,0 +1,177 @@
+{
+  "source_file": "ARCADIA DISINHERITED - Adam Hutchison.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "ARCADIA DISINHERITED - Adam Hutchison.pdf",
+    "page_count": 126,
+    "word_count": 22949
+  },
+  "analysis": {
+    "title": "Arcadia Disinherited",
+    "author": "Adam Hutchison",
+    "logline": "After his brother is killed during a confrontation with the National Guard, a young man fights to clear his family's name and survive in post-Katrina Louisiana's chaotic landscape.",
+    "genre": "Drama",
+    "subgenres": [
+      "Thriller",
+      "Crime",
+      "Social Commentary"
+    ],
+    "themes": [
+      "Systemic Injustice",
+      "Family Loyalty",
+      "Survival",
+      "PTSD",
+      "Post-Disaster Trauma"
+    ],
+    "tone": "Gritty, raw, emotionally intense",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Powerful exploration of post-Katrina Louisiana through a personal lens of systemic violence and family survival"
+      },
+      "structure": {
+        "score": 7,
+        "justification": "Strong three-act structure with clear narrative progression, though occasional pacing inconsistencies"
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Stone is complex, active, driven by clear goals of family protection and justice"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Rich, nuanced characters like Jayda, Paul, and Vann have distinct voices and motivations"
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "Authentic regional dialogue, strong subtext, occasional on-the-nose moments"
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Masterful blend of crime thriller and social drama, effectively captures post-Katrina tension"
+      },
+      "originality": {
+        "score": 8,
+        "justification": "Fresh perspective on systemic violence, innovative narrative approach to post-disaster trauma"
+      },
+      "weighted_score": 7.85
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasional pacing issues",
+      "Some expositional dialogue"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Drama with social commentary, appeals to mature audiences"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Compelling premise requires some explanation"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Strong character roles for rising/character actors"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Requires nuanced marketing approach"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Modest budget potential with strong critical appeal"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to critically successful indie dramas"
+      },
+      "cvs_total": 13
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Iraq/Katrina setup, Second act: Fugitive pursuit, Third act: Confrontation and resolution",
+      "pacing": "medium, with intense momentum in third act"
+    },
+    "characters": {
+      "protagonist": "Stone Green - young evacuee seeking justice, clear goal of protecting his family",
+      "antagonist": "Deputy Beek and systemic institutional violence",
+      "supporting": [
+        "Jayda (love interest)",
+        "Paul (brother)",
+        "Vann (sympathetic authority figure)"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Rooftop escape sequence",
+        "why": "Demonstrates narrative creativity and character resilience"
+      },
+      {
+        "scene": "Stone's confrontation with Sheriff Vann",
+        "why": "Powerful emotional climax showcasing systemic tension"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Winter's Bone",
+        "similarity": "Similar rural crime drama with young protagonist navigating systemic challenges",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Mudbound",
+        "similarity": "Post-disaster social commentary with complex character dynamics",
+        "box_office_relevance": "mixed"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-45 age range",
+      "gender_skew": "neutral",
+      "interests": [
+        "social justice",
+        "indie drama",
+        "post-disaster narratives"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Limited locations, character-driven narrative"
+    },
+    "assessment": {
+      "strengths": [
+        "Authentic dialogue",
+        "Complex character development",
+        "Powerful social commentary",
+        "Innovative narrative structure"
+      ],
+      "weaknesses": [
+        "Occasional pacing issues",
+        "Some expositional dialogue"
+      ],
+      "development_notes": [
+        "Tighten second act pacing",
+        "Refine dialogue to reduce exposition",
+        "Clarify thematic connections"
+      ],
+      "marketability": "medium",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Strong weighted score of 7.85, no critical failures, compelling commercial viability score of 13, demonstrates significant artistic and commercial potential"
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Explosive Iraq scene immediately establishes high stakes and narrative tension",
+      "goosebumps_moments": [
+        "Page 20: IED explosion and girl's tragic encounter",
+        "Page 116: Stone's confrontation protecting his brother",
+        "Page 124: Hospital scene with Paul and Leslie"
+      ],
+      "career_risk_test": "Promising, but not quite career-defining",
+      "legacy_potential": "Strong potential to capture a specific moment in American social history",
+      "disqualifying_factors": [
+        "Requires minor script refinement",
+        "Not consistently exceptional across all dimensions"
+      ]
+    },
+    "verdict_statement": "Based on its authentic portrayal of post-Katrina systemic challenges and strong character development, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Stone presents a compelling attachment opportunity for a rising dramatic actor seeking a nuanced, socially relevant narrative."
+  }
+}

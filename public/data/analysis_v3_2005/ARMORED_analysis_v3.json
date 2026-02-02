@@ -1,0 +1,119 @@
+{
+  "source_file": "ARMORED.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "ARMORED.pdf",
+    "page_count": 119,
+    "word_count": 0
+  },
+  "analysis": {
+    "title": "ARMORED",
+    "author": "Unknown",
+    "logline": "Unable to formulate a logline as no screenplay content was provided.",
+    "genre": "Cannot determine",
+    "subgenres": [],
+    "themes": [],
+    "tone": "Cannot determine",
+    "dimension_scores": {
+      "concept": {
+        "score": 1,
+        "justification": "Cannot evaluate as no screenplay text was provided in the submission."
+      },
+      "structure": {
+        "score": 1,
+        "justification": "Cannot evaluate as no screenplay text was provided in the submission."
+      },
+      "protagonist": {
+        "score": 1,
+        "justification": "Cannot evaluate as no screenplay text was provided in the submission."
+      },
+      "supporting_cast": {
+        "score": 1,
+        "justification": "Cannot evaluate as no screenplay text was provided in the submission."
+      },
+      "dialogue": {
+        "score": 1,
+        "justification": "Cannot evaluate as no screenplay text was provided in the submission."
+      },
+      "genre_execution": {
+        "score": 1,
+        "justification": "Cannot evaluate as no screenplay text was provided in the submission."
+      },
+      "originality": {
+        "score": 1,
+        "justification": "Cannot evaluate as no screenplay text was provided in the submission."
+      },
+      "weighted_score": "1.00"
+    },
+    "critical_failures": [
+      "No screenplay text provided for evaluation"
+    ],
+    "major_weaknesses": [
+      "No screenplay text provided for evaluation"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 1,
+        "note": "Cannot determine without screenplay content"
+      },
+      "high_concept": {
+        "score": 1,
+        "note": "Cannot determine without screenplay content"
+      },
+      "cast_attachability": {
+        "score": 1,
+        "note": "Cannot determine without screenplay content"
+      },
+      "marketing_hook": {
+        "score": 1,
+        "note": "Cannot determine without screenplay content"
+      },
+      "budget_return_ratio": {
+        "score": 1,
+        "note": "Cannot determine without screenplay content"
+      },
+      "comparable_success": {
+        "score": 1,
+        "note": "Cannot determine without screenplay content"
+      },
+      "cvs_total": "6"
+    },
+    "structure_analysis": {
+      "format_quality": "Cannot determine",
+      "act_breaks": "Cannot determine",
+      "pacing": "Cannot determine"
+    },
+    "characters": {
+      "protagonist": "Cannot determine",
+      "antagonist": "Cannot determine",
+      "supporting": []
+    },
+    "standout_scenes": [],
+    "comparable_films": [],
+    "target_audience": {
+      "primary_demographic": "Cannot determine",
+      "gender_skew": "Cannot determine",
+      "interests": []
+    },
+    "budget_tier": {
+      "category": "Cannot determine",
+      "justification": "No screenplay text provided for evaluation"
+    },
+    "assessment": {
+      "strengths": [
+        "Cannot determine without screenplay content"
+      ],
+      "weaknesses": [
+        "No screenplay text provided for evaluation"
+      ],
+      "development_notes": [
+        "Cannot provide development notes without screenplay content"
+      ],
+      "marketability": "Cannot determine without screenplay content",
+      "recommendation": "PASS",
+      "recommendation_rationale": "Unable to evaluate due to absence of screenplay text in the submission. The document appears to be titled 'ARMORED.pdf' with 119 pages but no actual content was provided for analysis."
+    },
+    "verdict_statement": "While the submission indicates a screenplay titled 'ARMORED' with a page count of 119, no actual screenplay text was provided for evaluation. Without content to analyze, it's impossible to assess the script's merits, commercial potential, or development needs."
+  }
+}

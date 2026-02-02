@@ -1,0 +1,169 @@
+{
+  "source_file": "20 - The Man In The Yard by Sam Stefanak.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "20 - The Man In The Yard by Sam Stefanak.pdf",
+    "page_count": 111,
+    "word_count": 21285
+  },
+  "analysis": {
+    "title": "The Man In The Yard",
+    "author": "Sam Stefanak",
+    "logline": "When a sinister stranger appears in their yard, a grieving mother with a broken body must protect her children from an otherworldly entity that feeds on her guilt and despair.",
+    "genre": "Horror",
+    "subgenres": [
+      "Psychological Thriller",
+      "Supernatural Horror",
+      "Family Drama"
+    ],
+    "themes": [
+      "Grief",
+      "Guilt",
+      "Parenthood",
+      "Mental Illness",
+      "Survival"
+    ],
+    "tone": "Tense, unsettling, with intimate family drama",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "A simple yet immediately gripping premise - a stranger inexplicably sitting in the yard who becomes increasingly threatening. The contained setting and the invasion of safe domestic space creates immediate tension. The supernatural elements are woven organically into a family drama about grief and guilt."
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Strong escalation from creepy stranger to full supernatural threat. Clear progression as the family first tries to understand the threat, then escape it, then finally confront it. The script effectively builds tension with failed attempts to signal for help, steadily removing options until the final confrontation."
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Ramona is deeply drawn, struggling with guilt over her husband's death and her own survival. Her character arc from depressed, overwhelmed mother to fierce protector is compelling. Her physical limitations (casts on arm and leg) add tangible obstacles while serving as external manifestations of her internal wounds."
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Ben and Annie are well-developed with distinct personalities. Ben's anger and resentment toward his mother evolves naturally into protection. Annie's childlike perspective adds vulnerability. The Man In The Yard is genuinely unsettling with his false Southern charm masking his supernatural malevolence."
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "Character voices are distinct. The Man's folksy, menacing Southern drawl contrasts with Ben's contemporary teen speech. Annie speaks authentically as a child. Exposition is handled naturally through character interactions rather than info dumps. Some dialogue occasionally feels a bit on-the-nose."
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Expertly builds dread from the opening scenes. Uses supernatural horror elements to enhance the psychological terror rather than relying on gore. Creates genuine fear through both the physical threat and the emotional manipulation of the antagonist. The attic sequence is a masterclass in sustained tension."
+      },
+      "originality": {
+        "score": 7,
+        "justification": "While utilizing familiar horror tropes (isolated house, supernatural threat), the script feels fresh in its execution. The Man In The Yard is a distinctive antagonist. The connection between the external threat and the mother's internal guilt adds psychological depth beyond standard horror fare. Some story beats feel recognizable from other home invasion thrillers."
+      },
+      "weighted_score": 8.15
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Some supernatural rules feel inconsistently established"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear horror audience with crossover to mainstream viewers who appreciate psychological elements"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Immediately graspable premise with visual hook of mysterious stranger"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Strong female lead role with emotional range plus meaty antagonist role"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Visually distinctive villain and clear 'protect the family' stakes"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Single location horror with limited cast - excellent ROI potential"
+      },
+      "comparable_success": {
+        "score": 3,
+        "note": "Recent elevated horror films with family drama elements have performed well"
+      },
+      "cvs_total": "18"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends when The Man reveals his malevolent nature (~p25). Act 2 ends when he gains entry to the house (~p70)",
+      "pacing": "fast with excellent tension maintenance throughout. Brief character moments provide necessary breathing room between escalations."
+    },
+    "characters": {
+      "protagonist": "Ramona - grieving widow with physical injuries and depression, guilt-ridden over husband's death, clear goal to protect her children",
+      "antagonist": "The Man In The Yard - supernatural entity feeding on grief and guilt, manipulative and shapeshifting, represents Ramona's suicidal thoughts",
+      "supporting": [
+        "Ben (14) - angry teenager resenting his mother while stepping into 'man of house' role",
+        "Annie (6) - innocent child still processing father's death",
+        "Charlie - family dog whose fate becomes an early indicator of danger"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "The Man revealing his knowledge of Charlie's collar",
+        "why": "Perfectly escalates threat while revealing supernatural elements"
+      },
+      {
+        "scene": "The attic sequence with The Man's elongating arm",
+        "why": "Visually distinctive horror with sustained tension and shocking imagery"
+      },
+      {
+        "scene": "Ben using his vomit story to distract The Man while Ramona sneaks up",
+        "why": "Clever character moment that provides relief before the climactic confrontation"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Babadook",
+        "similarity": "Grief and parental guilt manifested as supernatural monster",
+        "box_office_relevance": "success critically though modest box office"
+      },
+      {
+        "title": "It Comes At Night",
+        "similarity": "Isolated family facing unclear external threat",
+        "box_office_relevance": "moderate success"
+      },
+      {
+        "title": "Hereditary",
+        "similarity": "Family drama interwoven with supernatural horror",
+        "box_office_relevance": "strong success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "18-45 horror fans",
+      "gender_skew": "neutral with slight female skew due to mother protagonist",
+      "interests": [
+        "psychological horror",
+        "supernatural thrillers",
+        "character-driven genre films"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Single location with limited cast. Supernatural elements require some VFX budget but could be accomplished with practical effects and creative camera work."
+    },
+    "assessment": {
+      "strengths": [
+        "Immediately engaging premise with clear stakes",
+        "Strong protagonist with both physical and psychological obstacles",
+        "Excellent tension-building throughout",
+        "Well-crafted family dynamics that enhance rather than distract from horror",
+        "Visually distinctive antagonist with clear metaphorical significance",
+        "Limited location and cast make for high production value potential on modest budget"
+      ],
+      "weaknesses": [
+        "Some rules regarding The Man's abilities feel inconsistently established",
+        "Middle section could potentially be trimmed for even tighter pacing",
+        "Certain dialogue exchanges feel slightly on-the-nose"
+      ],
+      "development_notes": [],
+      "marketability": "high - contemporary horror market responds well to character-driven stories with psychological depth. The distinctive visual of The Man and the relatability of the family dynamics create strong marketing hooks. Recent successes in elevated horror suggest an audience ready for this material.",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "With a weighted score of 8.15, no critical failures, and a perfect CVS of 18, this screenplay exceeds all threshold requirements for a RECOMMEND verdict. The high concept, strong protagonist, and excellent genre execution create a highly marketable horror package with franchise potential."
+    },
+    "verdict_statement": "Based on its instantly gripping premise, strong character dynamics, and masterful tension-building, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Ramona and The Man In The Yard present strong attachment opportunities for respected actors looking to make an impact in the horror genre."
+  }
+}

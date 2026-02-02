@@ -1,0 +1,156 @@
+{
+  "source_file": "THE BRIGANDS OF RATTLEBORGE.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "THE BRIGANDS OF RATTLEBORGE.pdf",
+    "page_count": 138,
+    "word_count": 33785
+  },
+  "analysis": {
+    "title": "The Brigands of Rattleborge",
+    "author": "S. Craig Zahler",
+    "logline": "After his wife is brutally murdered during a coordinated massacre, a grieving sheriff pursues the killers across the frontier, partnering with a mysterious and violent doctor.",
+    "genre": "Western Revenge Thriller",
+    "subgenres": [
+      "Crime",
+      "Psychological Thriller",
+      "Neo-Western"
+    ],
+    "themes": [
+      "Revenge",
+      "Justice",
+      "Moral Corruption",
+      "Frontier Brutality"
+    ],
+    "tone": "Dark, Brutal, Uncompromising",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Unique revenge narrative with complex moral landscape, subverts traditional western tropes"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Precise three-act structure with clear progression, unexpected narrative turns"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Roger Pickman has clear motivation, complex moral journey, profound emotional depth"
+      },
+      "supporting_cast": {
+        "score": 9,
+        "justification": "Richly developed characters with distinct voices and psychological complexity"
+      },
+      "dialogue": {
+        "score": 10,
+        "justification": "Exceptional dialogue, laden with subtext, period-authentic yet distinctively stylized"
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Masterful western genre deconstruction, delivers visceral violence with philosophical undertones"
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Radical reimagining of revenge narrative, defies genre expectations"
+      },
+      "weighted_score": 8.9
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Extreme graphic violence might limit mainstream appeal"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Adult male genre fans, prestige film audiences"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Immediately gripping revenge premise"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong character roles for mature actors"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Brutal revenge narrative with philosophical depth"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Moderate budget, potential critical acclaim"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to critically successful genre films"
+      },
+      "cvs_total": 15
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Inciting incident at Rattleborge massacre, second act pursuit, third act confrontation",
+      "pacing": "deliberate but intense"
+    },
+    "characters": {
+      "protagonist": "Roger Pickman - Grieving sheriff seeking revenge, morally complex",
+      "antagonist": "Multiple antagonists including Billy Lee and Abraham, each with distinct psychological profiles",
+      "supporting": [
+        "Abraham Weiss - Mysterious violent doctor",
+        "Walter Lee - Complicit dollmaker",
+        "Becky Higginsford - Tragic wife"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Massacre sequence in Rattleborge",
+        "why": "Brutally choreographed, psychologically devastating"
+      },
+      {
+        "scene": "Pickman's confrontation with dying Cooperson",
+        "why": "Profound moral reckoning, unexpected psychological revelation"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Unforgiven",
+        "similarity": "Deconstruction of revenge narrative",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "No Country for Old Men",
+        "similarity": "Philosophical approach to violence",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "35-55 year old males",
+      "gender_skew": "male",
+      "interests": [
+        "Psychological thrillers",
+        "Revisionist westerns",
+        "Moral complexity"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Requires high-caliber actors, period production design"
+    },
+    "assessment": {
+      "strengths": [
+        "Exceptional dialogue",
+        "Profound psychological depth",
+        "Subversive genre approach",
+        "Complex moral landscape"
+      ],
+      "weaknesses": [
+        "Extreme graphic violence",
+        "Challenging narrative complexity"
+      ],
+      "development_notes": [],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Exceptional screenplay demonstrates remarkable craft, philosophical depth, and genre innovation. Weighted score and commercial viability strongly support immediate development."
+    },
+    "verdict_statement": "Based on its extraordinary psychological complexity, genre-defying narrative, and profound exploration of revenge and morality, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Roger Pickman presents a powerful vehicle for a mature, nuanced actor seeking a transformative character study."
+  }
+}

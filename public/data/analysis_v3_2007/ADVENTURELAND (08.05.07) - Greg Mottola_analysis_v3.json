@@ -1,0 +1,174 @@
+{
+  "source_file": "ADVENTURELAND (08.05.07) - Greg Mottola.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "ADVENTURELAND (08.05.07) - Greg Mottola.pdf",
+    "page_count": 123,
+    "word_count": 25287
+  },
+  "analysis": {
+    "title": "Adventureland",
+    "author": "Greg Mottola",
+    "logline": "A recent college graduate takes a summer job at a run-down amusement park, navigating first love, sexual awakening, and personal disappointment while discovering himself.",
+    "genre": "Coming-of-Age Comedy-Drama",
+    "subgenres": [
+      "Romance",
+      "Workplace Comedy",
+      "Indie Drama"
+    ],
+    "themes": [
+      "Sexual Discovery",
+      "Disillusionment",
+      "First Love",
+      "Economic Struggle"
+    ],
+    "tone": "Bittersweet, nostalgic, wry",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Unique perspective on post-college liminal space, authentic portrayal of late 80s youth culture, strong premise of summer job as microcosm of personal growth"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Well-constructed three-act structure, organic character development, clear narrative progression with meaningful complications"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "James is nuanced, relatable, with clear goals and compelling internal conflict; demonstrates genuine character arc from naive idealist to more self-aware adult"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Rich, distinct characters like Em, Connell, Joel each have depth and contribute meaningfully to narrative; avoid being mere plot devices"
+      },
+      "dialogue": {
+        "score": 9,
+        "justification": "Naturalistic, era-appropriate dialogue with sharp humor, meaningful subtext, distinct character voices"
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Masterful balance of comedy and drama, authentic representation of coming-of-age experience, avoids cliché teen movie tropes"
+      },
+      "originality": {
+        "score": 8,
+        "justification": "Fresh take on summer job narrative, nuanced exploration of late 80s youth culture, unique character dynamics"
+      },
+      "weighted_score": 8.25
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasional pacing slowdown in second act",
+      "Some secondary character arcs feel underdeveloped"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Young adults, nostalgia market, indie film enthusiasts"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Requires slightly more explanation but fundamentally compelling"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong ensemble roles attractive to emerging talent"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Nostalgic 80s setting, relatable coming-of-age narrative"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Low production cost potential high critical/audience appeal"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to successful indie dramedies like Garden State"
+      },
+      "cvs_total": 12
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: College graduation/job loss; Second act: Adventureland summer; Third act: Personal revelations/growth",
+      "pacing": "medium, with organic narrative rhythm"
+    },
+    "characters": {
+      "protagonist": "James Brennan - Intelligent, slightly naive college graduate seeking direction, clear goal of saving money for grad school and personal growth",
+      "antagonist": "No traditional antagonist, more situational challenges of economic uncertainty and personal disappointment",
+      "supporting": [
+        "Em - Complex love interest with her own emotional struggles",
+        "Connell - Complicated married maintenance worker",
+        "Joel - Sardonic friend with unrequited feelings"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "James and Em's intimate moment in the lot behind the arcade",
+        "why": "Emotionally raw, represents genuine connection beyond physical intimacy"
+      },
+      {
+        "scene": "Confrontation revealing Em's affair with Connell",
+        "why": "Powerful emotional revelation, demonstrates script's dramatic depth"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Garden State",
+        "similarity": "Similar indie coming-of-age tone, nostalgic soundtrack, complex young adult relationships",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Almost Famous",
+        "similarity": "Nostalgic period setting, personal discovery narrative",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "18-35, college-educated",
+      "gender_skew": "neutral",
+      "interests": [
+        "indie film",
+        "80s nostalgia",
+        "coming-of-age narratives"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Limited locations, young cast, period piece without expensive production design"
+    },
+    "assessment": {
+      "strengths": [
+        "Authentic dialogue",
+        "Nuanced character development",
+        "Genuine emotional complexity",
+        "Strong sense of time and place"
+      ],
+      "weaknesses": [
+        "Occasional narrative meandering",
+        "Some supporting character arcs feel incomplete"
+      ],
+      "development_notes": [
+        "Tighten second act pacing",
+        "Expand secondary character motivations"
+      ],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Strong weighted score of 8.25, zero critical failures, compelling commercial viability score of 12, and clear developmental potential make this a strong RECOMMEND"
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "James's post-graduation economic uncertainty creates immediate narrative tension",
+      "goosebumps_moments": [
+        "Page 57: Em and James's intimate beach moment",
+        "Page 132: Confrontation revealing Em's affair with emotional complexity"
+      ],
+      "career_risk_test": "Would cautiously recommend with minor development",
+      "legacy_potential": "High - captures specific cultural moment with universal emotional resonance",
+      "disqualifying_factors": [
+        "Requires minor narrative refinement",
+        "Not quite reaching FILM NOW threshold"
+      ]
+    },
+    "verdict_statement": "Based on its authentic portrayal of post-collegiate uncertainty and rich character dynamics, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of James presents a strong attachment opportunity for an emerging leading man exploring nuanced emotional terrain."
+  }
+}

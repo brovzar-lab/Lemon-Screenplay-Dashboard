@@ -1,0 +1,169 @@
+{
+  "source_file": "level_up.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "level_up.pdf",
+    "page_count": 36,
+    "word_count": 5299
+  },
+  "analysis": {
+    "title": "Level UP",
+    "author": "Imani A. Hakim, with revisions by Josh Frazier",
+    "logline": "When her parents kick her out for gaming too much, a 22-year-old college graduate must find a new place to live and winds up renting an apartment directly above her parents.",
+    "genre": "Comedy",
+    "subgenres": [
+      "Coming-of-age",
+      "Millennial humor",
+      "Sitcom"
+    ],
+    "themes": [
+      "Independence",
+      "Growing up",
+      "Parent-child relationships",
+      "Gaming culture",
+      "Adulting"
+    ],
+    "tone": "Light-hearted, comedic with millennial sensibilities",
+    "dimension_scores": {
+      "concept": {
+        "score": 7,
+        "justification": "The concept of a gamer being kicked out by parents only to move in above them has clear comedic potential and relatable generational conflict, though it's not groundbreaking in its hook."
+      },
+      "structure": {
+        "score": 5,
+        "justification": "The script has basic TV pilot structure but lacks strong act breaks and substantive story progression. The competition to win the room feels contrived and the resolution comes too easily without meaningful obstacles."
+      },
+      "protagonist": {
+        "score": 6,
+        "justification": "Mikki is likable and has a clear goal (finding a place to live), but her character lacks depth beyond her gaming identity. Her journey feels superficial rather than transformative."
+      },
+      "supporting_cast": {
+        "score": 7,
+        "justification": "The supporting characters have distinctive personalities - Sam as the cam girl, Rocko as the nervous nerd, Logan as the fitness influencer, Seth as the man-child, and Mikki's contrasting parents. Each has a clear voice and role."
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "Dialogue is often witty and character-specific. Each character has a distinct voice, particularly with Mikki's parents and the clan members. However, some exchanges feel too on-the-nose or sitcom-formulaic."
+      },
+      "genre_execution": {
+        "score": 6,
+        "justification": "As a comedy, it delivers consistent humor but relies heavily on situational comedy tropes. Many jokes land, but the script lacks the deeper comedic insight or consistent laugh-out-loud moments needed for exceptional genre execution."
+      },
+      "originality": {
+        "score": 5,
+        "justification": "While the gaming angle adds freshness, the overall concept of adult children struggling with independence is familiar territory. The execution doesn't sufficiently elevate it beyond similar millennial comedy fare."
+      },
+      "weighted_score": 6.15
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Story lacks sufficient stakes or obstacles",
+      "Resolution comes too easily",
+      "Protagonist's growth feels superficial"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear young adult demographic that consumes media"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Premise is clear but not immediately compelling"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Lead role offers appeal for young diverse talent"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Gaming angle provides marketing opportunity"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low budget requirements relative to potential return"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Mixed success for similar young adult comedies"
+      },
+      "cvs_total": "14"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Traditional three-act TV pilot structure with cold open, though act breaks aren't strongly defined",
+      "pacing": "medium with some scenes feeling rushed while others drag slightly"
+    },
+    "characters": {
+      "protagonist": "Mikki, a 22-year-old college graduate and gamer whose goal is to find independence while maintaining her gaming lifestyle",
+      "antagonist": "Lola (mother), who pushes Mikki to grow up and get a real job",
+      "supporting": [
+        "Sam/Kandi - cam girl best friend with blunt personality",
+        "Rocko - nervous, socially awkward gamer with a crush on Mikki",
+        "Logan - fitness influencer roommate with shallow but distinct personality",
+        "Seth - older man-child roommate",
+        "Morris - Mikki's supportive father who balances Lola's strictness"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Opening scene where Mikki breaks the lamp while gaming",
+        "why": "Efficiently establishes Mikki's character, her relationship with her parents, and the inciting incident"
+      },
+      {
+        "scene": "The gaming competition where Mikki competes for the room",
+        "why": "Showcases Mikki's gaming skills and determination while creating comedic moments"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The House Bunny",
+        "similarity": "Young adult finding new housing with quirky roommates",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Neighbors",
+        "similarity": "Generational conflict in close proximity housing",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "18-34 year olds familiar with gaming culture",
+      "gender_skew": "neutral",
+      "interests": [
+        "Video games",
+        "Streaming content",
+        "Millennial/Gen Z humor",
+        "New adult comedies"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Limited locations, no special effects needed, small cast with no major stars required"
+    },
+    "assessment": {
+      "strengths": [
+        "Strong diverse cast of characters with distinct personalities",
+        "Clear comedic voice with several laugh-out-loud moments",
+        "Relatable millennial experiences",
+        "Gaming angle adds contemporary relevance"
+      ],
+      "weaknesses": [
+        "Plot feels thin and lacks meaningful complications",
+        "Resolution comes too easily without genuine character growth",
+        "Gaming competition sequence feels contrived",
+        "Premise doesn't fully deliver on its potential"
+      ],
+      "development_notes": [
+        "Raise the stakes by making Mikki's living situation more precarious",
+        "Create more meaningful conflict between Mikki and her parents beyond the initial argument",
+        "Develop a stronger arc for Mikki's character growth",
+        "Add more complications to the competition for the room"
+      ],
+      "marketability": "medium - appeals to a specific young adult demographic with gaming interests, but doesn't have broad four-quadrant appeal",
+      "recommendation": "CONSIDER",
+      "recommendation_rationale": "With a weighted score of 6.15, no critical failures, and a viable CVS of 14, this script meets the basic criteria for a CONSIDER. While not breaking new ground, it presents a serviceable comedy premise with development potential and clear audience appeal."
+    },
+    "verdict_statement": "This screenplay shows genuine comedic potential and cultural relevance but requires development attention to plot structure, character depth, and meaningful conflict. With strengthened stakes, more substantive character growth, and a more compelling central conflict, this project could achieve RECOMMEND status."
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "source_file": "THINGS WE LOST IN THE FIRE.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "THINGS WE LOST IN THE FIRE.pdf",
+    "page_count": 118,
+    "word_count": 20042
+  },
+  "analysis": {
+    "title": "Things We Lost in the Fire",
+    "author": "Allan Loeb",
+    "logline": "After her husband's tragic death, a grieving widow invites his heroin-addicted best friend to live with her family, forming an unexpected bond that helps them both confront their loss.",
+    "genre": "Drama",
+    "subgenres": [
+      "Family Drama",
+      "Recovery Story",
+      "Grief"
+    ],
+    "themes": [
+      "Grief",
+      "Addiction",
+      "Recovery",
+      "Family",
+      "Friendship",
+      "Healing"
+    ],
+    "tone": "Emotional, melancholic, ultimately hopeful",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "The concept of a widow inviting her late husband's drug-addicted friend into her home creates immediate dramatic tension. It's a fresh approach to exploring grief and recovery, with clear emotional stakes and a unique dynamic that creates opportunities for character growth."
+      },
+      "structure": {
+        "score": 7,
+        "justification": "The screenplay effectively builds from the tragedy, through integration of Jerry into the family, to his relapse and recovery. The structure follows a natural emotional progression, though some transitions feel abrupt and the middle section occasionally meanders."
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Audrey's journey from cold, emotionally numb widow to someone who can finally confront her grief is well-crafted. Her internal conflict about Jerry's presence and what he represents creates compelling drama. Her inability to cry until Jerry forces her to confront her loss creates a powerful arc."
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Jerry is nearly co-protagonist level, with a fully realized addiction/recovery arc. The children Harper and Dory have distinct personalities and meaningful roles in the story. Secondary characters like Howard, Kelly F, and Neal each have distinguishing traits and purposes beyond plot function."
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Characters have distinct voices - Jerry's raw honesty, Audrey's emotional restraint, Harper's precocious observations. Subtext is effectively used, particularly in scenes between Audrey and Jerry where their complicated feelings remain unspoken but clear."
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "The screenplay delivers on the promise of an emotional family drama, balancing the grief narrative with addiction recovery elements. It handles difficult emotional terrain without becoming melodramatic, providing catharsis through earned moments like Audrey's breakdown and Jerry's connection with the children."
+      },
+      "originality": {
+        "score": 7,
+        "justification": "While addiction and grief stories aren't uncommon, the specific dynamic between a widow and her husband's addict friend creates fresh territory. The screenplay avoids typical recovery story clichés but occasionally falls into predictable emotional beats."
+      },
+      "weighted_score": 7.75
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Some scenes in the middle section feel episodic without strong forward momentum"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Adult drama audiences, particularly women 25-54"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Widow invites deceased husband's addict friend to live with family"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Strong roles for two lead actors with awards potential"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Emotional journey from tragedy to healing"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Character-driven drama with limited locations, reasonable budget"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Mixed box office for similar dramas, but awards potential"
+      },
+      "cvs_total": "14"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1: Brian's death (p.25-30); Act 2: Jerry moves in and forms bonds; Midpoint: Jerry helps Dory put his head underwater; Act 2B: Jerry's relapse; Act 3: Recovery and finding a new normal",
+      "pacing": "medium with occasional slow stretches, especially in the middle section where some scenes feel repetitive"
+    },
+    "characters": {
+      "protagonist": "Audrey Burke, a grieving widow unable to process her emotions who makes the unexpected choice to invite her husband's addict friend into her home. Clear goal to maintain normalcy for her children.",
+      "antagonist": "Grief itself, with Jerry's addiction serving as a secondary antagonistic force",
+      "supporting": [
+        "Jerry Sunborne - recovering heroin addict with clear voice and struggle",
+        "Harper - precocious 10-year-old daughter struggling with loss",
+        "Dory - innocent 6-year-old son with childlike perspective",
+        "Howard - neighbor with unhappy marriage who offers Jerry work",
+        "Kelly F - NA member who helps Jerry's recovery"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Jerry helps Dory put his head underwater for the first time",
+        "why": "Emotionally powerful moment that shows Jerry connecting with the family in a way Brian couldn't"
+      },
+      {
+        "scene": "Audrey finally breaking down when Jerry reads Brian's list of things lost in the fire",
+        "why": "Cathartic emotional climax where Audrey finally confronts her grief"
+      },
+      {
+        "scene": "Kelly F asking questions about Brian at the dinner table",
+        "why": "Breaks the taboo of discussing the deceased, allowing the family to reminisce"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Manchester by the Sea",
+        "similarity": "Exploration of grief and unexpected guardianship, though less humor",
+        "box_office_relevance": "Mixed box office but critical acclaim and awards success"
+      },
+      {
+        "title": "Beautiful Boy",
+        "similarity": "Addiction story with family impact, though from different perspective",
+        "box_office_relevance": "Modest success, awards consideration"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "Adults 30-55, particularly those who appreciate character-driven dramas",
+      "gender_skew": "female",
+      "interests": [
+        "Character dramas",
+        "Family stories",
+        "Emotional journeys",
+        "Recovery narratives"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Character-driven drama with limited locations and no expensive set pieces"
+    },
+    "assessment": {
+      "strengths": [
+        "Well-developed characters with distinct voices and clear arcs",
+        "Emotionally authentic portrayal of grief and addiction without melodrama",
+        "Effective balance of painful moments with hope and connection",
+        "Strong roles with award potential for lead actors"
+      ],
+      "weaknesses": [
+        "Middle section occasionally feels episodic without strong momentum",
+        "Some supporting characters (Neal, Diane) remain underdeveloped",
+        "A few scenes feel repetitive in establishing the emotional dynamics",
+        "Potential romantic subplot between Audrey and Jerry is introduced then wisely abandoned, but creates some tonal confusion"
+      ],
+      "development_notes": [
+        "Consider tightening the middle section to maintain momentum",
+        "The economic situation could be clarified earlier - the false premise about mortgage payments is confusing",
+        "Explore opportunities to further develop the Kelly F character as she's introduced relatively late"
+      ],
+      "marketability": "medium - character-driven adult drama with awards potential but challenging theatrical prospects in current market; would likely need star attachments and festival play to maximize visibility",
+      "recommendation": "CONSIDER",
+      "recommendation_rationale": "With a weighted score of 7.75, strong character work, and no critical failures, this screenplay shows significant promise. However, it falls short of the 7.5 threshold for RECOMMEND due to some structural issues and moments where momentum lags. While commercially viable with a CVS of 14, particularly with the right cast attachments, it requires development to reach its full potential."
+    },
+    "verdict_statement": "This screenplay shows genuine emotional depth and character development but requires development attention to tighten its structure and maintain momentum throughout. With focused revisions to the middle section and clarification of certain story elements, this project could achieve RECOMMEND status."
+  }
+}

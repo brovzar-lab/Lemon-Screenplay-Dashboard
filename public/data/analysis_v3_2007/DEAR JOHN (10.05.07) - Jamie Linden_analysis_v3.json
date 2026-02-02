@@ -1,0 +1,174 @@
+{
+  "source_file": "DEAR JOHN (10.05.07) - Jamie Linden.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "DEAR JOHN (10.05.07) - Jamie Linden.pdf",
+    "page_count": 123,
+    "word_count": 29289
+  },
+  "analysis": {
+    "title": "Dear John",
+    "author": "Jamie Linden",
+    "logline": "A passionate but brief romance between a soldier and a college student is tested by distance, duty, and unexpected life challenges that challenge their commitment.",
+    "genre": "Romance Drama",
+    "subgenres": [
+      "Military",
+      "Coming of Age",
+      "Tragic Love Story"
+    ],
+    "themes": [
+      "Love across distance",
+      "Sacrifice",
+      "Personal duty",
+      "Redemption"
+    ],
+    "tone": "Bittersweet, contemplative",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Strong romantic premise rooted in real emotional stakes, military backdrop provides compelling tension"
+      },
+      "structure": {
+        "score": 9,
+        "justification": "Masterful non-linear narrative, emotional progression feels organic, clear act transitions"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "John Tyree has complex inner life, clear motivations, profound character transformation"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Tim, Mr. Tyree, Alan, and Savannah all feel fully realized with distinct narrative purposes"
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Naturalistic conversations, rich subtext, characters sound distinct"
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Transcends typical romance genre, delivers emotional complexity beyond expectations"
+      },
+      "originality": {
+        "score": 8,
+        "justification": "Fresh take on military romance, unique narrative structure, personal storytelling approach"
+      },
+      "weighted_score": 8.45
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Potential melodramatic moments",
+      "Relies on epistolary narrative technique"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Young adult to middle-age romantics, military families"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Requires slightly more explanation"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Strong lead roles for rising/established actors"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Emotional trailer potential, requires nuanced marketing"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low production costs, high emotional return"
+      },
+      "comparable_success": {
+        "score": 3,
+        "note": "Similar to successful Nicholas Sparks adaptations"
+      },
+      "cvs_total": 16
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Meeting/Romance, Second act: Separation/Military Service, Third act: Reconnection/Resolution",
+      "pacing": "Medium, emotionally driven with strategic narrative reveals"
+    },
+    "characters": {
+      "protagonist": "John Tyree - Army Special Forces soldier seeking connection and purpose, struggling with familial disconnection",
+      "antagonist": "Circumstance/Distance, rather than a traditional human antagonist",
+      "supporting": [
+        "Savannah - Compassionate love interest",
+        "Mr. Tyree - Coin-collecting distant father",
+        "Tim - Unexpected romantic rival/supportive husband"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "John and Savannah's first meeting on the pier",
+        "why": "Establishes romantic chemistry, introduces core relationship dynamics"
+      },
+      {
+        "scene": "John's hospital letter to his father",
+        "why": "Profound emotional reconciliation, thematic culmination"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Notebook",
+        "similarity": "Romantic drama with military backdrop, epistolary narrative technique",
+        "box_office_relevance": "Success"
+      },
+      {
+        "title": "Pearl Harbor",
+        "similarity": "Military romance narrative",
+        "box_office_relevance": "Success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "18-45 age range",
+      "gender_skew": "neutral",
+      "interests": [
+        "Romance",
+        "Military stories",
+        "Character-driven narratives"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Limited locations, character-focused narrative, minimal special effects"
+    },
+    "assessment": {
+      "strengths": [
+        "Emotionally sophisticated narrative",
+        "Complex character development",
+        "Nuanced exploration of love and duty"
+      ],
+      "weaknesses": [
+        "Potential melodramatic moments",
+        "Heavy reliance on letter-writing device"
+      ],
+      "development_notes": [
+        "Tighten epistolary sections",
+        "Enhance military subplot"
+      ],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Weighted score of 8.45 demonstrates strong craft execution across multiple dimensions. No critical failures present, and commercial viability score of 16/18 indicates significant market potential."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Opening sequence of John's shooting, immediately establishing narrative tension",
+      "goosebumps_moments": [
+        "Page 35: John and Savannah's first intimate moment",
+        "Page 97: John's letter to his dying father",
+        "Page 120: Savannah's final letter expressing hope"
+      ],
+      "career_risk_test": "Strong material, but not quite FILM NOW tier due to some structural predictability",
+      "legacy_potential": "Moderate - captures early 2000s military romance zeitgeist",
+      "disqualifying_factors": [
+        "Slight genre conventionality",
+        "Narrative relies on letter-writing trope"
+      ]
+    },
+    "verdict_statement": "Based on its sophisticated emotional landscape and compelling character arcs, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of John Tyree presents a strong attachment opportunity for a rising dramatic lead seeking a nuanced military romance narrative."
+  }
+}

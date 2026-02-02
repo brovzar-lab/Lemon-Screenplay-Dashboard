@@ -1,0 +1,178 @@
+{
+  "source_file": "MANAGEMENT (08.25.07) - Stephen Belber.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "MANAGEMENT (08.25.07) - Stephen Belber.pdf",
+    "page_count": 117,
+    "word_count": 21425
+  },
+  "analysis": {
+    "title": "Management",
+    "author": "Stephen Belber",
+    "logline": "A directionless motel night manager becomes obsessively infatuated with a corporate art saleswoman, pursuing her across the country in a quirky, unconventional love story.",
+    "genre": "Romantic Comedy/Drama",
+    "subgenres": [
+      "Indie Romance",
+      "Character Study",
+      "Quirky Comedy"
+    ],
+    "themes": [
+      "Personal Transformation",
+      "Unconventional Love",
+      "Finding Purpose"
+    ],
+    "tone": "Offbeat, tragicomic, bittersweet",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Unique premise of an unlikely romantic pursuit with genuine emotional depth. Subverts typical rom-com expectations."
+      },
+      "structure": {
+        "score": 7,
+        "justification": "Strong three-act structure with clear progression. Some pacing issues in middle act, but overall momentum sustained."
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Mike is a deeply sympathetic, complex character with clear want (Sue) and underlying need (purpose/connection). Substantial character arc."
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Richly drawn supporting characters like Al, Jerry, Trish, and Jango feel fully realized with distinct voices."
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Naturalistic, quirky dialogue with strong subtext. Characters have unique speech patterns."
+      },
+      "genre_execution": {
+        "score": 7,
+        "justification": "Effectively blends romantic comedy with dramatic elements. Unconventional but satisfying genre approach."
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Distinctive voice, unexpected narrative turns, and a genuinely fresh take on romantic pursuit and personal growth."
+      },
+      "weighted_score": 7.85
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasional pacing lag in second act",
+      "Some tonal shifts might challenge mainstream audiences"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Indie film fans, 25-45 age range"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Requires nuanced pitch"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong character roles for character actors"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Unique love story requires creative marketing"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Low-budget potential with festival circuit appeal"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to indie hits like 'Safety Not Guaranteed'"
+      },
+      "cvs_total": 12
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Motel setting, meeting Sue. Second act: Pursuit to Baltimore/Washington. Third act: Personal transformation",
+      "pacing": "Medium, with intentional narrative breathing room"
+    },
+    "characters": {
+      "protagonist": "Mike Cranshaw - Directionless motel night manager with genuine heart, seeking purpose and connection",
+      "antagonist": "Sue Clemmons - Emotionally guarded art saleswoman who initially resists Mike's pursuit",
+      "supporting": [
+        "Jerry (father) - Stoic, Vietnam veteran",
+        "Trish (mother) - Warm, dying but vital",
+        "Al - Quirky restaurant co-worker",
+        "Jango - Sue's ex-punk yogurt executive boyfriend"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Mike's spontaneous parachute landing in Jango's pool",
+        "why": "Represents Mike's transformative commitment and willingness to take radical risks"
+      },
+      {
+        "scene": "Cemetery love scene with Sue",
+        "why": "Emotionally raw, unexpected moment of connection and vulnerability"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Safety Not Guaranteed",
+        "similarity": "Quirky indie romance with unconventional pursuit",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Lost in Translation",
+        "similarity": "Offbeat romantic connection, character transformation",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-45, urban/suburban, indie film enthusiasts",
+      "gender_skew": "neutral",
+      "interests": [
+        "Unconventional love stories",
+        "Personal growth narratives",
+        "Character-driven indie films"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Minimal locations, character-focused narrative, limited production requirements"
+    },
+    "assessment": {
+      "strengths": [
+        "Unique protagonist journey",
+        "Authentic, unpredictable romantic narrative",
+        "Strong character development",
+        "Distinctive authorial voice"
+      ],
+      "weaknesses": [
+        "Potentially challenging tonal shifts",
+        "Requires patient audience",
+        "Unconventional narrative structure"
+      ],
+      "development_notes": [
+        "Tighten second act pacing",
+        "Clarify thematic connections earlier",
+        "Enhance marketing-friendly narrative beats"
+      ],
+      "marketability": "medium",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Strong weighted score of 7.85, no critical failures, compelling protagonist journey, and solid commercial viability score of 12/18 make this a worthwhile development project."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Mike's awkward wine delivery to Sue in motel room creates immediate intrigue",
+      "goosebumps_moments": [
+        "Page 52: Mike's spontaneous parachute landing",
+        "Page 96: Cemetery love scene with Sue",
+        "Page 122: Final reunion scene with Sue"
+      ],
+      "career_risk_test": "Strong potential, but not quite career-defining",
+      "legacy_potential": "Moderate - distinctive voice, but might feel dated in future",
+      "disqualifying_factors": [
+        "Requires nuanced marketing approach",
+        "Not universally accessible",
+        "Some tonal inconsistencies"
+      ]
+    },
+    "verdict_statement": "Based on its distinctive narrative voice and compelling character journey, this screenplay demonstrates genuine commercial and artistic potential. Mike's transformative pursuit of Sue offers a refreshingly unconventional take on romantic connection, with strong character roles presenting attractive attachment opportunities for indie-friendly actors."
+  }
+}

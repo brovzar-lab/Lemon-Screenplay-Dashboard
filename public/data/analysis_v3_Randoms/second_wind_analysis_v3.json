@@ -1,0 +1,176 @@
+{
+  "source_file": "second_wind.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "second_wind.pdf",
+    "page_count": 100,
+    "word_count": 18090
+  },
+  "analysis": {
+    "title": "Second Wind",
+    "author": "Briana Hansen",
+    "logline": "A disgraced wrestler-turned-criminal reluctantly becomes the hero he used to pretend to be when he saves his biggest fan from a kidnapping scheme orchestrated by his villainous former boss.",
+    "genre": "Action Comedy",
+    "subgenres": [
+      "Sports Comedy",
+      "Redemption Story"
+    ],
+    "themes": [
+      "Redemption",
+      "Identity",
+      "Finding purpose",
+      "Hero worship"
+    ],
+    "tone": "Quirky, self-aware comedy with heart",
+    "dimension_scores": {
+      "concept": {
+        "score": 7,
+        "justification": "The hook of a washed-up wrestler finding redemption through saving his biggest fan has commercial appeal and comedic potential. It blends wrestling entertainment with a crime plot, though the premise isn't wholly original."
+      },
+      "structure": {
+        "score": 6,
+        "justification": "The script follows a traditional three-act structure but has pacing issues with extended sequences that don't advance the plot. The story takes significant time to fully establish stakes, and some revelations feel rushed in the third act."
+      },
+      "protagonist": {
+        "score": 7,
+        "justification": "Mike has a clear arc from self-loathing criminal to renewed hero. His journey feels authentic, with well-established flaws and motivations. His transformation is earned through his connection with Cyndi, though his initial motivation could be clearer."
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Standout supporting characters, particularly Cyndi and Layla. Each has distinctive personality traits and dialogue patterns. Vern makes for an appropriately theatrical villain, and even minor characters like Heath and Tony have memorable moments."
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "Characters have distinct voices, particularly Cyndi's enthusiastic nerdiness and Layla's no-nonsense attitude. Some clever exchanges and running gags work well, though occasional exposition feels heavy-handed."
+      },
+      "genre_execution": {
+        "score": 6,
+        "justification": "The action comedy elements deliver familiar beats but lack distinctive set pieces. The wrestling backdrop is utilized but not fully exploited. Comedy is consistent though occasionally repetitive, and the action sequences are functional rather than exceptional."
+      },
+      "originality": {
+        "score": 6,
+        "justification": "While the wrestling backdrop provides some freshness, the redemption arc and kidnapping plot follow familiar patterns. The Star Trek fandom angle adds uniqueness, but the overall structure and character dynamics lean on established tropes."
+      },
+      "weighted_score": 6.65
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Pacing issues with extended sequences that don't advance the plot",
+      "Some plot revelations feel rushed in the third act",
+      "Action sequences could be more distinctive"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Appeals to wrestling fans and comedy audiences, though overlap isn't guaranteed"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Premise is clear but requires some explanation beyond one sentence"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Strong lead role for physical comedian; multiple supporting roles with actor appeal"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Wrestling redemption angle marketable but not immediately distinctive"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Action sequences and set pieces suggest medium budget; returns dependent on cast"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Mixed performance from wrestling-themed comedies and action comedies"
+      },
+      "cvs_total": "13"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 break around page 30 when Mike decides to help Cyndi, Act 2 break around page 75 when Mike's deception is revealed",
+      "pacing": "medium with slower middle section; extended character moments sometimes delay plot advancement"
+    },
+    "characters": {
+      "protagonist": "Mike Henslow, a depressed former wrestling star turned criminal enforcer with clear goal to find redemption",
+      "antagonist": "Vern Trapman, Mike's manipulative boss with theatrical villain energy and personal connection to Mike's past",
+      "supporting": [
+        "Cyndi 'Cyborg' Janson - enthusiastic Star Trek fan and Mike's biggest admirer",
+        "Layla Jane - sharp-witted cocktail waitress with hidden skills and romantic interest",
+        "Tony - dimwitted but loyal henchman",
+        "Richard Janson - eccentric billionaire and Cyndi's father"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Star Trek convention chase sequence",
+        "why": "Blends comedy with action while showcasing character dynamics"
+      },
+      {
+        "scene": "Final confrontation where Mike regains his fighting abilities",
+        "why": "Satisfying payoff to character arc with physical comedy and action"
+      },
+      {
+        "scene": "Cyndi's awkward attempt to flirt with Heath",
+        "why": "Genuinely funny character-driven comedy"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Wrestler",
+        "similarity": "Wrestling backdrop with fallen star, though much lighter tone",
+        "box_office_relevance": "success with niche audience"
+      },
+      {
+        "title": "Central Intelligence",
+        "similarity": "Odd couple dynamic, redemption arc, action comedy elements",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Nacho Libre",
+        "similarity": "Wrestling comedy with heart",
+        "box_office_relevance": "mixed"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-44 year old comedy fans",
+      "gender_skew": "slight male",
+      "interests": [
+        "wrestling",
+        "comedy",
+        "action",
+        "nerdy pop culture",
+        "redemption stories"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Action sequences, wrestling scenes, and helicopter finale require reasonable budget, but no extensive VFX"
+    },
+    "assessment": {
+      "strengths": [
+        "Memorable supporting characters, especially Cyndi's enthusiastic fandom",
+        "Well-executed comedic moments that blend character and situation",
+        "Satisfying character arc for the protagonist",
+        "Strong dialogue with distinct character voices"
+      ],
+      "weaknesses": [
+        "Plot pacing drags in middle sections with redundant scenes",
+        "Wrestling backdrop could be more integral to the story",
+        "Third act revelations about Vern and Tracy feel somewhat rushed",
+        "Some action sequences lack distinctive visual identity"
+      ],
+      "development_notes": [
+        "Tighten middle section to improve pacing while maintaining character moments",
+        "Develop more unique action set pieces that utilize wrestling moves/settings",
+        "Expand on the Vern/Grizz/Tracy backstory earlier to give third act revelations more impact",
+        "Find more opportunities to leverage the wrestling theme throughout"
+      ],
+      "marketability": "medium - requires strong casting to elevate commercial potential, but has built-in wrestling audience and comedic elements that could generate word-of-mouth",
+      "recommendation": "CONSIDER",
+      "recommendation_rationale": "With a weighted score of 6.65, strong characters, and no critical failures, the screenplay demonstrates potential. The CVS of 13 indicates commercial viability with the right execution. However, pacing issues and action execution prevent a RECOMMEND."
+    },
+    "verdict_statement": "This screenplay shows genuine comedic strength and distinctive character work but requires development attention to pacing and action sequence execution. With tightening of the middle section and more innovative use of the wrestling backdrop, this project could achieve RECOMMEND status."
+  }
+}

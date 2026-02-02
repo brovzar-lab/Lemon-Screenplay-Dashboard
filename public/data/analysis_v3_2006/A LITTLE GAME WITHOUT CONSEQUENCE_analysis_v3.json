@@ -1,0 +1,160 @@
+{
+  "source_file": "A LITTLE GAME WITHOUT CONSEQUENCE.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "A LITTLE GAME WITHOUT CONSEQUENCE.pdf",
+    "page_count": 113,
+    "word_count": 16450
+  },
+  "analysis": {
+    "title": "A Little Game Without Consequence",
+    "author": "Allan Loeb",
+    "logline": "A seemingly perfect couple play a dangerous game pretending to break up, which unravels their relationship and exposes the fragile boundaries of trust and commitment.",
+    "genre": "Romantic Comedy-Drama",
+    "subgenres": [
+      "Relationship Drama",
+      "Urban Romance"
+    ],
+    "themes": [
+      "Trust",
+      "Communication",
+      "Relationship Boundaries",
+      "Honesty"
+    ],
+    "tone": "Bittersweet, Introspective, Darkly Comedic",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Unique meta-narrative about testing relationship boundaries through a 'game' of pretend breakup"
+      },
+      "structure": {
+        "score": 7,
+        "justification": "Strong three-act progression with clear turning points, though middle section occasionally meanders"
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Claire has clear internal conflicts, active journey, and compelling character arc"
+      },
+      "supporting_cast": {
+        "score": 7,
+        "justification": "Distinct characters like Stuart, Patrick, and Alexandria add depth and complexity"
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Sharp, naturalistic dialogue with subtext and character-specific voices"
+      },
+      "genre_execution": {
+        "score": 7,
+        "justification": "Effectively blends romantic comedy elements with deeper dramatic exploration"
+      },
+      "originality": {
+        "score": 8,
+        "justification": "Innovative take on relationship dynamics, meta-commentary on romantic storytelling"
+      },
+      "weighted_score": 7.65
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Mid-act pacing inconsistencies",
+      "Occasional tonal shifts"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Broad appeal for 25-45 demographic interested in relationship dynamics"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Easily pitchable meta-relationship premise"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong character roles for mid-tier romantic leads"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Provocative tagline potential about relationship testing"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Modest budget requirements with potential for strong ROI"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to successful relationship dramedies"
+      },
+      "cvs_total": 15
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Meet couple, Second act: Breakup game, Third act: Consequences",
+      "pacing": "medium, with emotional complexity driving narrative"
+    },
+    "characters": {
+      "protagonist": "Claire - aspiring actress navigating relationship boundaries, goal of maintaining excitement and authenticity",
+      "antagonist": "Internal relationship dynamics and fear of routine",
+      "supporting": [
+        "Brad - stable partner",
+        "Stuart - potential romantic alternative",
+        "Alexandria - complicated friend"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Roof party revelation scene",
+        "why": "Dramatic turning point exposing relationship's fragility"
+      },
+      {
+        "scene": "Venice Beach breakdown",
+        "why": "Powerful emotional moment revealing Claire's internal struggle"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "(500) Days of Summer",
+        "similarity": "Meta-narrative approach to relationship exploration",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Blue Valentine",
+        "similarity": "Raw examination of relationship dynamics",
+        "box_office_relevance": "mixed"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-45, urban professionals",
+      "gender_skew": "neutral",
+      "interests": [
+        "Relationships",
+        "Urban Life",
+        "Personal Growth"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Character-driven drama with minimal production requirements"
+    },
+    "assessment": {
+      "strengths": [
+        "Nuanced exploration of relationship dynamics",
+        "Strong dialogue and character development",
+        "Innovative narrative structure"
+      ],
+      "weaknesses": [
+        "Occasional tonal inconsistencies",
+        "Some narrative contrivances",
+        "Potential audience fatigue with relationship games"
+      ],
+      "development_notes": [
+        "Tighten second act pacing",
+        "Clarify character motivations in mid-section",
+        "Refine tonal balance"
+      ],
+      "marketability": "high",
+      "recommendation": "CONSIDER",
+      "recommendation_rationale": "Strong concept and execution with minor developmental opportunities. Weighted score above 7.5 with compelling character work and innovative relationship exploration."
+    },
+    "verdict_statement": "This screenplay shows genuine depth and innovative storytelling about modern relationships. With targeted development to refine pacing and tonal consistency, this project could achieve RECOMMEND status, offering a nuanced, meta-theatrical exploration of love's complexities."
+  }
+}

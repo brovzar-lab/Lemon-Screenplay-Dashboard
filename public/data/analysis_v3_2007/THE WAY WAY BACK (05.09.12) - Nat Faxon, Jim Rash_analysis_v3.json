@@ -1,0 +1,169 @@
+{
+  "source_file": "THE WAY WAY BACK (05.09.12) - Nat Faxon, Jim Rash.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "THE WAY WAY BACK (05.09.12) - Nat Faxon, Jim Rash.pdf",
+    "page_count": 106,
+    "word_count": 18620
+  },
+  "analysis": {
+    "title": "The Way Way Back",
+    "author": "Nat Faxon & Jim Rash",
+    "logline": "A shy 14-year-old finds confidence and friendship during a transformative summer at a rundown waterpark, escaping a dysfunctional family dynamic with the help of an unconventional mentor.",
+    "genre": "Coming-of-Age Comedy-Drama",
+    "subgenres": [
+      "Summer Comedy",
+      "Indie Dramedy"
+    ],
+    "themes": [
+      "Self-Discovery",
+      "Found Family",
+      "Personal Empowerment",
+      "Escape from Toxic Relationships"
+    ],
+    "tone": "Bittersweet, Comedic with Emotional Depth",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Familiar coming-of-age framework elevated by unique waterpark setting and distinctive character dynamics"
+      },
+      "structure": {
+        "score": 9,
+        "justification": "Impeccable three-act structure with clear progression, organic character development, and satisfying emotional payoff"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Duncan's journey from passive, wounded teenager to confident individual is beautifully nuanced and emotionally authentic"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Rich, complex supporting characters with distinct voices, particularly Owen and Pam"
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Naturalistic, often hilarious dialogue that reveals character and maintains authentic teenage/adult communication rhythms"
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Masterful balance of comedic moments and genuine emotional depth, perfectly capturing adolescent vulnerability"
+      },
+      "originality": {
+        "score": 8,
+        "justification": "Fresh take on coming-of-age narrative with unique setting and unconventional mentor relationship"
+      },
+      "weighted_score": 8.45
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasional predictability in family drama subplot"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear appeal to teens, young adults, and nostalgic adults"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Requires slightly more explanation but fundamentally compelling"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Strong character roles for character actors and rising stars"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Requires creative marketing to capture summer comedy essence"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low-budget production with high potential indie crossover"
+      },
+      "comparable_success": {
+        "score": 3,
+        "note": "Similar to successful indie comedies like Little Miss Sunshine"
+      },
+      "cvs_total": 16
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Family dynamic setup, Second act: Waterpark discovery, Third act: Confrontation and transformation",
+      "pacing": "Medium, with consistent narrative momentum and emotional progression"
+    },
+    "characters": {
+      "protagonist": "Duncan: Shy 14-year-old seeking self-worth, transforms through waterpark experiences",
+      "antagonist": "Trent: Emotionally manipulative stepfather figure who undermines Duncan's self-esteem",
+      "supporting": [
+        "Owen: Unconventional mentor with genuine care for Duncan's development",
+        "Pam: Conflicted mother struggling with relationship dynamics",
+        "Susanna: Mature teenage neighbor who provides unexpected connection"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Duncan's first day at the waterpark, learning to be 'Pop 'N Lock'",
+        "why": "Hilarious and genuine moment of self-discovery and unexpected confidence"
+      },
+      {
+        "scene": "Confrontation at the beach party where Duncan exposes family tensions",
+        "why": "Emotionally raw scene revealing deeper family dysfunction"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Little Miss Sunshine",
+        "similarity": "Indie comedy-drama about personal transformation",
+        "box_office_relevance": "Success"
+      },
+      {
+        "title": "Adventureland",
+        "similarity": "Coming-of-age story set in summer workplace",
+        "box_office_relevance": "Mixed"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "13-35, with crossover appeal to nostalgic adults",
+      "gender_skew": "neutral",
+      "interests": [
+        "Coming-of-age stories",
+        "Summer comedies",
+        "Indie film enthusiasts"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Limited locations, character-driven narrative, minimal special effects"
+    },
+    "assessment": {
+      "strengths": [
+        "Authentic character development",
+        "Nuanced exploration of adolescent vulnerability",
+        "Genuine comedic moments balanced with emotional depth"
+      ],
+      "weaknesses": [
+        "Some predictability in family drama elements",
+        "Potential tonal challenges in marketing"
+      ],
+      "development_notes": [],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Strong weighted score of 8.45, zero critical failures, exceptional character work, and high commercial viability score of 16/18 make this a compelling recommendation."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Duncan's initial car ride, establishing power dynamics and emotional stakes within minutes",
+      "goosebumps_moments": [
+        "Page 92-93: Duncan's vulnerable conversation with Owen about self-worth",
+        "Page 101-102: Duncan's waterslide triumph",
+        "Page 106-108: Mother-son reconciliation in the station wagon"
+      ],
+      "career_risk_test": "Would recommend with confidence, but not quite at 'stake entire career' level",
+      "legacy_potential": "High likelihood of becoming a cult classic coming-of-age film",
+      "disqualifying_factors": [
+        "Slightly lacks absolute universality",
+        "Some familiar genre tropes"
+      ]
+    },
+    "verdict_statement": "Based on its authentic character development, nuanced exploration of adolescent vulnerability, and genuine comedic moments, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Owen presents a strong attachment opportunity for a character actor seeking a memorable supporting role."
+  }
+}

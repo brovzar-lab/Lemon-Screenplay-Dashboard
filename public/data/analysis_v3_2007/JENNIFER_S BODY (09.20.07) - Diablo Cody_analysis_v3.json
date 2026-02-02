@@ -1,0 +1,170 @@
+{
+  "source_file": "JENNIFER_S BODY (09.20.07) - Diablo Cody.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "JENNIFER_S BODY (09.20.07) - Diablo Cody.pdf",
+    "page_count": 115,
+    "word_count": 22585
+  },
+  "analysis": {
+    "title": "Jennifer's Body",
+    "author": "Diablo Cody",
+    "logline": "After a botched demonic sacrifice, a high school cheerleader becomes a man-eating monster, and her nerdy best friend must stop her murderous rampage.",
+    "genre": "Horror-Comedy",
+    "subgenres": [
+      "Supernatural",
+      "Teen Horror",
+      "Dark Comedy"
+    ],
+    "themes": [
+      "Female friendship",
+      "Power dynamics",
+      "Adolescent transformation",
+      "Demonic possession"
+    ],
+    "tone": "Darkly comedic, sardonic, visceral",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Unique subversion of teen horror tropes, fresh take on demonic possession narrative with witty female-centered perspective"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Tight three-act structure, clear narrative progression, inventive plot turns that feel both surprising and inevitable"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Needy is complex, active, transforms dramatically, with clear emotional through-line and agency"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Jennifer is a memorable antagonist, Chip provides emotional grounding, supporting characters feel distinct and lived-in"
+      },
+      "dialogue": {
+        "score": 9,
+        "justification": "Diablo Cody's signature stylized, razor-sharp dialogue with genuine teen vernacular and dark humor"
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Expertly balances horror and comedy, delivers genre expectations while subverting them intelligently"
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Distinctive voice, fresh feminist take on horror genre, meta-commentary on teen horror conventions"
+      },
+      "weighted_score": 8.6
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Potentially polarizing tone might limit broad audience appeal"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear teen/young adult demographic with horror/comedy crossover potential"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "One-sentence pitch sells itself immediately"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Strong lead roles for rising actors"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Provocative poster/trailer imagery guaranteed"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low budget, high potential returns"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Mixed horror-comedy track record"
+      },
+      "cvs_total": 16
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Fire/sacrifice, Second act: Jennifer's transformation, Third act: Needy's revenge",
+      "pacing": "fast with consistent momentum"
+    },
+    "characters": {
+      "protagonist": "Needy Lesnicki - nerdy, loyal best friend who transforms from passive to active hero",
+      "antagonist": "Jennifer Check - possessed cheerleader who becomes man-eating demon",
+      "supporting": [
+        "Chip Dove - boyfriend, provides emotional stakes",
+        "Toni Lesnicki - supportive single mother"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Jennifer's demonic sacrifice in forest",
+        "why": "Darkly comedic, unexpected genre subversion"
+      },
+      {
+        "scene": "Pool murder of Chip",
+        "why": "Visceral horror with emotional gut-punch"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Ginger Snaps",
+        "similarity": "Feminist horror with supernatural transformation",
+        "box_office_relevance": "cult success"
+      },
+      {
+        "title": "Heathers",
+        "similarity": "Dark teen comedy with sharp social commentary",
+        "box_office_relevance": "cult classic"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "16-30, gender-neutral",
+      "gender_skew": "neutral",
+      "interests": [
+        "horror",
+        "dark comedy",
+        "supernatural narratives"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Limited locations, young cast, genre-specific production needs"
+    },
+    "assessment": {
+      "strengths": [
+        "Distinctive authorial voice",
+        "Subversive genre approach",
+        "Complex female characters",
+        "Intelligent dialogue"
+      ],
+      "weaknesses": [
+        "Potentially niche appeal",
+        "Tonal shifts might alienate some viewers"
+      ],
+      "development_notes": [],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Weighted score of 8.60 with no critical failures, strong commercial viability score of 16/18, and exceptional genre execution warrant immediate development consideration."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Opening scene of Needy in psychiatric hospital immediately creates narrative intrigue",
+      "goosebumps_moments": [
+        "Page 100: Chip's brutal murder scene",
+        "Page 110: Needy's vengeful transformation",
+        "Page 42: Jennifer's first supernatural feeding"
+      ],
+      "career_risk_test": "Strong potential, but not quite career-defining",
+      "legacy_potential": "Likely cult classic status, represents important moment in feminist genre storytelling",
+      "disqualifying_factors": [
+        "Uneven tonal balance",
+        "Not quite transcendent enough for FILM NOW status"
+      ]
+    },
+    "verdict_statement": "Based on its distinctive voice, commercial potential, and genre-subverting narrative, this screenplay demonstrates genuine craft and merit that warrant immediate development consideration. The lead roles of Needy and Jennifer present compelling attachment opportunities for rising talent in the horror-comedy space."
+  }
+}

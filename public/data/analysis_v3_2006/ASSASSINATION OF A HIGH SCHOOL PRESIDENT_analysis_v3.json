@@ -1,0 +1,160 @@
+{
+  "source_file": "ASSASSINATION OF A HIGH SCHOOL PRESIDENT.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "ASSASSINATION OF A HIGH SCHOOL PRESIDENT.pdf",
+    "page_count": 118,
+    "word_count": 26300
+  },
+  "analysis": {
+    "title": "Assassination of a High School President",
+    "author": "Tim Calpin & Kevin Jakubowski",
+    "logline": "A sophomore school newspaper reporter uncovers a complex conspiracy involving SAT theft, drug dealing, and corruption at his Catholic high school.",
+    "genre": "Dark Comedy",
+    "subgenres": [
+      "Crime",
+      "High School",
+      "Noir"
+    ],
+    "themes": [
+      "Corruption",
+      "Truth-seeking",
+      "Coming of age",
+      "Journalism"
+    ],
+    "tone": "Sardonic, cynical, darkly humorous",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Unique noir-style high school investigative narrative with sharp satirical edge"
+      },
+      "structure": {
+        "score": 7,
+        "justification": "Well-constructed mystery with clear act breaks and progressive revelations"
+      },
+      "protagonist": {
+        "score": 8,
+        "justification": "Bobby Funke has clear goal, agency, distinctive voice, and compelling character arc"
+      },
+      "supporting_cast": {
+        "score": 9,
+        "justification": "Richly developed ensemble with distinct personalities and complex motivations"
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Razor-sharp, quotable lines with strong noir-style narration and distinct character voices"
+      },
+      "genre_execution": {
+        "score": 7,
+        "justification": "Effectively blends high school comedy with noir investigation, delivers genre expectations"
+      },
+      "originality": {
+        "score": 8,
+        "justification": "Fresh take on high school genre, subverts expectations with noir storytelling approach"
+      },
+      "weighted_score": 7.85
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Potentially controversial sexual themes",
+      "Dark tone might limit teen audience"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Teen/young adult market with sophisticated comedy taste"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Easily pitchable premise with unique angle"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Ensemble roles attractive to emerging actors"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Provocative title and premise create instant curiosity"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low production costs, potential cult following"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to Brick, but with more comedic approach"
+      },
+      "cvs_total": 15
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Inciting incident around page 15, midpoint twist around page 60, climax around page 100",
+      "pacing": "fast with consistent narrative momentum"
+    },
+    "characters": {
+      "protagonist": "Bobby Funke - sophomore journalist with noir detective sensibilities, seeking truth and professional validation",
+      "antagonist": "Marlon Piazza - student council VP running complex drug and grade-manipulation operation",
+      "supporting": [
+        "Francesca Fachini - manipulative love interest",
+        "Paul Moore - framed student body president",
+        "Rocky Raccoon - philosophical suspension room resident"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Paintball shooting in gymnasium",
+        "why": "Unexpected tonal shift, reveals deeper character complexity"
+      },
+      {
+        "scene": "Investigative montage revealing drug ring's origins",
+        "why": "Clever narrative construction, delivers complex exposition"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Brick",
+        "similarity": "Noir detective style in high school setting",
+        "box_office_relevance": "cult success"
+      },
+      {
+        "title": "Election",
+        "similarity": "Satirical high school political narrative",
+        "box_office_relevance": "critical success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "16-25 year olds",
+      "gender_skew": "neutral",
+      "interests": [
+        "dark comedy",
+        "investigative narratives",
+        "social satire"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Primarily high school locations, young cast, minimal production requirements"
+    },
+    "assessment": {
+      "strengths": [
+        "Distinctive narrative voice",
+        "Complex plot with multiple layers",
+        "Sharp, quotable dialogue",
+        "Unique genre blend"
+      ],
+      "weaknesses": [
+        "Potentially controversial sexual themes",
+        "Complex narrative might confuse some viewers"
+      ],
+      "development_notes": [
+        "Soften some explicit sexual references",
+        "Clarify narrative complexity in early acts"
+      ],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Exceptionally well-crafted screenplay demonstrating sophisticated storytelling, distinctive voice, and strong commercial potential. Weighted score and commercial viability strongly support development."
+    },
+    "verdict_statement": "Based on its razor-sharp wit, innovative narrative structure, and compelling protagonist, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. Bobby Funke presents a uniquely attachable lead role that could launch emerging talent."
+  }
+}

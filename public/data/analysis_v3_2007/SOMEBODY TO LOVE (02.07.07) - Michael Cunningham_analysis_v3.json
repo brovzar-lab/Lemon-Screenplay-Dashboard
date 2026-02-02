@@ -1,0 +1,165 @@
+{
+  "source_file": "SOMEBODY TO LOVE (02.07.07) - Michael Cunningham.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "SOMEBODY TO LOVE (02.07.07) - Michael Cunningham.pdf",
+    "page_count": 105,
+    "word_count": 21968
+  },
+  "analysis": {
+    "title": "Somebody to Love",
+    "author": "Michael Cunningham",
+    "logline": "A deeply intimate portrait of Freddie Mercury's life, exploring his musical genius, complex personal relationships, and ultimate tragedy during the AIDS crisis.",
+    "genre": "Biographical Drama",
+    "subgenres": [
+      "Music Biopic",
+      "LGBTQ Drama",
+      "Performance Documentary"
+    ],
+    "themes": [
+      "Identity",
+      "Artistic Ambition",
+      "Love",
+      "Fame",
+      "Mortality"
+    ],
+    "tone": "Operatic, Intimate, Celebratory yet Tragic",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Unique, operatic approach to Freddie Mercury's life that transcends traditional biopic formula, using music and theatrical storytelling as narrative framework"
+      },
+      "structure": {
+        "score": 9,
+        "justification": "Brilliantly non-linear narrative that moves fluidly through time, using Queen songs as emotional throughlines, with impeccable scene transitions"
+      },
+      "protagonist": {
+        "score": 10,
+        "justification": "Freddie Mercury is a complex, multi-dimensional character with crystal-clear desires, demonstrating extraordinary agency and transformative arc"
+      },
+      "supporting_cast": {
+        "score": 9,
+        "justification": "Christine, Jim, Peter Freestone, and band members are richly drawn with distinctive voices and deep emotional complexity"
+      },
+      "dialogue": {
+        "score": 9,
+        "justification": "Razor-sharp, witty dialogue with profound subtext, each character speaking in a unique register that reveals deep characterization"
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Masterful reinvention of music biopic genre, using opera and Queen's music as structural and emotional framework"
+      },
+      "originality": {
+        "score": 10,
+        "justification": "Groundbreaking narrative approach that treats a musician's life as a living opera, with unprecedented stylistic innovation"
+      },
+      "weighted_score": 9.35
+    },
+    "critical_failures": [],
+    "major_weaknesses": [],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Broad appeal across music fans, LGBTQ audiences, and drama enthusiasts"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "One-sentence pitch immediately compelling"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Multiple extraordinary roles for leading actors"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Queen's music, Freddie's iconic status provide instant recognition"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Modest budget with massive potential global returns"
+      },
+      "comparable_success": {
+        "score": 3,
+        "note": "Bohemian Rhapsody proved massive market for Queen biopic"
+      },
+      "cvs_total": 18
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Non-traditional structure using musical moments as narrative pivot points",
+      "pacing": "Fast with emotional depth, operatic rhythm"
+    },
+    "characters": {
+      "protagonist": "Freddie Mercury: Ambitious, complex musician seeking love and artistic immortality",
+      "antagonist": "Society's limitations, Freddie's internal conflicts",
+      "supporting": [
+        "Christine Carrington: Freddie's complex life partner",
+        "Jim Hutton: Freddie's late-life romantic partner",
+        "Peter Freestone: Loyal friend and confidant"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Live Aid performance sequence",
+        "why": "Captures Freddie's transcendent artistic power"
+      },
+      {
+        "scene": "Intimate moment with Jim discussing life's invented nature",
+        "why": "Reveals Freddie's profound philosophical depth"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Bohemian Rhapsody",
+        "similarity": "Queen biopic, but with far more artistic complexity",
+        "box_office_relevance": "Success"
+      },
+      {
+        "title": "A Star is Born",
+        "similarity": "Exploration of artistic passion and personal sacrifice",
+        "box_office_relevance": "Success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-55, music lovers, LGBTQ audiences, drama enthusiasts",
+      "gender_skew": "neutral",
+      "interests": [
+        "Music",
+        "Biographical Stories",
+        "LGBTQ Narratives",
+        "Performance"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Requires high-caliber actors, period settings, performance recreations"
+    },
+    "assessment": {
+      "strengths": [
+        "Innovative narrative structure",
+        "Profound character study",
+        "Masterful use of music as storytelling device",
+        "Emotionally nuanced portrayal of complex relationships"
+      ],
+      "weaknesses": [],
+      "development_notes": [],
+      "marketability": "high",
+      "recommendation": "FILM NOW",
+      "recommendation_rationale": "Exceptional screenplay demonstrating extraordinary craft, commercial potential, and artistic innovation. Weighted score of 9.35 with zero critical failures and maximum commercial viability."
+    },
+    "film_now_assessment": {
+      "qualifies": true,
+      "lightning_test": "Opening montage using 'We Will Rock You' immediately establishes unique narrative approach",
+      "goosebumps_moments": [
+        "Page 36-37: Live Aid performance sequence",
+        "Page 89-90: Freddie's vulnerable conversation with Jim about life's invented nature",
+        "Page 101-102: Final scene with dream ship and Freddie's transcendent acceptance"
+      ],
+      "career_risk_test": "Would absolutely stake professional reputation without hesitation",
+      "legacy_potential": "Likely to be remembered as groundbreaking music biography",
+      "disqualifying_factors": []
+    },
+    "verdict_statement": "FILM NOW: SOMEBODY TO LOVE represents exceptional material that demands immediate greenlight consideration. The Lightning: An operatic, genre-defying exploration of Freddie Mercury's life that transforms musical biography. The Craft: Weighted score of 9.35 with no dimension below 8. The Commercial Case: CVS of 18/18. Freddie Mercury's enduring cultural significance and Queen's global fanbase provide extraordinary star potential. Urgency: This screenplay will not remain available."
+  }
+}

@@ -1,0 +1,177 @@
+{
+  "source_file": "52 - A Single Point of Failure by Terry Huang 4 29 20 Draft.pdf",
+  "analysis_model": "claude",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "52 - A Single Point of Failure by Terry Huang 4 29 20 Draft.pdf",
+    "page_count": 110,
+    "word_count": 20619
+  },
+  "analysis": {
+    "title": "A Single Point of Failure",
+    "author": "Terry Huang",
+    "logline": "Following the tragic crashes of two Boeing 737 MAX jets, journalists and aviation experts uncover a corporate conspiracy to hide fatal design flaws while victims' families seek justice.",
+    "genre": "Drama",
+    "subgenres": [
+      "Investigative",
+      "Docudrama",
+      "Corporate Thriller"
+    ],
+    "themes": [
+      "Corporate greed",
+      "Regulatory failure",
+      "Journalistic integrity",
+      "Human cost of corporate negligence",
+      "Systemic corruption"
+    ],
+    "tone": "Sobering, urgent, procedural",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "The screenplay tackles a high-stakes, real-life corporate scandal with global consequences and clear moral stakes. The subject matter—corporate malfeasance leading to hundreds of deaths—is inherently compelling and timely."
+      },
+      "structure": {
+        "score": 7,
+        "justification": "The screenplay effectively juggles multiple timelines and perspectives, weaving together the Boeing engineering story, the journalists' investigation, and the human tragedy. Some transitions between storylines feel abrupt, and the narrative occasionally sacrifices momentum for comprehensiveness."
+      },
+      "protagonist": {
+        "score": 6,
+        "justification": "The script features an ensemble cast rather than a clear protagonist. Dominic Gates, the Seattle Times reporter, comes closest to a traditional protagonist with a clear goal (expose the truth), but his personal stakes and transformation remain underdeveloped."
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "The screenplay features a rich ensemble of distinct characters whose roles are clearly delineated—from the airline buyers (Eddy and Jeff) to the Boeing engineers to Paul Njoroge, whose devastating testimony provides emotional resonance. Each character serves a specific purpose in illuminating different aspects of the scandal."
+      },
+      "dialogue": {
+        "score": 7,
+        "justification": "The dialogue effectively distinguishes between characters and avoids excessive exposition. Technical explanations are handled clearly. The corporate executives speak with appropriate professional calculation, while the human moments (particularly Paul's testimony) carry emotional weight."
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "As an investigative drama, the screenplay delivers the expected pleasures of gradually uncovering a complex conspiracy. The screenplay effectively creates tension through the stakes of lives lost and the moral urgency of accountability, even though the audience likely knows the outcome."
+      },
+      "originality": {
+        "score": 7,
+        "justification": "While following in the tradition of corporate whistleblower films, the screenplay offers a fresh, multi-perspective approach to the material. The structure that weaves together multiple timelines and viewpoints provides a distinctive take on a familiar genre."
+      },
+      "weighted_score": 7.5
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Lack of a strongly developed central protagonist with personal stakes"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear appeal to adult audiences interested in prestige dramas and true stories"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Boeing knowingly hid fatal flaws in their bestselling plane is an easily communicated premise"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Multiple compelling roles for established actors across age ranges"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "The real-life disaster with corporate malfeasance angle offers clear marketing angles"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Mid-range budget appropriate for prestige drama, though period aspects and multiple locations add cost"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Recent corporate/investigative dramas have had mixed box office but strong awards recognition"
+      },
+      "cvs_total": "16"
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends around page 35 with the Lion Air crash investigation beginning; Act 2 break occurs around page 75 with the Ethiopia Air crash; final act focuses on accountability",
+      "pacing": "medium with effective tension in investigation sequences balanced by sometimes repetitive explanations of the technical issues"
+    },
+    "characters": {
+      "protagonist": "Dominic Gates, Seattle Times reporter who leads the investigation with clear goal of exposing Boeing's negligence, though personal stakes remain underdeveloped",
+      "antagonist": "Dennis Muilenburg, Boeing CEO who prioritizes corporate profits over safety and transparency",
+      "supporting": [
+        "Paul Njoroge, bereaved family member whose testimony provides the emotional core",
+        "Mark Forkner, Boeing test pilot who discovered but failed to effectively report MCAS issues",
+        "Mike Baker, reporter who works alongside Dominic",
+        "Grace, FAA regulator who becomes a whistleblower",
+        "Eddy and Jeff, airline buyers who provide industry context"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Opening sequence of the Lion Air crash",
+        "why": "Viscerally establishes the stakes with haunting audio and visuals"
+      },
+      {
+        "scene": "Paper airplane testing sequence where Dominic demonstrates the MAX design flaw",
+        "why": "Visually communicates complex engineering concepts in an accessible way"
+      },
+      {
+        "scene": "Paul Njoroge's congressional testimony",
+        "why": "Devastating emotional payoff that brings the human cost into sharp focus"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Spotlight",
+        "similarity": "Investigative journalists methodically uncovering an institutional coverup",
+        "box_office_relevance": "Success (Academy Award winner, $98M worldwide on $20M budget)"
+      },
+      {
+        "title": "The Big Short",
+        "similarity": "Complex financial/technical story made accessible through innovative storytelling techniques",
+        "box_office_relevance": "Success ($133M worldwide on $28M budget, Academy Award winner)"
+      },
+      {
+        "title": "Dark Waters",
+        "similarity": "Corporate malfeasance causing deaths and attorney seeking justice",
+        "box_office_relevance": "Mixed ($23M worldwide on $20M budget)"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "Adults 30-65 who consume news and engage with current events",
+      "gender_skew": "neutral",
+      "interests": [
+        "Investigative journalism",
+        "Corporate accountability",
+        "Political dramas",
+        "Current events",
+        "Aviation"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Multiple locations including international settings, period elements (2011-2019), ensemble cast with established actors, aviation sequences"
+    },
+    "assessment": {
+      "strengths": [
+        "Handles complex technical information with clarity and dramatic tension",
+        "Effectively balances multiple storylines and perspectives",
+        "Powerfully communicates the human cost of corporate negligence",
+        "Strong ensemble of distinct, well-drawn characters with clear motivations",
+        "Builds dramatic tension despite known historical outcome"
+      ],
+      "weaknesses": [
+        "Lacks a strongly developed central protagonist with personal stakes",
+        "Some narrative threads receive insufficient resolution",
+        "Certain explanatory sequences become repetitive",
+        "Occasional on-the-nose dialogue spelling out themes"
+      ],
+      "development_notes": [
+        "Develop Dominic's personal stakes in the story beyond professional obligation",
+        "Consider tightening the focus to fewer narrative threads for greater emotional impact",
+        "Look for opportunities to visually communicate technical concepts rather than explaining them in dialogue"
+      ],
+      "marketability": "high - combines prestigious awards potential with timely subject matter and roles for established actors. The proven track record of journalistic investigation dramas (Spotlight, All the President's Men) provides a clear marketing template",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "With a weighted score of 7.50, no critical failures, strong commercial viability score of 16, and only one major weakness, the screenplay meets the threshold requirements for a RECOMMEND. The compelling concept, strong supporting cast, and effective genre execution outweigh the underdeveloped protagonist issue."
+    },
+    "verdict_statement": "Based on its compelling examination of a consequential corporate scandal, strong ensemble cast, and effective balance of technical exposition with human drama, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. Multiple roles, including the journalists and Boeing executives, present strong attachment opportunities for established actors."
+  }
+}

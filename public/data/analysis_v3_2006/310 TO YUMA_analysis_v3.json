@@ -1,0 +1,157 @@
+{
+  "source_file": "310 TO YUMA.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "310 TO YUMA.pdf",
+    "page_count": 121,
+    "word_count": 24743
+  },
+  "analysis": {
+    "title": "3:10 to Yuma",
+    "author": "Michael Brandt, Derek Haas, Stuart Beattie, James Mangold",
+    "logline": "A struggling rancher volunteers to help transport a notorious outlaw to trial, facing impossible odds and testing his own moral limits in a dangerous journey across the Old West.",
+    "genre": "Western",
+    "subgenres": [
+      "Drama",
+      "Action",
+      "Psychological Thriller"
+    ],
+    "themes": [
+      "Moral integrity",
+      "Redemption",
+      "Survival",
+      "Masculinity",
+      "Economic desperation"
+    ],
+    "tone": "Gritty, morally complex",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Compelling reimagining of classic Western trope with deep psychological exploration of protagonist-antagonist relationship"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Tight three-act structure with clear progression, escalating stakes, and organic narrative momentum"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Dan Evans is richly developed, with clear motivations, internal conflict, and transformative arc"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Complex characters with distinct voices, particularly Ben Wade who transcends typical villain archetype"
+      },
+      "dialogue": {
+        "score": 9,
+        "justification": "Sharp, layered dialogue with subtext, character revelation, and thematic depth"
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Masterful Western storytelling that honors genre conventions while offering fresh psychological complexity"
+      },
+      "originality": {
+        "score": 8,
+        "justification": "Innovative character dynamics and psychological depth within familiar Western framework"
+      },
+      "weighted_score": 8.6
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Potential pacing issues in middle act"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Broad appeal across age ranges interested in complex character studies"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Immediately compelling one-sentence pitch"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Multiple star-level roles"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Clear visual and thematic trailer potential"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Modest budget with strong commercial potential"
+      },
+      "comparable_success": {
+        "score": 3,
+        "note": "Similar to successful Western reimaginings"
+      },
+      "cvs_total": 18
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Evans' ranch struggle, Second act: Journey with Wade, Third act: Contention confrontation",
+      "pacing": "fast with consistent narrative tension"
+    },
+    "characters": {
+      "protagonist": "Dan Evans - struggling rancher seeking redemption and financial survival",
+      "antagonist": "Ben Wade - charismatic outlaw with complex moral code",
+      "supporting": [
+        "William Evans (son)",
+        "Alice Evans (wife)",
+        "Charlie Prince (gang leader)"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Rooftop chase in Contention",
+        "why": "Demonstrates narrative creativity and character dynamics under extreme pressure"
+      },
+      {
+        "scene": "Dinner scene at Evans ranch",
+        "why": "Reveals complex psychological interactions between Wade and Evans family"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "True Grit",
+        "similarity": "Psychological Western with moral complexity",
+        "box_office_relevance": "success"
+      },
+      {
+        "title": "Unforgiven",
+        "similarity": "Deconstructed Western mythology",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-65 years old",
+      "gender_skew": "neutral",
+      "interests": [
+        "Historical drama",
+        "Character-driven narratives",
+        "Moral complexity"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "Requires period settings, action sequences, and strong cast"
+    },
+    "assessment": {
+      "strengths": [
+        "Nuanced character development",
+        "Exceptional dialogue",
+        "Subversive genre approach",
+        "Psychological depth"
+      ],
+      "weaknesses": [
+        "Potential pacing challenges in middle section",
+        "Complex narrative might challenge some viewers"
+      ],
+      "development_notes": [],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Exceptional screenplay demonstrating rare combination of artistic merit and commercial potential, with weighted score of 8.60 and zero critical failures"
+    },
+    "verdict_statement": "Based on its exceptional character dynamics, thematic richness, and genre-elevating approach, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. Ben Wade presents a particularly strong attachment opportunity for a complex leading actor."
+  }
+}

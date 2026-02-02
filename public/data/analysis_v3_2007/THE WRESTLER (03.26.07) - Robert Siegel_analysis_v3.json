@@ -1,0 +1,173 @@
+{
+  "source_file": "THE WRESTLER (03.26.07) - Robert Siegel.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "THE WRESTLER (03.26.07) - Robert Siegel.pdf",
+    "page_count": 126,
+    "word_count": 25857
+  },
+  "analysis": {
+    "title": "The Wrestler",
+    "author": "Rob Siegel",
+    "logline": "An aging professional wrestler struggling to find meaning outside the ring attempts to reconnect with his estranged daughter and build a relationship with a stripper while confronting his physical limitations.",
+    "genre": "Drama",
+    "subgenres": [
+      "Sports Drama",
+      "Character Study",
+      "Redemption Story"
+    ],
+    "themes": [
+      "Identity",
+      "Masculinity",
+      "Aging",
+      "Redemption",
+      "Performance"
+    ],
+    "tone": "Melancholic, raw, introspective",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Unique exploration of an aging wrestler's struggle, offering a deeply human look at identity beyond performance"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Tight three-act structure with clear progression, organic character development, and emotionally resonant narrative arc"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Randy is a complex, fully realized character with clear wants and profound internal conflict, creating deep audience empathy"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Nuanced characters like Pam and Anthony feel authentic, with distinct voices and meaningful relationships to Randy"
+      },
+      "dialogue": {
+        "score": 9,
+        "justification": "Naturalistic, lived-in dialogue that reveals character psychology without feeling contrived"
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Masterful deconstruction of sports/wrestling drama, transcending genre expectations with emotional depth"
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Fresh, unsentimental approach to masculine identity, performance, and aging rarely seen in contemporary cinema"
+      },
+      "weighted_score": 8.8
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Potential romanticization of self-destructive behavior"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Specific demographic (sports/drama fans, 30-55)"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Compelling one-sentence pitch"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Exceptional lead role for established actor"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Wrestling backdrop provides unique visual storytelling"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low budget, high potential critical acclaim"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to critically successful character studies"
+      },
+      "cvs_total": 14
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Wrestling/personal life setup, Second act: Relationship development, Third act: Existential confrontation",
+      "pacing": "Medium, deliberately contemplative with moments of intense energy"
+    },
+    "characters": {
+      "protagonist": "Randy 'The Ram' Robinson - Aging wrestler seeking meaning beyond performance, struggling with identity and personal connections",
+      "antagonist": "Internal psychological barriers and physical limitations",
+      "supporting": [
+        "Pam/Cassidy - Nuanced stripper with her own performance-based survival strategy",
+        "Anthony - Pam's son, representing potential for genuine connection",
+        "Stephanie - Estranged daughter symbolizing Randy's past failures"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Randy's emotional breakdown after being locked out of his trailer",
+        "why": "Reveals profound vulnerability beneath performative masculinity"
+      },
+      {
+        "scene": "Wrestling match where Randy experiences heart attack",
+        "why": "Visceral representation of physical and metaphorical breaking point"
+      },
+      {
+        "scene": "Final wrestling performance",
+        "why": "Heartbreaking commitment to identity despite personal cost"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Raging Bull",
+        "similarity": "Deconstruction of masculine performance and physical decline",
+        "box_office_relevance": "Critical success"
+      },
+      {
+        "title": "Rocky Balboa",
+        "similarity": "Aging athlete confronting limitations",
+        "box_office_relevance": "Commercial success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "35-55, predominantly male",
+      "gender_skew": "Male",
+      "interests": [
+        "Sports",
+        "Character-driven drama",
+        "Performance arts"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Intimate character study with minimal production requirements"
+    },
+    "assessment": {
+      "strengths": [
+        "Exceptional character development",
+        "Nuanced exploration of masculinity",
+        "Authentic dialogue",
+        "Emotionally resonant narrative"
+      ],
+      "weaknesses": [
+        "Potentially limited commercial appeal",
+        "Requires sophisticated audience"
+      ],
+      "development_notes": [],
+      "marketability": "medium",
+      "recommendation": "FILM NOW",
+      "recommendation_rationale": "Exceptional narrative craftsmanship with profound character exploration, achieving near-perfect execution across all dimensions with a compelling weighted score of 8.80 and zero critical failures"
+    },
+    "film_now_assessment": {
+      "qualifies": true,
+      "lightning_test": "Opening wrestling montage immediately establishes visceral, melancholic tone",
+      "goosebumps_moments": [
+        "Page 35: Randy's vulnerable conversation about performance",
+        "Page 108: Final wrestling scene revealing complete character arc",
+        "Page 111: Conversation with estranged daughter"
+      ],
+      "career_risk_test": "Would absolutely stake professional reputation on this screenplay",
+      "legacy_potential": "Likely to be remembered as a landmark exploration of masculinity and performance",
+      "disqualifying_factors": []
+    },
+    "verdict_statement": "FILM NOW: THE WRESTLER represents exceptional material that demands immediate greenlight consideration. The Lightning: A heartbreaking exploration of an aging wrestler's quest for meaning beyond performance. The Craft: Weighted score of 8.80 with no dimension below 8. The Commercial Case: CVS of 14/18. Mickey Rourke represents extraordinary star potential. Urgency: This screenplay will not remain available."
+  }
+}

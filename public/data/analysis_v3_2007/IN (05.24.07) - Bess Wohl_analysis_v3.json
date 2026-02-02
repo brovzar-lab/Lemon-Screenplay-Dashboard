@@ -1,0 +1,175 @@
+{
+  "source_file": "IN (05.24.07) - Bess Wohl.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "IN (05.24.07) - Bess Wohl.pdf",
+    "page_count": 109,
+    "word_count": 22392
+  },
+  "analysis": {
+    "title": "IN",
+    "author": "Bess Wohl",
+    "logline": "A Harvard-educated SAT tutor becomes entangled with a wealthy Greenwich family, helping their privileged son apply to college while navigating complex personal and ethical boundaries.",
+    "genre": "Drama",
+    "subgenres": [
+      "Coming-of-Age",
+      "Social Commentary",
+      "Psychological Thriller"
+    ],
+    "themes": [
+      "Privilege",
+      "Ambition",
+      "Moral Compromise",
+      "Identity",
+      "Class Dynamics"
+    ],
+    "tone": "Nuanced, introspective, morally complex",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "justification": "Unique exploration of college admissions process through lens of SAT tutor's moral dilemma; fresh perspective on privilege and aspiration"
+      },
+      "structure": {
+        "score": 7,
+        "justification": "Strong three-act progression with clear narrative momentum, though middle act has some pacing challenges"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Sara is deeply complex, with clear wants/needs, active agency, and compelling internal conflict"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Richly drawn characters like Pammie, Jordy, and Joseph feel like fully realized individuals"
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Sharp, naturalistic dialogue with strong subtext and distinct character voices"
+      },
+      "genre_execution": {
+        "score": 7,
+        "justification": "Effectively navigates drama/coming-of-age expectations with nuanced storytelling"
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Distinctive voice, unexpected narrative turns, deep societal commentary"
+      },
+      "weighted_score": 8.15
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Potential ethical ambiguity around protagonist's actions",
+      "Unresolved narrative tension in third act"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Literary drama with niche appeal"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Requires explanation beyond simple pitch"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Strong character-driven roles for emerging/mid-career actors"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Requires sophisticated marketing approach"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low-budget production potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Limited commercial comparables"
+      },
+      "cvs_total": 14
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: SAT tutoring world setup; Second act: Jordy/Anders family dynamics; Third act: Moral confrontation",
+      "pacing": "medium, deliberate with increasing tension"
+    },
+    "characters": {
+      "protagonist": "Sara Jacobs - Harvard-educated SAT tutor with literary ambitions, seeking validation and opportunity",
+      "antagonist": "Pammie Anders - Wealthy, manipulative mother who ultimately steals Sara's manuscript",
+      "supporting": [
+        "Jordy Anders - Privileged teenager struggling with familial expectations",
+        "Joseph Jacobs - Sara's intellectual, supportive father",
+        "Arthur Anders - Aggressive, calculating businessman"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Tennis match between Sara and Lauren",
+        "why": "Brilliant metaphorical competition revealing character dynamics"
+      },
+      {
+        "scene": "Sara and Jordy discussing his college application essay",
+        "why": "Reveals complex power dynamics and mutual understanding"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Thoroughbreds",
+        "similarity": "Privileged youth, moral ambiguity",
+        "box_office_relevance": "mixed"
+      },
+      {
+        "title": "The Squid and the Whale",
+        "similarity": "Intellectual family dynamics",
+        "box_office_relevance": "success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "25-40, college-educated",
+      "gender_skew": "neutral",
+      "interests": [
+        "literary fiction",
+        "social commentary",
+        "coming-of-age narratives"
+      ]
+    },
+    "budget_tier": {
+      "category": "low",
+      "justification": "Limited locations, character-driven narrative"
+    },
+    "assessment": {
+      "strengths": [
+        "Nuanced exploration of privilege",
+        "Complex character development",
+        "Sharp, observant dialogue"
+      ],
+      "weaknesses": [
+        "Potentially challenging narrative resolution",
+        "Limited commercial appeal"
+      ],
+      "development_notes": [
+        "Clarify third act moral positioning",
+        "Enhance marketability of thematic elements"
+      ],
+      "marketability": "medium",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Strong character work, distinctive voice, and compelling exploration of social dynamics merit development. Weighted score of 8.15 indicates significant narrative potential with targeted refinement."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "SAT tutoring scene introducing systemic educational inequities",
+      "goosebumps_moments": [
+        "Page 84: Jordy reading Sara's manuscript passage",
+        "Page 106: Confrontation between Sara and Jordy",
+        "Page 108: Sara's resolve to begin writing again"
+      ],
+      "career_risk_test": "Promising but not definitively career-defining",
+      "legacy_potential": "Moderate - captures specific generational zeitgeist",
+      "disqualifying_factors": [
+        "Narrative resolution lacks complete clarity",
+        "Limited commercial scalability"
+      ]
+    },
+    "verdict_statement": "Based on its nuanced exploration of privilege, educational aspiration, and moral complexity, this screenplay demonstrates genuine craft and thematic depth. While requiring targeted development, the project offers a compelling character study that could attract discerning talent and audiences interested in sophisticated social commentary."
+  }
+}

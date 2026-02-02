@@ -1,0 +1,172 @@
+{
+  "source_file": "THE WEDDING PARTY - Francesca Marciano.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "THE WEDDING PARTY - Francesca Marciano.pdf",
+    "page_count": 108,
+    "word_count": 25207
+  },
+  "analysis": {
+    "title": "The Wedding Party",
+    "author": "Francesca Marciano",
+    "logline": "In war-torn Afghanistan, a young man's betrayal of his village to American forces during a wedding leads to devastating consequences that span decades of conflict.",
+    "genre": "Historical Drama",
+    "subgenres": [
+      "War Drama",
+      "Cultural Epic",
+      "Tragedy"
+    ],
+    "themes": [
+      "Betrayal",
+      "Loyalty",
+      "Survival",
+      "Cultural Transformation",
+      "Consequences of Collaboration"
+    ],
+    "tone": "Tragic, intimate, uncompromising",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Unique perspective on Afghan conflict through personal betrayal, spanning multiple historical periods with remarkable narrative complexity"
+      },
+      "structure": {
+        "score": 9,
+        "justification": "Masterful multi-generational narrative with precise historical context, seamless time transitions, and thematic consistency"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "Abdur's complex moral journey from naive youth to compromised collaborator creates profound character study"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Rich, nuanced characters like Malik, Zaphira, and Mansur feel deeply authentic and culturally specific"
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Multilayered dialogue captures cultural nuance, power dynamics, and unspoken tensions"
+      },
+      "genre_execution": {
+        "score": 9,
+        "justification": "Exceptional handling of war drama genre, avoiding clichés and presenting complex geopolitical realities through intimate human lens"
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Unprecedented exploration of Afghan conflict's human cost through generational narrative with remarkable cultural specificity"
+      },
+      "weighted_score": 8.8
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Potential cultural sensitivity challenges",
+      "Complex narrative might challenge mainstream audiences"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Sophisticated viewers interested in geopolitical drama"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Requires nuanced explanation"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Multiple compelling roles for diverse casting"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Requires careful, thoughtful campaign"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Modest international/art house potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to critically acclaimed but commercially modest films"
+      },
+      "cvs_total": 13
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "First act: Youth/British invasion, Second act: Soviet conflict, Third act: American intervention",
+      "pacing": "deliberate, with intense momentum"
+    },
+    "characters": {
+      "protagonist": "Abdur Raman - young man whose personal betrayal becomes metaphor for larger cultural transformation",
+      "antagonist": "Systemic political violence, represented by successive foreign interventions",
+      "supporting": [
+        "Malik Azam: tribal leader",
+        "Zaphira: complex female character",
+        "Mansur: childhood friend"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Wedding sequence interrupted by American airstrike",
+        "why": "Devastating moment crystallizing personal and political tragedy"
+      },
+      {
+        "scene": "Abdur's initial collaboration with Americans",
+        "why": "Nuanced exploration of survival and moral compromise"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Kite Runner",
+        "similarity": "Afghan cultural narrative, personal betrayal",
+        "box_office_relevance": "mixed"
+      },
+      {
+        "title": "Hurt Locker",
+        "similarity": "Complex war drama perspective",
+        "box_office_relevance": "critical success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "30-55, globally conscious viewers",
+      "gender_skew": "neutral",
+      "interests": [
+        "International relations",
+        "Cultural studies",
+        "War history"
+      ]
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "justification": "Intimate scale, limited locations, character-driven narrative"
+    },
+    "assessment": {
+      "strengths": [
+        "Unprecedented cultural perspective",
+        "Extraordinary narrative complexity",
+        "Profound character development"
+      ],
+      "weaknesses": [
+        "Challenging narrative structure",
+        "Requires sophisticated audience"
+      ],
+      "development_notes": [
+        "Potential for clarifying narrative transitions",
+        "Consider marketing strategy emphasizing cultural richness"
+      ],
+      "marketability": "medium",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Weighted score of 8.80 demonstrates exceptional craft with minor development potential. Strong cultural insights, complex character journey, and profound thematic exploration recommend immediate development."
+    },
+    "film_now_assessment": {
+      "qualifies": true,
+      "lightning_test": "Opening sequence of young Abdur witnessing British retreat creates immediate narrative tension",
+      "goosebumps_moments": [
+        "Page 23: Abdur's first encounter with Stewart",
+        "Page 105: Wedding airstrike sequence",
+        "Page 64: Malik's rejection of Abdur"
+      ],
+      "career_risk_test": "Absolutely. Represents transformative storytelling about complex geopolitical realities",
+      "legacy_potential": "High - offers unprecedented perspective on decades of Afghan conflict",
+      "disqualifying_factors": []
+    },
+    "verdict_statement": "FILM NOW: THE WEDDING PARTY represents exceptional material that demands immediate greenlight consideration. The Lightning: A young man's betrayal becomes a metaphor for generations of political violence. The Craft: Weighted score of 8.80 with no dimension below 8. The Commercial Case: CVS of 13/18. Timothée Chalamet or Dev Patel present extraordinary casting opportunities. Urgency: This screenplay will not remain available."
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "source_file": "WILD WILD EAST (03.31.06) - Chase Palmer.pdf",
+  "analysis_model": "claude-haiku",
+  "analysis_version": "v3_strict_thresholds",
+  "metadata": {
+    "filename": "WILD WILD EAST (03.31.06) - Chase Palmer.pdf",
+    "page_count": 121,
+    "word_count": 23402
+  },
+  "analysis": {
+    "title": "Wild Wild East",
+    "author": "Chase Palmer",
+    "logline": "A former U.S. military operative turned 'fixer' in Ukraine navigates a complex web of drug trafficking, political corruption, and personal redemption while unraveling the truth behind a colleague's mysterious disappearance.",
+    "genre": "Espionage Thriller",
+    "subgenres": [
+      "Political Thriller",
+      "Crime Drama",
+      "Neo-Western"
+    ],
+    "themes": [
+      "Redemption",
+      "Corruption",
+      "Moral Ambiguity",
+      "Systemic Violence"
+    ],
+    "tone": "Dark, cynical, morally complex",
+    "dimension_scores": {
+      "concept": {
+        "score": 9,
+        "justification": "Unique geopolitical thriller exploring post-Soviet corruption through a morally compromised protagonist with personal stakes"
+      },
+      "structure": {
+        "score": 8,
+        "justification": "Intricate plot with clear act breaks, progressive complications, and surprising narrative turns that feel organic"
+      },
+      "protagonist": {
+        "score": 9,
+        "justification": "The Fixer is a deeply complex character with clear motivation, active agency, and a compelling arc of potential redemption"
+      },
+      "supporting_cast": {
+        "score": 8,
+        "justification": "Rich, multi-dimensional characters like Vita, Kindrachuk, and Neeka who have clear motivations and narrative purpose"
+      },
+      "dialogue": {
+        "score": 8,
+        "justification": "Sharp, economical dialogue with cultural nuance, subtext, and distinct character voices"
+      },
+      "genre_execution": {
+        "score": 8,
+        "justification": "Masterful blend of espionage thriller conventions with fresh post-Soviet context and moral complexity"
+      },
+      "originality": {
+        "score": 9,
+        "justification": "Distinctive voice exploring systemic corruption through a global lens rarely seen in mainstream cinema"
+      },
+      "weighted_score": 8.55
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Occasional pacing complexity might challenge mainstream audiences"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Sophisticated adult audiences interested in geopolitical narratives"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Requires nuanced pitch, multiple sentences to explain"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Strong character-driven roles attractive to serious actors"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Requires creative marketing to capture complex narrative"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Modest budget with high potential international appeal"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar to critically successful but not blockbuster international thrillers"
+      },
+      "cvs_total": 15
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Clear breaks at Afghanistan opening, Kiev arrival, and final confrontation",
+      "pacing": "Fast with deliberate moments of character depth"
+    },
+    "characters": {
+      "protagonist": "The Fixer - morally compromised ex-military operative seeking redemption, clear goal of exposing systemic corruption",
+      "antagonist": "Multiple antagonists including Kindrachuk, Cheever, representing different forms of institutional corruption",
+      "supporting": [
+        "Vita Lysenko - complex political figure",
+        "Neeka - transformative love interest",
+        "Darko - blind but dangerous enforcer"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "scene": "Subway confrontation with multiple factions",
+        "why": "Masterful tension, multiple narrative threads converging"
+      },
+      {
+        "scene": "The Fixer's confession at U.S. Embassy",
+        "why": "Reveals complex moral landscape of military operations"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Sicario",
+        "similarity": "Moral complexity in systemic violence",
+        "box_office_relevance": "Success"
+      },
+      {
+        "title": "The Night Manager",
+        "similarity": "International intrigue, corrupt systems",
+        "box_office_relevance": "Success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "35-55 sophisticated viewers",
+      "gender_skew": "neutral",
+      "interests": [
+        "Geopolitics",
+        "Espionage",
+        "Complex Moral Narratives"
+      ]
+    },
+    "budget_tier": {
+      "category": "medium ($10-50M)",
+      "justification": "International locations, complex action sequences, quality cast required"
+    },
+    "assessment": {
+      "strengths": [
+        "Unique geopolitical perspective",
+        "Morally complex protagonist",
+        "Intricate, surprising plot",
+        "Rich character development"
+      ],
+      "weaknesses": [
+        "Narrative complexity might challenge some viewers",
+        "Requires sophisticated audience"
+      ],
+      "development_notes": [],
+      "marketability": "medium",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Weighted score of 8.55 demonstrates exceptional craft across multiple dimensions. Strong commercial viability score of 15 indicates international market potential. Zero critical failures and rich narrative complexity recommend immediate development."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Afghanistan opening sequence with military ambush creates immediate narrative tension",
+      "goosebumps_moments": [
+        "Page 20: The Fixer's revelation about military drug operations",
+        "Page 85: Confrontation revealing systemic corruption",
+        "Page 117: Protagonist's potential redemption moment"
+      ],
+      "career_risk_test": "Strong potential, but slightly below absolute FILM NOW threshold",
+      "legacy_potential": "High - offers nuanced exploration of post-Soviet global dynamics",
+      "disqualifying_factors": [
+        "Requires slight narrative refinement",
+        "One dimension below 9"
+      ]
+    },
+    "verdict_statement": "Based on strong geopolitical narrative complexity and The Fixer's compelling character journey, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role presents a nuanced character study with significant attachment potential for a serious dramatic actor."
+  }
+}
