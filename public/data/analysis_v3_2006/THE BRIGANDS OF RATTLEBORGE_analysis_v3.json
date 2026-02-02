@@ -152,5 +152,14 @@
       "recommendation_rationale": "Exceptional screenplay demonstrates remarkable craft, philosophical depth, and genre innovation. Weighted score and commercial viability strongly support immediate development."
     },
     "verdict_statement": "Based on its extraordinary psychological complexity, genre-defying narrative, and profound exploration of revenge and morality, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Roger Pickman presents a powerful vehicle for a mature, nuanced actor seeking a transformative character study."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-01-31T02:08:56.621735",
+    "confidence": "medium"
   }
 }

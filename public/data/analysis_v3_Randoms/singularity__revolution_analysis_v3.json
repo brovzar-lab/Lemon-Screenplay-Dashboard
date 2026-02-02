@@ -174,5 +174,14 @@
       "recommendation_rationale": "With a weighted score of 6.85, no critical failures, and a CVS of 13, this screenplay shows promise but requires development. The concept and protagonist are strong enough to warrant consideration, but structural issues and supporting character development need attention."
     },
     "verdict_statement": "This screenplay shows genuine conceptual strength and visual potential but requires development attention to pacing issues and supporting character depth. With tightened training sequences and more distinct characterization beyond the protagonist, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:58.089038",
+    "confidence": "high"
   }
 }

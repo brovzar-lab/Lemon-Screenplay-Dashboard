@@ -181,5 +181,14 @@
       "recommendation_rationale": "Despite a strong concept (8) and memorable characters (7), the screenplay's weighted score (6.55) falls below the CONSIDER threshold. The critical failure of tone incoherence combined with structural problems in the third act would require significant development beyond 1-2 drafts."
     },
     "verdict_statement": "While 'Kill Grandma' offers a genuinely original concept with strong marketable elements and memorable characters (particularly Chester), this screenplay suffers from fundamental tonal inconsistency and a convoluted third act with multiple endings. The development investment required to address these structural issues while maintaining the script's comedic and horror strengths exceeds the value of the current material."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:42.001358",
+    "confidence": "medium"
   }
 }

@@ -158,5 +158,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: THE REVENANT represents exceptional material that demands immediate greenlight consideration. The Lightning: A brutally realistic survival revenge narrative that redefines the western genre. The Craft: Weighted score of 8.80 with no dimension below 8. The Commercial Case: CVS of 17/18. Leonardo DiCaprio presents extraordinary star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 281957,
+    "tmdb_title": "The Revenant",
+    "release_date": "2015-12-25",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:20.157573",
+    "confidence": "high"
   }
 }

@@ -134,5 +134,14 @@
       "recommendation_rationale": "Cannot evaluate a screenplay without the actual text. The submission appears to be missing the screenplay content despite indicating a 115 page count."
     },
     "verdict_statement": "While the title 'The Mighty Flynn' suggests potential, no actual screenplay text was provided for evaluation. The development investment required cannot be assessed without the fundamental material to review."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:41:53.058075",
+    "confidence": "high"
   }
 }

@@ -176,5 +176,14 @@
       "recommendation_rationale": "With a weighted score of 7.75, no critical failures, exceptional originality (9), strong protagonist (8), and high CVS (16), this screenplay exceeds the RECOMMEND threshold. While there are minor structural issues, the exceptional premise, character development, and emotional authenticity elevate this project to a clear RECOMMEND."
     },
     "verdict_statement": "Based on its strikingly original premise, exceptional character development, and perfect balance of absurdity with genuine emotion, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Lars presents a strong attachment opportunity for a character actor seeking award recognition."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 6615,
+    "tmdb_title": "Lars and the Real Girl",
+    "release_date": "2007-10-12",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:35.200501",
+    "confidence": "high"
   }
 }

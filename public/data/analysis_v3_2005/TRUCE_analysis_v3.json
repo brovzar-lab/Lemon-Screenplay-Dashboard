@@ -134,5 +134,14 @@
       "recommendation_rationale": "Unable to evaluate as the provided submission contains no actual screenplay text despite listing a page count of 111. Without content to analyze, the screenplay automatically receives the lowest possible scores across all categories."
     },
     "verdict_statement": "While the submission indicates a screenplay titled 'TRUCE' with 111 pages, no actual screenplay text was provided for analysis. Without content to evaluate, it is impossible to assess the script's merits or commercial potential. A complete submission with the full screenplay text would be required for proper evaluation."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 41829,
+    "tmdb_title": "Truce",
+    "release_date": "2005-01-01",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:00.296302",
+    "confidence": "high"
   }
 }

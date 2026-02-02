@@ -180,5 +180,14 @@
       ]
     },
     "verdict_statement": "Based on nuanced character development and compelling family dynamics, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The potential for a star-driven medical family drama with both comedic and dramatic elements presents a strong attachment opportunity."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 694674,
+    "tmdb_title": "The Wrecking Balls",
+    "release_date": "2019-10-19",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:59.961250",
+    "confidence": "high"
   }
 }

@@ -174,5 +174,14 @@
       "recommendation_rationale": "With a weighted score of 8.15, no critical failures, and an exceptional CVS of 17, this screenplay demonstrates both creative excellence and commercial viability. The concept scores a 9, and no dimension scores below 7, meeting all threshold requirements for a RECOMMEND verdict."
     },
     "verdict_statement": "Based on its compelling true-crime premise, exceptional character development, and atmospheric period execution, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The dual roles of Sandy Fawkes and Paul John Knowles present strong attachment opportunities for prestige talent."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:28.492111",
+    "confidence": "medium"
   }
 }

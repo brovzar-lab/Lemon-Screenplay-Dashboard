@@ -166,5 +166,14 @@
       ]
     },
     "verdict_statement": "Based on its sophisticated exploration of female agency in 18th century England, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Georgiana presents a transformative opportunity for a leading actress to deliver a career-defining performance."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 12783,
+    "tmdb_title": "The Duchess",
+    "release_date": "2008-09-05",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:58.913006",
+    "confidence": "high"
   }
 }

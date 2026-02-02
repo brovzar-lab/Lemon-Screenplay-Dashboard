@@ -174,5 +174,14 @@
       ]
     },
     "verdict_statement": "Based on its razor-sharp comedic deconstruction of 70s sci-fi heroism, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Buff Taggart presents a strong comedic showcase that could attract top-tier comedy talent."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:44:10.549369",
+    "confidence": "high"
   }
 }

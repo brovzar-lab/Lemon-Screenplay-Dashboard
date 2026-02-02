@@ -157,5 +157,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: BURN AFTER READING represents exceptional material that demands immediate greenlight consideration. The Lightning: A fired CIA analyst's memoirs trigger a hilarious institutional meltdown. The Craft: Weighted score of 8.80 with no dimension below 8. The Commercial Case: CVS of 18/18. George Clooney and Frances McDormand present star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 4944,
+    "tmdb_title": "Burn After Reading",
+    "release_date": "2008-09-05",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:40.068104",
+    "confidence": "high"
   }
 }

@@ -165,5 +165,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: SNOWTOWN represents exceptional material that demands immediate greenlight consideration. The Lightning: A chilling psychological descent into serial killer manipulation. The Craft: Weighted score of 8.70 with no dimension below 8. The Commercial Case: CVS of 14/18. Daniel Henshall as John Bunting presents extraordinary star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 67748,
+    "tmdb_title": "Snowtown",
+    "release_date": "2011-05-19",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:01.129308",
+    "confidence": "high"
   }
 }

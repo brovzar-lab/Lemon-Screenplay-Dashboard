@@ -169,5 +169,14 @@
       "recommendation_rationale": "With a weighted score of 8.05, no critical failures, and exceptional CVS of 17, this screenplay exceeds all threshold requirements for a RECOMMEND. Its compelling concept, strong character work, and commercial viability create an immediately producible package."
     },
     "verdict_statement": "Based on its exceptionally timely AI premise, morally complex protagonist, and skillfully escalating thriller elements, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Kenton and Bobby present strong attachment opportunities for established actors looking for complex, contemporary material."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 838240,
+    "tmdb_title": "Robot Dreams",
+    "release_date": "2023-12-06",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:53.583006",
+    "confidence": "high"
   }
 }

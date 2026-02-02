@@ -171,5 +171,14 @@
       ]
     },
     "verdict_statement": "Based on strong ensemble dynamics and unique comedic approach, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The Michael/Josh/Cliff trio presents a compelling attachment opportunity for rising comic actors seeking breakthrough ensemble roles."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:42:30.492536",
+    "confidence": "high"
   }
 }

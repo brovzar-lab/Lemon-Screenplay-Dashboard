@@ -170,5 +170,14 @@
       ]
     },
     "verdict_statement": "Based on strong character development and authentic comedic voice, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Sawyer presents a strong attachment opportunity for a rising young actor looking to showcase nuanced comedic performance."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 895267,
+    "tmdb_title": "Pictures of You",
+    "release_date": "2021-08-27",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:46.290384",
+    "confidence": "high"
   }
 }

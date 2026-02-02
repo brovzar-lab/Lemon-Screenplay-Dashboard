@@ -8,6 +8,7 @@ import type { Screenplay } from '@/types';
 import { RECOMMENDATION_CONFIG, DIMENSION_CONFIG } from '@/types';
 import { getScoreColorClass, getScoreBarFillClass } from '@/lib/calculations';
 import { useComparisonStore, useIsSelectedForComparison, useIsComparisonFull } from '@/stores/comparisonStore';
+import { ProductionBadge } from './ProductionBadge';
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
@@ -162,6 +163,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
         <span className="chip">
           {screenplay.collection.replace(' Black List', '')}
         </span>
+        <ProductionBadge tmdbStatus={screenplay.tmdbStatus} compact />
       </div>
 
       {/* Logline */}

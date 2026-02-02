@@ -143,6 +143,11 @@ function passesFilters(screenplay: Screenplay, filters: FilterState): boolean {
     }
   }
 
+  // Hide produced films (TMDB validation)
+  if (filters.hideProduced && screenplay.tmdbStatus?.isProduced) {
+    return false;
+  }
+
   return true;
 }
 
@@ -304,6 +309,7 @@ export function useHasActiveFilters(): boolean {
     filters.roiIndicatorRange.enabled ||
     filters.showFilmNowOnly ||
     filters.hidePassRated ||
-    filters.hasCriticalFailures !== null
+    filters.hasCriticalFailures !== null ||
+    !filters.hideProduced // Show as active filter when hiding is disabled (since default is true)
   );
 }

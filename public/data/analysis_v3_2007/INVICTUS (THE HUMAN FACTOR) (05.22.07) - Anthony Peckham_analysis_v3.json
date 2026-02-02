@@ -158,5 +158,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: INVICTUS represents exceptional material that demands immediate greenlight consideration. The Lightning: Mandela's strategic use of rugby to heal a fractured nation. The Craft: Weighted score of 9.30 with no dimension below 8. The Commercial Case: CVS of 18/18. Morgan Freeman/Matt Damon star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 22954,
+    "tmdb_title": "Invictus",
+    "release_date": "2009-12-11",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:20.229363",
+    "confidence": "high"
   }
 }

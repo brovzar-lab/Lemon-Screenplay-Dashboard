@@ -169,5 +169,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: ART OF MAKING MONEY represents exceptional material that demands immediate greenlight consideration. The Lightning: A counterfeiter's journey from economic desperation to artistic mastery. The Craft: Weighted score of 8.45 with no dimension below 8. The Commercial Case: CVS of 17/18. Multiple star-making roles. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:42:28.269335",
+    "confidence": "high"
   }
 }

@@ -116,5 +116,14 @@
       "recommendation_rationale": "There is no screenplay content to evaluate. The submission appears to be an empty PDF or contains no readable text, making analysis impossible."
     },
     "verdict_statement": "While the title 'THE LONG D' might suggest potential content, the actual submission contains no readable screenplay text for evaluation. The development investment required to address this fundamental issue (creating an entire screenplay from scratch) exceeds the value of the current material, which is nonexistent."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 1511729,
+    "tmdb_title": "The Long Departure",
+    "release_date": "2025-11-11",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:50.714798",
+    "confidence": "high"
   }
 }

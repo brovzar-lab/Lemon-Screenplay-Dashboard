@@ -175,5 +175,14 @@
       ]
     },
     "verdict_statement": "Based on its distinctive voice, compelling character dynamics, and genuine emotional depth, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The sibling roles of Chad and Joy present strong attachment opportunities for nuanced performers seeking complex character work."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 274479,
+    "tmdb_title": "Joy",
+    "release_date": "2015-12-24",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:25.120111",
+    "confidence": "high"
   }
 }

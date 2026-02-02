@@ -174,5 +174,14 @@
       ]
     },
     "verdict_statement": "Based on compelling character dynamics, razor-sharp dialogue, and a unique noir world, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. Nick the Saint presents a strong antihero role with significant actor attachment potential."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:43:08.012375",
+    "confidence": "high"
   }
 }

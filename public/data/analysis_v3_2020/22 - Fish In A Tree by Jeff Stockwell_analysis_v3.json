@@ -173,5 +173,14 @@
       "recommendation_rationale": "With a weighted score of 7.60, no critical failures, and a strong CVS of 16, this screenplay demonstrates significant strengths in concept, character development, and marketability. While not quite reaching RECOMMEND threshold (needs 7.5+ weighted score with 8+ concept), it shows substantial promise with targeted development."
     },
     "verdict_statement": "This screenplay shows genuine emotional depth and educational value but requires development attention to secondary storyline integration and pacing in the middle section. With tighter connections between family dynamics and Ally's school journey, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:11.492871",
+    "confidence": "high"
   }
 }

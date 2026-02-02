@@ -172,5 +172,14 @@
       ]
     },
     "verdict_statement": "Based on its compelling ensemble dynamics and unique exploration of family identity, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The Charles and Conrad roles present strong attachment opportunities for character actors seeking meaty, complex performances."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 1311981,
+    "tmdb_title": "Relativity",
+    "release_date": "2023-05-01",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:51.163074",
+    "confidence": "high"
   }
 }

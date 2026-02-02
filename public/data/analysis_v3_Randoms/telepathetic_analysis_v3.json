@@ -165,5 +165,14 @@
       "recommendation_rationale": "With a weighted score of 6.5, above-average dialogue and supporting cast, and good commercial viability score of 14, this script shows genuine potential. While not exceptional enough for a RECOMMEND, it has no critical failures and demonstrates clear talent with fixable issues."
     },
     "verdict_statement": "This screenplay shows genuine comedic voice and a marketable premise but requires development attention to strengthen the protagonist's arc and deliver a more satisfying resolution to the central concept. With a more defined character transformation and stronger exploration of the 'accidental psychic' premise, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:46:00.263852",
+    "confidence": "high"
   }
 }

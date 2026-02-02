@@ -173,5 +173,14 @@
       "recommendation_rationale": "With a weighted score of 7.50, no critical failures, strong commercial viability score of 16, and only one major weakness, the screenplay meets the threshold requirements for a RECOMMEND. The compelling concept, strong supporting cast, and effective genre execution outweigh the underdeveloped protagonist issue."
     },
     "verdict_statement": "Based on its compelling examination of a consequential corporate scandal, strong ensemble cast, and effective balance of technical exposition with human drama, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. Multiple roles, including the journalists and Boeing executives, present strong attachment opportunities for established actors."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:20.796122",
+    "confidence": "high"
   }
 }

@@ -164,5 +164,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: Valkyrie represents exceptional material that demands immediate greenlight consideration. The Lightning: A one-eyed officer's desperate attempt to assassinate Hitler from within the Nazi system. The Craft: Weighted score of 8.55 with no dimension below 8. The Commercial Case: CVS of 17/18. Tom Cruise presents transformative star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 2253,
+    "tmdb_title": "Valkyrie",
+    "release_date": "2008-12-25",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:44.616054",
+    "confidence": "high"
   }
 }

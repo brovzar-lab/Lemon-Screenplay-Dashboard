@@ -160,5 +160,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: SLUMDOG MILLIONAIRE represents exceptional material that demands immediate greenlight consideration. The Lightning: A slum boy's life story revealed through a game show quest. The Craft: Weighted score of 9.20 with no dimension below 8. The Commercial Case: CVS of 18/18. Dev Patel emerges as star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 12405,
+    "tmdb_title": "Slumdog Millionaire",
+    "release_date": "2008-11-12",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:58.683857",
+    "confidence": "high"
   }
 }

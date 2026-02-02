@@ -173,5 +173,14 @@
       "recommendation_rationale": "With a weighted score of 7.75, exceptional protagonist (9), and strong genre execution (8), this script meets the threshold for a recommend. The commercial viability score of 15 indicates strong market potential, particularly with the timely subject matter and castable lead role."
     },
     "verdict_statement": "Based on its emotionally complex protagonist, effective blending of psychological and supernatural elements, and powerful thematic exploration of trauma, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The lead role of Anna presents an exceptional attachment opportunity for a 30-something actress seeking a challenging, multidimensional character."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 88682,
+    "tmdb_title": "Natascha: The Girl in the Cellar",
+    "release_date": "2010-03-20",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:46:07.127704",
+    "confidence": "high"
   }
 }

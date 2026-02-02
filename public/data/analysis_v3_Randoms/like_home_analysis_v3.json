@@ -172,5 +172,14 @@
       "recommendation_rationale": "With a weighted score of 7.40, strong commercial viability (CVS 15), and no critical failures, this screenplay demonstrates significant merit. The fresh concept and strong character work justify development attention, though structural issues in the second act prevent a recommend verdict."
     },
     "verdict_statement": "This screenplay shows genuine craft in its fresh horror take on Oz mythology and strong character development, but requires development attention to tighten second-act structure and better integrate exposition. With more cohesive progressive complications and organic backstory revelation, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 416310,
+    "tmdb_title": "There's No Place like Home",
+    "release_date": "1977-02-20",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:46.691050",
+    "confidence": "high"
   }
 }

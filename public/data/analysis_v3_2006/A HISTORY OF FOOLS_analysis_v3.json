@@ -152,5 +152,14 @@
       "recommendation_rationale": "High weighted score, zero critical failures, exceptional commercial viability score, and a distinctive narrative voice make this a compelling development opportunity."
     },
     "verdict_statement": "Based on its extraordinary dialogue, inventive concept, and Miles' captivating narrative voice, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The protagonist presents a uniquely attachable role for a young, breakout talent."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:42:04.886661",
+    "confidence": "high"
   }
 }

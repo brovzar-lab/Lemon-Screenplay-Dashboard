@@ -160,5 +160,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: 36 (ANIMALS) represents exceptional material that demands immediate greenlight consideration. The Lightning: A generational crime drama revealing systemic police corruption through personal tragedy. The Craft: Weighted score of 8.75 with no dimension below 8. The Commercial Case: CVS of 17/18. Joaquin Phoenix or Ryan Gosling as Frank Bruno presents extraordinary star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:42:19.038996",
+    "confidence": "high"
   }
 }

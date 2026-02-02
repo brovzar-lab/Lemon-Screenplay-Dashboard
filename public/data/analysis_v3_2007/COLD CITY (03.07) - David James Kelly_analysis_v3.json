@@ -164,5 +164,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: COLD CITY represents exceptional material that demands immediate greenlight consideration. The Lightning: Nine murdered sex workers and a broken detective's quest for redemption. The Craft: Weighted score of 8.65 with no dimension below 8. The Commercial Case: CVS of 17/18. Joaquin Phoenix or Christian Bale as Dwight Mueller. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:42:44.677104",
+    "confidence": "medium"
   }
 }

@@ -175,5 +175,14 @@
       "recommendation_rationale": "With a weighted score of 6.95, no critical failures, and a solid CVS of 14, this script meets the criteria for CONSIDER. While falling just short of RECOMMEND threshold, its authentic character development, timely themes, and unique perspective make it a strong CONSIDER with clear development path to potential RECOMMEND status."
     },
     "verdict_statement": "This screenplay shows genuine emotional intelligence and a fresh perspective on issues of identity and acceptance, but requires development attention to structural issues and pacing. With more cohesive integration of the dual narratives and stronger resolution pacing, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:26.334062",
+    "confidence": "medium"
   }
 }

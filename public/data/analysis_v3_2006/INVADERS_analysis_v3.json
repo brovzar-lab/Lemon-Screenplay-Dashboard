@@ -156,5 +156,14 @@
       "recommendation_rationale": "Strong weighted score of 7.55, zero critical failures, robust commercial viability score of 15, and clear commercial potential in the thriller genre."
     },
     "verdict_statement": "Based on its innovative geopolitical thriller mechanics and Cale Fallon's compelling character journey, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Cale presents a strong attachment opportunity for a rising or established action star."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 298166,
+    "tmdb_title": "Invaders",
+    "release_date": "2014-10-18",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:14.362122",
+    "confidence": "high"
   }
 }

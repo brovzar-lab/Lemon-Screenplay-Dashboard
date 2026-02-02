@@ -169,5 +169,14 @@
       "recommendation_rationale": "With a weighted score of 6.35 and no critical failures, this screenplay shows genuine comedic potential. While some dimensions lack depth, the core concept and distinctive comedic voice offer development potential. The CVS of 11 indicates viable commercial prospects with the right execution."
     },
     "verdict_statement": "This screenplay shows genuine comedic invention and a distinctive absurdist sensibility but requires development attention to supporting character depth and second act pacing issues. With more dimension to Janine's character and a streamlined middle section, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 10071,
+    "tmdb_title": "The Brothers Solomon",
+    "release_date": "2007-09-07",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:42.603663",
+    "confidence": "high"
   }
 }

@@ -115,5 +115,14 @@
       "recommendation_rationale": "Unable to evaluate the screenplay as no text was provided in the submission. The document appears to be a PDF file name without actual content for analysis."
     },
     "verdict_statement": "While the title 'Honeymoon with Harry' suggests potential for a relationship-focused narrative, no actual screenplay text was provided for evaluation. The lack of content makes it impossible to assess any aspect of the screenplay's quality, commercial viability, or development potential."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:41:32.522103",
+    "confidence": "medium"
   }
 }

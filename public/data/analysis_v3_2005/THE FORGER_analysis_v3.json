@@ -171,5 +171,14 @@
       "recommendation_rationale": "With a weighted score of 7.5, strong concept (8), no critical failures, and a high CVS of 15, the screenplay meets the threshold requirements for RECOMMEND. The emotionally resonant father-son story elevates this beyond a standard heist film, making it both commercially viable and creatively satisfying."
     },
     "verdict_statement": "Based on its emotionally compelling father-son relationship, well-executed heist elements, and strong character development, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Ray Cutter, Joseph, and Tommy Keating present strong attachment opportunities for established actors who could elevate the material further."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 101325,
+    "tmdb_title": "The Forger",
+    "release_date": "2011-03-09",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:45.479703",
+    "confidence": "high"
   }
 }

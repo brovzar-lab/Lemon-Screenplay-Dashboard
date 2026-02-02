@@ -173,5 +173,14 @@
       ]
     },
     "verdict_statement": "Based on its razor-sharp dialogue and profound character exploration, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Paul presents a compelling character study that could attract a nuanced character actor seeking meaningful dramatic material."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:44:05.863143",
+    "confidence": "medium"
   }
 }

@@ -111,5 +111,14 @@
       "recommendation_rationale": "Unable to evaluate screenplay due to complete absence of text. Mandatory PASS given lack of material to assess."
     },
     "verdict_statement": "While the title suggests potential, the complete absence of screenplay text makes any meaningful evaluation impossible. This submission cannot be considered for development."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-01-31T02:08:08.179990",
+    "confidence": "high"
   }
 }

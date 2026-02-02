@@ -161,5 +161,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: SOMEBODY TO LOVE represents exceptional material that demands immediate greenlight consideration. The Lightning: An operatic, genre-defying exploration of Freddie Mercury's life that transforms musical biography. The Craft: Weighted score of 9.35 with no dimension below 8. The Commercial Case: CVS of 18/18. Freddie Mercury's enduring cultural significance and Queen's global fanbase provide extraordinary star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 1164794,
+    "tmdb_title": "Somebody to Love",
+    "release_date": "2011-01-01",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:03.530207",
+    "confidence": "high"
   }
 }

@@ -67,6 +67,9 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
     setFestivalAppealRange,
     roiIndicatorRange,
     setRoiIndicatorRange,
+    // Display Options
+    hideProduced,
+    setHideProduced,
     // Actions
     resetFilters,
   } = useFilterStore();
@@ -123,6 +126,36 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
 
         {/* Content - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {/* Display Options Section */}
+          <Section
+            title="Display Options"
+            isOpen={activeSection === 'display'}
+            onToggle={() => toggleSection('display')}
+          >
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={hideProduced}
+                    onChange={(e) => setHideProduced(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-black-700 rounded-full peer peer-checked:bg-gold-500/50 transition-colors" />
+                  <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-black-400 rounded-full transition-all peer-checked:translate-x-5 peer-checked:bg-gold-400" />
+                </div>
+                <div>
+                  <span className="text-sm text-gold-200 group-hover:text-gold-100">
+                    Hide produced films
+                  </span>
+                  <p className="text-xs text-black-500">
+                    Exclude screenplays that became movies
+                  </p>
+                </div>
+              </label>
+            </div>
+          </Section>
+
           {/* Genre & Theme Section */}
           <Section
             title="Genre & Theme"

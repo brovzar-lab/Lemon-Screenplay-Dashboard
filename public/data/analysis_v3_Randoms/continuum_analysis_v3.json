@@ -173,5 +173,14 @@
       "recommendation_rationale": "With a weighted score of 6.45, no critical failures, and a CVS of 12, this pilot demonstrates potential but falls short of a recommend. The concept is strong but execution issues in dialogue, supporting character development, and pacing prevent it from reaching its full potential."
     },
     "verdict_statement": "This screenplay shows genuine strengths in its high-concept premise and morally complex protagonist but requires development attention to supporting characters, dialogue, and pacing. With more nuanced character development and less expositional dialogue, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 445047,
+    "tmdb_title": "Continuum",
+    "release_date": "2006-04-06",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:35.163573",
+    "confidence": "high"
   }
 }

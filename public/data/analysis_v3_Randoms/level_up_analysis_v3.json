@@ -165,5 +165,14 @@
       "recommendation_rationale": "With a weighted score of 6.15, no critical failures, and a viable CVS of 14, this script meets the basic criteria for a CONSIDER. While not breaking new ground, it presents a serviceable comedy premise with development potential and clear audience appeal."
     },
     "verdict_statement": "This screenplay shows genuine comedic potential and cultural relevance but requires development attention to plot structure, character depth, and meaningful conflict. With strengthened stakes, more substantive character growth, and a more compelling central conflict, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 106339,
+    "tmdb_title": "Level Up",
+    "release_date": "2011-11-23",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:44.332112",
+    "confidence": "high"
   }
 }

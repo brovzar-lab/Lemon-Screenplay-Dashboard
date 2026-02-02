@@ -5,3 +5,4 @@
 export { ScreenplayCard } from './ScreenplayCard';
 export { ScreenplayGrid } from './ScreenplayGrid';
 export { ScreenplayModal } from './ScreenplayModal';
+export { ProductionBadge } from './ProductionBadge';

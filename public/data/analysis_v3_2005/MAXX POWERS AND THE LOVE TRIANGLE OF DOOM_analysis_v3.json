@@ -154,5 +154,14 @@
       "recommendation_rationale": "Despite promising concept and dialogue, the critical failure of insufficient material makes comprehensive evaluation impossible. Cannot recommend based on a single scene with no indication of full narrative structure, plot development, or character arcs."
     },
     "verdict_statement": "While demonstrating a promising high-concept premise and efficient character establishment, this screenplay excerpt is far too limited to evaluate properly. The development investment required to address the complete absence of plot, structure, and character arc information exceeds the value of the current material."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:41:37.445782",
+    "confidence": "high"
   }
 }

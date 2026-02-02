@@ -169,5 +169,14 @@
       "recommendation_rationale": "With a weighted score of 7.75, strong concept (9), and solid execution across all dimensions, this screenplay meets RECOMMEND thresholds. No critical failures were identified, and the CVS of 17 indicates strong commercial viability. The script succeeds in blending genre elements with emotional depth."
     },
     "verdict_statement": "Based on its compelling blend of alien horror and emotional family drama, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The father role presents a strong attachment opportunity for a name actor, while the unique creature design offers merchandising potential beyond the film itself."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 1267526,
+    "tmdb_title": "Trespasser",
+    "release_date": "2023-07-01",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:24.124172",
+    "confidence": "high"
   }
 }

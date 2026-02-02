@@ -169,5 +169,14 @@
       "recommendation_rationale": "With a weighted score of 8.15, no critical failures, and a CVS of 17, this screenplay exceeds all thresholds for a RECOMMEND verdict. Its innovative concept, strong character work, and powerful emotional core make it both commercially viable and creatively distinctive."
     },
     "verdict_statement": "Based on its innovative blend of Eastern European folklore with contemporary horror, strong female-centered narrative, and emotionally resonant exploration of trauma, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Babulya and Trina present strong attachment opportunities for both established character actresses and emerging young talent."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:46:02.437285",
+    "confidence": "medium"
   }
 }

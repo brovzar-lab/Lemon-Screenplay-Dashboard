@@ -165,5 +165,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: CLASH OF THE TITANS represents exceptional material that demands immediate greenlight consideration. The Lightning: A demigod hero challenges divine order through compassion and human potential. The Craft: Weighted score of 8.70 with no dimension below 8. The Commercial Case: CVS of 16/18. Chris Hemsworth or Tom Hardy as Perseus presents extraordinary star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 18823,
+    "tmdb_title": "Clash of the Titans",
+    "release_date": "2010-03-26",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:42.486805",
+    "confidence": "high"
   }
 }

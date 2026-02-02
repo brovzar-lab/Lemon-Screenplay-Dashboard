@@ -165,5 +165,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: THIS SIDE OF THE TRUTH represents exceptional material that demands immediate greenlight consideration. The Lightning: A struggling writer discovers lying as humanity's most transformative invention. The Craft: Weighted score of 8.65 with no dimension below 8. The Commercial Case: CVS of 18/18. Ricky Gervais presents a star-making lead role. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 684748,
+    "tmdb_title": "This Side of the Truth, A Truly 'Honest' Making of The Invention of Lying",
+    "release_date": "2010-01-19",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:34.676854",
+    "confidence": "high"
   }
 }

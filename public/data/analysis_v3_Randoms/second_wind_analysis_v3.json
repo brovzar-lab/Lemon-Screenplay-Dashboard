@@ -172,5 +172,14 @@
       "recommendation_rationale": "With a weighted score of 6.65, strong characters, and no critical failures, the screenplay demonstrates potential. The CVS of 13 indicates commercial viability with the right execution. However, pacing issues and action execution prevent a RECOMMEND."
     },
     "verdict_statement": "This screenplay shows genuine comedic strength and distinctive character work but requires development attention to pacing and action sequence execution. With tightening of the middle section and more innovative use of the wrestling backdrop, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 397075,
+    "tmdb_title": "Second Wind",
+    "release_date": "1976-04-08",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:55.915960",
+    "confidence": "high"
   }
 }

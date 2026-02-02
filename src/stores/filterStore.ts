@@ -49,6 +49,7 @@ interface FilterActions {
   setShowFilmNowOnly: (show: boolean) => void;
   setHidePassRated: (hide: boolean) => void;
   setHasCriticalFailures: (value: boolean | null) => void;
+  setHideProduced: (hide: boolean) => void;
 
   // Bulk operations
   resetFilters: () => void;
@@ -177,6 +178,7 @@ export const useFilterStore = create<FilterStore>()(
       setShowFilmNowOnly: (show) => set({ showFilmNowOnly: show }),
       setHidePassRated: (hide) => set({ hidePassRated: hide }),
       setHasCriticalFailures: (value) => set({ hasCriticalFailures: value }),
+      setHideProduced: (hide) => set({ hideProduced: hide }),
 
       // Bulk operations
       resetFilters: () => set(DEFAULT_FILTER_STATE),
@@ -191,6 +193,7 @@ export const useFilterStore = create<FilterStore>()(
         collections: state.collections,
         showFilmNowOnly: state.showFilmNowOnly,
         hidePassRated: state.hidePassRated,
+        hideProduced: state.hideProduced,
       }),
     }
   )

@@ -168,5 +168,14 @@
       "recommendation_rationale": "With a weighted score of 5.95, no critical failures, and a CVS of 9, this script meets the baseline for CONSIDER. While it doesn't reach RECOMMEND thresholds due to its concept score of 6, short length, and lack of exceptional standout elements, the authentic world-building and character dynamics show promise."
     },
     "verdict_statement": "This screenplay shows genuine authenticity in its depiction of craft beer culture and establishes engaging character dynamics, but requires development attention to expand its length, deepen character arcs, and strengthen its dramatic structure. With proper expansion to either feature or full pilot length and a more defined resolution for Ben's character arc, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:49.054674",
+    "confidence": "high"
   }
 }

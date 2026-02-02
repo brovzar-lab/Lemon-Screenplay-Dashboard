@@ -167,5 +167,14 @@
       "recommendation_rationale": "With a weighted score of 7.75, strong character work, and no critical failures, this screenplay shows significant promise. However, it falls short of the 7.5 threshold for RECOMMEND due to some structural issues and moments where momentum lags. While commercially viable with a CVS of 14, particularly with the right cast attachments, it requires development to reach its full potential."
     },
     "verdict_statement": "This screenplay shows genuine emotional depth and character development but requires development attention to tighten its structure and maintain momentum throughout. With focused revisions to the middle section and clarification of certain story elements, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 3877,
+    "tmdb_title": "Things We Lost in the Fire",
+    "release_date": "2007-09-26",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:57.914009",
+    "confidence": "high"
   }
 }

@@ -171,5 +171,14 @@
       ]
     },
     "verdict_statement": "Based on its nuanced exploration of privilege, educational aspiration, and moral complexity, this screenplay demonstrates genuine craft and thematic depth. While requiring targeted development, the project offers a compelling character study that could attract discerning talent and audiences interested in sophisticated social commentary."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 147996,
+    "tmdb_title": "In",
+    "release_date": "2011-01-28",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:15.355168",
+    "confidence": "high"
   }
 }

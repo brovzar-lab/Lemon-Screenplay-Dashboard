@@ -164,5 +164,14 @@
       ]
     },
     "verdict_statement": "Based on strong comedic execution and clear commercial appeal, this screenplay demonstrates compelling character transformation and consistent entertainment value. The central role of Carl presents an attractive opportunity for a charismatic comedic lead, with a narrative that balances humor and heart. Development investment could further refine the already promising material."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 10201,
+    "tmdb_title": "Yes Man",
+    "release_date": "2008-12-09",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:04.705041",
+    "confidence": "high"
   }
 }

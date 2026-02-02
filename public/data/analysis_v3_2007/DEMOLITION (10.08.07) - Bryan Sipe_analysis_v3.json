@@ -166,5 +166,14 @@
       ]
     },
     "verdict_statement": "Based on its profound character exploration and innovative narrative approach, this screenplay demonstrates genuine artistic merit that warrants immediate development consideration. The central role of Davis Mitchell presents a remarkable opportunity for an actor seeking a complex, transformative character study."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 303991,
+    "tmdb_title": "Demolition",
+    "release_date": "2016-04-06",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:56.480962",
+    "confidence": "high"
   }
 }

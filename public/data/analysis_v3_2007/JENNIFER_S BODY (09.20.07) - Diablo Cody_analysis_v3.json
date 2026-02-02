@@ -166,5 +166,14 @@
       ]
     },
     "verdict_statement": "Based on its distinctive voice, commercial potential, and genre-subverting narrative, this screenplay demonstrates genuine craft and merit that warrant immediate development consideration. The lead roles of Needy and Jennifer present compelling attachment opportunities for rising talent in the horror-comedy space."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 19994,
+    "tmdb_title": "Jennifer's Body",
+    "release_date": "2009-09-18",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:22.701137",
+    "confidence": "high"
   }
 }

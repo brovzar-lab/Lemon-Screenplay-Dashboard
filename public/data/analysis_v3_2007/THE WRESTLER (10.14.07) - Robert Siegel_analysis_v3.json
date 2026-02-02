@@ -164,5 +164,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: THE WRESTLER represents exceptional material that demands immediate greenlight consideration. The Lightning: A washed-up wrestler's last desperate attempt at redemption through performance. The Craft: Weighted score of 8.80 with no dimension below 8. The Commercial Case: CVS of 15/18. Mickey Rourke presents a transformative star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 12163,
+    "tmdb_title": "The Wrestler",
+    "release_date": "2008-09-07",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:32.220450",
+    "confidence": "high"
   }
 }

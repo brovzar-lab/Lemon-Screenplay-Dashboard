@@ -175,5 +175,14 @@
       "recommendation_rationale": "With a weighted score of 7.45, no critical failures, and a strong CVS of 16, this screenplay shows substantial promise. While it falls just short of the RECOMMEND threshold of 7.5, its commercial viability and strong character work make it worthy of serious consideration with targeted development."
     },
     "verdict_statement": "This screenplay shows genuine warmth, humor, and a refreshing take on the wedding comedy genre but requires development attention to strengthen Aggie's perspective and streamline the second act. With these specific adjustments to balance the narrative and tighten pacing, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:51.235708",
+    "confidence": "medium"
   }
 }

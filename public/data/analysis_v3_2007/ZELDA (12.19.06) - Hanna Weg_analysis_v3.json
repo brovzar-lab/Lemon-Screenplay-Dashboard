@@ -172,5 +172,14 @@
       ]
     },
     "verdict_statement": "Based on its extraordinary psychological depth and Zelda's compelling artistic journey, this screenplay demonstrates significant craft and emotional resonance. The nuanced exploration of creative frustration and marital dynamics presents a rich, development-worthy project with strong potential for critical acclaim."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 1141985,
+    "tmdb_title": "Zelda",
+    "release_date": "2021-09-13",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:07.129705",
+    "confidence": "high"
   }
 }

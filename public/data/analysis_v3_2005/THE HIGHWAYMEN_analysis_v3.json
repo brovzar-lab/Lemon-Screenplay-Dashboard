@@ -168,5 +168,14 @@
       "recommendation_rationale": "With a weighted score of 8.45, no critical failures, and a CVS of 17, this screenplay exceeds all threshold requirements for a RECOMMEND verdict. The combination of commercial viability, artistic merit, and castable lead roles make this a project worthy of immediate development."
     },
     "verdict_statement": "Based on its exceptional character work, fresh perspective on familiar history, and morally complex themes, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Frank Hamer and Manny Gault present strong attachment opportunities for A-list actors looking for substantive, emotionally resonant material."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 500682,
+    "tmdb_title": "The Highwaymen",
+    "release_date": "2019-03-15",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:47.953871",
+    "confidence": "high"
   }
 }

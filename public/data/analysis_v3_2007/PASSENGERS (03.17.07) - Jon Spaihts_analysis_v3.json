@@ -167,5 +167,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: PASSENGERS represents exceptional material that demands immediate greenlight consideration. The Lightning: A lone traveler's moral choice transforms an interstellar journey into a profound exploration of human connection. The Craft: Weighted score of 8.55 with no dimension below 8. The Commercial Case: CVS of 16/18. Chris Pratt and Jennifer Lawrence present immediate star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 274870,
+    "tmdb_title": "Passengers",
+    "release_date": "2016-12-21",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:43.823184",
+    "confidence": "high"
   }
 }

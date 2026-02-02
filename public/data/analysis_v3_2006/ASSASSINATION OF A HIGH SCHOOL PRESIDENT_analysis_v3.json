@@ -156,5 +156,14 @@
       "recommendation_rationale": "Exceptionally well-crafted screenplay demonstrating sophisticated storytelling, distinctive voice, and strong commercial potential. Weighted score and commercial viability strongly support development."
     },
     "verdict_statement": "Based on its razor-sharp wit, innovative narrative structure, and compelling protagonist, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. Bobby Funke presents a uniquely attachable lead role that could launch emerging talent."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 18176,
+    "tmdb_title": "Assassination of a High School President",
+    "release_date": "2008-01-17",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:09.566365",
+    "confidence": "high"
   }
 }

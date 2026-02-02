@@ -165,5 +165,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "RECOMMEND: Based on its inventive premise, strong character development, and unique exploration of music history and personal ambition, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Ted presents a compelling attachment opportunity for a rising comedic actor."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 411457,
+    "tmdb_title": "Get Back",
+    "release_date": "2015-05-01",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:10.424129",
+    "confidence": "high"
   }
 }

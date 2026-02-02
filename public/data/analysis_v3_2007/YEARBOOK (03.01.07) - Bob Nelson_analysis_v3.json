@@ -170,5 +170,14 @@
       ]
     },
     "verdict_statement": "Based on its authentic characters and genuine emotional depth, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Michael Young presents a strong attachment opportunity for a mid-tier comedic actor seeking a nuanced character study."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 148005,
+    "tmdb_title": "Yearbook",
+    "release_date": "2011-01-20",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:02.367942",
+    "confidence": "high"
   }
 }

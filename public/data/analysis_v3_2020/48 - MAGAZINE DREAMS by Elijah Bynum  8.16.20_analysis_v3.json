@@ -175,5 +175,14 @@
       "recommendation_rationale": "With a weighted score of 8.35, no critical failures, and a CVS of 14, this script meets the threshold for RECOMMEND. Its extraordinary character creation, distinctive voice, and thematic richness overcome commercial challenges to deliver an unforgettable cinematic experience with potential for critical acclaim and cultural impact."
     },
     "verdict_statement": "Based on its extraordinary protagonist creation, distinctive visual sensibility, and unflinching exploration of racial alienation and mental illness, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Killian Maddox presents an exceptional attachment opportunity for a leading actor seeking an emotionally and physically demanding showcase with awards potential."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 784524,
+    "tmdb_title": "Magazine Dreams",
+    "release_date": "2025-03-21",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:16.229229",
+    "confidence": "high"
   }
 }

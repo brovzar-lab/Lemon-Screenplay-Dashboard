@@ -170,5 +170,14 @@
       ]
     },
     "verdict_statement": "Based on its exceptional dialogue, nuanced character development, and insightful exploration of pharmaceutical sales culture, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Jamie Reidy presents a strong attachment opportunity for a leading comedic actor seeking dramatic depth."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:44:41.585092",
+    "confidence": "high"
   }
 }

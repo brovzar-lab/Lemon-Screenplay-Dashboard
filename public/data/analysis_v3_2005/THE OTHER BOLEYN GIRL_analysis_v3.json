@@ -176,5 +176,14 @@
       "recommendation_rationale": "With a weighted score of 7.45, strong performances across all categories, no critical failures, and an excellent CVS of 15, this screenplay meets the criteria for CONSIDER. While it doesn't reach the 7.5 threshold for RECOMMEND, its commercial viability and solid execution across all dimensions make it worthy of development consideration."
     },
     "verdict_statement": "This screenplay shows genuine historical insight and compelling character dynamics but requires development attention to Mary's agency in the middle section and the episodic structure. With stronger continuity of tension and more proactive choices for Mary throughout, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 12184,
+    "tmdb_title": "The Other Boleyn Girl",
+    "release_date": "2008-02-28",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:55.448957",
+    "confidence": "high"
   }
 }

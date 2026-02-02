@@ -173,5 +173,14 @@
       ]
     },
     "verdict_statement": "Based on strong comedic potential and genuine character development, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The unique 'cockblocking' premise for Topher Grace or similar comedic lead presents a compelling attachment opportunity."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:42:46.869332",
+    "confidence": "high"
   }
 }

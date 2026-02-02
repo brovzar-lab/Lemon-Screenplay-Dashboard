@@ -154,5 +154,14 @@
       "recommendation_rationale": "Exceptional weighted score of 8.45, zero critical failures, strong commercial viability score of 16, and breakthrough protagonist journey make this a compelling development opportunity."
     },
     "verdict_statement": "Based on its innovative narrative approach, complex protagonist, and commercial potential, this screenplay demonstrates remarkable craft execution that warrants immediate development consideration. Hanna presents a uniquely castable lead role that could launch a breakthrough performance for a young actress."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 50456,
+    "tmdb_title": "Hanna",
+    "release_date": "2011-04-07",
+    "status": "Released",
+    "checked_at": "2026-01-31T02:07:46.650124",
+    "confidence": "high"
   }
 }

@@ -167,5 +167,14 @@
       "recommendation_rationale": "With a weighted score of 7.85, no critical failures, a strong CVS of 16, and distinctive originality that sets it apart in the marketplace, this script meets all the criteria for a RECOMMEND. The combination of commercial potential and artistic merit makes it worthy of immediate development consideration."
     },
     "verdict_statement": "Based on its unique premise, complex protagonist, and effective horror execution, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Brigid and Arild present strong attachment opportunities for actresses seeking challenging, showcase performances."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 182641,
+    "tmdb_title": "The Enclosed Valley",
+    "release_date": "1995-01-01",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:46:04.791283",
+    "confidence": "high"
   }
 }

@@ -176,5 +176,14 @@
       "recommendation_rationale": "With a weighted score of 7.00, no critical failures, a CVS of 14, and strong concept and character work, this script merits consideration. The structural issues and pacing concerns prevent a RECOMMEND, but the emotional core and unique premise show significant promise."
     },
     "verdict_statement": "This screenplay shows genuine emotional depth and a compelling premise in contrasting perfect memory against Alzheimer's, but requires development attention to structural pacing and subplot integration. With tightened second act focus and more meaningful escalation in Noel's journey, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:46:09.326198",
+    "confidence": "high"
   }
 }

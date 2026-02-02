@@ -165,5 +165,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "RECOMMEND: Based on its exceptional historical crime narrative and psychological complexity, this screenplay demonstrates remarkable commercial viability. The unique exploration of early serial killer dynamics, coupled with rich character development, presents a compelling attachment opportunity for discerning actors and audiences."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:43:41.382893",
+    "confidence": "high"
   }
 }

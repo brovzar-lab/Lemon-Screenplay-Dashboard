@@ -143,5 +143,14 @@
       ]
     },
     "verdict_statement": "Based on its comprehensive representation of emerging screenwriting talent, this Black List compilation demonstrates significant industry value, providing a nuanced snapshot of 2007's most promising unproduced screenplays. Its transparent methodology and diverse genre representation make it an essential resource for film development professionals."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-01-31T03:46:43.988953",
+    "confidence": "high"
   }
 }

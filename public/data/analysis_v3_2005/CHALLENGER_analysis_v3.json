@@ -171,5 +171,14 @@
       "recommendation_rationale": "With a weighted score of 8.35, no critical failures, and a CVS of 17, this script exceeds the RECOMMEND threshold across all dimensions. The compelling concept, exceptional protagonist, and strong genre execution create a commercially viable project with prestige potential."
     },
     "verdict_statement": "Based on its exceptional protagonist, compelling historical investigation, and powerful thematic resonance, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The Richard Feynman role presents an outstanding attachment opportunity for a prestigious actor capable of conveying brilliance, humor, and moral complexity."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 1148901,
+    "tmdb_title": "Challenger",
+    "release_date": "2024-10-23",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:25.237552",
+    "confidence": "high"
   }
 }

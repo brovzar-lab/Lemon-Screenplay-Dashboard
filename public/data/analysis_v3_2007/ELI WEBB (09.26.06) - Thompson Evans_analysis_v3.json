@@ -177,5 +177,14 @@
       ]
     },
     "verdict_statement": "Based on its strengths in character development and narrative complexity, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Eli Webb presents a strong attachment opportunity for a serious dramatic actor seeking a transformative character study."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:43:05.755448",
+    "confidence": "high"
   }
 }

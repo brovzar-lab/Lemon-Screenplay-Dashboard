@@ -174,5 +174,14 @@
       ]
     },
     "verdict_statement": "Based on its distinctive narrative voice and compelling character journey, this screenplay demonstrates genuine commercial and artistic potential. Mike's transformative pursuit of Sue offers a refreshingly unconventional take on romantic connection, with strong character roles presenting attractive attachment opportunities for indie-friendly actors."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 21583,
+    "tmdb_title": "Management",
+    "release_date": "2009-02-08",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:36.851600",
+    "confidence": "high"
   }
 }

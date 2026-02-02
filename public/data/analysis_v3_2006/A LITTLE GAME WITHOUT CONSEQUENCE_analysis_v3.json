@@ -156,5 +156,14 @@
       "recommendation_rationale": "Strong concept and execution with minor developmental opportunities. Weighted score above 7.5 with compelling character work and innovative relationship exploration."
     },
     "verdict_statement": "This screenplay shows genuine depth and innovative storytelling about modern relationships. With targeted development to refine pacing and tonal consistency, this project could achieve RECOMMEND status, offering a nuanced, meta-theatrical exploration of love's complexities."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:42:07.181672",
+    "confidence": "high"
   }
 }

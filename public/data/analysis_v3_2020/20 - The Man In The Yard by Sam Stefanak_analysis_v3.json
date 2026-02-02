@@ -165,5 +165,14 @@
       "recommendation_rationale": "With a weighted score of 8.15, no critical failures, and a perfect CVS of 18, this screenplay exceeds all threshold requirements for a RECOMMEND verdict. The high concept, strong protagonist, and excellent genre execution create a highly marketable horror package with franchise potential."
     },
     "verdict_statement": "Based on its instantly gripping premise, strong character dynamics, and masterful tension-building, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Ramona and The Man In The Yard present strong attachment opportunities for respected actors looking to make an impact in the horror genre."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:09.307009",
+    "confidence": "medium"
   }
 }

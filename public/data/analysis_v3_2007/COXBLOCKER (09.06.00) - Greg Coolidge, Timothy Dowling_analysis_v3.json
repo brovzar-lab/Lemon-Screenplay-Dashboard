@@ -167,5 +167,14 @@
       ]
     },
     "verdict_statement": "Based on its innovative concept of exploring male social dynamics through the lens of 'cockblocking', this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Cliff presents a strong attachment opportunity for an emerging comedic lead, with potential for breakout ensemble comedy success."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:42:49.141543",
+    "confidence": "high"
   }
 }

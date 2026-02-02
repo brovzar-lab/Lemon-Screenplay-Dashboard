@@ -172,5 +172,14 @@
       "recommendation_rationale": "With a weighted score of 7.45, strong commercial viability score of 17, and no critical failures, this screenplay demonstrates significant potential. While it falls just short of RECOMMEND thresholds, the commercial appeal, castability, and quality of comedic execution make it worthy of serious consideration."
     },
     "verdict_statement": "This screenplay shows genuine strength in its instantly graspable concept, sharp dialogue, and escalating comedic scenarios, but requires development attention to pacing issues in the second act and underdeveloped supporting characters. With tightening of the repetitive prank sequences and more dimensional secondary characters, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:46:13.833479",
+    "confidence": "high"
   }
 }

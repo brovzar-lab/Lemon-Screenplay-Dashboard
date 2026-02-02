@@ -168,5 +168,14 @@
       "recommendation_rationale": "With a weighted score of 7.05, no critical failures, and a strong CVS of 15, this screenplay demonstrates solid commercial potential. While it doesn't reach RECOMMEND threshold due to structural issues and protagonist development that needs strengthening, it shows clear promise with development."
     },
     "verdict_statement": "This screenplay shows genuine insight into tech industry culture and speaker circuit dynamics but requires development attention to better integrate its parallel storylines and strengthen the protagonist's stakes. With more focused narrative integration and clearer external obstacles for Adam, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:32.848027",
+    "confidence": "high"
   }
 }

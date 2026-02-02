@@ -159,5 +159,14 @@
       ]
     },
     "verdict_statement": "Based on authentic character development and nuanced emotional landscape, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. Dustin Hoffman or Kevin Kline presents a strong attachment opportunity for the Harvey role, with potential international appeal through its cross-cultural narrative."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 16409,
+    "tmdb_title": "Last Chance Harvey",
+    "release_date": "2008-12-25",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:27.558848",
+    "confidence": "high"
   }
 }

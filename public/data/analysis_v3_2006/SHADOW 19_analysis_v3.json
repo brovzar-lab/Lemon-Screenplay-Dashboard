@@ -156,5 +156,14 @@
       "recommendation_rationale": "Exceptional weighted score of 8.65, zero critical failures, strong commercial viability score of 14, and groundbreaking sci-fi concept justify immediate development consideration."
     },
     "verdict_statement": "Based on its innovative quantum duplication premise and profound exploration of first contact, this screenplay demonstrates remarkable commercial viability and craft execution. The role of Conrad Vance/Shadow Nineteen presents a career-defining opportunity for an actor comfortable with existential complexity and physical performance."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-01-31T02:08:21.397346",
+    "confidence": "medium"
   }
 }

@@ -170,5 +170,14 @@
       ]
     },
     "verdict_statement": "Based on its exceptional meta-narrative concept and commercially viable action-comedy approach, this screenplay demonstrates genuine potential. The Billy Chaka role presents a strong attachment opportunity for a comedic leading actor capable of balancing self-deprecation and unexpected heroism. With targeted development to streamline narrative complexity, this project could become a standout genre-bending film."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:44:36.867387",
+    "confidence": "high"
   }
 }

@@ -171,5 +171,14 @@
       ]
     },
     "verdict_statement": "Based on its authentic portrayal of teenage vulnerability and 90s cultural landscape, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. Dr. Squires presents a particularly strong, complex character role with significant actor attachment potential."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 13990,
+    "tmdb_title": "The Wackness",
+    "release_date": "2008-07-03",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:47.769119",
+    "confidence": "high"
   }
 }

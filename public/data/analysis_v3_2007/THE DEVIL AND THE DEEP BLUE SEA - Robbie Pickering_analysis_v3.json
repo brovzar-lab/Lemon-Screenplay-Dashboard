@@ -171,5 +171,14 @@
       ]
     },
     "verdict_statement": "Based on its profound character work and Robbie Pickering's singular narrative voice, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Henry presents a compelling character study that could attract a nuanced performance from a mid-career character actor."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 575981,
+    "tmdb_title": "Pedro, Between the Devil and the Deep Blue Sea",
+    "release_date": "2022-09-01",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:08.309458",
+    "confidence": "high"
   }
 }

@@ -174,5 +174,14 @@
       ]
     },
     "verdict_statement": "Based on its sharp comedic voice, inventive action sequences, and strong ensemble dynamics, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Josh presents a compelling star vehicle blending everyman comedy with unexpected heroism."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 1051798,
+    "tmdb_title": "Score",
+    "release_date": "2011-04-21",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:53.628513",
+    "confidence": "high"
   }
 }

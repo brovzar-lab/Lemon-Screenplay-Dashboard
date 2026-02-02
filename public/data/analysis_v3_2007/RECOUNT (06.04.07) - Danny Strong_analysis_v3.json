@@ -157,5 +157,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: RECOUNT represents exceptional material that demands immediate greenlight consideration. The Lightning: A nail-biting, moment-by-moment reconstruction of democracy's most contested hour. The Craft: Weighted score of 8.80 with no dimension below 8. The Commercial Case: CVS of 15/18. George Clooney or Ryan Gosling as Klain presents irresistible star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 14050,
+    "tmdb_title": "Recount",
+    "release_date": "2008-05-25",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:48.709186",
+    "confidence": "high"
   }
 }

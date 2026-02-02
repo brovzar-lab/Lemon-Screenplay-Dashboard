@@ -178,5 +178,14 @@
       "recommendation_rationale": "With a weighted score of 7.45, no critical failures, and a CVS of 13, this screenplay demonstrates significant strengths in concept, protagonist development, and genre execution. While it doesn't quite reach RECOMMEND threshold (7.5), its compelling character study and historical relevance make it worthy of consideration with targeted development."
     },
     "verdict_statement": "This screenplay shows genuine craft in its unflinching portrayal of Timothy McVeigh's descent into extremism and its complex character development, but requires development attention to clarify conspiracy elements and strengthen the middle section. With a more streamlined narrative and clearer delineation between reality and paranoia, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 480434,
+    "tmdb_title": "Dreamland",
+    "release_date": "2019-11-27",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:30.065815",
+    "confidence": "high"
   }
 }

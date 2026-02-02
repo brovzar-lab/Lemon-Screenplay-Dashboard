@@ -171,5 +171,14 @@
       "recommendation_rationale": "With a weighted score of 7.00, no critical failures, and a strong CVS of 16, Deathwatch demonstrates significant commercial potential. While the concept and execution are strong, the script needs development work on its supernatural rules and pacing to reach its full potential."
     },
     "verdict_statement": "This screenplay shows genuine strengths in its fresh concept linking hospice care to supernatural horror and its complex protagonist with a compelling redemption arc. It requires development attention to clarify the supernatural rules and improve pacing in the middle section. With these specific fixes and a tightened narrative structure, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 12576,
+    "tmdb_title": "Deathwatch",
+    "release_date": "2002-10-06",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:39.818788",
+    "confidence": "high"
   }
 }

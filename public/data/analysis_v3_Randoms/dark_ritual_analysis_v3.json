@@ -172,5 +172,14 @@
       "recommendation_rationale": "With a weighted score of 6.7, strong dialogue and effective genre execution, this screenplay demonstrates commercial potential but requires development. No critical failures are present, the CVS score of 15 is strong, and the issues identified are fixable within 1-2 drafts."
     },
     "verdict_statement": "This screenplay shows genuine strength in dialogue, monster design, and visceral horror execution but requires development attention to protagonist agency and repetitive middle section elements. With a more active protagonist and varied monster encounters, this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 851622,
+    "tmdb_title": "Dark Ritual",
+    "release_date": "2021-07-15",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:45:37.505392",
+    "confidence": "high"
   }
 }

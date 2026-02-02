@@ -174,5 +174,14 @@
       "recommendation_rationale": "With a weighted score of 7.35, strong concept (8) and genre execution (8), and a high CVS of 16, this script demonstrates significant commercial potential. No critical failures were identified, and the two major weaknesses are addressable with focused development. The script falls within the CONSIDER threshold by meeting all requirements."
     },
     "verdict_statement": "This screenplay shows genuine strength in its compelling premise, effective tension-building, and well-developed protagonists but requires development attention to third act pacing and clearer explanation of the antagonists' motivations. With streamlined resolution and deeper exploration of 'The Method,' this project could achieve RECOMMEND status."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 385944,
+    "tmdb_title": "The Method",
+    "release_date": "1996-01-05",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:46:11.648946",
+    "confidence": "high"
   }
 }

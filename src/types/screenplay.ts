@@ -146,12 +146,27 @@ export interface RawMetadata {
   word_count: number;
 }
 
+// ============================================
+// TMDB STATUS (raw JSON format)
+// ============================================
+
+export interface RawTmdbStatus {
+  is_produced: boolean;
+  tmdb_id: number | null;
+  tmdb_title: string | null;
+  release_date: string | null;
+  status: string | null;
+  checked_at: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
 export interface RawScreenplayAnalysis {
   source_file: string;
   analysis_model: string;
   analysis_version: string;
   metadata: RawMetadata;
   analysis: RawAnalysis;
+  tmdb_status?: RawTmdbStatus;
 }
 
 // ============================================
@@ -239,6 +254,20 @@ export interface FileMetadata {
 }
 
 // ============================================
+// TMDB STATUS (normalized)
+// ============================================
+
+export interface TmdbStatus {
+  isProduced: boolean;
+  tmdbId: number | null;
+  tmdbTitle: string | null;
+  releaseDate: string | null;
+  status: string | null;
+  checkedAt: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+// ============================================
 // PRODUCER METRICS (calculated)
 // ============================================
 
@@ -320,6 +349,9 @@ export interface Screenplay {
 
   // Calculated Producer Metrics
   producerMetrics: ProducerMetrics;
+
+  // TMDB Production Status
+  tmdbStatus: TmdbStatus | null;
 }
 
 // ============================================

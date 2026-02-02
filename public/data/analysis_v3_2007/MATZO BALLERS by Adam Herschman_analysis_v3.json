@@ -175,5 +175,14 @@
       ]
     },
     "verdict_statement": "Based on its unique cultural perspective and strong ensemble comedy dynamics, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Moses Epstein presents a compelling comedic lead with significant attachment potential."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:43:39.097026",
+    "confidence": "high"
   }
 }

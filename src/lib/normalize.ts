@@ -5,6 +5,7 @@
 
 import type {
   RawScreenplayAnalysis,
+  RawTmdbStatus,
   Screenplay,
   Collection,
   RecommendationTier,
@@ -13,6 +14,7 @@ import type {
   DimensionScores,
   DimensionJustifications,
   CommercialViability,
+  TmdbStatus,
 } from '@/types';
 
 import { calculateProducerMetrics } from './calculations';
@@ -136,6 +138,23 @@ function normalizeFilmNowAssessment(raw?: RawScreenplayAnalysis['analysis']['fil
 }
 
 /**
+ * Normalize TMDB production status
+ */
+function normalizeTmdbStatus(raw?: RawTmdbStatus): TmdbStatus | null {
+  if (!raw) return null;
+
+  return {
+    isProduced: raw.is_produced,
+    tmdbId: raw.tmdb_id,
+    tmdbTitle: raw.tmdb_title,
+    releaseDate: raw.release_date,
+    status: raw.status,
+    checkedAt: raw.checked_at,
+    confidence: raw.confidence,
+  };
+}
+
+/**
  * Main normalization function
  * Converts raw JSON to normalized Screenplay object
  */
@@ -148,8 +167,8 @@ export function normalizeScreenplay(
   const isFilmNow = recommendation === 'film_now';
   const budgetCategory = extractBudgetCategory(analysis.budget_tier.category);
 
-  // Build the base screenplay object (without producer metrics first)
-  const baseScreenplay: Omit<Screenplay, 'producerMetrics'> = {
+  // Build the base screenplay object (without producer metrics and tmdbStatus first)
+  const baseScreenplay: Omit<Screenplay, 'producerMetrics' | 'tmdbStatus'> = {
     id: generateId(raw.source_file),
     title: analysis.title,
     author: analysis.author,
@@ -218,9 +237,13 @@ export function normalizeScreenplay(
   // Calculate producer metrics using the base screenplay data
   const producerMetrics = calculateProducerMetrics(baseScreenplay as Screenplay);
 
+  // Normalize TMDB status if present
+  const tmdbStatus = normalizeTmdbStatus(raw.tmdb_status);
+
   return {
     ...baseScreenplay,
     producerMetrics,
+    tmdbStatus,
   };
 }
 

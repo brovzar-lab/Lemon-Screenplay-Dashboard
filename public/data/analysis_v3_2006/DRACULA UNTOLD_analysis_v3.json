@@ -158,5 +158,14 @@
       "recommendation_rationale": "Strong weighted score of 7.55, zero critical failures, high commercial viability score of 15, and compelling genre execution make this a promising supernatural action project."
     },
     "verdict_statement": "Based on its fresh supernatural reimagining and strong narrative execution, this screenplay demonstrates commercial viability and craft that warrant immediate development consideration. Luke Evans presents a strong casting opportunity for the lead role of Vlad Dracula."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 49017,
+    "tmdb_title": "Dracula Untold",
+    "release_date": "2014-10-01",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:12.045571",
+    "confidence": "high"
   }
 }

@@ -153,5 +153,14 @@
       "recommendation_rationale": "Exceptional screenplay demonstrating rare combination of artistic merit and commercial potential, with weighted score of 8.60 and zero critical failures"
     },
     "verdict_statement": "Based on its exceptional character dynamics, thematic richness, and genre-elevating approach, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. Ben Wade presents a particularly strong attachment opportunity for a complex leading actor."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 5176,
+    "tmdb_title": "3:10 to Yuma",
+    "release_date": "2007-09-06",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:02.704312",
+    "confidence": "high"
   }
 }

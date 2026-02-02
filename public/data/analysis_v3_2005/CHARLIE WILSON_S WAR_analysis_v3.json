@@ -173,5 +173,14 @@
       "recommendation_rationale": "With a weighted score of 8.95, no critical failures, exceptional dialogue and characters, and a CVS of 17, this script exceeds all threshold requirements for a RECOMMEND verdict. The combination of commercial appeal and artistic merit make this an exceptional prospect."
     },
     "verdict_statement": "Based on its exceptional dialogue, complex characters, and compelling historical narrative, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Charlie Wilson and Gust Avrakotos present strong attachment opportunities for A-list talent, and the script's balance of entertainment value and political relevance makes it appealing to sophisticated adult audiences."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 6538,
+    "tmdb_title": "Charlie Wilson's War",
+    "release_date": "2007-12-19",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:27.663642",
+    "confidence": "high"
   }
 }

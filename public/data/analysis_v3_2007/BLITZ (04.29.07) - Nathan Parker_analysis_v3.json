@@ -172,5 +172,14 @@
       ]
     },
     "verdict_statement": "Based on its robust character development, darkly comic narrative approach, and commercial potential, this screenplay warrants immediate development consideration. Detective Brant presents a uniquely castable anti-hero role that could attract a high-caliber character actor. The project demonstrates significant potential for both critical appreciation and genre audience engagement."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 896151,
+    "tmdb_title": "Blitz",
+    "release_date": "2024-11-01",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:35.331915",
+    "confidence": "high"
   }
 }

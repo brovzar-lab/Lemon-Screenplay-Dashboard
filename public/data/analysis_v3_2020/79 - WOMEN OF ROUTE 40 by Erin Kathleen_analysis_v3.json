@@ -170,5 +170,14 @@
       "recommendation_rationale": "With a weighted score of 7.90, no critical failures, a strong CVS of 15, and exceptional character work, this screenplay meets all threshold requirements for a RECOMMEND. The compelling protagonist, thematic depth, and commercial potential make it a standout in the crime thriller genre."
     },
     "verdict_statement": "Based on its exceptionally drawn protagonist, thematic depth, and strong procedural elements, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Pam Spinelli presents a particularly strong attachment opportunity for a respected actress in her 40s."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:45:30.671683",
+    "confidence": "high"
   }
 }

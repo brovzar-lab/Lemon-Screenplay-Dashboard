@@ -163,5 +163,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: THE TOWN represents exceptional material that demands immediate greenlight consideration. The Lightning: A bank robber seeks redemption through love while navigating a dangerous criminal world. The Craft: Weighted score of 8.45 with no dimension below 8. The Commercial Case: CVS of 17/18. Ben Affleck represents a star attachment with proven directorial prowess. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 23168,
+    "tmdb_title": "The Town",
+    "release_date": "2010-09-15",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:25.086846",
+    "confidence": "high"
   }
 }

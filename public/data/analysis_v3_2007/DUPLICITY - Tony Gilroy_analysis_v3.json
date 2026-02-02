@@ -164,5 +164,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: DUPLICITY represents exceptional material that demands immediate greenlight consideration. The Lightning: A corporate espionage romance that redefines genre expectations. The Craft: Weighted score of 8.90 with no dimension below 8. The Commercial Case: CVS of 18/18. Clive Owen/Julia Roberts level star potential. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 16558,
+    "tmdb_title": "Duplicity",
+    "release_date": "2009-03-18",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:01.375769",
+    "confidence": "high"
   }
 }

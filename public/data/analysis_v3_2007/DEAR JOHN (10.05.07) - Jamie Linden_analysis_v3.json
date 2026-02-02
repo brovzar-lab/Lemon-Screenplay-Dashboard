@@ -170,5 +170,14 @@
       ]
     },
     "verdict_statement": "Based on its sophisticated emotional landscape and compelling character arcs, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of John Tyree presents a strong attachment opportunity for a rising dramatic lead seeking a nuanced military romance narrative."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 22971,
+    "tmdb_title": "Dear John",
+    "release_date": "2010-02-04",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:42:53.858708",
+    "confidence": "high"
   }
 }

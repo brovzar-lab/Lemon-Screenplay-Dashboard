@@ -169,5 +169,14 @@
       "recommendation_rationale": "With an exceptional weighted score of 9.15, zero critical failures, and perfect CVS of 18, this screenplay exceeds all threshold requirements for a RECOMMEND. The combination of commercial viability and artistic merit makes this an exceptional opportunity."
     },
     "verdict_statement": "Based on its wholly original voice, unforgettable protagonist, and perfect balance of comedy and emotional depth, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The role of Juno presents a tremendous attachment opportunity for a young actress capable of delivering both witty dialogue and genuine emotional growth."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 7326,
+    "tmdb_title": "Juno",
+    "release_date": "2007-12-05",
+    "status": "Released",
+    "checked_at": "2026-01-31T02:07:41.716836",
+    "confidence": "high"
   }
 }

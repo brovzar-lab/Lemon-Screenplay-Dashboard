@@ -175,5 +175,14 @@
       ]
     },
     "verdict_statement": "Based on its extraordinary originality and craft execution, this screenplay demonstrates commercial viability that warrants immediate development consideration. The little fighter underground world presents a unique attachment opportunity for adventurous producers seeking distinctive narrative experiences."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:42:21.341240",
+    "confidence": "high"
   }
 }

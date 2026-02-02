@@ -169,5 +169,14 @@
       "recommendation_rationale": "With a weighted score of 8.15, no critical failures, a high CVS of 16, and exceptional scores in Concept (9) and Originality (9), this screenplay exceeds the threshold requirements for a RECOMMEND. The protagonist, genre execution, and dialogue all score 8 or higher, demonstrating professional-level craft."
     },
     "verdict_statement": "Based on its exceptional worldbuilding, compelling protagonist, and unique blend of fantasy and noir elements, this screenplay demonstrates commercial viability and craft execution that warrant immediate development consideration. The roles of Philostrate and the Haruspex present strong attachment opportunities for established actors seeking complex, memorable characters."
+  },
+  "tmdb_status": {
+    "is_produced": false,
+    "tmdb_id": null,
+    "tmdb_title": null,
+    "release_date": null,
+    "status": null,
+    "checked_at": "2026-02-02T00:41:20.286441",
+    "confidence": "high"
   }
 }

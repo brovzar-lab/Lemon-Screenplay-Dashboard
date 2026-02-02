@@ -159,5 +159,14 @@
       "disqualifying_factors": []
     },
     "verdict_statement": "FILM NOW: Selma represents exceptional material that demands immediate greenlight consideration. The Lightning: A visceral exploration of strategic non-violent resistance against systemic racism. The Craft: Weighted score of 8.65 with no dimension below 8. The Commercial Case: CVS of 18/18. Multiple star-making roles for leading actors. Urgency: This screenplay will not remain available."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 273895,
+    "tmdb_title": "Selma",
+    "release_date": "2014-12-25",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:43:56.250088",
+    "confidence": "high"
   }
 }

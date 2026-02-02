@@ -172,5 +172,14 @@
       ]
     },
     "verdict_statement": "Based on its innovative narrative approach and complex character development, this screenplay demonstrates genuine commercial viability and craft execution. The role of Charlie presents a compelling character study that could attract rising talent, while the international backdrop offers unique storytelling opportunities."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 41602,
+    "tmdb_title": "Charlie Countryman",
+    "release_date": "2013-02-09",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:44:17.747757",
+    "confidence": "high"
   }
 }

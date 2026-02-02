@@ -115,5 +115,14 @@
       "recommendation_rationale": "Unable to evaluate due to absence of screenplay text in the submission. The document appears to be titled 'ARMORED.pdf' with 119 pages but no actual content was provided for analysis."
     },
     "verdict_statement": "While the submission indicates a screenplay titled 'ARMORED' with a page count of 119, no actual screenplay text was provided for evaluation. Without content to analyze, it's impossible to assess the script's merits, commercial potential, or development needs."
+  },
+  "tmdb_status": {
+    "is_produced": true,
+    "tmdb_id": 4597,
+    "tmdb_title": "Armored",
+    "release_date": "2009-12-04",
+    "status": "Released",
+    "checked_at": "2026-02-02T00:41:22.763049",
+    "confidence": "high"
   }
 }
