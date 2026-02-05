@@ -202,8 +202,20 @@ export async function loadAllScreenplaysVite(): Promise<(Screenplay | Screenplay
     console.warn(`[Lemon] No V6 analysis index found (this is normal if no V6 analyses exist yet)`);
   }
 
-  console.log(`[Lemon] Successfully loaded ${screenplays.length} total screenplays`);
-  return screenplays;
+  // Deduplicate by title - prefer V6 over V5
+  const seen = new Map<string, (Screenplay | ScreenplayWithV6)>();
+  for (const sp of screenplays) {
+    const key = sp.title.toLowerCase().trim();
+    const existing = seen.get(key);
+    // Prefer V6 (has coreQuality) over V5
+    if (!existing || ('coreQuality' in sp && !('coreQuality' in existing))) {
+      seen.set(key, sp);
+    }
+  }
+  const deduplicated = Array.from(seen.values());
+
+  console.log(`[Lemon] Successfully loaded ${deduplicated.length} unique screenplays (${screenplays.length} before dedup)`);
+  return deduplicated;
 }
 
 /**
