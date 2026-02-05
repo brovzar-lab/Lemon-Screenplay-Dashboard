@@ -1,0 +1,437 @@
+{
+  "source_file": "JUNO.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v5_production_company",
+  "metadata": {
+    "filename": "JUNO.pdf",
+    "page_count": 102,
+    "word_count": 19795
+  },
+  "analysis": {
+    "title": "Juno",
+    "author": "Diablo Cody",
+    "logline": "A witty sixteen-year-old gets pregnant and decides to give the baby to a seemingly perfect couple, discovering that adult relationships are more complicated than she thought.",
+    "genre": "Coming-of-age Comedy-Drama",
+    "subgenres": [
+      "Teen Comedy",
+      "Family Drama",
+      "Indie Film"
+    ],
+    "themes": [
+      "Teen pregnancy",
+      "Growing up",
+      "Family relationships",
+      "Love",
+      "Responsibility",
+      "Class differences"
+    ],
+    "tone": "Quirky, heartfelt, bittersweet with sharp humor",
+    "dimension_scores": {
+      "concept": {
+        "score": 8,
+        "sub_criteria": {
+          "hook_clarity": {
+            "score": 9,
+            "note": "Teen pregnancy handled with humor and heart - instantly graspable"
+          },
+          "audience_targeting": {
+            "score": 8,
+            "note": "Clear crossover appeal - teens, parents, young adults"
+          },
+          "freshness": {
+            "score": 8,
+            "note": "Fresh take on tired teen pregnancy trope with wit and authenticity"
+          },
+          "execution_independence": {
+            "score": 7,
+            "note": "Strong concept that works even with average execution"
+          }
+        },
+        "justification": "Universal premise of teenage pregnancy handled with distinctive voice and genuine emotion",
+        "page_citations": [
+          "Page 1-2: Opens with pregnant teen contemplating discarded furniture, immediately establishing tone and situation",
+          "Page 7-9: Drugstore pregnancy test scene establishes character voice and humor"
+        ],
+        "weakness_identified": "Quirky dialogue might not translate perfectly to all markets"
+      },
+      "structure": {
+        "score": 7,
+        "sub_criteria": {
+          "act_architecture": {
+            "score": 8,
+            "note": "Clear three-act structure with strong turning points"
+          },
+          "scene_necessity": {
+            "score": 7,
+            "note": "Most scenes serve character/plot, some indulgent moments"
+          },
+          "momentum": {
+            "score": 7,
+            "note": "Strong momentum through adoption storyline and character growth"
+          },
+          "payoff_delivery": {
+            "score": 6,
+            "note": "Satisfying resolution but somewhat predictable"
+          }
+        },
+        "justification": "Well-constructed narrative arc from pregnancy discovery to birth and resolution",
+        "page_citations": [
+          "Page 26: Tells Bleeker about pregnancy - inciting incident",
+          "Page 53: Meets adoptive parents - plot point 1",
+          "Page 92-93: Mark reveals he's leaving Vanessa - major turning point"
+        ],
+        "weakness_identified": "Some scenes feel episodic rather than building dramatic tension"
+      },
+      "protagonist": {
+        "score": 8,
+        "sub_criteria": {
+          "goal_clarity": {
+            "score": 8,
+            "note": "Clear external goal: find perfect adoptive parents"
+          },
+          "active_agency": {
+            "score": 8,
+            "note": "Juno drives most story decisions throughout"
+          },
+          "arc_credibility": {
+            "score": 8,
+            "note": "Believable growth from self-centered teen to mature young woman"
+          },
+          "star_vehicle_quality": {
+            "score": 9,
+            "note": "Showcase role with humor, pathos, and distinctive voice"
+          }
+        },
+        "justification": "Juno is a fully realized protagonist with clear goals, agency, and compelling arc",
+        "page_citations": [
+          "Page 26: Clear goal established - handle pregnancy responsibly",
+          "Page 102: Declares love for Bleeker - completes emotional arc"
+        ],
+        "weakness_identified": "Sometimes too precocious/witty for believable 16-year-old"
+      },
+      "supporting_cast": {
+        "score": 7,
+        "sub_criteria": {
+          "character_distinction": {
+            "score": 8,
+            "note": "Each character has unique voice and personality"
+          },
+          "functional_purpose": {
+            "score": 7,
+            "note": "Characters serve story while maintaining individuality"
+          },
+          "castability": {
+            "score": 6,
+            "note": "Good roles but some stereotypical elements"
+          }
+        },
+        "justification": "Strong ensemble with distinct voices, particularly Mac, Bren, and Vanessa",
+        "page_citations": [
+          "Page 47: Mac's reaction to pregnancy news shows character depth",
+          "Page 63: Bren defending Juno to ultrasound tech"
+        ],
+        "weakness_identified": "Some characters lean toward quirky archetypes"
+      },
+      "dialogue": {
+        "score": 8,
+        "sub_criteria": {
+          "voice_distinction": {
+            "score": 9,
+            "note": "Each character has highly distinctive speech patterns"
+          },
+          "subtext_quality": {
+            "score": 7,
+            "note": "Good subtext especially in emotional scenes"
+          },
+          "quotability": {
+            "score": 9,
+            "note": "Highly quotable with memorable phrases"
+          },
+          "translation_quality": {
+            "score": 6,
+            "note": "Heavy slang/cultural references may not translate well"
+          }
+        },
+        "justification": "Distinctive, witty dialogue that defines characters and creates memorable moments",
+        "page_citations": [
+          "Page 7: 'This is one doodle that can't be undid, homeskillet'",
+          "Page 96: Mac's speech about finding someone who thinks 'the sun shines out your ass'"
+        ],
+        "weakness_identified": "Very culture-specific slang may alienate international audiences"
+      },
+      "genre_execution": {
+        "score": 8,
+        "sub_criteria": {
+          "obligatory_scenes": {
+            "score": 8,
+            "note": "All required coming-of-age beats present"
+          },
+          "emotional_delivery": {
+            "score": 9,
+            "note": "Genuine emotional moments mixed with humor"
+          },
+          "convention_innovation": {
+            "score": 8,
+            "note": "Fresh approach to teen pregnancy story"
+          },
+          "audience_satisfaction": {
+            "score": 7,
+            "note": "Satisfying but somewhat predictable ending"
+          }
+        },
+        "justification": "Excellent balance of comedy and drama with authentic emotional core",
+        "page_citations": [
+          "Page 108-112: Birth sequence balances humor and emotion perfectly",
+          "Page 121: Final scene completes character arcs satisfyingly"
+        ],
+        "weakness_identified": "Resolution feels slightly neat/convenient"
+      },
+      "originality": {
+        "score": 8,
+        "sub_criteria": {
+          "voice_distinctiveness": {
+            "score": 9,
+            "note": "Highly distinctive authorial voice throughout"
+          },
+          "premise_novelty": {
+            "score": 7,
+            "note": "Fresh take on familiar teen pregnancy premise"
+          },
+          "execution_innovation": {
+            "score": 8,
+            "note": "Innovative blend of humor and sincerity"
+          },
+          "cultural_freshness": {
+            "score": 7,
+            "note": "Authentic teen voice feels fresh and real"
+          }
+        },
+        "justification": "Distinctive voice and approach elevates familiar material into something special",
+        "page_citations": [
+          "Page 1: Opening voice-over establishes unique narrative perspective",
+          "Page 42: 'All babies want to get borned' - distinctive character moments throughout"
+        ],
+        "weakness_identified": "Core premise is familiar teen pregnancy story"
+      },
+      "weighted_score": 7.75
+    },
+    "latam_market_assessment": {
+      "cultural_resonance": {
+        "score": 7,
+        "rationale": "Universal themes of family, teen pregnancy, growing up translate well; strong family values resonate in LatAm"
+      },
+      "regional_casting_potential": {
+        "score": 6,
+        "rationale": "Lead role could work with Latina actress; supporting roles adaptable but very American-specific"
+      },
+      "theatrical_appeal": {
+        "score": 8,
+        "rationale": "Emotional story with humor appeals to theatrical audience; shared experience value"
+      },
+      "marketing_viability": {
+        "score": 8,
+        "rationale": "Clear poster/trailer potential with pregnant teen protagonist; easy to market concept"
+      },
+      "coproduction_potential": {
+        "score": 5,
+        "rationale": "Very American-specific setting and references limit co-production appeal"
+      },
+      "overall_latam_score": 6.8,
+      "market_recommendation": "moderate_fit"
+    },
+    "production_readiness": {
+      "script_polish": {
+        "score": 85,
+        "issues": [
+          "Some overly precious dialogue"
+        ],
+        "status": "ready"
+      },
+      "character_casting": {
+        "score": 80,
+        "issues": [
+          "Need actress who can handle distinctive voice"
+        ],
+        "status": "ready"
+      },
+      "production_feasibility": {
+        "score": 90,
+        "issues": [],
+        "status": "ready"
+      },
+      "market_viability": {
+        "score": 75,
+        "issues": [
+          "Cultural specificity may limit international appeal"
+        ],
+        "status": "ready"
+      },
+      "risk_profile": {
+        "score": 70,
+        "issues": [
+          "Depends heavily on lead performance",
+          "Quirky tone could alienate some audiences"
+        ],
+        "status": "ready"
+      },
+      "overall_readiness": 80,
+      "readiness_verdict": "greenlight_ready",
+      "deal_breakers": [],
+      "green_flags": [
+        "Award-worthy lead role",
+        "Strong ensemble",
+        "Clear marketing hook",
+        "Proven concept"
+      ],
+      "development_priorities": [
+        "Cast lead carefully",
+        "Consider cultural adaptation for LatAm market"
+      ]
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Heavy reliance on American cultural references",
+      "Dialogue may not translate well",
+      "Some characters border on quirky archetypes",
+      "Resolution feels slightly convenient"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 3,
+        "note": "Clear crossover appeal - teens, young adults, parents"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Pregnant teen gives baby to yuppie couple - perfect logline"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Great lead role, decent supporting roles"
+      },
+      "marketing_hook": {
+        "score": 3,
+        "note": "Easy to market - pregnant teen with attitude"
+      },
+      "budget_return_ratio": {
+        "score": 3,
+        "note": "Low budget, high potential return"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Teen comedies have mixed track record but this has awards potential"
+      },
+      "cvs_total": 16
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Page 26 (tells Bleeker), Page 53 (meets parents), Page 92 (Mark reveals divorce)",
+      "pacing": "Well-paced with good character moments, some episodic stretches"
+    },
+    "characters": {
+      "protagonist": "Juno MacGuff - witty, confident 16-year-old with clear goal and strong arc",
+      "antagonist": "No clear antagonist - internal conflict and circumstances drive drama",
+      "supporting": [
+        "Mac (supportive father)",
+        "Bren (stepmother)",
+        "Vanessa (desperate would-be mother)",
+        "Mark (immature husband)",
+        "Bleeker (sweet boyfriend)"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "page": "7-9",
+        "scene": "Drugstore pregnancy test",
+        "why": "Establishes character voice and humor perfectly"
+      },
+      {
+        "page": "47",
+        "scene": "Telling parents",
+        "why": "Great family dynamics and character revelation"
+      },
+      {
+        "page": "92-93",
+        "scene": "Mark's confession",
+        "why": "Major turning point with real emotional stakes"
+      },
+      {
+        "page": "102",
+        "scene": "Love confession to Bleeker",
+        "why": "Completes character arc beautifully"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Superbad",
+        "similarity": "Teen comedy with heart and distinctive dialogue",
+        "box_office_relevance": "success",
+        "latam_performance": "Moderate success in Mexico"
+      },
+      {
+        "title": "Little Miss Sunshine",
+        "similarity": "Quirky indie family dramedy",
+        "box_office_relevance": "success",
+        "latam_performance": "Limited but positive reception"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "16-34, skewing slightly female",
+      "gender_skew": "female",
+      "interests": [
+        "Independent film",
+        "Coming-of-age stories",
+        "Character-driven comedy"
+      ],
+      "latam_audience_notes": "Family themes and teen pregnancy issues resonate, but American cultural specificity may limit appeal"
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "estimated_range": "$2-5 million",
+      "within_company_capacity": true,
+      "justification": "Contemporary setting, no major VFX, character-driven story"
+    },
+    "assessment": {
+      "strengths": [
+        "Distinctive voice and dialogue",
+        "Strong protagonist with clear arc",
+        "Universal themes wrapped in specific story",
+        "Award-worthy lead role",
+        "Strong emotional core",
+        "Clear marketing hook"
+      ],
+      "weaknesses": [
+        "Heavy American cultural specificity",
+        "Dialogue may not translate well",
+        "Some quirky character archetypes",
+        "Episodic structure in places",
+        "Convenient resolution"
+      ],
+      "development_notes": [
+        "Consider cultural adaptation for Latin American market",
+        "Strengthen some supporting character development",
+        "Ensure emotional beats don't get lost in quirky dialogue"
+      ],
+      "marketability": "high",
+      "recommendation": "RECOMMEND",
+      "recommendation_rationale": "Weighted score of 7.75 exceeds RECOMMEND threshold, with strong concept (8), protagonist (8), and originality (8). CVS of 16 indicates strong commercial viability. Despite cultural specificity concerns, universal themes and distinctive execution justify recommendation."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Strong hook with pregnant teen and discarded furniture, but not viscerally cinematic",
+      "goosebumps_moments": [
+        "Page 96: Mac's speech about finding true love",
+        "Page 102: Juno's love confession"
+      ],
+      "career_risk_test": "Would recommend but not stake entire career - depends too heavily on execution and cultural adaptation",
+      "legacy_potential": "Could be remembered as strong indie film but not generational masterpiece",
+      "disqualifying_factors": [
+        "Cultural specificity limits universal appeal",
+        "Dependent on perfect lead casting",
+        "Not viscerally cinematic enough for FILM NOW"
+      ]
+    },
+    "verdict_statement": "JUNO is a well-crafted coming-of-age story with a distinctive voice, strong protagonist, and universal themes that transcend its American specificity. While the cultural references may require adaptation for Latin American markets, the emotional core and commercial viability justify a RECOMMEND verdict.",
+    "executive_summary": "Witty teen pregnancy dramedy with award-worthy lead role and strong commercial appeal. Cultural adaptation needed for LatAm market but universal themes and distinctive voice make this a solid recommend."
+  },
+  "collection": "2005 Black List"
+}

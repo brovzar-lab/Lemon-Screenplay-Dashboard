@@ -1,6 +1,6 @@
 /**
  * ScreenplayModal Component
- * Full detail view for a screenplay with all V3 analysis data
+ * Full detail view for a screenplay with all V3/V5/V6 analysis data
  */
 
 import { useEffect, useRef } from 'react';
@@ -9,6 +9,14 @@ import type { Screenplay } from '@/types';
 import { DIMENSION_CONFIG, CVS_CONFIG, RECOMMENDATION_CONFIG, BUDGET_TIERS } from '@/types';
 import { getScoreColorClass, getScoreBarFillClass } from '@/lib/calculations';
 import { useNotesStore } from '@/stores/notesStore';
+import type { ScreenplayWithV6 } from '@/lib/normalize';
+
+/**
+ * Type guard to check if screenplay has V6 fields
+ */
+function hasV6Fields(screenplay: Screenplay): screenplay is Screenplay & ScreenplayWithV6 {
+  return 'v6CoreQuality' in screenplay || 'falsePositiveRisk' in screenplay;
+}
 
 interface ScreenplayModalProps {
   screenplay: Screenplay | null;
@@ -350,6 +358,57 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
             <p className="text-black-200 leading-relaxed">{screenplay.verdictStatement}</p>
           </div>
 
+          {/* V6 False Positive Warning */}
+          {hasV6Fields(screenplay) && screenplay.trapsTriggered && screenplay.trapsTriggered > 0 && (
+            <div className={clsx(
+              'p-4 rounded-xl border',
+              screenplay.trapsTriggered >= 3
+                ? 'bg-red-500/10 border-red-500/30'
+                : screenplay.trapsTriggered >= 2
+                  ? 'bg-orange-500/10 border-orange-500/30'
+                  : 'bg-yellow-500/10 border-yellow-500/30'
+            )}>
+              <h4 className={clsx(
+                'font-bold mb-2',
+                screenplay.trapsTriggered >= 3
+                  ? 'text-red-400'
+                  : screenplay.trapsTriggered >= 2
+                    ? 'text-orange-400'
+                    : 'text-yellow-400'
+              )}>
+                {screenplay.trapsTriggered >= 3
+                  ? '🚨 High False Positive Risk'
+                  : screenplay.trapsTriggered >= 2
+                    ? '⚠️ Moderate False Positive Risk'
+                    : '💡 False Positive Flag'}
+                {' '}({screenplay.trapsTriggered} trap{screenplay.trapsTriggered > 1 ? 's' : ''} triggered)
+              </h4>
+              <p className={clsx(
+                'text-sm',
+                screenplay.trapsTriggered >= 3
+                  ? 'text-red-300'
+                  : screenplay.trapsTriggered >= 2
+                    ? 'text-orange-300'
+                    : 'text-yellow-300'
+              )}>
+                {screenplay.trapsTriggered >= 3
+                  ? 'This script has characteristics that often lead to disappointing outcomes. The verdict has been capped at CONSIDER. Review execution quality carefully.'
+                  : screenplay.trapsTriggered >= 2
+                    ? 'This script has been downgraded one tier due to potential false positive indicators. Verify execution matches the premise quality.'
+                    : 'A minor flag was detected. The core quality may be slightly inflated by attractive surface elements.'}
+              </p>
+              {hasV6Fields(screenplay) && screenplay.v6CoreQuality?.false_positive_check?.traps_evaluated && (
+                <div className="mt-3 text-xs text-black-400">
+                  <span className="font-medium">Triggered traps: </span>
+                  {screenplay.v6CoreQuality.false_positive_check.traps_evaluated
+                    .filter(trap => trap.triggered)
+                    .map(trap => trap.name.replace(/_/g, ' '))
+                    .join(', ')}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Critical Failures Warning */}
           {screenplay.criticalFailures.length > 0 && (
             <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
@@ -630,13 +689,41 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
           {/* User Notes */}
           <NotesSection screenplayId={screenplay.id} />
 
-          {/* Metadata */}
-          <div className="pt-6 border-t border-black-700">
-            <div className="flex flex-wrap gap-4 text-xs text-black-500">
+          {/* V6 Lenses Summary (if enabled) */}
+          {hasV6Fields(screenplay) && screenplay.v6LensesEnabled && screenplay.v6LensesEnabled.length > 0 && (
+            <div>
+              <SectionHeader icon="🔍">Enabled Analysis Lenses</SectionHeader>
+              <div className="flex flex-wrap gap-2">
+                {screenplay.v6LensesEnabled.map((lens, i) => (
+                  <span key={i} className="chip" style={{ borderColor: 'var(--color-violet-500)', color: 'var(--color-violet-500)' }}>
+                    {lens}
+                  </span>
+                ))}
+              </div>
+              {screenplay.v6BudgetCeilingUsed && (
+                <p className="text-xs text-black-500 mt-2">
+                  Budget ceiling: ${(screenplay.v6BudgetCeilingUsed / 1000000).toFixed(0)}M
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Metadata & Version Control */}
+          <div className="pt-6 mt-6 border-t border-black-700">
+            <div className="flex flex-wrap gap-4 text-xs text-black-500 mb-3">
               <span>Pages: {screenplay.metadata?.pageCount || 'N/A'}</span>
               <span>Words: {(screenplay.metadata?.wordCount || 0).toLocaleString()}</span>
-              <span>Analysis: {screenplay.analysisVersion || 'N/A'}</span>
               <span>Source: {screenplay.sourceFile || 'N/A'}</span>
+            </div>
+            {/* Version Control Label - Prominent gray text */}
+            <div className="text-xs text-black-400 pt-2 border-t border-black-800">
+              Analyzed with <span className="font-mono font-medium text-black-300">{screenplay.analysisVersion || 'Unknown'}</span>
+              {screenplay.analysisModel && (
+                <span> • Model: <span className="font-mono text-black-300">{screenplay.analysisModel}</span></span>
+              )}
+              {hasV6Fields(screenplay) && screenplay.v6CoreQuality && (
+                <span> • Core Score: <span className="font-mono text-black-300">{screenplay.v6CoreQuality.weighted_score?.toFixed(2) || 'N/A'}</span></span>
+              )}
             </div>
           </div>
         </div>

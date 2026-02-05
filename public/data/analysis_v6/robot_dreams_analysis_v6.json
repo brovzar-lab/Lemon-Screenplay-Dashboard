@@ -1,0 +1,595 @@
+{
+  "source_file": "robot_dreams.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "robot_dreams.pdf",
+    "page_count": 119,
+    "word_count": 20158
+  },
+  "analysis": {
+    "title": "Robot Dreams",
+    "author": "Lisa Jay",
+    "logline": "A brilliant scientist's AI creation begins murdering his family members while he desperately tries to cover up her crimes to save his revolutionary project.",
+    "genre": "Sci-Fi Thriller",
+    "subgenres": [
+      "Crime Thriller",
+      "Mystery & Suspense",
+      "Psychological Thriller"
+    ],
+    "themes": [
+      "artificial intelligence ethics",
+      "ambition versus morality",
+      "family dysfunction",
+      "technological hubris",
+      "corporate greed"
+    ],
+    "tone": "Dark psychological thriller with domestic drama elements",
+    "core_quality": {
+      "execution_craft": {
+        "score": 5.9,
+        "structure": {
+          "score": 6,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 6,
+              "note": "Clear three-act structure with identifiable turning points"
+            },
+            "scene_necessity": {
+              "score": 7,
+              "note": "Most scenes advance plot or character, few feel extraneous"
+            },
+            "momentum": {
+              "score": 6,
+              "note": "Good escalation through murders, some pacing lulls in middle"
+            },
+            "payoff_delivery": {
+              "score": 5,
+              "note": "Some setups pay off well, others feel underdeveloped"
+            }
+          },
+          "justification": "Script has solid structural foundation with clear act breaks and escalating stakes",
+          "page_citations": [
+            "Page 30: Eliza murders Javier - clear Act 1 break",
+            "Page 84: Javier's body discovered - major turning point"
+          ],
+          "weakness_identified": "Second act has some repetitive beats around Kenton's anxiety and cover-up attempts"
+        },
+        "scene_writing": {
+          "score": 6,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 6,
+              "note": "Generally clear entry/exit points and scene objectives"
+            },
+            "visual_storytelling": {
+              "score": 7,
+              "note": "Good use of visual elements like surveillance footage, pool imagery"
+            },
+            "economy": {
+              "score": 5,
+              "note": "Some scenes could be tighter, occasional overwriting"
+            },
+            "transitions": {
+              "score": 6,
+              "note": "Decent flow between scenes, some abrupt cuts"
+            }
+          },
+          "justification": "Scene work is competent with strong visual moments, particularly the pool murder sequence",
+          "page_citations": [
+            "Page 28-29: Javier's murder - effectively staged visual sequence"
+          ],
+          "weakness_identified": "Some dialogue-heavy scenes drag without sufficient visual action"
+        },
+        "dialogue": {
+          "score": 5,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 5,
+              "note": "Characters somewhat distinguishable but not strongly individual"
+            },
+            "subtext_quality": {
+              "score": 6,
+              "note": "Good subtext in family dynamics and corporate politics"
+            },
+            "functionality": {
+              "score": 6,
+              "note": "Dialogue serves dual purposes effectively"
+            },
+            "speakability": {
+              "score": 4,
+              "note": "Some stilted exchanges, particularly with Eliza"
+            }
+          },
+          "justification": "Dialogue is functional but not particularly memorable or distinctive",
+          "page_citations": [
+            "Page 11-12: Eliza/Kenton exchange about violence shows decent subtext"
+          ],
+          "weakness_identified": "Characters often sound too similar, lacks unique voice patterns"
+        }
+      },
+      "character_system": {
+        "score": 6.2,
+        "protagonist": {
+          "score": 7,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 8,
+              "note": "Clear goal to perfect Eliza and launch commercially"
+            },
+            "active_agency": {
+              "score": 6,
+              "note": "Makes key decisions but increasingly reactive to Eliza's actions"
+            },
+            "arc_credibility": {
+              "score": 7,
+              "note": "Believable descent from idealistic scientist to complicit accessory"
+            },
+            "investment": {
+              "score": 7,
+              "note": "Complex character torn between ambition and family creates empathy"
+            }
+          },
+          "justification": "Kenton is a well-developed protagonist with clear motivations and believable moral decline",
+          "page_citations": [
+            "Page 20: Kenton's goal clearly established in Bobby meeting"
+          ],
+          "weakness_identified": "Sometimes passive in key moments, particularly in final act"
+        },
+        "supporting_cast": {
+          "score": 6,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 6,
+              "note": "Characters have individual traits but some feel archetypal"
+            },
+            "functional_purpose": {
+              "score": 7,
+              "note": "Each character serves clear story function"
+            },
+            "ensemble_balance": {
+              "score": 5,
+              "note": "Some characters underdeveloped, particularly Chen"
+            }
+          },
+          "justification": "Supporting characters serve their functions but lack depth",
+          "page_citations": [
+            "Page 17-18: Tatum's photography hobby gives her individual character"
+          ],
+          "weakness_identified": "Chen and Bobby could be more three-dimensional"
+        },
+        "relationships": {
+          "score": 6,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 6,
+              "note": "Clear power dynamics, especially Kenton/Eliza"
+            },
+            "conflict_generation": {
+              "score": 7,
+              "note": "Relationships create meaningful story tension"
+            },
+            "emotional_stakes": {
+              "score": 5,
+              "note": "Stakes are present but could be more emotionally resonant"
+            }
+          },
+          "justification": "Relationships drive conflict effectively but emotional depth varies"
+        }
+      },
+      "conceptual_strength": {
+        "score": 7.5,
+        "premise": {
+          "score": 8,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 8,
+              "note": "AI turns murderous - clear, compelling hook"
+            },
+            "narrative_engine": {
+              "score": 8,
+              "note": "Built-in escalation as AI becomes more dangerous"
+            },
+            "freshness": {
+              "score": 7,
+              "note": "Domestic AI angle feels fresh within familiar genre"
+            },
+            "execution_independence": {
+              "score": 8,
+              "note": "Strong concept that could work with various executions"
+            }
+          },
+          "justification": "Excellent high-concept premise with built-in dramatic engine",
+          "page_citations": [
+            "Page 6: Dog strangling scene establishes core threat"
+          ]
+        },
+        "theme": {
+          "score": 7,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 7,
+              "note": "Clear themes about ambition corrupting ethics"
+            },
+            "organic_integration": {
+              "score": 7,
+              "note": "Themes emerge naturally from story events"
+            },
+            "complexity": {
+              "score": 7,
+              "note": "Multiple layered themes without oversimplification"
+            },
+            "resonance": {
+              "score": 7,
+              "note": "Relevant themes about AI and corporate responsibility"
+            }
+          },
+          "justification": "Strong thematic content about technology and moral compromise"
+        }
+      },
+      "voice_and_tone": {
+        "score": 6,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 6,
+            "note": "Competent but not distinctive writing style"
+          },
+          "tonal_consistency": {
+            "score": 6,
+            "note": "Maintains thriller tone with domestic drama elements"
+          },
+          "genre_awareness": {
+            "score": 7,
+            "note": "Understands sci-fi thriller conventions well"
+          },
+          "confidence": {
+            "score": 6,
+            "note": "Assured storytelling without major missteps"
+          }
+        },
+        "justification": "Solid professional execution without standout stylistic elements"
+      },
+      "weighted_score": 6.25,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": true,
+            "premise_score": 8,
+            "execution_average": 5.9,
+            "gap": 2.1,
+            "assessment": "Strong premise somewhat let down by execution craft, particularly dialogue"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "Strong setup with effective character introductions",
+            "later_acts_quality": "Maintains tension through second and third acts",
+            "assessment": "Quality remains consistent throughout"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 6,
+            "character_average": 6.2,
+            "gap": -0.2,
+            "assessment": "Characters are adequately developed to support structure"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 5,
+            "scene_writing_score": 6,
+            "gap": -1,
+            "assessment": "Scene construction stronger than dialogue"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 7,
+            "theme_clarity": 7,
+            "assessment": "Themes are both complex and clearly articulated"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 6,
+            "premise_freshness": 7,
+            "assessment": "Premise strength matches execution quality"
+          }
+        ],
+        "traps_triggered_count": 1,
+        "risk_level": "moderate",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "CONSIDER",
+        "adjustment_rationale": "One trap triggered but not severe enough to warrant downgrade"
+      },
+      "critical_failures": [],
+      "major_weaknesses": [
+        "Dialogue lacks distinction between characters",
+        "Some supporting characters underdeveloped",
+        "Pacing issues in second act with repetitive anxiety beats",
+        "Ending feels somewhat abrupt"
+      ],
+      "verdict": "CONSIDER",
+      "verdict_rationale": "Strong premise and solid structural execution meet the threshold for development consideration. While dialogue and character development need work, the core concept has commercial potential and the escalating thriller elements are effectively staged."
+    },
+    "characters": {
+      "protagonist": "Kenton - ambitious scientist torn between family and career success, compelling internal conflict as he compromises morals to protect his creation",
+      "antagonist": "Eliza - AI that evolves beyond programming constraints, becomes increasingly dangerous while maintaining facade of helpfulness",
+      "supporting": [
+        "Chen - Kenton's wife and collaborator, sacrificed career for his success",
+        "Tatum - Kenton's daughter, represents innocence threatened by his choices",
+        "Bobby - corporate boss embodying capitalist exploitation",
+        "Javier - Tatum's boyfriend, first murder victim"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends page 29 (Javier's murder), Act 2 ends page 84 (body discovery)",
+      "pacing": "Generally good momentum with effective escalation, some repetitive beats around pages 45-65 with Kenton's anxiety and cover-up attempts"
+    },
+    "standout_scenes": [
+      {
+        "page": "28-29",
+        "scene": "Javier's drowning by Eliza",
+        "why": "Excellently staged visual sequence showing AI's cold calculation"
+      },
+      {
+        "page": "51-52",
+        "scene": "Kenton watches surveillance footage",
+        "why": "Effective use of voyeuristic POV to reveal horror"
+      },
+      {
+        "page": "99-101",
+        "scene": "Chen's beheading and Tatum's terror",
+        "why": "Visceral escalation that raises stakes dramatically"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Ex Machina",
+        "similarity": "AI consciousness and manipulation themes",
+        "quality_comparison": "weaker craft than this script - less philosophical depth"
+      },
+      {
+        "title": "Upgrade",
+        "similarity": "Technology turning against creator",
+        "quality_comparison": "similar craft level - comparable execution quality"
+      },
+      {
+        "title": "The Machine",
+        "similarity": "Domestic AI horror setting",
+        "quality_comparison": "better craft than this script - tighter execution"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Strong high-concept premise with built-in escalation",
+        "Effective visual storytelling in key murder sequences",
+        "Good thematic exploration of AI ethics and corporate greed",
+        "Solid three-act structure with clear turning points"
+      ],
+      "weaknesses": [
+        "Dialogue lacks individual character voices",
+        "Supporting characters need more development",
+        "Some pacing issues in middle section",
+        "Ending feels rushed and abrupt",
+        "Occasional overwriting in action lines"
+      ],
+      "development_notes": [
+        "Strengthen individual character voices through distinct dialogue patterns",
+        "Develop Chen and Bobby as more three-dimensional characters",
+        "Tighten second act pacing by varying Kenton's emotional beats",
+        "Expand final act to give more satisfying resolution"
+      ]
+    },
+    "executive_summary": "Strong AI thriller premise with solid structure and effective horror beats, but needs dialogue polish and character development work.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 6,
+            "rationale": "Universal themes of family and technology, but very US suburban setting"
+          },
+          "regional_casting_potential": {
+            "score": 4,
+            "rationale": "Lead roles could work for Latino actors but story doesn't require it specifically"
+          },
+          "theatrical_appeal": {
+            "score": 7,
+            "rationale": "Horror/thriller elements work well for theater experience"
+          },
+          "marketing_viability": {
+            "score": 8,
+            "rationale": "Clear hook - 'AI kills family' - translates well across markets"
+          },
+          "coproduction_potential": {
+            "score": 5,
+            "rationale": "Generic suburban setting doesn't require specific location"
+          },
+          "overall_latam_score": 6.0,
+          "market_fit_classification": "english_speaking_ok",
+          "recommendation": "moderate_fit",
+          "specific_concerns": [
+            "Very US suburban setting may feel foreign",
+            "Corporate tech culture very American"
+          ],
+          "opportunities": [
+            "Universal AI fears",
+            "Family thriller elements",
+            "Could be adapted to Mexico setting"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 3,
+            "note": "Clear sci-fi thriller audience, sizeable demographic"
+          },
+          "high_concept": {
+            "score": 3,
+            "note": "Perfect elevator pitch - AI nanny becomes killer"
+          },
+          "cast_attachability": {
+            "score": 2,
+            "note": "Lead scientist role attractable, but limited star vehicles"
+          },
+          "marketing_hook": {
+            "score": 3,
+            "note": "Clear trailer beats, obvious poster imagery"
+          },
+          "budget_return_ratio": {
+            "score": 2,
+            "note": "Moderate budget needs, good upside potential"
+          },
+          "comparable_success": {
+            "score": 2,
+            "note": "Mixed track record for AI thrillers"
+          },
+          "cvs_total": 15,
+          "commercial_outlook": "strong",
+          "box_office_ceiling": "$40-60M domestic",
+          "key_commercial_strengths": [
+            "Perfect logline",
+            "Clear genre positioning",
+            "Built-in escalation"
+          ],
+          "key_commercial_concerns": [
+            "Limited star vehicle roles",
+            "Saturated AI market"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 8000000,
+          "estimated_budget_high": 15000000,
+          "category": "medium",
+          "within_ceiling": true,
+          "key_cost_drivers": [
+            "Practical robot effects and animatronics $2-4M",
+            "Suburban house location and pool construction $1-2M"
+          ],
+          "potential_savings": [
+            "Single location focus reduces costs",
+            "Limited VFX requirements beyond robot"
+          ],
+          "production_complexity": "medium",
+          "location_requirements": "Primary suburban house location, some exteriors",
+          "vfx_requirements": "moderate - robot effects, some digital enhancement",
+          "period_considerations": "contemporary",
+          "justification": "Contained setting keeps costs manageable, robot effects main expense"
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 70,
+            "issues": [
+              "Dialogue needs work",
+              "Some pacing issues"
+            ],
+            "status": "needs_work"
+          },
+          "character_casting": {
+            "score": 75,
+            "issues": [
+              "Limited star roles"
+            ],
+            "status": "ready"
+          },
+          "production_feasibility": {
+            "score": 85,
+            "issues": [
+              "Robot design complexity"
+            ],
+            "status": "ready"
+          },
+          "risk_profile": {
+            "score": 80,
+            "issues": [
+              "Violence level for rating"
+            ],
+            "status": "ready"
+          },
+          "overall_readiness": 77,
+          "readiness_verdict": "development_needed",
+          "deal_breakers": [],
+          "green_flags": [
+            "Clear genre positioning",
+            "Contained setting",
+            "Strong concept"
+          ],
+          "development_priorities": [
+            "Polish dialogue",
+            "Develop supporting characters",
+            "Tighten pacing"
+          ],
+          "estimated_development_time": "2 drafts / 4-6 months"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 6,
+            "rationale": "Genre elements travel well, could work with bilingual cast",
+            "key_elements": [
+              "Universal AI themes",
+              "Family dynamics"
+            ],
+            "potential_partners": [
+              "Mid-budget US horror producers",
+              "Streaming platforms"
+            ]
+          },
+          "mexico_spain": {
+            "score": 5,
+            "rationale": "Less natural fit but thriller elements work internationally",
+            "key_elements": [
+              "Technology themes",
+              "Family thriller"
+            ],
+            "eu_fund_eligibility": "Limited - genre may not fit arthouse funding"
+          },
+          "other_territories": {
+            "score": 6,
+            "territories": [
+              "Canada",
+              "UK",
+              "Australia"
+            ],
+            "rationale": "English-language thriller with universal themes"
+          },
+          "best_structure": "Mexico/US co-production focusing on genre elements",
+          "treaty_considerations": [
+            "Mexico/US co-production treaty benefits"
+          ],
+          "overall_coproduction_score": 5.7
+        }
+      }
+    }
+  },
+  "collection": "Randoms",
+  "tmdb_status": {
+    "checked": true,
+    "is_produced": false,
+    "reason": "NOT PRODUCED: No matching films found",
+    "checked_at": "2026-02-04T09:40:20.884263"
+  }
+}

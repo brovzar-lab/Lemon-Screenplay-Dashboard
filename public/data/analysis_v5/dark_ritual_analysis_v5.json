@@ -1,0 +1,426 @@
+{
+  "source_file": "dark_ritual.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v5_production_company",
+  "metadata": {
+    "filename": "dark_ritual.pdf",
+    "page_count": 99,
+    "word_count": 18149
+  },
+  "analysis": {
+    "title": "Dark Ritual",
+    "author": "Kevin Kneupper",
+    "logline": "When a small-town cop discovers cultists have opened a portal to a monster-filled dimension, he must sacrifice lives to close it or watch everyone die.",
+    "genre": "Horror",
+    "subgenres": [
+      "Monster Horror",
+      "Occult Horror",
+      "Siege Horror"
+    ],
+    "themes": [
+      "Sacrifice for the greater good",
+      "Moral corruption under pressure",
+      "Small-town decay",
+      "Family abandonment"
+    ],
+    "tone": "Dark, nihilistic horror with rural grit",
+    "dimension_scores": {
+      "concept": {
+        "score": 6,
+        "sub_criteria": {
+          "hook_clarity": {
+            "score": 7,
+            "note": "Clear premise about portal closing through sacrifice"
+          },
+          "audience_targeting": {
+            "score": 6,
+            "note": "Horror fans, but execution matters heavily"
+          },
+          "freshness": {
+            "score": 5,
+            "note": "Familiar Lovecraftian elements with police procedural twist"
+          },
+          "execution_independence": {
+            "score": 6,
+            "note": "Concept works but needs strong execution to elevate"
+          }
+        },
+        "justification": "The premise of a sacrifice-requiring portal closure creates clear stakes and moral dilemmas",
+        "page_citations": [
+          "Page 3: Portal opens requiring sacrifices",
+          "Page 19: Three more needed to close"
+        ],
+        "weakness_identified": "Relies heavily on familiar occult horror tropes"
+      },
+      "structure": {
+        "score": 5,
+        "sub_criteria": {
+          "act_architecture": {
+            "score": 5,
+            "note": "Basic three-act structure but transitions feel mechanical"
+          },
+          "scene_necessity": {
+            "score": 6,
+            "note": "Most scenes serve purpose but some padding"
+          },
+          "momentum": {
+            "score": 5,
+            "note": "Solid escalation but middle act drags"
+          },
+          "payoff_delivery": {
+            "score": 5,
+            "note": "Payoffs present but not always satisfying"
+          }
+        },
+        "justification": "Standard horror structure with clear escalation from ritual to siege",
+        "page_citations": [
+          "Page 30: Inciting incident complete",
+          "Page 60: Stakes raised",
+          "Page 90: Final sacrifice"
+        ],
+        "weakness_identified": "Middle section lacks strong propulsion between set pieces"
+      },
+      "protagonist": {
+        "score": 4,
+        "sub_criteria": {
+          "goal_clarity": {
+            "score": 4,
+            "note": "Wants to survive but goals shift throughout"
+          },
+          "active_agency": {
+            "score": 3,
+            "note": "More reactive than proactive for most of story"
+          },
+          "arc_credibility": {
+            "score": 5,
+            "note": "Arc from drunk to hero has moments but feels rushed"
+          },
+          "star_vehicle_quality": {
+            "score": 4,
+            "note": "Damaged cop role has potential but underwritten"
+          }
+        },
+        "justification": "Miles is reactive for most of the story, only becoming active in final act",
+        "page_citations": [
+          "Page 29: Clear he's investigating",
+          "Page 92: Makes sacrifice decision"
+        ],
+        "weakness_identified": "Protagonist lacks clear driving goal until very late"
+      },
+      "supporting_cast": {
+        "score": 5,
+        "sub_criteria": {
+          "character_distinction": {
+            "score": 5,
+            "note": "Some distinct voices but many feel generic"
+          },
+          "functional_purpose": {
+            "score": 6,
+            "note": "Characters serve clear story functions"
+          },
+          "castability": {
+            "score": 5,
+            "note": "Some colorful roles but not standout parts"
+          }
+        },
+        "justification": "Characters like Dale and Sophie have distinct purposes but limited depth",
+        "page_citations": [
+          "Page 43: Dale's moral corruption clear",
+          "Page 68: Sophie's backstory revealed"
+        ],
+        "weakness_identified": "Most supporting characters are functional but not memorable"
+      },
+      "dialogue": {
+        "score": 4,
+        "sub_criteria": {
+          "voice_distinction": {
+            "score": 4,
+            "note": "Some regional flavor but characters blur together"
+          },
+          "subtext_quality": {
+            "score": 4,
+            "note": "Occasional subtext but often on-the-nose"
+          },
+          "quotability": {
+            "score": 3,
+            "note": "No particularly memorable lines"
+          },
+          "translation_quality": {
+            "score": 5,
+            "note": "Would translate adequately but not exceptionally"
+          }
+        },
+        "justification": "Dialogue serves story but lacks distinction and memorable moments",
+        "page_citations": [],
+        "weakness_identified": "Characters don't have sufficiently distinct voices"
+      },
+      "genre_execution": {
+        "score": 6,
+        "sub_criteria": {
+          "obligatory_scenes": {
+            "score": 7,
+            "note": "Has required horror beats including creature reveals"
+          },
+          "emotional_delivery": {
+            "score": 5,
+            "note": "Some effective scares but inconsistent dread"
+          },
+          "convention_innovation": {
+            "score": 5,
+            "note": "Standard approach with occasional fresh elements"
+          },
+          "audience_satisfaction": {
+            "score": 6,
+            "note": "Delivers expected horror elements adequately"
+          }
+        },
+        "justification": "Solid horror execution with creature design and escalating threat",
+        "page_citations": [
+          "Page 65: Greely transformation",
+          "Page 89: Final monster confrontation"
+        ],
+        "weakness_identified": "Horror beats are competent but not exceptional"
+      },
+      "originality": {
+        "score": 4,
+        "sub_criteria": {
+          "voice_distinctiveness": {
+            "score": 4,
+            "note": "Competent but not particularly unique voice"
+          },
+          "premise_novelty": {
+            "score": 4,
+            "note": "Familiar elements in standard combination"
+          },
+          "execution_innovation": {
+            "score": 4,
+            "note": "Straightforward approach without surprises"
+          },
+          "cultural_freshness": {
+            "score": 4,
+            "note": "Standard rural American horror setting"
+          }
+        },
+        "justification": "Combines familiar elements without significant innovation",
+        "page_citations": [],
+        "weakness_identified": "Too derivative of existing Lovecraftian and siege horror"
+      },
+      "weighted_score": "4.95"
+    },
+    "latam_market_assessment": {
+      "cultural_resonance": {
+        "score": 6,
+        "rationale": "Universal themes of sacrifice and corruption translate well, but rural American setting may feel distant"
+      },
+      "regional_casting_potential": {
+        "score": 4,
+        "rationale": "Roles are very American-specific; would require significant adaptation for Latin American actors"
+      },
+      "theatrical_appeal": {
+        "score": 7,
+        "rationale": "Horror works well theatrically with monster effects and jump scares"
+      },
+      "marketing_viability": {
+        "score": 6,
+        "rationale": "Clear horror poster potential but not distinctive hook"
+      },
+      "coproduction_potential": {
+        "score": 3,
+        "rationale": "Very American setting and characters limit international partnership appeal"
+      },
+      "overall_latam_score": "5.2",
+      "market_recommendation": "weak_fit"
+    },
+    "production_readiness": {
+      "script_polish": {
+        "score": 65,
+        "issues": [
+          "Dialogue needs work",
+          "Character development shallow"
+        ],
+        "status": "needs_work"
+      },
+      "character_casting": {
+        "score": 55,
+        "issues": [
+          "Protagonist underwritten",
+          "Supporting roles generic"
+        ],
+        "status": "needs_work"
+      },
+      "production_feasibility": {
+        "score": 70,
+        "issues": [
+          "Moderate creature effects budget"
+        ],
+        "status": "ready"
+      },
+      "market_viability": {
+        "score": 45,
+        "issues": [
+          "Low originality",
+          "Weak cultural translation"
+        ],
+        "status": "blocker"
+      },
+      "risk_profile": {
+        "score": 50,
+        "issues": [
+          "Execution-dependent",
+          "Crowded horror market"
+        ],
+        "status": "needs_work"
+      },
+      "overall_readiness": 57,
+      "readiness_verdict": "development_needed",
+      "deal_breakers": [
+        "Lack of originality",
+        "Weak protagonist agency",
+        "Limited Latin American appeal"
+      ],
+      "green_flags": [
+        "Solid horror structure",
+        "Clear escalation",
+        "Practical effects friendly"
+      ],
+      "development_priorities": [
+        "Strengthen protagonist goals and agency",
+        "Enhance character distinctiveness",
+        "Add cultural universality"
+      ]
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Protagonist lacks clear driving goal until final act",
+      "Heavy derivation from existing horror tropes",
+      "Supporting characters are functional but not memorable",
+      "Dialogue lacks distinction between characters",
+      "Limited originality in premise and execution",
+      "Cultural specificity limits international appeal"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Horror fans but not distinctive enough for broad appeal"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Takes explanation beyond simple pitch"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "No standout star vehicle roles"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Generic horror elements make marketing challenging"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Mid-budget with uncertain return potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar films have mixed results"
+      },
+      "cvs_total": 12
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Page 30: Portal opens and investigation begins, Page 60: Siege begins, Page 90: Final sacrifice",
+      "pacing": "Solid escalation with occasional lulls in middle section"
+    },
+    "characters": {
+      "protagonist": "Miles Conner - alcoholic cop dealing with family loss, goal clarity emerges late as survival then sacrifice",
+      "antagonist": "The otherworldly creatures and Dale's moral corruption",
+      "supporting": [
+        "Dale - corrupt cop driven by desperation",
+        "Sophie - teenage survivor with agency",
+        "Various townspeople as monster fodder"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "page": "65",
+        "scene": "Greely's grotesque transformation into monster",
+        "why": "Effective body horror with emotional impact"
+      },
+      {
+        "page": "92",
+        "scene": "Miles's sacrificial decision",
+        "why": "Character arc culmination with genuine stakes"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Mist",
+        "similarity": "Small town under siege by otherworldly creatures",
+        "box_office_relevance": "mixed",
+        "latam_performance": "moderate horror audience"
+      },
+      {
+        "title": "Event Horizon",
+        "similarity": "Portal to hellish dimension",
+        "box_office_relevance": "failure",
+        "latam_performance": "cult following but no theatrical success"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "18-35 horror enthusiasts",
+      "gender_skew": "male",
+      "interests": [
+        "Lovecraftian horror",
+        "creature features",
+        "siege films"
+      ],
+      "latam_audience_notes": "Horror travels well but American small-town setting may feel distant"
+    },
+    "budget_tier": {
+      "category": "medium ($10-30M)",
+      "estimated_range": "$8-15 million",
+      "within_company_capacity": true,
+      "justification": "Creature effects and practical gore require significant budget"
+    },
+    "assessment": {
+      "strengths": [
+        "Solid horror structure with clear escalation",
+        "Effective creature design concepts",
+        "Strong siege scenario in final act",
+        "Professional formatting and pacing"
+      ],
+      "weaknesses": [
+        "Protagonist lacks agency until final act",
+        "Heavy reliance on familiar horror tropes",
+        "Supporting characters are underdeveloped",
+        "Limited originality in premise and execution",
+        "Cultural specificity limits international appeal",
+        "Dialogue lacks character distinction"
+      ],
+      "development_notes": [
+        "Strengthen Miles's goals and agency from early acts",
+        "Develop more distinctive character voices",
+        "Add cultural elements that translate internationally",
+        "Enhance originality of creature/portal concepts"
+      ],
+      "marketability": "low",
+      "recommendation": "PASS",
+      "recommendation_rationale": "Weighted score of 4.95 falls below CONSIDER threshold. Multiple dimensions score below 5, protagonist particularly weak at 4, and CVS of 12 indicates commercial concerns."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Opening ritual has some hook but not visceral enough",
+      "goosebumps_moments": [],
+      "career_risk_test": "Would not stake career - too derivative and execution-dependent",
+      "legacy_potential": "Unlikely to be remembered - standard horror execution",
+      "disqualifying_factors": [
+        "Below weighted score threshold",
+        "Weak protagonist",
+        "Limited originality",
+        "Commercial viability concerns"
+      ]
+    },
+    "verdict_statement": "While DARK RITUAL demonstrates professional formatting and adequate horror structure, it suffers from a reactive protagonist, heavy derivation from existing genre works, and limited commercial distinctiveness. The concept has potential but execution falls short of theatrical viability.",
+    "executive_summary": "Competent but derivative Lovecraftian horror about portal-closing sacrifices. Professional structure undermined by weak protagonist agency, generic characters, and limited originality. Requires significant development before consideration."
+  },
+  "collection": "Randoms"
+}

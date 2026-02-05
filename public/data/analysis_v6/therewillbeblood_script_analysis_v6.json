@@ -1,0 +1,607 @@
+{
+  "source_file": "therewillbeblood_script.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "therewillbeblood_script.pdf",
+    "page_count": 130,
+    "word_count": 22900
+  },
+  "analysis": {
+    "title": "There Will Be Blood",
+    "author": "Paul Thomas Anderson",
+    "logline": "A ruthless oil prospector's relentless pursuit of wealth in turn-of-the-century California ultimately consumes his humanity and destroys his most precious relationships.",
+    "genre": "Period Drama",
+    "subgenres": [
+      "Character Study",
+      "Historical Drama",
+      "Psychological Drama"
+    ],
+    "themes": [
+      "Capitalism and greed",
+      "Father-son relationships",
+      "Religious hypocrisy",
+      "American individualism",
+      "The corruption of power"
+    ],
+    "tone": "Dark, epic, brooding with moments of volcanic intensity",
+    "core_quality": {
+      "execution_craft": {
+        "score": 9.3,
+        "structure": {
+          "score": 9,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 9,
+              "note": "Clear three-act structure with powerful character-driven turning points"
+            },
+            "scene_necessity": {
+              "score": 10,
+              "note": "Every scene serves character development or plot advancement with surgical precision"
+            },
+            "momentum": {
+              "score": 9,
+              "note": "Builds relentlessly from intimate prospecting to epic confrontations"
+            },
+            "payoff_delivery": {
+              "score": 8,
+              "note": "Most setups pay off brilliantly, though some religious elements could be tighter"
+            }
+          },
+          "justification": "Masterfully structured around Daniel's character arc with clear act breaks and escalating stakes",
+          "page_citations": [
+            "Page 22: Daniel's oil man speech establishes character",
+            "Page 66: HW's deafness - major turning point",
+            "Page 121: Baptism sequence - key transformation"
+          ],
+          "weakness_identified": "Some middle sections with drilling details could be trimmed for pacing"
+        },
+        "scene_writing": {
+          "score": 10,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 10,
+              "note": "Each scene has clear conflict, change, and purpose"
+            },
+            "visual_storytelling": {
+              "score": 10,
+              "note": "Thinks cinematically - oil gusher, fire sequences, bowling alley finale"
+            },
+            "economy": {
+              "score": 9,
+              "note": "Efficient storytelling with rich detail, minimal overwriting"
+            },
+            "transitions": {
+              "score": 10,
+              "note": "Seamless cuts that advance narrative and character"
+            }
+          },
+          "justification": "Exceptional visual storytelling with scenes that work on multiple levels",
+          "page_citations": [
+            "Page 66-69: Gusher sequence - pure cinematic storytelling",
+            "Page 121-123: Baptism scene - masterclass in subtext"
+          ],
+          "weakness_identified": "Some technical drilling sequences may challenge general audiences"
+        },
+        "dialogue": {
+          "score": 9,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 9,
+              "note": "Daniel, Eli, and supporting characters have unique voices"
+            },
+            "subtext_quality": {
+              "score": 10,
+              "note": "Characters reveal rather than explain - baptism scene exemplary"
+            },
+            "functionality": {
+              "score": 9,
+              "note": "Dialogue advances plot while revealing character depths"
+            },
+            "speakability": {
+              "score": 8,
+              "note": "Occasionally dense but always purposeful and actable"
+            }
+          },
+          "justification": "Distinctive character voices with exceptional subtext, particularly in Daniel-Eli confrontations",
+          "page_citations": [
+            "Page 129: 'I drink your milkshake' - iconic and character-revealing",
+            "Page 122: Baptism dialogue - layers of meaning"
+          ],
+          "weakness_identified": "Some exposition-heavy early scenes could be more naturalistic"
+        }
+      },
+      "character_system": {
+        "score": 9.2,
+        "protagonist": {
+          "score": 10,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 10,
+              "note": "Crystal clear: wealth, control, and dominance in oil business"
+            },
+            "active_agency": {
+              "score": 10,
+              "note": "Drives every major plot development through his choices"
+            },
+            "arc_credibility": {
+              "score": 10,
+              "note": "Transformation from opportunist to monster is perfectly earned"
+            },
+            "investment": {
+              "score": 9,
+              "note": "Compelling despite his darkness - we understand his drive even as we're horrified"
+            }
+          },
+          "justification": "Daniel Plainview is a complex, actively driving protagonist with a clear, earned arc",
+          "page_citations": [
+            "Page 22: Goal established in oil man speech",
+            "Page 95: Henry murder shows complete transformation"
+          ],
+          "weakness_identified": "His early sympathetic moments could be slightly stronger to enhance the fall"
+        },
+        "supporting_cast": {
+          "score": 9,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 9,
+              "note": "Eli, HW, Henry, Abel all feel like real, distinct people"
+            },
+            "functional_purpose": {
+              "score": 9,
+              "note": "Each serves story while maintaining individual integrity"
+            },
+            "ensemble_balance": {
+              "score": 8,
+              "note": "Strong central relationships, though some minor characters underdeveloped"
+            }
+          },
+          "justification": "Eli Sunday particularly exceptional as complex foil to Daniel",
+          "page_citations": [
+            "Page 60-61: Eli's healing scene shows his own complexity",
+            "Page 43: Mary's abuse revelation gives depth to Sunday family"
+          ],
+          "weakness_identified": "Some oil workers could be more distinct as individuals"
+        },
+        "relationships": {
+          "score": 9,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 10,
+              "note": "Daniel-HW and Daniel-Eli relationships are complex and evolving"
+            },
+            "conflict_generation": {
+              "score": 9,
+              "note": "Relationships drive major story conflicts naturally"
+            },
+            "emotional_stakes": {
+              "score": 8,
+              "note": "We care deeply about Daniel and HW's bond"
+            }
+          },
+          "justification": "Father-son relationship and religious rivalry create powerful emotional and plot engines"
+        }
+      },
+      "conceptual_strength": {
+        "score": 9.0,
+        "premise": {
+          "score": 9,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 9,
+              "note": "Oil prospector's rise and moral fall - immediately gripping"
+            },
+            "narrative_engine": {
+              "score": 9,
+              "note": "Built-in conflict: capitalism vs community, father vs son, faith vs greed"
+            },
+            "freshness": {
+              "score": 8,
+              "note": "Fresh take on American Dream corruption story"
+            },
+            "execution_independence": {
+              "score": 9,
+              "note": "Concept demands and rewards this level of execution"
+            }
+          },
+          "justification": "Rich premise that generates natural conflict and character development",
+          "page_citations": [
+            "Page 1-10: Opening sequence immediately establishes unique tone and character"
+          ]
+        },
+        "theme": {
+          "score": 9,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 9,
+              "note": "Clear exploration of capitalism's dehumanizing effects"
+            },
+            "organic_integration": {
+              "score": 10,
+              "note": "Themes emerge naturally from character actions and plot"
+            },
+            "complexity": {
+              "score": 9,
+              "note": "Nuanced view of religion, family, and American ambition"
+            },
+            "resonance": {
+              "score": 9,
+              "note": "Universal themes of power, family, and moral corruption"
+            }
+          },
+          "justification": "Themes woven seamlessly into narrative without preaching"
+        }
+      },
+      "voice_and_tone": {
+        "score": 10,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 10,
+            "note": "Distinctly Paul Thomas Anderson - could be no other writer"
+          },
+          "tonal_consistency": {
+            "score": 10,
+            "note": "Maintains epic, dark tone throughout while allowing moments of humanity"
+          },
+          "genre_awareness": {
+            "score": 10,
+            "note": "Elevates period drama conventions with unique perspective"
+          },
+          "confidence": {
+            "score": 10,
+            "note": "Completely assured storytelling from first page to last"
+          }
+        },
+        "justification": "Distinctive, confident voice that creates a unique cinematic experience"
+      },
+      "weighted_score": 9.3,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": false,
+            "premise_score": 9,
+            "execution_average": 9.3,
+            "gap": -0.3,
+            "assessment": "Execution actually exceeds premise strength - no inflation here"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "Strong opening with Daniel's prospecting and oil discovery",
+            "later_acts_quality": "Equally strong - HW's deafness, Henry sequence, baptism, finale all exceptional",
+            "assessment": "Maintains quality throughout - no first act inflation"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 9,
+            "character_average": 9.2,
+            "gap": -0.2,
+            "assessment": "Characters are as strong as structure - deeply invested in Daniel and HW's relationship"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 9,
+            "scene_writing_score": 10,
+            "gap": -1,
+            "assessment": "Visual storytelling is even stronger than dialogue - scenes work powerfully on mute"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 9,
+            "theme_clarity": 9,
+            "assessment": "Themes are both complex and clear - the corruption of unchecked capitalism"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 10,
+            "premise_freshness": 8,
+            "assessment": "Distinctive voice elevates already fresh premise - not style over substance"
+          }
+        ],
+        "traps_triggered_count": 0,
+        "risk_level": "low",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "FILM_NOW",
+        "adjustment_rationale": "No false positive indicators - high scores appear genuine"
+      },
+      "critical_failures": [],
+      "major_weaknesses": [
+        "Some middle-act drilling sequences could be tightened",
+        "Minor characters in oil crew could be more distinct",
+        "Early Daniel could use slightly more sympathetic moments"
+      ],
+      "verdict": "FILM_NOW",
+      "verdict_rationale": "Exceptional craft across all dimensions with weighted score of 9.30. Daniel Plainview is a masterfully crafted protagonist, the screenplay demonstrates flawless visual storytelling, and the distinctive voice creates a unique cinematic experience that justifies the highest recommendation."
+    },
+    "characters": {
+      "protagonist": "Daniel Plainview - Ruthless oil prospector whose insatiable greed and need for control ultimately destroy his humanity and relationships. Compelling despite his darkness due to his intelligence, drive, and the glimpses of genuine love for HW.",
+      "antagonist": "Eli Sunday - Young preacher who serves as Daniel's moral and ideological opposite, equally manipulative but cloaked in religious righteousness. Their conflict drives much of the narrative tension.",
+      "supporting": [
+        "HW Plainview - Daniel's adopted son, represents Daniel's capacity for love and humanity",
+        "Henry Plainview/Imposter - Tests Daniel's ability to trust and connect",
+        "Abel Sunday - Weak father figure representing old values",
+        "Fletcher Hamilton - Loyal business partner and moral compass"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "Professional - excellent formatting and presentation throughout",
+      "act_breaks": "Act 1 ends page 42 (oil discovery and gusher), Act 2 ends page 123 (baptism sequence and spiritual submission)",
+      "pacing": "Deliberate but never sluggish. Builds methodically from intimate character study to epic confrontations. Some drilling sequences in middle act could be trimmed, but overall pacing serves the epic scope."
+    },
+    "standout_scenes": [
+      {
+        "page": "66-69",
+        "scene": "Oil gusher and HW's deafness",
+        "why": "Pure visual storytelling that changes everything - the price of Daniel's success"
+      },
+      {
+        "page": "121-123",
+        "scene": "Daniel's baptism",
+        "why": "Masterful subtext as Daniel submits to get what he wants while Eli gets his revenge"
+      },
+      {
+        "page": "128-132",
+        "scene": "Bowling alley finale",
+        "why": "Perfect culmination of Daniel-Eli conflict with iconic dialogue and shocking violence"
+      },
+      {
+        "page": "1-10",
+        "scene": "Opening prospector sequence",
+        "why": "Wordless character establishment showing Daniel's relentless drive"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Citizen Kane",
+        "similarity": "Epic character study of American ambition corrupting the soul",
+        "quality_comparison": "Similar craft level - both are masterpiece-tier character studies"
+      },
+      {
+        "title": "The Treasure of the Sierra Madre",
+        "similarity": "Greed transforming men into monsters in pursuit of natural resources",
+        "quality_comparison": "This script has more complex character psychology and modern sophistication"
+      },
+      {
+        "title": "Chinatown",
+        "similarity": "Corruption and power in early 20th century American development",
+        "quality_comparison": "Comparable craft quality - both are exemplars of American screenwriting"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Exceptional protagonist with clear arc",
+        "Masterful visual storytelling throughout",
+        "Distinctive authorial voice",
+        "Perfect integration of theme and character",
+        "Memorable, quotable dialogue with strong subtext",
+        "Every scene serves multiple purposes",
+        "Builds to powerful, inevitable conclusion"
+      ],
+      "weaknesses": [
+        "Some technical drilling sequences may challenge general audiences",
+        "Minor supporting characters could be more developed",
+        "Middle act pacing occasionally slows",
+        "Early Daniel could use more sympathetic moments to enhance his fall"
+      ],
+      "development_notes": [
+        "This is essentially shooting script ready - any notes would be minor polishing rather than structural changes"
+      ]
+    },
+    "executive_summary": "Masterpiece-level screenplay with exceptional character work, distinctive voice, and flawless execution. Daniel Plainview ranks among cinema's greatest protagonists. Ready for immediate production with A-list talent.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 7,
+            "rationale": "Universal themes of family, greed, and power corruption resonate across cultures, though specifically American setting"
+          },
+          "regional_casting_potential": {
+            "score": 5,
+            "rationale": "Lead role requires specific American oil prospector archetype - difficult to adapt for Latin American casting without major changes"
+          },
+          "theatrical_appeal": {
+            "score": 9,
+            "rationale": "Epic scope, visual spectacle of oil drilling and fires, powerful dramatic moments perfect for theater experience"
+          },
+          "marketing_viability": {
+            "score": 8,
+            "rationale": "Clear poster imagery of oil derricks and fire, 'power corrupts absolutely' hook translates well"
+          },
+          "coproduction_potential": {
+            "score": 4,
+            "rationale": "Very American-specific story and setting makes co-production challenging without major adaptation"
+          },
+          "overall_latam_score": 6.6,
+          "market_fit_classification": "english_speaking_ok",
+          "recommendation": "moderate_fit",
+          "specific_concerns": [
+            "Highly American-specific historical period and setting",
+            "Limited opportunities for Latin American casting in lead roles",
+            "Cultural specificity of American oil boom era"
+          ],
+          "opportunities": [
+            "Universal themes of power and corruption",
+            "Strong theatrical experience",
+            "Potential for Spanish dubbing of exceptional performances"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 2,
+            "note": "Adult prestige drama audience - significant but not mainstream blockbuster size"
+          },
+          "high_concept": {
+            "score": 2,
+            "note": "Character study of oil prospector's moral decay - requires explanation beyond simple pitch"
+          },
+          "cast_attachability": {
+            "score": 3,
+            "note": "Daniel Plainview is exceptional star vehicle role for A-list dramatic actor"
+          },
+          "marketing_hook": {
+            "score": 2,
+            "note": "Harder to market character study, but 'American greed epic' angle could work"
+          },
+          "budget_return_ratio": {
+            "score": 2,
+            "note": "Period piece with complex production needs - moderate risk"
+          },
+          "comparable_success": {
+            "score": 3,
+            "note": "Prestige dramas with strong performances can succeed - The Aviator, Gangs of New York"
+          },
+          "cvs_total": 14,
+          "commercial_outlook": "viable",
+          "box_office_ceiling": "$40-60M domestic with right star and campaign",
+          "key_commercial_strengths": [
+            "Exceptional lead role for major star",
+            "Awards potential",
+            "Critical acclaim likelihood"
+          ],
+          "key_commercial_concerns": [
+            "Challenging adult subject matter",
+            "Period piece costs",
+            "Limited four-quadrant appeal"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 35000000,
+          "estimated_budget_high": 50000000,
+          "category": "high",
+          "within_ceiling": false,
+          "key_cost_drivers": [
+            "Period production design and costumes - $4-6M",
+            "Oil derrick construction and practical effects - $5-8M",
+            "Multiple location shoots across different time periods - $3-5M",
+            "Large supporting cast and extras for crowd scenes - $2-3M",
+            "Fire and explosion sequences - $3-4M"
+          ],
+          "potential_savings": [
+            "Consolidate some locations to reduce travel",
+            "Use miniatures/VFX hybrid for some oil derrick scenes",
+            "Reduce crowd sizes in some sequences"
+          ],
+          "production_complexity": "very_high",
+          "location_requirements": "Multiple period locations including oil fields, small towns, mansion estate, various historical settings",
+          "vfx_requirements": "moderate - oil gusher effects, fire sequences, some period environment work",
+          "period_considerations": "Early 1900s period requiring extensive production design, costumes, vehicles",
+          "justification": "Period piece with complex practical effects, multiple locations, and large supporting cast pushes budget above ceiling. Oil derrick construction and fire sequences particularly expensive."
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 95,
+            "issues": [
+              "Minor pacing adjustments in middle act"
+            ],
+            "status": "ready"
+          },
+          "character_casting": {
+            "score": 90,
+            "issues": [
+              "Lead role requires exceptional dramatic actor"
+            ],
+            "status": "ready"
+          },
+          "production_feasibility": {
+            "score": 75,
+            "issues": [
+              "Complex period production",
+              "Extensive practical effects"
+            ],
+            "status": "needs_work"
+          },
+          "risk_profile": {
+            "score": 80,
+            "issues": [
+              "Adult themes",
+              "Violence in finale"
+            ],
+            "status": "ready"
+          },
+          "overall_readiness": 85,
+          "readiness_verdict": "greenlight_ready",
+          "deal_breakers": [],
+          "green_flags": [
+            "Exceptional script quality",
+            "Strong lead role for star attachment",
+            "Clear directorial vision",
+            "Awards potential"
+          ],
+          "development_priorities": [
+            "Secure A-list lead",
+            "Finalize production design approach for period elements",
+            "Plan practical effects sequences"
+          ],
+          "estimated_development_time": "1 polish draft / 2-3 months pre-production"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 3,
+            "rationale": "Very American-specific story with limited cultural bridge elements",
+            "key_elements": [
+              "Universal themes of power and greed"
+            ],
+            "potential_partners": [
+              "US studios seeking prestige projects"
+            ]
+          },
+          "mexico_spain": {
+            "score": 2,
+            "rationale": "No Spanish cultural elements or language opportunities in this American period piece",
+            "key_elements": [
+              "Potential for Spanish distribution"
+            ],
+            "eu_fund_eligibility": "Low - lacks European elements required for most EU funding"
+          },
+          "other_territories": {
+            "score": 4,
+            "territories": [
+              "UK",
+              "Canada"
+            ],
+            "rationale": "English-language period drama could attract Commonwealth co-production interest"
+          },
+          "best_structure": "Mexico as minority partner with US major studio lead",
+          "treaty_considerations": [
+            "NAFTA/USMCA benefits for US-Mexico co-production"
+          ],
+          "overall_coproduction_score": 3.0
+        }
+      }
+    }
+  },
+  "collection": "2006 Black List",
+  "tmdb_status": {
+    "checked": true,
+    "is_produced": false,
+    "reason": "NOT PRODUCED: No matching films found",
+    "checked_at": "2026-02-04T09:27:56.991674"
+  }
+}

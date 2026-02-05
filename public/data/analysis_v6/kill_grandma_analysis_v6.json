@@ -1,0 +1,612 @@
+{
+  "source_file": "kill_grandma.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "kill_grandma.pdf",
+    "page_count": 112,
+    "word_count": 20870
+  },
+  "analysis": {
+    "title": "Kill Grandma",
+    "author": "Patrick Poff",
+    "logline": "A young woman with an extreme fear of the elderly confronts her abusive grandmother at a mysterious nursing home where a Nazi scientist harvests youth from grandchildren to keep the elderly immortal.",
+    "genre": "Horror Comedy",
+    "subgenres": [
+      "Dark Comedy",
+      "Supernatural Horror",
+      "Thriller"
+    ],
+    "themes": [
+      "Fear of aging",
+      "Family trauma",
+      "Generational conflict",
+      "Memory and identity",
+      "Abuse cycles"
+    ],
+    "tone": "Darkly comedic with horror elements, irreverent and boundary-pushing",
+    "core_quality": {
+      "execution_craft": {
+        "score": 5.2,
+        "structure": {
+          "score": 6,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 6,
+              "note": "Clear three-act structure with identifiable turning points"
+            },
+            "scene_necessity": {
+              "score": 5,
+              "note": "Some scenes feel padded, particularly middle section"
+            },
+            "momentum": {
+              "score": 6,
+              "note": "Strong opening and finale, sags in second act"
+            },
+            "payoff_delivery": {
+              "score": 7,
+              "note": "Satisfying resolution of Ashley's arc and grandmother conflict"
+            }
+          },
+          "justification": "Script follows conventional structure with clear act breaks and escalating stakes",
+          "page_citations": [
+            "Page 13: Arrival at nursing home (Plot Point 1)",
+            "Page 75: Ashley's memories extracted (Midpoint)",
+            "Page 105: Final confrontation (Climax)"
+          ],
+          "weakness_identified": "Second act drags with repetitive 'old people are scary' beats that don't advance plot"
+        },
+        "scene_writing": {
+          "score": 5,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 5,
+              "note": "Scenes have clear objectives but often run long"
+            },
+            "visual_storytelling": {
+              "score": 6,
+              "note": "Good use of visual horror elements and practical effects"
+            },
+            "economy": {
+              "score": 4,
+              "note": "Significant overwriting, verbose action blocks"
+            },
+            "transitions": {
+              "score": 5,
+              "note": "Functional but not elegant scene-to-scene flow"
+            }
+          },
+          "justification": "Scenes work but suffer from overwriting and lack of economy",
+          "page_citations": [
+            "Page 24: Agnes heart attack scene - effective tension building"
+          ],
+          "weakness_identified": "Consistent overwriting with action blocks exceeding 4 lines routinely"
+        },
+        "dialogue": {
+          "score": 5,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 6,
+              "note": "Characters have distinct voices, especially Chester and Dr. Jung"
+            },
+            "subtext_quality": {
+              "score": 4,
+              "note": "Often on-the-nose, characters say exactly what they mean"
+            },
+            "functionality": {
+              "score": 5,
+              "note": "Advances plot adequately but lacks finesse"
+            },
+            "speakability": {
+              "score": 6,
+              "note": "Natural rhythm, actors could work with this material"
+            }
+          },
+          "justification": "Dialogue serves its purpose but lacks subtlety and sophistication",
+          "page_citations": [
+            "Page 53: Chester's military dialogue has authentic voice"
+          ],
+          "weakness_identified": "Excessive exposition and on-the-nose character motivations"
+        }
+      },
+      "character_system": {
+        "score": 5.8,
+        "protagonist": {
+          "score": 6,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 7,
+              "note": "Clear external goal - confront grandmother before she dies"
+            },
+            "active_agency": {
+              "score": 5,
+              "note": "Becomes passive in second act, things happen TO her"
+            },
+            "arc_credibility": {
+              "score": 6,
+              "note": "Arc from fear to confrontation is believable if rushed"
+            },
+            "investment": {
+              "score": 6,
+              "note": "Traumatic backstory creates sympathy despite abrasive personality"
+            }
+          },
+          "justification": "Ashley has clear motivation and undergoes meaningful change, though execution is uneven",
+          "page_citations": [
+            "Page 12: Goal established - needs to tell grandmother things before she dies"
+          ],
+          "weakness_identified": "Becomes too passive in second act, loses agency to Dr. Jung's machinations"
+        },
+        "supporting_cast": {
+          "score": 6,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 7,
+              "note": "Chester and Dr. Jung are memorable, distinct characters"
+            },
+            "functional_purpose": {
+              "score": 6,
+              "note": "Each serves clear story function"
+            },
+            "ensemble_balance": {
+              "score": 5,
+              "note": "Paul feels underdeveloped compared to others"
+            }
+          },
+          "justification": "Strong supporting characters, particularly Chester who steals scenes",
+          "page_citations": [
+            "Page 50: Chester's introduction scene showcases unique voice and personality"
+          ],
+          "weakness_identified": "Paul lacks distinct personality beyond being Ashley's boyfriend"
+        },
+        "relationships": {
+          "score": 5,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 6,
+              "note": "Ashley/Agnes relationship has clear power dynamics"
+            },
+            "conflict_generation": {
+              "score": 5,
+              "note": "Relationships create some tension but could be deeper"
+            },
+            "emotional_stakes": {
+              "score": 4,
+              "note": "Don't deeply care about Ashley/Paul relationship"
+            }
+          },
+          "justification": "Central grandmother relationship works, others less compelling"
+        }
+      },
+      "conceptual_strength": {
+        "score": 6.5,
+        "premise": {
+          "score": 7,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 8,
+              "note": "Gerontophobia plus evil nursing home is immediately intriguing"
+            },
+            "narrative_engine": {
+              "score": 7,
+              "note": "Premise generates natural conflict and escalation"
+            },
+            "freshness": {
+              "score": 6,
+              "note": "Familiar horror tropes but unique angle with gerontophobia"
+            },
+            "execution_independence": {
+              "score": 7,
+              "note": "Strong concept that could work with average execution"
+            }
+          },
+          "justification": "Compelling and original premise that immediately generates story possibilities",
+          "page_citations": []
+        },
+        "theme": {
+          "score": 6,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 6,
+              "note": "Clear themes about aging, trauma, and family cycles"
+            },
+            "organic_integration": {
+              "score": 6,
+              "note": "Themes emerge naturally from story events"
+            },
+            "complexity": {
+              "score": 6,
+              "note": "Nuanced view of aging and generational conflict"
+            },
+            "resonance": {
+              "score": 6,
+              "note": "Universal fears about aging and family dysfunction"
+            }
+          },
+          "justification": "Themes are well-integrated and resonate with universal human experiences"
+        }
+      },
+      "voice_and_tone": {
+        "score": 7,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 7,
+            "note": "Distinctive, irreverent voice that's clearly the author's"
+          },
+          "tonal_consistency": {
+            "score": 6,
+            "note": "Generally consistent dark comedy tone with horror elements"
+          },
+          "genre_awareness": {
+            "score": 7,
+            "note": "Knows horror-comedy conventions and plays with them effectively"
+          },
+          "confidence": {
+            "score": 8,
+            "note": "Writer commits fully to outrageous premise and tone"
+          }
+        },
+        "justification": "Strong authorial voice that commits fully to its outrageous premise"
+      },
+      "weighted_score": 5.74,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": true,
+            "premise_score": 7,
+            "execution_average": 5.2,
+            "gap": 1.8,
+            "assessment": "Strong premise masks weak execution in scene construction and dialogue"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "Strong setup with clear character introductions",
+            "later_acts_quality": "Second act maintains momentum reasonably well",
+            "assessment": "Consistent quality throughout, no significant first act illusion"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 6,
+            "character_average": 5.8,
+            "gap": 0.2,
+            "assessment": "Characters and structure are reasonably balanced"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 5,
+            "scene_writing_score": 5,
+            "gap": 0,
+            "assessment": "Dialogue and scene construction at similar quality levels"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 6,
+            "theme_clarity": 6,
+            "assessment": "Themes are complex but clearly articulated - fear of aging driving family trauma"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 7,
+            "premise_freshness": 6,
+            "assessment": "Voice and premise freshness are aligned - both above average"
+          }
+        ],
+        "traps_triggered_count": 1,
+        "risk_level": "moderate",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "PASS",
+        "adjustment_rationale": "Only one trap triggered, premise-execution gap noted but not severe enough to downgrade"
+      },
+      "critical_failures": [],
+      "major_weaknesses": [
+        "Overwriting and verbose action blocks",
+        "Second act pacing issues",
+        "On-the-nose dialogue lacking subtext",
+        "Paul's character underdevelopment",
+        "Excessive reliance on shock value over character development"
+      ],
+      "verdict": "PASS",
+      "verdict_rationale": "While the script has an original premise and distinctive voice, execution issues including overwriting, pacing problems, and weak dialogue prevent advancement. The weighted score of 5.74 falls below the 5.5 threshold for CONSIDER."
+    },
+    "characters": {
+      "protagonist": "Ashley Evergreene - 25-year-old woman with gerontophobia seeking closure with abusive grandmother. Compelling due to genuine trauma but becomes passive in second act.",
+      "antagonist": "Dr. Annaliese Jung - Nazi scientist disguised as nursing home director who harvests youth from visitors. Agnes Evergreene serves as emotional antagonist.",
+      "supporting": [
+        "Paul Clark - Ashley's fiancé, underdeveloped but serves as grounding force",
+        "Chester Larrington - 99-year-old veteran, scene-stealer with distinctive voice and agency",
+        "Agnes Evergreene - Ashley's abusive grandmother, effective embodiment of Ashley's fears"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "needs_work",
+      "act_breaks": "Act 1 ends page 30 (arrival at nursing home), Act 2 ends page 90 (memory extraction climax)",
+      "pacing": "Strong opening 30 pages establish character and premise well. Second act drags with repetitive scenes of Ashley being scared by old people. Final act picks up momentum with action sequences and revelation."
+    },
+    "standout_scenes": [
+      {
+        "page": "50-57",
+        "scene": "Paul and Chester in hot tub/basketball court",
+        "why": "Great character work, unexpected friendship, Chester's personality shines"
+      },
+      {
+        "page": "88-95",
+        "scene": "Chester's final stand with grenades",
+        "why": "Satisfying character payoff, genuine emotional stakes"
+      },
+      {
+        "page": "76-82",
+        "scene": "Ashley's suppressed memories revealed",
+        "why": "Effective horror imagery, plot advancement"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Get Out",
+        "similarity": "Young person trapped in facility by older authority figures harvesting from youth",
+        "quality_comparison": "weaker craft - Get Out has much tighter execution and subtler themes"
+      },
+      {
+        "title": "The Visit",
+        "similarity": "Horror comedy about scary elderly people with dark family secrets",
+        "quality_comparison": "similar craft level but The Visit has better pacing"
+      },
+      {
+        "title": "Cocoon",
+        "similarity": "Elderly people gaining youth through supernatural means",
+        "quality_comparison": "weaker craft - Cocoon has more developed characters and themes"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Original and compelling premise combining gerontophobia with horror",
+        "Distinctive authorial voice that commits to outrageous tone",
+        "Strong supporting character in Chester",
+        "Effective use of body horror and practical effects",
+        "Clear character arc for protagonist",
+        "Memorable set pieces and action sequences"
+      ],
+      "weaknesses": [
+        "Consistent overwriting with verbose action blocks exceeding professional standards",
+        "Second act pacing drags with repetitive scare sequences",
+        "Dialogue lacks subtext and is frequently on-the-nose",
+        "Paul's character is underdeveloped and generic",
+        "Relies too heavily on shock value over genuine character development",
+        "Some plot contrivances strain credibility",
+        "Tonal inconsistencies between comedy and horror elements"
+      ],
+      "development_notes": [
+        "Cut action blocks to 3 lines maximum throughout",
+        "Develop Paul's character with distinct voice and clear arc",
+        "Add subtext to dialogue - characters shouldn't say exactly what they mean",
+        "Tighten second act by combining or cutting repetitive elderly-scare scenes",
+        "Balance shock moments with character development",
+        "Clarify the rules of Jung's memory-harvesting process"
+      ]
+    },
+    "executive_summary": "Original horror-comedy premise with distinctive voice but suffers from overwriting, pacing issues, and on-the-nose dialogue. Strong concept and supporting characters can't overcome execution problems that prevent advancement.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 6,
+            "rationale": "Universal themes of family trauma and aging fears translate well, though specific gerontophobia concept may need explanation"
+          },
+          "regional_casting_potential": {
+            "score": 4,
+            "rationale": "Limited roles for Latin American talent - could be adapted with cultural transplantation"
+          },
+          "theatrical_appeal": {
+            "score": 7,
+            "rationale": "Horror comedies perform well theatrically in LatAm, shared audience experience enhances scares and laughs"
+          },
+          "marketing_viability": {
+            "score": 6,
+            "rationale": "Clear poster concept (creepy elderly vs young), trailer would cut well with horror-comedy beats"
+          },
+          "coproduction_potential": {
+            "score": 5,
+            "rationale": "Would need significant cultural adaptation for Mexico/US co-production to work effectively"
+          },
+          "overall_latam_score": 5.6,
+          "market_fit_classification": "english_speaking_ok",
+          "recommendation": "moderate_fit",
+          "specific_concerns": [
+            "Very US-specific cultural references and humor",
+            "Nursing home setting not as familiar in Latin America",
+            "Some offensive elderly stereotypes may not translate"
+          ],
+          "opportunities": [
+            "Horror-comedy genre popular in region",
+            "Could be reimagined with Latin American family dynamics",
+            "Strong theatrical appeal for shared scares/laughs"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 2,
+            "note": "Horror-comedy fans, but offensive content limits mainstream appeal"
+          },
+          "high_concept": {
+            "score": 3,
+            "note": "Woman with fear of elderly trapped in evil nursing home - pitches easily"
+          },
+          "cast_attachability": {
+            "score": 2,
+            "note": "Chester offers character actor opportunity, but limited star vehicle roles"
+          },
+          "marketing_hook": {
+            "score": 2,
+            "note": "Difficult to market without highlighting offensive elements that could alienate audiences"
+          },
+          "budget_return_ratio": {
+            "score": 2,
+            "note": "Low budget possible but limited commercial upside due to content concerns"
+          },
+          "comparable_success": {
+            "score": 2,
+            "note": "Horror comedies with elderly themes (The Visit) had moderate success but this is more extreme"
+          },
+          "cvs_total": 13,
+          "commercial_outlook": "challenging",
+          "box_office_ceiling": "$5-15M domestic",
+          "key_commercial_strengths": [
+            "Low budget requirements",
+            "Horror-comedy genre has built-in audience",
+            "High concept premise"
+          ],
+          "key_commercial_concerns": [
+            "Potentially offensive content limits mainstream appeal",
+            "No obvious star vehicle roles",
+            "May be too extreme for wide release"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 3000000,
+          "estimated_budget_high": 8000000,
+          "category": "low",
+          "within_ceiling": true,
+          "key_cost_drivers": [
+            "Practical effects for horror sequences - $500K-1M",
+            "Nursing home location and set decoration - $300K-600K",
+            "Action sequences and stunt work - $200K-500K"
+          ],
+          "potential_savings": [
+            "Single primary location reduces location costs",
+            "Contemporary setting avoids period costs",
+            "Limited cast keeps talent costs manageable"
+          ],
+          "production_complexity": "medium",
+          "location_requirements": "Primary nursing home location, some practical locations, minimal exotic locations",
+          "vfx_requirements": "minimal",
+          "period_considerations": "contemporary",
+          "justification": "Primarily single location with practical effects. Some complex action sequences but generally contained production scope."
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 40,
+            "issues": [
+              "Significant overwriting needs cleanup",
+              "Dialogue needs subtext pass",
+              "Pacing issues in Act 2"
+            ],
+            "status": "needs_work"
+          },
+          "character_casting": {
+            "score": 60,
+            "issues": [
+              "Paul character needs development before casting",
+              "Ashley role is challenging but castable"
+            ],
+            "status": "needs_work"
+          },
+          "production_feasibility": {
+            "score": 75,
+            "issues": [
+              "Some practical effects complexity",
+              "Nursing home location needs careful selection"
+            ],
+            "status": "ready"
+          },
+          "risk_profile": {
+            "score": 30,
+            "issues": [
+              "Content may be too offensive for wide release",
+              "Tone requires precise direction",
+              "Marketing challenges"
+            ],
+            "status": "blocker"
+          },
+          "overall_readiness": 51,
+          "readiness_verdict": "development_needed",
+          "deal_breakers": [
+            "Offensive content may limit distribution options",
+            "Script requires significant polish before production"
+          ],
+          "green_flags": [
+            "Low budget requirements",
+            "Contained locations",
+            "Clear vision and tone"
+          ],
+          "development_priorities": [
+            "Polish script for overwriting and pacing",
+            "Develop Paul's character",
+            "Consider content concerns for wider appeal"
+          ],
+          "estimated_development_time": "2-3 drafts / 4-6 months"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 3,
+            "rationale": "Limited cultural bridge elements, would require significant adaptation for Mexico/US partnership",
+            "key_elements": [
+              "Horror genre travels well",
+              "Could reimagine with border family dynamics"
+            ],
+            "potential_partners": [
+              "US horror specialty distributors",
+              "Genre-focused production companies"
+            ]
+          },
+          "mexico_spain": {
+            "score": 4,
+            "rationale": "Spanish language adaptation possible, but content concerns may limit European funding appeal",
+            "key_elements": [
+              "Language compatibility",
+              "Horror-comedy genre acceptance"
+            ],
+            "eu_fund_eligibility": "Limited due to genre and content concerns"
+          },
+          "other_territories": {
+            "score": 5,
+            "territories": [
+              "Canada",
+              "Australia",
+              "UK"
+            ],
+            "rationale": "English-speaking territories with strong horror markets might be interested"
+          },
+          "best_structure": "US-Canada co-production for genre expertise and market access",
+          "treaty_considerations": [
+            "Canada-US co-production treaty benefits"
+          ],
+          "overall_coproduction_score": 4.0
+        }
+      }
+    }
+  },
+  "collection": "Randoms",
+  "tmdb_status": {
+    "checked": true,
+    "is_produced": false,
+    "reason": "NOT PRODUCED: No matching films found",
+    "checked_at": "2026-02-04T09:32:46.547603"
+  }
+}

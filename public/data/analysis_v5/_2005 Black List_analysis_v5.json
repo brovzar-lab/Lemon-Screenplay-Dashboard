@@ -1,0 +1,377 @@
+{
+  "source_file": "_2005 Black List.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v5_production_company",
+  "metadata": {
+    "filename": "_2005 Black List.pdf",
+    "page_count": 11,
+    "word_count": 2412
+  },
+  "analysis": {
+    "title": "The Black List 2005",
+    "author": "Unknown",
+    "logline": "An industry compilation listing the most liked unproduced screenplays of 2005 as voted by film executives and assistants.",
+    "genre": "Industry Document",
+    "subgenres": [
+      "Reference",
+      "List"
+    ],
+    "themes": [
+      "Industry Recognition",
+      "Unproduced Scripts"
+    ],
+    "tone": "Informational",
+    "dimension_scores": {
+      "concept": {
+        "score": 1,
+        "sub_criteria": {
+          "hook_clarity": {
+            "score": 1,
+            "note": "No narrative hook - this is a list"
+          },
+          "audience_targeting": {
+            "score": 1,
+            "note": "Industry insiders only"
+          },
+          "freshness": {
+            "score": 1,
+            "note": "Compilation format offers no originality"
+          },
+          "execution_independence": {
+            "score": 1,
+            "note": "Not applicable - no story to execute"
+          }
+        },
+        "justification": "This is not a screenplay but an industry reference document listing unproduced scripts",
+        "page_citations": [
+          "Page 1: 'THE BLACK LIST was compiled from suggestions of over 90 film executives'"
+        ],
+        "weakness_identified": "Not a screenplay - fundamental category error"
+      },
+      "structure": {
+        "score": 1,
+        "sub_criteria": {
+          "act_architecture": {
+            "score": 1,
+            "note": "No acts - just ranked lists"
+          },
+          "scene_necessity": {
+            "score": 1,
+            "note": "No scenes present"
+          },
+          "momentum": {
+            "score": 1,
+            "note": "No narrative momentum"
+          },
+          "payoff_delivery": {
+            "score": 1,
+            "note": "No setups or payoffs"
+          }
+        },
+        "justification": "Document has no narrative structure - organized as ranked list by number of mentions",
+        "page_citations": [
+          "Page 1: Lists organized by mention count from 25 down to 1"
+        ],
+        "weakness_identified": "No story structure exists"
+      },
+      "protagonist": {
+        "score": 1,
+        "sub_criteria": {
+          "goal_clarity": {
+            "score": 1,
+            "note": "No protagonist exists"
+          },
+          "active_agency": {
+            "score": 1,
+            "note": "No character present"
+          },
+          "arc_credibility": {
+            "score": 1,
+            "note": "No character development"
+          },
+          "star_vehicle_quality": {
+            "score": 1,
+            "note": "No roles to cast"
+          }
+        },
+        "justification": "No characters exist in this document",
+        "page_citations": [],
+        "weakness_identified": "No protagonist or characters present"
+      },
+      "supporting_cast": {
+        "score": 1,
+        "sub_criteria": {
+          "character_distinction": {
+            "score": 1,
+            "note": "No characters exist"
+          },
+          "functional_purpose": {
+            "score": 1,
+            "note": "No characters to serve story function"
+          },
+          "castability": {
+            "score": 1,
+            "note": "No roles available"
+          }
+        },
+        "justification": "Document contains no characters",
+        "page_citations": [],
+        "weakness_identified": "No supporting characters exist"
+      },
+      "dialogue": {
+        "score": 1,
+        "sub_criteria": {
+          "voice_distinction": {
+            "score": 1,
+            "note": "No dialogue present"
+          },
+          "subtext_quality": {
+            "score": 1,
+            "note": "No character speech"
+          },
+          "quotability": {
+            "score": 1,
+            "note": "Only administrative text"
+          },
+          "translation_quality": {
+            "score": 1,
+            "note": "No dialogue to translate"
+          }
+        },
+        "justification": "No dialogue exists - only title listings and credits",
+        "page_citations": [],
+        "weakness_identified": "No dialogue present"
+      },
+      "genre_execution": {
+        "score": 1,
+        "sub_criteria": {
+          "obligatory_scenes": {
+            "score": 1,
+            "note": "No genre scenes present"
+          },
+          "emotional_delivery": {
+            "score": 1,
+            "note": "No emotional content"
+          },
+          "convention_innovation": {
+            "score": 1,
+            "note": "Not a narrative genre"
+          },
+          "audience_satisfaction": {
+            "score": 1,
+            "note": "No entertainment value for general audience"
+          }
+        },
+        "justification": "Not a narrative work in any recognizable genre",
+        "page_citations": [],
+        "weakness_identified": "Not a filmable genre"
+      },
+      "originality": {
+        "score": 2,
+        "sub_criteria": {
+          "voice_distinctiveness": {
+            "score": 1,
+            "note": "Administrative voice only"
+          },
+          "premise_novelty": {
+            "score": 3,
+            "note": "Novel industry document format"
+          },
+          "execution_innovation": {
+            "score": 2,
+            "note": "Interesting ranking system"
+          },
+          "cultural_freshness": {
+            "score": 2,
+            "note": "Insider perspective has some value"
+          }
+        },
+        "justification": "While not a screenplay, the Black List format was innovative for industry transparency",
+        "page_citations": [],
+        "weakness_identified": "Not a creative work suitable for film production"
+      },
+      "weighted_score": 1.15
+    },
+    "latam_market_assessment": {
+      "cultural_resonance": {
+        "score": 1,
+        "rationale": "Industry document with no cultural content to resonate"
+      },
+      "regional_casting_potential": {
+        "score": 1,
+        "rationale": "No roles exist to cast"
+      },
+      "theatrical_appeal": {
+        "score": 1,
+        "rationale": "No entertainment value for theatrical release"
+      },
+      "marketing_viability": {
+        "score": 1,
+        "rationale": "Cannot market a list as a film"
+      },
+      "coproduction_potential": {
+        "score": 1,
+        "rationale": "Nothing to co-produce"
+      },
+      "overall_latam_score": 1.0,
+      "market_recommendation": "not_recommended"
+    },
+    "production_readiness": {
+      "script_polish": {
+        "score": 0,
+        "issues": [
+          "Not a screenplay",
+          "No narrative content"
+        ],
+        "status": "blocker"
+      },
+      "character_casting": {
+        "score": 0,
+        "issues": [
+          "No characters exist"
+        ],
+        "status": "blocker"
+      },
+      "production_feasibility": {
+        "score": 0,
+        "issues": [
+          "Nothing to film"
+        ],
+        "status": "blocker"
+      },
+      "market_viability": {
+        "score": 0,
+        "issues": [
+          "No commercial content"
+        ],
+        "status": "blocker"
+      },
+      "risk_profile": {
+        "score": 0,
+        "issues": [
+          "Fundamental category error"
+        ],
+        "status": "blocker"
+      },
+      "overall_readiness": 0,
+      "readiness_verdict": "pass",
+      "deal_breakers": [
+        "Not a screenplay",
+        "No filmable content",
+        "Industry reference document only"
+      ],
+      "green_flags": [],
+      "development_priorities": [
+        "Submit actual screenplay instead of industry document"
+      ]
+    },
+    "critical_failures": [
+      "No discernible hook",
+      "Audience confusion",
+      "Passive protagonist",
+      "Goal absence",
+      "Missing engine",
+      "Second act collapse",
+      "Niche audience only"
+    ],
+    "major_weaknesses": [
+      "Not a screenplay",
+      "No narrative content",
+      "No characters",
+      "No dialogue",
+      "No story structure",
+      "Industry document submitted in error"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 1,
+        "note": "Industry insiders only - no commercial audience"
+      },
+      "high_concept": {
+        "score": 1,
+        "note": "Cannot pitch a list as a film concept"
+      },
+      "cast_attachability": {
+        "score": 1,
+        "note": "No roles exist"
+      },
+      "marketing_hook": {
+        "score": 1,
+        "note": "No marketing hook for general audience"
+      },
+      "budget_return_ratio": {
+        "score": 1,
+        "note": "No film to budget"
+      },
+      "comparable_success": {
+        "score": 1,
+        "note": "No comparable films because this isn't a film"
+      },
+      "cvs_total": 6
+    },
+    "structure_analysis": {
+      "format_quality": "amateur",
+      "act_breaks": "No act breaks - document organized by mention count rankings",
+      "pacing": "Not applicable - no narrative pacing in reference document"
+    },
+    "characters": {
+      "protagonist": "No protagonist exists",
+      "antagonist": "No antagonist exists",
+      "supporting": []
+    },
+    "standout_scenes": [],
+    "comparable_films": [],
+    "target_audience": {
+      "primary_demographic": "Film industry professionals",
+      "gender_skew": "neutral",
+      "interests": [
+        "Film development",
+        "Industry networking"
+      ],
+      "latam_audience_notes": "No relevance to Latin American theatrical audience"
+    },
+    "budget_tier": {
+      "category": "Not applicable",
+      "estimated_range": "$0",
+      "within_company_capacity": false,
+      "justification": "No film content to budget"
+    },
+    "assessment": {
+      "strengths": [
+        "Historically significant industry document",
+        "Transparent ranking system"
+      ],
+      "weaknesses": [
+        "Not a screenplay",
+        "No narrative content",
+        "No characters",
+        "No dialogue",
+        "No filmable material",
+        "Industry reference document only",
+        "No entertainment value",
+        "No commercial viability"
+      ],
+      "development_notes": [],
+      "marketability": "low",
+      "recommendation": "PASS",
+      "recommendation_rationale": "This is not a screenplay but an industry reference document listing unproduced scripts. Weighted score of 1.15 is far below minimum threshold, multiple critical failures present, and CVS of 6 indicates no commercial viability."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Failed - document has no narrative hook or story content",
+      "goosebumps_moments": [],
+      "career_risk_test": "Would never stake career on industry document with no filmable content",
+      "legacy_potential": "While historically significant for industry, has zero legacy potential as film",
+      "disqualifying_factors": [
+        "Not a screenplay",
+        "No narrative content",
+        "No characters",
+        "No story structure",
+        "Industry document only"
+      ]
+    },
+    "verdict_statement": "This submission is not a screenplay but rather the 2005 Black List - an industry compilation of unproduced scripts voted on by executives. It contains no narrative content, characters, dialogue, or filmable material of any kind.",
+    "executive_summary": "Industry reference document mistakenly submitted instead of screenplay. Contains ranked list of unproduced 2005 scripts with no filmable content. Automatic pass - not a screenplay."
+  },
+  "collection": "2005 Black List"
+}

@@ -1,6 +1,7 @@
 /**
- * TypeScript interfaces for V3 Screenplay Analysis Data
+ * TypeScript interfaces for Screenplay Analysis Data
  * Lemon Screenplay Dashboard
+ * Supports V3, V4, V5, and V6 analysis formats
  */
 
 // ============================================
@@ -12,7 +13,10 @@ export type Collection =
   | '2006 Black List'
   | '2007 Black List'
   | '2020 Black List'
-  | 'Randoms';
+  | 'Randoms'
+  | 'V4 Fixed'
+  | 'V5 Analysis'
+  | 'V6 Analysis';
 
 export type RecommendationTier = 'film_now' | 'recommend' | 'consider' | 'pass';
 
@@ -449,4 +453,96 @@ export const COLLECTION_CONFIG: Record<Collection, {
   '2007 Black List': { folder: 'analysis_v3_2007', displayName: '2007 Black List' },
   '2020 Black List': { folder: 'analysis_v3_2020', displayName: '2020 Black List' },
   'Randoms': { folder: 'analysis_v3_Randoms', displayName: 'Random Collection' },
+  'V4 Fixed': { folder: 'analysis_v4_fixed', displayName: 'V4 Fixed OCR' },
+  'V5 Analysis': { folder: 'analysis_v5', displayName: 'V5 Production Analysis' },
+  'V6 Analysis': { folder: 'analysis_v6', displayName: 'V6 Core + Lenses Analysis' },
 };
+
+// ============================================
+// V5 ENHANCED TYPES (Latin American Market Focus)
+// ============================================
+
+export type LatAmMarketFit = 'strong_fit' | 'moderate_fit' | 'weak_fit' | 'not_recommended';
+export type ReadinessVerdict = 'greenlight_ready' | 'development_needed' | 'not_ready' | 'pass';
+export type ReadinessStatus = 'ready' | 'needs_work' | 'blocker';
+
+/** Sub-criterion score for enhanced dimension analysis */
+export interface SubCriterionScore {
+  score: number;
+  note: string;
+}
+
+/** Enhanced dimension score with sub-criteria (V5) */
+export interface EnhancedDimensionScore {
+  score: number;
+  subCriteria: Record<string, SubCriterionScore>;
+  justification: string;
+  pageCitations: string[];
+  weaknessIdentified: string;
+}
+
+/** Latin American Market Assessment (V5) */
+export interface LatAmMarketAssessment {
+  culturalResonance: { score: number; rationale: string };
+  regionalCastingPotential: { score: number; rationale: string };
+  theatricalAppeal: { score: number; rationale: string };
+  marketingViability: { score: number; rationale: string };
+  coproductionPotential: { score: number; rationale: string };
+  overallLatamScore: number;
+  marketRecommendation: LatAmMarketFit;
+}
+
+/** Production Readiness Category (V5) */
+export interface ProductionReadinessCategory {
+  score: number;
+  issues: string[];
+  status: ReadinessStatus;
+}
+
+/** Production Readiness Assessment (V5) */
+export interface ProductionReadinessAssessment {
+  scriptPolish: ProductionReadinessCategory;
+  characterCasting: ProductionReadinessCategory;
+  productionFeasibility: ProductionReadinessCategory;
+  marketViability: ProductionReadinessCategory;
+  riskProfile: ProductionReadinessCategory;
+  overallReadiness: number;
+  readinessVerdict: ReadinessVerdict;
+  dealBreakers: string[];
+  greenFlags: string[];
+  developmentPriorities: string[];
+}
+
+/** Enhanced comparable film with LatAm performance (V5) */
+export interface EnhancedComparableFilm extends ComparableFilm {
+  latamPerformance?: string;
+}
+
+/** Enhanced budget tier with company capacity check (V5) */
+export interface EnhancedBudgetTier {
+  category: BudgetCategory;
+  estimatedRange: string;
+  withinCompanyCapacity: boolean;
+  justification: string;
+}
+
+/** Extended Screenplay type for V5 analysis */
+export interface ScreenplayV5 extends Screenplay {
+  // V5 Enhanced Dimension Scores (optional - only present in V5 analyses)
+  enhancedDimensionScores?: Record<string, EnhancedDimensionScore>;
+
+  // Latin American Market Assessment (V5)
+  latamMarketAssessment?: LatAmMarketAssessment;
+
+  // Production Readiness Assessment (V5)
+  productionReadiness?: ProductionReadinessAssessment;
+
+  // Enhanced comparable films with LatAm data
+  enhancedComparableFilms?: EnhancedComparableFilm[];
+
+  // Enhanced budget tier
+  enhancedBudgetTier?: EnhancedBudgetTier;
+
+  // Executive summary (V5)
+  executiveSummary?: string;
+}

@@ -1,0 +1,603 @@
+{
+  "source_file": "dark_ritual.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "dark_ritual.pdf",
+    "page_count": 99,
+    "word_count": 18149
+  },
+  "analysis": {
+    "title": "Dark Ritual",
+    "author": "Kevin Kneupper",
+    "logline": "When a teenage girl escapes a cult's sacrificial ritual, she and small-town cops must complete the interrupted ceremony to close a portal unleashing otherworldly monsters.",
+    "genre": "Horror",
+    "subgenres": [
+      "Supernatural Horror",
+      "Creature Feature",
+      "Small Town Thriller"
+    ],
+    "themes": [
+      "redemption",
+      "sacrifice",
+      "moral compromise",
+      "abandonment",
+      "corruption"
+    ],
+    "tone": "Dark, visceral horror with rural noir sensibilities",
+    "core_quality": {
+      "execution_craft": {
+        "score": 6.3,
+        "structure": {
+          "score": 7,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 7,
+              "note": "Clear three-act structure with strong setup and escalating stakes"
+            },
+            "scene_necessity": {
+              "score": 8,
+              "note": "Every scene drives plot forward, minimal fat"
+            },
+            "momentum": {
+              "score": 7,
+              "note": "Strong momentum with clear escalation through night"
+            },
+            "payoff_delivery": {
+              "score": 6,
+              "note": "Most setups pay off, though some character arcs feel rushed"
+            }
+          },
+          "justification": "Tight structure with clear turning points. Opening ritual establishes stakes (page 1), Sophie's escape triggers main conflict (page 3), discovery at cemetery launches investigation (page 11), first monster encounter escalates threat (page 31), failed escape attempt forces final confrontation (page 61).",
+          "page_citations": [
+            "Page 3: Sophie escapes, interrupting ritual",
+            "Page 31: First tendril encounter in police station",
+            "Page 61: Cars sabotaged, forcing return to station"
+          ],
+          "weakness_identified": "Third act feels slightly rushed - Miles's sacrifice decision could use more buildup"
+        },
+        "scene_writing": {
+          "score": 6,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 6,
+              "note": "Solid scene construction with clear objectives"
+            },
+            "visual_storytelling": {
+              "score": 7,
+              "note": "Strong visual elements - glowing knife, portal effects, creature design"
+            },
+            "economy": {
+              "score": 6,
+              "note": "Generally economical but some exposition feels heavy"
+            },
+            "transitions": {
+              "score": 6,
+              "note": "Workmanlike transitions, functional but not distinctive"
+            }
+          },
+          "justification": "Scenes are well-constructed with clear visual storytelling. The cemetery opening immediately establishes tone and stakes. Police station scenes effectively build claustrophobia.",
+          "page_citations": [
+            "Page 1-3: Opening ritual scene - strong visual storytelling",
+            "Page 26-27: Young Cultist suicide discovery - economical revelation"
+          ],
+          "weakness_identified": "Some exposition dumps feel clunky, particularly Young Cultist's explanations"
+        },
+        "dialogue": {
+          "score": 6,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 6,
+              "note": "Characters have distinct regional voices but some blend together"
+            },
+            "subtext_quality": {
+              "score": 5,
+              "note": "Limited subtext, mostly direct communication"
+            },
+            "functionality": {
+              "score": 7,
+              "note": "Dialogue effectively advances plot and reveals character"
+            },
+            "speakability": {
+              "score": 7,
+              "note": "Natural rural dialect, reads as authentic"
+            }
+          },
+          "justification": "Authentic rural dialogue that serves the story well. Miles and Sophie's father-daughter dynamic comes through clearly in their exchanges.",
+          "page_citations": [
+            "Page 29-30: Miles and Sophie conversation about fathers - reveals both characters",
+            "Page 8: Dale's crude humor establishes his character"
+          ],
+          "weakness_identified": "Limited subtext - characters often say exactly what they mean rather than implying"
+        }
+      },
+      "character_system": {
+        "score": 6.2,
+        "protagonist": {
+          "score": 7,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 8,
+              "note": "Clear survival goal from page 1, evolves to escape"
+            },
+            "active_agency": {
+              "score": 7,
+              "note": "Sophie drives key plot points - escape, warning others, final actions"
+            },
+            "arc_credibility": {
+              "score": 6,
+              "note": "Arc from victim to survivor is believable but brief"
+            },
+            "investment": {
+              "score": 7,
+              "note": "Abuse background creates immediate sympathy and understanding"
+            }
+          },
+          "justification": "Sophie is a compelling protagonist whose escape sets everything in motion. Her background with abuse creates clear stakes and motivation.",
+          "page_citations": [
+            "Page 3: Sophie's escape establishes her as active protagonist",
+            "Page 24: Cigarette burn scars reveal abuse background"
+          ],
+          "weakness_identified": "Character development happens quickly due to single-night timeframe"
+        },
+        "supporting_cast": {
+          "score": 6,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 6,
+              "note": "Characters have clear archetypes but limited depth"
+            },
+            "functional_purpose": {
+              "score": 7,
+              "note": "Each character serves specific story function"
+            },
+            "ensemble_balance": {
+              "score": 5,
+              "note": "Some characters feel underdeveloped"
+            }
+          },
+          "justification": "Miles provides strong father-figure parallel, Dale represents corruption. Other characters serve clear functions.",
+          "page_citations": [
+            "Page 35-36: Miles's voicemail reveals his backstory and guilt"
+          ],
+          "weakness_identified": "Several characters (Vanessa, Greely, Elmer) feel more like plot devices than fully realized people"
+        },
+        "relationships": {
+          "score": 6,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 7,
+              "note": "Miles-Sophie dynamic drives emotional core"
+            },
+            "conflict_generation": {
+              "score": 6,
+              "note": "Relationships create meaningful tension"
+            },
+            "emotional_stakes": {
+              "score": 5,
+              "note": "Limited time to develop deep emotional investment"
+            }
+          },
+          "justification": "Miles-Sophie relationship anchors the emotional story, with both dealing with father-daughter abandonment issues."
+        }
+      },
+      "conceptual_strength": {
+        "score": 6.5,
+        "premise": {
+          "score": 7,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 8,
+              "note": "Interrupted ritual creates clear hook"
+            },
+            "narrative_engine": {
+              "score": 7,
+              "note": "Portal mechanics create built-in ticking clock"
+            },
+            "freshness": {
+              "score": 6,
+              "note": "Familiar elements but solid execution"
+            },
+            "execution_independence": {
+              "score": 6,
+              "note": "Concept needs strong execution to work"
+            }
+          },
+          "justification": "Strong concept combining cult horror with creature feature. The interrupted ritual creating ongoing threat is compelling.",
+          "page_citations": [
+            "Page 1-3: Ritual setup and interruption establishes premise clearly"
+          ]
+        },
+        "theme": {
+          "score": 6,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 6,
+              "note": "Themes of sacrifice and redemption emerge clearly"
+            },
+            "organic_integration": {
+              "score": 6,
+              "note": "Themes grow from character actions"
+            },
+            "complexity": {
+              "score": 5,
+              "note": "Themes are present but not deeply explored"
+            },
+            "resonance": {
+              "score": 6,
+              "note": "Father-daughter abandonment theme has universal appeal"
+            }
+          },
+          "justification": "Themes of redemption and sacrifice work well with the literal sacrifice requirements of the plot."
+        }
+      },
+      "voice_and_tone": {
+        "score": 6,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 6,
+            "note": "Clear horror voice with rural setting expertise"
+          },
+          "tonal_consistency": {
+            "score": 6,
+            "note": "Maintains dark tone throughout"
+          },
+          "genre_awareness": {
+            "score": 7,
+            "note": "Understands horror conventions well"
+          },
+          "confidence": {
+            "score": 6,
+            "note": "Assured writing that knows its genre"
+          }
+        },
+        "justification": "Consistent dark tone with good genre awareness. Rural setting feels authentic."
+      },
+      "weighted_score": 6.24,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": false,
+            "premise_score": 7,
+            "execution_average": 6.3,
+            "gap": 0.7,
+            "assessment": "Gap exists but within acceptable range"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "Strong opening with clear setup and escalation",
+            "later_acts_quality": "Maintains quality through second and third acts",
+            "assessment": "Quality remains consistent throughout"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 7,
+            "character_average": 6.2,
+            "gap": 0.8,
+            "assessment": "Structure slightly stronger but character work adequate"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 6,
+            "scene_writing_score": 6,
+            "gap": 0,
+            "assessment": "Dialogue and scene writing balanced"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 5,
+            "theme_clarity": 6,
+            "assessment": "Themes are clear and accessible"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 6,
+            "premise_freshness": 6,
+            "assessment": "Voice and originality appropriately balanced"
+          }
+        ],
+        "traps_triggered_count": 0,
+        "risk_level": "low",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "CONSIDER",
+        "adjustment_rationale": "No false positive traps triggered"
+      },
+      "critical_failures": [],
+      "major_weaknesses": [
+        "Limited character development time due to single-night timeframe",
+        "Some supporting characters feel more functional than fully realized",
+        "Third act pacing feels slightly rushed",
+        "Exposition delivery can be clunky in places"
+      ],
+      "verdict": "CONSIDER",
+      "verdict_rationale": "Solid horror execution with strong premise and protagonist. Weighted score of 6.24 meets CONSIDER threshold with premise score of 7+ and no critical failures. Clear development path available."
+    },
+    "characters": {
+      "protagonist": "Sophie Barlow - 17-year-old abuse survivor with street smarts and determination. Goal: escape and survive. Compelling due to her resilience despite trauma and active role in driving plot.",
+      "antagonist": "The otherworldly creatures/portal system - represents inescapable supernatural threat. Dale becomes human antagonist in third act.",
+      "supporting": [
+        "Miles Conner - Alcoholic cop seeking redemption, father figure to Sophie",
+        "Dale Moss - Corrupt cop who becomes willing to murder for perceived greater good",
+        "Young Cultist - Exposition vehicle who provides rules of the supernatural threat"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends page 28 (Sophie taken to station, threat established), Act 2 ends page 84 (Miles's sacrifice)",
+      "pacing": "Strong momentum throughout with effective escalation. Single-night timeframe creates natural urgency. No significant slow sections."
+    },
+    "standout_scenes": [
+      {
+        "page": "1-3",
+        "scene": "Opening ritual and Sophie's escape",
+        "why": "Immediately establishes stakes, tone, and protagonist agency"
+      },
+      {
+        "page": "61-65",
+        "scene": "Parking lot escape attempt",
+        "why": "Visceral action sequence with real consequences (Billie's death)"
+      },
+      {
+        "page": "89-94",
+        "scene": "Final confrontation and Miles's sacrifice",
+        "why": "Emotional climax that pays off character relationship"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Mist",
+        "similarity": "Small group trapped in single location against supernatural threat",
+        "quality_comparison": "Similar craft level but less character depth than King's original"
+      },
+      {
+        "title": "From Dusk Till Dawn",
+        "similarity": "Genre shift from crime to supernatural horror, single-night timeframe",
+        "quality_comparison": "Similar structure but less distinctive voice than Rodriguez/Tarantino"
+      },
+      {
+        "title": "30 Days of Night",
+        "similarity": "Isolated community under supernatural siege",
+        "quality_comparison": "Similar execution quality with effective creature design"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Strong opening that immediately establishes stakes and tone",
+        "Compelling protagonist with clear motivation and agency",
+        "Effective use of single-location, single-night structure",
+        "Good escalation of supernatural threat",
+        "Authentic rural dialogue and setting"
+      ],
+      "weaknesses": [
+        "Limited character development time constrains emotional investment",
+        "Some exposition feels forced (Young Cultist explanations)",
+        "Supporting characters need more individual distinction",
+        "Third act resolution feels slightly rushed",
+        "Familiar horror tropes without significant innovation"
+      ],
+      "development_notes": [
+        "Expand character backstories through more organic revelation",
+        "Strengthen supporting character voices and motivations",
+        "Refine exposition delivery to feel more natural",
+        "Consider adding more unique elements to differentiate from genre conventions"
+      ]
+    },
+    "executive_summary": "Solid horror screenplay with strong protagonist and effective single-night structure. Miles-Sophie relationship anchors emotional core while supernatural threat escalates effectively. Professional execution of familiar elements but needs character development refinement.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 6,
+            "rationale": "Universal themes of family abandonment and survival translate well, though rural American setting may feel distant"
+          },
+          "regional_casting_potential": {
+            "score": 4,
+            "rationale": "Lead roles require specific American rural dialect and cultural context, limiting Latin American casting options"
+          },
+          "theatrical_appeal": {
+            "score": 8,
+            "rationale": "Horror translates exceptionally well theatrically - shared scares, creature effects benefit from big screen experience"
+          },
+          "marketing_viability": {
+            "score": 7,
+            "rationale": "Clear horror poster potential with creatures/portal imagery, trailer would cut well with escalating threat structure"
+          },
+          "coproduction_potential": {
+            "score": 3,
+            "rationale": "Very American-specific setting and characters limit co-production opportunities, would need significant adaptation"
+          },
+          "overall_latam_score": 5.6,
+          "market_fit_classification": "english_speaking_ok",
+          "recommendation": "moderate_fit",
+          "specific_concerns": [
+            "Rural American setting may feel culturally distant",
+            "Dialogue requires subtitle quality that preserves regional flavor",
+            "Limited casting flexibility for regional stars"
+          ],
+          "opportunities": [
+            "Horror genre travels well internationally",
+            "Creature effects could be marketing hook",
+            "Strong female protagonist appeals to broader demographics"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 2,
+            "note": "Horror fans, particularly creature feature enthusiasts - solid but not massive demographic"
+          },
+          "high_concept": {
+            "score": 2,
+            "note": "Interrupted cult ritual unleashes monsters - requires some explanation beyond one sentence"
+          },
+          "cast_attachability": {
+            "score": 2,
+            "note": "Strong female lead role attractive to rising stars, limited other star vehicle opportunities"
+          },
+          "marketing_hook": {
+            "score": 3,
+            "note": "Clear horror imagery with creatures and portal effects, straightforward genre marketing"
+          },
+          "budget_return_ratio": {
+            "score": 2,
+            "note": "Mid-budget horror with creature effects, solid but not exceptional return potential"
+          },
+          "comparable_success": {
+            "score": 2,
+            "note": "Recent creature features have mixed track record - The Ritual succeeded, others failed"
+          },
+          "cvs_total": 13,
+          "commercial_outlook": "viable",
+          "box_office_ceiling": "$15-25M domestic",
+          "key_commercial_strengths": [
+            "Strong female protagonist",
+            "Effective creature design potential",
+            "Single-location keeps costs manageable"
+          ],
+          "key_commercial_concerns": [
+            "Familiar premise",
+            "Limited breakout potential",
+            "Dependent on execution quality"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 8000000,
+          "estimated_budget_high": 15000000,
+          "category": "medium",
+          "within_ceiling": true,
+          "key_cost_drivers": [
+            "Creature effects and practical FX: $2-4M",
+            "Portal/supernatural VFX: $1-2M",
+            "Multiple location shoots (cemetery, police station, rural roads): $1-2M"
+          ],
+          "potential_savings": [
+            "Single main location (police station) keeps costs contained",
+            "Night shooting reduces some location fees",
+            "Practical effects over heavy CGI where possible"
+          ],
+          "production_complexity": "medium",
+          "location_requirements": "Police station (main location), cemetery, rural roads, chicken coop - all achievable in single region",
+          "vfx_requirements": "moderate - creatures, portals, some gore enhancement",
+          "period_considerations": "contemporary",
+          "justification": "Creature effects and supernatural VFX are main cost drivers, but single primary location and night shooting help control budget. Estimate assumes practical creature work with VFX enhancement."
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 75,
+            "issues": [
+              "Some exposition needs smoothing",
+              "Minor pacing adjustments in Act 3"
+            ],
+            "status": "needs_work"
+          },
+          "character_casting": {
+            "score": 80,
+            "issues": [
+              "Supporting roles need more distinction"
+            ],
+            "status": "ready"
+          },
+          "production_feasibility": {
+            "score": 85,
+            "issues": [
+              "Creature effects require experienced team"
+            ],
+            "status": "ready"
+          },
+          "risk_profile": {
+            "score": 75,
+            "issues": [
+              "Success depends heavily on creature design execution"
+            ],
+            "status": "needs_work"
+          },
+          "overall_readiness": 79,
+          "readiness_verdict": "development_needed",
+          "deal_breakers": [],
+          "green_flags": [
+            "Clear single location reduces production complexity",
+            "Night shooting timeline manageable",
+            "Strong lead role for casting"
+          ],
+          "development_priorities": [
+            "Polish exposition delivery",
+            "Strengthen supporting character voices",
+            "Refine creature design concepts"
+          ],
+          "estimated_development_time": "2-3 drafts / 3-4 months"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 3,
+            "rationale": "Very American-specific rural setting limits natural Mexico/US partnership opportunities",
+            "key_elements": [
+              "Horror genre appeal",
+              "Strong female protagonist"
+            ],
+            "potential_partners": [
+              "US genre specialists who could benefit from Mexican financing"
+            ]
+          },
+          "mexico_spain": {
+            "score": 4,
+            "rationale": "Horror genre translates well but American setting creates cultural distance",
+            "key_elements": [
+              "Genre appeal in Spanish market",
+              "Creature effects showcase"
+            ],
+            "eu_fund_eligibility": "Limited due to American setting and characters"
+          },
+          "other_territories": {
+            "score": 5,
+            "territories": [
+              "Canada",
+              "UK",
+              "Australia"
+            ],
+            "rationale": "English-speaking territories with strong horror markets and similar rural settings"
+          },
+          "best_structure": "Minority Mexican financing with US/Canadian production base",
+          "treaty_considerations": [
+            "Mexico-Canada co-production treaty might apply",
+            "US tax incentives in certain states"
+          ],
+          "overall_coproduction_score": 4.0
+        }
+      }
+    }
+  },
+  "collection": "Randoms",
+  "tmdb_status": {
+    "checked": true,
+    "is_produced": false,
+    "reason": "NOT PRODUCED: No matching films found",
+    "checked_at": "2026-02-04T09:31:05.896468"
+  }
+}

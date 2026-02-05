@@ -1,0 +1,605 @@
+{
+  "source_file": "like_home.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "like_home.pdf",
+    "page_count": 102,
+    "word_count": 14524
+  },
+  "analysis": {
+    "title": "Like Home",
+    "author": "Steve Holbert",
+    "logline": "Siblings Em and Toby, trapped by a supernatural tornado in backwoods Georgia, must fight undead Frankenstein monsters harvesting human body parts to resurrect their witch matriarch.",
+    "genre": "Horror",
+    "subgenres": [
+      "Gothic Horror",
+      "Supernatural Thriller",
+      "Family Drama"
+    ],
+    "themes": [
+      "family bonds",
+      "survival",
+      "sacrifice",
+      "coming of age",
+      "good vs evil"
+    ],
+    "tone": "Dark horror with Southern Gothic atmosphere and moments of dark humor",
+    "core_quality": {
+      "execution_craft": {
+        "score": 4.5,
+        "structure": {
+          "score": 5,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 6,
+              "note": "Clear three acts but transitions feel abrupt"
+            },
+            "scene_necessity": {
+              "score": 5,
+              "note": "Some scenes serve plot but lack deeper purpose"
+            },
+            "momentum": {
+              "score": 4,
+              "note": "Pacing inconsistent, middle section drags"
+            },
+            "payoff_delivery": {
+              "score": 5,
+              "note": "Most setups pay off but some feel rushed"
+            }
+          },
+          "justification": "Basic three-act structure with tornado inciting incident around page 19, but second act lacks progressive escalation",
+          "page_citations": [
+            "Page 19: Tornado transports characters",
+            "Page 87: Final confrontation begins"
+          ],
+          "weakness_identified": "Second act becomes repetitive chase sequences without meaningful character development or escalating stakes"
+        },
+        "scene_writing": {
+          "score": 4,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 5,
+              "note": "Scenes have clear purpose but lack depth"
+            },
+            "visual_storytelling": {
+              "score": 6,
+              "note": "Strong visual elements, especially horror imagery"
+            },
+            "economy": {
+              "score": 3,
+              "note": "Overwritten action blocks, excessive description"
+            },
+            "transitions": {
+              "score": 3,
+              "note": "Jarring cuts between scenes"
+            }
+          },
+          "justification": "Horror imagery is vivid but scenes often overwritten with clunky transitions",
+          "page_citations": [
+            "Page 27: Scarecrow reveal scene has strong visual impact"
+          ],
+          "weakness_identified": "Consistent overwriting in action blocks exceeds professional standards"
+        },
+        "dialogue": {
+          "score": 4,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 5,
+              "note": "Some character voices distinct but inconsistent"
+            },
+            "subtext_quality": {
+              "score": 3,
+              "note": "Mostly on-the-nose dialogue"
+            },
+            "functionality": {
+              "score": 4,
+              "note": "Advances plot but limited character depth"
+            },
+            "speakability": {
+              "score": 5,
+              "note": "Generally natural but some stilted moments"
+            }
+          },
+          "justification": "Characters have some distinct voices but rely heavily on exposition and lack subtext",
+          "page_citations": [
+            "Page 48: 'Who's the pussy now?' exchange shows Jack's character"
+          ],
+          "weakness_identified": "Dialogue often explains rather than reveals, lacking subtlety"
+        }
+      },
+      "character_system": {
+        "score": 5.0,
+        "protagonist": {
+          "score": 6,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 7,
+              "note": "Clear goal to protect Toby established early"
+            },
+            "active_agency": {
+              "score": 6,
+              "note": "Em drives action but reactive in middle section"
+            },
+            "arc_credibility": {
+              "score": 5,
+              "note": "Arc present but transformation feels rushed"
+            },
+            "investment": {
+              "score": 6,
+              "note": "Strong protective instincts create sympathy"
+            }
+          },
+          "justification": "Em's protective goal is clear from early scenes, though her arc could be more developed",
+          "page_citations": [
+            "Page 5: Em's protective nature established",
+            "Page 96: Final acceptance of Toby's maturity"
+          ],
+          "weakness_identified": "Character growth happens too quickly in final act without adequate buildup"
+        },
+        "supporting_cast": {
+          "score": 5,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 5,
+              "note": "Some distinct traits but often archetypal"
+            },
+            "functional_purpose": {
+              "score": 6,
+              "note": "Characters serve story functions well"
+            },
+            "ensemble_balance": {
+              "score": 4,
+              "note": "Uneven focus, some characters underdeveloped"
+            }
+          },
+          "justification": "Supporting characters serve their functions but lack full development",
+          "page_citations": [
+            "Page 40: Bert's complexity shown in rabbit scene"
+          ],
+          "weakness_identified": "Scott and Liam feel more like plot devices than fully realized characters"
+        },
+        "relationships": {
+          "score": 4,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 5,
+              "note": "Em/Toby dynamic well-established"
+            },
+            "conflict_generation": {
+              "score": 4,
+              "note": "Conflicts feel contrived at times"
+            },
+            "emotional_stakes": {
+              "score": 4,
+              "note": "Stakes present but not deeply felt"
+            }
+          },
+          "justification": "Central sibling relationship works but other relationships underdeveloped"
+        }
+      },
+      "conceptual_strength": {
+        "score": 6.5,
+        "premise": {
+          "score": 7,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 8,
+              "note": "Strong horror hook with clear stakes"
+            },
+            "narrative_engine": {
+              "score": 7,
+              "note": "Body-harvesting creates natural tension"
+            },
+            "freshness": {
+              "score": 6,
+              "note": "Familiar elements but interesting combination"
+            },
+            "execution_independence": {
+              "score": 7,
+              "note": "Concept generates story naturally"
+            }
+          },
+          "justification": "Oz-inspired horror concept is compelling and generates natural conflict",
+          "page_citations": [
+            "Page 36: Anatomy chart reveals the harvesting plan"
+          ]
+        },
+        "theme": {
+          "score": 6,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 6,
+              "note": "Family protection theme is clear"
+            },
+            "organic_integration": {
+              "score": 6,
+              "note": "Theme emerges from story naturally"
+            },
+            "complexity": {
+              "score": 5,
+              "note": "Themes present but not deeply explored"
+            },
+            "resonance": {
+              "score": 6,
+              "note": "Universal family themes resonate"
+            }
+          },
+          "justification": "Family themes are clear and universal but could be more nuanced"
+        }
+      },
+      "voice_and_tone": {
+        "score": 6,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 6,
+            "note": "Southern Gothic voice comes through"
+          },
+          "tonal_consistency": {
+            "score": 5,
+            "note": "Generally consistent but some jarring moments"
+          },
+          "genre_awareness": {
+            "score": 7,
+            "note": "Good understanding of horror conventions"
+          },
+          "confidence": {
+            "score": 6,
+            "note": "Writer seems assured in horror elements"
+          }
+        },
+        "justification": "Strong genre voice with good horror atmosphere, though tone occasionally wavers"
+      },
+      "weighted_score": 5.25,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": true,
+            "premise_score": 7,
+            "execution_average": 4.5,
+            "gap": 2.5,
+            "assessment": "Strong concept undermined by execution issues - overwriting, pacing problems"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": true,
+            "first_act_quality": "Strong setup with good tension",
+            "later_acts_quality": "Second act becomes repetitive, third act rushed",
+            "assessment": "Opening 30 pages stronger than middle section"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 5,
+            "character_average": 5.0,
+            "gap": 0.0,
+            "assessment": "Character and structure scores aligned"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 4,
+            "scene_writing_score": 4,
+            "gap": 0,
+            "assessment": "Dialogue and scene writing equally problematic"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 5,
+            "theme_clarity": 6,
+            "assessment": "Themes are clear: family protection and sacrifice"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 6,
+            "premise_freshness": 6,
+            "assessment": "Voice and originality scores aligned"
+          }
+        ],
+        "traps_triggered_count": 2,
+        "risk_level": "moderate",
+        "verdict_adjustment": "downgrade_one_tier",
+        "adjusted_verdict": "PASS",
+        "adjustment_rationale": "Two false positive traps indicate execution issues mask an attractive premise"
+      },
+      "critical_failures": [
+        "Second act collapse - middle section lacks progressive complication, becomes repetitive chase sequences",
+        "Overwriting - action blocks routinely exceed 4 lines, violating professional standards"
+      ],
+      "major_weaknesses": [
+        "Inconsistent pacing with sagging middle act",
+        "Overwritten action blocks throughout",
+        "Supporting characters underdeveloped",
+        "Dialogue often expository rather than revealing",
+        "Tonal inconsistencies"
+      ],
+      "verdict": "PASS",
+      "verdict_rationale": "Despite a compelling Oz-horror concept, significant execution issues including overwriting, pacing problems, and second act collapse prevent advancement. The premise shows promise but needs substantial development work."
+    },
+    "characters": {
+      "protagonist": "Em Gale - 21-year-old protective older sister, stern and tough, works as waitress while caring for troubled brother Toby. Goal is protecting family at all costs.",
+      "antagonist": "The Gulch Family - Undead Frankenstein monsters (Jack, Ray, Bert) harvesting human parts to resurrect their witch mother Mamma Gulch. Later revealed Winnie Burke as true antagonist.",
+      "supporting": [
+        "Toby Gale - 16-year-old emo brother with attitude problems",
+        "Scott Terry - Toby's tattooed boyfriend with survival skills",
+        "Liam Langley - Em's boyfriend with hidden engagement ring",
+        "Claire - Traumatized survivor who becomes victim"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "needs_work",
+      "act_breaks": "Act 1 ends page 19 (tornado), Act 2 ends page 87 (final confrontation begins)",
+      "pacing": "Strong opening 30 pages establish characters and threat effectively. Pages 30-70 become repetitive with chase sequences lacking escalation. Final act rushes through multiple character deaths and revelations."
+    },
+    "standout_scenes": [
+      {
+        "page": "27",
+        "scene": "Scarecrow revelation - discovering crucified bodies",
+        "why": "Strong visual horror with effective misdirection"
+      },
+      {
+        "page": "70",
+        "scene": "Winnie's flashback showing the Gulch origin",
+        "why": "Creative use of vision/flashback to reveal backstory"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Texas Chain Saw Massacre",
+        "similarity": "Backwoods family of killers targeting young people",
+        "quality_comparison": "weaker craft than this script - less character development"
+      },
+      {
+        "title": "Wrong Turn",
+        "similarity": "City folks trapped by rural monsters",
+        "quality_comparison": "similar craft level but less original premise"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Compelling Oz-horror mashup concept",
+        "Strong visual horror imagery",
+        "Clear family protection theme",
+        "Good Southern Gothic atmosphere",
+        "Em's protective character arc has potential"
+      ],
+      "weaknesses": [
+        "Consistent overwriting in action blocks",
+        "Second act becomes repetitive chase sequences",
+        "Supporting characters underdeveloped",
+        "Dialogue often expository",
+        "Pacing inconsistent with rushed ending",
+        "Tonal shifts feel jarring"
+      ],
+      "development_notes": [
+        "Cut action blocks to 3 lines maximum",
+        "Develop second act with progressive escalation rather than repetitive chases",
+        "Deepen supporting character development",
+        "Add subtext to dialogue",
+        "Smooth tonal transitions",
+        "Expand character arcs over longer story beats"
+      ]
+    },
+    "executive_summary": "Oz-horror mashup with compelling premise undermined by execution issues including overwriting, second act collapse, and underdeveloped characters. Shows promise but needs substantial development work.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 6,
+            "rationale": "Family protection themes universal, supernatural elements translate well across cultures"
+          },
+          "regional_casting_potential": {
+            "score": 4,
+            "rationale": "Southern US setting limits casting flexibility, characters specifically American"
+          },
+          "theatrical_appeal": {
+            "score": 7,
+            "rationale": "Horror works well theatrically, shared scares enhance experience"
+          },
+          "marketing_viability": {
+            "score": 6,
+            "rationale": "Clear horror poster potential, Oz connection provides hook"
+          },
+          "coproduction_potential": {
+            "score": 3,
+            "rationale": "Very US-specific setting and characters limit international partnership appeal"
+          },
+          "overall_latam_score": 5.2,
+          "market_fit_classification": "english_speaking_ok",
+          "recommendation": "moderate_fit",
+          "specific_concerns": [
+            "Very American Southern setting may not resonate",
+            "Cultural references to Oz story",
+            "Rural Georgia specificity"
+          ],
+          "opportunities": [
+            "Horror travels well internationally",
+            "Family themes universal",
+            "Could be adapted to different regional settings"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 2,
+            "note": "Horror audience sizeable but script quality issues limit appeal"
+          },
+          "high_concept": {
+            "score": 3,
+            "note": "Oz meets Texas Chain Saw - immediately graspable concept"
+          },
+          "cast_attachability": {
+            "score": 1,
+            "note": "No obvious star vehicle roles, characters underwritten"
+          },
+          "marketing_hook": {
+            "score": 2,
+            "note": "Oz horror hook works but execution issues limit campaign potential"
+          },
+          "budget_return_ratio": {
+            "score": 2,
+            "note": "Low budget potential but script needs work before greenlight"
+          },
+          "comparable_success": {
+            "score": 2,
+            "note": "Mixed success for backwoods horror recently"
+          },
+          "cvs_total": 12,
+          "commercial_outlook": "viable",
+          "box_office_ceiling": "$15-25M domestic with perfect execution",
+          "key_commercial_strengths": [
+            "Strong concept",
+            "Horror genre audience",
+            "Low budget potential"
+          ],
+          "key_commercial_concerns": [
+            "Script needs significant development",
+            "No star vehicle roles",
+            "Crowded horror marketplace"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 3000000,
+          "estimated_budget_high": 8000000,
+          "category": "low",
+          "within_ceiling": true,
+          "key_cost_drivers": [
+            "Practical locations in rural Georgia $500K-1M",
+            "Monster makeup/prosthetics $300K-600K",
+            "Multiple practical locations and period vehicles $400K-800K"
+          ],
+          "potential_savings": [
+            "Single primary location could reduce costs",
+            "Digital enhancement instead of full practical effects",
+            "Reduce number of locations/vehicles needed"
+          ],
+          "production_complexity": "medium",
+          "location_requirements": "Multiple rural Georgia locations, barn, farmhouse, woods, poppy fields",
+          "vfx_requirements": "minimal - mostly practical effects and makeup",
+          "period_considerations": "Contemporary with some 1930s flashback elements",
+          "justification": "Rural horror setting keeps costs manageable, practical effects focus over VFX, ensemble cast without major stars"
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 35,
+            "issues": [
+              "Overwriting throughout",
+              "Second act structural problems",
+              "Character development needed"
+            ],
+            "status": "blocker"
+          },
+          "character_casting": {
+            "score": 40,
+            "issues": [
+              "Supporting roles underdeveloped",
+              "No clear star vehicles"
+            ],
+            "status": "needs_work"
+          },
+          "production_feasibility": {
+            "score": 70,
+            "issues": [
+              "Multiple locations needed",
+              "Practical effects complexity"
+            ],
+            "status": "ready"
+          },
+          "risk_profile": {
+            "score": 60,
+            "issues": [
+              "Script-dependent success",
+              "Horror market saturation"
+            ],
+            "status": "needs_work"
+          },
+          "overall_readiness": 51,
+          "readiness_verdict": "development_needed",
+          "deal_breakers": [
+            "Script overwriting must be addressed",
+            "Second act structural issues",
+            "Character development essential"
+          ],
+          "green_flags": [
+            "Strong concept",
+            "Manageable budget",
+            "Clear genre appeal"
+          ],
+          "development_priorities": [
+            "Fix overwriting and formatting",
+            "Restructure second act",
+            "Develop supporting characters",
+            "Polish dialogue"
+          ],
+          "estimated_development_time": "3-4 drafts / 6-9 months"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 3,
+            "rationale": "Very US-specific Southern setting limits Mexican partnership appeal",
+            "key_elements": [
+              "Horror genre travels well",
+              "Low budget manageable for co-pro"
+            ],
+            "potential_partners": [
+              "Regional US horror producers familiar with Southern settings"
+            ]
+          },
+          "mexico_spain": {
+            "score": 4,
+            "rationale": "Could work if adapted to Spanish rural setting, horror translates well",
+            "key_elements": [
+              "Universal family themes",
+              "Gothic horror atmosphere"
+            ],
+            "eu_fund_eligibility": "Possible if significantly adapted to European setting"
+          },
+          "other_territories": {
+            "score": 3,
+            "territories": [
+              "Canada",
+              "Australia"
+            ],
+            "rationale": "English-speaking territories with rural horror tradition could work"
+          },
+          "best_structure": "Mexico as service provider for US indie production",
+          "treaty_considerations": [
+            "US-Mexico tax incentives for cross-border production"
+          ],
+          "overall_coproduction_score": 3.3
+        }
+      }
+    }
+  },
+  "collection": "Randoms",
+  "tmdb_status": {
+    "checked": true,
+    "is_produced": false,
+    "reason": "NOT PRODUCED: No matching films found",
+    "checked_at": "2026-02-04T09:35:46.785221"
+  }
+}

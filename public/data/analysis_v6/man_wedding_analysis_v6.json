@@ -1,0 +1,594 @@
+{
+  "source_file": "man_wedding.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "man_wedding.pdf",
+    "page_count": 112,
+    "word_count": 18896
+  },
+  "analysis": {
+    "title": "Man Wedding",
+    "author": "Amos Posner",
+    "logline": "When a commitment-phobic lawyer reluctantly agrees to plan his own wedding to avoid the traditional circus, his attempts to create the perfect 'man wedding' spiral into an even bigger spectacle.",
+    "genre": "Comedy",
+    "subgenres": [
+      "Romantic Comedy",
+      "Wedding Comedy"
+    ],
+    "themes": [
+      "commitment anxiety",
+      "authenticity vs. performance",
+      "communication in relationships",
+      "family expectations"
+    ],
+    "tone": "lighthearted and observational with genuine romantic moments",
+    "core_quality": {
+      "execution_craft": {
+        "score": 6.2,
+        "structure": {
+          "score": 7,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 7,
+              "note": "Clear three-act structure with solid turning points"
+            },
+            "scene_necessity": {
+              "score": 6,
+              "note": "Most scenes serve purpose but some poker scenes feel repetitive"
+            },
+            "momentum": {
+              "score": 7,
+              "note": "Good escalation through wedding planning chaos"
+            },
+            "payoff_delivery": {
+              "score": 8,
+              "note": "Excellent payoff with simple Vegas wedding contrasting the spectacle"
+            }
+          },
+          "justification": "Strong structural foundation with clear act breaks and escalating stakes",
+          "page_citations": [
+            "Page 17: Tom agrees to plan wedding (inciting incident)",
+            "Page 52: Beervana deal changes everything (midpoint)",
+            "Page 87: Aggie walks away (crisis)"
+          ],
+          "weakness_identified": "Some middle sequences with the poker buddies feel indulgent and could be tightened"
+        },
+        "scene_writing": {
+          "score": 6,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 6,
+              "note": "Scenes generally have clear purpose but some lack strong conflict"
+            },
+            "visual_storytelling": {
+              "score": 6,
+              "note": "Adequate visual writing, stronger in wedding sequences"
+            },
+            "economy": {
+              "score": 5,
+              "note": "Some scenes run longer than necessary, particularly group conversations"
+            },
+            "transitions": {
+              "score": 7,
+              "note": "Smooth transitions between locations and time periods"
+            }
+          },
+          "justification": "Competent scene work with some standout moments but uneven efficiency",
+          "page_citations": [
+            "Page 42: Wedding dress burning scene - strong visual and emotional moment"
+          ],
+          "weakness_identified": "Tendency toward overwriting in group scenes, some dialogue-heavy sequences lack visual interest"
+        },
+        "dialogue": {
+          "score": 6,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 7,
+              "note": "Characters have distinct voices, particularly Tom's neurotic precision vs Ben's chaos"
+            },
+            "subtext_quality": {
+              "score": 6,
+              "note": "Some good subtext, particularly in Tom/Aggie relationship scenes"
+            },
+            "functionality": {
+              "score": 6,
+              "note": "Dialogue serves both plot and character but sometimes feels expository"
+            },
+            "speakability": {
+              "score": 6,
+              "note": "Natural rhythm in most conversations"
+            }
+          },
+          "justification": "Solid character-specific dialogue with good comedic timing",
+          "page_citations": [
+            "Page 15: 'I don't not want to marry you' - perfectly captures Tom's avoidance"
+          ],
+          "weakness_identified": "Some exposition feels forced, particularly in setup scenes with the poker group"
+        }
+      },
+      "character_system": {
+        "score": 6.5,
+        "protagonist": {
+          "score": 7,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 8,
+              "note": "Clear external goal: plan wedding without traditional hassles"
+            },
+            "active_agency": {
+              "score": 6,
+              "note": "Drives action but sometimes reactive to others' suggestions"
+            },
+            "arc_credibility": {
+              "score": 7,
+              "note": "Believable journey from avoidance to authentic commitment"
+            },
+            "investment": {
+              "score": 7,
+              "note": "Relatable anxiety about public displays and family pressure"
+            }
+          },
+          "justification": "Tom is a well-developed protagonist with clear motivations and believable flaws",
+          "page_citations": [
+            "Page 28: Goal becomes clear when he takes on wedding planning"
+          ],
+          "weakness_identified": "Sometimes passive in middle act, letting others drive the planning"
+        },
+        "supporting_cast": {
+          "score": 6,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 6,
+              "note": "Main supporting characters distinct, poker buddies blend together"
+            },
+            "functional_purpose": {
+              "score": 7,
+              "note": "Characters serve story function while maintaining personality"
+            },
+            "ensemble_balance": {
+              "score": 6,
+              "note": "Good balance between family and friends, some underused"
+            }
+          },
+          "justification": "Strong core supporting cast with Aggie, Ben, and Jamie standing out",
+          "page_citations": [
+            "Page 47: Jamie's wedding dress burning scene shows her distinct personality"
+          ],
+          "weakness_identified": "Poker buddies feel interchangeable except for specific functions"
+        },
+        "relationships": {
+          "score": 6,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 7,
+              "note": "Tom/Aggie relationship feels authentic with believable tensions"
+            },
+            "conflict_generation": {
+              "score": 6,
+              "note": "Relationships create meaningful conflict though some forced"
+            },
+            "emotional_stakes": {
+              "score": 6,
+              "note": "We care about Tom/Aggie outcome, less invested in others"
+            }
+          },
+          "justification": "Central relationship is compelling with genuine emotional stakes"
+        }
+      },
+      "conceptual_strength": {
+        "score": 7.0,
+        "premise": {
+          "score": 7,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 8,
+              "note": "Clear, immediately graspable premise with built-in comedy"
+            },
+            "narrative_engine": {
+              "score": 7,
+              "note": "Premise naturally generates escalating complications"
+            },
+            "freshness": {
+              "score": 6,
+              "note": "Fresh take on wedding comedy genre with male perspective"
+            },
+            "execution_independence": {
+              "score": 7,
+              "note": "Strong enough concept to work with average execution"
+            }
+          },
+          "justification": "Compelling premise that subverts wedding comedy expectations",
+          "page_citations": [
+            "Page 17: Premise becomes clear when Aggie challenges Tom to plan it himself"
+          ]
+        },
+        "theme": {
+          "score": 7,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 7,
+              "note": "Clear theme about authenticity vs. performance in relationships"
+            },
+            "organic_integration": {
+              "score": 7,
+              "note": "Theme emerges naturally from story, not forced"
+            },
+            "complexity": {
+              "score": 6,
+              "note": "Theme has some depth but could be more nuanced"
+            },
+            "resonance": {
+              "score": 8,
+              "note": "Universal anxiety about public commitment and family expectations"
+            }
+          },
+          "justification": "Strong thematic foundation about authentic connection vs. social expectations"
+        }
+      },
+      "voice_and_tone": {
+        "score": 6,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 6,
+            "note": "Clear comedic voice though not particularly distinctive"
+          },
+          "tonal_consistency": {
+            "score": 7,
+            "note": "Maintains light comedic tone with genuine romantic moments"
+          },
+          "genre_awareness": {
+            "score": 7,
+            "note": "Understands romantic comedy conventions and plays with them effectively"
+          },
+          "confidence": {
+            "score": 6,
+            "note": "Writing feels assured but sometimes overexplains"
+          }
+        },
+        "justification": "Solid comedic voice with good tonal control throughout"
+      },
+      "weighted_score": 6.46,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": false,
+            "premise_score": 7,
+            "execution_average": 6.2,
+            "gap": 0.8,
+            "assessment": "Gap exists but not severe enough to trigger trap"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "strong setup with clear character dynamics",
+            "later_acts_quality": "maintains momentum through escalating wedding chaos",
+            "assessment": "consistent quality throughout, no significant drop-off"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 7,
+            "character_average": 6.5,
+            "gap": 0.5,
+            "assessment": "We genuinely care about Tom and Aggie's relationship outcome"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 6,
+            "scene_writing_score": 6,
+            "gap": 0,
+            "assessment": "Scenes work visually, not dependent on dialogue"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 6,
+            "theme_clarity": 7,
+            "assessment": "Theme is clear: authentic commitment vs. performative displays"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 6,
+            "premise_freshness": 6,
+            "assessment": "Story is compelling beyond just stylistic elements"
+          }
+        ],
+        "traps_triggered_count": 0,
+        "risk_level": "low",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "CONSIDER",
+        "adjustment_rationale": "No false positive traps detected"
+      },
+      "critical_failures": [],
+      "major_weaknesses": [
+        "Middle act pacing could be tighter",
+        "Some supporting characters underutilized",
+        "Occasional overwriting in group scenes",
+        "Poker buddy characters lack distinction"
+      ],
+      "verdict": "CONSIDER",
+      "verdict_rationale": "Solid romantic comedy with strong premise and believable central relationship. Good structural foundation and character work, though execution could be tightened. Clear development path to strengthen supporting characters and improve pacing."
+    },
+    "characters": {
+      "protagonist": "Tom Neyer - Anxiety-prone lawyer who hates public displays but loves Aggie. Goal: Plan wedding without traditional circus. Compelling due to relatable commitment anxiety and genuine desire to do right by his partner.",
+      "antagonist": "No clear antagonist - story is character-driven internal conflict between Tom's desires and social expectations",
+      "supporting": [
+        "Aggie - Patient artist who challenges Tom to put up or shut up",
+        "Ben - Tom's chaos-prone brother who tries to help but makes things worse",
+        "Jamie - Ben's practical wife who provides reality checks",
+        "Various poker buddies who represent Tom's misguided 'man wedding' advisors"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends page 28 (Tom agrees to plan wedding), Act 2 ends page 87 (Aggie walks away from the spectacle)",
+      "pacing": "Generally good momentum with some middle act lag during poker planning sequences. Strong escalation through wedding chaos to emotional crisis."
+    },
+    "standout_scenes": [
+      {
+        "page": "42",
+        "scene": "Jamie burning her wedding dress by the East River",
+        "why": "Great character moment that reveals deeper themes about wedding expectations"
+      },
+      {
+        "page": "105",
+        "scene": "Tom and Aggie reunion in dive bar",
+        "why": "Authentic emotional confrontation that leads to genuine resolution"
+      },
+      {
+        "page": "107",
+        "scene": "Simple Vegas wedding",
+        "why": "Perfect thematic payoff contrasting intimacy vs. spectacle"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "I Love You, Man",
+        "similarity": "Male perspective on relationship milestones with ensemble of male friends",
+        "quality_comparison": "similar craft level but this script has stronger romantic core"
+      },
+      {
+        "title": "The Hangover",
+        "similarity": "Escalating chaos from well-intentioned male bonding gone wrong",
+        "quality_comparison": "weaker craft than this script but similar comedic structure"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Strong, relatable premise that subverts genre expectations",
+        "Authentic central relationship with believable conflicts",
+        "Good escalation from simple plan to complete chaos",
+        "Satisfying thematic resolution about authentic vs. performative love"
+      ],
+      "weaknesses": [
+        "Middle act pacing drags during poker planning sequences",
+        "Supporting poker buddies lack individual distinction",
+        "Some dialogue feels expository",
+        "Occasional overwriting in group scenes",
+        "Could better utilize female supporting characters"
+      ],
+      "development_notes": [
+        "Streamline poker buddy scenes and give each distinct personality",
+        "Tighten middle act by cutting redundant planning sequences",
+        "Strengthen roles for Laura, Lucy, and Erin",
+        "Reduce exposition in setup scenes",
+        "Consider adding more visual comedy to balance dialogue-heavy scenes"
+      ]
+    },
+    "executive_summary": "Well-crafted romantic comedy with strong premise about authentic commitment vs. social expectations. Central relationship is compelling with believable character arcs, though supporting cast and middle act pacing need development work.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 6,
+            "rationale": "Wedding anxiety and family pressure are universal, but very US-specific cultural references and humor"
+          },
+          "regional_casting_potential": {
+            "score": 4,
+            "rationale": "Would require significant adaptation for Latin American setting and cultural context"
+          },
+          "theatrical_appeal": {
+            "score": 7,
+            "rationale": "Wedding comedies perform well theatrically, shared audience experience"
+          },
+          "marketing_viability": {
+            "score": 6,
+            "rationale": "Clear hook but would need cultural translation for Spanish-language marketing"
+          },
+          "coproduction_potential": {
+            "score": 5,
+            "rationale": "Could work as US-Mexico remake but current version too culturally specific"
+          },
+          "overall_latam_score": 5.6,
+          "market_fit_classification": "english_speaking_ok",
+          "recommendation": "moderate_fit",
+          "specific_concerns": [
+            "Heavy reliance on US wedding culture and traditions",
+            "New York setting integral to story",
+            "Cultural references may not translate"
+          ],
+          "opportunities": [
+            "Universal theme of commitment anxiety",
+            "Could inspire Latin American remake",
+            "Wedding comedy genre travels well"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 2,
+            "note": "Adults 25-45, couples, wedding comedy fans - sizeable demographic"
+          },
+          "high_concept": {
+            "score": 3,
+            "note": "Man plans his own wedding to avoid traditional circus - immediately clear pitch"
+          },
+          "cast_attachability": {
+            "score": 2,
+            "note": "Lead male role attractive for comedy stars, ensemble has multiple castable parts"
+          },
+          "marketing_hook": {
+            "score": 2,
+            "note": "Clear trailer potential with escalating wedding chaos, easy poster concept"
+          },
+          "budget_return_ratio": {
+            "score": 2,
+            "note": "Moderate budget requirements with good upside potential in rom-com market"
+          },
+          "comparable_success": {
+            "score": 2,
+            "note": "Wedding comedies have mixed but generally profitable track record"
+          },
+          "cvs_total": 13,
+          "commercial_outlook": "viable",
+          "box_office_ceiling": "$40-60M domestic",
+          "key_commercial_strengths": [
+            "Clear genre appeal",
+            "High concept premise",
+            "Strong ensemble potential"
+          ],
+          "key_commercial_concerns": [
+            "Crowded rom-com market",
+            "Male-centered wedding comedy less proven than female-centered"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 8000000,
+          "estimated_budget_high": 15000000,
+          "category": "low",
+          "within_ceiling": true,
+          "key_cost_drivers": [
+            "New York locations and permits $1-2M",
+            "Vegas sequences and helicopter $500K-1M",
+            "Beervana restaurant set build $800K-1.5M",
+            "Celebrity cameos (Luke Perry, etc.) $500K-1M"
+          ],
+          "potential_savings": [
+            "Reduce celebrity cameos to look-alikes or cut entirely",
+            "Simplify Beervana wedding spectacle",
+            "Limit NYC locations, shoot more on stages"
+          ],
+          "production_complexity": "medium",
+          "location_requirements": "Multiple NYC locations, Vegas, large restaurant/bar spaces",
+          "vfx_requirements": "minimal",
+          "period_considerations": "contemporary",
+          "justification": "Standard romantic comedy production with some elevated sequences but no major cost drivers beyond locations and cast"
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 75,
+            "issues": [
+              "Some pacing issues in middle act",
+              "Minor dialogue polishing needed"
+            ],
+            "status": "needs_work"
+          },
+          "character_casting": {
+            "score": 80,
+            "issues": [
+              "Supporting characters need more distinction"
+            ],
+            "status": "ready"
+          },
+          "production_feasibility": {
+            "score": 85,
+            "issues": [
+              "Location logistics manageable",
+              "No major production hurdles"
+            ],
+            "status": "ready"
+          },
+          "risk_profile": {
+            "score": 90,
+            "issues": [
+              "Low content risk",
+              "Straightforward execution"
+            ],
+            "status": "ready"
+          },
+          "overall_readiness": 82,
+          "readiness_verdict": "development_needed",
+          "deal_breakers": [],
+          "green_flags": [
+            "Clear genre positioning",
+            "Manageable production requirements",
+            "Strong central relationship"
+          ],
+          "development_priorities": [
+            "Tighten middle act pacing",
+            "Strengthen supporting character distinctions",
+            "Polish some dialogue"
+          ],
+          "estimated_development_time": "1-2 drafts / 2-3 months"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 4,
+            "rationale": "Very US-specific wedding culture, limited natural bridge elements",
+            "key_elements": [
+              "Universal relationship themes"
+            ],
+            "potential_partners": [
+              "US romantic comedy producers familiar with bilingual markets"
+            ]
+          },
+          "mexico_spain": {
+            "score": 6,
+            "rationale": "Could work as Spanish-language remake adaptation",
+            "key_elements": [
+              "Universal wedding anxiety themes",
+              "Strong ensemble potential"
+            ],
+            "eu_fund_eligibility": "Limited unless significantly adapted for European setting"
+          },
+          "other_territories": {
+            "score": 5,
+            "territories": [
+              "UK",
+              "Canada",
+              "Australia"
+            ],
+            "rationale": "English-speaking markets with similar wedding culture could work"
+          },
+          "best_structure": "License for local remake rather than co-production",
+          "treaty_considerations": [
+            "Standard co-production treaties available but limited natural fit"
+          ],
+          "overall_coproduction_score": 5.0
+        }
+      }
+    }
+  },
+  "collection": "Randoms",
+  "tmdb_status": {
+    "checked": true,
+    "is_produced": false,
+    "reason": "NOT PRODUCED: No matching films found",
+    "checked_at": "2026-02-04T09:38:47.631351"
+  }
+}

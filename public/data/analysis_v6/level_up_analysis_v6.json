@@ -1,0 +1,588 @@
+{
+  "source_file": "level_up.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "level_up.pdf",
+    "page_count": 36,
+    "word_count": 5299
+  },
+  "analysis": {
+    "title": "Level UP",
+    "author": "Imani A. Hakim (Revisions by Josh Frazier)",
+    "logline": "A 22-year-old gaming addict must win video game challenges against potential roommates to secure housing, only to discover she'll be living above her parents' apartment.",
+    "genre": "Comedy",
+    "subgenres": [
+      "Coming-of-age",
+      "Family comedy"
+    ],
+    "themes": [
+      "Growing up",
+      "Family expectations",
+      "Finding independence",
+      "Gaming culture"
+    ],
+    "tone": "Light comedy with generational conflict",
+    "core_quality": {
+      "execution_craft": {
+        "score": 4.5,
+        "structure": {
+          "score": 4,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 4,
+              "note": "Basic three-act structure but unclear turning points"
+            },
+            "scene_necessity": {
+              "score": 3,
+              "note": "Several scenes feel like padding rather than story progression"
+            },
+            "momentum": {
+              "score": 5,
+              "note": "Decent pace but lacks escalating stakes"
+            },
+            "payoff_delivery": {
+              "score": 4,
+              "note": "Gaming challenge setup pays off but ending feels abrupt"
+            }
+          },
+          "justification": "Script follows basic structure but lacks clear dramatic turns. Act 1 setup through gaming ultimatum works, but Act 2 meanders through party sequences without clear escalation.",
+          "page_citations": [
+            "Page 4: Inciting incident - gaming ban",
+            "Page 24: Challenge begins",
+            "Page 33: Resolution feels rushed"
+          ],
+          "weakness_identified": "No clear midpoint turn or escalating complications in Act 2"
+        },
+        "scene_writing": {
+          "score": 5,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 5,
+              "note": "Most scenes have purpose but some lack clear conflict"
+            },
+            "visual_storytelling": {
+              "score": 4,
+              "note": "Some good visual moments but relies heavily on dialogue"
+            },
+            "economy": {
+              "score": 5,
+              "note": "Generally efficient but some repetitive beats"
+            },
+            "transitions": {
+              "score": 6,
+              "note": "Smooth cuts between locations work well"
+            }
+          },
+          "justification": "Opening VR sequence is visually engaging. Party montage shows competent scene construction.",
+          "page_citations": [
+            "Page 1: Strong VR opening",
+            "Page 26: Gaming montage effective"
+          ],
+          "weakness_identified": "Some scenes lack internal conflict or change"
+        },
+        "dialogue": {
+          "score": 5,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 4,
+              "note": "Characters blend together, similar speech patterns"
+            },
+            "subtext_quality": {
+              "score": 4,
+              "note": "Mostly on-the-nose, little subtext"
+            },
+            "functionality": {
+              "score": 6,
+              "note": "Advances plot adequately"
+            },
+            "speakability": {
+              "score": 6,
+              "note": "Natural flow, good contemporary speech"
+            }
+          },
+          "justification": "Dialogue feels authentic to age group and captures gaming culture vernacular well.",
+          "page_citations": [
+            "Page 2: 'It's 11 in the morning' exchange shows character conflict"
+          ],
+          "weakness_identified": "Characters don't have distinct enough voices - could swap dialogue between characters"
+        }
+      },
+      "character_system": {
+        "score": 4.7,
+        "protagonist": {
+          "score": 5,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 6,
+              "note": "Clear want: housing, but internal need unclear"
+            },
+            "active_agency": {
+              "score": 5,
+              "note": "Takes action with gaming challenge but often reactive"
+            },
+            "arc_credibility": {
+              "score": 4,
+              "note": "Character growth not well established"
+            },
+            "investment": {
+              "score": 5,
+              "note": "Likeable but not deeply compelling"
+            }
+          },
+          "justification": "Mikki has clear external goal but her emotional journey feels underdeveloped.",
+          "page_citations": [
+            "Page 4: Goal established - needs housing",
+            "Page 24: Takes initiative with challenge"
+          ],
+          "weakness_identified": "Character arc is more circumstantial than transformational"
+        },
+        "supporting_cast": {
+          "score": 4,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 4,
+              "note": "Roommates feel like types rather than individuals"
+            },
+            "functional_purpose": {
+              "score": 5,
+              "note": "Serve story needs adequately"
+            },
+            "ensemble_balance": {
+              "score": 4,
+              "note": "Parents more developed than roommates"
+            }
+          },
+          "justification": "Parents Lola and Morris have distinct voices and clear dynamics. Roommates are less developed.",
+          "page_citations": [
+            "Page 2: Parents show distinct personalities"
+          ],
+          "weakness_identified": "Roommates Logan, Rocko, Seth lack individual characterization"
+        },
+        "relationships": {
+          "score": 5,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 6,
+              "note": "Parent-child dynamic well established"
+            },
+            "conflict_generation": {
+              "score": 5,
+              "note": "Family conflict drives story effectively"
+            },
+            "emotional_stakes": {
+              "score": 4,
+              "note": "Stakes feel more comedic than emotional"
+            }
+          },
+          "justification": "Parent-child relationship has clear dynamics and generates conflict, but other relationships underdeveloped"
+        }
+      },
+      "conceptual_strength": {
+        "score": 5.5,
+        "premise": {
+          "score": 6,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 7,
+              "note": "Gaming challenge for housing is clear and engaging"
+            },
+            "narrative_engine": {
+              "score": 6,
+              "note": "Concept generates story naturally"
+            },
+            "freshness": {
+              "score": 5,
+              "note": "Gaming culture angle adds contemporary relevance"
+            },
+            "execution_independence": {
+              "score": 5,
+              "note": "Good concept that needs better execution"
+            }
+          },
+          "justification": "Gaming challenge premise is engaging and contemporary, though not groundbreaking",
+          "page_citations": [
+            "Page 24: Challenge setup is compelling"
+          ]
+        },
+        "theme": {
+          "score": 5,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 5,
+              "note": "Growing up theme present but not deeply explored"
+            },
+            "organic_integration": {
+              "score": 5,
+              "note": "Theme emerges naturally from premise"
+            },
+            "complexity": {
+              "score": 4,
+              "note": "Fairly surface-level treatment"
+            },
+            "resonance": {
+              "score": 6,
+              "note": "Universal parent-child conflict"
+            }
+          },
+          "justification": "Themes of independence and growing up are clear but could be deeper"
+        }
+      },
+      "voice_and_tone": {
+        "score": 5,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 5,
+            "note": "Competent but not distinctive"
+          },
+          "tonal_consistency": {
+            "score": 6,
+            "note": "Maintains light comedy throughout"
+          },
+          "genre_awareness": {
+            "score": 5,
+            "note": "Understands comedy conventions"
+          },
+          "confidence": {
+            "score": 5,
+            "note": "Workmanlike execution"
+          }
+        },
+        "justification": "Consistent comedic tone but lacks distinctive authorial voice"
+      },
+      "weighted_score": 4.76,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": true,
+            "premise_score": 6,
+            "execution_average": 4.5,
+            "gap": 1.5,
+            "assessment": "Engaging premise not matched by execution quality"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "Solid setup",
+            "later_acts_quality": "Maintains consistency",
+            "assessment": "Quality remains consistent throughout"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 4,
+            "character_average": 4.7,
+            "gap": -0.7,
+            "assessment": "Characters slightly stronger than structure"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 5,
+            "scene_writing_score": 5,
+            "gap": 0,
+            "assessment": "Dialogue and scene writing evenly matched"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 4,
+            "theme_clarity": 5,
+            "assessment": "Theme is clear: growing up and gaining independence"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 5,
+            "premise_freshness": 5,
+            "assessment": "Voice and freshness appropriately matched"
+          }
+        ],
+        "traps_triggered_count": 1,
+        "risk_level": "moderate",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "PASS",
+        "adjustment_rationale": "One trap triggered but not severe enough for downgrade"
+      },
+      "critical_failures": [
+        "Passive protagonist - Mikki often reacts rather than drives action through Act 2"
+      ],
+      "major_weaknesses": [
+        "Underdeveloped character arcs",
+        "Lack of escalating stakes",
+        "Supporting characters are archetypal",
+        "Rushed ending"
+      ],
+      "verdict": "PASS",
+      "verdict_rationale": "While the gaming culture premise has appeal and the writing shows competence, the script suffers from critical execution issues including a passive protagonist and underdeveloped character work that prevent it from meeting professional standards."
+    },
+    "characters": {
+      "protagonist": "Mikki - 22-year-old gaming enthusiast forced to find housing, relatable but lacks clear internal journey",
+      "antagonist": "No clear antagonist - story is circumstantial obstacle course",
+      "supporting": [
+        "Lola - controlling mother with distinct voice",
+        "Morris - gentle father caught in middle",
+        "Rocko - nervous gaming nerd",
+        "Sam - cam girl best friend",
+        "Logan - fitness influencer roommate"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends page 19 (moves out), Act 2 ends page 30 (wins challenges)",
+      "pacing": "Generally good pacing but lacks clear escalation. Party sequence feels padded without advancing character development."
+    },
+    "standout_scenes": [
+      {
+        "page": "1-2",
+        "scene": "VR gaming opening",
+        "why": "Strong visual hook that establishes character and conflict"
+      },
+      {
+        "page": "26",
+        "scene": "Gaming challenge montage",
+        "why": "Well-constructed sequence showing Mikki's skills"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Failure to Launch",
+        "similarity": "Adult child forced to independence by parents",
+        "quality_comparison": "similar craft level but less contemporary relevance"
+      },
+      {
+        "title": "Ready Player One",
+        "similarity": "Gaming culture as central element",
+        "quality_comparison": "weaker craft than Spielberg's execution"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Contemporary gaming culture angle",
+        "Natural parent-child conflict",
+        "Engaging premise setup",
+        "Authentic dialogue for target demographic"
+      ],
+      "weaknesses": [
+        "Passive protagonist who reacts more than acts",
+        "Underdeveloped supporting characters",
+        "Lack of escalating stakes",
+        "Rushed resolution",
+        "Minimal character transformation",
+        "Predictable plot beats"
+      ],
+      "development_notes": [
+        "Strengthen Mikki's active agency - she should drive more action",
+        "Develop individual voices for roommate characters",
+        "Add escalating complications in Act 2",
+        "Deepen the internal conflict about independence vs. security",
+        "Expand the ending to show real character growth"
+      ]
+    },
+    "executive_summary": "Gaming-focused comedy with contemporary appeal but suffers from passive protagonist and underdeveloped character work. Premise shows promise but execution needs significant strengthening.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 8,
+            "rationale": "Universal parent-child conflict and family expectations translate well across cultures, especially in family-oriented Latin American markets"
+          },
+          "regional_casting_potential": {
+            "score": 7,
+            "rationale": "Lead role could work well for young Latina actresses, parents roles suitable for established Mexican talent"
+          },
+          "theatrical_appeal": {
+            "score": 4,
+            "rationale": "More of a streaming/TV movie feel than theatrical event - lacks spectacle"
+          },
+          "marketing_viability": {
+            "score": 5,
+            "rationale": "Gaming angle could work but needs stronger hook for general audience"
+          },
+          "coproduction_potential": {
+            "score": 6,
+            "rationale": "Could work as Mexico/US co-production with bilingual cast adaptation"
+          },
+          "overall_latam_score": 6.0,
+          "market_fit_classification": "english_speaking_ok",
+          "recommendation": "moderate_fit",
+          "specific_concerns": [
+            "Gaming culture may be too niche for broad Latin American theatrical audience"
+          ],
+          "opportunities": [
+            "Strong family themes resonate with Latin American values",
+            "Could be adapted with bilingual elements"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 2,
+            "note": "Young adult/millennial demographic but narrow gaming focus"
+          },
+          "high_concept": {
+            "score": 2,
+            "note": "Takes explanation - not immediately compelling to general audience"
+          },
+          "cast_attachability": {
+            "score": 1,
+            "note": "No obvious star vehicle roles"
+          },
+          "marketing_hook": {
+            "score": 2,
+            "note": "Gaming angle exists but not mainstream enough"
+          },
+          "budget_return_ratio": {
+            "score": 2,
+            "note": "Low budget potential but limited upside"
+          },
+          "comparable_success": {
+            "score": 1,
+            "note": "Gaming comedies have limited track record"
+          },
+          "cvs_total": 10,
+          "commercial_outlook": "challenging",
+          "box_office_ceiling": "$5-15M domestic",
+          "key_commercial_strengths": [
+            "Low budget potential",
+            "Gaming culture zeitgeist"
+          ],
+          "key_commercial_concerns": [
+            "Niche audience",
+            "No star roles",
+            "Limited marketing hooks"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 1000000,
+          "estimated_budget_high": 3000000,
+          "category": "low",
+          "within_ceiling": true,
+          "key_cost_drivers": [
+            "Single apartment building location - $200-400K",
+            "Gaming equipment and arcade setup - $100-200K"
+          ],
+          "potential_savings": [
+            "Use real apartment building vs. sets",
+            "Minimal VFX requirements keep costs down"
+          ],
+          "production_complexity": "low",
+          "location_requirements": "Apartment building, arcade - all practical locations",
+          "vfx_requirements": "minimal",
+          "period_considerations": "contemporary",
+          "justification": "Simple contemporary setting with practical locations and minimal technical requirements"
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 60,
+            "issues": [
+              "Character development needed",
+              "Ending needs expansion"
+            ],
+            "status": "needs_work"
+          },
+          "character_casting": {
+            "score": 70,
+            "issues": [
+              "Supporting roles underdeveloped"
+            ],
+            "status": "ready"
+          },
+          "production_feasibility": {
+            "score": 85,
+            "issues": [],
+            "status": "ready"
+          },
+          "risk_profile": {
+            "score": 75,
+            "issues": [
+              "Limited commercial appeal"
+            ],
+            "status": "ready"
+          },
+          "overall_readiness": 72.5,
+          "readiness_verdict": "development_needed",
+          "deal_breakers": [
+            "Passive protagonist issue must be resolved",
+            "Character arcs need strengthening"
+          ],
+          "green_flags": [
+            "Simple production requirements",
+            "Contemporary setting",
+            "Clear genre"
+          ],
+          "development_priorities": [
+            "Strengthen protagonist agency",
+            "Develop supporting characters",
+            "Expand ending"
+          ],
+          "estimated_development_time": "2-3 drafts / 3-4 months"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 6,
+            "rationale": "Family themes and young adult focus could work for both markets with cultural adaptation",
+            "key_elements": [
+              "Universal family conflict",
+              "Contemporary setting",
+              "Youth culture"
+            ],
+            "potential_partners": [
+              "US indie producers focused on multicultural content"
+            ]
+          },
+          "mexico_spain": {
+            "score": 4,
+            "rationale": "Gaming culture less established in Spain, family themes could translate",
+            "key_elements": [
+              "Family dynamics",
+              "Coming-of-age elements"
+            ],
+            "eu_fund_eligibility": "Limited - not arthouse enough for most EU funds"
+          },
+          "other_territories": {
+            "score": 3,
+            "territories": [
+              "Canada"
+            ],
+            "rationale": "Limited appeal outside North American gaming culture"
+          },
+          "best_structure": "Mexico/US co-production with cultural adaptation",
+          "treaty_considerations": [
+            "USMCA benefits for Mexico/US co-production"
+          ],
+          "overall_coproduction_score": 4.3
+        }
+      }
+    }
+  },
+  "collection": "Randoms",
+  "tmdb_status": {
+    "checked": true,
+    "is_produced": false,
+    "reason": "NOT PRODUCED: No matching films found",
+    "checked_at": "2026-02-04T09:34:25.391549"
+  }
+}

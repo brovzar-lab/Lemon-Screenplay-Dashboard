@@ -1,0 +1,435 @@
+{
+  "source_file": "THINGS WE LOST IN THE FIRE.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v5_production_company",
+  "metadata": {
+    "filename": "THINGS WE LOST IN THE FIRE.pdf",
+    "page_count": 118,
+    "word_count": 20042
+  },
+  "analysis": {
+    "title": "Things We Lost in the Fire",
+    "author": "Allan Loeb",
+    "logline": "After her husband's tragic death, a widow invites his heroin-addicted best friend to live with her family, leading to an unlikely healing journey for all.",
+    "genre": "Drama",
+    "subgenres": [
+      "Family Drama",
+      "Addiction Drama",
+      "Grief Drama"
+    ],
+    "themes": [
+      "grief",
+      "addiction",
+      "healing",
+      "friendship",
+      "family",
+      "redemption"
+    ],
+    "tone": "Melancholic, intimate, hopeful",
+    "dimension_scores": {
+      "concept": {
+        "score": 7,
+        "sub_criteria": {
+          "hook_clarity": {
+            "score": 8,
+            "note": "Widow invites dead husband's junkie friend to live with family - clear pitch"
+          },
+          "audience_targeting": {
+            "score": 7,
+            "note": "Adult drama audience, similar to Babel/Crash"
+          },
+          "freshness": {
+            "score": 6,
+            "note": "Grief + addiction combo feels familiar but specific dynamic is fresh"
+          },
+          "execution_independence": {
+            "score": 7,
+            "note": "Strong concept works even with mediocre execution"
+          }
+        },
+        "justification": "Pages 55-57: The central concept crystallizes when Audrey invites Jerry to live above the garage - an unlikely pairing that creates inherent dramatic tension and opportunity for mutual healing",
+        "page_citations": [
+          "Page 57: Audrey offers Jerry the garage apartment",
+          "Page 48: Jerry meets the children at funeral"
+        ],
+        "weakness_identified": "Concept feels somewhat familiar in addiction/grief drama space"
+      },
+      "structure": {
+        "score": 6,
+        "sub_criteria": {
+          "act_architecture": {
+            "score": 6,
+            "note": "Clear three acts but transitions feel soft"
+          },
+          "scene_necessity": {
+            "score": 7,
+            "note": "Most scenes serve character development effectively"
+          },
+          "momentum": {
+            "score": 5,
+            "note": "Middle section drags during recovery period"
+          },
+          "payoff_delivery": {
+            "score": 6,
+            "note": "Emotional payoffs work but structural ones less clear"
+          }
+        },
+        "justification": "Act breaks at death (page 27), Jerry moving in (page 57), and relapse/recovery (page 96). Structure serves character over plot.",
+        "page_citations": [
+          "Page 27: Brian's death ends Act 1",
+          "Page 96: Jerry's relapse begins final act"
+        ],
+        "weakness_identified": "Second act lacks clear dramatic progression"
+      },
+      "protagonist": {
+        "score": 6,
+        "sub_criteria": {
+          "goal_clarity": {
+            "score": 5,
+            "note": "Audrey's goals are emotional/internal, less clear externally"
+          },
+          "active_agency": {
+            "score": 6,
+            "note": "She makes key decisions but often reactive"
+          },
+          "arc_credibility": {
+            "score": 7,
+            "note": "From frozen grief to emotional breakthrough feels earned"
+          },
+          "star_vehicle_quality": {
+            "score": 7,
+            "note": "Complex widow role would attract major actresses"
+          }
+        },
+        "justification": "Audrey's journey from emotional numbness to breaking down crying is well-tracked, though her goals remain largely internal",
+        "page_citations": [
+          "Page 110: Audrey finally cries - major character breakthrough"
+        ],
+        "weakness_identified": "External goals could be clearer"
+      },
+      "supporting_cast": {
+        "score": 7,
+        "sub_criteria": {
+          "character_distinction": {
+            "score": 8,
+            "note": "Jerry, Harper, Dory all have distinct voices and personalities"
+          },
+          "functional_purpose": {
+            "score": 7,
+            "note": "Each character serves story while remaining interesting"
+          },
+          "castability": {
+            "score": 7,
+            "note": "Jerry especially is a strong character actor showcase"
+          }
+        },
+        "justification": "Jerry is fully realized with clear arc from addiction to recovery. Children feel authentic, not precocious.",
+        "page_citations": [
+          "Page 75: Dory putting head underwater - Jerry's breakthrough with children",
+          "Page 66: Kelly F's share at NA meeting shows depth"
+        ],
+        "weakness_identified": "Some supporting characters like Howard feel underdeveloped"
+      },
+      "dialogue": {
+        "score": 6,
+        "sub_criteria": {
+          "voice_distinction": {
+            "score": 7,
+            "note": "Characters have distinct speech patterns, especially Jerry vs Audrey"
+          },
+          "subtext_quality": {
+            "score": 6,
+            "note": "Some good subtext but also direct exposition"
+          },
+          "quotability": {
+            "score": 5,
+            "note": "Few memorable lines, mostly naturalistic"
+          },
+          "translation_quality": {
+            "score": 7,
+            "note": "Dialogue would translate well, universal themes"
+          }
+        },
+        "justification": "Natural, character-specific dialogue but lacks memorable quotes",
+        "page_citations": [
+          "Page 64: 'It should've been you, Jerry' - brutal honesty",
+          "Page 113: 'Accept the good' - thematic line"
+        ],
+        "weakness_identified": "Dialogue functional but rarely transcendent"
+      },
+      "genre_execution": {
+        "score": 7,
+        "sub_criteria": {
+          "obligatory_scenes": {
+            "score": 7,
+            "note": "Grief stages, addiction struggles, family healing all present"
+          },
+          "emotional_delivery": {
+            "score": 8,
+            "note": "Genuine emotional impact in key scenes"
+          },
+          "convention_innovation": {
+            "score": 6,
+            "note": "Fresh take on familiar grief/addiction territory"
+          },
+          "audience_satisfaction": {
+            "score": 7,
+            "note": "Cathartic ending provides emotional resolution"
+          }
+        },
+        "justification": "Strong execution of grief drama conventions with authentic addiction portrayal",
+        "page_citations": [
+          "Page 110-111: Audrey's emotional breakdown - powerful cathartic moment",
+          "Page 96-103: Withdrawal scenes feel authentic"
+        ],
+        "weakness_identified": "Some genre beats feel predictable"
+      },
+      "originality": {
+        "score": 6,
+        "sub_criteria": {
+          "voice_distinctiveness": {
+            "score": 6,
+            "note": "Competent voice but not highly distinctive"
+          },
+          "premise_novelty": {
+            "score": 7,
+            "note": "Specific dynamic of widow/junkie friend is fresh"
+          },
+          "execution_innovation": {
+            "score": 5,
+            "note": "Straightforward execution, no major innovations"
+          },
+          "cultural_freshness": {
+            "score": 6,
+            "note": "Universal themes but Seattle setting feels authentic"
+          }
+        },
+        "justification": "Fresh take on grief through addiction lens, but execution is conventional",
+        "page_citations": [
+          "Page 82: Jerry teaching Dory to swim - unexpected father figure dynamics"
+        ],
+        "weakness_identified": "Execution doesn't match premise originality"
+      },
+      "weighted_score": 6.5
+    },
+    "latam_market_assessment": {
+      "cultural_resonance": {
+        "score": 8,
+        "rationale": "Universal themes of family, grief, addiction translate perfectly. Strong family bonds central to story align with LatAm values"
+      },
+      "regional_casting_potential": {
+        "score": 7,
+        "rationale": "Roles could work with Gael García Bernal as Jerry, Salma Hayek or Cecilia Suárez as Audrey. Universal character types"
+      },
+      "theatrical_appeal": {
+        "score": 6,
+        "rationale": "Intimate drama better suited for streaming but emotional catharsis could work theatrically"
+      },
+      "marketing_viability": {
+        "score": 6,
+        "rationale": "Challenging to market - no clear hook beyond cast. Relies on word-of-mouth"
+      },
+      "coproduction_potential": {
+        "score": 5,
+        "rationale": "Very American setting and context, limited coproduction appeal"
+      },
+      "overall_latam_score": 6.4,
+      "market_recommendation": "moderate_fit"
+    },
+    "production_readiness": {
+      "script_polish": {
+        "score": 75,
+        "issues": [
+          "Some pacing issues in Act 2",
+          "Minor dialogue tightening needed"
+        ],
+        "status": "needs_work"
+      },
+      "character_casting": {
+        "score": 80,
+        "issues": [
+          "Lead roles attractive to talent"
+        ],
+        "status": "ready"
+      },
+      "production_feasibility": {
+        "score": 85,
+        "issues": [
+          "Contemporary Seattle setting manageable"
+        ],
+        "status": "ready"
+      },
+      "market_viability": {
+        "score": 60,
+        "issues": [
+          "Adult drama faces theatrical challenges"
+        ],
+        "status": "needs_work"
+      },
+      "risk_profile": {
+        "score": 70,
+        "issues": [
+          "Addiction content requires careful handling"
+        ],
+        "status": "needs_work"
+      },
+      "overall_readiness": 74,
+      "readiness_verdict": "development_needed",
+      "deal_breakers": [
+        "Must strengthen theatrical appeal",
+        "Need clearer marketing hook"
+      ],
+      "green_flags": [
+        "Strong character work",
+        "Authentic addiction portrayal",
+        "Emotional authenticity"
+      ],
+      "development_priorities": [
+        "Strengthen Act 2 momentum",
+        "Clarify Audrey's external goals",
+        "Enhance theatrical elements"
+      ]
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Second act pacing drags",
+      "Limited theatrical appeal",
+      "Marketing challenges",
+      "Conventional execution doesn't match premise originality",
+      "Some supporting characters underdeveloped"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Adult drama audience exists but limited"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Takes explanation, not one-sentence pitch"
+      },
+      "cast_attachability": {
+        "score": 3,
+        "note": "Strong roles for lead actors"
+      },
+      "marketing_hook": {
+        "score": 1,
+        "note": "No clear marketing angle beyond cast"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Low budget but limited upside potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Adult dramas struggle theatrically"
+      },
+      "cvs_total": 12
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends page 27 (Brian's death), Act 2 ends page 96 (Jerry's relapse), Act 3 resolution",
+      "pacing": "Strong opening, saggy middle during recovery period, emotional climax works"
+    },
+    "characters": {
+      "protagonist": "Audrey Burke - grieving widow, emotionally frozen, goal is healing though not clearly articulated",
+      "antagonist": "Addiction itself, grief, internal obstacles rather than human antagonist",
+      "supporting": [
+        "Jerry Sunborne - complex addict with genuine friendship bond",
+        "Harper - precocious but not annoying daughter",
+        "Dory - authentic child character",
+        "Kelly F - recovery mentor figure"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "page": "75",
+        "scene": "Jerry teaches Dory to swim underwater",
+        "why": "Emotional breakthrough that belonged to dead father"
+      },
+      {
+        "page": "110-111",
+        "scene": "Audrey finally breaks down crying",
+        "why": "Cathartic release of grief, story's emotional climax"
+      },
+      {
+        "page": "96-103",
+        "scene": "Jerry's withdrawal sequence",
+        "why": "Authentic, unflinching portrayal of addiction consequences"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Babel",
+        "similarity": "Multi-character drama exploring grief and connection",
+        "box_office_relevance": "mixed",
+        "latam_performance": "Strong critical reception, moderate commercial"
+      },
+      {
+        "title": "Manchester by the Sea",
+        "similarity": "Male grief, family healing, similar tone",
+        "box_office_relevance": "success",
+        "latam_performance": "Limited theatrical, strong streaming"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "Adults 35-65, upscale educated audience",
+      "gender_skew": "slight female",
+      "interests": [
+        "character-driven drama",
+        "addiction stories",
+        "family healing narratives"
+      ],
+      "latam_audience_notes": "Family themes resonate strongly, addiction angle requires sensitive marketing"
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "estimated_range": "$3-8 million",
+      "within_company_capacity": true,
+      "justification": "Contemporary setting, character-driven, minimal VFX requirements"
+    },
+    "assessment": {
+      "strengths": [
+        "Authentic character work",
+        "Genuine emotional moments",
+        "Strong supporting cast",
+        "Universal themes",
+        "Competent craft"
+      ],
+      "weaknesses": [
+        "Limited theatrical appeal",
+        "Pacing issues in Act 2",
+        "Marketing challenges",
+        "Conventional execution",
+        "Unclear external protagonist goals"
+      ],
+      "development_notes": [
+        "Strengthen Audrey's external objectives",
+        "Tighten second act progression",
+        "Enhance visual/theatrical elements",
+        "Clarify marketing hook"
+      ],
+      "marketability": "low",
+      "recommendation": "CONSIDER",
+      "recommendation_rationale": "Solid character work and authentic emotional content merit consideration, but significant development needed to address pacing, theatrical appeal, and marketing viability before greenlight."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Opening garage fire is visually compelling but doesn't hook until Brian's death page 27",
+      "goosebumps_moments": [
+        "Page 75: Dory swimming breakthrough",
+        "Page 111: Audrey's cathartic breakdown"
+      ],
+      "career_risk_test": "Would not stake career - too many commercial uncertainties despite quality writing",
+      "legacy_potential": "Unlikely to be remembered - competent but not transcendent",
+      "disqualifying_factors": [
+        "Limited commercial appeal",
+        "Marketing challenges",
+        "Conventional execution",
+        "CVS only 12"
+      ]
+    },
+    "verdict_statement": "A well-crafted character drama with authentic emotional content that merits development consideration, but faces significant commercial and theatrical challenges that must be addressed.",
+    "executive_summary": "Competent grief/addiction drama with strong character work but limited theatrical appeal. Development needed to address pacing and marketing before production consideration."
+  },
+  "collection": "2005 Black List"
+}

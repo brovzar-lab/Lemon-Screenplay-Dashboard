@@ -1,0 +1,433 @@
+{
+  "source_file": "HONEYMOON WITH HARRY.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v5_production_company",
+  "metadata": {
+    "filename": "HONEYMOON WITH HARRY.pdf",
+    "page_count": 130,
+    "word_count": 29648
+  },
+  "analysis": {
+    "title": "Honeymoon with Harry",
+    "author": "Paul Haggis",
+    "logline": "A selfish playboy must accompany his dead fiancée's bitter father to scatter her ashes in the Caribbean, where their mutual grief forces an unlikely redemption.",
+    "genre": "Dramedy",
+    "subgenres": [
+      "Dark Comedy",
+      "Character Drama",
+      "Grief Story"
+    ],
+    "themes": [
+      "grief and healing",
+      "father-son relationships",
+      "redemption",
+      "letting go",
+      "toxic masculinity"
+    ],
+    "tone": "Darkly comedic with emotional depth",
+    "dimension_scores": {
+      "concept": {
+        "score": 7,
+        "sub_criteria": {
+          "hook_clarity": {
+            "score": 8,
+            "note": "Clear premise - odd couple forced together by tragedy"
+          },
+          "audience_targeting": {
+            "score": 7,
+            "note": "Adult dramedy audience, but narrow appeal"
+          },
+          "freshness": {
+            "score": 6,
+            "note": "Familiar grief journey with fresh dynamic"
+          },
+          "execution_independence": {
+            "score": 7,
+            "note": "Strong enough concept to survive mediocre execution"
+          }
+        },
+        "justification": "Page 1-7: Establishes compelling hook of funeral leading to forced honeymoon trip. The central irony of a playboy taking his dead fiancée's father on their honeymoon is both absurd and emotionally resonant.",
+        "page_citations": [
+          "Page 107: Airport confrontation where Harry forces Todd to take him using Haley's ashes",
+          "Page 118-120: Arrival at honeymoon suite establishes central conflict"
+        ],
+        "weakness_identified": "Limited commercial appeal - very specific audience for grief dramedies"
+      },
+      "structure": {
+        "score": 6,
+        "sub_criteria": {
+          "act_architecture": {
+            "score": 6,
+            "note": "Clear three acts but transitions feel mechanical"
+          },
+          "scene_necessity": {
+            "score": 7,
+            "note": "Most scenes serve character development effectively"
+          },
+          "momentum": {
+            "score": 5,
+            "note": "Second act drags in middle section"
+          },
+          "payoff_delivery": {
+            "score": 6,
+            "note": "Emotional payoffs work better than plot payoffs"
+          }
+        },
+        "justification": "Act 1 ends around page 35 with Haley's death. Act 2 break around page 107 with forced trip decision. Structure serves character arcs but pacing issues in resort sequences.",
+        "page_citations": [
+          "Page 82: Haley's death - clear act break",
+          "Page 107: Decision to travel together",
+          "Page 175: Ash scattering climax"
+        ],
+        "weakness_identified": "Middle section lacks sufficient escalation between pages 120-160"
+      },
+      "protagonist": {
+        "score": 6,
+        "sub_criteria": {
+          "goal_clarity": {
+            "score": 6,
+            "note": "External goal clear but internal need takes time to emerge"
+          },
+          "active_agency": {
+            "score": 5,
+            "note": "Often reactive, especially in second act"
+          },
+          "arc_credibility": {
+            "score": 7,
+            "note": "Transformation feels earned through suffering"
+          },
+          "star_vehicle_quality": {
+            "score": 6,
+            "note": "Challenging role but limited commercial appeal"
+          }
+        },
+        "justification": "Todd's goal to escape grief through self-destruction is clear, but he's often passive in the resort sequences. Arc from selfish playboy to someone capable of genuine connection is well-developed.",
+        "page_citations": [
+          "Page 24: Todd's goal to be better for Haley established",
+          "Page 151: Major confrontation showing character growth"
+        ],
+        "weakness_identified": "Too reactive in second act - things happen to him rather than him driving action"
+      },
+      "supporting_cast": {
+        "score": 7,
+        "sub_criteria": {
+          "character_distinction": {
+            "score": 8,
+            "note": "Harry is fully realized, distinctive character"
+          },
+          "functional_purpose": {
+            "score": 7,
+            "note": "Each character serves story and theme"
+          },
+          "castability": {
+            "score": 6,
+            "note": "Harry is great role, others less distinctive"
+          }
+        },
+        "justification": "Harry Everett is excellently crafted - protective father with genuine menace and vulnerability. Supporting characters like Alex, Amy, and Anita have distinct voices and serve specific functions.",
+        "page_citations": [
+          "Page 35-56: Harry's dinner scene reveals complex character layers",
+          "Page 94: Harry's bar fight shows unexpected dimensions"
+        ],
+        "weakness_identified": "Female supporting characters somewhat underdeveloped beyond their functions"
+      },
+      "dialogue": {
+        "score": 7,
+        "sub_criteria": {
+          "voice_distinction": {
+            "score": 8,
+            "note": "Todd and Harry have completely different speech patterns"
+          },
+          "subtext_quality": {
+            "score": 7,
+            "note": "Characters often say one thing, mean another"
+          },
+          "quotability": {
+            "score": 6,
+            "note": "Some memorable lines but not highly quotable"
+          },
+          "translation_quality": {
+            "score": 7,
+            "note": "Humor and emotion would translate well"
+          }
+        },
+        "justification": "Strong character voices, especially the contrast between Todd's crude humor and Harry's repressed anger. Subtext particularly strong in father-son dynamics.",
+        "page_citations": [
+          "Page 35: 'You sell futures. I bet people line up to buy them.' - Harry's passive-aggressive style",
+          "Page 151: 'She died trying to get away from you, Harry. That's just a fact.' - Todd's brutal honesty"
+        ],
+        "weakness_identified": "Some dialogue feels over-written in emotional moments"
+      },
+      "genre_execution": {
+        "score": 6,
+        "sub_criteria": {
+          "obligatory_scenes": {
+            "score": 6,
+            "note": "Has required grief story beats"
+          },
+          "emotional_delivery": {
+            "score": 7,
+            "note": "Genuine emotional moments throughout"
+          },
+          "convention_innovation": {
+            "score": 5,
+            "note": "Familiar grief journey structure"
+          },
+          "audience_satisfaction": {
+            "score": 6,
+            "note": "Satisfying for dramedy audiences"
+          }
+        },
+        "justification": "Delivers on dramedy promises with genuine laughs and tears. The beach scattering climax provides appropriate catharsis.",
+        "page_citations": [
+          "Page 175: Ash scattering provides emotional climax",
+          "Page 176: Dance scene balances comedy and pathos perfectly"
+        ],
+        "weakness_identified": "Follows fairly predictable grief story template without major innovations"
+      },
+      "originality": {
+        "score": 6,
+        "sub_criteria": {
+          "voice_distinctiveness": {
+            "score": 7,
+            "note": "Haggis's voice clear throughout"
+          },
+          "premise_novelty": {
+            "score": 6,
+            "note": "Fresh take on familiar grief journey"
+          },
+          "execution_innovation": {
+            "score": 5,
+            "note": "Conventional storytelling approach"
+          },
+          "cultural_freshness": {
+            "score": 5,
+            "note": "American cultural specificity limits freshness"
+          }
+        },
+        "justification": "The specific dynamic between these two characters feels fresh, and Haggis brings his distinctive voice to familiar material.",
+        "page_citations": [
+          "Page 124: Gay marriage misunderstanding provides fresh comedic angle",
+          "Page 155: Pool confrontation subverts expectations"
+        ],
+        "weakness_identified": "Basic structure and approach are quite conventional for the genre"
+      },
+      "weighted_score": 6.35
+    },
+    "latam_market_assessment": {
+      "cultural_resonance": {
+        "score": 7,
+        "rationale": "Father-son relationships and machismo themes resonate strongly in LatAm culture. Grief and family dynamics are universal."
+      },
+      "regional_casting_potential": {
+        "score": 5,
+        "rationale": "Could recast with LatAm actors but story feels specifically American. Demián Bichir or Gael García could work for Todd."
+      },
+      "theatrical_appeal": {
+        "score": 5,
+        "rationale": "Intimate character drama better suited for streaming than theatrical experience"
+      },
+      "marketing_viability": {
+        "score": 6,
+        "rationale": "Clear hook for trailer but niche appeal limits marketing reach"
+      },
+      "coproduction_potential": {
+        "score": 4,
+        "rationale": "Very American setting and cultural references limit international partnership appeal"
+      },
+      "overall_latam_score": 5.4,
+      "market_recommendation": "weak_fit"
+    },
+    "production_readiness": {
+      "script_polish": {
+        "score": 75,
+        "issues": [
+          "Some overwritten dialogue",
+          "Pacing issues in middle"
+        ],
+        "status": "needs_work"
+      },
+      "character_casting": {
+        "score": 70,
+        "issues": [
+          "Limited star vehicle appeal"
+        ],
+        "status": "needs_work"
+      },
+      "production_feasibility": {
+        "score": 80,
+        "issues": [
+          "Caribbean location costs"
+        ],
+        "status": "ready"
+      },
+      "market_viability": {
+        "score": 50,
+        "issues": [
+          "Narrow audience appeal",
+          "Not theatrical"
+        ],
+        "status": "blocker"
+      },
+      "risk_profile": {
+        "score": 60,
+        "issues": [
+          "Niche genre",
+          "Dark subject matter"
+        ],
+        "status": "needs_work"
+      },
+      "overall_readiness": 67,
+      "readiness_verdict": "development_needed",
+      "deal_breakers": [
+        "Limited theatrical appeal",
+        "Narrow target audience"
+      ],
+      "green_flags": [
+        "Strong character work",
+        "Emotional authenticity",
+        "Paul Haggis pedigree"
+      ],
+      "development_priorities": [
+        "Enhance theatrical appeal",
+        "Broaden audience access",
+        "Tighten second act pacing"
+      ]
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Limited theatrical appeal",
+      "Narrow target audience",
+      "Second act pacing issues",
+      "Culturally specific American references",
+      "Reactive protagonist in middle section"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Adult dramedy audience is narrow"
+      },
+      "high_concept": {
+        "score": 2,
+        "note": "Takes explanation beyond simple pitch"
+      },
+      "cast_attachability": {
+        "score": 2,
+        "note": "Character roles but not star vehicles"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Dark subject matter limits marketing"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Limited upside potential"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Grief dramedies have mixed commercial record"
+      },
+      "cvs_total": 12
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends page 82 (Haley's death), Act 2 break page 107 (forced journey), Resolution pages 175-181",
+      "pacing": "Strong opening and ending, but middle section drags with repetitive resort sequences"
+    },
+    "characters": {
+      "protagonist": "Todd Cartwright - selfish playboy learning to love, goal unclear in middle section",
+      "antagonist": "Harry Everett - overprotective father, well-developed with clear motivations",
+      "supporting": [
+        "Haley (deceased) - drives story through memory",
+        "Alex and Amy - functional friends",
+        "Anita - voice of reason"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "page": "35-56",
+        "scene": "Dinner at Everett home",
+        "why": "Perfectly establishes character dynamics and conflict"
+      },
+      {
+        "page": "175",
+        "scene": "Ash scattering on beach",
+        "why": "Emotionally satisfying climax"
+      },
+      {
+        "page": "176",
+        "scene": "Dancing in resort bar",
+        "why": "Perfect balance of comedy and pathos"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "About Schmidt",
+        "similarity": "Older man forced into emotional journey",
+        "box_office_relevance": "mixed",
+        "latam_performance": "limited"
+      },
+      {
+        "title": "The Descendants",
+        "similarity": "Grief journey with dark comedy",
+        "box_office_relevance": "success",
+        "latam_performance": "moderate"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "Adults 35-54, educated, upscale",
+      "gender_skew": "slight female",
+      "interests": [
+        "character drama",
+        "dark comedy",
+        "emotional stories"
+      ],
+      "latam_audience_notes": "Father-son dynamics resonate but American cultural specificity limits appeal"
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "estimated_range": "$5-8 million",
+      "within_company_capacity": true,
+      "justification": "Character-driven drama with minimal VFX, primarily two locations"
+    },
+    "assessment": {
+      "strengths": [
+        "Excellent character work, especially Harry",
+        "Genuine emotional authenticity",
+        "Strong dialogue and voice distinction",
+        "Paul Haggis's proven writing ability"
+      ],
+      "weaknesses": [
+        "Limited theatrical appeal",
+        "Narrow target audience",
+        "Second act pacing issues",
+        "Culturally specific references limit international appeal",
+        "Protagonist too reactive in middle section"
+      ],
+      "development_notes": [
+        "Enhance visual/theatrical elements",
+        "Broaden character appeal",
+        "Tighten resort sequences",
+        "Strengthen protagonist agency"
+      ],
+      "marketability": "low",
+      "recommendation": "PASS",
+      "recommendation_rationale": "While well-written with strong characters, the narrow audience appeal, limited theatrical viability (CVS: 12), and weak LatAm market fit (5.4) make this unsuitable for theatrical release in your market. Better suited for streaming platforms."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Funeral opening is somber, not immediately hooky",
+      "goosebumps_moments": [],
+      "career_risk_test": "Would not stake career - too niche and limited commercial appeal",
+      "legacy_potential": "Unlikely to be remembered - good but not exceptional",
+      "disqualifying_factors": [
+        "Limited audience appeal",
+        "Not theatrical",
+        "CVS too low",
+        "Weak LatAm market fit"
+      ]
+    },
+    "verdict_statement": "Well-crafted character drama with authentic emotion and strong dialogue, but limited theatrical appeal and narrow target audience make it unsuitable for your market's theatrical release strategy.",
+    "executive_summary": "Quality dramedy about grief and male relationships, but niche appeal and limited theatrical viability make it wrong for Latin American theatrical release."
+  }
+}

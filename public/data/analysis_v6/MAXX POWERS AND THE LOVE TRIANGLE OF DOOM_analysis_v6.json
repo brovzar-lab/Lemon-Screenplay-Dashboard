@@ -1,0 +1,595 @@
+{
+  "source_file": "MAXX POWERS AND THE LOVE TRIANGLE OF DOOM.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "MAXX POWERS AND THE LOVE TRIANGLE OF DOOM.pdf",
+    "page_count": 111,
+    "word_count": 21199
+  },
+  "analysis": {
+    "title": "Maxx Powers and the Love Triangle of Doom",
+    "author": "Jonathan Aibel & Glenn Berger",
+    "logline": "When superhero Maxx Powers' girlfriend dumps him for a nerdy product tester, he must choose between winning her back and saving the world from his evil brother.",
+    "genre": "Comedy",
+    "subgenres": [
+      "Superhero",
+      "Romantic Comedy",
+      "Action Comedy"
+    ],
+    "themes": [
+      "emotional vulnerability vs. strength",
+      "work-life balance",
+      "sibling rivalry",
+      "authenticity in relationships"
+    ],
+    "tone": "Light-hearted superhero parody with romantic comedy elements",
+    "core_quality": {
+      "execution_craft": {
+        "score": 6.5,
+        "structure": {
+          "score": 7,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 7,
+              "note": "Clear three-act structure with solid turning points"
+            },
+            "scene_necessity": {
+              "score": 6,
+              "note": "Most scenes advance plot, some feel indulgent"
+            },
+            "momentum": {
+              "score": 7,
+              "note": "Good escalation through relationship conflicts to climax"
+            },
+            "payoff_delivery": {
+              "score": 8,
+              "note": "Excellent payoff of Jeremy's heroism and character growth"
+            }
+          },
+          "justification": "Script follows clear superhero parody structure with relationship breakup as inciting incident, escalating conflict through Jeremy/Maxx rivalry, and satisfying climax where Maxx chooses heroism over revenge",
+          "page_citations": [
+            "Page 13: Inciting incident - Laura breaks up with Maxx",
+            "Page 78: Midpoint - Maxx and Laura get engaged",
+            "Page 108: Climax - Maxx chooses to save Jeremy"
+          ],
+          "weakness_identified": "Some scenes in the middle feel repetitive, particularly the surveillance sequences"
+        },
+        "scene_writing": {
+          "score": 7,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 7,
+              "note": "Clear objectives and obstacles in most scenes"
+            },
+            "visual_storytelling": {
+              "score": 8,
+              "note": "Excellent visual comedy and superhero action"
+            },
+            "economy": {
+              "score": 6,
+              "note": "Some scenes could be tighter"
+            },
+            "transitions": {
+              "score": 7,
+              "note": "Smooth scene flow with good cuts and dissolves"
+            }
+          },
+          "justification": "Strong visual comedy throughout, particularly the superhero action sequences and sight gags. Dance/fight sequence crosscutting is expertly crafted.",
+          "page_citations": [
+            "Page 40-41: Brilliant tango/fight crosscutting sequence",
+            "Page 67-68: Jeremy trapped in revolving door visual comedy"
+          ],
+          "weakness_identified": "Some dialogue scenes run long without visual interest"
+        },
+        "dialogue": {
+          "score": 6,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 7,
+              "note": "Characters have distinct voices, especially Maxx vs Jeremy"
+            },
+            "subtext_quality": {
+              "score": 6,
+              "note": "Some good subtext in relationship scenes"
+            },
+            "functionality": {
+              "score": 6,
+              "note": "Dialogue serves plot but sometimes exposition-heavy"
+            },
+            "speakability": {
+              "score": 6,
+              "note": "Generally natural but some clunky exposition"
+            }
+          },
+          "justification": "Characters speak distinctively - Maxx's heroic pomposity vs Jeremy's neurotic specificity works well. Some exposition feels forced.",
+          "page_citations": [
+            "Page 36: 'Language!' - captures Maxx's character perfectly",
+            "Page 47: Jeremy's ketchup metaphor shows his analytical nature"
+          ],
+          "weakness_identified": "Therapy scenes feel exposition-heavy rather than natural"
+        }
+      },
+      "character_system": {
+        "score": 7.2,
+        "protagonist": {
+          "score": 8,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 8,
+              "note": "Clear goal to win Laura back, then save her"
+            },
+            "active_agency": {
+              "score": 7,
+              "note": "Drives action through most of story"
+            },
+            "arc_credibility": {
+              "score": 8,
+              "note": "Believable growth from selfish to selfless"
+            },
+            "investment": {
+              "score": 8,
+              "note": "Sympathetic despite being superhero - relatable relationship struggles"
+            }
+          },
+          "justification": "Maxx is a compelling protagonist whose superhero status doesn't prevent him from being relatable. His emotional journey from closed-off to vulnerable is well-earned.",
+          "page_citations": [
+            "Page 84: Maxx opens up in therapy - goal becomes clear",
+            "Page 109: Ultimate choice to save Jeremy shows character growth"
+          ],
+          "weakness_identified": "Early scenes make him slightly too unsympathetic"
+        },
+        "supporting_cast": {
+          "score": 7,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 7,
+              "note": "Jeremy, Douglas, Les all feel like real people"
+            },
+            "functional_purpose": {
+              "score": 7,
+              "note": "Each serves story while being entertaining"
+            },
+            "ensemble_balance": {
+              "score": 7,
+              "note": "Good balance between leads and supporting cast"
+            }
+          },
+          "justification": "Jeremy is particularly well-developed as the 'normal guy' with his own heroic qualities. Douglas provides good comic relief while having his own arc.",
+          "page_citations": [
+            "Page 17: Jeremy's passionate mouthwash speech establishes character",
+            "Page 76-77: Douglas therapy scene gives him depth"
+          ],
+          "weakness_identified": "Laura feels somewhat passive compared to the male characters"
+        },
+        "relationships": {
+          "score": 7,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 7,
+              "note": "Clear power dynamics that evolve"
+            },
+            "conflict_generation": {
+              "score": 8,
+              "note": "Relationships drive all major conflicts"
+            },
+            "emotional_stakes": {
+              "score": 6,
+              "note": "We care about outcomes but some feel manufactured"
+            }
+          },
+          "justification": "The central triangle works well, with Maxx/Les brother dynamic providing good dramatic backbone"
+        }
+      },
+      "conceptual_strength": {
+        "score": 7.5,
+        "premise": {
+          "score": 8,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 8,
+              "note": "Superhero relationship comedy is clear and compelling"
+            },
+            "narrative_engine": {
+              "score": 8,
+              "note": "Love triangle generates natural conflict"
+            },
+            "freshness": {
+              "score": 7,
+              "note": "Fresh take on superhero genre through relationship lens"
+            },
+            "execution_independence": {
+              "score": 8,
+              "note": "Strong concept that elevates execution"
+            }
+          },
+          "justification": "Excellent high-concept premise that subverts superhero tropes through romantic comedy lens",
+          "page_citations": [
+            "Page 1: Opening therapy scene immediately establishes unique angle"
+          ]
+        },
+        "theme": {
+          "score": 7,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 7,
+              "note": "Clear themes about vulnerability and authenticity"
+            },
+            "organic_integration": {
+              "score": 7,
+              "note": "Themes emerge naturally from story"
+            },
+            "complexity": {
+              "score": 6,
+              "note": "Explores multiple themes without being heavy-handed"
+            },
+            "resonance": {
+              "score": 7,
+              "note": "Universal themes about work-life balance"
+            }
+          },
+          "justification": "Strong thematic content about emotional authenticity vs. invulnerability"
+        }
+      },
+      "voice_and_tone": {
+        "score": 7,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 7,
+            "note": "Clear comedic voice with good character insights"
+          },
+          "tonal_consistency": {
+            "score": 7,
+            "note": "Maintains light tone while allowing for emotional moments"
+          },
+          "genre_awareness": {
+            "score": 8,
+            "note": "Excellent understanding of both superhero and rom-com genres"
+          },
+          "confidence": {
+            "score": 7,
+            "note": "Writers clearly know what they want to achieve"
+          }
+        },
+        "justification": "Strong, confident voice that successfully parodies superhero conventions while telling genuine relationship story"
+      },
+      "weighted_score": 6.89,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": false,
+            "premise_score": 8,
+            "execution_average": 6.5,
+            "gap": 1.5,
+            "assessment": "Gap exists but not excessive - strong premise supported by solid execution"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "Strong opening with clear setup",
+            "later_acts_quality": "Maintains quality through climax",
+            "assessment": "Consistent quality throughout"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 7,
+            "character_average": 7.2,
+            "gap": -0.2,
+            "assessment": "Characters are well-developed and engaging"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 6,
+            "scene_writing_score": 7,
+            "gap": -1,
+            "assessment": "Visual storytelling is actually stronger than dialogue"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 6,
+            "theme_clarity": 7,
+            "assessment": "Themes are clear: emotional vulnerability is true strength"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 7,
+            "premise_freshness": 7,
+            "assessment": "Both voice and premise are genuinely fresh"
+          }
+        ],
+        "traps_triggered_count": 0,
+        "risk_level": "low",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "CONSIDER",
+        "adjustment_rationale": "No adjustment needed - scores support CONSIDER verdict"
+      },
+      "critical_failures": [],
+      "major_weaknesses": [
+        "Some pacing issues in middle section",
+        "Laura could be more active as character",
+        "Occasional exposition-heavy dialogue",
+        "Some repetitive surveillance sequences"
+      ],
+      "verdict": "CONSIDER",
+      "verdict_rationale": "Solid professional screenplay with strong premise and good execution. Weighted score of 6.89 meets CONSIDER threshold with no critical failures and strong character development."
+    },
+    "characters": {
+      "protagonist": "Maxx Powers - Superhero struggling with emotional vulnerability, clear goal to win back Laura, compelling through relatable relationship issues despite super-abilities",
+      "antagonist": "Les Powers - Maxx's brother and arch-enemy, provides both external threat and emotional stakes through family dynamic",
+      "supporting": [
+        "Jeremy Selig - Product tester, represents 'normal guy' with his own heroic qualities",
+        "Douglas Haverland - Sidekick with his own emotional needs",
+        "Laura Ladd - TV producer caught between two very different men"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends page 30 (Laura breaks up with Maxx), Act 2 ends page 90 (Maxx proposes to Laura)",
+      "pacing": "Generally strong pacing with good escalation, some slower sections in middle during surveillance sequences could be tightened"
+    },
+    "standout_scenes": [
+      {
+        "page": "40-41",
+        "scene": "Tango/fight crosscutting sequence",
+        "why": "Brilliant visual storytelling that parallels romantic and action beats"
+      },
+      {
+        "page": "108-109",
+        "scene": "Maxx's choice to save Jeremy",
+        "why": "Perfect character payoff that subverts expectations while staying true to character"
+      },
+      {
+        "page": "17",
+        "scene": "Jeremy's mouthwash discovery",
+        "why": "Establishes character perfectly through his passionate expertise"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Mask",
+        "similarity": "Superhero comedy with relationship complications",
+        "quality_comparison": "similar craft level with better character development"
+      },
+      {
+        "title": "Mystery Men",
+        "similarity": "Superhero parody with ensemble cast",
+        "quality_comparison": "stronger emotional core than this comparison"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Strong high-concept premise",
+        "Good character arcs for Maxx and Jeremy",
+        "Excellent visual comedy sequences",
+        "Successful genre blending",
+        "Professional format and structure"
+      ],
+      "weaknesses": [
+        "Some pacing issues in middle section",
+        "Occasional exposition-heavy dialogue",
+        "Laura could be more active",
+        "Some repetitive surveillance beats",
+        "Therapy scenes feel slightly forced"
+      ],
+      "development_notes": [
+        "Tighten middle section surveillance sequences",
+        "Give Laura more agency in third act",
+        "Polish exposition in therapy scenes",
+        "Strengthen some supporting character moments"
+      ]
+    },
+    "executive_summary": "Professional superhero rom-com with strong premise and solid execution. Maxx's emotional journey from invulnerable hero to vulnerable human drives engaging story with good laughs and genuine heart.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 6,
+            "rationale": "Universal themes of relationships and work-life balance translate well, but very US-centric superhero culture"
+          },
+          "regional_casting_potential": {
+            "score": 4,
+            "rationale": "Could work with Latino actors but no specific cultural elements that enhance authenticity"
+          },
+          "theatrical_appeal": {
+            "score": 7,
+            "rationale": "Visual spectacle and comedy work well for theatrical experience"
+          },
+          "marketing_viability": {
+            "score": 6,
+            "rationale": "Clear poster concept with superhero in therapy, but requires dubbed/subtitled superhero comedy market"
+          },
+          "coproduction_potential": {
+            "score": 5,
+            "rationale": "Limited natural co-production elements, would need to add Latino characters or settings"
+          },
+          "overall_latam_score": 5.6,
+          "market_fit_classification": "english_speaking_ok",
+          "recommendation": "moderate_fit",
+          "specific_concerns": [
+            "Very US-centric superhero culture",
+            "Limited natural Latino representation"
+          ],
+          "opportunities": [
+            "Could adapt with Latino superhero",
+            "Universal relationship comedy themes"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 2,
+            "note": "Four-quadrant appeal but superhero comedy is challenging genre"
+          },
+          "high_concept": {
+            "score": 3,
+            "note": "Superhero in couples therapy is immediately clear and compelling"
+          },
+          "cast_attachability": {
+            "score": 2,
+            "note": "Maxx role could attract A-list star, supporting roles solid"
+          },
+          "marketing_hook": {
+            "score": 3,
+            "note": "Clear trailer concept and poster imagery"
+          },
+          "budget_return_ratio": {
+            "score": 2,
+            "note": "Moderate budget requirements with superhero elements"
+          },
+          "comparable_success": {
+            "score": 2,
+            "note": "Superhero comedies have mixed track record"
+          },
+          "cvs_total": 14,
+          "commercial_outlook": "viable",
+          "box_office_ceiling": "$80-120M domestic",
+          "key_commercial_strengths": [
+            "Strong high concept",
+            "Four-quadrant appeal",
+            "Marketable premise"
+          ],
+          "key_commercial_concerns": [
+            "Superhero comedy genre challenges",
+            "Requires significant VFX budget",
+            "Dependent on star casting"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 25000000,
+          "estimated_budget_high": 35000000,
+          "category": "high",
+          "within_ceiling": false,
+          "key_cost_drivers": [
+            "Superhero VFX and flying sequences $8-12M",
+            "Multiple elaborate set pieces and locations $5-8M",
+            "Star casting requirements $8-12M"
+          ],
+          "potential_savings": [
+            "Reduce flying sequences, focus on practical stunts",
+            "Consolidate locations to San Francisco area",
+            "Scale back China dam sequence"
+          ],
+          "production_complexity": "high",
+          "location_requirements": "San Francisco, Paris, China sequences, prison, multiple interiors",
+          "vfx_requirements": "extensive",
+          "period_considerations": "contemporary",
+          "justification": "Superhero elements require significant VFX budget, international locations add cost, multiple elaborate action sequences"
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 75,
+            "issues": [
+              "Some exposition needs smoothing",
+              "Minor pacing adjustments needed"
+            ],
+            "status": "needs_work"
+          },
+          "character_casting": {
+            "score": 80,
+            "issues": [
+              "Need strong comedic actor for Maxx"
+            ],
+            "status": "ready"
+          },
+          "production_feasibility": {
+            "score": 70,
+            "issues": [
+              "Complex VFX requirements",
+              "International location needs"
+            ],
+            "status": "needs_work"
+          },
+          "risk_profile": {
+            "score": 75,
+            "issues": [
+              "Dependent on tone execution",
+              "VFX-heavy"
+            ],
+            "status": "ready"
+          },
+          "overall_readiness": 75,
+          "readiness_verdict": "development_needed",
+          "deal_breakers": [
+            "VFX budget must be secured",
+            "Need star attachment for Maxx"
+          ],
+          "green_flags": [
+            "Strong concept",
+            "Professional execution",
+            "Clear target audience"
+          ],
+          "development_priorities": [
+            "Polish exposition",
+            "Secure VFX budget",
+            "Attach star"
+          ],
+          "estimated_development_time": "1-2 drafts / 3-6 months"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 4,
+            "rationale": "Limited natural Mexico/US elements, would need significant adaptation",
+            "key_elements": [
+              "Could add Latino characters",
+              "Universal relationship themes"
+            ],
+            "potential_partners": [
+              "US studios with Latino divisions",
+              "Bilingual production companies"
+            ]
+          },
+          "mexico_spain": {
+            "score": 5,
+            "rationale": "Better fit for Spanish language version, European superhero comedy market exists",
+            "key_elements": [
+              "Spanish language adaptation potential",
+              "European distribution"
+            ],
+            "eu_fund_eligibility": "Limited - would need European cultural elements"
+          },
+          "other_territories": {
+            "score": 3,
+            "territories": [
+              "UK",
+              "Canada"
+            ],
+            "rationale": "English-language territories only, limited international appeal without adaptation"
+          },
+          "best_structure": "US lead with Mexican dubbing/distribution partnership",
+          "treaty_considerations": [
+            "USMCA benefits for US/Mexico production",
+            "Spain/Mexico cultural agreements"
+          ],
+          "overall_coproduction_score": 4.0
+        }
+      }
+    }
+  },
+  "collection": "2005 Black List"
+}

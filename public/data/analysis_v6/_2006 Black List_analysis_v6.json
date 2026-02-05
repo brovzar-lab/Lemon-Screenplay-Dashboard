@@ -1,0 +1,364 @@
+{
+  "source_file": "_2006 Black List.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "_2006 Black List.pdf",
+    "page_count": 5,
+    "word_count": 1152
+  },
+  "analysis": {
+    "title": "2006 Black List",
+    "author": "Unknown",
+    "logline": "Not a screenplay - this is a compilation list of the most-liked unproduced scripts of 2006 as voted by film industry executives and assistants.",
+    "genre": "Industry Document",
+    "subgenres": [
+      "Reference Material"
+    ],
+    "themes": [
+      "Industry Recognition",
+      "Emerging Talent"
+    ],
+    "tone": "Informational",
+    "core_quality": {
+      "execution_craft": {
+        "score": 1.0,
+        "structure": {
+          "score": 1,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 1,
+              "note": "No narrative structure - list format only"
+            },
+            "scene_necessity": {
+              "score": 1,
+              "note": "No scenes present"
+            },
+            "momentum": {
+              "score": 1,
+              "note": "No dramatic momentum - static list"
+            },
+            "payoff_delivery": {
+              "score": 1,
+              "note": "No setups or payoffs"
+            }
+          },
+          "justification": "This is not a screenplay but a ranked list of script titles with agent information",
+          "page_citations": [],
+          "weakness_identified": "Not applicable - this is not a screenplay"
+        },
+        "scene_writing": {
+          "score": 1,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 1,
+              "note": "No scenes exist"
+            },
+            "visual_storytelling": {
+              "score": 1,
+              "note": "No visual elements"
+            },
+            "economy": {
+              "score": 1,
+              "note": "Efficient list format but not screenplay writing"
+            },
+            "transitions": {
+              "score": 1,
+              "note": "No scene transitions"
+            }
+          },
+          "justification": "Document contains no screenplay scenes to evaluate",
+          "page_citations": [],
+          "weakness_identified": "Not applicable"
+        },
+        "dialogue": {
+          "score": 1,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 1,
+              "note": "No dialogue present"
+            },
+            "subtext_quality": {
+              "score": 1,
+              "note": "No dialogue present"
+            },
+            "functionality": {
+              "score": 1,
+              "note": "No dialogue present"
+            },
+            "speakability": {
+              "score": 1,
+              "note": "No dialogue present"
+            }
+          },
+          "justification": "Document contains no dialogue to evaluate",
+          "page_citations": [],
+          "weakness_identified": "Not applicable"
+        }
+      },
+      "character_system": {
+        "score": 1.0,
+        "protagonist": {
+          "score": 1,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 1,
+              "note": "No protagonist exists"
+            },
+            "active_agency": {
+              "score": 1,
+              "note": "No protagonist exists"
+            },
+            "arc_credibility": {
+              "score": 1,
+              "note": "No character arcs present"
+            },
+            "investment": {
+              "score": 1,
+              "note": "No characters to invest in"
+            }
+          },
+          "justification": "No characters present in this industry document",
+          "page_citations": [],
+          "weakness_identified": "Not applicable"
+        },
+        "supporting_cast": {
+          "score": 1,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 1,
+              "note": "No characters present"
+            },
+            "functional_purpose": {
+              "score": 1,
+              "note": "No characters present"
+            },
+            "ensemble_balance": {
+              "score": 1,
+              "note": "No ensemble exists"
+            }
+          },
+          "justification": "No supporting characters in this document",
+          "page_citations": [],
+          "weakness_identified": "Not applicable"
+        },
+        "relationships": {
+          "score": 1,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 1,
+              "note": "No relationships present"
+            },
+            "conflict_generation": {
+              "score": 1,
+              "note": "No interpersonal conflicts"
+            },
+            "emotional_stakes": {
+              "score": 1,
+              "note": "No emotional content"
+            }
+          },
+          "justification": "No character relationships to evaluate"
+        }
+      },
+      "conceptual_strength": {
+        "score": 1.0,
+        "premise": {
+          "score": 1,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 1,
+              "note": "No narrative hook - industry list"
+            },
+            "narrative_engine": {
+              "score": 1,
+              "note": "No story engine present"
+            },
+            "freshness": {
+              "score": 1,
+              "note": "Standard industry compilation format"
+            },
+            "execution_independence": {
+              "score": 1,
+              "note": "No story concept to execute"
+            }
+          },
+          "justification": "This is not a story premise but an industry reference document",
+          "page_citations": []
+        },
+        "theme": {
+          "score": 1,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 1,
+              "note": "No thematic content"
+            },
+            "organic_integration": {
+              "score": 1,
+              "note": "No narrative to integrate themes"
+            },
+            "complexity": {
+              "score": 1,
+              "note": "No thematic exploration"
+            },
+            "resonance": {
+              "score": 1,
+              "note": "No universal themes explored"
+            }
+          },
+          "justification": "Document serves informational purpose, not thematic exploration"
+        }
+      },
+      "voice_and_tone": {
+        "score": 2,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 2,
+            "note": "Brief editorial voice in intro text"
+          },
+          "tonal_consistency": {
+            "score": 3,
+            "note": "Consistent informational tone throughout"
+          },
+          "genre_awareness": {
+            "score": 1,
+            "note": "Not applicable - industry document"
+          },
+          "confidence": {
+            "score": 2,
+            "note": "Competent presentation of information"
+          }
+        },
+        "justification": "Shows minimal authorial voice in introduction but maintains professional presentation"
+      },
+      "weighted_score": 1.1,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": false,
+            "premise_score": 1,
+            "execution_average": 1.0,
+            "gap": 0.0,
+            "assessment": "No gap present as both scores are minimal"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "Not applicable - no acts",
+            "later_acts_quality": "Not applicable - no acts",
+            "assessment": "No narrative structure to evaluate"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 1,
+            "character_average": 1.0,
+            "gap": 0.0,
+            "assessment": "No characters or structure to create vacuum"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 1,
+            "scene_writing_score": 1,
+            "gap": 0,
+            "assessment": "No dialogue or scenes present"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 1,
+            "theme_clarity": 1,
+            "assessment": "No thematic content to evaluate"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 2,
+            "premise_freshness": 1,
+            "assessment": "Minimal voice present, standard format"
+          }
+        ],
+        "traps_triggered_count": 0,
+        "risk_level": "low",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "PASS",
+        "adjustment_rationale": "No adjustment needed - clear non-screenplay document"
+      },
+      "critical_failures": [
+        "Not a screenplay - industry reference document",
+        "No narrative content",
+        "No characters",
+        "No dramatic structure"
+      ],
+      "major_weaknesses": [
+        "Fundamental category error - this is not a screenplay to evaluate"
+      ],
+      "verdict": "PASS",
+      "verdict_rationale": "This is not a screenplay but rather an industry document listing the most-liked unproduced scripts of 2006. It cannot be evaluated using screenplay craft criteria as it contains no narrative content, characters, or dramatic structure."
+    },
+    "characters": {
+      "protagonist": "No protagonist - this is not a screenplay",
+      "antagonist": "No antagonist - this is not a screenplay",
+      "supporting": [
+        "No characters present - industry document"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "professional industry document formatting",
+      "act_breaks": "No acts - this is a ranked list format",
+      "pacing": "Static presentation - no pacing considerations"
+    },
+    "standout_scenes": [],
+    "comparable_films": [],
+    "assessment": {
+      "strengths": [
+        "Clear presentation of industry information",
+        "Professional formatting",
+        "Historical record of industry sentiment"
+      ],
+      "weaknesses": [
+        "Not a screenplay",
+        "No narrative content",
+        "No dramatic elements to evaluate"
+      ],
+      "development_notes": [
+        "This is not a screenplay requiring development - it's an industry reference document"
+      ]
+    },
+    "executive_summary": "This is the 2006 Black List compilation document, not a screenplay. It presents industry-voted rankings of favorite unproduced scripts. Cannot be evaluated for screenplay craft as it contains no narrative content.",
+    "lenses": {
+      "latam_market": {
+        "enabled": false
+      },
+      "commercial_viability": {
+        "enabled": false
+      },
+      "budget_tier": {
+        "enabled": false
+      },
+      "production_readiness": {
+        "enabled": false
+      },
+      "coproduction": {
+        "enabled": false
+      }
+    }
+  },
+  "collection": "2006 Black List",
+  "tmdb_status": {
+    "checked": true,
+    "is_produced": false,
+    "reason": "NOT PRODUCED: No matching films found",
+    "checked_at": "2026-02-04T09:27:18.406826"
+  }
+}

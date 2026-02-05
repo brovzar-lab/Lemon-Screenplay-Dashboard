@@ -1,0 +1,600 @@
+{
+  "source_file": "HONEYMOON WITH HARRY.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "HONEYMOON WITH HARRY.pdf",
+    "page_count": 130,
+    "word_count": 29648
+  },
+  "analysis": {
+    "title": "Honeymoon with Harry",
+    "author": "Paul Haggis",
+    "logline": "When his fiancée dies in a car crash two days before their wedding, a reformed player must escort her controlling father to spread her ashes at their Caribbean honeymoon destination.",
+    "genre": "Romantic Drama",
+    "subgenres": [
+      "Dark Comedy",
+      "Character Study",
+      "Buddy Film"
+    ],
+    "themes": [
+      "grief and healing",
+      "father-daughter relationships",
+      "redemption",
+      "letting go",
+      "found family"
+    ],
+    "tone": "Bittersweet dramedy with sharp dialogue and emotional depth",
+    "core_quality": {
+      "execution_craft": {
+        "score": 7.3,
+        "structure": {
+          "score": 8,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 8,
+              "note": "Clear three-act structure with strong turning points"
+            },
+            "scene_necessity": {
+              "score": 8,
+              "note": "Every scene serves character or plot advancement"
+            },
+            "momentum": {
+              "score": 8,
+              "note": "Excellent pacing through grief stages"
+            },
+            "payoff_delivery": {
+              "score": 8,
+              "note": "Emotional payoffs land effectively"
+            }
+          },
+          "justification": "Solid three-act structure with Haley's death as inciting incident (p.55-57), midpoint crisis in jungle (p.144-147), and climactic ashes-spreading (p.175). Each act serves clear dramatic function.",
+          "page_citations": [
+            "Page 55-57: Haley's death - major turning point",
+            "Page 91: Funeral scene - end of Act 1",
+            "Page 175: Ashes ceremony - climactic resolution"
+          ],
+          "weakness_identified": "Some middle section scenes in Caribbean feel slightly repetitive with drinking/hookup patterns"
+        },
+        "scene_writing": {
+          "score": 8,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 8,
+              "note": "Clear objectives and obstacles in each scene"
+            },
+            "visual_storytelling": {
+              "score": 8,
+              "note": "Strong visual moments throughout"
+            },
+            "economy": {
+              "score": 7,
+              "note": "Generally tight, some scenes could be trimmed"
+            },
+            "transitions": {
+              "score": 8,
+              "note": "Smooth scene-to-scene flow"
+            }
+          },
+          "justification": "Standout scenes like the dinner competition (p.48-56) and airport confrontation (p.107-108) demonstrate excellent scene construction with clear conflict and character revelation.",
+          "page_citations": [
+            "Page 48-56: Dinner scene with escalating veal-eating competition",
+            "Page 159-160: Beach attack sequence - visceral and well-staged"
+          ],
+          "weakness_identified": "Some resort scenes become repetitive - could consolidate drinking/hookup sequences"
+        },
+        "dialogue": {
+          "score": 6,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 7,
+              "note": "Todd and Harry have distinct voices"
+            },
+            "subtext_quality": {
+              "score": 6,
+              "note": "Some good subtext, but often surface-level"
+            },
+            "functionality": {
+              "score": 6,
+              "note": "Serves plot but sometimes exposition-heavy"
+            },
+            "speakability": {
+              "score": 6,
+              "note": "Natural but occasionally overwrought"
+            }
+          },
+          "justification": "Harry and Todd have distinct voices, but dialogue often states emotions directly rather than revealing through subtext. Some exchanges feel written rather than spoken.",
+          "page_citations": [
+            "Page 35: 'You sell futures. I bet people line up to buy them' - good character voice"
+          ],
+          "weakness_identified": "Frequent on-the-nose emotional declarations; characters often say exactly what they're feeling"
+        }
+      },
+      "character_system": {
+        "score": 8.0,
+        "protagonist": {
+          "score": 8,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 8,
+              "note": "Clear external goal of spreading ashes, internal goal of healing"
+            },
+            "active_agency": {
+              "score": 8,
+              "note": "Todd drives action throughout"
+            },
+            "arc_credibility": {
+              "score": 8,
+              "note": "Believable transformation through grief"
+            },
+            "investment": {
+              "score": 8,
+              "note": "His vulnerability makes him sympathetic despite flaws"
+            }
+          },
+          "justification": "Todd's journey from selfish player to grieving lover to someone capable of genuine connection is well-crafted. His goal becomes clear by page 30 when he's pursuing Haley.",
+          "page_citations": [
+            "Page 24: First genuine vulnerability with Haley",
+            "Page 173: Final conversation with Anita showing growth"
+          ],
+          "weakness_identified": "Some of his pre-Haley behavior is so extreme it strains credibility for his transformation"
+        },
+        "supporting_cast": {
+          "score": 8,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 8,
+              "note": "Harry, Haley, Alex, Anita all have distinct personalities"
+            },
+            "functional_purpose": {
+              "score": 8,
+              "note": "Each serves story while being interesting"
+            },
+            "ensemble_balance": {
+              "score": 8,
+              "note": "Strong supporting ensemble"
+            }
+          },
+          "justification": "Harry is a fully realized antagonist/eventual ally. Haley feels real despite limited screen time. Anita provides effective outside perspective.",
+          "page_citations": [
+            "Page 63-64: Harry's confession about cheating - reveals depth",
+            "Page 91: Alex's funeral speech - distinctive voice"
+          ],
+          "weakness_identified": "Some supporting characters like Brad and Josh are fairly one-dimensional"
+        },
+        "relationships": {
+          "score": 8,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 8,
+              "note": "Todd/Harry dynamic evolves convincingly"
+            },
+            "conflict_generation": {
+              "score": 8,
+              "note": "Relationships create meaningful story tension"
+            },
+            "emotional_stakes": {
+              "score": 8,
+              "note": "We care about these relationship outcomes"
+            }
+          },
+          "justification": "The Todd/Harry relationship drives the entire narrative. Their mutual grief creates genuine emotional stakes and believable character evolution."
+        }
+      },
+      "conceptual_strength": {
+        "score": 8.5,
+        "premise": {
+          "score": 9,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 9,
+              "note": "Immediately compelling premise"
+            },
+            "narrative_engine": {
+              "score": 9,
+              "note": "Built-in conflict drives entire story"
+            },
+            "freshness": {
+              "score": 8,
+              "note": "Fresh take on grief and unlikely partnerships"
+            },
+            "execution_independence": {
+              "score": 9,
+              "note": "Strong concept that would work with average execution"
+            }
+          },
+          "justification": "Brilliant high-concept premise that generates natural conflict and character development. The forced intimacy between grieving lover and overprotective father is inherently dramatic.",
+          "page_citations": [
+            "Page 107-108: Airport confrontation perfectly demonstrates premise"
+          ]
+        },
+        "theme": {
+          "score": 8,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 8,
+              "note": "Clear themes about grief, redemption, family"
+            },
+            "organic_integration": {
+              "score": 8,
+              "note": "Themes emerge naturally from story"
+            },
+            "complexity": {
+              "score": 8,
+              "note": "Nuanced exploration of love, loss, forgiveness"
+            },
+            "resonance": {
+              "score": 8,
+              "note": "Universal themes of loss and healing"
+            }
+          },
+          "justification": "Themes of grief, letting go, and unexpected connection emerge organically from the story without feeling forced or preachy."
+        }
+      },
+      "voice_and_tone": {
+        "score": 7,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 7,
+            "note": "Distinctive Haggis voice with dark humor"
+          },
+          "tonal_consistency": {
+            "score": 7,
+            "note": "Balances comedy and drama well"
+          },
+          "genre_awareness": {
+            "score": 7,
+            "note": "Understands dramedy conventions"
+          },
+          "confidence": {
+            "score": 7,
+            "note": "Assured writing throughout"
+          }
+        },
+        "justification": "Strong authorial voice that balances humor and pathos effectively. Haggis's experience shows in the confident handling of tonal shifts."
+      },
+      "weighted_score": 7.54,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": false,
+            "premise_score": 9,
+            "execution_average": 7.3,
+            "gap": 1.7,
+            "assessment": "Strong premise well-supported by solid execution"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "Strong setup with compelling characters",
+            "later_acts_quality": "Maintains quality through Caribbean section",
+            "assessment": "Consistent quality throughout all three acts"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 8,
+            "character_average": 8.0,
+            "gap": 0.0,
+            "assessment": "Strong emotional investment in characters matches structural quality"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 6,
+            "scene_writing_score": 8,
+            "gap": -2,
+            "assessment": "Scene construction actually stronger than dialogue"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 8,
+            "theme_clarity": 8,
+            "assessment": "Themes are both complex and clear - grief, redemption, unexpected connection"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 7,
+            "premise_freshness": 8,
+            "assessment": "Fresh premise supports distinctive voice"
+          }
+        ],
+        "traps_triggered_count": 0,
+        "risk_level": "low",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "RECOMMEND",
+        "adjustment_rationale": "No false positive indicators detected"
+      },
+      "critical_failures": [],
+      "major_weaknesses": [
+        "Dialogue occasionally on-the-nose with emotional declarations",
+        "Some supporting characters underdeveloped",
+        "Middle section has repetitive drinking/hookup scenes",
+        "Todd's extreme pre-Haley behavior strains credibility for transformation"
+      ],
+      "verdict": "RECOMMEND",
+      "verdict_rationale": "Strong high-concept premise expertly executed with compelling character dynamics. The Todd/Harry relationship drives genuine emotional stakes through a fresh take on grief and redemption. Professional craft across all dimensions with standout premise and character work."
+    },
+    "characters": {
+      "protagonist": "Todd Cartwright - reformed player whose genuine love for Haley transforms him; compelling because his grief strips away his defenses and reveals his vulnerability",
+      "antagonist": "Harry Everett - Haley's overprotective father who becomes unlikely ally; represents Todd's need to prove himself worthy and find redemption through connection",
+      "supporting": [
+        "Haley Everett - the idealized lost love whose memory drives both men",
+        "Anita - Todd's former hookup turned confidant, provides outside perspective",
+        "Alex - Haley's sharp-tongued best friend, represents Todd's past catching up"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends page 91 (funeral), Act 2 ends page 160 (beach attack/near-death experience)",
+      "pacing": "Excellent pacing with strong momentum. Opening act establishes relationship quickly, Caribbean section explores grief stages, climax provides satisfying emotional resolution. Some middle scenes could be tightened."
+    },
+    "standout_scenes": [
+      {
+        "page": "48-56",
+        "scene": "Dinner competition between Todd and Harry",
+        "why": "Perfectly encapsulates their rivalry while showing Haley's effect on both men"
+      },
+      {
+        "page": "107-108",
+        "scene": "Airport confrontation over tickets",
+        "why": "Demonstrates premise brilliantly - two men bound by grief and obligation"
+      },
+      {
+        "page": "175",
+        "scene": "Spreading Haley's ashes",
+        "why": "Emotionally satisfying climax that resolves both external and internal conflicts"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Sideways",
+        "similarity": "Two mismatched men on a journey working through personal issues",
+        "quality_comparison": "similar craft level with strong character dynamics"
+      },
+      {
+        "title": "The Descendants",
+        "similarity": "Man dealing with loss and family complications in tropical setting",
+        "quality_comparison": "similar emotional depth and character work"
+      },
+      {
+        "title": "About Schmidt",
+        "similarity": "Older man confronting mortality and relationship with deceased wife",
+        "quality_comparison": "this script has stronger concept and pacing"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Brilliant high-concept premise that generates natural conflict (page 107-108 airport scene)",
+        "Strong character arc for Todd from selfish player to vulnerable grieving lover",
+        "Excellent Todd/Harry dynamic that evolves believably from antagonism to connection",
+        "Professional structure with clear act breaks and emotional payoffs",
+        "Effective balance of humor and pathos throughout"
+      ],
+      "weaknesses": [
+        "Dialogue often too on-the-nose - characters state emotions directly rather than revealing through subtext",
+        "Some supporting characters like Brad and Josh are one-dimensional",
+        "Caribbean section has repetitive drinking and hookup scenes that could be consolidated",
+        "Todd's extreme pre-Haley behavior (multiple one-night stands, cruelty) strains credibility for his transformation",
+        "Occasional overwrought emotional moments that feel written rather than lived"
+      ],
+      "development_notes": [
+        "Add more subtext to dialogue - let emotions emerge through action and implication",
+        "Consolidate repetitive resort scenes in second act",
+        "Develop supporting characters like Brad, Josh, Amy beyond their functional roles",
+        "Consider moderating Todd's pre-Haley behavior to make transformation more believable"
+      ]
+    },
+    "executive_summary": "Strong high-concept dramedy with compelling character dynamics. Todd and Harry's grief-driven journey provides genuine emotional stakes through professional execution. Brilliant premise expertly realized despite some dialogue and pacing issues. Clear recommend for development.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 8,
+            "rationale": "Universal themes of family, loss, and redemption translate well; strong father-daughter relationship resonates in family-oriented cultures"
+          },
+          "regional_casting_potential": {
+            "score": 6,
+            "rationale": "Todd role could work for Gael García Bernal or Diego Luna with age-up; Harry role needs English-speaking veteran actor"
+          },
+          "theatrical_appeal": {
+            "score": 7,
+            "rationale": "Emotional journey and beautiful Caribbean setting provide big-screen appeal; crowd-pleasing moments work well with audiences"
+          },
+          "marketing_viability": {
+            "score": 7,
+            "rationale": "Clear poster concept with two men on beach; trailer can balance comedy and emotion; hook translates to Spanish markets"
+          },
+          "coproduction_potential": {
+            "score": 8,
+            "rationale": "Caribbean setting perfect for Mexico co-production; could shoot in Mexican Caribbean locations; bilingual cast potential"
+          },
+          "overall_latam_score": 7.2,
+          "market_fit_classification": "english_speaking_ok",
+          "recommendation": "moderate_fit",
+          "specific_concerns": [
+            "Language barrier - very dialogue-dependent",
+            "Cultural references may not translate",
+            "Some American-specific humor"
+          ],
+          "opportunities": [
+            "Caribbean co-production potential",
+            "Universal grief themes",
+            "Strong male bonding story appeals to Latin audiences"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 2,
+            "note": "Adult males 35+ primary, general adult audience secondary - sizeable but not huge"
+          },
+          "high_concept": {
+            "score": 3,
+            "note": "Perfect elevator pitch: 'Odd Couple meets grief journey on honeymoon'"
+          },
+          "cast_attachability": {
+            "score": 2,
+            "note": "Two strong male leads for character actors; Todd role for A-list comedian-actor"
+          },
+          "marketing_hook": {
+            "score": 3,
+            "note": "Clear trailer concept, poster shows two mismatched men in paradise; comedy-drama hook"
+          },
+          "budget_return_ratio": {
+            "score": 2,
+            "note": "Mid-budget film with moderate commercial upside"
+          },
+          "comparable_success": {
+            "score": 2,
+            "note": "Sideways, About Schmidt had modest success; adult dramedies face theatrical challenges"
+          },
+          "cvs_total": 14,
+          "commercial_outlook": "viable",
+          "box_office_ceiling": "$40-60M domestic with right cast and execution",
+          "key_commercial_strengths": [
+            "High-concept premise",
+            "Clear marketing hook",
+            "Star vehicle roles"
+          ],
+          "key_commercial_concerns": [
+            "Adult dramatic comedy faces theatrical headwinds",
+            "Dependent on perfect casting",
+            "Grief subject matter may limit broad appeal"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 15000000,
+          "estimated_budget_high": 25000000,
+          "category": "medium",
+          "within_ceiling": true,
+          "key_cost_drivers": [
+            "Caribbean location shooting: $3-5M including cast/crew travel and logistics",
+            "Chicago location work: $2-3M for city scenes and interiors",
+            "Cast above-the-line: $4-8M depending on star attachment"
+          ],
+          "potential_savings": [
+            "Shoot Caribbean sequences in Mexican locations instead of actual Caribbean",
+            "Consolidate Chicago locations to reduce moves",
+            "Use practical locations instead of building sets where possible"
+          ],
+          "production_complexity": "medium",
+          "location_requirements": "Chicago interiors/exteriors, Caribbean resort and beach locations, airport sequences",
+          "vfx_requirements": "minimal",
+          "period_considerations": "contemporary",
+          "justification": "Two-location shoot with moderate cast size. Caribbean location premium offset by contemporary setting and minimal VFX needs."
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 75,
+            "issues": [
+              "Some dialogue needs refinement",
+              "Middle section pacing could be tightened"
+            ],
+            "status": "needs_work"
+          },
+          "character_casting": {
+            "score": 85,
+            "issues": [
+              "Need perfect chemistry between leads"
+            ],
+            "status": "ready"
+          },
+          "production_feasibility": {
+            "score": 90,
+            "issues": [],
+            "status": "ready"
+          },
+          "risk_profile": {
+            "score": 80,
+            "issues": [
+              "Adult dramedy theatrical viability",
+              "Casting-dependent success"
+            ],
+            "status": "ready"
+          },
+          "overall_readiness": 82,
+          "readiness_verdict": "development_needed",
+          "deal_breakers": [],
+          "green_flags": [
+            "Strong concept",
+            "Clear character arcs",
+            "Manageable production requirements",
+            "Experienced writer"
+          ],
+          "development_priorities": [
+            "Dialogue polish pass",
+            "Tighten middle section pacing",
+            "Supporting character development"
+          ],
+          "estimated_development_time": "2-3 drafts / 4-6 months"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 8,
+            "rationale": "Caribbean setting perfect for Mexican locations; story themes translate well; potential for bilingual elements",
+            "key_elements": [
+              "Mexican Caribbean locations double for St. Carlos",
+              "Universal grief themes",
+              "Potential for Mexican resort setting"
+            ],
+            "potential_partners": [
+              "US indie producers specializing in character drama",
+              "Mexican production companies with resort location experience"
+            ]
+          },
+          "mexico_spain": {
+            "score": 6,
+            "rationale": "Language and cultural elements could work for Spanish market; themes universal enough",
+            "key_elements": [
+              "Spanish-speaking cast potential",
+              "European festival appeal",
+              "Grief and family themes resonate"
+            ],
+            "eu_fund_eligibility": "Possible Eurimages consideration with Spanish co-producer and European cast"
+          },
+          "other_territories": {
+            "score": 7,
+            "territories": [
+              "Canada",
+              "UK",
+              "Australia"
+            ],
+            "rationale": "English-language story with universal themes; Caribbean tourism angle works internationally"
+          },
+          "best_structure": "Mexico-US co-production with Mexican Caribbean locations",
+          "treaty_considerations": [
+            "Mexico-US co-production treaty benefits",
+            "Caribbean location incentives"
+          ],
+          "overall_coproduction_score": 7.0
+        }
+      }
+    }
+  },
+  "collection": "2005 Black List"
+}

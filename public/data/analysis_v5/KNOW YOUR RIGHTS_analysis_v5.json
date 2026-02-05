@@ -1,0 +1,437 @@
+{
+  "source_file": "KNOW YOUR RIGHTS.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v5_production_company",
+  "metadata": {
+    "filename": "KNOW YOUR RIGHTS.pdf",
+    "page_count": 106,
+    "word_count": 18638
+  },
+  "analysis": {
+    "title": "Know Your Rights",
+    "author": "Emma Forrest",
+    "logline": "A precocious teenage daughter of a famous novelist becomes involved with her struggling English teacher, exploring themes of love, loss, and coming of age.",
+    "genre": "Drama",
+    "subgenres": [
+      "Coming-of-age",
+      "Literary drama",
+      "Romance"
+    ],
+    "themes": [
+      "grief",
+      "family dysfunction",
+      "intellectual awakening",
+      "inappropriate relationships",
+      "artistic legacy"
+    ],
+    "tone": "Literary, melancholic, intellectually provocative",
+    "dimension_scores": {
+      "concept": {
+        "score": 4,
+        "sub_criteria": {
+          "hook_clarity": {
+            "score": 3,
+            "note": "Inappropriate teacher-student relationship is clear but problematic"
+          },
+          "audience_targeting": {
+            "score": 2,
+            "note": "Very niche audience, primarily literary drama fans"
+          },
+          "freshness": {
+            "score": 5,
+            "note": "Well-worn territory but literary execution adds some distinction"
+          },
+          "execution_independence": {
+            "score": 4,
+            "note": "Requires very strong execution to work, concept alone insufficient"
+          }
+        },
+        "justification": "The concept centers on a morally problematic teacher-student relationship that would be difficult to market theatrically, especially in Latin America. While literarily executed, it's fundamentally a niche art house premise.",
+        "page_citations": [
+          "Page 2-3: Nina and Mr. Slattery's first meeting establishes inappropriate dynamic"
+        ],
+        "weakness_identified": "Morally problematic central relationship creates marketing and audience challenges"
+      },
+      "structure": {
+        "score": 5,
+        "sub_criteria": {
+          "act_architecture": {
+            "score": 5,
+            "note": "Three-act structure present but lacks clear turning points"
+          },
+          "scene_necessity": {
+            "score": 6,
+            "note": "Most scenes serve character development"
+          },
+          "momentum": {
+            "score": 4,
+            "note": "Slow burn pacing may lose theatrical audiences"
+          },
+          "payoff_delivery": {
+            "score": 5,
+            "note": "Ending is ambiguous rather than satisfying"
+          }
+        },
+        "justification": "The structure follows Nina's emotional journey but lacks strong dramatic momentum. Many scenes are character studies rather than plot advancement.",
+        "page_citations": [
+          "Page 83-84: Hotel room scene as midpoint",
+          "Page 102-106: Lacrosse field resolution"
+        ],
+        "weakness_identified": "Lacks strong dramatic engine to sustain theatrical momentum"
+      },
+      "protagonist": {
+        "score": 6,
+        "sub_criteria": {
+          "goal_clarity": {
+            "score": 5,
+            "note": "Nina's goals are psychological rather than concrete"
+          },
+          "active_agency": {
+            "score": 7,
+            "note": "Nina actively pursues her desires and manipulates situations"
+          },
+          "arc_credibility": {
+            "score": 6,
+            "note": "Character growth is subtle but believable"
+          },
+          "star_vehicle_quality": {
+            "score": 5,
+            "note": "Challenging role but limited commercial appeal"
+          }
+        },
+        "justification": "Nina is a complex, well-drawn character with clear voice and agency. However, her goals are primarily internal/psychological rather than concrete external objectives.",
+        "page_citations": [
+          "Page 84: 'I absolutely love you' - Nina's emotional clarity"
+        ],
+        "weakness_identified": "Primarily internal goals may not provide sufficient dramatic drive"
+      },
+      "supporting_cast": {
+        "score": 7,
+        "sub_criteria": {
+          "character_distinction": {
+            "score": 8,
+            "note": "Each character has distinct voice and personality"
+          },
+          "functional_purpose": {
+            "score": 7,
+            "note": "Characters serve both story and thematic functions"
+          },
+          "castability": {
+            "score": 6,
+            "note": "Interesting roles but limited commercial appeal"
+          }
+        },
+        "justification": "Leon Gross is particularly well-drawn as the famous but emotionally distant father. Amelia provides good contrast as the struggling stepmother. Mr. Slattery is sympathetically portrayed.",
+        "page_citations": [
+          "Page 22-23: Leon's interaction with college student reveals his narcissism",
+          "Page 58-59: Amelia's confrontation with Nina shows depth"
+        ],
+        "weakness_identified": "None significant - this is a strength of the script"
+      },
+      "dialogue": {
+        "score": 8,
+        "sub_criteria": {
+          "voice_distinction": {
+            "score": 9,
+            "note": "Each character has highly distinct voice"
+          },
+          "subtext_quality": {
+            "score": 8,
+            "note": "Excellent subtext throughout"
+          },
+          "quotability": {
+            "score": 7,
+            "note": "Several memorable exchanges"
+          },
+          "translation_quality": {
+            "score": 6,
+            "note": "Very literary and culturally specific"
+          }
+        },
+        "justification": "The dialogue is sharp, witty, and character-specific. Nina's voice is particularly strong - intelligent but age-appropriate. Cultural references may not translate well.",
+        "page_citations": [
+          "Page 4: 'My brother and I' grammar correction",
+          "Page 89-90: 'It's the inability to connect to another human being'"
+        ],
+        "weakness_identified": "Heavy reliance on Anglo literary references may limit international appeal"
+      },
+      "genre_execution": {
+        "score": 5,
+        "sub_criteria": {
+          "obligatory_scenes": {
+            "score": 4,
+            "note": "Missing key dramatic confrontations"
+          },
+          "emotional_delivery": {
+            "score": 6,
+            "note": "Emotional moments are subtle rather than cathartic"
+          },
+          "convention_innovation": {
+            "score": 6,
+            "note": "Literary approach to familiar territory"
+          },
+          "audience_satisfaction": {
+            "score": 4,
+            "note": "Ambiguous ending may frustrate audiences"
+          }
+        },
+        "justification": "As literary drama, it succeeds in character development but lacks the emotional catharsis audiences expect from theatrical drama.",
+        "page_citations": [],
+        "weakness_identified": "Lacks strong dramatic climax and clear resolution"
+      },
+      "originality": {
+        "score": 6,
+        "sub_criteria": {
+          "voice_distinctiveness": {
+            "score": 8,
+            "note": "Emma Forrest's voice is clear and literary"
+          },
+          "premise_novelty": {
+            "score": 3,
+            "note": "Teacher-student relationship is well-worn territory"
+          },
+          "execution_innovation": {
+            "score": 6,
+            "note": "Literary sensibility elevates familiar material"
+          },
+          "cultural_freshness": {
+            "score": 5,
+            "note": "Perspective is intelligent but not particularly fresh"
+          }
+        },
+        "justification": "While the premise is familiar, the execution shows literary sophistication and the author's distinctive voice.",
+        "page_citations": [],
+        "weakness_identified": "Familiar premise limits novelty despite strong execution"
+      },
+      "weighted_score": 5.85
+    },
+    "latam_market_assessment": {
+      "cultural_resonance": {
+        "score": 3,
+        "rationale": "Very Anglo-centric literary references, elite prep school setting, cultural specificity would alienate LatAm audiences"
+      },
+      "regional_casting_potential": {
+        "score": 2,
+        "rationale": "Requires native English speakers for literary dialogue to work; difficult to cast with LatAm talent"
+      },
+      "theatrical_appeal": {
+        "score": 3,
+        "rationale": "Slow-burn character study better suited for streaming; lacks visual spectacle or event quality"
+      },
+      "marketing_viability": {
+        "score": 2,
+        "rationale": "Inappropriate relationship angle problematic for marketing; no clear commercial hook"
+      },
+      "coproduction_potential": {
+        "score": 2,
+        "rationale": "Cultural specificity limits international appeal; not suitable for Mexico co-production"
+      },
+      "overall_latam_score": 2.4,
+      "market_recommendation": "not_recommended"
+    },
+    "production_readiness": {
+      "script_polish": {
+        "score": 75,
+        "issues": [
+          "Some pacing issues",
+          "Ambiguous ending"
+        ],
+        "status": "needs_work"
+      },
+      "character_casting": {
+        "score": 60,
+        "issues": [
+          "Requires specific type of young actress",
+          "Limited star vehicle potential"
+        ],
+        "status": "needs_work"
+      },
+      "production_feasibility": {
+        "score": 70,
+        "issues": [
+          "Multiple locations",
+          "Period setting (2010)"
+        ],
+        "status": "ready"
+      },
+      "market_viability": {
+        "score": 30,
+        "issues": [
+          "Very limited audience",
+          "Inappropriate relationship content",
+          "Cultural specificity"
+        ],
+        "status": "blocker"
+      },
+      "risk_profile": {
+        "score": 40,
+        "issues": [
+          "Controversial subject matter",
+          "Limited commercial appeal",
+          "Difficult to market"
+        ],
+        "status": "blocker"
+      },
+      "overall_readiness": 55,
+      "readiness_verdict": "not_ready",
+      "deal_breakers": [
+        "Inappropriate teacher-student relationship difficult to market",
+        "Very limited theatrical audience",
+        "Cultural specificity limits LatAm appeal"
+      ],
+      "green_flags": [
+        "Strong character writing",
+        "Excellent dialogue",
+        "Literary sophistication"
+      ],
+      "development_priorities": [
+        "Clarify dramatic stakes",
+        "Strengthen climax",
+        "Consider aging up characters"
+      ]
+    },
+    "critical_failures": [
+      "Niche audience only - no path to theatrical viability in Latin America",
+      "Culturally untranslatable - requires extensive Anglo literary context",
+      "Morally problematic central relationship creates marketing impossibility"
+    ],
+    "major_weaknesses": [
+      "Inappropriate teacher-student relationship as central plot",
+      "Very limited commercial appeal",
+      "Cultural specificity alienates international audiences",
+      "Lacks strong dramatic engine",
+      "Ambiguous ending unsatisfying for theatrical audiences",
+      "Slow pacing inappropriate for cinema",
+      "No clear marketing hook"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 1,
+        "note": "Extremely niche - literary drama fans only"
+      },
+      "high_concept": {
+        "score": 1,
+        "note": "Cannot pitch without explaining problematic elements"
+      },
+      "cast_attachability": {
+        "score": 1,
+        "note": "No major star would take controversial teacher role"
+      },
+      "marketing_hook": {
+        "score": 1,
+        "note": "Impossible to market inappropriate relationship positively"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Low budget but extremely limited audience"
+      },
+      "comparable_success": {
+        "score": 1,
+        "note": "No successful comparables in theatrical market"
+      },
+      "cvs_total": 7
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act I: pages 1-25 (Nina meets Slattery), Act II: pages 26-85 (relationship develops), Act III: pages 86-106 (resolution)",
+      "pacing": "Very slow burn, more suitable for literary fiction than theatrical film"
+    },
+    "characters": {
+      "protagonist": "Nina Gross, 16, intellectually precocious daughter of famous novelist, dealing with mother's death and father's emotional distance",
+      "antagonist": "No clear antagonist - internal conflicts and circumstances serve as opposition",
+      "supporting": [
+        "Leon Gross: famous but narcissistic novelist father",
+        "Amelia: struggling young stepmother",
+        "Mr. Slattery: failing English teacher",
+        "Asia: Nina's best friend"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "page": "4-5",
+        "scene": "Nina corrects Mr. Slattery's grammar",
+        "why": "Establishes character dynamics and Nina's intellectual superiority"
+      },
+      {
+        "page": "22-23",
+        "scene": "Leon with college student at bookstore",
+        "why": "Reveals Leon's narcissism and Nina's awareness of it"
+      },
+      {
+        "page": "84-85",
+        "scene": "Hotel room confrontation",
+        "why": "Climactic emotional moment between Nina and Slattery"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "An Education",
+        "similarity": "Young woman involved with older man, coming-of-age elements",
+        "box_office_relevance": "Limited theatrical success",
+        "latam_performance": "Very limited appeal in Latin America"
+      },
+      {
+        "title": "The Squid and the Whale",
+        "similarity": "Literary family dysfunction, intellectual teenagers",
+        "box_office_relevance": "Art house success only",
+        "latam_performance": "Minimal LatAm appeal"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "Adults 25-54 with higher education",
+      "gender_skew": "female",
+      "interests": [
+        "literary fiction",
+        "independent cinema",
+        "coming-of-age stories"
+      ],
+      "latam_audience_notes": "Very limited appeal due to cultural specificity and elite Anglo setting"
+    },
+    "budget_tier": {
+      "category": "low ($1-10M)",
+      "estimated_range": "$3-6 million",
+      "within_company_capacity": true,
+      "justification": "Contemporary setting, limited locations, small cast, but limited revenue potential"
+    },
+    "assessment": {
+      "strengths": [
+        "Exceptional dialogue and character voice",
+        "Literary sophistication",
+        "Strong supporting character development",
+        "Authentic teenage perspective"
+      ],
+      "weaknesses": [
+        "Inappropriate central relationship unmarketable",
+        "Extremely limited audience",
+        "Cultural specificity limits international appeal",
+        "Lacks dramatic momentum",
+        "No clear commercial hook",
+        "Slow pacing unsuitable for theatrical release"
+      ],
+      "development_notes": [
+        "Consider aging up characters to college/university setting",
+        "Strengthen dramatic stakes and climax",
+        "Reduce cultural specificity for broader appeal"
+      ],
+      "marketability": "low",
+      "recommendation": "PASS",
+      "recommendation_rationale": "Despite strong writing quality, the script faces insurmountable commercial challenges: CVS of 7, multiple critical failures including niche-only audience, cultural untranslatability, and unmarketable central relationship. LatAm cultural resonance of 2.4 makes theatrical release impossible in target market."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "No clear hook in first 10 pages - opens with character study rather than compelling dramatic situation",
+      "goosebumps_moments": [],
+      "career_risk_test": "Would not stake career - too many commercial obstacles regardless of artistic merit",
+      "legacy_potential": "Possible as literary adaptation but not as theatrical film",
+      "disqualifying_factors": [
+        "Inappropriate relationship unmarketable",
+        "Extremely limited audience",
+        "Cultural barriers",
+        "Lack of commercial viability"
+      ]
+    },
+    "verdict_statement": "KNOW YOUR RIGHTS demonstrates strong literary writing and character development but faces insurmountable commercial obstacles. The inappropriate teacher-student relationship is unmarketable, the cultural specificity alienates Latin American audiences, and the niche appeal makes theatrical release unviable.",
+    "executive_summary": "Well-written literary drama about novelist's daughter and English teacher. Strong dialogue/characters but inappropriate central relationship, extreme cultural specificity, and niche appeal make commercial release impossible. Clear PASS."
+  },
+  "collection": "2006 Black List"
+}

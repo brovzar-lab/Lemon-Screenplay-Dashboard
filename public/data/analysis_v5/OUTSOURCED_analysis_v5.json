@@ -1,0 +1,417 @@
+{
+  "source_file": "OUTSOURCED.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v5_production_company",
+  "metadata": {
+    "filename": "OUTSOURCED.pdf",
+    "page_count": 108,
+    "word_count": 27922
+  },
+  "analysis": {
+    "title": "Outsourced",
+    "author": "Timothy Dowling",
+    "logline": "Two laid-off American factory workers follow their outsourced jobs to Mexico, where they spark a labor revolution while rediscovering their purpose and humanity.",
+    "genre": "Comedy-Drama",
+    "subgenres": [
+      "Social Comedy",
+      "Workplace Comedy",
+      "Fish-out-of-Water"
+    ],
+    "themes": [
+      "Labor rights",
+      "Globalization",
+      "Cross-cultural friendship",
+      "Economic inequality",
+      "Personal growth"
+    ],
+    "tone": "Satirical yet heartfelt, with moments of genuine emotion",
+    "dimension_scores": {
+      "concept": {
+        "score": 7,
+        "sub_criteria": {
+          "hook_clarity": {
+            "score": 8,
+            "note": "Clear, pitchable premise about Americans following outsourced jobs"
+          },
+          "audience_targeting": {
+            "score": 7,
+            "note": "Appeals to working-class audiences globally"
+          },
+          "freshness": {
+            "score": 6,
+            "note": "Unique angle on outsourcing, though fish-out-of-water is familiar"
+          },
+          "execution_independence": {
+            "score": 7,
+            "note": "Strong concept that works even with average execution"
+          }
+        },
+        "justification": "The premise of Americans following their outsourced jobs to Mexico is immediately compelling and highly relevant. The concept directly addresses globalization's human cost while maintaining comedic potential.",
+        "page_citations": [
+          "Page 1-5: Establishes factory closure and job loss",
+          "Page 45: 'If they're just going to take our American jobs across the border, then maybe we should just go across the border and take them right back'"
+        ],
+        "weakness_identified": "Relies heavily on cultural stereotypes and familiar comedy tropes"
+      },
+      "structure": {
+        "score": 6,
+        "sub_criteria": {
+          "act_architecture": {
+            "score": 6,
+            "note": "Clear three-act structure but predictable beats"
+          },
+          "scene_necessity": {
+            "score": 6,
+            "note": "Most scenes serve purpose but some feel padded"
+          },
+          "momentum": {
+            "score": 6,
+            "note": "Strong beginning and end, saggy middle section"
+          },
+          "payoff_delivery": {
+            "score": 7,
+            "note": "Union formation and factory reopening satisfyingly pay off setup"
+          }
+        },
+        "justification": "Standard three-act structure with clear turning points. The journey from selfish job-seekers to union organizers is well-architected.",
+        "page_citations": [
+          "Page 30: Decision to move to Mexico",
+          "Page 60: Pedro's injury catalyzes character change",
+          "Page 90: Strike decision"
+        ],
+        "weakness_identified": "Middle section drags with repetitive party sequences and romantic subplots"
+      },
+      "protagonist": {
+        "score": 5,
+        "sub_criteria": {
+          "goal_clarity": {
+            "score": 7,
+            "note": "Clear external goal: get jobs back"
+          },
+          "active_agency": {
+            "score": 5,
+            "note": "Often reactive, especially Dutch"
+          },
+          "arc_credibility": {
+            "score": 5,
+            "note": "Character change feels rushed and convenient"
+          },
+          "star_vehicle_quality": {
+            "score": 4,
+            "note": "Roles lack depth for major stars"
+          }
+        },
+        "justification": "Sully has clear goals but the dual protagonist structure weakens both characters. Their transformation from selfish to altruistic feels underdeveloped.",
+        "page_citations": [
+          "Page 45: 'We just wanted our jobs back'"
+        ],
+        "weakness_identified": "Dual protagonists dilute focus; character arcs feel mechanical rather than organic"
+      },
+      "supporting_cast": {
+        "score": 4,
+        "sub_criteria": {
+          "character_distinction": {
+            "score": 4,
+            "note": "Many characters are stereotypes"
+          },
+          "functional_purpose": {
+            "score": 5,
+            "note": "Characters serve plot but lack depth"
+          },
+          "castability": {
+            "score": 4,
+            "note": "Limited appeal for character actors"
+          }
+        },
+        "justification": "Sofia is the strongest supporting character with clear motivation, but many others are one-dimensional stereotypes.",
+        "page_citations": [],
+        "weakness_identified": "Relies too heavily on cultural stereotypes; Mexican characters often lack agency"
+      },
+      "dialogue": {
+        "score": 5,
+        "sub_criteria": {
+          "voice_distinction": {
+            "score": 5,
+            "note": "Some character voices blend together"
+          },
+          "subtext_quality": {
+            "score": 4,
+            "note": "Often on-the-nose dialogue"
+          },
+          "quotability": {
+            "score": 6,
+            "note": "Some funny one-liners but no standout quotes"
+          },
+          "translation_quality": {
+            "score": 3,
+            "note": "Cultural references may not translate well"
+          }
+        },
+        "justification": "Dialogue serves comedy but lacks sophistication. Heavy reliance on cultural humor that may not translate.",
+        "page_citations": [],
+        "weakness_identified": "Too many American cultural references; some humor relies on stereotypes"
+      },
+      "genre_execution": {
+        "score": 6,
+        "sub_criteria": {
+          "obligatory_scenes": {
+            "score": 7,
+            "note": "Hits comedy beats effectively"
+          },
+          "emotional_delivery": {
+            "score": 6,
+            "note": "Genuine moments mixed with forced sentiment"
+          },
+          "convention_innovation": {
+            "score": 5,
+            "note": "Familiar workplace comedy structure"
+          },
+          "audience_satisfaction": {
+            "score": 6,
+            "note": "Delivers expected payoffs"
+          }
+        },
+        "justification": "Solid workplace comedy execution with fish-out-of-water elements. The union organizing adds dramatic weight.",
+        "page_citations": [
+          "Page 85-90: Strike organization sequence"
+        ],
+        "weakness_identified": "Doesn't innovate beyond genre conventions"
+      },
+      "originality": {
+        "score": 6,
+        "sub_criteria": {
+          "voice_distinctiveness": {
+            "score": 5,
+            "note": "Competent but not unique voice"
+          },
+          "premise_novelty": {
+            "score": 8,
+            "note": "Outsourcing angle is fresh and relevant"
+          },
+          "execution_innovation": {
+            "score": 4,
+            "note": "Conventional storytelling approach"
+          },
+          "cultural_freshness": {
+            "score": 5,
+            "note": "Addresses timely issues but with familiar lens"
+          }
+        },
+        "justification": "The reverse-outsourcing premise is genuinely original and addresses real economic concerns.",
+        "page_citations": [],
+        "weakness_identified": "Original premise executed through conventional comedy formulas"
+      },
+      "weighted_score": 5.65
+    },
+    "latam_market_assessment": {
+      "cultural_resonance": {
+        "score": 4,
+        "rationale": "While addressing labor issues relevant to LatAm, the American perspective and stereotypes may alienate audiences"
+      },
+      "regional_casting_potential": {
+        "score": 6,
+        "rationale": "Sofia and Mexican worker roles could attract talent like Ana de la Reguera, but leads remain American"
+      },
+      "theatrical_appeal": {
+        "score": 5,
+        "rationale": "Social themes have theatrical appeal but comedy may feel dated"
+      },
+      "marketing_viability": {
+        "score": 6,
+        "rationale": "Clear poster concept with labor/outsourcing angle"
+      },
+      "coproduction_potential": {
+        "score": 7,
+        "rationale": "Perfect Mexico-US co-production opportunity given cross-border story"
+      },
+      "overall_latam_score": 5.6,
+      "market_recommendation": "moderate_fit"
+    },
+    "production_readiness": {
+      "script_polish": {
+        "score": 70,
+        "issues": [
+          "Some stereotypical characterizations",
+          "Pacing issues in second act"
+        ],
+        "status": "needs_work"
+      },
+      "character_casting": {
+        "score": 60,
+        "issues": [
+          "Lead roles need more depth",
+          "Supporting characters underdeveloped"
+        ],
+        "status": "needs_work"
+      },
+      "production_feasibility": {
+        "score": 80,
+        "issues": [
+          "Multiple locations but manageable"
+        ],
+        "status": "ready"
+      },
+      "market_viability": {
+        "score": 65,
+        "issues": [
+          "Cultural sensitivity concerns",
+          "Limited international appeal"
+        ],
+        "status": "needs_work"
+      },
+      "risk_profile": {
+        "score": 60,
+        "issues": [
+          "Potential cultural controversy",
+          "Execution-dependent comedy"
+        ],
+        "status": "needs_work"
+      },
+      "overall_readiness": 67,
+      "readiness_verdict": "development_needed",
+      "deal_breakers": [
+        "Cultural stereotyping needs significant revision",
+        "Character development requires deeper work"
+      ],
+      "green_flags": [
+        "Timely, relevant subject matter",
+        "Clear co-production potential",
+        "Strong concept hook"
+      ],
+      "development_priorities": [
+        "Deepen character arcs",
+        "Address cultural stereotypes",
+        "Tighten second act pacing"
+      ]
+    },
+    "critical_failures": [],
+    "major_weaknesses": [
+      "Relies on cultural stereotypes",
+      "Weak character development",
+      "Predictable story structure",
+      "Translation concerns for dialogue",
+      "Limited appeal beyond American audiences"
+    ],
+    "commercial_viability": {
+      "target_audience": {
+        "score": 2,
+        "note": "Working-class demographic but limited international appeal"
+      },
+      "high_concept": {
+        "score": 3,
+        "note": "Clear, pitchable reverse-outsourcing premise"
+      },
+      "cast_attachability": {
+        "score": 1,
+        "note": "Lead roles lack depth for major stars"
+      },
+      "marketing_hook": {
+        "score": 2,
+        "note": "Labor/outsourcing angle somewhat dated by 2024"
+      },
+      "budget_return_ratio": {
+        "score": 2,
+        "note": "Mid-budget with unclear international returns"
+      },
+      "comparable_success": {
+        "score": 2,
+        "note": "Similar films have had mixed results"
+      },
+      "cvs_total": 12
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act I ends page 30 with Mexico decision; Act II midpoint page 60 with Pedro injury; Act III page 90 with strike",
+      "pacing": "Strong opening, saggy middle with party sequences, strong finale"
+    },
+    "characters": {
+      "protagonist": "Sully Foster - cynical factory worker seeking job security; Dutch Adams - optimistic, romantic factory worker",
+      "antagonist": "Richard Pudford - ambitious, ruthless plant manager",
+      "supporting": [
+        "Sofia - idealistic union organizer",
+        "Lupe - love interest",
+        "Pedro - injured worker catalyst"
+      ]
+    },
+    "standout_scenes": [
+      {
+        "page": "45-50",
+        "scene": "Decision to move to Mexico",
+        "why": "Clear turning point with emotional stakes"
+      },
+      {
+        "page": "85-95",
+        "scene": "Strike organization and negotiation",
+        "why": "Payoff of character arcs with genuine emotion"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "A Good Year",
+        "similarity": "Americans abroad finding purpose",
+        "box_office_relevance": "failure",
+        "latam_performance": "limited"
+      },
+      {
+        "title": "The Proposal",
+        "similarity": "Fish-out-of-water romance comedy",
+        "box_office_relevance": "success",
+        "latam_performance": "moderate"
+      }
+    ],
+    "target_audience": {
+      "primary_demographic": "Adults 25-54, working class",
+      "gender_skew": "male",
+      "interests": [
+        "Labor issues",
+        "Social comedy",
+        "Cross-cultural stories"
+      ],
+      "latam_audience_notes": "May appeal to audiences interested in US-Mexico relations but could alienate due to stereotypes"
+    },
+    "budget_tier": {
+      "category": "medium ($10-30M)",
+      "estimated_range": "$15-25 million",
+      "within_company_capacity": true,
+      "justification": "Multiple locations, large cast, but no major VFX requirements"
+    },
+    "assessment": {
+      "strengths": [
+        "Timely, relevant subject matter",
+        "Clear concept hook",
+        "Solid three-act structure",
+        "Co-production potential"
+      ],
+      "weaknesses": [
+        "Cultural stereotyping",
+        "Underdeveloped characters",
+        "Limited international appeal",
+        "Predictable comedy beats",
+        "Translation concerns"
+      ],
+      "development_notes": [
+        "Develop Mexican characters beyond stereotypes",
+        "Deepen protagonist arcs",
+        "Address cultural sensitivity",
+        "Strengthen second act pacing"
+      ],
+      "marketability": "medium",
+      "recommendation": "CONSIDER",
+      "recommendation_rationale": "Weighted score of 5.65 meets CONSIDER threshold with relevant subject matter and co-production potential, but requires significant development to address cultural stereotyping and character depth issues."
+    },
+    "film_now_assessment": {
+      "qualifies": false,
+      "lightning_test": "Factory closure opening is engaging but not exceptional",
+      "goosebumps_moments": [],
+      "career_risk_test": "Would not stake career - too many development needs",
+      "legacy_potential": "Unlikely to be remembered beyond its production cycle",
+      "disqualifying_factors": [
+        "Cultural sensitivity issues",
+        "Limited character depth",
+        "Conventional execution"
+      ]
+    },
+    "verdict_statement": "OUTSOURCED presents a timely and relevant premise about globalization's human cost, but suffers from cultural stereotyping and underdeveloped characters. While the reverse-outsourcing concept has merit and co-production potential, significant development work is needed to address sensitivity issues and deepen character arcs before it can be recommended for production.",
+    "executive_summary": "Relevant outsourcing premise with co-production potential, but requires major development to address cultural stereotyping, character depth, and international appeal concerns before viable for production."
+  }
+}

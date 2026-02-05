@@ -1,0 +1,588 @@
+{
+  "source_file": "living_beer.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "living_beer.pdf",
+    "page_count": 39,
+    "word_count": 7210
+  },
+  "analysis": {
+    "title": "Living Beer",
+    "author": "Mark J Burkholder",
+    "logline": "Three craft beer enthusiasts launch their dream brewery only to face a catastrophic bottling disaster on opening day that threatens everything they've worked for.",
+    "genre": "Comedy-Drama",
+    "subgenres": [
+      "Workplace Comedy",
+      "Ensemble Drama"
+    ],
+    "themes": [
+      "friendship",
+      "entrepreneurship",
+      "authenticity vs commercialism",
+      "passion vs profit"
+    ],
+    "tone": "Warm, authentic workplace comedy with underlying tension about creative integrity",
+    "core_quality": {
+      "execution_craft": {
+        "score": 6.7,
+        "structure": {
+          "score": 7,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 7,
+              "note": "Clear three-act structure with strong central crisis"
+            },
+            "scene_necessity": {
+              "score": 6,
+              "note": "Most scenes serve purpose, some could be tightened"
+            },
+            "momentum": {
+              "score": 8,
+              "note": "Strong escalation from setup through crisis to resolution"
+            },
+            "payoff_delivery": {
+              "score": 7,
+              "note": "Bottle explosion setup pays off well, character arcs complete"
+            }
+          },
+          "justification": "Script follows clear dramatic arc from brewery launch preparation through bottling crisis to community support resolution",
+          "page_citations": [
+            "Page 1-7: Setup of brewery and team dynamics",
+            "Page 22: Bottle explosion discovery - major turning point",
+            "Page 30-31: Crisis speech and community response climax"
+          ],
+          "weakness_identified": "Middle section drags slightly with repetitive interview scenes and could use tighter pacing"
+        },
+        "scene_writing": {
+          "score": 6,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 6,
+              "note": "Scenes have clear purpose but some lack strong conflict"
+            },
+            "visual_storytelling": {
+              "score": 7,
+              "note": "Strong opening bottling sequence, good use of brewery setting"
+            },
+            "economy": {
+              "score": 5,
+              "note": "Some scenes run long, particularly dialogue-heavy sequences"
+            },
+            "transitions": {
+              "score": 6,
+              "note": "Adequate scene flow, some abrupt cuts"
+            }
+          },
+          "justification": "Opening bottling sequence is cinematically strong and engaging, brewery setting well-utilized",
+          "page_citations": [
+            "Page 1-3: Excellent visual opening of bottling process"
+          ],
+          "weakness_identified": "Some dialogue scenes lack visual interest and run too long"
+        },
+        "dialogue": {
+          "score": 7,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 8,
+              "note": "Characters have distinct voices, especially Shana vs the founders"
+            },
+            "subtext_quality": {
+              "score": 6,
+              "note": "Some subtext present but often characters state feelings directly"
+            },
+            "functionality": {
+              "score": 7,
+              "note": "Dialogue advances both plot and character effectively"
+            },
+            "speakability": {
+              "score": 7,
+              "note": "Natural, believable speech patterns for craft beer community"
+            }
+          },
+          "justification": "Strong character voices, particularly authentic craft beer community dialogue and Shana's direct, practical manner",
+          "page_citations": [
+            "Page 6: Shana's bar expertise speech shows character through dialogue",
+            "Page 18-19: Natural beer ordering sequence"
+          ],
+          "weakness_identified": "Sometimes characters explain emotions rather than showing them through behavior"
+        }
+      },
+      "character_system": {
+        "score": 6.3,
+        "protagonist": {
+          "score": 6,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 7,
+              "note": "Clear goal to successfully launch brewery"
+            },
+            "active_agency": {
+              "score": 5,
+              "note": "Ben is reactive through much of Act 2, driven by fear"
+            },
+            "arc_credibility": {
+              "score": 6,
+              "note": "Arc from insecure owner to confident leader is believable"
+            },
+            "investment": {
+              "score": 6,
+              "note": "Sympathetic due to financial pressure and father's legacy"
+            }
+          },
+          "justification": "Ben has clear motivation and sympathetic stakes, but spends too much time being anxious rather than driving action",
+          "page_citations": [
+            "Page 8: Ben's financial anxiety clearly established",
+            "Page 30-31: Ben takes leadership in crisis"
+          ],
+          "weakness_identified": "Ben is too passive in middle section, mostly reacting to events rather than driving them"
+        },
+        "supporting_cast": {
+          "score": 7,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 8,
+              "note": "Joe, Gus, and Shana each have distinct personalities and voices"
+            },
+            "functional_purpose": {
+              "score": 6,
+              "note": "Characters serve story but some could be more developed"
+            },
+            "ensemble_balance": {
+              "score": 7,
+              "note": "Good balance between the core trio, Shana steals scenes effectively"
+            }
+          },
+          "justification": "Shana is a standout character who brings energy and expertise, core trio has good chemistry",
+          "page_citations": [
+            "Page 5-7: Shana's introduction scene showcases her expertise and personality"
+          ],
+          "weakness_identified": "Steve Martinez feels somewhat one-dimensional as the 'old school' antagonist"
+        },
+        "relationships": {
+          "score": 6,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 6,
+              "note": "Clear friendship bonds, some tension over business decisions"
+            },
+            "conflict_generation": {
+              "score": 6,
+              "note": "Relationships create some story tension but could be stronger"
+            },
+            "emotional_stakes": {
+              "score": 6,
+              "note": "We care about the friendship but stakes could be higher"
+            }
+          },
+          "justification": "The central friendship is believable and drives the story, though conflicts could be more intense"
+        }
+      },
+      "conceptual_strength": {
+        "score": 6.0,
+        "premise": {
+          "score": 6,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 7,
+              "note": "Clear premise of brewery launch gone wrong"
+            },
+            "narrative_engine": {
+              "score": 6,
+              "note": "Crisis drives story but takes time to develop"
+            },
+            "freshness": {
+              "score": 5,
+              "note": "Craft beer setting is specific but story structure is familiar"
+            },
+            "execution_independence": {
+              "score": 6,
+              "note": "Concept works but relies on authentic execution"
+            }
+          },
+          "justification": "Solid premise with authentic setting, though the basic structure is familiar startup/crisis story",
+          "page_citations": []
+        },
+        "theme": {
+          "score": 6,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 6,
+              "note": "Clear themes about authenticity vs commercialism"
+            },
+            "organic_integration": {
+              "score": 6,
+              "note": "Themes emerge naturally from brewery setting and conflicts"
+            },
+            "complexity": {
+              "score": 5,
+              "note": "Themes are present but not deeply explored"
+            },
+            "resonance": {
+              "score": 6,
+              "note": "Themes connect to universal entrepreneurial experience"
+            }
+          },
+          "justification": "Themes are clear and relevant but could be explored with more depth and nuance"
+        }
+      },
+      "voice_and_tone": {
+        "score": 7,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 7,
+            "note": "Clear authentic voice from someone who knows craft beer culture"
+          },
+          "tonal_consistency": {
+            "score": 7,
+            "note": "Maintains warm, comedic tone throughout despite crisis"
+          },
+          "genre_awareness": {
+            "score": 7,
+            "note": "Understands workplace comedy conventions well"
+          },
+          "confidence": {
+            "score": 7,
+            "note": "Writing feels assured and authentic to the milieu"
+          }
+        },
+        "justification": "Strong, authentic voice that clearly comes from deep knowledge of craft beer culture"
+      },
+      "weighted_score": 6.44,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": false,
+            "premise_score": 6,
+            "execution_average": 6.7,
+            "gap": -0.7,
+            "assessment": "Execution is actually stronger than premise, showing good craft"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "Strong opening with great bottling sequence",
+            "later_acts_quality": "Maintains quality through crisis and resolution",
+            "assessment": "Quality is consistent throughout"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 7,
+            "character_average": 6.3,
+            "gap": 0.7,
+            "assessment": "We do care about these characters and their friendship"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 7,
+            "scene_writing_score": 6,
+            "gap": 1,
+            "assessment": "Scenes work visually, especially brewery sequences"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 5,
+            "theme_clarity": 6,
+            "assessment": "Themes are clear: authenticity and passion vs commercial pressures"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 7,
+            "premise_freshness": 5,
+            "assessment": "Voice enhances a solid if familiar story structure"
+          }
+        ],
+        "traps_triggered_count": 0,
+        "risk_level": "low",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "CONSIDER",
+        "adjustment_rationale": "No false positive traps detected"
+      },
+      "critical_failures": [],
+      "major_weaknesses": [
+        "Ben is too passive in middle section",
+        "Some scenes lack visual interest",
+        "Middle pacing drags with repetitive elements",
+        "Themes could be explored with more depth"
+      ],
+      "verdict": "CONSIDER",
+      "verdict_rationale": "Weighted score of 6.44 with no critical failures and solid execution across most dimensions. Authentic voice and strong character work, particularly Shana, elevate a familiar premise."
+    },
+    "characters": {
+      "protagonist": "Ben - Anxious brewery owner carrying financial burden and father's legacy, transforms from reactive worrier to confident leader during crisis",
+      "antagonist": "No clear antagonist - story is character vs circumstance (bottling crisis) with Steve Martinez as minor business pressure",
+      "supporting": [
+        "Joe - Passionate brewer focused on craft quality",
+        "Gus - Marketing-savvy optimist",
+        "Shana - Expert bar manager who brings competence and confidence",
+        "Steve Martinez - Old-school distributor representing commercial pressures"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends page 21 (discovery of bottle bombs), Act 2 ends page 30 (Ben's crisis speech)",
+      "pacing": "Strong opening and climax, middle section drags with interview montage and distributor meeting sequence"
+    },
+    "standout_scenes": [
+      {
+        "page": "1-3",
+        "scene": "Opening bottling sequence",
+        "why": "Excellent visual storytelling that establishes world and process cinematically"
+      },
+      {
+        "page": "5-7",
+        "scene": "Shana's job interview takeover",
+        "why": "Character introduction that shows expertise through action, not exposition"
+      },
+      {
+        "page": "30-31",
+        "scene": "Community rallying to drink all bottles",
+        "why": "Satisfying resolution that shows community support and character growth"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "Chef",
+        "similarity": "Food/beverage passion project with authenticity themes",
+        "quality_comparison": "similar craft level but Chef has stronger character arc"
+      },
+      {
+        "title": "The Way Back (restaurant)",
+        "similarity": "Small business startup with friendship dynamics",
+        "quality_comparison": "better character work than typical indie ensemble pieces"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Authentic craft beer world knowledge",
+        "Strong opening sequence",
+        "Shana's character introduction and development",
+        "Natural dialogue within the beer community",
+        "Satisfying community support resolution"
+      ],
+      "weaknesses": [
+        "Ben too passive in middle section",
+        "Some scenes lack visual interest",
+        "Interview montage feels repetitive",
+        "Steve Martinez character is one-dimensional",
+        "Themes could be explored more deeply",
+        "Middle section pacing issues"
+      ],
+      "development_notes": [
+        "Give Ben more active choices in Act 2",
+        "Streamline interview sequence",
+        "Add visual interest to dialogue-heavy scenes",
+        "Deepen Steve Martinez's character beyond simple antagonist",
+        "Explore authenticity vs commerce theme more thoroughly"
+      ]
+    },
+    "executive_summary": "Authentic craft beer workplace comedy with strong character work and industry knowledge. Solid execution across most dimensions but suffers from passive protagonist and middle-section pacing issues.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 4,
+            "rationale": "Craft beer culture is very US-specific and wouldn't translate well to Latin American markets where beer culture is different"
+          },
+          "regional_casting_potential": {
+            "score": 3,
+            "rationale": "No obvious roles for Latin American talent, story is deeply embedded in US craft beer scene"
+          },
+          "theatrical_appeal": {
+            "score": 3,
+            "rationale": "More suited for streaming than theatrical, lacks big screen spectacle"
+          },
+          "marketing_viability": {
+            "score": 3,
+            "rationale": "Difficult to market to general LatAm audience unfamiliar with craft beer culture"
+          },
+          "coproduction_potential": {
+            "score": 2,
+            "rationale": "Limited opportunities for meaningful Latin American partnership given cultural specificity"
+          },
+          "overall_latam_score": 3.0,
+          "market_fit_classification": "niche_arthouse",
+          "recommendation": "weak_fit",
+          "specific_concerns": [
+            "Craft beer culture doesn't exist widely in Latin America",
+            "Very US-specific references and terminology",
+            "Limited universal appeal beyond beer enthusiasts"
+          ],
+          "opportunities": [
+            "Could work in Mexico City's growing craft scene",
+            "Potential for adaptation rather than direct translation"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 2,
+            "note": "Niche craft beer enthusiast audience, limited broader appeal"
+          },
+          "high_concept": {
+            "score": 2,
+            "note": "Requires explanation of craft beer culture to general audiences"
+          },
+          "cast_attachability": {
+            "score": 2,
+            "note": "No obvious star vehicle roles, ensemble piece with character actor parts"
+          },
+          "marketing_hook": {
+            "score": 2,
+            "note": "Difficult to create compelling trailer for general audiences"
+          },
+          "budget_return_ratio": {
+            "score": 3,
+            "note": "Low budget requirements could make it financially viable"
+          },
+          "comparable_success": {
+            "score": 2,
+            "note": "Similar niche films have limited commercial success"
+          },
+          "cvs_total": 13,
+          "commercial_outlook": "challenging",
+          "box_office_ceiling": "$1-5M domestic",
+          "key_commercial_strengths": [
+            "Authentic niche community appeal",
+            "Low budget requirements"
+          ],
+          "key_commercial_concerns": [
+            "Very limited target audience",
+            "Lacks broader commercial appeal",
+            "Difficult to market beyond beer enthusiasts"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 1000000,
+          "estimated_budget_high": 3000000,
+          "category": "low",
+          "within_ceiling": true,
+          "key_cost_drivers": [
+            "Brewery location and equipment rental $200-400K",
+            "Cast (character actors, no major stars) $300-600K"
+          ],
+          "potential_savings": [
+            "Partner with actual brewery for location/equipment",
+            "Use real beer industry professionals in smaller roles"
+          ],
+          "production_complexity": "low",
+          "location_requirements": "Single primary location (brewery), few additional locations",
+          "vfx_requirements": "none",
+          "period_considerations": "contemporary",
+          "justification": "Simple single-location story with minimal technical requirements, small cast, contemporary setting keeps costs very manageable"
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 75,
+            "issues": [
+              "Some pacing issues in middle section",
+              "Minor character development needs"
+            ],
+            "status": "needs_work"
+          },
+          "character_casting": {
+            "score": 80,
+            "issues": [
+              "Need strong character actors for ensemble"
+            ],
+            "status": "ready"
+          },
+          "production_feasibility": {
+            "score": 90,
+            "issues": [
+              "Need brewery partnership for authenticity"
+            ],
+            "status": "ready"
+          },
+          "risk_profile": {
+            "score": 85,
+            "issues": [
+              "Limited commercial appeal",
+              "Niche subject matter"
+            ],
+            "status": "ready"
+          },
+          "overall_readiness": 82.5,
+          "readiness_verdict": "development_needed",
+          "deal_breakers": [],
+          "green_flags": [
+            "Authentic industry knowledge",
+            "Low budget requirements",
+            "Strong supporting character in Shana"
+          ],
+          "development_priorities": [
+            "Address Ben's passivity in Act 2",
+            "Tighten middle section pacing",
+            "Strengthen themes"
+          ],
+          "estimated_development_time": "1-2 drafts / 2-3 months"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 3,
+            "rationale": "Limited cultural bridge elements, very US-specific craft beer culture",
+            "key_elements": [
+              "Small business entrepreneurship themes"
+            ],
+            "potential_partners": [
+              "US indie producers familiar with niche subject matter"
+            ]
+          },
+          "mexico_spain": {
+            "score": 2,
+            "rationale": "European craft beer scene exists but story is very American",
+            "key_elements": [
+              "Artisanal production values"
+            ],
+            "eu_fund_eligibility": "Low - too culturally specific to US"
+          },
+          "other_territories": {
+            "score": 2,
+            "territories": [
+              "Canada"
+            ],
+            "rationale": "Only markets with similar craft beer cultures would be interested"
+          },
+          "best_structure": "US production with Mexican financing for tax benefits only",
+          "treaty_considerations": [
+            "US-Mexico tax treaty benefits"
+          ],
+          "overall_coproduction_score": 2.3
+        }
+      }
+    }
+  },
+  "collection": "Randoms",
+  "tmdb_status": {
+    "checked": true,
+    "is_produced": false,
+    "reason": "NOT PRODUCED: No matching films found",
+    "checked_at": "2026-02-04T09:37:15.796478"
+  }
+}

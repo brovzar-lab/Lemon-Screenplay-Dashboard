@@ -1,23 +1,30 @@
 /**
  * Data Loading API
  * Fetches and normalizes screenplay data from JSON files
+ * Supports V5 and V6 analysis formats
  */
 
 import type { RawScreenplayAnalysis, Screenplay, Collection } from '@/types';
-import { normalizeScreenplay } from './normalize';
+import type { V6ScreenplayAnalysis } from '@/types/screenplay-v6';
+import type { ScreenplayWithV6 } from './normalize';
+import { normalizeScreenplay, isV6RawAnalysis, normalizeV6Screenplay } from './normalize';
 
 // Base path to analysis data (relative to public folder or absolute)
 const DATA_BASE_PATH = '../../.tmp';
 
 /**
  * Collection folder mapping
+ * V5 ONLY - All screenplays now in analysis_v5 with collection info in JSON
  */
 const COLLECTION_FOLDERS: Record<Collection, string> = {
-  '2005 Black List': 'analysis_v3_2005',
-  '2006 Black List': 'analysis_v3_2006',
-  '2007 Black List': 'analysis_v3_2007',
-  '2020 Black List': 'analysis_v3_2020',
-  'Randoms': 'analysis_v3_Randoms',
+  '2005 Black List': 'analysis_v5',
+  '2006 Black List': 'analysis_v5',
+  '2007 Black List': 'analysis_v5',
+  '2020 Black List': 'analysis_v5',
+  'Randoms': 'analysis_v5',
+  'V4 Fixed': 'analysis_v5',
+  'V5 Analysis': 'analysis_v5',
+  'V6 Analysis': 'analysis_v6',
 };
 
 /**
@@ -97,6 +104,8 @@ export async function fetchAllScreenplays(): Promise<Screenplay[]> {
     '2007 Black List',
     '2020 Black List',
     'Randoms',
+    'V4 Fixed',
+    'V5 Analysis',
   ];
 
   const promises = collections.map((collection) => fetchCollection(collection));
@@ -115,62 +124,125 @@ export async function fetchAllScreenplays(): Promise<Screenplay[]> {
 /**
  * Load all screenplay data using Vite's glob import
  * This is the preferred method for development
+ *
+ * Supports both V5 and V6 analysis formats
+ * V5: All screenplays are in analysis_v5 folder
+ * V6: All screenplays are in analysis_v6 folder (Core + Lenses architecture)
  */
-export async function loadAllScreenplaysVite(): Promise<Screenplay[]> {
-  // Load screenplay data from public/data folder using fetch
-  // This works reliably in both dev and production
-  const collections: { name: Collection; folder: string }[] = [
-    { name: '2005 Black List', folder: 'analysis_v3_2005' },
-    { name: '2006 Black List', folder: 'analysis_v3_2006' },
-    { name: '2007 Black List', folder: 'analysis_v3_2007' },
-    { name: '2020 Black List', folder: 'analysis_v3_2020' },
-    { name: 'Randoms', folder: 'analysis_v3_Randoms' },
-  ];
+export async function loadAllScreenplaysVite(): Promise<(Screenplay | ScreenplayWithV6)[]> {
+  const screenplays: (Screenplay | ScreenplayWithV6)[] = [];
 
-  const screenplays: Screenplay[] = [];
-
-  // First, get the manifest of all files (we'll create this)
-  // For now, fetch each collection's index
-  for (const { name, folder } of collections) {
-    try {
-      // Fetch the index of files in this collection
-      const indexResponse = await fetch(`/data/${folder}/index.json`);
-      if (!indexResponse.ok) {
-        console.warn(`[Lemon] No index for ${folder}, trying direct listing`);
-        continue;
-      }
-
+  // Load V5 analysis files
+  try {
+    const indexResponse = await fetch('/data/analysis_v5/index.json');
+    if (indexResponse.ok) {
       const fileList: string[] = await indexResponse.json();
-      console.log(`[Lemon] Found ${fileList.length} files in ${folder}`);
+      console.log(`[Lemon] Found ${fileList.length} V5 analysis files`);
 
-      // Fetch each file
       for (const filename of fileList) {
         try {
-          const response = await fetch(`/data/${folder}/${filename}`);
+          const response = await fetch(`/data/analysis_v5/${filename}`);
           if (response.ok) {
             const raw: RawScreenplayAnalysis = await response.json();
             try {
-              const screenplay = normalizeScreenplay(raw, name);
-              // Validate required fields exist
+              const collectionFromJson = (raw as any).collection as Collection | undefined;
+              const collection: Collection = collectionFromJson || 'V5 Analysis';
+              const screenplay = normalizeScreenplay(raw, collection);
               if (!screenplay.producerMetrics) {
                 console.error(`[Lemon] Missing producerMetrics for ${filename}`, screenplay);
               }
               screenplays.push(screenplay);
             } catch (normalizeError) {
-              console.error(`[Lemon] Normalization failed for ${filename}:`, normalizeError);
-              console.error(`[Lemon] Raw data:`, raw);
+              console.error(`[Lemon] V5 normalization failed for ${filename}:`, normalizeError);
             }
           }
         } catch (error) {
-          console.warn(`[Lemon] Failed to load ${filename}:`, error);
+          console.warn(`[Lemon] Failed to load V5 ${filename}:`, error);
         }
       }
-    } catch (error) {
-      console.warn(`[Lemon] Failed to load collection ${name}:`, error);
     }
+  } catch (error) {
+    console.warn(`[Lemon] No V5 analysis index found:`, error);
   }
 
-  console.log(`[Lemon] Successfully loaded ${screenplays.length} screenplays`);
+  // Load V6 analysis files
+  try {
+    const indexResponse = await fetch('/data/analysis_v6/index.json');
+    if (indexResponse.ok) {
+      const fileList: string[] = await indexResponse.json();
+      console.log(`[Lemon] Found ${fileList.length} V6 analysis files`);
+
+      for (const filename of fileList) {
+        try {
+          const response = await fetch(`/data/analysis_v6/${filename}`);
+          if (response.ok) {
+            const raw = await response.json();
+            try {
+              if (isV6RawAnalysis(raw)) {
+                const collectionFromJson = (raw as any).collection as Collection | undefined;
+                const collection: Collection = collectionFromJson || 'V6 Analysis';
+                const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
+                if (!screenplay.producerMetrics) {
+                  console.error(`[Lemon] Missing producerMetrics for ${filename}`, screenplay);
+                }
+                screenplays.push(screenplay);
+              } else {
+                console.warn(`[Lemon] ${filename} in V6 folder is not V6 format`);
+              }
+            } catch (normalizeError) {
+              console.error(`[Lemon] V6 normalization failed for ${filename}:`, normalizeError);
+            }
+          }
+        } catch (error) {
+          console.warn(`[Lemon] Failed to load V6 ${filename}:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.warn(`[Lemon] No V6 analysis index found (this is normal if no V6 analyses exist yet)`);
+  }
+
+  console.log(`[Lemon] Successfully loaded ${screenplays.length} total screenplays`);
+  return screenplays;
+}
+
+/**
+ * Load only V6 analysis files
+ * Returns screenplays with V6-specific fields (core quality, lenses, false positive check)
+ */
+export async function loadV6ScreenplaysOnly(): Promise<ScreenplayWithV6[]> {
+  const screenplays: ScreenplayWithV6[] = [];
+
+  try {
+    const indexResponse = await fetch('/data/analysis_v6/index.json');
+    if (!indexResponse.ok) {
+      console.warn('[Lemon] No V6 analysis index found');
+      return [];
+    }
+
+    const fileList: string[] = await indexResponse.json();
+    console.log(`[Lemon] Found ${fileList.length} V6 analysis files`);
+
+    for (const filename of fileList) {
+      try {
+        const response = await fetch(`/data/analysis_v6/${filename}`);
+        if (response.ok) {
+          const raw = await response.json();
+          if (isV6RawAnalysis(raw)) {
+            const collectionFromJson = (raw as any).collection as Collection | undefined;
+            const collection: Collection = collectionFromJson || 'V6 Analysis';
+            const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
+            screenplays.push(screenplay);
+          }
+        }
+      } catch (error) {
+        console.warn(`[Lemon] Failed to load V6 ${filename}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error(`[Lemon] Failed to load V6 analysis:`, error);
+  }
+
   return screenplays;
 }
 
@@ -183,6 +255,9 @@ export function getCollectionFromPath(path: string): Collection | null {
   if (path.includes('analysis_v3_2007')) return '2007 Black List';
   if (path.includes('analysis_v3_2020')) return '2020 Black List';
   if (path.includes('analysis_v3_Randoms')) return 'Randoms';
+  if (path.includes('analysis_v4_fixed')) return 'V4 Fixed';
+  if (path.includes('analysis_v5')) return 'V5 Analysis';
+  if (path.includes('analysis_v6')) return 'V6 Analysis';
   return null;
 }
 

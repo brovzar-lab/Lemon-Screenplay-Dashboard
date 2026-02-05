@@ -1,0 +1,586 @@
+{
+  "source_file": "second_wind.pdf",
+  "analysis_model": "claude-sonnet",
+  "analysis_version": "v6_unified",
+  "lenses_enabled": [
+    "latam",
+    "commercial",
+    "budget",
+    "production",
+    "coproduction"
+  ],
+  "budget_ceiling_used": 30.0,
+  "metadata": {
+    "filename": "second_wind.pdf",
+    "page_count": 100,
+    "word_count": 18237
+  },
+  "analysis": {
+    "title": "Second Wind",
+    "author": "Briana Hansen",
+    "logline": "A washed-up former wrestling star working as a kidnapper for his old boss must protect his biggest fan when he discovers she's the real target.",
+    "genre": "Action Comedy",
+    "subgenres": [
+      "Sports Comedy",
+      "Adventure",
+      "Redemption Story"
+    ],
+    "themes": [
+      "second chances",
+      "redemption",
+      "friendship",
+      "confronting the past",
+      "found family"
+    ],
+    "tone": "Comedic adventure with heart - mixing wrestling spectacle with genuine character growth",
+    "core_quality": {
+      "execution_craft": {
+        "score": 5.0,
+        "structure": {
+          "score": 6,
+          "sub_criteria": {
+            "act_architecture": {
+              "score": 7,
+              "note": "Clear three-act structure with solid turning points"
+            },
+            "scene_necessity": {
+              "score": 5,
+              "note": "Some scenes meander, particularly middle casino sequences"
+            },
+            "momentum": {
+              "score": 6,
+              "note": "Good escalation but pacing uneven in Act 2"
+            },
+            "payoff_delivery": {
+              "score": 6,
+              "note": "Most setups pay off but some feel rushed"
+            }
+          },
+          "justification": "Solid structural foundation with clear inciting incident, midpoint reveal, and climactic confrontation",
+          "page_citations": [
+            "Page 21: Clear goal established with Cyndi file",
+            "Page 61: Major revelation about Janson connection",
+            "Page 84: Climactic showdown begins"
+          ],
+          "weakness_identified": "Act 2 contains unnecessary casino scenes that slow momentum without advancing plot"
+        },
+        "scene_writing": {
+          "score": 5,
+          "sub_criteria": {
+            "scene_construction": {
+              "score": 6,
+              "note": "Most scenes have clear purpose but some lack strong conflict"
+            },
+            "visual_storytelling": {
+              "score": 4,
+              "note": "Heavy reliance on dialogue over visual action"
+            },
+            "economy": {
+              "score": 5,
+              "note": "Some overwriting in action blocks and character descriptions"
+            },
+            "transitions": {
+              "score": 6,
+              "note": "Generally smooth but some abrupt cuts"
+            }
+          },
+          "justification": "Competent scene work but lacks visual dynamism, relying heavily on exposition",
+          "page_citations": [
+            "Page 26: Convention scene shows character well but lacks visual punch"
+          ],
+          "weakness_identified": "Too much telling through dialogue rather than showing through action"
+        },
+        "dialogue": {
+          "score": 4,
+          "sub_criteria": {
+            "voice_distinction": {
+              "score": 5,
+              "note": "Cyndi has clear voice but others blend together"
+            },
+            "subtext_quality": {
+              "score": 4,
+              "note": "Often explains rather than implies"
+            },
+            "functionality": {
+              "score": 4,
+              "note": "Heavy exposition, characters say exactly what they mean"
+            },
+            "speakability": {
+              "score": 4,
+              "note": "Some stilted exchanges that don't flow naturally"
+            }
+          },
+          "justification": "Dialogue serves plot function but lacks naturalism and subtext",
+          "page_citations": [
+            "Page 80-81: Mike's confession speech feels overly expository"
+          ],
+          "weakness_identified": "Characters frequently explain their motivations rather than revealing them through subtext"
+        }
+      },
+      "character_system": {
+        "score": 6.3,
+        "protagonist": {
+          "score": 7,
+          "sub_criteria": {
+            "goal_clarity": {
+              "score": 8,
+              "note": "Clear external goal (complete job) and internal need (redemption)"
+            },
+            "active_agency": {
+              "score": 7,
+              "note": "Drives most of the action, makes key decisions"
+            },
+            "arc_credibility": {
+              "score": 6,
+              "note": "Transformation feels earned but slightly rushed"
+            },
+            "investment": {
+              "score": 7,
+              "note": "Self-loathing and guilt make him sympathetic despite moral compromises"
+            }
+          },
+          "justification": "Strong protagonist with clear arc from self-hating kidnapper to protector",
+          "page_citations": [
+            "Page 21: Goal established with file reveal",
+            "Page 84: Complete transformation in final fight"
+          ],
+          "weakness_identified": "Final transformation happens very quickly without enough buildup"
+        },
+        "supporting_cast": {
+          "score": 6,
+          "sub_criteria": {
+            "character_distinction": {
+              "score": 6,
+              "note": "Cyndi is well-developed, others less so"
+            },
+            "functional_purpose": {
+              "score": 6,
+              "note": "Most serve clear story functions"
+            },
+            "ensemble_balance": {
+              "score": 5,
+              "note": "Heavy focus on Mike-Cyndi dynamic"
+            }
+          },
+          "justification": "Cyndi is memorable and distinct, but Layla and villains feel underwritten",
+          "page_citations": [
+            "Page 27-28: Cyndi's fan enthusiasm creates strong character moment"
+          ],
+          "weakness_identified": "Layla lacks clear backstory and motivation beyond helping Mike"
+        },
+        "relationships": {
+          "score": 6,
+          "sub_criteria": {
+            "relationship_dynamics": {
+              "score": 6,
+              "note": "Mike-Cyndi mentor/fan dynamic works well"
+            },
+            "conflict_generation": {
+              "score": 6,
+              "note": "Relationships create meaningful tension"
+            },
+            "emotional_stakes": {
+              "score": 6,
+              "note": "We care about protecting Cyndi"
+            }
+          },
+          "justification": "Central relationship between Mike and Cyndi drives emotional core effectively"
+        }
+      },
+      "conceptual_strength": {
+        "score": 6.0,
+        "premise": {
+          "score": 6,
+          "sub_criteria": {
+            "hook_clarity": {
+              "score": 7,
+              "note": "Clear pitch: washed-up wrestler protects superfan"
+            },
+            "narrative_engine": {
+              "score": 6,
+              "note": "Generates decent conflict and complications"
+            },
+            "freshness": {
+              "score": 5,
+              "note": "Wrestling world interesting but kidnapping plot familiar"
+            },
+            "execution_independence": {
+              "score": 6,
+              "note": "Good concept that works with average execution"
+            }
+          },
+          "justification": "Solid hook combining wrestling nostalgia with protection thriller",
+          "page_citations": []
+        },
+        "theme": {
+          "score": 6,
+          "sub_criteria": {
+            "thematic_clarity": {
+              "score": 6,
+              "note": "Redemption theme clear throughout"
+            },
+            "organic_integration": {
+              "score": 6,
+              "note": "Emerges naturally from character arc"
+            },
+            "complexity": {
+              "score": 5,
+              "note": "Straightforward good vs evil with guilt/forgiveness"
+            },
+            "resonance": {
+              "score": 6,
+              "note": "Universal themes of second chances"
+            }
+          },
+          "justification": "Clear thematic through-line about redemption and confronting past mistakes"
+        }
+      },
+      "voice_and_tone": {
+        "score": 5,
+        "sub_criteria": {
+          "authorial_voice": {
+            "score": 5,
+            "note": "Competent but not distinctive writing style"
+          },
+          "tonal_consistency": {
+            "score": 5,
+            "note": "Balances comedy and drama but sometimes uneven"
+          },
+          "genre_awareness": {
+            "score": 6,
+            "note": "Understands action comedy conventions"
+          },
+          "confidence": {
+            "score": 5,
+            "note": "Workmanlike but not commanding"
+          }
+        },
+        "justification": "Professional execution but lacks distinctive authorial voice"
+      },
+      "weighted_score": 5.57,
+      "false_positive_check": {
+        "traps_evaluated": [
+          {
+            "name": "premise_execution_gap",
+            "triggered": true,
+            "premise_score": 6,
+            "execution_average": 5.0,
+            "gap": 1.0,
+            "assessment": "Decent concept but execution doesn't fully capitalize on potential"
+          },
+          {
+            "name": "first_act_illusion",
+            "triggered": false,
+            "first_act_quality": "Strong setup with good character introductions",
+            "later_acts_quality": "Maintains quality though pacing issues in middle",
+            "assessment": "Consistent quality throughout"
+          },
+          {
+            "name": "character_vacuum",
+            "triggered": false,
+            "structure_score": 6,
+            "character_average": 6.3,
+            "gap": -0.3,
+            "assessment": "Character work slightly stronger than structure"
+          },
+          {
+            "name": "dialogue_disguise",
+            "triggered": false,
+            "dialogue_score": 4,
+            "scene_writing_score": 5,
+            "gap": -1,
+            "assessment": "Scene writing actually stronger than dialogue"
+          },
+          {
+            "name": "complexity_theater",
+            "triggered": false,
+            "theme_complexity": 5,
+            "theme_clarity": 6,
+            "assessment": "Theme is clear: redemption through protecting others"
+          },
+          {
+            "name": "originality_inflation",
+            "triggered": false,
+            "voice_score": 5,
+            "premise_freshness": 5,
+            "assessment": "Neither voice nor premise particularly original"
+          }
+        ],
+        "traps_triggered_count": 1,
+        "risk_level": "low",
+        "verdict_adjustment": "none",
+        "adjusted_verdict": "PASS",
+        "adjustment_rationale": "Only one minor trap triggered, not enough to downgrade"
+      },
+      "critical_failures": [],
+      "major_weaknesses": [
+        "Dialogue often expository rather than natural",
+        "Act 2 pacing issues with unnecessary casino scenes",
+        "Visual storytelling weak - relies heavily on talking",
+        "Supporting characters underdeveloped beyond Cyndi",
+        "Final transformation feels rushed"
+      ],
+      "verdict": "PASS",
+      "verdict_rationale": "Competent execution with solid protagonist arc and clear premise, but dialogue issues and pacing problems prevent advancement. Needs development work to reach producible quality."
+    },
+    "characters": {
+      "protagonist": "Mike Henslow - Former wrestling star 'Space Man' now working as kidnapper, deeply guilty about past, needs redemption through protecting others",
+      "antagonist": "Vern Trapman - Wrestling promoter and crime boss who killed Mike's partner Grizz and manipulates former wrestlers",
+      "supporting": [
+        "Cyndi 'Cyborg' Janson - Enthusiastic superfan with surprising skills, represents Mike's lost innocence",
+        "Layla Jane - Casino waitress with mysterious past, potential love interest",
+        "Tracy - Grizz's widow, revealed as conspirator in his death"
+      ]
+    },
+    "structure_analysis": {
+      "format_quality": "professional",
+      "act_breaks": "Act 1 ends page 23 (accepts Cyndi job), Act 2 ends page 83 (final confrontation begins)",
+      "pacing": "Good opening hook and strong finale, but middle section drags with extended casino sequences and memory flashbacks that don't advance plot efficiently"
+    },
+    "standout_scenes": [
+      {
+        "page": "27-28",
+        "scene": "Cyndi recognizes Mike at convention",
+        "why": "Great character moment showing her genuine enthusiasm"
+      },
+      {
+        "page": "84-88",
+        "scene": "Mike's transformation and final fight",
+        "why": "Pays off character arc with satisfying action"
+      }
+    ],
+    "comparable_films": [
+      {
+        "title": "The Wrestler",
+        "similarity": "Washed-up performer seeking redemption",
+        "quality_comparison": "weaker craft - less psychological depth"
+      },
+      {
+        "title": "Nacho Libre",
+        "similarity": "Wrestling comedy with heart",
+        "quality_comparison": "similar craft level but less focused tone"
+      }
+    ],
+    "assessment": {
+      "strengths": [
+        "Strong central relationship between Mike and Cyndi",
+        "Clear character arc with satisfying payoff",
+        "Good use of wrestling world for both comedy and pathos",
+        "Solid three-act structure with proper turning points"
+      ],
+      "weaknesses": [
+        "Dialogue often expository and unnatural",
+        "Pacing issues in second act with unnecessary scenes",
+        "Visual storytelling weak - too much talking",
+        "Supporting characters underdeveloped",
+        "Some plot conveniences and rushed character beats"
+      ],
+      "development_notes": [
+        "Rewrite dialogue to be more natural with subtext",
+        "Cut unnecessary casino/gambling scenes in Act 2",
+        "Develop Layla's character and backstory",
+        "Add more visual comedy and action sequences",
+        "Smooth out Mike's final transformation with more buildup"
+      ]
+    },
+    "executive_summary": "Competent action-comedy about washed-up wrestler protecting superfan has solid character arc and clear premise, but expository dialogue and pacing issues prevent advancement.",
+    "lenses": {
+      "latam_market": {
+        "enabled": true,
+        "assessment": {
+          "cultural_resonance": {
+            "score": 6,
+            "rationale": "Universal themes of redemption and second chances translate well, wrestling popular in Mexico"
+          },
+          "regional_casting_potential": {
+            "score": 5,
+            "rationale": "Could work with regional talent but written specifically for American wrestling culture"
+          },
+          "theatrical_appeal": {
+            "score": 6,
+            "rationale": "Action comedy with heart plays well theatrically, crowd-pleasing finale"
+          },
+          "marketing_viability": {
+            "score": 7,
+            "rationale": "Clear poster image of wrestler, easy trailer with action and comedy beats"
+          },
+          "coproduction_potential": {
+            "score": 4,
+            "rationale": "Very US-specific wrestling references would need adaptation"
+          },
+          "overall_latam_score": 5.6,
+          "market_fit_classification": "english_speaking_ok",
+          "recommendation": "moderate_fit",
+          "specific_concerns": [
+            "Heavy reliance on US wrestling culture",
+            "Dialogue-heavy sequences may not translate"
+          ],
+          "opportunities": [
+            "Wrestling popular in Mexico",
+            "Underdog sports stories resonate",
+            "Family themes work well"
+          ]
+        }
+      },
+      "commercial_viability": {
+        "enabled": true,
+        "assessment": {
+          "target_audience": {
+            "score": 2,
+            "note": "Wrestling fans and action-comedy audiences - moderate size"
+          },
+          "high_concept": {
+            "score": 2,
+            "note": "Takes some explanation - washed-up wrestler becomes protector"
+          },
+          "cast_attachability": {
+            "score": 2,
+            "note": "Lead role could attract character actor, supporting roles limited"
+          },
+          "marketing_hook": {
+            "score": 2,
+            "note": "Wrestling angle helps but not immediately compelling"
+          },
+          "budget_return_ratio": {
+            "score": 2,
+            "note": "Mid-budget with moderate upside"
+          },
+          "comparable_success": {
+            "score": 1,
+            "note": "Wrestling comedies have mixed track record"
+          },
+          "cvs_total": 11,
+          "commercial_outlook": "viable",
+          "box_office_ceiling": "$15-25M domestic",
+          "key_commercial_strengths": [
+            "Wrestling nostalgia",
+            "Action-comedy genre appeal"
+          ],
+          "key_commercial_concerns": [
+            "Niche wrestling audience",
+            "No obvious star vehicle roles"
+          ]
+        }
+      },
+      "budget_tier": {
+        "enabled": true,
+        "ceiling_used": 30000000,
+        "assessment": {
+          "estimated_budget_low": 8000000,
+          "estimated_budget_high": 15000000,
+          "category": "low",
+          "within_ceiling": true,
+          "key_cost_drivers": [
+            "Convention and casino locations $500K-1M",
+            "Action sequences and wrestling scenes $1-2M",
+            "Helicopter sequence in finale $300-500K"
+          ],
+          "potential_savings": [
+            "Simplify helicopter rescue to ground-based",
+            "Use existing casino rather than building sets"
+          ],
+          "production_complexity": "medium",
+          "location_requirements": "Multiple locations but mostly practical - casino, convention center, estates",
+          "vfx_requirements": "minimal",
+          "period_considerations": "contemporary",
+          "justification": "Straightforward contemporary action-comedy with moderate location and stunt requirements"
+        }
+      },
+      "production_readiness": {
+        "enabled": true,
+        "assessment": {
+          "script_polish": {
+            "score": 60,
+            "issues": [
+              "Dialogue needs major revision",
+              "Pacing issues in Act 2"
+            ],
+            "status": "needs_work"
+          },
+          "character_casting": {
+            "score": 70,
+            "issues": [
+              "Supporting roles underdeveloped"
+            ],
+            "status": "needs_work"
+          },
+          "production_feasibility": {
+            "score": 80,
+            "issues": [
+              "Minor location challenges"
+            ],
+            "status": "ready"
+          },
+          "risk_profile": {
+            "score": 75,
+            "issues": [
+              "Moderate execution risk"
+            ],
+            "status": "ready"
+          },
+          "overall_readiness": 71,
+          "readiness_verdict": "development_needed",
+          "deal_breakers": [
+            "Dialogue must be completely rewritten",
+            "Act 2 pacing must be fixed"
+          ],
+          "green_flags": [
+            "Clear three-act structure",
+            "Strong character arc",
+            "Manageable budget"
+          ],
+          "development_priorities": [
+            "Dialogue rewrite",
+            "Cut unnecessary scenes",
+            "Develop supporting characters"
+          ],
+          "estimated_development_time": "2-3 drafts / 4-6 months"
+        }
+      },
+      "coproduction": {
+        "enabled": true,
+        "assessment": {
+          "mexico_us": {
+            "score": 4,
+            "rationale": "Very US-specific wrestling culture limits appeal",
+            "key_elements": [
+              "Action-comedy genre",
+              "Universal themes"
+            ],
+            "potential_partners": [
+              "US indie producers familiar with wrestling"
+            ]
+          },
+          "mexico_spain": {
+            "score": 3,
+            "rationale": "Wrestling not as popular in Spain, very American story",
+            "key_elements": [
+              "Comedy elements could translate"
+            ],
+            "eu_fund_eligibility": "Low - too US-specific for European funds"
+          },
+          "other_territories": {
+            "score": 3,
+            "territories": [
+              "UK",
+              "Australia"
+            ],
+            "rationale": "English-speaking markets with some wrestling familiarity"
+          },
+          "best_structure": "US indie co-production for domestic market focus",
+          "treaty_considerations": [
+            "US-Mexico treaty benefits limited by story specificity"
+          ],
+          "overall_coproduction_score": 3.3
+        }
+      }
+    }
+  },
+  "collection": "Randoms",
+  "tmdb_status": {
+    "checked": true,
+    "is_produced": false,
+    "reason": "NOT PRODUCED: No matching films found",
+    "checked_at": "2026-02-04T09:41:45.849233"
+  }
+}
