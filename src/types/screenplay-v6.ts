@@ -96,7 +96,8 @@ export interface V6CoreQuality {
   voice_and_tone: VoiceAndToneScore;
   weighted_score: number;
   false_positive_check: FalsePositiveCheck;
-  critical_failures: string[];
+  critical_failures: string[] | import('./screenplay').CriticalFailureDetail[];
+  critical_failure_total_penalty?: number;
   major_weaknesses: string[];
   verdict: V6Verdict;
   verdict_rationale: string;

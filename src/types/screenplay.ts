@@ -34,6 +34,16 @@ export type ProductionRisk = 'Low' | 'Medium' | 'High';
 
 export type USPStrength = 'Weak' | 'Moderate' | 'Strong';
 
+export type CriticalFailureSeverity = 'minor' | 'moderate' | 'major' | 'critical';
+
+// V6 detailed critical failure with penalty
+export interface CriticalFailureDetail {
+  failure: string;
+  severity: CriticalFailureSeverity;
+  penalty: number; // -0.3, -0.5, -0.8, or -1.2
+  evidence: string;
+}
+
 // ============================================
 // RAW JSON TYPES (from analysis files)
 // ============================================
@@ -130,7 +140,8 @@ export interface RawAnalysis {
   themes: string[];
   tone: string;
   dimension_scores: RawDimensionScores;
-  critical_failures: string[];
+  critical_failures: string[] | CriticalFailureDetail[];
+  critical_failure_total_penalty?: number;
   major_weaknesses: string[];
   commercial_viability: RawCommercialViability;
   structure_analysis: RawStructureAnalysis;
@@ -296,6 +307,7 @@ export interface Screenplay {
   title: string;
   author: string;
   collection: Collection;
+  category?: string;  // 'BLKLST', 'LEMON', 'SUBMISSION', etc.
   sourceFile: string;
 
   // Analysis Metadata
@@ -328,7 +340,9 @@ export interface Screenplay {
   commercialViability: CommercialViability;
 
   // Critical Assessment
-  criticalFailures: string[];
+  criticalFailures: string[]; // Display-friendly list (flattened from detail objects)
+  criticalFailureDetails: CriticalFailureDetail[]; // V6+ detailed failures with severity/penalty
+  criticalFailureTotalPenalty: number; // Sum of penalties (max -3.0)
   majorWeaknesses: string[];
   strengths: string[];
   weaknesses: string[];

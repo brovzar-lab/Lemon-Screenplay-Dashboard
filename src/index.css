@@ -542,3 +542,168 @@
     padding: var(--spacing-4);
   }
 }
+
+/* ============================================
+   LIGHT THEME OVERRIDES
+   Applied when <html> has class "light"
+   ============================================ */
+
+html.light body {
+  background-color: var(--color-gold-50);
+  color: var(--color-black-800);
+}
+
+html.light h1,
+html.light h2,
+html.light h3,
+html.light h4,
+html.light h5,
+html.light h6 {
+  color: var(--color-black-900);
+}
+
+html.light a {
+  color: var(--color-gold-600);
+}
+
+html.light a:hover {
+  color: var(--color-gold-700);
+}
+
+html.light ::selection {
+  background-color: var(--color-gold-400);
+  color: var(--color-black-950);
+}
+
+/* Light theme scrollbar */
+html.light ::-webkit-scrollbar-track {
+  background: var(--color-gold-100);
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: var(--color-black-400);
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-black-500);
+}
+
+/* Light theme glass effects */
+html.light .glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+html.light .glass-dark {
+  background: rgba(254, 243, 199, 0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+/* Light theme text colors for Tailwind classes */
+html.light .text-black-100 { color: var(--color-black-800); }
+html.light .text-black-200 { color: var(--color-black-700); }
+html.light .text-black-300 { color: var(--color-black-600); }
+html.light .text-black-400 { color: var(--color-black-500); }
+html.light .text-black-500 { color: var(--color-black-400); }
+
+html.light .text-gold-100 { color: var(--color-gold-800); }
+html.light .text-gold-200 { color: var(--color-gold-700); }
+html.light .text-gold-300 { color: var(--color-gold-600); }
+html.light .text-gold-400 { color: var(--color-gold-600); }
+
+/* Light theme backgrounds */
+html.light .bg-black-800 { background-color: var(--color-gold-100); }
+html.light .bg-black-800\/50 { background-color: rgba(254, 243, 199, 0.5); }
+html.light .bg-black-900 { background-color: var(--color-gold-50); }
+html.light .bg-black-900\/50 { background-color: rgba(255, 251, 235, 0.5); }
+html.light .bg-black-950 { background-color: white; }
+
+/* Light theme borders */
+html.light .border-black-600 { border-color: var(--color-gold-300); }
+html.light .border-black-700 { border-color: var(--color-gold-200); }
+html.light .border-black-800 { border-color: var(--color-gold-100); }
+html.light .border-gold-500\/10 { border-color: rgba(245, 158, 11, 0.2); }
+
+/* Light theme components - Card */
+html.light .card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--color-gold-200);
+}
+
+html.light .card:hover {
+  border-color: var(--color-gold-400);
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.2);
+}
+
+/* Light theme - Buttons */
+html.light .btn-secondary {
+  background: white;
+  color: var(--color-black-800);
+  border: 1px solid var(--color-gold-300);
+}
+
+html.light .btn-secondary:hover {
+  background: var(--color-gold-50);
+  border-color: var(--color-gold-500);
+}
+
+html.light .btn-ghost {
+  color: var(--color-black-600);
+}
+
+html.light .btn-ghost:hover {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-gold-700);
+}
+
+/* Light theme - Chips */
+html.light .chip {
+  background: var(--color-gold-100);
+  color: var(--color-black-700);
+  border: 1px solid var(--color-gold-200);
+}
+
+/* Light theme - Input */
+html.light .input {
+  background: white;
+  border: 1px solid var(--color-gold-300);
+  color: var(--color-black-800);
+}
+
+html.light .input:focus {
+  border-color: var(--color-gold-500);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+html.light .input::placeholder {
+  color: var(--color-black-400);
+}
+
+/* Light theme - Score bar */
+html.light .score-bar {
+  background: var(--color-gold-100);
+}
+
+/* Light theme hover states for Tailwind */
+html.light .hover\:bg-black-800:hover { background-color: var(--color-gold-100); }
+html.light .hover\:bg-black-800\/50:hover { background-color: rgba(254, 243, 199, 0.5); }
+html.light .hover\:text-gold-400:hover { color: var(--color-gold-600); }
+html.light .hover\:border-gold-500\/30:hover { border-color: rgba(245, 158, 11, 0.4); }
+
+/* Light theme - Settings page specific */
+html.light .bg-gradient-to-br.from-black-800\/50.to-black-900\/50 {
+  background: linear-gradient(to bottom right, rgba(254, 243, 199, 0.5), rgba(255, 251, 235, 0.5));
+}
+
+/* Light theme - Table/list rows */
+html.light .divide-black-800 > * + * { border-color: var(--color-gold-200); }
+
+/* Light theme gradient text - ensure contrast */
+html.light .text-gradient-gold {
+  background: linear-gradient(135deg, #B45309 0%, #D97706 50%, #B45309 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

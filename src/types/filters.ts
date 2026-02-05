@@ -32,6 +32,9 @@ export interface FilterState {
   // Collections
   collections: Collection[];
 
+  // Categories (source of screenplay)
+  categories: string[];
+
   // Genres & Themes
   genres: string[];
   themes: string[];
@@ -79,6 +82,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   recommendationTiers: [],
   budgetCategories: [],
   collections: [],
+  categories: [],
   genres: [],
   themes: [],
   weightedScoreRange: createDefaultRangeFilter(0, 10),

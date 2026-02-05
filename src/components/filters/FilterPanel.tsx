@@ -8,6 +8,7 @@ import { clsx } from 'clsx';
 import { useFilterStore } from '@/stores/filterStore';
 import { RangeSlider } from './RangeSlider';
 import { MultiSelect } from './MultiSelect';
+import { CategoryFilter } from './CategoryFilter';
 
 // Hardcoded genres and themes (extracted from screenplay data)
 const AVAILABLE_GENRES = [
@@ -67,6 +68,8 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
     setFestivalAppealRange,
     roiIndicatorRange,
     setRoiIndicatorRange,
+    // Categories
+    categories,
     // Display Options
     hideProduced,
     setHideProduced,
@@ -80,6 +83,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
 
   // Count active filters
   const activeFilterCount = [
+    categories.length > 0,
     genres.length > 0,
     themes.length > 0,
     weightedScoreRange.enabled,
@@ -153,6 +157,18 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   </p>
                 </div>
               </label>
+            </div>
+          </Section>
+
+          {/* Category Section */}
+          <Section
+            title="Source Category"
+            isOpen={activeSection === 'category'}
+            onToggle={() => toggleSection('category')}
+            badge={categories.length > 0 ? `${categories.length}` : undefined}
+          >
+            <div className="space-y-4">
+              <CategoryFilter />
             </div>
           </Section>
 

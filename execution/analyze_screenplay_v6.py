@@ -12,7 +12,7 @@ This unified V6 combines:
 - V6's False Positive Trap Detection
 - V6's Execution-First Weighting
 - V5's Production Readiness Assessment (as a lens)
-- V5's detailed critical failures and page citation requirements
+- Weighted penalty system for critical failures (replaces auto-PASS)
 
 Key Principles:
 1. Core Quality Score is NEVER influenced by market, budget, or regional factors
@@ -33,8 +33,8 @@ Usage:
     # With all lenses (recommended for full production assessment)
     python execution/analyze_screenplay_v6.py --input script.json --all-lenses
 
-    # Custom budget ceiling
-    python execution/analyze_screenplay_v6.py --input script.json --lens budget --budget-ceiling 15
+    # All lenses enabled
+    python execution/analyze_screenplay_v6.py --input script.json --all-lenses
 """
 
 import argparse
@@ -279,30 +279,43 @@ Sub-criteria:
 - Confidence: Does the writing feel ASSURED, or uncertain of what it wants to be?
 
 ═══════════════════════════════════════════════════════════════════════════════
-                    CRITICAL FAILURES (AUTO-PASS TRIGGERS)
+                    CRITICAL FAILURES (WEIGHTED PENALTY SYSTEM)
 ═══════════════════════════════════════════════════════════════════════════════
 
-**ANY of these = AUTOMATIC PASS regardless of other scores.**
-Look ACTIVELY for these problems. Most scripts have at least one.
+Critical failures apply SCORE PENALTIES instead of automatic PASS. This allows
+otherwise strong scripts to potentially overcome isolated weaknesses.
+
+**SEVERITY LEVELS AND PENALTIES:**
+- MINOR (-0.3): Noticeable but doesn't significantly harm the experience
+- MODERATE (-0.5): Clearly problematic, affects reader engagement
+- MAJOR (-0.8): Significant flaw that undermines the script's effectiveness
+- CRITICAL (-1.2): Fundamental problem that severely damages the work
 
 **Structural Failures:**
-□ No discernible dramatic question by page 30
-□ Second act collapse (pages 30-90 lack progressive complication - just "stuff happens")
-□ Climax deflation (final confrontation underwhelms after the buildup)
-□ Ending betrayal (resolution contradicts the story's implicit promise)
-□ Missing engine (no central conflict sustaining momentum)
+□ No discernible dramatic question by page 30 (MAJOR: -0.8)
+□ Second act collapse - pages 30-90 lack progressive complication (CRITICAL: -1.2)
+□ Climax deflation - final confrontation underwhelms (MAJOR: -0.8)
+□ Ending betrayal - resolution contradicts story's promise (MAJOR: -0.8)
+□ Missing engine - no central conflict sustaining momentum (CRITICAL: -1.2)
 
 **Character Failures:**
-□ Passive protagonist (events happen TO them through Act 2 - they don't drive action)
-□ Goal absence (cannot identify what protagonist WANTS by page 30)
-□ Unearned transformation (character changes without adequate pressure/catalyst)
-□ Investment vacuum (no qualities creating audience connection - we don't care)
+□ Passive protagonist - events happen TO them in Act 2 (MAJOR: -0.8)
+□ Goal absence - cannot identify protagonist's want by page 30 (MODERATE: -0.5)
+□ Unearned transformation - change without adequate catalyst (MODERATE: -0.5)
+□ Investment vacuum - no audience connection qualities (CRITICAL: -1.2)
 
 **Execution Failures:**
-□ Amateur formatting (consistent convention violations, wrong margins, no sluglines)
-□ Overwriting (action blocks >4 lines; speeches >5 lines ROUTINELY, not occasionally)
-□ Unfilmables (heavy reliance on internal states camera cannot capture)
-□ Tone incoherence (script doesn't know what it wants to be - comedy? drama? satire?)
+□ Amateur formatting - consistent convention violations (MINOR: -0.3)
+□ Overwriting - action/dialogue blocks routinely too long (MINOR: -0.3)
+□ Unfilmables - heavy reliance on internal states (MODERATE: -0.5)
+□ Tone incoherence - script doesn't know what it wants to be (MAJOR: -0.8)
+
+**PENALTY APPLICATION:**
+1. Identify ALL critical failures with severity and page evidence
+2. Sum the penalties (multiple failures compound)
+3. Apply total penalty to the FINAL WEIGHTED SCORE
+4. Penalty cap: Maximum -3.0 total penalty (even if sum exceeds this)
+5. If total penalty >= -2.0: Add "heavily penalized" flag to verdict rationale
 
 ═══════════════════════════════════════════════════════════════════════════════
                     FALSE POSITIVE TRAP DETECTION
@@ -358,17 +371,17 @@ FINAL WEIGHTED = (Execution × 0.40) + (Character × 0.30) +
 
 ### PASS (Expected: ~76% of scripts)
 Issue PASS if ANY of these are true:
-- Weighted Score < 5.5
-- ANY Critical Failure present
+- Adjusted Weighted Score < 5.5 (after penalty application)
 - Protagonist score < 4
 - THREE or more sub-dimensions < 5
 - Premise score < 4
+- Total critical failure penalty >= -2.5
 
 ### CONSIDER (Expected: ~20% of scripts)
 Requires ALL of:
-- Weighted Score 5.5 to 7.4
+- Adjusted Weighted Score 5.5 to 7.4
 - Premise score >= 6
-- Zero Critical Failures
+- Total critical failure penalty < -2.0
 - No more than TWO sub-dimensions below 5
 - Clear development path identifiable (what specifically would fix it?)
 
@@ -376,22 +389,22 @@ Requires ALL of:
 **STOP. Ask yourself: "Would I stake my professional reputation on this?"**
 
 Requires ALL of:
-- Weighted Score >= 7.5
+- Adjusted Weighted Score >= 7.5
 - Premise score >= 8
 - Protagonist >= 7
 - NO sub-dimension below 6
-- Zero Critical Failures
+- Total critical failure penalty < -1.0 (minor issues only)
 - Maximum ONE major weakness (identify it)
 
 ### FILM NOW (Expected: <1% of scripts - maybe 1-2 per YEAR)
 **STOP. FILM NOW means: "This is exceptional. Drop everything."**
 
 Requires ALL of:
-- Weighted Score >= 8.5
+- Adjusted Weighted Score >= 8.5
 - ALL major dimensions >= 8
 - Protagonist >= 9
 - Voice & Tone >= 9
-- Zero Critical Failures
+- Zero critical failures (no penalty at all)
 - Zero Major Weaknesses
 - Lightning Test: Visceral hook in first 10 pages that makes you UNABLE to stop reading
 - Goosebumps Test: 3+ moments of genuine emotional response while reading
@@ -598,7 +611,15 @@ Return ONLY this JSON structure:
       "adjustment_rationale": "explanation if adjustment made"
     }},
 
-    "critical_failures": ["list any found - be thorough, or empty array if none"],
+    "critical_failures": [
+      {{
+        "failure": "brief description of the failure",
+        "severity": "minor/moderate/major/critical",
+        "penalty": -0.3/-0.5/-0.8/-1.2,
+        "evidence": "page number(s) and specific example"
+      }}
+    ],
+    "critical_failure_total_penalty": 0.0,
     "major_weaknesses": ["list ALL significant issues - even good scripts have these"],
 
     "verdict": "PASS/CONSIDER/RECOMMEND/FILM_NOW",
@@ -760,55 +781,6 @@ Output in "lenses.commercial_viability":
 }}
 """
 
-BUDGET_LENS_PROMPT = """
-═══════════════════════════════════════════════════════════════════════════════
-                    LENS: BUDGET TIER ASSESSMENT
-═══════════════════════════════════════════════════════════════════════════════
-
-**THIS IS INFORMATIONAL ONLY - IT DOES NOT AFFECT THE CORE QUALITY VERDICT.**
-
-Production Budget Ceiling: ${budget_ceiling}M USD
-
-Estimate production budget based on:
-- Location requirements (studio vs practical, domestic vs international)
-- Period vs contemporary setting
-- VFX/stunts/action scope and complexity
-- Cast size and likely star power requirements
-- Props/costumes/art department needs
-- Special equipment (underwater, aerial, etc.)
-
-**BUDGET TIERS:**
-- Micro: <$1M (Contained single location, minimal cast, contemporary)
-- Low: $1-10M (Standard indie production, practical locations)
-- Medium: $10-30M (Moderate scale, some set builds, limited VFX)
-- High: $30M+ (Major production requirements, significant VFX/action)
-
-Output in "lenses.budget_tier":
-{{
-  "enabled": true,
-  "ceiling_used": {budget_ceiling}000000,
-  "assessment": {{
-    "estimated_budget_low": X000000,
-    "estimated_budget_high": X000000,
-    "category": "micro/low/medium/high",
-    "within_ceiling": true/false,
-    "key_cost_drivers": [
-      "Cost driver 1 with estimated range",
-      "Cost driver 2 with estimated range"
-    ],
-    "potential_savings": [
-      "Way to reduce cost 1",
-      "Way to reduce cost 2"
-    ],
-    "production_complexity": "low/medium/high/very_high",
-    "location_requirements": "description of key locations",
-    "vfx_requirements": "none/minimal/moderate/extensive",
-    "period_considerations": "contemporary/recent_period/historical",
-    "justification": "detailed explanation of budget estimate"
-  }}
-}}
-"""
-
 PRODUCTION_READINESS_LENS_PROMPT = """
 ═══════════════════════════════════════════════════════════════════════════════
                     LENS: PRODUCTION READINESS ASSESSMENT
@@ -929,8 +901,7 @@ CLAUDE_MODELS = {
 def build_v6_prompt(
     text: str,
     metadata: Dict[str, Any],
-    lenses: List[str],
-    budget_ceiling: float = 30.0
+    lenses: List[str]
 ) -> str:
     """Build the complete V6 prompt with core quality and optional lenses."""
 
@@ -950,9 +921,6 @@ def build_v6_prompt(
 
     if 'commercial' in lenses:
         lens_prompts.append(COMMERCIAL_LENS_PROMPT)
-
-    if 'budget' in lenses:
-        lens_prompts.append(BUDGET_LENS_PROMPT.format(budget_ceiling=int(budget_ceiling)))
 
     if 'production' in lenses:
         lens_prompts.append(PRODUCTION_READINESS_LENS_PROMPT)
@@ -975,7 +943,6 @@ For each lens NOT enabled, include it as: "lens_name": { "enabled": false }
 "lenses": {
     "latam_market": { "enabled": """ + str('latam' in lenses).lower() + """, ... },
     "commercial_viability": { "enabled": """ + str('commercial' in lenses).lower() + """, ... },
-    "budget_tier": { "enabled": """ + str('budget' in lenses).lower() + """, ... },
     "production_readiness": { "enabled": """ + str('production' in lenses).lower() + """, ... },
     "coproduction": { "enabled": """ + str('coproduction' in lenses).lower() + """ }
 }
@@ -989,7 +956,6 @@ Add an empty "lenses" object to your JSON output:
 "lenses": {
     "latam_market": { "enabled": false },
     "commercial_viability": { "enabled": false },
-    "budget_tier": { "enabled": false },
     "production_readiness": { "enabled": false },
     "coproduction": { "enabled": false }
 }
@@ -1017,7 +983,6 @@ def analyze_with_claude(
     text: str,
     metadata: Dict[str, Any],
     lenses: List[str],
-    budget_ceiling: float,
     api_key: Optional[str] = None,
     model_name: str = 'sonnet'
 ) -> Dict[str, Any]:
@@ -1040,7 +1005,7 @@ def analyze_with_claude(
         logger.warning(f"Text too long ({len(text)} chars), truncating to {max_chars}")
         text = text[:max_chars] + "\n\n[... truncated ...]"
 
-    prompt = build_v6_prompt(text, metadata, lenses, budget_ceiling)
+    prompt = build_v6_prompt(text, metadata, lenses)
 
     logger.info(f"Sending to Claude ({model_name}) for V6 Core + Lenses analysis...")
     logger.info(f"Lenses enabled: {lenses if lenses else 'None (pure quality analysis)'}")
@@ -1072,7 +1037,6 @@ def analyze_screenplay(
     parsed_json_path: Path,
     model: str = "claude-sonnet",
     lenses: List[str] = None,
-    budget_ceiling: float = 30.0,
     api_key: Optional[str] = None
 ) -> Dict[str, Any]:
     """Analyze a screenplay from parsed JSON with V6 unified system."""
@@ -1093,11 +1057,11 @@ def analyze_screenplay(
     model_lower = model.lower()
 
     if model_lower in ("claude", "claude-sonnet"):
-        analysis = analyze_with_claude(text, metadata, lenses, budget_ceiling, api_key, model_name='sonnet')
+        analysis = analyze_with_claude(text, metadata, lenses, api_key, model_name='sonnet')
     elif model_lower == "claude-haiku":
-        analysis = analyze_with_claude(text, metadata, lenses, budget_ceiling, api_key, model_name='haiku')
+        analysis = analyze_with_claude(text, metadata, lenses, api_key, model_name='haiku')
     elif model_lower == "claude-opus":
-        analysis = analyze_with_claude(text, metadata, lenses, budget_ceiling, api_key, model_name='opus')
+        analysis = analyze_with_claude(text, metadata, lenses, api_key, model_name='opus')
     else:
         raise ValueError(f"Unknown model: {model}")
 
@@ -1107,7 +1071,6 @@ def analyze_screenplay(
         'analysis_model': model,
         'analysis_version': 'v6_unified',
         'lenses_enabled': lenses,
-        'budget_ceiling_used': budget_ceiling if 'budget' in lenses else None,
         'metadata': metadata,
         'analysis': analysis
     }
@@ -1160,7 +1123,7 @@ def parse_arguments() -> argparse.Namespace:
     lens_group.add_argument(
         '--lens',
         action='append',
-        choices=['latam', 'commercial', 'budget', 'production', 'coproduction'],
+        choices=['latam', 'commercial', 'production', 'coproduction'],
         default=[],
         help='Enable specific lens (can be used multiple times)'
     )
@@ -1169,14 +1132,6 @@ def parse_arguments() -> argparse.Namespace:
         '--all-lenses',
         action='store_true',
         help='Enable all available lenses'
-    )
-
-    # Budget lens configuration
-    parser.add_argument(
-        '--budget-ceiling',
-        type=float,
-        default=30.0,
-        help='Budget ceiling in millions USD for budget lens (default: 30)'
     )
 
     parser.add_argument(
@@ -1209,12 +1164,10 @@ def main() -> int:
         # Determine which lenses to enable
         lenses = args.lens or []
         if args.all_lenses:
-            lenses = ['latam', 'commercial', 'budget', 'production', 'coproduction']
+            lenses = ['latam', 'commercial', 'production', 'coproduction']
 
         logger.info(f"Found {len(json_files)} file(s) to analyze with V6 Unified")
         logger.info(f"Lenses: {lenses if lenses else 'None (pure quality analysis)'}")
-        if 'budget' in lenses:
-            logger.info(f"Budget ceiling: ${args.budget_ceiling}M")
 
         successful = 0
         failed = 0
@@ -1225,7 +1178,6 @@ def main() -> int:
                     json_path,
                     args.model,
                     lenses,
-                    args.budget_ceiling,
                     args.api_key
                 )
                 output_filename = json_path.stem + '_analysis_v6.json'

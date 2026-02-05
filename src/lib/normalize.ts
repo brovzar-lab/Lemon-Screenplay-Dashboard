@@ -15,6 +15,7 @@ import type {
   DimensionJustifications,
   CommercialViability,
   TmdbStatus,
+  CriticalFailureDetail,
 } from '@/types';
 
 import type {
@@ -130,6 +131,44 @@ function normalizeCommercialViability(raw: RawScreenplayAnalysis['analysis']['co
 }
 
 /**
+ * Normalize critical failures to consistent format
+ * Handles both string[] (old format) and CriticalFailureDetail[] (new V6 format)
+ */
+function normalizeCriticalFailures(
+  raw: string[] | CriticalFailureDetail[] | undefined,
+  totalPenalty?: number
+): { failures: string[]; details: CriticalFailureDetail[]; totalPenalty: number } {
+  if (!raw || raw.length === 0) {
+    return { failures: [], details: [], totalPenalty: 0 };
+  }
+
+  // Check if it's the new detailed format
+  if (typeof raw[0] === 'object' && 'severity' in raw[0]) {
+    const details = raw as CriticalFailureDetail[];
+    const failures = details.map((d) => d.failure);
+    const calculatedPenalty = details.reduce((sum, d) => sum + (d.penalty || 0), 0);
+    return {
+      failures,
+      details,
+      totalPenalty: Math.max(totalPenalty ?? calculatedPenalty, -3.0), // Cap at -3.0
+    };
+  }
+
+  // Old string[] format - convert to empty details
+  const failures = raw as string[];
+  return {
+    failures,
+    details: failures.map((f) => ({
+      failure: f,
+      severity: 'major' as const,
+      penalty: -0.8,
+      evidence: 'See analysis',
+    })),
+    totalPenalty: totalPenalty ?? 0,
+  };
+}
+
+/**
  * Normalize film now assessment
  */
 function normalizeFilmNowAssessment(raw?: RawScreenplayAnalysis['analysis']['film_now_assessment']): FilmNowAssessment | null {
@@ -175,6 +214,12 @@ export function normalizeScreenplay(
   const isFilmNow = recommendation === 'film_now';
   const budgetCategory = extractBudgetCategory(analysis.budget_tier.category);
 
+  // Normalize critical failures
+  const criticalFailureData = normalizeCriticalFailures(
+    analysis.critical_failures,
+    analysis.critical_failure_total_penalty
+  );
+
   // Build the base screenplay object (without producer metrics and tmdbStatus first)
   const baseScreenplay: Omit<Screenplay, 'producerMetrics' | 'tmdbStatus'> = {
     id: generateId(raw.source_file),
@@ -203,7 +248,9 @@ export function normalizeScreenplay(
     dimensionScores: normalizeDimensionScores(analysis.dimension_scores),
     dimensionJustifications: extractDimensionJustifications(analysis.dimension_scores),
     commercialViability: normalizeCommercialViability(analysis.commercial_viability),
-    criticalFailures: analysis.critical_failures || [],
+    criticalFailures: criticalFailureData.failures,
+    criticalFailureDetails: criticalFailureData.details,
+    criticalFailureTotalPenalty: criticalFailureData.totalPenalty,
     majorWeaknesses: analysis.major_weaknesses || [],
     strengths: analysis.assessment.strengths || [],
     weaknesses: analysis.assessment.weaknesses || [],
@@ -384,7 +431,18 @@ export function normalizeV6Screenplay(
     dimensionScores,
     dimensionJustifications,
     commercialViability,
-    criticalFailures: coreQuality.critical_failures || [],
+    criticalFailures: normalizeCriticalFailures(
+      coreQuality.critical_failures,
+      coreQuality.critical_failure_total_penalty
+    ).failures,
+    criticalFailureDetails: normalizeCriticalFailures(
+      coreQuality.critical_failures,
+      coreQuality.critical_failure_total_penalty
+    ).details,
+    criticalFailureTotalPenalty: normalizeCriticalFailures(
+      coreQuality.critical_failures,
+      coreQuality.critical_failure_total_penalty
+    ).totalPenalty,
     majorWeaknesses: coreQuality.major_weaknesses || [],
     strengths: analysis.assessment?.strengths || [],
     weaknesses: analysis.assessment?.weaknesses || [],

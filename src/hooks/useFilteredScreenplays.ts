@@ -57,6 +57,14 @@ function passesFilters(screenplay: Screenplay, filters: FilterState): boolean {
     return false;
   }
 
+  // Categories (source of screenplay)
+  if (
+    filters.categories.length > 0 &&
+    !filters.categories.includes(screenplay.category || 'BLKLST')
+  ) {
+    return false;
+  }
+
   // Genres (OR logic - match any)
   if (filters.genres.length > 0) {
     const allGenres = [screenplay.genre, ...screenplay.subgenres];
@@ -292,6 +300,7 @@ export function useHasActiveFilters(): boolean {
     filters.recommendationTiers.length > 0 ||
     filters.budgetCategories.length > 0 ||
     filters.collections.length > 0 ||
+    filters.categories.length > 0 ||
     filters.genres.length > 0 ||
     filters.themes.length > 0 ||
     filters.weightedScoreRange.enabled ||

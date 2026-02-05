@@ -373,5 +373,6 @@
     "verdict_statement": "This submission is not a screenplay but rather the 2005 Black List - an industry compilation of unproduced scripts voted on by executives. It contains no narrative content, characters, dialogue, or filmable material of any kind.",
     "executive_summary": "Industry reference document mistakenly submitted instead of screenplay. Contains ranked list of unproduced 2005 scripts with no filmable content. Automatic pass - not a screenplay."
   },
-  "collection": "2005 Black List"
+  "collection": "2005 Black List",
+  "category": "BLKLST"
 }

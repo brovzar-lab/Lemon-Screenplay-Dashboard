@@ -11,9 +11,8 @@ This script:
 V6 Features:
 - TMDB Pre-screening (skip produced films)
 - Core Quality Score (execution-first, no market contamination)
-- Optional Lenses: LatAm, Commercial, Budget, Distribution, Co-Production
+- Optional Lenses: LatAm, Commercial, Production Readiness, Co-Production
 - False Positive Trap Detection
-- Configurable budget ceiling
 
 Usage:
     source .env && python3 execution/batch_process_v6.py
@@ -21,8 +20,8 @@ Usage:
     # With specific lenses
     source .env && python3 execution/batch_process_v6.py --lens latam --lens commercial
 
-    # With all lenses and custom budget ceiling
-    source .env && python3 execution/batch_process_v6.py --all-lenses --budget-ceiling 15
+    # With all lenses
+    source .env && python3 execution/batch_process_v6.py --all-lenses
 
     # Re-analyze all (skip cache)
     source .env && python3 execution/batch_process_v6.py --force
@@ -40,6 +39,20 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional, Tuple
 
+# ============================================
+# VERSION SAFEGUARD
+# ============================================
+# This batch processor ONLY calls V6 analysis.
+# Old versions (v3, v4, v5) have been archived to execution/archive/deprecated/
+
+ANALYSIS_SCRIPT = Path(__file__).parent / "analyze_screenplay_v6.py"
+if not ANALYSIS_SCRIPT.exists():
+    raise RuntimeError(
+        f"CRITICAL: {ANALYSIS_SCRIPT} not found.\n"
+        "This batch processor requires V6. Check that the file exists.\n"
+        "Do NOT use deprecated versions (v3/v4/v5) - they are archived."
+    )
+
 # Configuration
 SOURCE_FOLDERS = [
     ("/Users/Vertigo/My Drive/LEMON TOOLS/BLKLST/2005", "2005 Black List"),
@@ -53,8 +66,7 @@ LOG_FILE = Path(".tmp/batch_v6.log")
 
 # Default lenses for Lemon Productions (LatAm-focused company)
 # Full assessment includes all lenses for comprehensive production evaluation
-DEFAULT_LENSES = ["latam", "commercial", "budget", "production", "coproduction"]
-DEFAULT_BUDGET_CEILING = 30.0  # $30M
+DEFAULT_LENSES = ["latam", "commercial", "production", "coproduction"]
 
 # Year context for TMDB filtering - ignore films released before this year
 COLLECTION_YEAR_CONTEXT = {
@@ -155,7 +167,6 @@ def run_v6_analysis(
     parsed_path: Path,
     collection: str,
     lenses: List[str],
-    budget_ceiling: float,
     force: bool = False,
     skip_tmdb: bool = False
 ) -> Optional[Path]:
@@ -218,10 +229,6 @@ def run_v6_analysis(
         for lens in lenses:
             cmd.extend(["--lens", lens])
 
-        # Add budget ceiling if budget lens is enabled
-        if "budget" in lenses:
-            cmd.extend(["--budget-ceiling", str(budget_ceiling)])
-
         # Run V6 analysis
         result = subprocess.run(
             cmd,
@@ -279,19 +286,13 @@ def main():
         "--lens",
         action="append",
         dest="lenses",
-        choices=["latam", "commercial", "budget", "production", "coproduction"],
+        choices=["latam", "commercial", "production", "coproduction"],
         help="Enable specific lens (can be used multiple times)"
     )
     parser.add_argument(
         "--all-lenses",
         action="store_true",
         help="Enable all available lenses"
-    )
-    parser.add_argument(
-        "--budget-ceiling",
-        type=float,
-        default=DEFAULT_BUDGET_CEILING,
-        help=f"Budget ceiling in millions (default: {DEFAULT_BUDGET_CEILING}M)"
     )
     parser.add_argument(
         "--force",
@@ -315,7 +316,7 @@ def main():
     if args.core_only:
         lenses = []
     elif args.all_lenses:
-        lenses = ["latam", "commercial", "budget", "production", "coproduction"]
+        lenses = ["latam", "commercial", "production", "coproduction"]
     elif args.lenses:
         lenses = args.lenses
     else:
@@ -334,8 +335,6 @@ def main():
     log("BATCH V6 PROCESSING STARTED (Core + Lenses Architecture)")
     log("=" * 60)
     log(f"Lenses enabled: {lenses if lenses else 'None (Core Only)'}")
-    if "budget" in lenses:
-        log(f"Budget ceiling: ${args.budget_ceiling}M")
     log(f"Force re-analyze: {args.force}")
     log(f"TMDB pre-screening: {'Disabled' if args.skip_tmdb else 'Enabled'}")
     log("=" * 60)
@@ -371,7 +370,6 @@ def main():
                 parsed_path,
                 collection,
                 lenses,
-                args.budget_ceiling,
                 args.force,
                 args.skip_tmdb
             )

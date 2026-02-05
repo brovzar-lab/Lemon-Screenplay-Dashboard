@@ -25,6 +25,8 @@ interface FilterActions {
   setBudgetCategories: (categories: BudgetCategory[]) => void;
   toggleCollection: (collection: Collection) => void;
   setCollections: (collections: Collection[]) => void;
+  toggleCategory: (category: string) => void;
+  setCategories: (categories: string[]) => void;
   toggleGenre: (genre: string) => void;
   setGenres: (genres: string[]) => void;
   toggleTheme: (theme: string) => void;
@@ -105,6 +107,13 @@ export const useFilterStore = create<FilterStore>()(
           collections: toggleItem(state.collections, collection),
         })),
       setCollections: (collections) => set({ collections }),
+
+      // Categories
+      toggleCategory: (category) =>
+        set((state) => ({
+          categories: toggleItem(state.categories, category),
+        })),
+      setCategories: (categories) => set({ categories }),
 
       // Genres
       toggleGenre: (genre) =>
@@ -191,6 +200,7 @@ export const useFilterStore = create<FilterStore>()(
         recommendationTiers: state.recommendationTiers,
         budgetCategories: state.budgetCategories,
         collections: state.collections,
+        categories: state.categories,
         showFilmNowOnly: state.showFilmNowOnly,
         hidePassRated: state.hidePassRated,
         hideProduced: state.hideProduced,

@@ -359,5 +359,6 @@
     "verdict_statement": "This submission is not a screenplay but rather an industry reference document listing popular unproduced scripts from 2006. It contains no story, characters, or dramatic content that could be developed into a film.",
     "executive_summary": "Not a screenplay - industry reference document only. Contains no story content, characters, or dramatic elements. Cannot be produced as entertainment content. Automatic pass."
   },
-  "collection": "2006 Black List"
+  "collection": "2006 Black List",
+  "category": "BLKLST"
 }
