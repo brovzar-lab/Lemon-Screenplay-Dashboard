@@ -34,6 +34,8 @@ const STATUS_LABELS: Record<UploadStatus, { label: string; color: string }> = {
   error: { label: 'Error', color: 'text-red-400' },
 };
 
+const UPLOAD_PASSWORD = '1234';
+
 export function UploadPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCategory, setSelectedCategory] = useState('LEMON');
@@ -41,8 +43,23 @@ export function UploadPanel() {
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [categories] = useState(getAllCategories);
 
+  // Password protection state
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
   const { jobs, addJob, removeJob, clearCompleted, isProcessing } = useUploadStore();
   const { isConfigured, canMakeRequest } = useApiConfigStore();
+
+  const handlePasswordSubmit = () => {
+    if (passwordInput === UPLOAD_PASSWORD) {
+      setIsUnlocked(true);
+      setPasswordError('');
+    } else {
+      setPasswordError('Incorrect password');
+      setPasswordInput('');
+    }
+  };
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
@@ -72,6 +89,54 @@ export function UploadPanel() {
   const pendingJobs = jobs.filter((j) => j.status === 'pending');
   const activeJobs = jobs.filter((j) => j.status === 'parsing' || j.status === 'analyzing');
   const completedJobs = jobs.filter((j) => j.status === 'complete' || j.status === 'error');
+
+  // Password protection gate
+  if (!isUnlocked) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-xl font-display text-gold-200 mb-2">Upload Screenplays</h2>
+          <p className="text-sm text-black-400">
+            Upload PDF screenplays for AI analysis. Files will be parsed and analyzed using the V6 Core + Lenses system.
+          </p>
+        </div>
+
+        {/* Password Protection */}
+        <div className="p-8 rounded-xl bg-black-800/50 border border-black-700 text-center">
+          <div className="w-16 h-16 mx-auto rounded-full bg-gold-500/20 flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gold-200 mb-2">Protected Section</h3>
+          <p className="text-sm text-black-400 mb-6">Enter password to access the upload functionality</p>
+          <div className="max-w-xs mx-auto space-y-4">
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+              placeholder="Enter password"
+              className="input text-center w-full"
+              autoFocus
+            />
+            {passwordError && (
+              <p className="text-sm text-red-400">{passwordError}</p>
+            )}
+            <button
+              onClick={handlePasswordSubmit}
+              className="btn btn-primary w-full"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+              </svg>
+              Unlock Upload
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

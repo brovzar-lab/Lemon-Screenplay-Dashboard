@@ -3,21 +3,16 @@
  * Settings for backend API connection and budget controls
  */
 
-import { useState } from 'react';
 import { clsx } from 'clsx';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 
 export function ApiConfigPanel() {
   const {
-    apiKey,
     apiEndpoint,
-    isConfigured,
     monthlyBudgetLimit,
     dailyRequestLimit,
     currentMonthSpend,
     currentDayRequests,
-    setApiKey,
-    setApiEndpoint,
     setMonthlyBudgetLimit,
     setDailyRequestLimit,
     resetDailyCount,
@@ -25,10 +20,6 @@ export function ApiConfigPanel() {
     getBudgetRemaining,
     getDailyRequestsRemaining,
   } = useApiConfigStore();
-
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [testError, setTestError] = useState('');
 
   const budgetUsedPercent = monthlyBudgetLimit > 0
     ? Math.min(100, (currentMonthSpend / monthlyBudgetLimit) * 100)
@@ -38,132 +29,36 @@ export function ApiConfigPanel() {
     ? Math.min(100, (currentDayRequests / dailyRequestLimit) * 100)
     : 0;
 
-  const handleTestConnection = async () => {
-    if (!apiKey) {
-      setTestStatus('error');
-      setTestError('Please enter an API key first');
-      return;
-    }
-
-    setTestStatus('testing');
-    setTestError('');
-
-    try {
-      // Simple validation - just check if key format looks valid
-      // Real validation would require a backend proxy to avoid exposing the key
-      if (apiKey.startsWith('sk-ant-') && apiKey.length > 20) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
-        setTestStatus('success');
-      } else {
-        setTestStatus('error');
-        setTestError('API key format appears invalid. Keys should start with "sk-ant-"');
-      }
-    } catch {
-      setTestStatus('error');
-      setTestError('Connection test failed');
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* API Connection Section */}
       <div>
         <h3 className="text-lg font-display text-gold-200 mb-4">API Connection</h3>
 
-        {/* Connection Status */}
-        <div className={clsx(
-          'p-3 rounded-lg mb-4 flex items-center gap-3',
-          isConfigured ? 'bg-emerald-500/10 border border-emerald-500/30' : 'bg-amber-500/10 border border-amber-500/30'
-        )}>
-          <div className={clsx(
-            'w-3 h-3 rounded-full',
-            isConfigured ? 'bg-emerald-500' : 'bg-amber-500'
-          )} />
-          <span className={clsx(
-            'text-sm',
-            isConfigured ? 'text-emerald-300' : 'text-amber-300'
-          )}>
-            {isConfigured ? 'API Configured' : 'API Not Configured'}
-          </span>
-        </div>
-
-        {/* API Key Input */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-black-300 mb-2">
-            API Key
-          </label>
-          <div className="relative">
-            <input
-              type={showApiKey ? 'text' : 'password'}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-ant-..."
-              className="input pr-20"
-            />
-            <button
-              type="button"
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 text-xs text-black-400 hover:text-gold-400"
-            >
-              {showApiKey ? 'Hide' : 'Show'}
-            </button>
+        {/* Pre-configured Status */}
+        <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-emerald-300">API Pre-configured</p>
+              <p className="text-xs text-emerald-400/70">Anthropic API key is already set up and ready to use</p>
+            </div>
           </div>
-          <p className="text-xs text-black-500 mt-1">
-            Your Anthropic API key for screenplay analysis
-          </p>
         </div>
 
-        {/* API Endpoint */}
+        {/* API Endpoint (read-only display) */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-black-300 mb-2">
             API Endpoint
           </label>
-          <input
-            type="url"
-            value={apiEndpoint}
-            onChange={(e) => setApiEndpoint(e.target.value)}
-            placeholder="https://api.anthropic.com/v1/messages"
-            className="input"
-          />
-          <p className="text-xs text-black-500 mt-1">
-            Default: https://api.anthropic.com/v1/messages
-          </p>
+          <div className="px-4 py-3 rounded-lg bg-black-800/50 border border-black-700 text-sm text-black-300 font-mono">
+            {apiEndpoint}
+          </div>
         </div>
-
-        {/* Test Connection Button */}
-        <button
-          onClick={handleTestConnection}
-          disabled={testStatus === 'testing'}
-          className={clsx(
-            'btn text-sm',
-            testStatus === 'success' ? 'btn-primary bg-emerald-500 border-emerald-500' :
-            testStatus === 'error' ? 'btn-secondary border-red-500 text-red-400' :
-            'btn-secondary'
-          )}
-        >
-          {testStatus === 'testing' ? (
-            <>
-              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              Testing...
-            </>
-          ) : testStatus === 'success' ? (
-            <>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Connected!
-            </>
-          ) : (
-            'Test Connection'
-          )}
-        </button>
-
-        {testError && (
-          <p className="text-sm text-red-400 mt-2">{testError}</p>
-        )}
       </div>
 
       {/* Budget Controls Section */}

@@ -42,10 +42,10 @@ const getThisMonth = () => new Date().toISOString().slice(0, 7);
 export const useApiConfigStore = create<ApiConfig>()(
   persist(
     (set, get) => ({
-      // Initial state
-      apiKey: '',
+      // Initial state - API key loaded from environment variable
+      apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
       apiEndpoint: 'https://api.anthropic.com/v1/messages',
-      isConfigured: false,
+      isConfigured: Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY),
       monthlyBudgetLimit: 50, // $50 default
       dailyRequestLimit: 100,
       currentMonthSpend: 0,

@@ -319,7 +319,7 @@ function App() {
       {/* Footer */}
       <footer className="border-t border-gold-500/10 py-6">
         <div className="max-w-[1800px] mx-auto px-6 text-center text-sm text-black-500">
-          <p>Lemon Screenplay Dashboard v6.4 - Powered by V6 Core + Lenses AI Analysis</p>
+          <p>Lemon Screenplay Dashboard v6.5 - Powered by V6 Core + Lenses AI Analysis</p>
         </div>
       </footer>
 

@@ -41,17 +41,7 @@ export function Header() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-4">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 200 120"
-              className="w-12 h-8 text-gold-400"
-            >
-              <path
-                fill="currentColor"
-                fillRule="evenodd"
-                d="M184,9 L174,19 L179,26 L167,23 L148,33 L145,44 L165,50 L159,77 L178,78 L178,85 L186,78 L194,94 L177,91 L174,100 L168,94 L160,107 L138,105 L127,93 L123,104 L113,90 L87,84 L93,76 L84,71 L76,77 L69,68 L62,74 L43,63 L48,55 L41,52 L25,55 L13,41 L19,35 L8,28 L16,19 L9,14 L21,8 L30,16 L40,5 L44,19 L65,11 L67,21 L84,11 L98,23 L104,16 L119,25 L136,16 L149,27 L158,17 L170,19 L184,9 Z"
-              />
-            </svg>
+            <span className="text-3xl" role="img" aria-label="Lemon">🍋</span>
             <h1 className="text-2xl font-display m-0">
               <span className="text-gradient-gold font-bold tracking-tight">LEMON</span>
               <span className="text-black-200 font-light ml-2">Screenplay Dashboard</span>
