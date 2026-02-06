@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { notifyCategoriesUpdated } from '@/hooks/useCategories';
 
 interface Category {
   id: string;
@@ -45,6 +46,8 @@ export function CategoryManagement() {
   // Save custom categories to localStorage when they change
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(customCategories));
+    // Notify other components that categories have changed
+    notifyCategoriesUpdated();
   }, [customCategories]);
 
   const allCategories = [...DEFAULT_CATEGORIES, ...customCategories];

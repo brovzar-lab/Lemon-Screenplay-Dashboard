@@ -7,3 +7,4 @@ export { AppearanceSettings } from './AppearanceSettings';
 export { FavoritesPanel } from './FavoritesPanel';
 export { DataManagement } from './DataManagement';
 export { CategoryManagement } from './CategoryManagement';
+export { ApiConfigPanel } from './ApiConfigPanel';

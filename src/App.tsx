@@ -9,10 +9,11 @@ import { ScreenplayGrid, ScreenplayModal } from '@/components/screenplay';
 import { FilterPanel, AdvancedSortPanel, CollectionTabs } from '@/components/filters';
 import { ComparisonBar, ComparisonModal } from '@/components/comparison';
 import { ExportModal } from '@/components/export';
+import { ShareModal } from '@/components/share';
 import { AnalyticsDashboard } from '@/components/charts';
 import { useFilteredScreenplays, useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import { useScreenplays } from '@/hooks/useScreenplays';
-import { useUrlState, copyShareableUrl } from '@/hooks/useUrlState';
+import { useUrlState, buildShareableUrl } from '@/hooks/useUrlState';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
@@ -38,9 +39,6 @@ function App() {
   // URL state sync - loads filters from URL on mount
   useUrlState();
 
-  // Copy link feedback
-  const [copyFeedback, setCopyFeedback] = useState<'idle' | 'copied' | 'error'>('idle');
-
   // Filter store
   const searchQuery = useFilterStore((s) => s.searchQuery);
   const setSearchQuery = useFilterStore((s) => s.setSearchQuery);
@@ -65,6 +63,7 @@ function App() {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [isSortPanelOpen, setIsSortPanelOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   const handleCardClick = (screenplay: Screenplay) => {
     setSelectedScreenplay(screenplay);
@@ -245,29 +244,16 @@ function App() {
                 Filters
               </button>
 
-              {/* Share Link Button */}
+              {/* Share Button */}
               <button
-                onClick={async () => {
-                  const success = await copyShareableUrl();
-                  setCopyFeedback(success ? 'copied' : 'error');
-                  setTimeout(() => setCopyFeedback('idle'), 2000);
-                }}
-                className={`btn text-sm ${
-                  copyFeedback === 'copied'
-                    ? 'btn-primary bg-emerald-500 border-emerald-500'
-                    : 'btn-secondary'
-                }`}
-                title="Copy shareable link"
-                disabled={!hasActiveFilters}
+                onClick={() => setIsShareModalOpen(true)}
+                className="btn btn-secondary text-sm"
+                title="Share dashboard"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  {copyFeedback === 'copied' ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                  )}
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
-                {copyFeedback === 'copied' ? 'Copied!' : 'Share'}
+                Share
               </button>
 
               {/* Export Button */}
@@ -333,7 +319,7 @@ function App() {
       {/* Footer */}
       <footer className="border-t border-gold-500/10 py-6">
         <div className="max-w-[1800px] mx-auto px-6 text-center text-sm text-black-500">
-          <p>Lemon Screenplay Dashboard v6.3 - Powered by V6 Core + Lenses AI Analysis</p>
+          <p>Lemon Screenplay Dashboard v6.4 - Powered by V6 Core + Lenses AI Analysis</p>
         </div>
       </footer>
 
@@ -368,6 +354,13 @@ function App() {
         onClose={() => setIsExportModalOpen(false)}
         screenplays={screenplays}
         mode={hasActiveFilters ? 'filtered' : 'multiple'}
+      />
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        shareableUrl={buildShareableUrl()}
       />
     </div>
   );

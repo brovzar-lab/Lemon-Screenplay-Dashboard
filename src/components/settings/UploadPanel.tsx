@@ -1,13 +1,30 @@
 /**
  * Upload Panel
- * File/folder selection, category assignment, upload queue
+ * File/folder selection, category assignment, upload queue, API configuration
  */
 
 import { useState, useRef } from 'react';
 import { clsx } from 'clsx';
 import { useUploadStore, type UploadJob, type UploadStatus } from '@/stores/uploadStore';
+import { useApiConfigStore } from '@/stores/apiConfigStore';
+import { ApiConfigPanel } from './ApiConfigPanel';
 
-const AVAILABLE_CATEGORIES = ['BLKLST', 'LEMON', 'SUBMISSION', 'CONTEST', 'OTHER'];
+// Default categories - will be merged with custom categories
+const DEFAULT_CATEGORIES = ['BLKLST', 'LEMON', 'SUBMISSION', 'CONTEST', 'OTHER'];
+
+// Get all categories including custom ones from localStorage
+function getAllCategories(): string[] {
+  const stored = localStorage.getItem('lemon-custom-categories');
+  if (stored) {
+    try {
+      const custom = JSON.parse(stored) as { id: string }[];
+      return [...DEFAULT_CATEGORIES, ...custom.map(c => c.id)];
+    } catch {
+      return DEFAULT_CATEGORIES;
+    }
+  }
+  return DEFAULT_CATEGORIES;
+}
 
 const STATUS_LABELS: Record<UploadStatus, { label: string; color: string }> = {
   pending: { label: 'Pending', color: 'text-black-400' },
@@ -21,8 +38,11 @@ export function UploadPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCategory, setSelectedCategory] = useState('LEMON');
   const [dragActive, setDragActive] = useState(false);
+  const [showApiConfig, setShowApiConfig] = useState(false);
+  const [categories] = useState(getAllCategories);
 
   const { jobs, addJob, removeJob, clearCompleted, isProcessing } = useUploadStore();
+  const { isConfigured, canMakeRequest } = useApiConfigStore();
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
@@ -62,13 +82,50 @@ export function UploadPanel() {
         </p>
       </div>
 
+      {/* API Configuration Toggle */}
+      <div className="border border-black-700 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setShowApiConfig(!showApiConfig)}
+          className="w-full flex items-center justify-between p-4 bg-black-800/50 hover:bg-black-800 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <div className="text-left">
+              <span className="font-medium text-gold-200">API Configuration</span>
+              <span className={clsx(
+                'ml-2 text-xs px-2 py-0.5 rounded-full',
+                isConfigured ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+              )}>
+                {isConfigured ? 'Configured' : 'Not Configured'}
+              </span>
+            </div>
+          </div>
+          <svg
+            className={clsx('w-5 h-5 text-black-400 transition-transform', showApiConfig && 'rotate-180')}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {showApiConfig && (
+          <div className="p-4 border-t border-black-700">
+            <ApiConfigPanel />
+          </div>
+        )}
+      </div>
+
       {/* Category Selection */}
       <div>
         <label className="block text-sm font-medium text-gold-300 mb-2">
           Assign Category
         </label>
         <div className="flex flex-wrap gap-2">
-          {AVAILABLE_CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
@@ -156,15 +213,38 @@ export function UploadPanel() {
 
           {/* Start Processing Button */}
           {pendingJobs.length > 0 && !isProcessing && (
-            <button
-              onClick={() => {
-                // Note: Actual processing would require backend integration
-                alert('Backend processing not yet configured. Run the analysis manually using:\n\npython execution/batch_process_v6.py');
-              }}
-              className="btn btn-primary w-full"
-            >
-              Start Analysis ({pendingJobs.length} files)
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  if (!isConfigured) {
+                    setShowApiConfig(true);
+                    return;
+                  }
+                  if (!canMakeRequest()) {
+                    alert('Cannot process: Budget limit reached or daily request limit exceeded. Check API Configuration.');
+                    return;
+                  }
+                  // Note: Actual processing would call the API
+                  alert('API processing will start. This feature requires backend integration.');
+                }}
+                disabled={!isConfigured}
+                className={clsx(
+                  'btn w-full',
+                  isConfigured ? 'btn-primary' : 'btn-secondary opacity-70'
+                )}
+              >
+                {isConfigured ? (
+                  `Start Analysis (${pendingJobs.length} files)`
+                ) : (
+                  'Configure API to Start Analysis'
+                )}
+              </button>
+              {!isConfigured && (
+                <p className="text-xs text-amber-400 text-center">
+                  Click "API Configuration" above to set up your API key and budget limits
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}
