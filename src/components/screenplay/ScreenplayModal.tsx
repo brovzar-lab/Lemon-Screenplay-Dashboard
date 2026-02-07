@@ -6,11 +6,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
-import { CVS_CONFIG, RECOMMENDATION_CONFIG, BUDGET_TIERS } from '@/types';
-import { getScoreColorClass, getScoreBarFillClass } from '@/lib/calculations';
+import { CVS_CONFIG, BUDGET_TIERS } from '@/types';
+import { getScoreColorClass } from '@/lib/calculations';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import { toNumber } from '@/lib/utils';
 import { useNotesStore, useScreenplayNotes } from '@/stores/notesStore';
 import type { ScreenplayWithV6 } from '@/lib/normalize';
+import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
+import { ScoreBar } from '@/components/ui/ScoreBar';
 
 /**
  * Type guard to check if screenplay has V6 fields
@@ -25,80 +28,6 @@ interface ScreenplayModalProps {
   onClose: () => void;
 }
 
-/**
- * Safely convert to number
- */
-function toNum(value: unknown, defaultValue = 0): number {
-  if (typeof value === 'number' && !isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return isNaN(parsed) ? defaultValue : parsed;
-  }
-  return defaultValue;
-}
-
-/**
- * Score bar with label and value
- */
-function ScoreBar({
-  label,
-  score,
-  max = 10,
-  showJustification,
-  justification
-}: {
-  label: string;
-  score: number;
-  max?: number;
-  showJustification?: boolean;
-  justification?: string;
-}) {
-  const safeScore = toNum(score);
-  const percentage = (safeScore / max) * 100;
-  const colorClass = getScoreBarFillClass(safeScore, max);
-
-  return (
-    <div className="space-y-1">
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-black-300">{label}</span>
-        <span className={clsx('text-sm font-mono font-bold', getScoreColorClass(safeScore, max))}>
-          {safeScore.toFixed(1)}/{max}
-        </span>
-      </div>
-      <div className="score-bar h-2">
-        <div
-          className={clsx('score-bar-fill', colorClass)}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-      {showJustification && justification && (
-        <p className="text-xs text-black-500 mt-1 italic">{justification}</p>
-      )}
-    </div>
-  );
-}
-
-/**
- * Recommendation badge with full styling
- */
-function RecommendationBadge({ tier, large = false }: { tier: Screenplay['recommendation']; large?: boolean }) {
-  const config = RECOMMENDATION_CONFIG[tier];
-
-  return (
-    <span
-      className={clsx(
-        'inline-flex items-center justify-center font-bold uppercase tracking-wider rounded-lg',
-        large ? 'px-6 py-3 text-lg' : 'px-4 py-2 text-sm',
-        tier === 'film_now' && 'badge-film-now animate-pulse-glow',
-        tier === 'recommend' && 'badge-recommend',
-        tier === 'consider' && 'badge-consider',
-        tier === 'pass' && 'badge-pass'
-      )}
-    >
-      {config.label}
-    </span>
-  );
-}
 
 /**
  * CVS Factor display
@@ -347,7 +276,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
               </div>
             </div>
             <div className="flex flex-col items-end gap-3">
-              <RecommendationBadge tier={screenplay.recommendation} large />
+              <RecommendationBadge tier={screenplay.recommendation} size="lg" />
               <div className="flex items-center gap-2">
                 {/* Download PDF Button */}
                 <button
@@ -517,9 +446,9 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
                     <span className="text-lg font-medium text-gold-200">Weighted Score</span>
                     <span className={clsx(
                       'text-2xl font-mono font-bold',
-                      getScoreColorClass(toNum(screenplay.weightedScore))
+                      getScoreColorClass(toNumber(screenplay.weightedScore))
                     )}>
-                      {toNum(screenplay.weightedScore).toFixed(2)}
+                      {toNumber(screenplay.weightedScore).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -550,9 +479,9 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
                       <span className="text-lg font-medium text-gold-200">CVS Total</span>
                       <span className={clsx(
                         'text-2xl font-mono font-bold',
-                        getScoreColorClass(toNum(screenplay.cvsTotal), 18)
+                        getScoreColorClass(toNumber(screenplay.cvsTotal), 18)
                       )}>
-                        {toNum(screenplay.cvsTotal)}/18
+                        {toNumber(screenplay.cvsTotal)}/18
                       </span>
                     </div>
                   </div>
@@ -571,8 +500,8 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="p-4 rounded-lg bg-black-900/50 text-center">
                   <div className="text-xs text-black-500 mb-1">Market Potential</div>
-                  <div className={clsx('text-2xl font-mono font-bold', getScoreColorClass(toNum(screenplay.producerMetrics.marketPotential)))}>
-                    {toNum(screenplay.producerMetrics.marketPotential)}/10
+                  <div className={clsx('text-2xl font-mono font-bold', getScoreColorClass(toNumber(screenplay.producerMetrics.marketPotential)))}>
+                    {toNumber(screenplay.producerMetrics.marketPotential)}/10
                   </div>
                 </div>
                 <div className="p-4 rounded-lg bg-black-900/50 text-center">
@@ -588,21 +517,21 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
                 </div>
                 <div className="p-4 rounded-lg bg-black-900/50 text-center">
                   <div className="text-xs text-black-500 mb-1">Star Vehicle</div>
-                  <div className={clsx('text-2xl font-mono font-bold', getScoreColorClass(toNum(screenplay.producerMetrics.starVehiclePotential)))}>
-                    {toNum(screenplay.producerMetrics.starVehiclePotential)}/10
+                  <div className={clsx('text-2xl font-mono font-bold', getScoreColorClass(toNumber(screenplay.producerMetrics.starVehiclePotential)))}>
+                    {toNumber(screenplay.producerMetrics.starVehiclePotential)}/10
                   </div>
                 </div>
                 <div className="p-4 rounded-lg bg-black-900/50 text-center">
                   <div className="text-xs text-black-500 mb-1">Festival Appeal</div>
-                  <div className={clsx('text-2xl font-mono font-bold', getScoreColorClass(toNum(screenplay.producerMetrics.festivalAppeal)))}>
-                    {toNum(screenplay.producerMetrics.festivalAppeal)}/10
+                  <div className={clsx('text-2xl font-mono font-bold', getScoreColorClass(toNumber(screenplay.producerMetrics.festivalAppeal)))}>
+                    {toNumber(screenplay.producerMetrics.festivalAppeal)}/10
                   </div>
                 </div>
                 <div className="p-4 rounded-lg bg-black-900/50 text-center">
                   <div className="text-xs text-black-500 mb-1">ROI Indicator</div>
                   <div className="text-xl text-gold-400">
-                    {'★'.repeat(Math.min(5, Math.max(0, Math.floor(toNum(screenplay.producerMetrics.roiIndicator, 3)))))}
-                    {'☆'.repeat(Math.max(0, 5 - Math.floor(toNum(screenplay.producerMetrics.roiIndicator, 3))))}
+                    {'★'.repeat(Math.min(5, Math.max(0, Math.floor(toNumber(screenplay.producerMetrics.roiIndicator, 3)))))}
+                    {'☆'.repeat(Math.max(0, 5 - Math.floor(toNumber(screenplay.producerMetrics.roiIndicator, 3))))}
                   </div>
                 </div>
                 <div className="p-4 rounded-lg bg-black-900/50 text-center">

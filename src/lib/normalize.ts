@@ -27,6 +27,7 @@ import type {
 import { mapV6VerdictToTier } from '@/types/screenplay-v6';
 
 import { calculateProducerMetrics } from './calculations';
+import { toNumber } from './utils';
 
 /**
  * Generate a unique ID from filename
@@ -67,18 +68,6 @@ function extractBudgetCategory(rawCategory: string): BudgetCategory {
   if (lower.includes('medium') || lower.includes('mid')) return 'medium';
   if (lower.includes('high')) return 'high';
   return 'unknown';
-}
-
-/**
- * Safely convert a value to a number
- */
-function toNumber(value: unknown, defaultValue = 0): number {
-  if (typeof value === 'number' && !isNaN(value)) return value;
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return isNaN(parsed) ? defaultValue : parsed;
-  }
-  return defaultValue;
 }
 
 /**

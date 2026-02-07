@@ -5,63 +5,16 @@
 
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
-import { RECOMMENDATION_CONFIG } from '@/types';
-import { getScoreColorClass, getScoreBarFillClass } from '@/lib/calculations';
+import { getScoreColorClass } from '@/lib/calculations';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { useComparisonStore, useIsSelectedForComparison, useIsComparisonFull } from '@/stores/comparisonStore';
 import { ProductionBadge } from './ProductionBadge';
+import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
+import { ScoreBar } from '@/components/ui/ScoreBar';
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
   onClick?: () => void;
-}
-
-/**
- * Score bar component for dimension scores
- */
-function ScoreBar({ score, label }: { score: number; label: string }) {
-  // Defensive: ensure score is a valid number
-  const safeScore = typeof score === 'number' && !isNaN(score) ? score : 0;
-  const percentage = (safeScore / 10) * 100;
-  const colorClass = getScoreBarFillClass(safeScore);
-
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex justify-between items-center">
-        <span className="text-xs text-black-400">{label}</span>
-        <span className={clsx('text-xs font-mono font-bold', getScoreColorClass(safeScore))}>
-          {safeScore.toFixed(1)}
-        </span>
-      </div>
-      <div className="score-bar">
-        <div
-          className={clsx('score-bar-fill', colorClass)}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-/**
- * Recommendation badge
- */
-function RecommendationBadge({ tier }: { tier: Screenplay['recommendation'] }) {
-  const config = RECOMMENDATION_CONFIG[tier];
-
-  return (
-    <span
-      className={clsx(
-        'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide',
-        tier === 'film_now' && 'badge-film-now animate-pulse-glow',
-        tier === 'recommend' && 'badge-recommend',
-        tier === 'consider' && 'badge-consider',
-        tier === 'pass' && 'badge-pass'
-      )}
-    >
-      {config.label}
-    </span>
-  );
 }
 
 /**
@@ -179,6 +132,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
             key={dim.key}
             score={dim.score}
             label={dim.label}
+            compact
           />
         ))}
       </div>
