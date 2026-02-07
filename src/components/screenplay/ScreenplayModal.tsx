@@ -523,10 +523,13 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
             </div>
           </div>
 
-          {/* Producer Metrics */}
+          {/* Producer Metrics — dashboard heuristics, not AI-assessed */}
           {screenplay.producerMetrics && (
-            <div>
-              <SectionHeader icon="🎬">Producer Metrics</SectionHeader>
+            <div className="border border-dashed border-black-600 rounded-xl p-5">
+              <SectionHeader icon="🎬">Dashboard Estimates</SectionHeader>
+              <p className="text-xs text-black-500 -mt-3 mb-4">
+                Computed from genre, budget, and score heuristics — not part of the AI analysis.
+              </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="p-4 rounded-lg bg-black-900/50 text-center">
                   <div className="text-xs text-black-500 mb-1">Market Potential</div>

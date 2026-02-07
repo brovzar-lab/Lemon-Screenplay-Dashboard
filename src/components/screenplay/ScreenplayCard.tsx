@@ -65,7 +65,7 @@ function RecommendationBadge({ tier }: { tier: Screenplay['recommendation'] }) {
 }
 
 /**
- * Producer metrics mini display
+ * Producer metrics mini display (dashboard heuristics, not AI-assessed)
  */
 function ProducerMetricsMini({ screenplay }: { screenplay: Screenplay }) {
   // Defensive: ensure producerMetrics exists and has valid values
@@ -82,21 +82,21 @@ function ProducerMetricsMini({ screenplay }: { screenplay: Screenplay }) {
 
   return (
     <div className="flex gap-4 text-xs">
-      <div className="flex items-center gap-1">
-        <span className="text-black-500">Market</span>
+      <div className="flex items-center gap-1" title="Dashboard estimate — not AI-assessed">
+        <span className="text-black-500">Mkt<span className="text-black-600"> est.</span></span>
         <span className={clsx('font-mono font-bold', getScoreColorClass(marketPotential))}>
           {marketPotential}
         </span>
       </div>
-      <div className="flex items-center gap-1">
-        <span className="text-black-500">ROI</span>
+      <div className="flex items-center gap-1" title="Dashboard estimate — not AI-assessed">
+        <span className="text-black-500">ROI<span className="text-black-600"> est.</span></span>
         <span className="text-gold-400">
           {'★'.repeat(roiIndicator)}
           {'☆'.repeat(5 - roiIndicator)}
         </span>
       </div>
-      <div className="flex items-center gap-1">
-        <span className="text-black-500">Festival</span>
+      <div className="flex items-center gap-1" title="Dashboard estimate — not AI-assessed">
+        <span className="text-black-500">Fest.<span className="text-black-600"> est.</span></span>
         <span className={clsx('font-mono font-bold', getScoreColorClass(festivalAppeal))}>
           {festivalAppeal}
         </span>
