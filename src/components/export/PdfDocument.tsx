@@ -11,6 +11,7 @@ import {
   StyleSheet,
 } from '@react-pdf/renderer';
 import type { Screenplay } from '@/types';
+import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 
 // PDF Styles
 const styles = StyleSheet.create({
@@ -361,15 +362,7 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Dimension Scores</Text>
           <View style={styles.scoreGrid}>
-            {[
-              { key: 'concept', label: 'Concept', score: screenplay.dimensionScores.concept },
-              { key: 'structure', label: 'Structure', score: screenplay.dimensionScores.structure },
-              { key: 'protagonist', label: 'Protagonist', score: screenplay.dimensionScores.protagonist },
-              { key: 'supportingCast', label: 'Supporting Cast', score: screenplay.dimensionScores.supportingCast },
-              { key: 'dialogue', label: 'Dialogue', score: screenplay.dimensionScores.dialogue },
-              { key: 'genreExecution', label: 'Genre Execution', score: screenplay.dimensionScores.genreExecution },
-              { key: 'originality', label: 'Originality', score: screenplay.dimensionScores.originality },
-            ].map((dim) => (
+            {getDimensionDisplay(screenplay).map((dim) => (
               <View key={dim.key} style={styles.scoreItem}>
                 <Text style={styles.scoreLabel}>{dim.label}</Text>
                 <Text style={[styles.scoreValue, { color: getScoreColor(dim.score) }]}>

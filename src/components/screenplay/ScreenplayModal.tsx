@@ -6,8 +6,9 @@
 import { useEffect, useRef } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
-import { DIMENSION_CONFIG, CVS_CONFIG, RECOMMENDATION_CONFIG, BUDGET_TIERS } from '@/types';
+import { CVS_CONFIG, RECOMMENDATION_CONFIG, BUDGET_TIERS } from '@/types';
 import { getScoreColorClass, getScoreBarFillClass } from '@/lib/calculations';
+import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { useNotesStore } from '@/stores/notesStore';
 import type { ScreenplayWithV6 } from '@/lib/normalize';
 
@@ -464,13 +465,13 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
             <div>
               <SectionHeader icon="📊">Dimension Scores</SectionHeader>
               <div className="space-y-4">
-                {DIMENSION_CONFIG.map(({ key, label, weight }) => (
+                {getDimensionDisplay(screenplay).map((dim) => (
                   <ScoreBar
-                    key={key}
-                    label={`${label} (${Math.round(weight * 100)}%)`}
-                    score={screenplay.dimensionScores[key]}
+                    key={dim.key}
+                    label={`${dim.label} (${Math.round(dim.weight * 100)}%)`}
+                    score={dim.score}
                     showJustification
-                    justification={screenplay.dimensionJustifications[key]}
+                    justification={dim.justification}
                   />
                 ))}
                 <div className="pt-4 border-t border-black-700">

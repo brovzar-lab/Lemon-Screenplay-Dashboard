@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
+import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 
 export function DataManagement() {
   const { data: screenplays = [] } = useScreenplays();
@@ -54,6 +55,12 @@ export function DataManagement() {
 
   const handleExportCSV = () => {
     try {
+      // Use the first screenplay to determine dimension column headers
+      const sampleDims = screenplays.length > 0
+        ? getDimensionDisplay(screenplays[0])
+        : [];
+      const dimHeaders = sampleDims.map((d) => d.label);
+
       const headers = [
         'Title',
         'Author',
@@ -61,13 +68,7 @@ export function DataManagement() {
         'Recommendation',
         'Weighted Score',
         'CVS Total',
-        'Concept',
-        'Structure',
-        'Protagonist',
-        'Supporting Cast',
-        'Dialogue',
-        'Genre Execution',
-        'Originality',
+        ...dimHeaders,
         'Market Potential',
         'Star Vehicle Potential',
         'Festival Appeal',
@@ -75,26 +76,23 @@ export function DataManagement() {
         'Category',
       ];
 
-      const rows = screenplays.map((sp) => [
-        `"${sp.title.replace(/"/g, '""')}"`,
-        `"${sp.author.replace(/"/g, '""')}"`,
-        `"${sp.genre}"`,
-        sp.recommendation,
-        sp.weightedScore.toFixed(2),
-        sp.cvsTotal.toFixed(0),
-        sp.dimensionScores.concept.toFixed(1),
-        sp.dimensionScores.structure.toFixed(1),
-        sp.dimensionScores.protagonist.toFixed(1),
-        sp.dimensionScores.supportingCast.toFixed(1),
-        sp.dimensionScores.dialogue.toFixed(1),
-        sp.dimensionScores.genreExecution.toFixed(1),
-        sp.dimensionScores.originality.toFixed(1),
-        sp.producerMetrics.marketPotential.toFixed(1),
-        sp.producerMetrics.starVehiclePotential.toFixed(1),
-        sp.producerMetrics.festivalAppeal.toFixed(1),
-        sp.producerMetrics.roiIndicator.toFixed(1),
-        sp.category || 'BLKLST',
-      ]);
+      const rows = screenplays.map((sp) => {
+        const dims = getDimensionDisplay(sp);
+        return [
+          `"${sp.title.replace(/"/g, '""')}"`,
+          `"${sp.author.replace(/"/g, '""')}"`,
+          `"${sp.genre}"`,
+          sp.recommendation,
+          sp.weightedScore.toFixed(2),
+          sp.cvsTotal.toFixed(0),
+          ...dims.map((d) => d.score.toFixed(1)),
+          sp.producerMetrics.marketPotential.toFixed(1),
+          sp.producerMetrics.starVehiclePotential.toFixed(1),
+          sp.producerMetrics.festivalAppeal.toFixed(1),
+          sp.producerMetrics.roiIndicator.toFixed(1),
+          sp.category || 'BLKLST',
+        ];
+      });
 
       const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
 

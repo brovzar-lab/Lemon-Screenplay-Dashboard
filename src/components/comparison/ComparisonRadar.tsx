@@ -13,6 +13,7 @@ import {
   Tooltip,
 } from 'recharts';
 import type { Screenplay } from '@/types';
+import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 
 interface ComparisonRadarProps {
   screenplays: Screenplay[];
@@ -27,44 +28,15 @@ const COLORS = [
 ];
 
 export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps) {
-  // Transform data for Recharts radar
-  const radarData = [
-    {
-      dimension: 'Concept',
-      fullMark: 10,
-      ...Object.fromEntries(screenplays.map((sp) => [sp.id, sp.dimensionScores.concept])),
-    },
-    {
-      dimension: 'Structure',
-      fullMark: 10,
-      ...Object.fromEntries(screenplays.map((sp) => [sp.id, sp.dimensionScores.structure])),
-    },
-    {
-      dimension: 'Protagonist',
-      fullMark: 10,
-      ...Object.fromEntries(screenplays.map((sp) => [sp.id, sp.dimensionScores.protagonist])),
-    },
-    {
-      dimension: 'Supporting',
-      fullMark: 10,
-      ...Object.fromEntries(screenplays.map((sp) => [sp.id, sp.dimensionScores.supportingCast])),
-    },
-    {
-      dimension: 'Dialogue',
-      fullMark: 10,
-      ...Object.fromEntries(screenplays.map((sp) => [sp.id, sp.dimensionScores.dialogue])),
-    },
-    {
-      dimension: 'Genre Exec',
-      fullMark: 10,
-      ...Object.fromEntries(screenplays.map((sp) => [sp.id, sp.dimensionScores.genreExecution])),
-    },
-    {
-      dimension: 'Originality',
-      fullMark: 10,
-      ...Object.fromEntries(screenplays.map((sp) => [sp.id, sp.dimensionScores.originality])),
-    },
-  ];
+  // Transform data for Recharts radar — uses version-appropriate dimensions
+  const referenceDimensions = getDimensionDisplay(screenplays[0]);
+  const radarData = referenceDimensions.map((dim, idx) => ({
+    dimension: dim.label.length > 12 ? dim.label.slice(0, 12) + '.' : dim.label,
+    fullMark: 10,
+    ...Object.fromEntries(
+      screenplays.map((sp) => [sp.id, getDimensionDisplay(sp)[idx]?.score ?? 0])
+    ),
+  }));
 
   // Custom tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -222,23 +194,15 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
             </tr>
           </thead>
           <tbody>
-            {[
-              { key: 'concept', label: 'Concept' },
-              { key: 'structure', label: 'Structure' },
-              { key: 'protagonist', label: 'Protagonist' },
-              { key: 'supportingCast', label: 'Supporting Cast' },
-              { key: 'dialogue', label: 'Dialogue' },
-              { key: 'genreExecution', label: 'Genre Execution' },
-              { key: 'originality', label: 'Originality' },
-            ].map(({ key, label }) => {
-              const scores = screenplays.map((sp) => sp.dimensionScores[key as keyof typeof sp.dimensionScores]);
+            {referenceDimensions.map((dim, idx) => {
+              const scores = screenplays.map((sp) => getDimensionDisplay(sp)[idx]?.score ?? 0);
               const maxScore = Math.max(...scores);
               const winnerIndex = scores.indexOf(maxScore);
               const isTie = scores.filter((s) => s === maxScore).length > 1;
 
               return (
-                <tr key={key} className="border-t border-black-800">
-                  <td className="px-4 py-3 text-black-300">{label}</td>
+                <tr key={dim.key} className="border-t border-black-800">
+                  <td className="px-4 py-3 text-black-300">{dim.label}</td>
                   {scores.map((score, index) => (
                     <td
                       key={screenplays[index].id}

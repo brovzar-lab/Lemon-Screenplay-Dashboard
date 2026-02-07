@@ -5,6 +5,7 @@
 
 import Papa from 'papaparse';
 import type { Screenplay } from '@/types';
+import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 
 /**
  * Convert screenplays to CSV and trigger download
@@ -31,14 +32,10 @@ export function exportToCSV(screenplays: Screenplay[], filename: string = 'scree
     'Weighted Score': sp.weightedScore.toFixed(2),
     'CVS Total': sp.cvsTotal,
 
-    // Dimension Scores
-    'Concept Score': sp.dimensionScores.concept,
-    'Structure Score': sp.dimensionScores.structure,
-    'Protagonist Score': sp.dimensionScores.protagonist,
-    'Supporting Cast Score': sp.dimensionScores.supportingCast,
-    'Dialogue Score': sp.dimensionScores.dialogue,
-    'Genre Execution Score': sp.dimensionScores.genreExecution,
-    'Originality Score': sp.dimensionScores.originality,
+    // Dimension Scores (version-appropriate labels)
+    ...Object.fromEntries(
+      getDimensionDisplay(sp).map((dim) => [`${dim.label} Score`, dim.score])
+    ),
 
     // CVS Factors
     'CVS Assessed': sp.commercialViability.cvsAssessed !== false ? 'Yes' : 'No',

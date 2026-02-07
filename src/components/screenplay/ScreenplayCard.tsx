@@ -5,8 +5,9 @@
 
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
-import { RECOMMENDATION_CONFIG, DIMENSION_CONFIG } from '@/types';
+import { RECOMMENDATION_CONFIG } from '@/types';
 import { getScoreColorClass, getScoreBarFillClass } from '@/lib/calculations';
+import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { useComparisonStore, useIsSelectedForComparison, useIsComparisonFull } from '@/stores/comparisonStore';
 import { ProductionBadge } from './ProductionBadge';
 
@@ -173,11 +174,11 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
 
       {/* Scores Grid */}
       <div className="grid grid-cols-2 gap-3 mb-4">
-        {DIMENSION_CONFIG.slice(0, 4).map(({ key, label }) => (
+        {getDimensionDisplay(screenplay).slice(0, 4).map((dim) => (
           <ScoreBar
-            key={key}
-            score={screenplay.dimensionScores[key]}
-            label={label}
+            key={dim.key}
+            score={dim.score}
+            label={dim.label}
           />
         ))}
       </div>

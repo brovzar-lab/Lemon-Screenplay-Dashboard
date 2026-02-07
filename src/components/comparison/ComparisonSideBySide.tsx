@@ -5,7 +5,7 @@
 
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
-import { DIMENSION_CONFIG } from '@/types/screenplay';
+import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 
 interface ComparisonSideBySideProps {
   screenplays: Screenplay[];
@@ -101,15 +101,15 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
           />
         </div>
 
-        {/* Dimension Scores Section */}
+        {/* Dimension Scores Section — uses version-appropriate labels */}
         <div className="mb-6">
           <h4 className="text-sm font-medium text-gold-400 mb-3">Dimension Scores</h4>
 
-          {DIMENSION_CONFIG.map(({ key, label }) => (
+          {getDimensionDisplay(screenplays[0]).map((dim, idx) => (
             <MetricRow
-              key={key}
-              label={label}
-              values={screenplays.map(sp => sp.dimensionScores[key as keyof typeof sp.dimensionScores])}
+              key={dim.key}
+              label={dim.label}
+              values={screenplays.map(sp => getDimensionDisplay(sp)[idx]?.score ?? 0)}
               max={10}
               screenplays={screenplays}
             />
