@@ -89,9 +89,45 @@ function getBudgetLevel(category: BudgetCategory): number {
 }
 
 /**
- * Check if genre matches any in list (case-insensitive)
+ * Canonical genre map — normalizes common variants to a canonical key.
+ * Handles "Sci-Fi", "Science Fiction", "science-fiction" etc. all resolving
+ * to the same canonical entry.
+ */
+const GENRE_CANONICAL_MAP: Record<string, string> = {
+  'sci-fi': 'science_fiction',
+  'science fiction': 'science_fiction',
+  'science-fiction': 'science_fiction',
+  'scifi': 'science_fiction',
+  'biopic': 'biographical',
+  'biographical': 'biographical',
+  'biography': 'biographical',
+  'indie': 'independent',
+  'independent': 'independent',
+  'arthouse': 'art',
+  'art house': 'art',
+  'art-house': 'art',
+};
+
+/**
+ * Canonicalize a genre string for matching.
+ */
+function canonicalizeGenre(genre: string): string {
+  const lower = genre.toLowerCase().trim();
+  return GENRE_CANONICAL_MAP[lower] ?? lower;
+}
+
+/**
+ * Check if genre matches any in list using canonical matching.
+ * Falls back to substring check for uncanonicalised genres.
  */
 function genreMatches(genre: string, list: string[]): boolean {
+  const canonGenre = canonicalizeGenre(genre);
+  const canonList = list.map(canonicalizeGenre);
+
+  // Direct canonical match first
+  if (canonList.includes(canonGenre)) return true;
+
+  // Fallback: substring matching for compound genres like "Psychological Thriller"
   const lowerGenre = genre.toLowerCase();
   return list.some((g) => lowerGenre.includes(g.toLowerCase()));
 }
@@ -258,7 +294,11 @@ export function calculateFestivalAppeal(screenplay: Screenplay): number {
 
 /**
  * Calculate ROI Indicator (1-5 stars)
- * Based on market potential vs budget
+ * Based on market potential vs budget.
+ *
+ * Previously, micro-budget screenplays with any market potential >= 2
+ * always got 5 stars (ratio = (2/1)*2 = 4). Now enforces a floor:
+ * market potential below 5 caps ROI at 3 stars regardless of budget.
  */
 export function calculateROIIndicator(
   marketPotential: number,
@@ -267,11 +307,19 @@ export function calculateROIIndicator(
   const budgetLevel = getBudgetLevel(budgetCategory);
   const ratio = (marketPotential / budgetLevel) * 2;
 
-  if (ratio >= 4) return 5;
-  if (ratio >= 3) return 4;
-  if (ratio >= 2) return 3;
-  if (ratio >= 1) return 2;
-  return 1;
+  let stars: number;
+  if (ratio >= 4) stars = 5;
+  else if (ratio >= 3) stars = 4;
+  else if (ratio >= 2) stars = 3;
+  else if (ratio >= 1) stars = 2;
+  else stars = 1;
+
+  // Prevent inflated ROI for low market potential screenplays
+  if (marketPotential < 5) {
+    stars = Math.min(stars, 3);
+  }
+
+  return stars;
 }
 
 /**
@@ -281,8 +329,8 @@ export function calculateROIIndicator(
 export function assessUSPStrength(screenplay: Screenplay): USPStrength {
   let indicators = 0;
 
-  // +1 if logline > 50 words (detailed premise)
-  if (screenplay.logline.split(' ').length > 50) {
+  // +1 if concept score is strong (premise quality signal)
+  if (screenplay.dimensionScores.concept >= 7) {
     indicators += 1;
   }
 
