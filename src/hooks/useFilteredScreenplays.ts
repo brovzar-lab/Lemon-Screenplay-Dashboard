@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { useScreenplays } from './useScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
+import { canonicalizeGenre } from '@/lib/calculations';
 import type { Screenplay, FilterState, SortConfig, RecommendationTier } from '@/types';
 
 /**
@@ -65,19 +66,19 @@ function passesFilters(screenplay: Screenplay, filters: FilterState): boolean {
     return false;
   }
 
-  // Genres (OR logic - match any)
+  // Genres (OR logic - exact canonical match)
   if (filters.genres.length > 0) {
-    const allGenres = [screenplay.genre, ...screenplay.subgenres];
+    const allCanonical = [screenplay.genre, ...screenplay.subgenres].map(canonicalizeGenre);
     const hasMatchingGenre = filters.genres.some((g) =>
-      allGenres.some((sg) => sg.toLowerCase().includes(g.toLowerCase()))
+      allCanonical.includes(canonicalizeGenre(g))
     );
     if (!hasMatchingGenre) return false;
   }
 
-  // Themes (OR logic - match any)
+  // Themes (OR logic - exact case-insensitive match)
   if (filters.themes.length > 0) {
     const hasMatchingTheme = filters.themes.some((t) =>
-      screenplay.themes.some((st) => st.toLowerCase().includes(t.toLowerCase()))
+      screenplay.themes.some((st) => st.toLowerCase() === t.toLowerCase())
     );
     if (!hasMatchingTheme) return false;
   }

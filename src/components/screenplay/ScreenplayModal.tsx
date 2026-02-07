@@ -264,10 +264,10 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
               </h2>
               <p className="text-black-400">by {screenplay.author}</p>
               <div className="flex flex-wrap gap-2 mt-3">
-                <span className="chip" style={{ borderColor: 'var(--color-violet-500)', color: 'var(--color-violet-500)' }}>
+                <span className="chip chip-genre">
                   {screenplay.genre}
                 </span>
-                <span className="chip" style={{ borderColor: 'var(--color-amber-500)', color: 'var(--color-amber-500)' }}>
+                <span className="chip chip-budget">
                   {budgetInfo.label} ({budgetInfo.range})
                 </span>
                 <span className="chip">
@@ -674,7 +674,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
               <SectionHeader icon="🔍">Enabled Analysis Lenses</SectionHeader>
               <div className="flex flex-wrap gap-2">
                 {screenplay.v6LensesEnabled.map((lens, i) => (
-                  <span key={i} className="chip" style={{ borderColor: 'var(--color-violet-500)', color: 'var(--color-violet-500)' }}>
+                  <span key={i} className="chip chip-genre">
                     {lens}
                   </span>
                 ))}

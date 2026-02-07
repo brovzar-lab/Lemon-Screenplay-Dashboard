@@ -4,6 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { loadAllScreenplaysVite, getScreenplayStats } from '@/lib/api';
+import { canonicalizeGenre } from '@/lib/calculations';
 // Screenplay type imported for documentation - used in JSDoc and return types
 import type { Screenplay as _Screenplay } from '@/types';
 
@@ -58,13 +59,18 @@ export function useGenres() {
 
   if (!screenplays) return [];
 
-  const genres = new Set<string>();
+  // Deduplicate by canonical key, keeping the first display name encountered
+  const genreMap = new Map<string, string>();
   screenplays.forEach((s) => {
-    genres.add(s.genre);
-    s.subgenres.forEach((g) => genres.add(g));
+    const ck = canonicalizeGenre(s.genre);
+    if (!genreMap.has(ck)) genreMap.set(ck, s.genre);
+    s.subgenres.forEach((g) => {
+      const cg = canonicalizeGenre(g);
+      if (!genreMap.has(cg)) genreMap.set(cg, g);
+    });
   });
 
-  return Array.from(genres).sort();
+  return Array.from(genreMap.values()).sort();
 }
 
 /**

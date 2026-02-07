@@ -108,10 +108,10 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
 
       {/* Tags */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <span className="chip" style={{ borderColor: 'var(--color-violet-500)', color: 'var(--color-violet-500)' }}>
+        <span className="chip chip-genre">
           {screenplay.genre}
         </span>
-        <span className="chip" style={{ borderColor: 'var(--color-amber-500)', color: 'var(--color-amber-500)' }}>
+        <span className="chip chip-budget">
           {screenplay.budgetCategory}
         </span>
         <span className="chip">

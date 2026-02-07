@@ -13,6 +13,7 @@ import {
   Cell,
 } from 'recharts';
 import type { Screenplay } from '@/types';
+import { canonicalizeGenre } from '@/lib/calculations';
 
 interface GenreChartProps {
   screenplays: Screenplay[];
@@ -33,15 +34,16 @@ const GENRE_COLORS = [
 ];
 
 export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreChartProps) {
-  // Count genres
-  const genreCounts = screenplays.reduce(
-    (acc, sp) => {
-      const genre = sp.genre || 'Unknown';
-      acc[genre] = (acc[genre] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
+  // Count genres (canonicalize so "Sci-Fi" and "Science Fiction" merge)
+  const genreDisplayMap = new Map<string, string>(); // canonical → first display name
+  const genreCounts: Record<string, number> = {};
+  screenplays.forEach((sp) => {
+    const raw = sp.genre || 'Unknown';
+    const canonical = canonicalizeGenre(raw);
+    if (!genreDisplayMap.has(canonical)) genreDisplayMap.set(canonical, raw);
+    const display = genreDisplayMap.get(canonical)!;
+    genreCounts[display] = (genreCounts[display] || 0) + 1;
+  });
 
   // Sort by count and take top N
   const data = Object.entries(genreCounts)

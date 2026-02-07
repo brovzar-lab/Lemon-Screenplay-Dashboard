@@ -596,28 +596,29 @@ html.light .glass {
 }
 
 html.light .glass-dark {
-  background: rgba(254, 243, 199, 0.9);
+  background: rgba(248, 250, 252, 0.9);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(245, 158, 11, 0.15);
+  border: 1px solid var(--color-black-200);
 }
 
 /* Light theme text colors for Tailwind classes */
 html.light .text-black-100 { color: var(--color-black-800); }
 html.light .text-black-200 { color: var(--color-black-700); }
 html.light .text-black-300 { color: var(--color-black-600); }
-html.light .text-black-400 { color: var(--color-black-500); }
-html.light .text-black-500 { color: var(--color-black-400); }
+html.light .text-black-400 { color: var(--color-black-600); }
+html.light .text-black-500 { color: var(--color-black-500); }
+html.light .text-black-600 { color: var(--color-black-600); }
 
-html.light .text-gold-100 { color: var(--color-gold-800); }
-html.light .text-gold-200 { color: var(--color-gold-700); }
-html.light .text-gold-300 { color: var(--color-gold-600); }
-html.light .text-gold-400 { color: var(--color-gold-600); }
+html.light .text-gold-100 { color: var(--color-gold-900); }
+html.light .text-gold-200 { color: var(--color-gold-800); }
+html.light .text-gold-300 { color: var(--color-gold-700); }
+html.light .text-gold-400 { color: var(--color-gold-700); }
 
-/* Light theme backgrounds */
-html.light .bg-black-800 { background-color: var(--color-gold-100); }
-html.light .bg-black-800\/50 { background-color: rgba(254, 243, 199, 0.5); }
-html.light .bg-black-900 { background-color: var(--color-gold-50); }
-html.light .bg-black-900\/50 { background-color: rgba(255, 251, 235, 0.5); }
+/* Light theme backgrounds — neutral grays instead of gold tones */
+html.light .bg-black-800 { background-color: var(--color-black-100); }
+html.light .bg-black-800\/50 { background-color: rgba(241, 245, 249, 0.5); }
+html.light .bg-black-900 { background-color: var(--color-black-50); }
+html.light .bg-black-900\/50 { background-color: rgba(248, 250, 252, 0.5); }
 html.light .bg-black-950 { background-color: white; }
 
 /* Light theme borders */
@@ -628,13 +629,13 @@ html.light .border-gold-500\/10 { border-color: rgba(245, 158, 11, 0.2); }
 
 /* Light theme components - Card */
 html.light .card {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--color-gold-200);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--color-black-200);
 }
 
 html.light .card:hover {
-  border-color: var(--color-gold-400);
-  box-shadow: 0 0 30px rgba(245, 158, 11, 0.2);
+  border-color: var(--color-gold-500);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
 }
 
 /* Light theme - Buttons */
@@ -660,9 +661,29 @@ html.light .btn-ghost:hover {
 
 /* Light theme - Chips */
 html.light .chip {
-  background: var(--color-gold-100);
+  background: var(--color-black-100);
   color: var(--color-black-700);
-  border: 1px solid var(--color-gold-200);
+  border: 1px solid var(--color-black-200);
+}
+
+/* Semantic chip variants — used instead of inline styles for theme support */
+.chip-genre {
+  border-color: var(--color-violet-500);
+  color: var(--color-violet-500);
+}
+.chip-budget {
+  border-color: var(--color-amber-500);
+  color: var(--color-amber-500);
+}
+html.light .chip-genre {
+  border-color: #6D28D9;
+  color: #6D28D9;
+  background: rgba(109, 40, 217, 0.06);
+}
+html.light .chip-budget {
+  border-color: #B45309;
+  color: #B45309;
+  background: rgba(180, 83, 9, 0.06);
 }
 
 /* Light theme - Input */
@@ -683,8 +704,19 @@ html.light .input::placeholder {
 
 /* Light theme - Score bar */
 html.light .score-bar {
-  background: var(--color-gold-100);
+  background: var(--color-black-200);
 }
+
+/* Light theme - Score color overrides for adequate contrast */
+html.light .score-good { color: var(--color-gold-700); }
+html.light .score-excellent { color: #059669; }
+
+/* Light theme accent colors — ensure adequate contrast on light backgrounds */
+html.light .text-emerald-400,
+html.light .text-emerald-500 { color: #059669; }
+html.light .text-red-400,
+html.light .text-red-500 { color: #DC2626; }
+html.light .text-gold-400 { color: var(--color-gold-700); }
 
 /* Light theme hover states for Tailwind */
 html.light .hover\:bg-black-800:hover { background-color: var(--color-gold-100); }

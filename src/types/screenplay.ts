@@ -399,7 +399,7 @@ export const DIMENSION_CONFIG: DimensionConfig[] = [
 // ============================================
 
 export interface CVSConfig {
-  key: keyof Omit<CommercialViability, 'cvsTotal'>;
+  key: keyof Omit<CommercialViability, 'cvsTotal' | 'cvsAssessed'>;
   label: string;
   maxScore: number;
 }

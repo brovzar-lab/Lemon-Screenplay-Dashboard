@@ -6,19 +6,20 @@
 import { useState } from 'react';
 import { clsx } from 'clsx';
 import { useFilterStore } from '@/stores/filterStore';
+import { useGenres, useThemes } from '@/hooks/useScreenplays';
 import { RangeSlider } from './RangeSlider';
 import { MultiSelect } from './MultiSelect';
 import { CategoryFilter } from './CategoryFilter';
 
-// Hardcoded genres and themes (extracted from screenplay data)
-const AVAILABLE_GENRES = [
+// Fallback genres/themes used while data is loading
+const FALLBACK_GENRES = [
   'Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime',
   'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History',
   'Horror', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport',
   'Thriller', 'War', 'Western',
 ];
 
-const AVAILABLE_THEMES = [
+const FALLBACK_THEMES = [
   'Coming of Age', 'Redemption', 'Love', 'Revenge', 'Survival',
   'Identity', 'Family', 'Betrayal', 'Justice', 'Power', 'Freedom',
   'Sacrifice', 'Ambition', 'Friendship', 'Loss', 'Hope', 'Fear',
@@ -32,6 +33,12 @@ interface FilterPanelProps {
 
 export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
   const [activeSection, setActiveSection] = useState<string | null>('scores');
+
+  // Data-derived genres/themes (fall back to hardcoded while loading)
+  const dataGenres = useGenres();
+  const dataThemes = useThemes();
+  const availableGenres = dataGenres.length > 0 ? dataGenres : FALLBACK_GENRES;
+  const availableThemes = dataThemes.length > 0 ? dataThemes : FALLBACK_THEMES;
 
   // Get filter state and actions
   const {
@@ -182,14 +189,14 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
             <div className="space-y-4">
               <MultiSelect
                 label="Genres"
-                options={AVAILABLE_GENRES}
+                options={availableGenres}
                 selected={genres}
                 onChange={setGenres}
                 placeholder="Select genres..."
               />
               <MultiSelect
                 label="Themes"
-                options={AVAILABLE_THEMES}
+                options={availableThemes}
                 selected={themes}
                 onChange={setThemes}
                 placeholder="Select themes..."

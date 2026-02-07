@@ -93,25 +93,30 @@ function getBudgetLevel(category: BudgetCategory): number {
  * Handles "Sci-Fi", "Science Fiction", "science-fiction" etc. all resolving
  * to the same canonical entry.
  */
-const GENRE_CANONICAL_MAP: Record<string, string> = {
-  'sci-fi': 'science_fiction',
-  'science fiction': 'science_fiction',
-  'science-fiction': 'science_fiction',
-  'scifi': 'science_fiction',
-  'biopic': 'biographical',
-  'biographical': 'biographical',
-  'biography': 'biographical',
+export const GENRE_CANONICAL_MAP: Record<string, string> = {
+  'sci-fi': 'sci-fi',
+  'science fiction': 'sci-fi',
+  'science-fiction': 'sci-fi',
+  'scifi': 'sci-fi',
+  'biopic': 'biography',
+  'biographical': 'biography',
+  'biography': 'biography',
   'indie': 'independent',
   'independent': 'independent',
-  'arthouse': 'art',
-  'art house': 'art',
-  'art-house': 'art',
+  'arthouse': 'art house',
+  'art house': 'art house',
+  'art-house': 'art house',
+  'film-noir': 'film-noir',
+  'film noir': 'film-noir',
+  'dark comedy': 'dark comedy',
+  'black comedy': 'dark comedy',
 };
 
 /**
  * Canonicalize a genre string for matching.
+ * Maps common genre variants to a consistent lowercase key.
  */
-function canonicalizeGenre(genre: string): string {
+export function canonicalizeGenre(genre: string): string {
   const lower = genre.toLowerCase().trim();
   return GENRE_CANONICAL_MAP[lower] ?? lower;
 }
