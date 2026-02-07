@@ -8,6 +8,7 @@ import type { RawScreenplayAnalysis, Screenplay, Collection } from '@/types';
 import type { V6ScreenplayAnalysis } from '@/types/screenplay-v6';
 import type { ScreenplayWithV6 } from './normalize';
 import { normalizeScreenplay, isV6RawAnalysis, normalizeV6Screenplay } from './normalize';
+import { loadLocalAnalyses } from './localAnalysisStore';
 
 // Base path to analysis data (relative to public folder or absolute)
 const DATA_BASE_PATH = '../../.tmp';
@@ -200,6 +201,27 @@ export async function loadAllScreenplaysVite(): Promise<(Screenplay | Screenplay
     }
   } catch (error) {
     console.warn(`[Lemon] No V6 analysis index found (this is normal if no V6 analyses exist yet)`);
+  }
+
+  // Load locally analyzed screenplays (from user uploads)
+  try {
+    const localRawList = loadLocalAnalyses();
+    for (const raw of localRawList) {
+      try {
+        if (isV6RawAnalysis(raw)) {
+          const collection = (raw as Record<string, unknown>).collection as Collection | undefined;
+          const sp = normalizeV6Screenplay(raw as unknown as V6ScreenplayAnalysis, collection || 'V6 Analysis');
+          screenplays.push(sp);
+        }
+      } catch (err) {
+        console.warn('[Lemon] Failed to normalize local analysis:', err);
+      }
+    }
+    if (localRawList.length > 0) {
+      console.log(`[Lemon] Loaded ${localRawList.length} locally analyzed screenplays`);
+    }
+  } catch {
+    // localStorage may be unavailable
   }
 
   // Deduplicate by title - prefer V6 over V5

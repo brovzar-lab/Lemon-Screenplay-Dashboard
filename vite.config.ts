@@ -18,5 +18,13 @@ export default defineConfig({
       // Allow serving files from parent directory
       allow: ['..'],
     },
+    proxy: {
+      // Proxy Anthropic API calls in development to avoid CORS
+      '/api/anthropic': {
+        target: 'https://api.anthropic.com',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/anthropic/, ''),
+      },
+    },
   },
 })

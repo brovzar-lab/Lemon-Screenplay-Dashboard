@@ -29,12 +29,18 @@ export interface UploadJob {
   completedAt?: string;
 }
 
+/**
+ * In-memory map of job ID → File object.
+ * Files can't be serialized to localStorage, so we keep them separately.
+ */
+const fileMap = new Map<string, File>();
+
 interface UploadState {
   jobs: UploadJob[];
   isProcessing: boolean;
 
   // Queue management
-  addJob: (filename: string, category: string) => string; // Returns job ID
+  addJob: (filename: string, category: string, file: File) => string;
   updateJob: (jobId: string, update: Partial<UploadJob>) => void;
   removeJob: (jobId: string) => void;
   clearCompleted: () => void;
@@ -45,6 +51,7 @@ interface UploadState {
   // Getters
   getPendingCount: () => number;
   getActiveJob: () => UploadJob | undefined;
+  getFile: (jobId: string) => File | undefined;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -55,8 +62,9 @@ export const useUploadStore = create<UploadState>()(
       jobs: [],
       isProcessing: false,
 
-      addJob: (filename, category) => {
+      addJob: (filename, category, file) => {
         const id = generateId();
+        fileMap.set(id, file);
         set((state) => ({
           jobs: [
             ...state.jobs,
@@ -64,7 +72,7 @@ export const useUploadStore = create<UploadState>()(
               id,
               filename,
               category,
-              status: 'pending',
+              status: 'pending' as const,
               progress: 0,
               createdAt: new Date().toISOString(),
             },
@@ -82,12 +90,15 @@ export const useUploadStore = create<UploadState>()(
       },
 
       removeJob: (jobId) => {
+        fileMap.delete(jobId);
         set((state) => ({
           jobs: state.jobs.filter((j) => j.id !== jobId),
         }));
       },
 
       clearCompleted: () => {
+        const completed = get().jobs.filter((j) => j.status === 'complete' || j.status === 'error');
+        completed.forEach((j) => fileMap.delete(j.id));
         set((state) => ({
           jobs: state.jobs.filter((j) => j.status !== 'complete' && j.status !== 'error'),
         }));
@@ -101,6 +112,10 @@ export const useUploadStore = create<UploadState>()(
 
       getActiveJob: () => {
         return get().jobs.find((j) => j.status === 'parsing' || j.status === 'analyzing');
+      },
+
+      getFile: (jobId) => {
+        return fileMap.get(jobId);
       },
     }),
     {

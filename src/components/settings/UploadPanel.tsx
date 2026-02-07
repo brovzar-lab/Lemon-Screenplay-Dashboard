@@ -3,10 +3,14 @@
  * File/folder selection, category assignment, upload queue, API configuration
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { clsx } from 'clsx';
+import { useQueryClient } from '@tanstack/react-query';
 import { useUploadStore, type UploadJob, type UploadStatus } from '@/stores/uploadStore';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
+import { SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
+import { analyzeScreenplay } from '@/lib/analysisService';
+import { saveLocalAnalysis } from '@/lib/localAnalysisStore';
 import { ApiConfigPanel } from './ApiConfigPanel';
 
 // Default categories - will be merged with custom categories
@@ -28,8 +32,8 @@ function getAllCategories(): string[] {
 
 const STATUS_LABELS: Record<UploadStatus, { label: string; color: string }> = {
   pending: { label: 'Pending', color: 'text-black-400' },
-  parsing: { label: 'Parsing...', color: 'text-blue-400' },
-  analyzing: { label: 'Analyzing...', color: 'text-gold-400' },
+  parsing: { label: 'Parsing PDF...', color: 'text-blue-400' },
+  analyzing: { label: 'AI Analyzing...', color: 'text-gold-400' },
   complete: { label: 'Complete', color: 'text-emerald-400' },
   error: { label: 'Error', color: 'text-red-400' },
 };
@@ -48,8 +52,9 @@ export function UploadPanel() {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
-  const { jobs, addJob, removeJob, clearCompleted, isProcessing } = useUploadStore();
-  const { isConfigured, canMakeRequest } = useApiConfigStore();
+  const { jobs, addJob, updateJob, removeJob, clearCompleted, isProcessing, setProcessing, getFile } = useUploadStore();
+  const { isConfigured, apiKey, canMakeRequest, incrementUsage } = useApiConfigStore();
+  const queryClient = useQueryClient();
 
   const handlePasswordSubmit = () => {
     if (passwordInput === UPLOAD_PASSWORD) {
@@ -66,7 +71,7 @@ export function UploadPanel() {
 
     Array.from(files).forEach((file) => {
       if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        addJob(file.name, selectedCategory);
+        addJob(file.name, selectedCategory, file);
       }
     });
   };
@@ -85,6 +90,72 @@ export function UploadPanel() {
   const handleDragLeave = () => {
     setDragActive(false);
   };
+
+  // Process pending jobs sequentially
+  const processJobs = useCallback(async () => {
+    if (isProcessing) return;
+    setProcessing(true);
+
+    const pending = useUploadStore.getState().jobs.filter((j) => j.status === 'pending');
+
+    for (const job of pending) {
+      const file = getFile(job.id);
+      if (!file) {
+        updateJob(job.id, { status: 'error', error: 'File no longer available. Please re-add.' });
+        continue;
+      }
+
+      try {
+        await analyzeScreenplay(
+          file,
+          job.category,
+          {
+            apiKey,
+            model: 'sonnet',
+            lenses: ['commercial'],
+          },
+          (progress) => {
+            updateJob(job.id, {
+              status: progress.stage === 'error' ? 'error' : progress.stage as UploadStatus,
+              progress: progress.percent,
+            });
+          },
+        ).then((result) => {
+          // Save to localStorage for persistence
+          saveLocalAnalysis(result.raw);
+
+          // Estimate cost (~$0.015 per 1K input + $0.075 per 1K output for Sonnet)
+          const cost = result.usage
+            ? (result.usage.input_tokens * 0.003 + result.usage.output_tokens * 0.015) / 1000
+            : 0.50; // estimate if no usage data
+
+          incrementUsage(cost);
+
+          updateJob(job.id, {
+            status: 'complete',
+            progress: 100,
+            result: {
+              title: result.parsed.title,
+              author: 'See analysis',
+              analysisPath: 'localStorage',
+            },
+            completedAt: new Date().toISOString(),
+          });
+
+          // Invalidate the screenplays query so the new analysis appears
+          queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        updateJob(job.id, {
+          status: 'error',
+          error: message,
+        });
+      }
+    }
+
+    setProcessing(false);
+  }, [isProcessing, setProcessing, getFile, updateJob, apiKey, incrementUsage, queryClient]);
 
   const pendingJobs = jobs.filter((j) => j.status === 'pending');
   const activeJobs = jobs.filter((j) => j.status === 'parsing' || j.status === 'analyzing');
@@ -289,8 +360,7 @@ export function UploadPanel() {
                     alert('Cannot process: Budget limit reached or daily request limit exceeded. Check API Configuration.');
                     return;
                   }
-                  // Note: Actual processing would call the API
-                  alert('API processing will start. This feature requires backend integration.');
+                  processJobs();
                 }}
                 disabled={!isConfigured}
                 className={clsx(
@@ -311,18 +381,30 @@ export function UploadPanel() {
               )}
             </div>
           )}
+
+          {/* Processing indicator */}
+          {isProcessing && (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-gold-500/10 border border-gold-500/20">
+              <div className="w-5 h-5 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gold-300">Processing... This may take 2-5 minutes per screenplay.</p>
+            </div>
+          )}
         </div>
       )}
 
       {/* Instructions */}
       <div className="p-4 rounded-lg bg-black-800/50 border border-black-700">
-        <h4 className="text-sm font-medium text-gold-300 mb-2">Manual Analysis</h4>
-        <p className="text-sm text-black-400 mb-2">
-          Until the backend API is configured, you can run analyses manually:
+        <h4 className="text-sm font-medium text-gold-300 mb-2">How It Works</h4>
+        <ol className="text-sm text-black-400 space-y-1 list-decimal list-inside">
+          <li>Configure your Anthropic API key above</li>
+          <li>Drop PDF screenplays into the upload zone</li>
+          <li>Click "Start Analysis" — each script takes 2-5 minutes</li>
+          <li>Results appear automatically in the dashboard</li>
+        </ol>
+        <p className="text-xs text-black-500 mt-3">
+          Analysis uses Claude Sonnet with the V6 Core + Lenses system.
+          Estimated cost: ~$0.10-0.50 per screenplay depending on length.
         </p>
-        <pre className="text-xs text-gold-400 bg-black-900 p-2 rounded overflow-x-auto">
-          python execution/analyze_screenplay_v6.py --input parsed_script.json
-        </pre>
       </div>
     </div>
   );
@@ -362,8 +444,14 @@ function JobItem({ job, onRemove }: JobItemProps) {
         <p className="text-sm font-medium text-gold-200 truncate">{job.filename}</p>
         <div className="flex items-center gap-2 text-xs">
           <span className={status.color}>{status.label}</span>
-          <span className="text-black-500">·</span>
+          <span className="text-black-500">&middot;</span>
           <span className="text-black-500">{job.category}</span>
+          {job.error && (
+            <>
+              <span className="text-black-500">&middot;</span>
+              <span className="text-red-400 truncate" title={job.error}>{job.error}</span>
+            </>
+          )}
         </div>
       </div>
 
