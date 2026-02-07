@@ -298,20 +298,28 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
             </View>
             <View style={styles.scoreItem}>
               <Text style={styles.scoreLabel}>CVS Total</Text>
-              <Text style={[styles.scoreValue, { color: getScoreColor(screenplay.cvsTotal, 18) }]}>
-                {screenplay.cvsTotal}/18
-              </Text>
-              <View style={styles.scoreBar}>
-                <View
-                  style={[
-                    styles.scoreBarFill,
-                    {
-                      width: `${(screenplay.cvsTotal / 18) * 100}%`,
-                      backgroundColor: getScoreColor(screenplay.cvsTotal, 18),
-                    },
-                  ]}
-                />
-              </View>
+              {screenplay.commercialViability.cvsAssessed === false ? (
+                <Text style={[styles.scoreValue, { color: '#64748B', fontSize: 12 }]}>
+                  Not assessed
+                </Text>
+              ) : (
+                <>
+                  <Text style={[styles.scoreValue, { color: getScoreColor(screenplay.cvsTotal, 18) }]}>
+                    {screenplay.cvsTotal}/18
+                  </Text>
+                  <View style={styles.scoreBar}>
+                    <View
+                      style={[
+                        styles.scoreBarFill,
+                        {
+                          width: `${(screenplay.cvsTotal / 18) * 100}%`,
+                          backgroundColor: getScoreColor(screenplay.cvsTotal, 18),
+                        },
+                      ]}
+                    />
+                  </View>
+                </>
+              )}
             </View>
           </View>
         </View>

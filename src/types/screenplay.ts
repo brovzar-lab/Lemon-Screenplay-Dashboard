@@ -222,6 +222,8 @@ export interface CommercialViability {
   budgetReturnRatio: CVSFactor;
   comparableSuccess: CVSFactor;
   cvsTotal: number;
+  /** False when V6 commercial lens was disabled — scores are placeholder zeros */
+  cvsAssessed: boolean;
 }
 
 export interface StructureAnalysis {

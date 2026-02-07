@@ -41,12 +41,13 @@ export function exportToCSV(screenplays: Screenplay[], filename: string = 'scree
     'Originality Score': sp.dimensionScores.originality,
 
     // CVS Factors
-    'Target Audience (CVS)': sp.commercialViability.targetAudience.score,
-    'High Concept (CVS)': sp.commercialViability.highConcept.score,
-    'Cast Attachability (CVS)': sp.commercialViability.castAttachability.score,
-    'Marketing Hook (CVS)': sp.commercialViability.marketingHook.score,
-    'Budget Return Ratio (CVS)': sp.commercialViability.budgetReturnRatio.score,
-    'Comparable Success (CVS)': sp.commercialViability.comparableSuccess.score,
+    'CVS Assessed': sp.commercialViability.cvsAssessed !== false ? 'Yes' : 'No',
+    'Target Audience (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.targetAudience.score : '',
+    'High Concept (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.highConcept.score : '',
+    'Cast Attachability (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.castAttachability.score : '',
+    'Marketing Hook (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.marketingHook.score : '',
+    'Budget Return Ratio (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.budgetReturnRatio.score : '',
+    'Comparable Success (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.comparableSuccess.score : '',
 
     // Producer Metrics
     'Market Potential': sp.producerMetrics.marketPotential,

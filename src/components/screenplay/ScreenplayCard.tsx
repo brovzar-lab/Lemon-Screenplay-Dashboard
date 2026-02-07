@@ -196,12 +196,16 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
           </div>
           <div>
             <span className="text-xs text-black-500 block">CVS</span>
-            <span className={clsx(
-              'font-mono text-xl font-bold',
-              getScoreColorClass(Number(screenplay.cvsTotal) || 0, 18)
-            )}>
-              {Number(screenplay.cvsTotal) || 0}/18
-            </span>
+            {screenplay.commercialViability.cvsAssessed === false ? (
+              <span className="text-sm text-black-500 italic">N/A</span>
+            ) : (
+              <span className={clsx(
+                'font-mono text-xl font-bold',
+                getScoreColorClass(Number(screenplay.cvsTotal) || 0, 18)
+              )}>
+                {Number(screenplay.cvsTotal) || 0}/18
+              </span>
+            )}
           </div>
         </div>
 

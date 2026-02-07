@@ -127,6 +127,7 @@ function normalizeCommercialViability(raw: RawScreenplayAnalysis['analysis']['co
     budgetReturnRatio: { score: raw.budget_return_ratio.score, note: raw.budget_return_ratio.note },
     comparableSuccess: { score: raw.comparable_success.score, note: raw.comparable_success.note },
     cvsTotal: cvsTotal || 0,
+    cvsAssessed: true,
   };
 }
 
@@ -393,17 +394,19 @@ export function normalizeV6Screenplay(
       budgetReturnRatio: { score: cvLens.budget_return_ratio.score, note: cvLens.budget_return_ratio.note },
       comparableSuccess: { score: cvLens.comparable_success.score, note: cvLens.comparable_success.note },
       cvsTotal: cvLens.cvs_total,
+      cvsAssessed: true,
     };
   } else {
-    // Default commercial viability when lens not enabled
+    // Commercial lens disabled — use zeros, not fake averages
     commercialViability = {
-      targetAudience: { score: 2, note: 'Not assessed (lens disabled)' },
-      highConcept: { score: 2, note: 'Not assessed (lens disabled)' },
-      castAttachability: { score: 2, note: 'Not assessed (lens disabled)' },
-      marketingHook: { score: 2, note: 'Not assessed (lens disabled)' },
-      budgetReturnRatio: { score: 2, note: 'Not assessed (lens disabled)' },
-      comparableSuccess: { score: 2, note: 'Not assessed (lens disabled)' },
-      cvsTotal: 12, // Neutral default
+      targetAudience: { score: 0, note: 'Not assessed (commercial lens disabled)' },
+      highConcept: { score: 0, note: 'Not assessed (commercial lens disabled)' },
+      castAttachability: { score: 0, note: 'Not assessed (commercial lens disabled)' },
+      marketingHook: { score: 0, note: 'Not assessed (commercial lens disabled)' },
+      budgetReturnRatio: { score: 0, note: 'Not assessed (commercial lens disabled)' },
+      comparableSuccess: { score: 0, note: 'Not assessed (commercial lens disabled)' },
+      cvsTotal: 0,
+      cvsAssessed: false,
     };
   }
 
