@@ -136,6 +136,7 @@ export function useNotesCount(screenplayId: string): number {
 /**
  * Hook to get notes for a screenplay
  */
+const EMPTY_NOTES: Note[] = [];
 export function useScreenplayNotes(screenplayId: string): Note[] {
-  return useNotesStore((state) => state.notes[screenplayId] || []);
+  return useNotesStore((state) => state.notes[screenplayId] ?? EMPTY_NOTES);
 }
