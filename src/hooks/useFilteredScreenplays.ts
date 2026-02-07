@@ -319,6 +319,6 @@ export function useHasActiveFilters(): boolean {
     filters.showFilmNowOnly ||
     filters.hidePassRated ||
     filters.hasCriticalFailures !== null ||
-    !filters.hideProduced // Show as active filter when hiding is disabled (since default is true)
+    !filters.hideProduced // Default is true (hide produced). Active when user opted to show produced films.
   );
 }

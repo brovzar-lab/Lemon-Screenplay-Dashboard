@@ -343,7 +343,7 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Lemon Screenplay Dashboard • V3 Analysis • Generated {new Date().toLocaleDateString()}
+            Lemon Screenplay Dashboard • {screenplay.analysisVersion || 'Unknown'} Analysis • Generated {new Date().toLocaleDateString()}
           </Text>
         </View>
       </Page>

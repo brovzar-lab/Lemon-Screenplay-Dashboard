@@ -12,6 +12,7 @@ import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
 
 interface AnalyticsDashboardProps {
   screenplays: Screenplay[];
+  totalScreenplays?: Screenplay[];
   onFilterByScoreRange?: (range: { min: number; max: number }) => void;
   onFilterByTier?: (tier: RecommendationTier) => void;
   onFilterByGenre?: (genre: string) => void;
@@ -20,6 +21,7 @@ interface AnalyticsDashboardProps {
 
 export function AnalyticsDashboard({
   screenplays,
+  totalScreenplays,
   onFilterByScoreRange,
   onFilterByTier,
   onFilterByGenre,
@@ -27,7 +29,9 @@ export function AnalyticsDashboard({
 }: AnalyticsDashboardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Calculate quick stats
+  const isFiltered = totalScreenplays && totalScreenplays.length !== screenplays.length;
+
+  // Calculate quick stats from the displayed (filtered) set
   const avgScore = screenplays.length > 0
     ? (screenplays.reduce((sum, sp) => sum + sp.weightedScore, 0) / screenplays.length).toFixed(1)
     : '0.0';
@@ -62,7 +66,9 @@ export function AnalyticsDashboard({
           {/* Quick stats when collapsed */}
           <div className="flex items-center gap-4 text-sm">
             <span className="text-black-400">
-              <span className="font-mono text-gold-400">{screenplays.length}</span> screenplays
+              <span className="font-mono text-gold-400">{screenplays.length}</span>
+              {isFiltered ? ` of ${totalScreenplays.length}` : ''} screenplays
+              {isFiltered && <span className="ml-1 text-gold-500/70">(filtered)</span>}
             </span>
             <span className="text-black-500">|</span>
             <span className="text-black-400">

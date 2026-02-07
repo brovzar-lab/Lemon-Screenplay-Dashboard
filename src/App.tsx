@@ -297,10 +297,11 @@ function App() {
           </div>
         </div>
 
-        {/* Analytics Dashboard */}
+        {/* Analytics Dashboard — charts reflect current filter state */}
         {!isLoading && allScreenplays.length > 0 && (
           <AnalyticsDashboard
-            screenplays={allScreenplays}
+            screenplays={screenplays}
+            totalScreenplays={allScreenplays}
             onFilterByScoreRange={handleFilterByScoreRange}
             onFilterByTier={handleFilterByTier}
             onFilterByGenre={handleFilterByGenre}
