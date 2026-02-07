@@ -3,13 +3,13 @@
  * Full detail view for a screenplay with all V3/V5/V6 analysis data
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { CVS_CONFIG, RECOMMENDATION_CONFIG, BUDGET_TIERS } from '@/types';
 import { getScoreColorClass, getScoreBarFillClass } from '@/lib/calculations';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
-import { useNotesStore } from '@/stores/notesStore';
+import { useNotesStore, useScreenplayNotes } from '@/stores/notesStore';
 import type { ScreenplayWithV6 } from '@/lib/normalize';
 
 /**
@@ -135,49 +135,87 @@ function SectionHeader({ children, icon }: { children: React.ReactNode; icon?: s
 }
 
 /**
- * Notes section - Simple version without zustand hooks to avoid hydration issues
+ * Notes section — reactive via Zustand hooks, inline textarea input.
  */
 function NotesSection({ screenplayId }: { screenplayId: string }) {
-  // Skip rendering if no screenplayId
-  if (!screenplayId) {
-    return null;
-  }
+  const notes = useScreenplayNotes(screenplayId);
+  const addNote = useNotesStore((s) => s.addNote);
+  const deleteNote = useNotesStore((s) => s.deleteNote);
+  const [draft, setDraft] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
 
-  // Use the store methods directly instead of hooks to avoid hydration issues
-  const handleAddNote = () => {
-    const content = prompt('Enter your note:');
-    if (content?.trim()) {
-      useNotesStore.getState().addNote(screenplayId, content.trim());
+  if (!screenplayId) return null;
+
+  const handleSubmit = () => {
+    if (draft.trim()) {
+      addNote(screenplayId, draft.trim());
+      setDraft('');
+      setIsAdding(false);
     }
   };
 
-  const handleDeleteNote = (noteId: string) => {
-    useNotesStore.getState().deleteNote(screenplayId, noteId);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      handleSubmit();
+    }
+    if (e.key === 'Escape') {
+      setIsAdding(false);
+      setDraft('');
+    }
   };
-
-  // Get notes from store state
-  const notes = useNotesStore.getState().notes[screenplayId] || [];
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <SectionHeader icon="📝">Notes</SectionHeader>
-        <button onClick={handleAddNote} className="btn btn-secondary text-sm">
-          + Add Note
-        </button>
+        <SectionHeader icon="📝">Notes ({notes.length})</SectionHeader>
+        {!isAdding && (
+          <button onClick={() => setIsAdding(true)} className="btn btn-secondary text-sm">
+            + Add Note
+          </button>
+        )}
       </div>
 
-      {notes.length === 0 ? (
+      {isAdding && (
+        <div className="space-y-2">
+          <textarea
+            autoFocus
+            className="input w-full resize-none"
+            rows={3}
+            placeholder="Write your note..."
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => { setIsAdding(false); setDraft(''); }}
+              className="btn btn-secondary text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!draft.trim()}
+              className="btn btn-primary text-sm"
+            >
+              Save Note
+            </button>
+          </div>
+          <p className="text-xs text-black-600">Cmd/Ctrl+Enter to save, Esc to cancel</p>
+        </div>
+      )}
+
+      {notes.length === 0 && !isAdding ? (
         <p className="text-sm text-black-500 italic">No notes yet. Add one to track your thoughts.</p>
       ) : (
         <div className="space-y-2">
           {notes.map((note) => (
             <div key={note.id} className="p-3 rounded-lg bg-black-900/50 group">
               <div className="flex justify-between items-start gap-2">
-                <p className="text-sm text-black-300">{note.content}</p>
+                <p className="text-sm text-black-300 whitespace-pre-wrap">{note.content}</p>
                 <button
-                  onClick={() => handleDeleteNote(note.id)}
-                  className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs"
+                  onClick={() => deleteNote(screenplayId, note.id)}
+                  className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs shrink-0"
                 >
                   ✕
                 </button>
