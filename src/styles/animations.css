@@ -1,0 +1,264 @@
+/**
+ * Micro-animations
+ * Purposeful motion with UX psychology principles
+ */
+
+/* Primary button - Von Restorff Effect (stands out) */
+.btn-premium {
+  background: linear-gradient(135deg, var(--color-gold-500), var(--color-gold-600));
+  color: var(--color-black-950);
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg), var(--shadow-gold);
+}
+
+.btn-premium:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Secondary button */
+.btn-secondary-premium {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 12px 24px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-secondary-premium:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--color-gold-500);
+  transform: translateY(-1px);
+}
+
+/* Card entrance animation */
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-enter {
+  animation: slide-up-fade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+/* Scale in animation */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.scale-enter {
+  animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Upload progress pulse */
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 10px var(--color-gold-500);
+    opacity: 1;
+  }
+
+  50% {
+    box-shadow: 0 0 30px var(--color-gold-400);
+    opacity: 0.8;
+  }
+}
+
+.upload-processing {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.05) 25%,
+      rgba(255, 255, 255, 0.1) 50%,
+      rgba(255, 255, 255, 0.05) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Stagger children animations */
+.stagger-children>* {
+  animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.stagger-children>*:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger-children>*:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stagger-children>*:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stagger-children>*:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.stagger-children>*:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+.stagger-children>*:nth-child(6) {
+  animation-delay: 0.3s;
+}
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Icon spin */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.icon-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Fade in animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-enter {
+  animation: fade-in 0.4s ease forwards;
+}
+
+/* Bounce attention */
+@keyframes bounce-attention {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.bounce-attention {
+  animation: bounce-attention 0.6s ease-in-out;
+}
+
+/* Success checkmark */
+@keyframes checkmark {
+  0% {
+    stroke-dashoffset: 100;
+  }
+
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.checkmark-animate {
+  stroke-dasharray: 100;
+  animation: checkmark 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ── Scroll-triggered reveal animation ── */
+/* Cards start invisible; IntersectionObserver sets data-revealed="true" to trigger entrance */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(24px);
+  will-change: opacity, transform;
+  transition:
+    opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  /* delay is set inline via style prop for staggering */
+}
+
+[data-reveal][data-revealed="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .stagger-children>* {
+    animation: none;
+    opacity: 1;
+  }
+
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

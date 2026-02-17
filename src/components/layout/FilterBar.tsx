@@ -4,7 +4,7 @@
  * Owns the overlay modals triggered from its buttons.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { FilterPanel, AdvancedSortPanel } from '@/components/filters';
 import { ExportModal } from '@/components/export';
 import { ShareModal } from '@/components/share';
@@ -12,7 +12,10 @@ import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import { buildShareableUrl } from '@/hooks/useUrlState';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import type { Screenplay } from '@/types';
+
+const SEARCH_INPUT_ID = 'screenplay-search';
 
 // Quick-filter chip configuration
 type FilterType = 'all' | 'film_now' | 'recommend' | 'consider' | 'pass' | 'high_budget' | 'low_budget';
@@ -56,6 +59,19 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   const [isSortPanelOpen, setIsSortPanelOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Global keyboard shortcuts
+  const focusSearch = useCallback(() => {
+    const input = document.getElementById(SEARCH_INPUT_ID) as HTMLInputElement | null;
+    input?.focus();
+    input?.select();
+  }, []);
+
+  const toggleFilters = useCallback(() => {
+    setIsFilterPanelOpen((prev) => !prev);
+  }, []);
+
+  useKeyboardShortcuts({ onFocusSearch: focusSearch, onToggleFilters: toggleFilters });
 
   // Determine which quick-filter chip is active
   const getActiveFilter = (): FilterType => {
@@ -109,13 +125,20 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
           {/* Search Input */}
           <div className="w-full md:w-96 relative">
             <input
+              id={SEARCH_INPUT_ID}
               type="text"
-              className="input pl-10"
+              className="input pl-10 pr-16"
               placeholder="Search title, author, genre, logline..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search screenplays"
             />
+            {/* Keyboard shortcut hint */}
+            {!searchQuery && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-black-600 pointer-events-none hidden md:inline-flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 rounded bg-black-700 border border-black-600 font-mono">/</kbd>
+              </span>
+            )}
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-black-500">
               🔍
             </span>
@@ -221,9 +244,8 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
             <button
               key={chip.id}
               onClick={() => handleFilterClick(chip.id)}
-              className={`chip cursor-pointer transition-all ${
-                activeFilter === chip.id ? 'chip-active' : 'hover:border-gold-500'
-              } ${chip.id === 'film_now' && activeFilter === chip.id ? 'animate-pulse-glow' : ''}`}
+              className={`chip cursor-pointer transition-all ${activeFilter === chip.id ? 'chip-active' : 'hover:border-gold-500'
+                } ${chip.id === 'film_now' && activeFilter === chip.id ? 'animate-pulse-glow' : ''}`}
             >
               {chip.label}
             </button>

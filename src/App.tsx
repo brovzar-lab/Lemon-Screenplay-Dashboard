@@ -9,6 +9,7 @@ import { ScreenplayGrid, ScreenplayModal } from '@/components/screenplay';
 import { CollectionTabs } from '@/components/filters';
 import { ComparisonBar, ComparisonModal } from '@/components/comparison';
 import { AnalyticsDashboard } from '@/components/charts';
+import { ErrorBoundary } from '@/components/ui';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { useUrlState } from '@/hooks/useUrlState';
@@ -86,14 +87,16 @@ function App() {
 
         {/* Analytics Dashboard — charts reflect current filter state */}
         {!isLoading && allScreenplays.length > 0 && (
-          <AnalyticsDashboard
-            screenplays={screenplays}
-            totalScreenplays={allScreenplays}
-            onFilterByScoreRange={handleFilterByScoreRange}
-            onFilterByTier={handleFilterByTier}
-            onFilterByGenre={handleFilterByGenre}
-            onFilterByBudget={handleFilterByBudget}
-          />
+          <ErrorBoundary>
+            <AnalyticsDashboard
+              screenplays={screenplays}
+              totalScreenplays={allScreenplays}
+              onFilterByScoreRange={handleFilterByScoreRange}
+              onFilterByTier={handleFilterByTier}
+              onFilterByGenre={handleFilterByGenre}
+              onFilterByBudget={handleFilterByBudget}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Screenplay Grid */}
@@ -119,8 +122,10 @@ function App() {
       />
 
       {/* Comparison Bar (sticky at bottom) */}
-      <ComparisonBar />
-      <ComparisonModal />
+      <ErrorBoundary>
+        <ComparisonBar />
+        <ComparisonModal />
+      </ErrorBoundary>
     </div>
   );
 }

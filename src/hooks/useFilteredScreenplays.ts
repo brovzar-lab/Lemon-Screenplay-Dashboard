@@ -13,7 +13,7 @@ import type { Screenplay, FilterState, SortConfig, RecommendationTier } from '@/
 /**
  * Check if screenplay matches search query
  */
-function matchesSearch(screenplay: Screenplay, query: string): boolean {
+export function matchesSearch(screenplay: Screenplay, query: string): boolean {
   if (!query.trim()) return true;
 
   const lowerQuery = query.toLowerCase();
@@ -30,7 +30,7 @@ function matchesSearch(screenplay: Screenplay, query: string): boolean {
 /**
  * Check if screenplay passes all filters
  */
-function passesFilters(screenplay: Screenplay, filters: FilterState): boolean {
+export function passesFilters(screenplay: Screenplay, filters: FilterState): boolean {
   // Search
   if (!matchesSearch(screenplay, filters.searchQuery)) return false;
 
@@ -163,7 +163,7 @@ function passesFilters(screenplay: Screenplay, filters: FilterState): boolean {
 /**
  * Get recommendation tier sort order
  */
-function getRecommendationOrder(tier: RecommendationTier): number {
+export function getRecommendationOrder(tier: RecommendationTier): number {
   switch (tier) {
     case 'film_now':
       return 0;
@@ -181,7 +181,7 @@ function getRecommendationOrder(tier: RecommendationTier): number {
 /**
  * Get value for sorting from screenplay
  */
-function getSortValue(screenplay: Screenplay, field: string): number | string {
+export function getSortValue(screenplay: Screenplay, field: string): number | string {
   switch (field) {
     case 'weightedScore':
       return screenplay.weightedScore;
@@ -227,7 +227,7 @@ function getSortValue(screenplay: Screenplay, field: string): number | string {
 /**
  * Sort screenplays by multiple columns
  */
-function sortScreenplays(
+export function sortScreenplays(
   screenplays: Screenplay[],
   sortConfigs: SortConfig[],
   prioritizeFilmNow: boolean

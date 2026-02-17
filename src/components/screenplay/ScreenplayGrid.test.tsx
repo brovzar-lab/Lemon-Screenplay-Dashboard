@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ScreenplayGrid } from './ScreenplayGrid';
-import type { Screenplay } from '@/types';
+import { createTestScreenplay } from '@/test/factories';
 
 // Mock the comparison store
 vi.mock('@/stores/comparisonStore', () => ({
@@ -13,67 +13,6 @@ vi.mock('@/stores/comparisonStore', () => ({
   useIsSelectedForComparison: () => false,
   useIsComparisonFull: () => false,
 }));
-
-// Mock screenplay factory
-function createMockScreenplay(id: string, title: string): Screenplay {
-  return {
-    id,
-    title,
-    author: 'Test Author',
-    logline: 'A test logline.',
-    genre: 'Drama',
-    subgenres: [],
-    themes: [],
-    budgetCategory: 'low',
-    collection: '2020 Black List',
-    recommendation: 'recommend',
-    isFilmNow: false,
-    weightedScore: 7.5,
-    cvsTotal: 12,
-    marketability: 'medium',
-    dimensionScores: {
-      concept: 7,
-      structure: 7,
-      protagonist: 7,
-      supportingCast: 7,
-      dialogue: 7,
-      genreExecution: 7,
-      originality: 7,
-      weightedScore: 7.5,
-    },
-    cvsFactors: {
-      targetAudience: { score: 2, note: '' },
-      highConcept: { score: 2, note: '' },
-      castAttachability: { score: 2, note: '' },
-      marketingHook: { score: 2, note: '' },
-      budgetReturn: { score: 2, note: '' },
-      comparableSuccess: { score: 2, note: '' },
-    },
-    producerMetrics: {
-      marketPotential: 7,
-      productionRisk: 'Medium',
-      starVehiclePotential: 7,
-      festivalAppeal: 7,
-      roiIndicator: 3,
-      uspStrength: 'Moderate',
-    },
-    strengths: [],
-    weaknesses: [],
-    comparableFilms: [],
-    standoutScenes: [],
-    developmentNotes: [],
-    criticalFailures: [],
-    characters: [],
-    verdictStatement: '',
-    metadata: {
-      sourceFile: 'test.pdf',
-      pageCount: 100,
-      wordCount: 20000,
-      analysisVersion: 'v3',
-    },
-    sourceFile: 'test.pdf',
-  };
-}
 
 describe('ScreenplayGrid', () => {
   beforeEach(() => {
@@ -98,9 +37,9 @@ describe('ScreenplayGrid', () => {
 
   it('renders screenplay cards when data is provided', () => {
     const screenplays = [
-      createMockScreenplay('1', 'First Movie'),
-      createMockScreenplay('2', 'Second Movie'),
-      createMockScreenplay('3', 'Third Movie'),
+      createTestScreenplay({ id: '1', title: 'First Movie' }),
+      createTestScreenplay({ id: '2', title: 'Second Movie' }),
+      createTestScreenplay({ id: '3', title: 'Third Movie' }),
     ];
 
     render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
@@ -111,7 +50,7 @@ describe('ScreenplayGrid', () => {
   });
 
   it('has proper list role and aria-label', () => {
-    const screenplays = [createMockScreenplay('1', 'Test Movie')];
+    const screenplays = [createTestScreenplay({ id: '1', title: 'Test Movie' })];
 
     render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
 
@@ -121,8 +60,8 @@ describe('ScreenplayGrid', () => {
 
   it('renders each card as a listitem', () => {
     const screenplays = [
-      createMockScreenplay('1', 'First Movie'),
-      createMockScreenplay('2', 'Second Movie'),
+      createTestScreenplay({ id: '1', title: 'First Movie' }),
+      createTestScreenplay({ id: '2', title: 'Second Movie' }),
     ];
 
     render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
@@ -133,7 +72,7 @@ describe('ScreenplayGrid', () => {
 
   it('calls onCardClick when a card is clicked', () => {
     const handleClick = vi.fn();
-    const screenplays = [createMockScreenplay('1', 'Clickable Movie')];
+    const screenplays = [createTestScreenplay({ id: '1', title: 'Clickable Movie' })];
 
     render(
       <ScreenplayGrid
@@ -153,7 +92,7 @@ describe('ScreenplayGrid', () => {
 
   it('supports keyboard navigation with Enter key', () => {
     const handleClick = vi.fn();
-    const screenplays = [createMockScreenplay('1', 'Keyboard Movie')];
+    const screenplays = [createTestScreenplay({ id: '1', title: 'Keyboard Movie' })];
 
     render(
       <ScreenplayGrid
@@ -171,7 +110,7 @@ describe('ScreenplayGrid', () => {
 
   it('supports keyboard navigation with Space key', () => {
     const handleClick = vi.fn();
-    const screenplays = [createMockScreenplay('1', 'Space Movie')];
+    const screenplays = [createTestScreenplay({ id: '1', title: 'Space Movie' })];
 
     render(
       <ScreenplayGrid
@@ -189,10 +128,13 @@ describe('ScreenplayGrid', () => {
 
   it('has proper aria-label for each card', () => {
     const screenplays = [
-      createMockScreenplay('1', 'Accessible Movie'),
+      createTestScreenplay({
+        id: '1',
+        title: 'Accessible Movie',
+        author: 'Jane Smith',
+        recommendation: 'film_now',
+      }),
     ];
-    screenplays[0].author = 'Jane Smith';
-    screenplays[0].recommendation = 'film_now';
 
     render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
 
@@ -204,12 +146,12 @@ describe('ScreenplayGrid', () => {
   });
 
   it('cards are focusable with tabIndex', () => {
-    const screenplays = [createMockScreenplay('1', 'Focusable Movie')];
+    const screenplays = [createTestScreenplay({ id: '1', title: 'Focusable Movie' })];
 
     render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
 
     const listItem = screen.getByRole('listitem');
-    expect(listItem).toHaveAttribute('tabIndex', '0');
+    expect(listItem).toHaveAttribute('tabindex', '0');
   });
 
   it('renders correct number of skeleton cards while loading', () => {
@@ -223,7 +165,7 @@ describe('ScreenplayGrid', () => {
   it('wraps cards in ErrorBoundary for resilience', () => {
     // This test verifies the ErrorBoundary is present by checking
     // that rendering doesn't crash even with edge cases
-    const screenplays = [createMockScreenplay('1', 'Boundary Movie')];
+    const screenplays = [createTestScreenplay({ id: '1', title: 'Boundary Movie' })];
 
     // Should not throw
     expect(() =>

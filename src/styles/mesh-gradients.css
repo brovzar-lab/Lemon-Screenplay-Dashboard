@@ -1,0 +1,109 @@
+/**
+ * Deep Ocean Mesh Gradients
+ * Subtle cyan/teal aurora effects
+ */
+
+/* Ocean depth gradient background */
+.mesh-gradient-hero {
+  position: relative;
+  background: linear-gradient(180deg, #050A14 0%, #0A1628 50%, #0F1D32 100%);
+  overflow: hidden;
+  min-height: 100vh;
+}
+
+.mesh-gradient-hero::before,
+.mesh-gradient-hero::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.12;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+/* Cyan glow - top left */
+.mesh-gradient-hero::before {
+  top: -25%;
+  left: -15%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #06B6D4 0%, transparent 70%);
+  animation: float-ocean-1 45s ease-in-out infinite;
+}
+
+/* Teal glow - bottom right */
+.mesh-gradient-hero::after {
+  bottom: -35%;
+  right: -20%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, #14B8A6 0%, transparent 70%);
+  animation: float-ocean-2 55s ease-in-out infinite;
+}
+
+/* Slow, gentle ocean movement */
+@keyframes float-ocean-1 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.12;
+  }
+  50% {
+    transform: translate(40px, 30px) scale(1.05);
+    opacity: 0.15;
+  }
+}
+
+@keyframes float-ocean-2 {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.12;
+  }
+  50% {
+    transform: translate(-30px, -40px) scale(0.95);
+    opacity: 0.15;
+  }
+}
+
+/* Subtle depth overlay */
+.mesh-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(6, 182, 212, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 100%, rgba(20, 184, 166, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Dashboard-specific gradient (for main page) */
+.mesh-gradient-dashboard {
+  position: relative;
+  background: linear-gradient(180deg, #050A14 0%, #0A1628 100%);
+  min-height: 100vh;
+}
+
+.mesh-gradient-dashboard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 400px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(6, 182, 212, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Light mode adjustments */
+[data-theme="light"] .mesh-gradient-hero,
+[data-theme="light"] .mesh-gradient-dashboard {
+  background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+}
+
+[data-theme="light"] .mesh-gradient-hero::before,
+[data-theme="light"] .mesh-gradient-hero::after {
+  opacity: 0.06;
+}
+
+[data-theme="light"] .mesh-gradient-dashboard::before {
+  background: radial-gradient(ellipse at 50% 0%, rgba(6, 182, 212, 0.05) 0%, transparent 70%);
+}

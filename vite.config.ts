@@ -1,11 +1,51 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import fs from 'fs'
 import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // Skip .DS_Store files during public dir copy (macOS EPERM fix)
+    {
+      name: 'skip-ds-store',
+      generateBundle() {
+        const publicDir = path.resolve(__dirname, 'public');
+        const copyRecursive = (src: string) => {
+          let entries;
+          try {
+            entries = fs.readdirSync(src, { withFileTypes: true });
+          } catch {
+            return;
+          }
+          for (const entry of entries) {
+            if (entry.name === '.DS_Store') continue;
+            const srcPath = path.join(src, entry.name);
+            const relPath = path.relative(publicDir, srcPath);
+            if (entry.isDirectory()) {
+              copyRecursive(srcPath);
+            } else {
+              try {
+                const content = fs.readFileSync(srcPath);
+                this.emitFile({ type: 'asset', fileName: relPath, source: content });
+              } catch {
+                // Skip files we can't read (macOS protection)
+              }
+            }
+          }
+        };
+        copyRecursive(publicDir);
+      },
+    },
+  ],
+  build: {
+    // Prevent EPERM on macOS-protected .DS_Store files in dist/
+    emptyOutDir: false,
+    copyPublicDir: false,
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

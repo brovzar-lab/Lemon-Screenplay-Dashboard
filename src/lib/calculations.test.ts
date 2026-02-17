@@ -393,7 +393,7 @@ describe('assessUSPStrength', () => {
   it('returns Moderate for some USP indicators', () => {
     const screenplay = createMockScreenplay({
       logline: 'A decent logline.',
-      strengths: ['Original concept'],
+      strengths: ['Good pacing'],
       comparableFilms: ['Film A'],
       subgenres: ['Thriller', 'Mystery'],
       standoutScenes: [],

@@ -1,0 +1,45 @@
+# Lemon Screenplay Dashboard — Cursor Rules
+
+## Project
+Screenplay analysis dashboard. React 19 + TypeScript (strict) + Vite 7 + Tailwind CSS 4 + Zustand 5 + TanStack React Query 5 + Firebase.
+
+## Key Files
+- Entry: `src/App.tsx`, `src/main.tsx`
+- Types: `src/types/screenplay.ts`, `src/types/screenplay-v6.ts` (check BOTH before data changes)
+- Stores: `src/stores/` — one Zustand store per domain (filter, sort, comparison, favorites, notes, upload, theme, apiConfig)
+- Hooks: `src/hooks/useScreenplays.ts` (data fetching), `src/hooks/useFilteredScreenplays.ts` (filter pipeline)
+- API: `src/lib/api.ts`, `src/lib/analysisService.ts`, `src/lib/promptClient.ts`
+
+## Data Flow
+Firebase/API → useScreenplays (React Query) → useFilteredScreenplays (Zustand stores) → Components
+
+## Conventions
+- TypeScript strict — no `any`
+- Barrel exports (index.ts) in every feature folder
+- PascalCase components, camelCase utilities
+- Tests next to source files (e.g., filterStore.test.ts)
+- Tailwind utility classes only — no inline styles or CSS modules
+- Zustand = client state, React Query = server state — never mix
+- Custom CSS only in src/styles/ for premium visual effects
+
+## Component Structure
+Each feature folder in `src/components/` has:
+- Individual component files (PascalCase.tsx)
+- An index.ts barrel export
+- Tests co-located (ComponentName.test.tsx)
+
+## Before Making Changes
+1. Check if a Zustand store already handles the state you need
+2. Check BOTH screenplay.ts and screenplay-v6.ts before modifying data structures
+3. Run `npm run build` to verify TypeScript
+4. Run `npm run test:run` to verify tests
+
+## Commands
+- `npm run dev` — dev server
+- `npm run build` — TS check + build
+- `npm run test:run` — unit tests
+- `npm run test:e2e` — Playwright
+- `npm run deploy` — build + Firebase deploy
+
+## Ignore
+The `agent/` directory is a Gemini framework (Antigravity Kit). Not relevant for Cursor work.
