@@ -1,6 +1,6 @@
 /**
  * Upload Panel
- * File/folder selection, category assignment, upload queue, API configuration
+ * File/folder selection, category assignment, model selection, upload queue, API configuration
  */
 
 import { useState, useRef, useCallback } from 'react';
@@ -15,6 +15,63 @@ import useCategories from '@/hooks/useCategories';
 import { ApiConfigPanel } from './ApiConfigPanel';
 
 
+// ─── Model definitions ───────────────────────────────────────────────────────
+
+type ModelOption = 'haiku' | 'sonnet' | 'opus';
+
+interface ModelInfo {
+  id: ModelOption;
+  name: string;
+  subtitle: string;
+  costPerScript: string;
+  speed: string;
+  quality: string;
+  badge: string;
+  badgeColor: string;
+  description: string;
+  icon: string;
+}
+
+const MODEL_OPTIONS: ModelInfo[] = [
+  {
+    id: 'haiku',
+    name: 'Haiku 4.5',
+    subtitle: 'Fast & Affordable',
+    costPerScript: '~$0.06',
+    speed: '~1 min',
+    quality: 'Good',
+    badge: 'BUDGET',
+    badgeColor: 'bg-emerald-500/20 text-emerald-400',
+    description: 'Best for bulk scanning. Great accuracy for structured analysis at a fraction of the cost. Ideal for processing large batches of 100+ screenplays.',
+    icon: '⚡',
+  },
+  {
+    id: 'sonnet',
+    name: 'Sonnet 4.5',
+    subtitle: 'Balanced Power',
+    costPerScript: '~$0.22',
+    speed: '~3 min',
+    quality: 'Excellent',
+    badge: 'RECOMMENDED',
+    badgeColor: 'bg-gold-500/20 text-gold-400',
+    description: 'Best quality-to-cost ratio. Deep character analysis, nuanced genre detection, and reliable scoring. The default choice for professional analysis.',
+    icon: '🎯',
+  },
+  {
+    id: 'opus',
+    name: 'Opus 4.6',
+    subtitle: 'Maximum Depth',
+    costPerScript: '~$0.90',
+    speed: '~5 min',
+    quality: 'Premium',
+    badge: 'PREMIUM',
+    badgeColor: 'bg-purple-500/20 text-purple-400',
+    description: 'Deepest analysis with the most nuanced insights. Best for high-priority screenplays where you need every detail. 4x the cost of Sonnet.',
+    icon: '👑',
+  },
+];
+
+// ─── Status labels ───────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<UploadStatus, { label: string; color: string }> = {
   pending: { label: 'Pending', color: 'text-black-400' },
@@ -24,11 +81,17 @@ const STATUS_LABELS: Record<UploadStatus, { label: string; color: string }> = {
   error: { label: 'Error', color: 'text-red-400' },
 };
 
-const UPLOAD_PASSWORD = '1234';
+// Token cost multipliers per model (per 1K tokens)
+const MODEL_COSTS: Record<ModelOption, { input: number; output: number }> = {
+  haiku: { input: 0.001, output: 0.005 },
+  sonnet: { input: 0.003, output: 0.015 },
+  opus: { input: 0.015, output: 0.075 },
+};
 
 export function UploadPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCategory, setSelectedCategory] = useState('LEMON');
+  const [selectedModel, setSelectedModel] = useState<ModelOption>('sonnet');
   const [dragActive, setDragActive] = useState(false);
   const [showApiConfig, setShowApiConfig] = useState(false);
   const { categoryIds, addCategory: addCategoryToStore } = useCategories();
@@ -38,24 +101,9 @@ export function UploadPanel() {
   const [newCatName, setNewCatName] = useState('');
   const [newCatError, setNewCatError] = useState('');
 
-  // Password protection state
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-
   const { jobs, addJob, updateJob, removeJob, clearCompleted, isProcessing, setProcessing, getFile } = useUploadStore();
   const { isConfigured, apiKey, canMakeRequest, incrementUsage } = useApiConfigStore();
   const queryClient = useQueryClient();
-
-  const handlePasswordSubmit = () => {
-    if (passwordInput === UPLOAD_PASSWORD) {
-      setIsUnlocked(true);
-      setPasswordError('');
-    } else {
-      setPasswordError('Incorrect password');
-      setPasswordInput('');
-    }
-  };
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
@@ -88,6 +136,7 @@ export function UploadPanel() {
     setProcessing(true);
 
     const pending = useUploadStore.getState().jobs.filter((j) => j.status === 'pending');
+    const costRates = MODEL_COSTS[selectedModel];
 
     for (const job of pending) {
       const file = getFile(job.id);
@@ -102,7 +151,7 @@ export function UploadPanel() {
           job.category,
           {
             apiKey,
-            model: 'sonnet',
+            model: selectedModel,
             lenses: ['commercial'],
           },
           (progress) => {
@@ -115,9 +164,9 @@ export function UploadPanel() {
           // Save to localStorage for persistence
           saveLocalAnalysis(result.raw);
 
-          // Estimate cost (~$0.015 per 1K input + $0.075 per 1K output for Sonnet)
+          // Estimate cost based on selected model
           const cost = result.usage
-            ? (result.usage.input_tokens * 0.003 + result.usage.output_tokens * 0.015) / 1000
+            ? (result.usage.input_tokens * costRates.input + result.usage.output_tokens * costRates.output) / 1000
             : 0.50; // estimate if no usage data
 
           incrementUsage(cost);
@@ -146,60 +195,16 @@ export function UploadPanel() {
     }
 
     setProcessing(false);
-  }, [isProcessing, setProcessing, getFile, updateJob, apiKey, incrementUsage, queryClient]);
+  }, [isProcessing, setProcessing, getFile, updateJob, apiKey, selectedModel, incrementUsage, queryClient]);
 
   const pendingJobs = jobs.filter((j) => j.status === 'pending');
   const activeJobs = jobs.filter((j) => j.status === 'parsing' || j.status === 'analyzing');
   const completedJobs = jobs.filter((j) => j.status === 'complete' || j.status === 'error');
 
-  // Password protection gate
-  if (!isUnlocked) {
-    return (
-      <div className="space-y-8">
-        <div>
-          <h2 className="text-xl font-display text-gold-200 mb-2">Upload Screenplays</h2>
-          <p className="text-sm text-black-400">
-            Upload PDF screenplays for AI analysis. Files will be parsed and analyzed using the V6 Core + Lenses system.
-          </p>
-        </div>
-
-        {/* Password Protection */}
-        <div className="p-8 rounded-xl bg-black-800/50 border border-black-700 text-center">
-          <div className="w-16 h-16 mx-auto rounded-full bg-gold-500/20 flex items-center justify-center mb-4">
-            <svg className="w-8 h-8 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-gold-200 mb-2">Protected Section</h3>
-          <p className="text-sm text-black-400 mb-6">Enter password to access the upload functionality</p>
-          <div className="max-w-xs mx-auto space-y-4">
-            <form onSubmit={(e) => { e.preventDefault(); handlePasswordSubmit(); }}>
-              <input
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder="Enter password"
-                className="input text-center w-full"
-                autoFocus
-              />
-              {passwordError && (
-                <p className="text-sm text-red-400 mt-2">{passwordError}</p>
-              )}
-              <button
-                type="submit"
-                className="btn btn-primary w-full mt-4"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                </svg>
-                Unlock Upload
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Calculate batch cost estimate
+  const batchCostEstimate = pendingJobs.length > 0
+    ? `~$${(pendingJobs.length * parseFloat(MODEL_OPTIONS.find(m => m.id === selectedModel)!.costPerScript.replace(/[^0-9.]/g, ''))).toFixed(2)}`
+    : null;
 
   return (
     <div className="space-y-8">
@@ -243,6 +248,100 @@ export function UploadPanel() {
         {showApiConfig && (
           <div className="p-4 border-t border-black-700">
             <ApiConfigPanel />
+          </div>
+        )}
+      </div>
+
+      {/* Model Selection */}
+      <div>
+        <label className="block text-sm font-medium text-gold-300 mb-3">
+          Analysis Model
+        </label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {MODEL_OPTIONS.map((model) => (
+            <button
+              key={model.id}
+              onClick={() => setSelectedModel(model.id)}
+              className={clsx(
+                'relative p-4 rounded-xl border text-left transition-all',
+                selectedModel === model.id
+                  ? 'border-gold-500/60 bg-gold-500/10 ring-1 ring-gold-500/30'
+                  : 'border-black-700 bg-black-800/50 hover:border-gold-500/30 hover:bg-black-800'
+              )}
+            >
+              {/* Badge */}
+              <span className={clsx(
+                'absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wider',
+                model.badgeColor
+              )}>
+                {model.badge}
+              </span>
+
+              {/* Model Header */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">{model.icon}</span>
+                <div>
+                  <p className={clsx(
+                    'font-semibold text-sm',
+                    selectedModel === model.id ? 'text-gold-200' : 'text-black-200'
+                  )}>
+                    {model.name}
+                  </p>
+                  <p className="text-xs text-black-400">{model.subtitle}</p>
+                </div>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-3 gap-2 mt-3 mb-3">
+                <div className="text-center">
+                  <p className="text-xs text-black-500 mb-0.5">Cost</p>
+                  <p className={clsx(
+                    'text-sm font-mono font-bold',
+                    model.id === 'haiku' ? 'text-emerald-400' :
+                      model.id === 'sonnet' ? 'text-gold-400' : 'text-purple-400'
+                  )}>
+                    {model.costPerScript}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-black-500 mb-0.5">Speed</p>
+                  <p className="text-sm font-mono text-black-300">{model.speed}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-black-500 mb-0.5">Quality</p>
+                  <p className="text-sm font-mono text-black-300">{model.quality}</p>
+                </div>
+              </div>
+
+              {/* Description */}
+              <p className="text-xs text-black-400 leading-relaxed">
+                {model.description}
+              </p>
+
+              {/* Selection Indicator */}
+              {selectedModel === model.id && (
+                <div className="absolute top-3 left-3">
+                  <div className="w-4 h-4 rounded-full bg-gold-500 flex items-center justify-center">
+                    <svg className="w-2.5 h-2.5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Batch cost estimate */}
+        {pendingJobs.length > 0 && batchCostEstimate && (
+          <div className="mt-3 flex items-center gap-2 text-sm">
+            <svg className="w-4 h-4 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-black-400">
+              Estimated batch cost for {pendingJobs.length} files with {MODEL_OPTIONS.find(m => m.id === selectedModel)!.name}: {' '}
+              <span className="font-mono text-gold-300">{batchCostEstimate}</span>
+            </span>
           </div>
         )}
       </div>
@@ -429,14 +528,20 @@ export function UploadPanel() {
                 )}
               >
                 {isConfigured ? (
-                  `Start Analysis (${pendingJobs.length} files)`
+                  <>
+                    Start Analysis ({pendingJobs.length} files)
+                    <span className="ml-2 text-xs opacity-70">
+                      using {MODEL_OPTIONS.find(m => m.id === selectedModel)!.name}
+                      {batchCostEstimate && ` • ${batchCostEstimate}`}
+                    </span>
+                  </>
                 ) : (
                   'Configure API to Start Analysis'
                 )}
               </button>
               {!isConfigured && (
                 <p className="text-xs text-amber-400 text-center">
-                  Click "API Configuration" above to set up your API key and budget limits
+                  Click &quot;API Configuration&quot; above to set up your API key and budget limits
                 </p>
               )}
             </div>
@@ -446,7 +551,12 @@ export function UploadPanel() {
           {isProcessing && (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-gold-500/10 border border-gold-500/20">
               <div className="w-5 h-5 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-gold-300">Processing... This may take 2-5 minutes per screenplay.</p>
+              <p className="text-sm text-gold-300">
+                Processing with {MODEL_OPTIONS.find(m => m.id === selectedModel)!.name}... {' '}
+                {selectedModel === 'haiku' ? 'This should be quick (~1 min per script).' :
+                  selectedModel === 'sonnet' ? 'This may take 2-3 minutes per screenplay.' :
+                    'Deep analysis in progress — ~5 minutes per screenplay.'}
+              </p>
             </div>
           )}
         </div>
@@ -457,14 +567,18 @@ export function UploadPanel() {
         <h4 className="text-sm font-medium text-gold-300 mb-2">How It Works</h4>
         <ol className="text-sm text-black-400 space-y-1 list-decimal list-inside">
           <li>Configure your Anthropic API key above</li>
+          <li>Choose your analysis model (Haiku for bulk, Sonnet for depth)</li>
           <li>Drop PDF screenplays into the upload zone</li>
-          <li>Click "Start Analysis" — each script takes 2-5 minutes</li>
-          <li>Results appear automatically in the dashboard</li>
+          <li>Click &quot;Start Analysis&quot; — results appear automatically</li>
         </ol>
-        <p className="text-xs text-black-500 mt-3">
-          Analysis uses Claude Sonnet with the V6 Core + Lenses system.
-          Estimated cost: ~$0.10-0.50 per screenplay depending on length.
-        </p>
+        <div className="mt-3 p-3 rounded-lg bg-black-900/60 border border-black-700/50">
+          <p className="text-xs text-gold-400/80 font-medium mb-1">💡 Pro Tip: Hybrid Strategy</p>
+          <p className="text-xs text-black-400">
+            For large batches, scan everything with <strong className="text-emerald-400">Haiku</strong> first (~$0.06/script),
+            then re-analyze your top picks with <strong className="text-gold-400">Sonnet</strong> for deeper insights.
+            This gives you the best of both worlds at a fraction of the cost.
+          </p>
+        </div>
       </div>
     </div>
   );
