@@ -151,6 +151,20 @@ export const useApiConfigStore = create<ApiConfig>()(
     }),
     {
       name: 'lemon-api-config',
+      version: 2, // v2: clear leaked Google API key
+      migrate: (persistedState: unknown, version: number) => {
+        const state = persistedState as Record<string, unknown>;
+        if (version < 2) {
+          // The old hardcoded key was leaked and revoked by Google.
+          // Clear it from localStorage so users must enter a fresh key.
+          const LEAKED_KEY = 'AIzaSyACzpPPOfpQHA7BmnlWtjzZ_SijTH3p-oY';
+          if (state.googleApiKey === LEAKED_KEY) {
+            state.googleApiKey = '';
+            state.isGoogleConfigured = false;
+          }
+        }
+        return state as Record<string, unknown> & { googleApiKey: string; isGoogleConfigured: boolean };
+      },
       partialize: (state) => ({
         apiKey: state.apiKey,
         apiEndpoint: state.apiEndpoint,
