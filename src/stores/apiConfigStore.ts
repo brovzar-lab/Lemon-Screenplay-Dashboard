@@ -51,9 +51,8 @@ export const useApiConfigStore = create<ApiConfig>()(
       apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
       apiEndpoint: 'https://api.anthropic.com/v1/messages',
       isConfigured: Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY),
-      // Note: hardcoded because Vite cannot read .env due to macOS EPERM sandbox
-      googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || 'AIzaSyACzpPPOfpQHA7BmnlWtjzZ_SijTH3p-oY',
-      isGoogleConfigured: true,
+      googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
+      isGoogleConfigured: Boolean(import.meta.env.VITE_GOOGLE_API_KEY),
       monthlyBudgetLimit: 50, // $50 default
       dailyRequestLimit: 100,
       currentMonthSpend: 0,

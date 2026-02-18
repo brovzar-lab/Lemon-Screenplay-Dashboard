@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { Screenplay } from '@/types';
 import { usePosterStore } from '@/stores/posterStore';
 import { generatePoster } from '@/lib/analysisService';
@@ -9,6 +9,7 @@ interface PosterSectionProps {
 
 export function PosterSection({ screenplay }: PosterSectionProps) {
     const { posters, setPosterStatus } = usePosterStore();
+    const [errorType, setErrorType] = useState<'key_missing' | 'generic' | null>(null);
 
     // Merge prop state with store state
     const storedPoster = posters[screenplay.id];
@@ -23,8 +24,10 @@ export function PosterSection({ screenplay }: PosterSectionProps) {
                 try {
                     const url = await generatePoster(screenplay.title, screenplay.logline, screenplay.genre, screenplay.id);
                     setPosterStatus(screenplay.id, 'ready', url);
+                    setErrorType(null);
                 } catch (error) {
                     console.error('Poster generation failed', error);
+                    setErrorType(error instanceof Error && error.message === 'GOOGLE_API_KEY_MISSING' ? 'key_missing' : 'generic');
                     setPosterStatus(screenplay.id, 'error');
                 }
             };
@@ -38,7 +41,9 @@ export function PosterSection({ screenplay }: PosterSectionProps) {
         try {
             const url = await generatePoster(screenplay.title, screenplay.logline, screenplay.genre, screenplay.id);
             setPosterStatus(screenplay.id, 'ready', url);
+            setErrorType(null);
         } catch (error) {
+            setErrorType(error instanceof Error && error.message === 'GOOGLE_API_KEY_MISSING' ? 'key_missing' : 'generic');
             setPosterStatus(screenplay.id, 'error');
         }
     };
@@ -56,8 +61,31 @@ export function PosterSection({ screenplay }: PosterSectionProps) {
                 </div>
             )}
 
-            {/* Error State */}
-            {posterStatus === 'error' && (
+            {/* Error State — API Key Missing */}
+            {posterStatus === 'error' && errorType === 'key_missing' && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-black-900/80 px-6">
+                    <div className="w-14 h-14 rounded-full bg-amber-500/15 flex items-center justify-center mb-4">
+                        <svg className="w-7 h-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                    </div>
+                    <p className="text-amber-300 font-medium text-sm mb-1">Google API Key Required</p>
+                    <p className="text-black-400 text-xs text-center max-w-xs mb-4">
+                        Poster generation uses Gemini. Add your Google API key in Settings → API Configuration to enable it.
+                    </p>
+                    <a
+                        href="https://aistudio.google.com/apikey"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-gold-400 hover:text-gold-300 underline underline-offset-2"
+                    >
+                        Get a free API key from Google AI Studio →
+                    </a>
+                </div>
+            )}
+
+            {/* Error State — Generic */}
+            {posterStatus === 'error' && errorType !== 'key_missing' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-black-900/50">
                     <p className="text-red-400 mb-2">Poster Generation Failed</p>
                     <button

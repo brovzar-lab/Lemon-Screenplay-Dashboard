@@ -325,15 +325,12 @@ export async function generatePoster(
     }
   }
 
-  // Read from store first, fall back to hardcoded key (EPERM + localStorage cache workaround)
-  const FALLBACK_GOOGLE_KEY = 'AIzaSyACzpPPOfpQHA7BmnlWtjzZ_SijTH3p-oY';
-  const googleApiKey = useApiConfigStore.getState().googleApiKey || FALLBACK_GOOGLE_KEY;
+  // Read Google API key from store (user must configure via Settings → API Configuration)
+  const googleApiKey = useApiConfigStore.getState().googleApiKey;
 
-  // ── Fallback: no API key → placeholder ──
+  // ── No API key → throw so the UI shows a configure prompt ──
   if (!googleApiKey) {
-    console.warn('[Poster] No Google API key configured — returning placeholder');
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    return `https://placehold.co/1000x1500/050505/D4AF37/png?text=${encodeURIComponent(title.toUpperCase())}&font=playfair`;
+    throw new Error('GOOGLE_API_KEY_MISSING');
   }
 
   // ── Step 2: Generate via Gemini ──
