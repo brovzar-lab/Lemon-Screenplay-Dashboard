@@ -7,6 +7,8 @@ import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { BUDGET_TIERS } from '@/types';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
+import { storage } from '@/lib/firebase';
+import { ref, getDownloadURL } from 'firebase/storage';
 import type { RefObject } from 'react';
 
 interface ModalHeaderProps {
@@ -17,6 +19,37 @@ interface ModalHeaderProps {
 
 export function ModalHeader({ screenplay, closeButtonRef, onClose }: ModalHeaderProps) {
     const budgetInfo = BUDGET_TIERS[screenplay.budgetCategory];
+
+    /**
+     * Open the PDF from Firebase Storage.
+     * The upload path in firebase.ts is: screenplays/{category}/{safeName}.pdf
+     * We reconstruct the same path here.
+     */
+    const handleDownloadPdf = async () => {
+        const category = screenplay.category || 'OTHER';
+        const safeName = (screenplay.title || screenplay.sourceFile || 'untitled')
+            .replace(/\.pdf$/i, '')
+            .replace(/[^a-zA-Z0-9_\- ]/g, '')
+            .trim()
+            .replace(/\s+/g, '_');
+        const storagePath = `screenplays/${category}/${safeName}.pdf`;
+
+        try {
+            const fileRef = ref(storage, storagePath);
+            const url = await getDownloadURL(fileRef);
+            window.open(url, '_blank');
+        } catch (err) {
+            console.error('[PDF Download] Failed:', err);
+            // Fallback: try without category subfolder
+            try {
+                const fallbackRef = ref(storage, `screenplays/${safeName}.pdf`);
+                const url = await getDownloadURL(fallbackRef);
+                window.open(url, '_blank');
+            } catch {
+                alert(`PDF not found in storage. The screenplay may not have been uploaded yet.\n\nPath tried: ${storagePath}`);
+            }
+        }
+    };
 
     return (
         <div className={clsx(
@@ -69,13 +102,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose }: ModalHeader
                 {/* Right: Badge + PDF */}
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => {
-                            const filename = screenplay.sourceFile || `${screenplay.title}.pdf`;
-                            const bucketName = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'your-project.appspot.com';
-                            const encodedFilename = encodeURIComponent(filename);
-                            const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/screenplays%2F${encodedFilename}?alt=media`;
-                            window.open(downloadUrl, '_blank');
-                        }}
+                        onClick={handleDownloadPdf}
                         className="btn btn-primary text-xs flex items-center gap-1.5 py-1.5 px-3"
                         title={`Download ${screenplay.sourceFile || screenplay.title}`}
                     >
@@ -90,3 +117,4 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose }: ModalHeader
         </div>
     );
 }
+
