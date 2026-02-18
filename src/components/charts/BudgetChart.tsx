@@ -98,7 +98,7 @@ export function BudgetChart({ screenplays, onBudgetClick }: BudgetChartProps) {
 
   return (
     <div className="h-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
         <BarChart
           data={data}
           layout="vertical"

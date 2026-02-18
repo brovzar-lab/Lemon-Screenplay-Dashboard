@@ -1,7 +1,7 @@
 {
   "name": "lemon-dashboard",
   "private": true,
-  "version": "6.5.0",
+  "version": "6.6.3",
   "type": "module",
   "scripts": {
     "dev": "vite",

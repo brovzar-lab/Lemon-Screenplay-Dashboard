@@ -3,6 +3,7 @@
  * Displays screenplay summary in a card format
  */
 
+// ... imports ...
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { getScoreColorClass } from '@/lib/calculations';

@@ -105,17 +105,33 @@
     min-height: 100vh;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-display);
     font-weight: 600;
     line-height: 1.2;
     color: var(--color-gold-100);
   }
 
-  h1 { font-size: 2.5rem; }
-  h2 { font-size: 2rem; }
-  h3 { font-size: 1.5rem; }
-  h4 { font-size: 1.25rem; }
+  h1 {
+    font-size: 2.5rem;
+  }
+
+  h2 {
+    font-size: 2rem;
+  }
+
+  h3 {
+    font-size: 1.5rem;
+  }
+
+  h4 {
+    font-size: 1.25rem;
+  }
 
   a {
     color: var(--color-gold-400);
@@ -155,6 +171,7 @@
 /* ===== UTILITY CLASSES ===== */
 
 @layer utilities {
+
   /* Glass Effect */
   .glass {
     background: rgba(30, 41, 59, 0.7);
@@ -171,7 +188,7 @@
   /* FILM NOW Glow */
   .film-now-glow {
     box-shadow: 0 0 30px rgba(255, 215, 0, 0.3),
-                0 0 60px rgba(255, 165, 0, 0.15);
+      0 0 60px rgba(255, 165, 0, 0.15);
     border-color: var(--color-gold-400);
   }
 
@@ -184,9 +201,17 @@
   }
 
   /* Score Colors */
-  .score-excellent { color: var(--color-emerald-500); }
-  .score-good { color: var(--color-gold-400); }
-  .score-poor { color: var(--color-red-500); }
+  .score-excellent {
+    color: var(--color-emerald-500);
+  }
+
+  .score-good {
+    color: var(--color-gold-400);
+  }
+
+  .score-poor {
+    color: var(--color-red-500);
+  }
 
   /* Status Badges */
   .badge-recommend {
@@ -215,22 +240,35 @@
 
 @layer utilities {
   @keyframes shimmer {
-    0% { background-position: -200% center; }
-    100% { background-position: 200% center; }
+    0% {
+      background-position: -200% center;
+    }
+
+    100% {
+      background-position: 200% center;
+    }
   }
 
   @keyframes pulse-glow {
-    0%, 100% {
+
+    0%,
+    100% {
       box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
     }
+
     50% {
       box-shadow: 0 0 40px rgba(255, 215, 0, 0.5);
     }
   }
 
   @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
   }
 
   @keyframes slide-up {
@@ -238,6 +276,7 @@
       opacity: 0;
       transform: translateY(20px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -249,6 +288,7 @@
       opacity: 0;
       transform: scale(0.95);
     }
+
     to {
       opacity: 1;
       transform: scale(1);
@@ -260,6 +300,7 @@
       opacity: 0;
       transform: translateX(100%);
     }
+
     to {
       opacity: 1;
       transform: translateX(0);
@@ -271,6 +312,7 @@
       opacity: 0;
       transform: translateX(-100%);
     }
+
     to {
       opacity: 1;
       transform: translateX(0);
@@ -310,6 +352,7 @@
 /* ===== COMPONENT STYLES ===== */
 
 @layer components {
+
   /* Card Base */
   .card {
     background: rgba(30, 41, 59, 0.7);
@@ -459,6 +502,7 @@
 /* ===== TABLET RESPONSIVE (768px - 1024px) ===== */
 
 @media (min-width: 768px) and (max-width: 1024px) {
+
   /* Optimize touch targets for tablets */
   .btn {
     min-height: 44px;
@@ -472,7 +516,8 @@
 
   .input {
     min-height: 44px;
-    font-size: 1rem; /* Prevent zoom on focus in iOS */
+    font-size: 1rem;
+    /* Prevent zoom on focus in iOS */
   }
 
   /* Larger card tap targets */
@@ -507,6 +552,7 @@
 /* ===== MOBILE (under 768px) ===== */
 
 @media (max-width: 767px) {
+
   /* Even larger touch targets on mobile */
   .btn {
     min-height: 48px;
@@ -546,11 +592,13 @@
 /* ============================================
    LIGHT THEME OVERRIDES
    Applied when <html> has class "light"
+   Premium warm-neutral palette with gold accents
    ============================================ */
 
+/* --- Base --- */
 html.light body {
-  background-color: var(--color-gold-50);
-  color: var(--color-black-800);
+  background-color: #E8E3DA;
+  color: var(--color-black-900);
 }
 
 html.light h1,
@@ -571,13 +619,13 @@ html.light a:hover {
 }
 
 html.light ::selection {
-  background-color: var(--color-gold-400);
+  background-color: var(--color-gold-300);
   color: var(--color-black-950);
 }
 
-/* Light theme scrollbar */
+/* --- Scrollbar --- */
 html.light ::-webkit-scrollbar-track {
-  background: var(--color-gold-100);
+  background: #F0ECE6;
 }
 
 html.light ::-webkit-scrollbar-thumb {
@@ -588,66 +636,148 @@ html.light ::-webkit-scrollbar-thumb:hover {
   background: var(--color-black-500);
 }
 
-/* Light theme glass effects */
+/* --- Glass / Surface --- */
 html.light .glass {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 html.light .glass-dark {
-  background: rgba(248, 250, 252, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
-  border: 1px solid var(--color-black-200);
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-/* Light theme text colors for Tailwind classes */
-html.light .text-black-100 { color: var(--color-black-800); }
-html.light .text-black-200 { color: var(--color-black-700); }
-html.light .text-black-300 { color: var(--color-black-600); }
-html.light .text-black-400 { color: var(--color-black-600); }
-html.light .text-black-500 { color: var(--color-black-500); }
-html.light .text-black-600 { color: var(--color-black-600); }
+/* --- Text color inversions (dark→light safe) --- */
+html.light .text-black-100 {
+  color: var(--color-black-800);
+}
 
-html.light .text-gold-100 { color: var(--color-gold-900); }
-html.light .text-gold-200 { color: var(--color-gold-800); }
-html.light .text-gold-300 { color: var(--color-gold-700); }
-html.light .text-gold-400 { color: var(--color-gold-700); }
+html.light .text-black-200 {
+  color: var(--color-black-700);
+}
 
-/* Light theme backgrounds — neutral grays instead of gold tones */
-html.light .bg-black-800 { background-color: var(--color-black-100); }
-html.light .bg-black-800\/50 { background-color: rgba(241, 245, 249, 0.5); }
-html.light .bg-black-900 { background-color: var(--color-black-50); }
-html.light .bg-black-900\/50 { background-color: rgba(248, 250, 252, 0.5); }
-html.light .bg-black-950 { background-color: white; }
+html.light .text-black-300 {
+  color: var(--color-black-600);
+}
 
-/* Light theme borders */
-html.light .border-black-600 { border-color: var(--color-gold-300); }
-html.light .border-black-700 { border-color: var(--color-gold-200); }
-html.light .border-black-800 { border-color: var(--color-gold-100); }
-html.light .border-gold-500\/10 { border-color: rgba(245, 158, 11, 0.2); }
+html.light .text-black-400 {
+  color: var(--color-black-500);
+}
 
-/* Light theme components - Card */
+html.light .text-black-500 {
+  color: var(--color-black-500);
+}
+
+html.light .text-black-600 {
+  color: var(--color-black-600);
+}
+
+html.light .text-white {
+  color: var(--color-black-900);
+}
+
+html.light .text-gold-100 {
+  color: var(--color-gold-900);
+}
+
+html.light .text-gold-200 {
+  color: var(--color-gold-800);
+}
+
+html.light .text-gold-300 {
+  color: #92400E;
+}
+
+html.light .text-gold-400 {
+  color: #78350F;
+}
+
+/* --- Background inversions --- */
+html.light .bg-black-700 {
+  background-color: var(--color-black-100);
+}
+
+html.light .bg-black-700\/50 {
+  background-color: rgba(241, 245, 249, 0.5);
+}
+
+html.light .bg-black-800 {
+  background-color: #D8D0C4;
+}
+
+html.light .bg-black-800\/50 {
+  background-color: rgba(216, 208, 196, 0.5);
+}
+
+html.light .bg-black-900 {
+  background-color: #E4DDD2;
+}
+
+html.light .bg-black-900\/50 {
+  background-color: rgba(228, 221, 210, 0.5);
+}
+
+html.light .bg-black-900\/95 {
+  background-color: rgba(228, 221, 210, 0.97);
+}
+
+html.light .bg-black-950 {
+  background-color: white;
+}
+
+html.light .bg-black-950\/90 {
+  background-color: rgba(0, 0, 0, 0.25);
+}
+
+/* --- Border inversions --- */
+html.light .border-black-600 {
+  border-color: #E0DACE;
+}
+
+html.light .border-black-700 {
+  border-color: #E8E3DA;
+}
+
+html.light .border-black-800 {
+  border-color: #F0ECE6;
+}
+
+html.light .border-gold-500\/10 {
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+html.light .border-gold-500\/20 {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+html.light .border-gold-500\/30 {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+/* --- Card --- */
 html.light .card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--color-black-200);
+  background: white;
+  border: 1px solid #E0DACE;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 html.light .card:hover {
-  border-color: var(--color-gold-500);
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
+  border-color: var(--color-gold-400);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.12);
 }
 
-/* Light theme - Buttons */
+/* --- Buttons --- */
 html.light .btn-secondary {
   background: white;
   color: var(--color-black-800);
-  border: 1px solid var(--color-gold-300);
+  border: 1px solid #E0DACE;
 }
 
 html.light .btn-secondary:hover {
-  background: var(--color-gold-50);
-  border-color: var(--color-gold-500);
+  background: #FAF8F5;
+  border-color: var(--color-gold-400);
 }
 
 html.light .btn-ghost {
@@ -655,87 +785,232 @@ html.light .btn-ghost {
 }
 
 html.light .btn-ghost:hover {
-  background: rgba(245, 158, 11, 0.15);
+  background: rgba(245, 158, 11, 0.1);
   color: var(--color-gold-700);
 }
 
-/* Light theme - Chips */
+/* --- Chips --- */
 html.light .chip {
-  background: var(--color-black-100);
+  background: #F0ECE6;
   color: var(--color-black-700);
-  border: 1px solid var(--color-black-200);
+  border: 1px solid #E0DACE;
 }
 
-/* Semantic chip variants — used instead of inline styles for theme support */
+/* Semantic chip variants */
 .chip-genre {
   border-color: var(--color-violet-500);
   color: var(--color-violet-500);
 }
+
 .chip-budget {
   border-color: var(--color-amber-500);
   color: var(--color-amber-500);
 }
+
 html.light .chip-genre {
   border-color: #6D28D9;
   color: #6D28D9;
   background: rgba(109, 40, 217, 0.06);
 }
+
 html.light .chip-budget {
   border-color: #B45309;
   color: #B45309;
   background: rgba(180, 83, 9, 0.06);
 }
 
-/* Light theme - Input */
+/* --- Input --- */
 html.light .input {
   background: white;
-  border: 1px solid var(--color-gold-300);
+  border: 1px solid #E0DACE;
   color: var(--color-black-800);
 }
 
 html.light .input:focus {
   border-color: var(--color-gold-500);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
 }
 
 html.light .input::placeholder {
   color: var(--color-black-400);
 }
 
-/* Light theme - Score bar */
+/* --- Score bars --- */
 html.light .score-bar {
-  background: var(--color-black-200);
+  background: #E8E3DA;
 }
 
-/* Light theme - Score color overrides for adequate contrast */
-html.light .score-good { color: var(--color-gold-700); }
-html.light .score-excellent { color: #059669; }
+/* --- Score text contrast --- */
+html.light .score-good {
+  color: #B45309;
+}
 
-/* Light theme accent colors — ensure adequate contrast on light backgrounds */
+html.light .score-excellent {
+  color: #059669;
+}
+
 html.light .text-emerald-400,
-html.light .text-emerald-500 { color: #059669; }
-html.light .text-red-400,
-html.light .text-red-500 { color: #DC2626; }
-html.light .text-gold-400 { color: var(--color-gold-700); }
-
-/* Light theme hover states for Tailwind */
-html.light .hover\:bg-black-800:hover { background-color: var(--color-gold-100); }
-html.light .hover\:bg-black-800\/50:hover { background-color: rgba(254, 243, 199, 0.5); }
-html.light .hover\:text-gold-400:hover { color: var(--color-gold-600); }
-html.light .hover\:border-gold-500\/30:hover { border-color: rgba(245, 158, 11, 0.4); }
-
-/* Light theme - Settings page specific */
-html.light .bg-gradient-to-br.from-black-800\/50.to-black-900\/50 {
-  background: linear-gradient(to bottom right, rgba(254, 243, 199, 0.5), rgba(255, 251, 235, 0.5));
+html.light .text-emerald-500 {
+  color: #059669;
 }
 
-/* Light theme - Table/list rows */
-html.light .divide-black-800 > * + * { border-color: var(--color-gold-200); }
+html.light .text-red-400,
+html.light .text-red-500 {
+  color: #DC2626;
+}
 
-/* Light theme gradient text - ensure contrast */
+html.light .text-gold-400 {
+  color: #78350F;
+}
+
+html.light .text-gold-500 {
+  color: #92400E;
+}
+
+/* --- Hover states --- */
+html.light .hover\:bg-black-700:hover {
+  background-color: #E8E3DA;
+}
+
+html.light .hover\:bg-black-700\/50:hover {
+  background-color: rgba(232, 227, 218, 0.5);
+}
+
+html.light .hover\:bg-black-800:hover {
+  background-color: #F0ECE6;
+}
+
+html.light .hover\:bg-black-800\/50:hover {
+  background-color: rgba(240, 236, 230, 0.5);
+}
+
+html.light .hover\:text-white:hover {
+  color: var(--color-black-900);
+}
+
+html.light .hover\:text-gold-400:hover {
+  color: var(--color-gold-600);
+}
+
+html.light .hover\:border-gold-500\/30:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+/* --- Modal overlays --- */
+html.light .bg-black-950\/90 {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Modal content panel */
+html.light [class*="max-w-"][class*="glass"] {
+  background: white;
+  border: 1px solid #E0DACE;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+}
+
+/* --- Badge overrides --- */
+html.light .badge-consider {
+  background: var(--color-amber-500);
+  color: white;
+}
+
+html.light .badge-pass {
+  background: var(--color-red-500);
+  color: white;
+}
+
+/* --- Gold accent backgrounds (used in filter pills, active tabs) --- */
+html.light .bg-gold-500\/20 {
+  background-color: rgba(245, 158, 11, 0.12);
+}
+
+html.light .bg-gold-500\/30 {
+  background-color: rgba(245, 158, 11, 0.18);
+}
+
+html.light .text-gold-300 {
+  color: #92400E;
+}
+
+/* --- Comparable films cards (invisible text fix) --- */
+html.light [class*="comparable"] {
+  background: #F5F2EE;
+  color: var(--color-black-800);
+}
+
+/* --- Settings / gradient overlays --- */
+html.light .bg-gradient-to-br.from-black-800\/50.to-black-900\/50 {
+  background: linear-gradient(to bottom right, rgba(240, 236, 230, 0.5), rgba(245, 242, 238, 0.5));
+}
+
+/* --- Table / list dividers --- */
+html.light .divide-black-800>*+* {
+  border-color: #E8E3DA;
+}
+
+html.light .divide-black-700>*+* {
+  border-color: #E0DACE;
+}
+
+/* --- Gradient text --- */
 html.light .text-gradient-gold {
-  background: linear-gradient(135deg, #B45309 0%, #D97706 50%, #B45309 100%);
+  background: linear-gradient(135deg, #78350F 0%, #92400E 50%, #78350F 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* --- Font mono (scores, counts) — ensure dark text on light --- */
+html.light .font-mono {
+  color: var(--color-black-800);
+}
+
+/* --- Alerts (critical failures panel) --- */
+html.light .bg-red-500\/10 {
+  background-color: rgba(220, 38, 38, 0.07);
+}
+
+html.light .border-red-500\/20 {
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+html.light .text-red-300 {
+  color: #DC2626;
+}
+
+html.light .text-red-400 {
+  color: #DC2626;
+}
+
+/* --- Chart area backgrounds --- */
+html.light .bg-black-800\/80 {
+  background-color: rgba(216, 208, 196, 0.8);
+}
+
+/* --- Scrollbar track --- */
+html.light ::-webkit-scrollbar-track {
+  background: #D8D0C4;
+}
+
+/* --- Chip active state --- */
+html.light .chip-active {
+  background: rgba(120, 53, 15, 0.12);
+  border-color: #92400E;
+  color: #78350F;
+}
+
+/* --- Select dropdown --- */
+html.light select.input {
+  background: white;
+  color: var(--color-black-900);
+}
+
+html.light option {
+  background: white;
+  color: var(--color-black-900);
+}
+
+/* --- Stats pills font-mono override --- */
+html.light .font-mono.font-bold {
+  color: #78350F;
 }

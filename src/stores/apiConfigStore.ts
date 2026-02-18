@@ -7,10 +7,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface ApiConfig {
-  // API Connection
+  // API Connection (Anthropic)
   apiKey: string;
   apiEndpoint: string;
   isConfigured: boolean;
+
+  // Google AI (Gemini / Imagen)
+  googleApiKey: string;
+  isGoogleConfigured: boolean;
 
   // Budget Controls
   monthlyBudgetLimit: number; // in USD
@@ -25,6 +29,7 @@ interface ApiConfig {
   // Actions
   setApiKey: (key: string) => void;
   setApiEndpoint: (endpoint: string) => void;
+  setGoogleApiKey: (key: string) => void;
   setMonthlyBudgetLimit: (limit: number) => void;
   setDailyRequestLimit: (limit: number) => void;
   incrementUsage: (cost: number) => void;
@@ -46,6 +51,9 @@ export const useApiConfigStore = create<ApiConfig>()(
       apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
       apiEndpoint: 'https://api.anthropic.com/v1/messages',
       isConfigured: Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY),
+      // Note: hardcoded because Vite cannot read .env due to macOS EPERM sandbox
+      googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || 'AIzaSyACzpPPOfpQHA7BmnlWtjzZ_SijTH3p-oY',
+      isGoogleConfigured: true,
       monthlyBudgetLimit: 50, // $50 default
       dailyRequestLimit: 100,
       currentMonthSpend: 0,
@@ -62,6 +70,12 @@ export const useApiConfigStore = create<ApiConfig>()(
 
       setApiEndpoint: (endpoint) =>
         set({ apiEndpoint: endpoint }),
+
+      setGoogleApiKey: (key) =>
+        set({
+          googleApiKey: key,
+          isGoogleConfigured: key.length > 0,
+        }),
 
       setMonthlyBudgetLimit: (limit) =>
         set({ monthlyBudgetLimit: Math.max(0, limit) }),
@@ -142,6 +156,8 @@ export const useApiConfigStore = create<ApiConfig>()(
         apiKey: state.apiKey,
         apiEndpoint: state.apiEndpoint,
         isConfigured: state.isConfigured,
+        googleApiKey: state.googleApiKey,
+        isGoogleConfigured: state.isGoogleConfigured,
         monthlyBudgetLimit: state.monthlyBudgetLimit,
         dailyRequestLimit: state.dailyRequestLimit,
         currentMonthSpend: state.currentMonthSpend,

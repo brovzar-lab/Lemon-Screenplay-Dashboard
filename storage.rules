@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Poster images — public read, authenticated or open write
+    match /Posters/{allPaths=**} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Screenplay PDFs
+    match /screenplays/{allPaths=**} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Default: deny all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -61,7 +61,7 @@ export function passesFilters(screenplay: Screenplay, filters: FilterState): boo
   // Categories (source of screenplay)
   if (
     filters.categories.length > 0 &&
-    !filters.categories.includes(screenplay.category || 'BLKLST')
+    !filters.categories.includes(screenplay.category || 'OTHER')
   ) {
     return false;
   }
@@ -155,6 +155,22 @@ export function passesFilters(screenplay: Screenplay, filters: FilterState): boo
   // Hide produced films (TMDB validation)
   if (filters.hideProduced && screenplay.tmdbStatus?.isProduced) {
     return false;
+  }
+
+  // Hide non-screenplays (industry docs, reference materials)
+  if (filters.hideNonScreenplays) {
+    const genre = screenplay.genre.toLowerCase();
+    const isIndustryDoc =
+      genre.includes('industry') ||
+      genre.includes('reference') ||
+      genre.includes('documentary/industry');
+    const hasCriticalNotScreenplay =
+      screenplay.criticalFailures.some((f) =>
+        f.toLowerCase().includes('not a screenplay')
+      );
+    if ((isIndustryDoc && screenplay.weightedScore <= 2.0) || hasCriticalNotScreenplay) {
+      return false;
+    }
   }
 
   return true;
@@ -320,6 +336,7 @@ export function useHasActiveFilters(): boolean {
     filters.showFilmNowOnly ||
     filters.hidePassRated ||
     filters.hasCriticalFailures !== null ||
-    !filters.hideProduced // Default is true (hide produced). Active when user opted to show produced films.
+    !filters.hideProduced || // Default is true (hide produced). Active when user opted to show produced films.
+    !filters.hideNonScreenplays // Default is true (hide non-screenplays). Active when user opted to show them.
   );
 }

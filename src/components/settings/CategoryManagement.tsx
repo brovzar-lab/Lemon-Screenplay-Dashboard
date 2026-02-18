@@ -1,100 +1,107 @@
 /**
  * Category Management Settings
- * Manage screenplay source categories
+ * Manage screenplay source categories — all are deletable.
+ * Deleting a category moves its screenplays to "Uncategorized".
  */
 
 import { useState, useEffect } from 'react';
-import { notifyCategoriesUpdated } from '@/hooks/useCategories';
+import { clsx } from 'clsx';
 
 interface Category {
   id: string;
   name: string;
   description: string;
-  isDefault?: boolean;
 }
 
-// Default categories - always present
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'BLKLST', name: 'Black List', description: 'Annual Black List selections', isDefault: true },
-  { id: 'LEMON', name: 'Lemon', description: 'Lemon internal submissions', isDefault: true },
-  { id: 'SUBMISSION', name: 'Submission', description: 'Writer submissions', isDefault: true },
-  { id: 'CONTEST', name: 'Contest', description: 'Contest winners and finalists', isDefault: true },
-  { id: 'OTHER', name: 'Other', description: 'Other sources', isDefault: true },
+// Initial default categories — stored in localStorage just like custom ones
+const INITIAL_CATEGORIES: Category[] = [
+  { id: 'BLKLST', name: 'Black List', description: 'Annual Black List selections' },
+  { id: 'LEMON', name: 'Lemon', description: 'Lemon internal submissions' },
+  { id: 'SUBMISSION', name: 'Submission', description: 'Writer submissions' },
+  { id: 'CONTEST', name: 'Contest', description: 'Contest winners and finalists' },
+  { id: 'OTHER', name: 'Other', description: 'Other sources' },
 ];
 
-const STORAGE_KEY = 'lemon-custom-categories';
+const STORAGE_KEY = 'lemon-categories';
+
+/**
+ * Load all categories from localStorage.
+ * On first run (no stored data), seeds with INITIAL_CATEGORIES.
+ */
+function loadCategories(): Category[] {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored) as Category[];
+    } catch {
+      return INITIAL_CATEGORIES;
+    }
+  }
+  // First run — seed and persist
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_CATEGORIES));
+  return INITIAL_CATEGORIES;
+}
+
+/** Persist to localStorage and notify listeners */
+function saveCategories(cats: Category[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
+  window.dispatchEvent(new Event('lemon-categories-updated'));
+}
 
 export function CategoryManagement() {
-  const [customCategories, setCustomCategories] = useState<Category[]>([]);
-  const [newCategoryId, setNewCategoryId] = useState('');
+  const [categories, setCategories] = useState<Category[]>(loadCategories);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [error, setError] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  // Load custom categories from localStorage on mount
+  // Persist whenever categories change
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setCustomCategories(JSON.parse(stored));
-      } catch {
-        console.error('Failed to parse custom categories');
-      }
-    }
-  }, []);
-
-  // Save custom categories to localStorage when they change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(customCategories));
-    // Notify other components that categories have changed
-    notifyCategoriesUpdated();
-  }, [customCategories]);
-
-  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories];
+    saveCategories(categories);
+  }, [categories]);
 
   const handleAddCategory = () => {
     setError('');
 
-    // Validation
-    const trimmedId = newCategoryId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const trimmedName = newCategoryName.trim();
-
-    if (!trimmedId || !trimmedName) {
-      setError('Category ID and name are required');
+    if (!trimmedName) {
+      setError('Enter a category name');
       return;
     }
 
-    if (trimmedId.length < 2 || trimmedId.length > 10) {
-      setError('Category ID must be 2-10 characters');
+    // Auto-generate ID from name
+    const id = trimmedName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+    if (id.length < 2) {
+      setError('Name too short');
       return;
     }
 
-    if (allCategories.some(c => c.id === trimmedId)) {
-      setError('A category with this ID already exists');
+    if (id === 'UNCATEGORIZED') {
+      setError('"UNCATEGORIZED" is reserved');
       return;
     }
 
-    if (allCategories.some(c => c.name.toLowerCase() === trimmedName.toLowerCase())) {
-      setError('A category with this name already exists');
+    if (categories.some(c => c.id === id)) {
+      setError(`"${id}" already exists`);
       return;
     }
 
-    // Add the new category
-    const newCategory: Category = {
-      id: trimmedId,
+    setCategories([...categories, {
+      id,
       name: trimmedName,
-      description: newCategoryDescription.trim() || `Custom category: ${trimmedName}`,
-      isDefault: false,
-    };
-
-    setCustomCategories([...customCategories, newCategory]);
-    setNewCategoryId('');
+      description: `Custom category`,
+    }]);
     setNewCategoryName('');
-    setNewCategoryDescription('');
   };
 
   const handleDeleteCategory = (id: string) => {
-    setCustomCategories(customCategories.filter(c => c.id !== id));
+    if (confirmDeleteId === id) {
+      // Second click — actually delete
+      setCategories(categories.filter(c => c.id !== id));
+      setConfirmDeleteId(null);
+    } else {
+      // First click — ask confirmation
+      setConfirmDeleteId(id);
+    }
   };
 
   return (
@@ -102,16 +109,21 @@ export function CategoryManagement() {
       <div>
         <h2 className="text-xl font-display text-gold-200 mb-2">Categories</h2>
         <p className="text-sm text-black-400">
-          Manage screenplay source categories. Categories help organize screenplays by their origin.
+          Manage screenplay categories. These are used when uploading and for dashboard filtering.
         </p>
       </div>
 
       {/* Category List */}
       <div className="space-y-3">
-        {allCategories.map((category) => (
+        {categories.map((category) => (
           <div
             key={category.id}
-            className="flex items-center gap-4 p-4 rounded-lg bg-black-800/50 border border-black-700"
+            className={clsx(
+              'flex items-center gap-4 p-4 rounded-lg bg-black-800/50 border transition-colors',
+              confirmDeleteId === category.id
+                ? 'border-red-500/50'
+                : 'border-black-700'
+            )}
           >
             {/* Category Badge */}
             <div className="w-12 h-12 rounded-lg bg-gold-500/20 flex items-center justify-center shrink-0">
@@ -131,84 +143,78 @@ export function CategoryManagement() {
               <p className="text-sm text-black-500">{category.description}</p>
             </div>
 
-            {/* Default Badge or Delete Button */}
-            {category.isDefault ? (
-              category.id === 'BLKLST' && (
-                <span className="px-2 py-1 rounded text-xs bg-gold-500/20 text-gold-400">
-                  Default
-                </span>
-              )
-            ) : (
-              <button
-                onClick={() => handleDeleteCategory(category.id)}
-                className="p-2 text-black-400 hover:text-red-400 transition-colors"
-                title="Delete category"
-              >
+            {/* Delete Button */}
+            <button
+              onClick={() => handleDeleteCategory(category.id)}
+              className={clsx(
+                'p-2 transition-colors text-sm flex items-center gap-1',
+                confirmDeleteId === category.id
+                  ? 'text-red-400 font-medium'
+                  : 'text-black-400 hover:text-red-400'
+              )}
+              title={confirmDeleteId === category.id
+                ? 'Click again to confirm — screenplays will move to Uncategorized'
+                : 'Delete category'
+              }
+            >
+              {confirmDeleteId === category.id ? (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Confirm
+                </>
+              ) : (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-              </button>
-            )}
+              )}
+            </button>
           </div>
         ))}
+
+        {categories.length === 0 && (
+          <div className="text-center py-8 text-black-500 text-sm">
+            No categories defined. Add one below.
+          </div>
+        )}
       </div>
 
       {/* Info Box */}
       <div className="p-4 rounded-lg bg-black-800/30 border border-black-700">
-        <h4 className="text-sm font-medium text-gold-300 mb-2">About Categories</h4>
+        <h4 className="text-sm font-medium text-gold-300 mb-2">How Categories Work</h4>
         <ul className="text-sm text-black-400 space-y-2">
           <li className="flex items-start gap-2">
             <span className="text-gold-500">•</span>
-            <span>Categories are assigned during upload and cannot be changed afterward</span>
+            <span>Choose a category when you <strong>upload</strong> — it gets saved with the analysis</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-gold-500">•</span>
-            <span>Use the filter panel to view screenplays by category</span>
+            <span>The <strong>dashboard tabs</strong> match these categories exactly</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-gold-500">•</span>
-            <span>New screenplays default to BLKLST if no category is specified</span>
+            <span>Deleting a category moves its screenplays to <strong>Uncategorized</strong></span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-gold-500">•</span>
+            <span>Click a tab, then <strong>Export</strong> to get only that category</span>
           </li>
         </ul>
       </div>
 
-      {/* Add Custom Category Form */}
+      {/* Add Category Form */}
       <div className="p-4 rounded-lg bg-black-800/50 border border-black-700">
-        <h4 className="text-sm font-medium text-gold-300 mb-4">Add Custom Category</h4>
+        <h4 className="text-sm font-medium text-gold-300 mb-4">Add Category</h4>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-black-400 mb-1">Category ID</label>
-              <input
-                type="text"
-                value={newCategoryId}
-                onChange={(e) => setNewCategoryId(e.target.value.toUpperCase())}
-                placeholder="e.g., INDIE"
-                maxLength={10}
-                className="input w-full text-sm"
-              />
-              <p className="text-xs text-black-500 mt-1">2-10 uppercase letters/numbers</p>
-            </div>
-            <div>
-              <label className="block text-xs text-black-400 mb-1">Display Name</label>
-              <input
-                type="text"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder="e.g., Independent Films"
-                className="input w-full text-sm"
-              />
-            </div>
-          </div>
-
           <div>
-            <label className="block text-xs text-black-400 mb-1">Description (optional)</label>
+            <label className="block text-xs text-black-400 mb-1">Category Name</label>
             <input
               type="text"
-              value={newCategoryDescription}
-              onChange={(e) => setNewCategoryDescription(e.target.value)}
-              placeholder="e.g., Low-budget independent productions"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="e.g., Independent Films"
               className="input w-full text-sm"
             />
           </div>
@@ -228,13 +234,6 @@ export function CategoryManagement() {
           </button>
         </div>
       </div>
-
-      {/* Custom Categories Count */}
-      {customCategories.length > 0 && (
-        <p className="text-xs text-black-500 text-center">
-          {customCategories.length} custom {customCategories.length === 1 ? 'category' : 'categories'} added
-        </p>
-      )}
     </div>
   );
 }

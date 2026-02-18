@@ -11,24 +11,10 @@ import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
 import { analyzeScreenplay } from '@/lib/analysisService';
 import { saveLocalAnalysis } from '@/lib/localAnalysisStore';
+import useCategories from '@/hooks/useCategories';
 import { ApiConfigPanel } from './ApiConfigPanel';
 
-// Default categories - will be merged with custom categories
-const DEFAULT_CATEGORIES = ['BLKLST', 'LEMON', 'SUBMISSION', 'CONTEST', 'OTHER'];
 
-// Get all categories including custom ones from localStorage
-function getAllCategories(): string[] {
-  const stored = localStorage.getItem('lemon-custom-categories');
-  if (stored) {
-    try {
-      const custom = JSON.parse(stored) as { id: string }[];
-      return [...DEFAULT_CATEGORIES, ...custom.map(c => c.id)];
-    } catch {
-      return DEFAULT_CATEGORIES;
-    }
-  }
-  return DEFAULT_CATEGORIES;
-}
 
 const STATUS_LABELS: Record<UploadStatus, { label: string; color: string }> = {
   pending: { label: 'Pending', color: 'text-black-400' },
@@ -45,7 +31,12 @@ export function UploadPanel() {
   const [selectedCategory, setSelectedCategory] = useState('LEMON');
   const [dragActive, setDragActive] = useState(false);
   const [showApiConfig, setShowApiConfig] = useState(false);
-  const [categories] = useState(getAllCategories);
+  const { categoryIds, addCategory: addCategoryToStore } = useCategories();
+
+  // Inline new category form
+  const [showNewCatForm, setShowNewCatForm] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatError, setNewCatError] = useState('');
 
   // Password protection state
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -182,27 +173,28 @@ export function UploadPanel() {
           <h3 className="text-lg font-medium text-gold-200 mb-2">Protected Section</h3>
           <p className="text-sm text-black-400 mb-6">Enter password to access the upload functionality</p>
           <div className="max-w-xs mx-auto space-y-4">
-            <input
-              type="password"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
-              placeholder="Enter password"
-              className="input text-center w-full"
-              autoFocus
-            />
-            {passwordError && (
-              <p className="text-sm text-red-400">{passwordError}</p>
-            )}
-            <button
-              onClick={handlePasswordSubmit}
-              className="btn btn-primary w-full"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-              </svg>
-              Unlock Upload
-            </button>
+            <form onSubmit={(e) => { e.preventDefault(); handlePasswordSubmit(); }}>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="Enter password"
+                className="input text-center w-full"
+                autoFocus
+              />
+              {passwordError && (
+                <p className="text-sm text-red-400 mt-2">{passwordError}</p>
+              )}
+              <button
+                type="submit"
+                className="btn btn-primary w-full mt-4"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                </svg>
+                Unlock Upload
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -261,7 +253,7 @@ export function UploadPanel() {
           Assign Category
         </label>
         <div className="flex flex-wrap gap-2">
-          {categories.map((cat) => (
+          {categoryIds.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
@@ -275,7 +267,75 @@ export function UploadPanel() {
               {cat}
             </button>
           ))}
+
+          {/* New + Button */}
+          <button
+            onClick={() => setShowNewCatForm(!showNewCatForm)}
+            className={clsx(
+              'px-4 py-2 rounded-lg text-sm font-medium transition-all',
+              showNewCatForm
+                ? 'bg-gold-500/30 text-gold-300 border border-gold-500/50'
+                : 'bg-black-800/50 text-black-400 border border-dashed border-black-600 hover:border-gold-500/30 hover:text-gold-300'
+            )}
+          >
+            <span className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New
+            </span>
+          </button>
         </div>
+
+        {/* Inline New Category Form */}
+        {showNewCatForm && (
+          <div className="mt-3 p-3 rounded-lg bg-black-800/50 border border-black-700 space-y-3">
+            <div>
+              <label className="block text-xs text-black-400 mb-1">Category Name</label>
+              <input
+                type="text"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                placeholder="e.g. Independent Films"
+                className="input w-full text-sm"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).form?.querySelector<HTMLButtonElement>('.btn-primary')?.click();
+                  }
+                }}
+              />
+            </div>
+            {newCatError && <p className="text-xs text-red-400">{newCatError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setNewCatError('');
+                  const name = newCatName.trim();
+                  if (!name) { setNewCatError('Enter a category name'); return; }
+                  // Auto-generate ID from name: uppercase, no spaces, max 10 chars
+                  const id = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+                  if (id.length < 2) { setNewCatError('Name too short'); return; }
+                  if (categoryIds.includes(id)) { setNewCatError(`"${id}" already exists`); return; }
+                  addCategoryToStore({ id, name, description: `Created during upload` });
+                  setSelectedCategory(id);
+                  setNewCatName('');
+                  setShowNewCatForm(false);
+                }}
+                className="btn btn-primary text-xs"
+              >
+                Create & Select
+              </button>
+              <button
+                onClick={() => { setShowNewCatForm(false); setNewCatName(''); setNewCatError(''); }}
+                className="btn text-xs text-black-400 hover:text-white"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Drop Zone */}

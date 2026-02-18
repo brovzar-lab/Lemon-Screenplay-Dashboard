@@ -18,6 +18,7 @@ import {
   ContentDetails,
   NotesSection,
   ModalFooter,
+  PosterSection,
 } from './modal';
 
 interface ScreenplayModalProps {
@@ -101,30 +102,38 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <ModalHeader
-          screenplay={screenplay}
-          closeButtonRef={closeButtonRef}
-          onClose={onClose}
-        />
-
-        {/* Scrollable Content */}
-        <div className="p-6 space-y-8 max-h-[70vh] overflow-y-auto">
-          <AlertBanners screenplay={screenplay} />
-          <FilmNowSection screenplay={screenplay} />
-
-          {/* Logline */}
-          <div>
-            <h3 className="text-lg font-display text-gold-200 mb-4 flex items-center gap-2">
-              <span>📄</span>Logline
-            </h3>
-            <p className="text-black-300 leading-relaxed">{screenplay.logline}</p>
+        <div className="max-h-[85vh] overflow-y-auto scrollbar-hide">
+          {/* 1. Sticky Header */}
+          <div className="sticky top-0 z-40 backdrop-blur-xl">
+            <ModalHeader
+              screenplay={screenplay}
+              closeButtonRef={closeButtonRef}
+              onClose={onClose}
+            />
           </div>
 
-          <ScoresPanel screenplay={screenplay} />
-          <ProducerMetricsPanel screenplay={screenplay} />
-          <ContentDetails screenplay={screenplay} />
-          <NotesSection screenplayId={screenplay.id} />
-          <ModalFooter screenplay={screenplay} />
+          {/* 2. Scrollable Content Body */}
+          <div className="p-6 space-y-8 bg-black-950/50">
+            <AlertBanners screenplay={screenplay} />
+            <FilmNowSection screenplay={screenplay} />
+
+            {/* Logline */}
+            <div>
+              <h3 className="text-lg font-display text-gold-200 mb-4 flex items-center gap-2">
+                <span>📄</span>Logline
+              </h3>
+              <p className="text-black-300 leading-relaxed">{screenplay.logline}</p>
+            </div>
+
+            <ScoresPanel screenplay={screenplay} />
+            <ProducerMetricsPanel screenplay={screenplay} />
+            <ContentDetails screenplay={screenplay} />
+            <NotesSection screenplayId={screenplay.id} />
+            <ModalFooter screenplay={screenplay} />
+          </div>
+
+          {/* 3. Cinematic Poster — generated in background, shown at bottom */}
+          <PosterSection screenplay={screenplay} />
         </div>
       </div>
     </div>
@@ -132,3 +141,4 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
 }
 
 export default ScreenplayModal;
+

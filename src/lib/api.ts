@@ -229,8 +229,8 @@ export async function loadAllScreenplaysVite(): Promise<(Screenplay | Screenplay
   for (const sp of screenplays) {
     const key = sp.title.toLowerCase().trim();
     const existing = seen.get(key);
-    // Prefer V6 (has coreQuality) over V5
-    if (!existing || ('coreQuality' in sp && !('coreQuality' in existing))) {
+    // Prefer V6 (has v6CoreQuality) over V5
+    if (!existing || ('v6CoreQuality' in sp && !('v6CoreQuality' in existing))) {
       seen.set(key, sp);
     }
   }

@@ -13,3 +13,4 @@ export { ProducerMetricsPanel } from './ProducerMetricsPanel';
 export { ContentDetails } from './ContentDetails';
 export { ModalFooter } from './ModalFooter';
 export { hasV6Fields } from './utils';
+export { PosterSection } from './PosterSection';

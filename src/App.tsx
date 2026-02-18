@@ -3,18 +3,22 @@
  * Main Application Component
  */
 
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Header, FilterBar } from '@/components/layout';
 import { ScreenplayGrid, ScreenplayModal } from '@/components/screenplay';
 import { CollectionTabs } from '@/components/filters';
-import { ComparisonBar, ComparisonModal } from '@/components/comparison';
-import { AnalyticsDashboard } from '@/components/charts';
-import { ErrorBoundary } from '@/components/ui';
+import { ComparisonBar } from '@/components/comparison';
+import { ErrorBoundary, LoadingFallback } from '@/components/ui';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { useUrlState } from '@/hooks/useUrlState';
+import { usePosterBackground } from '@/hooks/usePosterBackground';
 import { useFilterStore } from '@/stores/filterStore';
 import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
+
+// Lazy-loaded heavy features (recharts-dependent)
+const AnalyticsDashboard = lazy(() => import('@/components/charts/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })));
+const ComparisonModal = lazy(() => import('@/components/comparison/ComparisonModal').then(m => ({ default: m.ComparisonModal })));
 
 function App() {
   const { screenplays, isLoading, filteredCount, totalCount } = useFilteredScreenplays();
@@ -22,6 +26,9 @@ function App() {
 
   // URL state sync — loads filters from URL on mount
   useUrlState();
+
+  // Background poster generation — start generating when screenplays load
+  usePosterBackground(screenplays);
 
   // Filter store actions for chart click handlers
   const resetFilters = useFilterStore((s) => s.resetFilters);
@@ -85,17 +92,20 @@ function App() {
           totalCount={totalCount}
         />
 
-        {/* Analytics Dashboard — charts reflect current filter state */}
+        {/* Analytics Dashboard — lazy-loaded (contains recharts) */}
         {!isLoading && allScreenplays.length > 0 && (
           <ErrorBoundary>
-            <AnalyticsDashboard
-              screenplays={screenplays}
-              totalScreenplays={allScreenplays}
-              onFilterByScoreRange={handleFilterByScoreRange}
-              onFilterByTier={handleFilterByTier}
-              onFilterByGenre={handleFilterByGenre}
-              onFilterByBudget={handleFilterByBudget}
-            />
+            <Suspense fallback={<LoadingFallback />}>
+              <AnalyticsDashboard
+                key={`analytics-${screenplays.length}-${screenplays.map(s => s.id).join(',').slice(0, 100)}`}
+                screenplays={screenplays}
+                totalScreenplays={allScreenplays}
+                onFilterByScoreRange={handleFilterByScoreRange}
+                onFilterByTier={handleFilterByTier}
+                onFilterByGenre={handleFilterByGenre}
+                onFilterByBudget={handleFilterByBudget}
+              />
+            </Suspense>
           </ErrorBoundary>
         )}
 
@@ -124,7 +134,9 @@ function App() {
       {/* Comparison Bar (sticky at bottom) */}
       <ErrorBoundary>
         <ComparisonBar />
-        <ComparisonModal />
+        <Suspense fallback={null}>
+          <ComparisonModal />
+        </Suspense>
       </ErrorBoundary>
     </div>
   );

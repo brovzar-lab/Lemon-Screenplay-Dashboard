@@ -62,6 +62,7 @@ export interface FilterState {
   showFilmNowOnly: boolean;
   hidePassRated: boolean;
   hasCriticalFailures: boolean | null; // null = any, true = only with failures, false = no failures
+  hideNonScreenplays: boolean; // Hide PDFs that aren't actual screenplays
 
   // TMDB Production Status
   hideProduced: boolean; // Hide screenplays that have been produced as films
@@ -101,6 +102,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   showFilmNowOnly: false,
   hidePassRated: false,
   hasCriticalFailures: null,
+  hideNonScreenplays: true, // Default: hide non-screenplay documents
   hideProduced: true, // Default: hide produced films
 };
 

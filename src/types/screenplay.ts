@@ -316,6 +316,10 @@ export interface Screenplay {
   analysisModel: string;
   analysisVersion: string;
 
+  // Poster Generation
+  posterUrl?: string; // URL to the generated poster in Firebase Storage
+  posterStatus?: 'pending' | 'generating' | 'ready' | 'error'; // Status tracking
+
   // Core Scores
   weightedScore: number;
   cvsTotal: number;

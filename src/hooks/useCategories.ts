@@ -1,7 +1,8 @@
 /**
  * useCategories Hook
- * Provides access to both default and custom categories
- * Automatically updates when custom categories change in localStorage
+ * Single source of truth for categories.
+ * Reads from localStorage key 'lemon-categories'.
+ * Seeds initial defaults on first load.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -10,113 +11,89 @@ export interface Category {
   id: string;
   name: string;
   description: string;
-  isDefault?: boolean;
 }
 
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'BLKLST', name: 'Black List', description: 'Annual Black List selections', isDefault: true },
-  { id: 'LEMON', name: 'Lemon Picks', description: 'Our curated selections', isDefault: true },
-  { id: 'SUBMISSION', name: 'Submissions', description: 'Submitted screenplays', isDefault: true },
-  { id: 'CONTEST', name: 'Contest', description: 'Contest entries', isDefault: true },
-  { id: 'OTHER', name: 'Other', description: 'Uncategorized screenplays', isDefault: true },
+const INITIAL_CATEGORIES: Category[] = [
+  { id: 'BLKLST', name: 'Black List', description: 'Annual Black List selections' },
+  { id: 'LEMON', name: 'Lemon', description: 'Lemon internal submissions' },
+  { id: 'SUBMISSION', name: 'Submission', description: 'Writer submissions' },
+  { id: 'CONTEST', name: 'Contest', description: 'Contest winners and finalists' },
+  { id: 'OTHER', name: 'Other', description: 'Other sources' },
 ];
 
-const STORAGE_KEY = 'lemon-custom-categories';
+const STORAGE_KEY = 'lemon-categories';
+
+function loadFromStorage(): Category[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored) as Category[];
+    }
+  } catch {
+    // ignore
+  }
+  // First run — seed
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_CATEGORIES));
+  return INITIAL_CATEGORIES;
+}
 
 /**
- * Hook to get all categories (default + custom)
- * Returns both the full category objects and just the IDs for simple use cases
+ * Hook to get all categories.
+ * Returns full category objects, just IDs, and helpers.
  */
 export function useCategories() {
-  const [customCategories, setCustomCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(loadFromStorage);
 
-  // Load custom categories from localStorage
-  const loadCustomCategories = useCallback(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Category[];
-        setCustomCategories(parsed);
-      } else {
-        setCustomCategories([]);
-      }
-    } catch {
-      setCustomCategories([]);
-    }
+  const reload = useCallback(() => {
+    setCategories(loadFromStorage());
   }, []);
 
-  // Initial load
+  // Listen for changes (same tab via custom event, other tabs via storage event)
   useEffect(() => {
-    loadCustomCategories();
-  }, [loadCustomCategories]);
-
-  // Listen for localStorage changes (e.g., from other tabs or the CategoryManagement component)
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        loadCustomCategories();
-      }
+    const handleUpdate = () => reload();
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) reload();
     };
 
-    // Also listen for custom events within the same tab
-    const handleCustomCategoryChange = () => {
-      loadCustomCategories();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('lemon-categories-updated', handleCustomCategoryChange);
-
+    window.addEventListener('lemon-categories-updated', handleUpdate);
+    window.addEventListener('storage', handleStorage);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('lemon-categories-updated', handleCustomCategoryChange);
+      window.removeEventListener('lemon-categories-updated', handleUpdate);
+      window.removeEventListener('storage', handleStorage);
     };
-  }, [loadCustomCategories]);
+  }, [reload]);
 
-  // Combine default and custom categories
-  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories];
+  const categoryIds = categories.map(c => c.id);
 
-  // Get just the IDs for simple filtering/selection
-  const categoryIds = allCategories.map((c) => c.id);
-
-  // Get default category IDs only
-  const defaultCategoryIds = DEFAULT_CATEGORIES.map((c) => c.id);
-
-  // Get custom category IDs only
-  const customCategoryIds = customCategories.map((c) => c.id);
-
-  // Helper to get category by ID
   const getCategoryById = (id: string): Category | undefined => {
-    return allCategories.find((c) => c.id === id);
+    return categories.find(c => c.id === id);
   };
 
-  // Helper to check if a category ID is valid
   const isValidCategory = (id: string): boolean => {
     return categoryIds.includes(id);
   };
 
+  /** Add a new category, persist, and notify */
+  const addCategory = (cat: Category) => {
+    const updated = [...categories, cat];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    setCategories(updated);
+    window.dispatchEvent(new Event('lemon-categories-updated'));
+  };
+
   return {
-    // Full category objects
-    categories: allCategories,
-    defaultCategories: DEFAULT_CATEGORIES,
-    customCategories,
-
-    // Just IDs
+    categories,
     categoryIds,
-    defaultCategoryIds,
-    customCategoryIds,
-
-    // Helpers
     getCategoryById,
     isValidCategory,
-
-    // Refresh function
-    refresh: loadCustomCategories,
+    addCategory,
+    refresh: reload,
   };
 }
 
 /**
- * Utility function to trigger category update events
- * Call this after modifying custom categories in localStorage
+ * Utility function to trigger category update events.
+ * Call this after modifying categories in localStorage.
  */
 export function notifyCategoriesUpdated() {
   window.dispatchEvent(new Event('lemon-categories-updated'));

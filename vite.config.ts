@@ -45,6 +45,20 @@ export default defineConfig({
     // Prevent EPERM on macOS-protected .DS_Store files in dist/
     emptyOutDir: false,
     copyPublicDir: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React — changes rarely, cached long-term
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          // Charting — loaded lazily with AnalyticsDashboard
+          'vendor-recharts': ['recharts'],
+          // PDF rendering — only used in export feature
+          'vendor-react-pdf': ['@react-pdf/renderer'],
+          // State management
+          'vendor-state': ['zustand', '@tanstack/react-query'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {
