@@ -225,6 +225,7 @@ export function useLiveDevExec() {
 
                         const processor = inputCtx.createScriptProcessor(4096, 1, 1);
                         processorRef.current = processor;
+                        let chunkCount = 0;
 
                         processor.onaudioprocess = (e) => {
                             const inputData = e.inputBuffer.getChannelData(0);
@@ -234,17 +235,22 @@ export function useLiveDevExec() {
                             for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
                             setVolume(Math.sqrt(sum / inputData.length));
 
-                            // Send audio to Gemini
-                            // SDK source (line 13052-13064): sendRealtimeInput wraps as
-                            //   {realtimeInput: liveSendRealtimeInputParametersToMldev(params)}
-                            // SDK source (line 7707-7718): liveSendRealtimeInputParametersToMldev
-                            //   takes params.media → converts to {mediaChunks: [blobToMldev(blob)]}
-                            // blobToMldev keeps {data, mimeType} as-is for mldev
+                            // Send audio to Gemini via realtimeInput.audio
+                            // NOTE: mediaChunks is DEPRECATED per Google API docs.
+                            // New format uses the `audio` field directly.
                             if (ws.readyState === WebSocket.OPEN) {
                                 const pcm = createPcmBlob(inputData);
+                                if (chunkCount < 3) {
+                                    console.log(`[LiveDevExec] Audio chunk #${chunkCount}:`, {
+                                        dataLen: pcm.data.length,
+                                        mimeType: pcm.mimeType,
+                                        firstChars: pcm.data.substring(0, 20),
+                                    });
+                                }
+                                chunkCount++;
                                 ws.send(JSON.stringify({
                                     realtimeInput: {
-                                        mediaChunks: [pcm],
+                                        audio: pcm,
                                     },
                                 }));
                             }
