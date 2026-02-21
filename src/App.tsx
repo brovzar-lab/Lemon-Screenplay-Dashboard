@@ -9,11 +9,14 @@ import { ScreenplayGrid, ScreenplayModal } from '@/components/screenplay';
 import { CollectionTabs } from '@/components/filters';
 import { ComparisonBar } from '@/components/comparison';
 import { ErrorBoundary, LoadingFallback } from '@/components/ui';
+import { DevExecChat } from '@/components/devexec';
+import { DevExecProvider } from '@/contexts/DevExecContext';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { useUrlState } from '@/hooks/useUrlState';
 import { usePosterBackground } from '@/hooks/usePosterBackground';
 import { useFilterStore } from '@/stores/filterStore';
+import { useApiConfigStore } from '@/stores/apiConfigStore';
 import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
 
 // Lazy-loaded heavy features (recharts-dependent)
@@ -72,73 +75,80 @@ function App() {
     setBudgetCategories([budget]);
   };
 
+  const googleApiKey = useApiConfigStore((s) => s.googleApiKey);
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
+    <DevExecProvider screenplays={allScreenplays} apiKey={googleApiKey}>
+      <div className="min-h-screen flex flex-col">
+        <Header />
 
-      <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-8">
-        {/* Collection Tabs */}
-        {!isLoading && allScreenplays.length > 0 && (
-          <div className="mb-6">
-            <CollectionTabs screenplays={allScreenplays} />
+        <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-8">
+          {/* Collection Tabs */}
+          {!isLoading && allScreenplays.length > 0 && (
+            <div className="mb-6">
+              <CollectionTabs screenplays={allScreenplays} />
+            </div>
+          )}
+
+          {/* Search, Filters, Sort, Export, Share */}
+          <FilterBar
+            screenplays={screenplays}
+            isLoading={isLoading}
+            filteredCount={filteredCount}
+            totalCount={totalCount}
+          />
+
+          {/* Analytics Dashboard — lazy-loaded (contains recharts) */}
+          {!isLoading && allScreenplays.length > 0 && (
+            <ErrorBoundary>
+              <Suspense fallback={<LoadingFallback />}>
+                <AnalyticsDashboard
+                  key={`analytics-${screenplays.length}-${screenplays.map(s => s.id).join(',').slice(0, 100)}`}
+                  screenplays={screenplays}
+                  totalScreenplays={allScreenplays}
+                  onFilterByScoreRange={handleFilterByScoreRange}
+                  onFilterByTier={handleFilterByTier}
+                  onFilterByGenre={handleFilterByGenre}
+                  onFilterByBudget={handleFilterByBudget}
+                />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+
+          {/* Screenplay Grid */}
+          <ScreenplayGrid
+            screenplays={screenplays}
+            isLoading={isLoading}
+            onCardClick={handleCardClick}
+          />
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t border-gold-500/10 py-6">
+          <div className="max-w-[1800px] mx-auto px-6 text-center text-sm text-black-500">
+            <p>Lemon Screenplay Dashboard v6.5 - Powered by V6 Core + Lenses AI Analysis</p>
           </div>
-        )}
+        </footer>
 
-        {/* Search, Filters, Sort, Export, Share */}
-        <FilterBar
-          screenplays={screenplays}
-          isLoading={isLoading}
-          filteredCount={filteredCount}
-          totalCount={totalCount}
+        {/* Detail Modal */}
+        <ScreenplayModal
+          screenplay={selectedScreenplay}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
         />
 
-        {/* Analytics Dashboard — lazy-loaded (contains recharts) */}
-        {!isLoading && allScreenplays.length > 0 && (
-          <ErrorBoundary>
-            <Suspense fallback={<LoadingFallback />}>
-              <AnalyticsDashboard
-                key={`analytics-${screenplays.length}-${screenplays.map(s => s.id).join(',').slice(0, 100)}`}
-                screenplays={screenplays}
-                totalScreenplays={allScreenplays}
-                onFilterByScoreRange={handleFilterByScoreRange}
-                onFilterByTier={handleFilterByTier}
-                onFilterByGenre={handleFilterByGenre}
-                onFilterByBudget={handleFilterByBudget}
-              />
-            </Suspense>
-          </ErrorBoundary>
-        )}
+        {/* Comparison Bar (sticky at bottom) */}
+        <ErrorBoundary>
+          <ComparisonBar />
+          <Suspense fallback={null}>
+            <ComparisonModal />
+          </Suspense>
+        </ErrorBoundary>
 
-        {/* Screenplay Grid */}
-        <ScreenplayGrid
-          screenplays={screenplays}
-          isLoading={isLoading}
-          onCardClick={handleCardClick}
-        />
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-gold-500/10 py-6">
-        <div className="max-w-[1800px] mx-auto px-6 text-center text-sm text-black-500">
-          <p>Lemon Screenplay Dashboard v6.5 - Powered by V6 Core + Lenses AI Analysis</p>
-        </div>
-      </footer>
-
-      {/* Detail Modal */}
-      <ScreenplayModal
-        screenplay={selectedScreenplay}
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-      />
-
-      {/* Comparison Bar (sticky at bottom) */}
-      <ErrorBoundary>
-        <ComparisonBar />
-        <Suspense fallback={null}>
-          <ComparisonModal />
-        </Suspense>
-      </ErrorBoundary>
-    </div>
+        {/* Dev Exec AI Chat */}
+        <DevExecChat />
+      </div>
+    </DevExecProvider>
   );
 }
 

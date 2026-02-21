@@ -117,7 +117,7 @@ export const GENRE_CANONICAL_MAP: Record<string, string> = {
  * Maps common genre variants to a consistent lowercase key.
  */
 export function canonicalizeGenre(genre: string): string {
-  const lower = genre.toLowerCase().trim();
+  const lower = String(genre || '').toLowerCase().trim();
   return GENRE_CANONICAL_MAP[lower] ?? lower;
 }
 
@@ -133,16 +133,16 @@ function genreMatches(genre: string, list: string[]): boolean {
   if (canonList.includes(canonGenre)) return true;
 
   // Fallback: substring matching for compound genres like "Psychological Thriller"
-  const lowerGenre = genre.toLowerCase();
-  return list.some((g) => lowerGenre.includes(g.toLowerCase()));
+  const lowerGenre = String(genre || '').toLowerCase();
+  return list.some((g) => lowerGenre.includes(String(g).toLowerCase()));
 }
 
 /**
  * Check if any theme matches list
  */
 function themesMatch(themes: string[], list: string[]): boolean {
-  return themes.some((theme) =>
-    list.some((t) => theme.toLowerCase().includes(t.toLowerCase()))
+  return (themes || []).some((theme) =>
+    list.some((t) => String(theme).toLowerCase().includes(String(t).toLowerCase()))
   );
 }
 
@@ -150,7 +150,7 @@ function themesMatch(themes: string[], list: string[]): boolean {
  * Check if any strength contains keyword
  */
 function strengthContains(strengths: string[], keyword: string): boolean {
-  return strengths.some((s) => s.toLowerCase().includes(keyword.toLowerCase()));
+  return (strengths || []).some((s) => String(s).toLowerCase().includes(String(keyword).toLowerCase()));
 }
 
 /**

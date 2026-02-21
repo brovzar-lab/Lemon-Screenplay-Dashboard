@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /uploaded_analyses/{docId} {
+      allow read, write: if true;
+    }
+    match /screenplay_feedback/{docId} {
+      allow read, write: if true;
+    }
+    match /producer_profiles/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

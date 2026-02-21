@@ -56,7 +56,7 @@ function CharactersSection({ screenplay }: { screenplay: Screenplay }) {
                         <h5 className="text-sm font-medium text-gold-400 mb-1">Supporting Cast</h5>
                         <ul className="list-disc list-inside space-y-1">
                             {screenplay.characters.supporting.map((char, i) => (
-                                <li key={i} className="text-sm text-black-300">{char}</li>
+                                <li key={i} className="text-sm text-black-300">{typeof char === 'string' ? char : String(char)}</li>
                             ))}
                         </ul>
                     </div>
@@ -122,7 +122,7 @@ function StrengthsWeaknessesSection({ screenplay }: { screenplay: Screenplay }) 
                         {screenplay.strengths.map((strength, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-black-300">
                                 <span className="text-emerald-400 mt-0.5">✓</span>
-                                {strength}
+                                {typeof strength === 'string' ? strength : String(strength)}
                             </li>
                         ))}
                     </ul>
@@ -135,13 +135,13 @@ function StrengthsWeaknessesSection({ screenplay }: { screenplay: Screenplay }) 
                         {screenplay.majorWeaknesses.map((weakness, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-red-300">
                                 <span className="text-red-400 mt-0.5">✗</span>
-                                <span className="font-medium">[Major] {weakness}</span>
+                                <span className="font-medium">[Major] {typeof weakness === 'string' ? weakness : String(weakness)}</span>
                             </li>
                         ))}
                         {screenplay.weaknesses.map((weakness, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-black-300">
                                 <span className="text-gold-400 mt-0.5">!</span>
-                                {weakness}
+                                {typeof weakness === 'string' ? weakness : String(weakness)}
                             </li>
                         ))}
                     </ul>
@@ -159,7 +159,7 @@ function DevelopmentNotesSection({ notes }: { notes: string[] }) {
                 {notes.map((note, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-black-300">
                         <span className="text-gold-400 mt-0.5">→</span>
-                        {note}
+                        {typeof note === 'string' ? note : String(note)}
                     </li>
                 ))}
             </ul>

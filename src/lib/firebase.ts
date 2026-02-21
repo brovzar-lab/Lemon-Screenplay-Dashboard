@@ -5,6 +5,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
     apiKey: "AIzaSyBN_JWOlHSeu5nbcqY47fkY-9NDd2lIA00",
@@ -20,6 +21,9 @@ const app = initializeApp(firebaseConfig);
 
 // Firebase Storage
 export const storage = getStorage(app);
+
+// Firebase Firestore
+export const db = getFirestore(app);
 
 /**
  * Upload a screenplay PDF to Firebase Storage.

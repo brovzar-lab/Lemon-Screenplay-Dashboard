@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { useScreenplayStats } from '@/hooks/useScreenplays';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
 import { useThemeStore } from '@/stores/themeStore';
+import { DevExecToggle } from '@/components/devexec';
 
 interface StatPillProps {
   label: string;
@@ -80,6 +81,9 @@ export function Header() {
                 />
               </>
             )}
+
+            {/* Dev Exec AI */}
+            <DevExecToggle />
 
             {/* Theme Toggle */}
             <button

@@ -8,7 +8,7 @@ import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { getScoreColorClass } from '@/lib/calculations';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
-import { useComparisonStore, useIsSelectedForComparison, useIsComparisonFull } from '@/stores/comparisonStore';
+import { useExportSelectionStore, useIsSelectedForExport } from '@/stores/exportSelectionStore';
 import { ProductionBadge } from './ProductionBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { ScoreBar } from '@/components/ui/ScoreBar';
@@ -60,13 +60,12 @@ function ProducerMetricsMini({ screenplay }: { screenplay: Screenplay }) {
 }
 
 export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
-  const toggleComparison = useComparisonStore((s) => s.toggleComparison);
-  const isSelected = useIsSelectedForComparison(screenplay.id);
-  const isFull = useIsComparisonFull();
+  const toggleSelection = useExportSelectionStore((s) => s.toggle);
+  const isSelected = useIsSelectedForExport(screenplay.id);
 
-  const handleCompareClick = (e: React.MouseEvent) => {
+  const handleSelectClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleComparison(screenplay.id);
+    toggleSelection(screenplay.id);
   };
 
   return (
@@ -77,19 +76,17 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
         screenplay.isFilmNow && 'card-film-now'
       )}
     >
-      {/* Comparison checkbox */}
+      {/* Selection checkbox */}
       <button
-        onClick={handleCompareClick}
-        disabled={!isSelected && isFull}
+        onClick={handleSelectClick}
         className={clsx(
           'absolute top-4 right-4 w-6 h-6 rounded-md border-2 flex items-center justify-center',
           'transition-all duration-150',
           isSelected
             ? 'bg-gold-500 border-gold-400 text-black-950'
             : 'border-black-600 text-transparent hover:border-gold-500',
-          !isSelected && isFull && 'opacity-50 cursor-not-allowed'
         )}
-        aria-label={isSelected ? 'Remove from comparison' : 'Add to comparison'}
+        aria-label={isSelected ? 'Deselect for export' : 'Select for export'}
       >
         {isSelected && '✓'}
       </button>

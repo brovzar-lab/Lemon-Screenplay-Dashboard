@@ -14,11 +14,15 @@ export type LensName = 'latam' | 'commercial' | 'production' | 'coproduction';
 /**
  * Build the V6 prompt for the Anthropic API.
  * Uses a lazy-loaded prompt module to keep the main bundle small.
+ *
+ * @param calibrationPrompt Optional calibration profile text from the admin's
+ *   feedback loop. Injected between core instructions and screenplay text.
  */
 export function buildV6PromptClient(
   text: string,
   metadata: { title: string; pageCount: number; wordCount: number },
   lenses: LensName[],
+  calibrationPrompt?: string,
 ): string {
   // Core quality prompt with placeholders replaced
   let prompt = CORE_PROMPT
@@ -26,6 +30,17 @@ export function buildV6PromptClient(
     .replace('{page_count}', String(metadata.pageCount))
     .replace('{word_count}', String(metadata.wordCount))
     .replace('{text}', text);
+
+  // Inject calibration profile if provided
+  if (calibrationPrompt && calibrationPrompt.trim().length > 0) {
+    // Insert before the screenplay text by appending after the core prompt
+    prompt += '\n\n' + '═'.repeat(79) + '\n';
+    prompt += '              PRODUCER CALIBRATION (adjust analysis accordingly)\n';
+    prompt += '═'.repeat(79) + '\n';
+    prompt += calibrationPrompt.trim() + '\n';
+    prompt += '\nIMPORTANT: Apply these calibration adjustments while maintaining the V6 scoring framework.\n';
+    prompt += 'The calibration biases should shift your evaluation, not override the methodology.\n';
+  }
 
   // Add lens instructions
   const lensTexts = lenses.map((l) => LENS_PROMPTS[l]).filter(Boolean);
@@ -71,16 +86,31 @@ FINAL = (Execution × 0.40) + (Character × 0.30) + (Concept × 0.20) + (Voice �
 
 CRITICAL FAILURES: MINOR -0.3, MODERATE -0.5, MAJOR -0.8, CRITICAL -1.2 (cap -3.0)
 
-FALSE POSITIVE TRAPS (check after scoring):
-1. Premise > Execution gap (2+ pts)
-2. First Act Illusion
-3. Character Vacuum
-4. Dialogue Disguise
-5. Complexity Theater
-6. Originality Inflation
+FALSE POSITIVE TRAPS — WEIGHTED TIER SYSTEM (check after scoring):
+
+🔴 FUNDAMENTAL (weight 1.0 — hard to fix, signals deep craft issues):
+1. Character Vacuum — Great atmosphere/concept but no compelling protagonist. Development can't easily add what's missing.
+2. Complexity Theater — Convoluted structure creates illusion of depth. The writer may be confused about their own story.
+3. Genre Confusion — Script doesn't know what it is. Marketed as one genre but executes as another. Hard to develop when the movie hasn't been found.
+
+🟡 ADDRESSABLE (weight 0.5 — fixable in development, common for acquired scripts):
+4. Premise > Execution gap (2+ pts) — Great concept, weak delivery. This is what development rewrites fix.
+5. First Act Illusion — Strong opening, weaker Act 2-3. Writer has voice; structure needs editorial guidance.
+6. Originality Inflation — Novel concept over-credited. Fresh idea with mediocre execution is still a valuable acquisition.
+7. Dialogue Disguise — Witty dialogue masks thin plotting. Fixable if characters are strong (upgrade to 🔴 if co-triggered with Character Vacuum).
+8. Tonal Whiplash — Inconsistent tone undermines scenes. Common in early drafts, fixable with a strong director.
+
+⚪ WARNING (weight 0.0 — informational only, may be a development opportunity):
+9. Second Lead Syndrome — Supporting character is more interesting than protagonist. May signal the real movie is hiding inside.
+
+WEIGHTED VERDICT ADJUSTMENT:
+- Calculate weighted_trap_score = sum of triggered trap weights
+- If weighted_trap_score >= 2.0: downgrade one tier
+- If weighted_trap_score >= 3.0: cap at CONSIDER
+- ⚪ Warning traps are flagged but NEVER penalize the verdict
 
 VERDICTS: PASS (<5.5), CONSIDER (5.5-7.4), RECOMMEND (>=7.5), FILM_NOW (>=8.5)
-After verdict, apply false positive adjustment: 2 traps = downgrade one tier, 3+ = cap at CONSIDER.
+After verdict, apply the weighted false positive adjustment above.
 
 Screenplay Title: {title}
 Page Count: {page_count}
@@ -121,14 +151,18 @@ Return ONLY this JSON structure (no other text):
     "weighted_score": 0.00,
     "false_positive_check": {
       "traps_evaluated": [
-        { "name": "premise_execution_gap", "triggered": false, "assessment": "" },
-        { "name": "first_act_illusion", "triggered": false, "assessment": "" },
-        { "name": "character_vacuum", "triggered": false, "assessment": "" },
-        { "name": "dialogue_disguise", "triggered": false, "assessment": "" },
-        { "name": "complexity_theater", "triggered": false, "assessment": "" },
-        { "name": "originality_inflation", "triggered": false, "assessment": "" }
+        { "name": "character_vacuum", "triggered": false, "tier": "fundamental", "weight": 1.0, "assessment": "" },
+        { "name": "complexity_theater", "triggered": false, "tier": "fundamental", "weight": 1.0, "assessment": "" },
+        { "name": "genre_confusion", "triggered": false, "tier": "fundamental", "weight": 1.0, "assessment": "" },
+        { "name": "premise_execution_gap", "triggered": false, "tier": "addressable", "weight": 0.5, "assessment": "" },
+        { "name": "first_act_illusion", "triggered": false, "tier": "addressable", "weight": 0.5, "assessment": "" },
+        { "name": "originality_inflation", "triggered": false, "tier": "addressable", "weight": 0.5, "assessment": "" },
+        { "name": "dialogue_disguise", "triggered": false, "tier": "addressable", "weight": 0.5, "assessment": "" },
+        { "name": "tonal_whiplash", "triggered": false, "tier": "addressable", "weight": 0.5, "assessment": "" },
+        { "name": "second_lead_syndrome", "triggered": false, "tier": "warning", "weight": 0.0, "assessment": "" }
       ],
       "traps_triggered_count": 0,
+      "weighted_trap_score": 0.0,
       "risk_level": "low",
       "verdict_adjustment": "none",
       "adjusted_verdict": "PASS",

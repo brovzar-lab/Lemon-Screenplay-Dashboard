@@ -18,12 +18,12 @@ export function matchesSearch(screenplay: Screenplay, query: string): boolean {
 
   const lowerQuery = query.toLowerCase();
   return (
-    screenplay.title.toLowerCase().includes(lowerQuery) ||
-    screenplay.author.toLowerCase().includes(lowerQuery) ||
-    screenplay.genre.toLowerCase().includes(lowerQuery) ||
-    screenplay.logline.toLowerCase().includes(lowerQuery) ||
-    screenplay.subgenres.some((g) => g.toLowerCase().includes(lowerQuery)) ||
-    screenplay.themes.some((t) => t.toLowerCase().includes(lowerQuery))
+    (screenplay.title || '').toLowerCase().includes(lowerQuery) ||
+    (screenplay.author || '').toLowerCase().includes(lowerQuery) ||
+    (screenplay.genre || '').toLowerCase().includes(lowerQuery) ||
+    (screenplay.logline || '').toLowerCase().includes(lowerQuery) ||
+    (screenplay.subgenres || []).some((g) => String(g).toLowerCase().includes(lowerQuery)) ||
+    (screenplay.themes || []).some((t) => String(t).toLowerCase().includes(lowerQuery))
   );
 }
 
@@ -78,7 +78,7 @@ export function passesFilters(screenplay: Screenplay, filters: FilterState): boo
   // Themes (OR logic - exact case-insensitive match)
   if (filters.themes.length > 0) {
     const hasMatchingTheme = filters.themes.some((t) =>
-      screenplay.themes.some((st) => st.toLowerCase() === t.toLowerCase())
+      (screenplay.themes || []).some((st) => String(st).toLowerCase() === t.toLowerCase())
     );
     if (!hasMatchingTheme) return false;
   }
@@ -159,14 +159,14 @@ export function passesFilters(screenplay: Screenplay, filters: FilterState): boo
 
   // Hide non-screenplays (industry docs, reference materials)
   if (filters.hideNonScreenplays) {
-    const genre = screenplay.genre.toLowerCase();
+    const genre = (screenplay.genre || '').toLowerCase();
     const isIndustryDoc =
       genre.includes('industry') ||
       genre.includes('reference') ||
       genre.includes('documentary/industry');
     const hasCriticalNotScreenplay =
-      screenplay.criticalFailures.some((f) =>
-        f.toLowerCase().includes('not a screenplay')
+      (screenplay.criticalFailures || []).some((f) =>
+        String(f).toLowerCase().includes('not a screenplay')
       );
     if ((isIndustryDoc && screenplay.weightedScore <= 2.0) || hasCriticalNotScreenplay) {
       return false;
@@ -226,11 +226,11 @@ export function getSortValue(screenplay: Screenplay, field: string): number | st
     case 'roiIndicator':
       return screenplay.producerMetrics.roiIndicator;
     case 'title':
-      return screenplay.title.toLowerCase();
+      return (screenplay.title || '').toLowerCase();
     case 'author':
-      return screenplay.author.toLowerCase();
+      return (screenplay.author || '').toLowerCase();
     case 'genre':
-      return screenplay.genre.toLowerCase();
+      return (screenplay.genre || '').toLowerCase();
     case 'collection':
       return screenplay.collection;
     case 'recommendation':

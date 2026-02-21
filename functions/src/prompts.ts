@@ -211,37 +211,68 @@ otherwise strong scripts to potentially overcome isolated weaknesses.
                     FALSE POSITIVE TRAP DETECTION
 ═══════════════════════════════════════════════════════════════════════════════
 
-After scoring, CHECK FOR THESE TRAPS that indicate potentially INFLATED scores:
+After scoring, CHECK FOR THESE TRAPS that indicate potentially INFLATED scores.
+Traps are organized into WEIGHTED TIERS based on how fixable they are in development:
 
-**TRAP 1: "Premise > Execution" Gap**
-- Check: Is Premise score > Execution Craft average by 2+ points?
-- Risk: Attractive premise MASKING weak craft
-- Test: If you hadn't read the logline, would the pages still be compelling?
+🔴 FUNDAMENTAL TRAPS (weight 1.0 — hard to fix, signals deep craft issues):
 
-**TRAP 2: "First Act Illusion"**
-- Check: Is the first 30 pages notably STRONGER than pages 30-90?
-- Risk: Strong setup with weak follow-through (common in amateur scripts)
-- Test: Is Act 2 as engaging as Act 1? Is Act 3 as strong as the opening?
-
-**TRAP 3: "Character Vacuum"**
+**TRAP 1: "Character Vacuum"** 🔴
 - Check: Is Structure score > Character System average by 2+ points?
 - Risk: Plot mechanics working without emotional investment
 - Test: Do you GENUINELY care what happens to these people? Would you think about them later?
+- Why fundamental: Development can't easily add the human core that's missing.
 
-**TRAP 4: "Dialogue Disguise"**
-- Check: Is Dialogue score > Scene-Writing score by 2+ points?
-- Risk: Witty/stylish dialogue HIDING weak scene construction
-- Test: Would scenes work on MUTE? Read only action blocks - still compelling?
-
-**TRAP 5: "Complexity Theater"**
+**TRAP 2: "Complexity Theater"** 🔴
 - Check: Is Theme Complexity 8+ but Theme Clarity < 6?
 - Risk: Pretending ambiguity is depth (when actually it's confusion)
 - Test: Can you articulate the thematic argument in ONE sentence?
+- Why fundamental: The writer may be confused about their own story. High development cost.
 
-**TRAP 6: "Originality Inflation"**
+**TRAP 3: "Genre Confusion"** 🔴
+- Check: Does the script execute as a fundamentally different genre than its premise suggests?
+- Risk: Script doesn't know what movie it wants to be. Thriller premise with drama pacing, horror setup with rom-com resolution.
+- Test: Would the audience who came for the genre the logline promises be satisfied?
+- Why fundamental: Hard to develop when the movie hasn't been found yet.
+
+🟡 ADDRESSABLE TRAPS (weight 0.5 — fixable in development, common for acquired scripts):
+
+**TRAP 4: "Premise > Execution" Gap** 🟡
+- Check: Is Premise score > Execution Craft average by 2+ points?
+- Risk: Attractive premise MASKING weak craft
+- Test: If you hadn't read the logline, would the pages still be compelling?
+- Why addressable: This is what development rewrites fix. You're buying the premise.
+
+**TRAP 5: "First Act Illusion"** 🟡
+- Check: Is the first 30 pages notably STRONGER than pages 30-90?
+- Risk: Strong setup with weak follow-through (common in amateur scripts)
+- Test: Is Act 2 as engaging as Act 1? Is Act 3 as strong as the opening?
+- Why addressable: A strong opening proves voice and craft. Acts 2-3 are what story editors fix.
+
+**TRAP 6: "Originality Inflation"** 🟡
 - Check: Is Voice & Tone > 8 but Premise Freshness < 6?
 - Risk: Stylish packaging of DERIVATIVE content
 - Test: Remove the style - is the underlying STORY still compelling?
+- Why addressable: A fresh concept is rare and valuable. Execution gets refined through drafts.
+
+**TRAP 7: "Dialogue Disguise"** 🟡
+- Check: Is Dialogue score > Scene-Writing score by 2+ points?
+- Risk: Witty/stylish dialogue HIDING weak scene construction
+- Test: Would scenes work on MUTE? Read only action blocks - still compelling?
+- Why addressable: Fixable if characters are strong. UPGRADE to 🔴 if co-triggered with Character Vacuum.
+
+**TRAP 8: "Tonal Whiplash"** 🟡
+- Check: Does the script have jarring, unintentional tone shifts between scenes or acts?
+- Risk: Comedic moments in serious drama that feel accidental, not purposeful. Undermines emotional investment.
+- Test: Does each tonal shift serve a clear narrative purpose, or does it feel like the writer lost control?
+- Why addressable: Common in early drafts. A strong director and editorial pass can harmonize tone.
+
+⚪ WARNING TRAPS (weight 0.0 — informational only, may actually be a development opportunity):
+
+**TRAP 9: "Second Lead Syndrome"** ⚪
+- Check: Is a supporting character more compelling, more active, or more emotionally engaging than the protagonist?
+- Risk: The real movie may be hiding inside a different character's story.
+- Test: Would the script improve if told from the supporting character's POV?
+- Why warning only: This is actually a POSITIVE development signal. The material has depth — it just needs refocusing.
 
 ═══════════════════════════════════════════════════════════════════════════════
                     VERDICT DETERMINATION (QUALITY-ONLY)
@@ -301,11 +332,20 @@ Requires ALL of:
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-**VERDICT ADJUSTMENT FOR FALSE POSITIVES:**
-- 0 traps triggered: No adjustment
-- 1 trap triggered: Flag as "moderate risk" - reviewer should verify
-- 2 traps triggered: DOWNGRADE recommendation by ONE tier
-- 3+ traps triggered: MAXIMUM recommendation is CONSIDER (regardless of scores)
+**WEIGHTED VERDICT ADJUSTMENT FOR FALSE POSITIVES:**
+
+Calculate weighted_trap_score = sum of triggered trap weights:
+- 🔴 Fundamental traps contribute 1.0 each
+- 🟡 Addressable traps contribute 0.5 each
+- ⚪ Warning traps contribute 0.0 (flagged but never penalize)
+
+Special rule: If Dialogue Disguise 🟡 and Character Vacuum 🔴 are BOTH triggered,
+upgrade Dialogue Disguise to 🔴 weight (1.0 instead of 0.5).
+
+Adjustment based on weighted_trap_score:
+- weighted_trap_score < 2.0: No adjustment (flag as risk level only)
+- weighted_trap_score >= 2.0: DOWNGRADE recommendation by ONE tier
+- weighted_trap_score >= 3.0: MAXIMUM recommendation is CONSIDER (regardless of scores)
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -449,8 +489,38 @@ Return ONLY this JSON structure:
     "false_positive_check": {{
       "traps_evaluated": [
         {{
+          "name": "character_vacuum",
+          "triggered": true/false,
+          "tier": "fundamental",
+          "weight": 1.0,
+          "structure_score": 0,
+          "character_average": 0.0,
+          "gap": 0.0,
+          "assessment": "do we genuinely care about these characters?"
+        }},
+        {{
+          "name": "complexity_theater",
+          "triggered": true/false,
+          "tier": "fundamental",
+          "weight": 1.0,
+          "theme_complexity": 0,
+          "theme_clarity": 0,
+          "assessment": "can theme be articulated in one sentence?"
+        }},
+        {{
+          "name": "genre_confusion",
+          "triggered": true/false,
+          "tier": "fundamental",
+          "weight": 1.0,
+          "premise_genre": "what genre the logline/premise suggests",
+          "executed_genre": "what genre the script actually delivers",
+          "assessment": "would the target audience be satisfied?"
+        }},
+        {{
           "name": "premise_execution_gap",
           "triggered": true/false,
+          "tier": "addressable",
+          "weight": 0.5,
           "premise_score": 0,
           "execution_average": 0.0,
           "gap": 0.0,
@@ -459,42 +529,49 @@ Return ONLY this JSON structure:
         {{
           "name": "first_act_illusion",
           "triggered": true/false,
+          "tier": "addressable",
+          "weight": 0.5,
           "first_act_quality": "assessment",
           "later_acts_quality": "assessment",
           "assessment": "comparison"
         }},
         {{
-          "name": "character_vacuum",
+          "name": "originality_inflation",
           "triggered": true/false,
-          "structure_score": 0,
-          "character_average": 0.0,
-          "gap": 0.0,
-          "assessment": "do we genuinely care about these characters?"
+          "tier": "addressable",
+          "weight": 0.5,
+          "voice_score": 0,
+          "premise_freshness": 0,
+          "assessment": "is underlying story compelling without style?"
         }},
         {{
           "name": "dialogue_disguise",
           "triggered": true/false,
+          "tier": "addressable",
+          "weight": 0.5,
           "dialogue_score": 0,
           "scene_writing_score": 0,
           "gap": 0,
           "assessment": "do scenes work on mute?"
         }},
         {{
-          "name": "complexity_theater",
+          "name": "tonal_whiplash",
           "triggered": true/false,
-          "theme_complexity": 0,
-          "theme_clarity": 0,
-          "assessment": "can theme be articulated in one sentence?"
+          "tier": "addressable",
+          "weight": 0.5,
+          "assessment": "are tone shifts intentional and purposeful, or accidental?"
         }},
         {{
-          "name": "originality_inflation",
+          "name": "second_lead_syndrome",
           "triggered": true/false,
-          "voice_score": 0,
-          "premise_freshness": 0,
-          "assessment": "is underlying story compelling without style?"
+          "tier": "warning",
+          "weight": 0.0,
+          "stronger_character": "name of the more compelling character",
+          "assessment": "would the script improve from their POV?"
         }}
       ],
       "traps_triggered_count": 0,
+      "weighted_trap_score": 0.0,
       "risk_level": "low/moderate/high/critical",
       "verdict_adjustment": "none/downgrade_one_tier/cap_at_consider",
       "adjusted_verdict": "PASS/CONSIDER/RECOMMEND/FILM_NOW",

@@ -13,6 +13,8 @@
 
 import { parsePDF, type ParsedPDF } from './pdfParser';
 import { uploadScreenplayPdf } from './firebase';
+import { saveAnalysis } from './analysisStore';
+import type { Screenplay } from '@/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -162,11 +164,23 @@ async function callAnthropicDirect(
   // buildV6Prompt here instead.
   const { buildV6PromptClient } = await import('./promptClient');
 
+  // Load calibration profile if enabled (admin feedback loop)
+  let calibrationPrompt: string | undefined;
+  try {
+    const { loadCalibrationProfile } = await import('./feedbackStore');
+    const profile = await loadCalibrationProfile();
+    if (profile?.enabled && profile.calibrationPrompt) {
+      calibrationPrompt = profile.calibrationPrompt;
+    }
+  } catch {
+    // Calibration is optional — don't fail analysis if profile load fails
+  }
+
   const prompt = buildV6PromptClient(parsed.text, {
     title: parsed.title,
     pageCount: parsed.pageCount,
     wordCount: parsed.wordCount,
-  }, lenses);
+  }, lenses, calibrationPrompt);
 
   const modelId = CLAUDE_MODELS[model] || CLAUDE_MODELS.sonnet;
 
@@ -252,7 +266,7 @@ async function callAnthropicDirect(
 // ─── Poster Generation (Gemini 2.5 Flash Image) ─────────────────────────────
 
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, getBlob } from 'firebase/storage';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 
 // Poster prompt engine — genre-aware visual DNA + composition archetypes
@@ -392,3 +406,95 @@ export async function generatePoster(
   return dataUrl;
 }
 
+// ─── Re-analyze from Firebase Storage ────────────────────────────────────────
+
+/**
+ * Re-analyze a screenplay by fetching its PDF from Firebase Storage.
+ *
+ * Flow:
+ *   1. Reconstruct Storage path from screenplay metadata
+ *   2. Fetch PDF → convert to File object
+ *   3. Run full V6 analysis with chosen model
+ *   4. Save to Firestore + localStorage (replaces old analysis)
+ *   5. Return new analysis result
+ */
+export async function reanalyzeFromStorage(
+  screenplay: Screenplay,
+  model: 'sonnet' | 'opus',
+  apiKey: string,
+  onProgress?: (p: AnalysisProgress) => void,
+): Promise<AnalysisResult> {
+  onProgress?.({ stage: 'parsing', percent: 0, message: 'Fetching PDF from storage...' });
+
+  // Reconstruct the Storage path (matches uploadScreenplayPdf in firebase.ts)
+  const category = screenplay.category || 'OTHER';
+  const safeName = (screenplay.title || screenplay.sourceFile || 'untitled')
+    .replace(/\.pdf$/i, '')
+    .replace(/[^a-zA-Z0-9_\- ]/g, '')
+    .trim()
+    .replace(/\s+/g, '_');
+
+  // Try primary path, then fallback without category
+  // Use getBlob() instead of getDownloadURL+fetch to bypass CORS
+  let blob: Blob;
+  try {
+    const primaryPath = `screenplays/${category}/${safeName}.pdf`;
+    const fileRef = ref(storage, primaryPath);
+    blob = await getBlob(fileRef);
+  } catch {
+    try {
+      const fallbackRef = ref(storage, `screenplays/${safeName}.pdf`);
+      blob = await getBlob(fallbackRef);
+    } catch {
+      throw new Error(
+        `PDF not found in Firebase Storage for "${screenplay.title}". ` +
+        `Upload the PDF first via the Upload panel.`
+      );
+    }
+  }
+
+  onProgress?.({ stage: 'parsing', percent: 30, message: 'PDF downloaded, parsing...' });
+
+  const file = new File([blob], `${safeName}.pdf`, { type: 'application/pdf' });
+
+  onProgress?.({ stage: 'parsing', percent: 40, message: 'Re-parsing PDF...' });
+
+  // Run the full analysis pipeline
+  let result: AnalysisResult;
+  try {
+    result = await analyzeScreenplay(
+      file,
+      category,
+      { apiKey, model, lenses: ['commercial'] },
+      (p) => {
+        // Map progress: parsing 40-50%, analyzing 50-95%
+        if (p.stage === 'parsing') {
+          onProgress?.({ ...p, percent: 40 + (p.percent * 0.1) });
+        } else if (p.stage === 'analyzing') {
+          onProgress?.({ ...p, percent: 50 + (p.percent * 0.45) });
+        } else {
+          onProgress?.(p);
+        }
+      },
+    );
+  } catch (analysisErr) {
+    const msg = analysisErr instanceof Error ? analysisErr.message : 'Unknown error';
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      throw new Error(
+        `Network error during analysis. If using the API directly, ` +
+        `ensure your Anthropic API key is valid and CORS is configured.`
+      );
+    }
+    throw new Error(`Analysis failed: ${msg}`);
+  }
+
+  onProgress?.({ stage: 'analyzing', percent: 96, message: 'Saving new analysis...' });
+
+  // Save results (replaces old entry by source_file key)
+  await saveAnalysis(result.raw);
+
+  onProgress?.({ stage: 'complete', percent: 100, message: 'Re-analysis complete!' });
+  console.log(`[Lemon] Re-analyzed "${screenplay.title}" with ${model}`);
+
+  return result;
+}

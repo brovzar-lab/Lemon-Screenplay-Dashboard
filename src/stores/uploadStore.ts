@@ -10,6 +10,7 @@ export type UploadStatus =
   | 'pending'
   | 'parsing'
   | 'analyzing'
+  | 'promoting'
   | 'complete'
   | 'error';
 
@@ -111,7 +112,7 @@ export const useUploadStore = create<UploadState>()(
       },
 
       getActiveJob: () => {
-        return get().jobs.find((j) => j.status === 'parsing' || j.status === 'analyzing');
+        return get().jobs.find((j) => j.status === 'parsing' || j.status === 'analyzing' || j.status === 'promoting');
       },
 
       getFile: (jobId) => {

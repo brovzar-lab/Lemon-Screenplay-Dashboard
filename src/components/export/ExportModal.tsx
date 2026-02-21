@@ -36,8 +36,8 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
         const filename = mode === 'single'
           ? screenplays[0].title.replace(/\s+/g, '_')
           : mode === 'filtered'
-          ? 'filtered_screenplays'
-          : 'selected_screenplays';
+            ? 'filtered_screenplays'
+            : 'selected_screenplays';
 
         exportToCSV(screenplays, filename);
         setExportProgress(100);
@@ -106,8 +106,11 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
             <p className="text-sm text-black-400">
               Exporting <strong className="text-gold-400">{screenplays.length}</strong>{' '}
               {screenplays.length === 1 ? 'screenplay' : 'screenplays'}
+              {mode === 'multiple' && screenplays.length > 0 && (
+                <span className="text-black-500 ml-1">(selected)</span>
+              )}
             </p>
-            {screenplays.length <= 3 && (
+            {screenplays.length <= 5 && (
               <ul className="mt-2 space-y-1">
                 {screenplays.map((sp) => (
                   <li key={sp.id} className="text-xs text-black-300 flex items-center gap-2">
@@ -122,6 +125,11 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
                   </li>
                 ))}
               </ul>
+            )}
+            {screenplays.length > 5 && (
+              <p className="text-xs text-black-500 mt-1">
+                {screenplays.slice(0, 3).map((sp) => sp.title).join(', ')} +{screenplays.length - 3} more
+              </p>
             )}
           </div>
 

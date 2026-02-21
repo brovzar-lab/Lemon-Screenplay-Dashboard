@@ -17,6 +17,7 @@ import {
   ProducerMetricsPanel,
   ContentDetails,
   NotesSection,
+  FeedbackSection,
   ModalFooter,
   PosterSection,
 } from './modal';
@@ -129,6 +130,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
             <ProducerMetricsPanel screenplay={screenplay} />
             <ContentDetails screenplay={screenplay} />
             <NotesSection screenplayId={screenplay.id} />
+            <FeedbackSection screenplay={screenplay} />
             <ModalFooter screenplay={screenplay} />
           </div>
 

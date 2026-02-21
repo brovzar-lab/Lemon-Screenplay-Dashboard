@@ -8,7 +8,7 @@ import type { RawScreenplayAnalysis, Screenplay, Collection } from '@/types';
 import type { V6ScreenplayAnalysis } from '@/types/screenplay-v6';
 import type { ScreenplayWithV6 } from './normalize';
 import { normalizeScreenplay, isV6RawAnalysis, normalizeV6Screenplay } from './normalize';
-import { loadLocalAnalyses } from './localAnalysisStore';
+import { loadAllAnalyses, removeAnalysis } from './analysisStore';
 
 // Base path to analysis data (relative to public folder or absolute)
 const DATA_BASE_PATH = '../../.tmp';
@@ -132,102 +132,89 @@ export async function fetchAllScreenplays(): Promise<Screenplay[]> {
  */
 export async function loadAllScreenplaysVite(): Promise<(Screenplay | ScreenplayWithV6)[]> {
   const screenplays: (Screenplay | ScreenplayWithV6)[] = [];
+  const t0 = performance.now();
 
-  // Load V5 analysis files
-  try {
-    const indexResponse = await fetch('/data/analysis_v5/index.json');
-    if (indexResponse.ok) {
-      const fileList: string[] = await indexResponse.json();
-      console.log(`[Lemon] Found ${fileList.length} V5 analysis files`);
+  // Fetch both index files in parallel
+  const [v5IndexResult, v6IndexResult] = await Promise.allSettled([
+    fetch('/data/analysis_v5/index.json').then(r => r.ok ? r.json() as Promise<string[]> : []),
+    fetch('/data/analysis_v6/index.json').then(r => r.ok ? r.json() as Promise<string[]> : []),
+  ]);
 
-      for (const filename of fileList) {
-        try {
-          const response = await fetch(`/data/analysis_v5/${filename}`);
-          if (response.ok) {
-            const raw: RawScreenplayAnalysis = await response.json();
-            try {
-              const collectionFromJson = (raw as any).collection as Collection | undefined;
-              const collection: Collection = collectionFromJson || 'V5 Analysis';
-              const screenplay = normalizeScreenplay(raw, collection);
-              if (!screenplay.producerMetrics) {
-                console.error(`[Lemon] Missing producerMetrics for ${filename}`, screenplay);
-              }
-              screenplays.push(screenplay);
-            } catch (normalizeError) {
-              console.error(`[Lemon] V5 normalization failed for ${filename}:`, normalizeError);
-            }
-          }
-        } catch (error) {
-          console.warn(`[Lemon] Failed to load V5 ${filename}:`, error);
-        }
+  const v5FileList: string[] = v5IndexResult.status === 'fulfilled' ? v5IndexResult.value : [];
+  const v6FileList: string[] = v6IndexResult.status === 'fulfilled' ? v6IndexResult.value : [];
+  console.log(`[Lemon] Found ${v5FileList.length} V5 + ${v6FileList.length} V6 analysis files`);
+
+  // Fetch ALL analysis files in parallel (V5 + V6 concurrently)
+  const allFetches = [
+    ...v5FileList.map(async (filename) => {
+      try {
+        const response = await fetch(`/data/analysis_v5/${filename}`);
+        if (!response.ok) return;
+        const raw: RawScreenplayAnalysis = await response.json();
+        const collectionFromJson = (raw as unknown as Record<string, unknown>).collection as Collection | undefined;
+        const collection: Collection = collectionFromJson || 'V5 Analysis';
+        const screenplay = normalizeScreenplay(raw, collection);
+        screenplays.push(screenplay);
+      } catch (error) {
+        console.warn(`[Lemon] Failed to load/normalize V5 ${filename}:`, error);
       }
-    }
-  } catch (error) {
-    console.warn(`[Lemon] No V5 analysis index found:`, error);
-  }
-
-  // Load V6 analysis files
-  try {
-    const indexResponse = await fetch('/data/analysis_v6/index.json');
-    if (indexResponse.ok) {
-      const fileList: string[] = await indexResponse.json();
-      console.log(`[Lemon] Found ${fileList.length} V6 analysis files`);
-
-      for (const filename of fileList) {
-        try {
-          const response = await fetch(`/data/analysis_v6/${filename}`);
-          if (response.ok) {
-            const raw = await response.json();
-            try {
-              if (isV6RawAnalysis(raw)) {
-                const collectionFromJson = (raw as any).collection as Collection | undefined;
-                const collection: Collection = collectionFromJson || 'V6 Analysis';
-                const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
-                if (!screenplay.producerMetrics) {
-                  console.error(`[Lemon] Missing producerMetrics for ${filename}`, screenplay);
-                }
-                screenplays.push(screenplay);
-              } else {
-                console.warn(`[Lemon] ${filename} in V6 folder is not V6 format`);
-              }
-            } catch (normalizeError) {
-              console.error(`[Lemon] V6 normalization failed for ${filename}:`, normalizeError);
-            }
-          }
-        } catch (error) {
-          console.warn(`[Lemon] Failed to load V6 ${filename}:`, error);
+    }),
+    ...v6FileList.map(async (filename) => {
+      try {
+        const response = await fetch(`/data/analysis_v6/${filename}`);
+        if (!response.ok) return;
+        const raw = await response.json();
+        if (isV6RawAnalysis(raw)) {
+          const collectionFromJson = (raw as unknown as Record<string, unknown>).collection as Collection | undefined;
+          const collection: Collection = collectionFromJson || 'V6 Analysis';
+          const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
+          screenplays.push(screenplay);
+        } else {
+          console.warn(`[Lemon] ${filename} in V6 folder is not V6 format`);
         }
+      } catch (error) {
+        console.warn(`[Lemon] Failed to load/normalize V6 ${filename}:`, error);
       }
-    }
-  } catch (error) {
-    console.warn(`[Lemon] No V6 analysis index found (this is normal if no V6 analyses exist yet)`);
-  }
+    }),
+  ];
 
-  // Load locally analyzed screenplays (from user uploads)
+  await Promise.all(allFetches);
+  console.log(`[Lemon] Fetched ${screenplays.length} screenplays in ${Math.round(performance.now() - t0)}ms`);
+
+  // Load locally analyzed screenplays (from user uploads via Firestore)
   try {
-    const localRawList = loadLocalAnalyses();
+    const localRawList = await loadAllAnalyses();
+    let loadedCount = 0;
     for (const raw of localRawList) {
       try {
         if (isV6RawAnalysis(raw)) {
           const collection = (raw as Record<string, unknown>).collection as Collection | undefined;
           const sp = normalizeV6Screenplay(raw as unknown as V6ScreenplayAnalysis, collection || 'V6 Analysis');
           screenplays.push(sp);
+          loadedCount++;
+        } else {
+          console.warn('[Lemon] Local analysis is not V6 format, skipping:', (raw as Record<string, unknown>).source_file);
         }
       } catch (err) {
-        console.warn('[Lemon] Failed to normalize local analysis:', err);
+        // Remove corrupted entry to prevent future crash loops
+        const sourceFile = (raw as Record<string, unknown>).source_file as string | undefined;
+        console.error(`[Lemon] Failed to normalize uploaded analysis "${sourceFile || 'unknown'}", removing corrupted entry:`, err);
+        if (sourceFile) {
+          try { await removeAnalysis(sourceFile); } catch { /* ignore cleanup errors */ }
+        }
       }
     }
     if (localRawList.length > 0) {
-      console.log(`[Lemon] Loaded ${localRawList.length} locally analyzed screenplays`);
+      console.log(`[Lemon] Loaded ${loadedCount}/${localRawList.length} locally analyzed screenplays`);
     }
-  } catch {
-    // localStorage may be unavailable
+  } catch (err) {
+    console.warn('[Lemon] localStorage may be unavailable:', err);
   }
 
   // Deduplicate by title - prefer V6 over V5
   const seen = new Map<string, (Screenplay | ScreenplayWithV6)>();
   for (const sp of screenplays) {
-    const key = sp.title.toLowerCase().trim();
+    const key = (sp.title || '').toLowerCase().trim();
     const existing = seen.get(key);
     // Prefer V6 (has v6CoreQuality) over V5
     if (!existing || ('v6CoreQuality' in sp && !('v6CoreQuality' in existing))) {

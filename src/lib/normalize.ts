@@ -39,7 +39,7 @@ export function collectionToCategoryId(collection: string, existingCategory?: st
   // If already has a category (e.g. uploaded screenplays), use it
   if (existingCategory) return existingCategory;
 
-  const lower = collection.toLowerCase();
+  const lower = String(collection || '').toLowerCase();
 
   if (lower.includes('black list') || lower.includes('blacklist') || lower.includes('blklst')) {
     return 'BLKLST';
@@ -62,21 +62,21 @@ export function collectionToCategoryId(collection: string, existingCategory?: st
  */
 function generateId(filename: string): string {
   // Remove extension and analysis version suffixes, create URL-safe ID
-  return filename
+  return String(filename || '')
     .replace(/\.pdf$|\.json$/i, '')
     .replace(/_analysis_v[3456]$/i, '')  // Handle V3, V4, V5, V6 suffixes
     .replace(/[^a-zA-Z0-9]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .toLowerCase()
-    .slice(0, 100);
+    .slice(0, 100) || `id_${Date.now()}`;
 }
 
 /**
  * Normalize recommendation string to tier enum
  */
 function normalizeRecommendation(recommendation: string): RecommendationTier {
-  const lower = recommendation.toLowerCase().replace(/[\s_-]/g, '');
+  const lower = String(recommendation || '').toLowerCase().replace(/[\s_-]/g, '');
 
   if (lower.includes('filmnow')) return 'film_now';
   if (lower.includes('recommend')) return 'recommend';
@@ -89,7 +89,7 @@ function normalizeRecommendation(recommendation: string): RecommendationTier {
  * Handles formats like "low ($10-50M)" or just "low"
  */
 function extractBudgetCategory(rawCategory: string): BudgetCategory {
-  const lower = rawCategory.toLowerCase();
+  const lower = String(rawCategory || '').toLowerCase();
 
   if (lower.includes('micro')) return 'micro';
   if (lower.includes('low')) return 'low';
@@ -153,27 +153,37 @@ function normalizeCommercialViability(raw: RawScreenplayAnalysis['analysis']['co
  * Handles both string[] (old format) and CriticalFailureDetail[] (new V6 format)
  */
 function normalizeCriticalFailures(
-  raw: string[] | CriticalFailureDetail[] | undefined,
+  raw: string[] | CriticalFailureDetail[] | unknown[] | undefined,
   totalPenalty?: number
 ): { failures: string[]; details: CriticalFailureDetail[]; totalPenalty: number } {
   if (!raw || raw.length === 0) {
     return { failures: [], details: [], totalPenalty: 0 };
   }
 
-  // Check if it's the new detailed format
-  if (typeof raw[0] === 'object' && 'severity' in raw[0]) {
-    const details = raw as CriticalFailureDetail[];
+  // Safety: if the first item is an object (any shape), normalize it
+  if (typeof raw[0] === 'object' && raw[0] !== null) {
+    const details: CriticalFailureDetail[] = (raw as Record<string, unknown>[]).map((d) => ({
+      // AI may use "failure" or "description" for the text
+      failure: String(d.failure || d.description || d.type || 'Unknown failure'),
+      // AI may use "severity" or "type" for the level
+      severity: normalizeSeverity(String(d.severity || d.type || 'major')),
+      penalty: typeof d.penalty === 'number' ? d.penalty : -0.5,
+      // AI may use "evidence" or "pages"
+      evidence: String(d.evidence || d.pages || 'See analysis'),
+    }));
     const failures = details.map((d) => d.failure);
     const calculatedPenalty = details.reduce((sum, d) => sum + (d.penalty || 0), 0);
     return {
       failures,
       details,
-      totalPenalty: Math.max(totalPenalty ?? calculatedPenalty, -3.0), // Cap at -3.0
+      totalPenalty: Math.max(totalPenalty ?? calculatedPenalty, -3.0),
     };
   }
 
-  // Old string[] format - convert to empty details
-  const failures = raw as string[];
+  // String[] format — ensure each item is actually a string
+  const failures = (raw as unknown[]).map((f) =>
+    typeof f === 'string' ? f : String(f)
+  );
   return {
     failures,
     details: failures.map((f) => ({
@@ -184,6 +194,15 @@ function normalizeCriticalFailures(
     })),
     totalPenalty: totalPenalty ?? 0,
   };
+}
+
+/** Normalize severity string to valid type */
+function normalizeSeverity(s: string): 'minor' | 'moderate' | 'major' | 'critical' {
+  const lower = s.toLowerCase();
+  if (lower.includes('minor')) return 'minor';
+  if (lower.includes('moderate')) return 'moderate';
+  if (lower.includes('critical')) return 'critical';
+  return 'major';
 }
 
 /**

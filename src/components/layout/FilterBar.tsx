@@ -10,6 +10,7 @@ import { ExportModal } from '@/components/export';
 import { ShareModal } from '@/components/share';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
+import { useExportSelectionStore, useExportSelectionCount } from '@/stores/exportSelectionStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import { buildShareableUrl } from '@/hooks/useUrlState';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -18,16 +19,14 @@ import type { Screenplay } from '@/types';
 const SEARCH_INPUT_ID = 'screenplay-search';
 
 // Quick-filter chip configuration
-type FilterType = 'all' | 'film_now' | 'recommend' | 'consider' | 'pass' | 'high_budget' | 'low_budget';
+type FilterType = 'all' | 'pass' | 'consider' | 'recommend' | 'film_now';
 
-const FILTER_CHIPS: { id: FilterType; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'film_now', label: 'FILM NOW' },
-  { id: 'recommend', label: 'Recommend' },
-  { id: 'consider', label: 'Consider' },
-  { id: 'pass', label: 'Pass' },
-  { id: 'high_budget', label: 'High Budget' },
-  { id: 'low_budget', label: 'Low Budget' },
+const FILTER_CHIPS: { id: FilterType; label: string; activeClass: string }[] = [
+  { id: 'all', label: 'All', activeClass: 'bg-gold-500/20 border-gold-500 text-gold-300' },
+  { id: 'pass', label: 'Pass', activeClass: 'bg-red-500/20 border-red-500 text-red-300' },
+  { id: 'consider', label: 'Consider', activeClass: 'bg-amber-500/20 border-amber-500 text-amber-300' },
+  { id: 'recommend', label: 'Recommend', activeClass: 'bg-emerald-500/20 border-emerald-500 text-emerald-300' },
+  { id: 'film_now', label: 'FILM NOW', activeClass: 'bg-gold-500/20 border-gold-400 text-gold-300 animate-pulse-glow' },
 ];
 
 interface FilterBarProps {
@@ -45,8 +44,6 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   const setSearchQuery = useFilterStore((s) => s.setSearchQuery);
   const recommendationTiers = useFilterStore((s) => s.recommendationTiers);
   const setRecommendationTiers = useFilterStore((s) => s.setRecommendationTiers);
-  const budgetCategories = useFilterStore((s) => s.budgetCategories);
-  const setBudgetCategories = useFilterStore((s) => s.setBudgetCategories);
   const resetFilters = useFilterStore((s) => s.resetFilters);
 
   // Sort store
@@ -59,6 +56,19 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   const [isSortPanelOpen, setIsSortPanelOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  // Export selection
+  const exportSelectedIds = useExportSelectionStore((s) => s.selectedIds);
+  const selectAllForExport = useExportSelectionStore((s) => s.selectAll);
+  const deselectAllExport = useExportSelectionStore((s) => s.deselectAll);
+  const exportSelectionCount = useExportSelectionCount();
+  const hasExportSelection = exportSelectionCount > 0;
+
+  // Determine which screenplays to export
+  const screenplaysToExport = hasExportSelection
+    ? screenplays.filter((sp) => exportSelectedIds.includes(sp.id))
+    : screenplays;
+  const isAllSelected = exportSelectionCount === screenplays.length && screenplays.length > 0;
 
   // Global keyboard shortcuts
   const focusSearch = useCallback(() => {
@@ -75,17 +85,8 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
 
   // Determine which quick-filter chip is active
   const getActiveFilter = (): FilterType => {
-    if (recommendationTiers.length === 0 && budgetCategories.length === 0) {
-      return 'all';
-    }
-    if (recommendationTiers.length === 1 && budgetCategories.length === 0) {
+    if (recommendationTiers.length === 1) {
       return recommendationTiers[0] as FilterType;
-    }
-    if (budgetCategories.length > 0 && recommendationTiers.length === 0) {
-      const hasHigh = budgetCategories.includes('high') || budgetCategories.includes('medium');
-      const hasLow = budgetCategories.includes('low') || budgetCategories.includes('micro');
-      if (hasHigh && !hasLow) return 'high_budget';
-      if (hasLow && !hasHigh) return 'low_budget';
     }
     return 'all';
   };
@@ -106,12 +107,6 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
         break;
       case 'pass':
         setRecommendationTiers(['pass']);
-        break;
-      case 'high_budget':
-        setBudgetCategories(['high', 'medium']);
-        break;
-      case 'low_budget':
-        setBudgetCategories(['low', 'micro']);
         break;
     }
   };
@@ -223,6 +218,16 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               Share
             </button>
 
+            {/* Select All / Deselect All */}
+            <button
+              onClick={() => isAllSelected ? deselectAllExport() : selectAllForExport(screenplays.map((sp) => sp.id))}
+              className="btn btn-secondary text-sm"
+              title={isAllSelected ? 'Deselect all' : 'Select all for export'}
+              disabled={screenplays.length === 0}
+            >
+              {isAllSelected ? '☐ Deselect' : '☑ Select All'}
+            </button>
+
             {/* Export Button */}
             <button
               onClick={() => setIsExportModalOpen(true)}
@@ -233,7 +238,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              Export ({screenplays.length})
+              Export ({hasExportSelection ? `${exportSelectionCount} selected` : screenplays.length})
             </button>
           </div>
         </div>
@@ -244,8 +249,10 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
             <button
               key={chip.id}
               onClick={() => handleFilterClick(chip.id)}
-              className={`chip cursor-pointer transition-all ${activeFilter === chip.id ? 'chip-active' : 'hover:border-gold-500'
-                } ${chip.id === 'film_now' && activeFilter === chip.id ? 'animate-pulse-glow' : ''}`}
+              className={`chip cursor-pointer transition-all ${activeFilter === chip.id
+                ? chip.activeClass
+                : 'hover:border-gold-500'
+                }`}
             >
               {chip.label}
             </button>
@@ -260,22 +267,23 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
             </button>
           )}
         </div>
-      </div>
+      </div >
 
       {/* Overlay panels & modals owned by FilterBar */}
-      <AdvancedSortPanel
+      < AdvancedSortPanel
         isOpen={isSortPanelOpen}
-        onClose={() => setIsSortPanelOpen(false)}
+        onClose={() => setIsSortPanelOpen(false)
+        }
       />
-      <FilterPanel
+      < FilterPanel
         isOpen={isFilterPanelOpen}
         onClose={() => setIsFilterPanelOpen(false)}
       />
-      <ExportModal
+      < ExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        screenplays={screenplays}
-        mode={hasActiveFilters ? 'filtered' : 'multiple'}
+        screenplays={screenplaysToExport}
+        mode={hasExportSelection ? 'multiple' : hasActiveFilters ? 'filtered' : 'multiple'}
       />
       <ShareModal
         isOpen={isShareModalOpen}

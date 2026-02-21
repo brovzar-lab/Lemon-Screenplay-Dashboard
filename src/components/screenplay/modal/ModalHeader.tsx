@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { BUDGET_TIERS } from '@/types';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
+import { ReanalyzeButton } from './ReanalyzeButton';
 import { storage } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
 import type { RefObject } from 'react';
@@ -15,9 +16,10 @@ interface ModalHeaderProps {
     screenplay: Screenplay;
     closeButtonRef: RefObject<HTMLButtonElement | null>;
     onClose: () => void;
+    onReanalyzeComplete?: () => void;
 }
 
-export function ModalHeader({ screenplay, closeButtonRef, onClose }: ModalHeaderProps) {
+export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeComplete }: ModalHeaderProps) {
     const budgetInfo = BUDGET_TIERS[screenplay.budgetCategory];
 
     /**
@@ -84,7 +86,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose }: ModalHeader
                 <p className="text-black-400">by {screenplay.author}</p>
             </div>
 
-            {/* Action Bar: Chips + Badge + PDF */}
+            {/* Action Bar: Chips + Badge + Actions */}
             <div className="flex items-center justify-between gap-3 flex-wrap">
                 {/* Left: Chips */}
                 <div className="flex flex-wrap items-center gap-2">
@@ -99,8 +101,9 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose }: ModalHeader
                     </span>
                 </div>
 
-                {/* Right: Badge + PDF */}
-                <div className="flex items-center gap-3">
+                {/* Right: Re-analyze + PDF + Badge */}
+                <div className="flex items-center gap-2">
+                    <ReanalyzeButton screenplay={screenplay} onComplete={onReanalyzeComplete} />
                     <button
                         onClick={handleDownloadPdf}
                         className="btn btn-primary text-xs flex items-center gap-1.5 py-1.5 px-3"
@@ -117,4 +120,3 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose }: ModalHeader
         </div>
     );
 }
-

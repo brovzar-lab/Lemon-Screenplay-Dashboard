@@ -12,6 +12,7 @@
 export type V6Verdict = 'PASS' | 'CONSIDER' | 'RECOMMEND' | 'FILM_NOW';
 export type RiskLevel = 'low' | 'moderate' | 'high' | 'critical';
 export type VerdictAdjustment = 'none' | 'downgrade_one_tier' | 'cap_at_consider';
+export type TrapTier = 'fundamental' | 'addressable' | 'warning';
 
 export interface V6SubCriterion {
   score: number;
@@ -65,6 +66,8 @@ export interface FalsePositiveTrap {
   name: string;
   triggered: boolean;
   assessment: string;
+  tier?: TrapTier;     // fundamental (🔴), addressable (🟡), warning (⚪)
+  weight?: number;     // 1.0, 0.5, or 0 — contribution to downgrade threshold
   // Optional fields depending on trap type
   premise_score?: number;
   execution_average?: number;
@@ -82,6 +85,7 @@ export interface FalsePositiveTrap {
 export interface FalsePositiveCheck {
   traps_evaluated: FalsePositiveTrap[];
   traps_triggered_count: number;
+  weighted_trap_score?: number;  // sum of triggered trap weights (≥2.0 = downgrade)
   risk_level: RiskLevel;
   verdict_adjustment: VerdictAdjustment;
   adjusted_verdict: V6Verdict;
@@ -295,13 +299,12 @@ export function hasV6Lenses(analysis: unknown): analysis is { analysis: { lenses
 /**
  * Map V6 verdict to standard recommendation tier
  */
-export function mapV6VerdictToTier(verdict: V6Verdict): 'film_now' | 'recommend' | 'consider' | 'pass' {
-  switch (verdict) {
-    case 'FILM_NOW': return 'film_now';
-    case 'RECOMMEND': return 'recommend';
-    case 'CONSIDER': return 'consider';
-    case 'PASS': return 'pass';
-  }
+export function mapV6VerdictToTier(verdict: V6Verdict | string | unknown): 'film_now' | 'recommend' | 'consider' | 'pass' {
+  const v = String(verdict || '').toUpperCase().replace(/[\s_-]/g, '');
+  if (v.includes('FILMNOW')) return 'film_now';
+  if (v.includes('RECOMMEND')) return 'recommend';
+  if (v.includes('CONSIDER')) return 'consider';
+  return 'pass';
 }
 
 /**
@@ -339,4 +342,41 @@ export function getEnabledLenses(lenses: V6Lenses): string[] {
   if (lenses.theatrical_streaming?.enabled) enabled.push('Distribution');
   if (lenses.coproduction?.enabled) enabled.push('Co-Production');
   return enabled;
+}
+
+// ============================================
+// TRAP TIER SYSTEM
+// ============================================
+
+/**
+ * Trap weights by name.
+ * 🔴 Fundamental (1.0) — Hard to fix; signals deep craft issues
+ * 🟡 Addressable (0.5) — Fixable in development; common acquisition targets
+ * ⚪ Warning (0.0) — Informational only; may actually be a positive signal
+ */
+export const TRAP_WEIGHTS: Record<string, { tier: TrapTier; weight: number; label: string; icon: string }> = {
+  // 🔴 Fundamental — full penalty
+  character_vacuum: { tier: 'fundamental', weight: 1.0, label: 'Character Vacuum', icon: '🔴' },
+  complexity_theater: { tier: 'fundamental', weight: 1.0, label: 'Complexity Theater', icon: '🔴' },
+  genre_confusion: { tier: 'fundamental', weight: 1.0, label: 'Genre Confusion', icon: '🔴' },
+  // 🟡 Addressable — half penalty
+  premise_execution_gap: { tier: 'addressable', weight: 0.5, label: 'Premise-Execution Gap', icon: '🟡' },
+  first_act_illusion: { tier: 'addressable', weight: 0.5, label: 'First Act Illusion', icon: '🟡' },
+  originality_inflation: { tier: 'addressable', weight: 0.5, label: 'Originality Inflation', icon: '🟡' },
+  dialogue_disguise: { tier: 'addressable', weight: 0.5, label: 'Dialogue Disguise', icon: '🟡' },
+  tonal_whiplash: { tier: 'addressable', weight: 0.5, label: 'Tonal Whiplash', icon: '🟡' },
+  // ⚪ Warning — no penalty
+  second_lead_syndrome: { tier: 'warning', weight: 0.0, label: 'Second Lead Syndrome', icon: '⚪' },
+};
+
+/** Get trap tier info, with fallback for unknown trap names. */
+export function getTrapInfo(trapName: string): { tier: TrapTier; weight: number; label: string; icon: string } {
+  return TRAP_WEIGHTS[trapName] ?? { tier: 'addressable', weight: 0.5, label: trapName.replace(/_/g, ' '), icon: '🟡' };
+}
+
+/** Calculate the weighted trap score for a set of triggered traps. */
+export function calculateWeightedTrapScore(traps: FalsePositiveTrap[]): number {
+  return traps
+    .filter(t => t.triggered)
+    .reduce((sum, t) => sum + (t.weight ?? getTrapInfo(t.name).weight), 0);
 }

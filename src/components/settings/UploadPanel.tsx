@@ -10,14 +10,14 @@ import { useUploadStore, type UploadJob, type UploadStatus } from '@/stores/uplo
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
 import { analyzeScreenplay } from '@/lib/analysisService';
-import { saveLocalAnalysis } from '@/lib/localAnalysisStore';
+import { saveAnalysis } from '@/lib/analysisStore';
 import useCategories from '@/hooks/useCategories';
 import { ApiConfigPanel } from './ApiConfigPanel';
 
 
 // ─── Model definitions ───────────────────────────────────────────────────────
 
-type ModelOption = 'haiku' | 'sonnet' | 'opus';
+type ModelOption = 'haiku' | 'sonnet' | 'opus' | 'hybrid';
 
 interface ModelInfo {
   id: ModelOption;
@@ -69,6 +69,18 @@ const MODEL_OPTIONS: ModelInfo[] = [
     description: 'Deepest analysis with the most nuanced insights. Best for high-priority screenplays where you need every detail. 4x the cost of Sonnet.',
     icon: '👑',
   },
+  {
+    id: 'hybrid',
+    name: 'Hybrid',
+    subtitle: 'Smart Two-Pass',
+    costPerScript: '~$0.22–$1.12',
+    speed: '~3–8 min',
+    quality: 'Optimized',
+    badge: 'SMART',
+    badgeColor: 'bg-cyan-500/20 text-cyan-400',
+    description: 'Sonnet first pass on all scripts. Recommend & Film Now scripts get a fresh Opus deep analysis automatically. Best value for batches.',
+    icon: '🔄',
+  },
 ];
 
 // ─── Status labels ───────────────────────────────────────────────────────────
@@ -77,15 +89,17 @@ const STATUS_LABELS: Record<UploadStatus, { label: string; color: string }> = {
   pending: { label: 'Pending', color: 'text-black-400' },
   parsing: { label: 'Parsing PDF...', color: 'text-blue-400' },
   analyzing: { label: 'AI Analyzing...', color: 'text-gold-400' },
+  promoting: { label: '⬆️ Promoted → Opus re-analysis...', color: 'text-purple-400' },
   complete: { label: 'Complete', color: 'text-emerald-400' },
   error: { label: 'Error', color: 'text-red-400' },
 };
 
 // Token cost multipliers per model (per 1K tokens)
-const MODEL_COSTS: Record<ModelOption, { input: number; output: number }> = {
+const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   haiku: { input: 0.001, output: 0.005 },
   sonnet: { input: 0.003, output: 0.015 },
   opus: { input: 0.015, output: 0.075 },
+  hybrid: { input: 0.003, output: 0.015 }, // base rate = Sonnet; Opus cost added dynamically
 };
 
 export function UploadPanel() {
@@ -136,7 +150,9 @@ export function UploadPanel() {
     setProcessing(true);
 
     const pending = useUploadStore.getState().jobs.filter((j) => j.status === 'pending');
-    const costRates = MODEL_COSTS[selectedModel];
+    const isHybrid = selectedModel === 'hybrid';
+    const firstPassModel = isHybrid ? 'sonnet' : selectedModel;
+    const costRates = MODEL_COSTS[firstPassModel];
 
     for (const job of pending) {
       const file = getFile(job.id);
@@ -146,12 +162,13 @@ export function UploadPanel() {
       }
 
       try {
-        await analyzeScreenplay(
+        // ─── Pass 1: Analyze with selected model (or Sonnet for hybrid) ───
+        const result = await analyzeScreenplay(
           file,
           job.category,
           {
             apiKey,
-            model: selectedModel,
+            model: firstPassModel,
             lenses: ['commercial'],
           },
           (progress) => {
@@ -160,31 +177,73 @@ export function UploadPanel() {
               progress: progress.percent,
             });
           },
-        ).then((result) => {
-          // Save to localStorage for persistence
-          saveLocalAnalysis(result.raw);
+        );
 
-          // Estimate cost based on selected model
-          const cost = result.usage
-            ? (result.usage.input_tokens * costRates.input + result.usage.output_tokens * costRates.output) / 1000
-            : 0.50; // estimate if no usage data
+        // Estimate cost for first pass
+        let totalCost = result.usage
+          ? (result.usage.input_tokens * costRates.input + result.usage.output_tokens * costRates.output) / 1000
+          : 0.50;
 
-          incrementUsage(cost);
+        // ─── Hybrid Pass 2: Check verdict and optionally re-analyze with Opus ───
+        let finalRaw = result.raw;
+        if (isHybrid) {
+          const analysis = result.raw.analysis as Record<string, Record<string, unknown>> | undefined;
+          const verdict = (analysis?.core_quality?.verdict as string) ?? '';
+          const vLower = verdict.toLowerCase();
+          const isPromoted = vLower.includes('recommend') || vLower.includes('film_now') || vLower.includes('film now');
 
-          updateJob(job.id, {
-            status: 'complete',
-            progress: 100,
-            result: {
-              title: result.parsed.title,
-              author: 'See analysis',
-              analysisPath: 'localStorage',
-            },
-            completedAt: new Date().toISOString(),
-          });
+          if (isPromoted) {
+            // Promote to Opus deep analysis
+            updateJob(job.id, {
+              status: 'promoting',
+              progress: 0,
+            });
 
-          // Invalidate the screenplays query so the new analysis appears
-          queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+            const opusResult = await analyzeScreenplay(
+              file,
+              job.category,
+              { apiKey, model: 'opus', lenses: ['commercial'] },
+              (progress) => {
+                updateJob(job.id, {
+                  status: 'promoting',
+                  progress: progress.percent,
+                });
+              },
+            );
+
+            // Add Opus cost
+            const opusCostRates = MODEL_COSTS.opus;
+            if (opusResult.usage) {
+              totalCost += (opusResult.usage.input_tokens * opusCostRates.input + opusResult.usage.output_tokens * opusCostRates.output) / 1000;
+            } else {
+              totalCost += 2.00; // estimate
+            }
+
+            finalRaw = opusResult.raw;
+          }
+        }
+
+        // Save final result to Firestore
+        await saveAnalysis(finalRaw);
+        incrementUsage(totalCost);
+
+        // Determine which model produced the final result
+        const finalModel = (finalRaw.analysis_model as string) ?? firstPassModel;
+        const wasPromoted = isHybrid && finalModel.includes('opus');
+
+        updateJob(job.id, {
+          status: 'complete',
+          progress: 100,
+          result: {
+            title: result.parsed.title,
+            author: wasPromoted ? '⬆️ Opus (promoted)' : 'See analysis',
+            analysisPath: 'firestore',
+          },
+          completedAt: new Date().toISOString(),
         });
+
+        // Invalidate the screenplays query so the new analysis appears
+        queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error';
         updateJob(job.id, {
@@ -196,6 +255,15 @@ export function UploadPanel() {
 
     setProcessing(false);
   }, [isProcessing, setProcessing, getFile, updateJob, apiKey, selectedModel, incrementUsage, queryClient]);
+
+  // Retry a failed job: reset to pending and re-trigger processing
+  const retryJob = useCallback((jobId: string) => {
+    updateJob(jobId, { status: 'pending', error: undefined, progress: 0 });
+    // Trigger processJobs on next tick so the job is pending first
+    setTimeout(() => {
+      processJobs();
+    }, 100);
+  }, [updateJob, processJobs]);
 
   const pendingJobs = jobs.filter((j) => j.status === 'pending');
   const activeJobs = jobs.filter((j) => j.status === 'parsing' || j.status === 'analyzing');
@@ -492,17 +560,17 @@ export function UploadPanel() {
           <div className="space-y-2">
             {/* Active Jobs */}
             {activeJobs.map((job) => (
-              <JobItem key={job.id} job={job} onRemove={removeJob} />
+              <JobItem key={job.id} job={job} onRemove={removeJob} onRetry={retryJob} />
             ))}
 
             {/* Pending Jobs */}
             {pendingJobs.map((job) => (
-              <JobItem key={job.id} job={job} onRemove={removeJob} />
+              <JobItem key={job.id} job={job} onRemove={removeJob} onRetry={retryJob} />
             ))}
 
             {/* Completed Jobs */}
             {completedJobs.map((job) => (
-              <JobItem key={job.id} job={job} onRemove={removeJob} />
+              <JobItem key={job.id} job={job} onRemove={removeJob} onRetry={retryJob} />
             ))}
           </div>
 
@@ -587,9 +655,10 @@ export function UploadPanel() {
 interface JobItemProps {
   job: UploadJob;
   onRemove: (id: string) => void;
+  onRetry: (id: string) => void;
 }
 
-function JobItem({ job, onRemove }: JobItemProps) {
+function JobItem({ job, onRemove, onRetry }: JobItemProps) {
   const status = STATUS_LABELS[job.status];
 
   return (
@@ -639,7 +708,15 @@ function JobItem({ job, onRemove }: JobItemProps) {
         </div>
       )}
 
-      {/* Remove Button */}
+      {/* Retry + Remove Buttons */}
+      {job.status === 'error' && (
+        <button
+          onClick={() => onRetry(job.id)}
+          className="px-3 py-1 text-xs font-medium text-gold-300 bg-gold-500/10 border border-gold-500/30 rounded-md hover:bg-gold-500/20 hover:border-gold-500/50 transition-all"
+        >
+          ↻ Retry
+        </button>
+      )}
       {(job.status === 'pending' || job.status === 'complete' || job.status === 'error') && (
         <button
           onClick={() => onRemove(job.id)}
