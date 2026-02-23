@@ -1,17 +1,20 @@
 /**
  * Theme Store
- * Manages dark/light theme preference with localStorage persistence
+ * Manages dark/light theme preference and brand preview with localStorage persistence
  */
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type Theme = 'dark' | 'light' | 'system';
+export type BrandPreview = 'default' | 'editorial-punk';
 
 interface ThemeState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   resolvedTheme: 'dark' | 'light';
+  brandPreview: BrandPreview;
+  setBrandPreview: (brand: BrandPreview) => void;
 }
 
 // Get system preference
@@ -26,11 +29,21 @@ const resolveTheme = (theme: Theme): 'dark' | 'light' => {
   return theme;
 };
 
+// Apply brand class to document
+const applyBrand = (brand: BrandPreview) => {
+  if (brand === 'editorial-punk') {
+    document.documentElement.classList.add('brand-editorial-punk');
+  } else {
+    document.documentElement.classList.remove('brand-editorial-punk');
+  }
+};
+
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
       theme: 'dark',
       resolvedTheme: 'dark',
+      brandPreview: 'default',
 
       setTheme: (theme) => {
         const resolved = resolveTheme(theme);
@@ -44,6 +57,11 @@ export const useThemeStore = create<ThemeState>()(
           document.documentElement.classList.add('light');
           document.documentElement.classList.remove('dark');
         }
+      },
+
+      setBrandPreview: (brand) => {
+        set({ brandPreview: brand });
+        applyBrand(brand);
       },
     }),
     {
@@ -59,6 +77,8 @@ export const useThemeStore = create<ThemeState>()(
             document.documentElement.classList.add('light');
             document.documentElement.classList.remove('dark');
           }
+          // Apply brand on rehydration
+          applyBrand(state.brandPreview);
         }
       },
     }

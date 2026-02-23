@@ -1,0 +1,197 @@
+/* ============================================================
+   LEMON STUDIOS — Brand Identity Tokens
+   Direction D: Editorial Punk
+   Version 1.0 — February 2026
+   ============================================================
+   
+   Import this file into any project to access Lemon Studios
+   brand colors, typography, spacing, and effects.
+   
+   Usage:
+     @import url('lemon-brand-tokens.css');
+     
+   Or copy the :root block into your existing stylesheet.
+   ============================================================ */
+
+/* ============ FONTS ============ */
+/* Import these in your HTML <head>:
+   
+   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700;1,800;1,900&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Archivo:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
+*/
+
+:root {
+  /* ============ COLOR — DARK MODE (DEFAULT) ============ */
+  
+  /* Backgrounds */
+  --lemon-bg-primary: #2A2A2A;        /* Crosshatch dark — main surface */
+  --lemon-bg-secondary: #1A1A1A;      /* Deeper dark — cards, panels */
+  --lemon-bg-tertiary: #0F0F0F;       /* Deepest — page background */
+  --lemon-bg-elevated: #333333;       /* Raised elements */
+  
+  /* Accent Colors */
+  --lemon-cyan: #00E5C8;              /* Primary accent — CTAs, links, emphasis */
+  --lemon-cyan-dim: #00B89E;          /* Light-mode cyan (darkened 15%) */
+  --lemon-yellow: #FFFF00;            /* Signal yellow — highlights, titles */
+  --lemon-yellow-dim: #E8D500;        /* Light-mode yellow (deepened) */
+  --lemon-coral: #FF6B6B;             /* Coral punch — alerts, contrast, energy */
+  --lemon-coral-deep: #E84545;        /* Light-mode coral (saturated deeper) */
+  
+  /* Neutrals */
+  --lemon-white: #FFFFFF;
+  --lemon-black: #000000;
+  --lemon-gray-100: #F5F5F5;          /* Light panels */
+  --lemon-gray-200: #E0E0E0;
+  --lemon-gray-300: #BDBDBD;
+  --lemon-gray-400: #9E9E9E;          /* Metadata text on dark */
+  --lemon-gray-500: #757575;
+  --lemon-gray-600: #4A4A4A;          /* Body text on light */
+  --lemon-gray-700: #333333;          /* Borders on dark */
+  --lemon-gray-800: #222222;
+  
+  /* Text — Dark Mode */
+  --lemon-text-primary: #F0F0F0;      /* Headings on dark */
+  --lemon-text-body: #C8C8C8;         /* Body on dark */
+  --lemon-text-muted: #757575;        /* Captions, metadata on dark */
+  
+  /* Text — Light Mode */
+  --lemon-text-primary-light: #1A1A1A;
+  --lemon-text-body-light: #4A4A4A;
+  --lemon-text-muted-light: #9E9E9E;
+  
+  /* ============ TYPOGRAPHY ============ */
+  
+  /* Font Families */
+  --lemon-font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --lemon-font-body: 'Archivo', 'Helvetica Neue', Helvetica, sans-serif;
+  --lemon-font-mono: 'Space Mono', 'Courier New', monospace;
+  
+  /* Font Sizes — Display */
+  --lemon-size-hero: clamp(3.5rem, 7vw, 6rem);     /* Hero headlines */
+  --lemon-size-h1: clamp(2.5rem, 5vw, 4.5rem);     /* Section titles */
+  --lemon-size-h2: 2.25rem;                          /* Sub-section titles */
+  --lemon-size-h3: 1.4rem;                           /* Card titles */
+  --lemon-size-h4: 1.1rem;                           /* Small titles */
+  
+  /* Font Sizes — Body & UI */
+  --lemon-size-body-lg: 1.05rem;                     /* Lead paragraphs */
+  --lemon-size-body: 1rem;                           /* Default body */
+  --lemon-size-body-sm: 0.9rem;                      /* Compact body */
+  --lemon-size-caption: 0.85rem;                     /* Captions */
+  --lemon-size-label: 0.7rem;                        /* Labels, metadata */
+  --lemon-size-micro: 0.6rem;                        /* Badges, tags */
+  
+  /* Font Weights */
+  --lemon-weight-black: 900;          /* Display headlines */
+  --lemon-weight-extrabold: 800;      /* Display italic, section titles */
+  --lemon-weight-bold: 700;           /* Card titles, emphasis */
+  --lemon-weight-semibold: 600;       /* Sub-emphasis */
+  --lemon-weight-regular: 400;        /* Body text */
+  --lemon-weight-light: 300;          /* Subtle text */
+  
+  /* Line Heights */
+  --lemon-leading-tight: 0.92;        /* Display headlines */
+  --lemon-leading-snug: 1.1;          /* Sub-headlines */
+  --lemon-leading-normal: 1.5;        /* UI text */
+  --lemon-leading-relaxed: 1.7;       /* Body text */
+  --lemon-leading-loose: 1.8;         /* Long-form reading */
+  
+  /* Letter Spacing */
+  --lemon-tracking-tight: -0.02em;    /* Display condensed */
+  --lemon-tracking-normal: 0;         /* Body text */
+  --lemon-tracking-wide: 0.04em;      /* Card titles */
+  --lemon-tracking-wider: 0.08em;     /* Mono labels */
+  --lemon-tracking-widest: 0.15em;    /* Section labels, tags */
+  
+  /* ============ SPACING ============ */
+  --lemon-space-xs: 0.25rem;          /* 4px */
+  --lemon-space-sm: 0.5rem;           /* 8px */
+  --lemon-space-md: 1rem;             /* 16px */
+  --lemon-space-lg: 1.5rem;           /* 24px */
+  --lemon-space-xl: 2.5rem;           /* 40px */
+  --lemon-space-2xl: 4rem;            /* 64px */
+  --lemon-space-3xl: 6rem;            /* 96px — section padding */
+  
+  /* ============ BORDERS ============ */
+  --lemon-border-subtle: 1px solid rgba(255, 255, 255, 0.06);
+  --lemon-border-default: 1px solid #333333;
+  --lemon-border-accent-cyan: 3px solid #00E5C8;
+  --lemon-border-accent-yellow: 3px solid #FFFF00;
+  --lemon-border-accent-coral: 3px solid #FF6B6B;
+  
+  /* ============ EFFECTS ============ */
+  --lemon-shadow-card: 0 1px 4px rgba(0, 0, 0, 0.06);    /* Light mode cards */
+  --lemon-shadow-glow-cyan: 0 0 60px rgba(0, 229, 200, 0.15);
+  --lemon-backdrop-nav: rgba(15, 15, 15, 0.92);
+  
+  /* Crosshatch Texture (apply as background-image) */
+  --lemon-texture-crosshatch:
+    linear-gradient(0deg, transparent 24%, rgba(255,255,255,.03) 25%, rgba(255,255,255,.03) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.03) 75%, rgba(255,255,255,.03) 76%, transparent 77%, transparent),
+    linear-gradient(90deg, transparent 24%, rgba(255,255,255,.03) 25%, rgba(255,255,255,.03) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.03) 75%, rgba(255,255,255,.03) 76%, transparent 77%, transparent);
+  --lemon-texture-size: 50px 50px;
+  
+  /* ============ TRANSITIONS ============ */
+  --lemon-transition-fast: 0.15s ease;
+  --lemon-transition-default: 0.2s ease;
+  --lemon-transition-slow: 0.4s ease;
+  
+  /* ============ LAYOUT ============ */
+  --lemon-max-width: 1200px;
+  --lemon-content-padding: 2.5rem;
+  
+  /* ============ COLOR USAGE RATIOS ============ */
+  /* 50% Dark Ground (#2A2A2A)
+     20% White (#FFFFFF)
+     15% Cyan (#00E5C8)
+     10% Yellow (#FFFF00)
+      5% Coral (#FF6B6B) */
+}
+
+
+/* ============ UTILITY CLASSES ============ */
+
+/* Highlighter effect — apply to <span> inside headlines */
+.lemon-highlight {
+  display: inline;
+  padding: 0.1em 0.25em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.lemon-highlight--cyan   { background: var(--lemon-cyan);  color: var(--lemon-black); }
+.lemon-highlight--yellow { background: var(--lemon-yellow); color: var(--lemon-black); }
+.lemon-highlight--coral  { background: var(--lemon-coral);  color: var(--lemon-black); }
+.lemon-highlight--black  { background: var(--lemon-black);  color: var(--lemon-white); }
+
+/* Light mode highlight overrides */
+.lemon-light .lemon-highlight--cyan   { background: var(--lemon-cyan-dim); }
+.lemon-light .lemon-highlight--yellow { background: var(--lemon-yellow-dim); }
+.lemon-light .lemon-highlight--coral  { background: var(--lemon-coral-deep); color: var(--lemon-white); }
+
+/* Crosshatch textured background */
+.lemon-textured {
+  background-image: var(--lemon-texture-crosshatch);
+  background-size: var(--lemon-texture-size);
+}
+
+/* Typography shortcuts */
+.lemon-display {
+  font-family: var(--lemon-font-display);
+  font-weight: var(--lemon-weight-black);
+  text-transform: uppercase;
+  letter-spacing: var(--lemon-tracking-tight);
+  line-height: var(--lemon-leading-tight);
+}
+
+.lemon-display-italic {
+  font-family: var(--lemon-font-display);
+  font-weight: var(--lemon-weight-extrabold);
+  font-style: italic;
+  line-height: var(--lemon-leading-snug);
+}
+
+.lemon-mono-label {
+  font-family: var(--lemon-font-mono);
+  font-size: var(--lemon-size-label);
+  letter-spacing: var(--lemon-tracking-widest);
+  text-transform: uppercase;
+}

@@ -1,0 +1,161 @@
+{
+  "meta": {
+    "name": "Lemon Studios — Editorial Punk",
+    "version": "1.0.0",
+    "date": "2026-02-22",
+    "direction": "D"
+  },
+  "color": {
+    "accent": {
+      "cyan": {
+        "default": "#00E5C8",
+        "dim": "#00B89E",
+        "rgb": "0, 229, 200",
+        "cmyk": "80, 0, 30, 0",
+        "pantone": "3255 C (nearest)",
+        "role": "Primary accent — CTAs, links, emphasis"
+      },
+      "yellow": {
+        "default": "#FFFF00",
+        "dim": "#E8D500",
+        "rgb": "255, 255, 0",
+        "cmyk": "0, 0, 100, 0",
+        "pantone": "Yellow C (nearest)",
+        "role": "Signal — highlights, titles"
+      },
+      "coral": {
+        "default": "#FF6B6B",
+        "deep": "#E84545",
+        "rgb": "255, 107, 107",
+        "cmyk": "0, 65, 55, 0",
+        "pantone": "178 C (nearest)",
+        "role": "Alert — contrast, energy"
+      }
+    },
+    "background": {
+      "darkPrimary": "#2A2A2A",
+      "darkSecondary": "#1A1A1A",
+      "darkTertiary": "#0F0F0F",
+      "darkElevated": "#333333",
+      "lightPrimary": "#F5F5F5",
+      "lightSurface": "#FFFFFF"
+    },
+    "text": {
+      "dark": {
+        "primary": "#F0F0F0",
+        "body": "#C8C8C8",
+        "muted": "#757575"
+      },
+      "light": {
+        "primary": "#1A1A1A",
+        "body": "#4A4A4A",
+        "muted": "#9E9E9E"
+      }
+    },
+    "neutral": {
+      "white": "#FFFFFF",
+      "black": "#000000",
+      "gray100": "#F5F5F5",
+      "gray200": "#E0E0E0",
+      "gray300": "#BDBDBD",
+      "gray400": "#9E9E9E",
+      "gray500": "#757575",
+      "gray600": "#4A4A4A",
+      "gray700": "#333333",
+      "gray800": "#222222"
+    },
+    "usageRatio": {
+      "darkGround": "50%",
+      "white": "20%",
+      "cyan": "15%",
+      "yellow": "10%",
+      "coral": "5%"
+    }
+  },
+  "typography": {
+    "families": {
+      "display": {
+        "name": "Barlow Condensed",
+        "googleFonts": "Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700;1,800;1,900",
+        "fallback": "'Arial Narrow', sans-serif",
+        "role": "Headlines, section titles, display text"
+      },
+      "body": {
+        "name": "Archivo",
+        "googleFonts": "Archivo:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400",
+        "fallback": "'Helvetica Neue', Helvetica, sans-serif",
+        "role": "Body text, paragraphs, UI elements"
+      },
+      "mono": {
+        "name": "Space Mono",
+        "googleFonts": "Space+Mono:ital,wght@0,400;0,700;1,400",
+        "fallback": "'Courier New', monospace",
+        "role": "Labels, metadata, navigation, production notes"
+      }
+    },
+    "scale": {
+      "hero": { "size": "clamp(3.5rem, 7vw, 6rem)", "weight": 900, "family": "display", "transform": "uppercase", "tracking": "-0.02em", "leading": 0.92 },
+      "h1": { "size": "clamp(2.5rem, 5vw, 4.5rem)", "weight": 900, "family": "display", "transform": "uppercase", "tracking": "-0.02em", "leading": 0.92 },
+      "h2": { "size": "2.25rem", "weight": 800, "family": "display", "transform": "uppercase", "tracking": "0.02em", "leading": 1.1 },
+      "h3": { "size": "1.4rem", "weight": 700, "family": "display", "transform": "uppercase", "tracking": "0.04em", "leading": 1.2 },
+      "h4": { "size": "1.1rem", "weight": 700, "family": "display", "transform": "uppercase", "tracking": "0.04em", "leading": 1.3 },
+      "bodyLarge": { "size": "1.05rem", "weight": 400, "family": "body", "leading": 1.8 },
+      "body": { "size": "1rem", "weight": 400, "family": "body", "leading": 1.7 },
+      "bodySmall": { "size": "0.9rem", "weight": 400, "family": "body", "leading": 1.7 },
+      "label": { "size": "0.7rem", "weight": 400, "family": "mono", "transform": "uppercase", "tracking": "0.15em" },
+      "micro": { "size": "0.6rem", "weight": 400, "family": "mono", "transform": "uppercase", "tracking": "0.12em" }
+    }
+  },
+  "spacing": {
+    "xs": "0.25rem",
+    "sm": "0.5rem",
+    "md": "1rem",
+    "lg": "1.5rem",
+    "xl": "2.5rem",
+    "2xl": "4rem",
+    "3xl": "6rem"
+  },
+  "effects": {
+    "crosshatchTexture": {
+      "description": "Fine grid overlay on dark backgrounds — never flat black",
+      "css": "linear-gradient(0deg, transparent 24%, rgba(255,255,255,.03) 25%, rgba(255,255,255,.03) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.03) 75%, rgba(255,255,255,.03) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(255,255,255,.03) 25%, rgba(255,255,255,.03) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.03) 75%, rgba(255,255,255,.03) 76%, transparent 77%, transparent)",
+      "size": "50px 50px"
+    },
+    "highlighter": {
+      "description": "Bold color block behind key text — editorial markup effect",
+      "css": "display: inline; padding: 0.1em 0.25em; box-decoration-break: clone;"
+    }
+  },
+  "logo": {
+    "variants": {
+      "whiteOnDark": { "file": "logos/lemon-logo-white-*.png", "background": "#2A2A2A", "context": "Primary — digital, presentations, social" },
+      "blackOnCyan": { "file": "logos/lemon-logo-black-*.png", "background": "#00E5C8", "context": "Digital accent applications" },
+      "blackOnYellow": { "file": "logos/lemon-logo-black-*.png", "background": "#FFFF00", "context": "Highlight applications" },
+      "cyanOnDark": { "file": "logos/lemon-logo-cyan-*.png", "background": "#0F0F0F", "context": "Accent — secondary digital" },
+      "blackOnLight": { "file": "logos/lemon-logo-black-*.png", "background": "#F5F5F5", "context": "Print, email, documents" }
+    },
+    "clearSpace": "Minimum clear space = 1x logo height on all sides",
+    "minimumSize": "50px height for digital, 15mm for print"
+  },
+  "voice": {
+    "traits": ["Provocative", "Direct", "Grounded"],
+    "rules": {
+      "do": [
+        "Back every claim with a number or name",
+        "Use short sentences and active voice",
+        "Challenge industry conventions with wit"
+      ],
+      "dont": [
+        "Use corporate jargon or passive construction",
+        "Make claims without receipts",
+        "Cross from confident to dismissive"
+      ]
+    }
+  },
+  "graphicDevices": [
+    { "name": "Highlighter Blocks", "description": "Bold color behind key phrases — one color per headline maximum" },
+    { "name": "Giant Watermark Type", "description": "Oversized near-transparent section titles bleeding off edges" },
+    { "name": "Split-Screen Layout", "description": "Hard vertical divide — bold statement left, supporting detail right" },
+    { "name": "Crosshatch Texture", "description": "Fine grid on dark backgrounds — never flat black" }
+  ]
+}

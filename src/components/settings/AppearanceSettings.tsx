@@ -1,16 +1,24 @@
 /**
  * Appearance Settings
- * Theme toggle and display preferences
+ * Theme toggle, brand preview, and display preferences
  */
 
 import { clsx } from 'clsx';
-import { useThemeStore, type Theme } from '@/stores/themeStore';
+import { useThemeStore, type Theme, type BrandPreview } from '@/stores/themeStore';
 
 interface ThemeOption {
   id: Theme;
   label: string;
   icon: React.ReactNode;
   description: string;
+}
+
+interface BrandOption {
+  id: BrandPreview;
+  label: string;
+  description: string;
+  colors: string[];
+  fonts: string;
 }
 
 const THEME_OPTIONS: ThemeOption[] = [
@@ -46,8 +54,25 @@ const THEME_OPTIONS: ThemeOption[] = [
   },
 ];
 
+const BRAND_OPTIONS: BrandOption[] = [
+  {
+    id: 'default',
+    label: 'Current',
+    description: 'Gold & Black — Cinematic Luxury',
+    colors: ['#F59E0B', '#FBBF24', '#0F172A', '#1E293B'],
+    fonts: 'Playfair Display / Inter',
+  },
+  {
+    id: 'editorial-punk',
+    label: 'Editorial Punk',
+    description: 'Cyan, Yellow & Coral — Bold Editorial',
+    colors: ['#00E5C8', '#FFFF00', '#FF6B6B', '#2A2A2A'],
+    fonts: 'Barlow Condensed / Archivo',
+  },
+];
+
 export function AppearanceSettings() {
-  const { theme, setTheme } = useThemeStore();
+  const { theme, setTheme, brandPreview, setBrandPreview } = useThemeStore();
 
   return (
     <div className="space-y-8">
@@ -95,46 +120,95 @@ export function AppearanceSettings() {
         </div>
       </div>
 
-      {/* Preview Box */}
-      <div className="p-6 rounded-xl bg-gradient-to-br from-black-800/50 to-black-900/50 border border-black-700">
-        <h3 className="text-lg font-medium text-gold-200 mb-4">Preview</h3>
+      {/* Brand Preview */}
+      <div>
+        <label className="block text-sm font-medium text-gold-300 mb-2">
+          Brand Preview
+        </label>
+        <p className="text-xs text-black-500 mb-4">
+          Test a new brand identity without changing your production theme.
+        </p>
         <div className="grid grid-cols-2 gap-4">
-          {/* Sample Card */}
-          <div className="p-4 rounded-lg bg-black-800 border border-black-700">
-            <div className="w-full h-20 rounded bg-gradient-to-br from-gold-500/20 to-gold-600/10 mb-3" />
-            <div className="h-3 w-3/4 rounded bg-gold-400/30 mb-2" />
-            <div className="h-2 w-1/2 rounded bg-black-600" />
-          </div>
-          {/* Sample Stats */}
-          <div className="space-y-3">
-            <div className="p-3 rounded-lg bg-black-800 border border-black-700">
-              <div className="text-xs text-black-500">Weighted Score</div>
-              <div className="text-lg font-bold text-gold-400">8.5</div>
-            </div>
-            <div className="p-3 rounded-lg bg-black-800 border border-black-700">
-              <div className="text-xs text-black-500">Recommendation</div>
-              <div className="text-lg font-bold text-emerald-400">RECOMMEND</div>
-            </div>
-          </div>
+          {BRAND_OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              onClick={() => setBrandPreview(option.id)}
+              className={clsx(
+                'p-5 rounded-xl border-2 transition-all text-left',
+                brandPreview === option.id
+                  ? 'border-gold-400 bg-gold-500/10'
+                  : 'border-black-700 hover:border-gold-500/30 bg-black-800/50'
+              )}
+            >
+              {/* Color swatches */}
+              <div className="flex gap-1.5 mb-3">
+                {option.colors.map((color, i) => (
+                  <div
+                    key={i}
+                    className="w-6 h-6 rounded-md border border-white/10"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+              <p className={clsx(
+                'font-medium text-sm',
+                brandPreview === option.id ? 'text-gold-200' : 'text-black-200'
+              )}>
+                {option.label}
+              </p>
+              <p className="text-xs text-black-500 mt-1">
+                {option.description}
+              </p>
+              <p className="text-xs text-black-600 mt-2 font-mono tracking-wider">
+                {option.fonts}
+              </p>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Tip about system theme */}
-      <div className="p-4 rounded-lg bg-gold-500/10 border border-gold-500/30">
-        <div className="flex gap-3">
-          <svg className="w-5 h-5 text-gold-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <p className="text-sm text-gold-200 font-medium">Pro tip</p>
-            <p className="text-xs text-gold-300/70 mt-1">
-              Use "System" to automatically switch themes based on your device's display settings.
-            </p>
+      {/* Preview mode disclaimer */}
+      {brandPreview !== 'default' && (
+        <div className="p-4 rounded-lg border border-gold-500/30" style={{
+          background: brandPreview === 'editorial-punk'
+            ? 'rgba(0, 229, 200, 0.08)'
+            : 'rgba(245, 158, 11, 0.1)'
+        }}>
+          <div className="flex gap-3">
+            <svg className="w-5 h-5 text-gold-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <div>
+              <p className="text-sm text-gold-200 font-medium">Preview mode active</p>
+              <p className="text-xs text-gold-300/70 mt-1">
+                You're previewing the {BRAND_OPTIONS.find(b => b.id === brandPreview)?.label} brand identity.
+                This is temporary — select "Current" to revert.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Original tip (only when no brand preview) */}
+      {brandPreview === 'default' && (
+        <div className="p-4 rounded-lg bg-gold-500/10 border border-gold-500/30">
+          <div className="flex gap-3">
+            <svg className="w-5 h-5 text-gold-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="text-sm text-gold-200 font-medium">Pro tip</p>
+              <p className="text-xs text-gold-300/70 mt-1">
+                Use "System" to automatically switch themes based on your device's display settings.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default AppearanceSettings;
+

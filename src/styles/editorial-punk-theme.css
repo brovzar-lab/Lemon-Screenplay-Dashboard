@@ -1,0 +1,298 @@
+/* ============================================================
+   EDITORIAL PUNK BRAND PREVIEW
+   Direction D — Lemon Studios Brand Identity v1.0
+   
+   This file ONLY activates when html.brand-editorial-punk is set.
+   Remove the class and the entire dashboard reverts to the
+   current Gold/Black theme with zero side-effects.
+   ============================================================ */
+
+/* ============ EDITORIAL PUNK — DARK MODE ============ */
+
+html.brand-editorial-punk {
+    /* --- Backgrounds (remap --color-black-* to Editorial Punk darks) --- */
+    --color-black-950: #0F0F0F;
+    /* Deepest — page bg */
+    --color-black-900: #1A1A1A;
+    /* Primary surface */
+    --color-black-800: #2A2A2A;
+    /* Crosshatch dark — cards */
+    --color-black-700: #333333;
+    /* Elevated elements */
+    --color-black-600: #4A4A4A;
+    /* Borders */
+    --color-black-500: #757575;
+    /* Muted */
+    --color-black-400: #9E9E9E;
+    /* Secondary text */
+    --color-black-300: #BDBDBD;
+    /* Tertiary text */
+    --color-black-200: #E0E0E0;
+    /* Light text */
+    --color-black-100: #F0F0F0;
+    /* Primary text on dark */
+    --color-black-50: #F5F5F5;
+    /* Light panels */
+
+    /* --- Primary Accent — Electric Cyan (replaces Gold) --- */
+    --color-gold-50: #E0FFF9;
+    --color-gold-100: #B3FFF0;
+    --color-gold-200: #67E8D8;
+    --color-gold-300: #33D4C2;
+    --color-gold-400: #00E5C8;
+    /* Primary accent */
+    --color-gold-500: #00CEB4;
+    /* CTA / buttons */
+    --color-gold-600: #00B89E;
+    /* Darker cyan */
+    --color-gold-700: #009A84;
+    --color-gold-800: #007D6B;
+    --color-gold-900: #005F51;
+
+    /* --- Secondary Accent — Signal Yellow --- */
+    --color-accent: #FFFF00;
+    --color-accent-muted: #E8D500;
+
+    /* --- Alert — Coral Punch (replaces red for brand energy) --- */
+    --color-red-500: #FF6B6B;
+
+    /* --- Typography — Editorial Punk stack --- */
+    --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --font-body: 'Archivo', 'Helvetica Neue', Helvetica, sans-serif;
+    --font-mono: 'Space Mono', 'Courier New', monospace;
+
+    /* --- Shadows — Cyan glow (replaces gold glow) --- */
+    --shadow-gold: 0 0 30px rgba(0, 229, 200, 0.15);
+    --shadow-gold-lg: 0 0 50px rgba(0, 229, 200, 0.25);
+}
+
+
+/* ============ COMPONENT OVERRIDES ============ */
+
+/* --- Body background texture (crosshatch) --- */
+html.brand-editorial-punk body {
+    background-image:
+        linear-gradient(0deg, transparent 24%,
+            rgba(255, 255, 255, .03) 25%, rgba(255, 255, 255, .03) 26%,
+            transparent 27%, transparent 74%,
+            rgba(255, 255, 255, .03) 75%, rgba(255, 255, 255, .03) 76%,
+            transparent 77%, transparent),
+        linear-gradient(90deg, transparent 24%,
+            rgba(255, 255, 255, .03) 25%, rgba(255, 255, 255, .03) 26%,
+            transparent 27%, transparent 74%,
+            rgba(255, 255, 255, .03) 75%, rgba(255, 255, 255, .03) 76%,
+            transparent 77%, transparent);
+    background-size: 50px 50px;
+}
+
+/* --- Headings get uppercase + tight leading --- */
+html.brand-editorial-punk h1,
+html.brand-editorial-punk h2,
+html.brand-editorial-punk h3,
+html.brand-editorial-punk h4 {
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+    font-weight: 900;
+}
+
+html.brand-editorial-punk h1 {
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+}
+
+html.brand-editorial-punk h2 {
+    font-size: 2.25rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+html.brand-editorial-punk h3 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+/* --- Glass effects — cyan tint --- */
+html.brand-editorial-punk .glass {
+    background: rgba(42, 42, 42, 0.8);
+    border: 1px solid rgba(0, 229, 200, 0.1);
+}
+
+html.brand-editorial-punk .glass-dark {
+    background: rgba(26, 26, 26, 0.85);
+    border: 1px solid rgba(0, 229, 200, 0.05);
+}
+
+/* --- Cards --- */
+html.brand-editorial-punk .card {
+    background: rgba(42, 42, 42, 0.7);
+    border: 1px solid rgba(0, 229, 200, 0.1);
+}
+
+html.brand-editorial-punk .card:hover {
+    border-color: rgba(0, 229, 200, 0.3);
+    box-shadow: 0 0 30px rgba(0, 229, 200, 0.15);
+}
+
+/* --- FILM NOW → Brand Cyan glow --- */
+html.brand-editorial-punk .card-film-now {
+    border: 2px solid var(--color-gold-400);
+    box-shadow: 0 0 40px rgba(0, 229, 200, 0.2);
+}
+
+html.brand-editorial-punk .card-film-now:hover {
+    box-shadow: 0 0 60px rgba(0, 229, 200, 0.35);
+}
+
+html.brand-editorial-punk .film-now-glow {
+    box-shadow: 0 0 30px rgba(0, 229, 200, 0.3),
+        0 0 60px rgba(0, 229, 200, 0.15);
+}
+
+/* --- Buttons — Cyan gradient --- */
+html.brand-editorial-punk .btn-primary {
+    background: linear-gradient(135deg, #00E5C8 0%, #00B89E 100%);
+    color: #0F0F0F;
+    font-weight: 700;
+}
+
+html.brand-editorial-punk .btn-primary:hover {
+    background: linear-gradient(135deg, #33D4C2 0%, #00E5C8 100%);
+    box-shadow: 0 0 30px rgba(0, 229, 200, 0.3);
+}
+
+/* --- Text gradient — Cyan instead of Gold --- */
+html.brand-editorial-punk .text-gradient-gold {
+    background: linear-gradient(135deg, #00E5C8 0%, #00CEB4 50%, #00E5C8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* --- Gold glows → Cyan glows --- */
+html.brand-editorial-punk .animate-pulse-glow {
+    animation: ep-pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes ep-pulse-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 20px rgba(0, 229, 200, 0.3);
+    }
+
+    50% {
+        box-shadow: 0 0 40px rgba(0, 229, 200, 0.5);
+    }
+}
+
+/* --- Chip active — Cyan --- */
+html.brand-editorial-punk .chip-active {
+    background: linear-gradient(135deg, #00E5C8 0%, #00B89E 100%);
+    color: #0F0F0F;
+    border-color: transparent;
+}
+
+/* --- Badge FILM NOW — Cyan --- */
+html.brand-editorial-punk .badge-film-now {
+    background: linear-gradient(135deg, #00E5C8 0%, #00CEB4 100%);
+    color: #0F0F0F;
+}
+
+/* --- Focus ring — Cyan --- */
+html.brand-editorial-punk .btn:focus-visible {
+    outline-color: #00E5C8;
+}
+
+html.brand-editorial-punk .input:focus {
+    border-color: #00E5C8;
+    box-shadow: 0 0 0 3px rgba(0, 229, 200, 0.15);
+}
+
+/* --- Selection — Yellow highlight (Editorial Punk signature) --- */
+html.brand-editorial-punk ::selection {
+    background-color: #FFFF00;
+    color: #0F0F0F;
+}
+
+/* --- Labels — Space Mono uppercase --- */
+html.brand-editorial-punk .label,
+html.brand-editorial-punk .caption {
+    font-family: var(--font-mono);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+/* --- Scrollbar — Cyan tint --- */
+html.brand-editorial-punk ::-webkit-scrollbar-thumb {
+    background: #4A4A4A;
+}
+
+html.brand-editorial-punk ::-webkit-scrollbar-thumb:hover {
+    background: #00B89E;
+}
+
+
+/* ============ EDITORIAL PUNK — LIGHT MODE ============ */
+
+html.brand-editorial-punk.light body {
+    background-color: #F5F5F5;
+    background-image: none;
+    /* No crosshatch on light */
+    color: #1A1A1A;
+}
+
+html.brand-editorial-punk.light h1,
+html.brand-editorial-punk.light h2,
+html.brand-editorial-punk.light h3,
+html.brand-editorial-punk.light h4,
+html.brand-editorial-punk.light h5,
+html.brand-editorial-punk.light h6 {
+    color: #1A1A1A;
+}
+
+html.brand-editorial-punk.light a {
+    color: #00B89E;
+}
+
+html.brand-editorial-punk.light a:hover {
+    color: #009A84;
+}
+
+html.brand-editorial-punk.light .glass {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(0, 229, 200, 0.15);
+}
+
+html.brand-editorial-punk.light .card {
+    background: #FFFFFF;
+    border: 1px solid #E0E0E0;
+}
+
+html.brand-editorial-punk.light .card:hover {
+    border-color: #00B89E;
+    box-shadow: 0 4px 16px rgba(0, 184, 158, 0.12);
+}
+
+html.brand-editorial-punk.light .btn-primary {
+    background: linear-gradient(135deg, #00B89E 0%, #009A84 100%);
+    color: #FFFFFF;
+}
+
+html.brand-editorial-punk.light .chip-active {
+    background: rgba(0, 184, 158, 0.12);
+    border-color: #009A84;
+    color: #005F51;
+}
+
+html.brand-editorial-punk.light .text-gradient-gold {
+    background: linear-gradient(135deg, #005F51 0%, #009A84 50%, #005F51 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+html.brand-editorial-punk.light ::selection {
+    background-color: #E8D500;
+    color: #1A1A1A;
+}
