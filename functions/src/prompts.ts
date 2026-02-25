@@ -623,7 +623,18 @@ Return ONLY this JSON structure:
     "development_notes": ["prescriptive suggestions if CONSIDER/RECOMMEND - what specifically would improve it?"]
   }},
 
-  "executive_summary": "50-word summary focusing on craft quality and key verdict drivers"
+  "executive_summary": "50-word summary focusing on craft quality and key verdict drivers",
+
+  "producer_intelligence": {{
+    "market_potential": {{
+      "score": 1-10,
+      "rationale": "2-3 sentences explaining commercial viability based on genre appeal, comparable films, target audience size, and high-concept strength"
+    }},
+    "usp_strength": {{
+      "assessment": "Weak/Moderate/Strong",
+      "rationale": "2-3 sentences explaining what makes this screenplay unique and how differentiated it is from existing films"
+    }}
+  }}
 }}
 
 ═══════════════════════════════════════════════════════════════════════════════

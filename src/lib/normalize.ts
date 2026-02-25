@@ -16,6 +16,7 @@ import type {
   CommercialViability,
   TmdbStatus,
   CriticalFailureDetail,
+  USPStrength,
 } from '@/types';
 
 import type {
@@ -26,7 +27,7 @@ import type {
 
 import { mapV6VerdictToTier } from '@/types/screenplay-v6';
 
-import { calculateProducerMetrics } from './calculations';
+import { createProducerMetrics } from './calculations';
 import { toNumber } from './utils';
 
 /**
@@ -205,6 +206,21 @@ function normalizeSeverity(s: string): 'minor' | 'moderate' | 'major' | 'critica
   return 'major';
 }
 
+/** Validate a raw USP assessment string against the known enum values */
+function validateUSPStrength(raw?: string): USPStrength | null {
+  if (!raw) return null;
+  const normalized = raw.trim();
+  if (normalized === 'Weak' || normalized === 'Moderate' || normalized === 'Strong') {
+    return normalized;
+  }
+  // Handle case-insensitive input from AI
+  const lower = normalized.toLowerCase();
+  if (lower === 'weak') return 'Weak';
+  if (lower === 'moderate') return 'Moderate';
+  if (lower === 'strong') return 'Strong';
+  return null;
+}
+
 /**
  * Normalize film now assessment
  */
@@ -327,8 +343,18 @@ export function normalizeScreenplay(
     },
   };
 
-  // Calculate producer metrics using the base screenplay data
-  const producerMetrics = calculateProducerMetrics(baseScreenplay as Screenplay);
+  // Producer metrics — extract from AI analysis if present, otherwise null
+  const rawPI = (analysis as unknown as Record<string, unknown>).producer_intelligence as
+    | { market_potential?: { score?: number; rationale?: string }; usp_strength?: { assessment?: string; rationale?: string } }
+    | undefined;
+  const producerMetrics = createProducerMetrics(
+    rawPI ? {
+      marketPotential: typeof rawPI.market_potential?.score === 'number' ? rawPI.market_potential.score : null,
+      marketPotentialRationale: rawPI.market_potential?.rationale ?? null,
+      uspStrength: validateUSPStrength(rawPI.usp_strength?.assessment) ?? null,
+      uspStrengthRationale: rawPI.usp_strength?.rationale ?? null,
+    } : undefined
+  );
 
   // Normalize TMDB status if present
   const tmdbStatus = normalizeTmdbStatus(raw.tmdb_status);
@@ -447,6 +473,12 @@ export function normalizeV6Screenplay(
     };
   }
 
+  // Normalize critical failures (call once, reuse result)
+  const criticalFailureData = normalizeCriticalFailures(
+    coreQuality.critical_failures,
+    coreQuality.critical_failure_total_penalty
+  );
+
   // Build the base screenplay object
   const baseScreenplay: Omit<ScreenplayWithV6, 'producerMetrics' | 'tmdbStatus'> = {
     id: generateId(raw.source_file),
@@ -472,18 +504,9 @@ export function normalizeV6Screenplay(
     dimensionScores,
     dimensionJustifications,
     commercialViability,
-    criticalFailures: normalizeCriticalFailures(
-      coreQuality.critical_failures,
-      coreQuality.critical_failure_total_penalty
-    ).failures,
-    criticalFailureDetails: normalizeCriticalFailures(
-      coreQuality.critical_failures,
-      coreQuality.critical_failure_total_penalty
-    ).details,
-    criticalFailureTotalPenalty: normalizeCriticalFailures(
-      coreQuality.critical_failures,
-      coreQuality.critical_failure_total_penalty
-    ).totalPenalty,
+    criticalFailures: criticalFailureData.failures,
+    criticalFailureDetails: criticalFailureData.details,
+    criticalFailureTotalPenalty: criticalFailureData.totalPenalty,
     majorWeaknesses: coreQuality.major_weaknesses || [],
     strengths: analysis.assessment?.strengths || [],
     weaknesses: analysis.assessment?.weaknesses || [],
@@ -530,8 +553,18 @@ export function normalizeV6Screenplay(
     trapsTriggered: coreQuality.false_positive_check?.traps_triggered_count || 0,
   };
 
-  // Calculate producer metrics using the base screenplay data
-  const producerMetrics = calculateProducerMetrics(baseScreenplay as Screenplay);
+  // Producer metrics — extract from AI analysis if present
+  const rawPI = (analysis as unknown as Record<string, unknown>).producer_intelligence as
+    | { market_potential?: { score?: number; rationale?: string }; usp_strength?: { assessment?: string; rationale?: string } }
+    | undefined;
+  const producerMetrics = createProducerMetrics(
+    rawPI ? {
+      marketPotential: typeof rawPI.market_potential?.score === 'number' ? rawPI.market_potential.score : null,
+      marketPotentialRationale: rawPI.market_potential?.rationale ?? null,
+      uspStrength: validateUSPStrength(rawPI.usp_strength?.assessment) ?? null,
+      uspStrengthRationale: rawPI.usp_strength?.rationale ?? null,
+    } : undefined
+  );
 
   return {
     ...baseScreenplay,

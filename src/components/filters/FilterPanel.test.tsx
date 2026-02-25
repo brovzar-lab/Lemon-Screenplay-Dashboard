@@ -71,7 +71,7 @@ describe('FilterPanel', () => {
             expect(screen.getByText('Genre & Theme')).toBeInTheDocument();
             expect(screen.getByText('Core Scores')).toBeInTheDocument();
             expect(screen.getByText('Dimension Scores')).toBeInTheDocument();
-            expect(screen.getByText('Producer Metrics')).toBeInTheDocument();
+            expect(screen.getByText('Market Analysis')).toBeInTheDocument();
         });
 
         it('opens Core Scores section by default', () => {
@@ -234,18 +234,15 @@ describe('FilterPanel', () => {
     });
 
     // ────────────────────────────────────────────
-    // Producer Metrics Section
+    // Market Analysis Section
     // ────────────────────────────────────────────
 
-    describe('producer metrics section', () => {
-        it('renders all 4 producer metric range sliders when opened', () => {
+    describe('market analysis section', () => {
+        it('renders market potential range slider when opened', () => {
             render(<FilterPanel isOpen={true} onClose={mockOnClose} />);
-            fireEvent.click(screen.getByText('Producer Metrics'));
+            fireEvent.click(screen.getByText('Market Analysis'));
 
             expect(screen.getByText('Market Potential')).toBeInTheDocument();
-            expect(screen.getByText('Star Vehicle Potential')).toBeInTheDocument();
-            expect(screen.getByText('Festival Appeal')).toBeInTheDocument();
-            expect(screen.getByText('ROI Indicator')).toBeInTheDocument();
         });
     });
 });

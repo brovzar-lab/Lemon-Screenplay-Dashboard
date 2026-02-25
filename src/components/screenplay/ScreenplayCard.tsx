@@ -19,41 +19,22 @@ interface ScreenplayCardProps {
 }
 
 /**
- * Producer metrics mini display (dashboard heuristics, not AI-assessed)
+ * Producer metrics mini display (AI-analyzed)
  */
 function ProducerMetricsMini({ screenplay }: { screenplay: Screenplay }) {
-  // Defensive: ensure producerMetrics exists and has valid values
-  const metrics = screenplay.producerMetrics || {
-    marketPotential: 5,
-    roiIndicator: 3,
-    festivalAppeal: 5,
-  };
-
-  const marketPotential = metrics.marketPotential ?? 5;
-  const festivalAppeal = metrics.festivalAppeal ?? 5;
-  // Ensure roiIndicator is a valid integer between 1-5 for .repeat()
-  const roiIndicator = Math.min(5, Math.max(1, Math.floor(metrics.roiIndicator ?? 3)));
+  const mp = screenplay.producerMetrics?.marketPotential;
 
   return (
     <div className="flex gap-4 text-xs">
-      <div className="flex items-center gap-1" title="Dashboard estimate — not AI-assessed">
-        <span className="text-black-500">Mkt<span className="text-black-600"> est.</span></span>
-        <span className={clsx('font-mono font-bold', getScoreColorClass(marketPotential))}>
-          {marketPotential}
-        </span>
-      </div>
-      <div className="flex items-center gap-1" title="Dashboard estimate — not AI-assessed">
-        <span className="text-black-500">ROI<span className="text-black-600"> est.</span></span>
-        <span className="text-gold-400">
-          {'★'.repeat(roiIndicator)}
-          {'☆'.repeat(5 - roiIndicator)}
-        </span>
-      </div>
-      <div className="flex items-center gap-1" title="Dashboard estimate — not AI-assessed">
-        <span className="text-black-500">Fest.<span className="text-black-600"> est.</span></span>
-        <span className={clsx('font-mono font-bold', getScoreColorClass(festivalAppeal))}>
-          {festivalAppeal}
-        </span>
+      <div className="flex items-center gap-1" title="AI-analyzed market potential">
+        <span className="text-black-500">Mkt</span>
+        {mp !== null && mp !== undefined ? (
+          <span className={clsx('font-mono font-bold', getScoreColorClass(mp))}>
+            {mp}
+          </span>
+        ) : (
+          <span className="text-black-600 italic">—</span>
+        )}
       </div>
     </div>
   );

@@ -43,9 +43,7 @@ interface FilterActions {
   setOriginalityRange: (range: Partial<RangeFilter>) => void;
   setCvsRange: (range: Partial<RangeFilter>) => void;
   setMarketPotentialRange: (range: Partial<RangeFilter>) => void;
-  setStarVehiclePotentialRange: (range: Partial<RangeFilter>) => void;
-  setFestivalAppealRange: (range: Partial<RangeFilter>) => void;
-  setRoiIndicatorRange: (range: Partial<RangeFilter>) => void;
+
 
   // Flags
   setShowFilmNowOnly: (show: boolean) => void;
@@ -171,18 +169,7 @@ export const useFilterStore = create<FilterStore>()(
         set((state) => ({
           marketPotentialRange: updateRange(state.marketPotentialRange, range),
         })),
-      setStarVehiclePotentialRange: (range) =>
-        set((state) => ({
-          starVehiclePotentialRange: updateRange(state.starVehiclePotentialRange, range),
-        })),
-      setFestivalAppealRange: (range) =>
-        set((state) => ({
-          festivalAppealRange: updateRange(state.festivalAppealRange, range),
-        })),
-      setRoiIndicatorRange: (range) =>
-        set((state) => ({
-          roiIndicatorRange: updateRange(state.roiIndicatorRange, range),
-        })),
+
 
       // Flags
       setShowFilmNowOnly: (show) => set({ showFilmNowOnly: show }),

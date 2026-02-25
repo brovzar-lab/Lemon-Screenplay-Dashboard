@@ -1,184 +1,51 @@
 /**
  * Data Loading API
  * Fetches and normalizes screenplay data from JSON files
- * Supports V5 and V6 analysis formats
+ * V6 analysis format only
  */
 
-import type { RawScreenplayAnalysis, Screenplay, Collection } from '@/types';
+import type { Screenplay, Collection } from '@/types';
 import type { V6ScreenplayAnalysis } from '@/types/screenplay-v6';
 import type { ScreenplayWithV6 } from './normalize';
-import { normalizeScreenplay, isV6RawAnalysis, normalizeV6Screenplay } from './normalize';
+import { isV6RawAnalysis, normalizeV6Screenplay } from './normalize';
 import { loadAllAnalyses, removeAnalysis } from './analysisStore';
 
-// Base path to analysis data (relative to public folder or absolute)
-const DATA_BASE_PATH = '../../.tmp';
-
 /**
- * Collection folder mapping
- * V5 ONLY - All screenplays now in analysis_v5 with collection info in JSON
+ * Load all screenplay data from V6 analysis files
  */
-const COLLECTION_FOLDERS: Record<Collection, string> = {
-  '2005 Black List': 'analysis_v5',
-  '2006 Black List': 'analysis_v5',
-  '2007 Black List': 'analysis_v5',
-  '2020 Black List': 'analysis_v5',
-  'Randoms': 'analysis_v5',
-  'V4 Fixed': 'analysis_v5',
-  'V5 Analysis': 'analysis_v5',
-  'V6 Analysis': 'analysis_v6',
-};
-
-/**
- * Fetch a single analysis JSON file
- */
-async function fetchAnalysis(path: string): Promise<RawScreenplayAnalysis | null> {
-  try {
-    const response = await fetch(path);
-    if (!response.ok) {
-      console.warn(`Failed to fetch ${path}: ${response.status}`);
-      return null;
-    }
-    return await response.json();
-  } catch (error) {
-    console.warn(`Error fetching ${path}:`, error);
-    return null;
-  }
-}
-
-/**
- * List all JSON files in a collection folder
- * Note: This requires server-side support or a manifest file
- * For now, we'll use a manifest approach
- */
-async function fetchCollectionManifest(collection: Collection): Promise<string[]> {
-  const folder = COLLECTION_FOLDERS[collection];
-  const manifestPath = `${DATA_BASE_PATH}/${folder}/manifest.json`;
-
-  try {
-    const response = await fetch(manifestPath);
-    if (!response.ok) {
-      // If no manifest, try to list known files
-      console.warn(`No manifest found for ${collection}, using fallback`);
-      return [];
-    }
-    return await response.json();
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Fetch all screenplays for a collection
- */
-export async function fetchCollection(collection: Collection): Promise<Screenplay[]> {
-  const folder = COLLECTION_FOLDERS[collection];
-  const basePath = `${DATA_BASE_PATH}/${folder}`;
-
-  // Get list of files from manifest
-  const files = await fetchCollectionManifest(collection);
-
-  if (files.length === 0) {
-    console.warn(`No files found for collection: ${collection}`);
-    return [];
-  }
-
-  // Fetch all analysis files in parallel
-  const promises = files.map((file) =>
-    fetchAnalysis(`${basePath}/${file}`)
-  );
-
-  const results = await Promise.all(promises);
-
-  // Filter out nulls and normalize
-  return results
-    .filter((r): r is RawScreenplayAnalysis => r !== null)
-    .map((raw) => normalizeScreenplay(raw, collection));
-}
-
-/**
- * Fetch all screenplays from all collections
- */
-export async function fetchAllScreenplays(): Promise<Screenplay[]> {
-  const collections: Collection[] = [
-    '2005 Black List',
-    '2006 Black List',
-    '2007 Black List',
-    '2020 Black List',
-    'Randoms',
-    'V4 Fixed',
-    'V5 Analysis',
-  ];
-
-  const promises = collections.map((collection) => fetchCollection(collection));
-  const results = await Promise.all(promises);
-
-  // Flatten all collections into one array
-  return results.flat();
-}
-
-/**
- * For development: Load data directly from imported JSON
- * This approach works better with Vite's static asset handling
- */
-
-
-/**
- * Load all screenplay data using Vite's glob import
- * This is the preferred method for development
- *
- * Supports both V5 and V6 analysis formats
- * V5: All screenplays are in analysis_v5 folder
- * V6: All screenplays are in analysis_v6 folder (Core + Lenses architecture)
- */
-export async function loadAllScreenplaysVite(): Promise<(Screenplay | ScreenplayWithV6)[]> {
-  const screenplays: (Screenplay | ScreenplayWithV6)[] = [];
+export async function loadAllScreenplaysVite(): Promise<ScreenplayWithV6[]> {
+  const screenplays: ScreenplayWithV6[] = [];
   const t0 = performance.now();
 
-  // Fetch both index files in parallel
-  const [v5IndexResult, v6IndexResult] = await Promise.allSettled([
-    fetch('/data/analysis_v5/index.json').then(r => r.ok ? r.json() as Promise<string[]> : []),
-    fetch('/data/analysis_v6/index.json').then(r => r.ok ? r.json() as Promise<string[]> : []),
-  ]);
+  // Fetch V6 index
+  let v6FileList: string[] = [];
+  try {
+    const res = await fetch('/data/analysis_v6/index.json');
+    if (res.ok) v6FileList = await res.json() as string[];
+  } catch { /* no V6 index */ }
 
-  const v5FileList: string[] = v5IndexResult.status === 'fulfilled' ? v5IndexResult.value : [];
-  const v6FileList: string[] = v6IndexResult.status === 'fulfilled' ? v6IndexResult.value : [];
-  console.log(`[Lemon] Found ${v5FileList.length} V5 + ${v6FileList.length} V6 analysis files`);
+  console.log(`[Lemon] Found ${v6FileList.length} V6 analysis files`);
 
-  // Fetch ALL analysis files in parallel (V5 + V6 concurrently)
-  const allFetches = [
-    ...v5FileList.map(async (filename) => {
-      try {
-        const response = await fetch(`/data/analysis_v5/${filename}`);
-        if (!response.ok) return;
-        const raw: RawScreenplayAnalysis = await response.json();
+  // Fetch all V6 analysis files in parallel
+  const fetches = v6FileList.map(async (filename) => {
+    try {
+      const response = await fetch(`/data/analysis_v6/${filename}`);
+      if (!response.ok) return;
+      const raw = await response.json();
+      if (isV6RawAnalysis(raw)) {
         const collectionFromJson = (raw as unknown as Record<string, unknown>).collection as Collection | undefined;
-        const collection: Collection = collectionFromJson || 'V5 Analysis';
-        const screenplay = normalizeScreenplay(raw, collection);
+        const collection: Collection = collectionFromJson || 'V6 Analysis';
+        const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
         screenplays.push(screenplay);
-      } catch (error) {
-        console.warn(`[Lemon] Failed to load/normalize V5 ${filename}:`, error);
+      } else {
+        console.warn(`[Lemon] ${filename} in V6 folder is not V6 format`);
       }
-    }),
-    ...v6FileList.map(async (filename) => {
-      try {
-        const response = await fetch(`/data/analysis_v6/${filename}`);
-        if (!response.ok) return;
-        const raw = await response.json();
-        if (isV6RawAnalysis(raw)) {
-          const collectionFromJson = (raw as unknown as Record<string, unknown>).collection as Collection | undefined;
-          const collection: Collection = collectionFromJson || 'V6 Analysis';
-          const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
-          screenplays.push(screenplay);
-        } else {
-          console.warn(`[Lemon] ${filename} in V6 folder is not V6 format`);
-        }
-      } catch (error) {
-        console.warn(`[Lemon] Failed to load/normalize V6 ${filename}:`, error);
-      }
-    }),
-  ];
+    } catch (error) {
+      console.warn(`[Lemon] Failed to load/normalize V6 ${filename}:`, error);
+    }
+  });
 
-  await Promise.all(allFetches);
+  await Promise.all(fetches);
   console.log(`[Lemon] Fetched ${screenplays.length} screenplays in ${Math.round(performance.now() - t0)}ms`);
 
   // Load locally analyzed screenplays (from user uploads via Firestore)
@@ -193,10 +60,14 @@ export async function loadAllScreenplaysVite(): Promise<(Screenplay | Screenplay
           screenplays.push(sp);
           loadedCount++;
         } else {
-          console.warn('[Lemon] Local analysis is not V6 format, skipping:', (raw as Record<string, unknown>).source_file);
+          // Pre-V6 upload detected — remove it
+          const sourceFile = (raw as Record<string, unknown>).source_file as string | undefined;
+          console.warn('[Lemon] Removing pre-V6 uploaded analysis:', sourceFile);
+          if (sourceFile) {
+            try { await removeAnalysis(sourceFile); } catch { /* ignore */ }
+          }
         }
       } catch (err) {
-        // Remove corrupted entry to prevent future crash loops
         const sourceFile = (raw as Record<string, unknown>).source_file as string | undefined;
         console.error(`[Lemon] Failed to normalize uploaded analysis "${sourceFile || 'unknown'}", removing corrupted entry:`, err);
         if (sourceFile) {
@@ -211,19 +82,15 @@ export async function loadAllScreenplaysVite(): Promise<(Screenplay | Screenplay
     console.warn('[Lemon] localStorage may be unavailable:', err);
   }
 
-  // Deduplicate by title - prefer V6 over V5
-  const seen = new Map<string, (Screenplay | ScreenplayWithV6)>();
+  // Deduplicate by title (prefer local uploads over static files)
+  const seen = new Map<string, ScreenplayWithV6>();
   for (const sp of screenplays) {
     const key = (sp.title || '').toLowerCase().trim();
-    const existing = seen.get(key);
-    // Prefer V6 (has v6CoreQuality) over V5
-    if (!existing || ('v6CoreQuality' in sp && !('v6CoreQuality' in existing))) {
-      seen.set(key, sp);
-    }
+    seen.set(key, sp); // last write wins — locals loaded after static
   }
   const deduplicated = Array.from(seen.values());
 
-  console.log(`[Lemon] Successfully loaded ${deduplicated.length} unique screenplays (${screenplays.length} before dedup)`);
+  console.log(`[Lemon] Successfully loaded ${deduplicated.length} unique screenplays`);
   return deduplicated;
 }
 
@@ -271,13 +138,6 @@ export async function loadV6ScreenplaysOnly(): Promise<ScreenplayWithV6[]> {
  * Extract collection name from file path
  */
 export function getCollectionFromPath(path: string): Collection | null {
-  if (path.includes('analysis_v3_2005')) return '2005 Black List';
-  if (path.includes('analysis_v3_2006')) return '2006 Black List';
-  if (path.includes('analysis_v3_2007')) return '2007 Black List';
-  if (path.includes('analysis_v3_2020')) return '2020 Black List';
-  if (path.includes('analysis_v3_Randoms')) return 'Randoms';
-  if (path.includes('analysis_v4_fixed')) return 'V4 Fixed';
-  if (path.includes('analysis_v5')) return 'V5 Analysis';
   if (path.includes('analysis_v6')) return 'V6 Analysis';
   return null;
 }

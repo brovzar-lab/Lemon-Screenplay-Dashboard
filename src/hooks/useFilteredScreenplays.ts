@@ -122,10 +122,7 @@ export function passesFilters(screenplay: Screenplay, filters: FilterState): boo
 
   // Producer metric ranges
   const producerRanges = [
-    { filter: filters.marketPotentialRange, score: screenplay.producerMetrics.marketPotential },
-    { filter: filters.starVehiclePotentialRange, score: screenplay.producerMetrics.starVehiclePotential },
-    { filter: filters.festivalAppealRange, score: screenplay.producerMetrics.festivalAppeal },
-    { filter: filters.roiIndicatorRange, score: screenplay.producerMetrics.roiIndicator },
+    { filter: filters.marketPotentialRange, score: screenplay.producerMetrics.marketPotential ?? 0 },
   ];
 
   for (const { filter, score } of producerRanges) {
@@ -218,13 +215,7 @@ export function getSortValue(screenplay: Screenplay, field: string): number | st
     case 'originality':
       return screenplay.dimensionScores.originality;
     case 'marketPotential':
-      return screenplay.producerMetrics.marketPotential;
-    case 'starVehiclePotential':
-      return screenplay.producerMetrics.starVehiclePotential;
-    case 'festivalAppeal':
-      return screenplay.producerMetrics.festivalAppeal;
-    case 'roiIndicator':
-      return screenplay.producerMetrics.roiIndicator;
+      return screenplay.producerMetrics.marketPotential ?? 0;
     case 'title':
       return (screenplay.title || '').toLowerCase();
     case 'author':
@@ -330,9 +321,6 @@ export function useHasActiveFilters(): boolean {
     filters.genreExecutionRange.enabled ||
     filters.originalityRange.enabled ||
     filters.marketPotentialRange.enabled ||
-    filters.starVehiclePotentialRange.enabled ||
-    filters.festivalAppealRange.enabled ||
-    filters.roiIndicatorRange.enabled ||
     filters.showFilmNowOnly ||
     filters.hidePassRated ||
     filters.hasCriticalFailures !== null ||

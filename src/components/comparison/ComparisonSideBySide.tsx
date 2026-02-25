@@ -116,35 +116,17 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
           ))}
         </div>
 
-        {/* Producer Metrics Section */}
+        {/* AI Market Analysis Section */}
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-gold-400 mb-3">Producer Metrics</h4>
+          <h4 className="text-sm font-medium text-gold-400 mb-3">AI Market Analysis</h4>
 
           <MetricRow
             label="Market Potential"
-            values={screenplays.map(sp => sp.producerMetrics.marketPotential)}
+            values={screenplays.map(sp => sp.producerMetrics.marketPotential ?? 0)}
             max={10}
             screenplays={screenplays}
           />
-          <MetricRow
-            label="ROI Indicator"
-            values={screenplays.map(sp => sp.producerMetrics.roiIndicator)}
-            max={5}
-            screenplays={screenplays}
-          />
-          <MetricRow
-            label="Star Vehicle"
-            values={screenplays.map(sp => sp.producerMetrics.starVehiclePotential)}
-            max={10}
-            screenplays={screenplays}
-          />
-          <MetricRow
-            label="Festival Appeal"
-            values={screenplays.map(sp => sp.producerMetrics.festivalAppeal)}
-            max={10}
-            screenplays={screenplays}
-          />
-{/* USP Strength is a string enum, display separately */}
+          {/* USP Strength is a string enum, display separately */}
           <div
             className="grid gap-4 items-center py-2 border-b border-black-800"
             style={{ gridTemplateColumns: `200px repeat(${screenplays.length}, 1fr)` }}
@@ -157,7 +139,7 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
                   sp.producerMetrics.uspStrength === 'Moderate' && 'text-gold-400',
                   sp.producerMetrics.uspStrength === 'Weak' && 'text-red-400'
                 )}>
-                  {sp.producerMetrics.uspStrength}
+                  {sp.producerMetrics.uspStrength ?? 'N/A'}
                 </span>
               </div>
             ))}

@@ -54,9 +54,6 @@ export interface FilterState {
 
   // Producer Metrics Ranges
   marketPotentialRange: RangeFilter;
-  starVehiclePotentialRange: RangeFilter;
-  festivalAppealRange: RangeFilter;
-  roiIndicatorRange: RangeFilter; // 1-5
 
   // Flags
   showFilmNowOnly: boolean;
@@ -96,9 +93,6 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   originalityRange: createDefaultRangeFilter(0, 10),
   cvsRange: createDefaultRangeFilter(0, 18),
   marketPotentialRange: createDefaultRangeFilter(0, 10),
-  starVehiclePotentialRange: createDefaultRangeFilter(0, 10),
-  festivalAppealRange: createDefaultRangeFilter(0, 10),
-  roiIndicatorRange: createDefaultRangeFilter(1, 5),
   showFilmNowOnly: false,
   hidePassRated: false,
   hasCriticalFailures: null,
@@ -126,9 +120,6 @@ export type SortField =
   | 'originality'
   // Producer Metrics
   | 'marketPotential'
-  | 'starVehiclePotential'
-  | 'festivalAppeal'
-  | 'roiIndicator'
   // Text Fields
   | 'title'
   | 'author'
@@ -153,7 +144,7 @@ export interface SortState {
 export const DEFAULT_SORT_STATE: SortState = {
   sortConfigs: [
     { field: 'marketPotential', direction: 'desc' },
-    { field: 'roiIndicator', direction: 'desc' },
+    { field: 'weightedScore', direction: 'desc' },
   ],
   prioritizeFilmNow: true,
 };
@@ -185,9 +176,6 @@ export const SORT_FIELD_CONFIG: SortFieldConfig[] = [
 
   // Producer Metrics
   { field: 'marketPotential', label: 'Market Potential', group: 'producer' },
-  { field: 'starVehiclePotential', label: 'Star Vehicle', group: 'producer' },
-  { field: 'festivalAppeal', label: 'Festival Appeal', group: 'producer' },
-  { field: 'roiIndicator', label: 'ROI Indicator', group: 'producer' },
 
   // Text
   { field: 'title', label: 'Title', group: 'text' },

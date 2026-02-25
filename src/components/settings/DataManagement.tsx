@@ -70,9 +70,6 @@ export function DataManagement() {
         'CVS Total',
         ...dimHeaders,
         'Market Potential',
-        'Star Vehicle Potential',
-        'Festival Appeal',
-        'ROI Indicator',
         'Category',
       ];
 
@@ -86,10 +83,7 @@ export function DataManagement() {
           sp.weightedScore.toFixed(2),
           sp.cvsTotal.toFixed(0),
           ...dims.map((d) => d.score.toFixed(1)),
-          sp.producerMetrics.marketPotential.toFixed(1),
-          sp.producerMetrics.starVehiclePotential.toFixed(1),
-          sp.producerMetrics.festivalAppeal.toFixed(1),
-          sp.producerMetrics.roiIndicator.toFixed(1),
+          sp.producerMetrics.marketPotential?.toFixed(1) ?? 'N/A',
           sp.category || 'BLKLST',
         ];
       });

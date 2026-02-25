@@ -6,7 +6,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, type RenderOptions } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
 import { ScreenplayModal } from './ScreenplayModal';
 import { createTestScreenplay } from '@/test/factories';
 
@@ -23,6 +25,20 @@ vi.mock('@/stores/notesStore', () => ({
         selector({ notes: {} }),
     useScreenplayNotes: () => [],
 }));
+
+// Wrapper with QueryClientProvider for components that use useQueryClient
+function createWrapper() {
+    const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+    });
+    return function Wrapper({ children }: { children: React.ReactNode }) {
+        return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    };
+}
+
+function renderWithClient(ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) {
+    return render(ui, { wrapper: createWrapper(), ...options });
+}
 
 describe('ScreenplayModal', () => {
     const mockOnClose = vi.fn();
@@ -45,14 +61,14 @@ describe('ScreenplayModal', () => {
     describe('visibility', () => {
         it('returns null when isOpen is false', () => {
             const screenplay = createTestScreenplay();
-            const { container } = render(
+            const { container } = renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={false} onClose={mockOnClose} />
             );
             expect(container.innerHTML).toBe('');
         });
 
         it('returns null when screenplay is null', () => {
-            const { container } = render(
+            const { container } = renderWithClient(
                 <ScreenplayModal screenplay={null} isOpen={true} onClose={mockOnClose} />
             );
             expect(container.innerHTML).toBe('');
@@ -60,7 +76,7 @@ describe('ScreenplayModal', () => {
 
         it('renders modal content when open with valid screenplay', () => {
             const screenplay = createTestScreenplay({ title: 'Visible Movie' });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -75,7 +91,7 @@ describe('ScreenplayModal', () => {
     describe('accessibility', () => {
         it('has role="dialog" and aria-modal="true"', () => {
             const screenplay = createTestScreenplay();
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             const dialog = screen.getByRole('dialog');
@@ -84,7 +100,7 @@ describe('ScreenplayModal', () => {
 
         it('has aria-labelledby pointing to modal-title', () => {
             const screenplay = createTestScreenplay({ title: 'ARIA Test Movie' });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             const dialog = screen.getByRole('dialog');
@@ -98,7 +114,7 @@ describe('ScreenplayModal', () => {
 
         it('has a close button with aria-label', () => {
             const screenplay = createTestScreenplay();
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByLabelText('Close modal')).toBeInTheDocument();
@@ -106,7 +122,7 @@ describe('ScreenplayModal', () => {
 
         it('has aria-hidden backdrop', () => {
             const screenplay = createTestScreenplay();
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             const backdrop = document.querySelector('[aria-hidden="true"]');
@@ -121,7 +137,7 @@ describe('ScreenplayModal', () => {
     describe('close behaviors', () => {
         it('calls onClose when Escape key is pressed', () => {
             const screenplay = createTestScreenplay();
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             fireEvent.keyDown(document, { key: 'Escape' });
@@ -130,7 +146,7 @@ describe('ScreenplayModal', () => {
 
         it('calls onClose when backdrop (outer div) is clicked', () => {
             const screenplay = createTestScreenplay();
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             // Click the outer dialog wrapper (the backdrop click zone)
@@ -140,7 +156,7 @@ describe('ScreenplayModal', () => {
 
         it('does NOT call onClose when modal content area is clicked', () => {
             const screenplay = createTestScreenplay({ logline: 'Click inside test.' });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             // Click the logline text (inside the modal content)
@@ -150,7 +166,7 @@ describe('ScreenplayModal', () => {
 
         it('calls onClose when close button is clicked', () => {
             const screenplay = createTestScreenplay();
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             fireEvent.click(screen.getByLabelText('Close modal'));
@@ -165,7 +181,7 @@ describe('ScreenplayModal', () => {
     describe('body scroll lock', () => {
         it('sets overflow hidden on body when opened', () => {
             const screenplay = createTestScreenplay();
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(document.body.style.overflow).toBe('hidden');
@@ -173,7 +189,7 @@ describe('ScreenplayModal', () => {
 
         it('restores overflow on body when closed/unmounted', () => {
             const screenplay = createTestScreenplay();
-            const { unmount } = render(
+            const { unmount } = renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(document.body.style.overflow).toBe('hidden');
@@ -192,7 +208,7 @@ describe('ScreenplayModal', () => {
                 title: 'Content Test',
                 author: 'Jane Doe',
             });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByText('Content Test')).toBeInTheDocument();
@@ -203,7 +219,7 @@ describe('ScreenplayModal', () => {
             const screenplay = createTestScreenplay({
                 logline: 'A thrilling tale of modal testing.',
             });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByText('A thrilling tale of modal testing.')).toBeInTheDocument();
@@ -214,7 +230,7 @@ describe('ScreenplayModal', () => {
                 genre: 'Sci-Fi',
                 budgetCategory: 'high',
             });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByText('Sci-Fi')).toBeInTheDocument();
@@ -226,7 +242,7 @@ describe('ScreenplayModal', () => {
             const screenplay = createTestScreenplay({
                 collection: '2023 Black List',
             });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByText('2023 Black List')).toBeInTheDocument();
@@ -234,7 +250,7 @@ describe('ScreenplayModal', () => {
 
         it('displays recommendation badge', () => {
             const screenplay = createTestScreenplay({ recommendation: 'film_now' });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByText('FILM NOW')).toBeInTheDocument();
@@ -244,7 +260,7 @@ describe('ScreenplayModal', () => {
             const screenplay = createTestScreenplay({
                 verdictStatement: 'A compelling screenplay with clear potential.',
             });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByText('A compelling screenplay with clear potential.')).toBeInTheDocument();
@@ -254,7 +270,7 @@ describe('ScreenplayModal', () => {
             const screenplay = createTestScreenplay({
                 criticalFailures: ['Protagonist is passive', 'Plot lacks stakes'],
             });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByText('Protagonist is passive')).toBeInTheDocument();
@@ -266,7 +282,7 @@ describe('ScreenplayModal', () => {
                 isFilmNow: true,
                 recommendation: 'film_now',
             });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             // The modal content div should have film-now-glow class
@@ -276,7 +292,7 @@ describe('ScreenplayModal', () => {
 
         it('has a PDF download button', () => {
             const screenplay = createTestScreenplay({ sourceFile: 'test.pdf' });
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             const pdfButton = screen.getByTitle('Download test.pdf');
@@ -291,7 +307,7 @@ describe('ScreenplayModal', () => {
     describe('focus management', () => {
         it('focuses close button after opening (with timer)', () => {
             const screenplay = createTestScreenplay();
-            render(
+            renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             const closeButton = screen.getByLabelText('Close modal');

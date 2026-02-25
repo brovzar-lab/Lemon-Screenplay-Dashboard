@@ -205,6 +205,12 @@ async function callAnthropicDirect(
 
   if (!response.ok) {
     const body = await response.text();
+    if (response.status === 400) {
+      throw new Error(
+        `Screenplay too long for analysis — try a script under ~115 pages. ` +
+        `(API error: ${body.slice(0, 120)})`
+      );
+    }
     throw new Error(`Anthropic API error (${response.status}): ${body}`);
   }
 

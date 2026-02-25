@@ -158,11 +158,7 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
               </div>
               <div className="flex justify-between">
                 <span className="text-black-400">Market:</span>
-                <span className="font-mono font-bold text-gold-400">{sp.producerMetrics.marketPotential.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-black-400">ROI:</span>
-                <span className="font-mono font-bold text-gold-400">{sp.producerMetrics.roiIndicator.toFixed(1)}</span>
+                <span className="font-mono font-bold text-gold-400">{sp.producerMetrics.marketPotential ?? 'N/A'}</span>
               </div>
             </div>
 
@@ -206,9 +202,8 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
                   {scores.map((score, index) => (
                     <td
                       key={screenplays[index].id}
-                      className={`px-4 py-3 text-center font-mono font-bold ${
-                        score === maxScore ? 'text-emerald-400' : 'text-black-300'
-                      }`}
+                      className={`px-4 py-3 text-center font-mono font-bold ${score === maxScore ? 'text-emerald-400' : 'text-black-300'
+                        }`}
                     >
                       {score.toFixed(1)}
                     </td>

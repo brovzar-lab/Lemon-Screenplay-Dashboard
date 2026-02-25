@@ -94,19 +94,15 @@ describe('ScreenplayCard', () => {
     const screenplay = createTestScreenplay({
       producerMetrics: {
         marketPotential: 9,
-        productionRisk: 'Low',
-        starVehiclePotential: 8,
-        festivalAppeal: 7,
-        roiIndicator: 4,
+        marketPotentialRationale: 'Outstanding commercial potential.',
         uspStrength: 'Strong',
+        uspStrengthRationale: 'Highly original concept.',
       },
     });
     render(<ScreenplayCard screenplay={screenplay} />);
 
-    // Producer metrics mini shows "Mkt est.", "ROI est.", "Fest. est."
+    // Producer metrics mini shows market potential score
     expect(screen.getByText('9')).toBeInTheDocument();
-    // 4 filled stars + 1 empty star = "★★★★☆"
-    expect(screen.getByText('★★★★☆')).toBeInTheDocument();
   });
 
   it('renders collection year', () => {
@@ -163,11 +159,11 @@ describe('ScreenplayCard', () => {
     expect(screen.getByText('Supporting Cast')).toBeInTheDocument();
   });
 
-  it('has comparison button with correct aria-label', () => {
+  it('has export selection button with correct aria-label', () => {
     const screenplay = createTestScreenplay();
     render(<ScreenplayCard screenplay={screenplay} />);
 
-    expect(screen.getByLabelText('Add to comparison')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select for export')).toBeInTheDocument();
   });
 
   it('handles screenplay with missing producerMetrics gracefully', () => {

@@ -326,19 +326,15 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Producer Metrics</Text>
+          <Text style={styles.sectionTitle}>AI Market Analysis</Text>
           <View style={styles.producerMetrics}>
             <View style={styles.metricBox}>
-              <Text style={styles.metricValue}>{screenplay.producerMetrics.marketPotential}</Text>
+              <Text style={styles.metricValue}>{screenplay.producerMetrics.marketPotential ?? 'N/A'}</Text>
               <Text style={styles.metricLabel}>Market Potential</Text>
             </View>
             <View style={styles.metricBox}>
-              <Text style={styles.metricValue}>{'★'.repeat(screenplay.producerMetrics.roiIndicator)}</Text>
-              <Text style={styles.metricLabel}>ROI Indicator</Text>
-            </View>
-            <View style={styles.metricBox}>
-              <Text style={styles.metricValue}>{screenplay.producerMetrics.festivalAppeal}</Text>
-              <Text style={styles.metricLabel}>Festival Appeal</Text>
+              <Text style={styles.metricValue}>{screenplay.producerMetrics.uspStrength ?? 'N/A'}</Text>
+              <Text style={styles.metricLabel}>USP Strength</Text>
             </View>
           </View>
         </View>
@@ -450,12 +446,8 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
               <Text style={styles.infoValue}>{screenplay.marketability.toUpperCase()}</Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Production Risk</Text>
-              <Text style={styles.infoValue}>{screenplay.producerMetrics.productionRisk}</Text>
-            </View>
-            <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>USP Strength</Text>
-              <Text style={styles.infoValue}>{screenplay.producerMetrics.uspStrength}</Text>
+              <Text style={styles.infoValue}>{screenplay.producerMetrics.uspStrength ?? 'N/A'}</Text>
             </View>
           </View>
         </View>

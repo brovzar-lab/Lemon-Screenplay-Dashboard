@@ -65,11 +65,9 @@ export function createTestScreenplay(overrides: Partial<Screenplay> = {}): Scree
         },
         producerMetrics: {
             marketPotential: 7,
-            productionRisk: 'Medium',
-            starVehiclePotential: 8,
-            festivalAppeal: 7,
-            roiIndicator: 4,
+            marketPotentialRationale: 'Strong high-concept premise with proven genre appeal.',
             uspStrength: 'Moderate',
+            uspStrengthRationale: 'Decent originality but familiar territory.',
         },
         criticalFailures: [],
         criticalFailureDetails: [],

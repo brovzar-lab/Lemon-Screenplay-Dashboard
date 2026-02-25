@@ -155,14 +155,15 @@ describe('normalizeScreenplay', () => {
         expect(result.cvsTotal).toBe(16);
     });
 
-    it('calculates producer metrics from base data', () => {
+    it('initializes producer metrics as null (pending AI analysis)', () => {
         const raw = createMockRawAnalysis();
         const result = normalizeScreenplay(raw, '2020 Black List');
 
         expect(result.producerMetrics).toBeDefined();
-        expect(result.producerMetrics.marketPotential).toBeGreaterThanOrEqual(1);
-        expect(result.producerMetrics.marketPotential).toBeLessThanOrEqual(10);
-        expect(['Low', 'Medium', 'High']).toContain(result.producerMetrics.productionRisk);
+        expect(result.producerMetrics.marketPotential).toBeNull();
+        expect(result.producerMetrics.marketPotentialRationale).toBeNull();
+        expect(result.producerMetrics.uspStrength).toBeNull();
+        expect(result.producerMetrics.uspStrengthRationale).toBeNull();
     });
 
     it('normalizes critical failures from string array format', () => {

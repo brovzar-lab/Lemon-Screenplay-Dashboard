@@ -69,12 +69,6 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
     // Producer Metrics
     marketPotentialRange,
     setMarketPotentialRange,
-    starVehiclePotentialRange,
-    setStarVehiclePotentialRange,
-    festivalAppealRange,
-    setFestivalAppealRange,
-    roiIndicatorRange,
-    setRoiIndicatorRange,
     // Categories
     categories,
     // Display Options
@@ -103,9 +97,6 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
     genreExecutionRange.enabled,
     originalityRange.enabled,
     marketPotentialRange.enabled,
-    starVehiclePotentialRange.enabled,
-    festivalAppealRange.enabled,
-    roiIndicatorRange.enabled,
   ].filter(Boolean).length;
 
   if (!isOpen) return null;
@@ -331,17 +322,10 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
 
           {/* Producer Metrics Section */}
           <Section
-            title="Producer Metrics"
+            title="Market Analysis"
             isOpen={activeSection === 'producer'}
             onToggle={() => toggleSection('producer')}
-            badge={[
-              marketPotentialRange.enabled,
-              starVehiclePotentialRange.enabled,
-              festivalAppealRange.enabled,
-              roiIndicatorRange.enabled,
-            ].filter(Boolean).length > 0
-              ? `${[marketPotentialRange.enabled, starVehiclePotentialRange.enabled, festivalAppealRange.enabled, roiIndicatorRange.enabled].filter(Boolean).length}`
-              : undefined}
+            badge={marketPotentialRange.enabled ? '1' : undefined}
           >
             <div className="space-y-3">
               <RangeSlider
@@ -353,36 +337,6 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                 onChange={([min, max]) => setMarketPotentialRange({ min, max })}
                 enabled={marketPotentialRange.enabled}
                 onEnabledChange={(enabled) => setMarketPotentialRange({ enabled })}
-              />
-              <RangeSlider
-                label="Star Vehicle Potential"
-                min={0}
-                max={10}
-                step={0.5}
-                value={[starVehiclePotentialRange.min, starVehiclePotentialRange.max]}
-                onChange={([min, max]) => setStarVehiclePotentialRange({ min, max })}
-                enabled={starVehiclePotentialRange.enabled}
-                onEnabledChange={(enabled) => setStarVehiclePotentialRange({ enabled })}
-              />
-              <RangeSlider
-                label="Festival Appeal"
-                min={0}
-                max={10}
-                step={0.5}
-                value={[festivalAppealRange.min, festivalAppealRange.max]}
-                onChange={([min, max]) => setFestivalAppealRange({ min, max })}
-                enabled={festivalAppealRange.enabled}
-                onEnabledChange={(enabled) => setFestivalAppealRange({ enabled })}
-              />
-              <RangeSlider
-                label="ROI Indicator"
-                min={1}
-                max={5}
-                step={0.5}
-                value={[roiIndicatorRange.min, roiIndicatorRange.max]}
-                onChange={([min, max]) => setRoiIndicatorRange({ min, max })}
-                enabled={roiIndicatorRange.enabled}
-                onEnabledChange={(enabled) => setRoiIndicatorRange({ enabled })}
               />
             </div>
           </Section>

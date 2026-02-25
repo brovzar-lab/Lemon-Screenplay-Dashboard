@@ -164,18 +164,8 @@ export function useLiveDevExec() {
             wsRef.current = ws;
 
             ws.onopen = () => {
-                console.log('[LiveDevExec] WebSocket open — sending setup');
-
                 // Setup message — exact format from SDK's liveConnectParametersToMldev()
                 // and liveConnectConfigToMldev()
-                //
-                // SDK source (line 7657-7667):
-                //   setup.model = tModel(model) → 'models/...'
-                // SDK source (line 7439-7490):
-                //   setup.generationConfig.responseModalities = [...]
-                //   setup.generationConfig.speechConfig = tLiveSpeechConfig(...)
-                //   setup.systemInstruction = contentToMldev(tContent(text))
-                //
                 const setupMessage = {
                     setup: {
                         model: MODEL,
@@ -196,7 +186,6 @@ export function useLiveDevExec() {
                     },
                 };
 
-                console.log('[LiveDevExec] Setup keys:', Object.keys(setupMessage.setup));
                 ws.send(JSON.stringify(setupMessage));
             };
 
@@ -211,12 +200,9 @@ export function useLiveDevExec() {
                         return;
                     }
 
-                    console.log('[LiveDevExec] Message:', Object.keys(data));
 
                     // ─── SETUP COMPLETE ───
-                    // SDK source (line 12722): for non-Vertex, resp = data directly
                     if ('setupComplete' in data) {
-                        console.log('[LiveDevExec] Setup complete — starting microphone');
                         setIsConnected(true);
                         setIsConnecting(false);
 
@@ -240,13 +226,6 @@ export function useLiveDevExec() {
                             // New format uses the `audio` field directly.
                             if (ws.readyState === WebSocket.OPEN) {
                                 const pcm = createPcmBlob(inputData);
-                                if (chunkCount < 3) {
-                                    console.log(`[LiveDevExec] Audio chunk #${chunkCount}:`, {
-                                        dataLen: pcm.data.length,
-                                        mimeType: pcm.mimeType,
-                                        firstChars: pcm.data.substring(0, 20),
-                                    });
-                                }
                                 chunkCount++;
                                 ws.send(JSON.stringify({
                                     realtimeInput: {
@@ -297,7 +276,6 @@ export function useLiveDevExec() {
 
                         // Interruption
                         if (sc.interrupted) {
-                            console.log('[LiveDevExec] Interrupted — stopping playback');
                             activeSourcesRef.current.forEach(src => {
                                 try { src.stop(); } catch { /* already stopped */ }
                             });

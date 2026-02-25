@@ -54,11 +54,9 @@ function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
         },
         producerMetrics: {
             marketPotential: 7,
-            productionRisk: 'Medium',
-            starVehiclePotential: 7,
-            festivalAppeal: 5,
-            roiIndicator: 3,
+            marketPotentialRationale: 'Good commercial potential.',
             uspStrength: 'Moderate',
+            uspStrengthRationale: 'Decent originality.',
         },
         strengths: [],
         weaknesses: [],
@@ -340,11 +338,9 @@ describe('getSortValue', () => {
         },
         producerMetrics: {
             marketPotential: 9,
-            productionRisk: 'Low',
-            starVehiclePotential: 8,
-            festivalAppeal: 7,
-            roiIndicator: 5,
+            marketPotentialRationale: 'Top-tier commercial appeal.',
             uspStrength: 'Strong',
+            uspStrengthRationale: 'Highly original concept.',
         },
     });
 
@@ -359,9 +355,6 @@ describe('getSortValue', () => {
         ['genreExecution', 4],
         ['originality', 3],
         ['marketPotential', 9],
-        ['starVehiclePotential', 8],
-        ['festivalAppeal', 7],
-        ['roiIndicator', 5],
     ])('returns correct numeric value for "%s"', (field, expected) => {
         expect(getSortValue(sp, field)).toBe(expected);
     });

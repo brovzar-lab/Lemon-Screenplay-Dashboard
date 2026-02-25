@@ -47,12 +47,8 @@ export function exportToCSV(screenplays: Screenplay[], filename: string = 'scree
     'Comparable Success (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.comparableSuccess.score : '',
 
     // Producer Metrics
-    'Market Potential': sp.producerMetrics.marketPotential,
-    'Production Risk': sp.producerMetrics.productionRisk,
-    'Star Vehicle Potential': sp.producerMetrics.starVehiclePotential,
-    'Festival Appeal': sp.producerMetrics.festivalAppeal,
-    'ROI Indicator': sp.producerMetrics.roiIndicator,
-    'USP Strength': sp.producerMetrics.uspStrength,
+    'Market Potential': sp.producerMetrics.marketPotential ?? 'N/A',
+    'USP Strength': sp.producerMetrics.uspStrength ?? 'N/A',
 
     // Production Details
     'Budget Category': sp.budgetCategory,

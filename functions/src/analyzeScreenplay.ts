@@ -15,7 +15,8 @@ const CLAUDE_MODELS: Record<string, string> = {
   opus: 'claude-opus-4-6',
 };
 
-const MAX_TEXT_LENGTH = 400_000;
+// ≈37.5K tokens — leaves headroom for template (~10K), lenses, and 16K output budget
+const MAX_TEXT_LENGTH = 150_000;
 
 interface AnalyzeRequest {
   text: string;
@@ -54,7 +55,11 @@ export const analyzeScreenplay = onCall(
     let text = data.text;
     if (text.length > MAX_TEXT_LENGTH) {
       text = text.slice(0, MAX_TEXT_LENGTH) + '\n\n[... truncated ...]';
+      console.log(`[Prompt] "${data.metadata.title}" — truncated to ${MAX_TEXT_LENGTH} chars`);
     }
+
+    // Token estimate for Firebase monitoring (~1 token per 4 chars)
+    console.log(`[Prompt] "${data.metadata.title}" — ~${Math.round(text.length / 4).toLocaleString()} screenplay tokens`);
 
     const modelKey = data.model || 'sonnet';
     const model = CLAUDE_MODELS[modelKey] || CLAUDE_MODELS.sonnet;

@@ -13,7 +13,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-const MAX_CHARS = 200_000;
+// ≈37.5K tokens — leaves ~160K headroom for the prompt template, lenses, and 16K output budget
+const MAX_CHARS = 150_000;
 
 export interface ParsedPDF {
   title: string;
