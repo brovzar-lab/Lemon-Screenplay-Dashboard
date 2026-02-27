@@ -1,54 +1,58 @@
-/**
- * Data Loading API
- * Fetches and normalizes screenplay data from JSON files
- * V6 analysis format only
- */
-
 import type { Screenplay, Collection } from '@/types';
 import type { V6ScreenplayAnalysis } from '@/types/screenplay-v6';
 import type { ScreenplayWithV6 } from './normalize';
 import { isV6RawAnalysis, normalizeV6Screenplay } from './normalize';
-import { loadAllAnalyses, removeAnalysis } from './analysisStore';
+import { loadAllAnalyses, removeAnalysis, isMigrationComplete, migrateStaticToFirestore } from './analysisStore';
 
 /**
- * Load all screenplay data from V6 analysis files
+ * Load all screenplay data.
+ *
+ * POST-MIGRATION: Reads exclusively from Firestore/localStorage.
+ * PRE-MIGRATION:  Falls back to static file fetching + triggers migration.
  */
 export async function loadAllScreenplaysVite(): Promise<ScreenplayWithV6[]> {
   const screenplays: ScreenplayWithV6[] = [];
   const t0 = performance.now();
 
-  // Fetch V6 index
-  let v6FileList: string[] = [];
-  try {
-    const res = await fetch('/data/analysis_v6/index.json');
-    if (res.ok) v6FileList = await res.json() as string[];
-  } catch { /* no V6 index */ }
+  const migrated = isMigrationComplete();
 
-  console.log(`[Lemon] Found ${v6FileList.length} V6 analysis files`);
-
-  // Fetch all V6 analysis files in parallel
-  const fetches = v6FileList.map(async (filename) => {
+  // ── Pre-migration fallback: fetch static files ──────────────────
+  if (!migrated) {
+    let v6FileList: string[] = [];
     try {
-      const response = await fetch(`/data/analysis_v6/${filename}`);
-      if (!response.ok) return;
-      const raw = await response.json();
-      if (isV6RawAnalysis(raw)) {
-        const collectionFromJson = (raw as unknown as Record<string, unknown>).collection as Collection | undefined;
-        const collection: Collection = collectionFromJson || 'V6 Analysis';
-        const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
-        screenplays.push(screenplay);
-      } else {
-        console.warn(`[Lemon] ${filename} in V6 folder is not V6 format`);
+      const res = await fetch('/data/analysis_v6/index.json');
+      if (res.ok) v6FileList = await res.json() as string[];
+    } catch { /* no V6 index */ }
+
+    console.log(`[Lemon] Found ${v6FileList.length} V6 analysis files (pre-migration)`);
+
+    const fetches = v6FileList.map(async (filename) => {
+      try {
+        const response = await fetch(`/data/analysis_v6/${filename}`);
+        if (!response.ok) return;
+        const raw = await response.json();
+        if (isV6RawAnalysis(raw)) {
+          const collectionFromJson = (raw as unknown as Record<string, unknown>).collection as Collection | undefined;
+          const collection: Collection = collectionFromJson || 'V6 Analysis';
+          const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
+          screenplays.push(screenplay);
+        }
+      } catch (error) {
+        console.warn(`[Lemon] Failed to load/normalize V6 ${filename}:`, error);
       }
-    } catch (error) {
-      console.warn(`[Lemon] Failed to load/normalize V6 ${filename}:`, error);
-    }
-  });
+    });
 
-  await Promise.all(fetches);
-  console.log(`[Lemon] Fetched ${screenplays.length} screenplays in ${Math.round(performance.now() - t0)}ms`);
+    await Promise.all(fetches);
 
-  // Load locally analyzed screenplays (from user uploads via Firestore)
+    // Trigger migration in background (non-blocking)
+    setTimeout(() => {
+      migrateStaticToFirestore().catch((err) =>
+        console.warn('[Lemon] Background migration failed:', err)
+      );
+    }, 3000);
+  }
+
+  // ── Load user-uploaded / migrated screenplays from Firestore ────
   try {
     const localRawList = await loadAllAnalyses();
     let loadedCount = 0;
@@ -76,23 +80,24 @@ export async function loadAllScreenplaysVite(): Promise<ScreenplayWithV6[]> {
       }
     }
     if (localRawList.length > 0) {
-      console.log(`[Lemon] Loaded ${loadedCount}/${localRawList.length} locally analyzed screenplays`);
+      console.log(`[Lemon] Loaded ${loadedCount}/${localRawList.length} analyses from store`);
     }
   } catch (err) {
     console.warn('[Lemon] localStorage may be unavailable:', err);
   }
 
-  // Deduplicate by title (prefer local uploads over static files)
+  // Deduplicate by title (prefer later entries — locals loaded after static)
   const seen = new Map<string, ScreenplayWithV6>();
   for (const sp of screenplays) {
     const key = (sp.title || '').toLowerCase().trim();
-    seen.set(key, sp); // last write wins — locals loaded after static
+    seen.set(key, sp); // last write wins
   }
   const deduplicated = Array.from(seen.values());
 
-  console.log(`[Lemon] Successfully loaded ${deduplicated.length} unique screenplays`);
+  console.log(`[Lemon] Successfully loaded ${deduplicated.length} unique screenplays in ${Math.round(performance.now() - t0)}ms`);
   return deduplicated;
 }
+
 
 /**
  * Load only V6 analysis files

@@ -14,6 +14,17 @@ vi.mock('@/stores/comparisonStore', () => ({
   useIsComparisonFull: () => false,
 }));
 
+// Mock delete hooks (they require QueryClientProvider)
+vi.mock('@/hooks/useScreenplays', () => ({
+  useScreenplays: () => ({ data: [], isLoading: false }),
+  useDeleteScreenplays: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+  SCREENPLAYS_QUERY_KEY: ['screenplays'],
+}));
+
+
 describe('ScreenplayGrid', () => {
   beforeEach(() => {
     vi.clearAllMocks();

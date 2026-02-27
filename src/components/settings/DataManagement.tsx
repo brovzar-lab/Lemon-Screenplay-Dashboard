@@ -4,17 +4,23 @@
  */
 
 import { useState } from 'react';
-import { useScreenplays } from '@/hooks/useScreenplays';
+import { useScreenplays, SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import { clearAllAnalyses, resetMigrationFlag } from '@/lib/analysisStore';
+import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function DataManagement() {
   const { data: screenplays = [] } = useScreenplays();
   const resetFilters = useFilterStore((s) => s.resetFilters);
   const { lists, quickFavorites } = useFavoritesStore();
+  const queryClient = useQueryClient();
 
   const [exportStatus, setExportStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleExportJSON = () => {
     try {
@@ -47,7 +53,7 @@ export function DataManagement() {
 
       setExportStatus('success');
       setTimeout(() => setExportStatus('idle'), 2000);
-    } catch (error) {
+    } catch {
       setExportStatus('error');
       setTimeout(() => setExportStatus('idle'), 2000);
     }
@@ -55,7 +61,6 @@ export function DataManagement() {
 
   const handleExportCSV = () => {
     try {
-      // Use the first screenplay to determine dimension column headers
       const sampleDims = screenplays.length > 0
         ? getDimensionDisplay(screenplays[0])
         : [];
@@ -100,7 +105,7 @@ export function DataManagement() {
 
       setExportStatus('success');
       setTimeout(() => setExportStatus('idle'), 2000);
-    } catch (error) {
+    } catch {
       setExportStatus('error');
       setTimeout(() => setExportStatus('idle'), 2000);
     }
@@ -108,16 +113,28 @@ export function DataManagement() {
 
   const handleClearCache = () => {
     if (confirm('Clear all cached data? This will reset filters and reload screenplay data.')) {
-      // Clear React Query cache
       window.location.reload();
     }
   };
 
   const handleResetAll = () => {
     if (confirm('Reset ALL settings? This will clear favorites, lists, filters, and preferences.')) {
-      // Clear all localStorage
       localStorage.clear();
       window.location.reload();
+    }
+  };
+
+  const handleDeleteAllScreenplays = async () => {
+    setIsDeleting(true);
+    try {
+      await clearAllAnalyses();
+      resetMigrationFlag();
+      await queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+      setShowDeleteAllConfirm(false);
+    } catch (err) {
+      console.error('[Lemon] Failed to delete all screenplays:', err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -231,19 +248,47 @@ export function DataManagement() {
       {/* Danger Zone */}
       <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5">
         <h3 className="text-lg font-medium text-red-400 mb-4">Danger Zone</h3>
-        <button
-          onClick={handleResetAll}
-          className="w-full p-4 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors text-left flex items-center justify-between"
-        >
-          <div>
-            <p className="font-medium text-red-400">Reset Everything</p>
-            <p className="text-sm text-red-400/70">Delete all local data, favorites, and settings</p>
-          </div>
-          <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </button>
+        <div className="space-y-3">
+          <button
+            onClick={() => setShowDeleteAllConfirm(true)}
+            className="w-full p-4 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors text-left flex items-center justify-between"
+          >
+            <div>
+              <p className="font-medium text-red-400">Delete All Screenplays</p>
+              <p className="text-sm text-red-400/70">
+                Remove all {screenplays.length} screenplays from database
+              </p>
+            </div>
+            <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+
+          <button
+            onClick={handleResetAll}
+            className="w-full p-4 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors text-left flex items-center justify-between"
+          >
+            <div>
+              <p className="font-medium text-red-400">Reset Everything</p>
+              <p className="text-sm text-red-400/70">Delete all local data, favorites, and settings</p>
+            </div>
+            <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* Delete All Confirmation */}
+      <DeleteConfirmDialog
+        isOpen={showDeleteAllConfirm}
+        onConfirm={handleDeleteAllScreenplays}
+        onCancel={() => setShowDeleteAllConfirm(false)}
+        title="Delete all screenplays?"
+        message="This will permanently remove ALL screenplays from your database. The only way to restore them is by re-analyzing the PDFs."
+        count={screenplays.length}
+        isPending={isDeleting}
+      />
     </div>
   );
 }

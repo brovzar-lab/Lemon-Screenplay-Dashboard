@@ -1,12 +1,15 @@
 /**
  * ScreenplayGrid Component
- * Displays grid of screenplay cards with loading and empty states
+ * Displays grid of screenplay cards with loading, empty states, and bulk delete
  */
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import { ScreenplayCard } from './ScreenplayCard';
 import { ErrorBoundary } from '@/components/ui';
+import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { useFilterStore } from '@/stores/filterStore';
+import { useDeleteSelectionStore } from '@/stores/deleteSelectionStore';
+import { useDeleteScreenplays } from '@/hooks/useScreenplays';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import type { Screenplay } from '@/types';
@@ -131,6 +134,15 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
   const gridRef = useRef<HTMLDivElement>(null);
   const { containerRef: revealRef, refresh: refreshReveals } = useScrollReveal<HTMLDivElement>();
 
+  // Delete mode state
+  const isDeleteMode = useDeleteSelectionStore((s) => s.isDeleteMode);
+  const selectedIds = useDeleteSelectionStore((s) => s.selectedIds);
+  const setDeleteMode = useDeleteSelectionStore((s) => s.setDeleteMode);
+  const selectAll = useDeleteSelectionStore((s) => s.selectAll);
+  const deselectAll = useDeleteSelectionStore((s) => s.deselectAll);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const deleteMutation = useDeleteScreenplays();
+
   // Share both refs via a callback ref
   const setGridRef = useCallback((el: HTMLDivElement | null) => {
     (gridRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
@@ -188,6 +200,18 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
     [screenplays, onCardClick]
   );
 
+  // Handle bulk delete
+  const handleBulkDelete = () => {
+    const selectedScreenplays = screenplays.filter((sp) => selectedIds.has(sp.id));
+    const sourceFiles = selectedScreenplays.map((sp) => sp.sourceFile || sp.title);
+    deleteMutation.mutate(sourceFiles, {
+      onSuccess: () => {
+        setShowBulkDeleteConfirm(false);
+        setDeleteMode(false);
+      },
+    });
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -204,41 +228,106 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
     return <EmptyState />;
   }
 
+  const selectedCount = selectedIds.size;
+
   return (
-    <div
-      ref={setGridRef}
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6"
-      role="list"
-      aria-label="Screenplay results"
-    >
-      {screenplays.map((screenplay, index) => (
-        <ErrorBoundary
-          key={screenplay.id}
-          fallback={
-            <div className="card bg-red-500/10 border-red-500/30" role="listitem">
-              <p className="text-red-400 text-sm">
-                Error rendering: {screenplay.title || 'Unknown'}
-              </p>
-            </div>
+    <>
+      {/* Delete Mode Toolbar */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          {isDeleteMode && (
+            <>
+              <button
+                onClick={() => selectAll(screenplays.map((sp) => sp.id))}
+                className="btn btn-secondary text-xs py-1.5 px-3"
+              >
+                Select All ({screenplays.length})
+              </button>
+              <button
+                onClick={deselectAll}
+                className="btn btn-secondary text-xs py-1.5 px-3"
+                disabled={selectedCount === 0}
+              >
+                Deselect All
+              </button>
+            </>
+          )}
+        </div>
+        <button
+          onClick={() => setDeleteMode(!isDeleteMode)}
+          className={
+            isDeleteMode
+              ? 'text-xs py-1.5 px-3 rounded-lg font-medium transition-colors bg-black-700 text-black-300 hover:bg-black-600'
+              : 'text-xs py-1.5 px-3 rounded-lg font-medium transition-colors bg-red-600/10 text-red-400 hover:bg-red-600/20 border border-red-500/20'
           }
         >
-          <div
-            data-card
-            data-reveal
-            style={{ transitionDelay: `${Math.min(index, 12) * 50}ms` }}
-            tabIndex={0}
-            role="listitem"
-            aria-label={`${screenplay.title} by ${screenplay.author}, ${screenplay.recommendation} recommendation`}
-            onKeyDown={(e) => handleKeyDown(e, index)}
-            onClick={() => onCardClick?.(screenplay)}
-            className="focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 focus:ring-offset-black-900 rounded-xl"
+          {isDeleteMode ? 'Cancel' : '🗑 Delete Mode'}
+        </button>
+      </div>
+
+      {/* Grid */}
+      <div
+        ref={setGridRef}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6"
+        role="list"
+        aria-label="Screenplay results"
+      >
+        {screenplays.map((screenplay, index) => (
+          <ErrorBoundary
+            key={screenplay.id}
+            fallback={
+              <div className="card bg-red-500/10 border-red-500/30" role="listitem">
+                <p className="text-red-400 text-sm">
+                  Error rendering: {screenplay.title || 'Unknown'}
+                </p>
+              </div>
+            }
           >
-            <ScreenplayCard screenplay={screenplay} />
-          </div>
-        </ErrorBoundary>
-      ))}
-    </div>
+            <div
+              data-card
+              data-reveal
+              style={{ transitionDelay: `${Math.min(index, 12) * 50}ms` }}
+              tabIndex={0}
+              role="listitem"
+              aria-label={`${screenplay.title} by ${screenplay.author}, ${screenplay.recommendation} recommendation`}
+              onKeyDown={(e) => handleKeyDown(e, index)}
+              onClick={() => !isDeleteMode && onCardClick?.(screenplay)}
+              className="focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 focus:ring-offset-black-900 rounded-xl"
+            >
+              <ScreenplayCard screenplay={screenplay} />
+            </div>
+          </ErrorBoundary>
+        ))}
+      </div>
+
+      {/* Floating Bulk Action Bar */}
+      {isDeleteMode && selectedCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-3 rounded-2xl border border-red-500/30 bg-black-900/95 backdrop-blur-md shadow-2xl">
+          <span className="text-sm text-black-300">
+            <span className="font-mono font-bold text-red-400">{selectedCount}</span> selected
+          </span>
+          <button
+            onClick={() => setShowBulkDeleteConfirm(true)}
+            className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-500 text-white"
+          >
+            Delete Selected
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation */}
+      <DeleteConfirmDialog
+        isOpen={showBulkDeleteConfirm}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setShowBulkDeleteConfirm(false)}
+        title="Delete selected screenplays?"
+        message="This will permanently remove all selected screenplays from your database."
+        count={selectedCount}
+        isPending={deleteMutation.isPending}
+      />
+    </>
   );
 }
 
 export default ScreenplayGrid;
+

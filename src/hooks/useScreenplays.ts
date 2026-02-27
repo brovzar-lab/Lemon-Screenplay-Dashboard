@@ -2,8 +2,9 @@
  * React Query hooks for screenplay data
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { loadAllScreenplaysVite, getScreenplayStats } from '@/lib/api';
+import { removeAnalysis, removeMultipleAnalyses } from '@/lib/analysisStore';
 import { canonicalizeGenre } from '@/lib/calculations';
 // Screenplay type imported for documentation - used in JSDoc and return types
 import type { Screenplay as _Screenplay } from '@/types';
@@ -23,6 +24,28 @@ export function useScreenplays() {
     staleTime: 1000 * 60 * 30, // 30 minutes (data doesn't change often)
     gcTime: 1000 * 60 * 60, // 1 hour cache
     refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * Hook to delete one or more screenplays.
+ * Accepts either a single sourceFile string or an array for bulk deletion.
+ * Automatically invalidates the screenplays cache on success.
+ */
+export function useDeleteScreenplays() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (sourceFiles: string | string[]) => {
+      if (Array.isArray(sourceFiles)) {
+        await removeMultipleAnalyses(sourceFiles);
+      } else {
+        await removeAnalysis(sourceFiles);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+    },
   });
 }
 
@@ -88,3 +111,4 @@ export function useThemes() {
 
   return Array.from(themes).sort();
 }
+
