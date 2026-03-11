@@ -63,6 +63,9 @@ export interface FilterState {
 
   // TMDB Production Status
   hideProduced: boolean; // Hide screenplays that have been produced as films
+
+  // PDF Status
+  missingPdfOnly: boolean; // Show only screenplays without a working PDF
 }
 
 // ============================================
@@ -98,6 +101,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   hasCriticalFailures: null,
   hideNonScreenplays: true, // Default: hide non-screenplay documents
   hideProduced: true, // Default: hide produced films
+  missingPdfOnly: false,
 };
 
 // ============================================

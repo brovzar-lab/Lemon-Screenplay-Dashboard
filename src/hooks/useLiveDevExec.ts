@@ -211,7 +211,6 @@ export function useLiveDevExec() {
 
                         const processor = inputCtx.createScriptProcessor(4096, 1, 1);
                         processorRef.current = processor;
-                        let chunkCount = 0;
 
                         processor.onaudioprocess = (e) => {
                             const inputData = e.inputBuffer.getChannelData(0);
@@ -226,7 +225,6 @@ export function useLiveDevExec() {
                             // New format uses the `audio` field directly.
                             if (ws.readyState === WebSocket.OPEN) {
                                 const pcm = createPcmBlob(inputData);
-                                chunkCount++;
                                 ws.send(JSON.stringify({
                                     realtimeInput: {
                                         audio: pcm,

@@ -127,7 +127,8 @@ describe('FilterPanel', () => {
             render(<FilterPanel isOpen={true} onClose={mockOnClose} />);
             fireEvent.click(screen.getByText('Display Options'));
 
-            const checkbox = screen.getByRole('checkbox');
+            const checkboxes = screen.getAllByRole('checkbox');
+            const checkbox = checkboxes[0]; // hideProduced is first in the list
             // hideProduced defaults to true in DEFAULT_FILTER_STATE
             expect(checkbox).toBeChecked();
 

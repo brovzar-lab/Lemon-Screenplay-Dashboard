@@ -3,7 +3,7 @@
  * Tests parseUrlParams and buildShareableUrl pure functions
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { buildShareableUrl } from './useUrlState';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';

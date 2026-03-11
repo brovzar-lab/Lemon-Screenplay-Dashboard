@@ -6,8 +6,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { loadAllScreenplaysVite, getScreenplayStats } from '@/lib/api';
 import { removeAnalysis, removeMultipleAnalyses } from '@/lib/analysisStore';
 import { canonicalizeGenre } from '@/lib/calculations';
-// Screenplay type imported for documentation - used in JSDoc and return types
-import type { Screenplay as _Screenplay } from '@/types';
+
+
 
 /**
  * Query key for screenplays

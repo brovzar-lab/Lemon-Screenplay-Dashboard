@@ -32,7 +32,12 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
      * The upload path in firebase.ts is: screenplays/{category}/{safeName}.pdf
      * We reconstruct the same path here.
      */
+    const [pdfState, setPdfState] = useState<'idle' | 'loading' | 'error'>('idle');
+
     const handleDownloadPdf = async () => {
+        if (pdfState === 'loading') return;
+        setPdfState('loading');
+
         const category = screenplay.category || 'OTHER';
         const safeName = (screenplay.title || screenplay.sourceFile || 'untitled')
             .replace(/\.pdf$/i, '')
@@ -45,17 +50,26 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
             const fileRef = ref(storage, storagePath);
             const url = await getDownloadURL(fileRef);
             window.open(url, '_blank');
+            setPdfState('idle');
+            return;
         } catch (err) {
-            console.error('[PDF Download] Failed:', err);
-            // Fallback: try without category subfolder
-            try {
-                const fallbackRef = ref(storage, `screenplays/${safeName}.pdf`);
-                const url = await getDownloadURL(fallbackRef);
-                window.open(url, '_blank');
-            } catch {
-                alert(`PDF not found in storage. The screenplay may not have been uploaded yet.\n\nPath tried: ${storagePath}`);
-            }
+            console.warn('[PDF Download] Primary path failed:', err);
         }
+
+        // Fallback: try without category subfolder
+        try {
+            const fallbackRef = ref(storage, `screenplays/${safeName}.pdf`);
+            const url = await getDownloadURL(fallbackRef);
+            window.open(url, '_blank');
+            setPdfState('idle');
+            return;
+        } catch {
+            console.warn('[PDF Download] PDF not found in storage. Path tried:', storagePath);
+        }
+
+        // Show error on button, reset after 3s
+        setPdfState('error');
+        setTimeout(() => setPdfState('idle'), 3000);
     };
 
     const handleDelete = () => {
@@ -122,13 +136,36 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                         <ReanalyzeButton screenplay={screenplay} onComplete={onReanalyzeComplete} />
                         <button
                             onClick={handleDownloadPdf}
-                            className="btn btn-primary text-xs flex items-center gap-1.5 py-1.5 px-3"
-                            title={`Download ${screenplay.sourceFile || screenplay.title}`}
+                            disabled={pdfState === 'loading'}
+                            className={clsx(
+                                'btn text-xs flex items-center gap-1.5 py-1.5 px-3 transition-all',
+                                pdfState === 'error'
+                                    ? 'bg-red-600/20 text-red-400 border border-red-500/30 cursor-default'
+                                    : 'btn-primary',
+                                pdfState === 'loading' && 'opacity-60 cursor-wait',
+                            )}
+                            title={
+                                pdfState === 'error'
+                                    ? 'PDF not found in storage — upload the PDF first'
+                                    : `Download ${screenplay.sourceFile || screenplay.title}`
+                            }
                         >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            PDF
+                            {pdfState === 'loading' ? (
+                                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                </svg>
+                            ) : pdfState === 'error' ? (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                </svg>
+                            ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            )}
+                            {pdfState === 'error' ? 'Not Found' : 'PDF'}
+
                         </button>
                         <button
                             onClick={() => setShowDeleteConfirm(true)}

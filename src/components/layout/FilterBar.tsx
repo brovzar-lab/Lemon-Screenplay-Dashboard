@@ -14,7 +14,7 @@ import { useExportSelectionStore, useExportSelectionCount } from '@/stores/expor
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import { buildShareableUrl } from '@/hooks/useUrlState';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import type { Screenplay } from '@/types';
+import type { Screenplay, SortField } from '@/types';
 
 const SEARCH_INPUT_ID = 'screenplay-search';
 
@@ -167,7 +167,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               value={sortConfigs[0]?.field || 'marketPotential'}
               onChange={(e) => {
                 resetSort();
-                addSortColumn(e.target.value as any, 'desc');
+                addSortColumn(e.target.value as SortField, 'desc');
               }}
             >
               <option value="marketPotential">Sort: Market Potential</option>

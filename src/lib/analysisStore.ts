@@ -137,7 +137,9 @@ async function backgroundFirestoreSync(): Promise<void> {
 
         const firestoreData = snapshot.docs.map((d) => {
             const data = d.data() as Record<string, unknown>;
-            const { _savedAt: _, _docId: __, ...raw } = data;
+            const raw = Object.fromEntries(
+                Object.entries(data).filter(([k]) => k !== '_savedAt' && k !== '_docId')
+            ) as Record<string, unknown>;
             return raw;
         });
 

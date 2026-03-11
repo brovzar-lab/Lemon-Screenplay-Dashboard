@@ -143,11 +143,12 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
 
-  // Share both refs via a callback ref
-  const setGridRef = useCallback((el: HTMLDivElement | null) => {
-    (gridRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-    (revealRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-  }, [revealRef]);
+  // Sync gridRef for keyboard navigation from the revealRef
+  useEffect(() => {
+    if (revealRef.current) {
+      (gridRef as React.MutableRefObject<HTMLDivElement | null>).current = revealRef.current;
+    }
+  });
 
   // Re-observe when screenplays change (e.g., after filtering)
   useEffect(() => {
@@ -267,7 +268,7 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
 
       {/* Grid */}
       <div
-        ref={setGridRef}
+        ref={revealRef}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6"
         role="list"
         aria-label="Screenplay results"

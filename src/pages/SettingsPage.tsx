@@ -13,8 +13,9 @@ import { DataManagement } from '@/components/settings/DataManagement';
 import { CategoryManagement } from '@/components/settings/CategoryManagement';
 import { ModelComparisonPanel } from '@/components/settings/ModelComparisonPanel';
 import { CalibrationPanel } from '@/components/settings/CalibrationPanel';
+import { PdfUploadPanel } from '@/components/settings/PdfUploadPanel';
 
-type Tab = 'upload' | 'categories' | 'appearance' | 'favorites' | 'data' | 'comparison' | 'calibration';
+type Tab = 'upload' | 'categories' | 'appearance' | 'favorites' | 'data' | 'comparison' | 'calibration' | 'pdf';
 
 interface TabConfig {
   id: Tab;
@@ -86,6 +87,15 @@ const TABS: TabConfig[] = [
       </svg>
     ),
   },
+  {
+    id: 'pdf',
+    label: 'PDF Files',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
 ];
 
 export function SettingsPage() {
@@ -107,6 +117,8 @@ export function SettingsPage() {
         return <ModelComparisonPanel />;
       case 'calibration':
         return <CalibrationPanel />;
+      case 'pdf':
+        return <PdfUploadPanel />;
       default:
         return null;
     }

@@ -149,7 +149,7 @@ describe('normalizeScreenplay', () => {
 
     it('handles string cvs_total by parsing it', () => {
         const raw = createMockRawAnalysis();
-        (raw as any).analysis.commercial_viability.cvs_total = '16';
+        (raw as unknown as Record<string, { commercial_viability: { cvs_total: string } }>).analysis.commercial_viability.cvs_total = '16';
         const result = normalizeScreenplay(raw, '2020 Black List');
 
         expect(result.cvsTotal).toBe(16);
@@ -168,7 +168,7 @@ describe('normalizeScreenplay', () => {
 
     it('normalizes critical failures from string array format', () => {
         const raw = createMockRawAnalysis();
-        (raw as any).analysis.critical_failures = ['Plot hole in act 2', 'Protagonist has no arc'];
+        (raw as unknown as Record<string, { critical_failures: string[] }>).analysis.critical_failures = ['Plot hole in act 2', 'Protagonist has no arc'];
         const result = normalizeScreenplay(raw, '2020 Black List');
 
         expect(result.criticalFailures).toHaveLength(2);
@@ -179,7 +179,7 @@ describe('normalizeScreenplay', () => {
 
     it('normalizes critical failures from detailed V6 format', () => {
         const raw = createMockRawAnalysis();
-        (raw as any).analysis.critical_failures = [
+        (raw as unknown as Record<string, { critical_failures: { failure: string; severity: string; penalty: number; evidence: string }[] }>).analysis.critical_failures = [
             { failure: 'Broken causality', severity: 'critical', penalty: -1.5, evidence: 'Act 3' },
         ];
         const result = normalizeScreenplay(raw, '2020 Black List');
@@ -191,7 +191,7 @@ describe('normalizeScreenplay', () => {
 
     it('handles empty critical failures', () => {
         const raw = createMockRawAnalysis();
-        (raw as any).analysis.critical_failures = [];
+        (raw as unknown as Record<string, { critical_failures: never[] }>).analysis.critical_failures = [];
         const result = normalizeScreenplay(raw, '2020 Black List');
 
         expect(result.criticalFailures).toEqual([]);
@@ -213,7 +213,7 @@ describe('normalizeRecommendation (via normalizeScreenplay)', () => {
         ['unknown_value', 'pass'], // fallback
     ])('maps "%s" → "%s"', (input, expected) => {
         const raw = createMockRawAnalysis();
-        (raw as any).analysis.assessment.recommendation = input;
+        (raw as unknown as Record<string, { assessment: { recommendation: string } }>).analysis.assessment.recommendation = input;
         const result = normalizeScreenplay(raw, '2020 Black List');
         expect(result.recommendation).toBe(expected);
     });
@@ -229,7 +229,7 @@ describe('extractBudgetCategory (via normalizeScreenplay)', () => {
         ['HIGH', 'high'],
     ])('maps "%s" → "%s"', (input, expected) => {
         const raw = createMockRawAnalysis();
-        (raw as any).analysis.budget_tier.category = input;
+        (raw as unknown as Record<string, { budget_tier: { category: string } }>).analysis.budget_tier.category = input;
         const result = normalizeScreenplay(raw, '2020 Black List');
         expect(result.budgetCategory).toBe(expected);
     });

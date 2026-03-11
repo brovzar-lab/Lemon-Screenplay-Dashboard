@@ -91,8 +91,10 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
             const aiScore = screenplay.dimensionScores?.[dim.key as keyof typeof screenplay.dimensionScores] ?? 0;
             initial[dim.key] = { aiScore: Number(aiScore), userScore: Number(aiScore) };
         }
-        setDimensionOverrides(initial);
-    }, [screenplay.dimensionScores, dimensionOverrides]);
+        // Use functional update to avoid stale closure; only runs when overrides are empty
+        setDimensionOverrides((current) => Object.keys(current).length > 0 ? current : initial);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [screenplay.id]); // Only re-init on screenplay change, not on overrides change
 
     const handleSave = useCallback(async () => {
         setSaving(true);

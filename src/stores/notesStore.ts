@@ -91,7 +91,9 @@ export const useNotesStore = create<NotesStore>()(
 
           // Remove empty arrays
           if (filtered.length === 0) {
-            const { [screenplayId]: _, ...rest } = state.notes;
+            const rest = Object.fromEntries(
+              Object.entries(state.notes).filter(([k]) => k !== screenplayId)
+            ) as typeof state.notes;
             return { notes: rest };
           }
 
@@ -112,7 +114,9 @@ export const useNotesStore = create<NotesStore>()(
       // Clear notes for screenplay
       clearNotesForScreenplay: (screenplayId) => {
         set((state) => {
-          const { [screenplayId]: _, ...rest } = state.notes;
+          const rest = Object.fromEntries(
+            Object.entries(state.notes).filter(([k]) => k !== screenplayId)
+          ) as typeof state.notes;
           return { notes: rest };
         });
       },

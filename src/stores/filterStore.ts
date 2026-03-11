@@ -51,6 +51,7 @@ interface FilterActions {
   setHasCriticalFailures: (value: boolean | null) => void;
   setHideNonScreenplays: (hide: boolean) => void;
   setHideProduced: (hide: boolean) => void;
+  setMissingPdfOnly: (value: boolean) => void;
 
   // Bulk operations
   resetFilters: () => void;
@@ -177,6 +178,7 @@ export const useFilterStore = create<FilterStore>()(
       setHasCriticalFailures: (value) => set({ hasCriticalFailures: value }),
       setHideNonScreenplays: (hide) => set({ hideNonScreenplays: hide }),
       setHideProduced: (hide) => set({ hideProduced: hide }),
+      setMissingPdfOnly: (value) => set({ missingPdfOnly: value }),
 
       // Bulk operations
       resetFilters: () => set(DEFAULT_FILTER_STATE),
@@ -194,6 +196,7 @@ export const useFilterStore = create<FilterStore>()(
         hidePassRated: state.hidePassRated,
         hideNonScreenplays: state.hideNonScreenplays,
         hideProduced: state.hideProduced,
+        missingPdfOnly: state.missingPdfOnly,
       }),
     }
   )
