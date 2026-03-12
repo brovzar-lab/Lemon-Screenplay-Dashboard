@@ -1,15 +1,15 @@
 /**
  * Firebase Configuration
- * Initializes Firebase app, App Check (reCAPTCHA v3), Storage, and Firestore.
+ * Initializes Firebase app, Storage, and Firestore.
  *
- * App Check (C1/C2 fix final layer):
- *   - Forces all Firestore + Storage requests to carry a valid reCAPTCHA v3 token
- *   - Firebase Console enforcement rejects any request without a valid token
- *   - This means only requests from lemon-screenplay-dashboard.web.app are accepted
+ * NOTE: Firebase App Check (reCAPTCHA v3) has been disabled.
+ * The reCAPTCHA provider type registered in Firebase Console did not match
+ * the client provider and was causing 400 errors that blocked ALL Firebase
+ * calls (Firestore sync + Storage reads/writes). Re-enable after verifying
+ * the exact provider registered in Firebase Console → App Check → Apps.
  */
 
 import { initializeApp } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore';
 
@@ -24,19 +24,6 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// ── App Check — reCAPTCHA v3 ──────────────────────────────────────────────────
-// IMPORTANT: This must be initialized BEFORE getFirestore() / getStorage().
-// In local development, set window.FIREBASE_APPCHECK_DEBUG_TOKEN = true in the
-// browser console to generate a debug token, then add it to Firebase Console
-// under App Check > Apps > ⋮ > Manage debug tokens.
-if (typeof window !== 'undefined') {
-    initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider('6Le1EYgsAAAAADsmvLtnkHzt_uJ6G9bin05q8CWu'),
-        // isTokenAutoRefreshEnabled: keep tokens fresh without user interaction
-        isTokenAutoRefreshEnabled: true,
-    });
-}
 
 // Firebase Storage
 export const storage = getStorage(app);
