@@ -94,12 +94,16 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
           isDeleteMode && isDeleteSelected && 'ring-2 ring-red-500/50'
         )}
       >
-        {/* Selection checkbox (export or delete mode) */}
+        {/* Selection checkbox (export) — only visible on hover or when selected */}
         <button
           onClick={handleSelectClick}
+          title={isExportSelected ? 'Deselect for export' : 'Select for export'}
           className={clsx(
             'absolute top-4 right-4 w-6 h-6 rounded-md border-2 flex items-center justify-center',
             'transition-all duration-150 z-10',
+            isChecked
+              ? 'opacity-100'
+              : 'opacity-0 group-hover:opacity-100',
             checkboxColor,
           )}
           aria-label={

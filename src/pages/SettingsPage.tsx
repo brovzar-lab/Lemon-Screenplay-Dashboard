@@ -234,7 +234,7 @@ export function SettingsPage() {
       {/* Footer */}
       <footer className="border-t border-gold-500/10 py-4">
         <div className="max-w-[1400px] mx-auto px-6 text-center text-sm text-black-500">
-          <p>Lemon Screenplay Dashboard v6.0</p>
+          <p>Lemon Screenplay Dashboard v{__APP_VERSION__}</p>
         </div>
       </footer>
     </div>

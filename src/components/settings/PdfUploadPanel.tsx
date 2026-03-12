@@ -462,21 +462,26 @@ export function PdfUploadPanel() {
 
             {/* Search + filter bar */}
             <div className="flex items-center gap-3">
-                {/* Select-all checkbox */}
-                <button
-                    onClick={toggleSelectAll}
-                    title={selectedIds.size === filteredScreenplays.length && filteredScreenplays.length > 0 ? 'Deselect all' : 'Select all'}
-                    className={clsx(
-                        'shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
-                        selectedIds.size === filteredScreenplays.length && filteredScreenplays.length > 0
-                            ? 'bg-red-500 border-red-400 text-white'
-                            : selectedIds.size > 0
-                                ? 'bg-red-500/40 border-red-400/60 text-white'
-                                : 'border-black-600 hover:border-red-400/60'
-                    )}
-                >
-                    {selectedIds.size > 0 && <span className="text-[10px] font-bold">✓</span>}
-                </button>
+                {/* Select-all: labelled button with 44px touch target (#5 + #7) */}
+                <label className="inline-flex items-center gap-2 cursor-pointer group shrink-0">
+                    <button
+                        onClick={toggleSelectAll}
+                        title={selectedIds.size === filteredScreenplays.length && filteredScreenplays.length > 0 ? 'Deselect all' : 'Select all'}
+                        className={clsx(
+                            'shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
+                            selectedIds.size === filteredScreenplays.length && filteredScreenplays.length > 0
+                                ? 'bg-red-500 border-red-400 text-white'
+                                : selectedIds.size > 0
+                                    ? 'bg-red-500/40 border-red-400/60 text-white'
+                                    : 'border-black-600 hover:border-red-400/60'
+                        )}
+                    >
+                        {selectedIds.size > 0 && <span className="text-[10px] font-bold">✓</span>}
+                    </button>
+                    <span className="text-xs text-black-500 group-hover:text-black-300 transition-colors select-none">
+                        {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+                    </span>
+                </label>
 
                 <div className="relative flex-1">
                     <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -560,19 +565,21 @@ export function PdfUploadPanel() {
                                                 : 'border-red-500/10 bg-black-800/30'
                             )}
                         >
-                            {/* Row checkbox */}
-                            <button
-                                onClick={() => toggleSelect(screenplay.id)}
-                                className={clsx(
-                                    'shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
-                                    isSelected
-                                        ? 'bg-red-500 border-red-400 text-white'
-                                        : 'border-black-600 hover:border-red-400/60'
-                                )}
-                                aria-label={isSelected ? 'Deselect' : 'Select'}
-                            >
-                                {isSelected && <span className="text-[10px] font-bold">✓</span>}
-                            </button>
+                            {/* Row checkbox: wider tap zone via p-2 negative-margin trick */}
+                            <label className="inline-flex cursor-pointer p-1 -m-1">
+                                <button
+                                    onClick={() => toggleSelect(screenplay.id)}
+                                    className={clsx(
+                                        'shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
+                                        isSelected
+                                            ? 'bg-red-500 border-red-400 text-white'
+                                            : 'border-black-600 hover:border-red-400/60'
+                                    )}
+                                    aria-label={isSelected ? 'Deselect' : 'Select'}
+                                >
+                                    {isSelected && <span className="text-[10px] font-bold">✓</span>}
+                                </button>
+                            </label>
 
                             {/* Status icon */}
                             <div className="shrink-0 w-8 h-8 flex items-center justify-center">

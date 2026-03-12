@@ -21,12 +21,12 @@ const SEARCH_INPUT_ID = 'screenplay-search';
 // Quick-filter chip configuration
 type FilterType = 'all' | 'pass' | 'consider' | 'recommend' | 'film_now';
 
-const FILTER_CHIPS: { id: FilterType; label: string; activeClass: string }[] = [
-  { id: 'all', label: 'All', activeClass: 'bg-gold-500/20 border-gold-500 text-gold-300' },
-  { id: 'pass', label: 'Pass', activeClass: 'bg-red-500/20 border-red-500 text-red-300' },
-  { id: 'consider', label: 'Consider', activeClass: 'bg-amber-500/20 border-amber-500 text-amber-300' },
-  { id: 'recommend', label: 'Recommend', activeClass: 'bg-emerald-500/20 border-emerald-500 text-emerald-300' },
-  { id: 'film_now', label: 'FILM NOW', activeClass: 'bg-gold-500/20 border-gold-400 text-gold-300 animate-pulse-glow' },
+const FILTER_CHIPS: { id: FilterType; label: string; activeClass: string; inactiveClass?: string }[] = [
+  { id: 'all', label: 'All', activeClass: 'bg-gold-500 border-gold-500 !text-black-950 font-semibold' },
+  { id: 'pass', label: 'Pass', activeClass: 'bg-red-500 border-red-500 !text-white font-semibold' },
+  { id: 'consider', label: 'Consider', activeClass: 'bg-amber-500 border-amber-500 !text-black-950 font-semibold' },
+  { id: 'recommend', label: 'Recommend', activeClass: 'bg-emerald-500 border-emerald-500 !text-black-950 font-semibold' },
+  { id: 'film_now', label: 'FILM NOW', activeClass: 'bg-gold-500 border-gold-400 !text-black-950 font-semibold animate-pulse-glow' },
 ];
 
 interface FilterBarProps {
