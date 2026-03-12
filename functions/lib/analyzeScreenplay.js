@@ -4,6 +4,12 @@
  *
  * Accepts screenplay text + metadata, calls Anthropic API with the V6 prompt,
  * and returns the raw analysis JSON. The client normalizes it.
+ *
+ * Security hardening (v2):
+ *   - Input sanitization: title truncated + special chars stripped (M1)
+ *   - API key format pre-validation before forwarding (H1 partial)
+ *   - Explicit field-count guard to prevent oversized payloads
+ *   - Server-side call counter in Firestore (H3 — per-day rate gate)
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -12,46 +18,104 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.analyzeScreenplay = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
+const firestore_1 = require("firebase-admin/firestore");
+const app_1 = require("firebase-admin/app");
 const prompts_1 = require("./prompts");
+// Init Firebase Admin once
+if (!(0, app_1.getApps)().length)
+    (0, app_1.initializeApp)();
 const CLAUDE_MODELS = {
     sonnet: 'claude-sonnet-4-5-20250929',
     haiku: 'claude-haiku-4-5-20251001',
-    opus: 'claude-3-opus-20240229', // claude-opus-4 not yet on API
+    opus: 'claude-3-opus-20240229',
 };
 // ≈37.5K tokens — leaves headroom for template (~10K), lenses, and 16K output budget
 const MAX_TEXT_LENGTH = 150_000;
+// Server-side rate limit: max calls per day across all users
+const DAILY_CALL_LIMIT = 200;
+/**
+ * Sanitize title to prevent prompt injection (Fix M1).
+ * - Truncates to 200 chars
+ * - Strips characters that could break the JSON prompt template
+ */
+function sanitizeTitle(raw) {
+    return raw
+        .slice(0, 200)
+        .replace(/[<>{}[\]`\\]/g, '') // strip prompt-injection chars
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+/**
+ * Validate that an Anthropic API key looks structurally correct (Fix H1 partial).
+ * Does NOT call the Anthropic API — just checks the format so clearly wrong keys
+ * fail fast without consuming a Cloud Function invocation.
+ */
+function isValidAnthropicKeyFormat(key) {
+    return /^sk-ant-[a-zA-Z0-9\-_]{20,}$/.test(key);
+}
+/**
+ * Server-side rate gate (Fix H3 partial).
+ * Tracks total calls per UTC day in Firestore.
+ * Throws if the daily limit is reached.
+ */
+async function checkServerRateLimit() {
+    const db = (0, firestore_1.getFirestore)();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const ref = db.collection('_rate_limits').doc(`calls_${today}`);
+    const snap = await db.runTransaction(async (tx) => {
+        const doc = await tx.get(ref);
+        const current = doc.exists ? (doc.data()?.count ?? 0) : 0;
+        if (current >= DAILY_CALL_LIMIT) {
+            throw new https_1.HttpsError('resource-exhausted', `Daily analysis limit of ${DAILY_CALL_LIMIT} calls reached. Please try again tomorrow.`);
+        }
+        tx.set(ref, { count: firestore_1.FieldValue.increment(1), date: today }, { merge: true });
+        return current + 1;
+    });
+    console.log(`[RateLimit] Daily call count: ${snap}`);
+}
 exports.analyzeScreenplay = (0, https_1.onCall)({
     timeoutSeconds: 540, // 9 min — analysis can take 2-5 min
     memory: '512MiB',
     maxInstances: 5,
     cors: true,
-    invoker: 'public', // Allow unauthenticated Firebase SDK calls from the browser
+    invoker: 'public', // App Check enforcement can be added here once enabled in Console
 }, async (request) => {
     const data = request.data;
-    // Validate required fields
+    // ── Input validation ──────────────────────────────────────────────────────
     if (!data.text || typeof data.text !== 'string') {
         throw new https_1.HttpsError('invalid-argument', 'Missing or invalid screenplay text');
     }
     if (!data.apiKey || typeof data.apiKey !== 'string') {
         throw new https_1.HttpsError('invalid-argument', 'Missing API key');
     }
+    // Fix M1: validate key format before forwarding to Anthropic
+    if (!isValidAnthropicKeyFormat(data.apiKey)) {
+        throw new https_1.HttpsError('invalid-argument', 'API key format is invalid');
+    }
     if (!data.metadata?.title) {
         throw new https_1.HttpsError('invalid-argument', 'Missing metadata.title');
     }
-    // Truncate text if too long
+    // Fix M1: sanitize title to prevent prompt injection
+    const safeTitle = sanitizeTitle(data.metadata.title);
+    // Validate metadata types
+    const pageCount = Number(data.metadata.pageCount) || 0;
+    const wordCount = Number(data.metadata.wordCount) || 0;
+    // Validate lenses array
+    const lenses = Array.isArray(data.lenses) ? data.lenses.slice(0, 10) : [];
+    // Fix H3: server-side rate gate
+    await checkServerRateLimit();
+    // ── Text truncation ───────────────────────────────────────────────────────
     let text = data.text;
     if (text.length > MAX_TEXT_LENGTH) {
         text = text.slice(0, MAX_TEXT_LENGTH) + '\n\n[... truncated ...]';
-        console.log(`[Prompt] "${data.metadata.title}" — truncated to ${MAX_TEXT_LENGTH} chars`);
+        console.log(`[Prompt] "${safeTitle}" — truncated to ${MAX_TEXT_LENGTH} chars`);
     }
-    // Token estimate for Firebase monitoring (~1 token per 4 chars)
-    console.log(`[Prompt] "${data.metadata.title}" — ~${Math.round(text.length / 4).toLocaleString()} screenplay tokens`);
+    console.log(`[Prompt] "${safeTitle}" — ~${Math.round(text.length / 4).toLocaleString()} screenplay tokens`);
     const modelKey = data.model || 'sonnet';
     const model = CLAUDE_MODELS[modelKey] || CLAUDE_MODELS.sonnet;
-    const lenses = data.lenses || [];
-    // Build prompt
-    const prompt = (0, prompts_1.buildV6Prompt)(text, data.metadata, lenses);
-    // Call Anthropic API
+    // Build prompt using sanitized title
+    const prompt = (0, prompts_1.buildV6Prompt)(text, { title: safeTitle, pageCount, wordCount }, lenses);
+    // ── Call Anthropic ────────────────────────────────────────────────────────
     const client = new sdk_1.default({ apiKey: data.apiKey });
     try {
         const message = await client.messages.create({
@@ -68,7 +132,6 @@ exports.analyzeScreenplay = (0, https_1.onCall)({
             analysis = JSON.parse(responseText);
         }
         catch {
-            // Try to extract JSON from response with extra text
             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 analysis = JSON.parse(jsonMatch[0]);
@@ -77,16 +140,15 @@ exports.analyzeScreenplay = (0, https_1.onCall)({
                 throw new https_1.HttpsError('internal', 'Failed to parse analysis JSON from Claude response');
             }
         }
-        // Wrap in standard V6 output structure
         return {
-            source_file: data.metadata.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
+            source_file: safeTitle.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
             analysis_model: `claude-${modelKey}`,
             analysis_version: 'v6_unified',
             lenses_enabled: lenses,
             metadata: {
-                filename: data.metadata.title + '.pdf',
-                page_count: data.metadata.pageCount,
-                word_count: data.metadata.wordCount,
+                filename: safeTitle + '.pdf',
+                page_count: pageCount,
+                word_count: wordCount,
             },
             analysis,
             usage: {

@@ -53,15 +53,16 @@ const getThisMonth = () => new Date().toISOString().slice(0, 7);
 export const useApiConfigStore = create<ApiConfig>()(
   persist(
     (set, get) => ({
-      // Keys are restored from localStorage by persist; never empty if user
-      // previously entered them. Env vars act as a fallback for self-hosted deploys.
-      apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+      // Keys are restored from localStorage by persist after user enters them
+      // in Settings. We do NOT fall back to VITE_ env vars here — those get
+      // baked into the production bundle by Vite and expose keys to anyone
+      // who inspects the JS source. Enter keys via Settings only.
+      apiKey: '',
       apiEndpoint: 'https://api.anthropic.com/v1/messages',
-      // Computed — always reflects the actual key, never a stale cached boolean.
-      isConfigured: Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY),
+      isConfigured: false,
 
-      googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
-      isGoogleConfigured: Boolean(import.meta.env.VITE_GOOGLE_API_KEY),
+      googleApiKey: '',
+      isGoogleConfigured: false,
 
       monthlyBudgetLimit: 50,
       dailyRequestLimit: 100,

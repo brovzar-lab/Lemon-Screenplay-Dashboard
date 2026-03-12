@@ -1,19 +1,27 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Poster images — public read, authenticated or open write
+
+    // ── Poster images ─────────────────────────────────────────────────────────
+    // Public read (displayed in modal). Writes restricted to PDF content type
+    // and 10 MB max to prevent storage abuse.
     match /Posters/{allPaths=**} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
-    // Screenplay PDFs
+    // ── Screenplay PDFs ───────────────────────────────────────────────────────
+    // Read: allowed (internal team tool — anyone with the URL may view).
+    // Write: PDFs only, max 50 MB, must be application/pdf.
+    // This prevents storage flooding with arbitrary file types.
     match /screenplays/{allPaths=**} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.resource.size < 50 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
     }
 
-    // Default: deny all other paths
+    // ── Default deny ─────────────────────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;
     }

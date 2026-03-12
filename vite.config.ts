@@ -75,8 +75,9 @@ export default defineConfig({
   server: {
     port: 3000,
     fs: {
-      // Allow serving files from parent directory
-      allow: ['..'],
+      // Scope to only the .tmp data directory (for @data alias) + project root.
+      // Previously `['..']` allowed the full parent directory to be served.
+      allow: [path.resolve(__dirname, '../.tmp'), __dirname],
     },
     proxy: {
       // Proxy Anthropic API calls in development to avoid CORS
