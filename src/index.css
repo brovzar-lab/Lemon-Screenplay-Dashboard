@@ -590,16 +590,57 @@
   }
 }
 
+/* ─── MODAL HEADER — semantic classes ──────────────────────────────────────── */
+
+/* Dark mode (default): deep navy header, clear hierarchy */
+.modal-header {
+  background: rgba(10, 14, 26, 0.85) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Delete: visible ghost on dark — slate border, muted red text */
+.modal-delete-btn {
+  background: transparent;
+  border-color: rgba(239, 68, 68, 0.25);
+  color: rgba(252, 165, 165, 0.85);
+  /* red-300 at 85% — readable on dark */
+}
+
+.modal-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #FCA5A5;
+  /* red-300 full */
+}
+
+/* Close: slate on dark */
+.modal-close-btn {
+  color: rgba(148, 163, 184, 0.7);
+}
+
+.modal-close-btn:hover {
+  color: #E2E8F0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+
 /* ============================================
-   LIGHT THEME OVERRIDES
+   LIGHT THEME — Clean Paper-White Design System
    Applied when <html> has class "light"
-   Premium warm-neutral palette with gold accents
+
+   Evidence-based from Playwright audit:
+   - Body: #F1F5F9 (slate-100) — not warm sandy beige
+   - Panels: #FFFFFF with border-slate-200
+   - Surface hierarchy: body < panel < card < elevated
+   - Text: slate-900 primary, slate-600 secondary
+   - Accent: amber-700 (#B45309) for gold tones
    ============================================ */
 
-/* --- Base --- */
+/* ─── BASE ─────────────────────────────────────────────────────────────────── */
+
 html.light body {
-  background-color: #E8E3DA;
-  color: var(--color-black-900);
+  background-color: #F1F5F9;
+  color: #0F172A;
 }
 
 html.light h1,
@@ -608,83 +649,179 @@ html.light h3,
 html.light h4,
 html.light h5,
 html.light h6 {
-  color: var(--color-black-900);
+  color: #0F172A;
 }
 
 html.light a {
-  color: var(--color-gold-600);
+  color: #B45309;
 }
 
 html.light a:hover {
-  color: var(--color-gold-700);
+  color: #92400E;
 }
 
 html.light ::selection {
-  background-color: var(--color-gold-300);
-  color: var(--color-black-950);
+  background-color: rgba(245, 158, 11, 0.25);
+  color: #0F172A;
 }
 
-/* --- Scrollbar --- */
+/* ─── SCROLLBAR ─────────────────────────────────────────────────────────────── */
+
 html.light ::-webkit-scrollbar-track {
-  background: #F0ECE6;
+  background: #E2E8F0;
 }
 
 html.light ::-webkit-scrollbar-thumb {
-  background: var(--color-black-400);
+  background: #94A3B8;
+  border-radius: 4px;
 }
 
 html.light ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-black-500);
+  background: #64748B;
 }
 
-/* --- Glass / Surface --- */
-html.light .glass {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+/* ─── HEADER / NAV ──────────────────────────────────────────────────────────── */
+
+html.light header,
+html.light .glass-nav {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  backdrop-filter: blur(12px);
+}
+
+/* ─── SIDEBAR ───────────────────────────────────────────────────────────────── */
+
+html.light aside,
+html.light [class*="sidebar"] {
+  background: #FFFFFF !important;
+  border-right: 1px solid #E2E8F0 !important;
+}
+
+html.light [class*="bg-gold-500\/10"] {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+  color: #92400E;
+}
+
+/* ─── SURFACE HIERARCHY ─────────────────────────────────────────────────────── */
+
+/* Level 0 — page body: #F1F5F9 (set on body above) */
+
+/* Level 1 — major panels (analytics strip, filter bar, tab strip) */
+html.light .bg-black-900,
+html.light .bg-black-900\/95,
+html.light .bg-black-950 {
+  background-color: #FFFFFF !important;
+}
+
+/* Level 2 — cards and content containers */
+html.light .card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+html.light .card:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(245, 158, 11, 0.15);
+}
+
+/* Chart cards */
+html.light .bg-black-800,
+html.light .bg-black-800\/50,
+html.light .bg-black-800\/80 {
+  background-color: #FFFFFF !important;
+}
+
+/* Section panels inside pages */
+html.light .bg-black-700,
+html.light .bg-black-700\/50 {
+  background-color: #F8FAFC !important;
+}
+
+/* Level 3 — inset / well backgrounds */
+html.light .bg-black-900\/50,
+html.light .bg-black-900\/30,
+html.light .bg-black-800\/30 {
+  background-color: #F1F5F9 !important;
+}
+
+/* Level 4 — glass/blur containers */
+html.light .glass,
+html.light .glass-card,
+html.light .glass-panel {
+  background: rgba(255, 255, 255, 0.97) !important;
+  border: 1px solid #E2E8F0 !important;
+  backdrop-filter: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
 }
 
 html.light .glass-dark {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.99) !important;
+  border: 1px solid #CBD5E1 !important;
+  backdrop-filter: none !important;
 }
 
-/* --- Text color inversions (dark→light safe) --- */
+/* ─── MODAL / OVERLAY ───────────────────────────────────────────────────────── */
+
+html.light .glass-overlay,
+html.light .bg-black-950\/90,
+html.light .bg-black-950\/80 {
+  background: rgba(15, 23, 42, 0.45) !important;
+}
+
+/* Modal panel body (the scrollable content area) */
+html.light [class*="max-w-"][class*="glass"],
+html.light [class*="max-w-"][class*="bg-black"] {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Modal internal section insets (comparable films, standout scenes rows) */
+html.light .rounded-xl.bg-black-800\/50,
+html.light .rounded-lg.bg-black-800\/50,
+html.light .rounded-xl.bg-black-900\/50,
+html.light .rounded-lg.bg-black-900\/50,
+html.light p.rounded-lg {
+  background: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: none !important;
+}
+
+/* ─── TEXT ───────────────────────────────────────────────────────────────────── */
+
+html.light .text-white,
 html.light .text-black-100 {
-  color: var(--color-black-800);
+  color: #0F172A;
 }
 
 html.light .text-black-200 {
-  color: var(--color-black-700);
+  color: #1E293B;
 }
 
 html.light .text-black-300 {
-  color: var(--color-black-600);
+  color: #334155;
 }
 
 html.light .text-black-400 {
-  color: var(--color-black-500);
+  color: #475569;
 }
 
 html.light .text-black-500 {
-  color: var(--color-black-500);
+  color: #64748B;
 }
 
 html.light .text-black-600 {
-  color: var(--color-black-600);
+  color: #475569;
 }
 
-html.light .text-white {
-  color: var(--color-black-900);
-}
-
+/* Gold in light — always amber for contrast */
 html.light .text-gold-100 {
-  color: var(--color-gold-900);
+  color: #92400E;
 }
 
 html.light .text-gold-200 {
-  color: var(--color-gold-800);
+  color: #92400E;
 }
 
 html.light .text-gold-300 {
@@ -692,57 +829,53 @@ html.light .text-gold-300 {
 }
 
 html.light .text-gold-400 {
-  color: #78350F;
+  color: #B45309;
 }
 
-/* --- Background inversions --- */
-html.light .bg-black-700 {
-  background-color: var(--color-black-100);
+html.light .text-gold-500 {
+  color: #B45309;
 }
 
-html.light .bg-black-700\/50 {
-  background-color: rgba(241, 245, 249, 0.5);
+/* Status colors — ensure sufficient contrast */
+html.light .text-emerald-400,
+html.light .text-emerald-500 {
+  color: #059669;
 }
 
-html.light .bg-black-800 {
-  background-color: #D8D0C4;
+html.light .text-red-300,
+html.light .text-red-400,
+html.light .text-red-500 {
+  color: #DC2626;
 }
 
-html.light .bg-black-800\/50 {
-  background-color: rgba(216, 208, 196, 0.5);
+/* Gradient text */
+html.light .text-gradient-gold {
+  background: linear-gradient(135deg, #92400E 0%, #B45309 50%, #92400E 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-html.light .bg-black-900 {
-  background-color: #E4DDD2;
+/* Font mono: dark on light */
+html.light .font-mono {
+  color: #334155;
 }
 
-html.light .bg-black-900\/50 {
-  background-color: rgba(228, 221, 210, 0.5);
+html.light .font-mono.font-bold {
+  color: #92400E;
 }
 
-html.light .bg-black-900\/95 {
-  background-color: rgba(228, 221, 210, 0.97);
+/* Italic muted text */
+html.light .italic {
+  color: #64748B;
 }
 
-html.light .bg-black-950 {
-  background-color: white;
-}
+/* ─── BORDERS ────────────────────────────────────────────────────────────────── */
 
-html.light .bg-black-950\/90 {
-  background-color: rgba(0, 0, 0, 0.25);
-}
-
-/* --- Border inversions --- */
-html.light .border-black-600 {
-  border-color: #E0DACE;
-}
-
-html.light .border-black-700 {
-  border-color: #E8E3DA;
-}
-
+html.light .border-black-600,
+html.light .border-black-700,
 html.light .border-black-800 {
-  border-color: #F0ECE6;
+  border-color: #E2E8F0;
 }
 
 html.light .border-gold-500\/10 {
@@ -757,61 +890,48 @@ html.light .border-gold-500\/30 {
   border-color: rgba(245, 158, 11, 0.35);
 }
 
-/* --- Card --- */
-html.light .card {
-  background: white;
-  border: 1px solid #E0DACE;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
+/* ─── BUTTONS ─────────────────────────────────────────────────────────────────── */
 
-html.light .card:hover {
-  border-color: var(--color-gold-400);
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.12);
-}
-
-/* --- Buttons --- */
 html.light .btn-secondary {
-  background: white;
-  color: var(--color-black-800);
-  border: 1px solid #E0DACE;
+  background: #FFFFFF;
+  color: #334155;
+  border: 1px solid #CBD5E1;
 }
 
 html.light .btn-secondary:hover {
-  background: #FAF8F5;
-  border-color: var(--color-gold-400);
+  background: #F8FAFC;
+  border-color: #B45309;
+  color: #0F172A;
 }
 
 html.light .btn-ghost {
-  color: var(--color-black-600);
+  color: #475569;
 }
 
 html.light .btn-ghost:hover {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--color-gold-700);
+  background: rgba(245, 158, 11, 0.08);
+  color: #92400E;
 }
 
-/* --- Chips --- */
+/* ─── CHIPS / TAGS ───────────────────────────────────────────────────────────── */
+
 html.light .chip {
-  background: #F0ECE6;
-  color: var(--color-black-700);
-  border: 1px solid #E0DACE;
+  background: #F1F5F9;
+  color: #334155;
+  border: 1px solid #CBD5E1;
+}
+
+html.light .chip-active {
+  background: rgba(180, 83, 9, 0.1);
+  border-color: #B45309;
+  color: #92400E;
 }
 
 /* Semantic chip variants */
-.chip-genre {
-  border-color: var(--color-violet-500);
-  color: var(--color-violet-500);
-}
-
-.chip-budget {
-  border-color: var(--color-amber-500);
-  color: var(--color-amber-500);
-}
-
 html.light .chip-genre {
-  border-color: #6D28D9;
-  color: #6D28D9;
-  background: rgba(109, 40, 217, 0.06);
+  border-color: #7C3AED;
+  color: #7C3AED;
+  background: rgba(124, 58, 237, 0.06);
 }
 
 html.light .chip-budget {
@@ -820,28 +940,35 @@ html.light .chip-budget {
   background: rgba(180, 83, 9, 0.06);
 }
 
-/* --- Input --- */
-html.light .input {
-  background: white;
-  border: 1px solid #E0DACE;
-  color: var(--color-black-800);
+/* ─── INPUTS ─────────────────────────────────────────────────────────────────── */
+
+html.light .input,
+html.light select.input {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  color: #0F172A;
 }
 
 html.light .input:focus {
-  border-color: var(--color-gold-500);
+  border-color: #F59E0B;
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
 }
 
 html.light .input::placeholder {
-  color: var(--color-black-400);
+  color: #94A3B8;
 }
 
-/* --- Score bars --- */
+html.light option {
+  background: #FFFFFF;
+  color: #0F172A;
+}
+
+/* ─── SCORE BARS ──────────────────────────────────────────────────────────────── */
+
 html.light .score-bar {
-  background: #E8E3DA;
+  background: #E2E8F0;
 }
 
-/* --- Score text contrast --- */
 html.light .score-good {
   color: #B45309;
 }
@@ -850,168 +977,186 @@ html.light .score-excellent {
   color: #059669;
 }
 
-html.light .text-emerald-400,
-html.light .text-emerald-500 {
-  color: #059669;
-}
+/* ─── BADGES ─────────────────────────────────────────────────────────────────── */
 
-html.light .text-red-400,
-html.light .text-red-500 {
-  color: #DC2626;
-}
-
-html.light .text-gold-400 {
-  color: #78350F;
-}
-
-html.light .text-gold-500 {
-  color: #92400E;
-}
-
-/* --- Hover states --- */
-html.light .hover\:bg-black-700:hover {
-  background-color: #E8E3DA;
-}
-
-html.light .hover\:bg-black-700\/50:hover {
-  background-color: rgba(232, 227, 218, 0.5);
-}
-
-html.light .hover\:bg-black-800:hover {
-  background-color: #F0ECE6;
-}
-
-html.light .hover\:bg-black-800\/50:hover {
-  background-color: rgba(240, 236, 230, 0.5);
-}
-
-html.light .hover\:text-white:hover {
-  color: var(--color-black-900);
-}
-
-html.light .hover\:text-gold-400:hover {
-  color: var(--color-gold-600);
-}
-
-html.light .hover\:border-gold-500\/30:hover {
-  border-color: rgba(245, 158, 11, 0.4);
-}
-
-/* --- Modal overlays --- */
-html.light .bg-black-950\/90 {
-  background-color: rgba(0, 0, 0, 0.3);
-}
-
-/* Modal content panel */
-html.light [class*="max-w-"][class*="glass"] {
-  background: white;
-  border: 1px solid #E0DACE;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
-}
-
-/* --- Badge overrides --- */
 html.light .badge-consider {
-  background: var(--color-amber-500);
-  color: white;
+  background: #F59E0B;
+  color: #FFFFFF;
 }
 
 html.light .badge-pass {
-  background: var(--color-red-500);
-  color: white;
+  background: #EF4444;
+  color: #FFFFFF;
 }
 
-/* --- Gold accent backgrounds (used in filter pills, active tabs) --- */
+/* ─── STATUS PILL BACKGROUNDS ─────────────────────────────────────────────────── */
+
 html.light .bg-gold-500\/20 {
   background-color: rgba(245, 158, 11, 0.12);
-}
-
-html.light .bg-gold-500\/30 {
-  background-color: rgba(245, 158, 11, 0.18);
-}
-
-html.light .text-gold-300 {
   color: #92400E;
 }
 
-/* --- Comparable films cards (invisible text fix) --- */
-html.light [class*="comparable"] {
-  background: #F5F2EE;
-  color: var(--color-black-800);
+html.light .bg-emerald-500\/20 {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #065F46;
 }
 
-/* --- Settings / gradient overlays --- */
-html.light .bg-gradient-to-br.from-black-800\/50.to-black-900\/50 {
-  background: linear-gradient(to bottom right, rgba(240, 236, 230, 0.5), rgba(245, 242, 238, 0.5));
+html.light .bg-red-500\/20 {
+  background-color: rgba(239, 68, 68, 0.08);
+  color: #991B1B;
 }
 
-/* --- Table / list dividers --- */
-html.light .divide-black-800>*+* {
-  border-color: #E8E3DA;
+html.light .bg-gold-500\/10,
+html.light .bg-gold-500\/30 {
+  background-color: rgba(245, 158, 11, 0.1);
 }
 
-html.light .divide-black-700>*+* {
-  border-color: #E0DACE;
-}
-
-/* --- Gradient text --- */
-html.light .text-gradient-gold {
-  background: linear-gradient(135deg, #78350F 0%, #92400E 50%, #78350F 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* --- Font mono (scores, counts) — ensure dark text on light --- */
-html.light .font-mono {
-  color: var(--color-black-800);
-}
-
-/* --- Alerts (critical failures panel) --- */
+/* Alert backgrounds */
 html.light .bg-red-500\/10 {
-  background-color: rgba(220, 38, 38, 0.07);
+  background-color: rgba(220, 38, 38, 0.06);
 }
 
 html.light .border-red-500\/20 {
   border-color: rgba(220, 38, 38, 0.2);
 }
 
-html.light .text-red-300 {
-  color: #DC2626;
+/* ─── HOVER STATES ────────────────────────────────────────────────────────────── */
+
+html.light .hover\:bg-black-700:hover,
+html.light .hover\:bg-black-700\/50:hover {
+  background-color: #F1F5F9;
 }
 
-html.light .text-red-400 {
-  color: #DC2626;
+html.light .hover\:bg-black-800:hover,
+html.light .hover\:bg-black-800\/50:hover {
+  background-color: #F8FAFC;
 }
 
-/* --- Chart area backgrounds --- */
+html.light .hover\:text-white:hover {
+  color: #0F172A;
+}
+
+html.light .hover\:text-gold-400:hover {
+  color: #B45309;
+}
+
+html.light .hover\:border-gold-500\/30:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+/* ─── TABLE DIVIDERS ─────────────────────────────────────────────────────────── */
+
+html.light .divide-black-800>*+* {
+  border-color: #E2E8F0;
+}
+
+html.light .divide-black-700>*+* {
+  border-color: #CBD5E1;
+}
+
+/* ─── CHART AREA ─────────────────────────────────────────────────────────────── */
+
 html.light .bg-black-800\/80 {
-  background-color: rgba(216, 208, 196, 0.8);
+  background-color: #FFFFFF !important;
 }
 
-/* --- Scrollbar track --- */
-html.light ::-webkit-scrollbar-track {
-  background: #D8D0C4;
+html.light .bg-black-800\/60 {
+  background-color: #F8FAFC !important;
 }
 
-/* --- Chip active state --- */
-html.light .chip-active {
-  background: rgba(120, 53, 15, 0.12);
-  border-color: #92400E;
-  color: #78350F;
+/* ─── COMPARABLE FILMS: text contrast ─────────────────────────────────────── */
+
+html.light .font-semibold {
+  color: #1E293B;
 }
 
-/* --- Select dropdown --- */
-html.light select.input {
-  background: white;
-  color: var(--color-black-900);
+html.light .font-medium {
+  color: #334155;
 }
 
-html.light option {
-  background: white;
-  color: var(--color-black-900);
+/* ─── SETTINGS PANEL ─────────────────────────────────────────────────────────── */
+
+html.light .bg-gradient-to-br {
+  background: linear-gradient(to bottom right, #F8FAFC, #F1F5F9) !important;
 }
 
-/* --- Stats pills font-mono override --- */
-html.light .font-mono.font-bold {
-  color: #78350F;
+/* ─── CARD FILM NOW VARIANT ──────────────────────────────────────────────────── */
+
+html.light .card-film-now {
+  background: #FFFFFF;
+  border: 2px solid rgba(245, 158, 11, 0.6) !important;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.1) !important;
+}
+
+/* ─── MISC OVERRIDES ──────────────────────────────────────────────────────────── */
+
+html.light .bg-black-950\/90 {
+  background-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+html.light .bg-black-950\/80 {
+  background-color: rgba(0, 0, 0, 0.25) !important;
+}
+
+/* ─── MODAL BODY (scrollable content area) ────────────────────────────────── */
+
+html.light .modal-body {
+  background-color: #F8FAFC !important;
+}
+
+/* Section rows inside modal body */
+html.light .modal-body .bg-black-900\/50,
+html.light .modal-body .bg-black-950\/50,
+html.light .modal-body [class*="bg-black-9"] {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0;
+}
+
+/* Inner text in modal body */
+html.light .modal-body .text-black-300 {
+  color: #334155;
+}
+
+html.light .modal-body .text-black-400 {
+  color: #475569;
+}
+
+html.light .modal-body .text-gold-200 {
+  color: #92400E;
+}
+
+html.light .modal-body h3,
+html.light .modal-body h4 {
+  color: #0F172A;
+}
+/* ─── MODAL HEADER — light mode overrides ──────────────────────────────────── */
+
+html.light .modal-header {
+  background: #FFFFFF !important;
+  border-bottom-color: #E2E8F0 !important;
+}
+
+/* In light mode header is white — so title needs to be slate-900 */
+html.light .modal-header h2 { color: #92400E; } /* amber for film title */
+html.light .modal-header p  { color: #475569; } /* slate-600 author */
+
+/* Close button: dark on white header */
+html.light .modal-close-btn {
+  color: #64748B;
+}
+html.light .modal-close-btn:hover {
+  color: #0F172A;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Delete button: clear red on white — proper danger style */
+html.light .modal-delete-btn {
+  background: transparent;
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #DC2626;
+}
+html.light .modal-delete-btn:hover {
+  background: rgba(220, 38, 38, 0.06);
+  border-color: #DC2626;
+  color: #B91C1C;
 }

@@ -104,6 +104,42 @@ export function PdfUploadPanel() {
     const [searchQuery, setSearchQuery] = useState('');
     const [showMissingOnly, setShowMissingOnly] = useState(false);
 
+    // Batch selection
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [batchDeleting, setBatchDeleting] = useState(false);
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === filteredScreenplays.length && filteredScreenplays.length > 0) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredScreenplays.map((s) => s.id)));
+        }
+    };
+
+    const handleBatchDelete = async () => {
+        if (batchDeleting || selectedIds.size === 0) return;
+        setBatchDeleting(true);
+        for (const id of selectedIds) {
+            const sp = filteredScreenplays.find((s) => s.id === id);
+            if (sp) {
+                await new Promise<void>((resolve) => {
+                    deleteMutation.mutate(sp.sourceFile, { onSuccess: resolve, onError: () => resolve() });
+                });
+                setStorageStatuses((prev) => { const n = { ...prev }; delete n[id]; return n; });
+            }
+        }
+        setSelectedIds(new Set());
+        setBatchDeleting(false);
+    };
+
     // ─── Live storage scan ──────────────────────────────────────────────────
 
     const checkStoragePaths = useCallback(async (list: Screenplay[]) => {
@@ -426,6 +462,22 @@ export function PdfUploadPanel() {
 
             {/* Search + filter bar */}
             <div className="flex items-center gap-3">
+                {/* Select-all checkbox */}
+                <button
+                    onClick={toggleSelectAll}
+                    title={selectedIds.size === filteredScreenplays.length && filteredScreenplays.length > 0 ? 'Deselect all' : 'Select all'}
+                    className={clsx(
+                        'shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
+                        selectedIds.size === filteredScreenplays.length && filteredScreenplays.length > 0
+                            ? 'bg-red-500 border-red-400 text-white'
+                            : selectedIds.size > 0
+                                ? 'bg-red-500/40 border-red-400/60 text-white'
+                                : 'border-black-600 hover:border-red-400/60'
+                    )}
+                >
+                    {selectedIds.size > 0 && <span className="text-[10px] font-bold">✓</span>}
+                </button>
+
                 <div className="relative flex-1">
                     <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -451,6 +503,33 @@ export function PdfUploadPanel() {
                 </button>
             </div>
 
+            {/* Floating batch-delete action bar */}
+            {selectedIds.size > 0 && (
+                <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 animate-fade-in">
+                    <span className="text-sm text-red-300 font-medium">
+                        {selectedIds.size} project{selectedIds.size > 1 ? 's' : ''} selected
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setSelectedIds(new Set())}
+                            className="text-xs px-3 py-1.5 rounded-lg border border-black-600 text-black-400 hover:text-white transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleBatchDelete}
+                            disabled={batchDeleting}
+                            className="text-xs px-3 py-1.5 rounded-lg font-semibold bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                            {batchDeleting && (
+                                <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                            )}
+                            {batchDeleting ? 'Deleting…' : `Delete ${selectedIds.size} Selected`}
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Screenplay list */}
             <div className="space-y-2">
                 {filteredScreenplays.length === 0 && (
@@ -463,21 +542,38 @@ export function PdfUploadPanel() {
                     const uploadEntry = uploadEntries[screenplay.id];
                     const isUploading = uploadEntry?.state === 'uploading';
                     const storagePath = buildStoragePath(screenplay);
+                    const isSelected = selectedIds.has(screenplay.id);
 
                     return (
                         <div
                             key={screenplay.id}
                             className={clsx(
-                                'flex items-center gap-4 p-3 rounded-xl border transition-all',
-                                isUploading
-                                    ? 'border-gold-500/20 bg-gold-500/5'
-                                    : storageStatus === 'found'
-                                        ? 'border-emerald-500/20 bg-emerald-500/5'
-                                        : storageStatus === 'checking'
-                                            ? 'border-black-700 bg-black-800/30'
-                                            : 'border-red-500/10 bg-black-800/30'
+                                'flex items-center gap-3 p-3 rounded-xl border transition-all',
+                                isSelected
+                                    ? 'border-red-500/30 bg-red-500/5'
+                                    : isUploading
+                                        ? 'border-gold-500/20 bg-gold-500/5'
+                                        : storageStatus === 'found'
+                                            ? 'border-emerald-500/20 bg-emerald-500/5'
+                                            : storageStatus === 'checking'
+                                                ? 'border-black-700 bg-black-800/30'
+                                                : 'border-red-500/10 bg-black-800/30'
                             )}
                         >
+                            {/* Row checkbox */}
+                            <button
+                                onClick={() => toggleSelect(screenplay.id)}
+                                className={clsx(
+                                    'shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
+                                    isSelected
+                                        ? 'bg-red-500 border-red-400 text-white'
+                                        : 'border-black-600 hover:border-red-400/60'
+                                )}
+                                aria-label={isSelected ? 'Deselect' : 'Select'}
+                            >
+                                {isSelected && <span className="text-[10px] font-bold">✓</span>}
+                            </button>
+
                             {/* Status icon */}
                             <div className="shrink-0 w-8 h-8 flex items-center justify-center">
                                 {isUploading || storageStatus === 'checking' ? (

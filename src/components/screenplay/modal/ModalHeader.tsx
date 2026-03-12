@@ -85,7 +85,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
     return (
         <>
             <div className={clsx(
-                'relative p-6 border-b',
+                'modal-header relative p-6 border-b',
                 screenplay.isFilmNow
                     ? 'bg-gradient-to-r from-gold-900/30 to-gold-800/20 border-gold-500/30'
                     : 'bg-black-900/80 border-black-700'
@@ -94,7 +94,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                 <button
                     ref={closeButtonRef}
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-black-400 hover:text-gold-400 transition-colors p-2 rounded-lg hover:bg-white/5 z-10"
+                    className="modal-close-btn absolute top-4 right-4 transition-all p-2 rounded-lg z-10 text-black-400 hover:text-black-200 hover:bg-white/10"
                     aria-label="Close modal"
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -169,7 +169,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                         </button>
                         <button
                             onClick={() => setShowDeleteConfirm(true)}
-                            className="text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-colors bg-red-600/10 text-red-400 hover:bg-red-600/20 hover:text-red-300 border border-red-500/20"
+                            className="modal-delete-btn text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border"
                             title="Delete this screenplay"
                             aria-label="Delete screenplay"
                         >

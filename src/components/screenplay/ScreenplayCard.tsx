@@ -130,40 +130,34 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
           </button>
         )}
 
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-4 pr-8">
-          <div>
-            <h3 className="text-lg font-display text-gold-100 m-0 line-clamp-1">
-              {screenplay.title}
-            </h3>
-            <p className="text-sm text-black-400 m-0">
-              by {screenplay.author}
-            </p>
+        {/* Header: badge → generous gap → full-width title */}
+        <div className="mb-5 pr-8">
+          <div className="mb-3">
+            <RecommendationBadge tier={screenplay.recommendation} />
           </div>
-          <RecommendationBadge tier={screenplay.recommendation} />
+          <h3 className="text-lg font-display text-gold-100 m-0 leading-tight">
+            {screenplay.title}
+          </h3>
+          <p className="text-sm text-black-400 mt-1 mb-0">
+            by {screenplay.author}
+          </p>
         </div>
 
         {/* Tags */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <span className="chip chip-genre">
-            {screenplay.genre}
-          </span>
-          <span className="chip chip-budget">
-            {screenplay.budgetCategory}
-          </span>
-          <span className="chip">
-            {screenplay.collection.replace(' Black List', '')}
-          </span>
+          <span className="chip chip-genre">{screenplay.genre}</span>
+          <span className="chip chip-budget">{screenplay.budgetCategory}</span>
+          <span className="chip">{screenplay.collection.replace(' Black List', '')}</span>
           <ProductionBadge tmdbStatus={screenplay.tmdbStatus} compact />
         </div>
 
         {/* Logline */}
-        <p className="text-sm text-black-300 mb-4 line-clamp-2">
+        <p className="text-sm text-black-300 mb-5 line-clamp-2 leading-relaxed">
           {screenplay.logline}
         </p>
 
         {/* Scores Grid */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-5">
           {getDimensionDisplay(screenplay).slice(0, 4).map((dim) => (
             <ScoreBar
               key={dim.key}
@@ -176,9 +170,9 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
 
         {/* Main Scores */}
         <div className="flex items-center justify-between pt-4 border-t border-black-700">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
             <div>
-              <span className="text-xs text-black-500 block">Score</span>
+              <span className="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
               <span className={clsx(
                 'font-mono text-xl font-bold',
                 getScoreColorClass(Number(screenplay.weightedScore) || 0)
@@ -187,7 +181,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
               </span>
             </div>
             <div>
-              <span className="text-xs text-black-500 block">CVS</span>
+              <span className="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
               {screenplay.commercialViability.cvsAssessed === false ? (
                 <span className="text-sm text-black-500 italic">N/A</span>
               ) : (

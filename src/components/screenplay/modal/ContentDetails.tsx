@@ -18,13 +18,13 @@ export function ContentDetails({ screenplay }: ContentDetailsProps) {
             <CharactersSection screenplay={screenplay} />
 
             {/* Comparable Films */}
-            {screenplay.comparableFilms.length > 0 && (
-                <ComparableFilmsSection films={screenplay.comparableFilms} />
+            {screenplay.comparableFilms.filter(f => f.title?.trim()).length > 0 && (
+                <ComparableFilmsSection films={screenplay.comparableFilms.filter(f => f.title?.trim())} />
             )}
 
             {/* Standout Scenes */}
-            {screenplay.standoutScenes.length > 0 && (
-                <StandoutScenesSection scenes={screenplay.standoutScenes} />
+            {screenplay.standoutScenes.filter(s => s.scene?.trim()).length > 0 && (
+                <StandoutScenesSection scenes={screenplay.standoutScenes.filter(s => s.scene?.trim())} />
             )}
 
             {/* Strengths & Weaknesses */}

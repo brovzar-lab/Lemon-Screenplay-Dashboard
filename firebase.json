@@ -38,6 +38,10 @@
     ],
     "rewrites": [
       {
+        "source": "/api/analyze",
+        "function": "analyzeScreenplay"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

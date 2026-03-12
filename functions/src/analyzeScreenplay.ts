@@ -12,7 +12,7 @@ import { buildV6Prompt, type LensName } from './prompts';
 const CLAUDE_MODELS: Record<string, string> = {
   sonnet: 'claude-sonnet-4-5-20250929',
   haiku: 'claude-haiku-4-5-20251001',
-  opus: 'claude-opus-4-6',
+  opus: 'claude-3-opus-20240229',   // claude-opus-4 not yet on API
 };
 
 // ≈37.5K tokens — leaves headroom for template (~10K), lenses, and 16K output budget
@@ -36,6 +36,7 @@ export const analyzeScreenplay = onCall(
     memory: '512MiB',
     maxInstances: 5,
     cors: true,
+    invoker: 'public',     // Allow unauthenticated Firebase SDK calls from the browser
   },
   async (request) => {
     const data = request.data as AnalyzeRequest;

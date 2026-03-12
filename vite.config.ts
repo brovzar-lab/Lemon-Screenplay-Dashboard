@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import fs from 'fs'
 import tailwindcss from '@tailwindcss/vite'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const pkg = require('./package.json') as { version: string }
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -59,6 +62,9 @@ export default defineConfig({
         },
       },
     },
+  },
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
   },
   resolve: {
     alias: {

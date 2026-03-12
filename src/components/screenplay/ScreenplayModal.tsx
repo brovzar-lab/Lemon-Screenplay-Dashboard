@@ -114,7 +114,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
           </div>
 
           {/* 2. Scrollable Content Body */}
-          <div className="p-6 space-y-8 bg-black-950/50">
+          <div className="modal-body p-6 space-y-8 bg-black-950/50">
             <AlertBanners screenplay={screenplay} />
             <FilmNowSection screenplay={screenplay} />
 
