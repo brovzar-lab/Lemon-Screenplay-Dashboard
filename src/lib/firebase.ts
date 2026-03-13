@@ -1,17 +1,16 @@
 /**
  * Firebase Configuration
- * Initializes Firebase app, Storage, and Firestore.
+ * Initializes Firebase app, Storage, Firestore, and Anonymous Auth.
  *
- * NOTE: Firebase App Check (reCAPTCHA v3) has been disabled.
- * The reCAPTCHA provider type registered in Firebase Console did not match
- * the client provider and was causing 400 errors that blocked ALL Firebase
- * calls (Firestore sync + Storage reads/writes). Re-enable after verifying
- * the exact provider registered in Firebase Console → App Check → Apps.
+ * Anonymous auth is used to gate Firestore access via security rules.
+ * App Check is intentionally skipped (prior provider mismatch caused 400 errors).
  */
 
 import { initializeApp } from 'firebase/app';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth, signInAnonymously, browserLocalPersistence, setPersistence } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 const firebaseConfig = {
     apiKey: "AIzaSyBN_JWOlHSeu5nbcqY47fkY-9NDd2lIA00",
@@ -30,6 +29,17 @@ export const storage = getStorage(app);
 
 // Firebase Firestore
 export const db = getFirestore(app);
+
+// Firebase Auth (anonymous)
+export const auth = getAuth(app);
+
+// Resolves once the anonymous session is established.
+// Await this in any module before making Firestore calls.
+export const authReady: Promise<User> = (async () => {
+    await setPersistence(auth, browserLocalPersistence);
+    const credential = await signInAnonymously(auth);
+    return credential.user;
+})();
 
 /**
  * Upload a screenplay PDF to Firebase Storage.
