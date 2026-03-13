@@ -72,27 +72,27 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SYNC-01 | — | Pending |
-| SYNC-02 | — | Pending |
-| SYNC-03 | — | Pending |
-| SYNC-04 | — | Pending |
-| UX-01 | — | Pending |
-| UX-02 | — | Pending |
-| UX-03 | — | Pending |
-| UX-04 | — | Pending |
-| SHARE-01 | — | Pending |
-| SHARE-02 | — | Pending |
-| SHARE-03 | — | Pending |
-| SHARE-04 | — | Pending |
-| EXPORT-01 | — | Pending |
-| INTEL-01 | — | Pending |
-| INTEL-02 | — | Pending |
+| SYNC-01 | Phase 2 | Pending |
+| SYNC-02 | Phase 2 | Pending |
+| SYNC-03 | Phase 3 | Pending |
+| SYNC-04 | Phase 3 | Pending |
+| UX-01 | Phase 4 | Pending |
+| UX-02 | Phase 4 | Pending |
+| UX-03 | Phase 4 | Pending |
+| UX-04 | Phase 4 | Pending |
+| SHARE-01 | Phase 5 | Pending |
+| SHARE-02 | Phase 6 | Pending |
+| SHARE-03 | Phase 6 | Pending |
+| SHARE-04 | Phase 6 | Pending |
+| EXPORT-01 | Phase 7 | Pending |
+| INTEL-01 | Phase 8 | Pending |
+| INTEL-02 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-13*
-*Last updated: 2026-03-13 after initial definition*
+*Last updated: 2026-03-13 after roadmap creation — all 15 v1 requirements mapped*
