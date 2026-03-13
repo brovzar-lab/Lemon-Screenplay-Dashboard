@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { useScreenplays } from './useScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
+import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { canonicalizeGenre } from '@/lib/calculations';
 import type { Screenplay, FilterState, SortConfig, RecommendationTier } from '@/types';
 
@@ -170,6 +171,20 @@ export function passesFilters(screenplay: Screenplay, filters: FilterState): boo
     }
   }
 
+  // Missing PDF only — use live Storage scan results when available,
+  // fall back to the hasPdf Firestore field if no scan has run yet.
+  if (filters.missingPdfOnly) {
+    const liveStatuses = usePdfStatusStore.getState().statuses;
+    const hasScanResult = usePdfStatusStore.getState().hasScanResult;
+    if (hasScanResult) {
+      // Live scan data available: exclude screenplays that have a confirmed PDF in Storage
+      if (liveStatuses[screenplay.id] === 'found') return false;
+    } else {
+      // No scan yet: fall back to hasPdf field
+      if (screenplay.hasPdf === true) return false;
+    }
+  }
+
   return true;
 }
 
@@ -276,6 +291,9 @@ export function useFilteredScreenplays() {
   // Get filter state (selective subscription to avoid re-renders)
   const filters = useFilterStore();
   const { sortConfigs, prioritizeFilmNow } = useSortStore();
+  // Subscribe to pdfStatusStore so grid re-renders when scan results arrive
+  const pdfStatuses = usePdfStatusStore((s) => s.statuses);
+  const hasPdfScanResult = usePdfStatusStore((s) => s.hasScanResult);
 
   // Memoize filtered and sorted data
   const filteredScreenplays = useMemo(() => {
@@ -286,7 +304,9 @@ export function useFilteredScreenplays() {
 
     // Sort
     return sortScreenplays(filtered, sortConfigs, prioritizeFilmNow);
-  }, [screenplays, filters, sortConfigs, prioritizeFilmNow]);
+    // pdfStatuses + hasPdfScanResult trigger re-computation when scan results arrive
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screenplays, filters, sortConfigs, prioritizeFilmNow, pdfStatuses, hasPdfScanResult]);
 
   return {
     screenplays: filteredScreenplays,
@@ -325,6 +345,7 @@ export function useHasActiveFilters(): boolean {
     filters.hidePassRated ||
     filters.hasCriticalFailures !== null ||
     !filters.hideProduced || // Default is true (hide produced). Active when user opted to show produced films.
-    !filters.hideNonScreenplays // Default is true (hide non-screenplays). Active when user opted to show them.
+    !filters.hideNonScreenplays || // Default is true (hide non-screenplays). Active when user opted to show them.
+    filters.missingPdfOnly
   );
 }

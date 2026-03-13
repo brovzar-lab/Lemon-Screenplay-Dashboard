@@ -31,7 +31,7 @@ export function AlertBanners({ screenplay }: AlertBannersProps) {
             </div>
 
             {/* V6 False Positive Warning */}
-            {hasV6Fields(screenplay) && screenplay.trapsTriggered && screenplay.trapsTriggered > 0 && (
+            {hasV6Fields(screenplay) && (screenplay.trapsTriggered ?? 0) > 0 && (
                 <FalsePositiveWarning screenplay={screenplay as Screenplay & ScreenplayWithV6} />
             )}
 

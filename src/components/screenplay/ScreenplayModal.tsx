@@ -103,7 +103,9 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="max-h-[85vh] overflow-y-auto scrollbar-hide">
+        <div className="max-h-[85vh] overflow-y-auto scrollbar-hide relative">
+          {/* Bottom scroll affordance — fades out when scrolled to bottom via CSS */}
+          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black-950/80 to-transparent z-30 rounded-b-2xl" aria-hidden="true" />
           {/* 1. Sticky Header */}
           <div className="sticky top-0 z-40 backdrop-blur-xl">
             <ModalHeader
@@ -114,7 +116,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
           </div>
 
           {/* 2. Scrollable Content Body */}
-          <div className="p-6 space-y-8 bg-black-950/50">
+          <div className="modal-body p-6 space-y-8 bg-black-950/50">
             <AlertBanners screenplay={screenplay} />
             <FilmNowSection screenplay={screenplay} />
 

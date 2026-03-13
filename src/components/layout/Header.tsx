@@ -52,7 +52,6 @@ export function Header() {
             <h1 className="text-2xl font-display m-0">
               <span className="text-gradient-gold font-bold tracking-tight">LEMON</span>
               <span className="text-black-200 font-light ml-2">Screenplay Dashboard</span>
-              <span className="text-xs text-black-500 font-light ml-2 opacity-50">v6.7.0</span>
             </h1>
           </div>
 
@@ -74,11 +73,13 @@ export function Header() {
                   label="Avg Score"
                   value={stats?.avgWeightedScore.toFixed(1) || '—'}
                 />
-                <StatPill
-                  label="FILM NOW"
-                  value={stats?.filmNowCount || 0}
-                  highlight={true}
-                />
+                {(stats?.filmNowCount ?? 0) > 0 && (
+                  <StatPill
+                    label="FILM NOW"
+                    value={stats!.filmNowCount}
+                    highlight={true}
+                  />
+                )}
               </>
             )}
 

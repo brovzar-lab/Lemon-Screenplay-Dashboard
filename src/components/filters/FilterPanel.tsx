@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { clsx } from 'clsx';
 import { useFilterStore } from '@/stores/filterStore';
+import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { useGenres, useThemes } from '@/hooks/useScreenplays';
 import { RangeSlider } from './RangeSlider';
 import { MultiSelect } from './MultiSelect';
@@ -74,9 +75,13 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
     // Display Options
     hideProduced,
     setHideProduced,
+    missingPdfOnly,
+    setMissingPdfOnly,
     // Actions
     resetFilters,
   } = useFilterStore();
+
+  const { hasScanResult, isScanning: isPdfScanning } = usePdfStatusStore();
 
   const toggleSection = (section: string) => {
     setActiveSection(activeSection === section ? null : section);
@@ -155,6 +160,56 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   </p>
                 </div>
               </label>
+
+              {/* No PDF linked filter */}
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={missingPdfOnly}
+                    onChange={(e) => setMissingPdfOnly(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-black-700 rounded-full peer peer-checked:bg-amber-500/50 transition-colors" />
+                  <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-black-400 rounded-full transition-all peer-checked:translate-x-5 peer-checked:bg-amber-400" />
+                </div>
+                <div>
+                  <span className="text-sm text-gold-200 group-hover:text-gold-100">
+                    No PDF linked
+                  </span>
+                  <p className="text-xs text-black-500">
+                    Show only screenplays whose PDF is not in Storage
+                  </p>
+                </div>
+              </label>
+
+              {/* Contextual hint when filter is on but no scan has run */}
+              {missingPdfOnly && !hasScanResult && (
+                <div className="ml-1 flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  {isPdfScanning ? (
+                    <div className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
+                  ) : (
+                    <svg className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                  <p className="text-xs text-amber-300 leading-relaxed">
+                    {isPdfScanning
+                      ? 'Scanning Storage… filter will update automatically.'
+                      : <>Open <strong>Settings → PDF Files</strong> to scan — the filter will activate once the scan completes.</>}
+                  </p>
+                </div>
+              )}
+
+              {/* Confirmation when scan is done */}
+              {missingPdfOnly && hasScanResult && (
+                <div className="ml-1 flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p className="text-xs text-emerald-300">Live Storage data active — filter is accurate.</p>
+                </div>
+              )}
             </div>
           </Section>
 

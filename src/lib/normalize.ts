@@ -363,6 +363,7 @@ export function normalizeScreenplay(
     ...baseScreenplay,
     producerMetrics,
     tmdbStatus,
+    hasPdf: (raw as unknown as Record<string, unknown>).hasPdf === true,
   };
 }
 
@@ -570,6 +571,7 @@ export function normalizeV6Screenplay(
     ...baseScreenplay,
     producerMetrics,
     tmdbStatus: null,
+    hasPdf: (raw as unknown as Record<string, unknown>).hasPdf === true,
   };
 }
 

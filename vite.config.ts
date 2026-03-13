@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import fs from 'fs'
 import tailwindcss from '@tailwindcss/vite'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+const pkg = require('./package.json') as { version: string }
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -60,6 +63,9 @@ export default defineConfig({
       },
     },
   },
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -69,8 +75,9 @@ export default defineConfig({
   server: {
     port: 3000,
     fs: {
-      // Allow serving files from parent directory
-      allow: ['..'],
+      // Scope to only the .tmp data directory (for @data alias) + project root.
+      // Previously `['..']` allowed the full parent directory to be served.
+      allow: [path.resolve(__dirname, '../.tmp'), __dirname],
     },
     proxy: {
       // Proxy Anthropic API calls in development to avoid CORS

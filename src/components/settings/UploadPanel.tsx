@@ -116,7 +116,9 @@ export function UploadPanel() {
   const [newCatError, setNewCatError] = useState('');
 
   const { jobs, addJob, updateJob, removeJob, clearCompleted, isProcessing, setProcessing, getFile } = useUploadStore();
-  const { isConfigured, apiKey, canMakeRequest, incrementUsage } = useApiConfigStore();
+  const { apiKey, canMakeRequest, incrementUsage } = useApiConfigStore();
+  // Derive isConfigured from the actual key — never trust the persisted boolean flag
+  const isConfigured = apiKey.length > 0;
   const queryClient = useQueryClient();
 
   const handleFileSelect = (files: FileList | null) => {
@@ -245,7 +247,16 @@ export function UploadPanel() {
         // Invalidate the screenplays query so the new analysis appears
         queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown error';
+        // FirebaseError from httpsCallable has .message with the Cloud Function's message
+        // and .code like 'functions/internal'. Unwrap the most useful description.
+        let message = 'Unknown error';
+        if (err instanceof Error) {
+          message = err.message;
+          // Firebase wraps Cloud Function errors — the real detail is in .message already
+          // but strip the leading "internal: " prefix for cleaner display
+          message = message.replace(/^(functions\/[a-z-]+:\s*)/i, '');
+        }
+        console.error('[Upload] Analysis failed:', err);
         updateJob(job.id, {
           status: 'error',
           error: message,

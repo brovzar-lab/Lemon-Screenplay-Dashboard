@@ -20,12 +20,42 @@ interface ComparisonRadarProps {
   onRemove: (id: string) => void;
 }
 
+interface RadarCustomTooltipProps {
+  active?: boolean;
+  payload?: ReadonlyArray<{ dataKey?: string; value?: number; stroke?: string }>;
+  label?: string | number;
+  screenplays: Screenplay[];
+}
+
 // Colors for each screenplay line
 const COLORS = [
   { stroke: '#F59E0B', fill: 'rgba(245, 158, 11, 0.2)' }, // Gold
   { stroke: '#10B981', fill: 'rgba(16, 185, 129, 0.2)' }, // Emerald
   { stroke: '#8B5CF6', fill: 'rgba(139, 92, 246, 0.2)' }, // Violet
 ];
+
+// Hoisted to module scope — avoids react-hooks/static-components violation
+function CustomTooltip({ active, payload, label, screenplays }: RadarCustomTooltipProps) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="glass p-3 rounded-lg border border-black-700 min-w-[150px]">
+        <p className="text-xs text-gold-400 font-medium mb-2">{label}</p>
+        {payload.map((entry) => {
+          const sp = screenplays.find((s) => s.id === entry.dataKey);
+          return (
+            <div key={entry.dataKey} className="flex items-center justify-between gap-4 text-xs">
+              <span style={{ color: entry.stroke }}>{sp?.title || entry.dataKey}</span>
+              <span className="font-mono font-bold" style={{ color: entry.stroke }}>
+                {entry.value?.toFixed(1)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return null;
+}
 
 export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps) {
   // Transform data for Recharts radar — uses version-appropriate dimensions
@@ -37,29 +67,6 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
       screenplays.map((sp) => [sp.id, getDimensionDisplay(sp)[idx]?.score ?? 0])
     ),
   }));
-
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="glass p-3 rounded-lg border border-black-700 min-w-[150px]">
-          <p className="text-xs text-gold-400 font-medium mb-2">{label}</p>
-          {payload.map((entry: any) => {
-            const sp = screenplays.find((s) => s.id === entry.dataKey);
-            return (
-              <div key={entry.dataKey} className="flex items-center justify-between gap-4 text-xs">
-                <span style={{ color: entry.stroke }}>{sp?.title || entry.dataKey}</span>
-                <span className="font-mono font-bold" style={{ color: entry.stroke }}>
-                  {entry.value?.toFixed(1)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="space-y-6">
@@ -131,7 +138,7 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
               />
             ))}
 
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={(props) => <CustomTooltip {...props} screenplays={screenplays} />} />
           </RadarChart>
         </ResponsiveContainer>
       </div>

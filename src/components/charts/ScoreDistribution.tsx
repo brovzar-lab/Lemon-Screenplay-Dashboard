@@ -12,11 +12,20 @@ import {
   Tooltip,
   Cell,
 } from 'recharts';
+
 import type { Screenplay } from '@/types';
 
 interface ScoreDistributionProps {
   screenplays: Screenplay[];
   onBarClick?: (range: { min: number; max: number }) => void;
+}
+
+interface ScoreBinItem {
+  label: string;
+  min: number;
+  max: number;
+  count: number;
+  percentage: number | string;
 }
 
 // Score ranges for histogram bins
@@ -39,9 +48,31 @@ function getBarColor(min: number): string {
   return '#EF4444'; // Red - poor
 }
 
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: ReadonlyArray<{ payload: ScoreBinItem }>;
+}
+
+// Hoisted to module scope — avoids react-hooks/static-components violation
+function CustomTooltip({ active, payload }: ChartTooltipProps) {
+  if (active && payload && payload.length) {
+    const item = payload[0].payload as ScoreBinItem;
+    return (
+      <div className="glass p-3 rounded-lg border border-black-700 text-sm">
+        <p className="text-gold-400 font-medium mb-1">Score: {item.label}</p>
+        <p className="text-white">
+          <span className="font-mono font-bold">{item.count}</span> screenplays
+        </p>
+        <p className="text-black-400 text-xs">{item.percentage}% of total</p>
+      </div>
+    );
+  }
+  return null;
+}
+
 export function ScoreDistribution({ screenplays, onBarClick }: ScoreDistributionProps) {
   // Calculate distribution
-  const data = SCORE_BINS.map((bin) => {
+  const data: ScoreBinItem[] = SCORE_BINS.map((bin) => {
     const count = screenplays.filter(
       (sp) => sp.weightedScore >= bin.min && sp.weightedScore < bin.max
     ).length;
@@ -57,23 +88,6 @@ export function ScoreDistribution({ screenplays, onBarClick }: ScoreDistribution
   if (perfectScores > 0) {
     data[data.length - 1].count += perfectScores;
   }
-
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      return (
-        <div className="glass p-3 rounded-lg border border-black-700 text-sm">
-          <p className="text-gold-400 font-medium mb-1">Score: {item.label}</p>
-          <p className="text-white">
-            <span className="font-mono font-bold">{item.count}</span> screenplays
-          </p>
-          <p className="text-black-400 text-xs">{item.percentage}% of total</p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="h-full">
@@ -91,7 +105,7 @@ export function ScoreDistribution({ screenplays, onBarClick }: ScoreDistribution
             tick={{ fill: '#9CA3AF', fontSize: 11 }}
             allowDecimals={false}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+          <Tooltip content={(props) => <CustomTooltip {...props} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
           <Bar
             dataKey="count"
             radius={[4, 4, 0, 0]}

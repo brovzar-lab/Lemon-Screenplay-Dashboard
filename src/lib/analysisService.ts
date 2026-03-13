@@ -53,7 +53,7 @@ export interface AnalysisResult {
 const CLAUDE_MODELS: Record<string, string> = {
   sonnet: 'claude-sonnet-4-5-20250929',
   haiku: 'claude-haiku-4-5-20251001',
-  opus: 'claude-opus-4-6',
+  opus: 'claude-opus-4-6',              // Opus 4.6 — no date suffix
 };
 
 // ─── Core public API ─────────────────────────────────────────────────────────
@@ -84,12 +84,15 @@ export async function analyzeScreenplay(
   let usage: { input_tokens: number; output_tokens: number } | undefined;
 
   if (options.functionUrl) {
-    // Production path: call Firebase Cloud Function
+    // Explicit Cloud Function URL (legacy / override path)
     const result = await callCloudFunction(parsed, lenses, options);
     raw = result.raw;
     usage = result.usage;
   } else {
-    // Dev path: call Anthropic API directly via Vite proxy
+    // Both dev and production: call Anthropic directly.
+    // Dev uses Vite proxy at /api/anthropic (no CORS needed).
+    // Production uses the anthropic-dangerous-direct-browser-access header
+    // which Anthropic officially supports for direct browser CORS.
     const result = await callAnthropicDirect(parsed, lenses, model, options.apiKey);
     raw = result.raw;
     usage = result.usage;
@@ -112,7 +115,9 @@ export async function analyzeScreenplay(
   return { raw, parsed, usage };
 }
 
-// ─── Cloud Function path (production) ────────────────────────────────────────
+
+// ─── Legacy Cloud Function path (explicit functionUrl override) ───────────────
+
 
 async function callCloudFunction(
   parsed: ParsedPDF,
@@ -143,12 +148,8 @@ async function callCloudFunction(
   }
 
   const json = await response.json();
-  // Firebase callable wraps the result in { result: ... }
   const result = json.result ?? json;
-  return {
-    raw: result,
-    usage: result.usage,
-  };
+  return { raw: result, usage: result.usage };
 }
 
 // ─── Direct Anthropic API path (development via Vite proxy) ──────────────────

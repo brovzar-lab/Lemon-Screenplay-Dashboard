@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
-import type { RecommendationTier, BudgetCategory, Collection, SortDirection } from '@/types';
+import type { RecommendationTier, BudgetCategory, Collection, SortDirection, SortField } from '@/types';
 
 // URL parameter keys
 const PARAM_KEYS = {
@@ -212,7 +212,7 @@ export function useUrlState() {
 
       if (urlState.sortField) {
         resetSort();
-        addSortColumn(urlState.sortField as any, urlState.sortDirection || 'desc');
+        addSortColumn(urlState.sortField as SortField, urlState.sortDirection || 'desc');
       }
 
       initialized.current = true;

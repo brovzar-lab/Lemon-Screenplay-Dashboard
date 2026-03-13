@@ -12,6 +12,7 @@ import {
   Tooltip,
   Cell,
 } from 'recharts';
+
 import type { Screenplay } from '@/types';
 import { canonicalizeGenre } from '@/lib/calculations';
 
@@ -19,6 +20,13 @@ interface GenreChartProps {
   screenplays: Screenplay[];
   maxGenres?: number;
   onGenreClick?: (genre: string) => void;
+}
+
+interface GenreChartItem {
+  genre: string;
+  count: number;
+  color: string;
+  percentage: number | string;
 }
 
 // Genre colors - rotating palette
@@ -33,6 +41,28 @@ const GENRE_COLORS = [
   '#14B8A6', // Teal
 ];
 
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: ReadonlyArray<{ payload: GenreChartItem }>;
+}
+
+// Hoisted to module scope — avoids react-hooks/static-components violation
+function CustomTooltip({ active, payload }: ChartTooltipProps) {
+  if (active && payload && payload.length) {
+    const item = payload[0].payload as GenreChartItem;
+    return (
+      <div className="glass p-3 rounded-lg border border-black-700 text-sm">
+        <p className="text-gold-400 font-medium mb-1">{item.genre}</p>
+        <p className="text-white">
+          <span className="font-mono font-bold">{item.count}</span> screenplays
+        </p>
+        <p className="text-black-400 text-xs">{item.percentage}% of total</p>
+      </div>
+    );
+  }
+  return null;
+}
+
 export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreChartProps) {
   // Count genres (canonicalize so "Sci-Fi" and "Science Fiction" merge)
   const genreDisplayMap = new Map<string, string>(); // canonical → first display name
@@ -46,7 +76,7 @@ export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreCh
   });
 
   // Sort by count and take top N
-  const data = Object.entries(genreCounts)
+  const data: GenreChartItem[] = Object.entries(genreCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, maxGenres)
     .map(([genre, count], index) => ({
@@ -55,23 +85,6 @@ export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreCh
       color: GENRE_COLORS[index % GENRE_COLORS.length],
       percentage: screenplays.length > 0 ? ((count / screenplays.length) * 100).toFixed(0) : 0,
     }));
-
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      return (
-        <div className="glass p-3 rounded-lg border border-black-700 text-sm">
-          <p className="text-gold-400 font-medium mb-1">{item.genre}</p>
-          <p className="text-white">
-            <span className="font-mono font-bold">{item.count}</span> screenplays
-          </p>
-          <p className="text-black-400 text-xs">{item.percentage}% of total</p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="h-full">
@@ -96,7 +109,7 @@ export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreCh
             tick={{ fill: '#9CA3AF', fontSize: 11 }}
             width={90}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+          <Tooltip content={(props) => <CustomTooltip {...props} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
           <Bar
             dataKey="count"
             radius={[0, 4, 4, 0]}

@@ -1,6 +1,12 @@
 /**
  * Firebase Configuration
- * Initializes Firebase app and exports Storage reference
+ * Initializes Firebase app, Storage, and Firestore.
+ *
+ * NOTE: Firebase App Check (reCAPTCHA v3) has been disabled.
+ * The reCAPTCHA provider type registered in Firebase Console did not match
+ * the client provider and was causing 400 errors that blocked ALL Firebase
+ * calls (Firestore sync + Storage reads/writes). Re-enable after verifying
+ * the exact provider registered in Firebase Console → App Check → Apps.
  */
 
 import { initializeApp } from 'firebase/app';

@@ -122,7 +122,7 @@ export async function loadV6ScreenplaysOnly(): Promise<ScreenplayWithV6[]> {
         if (response.ok) {
           const raw = await response.json();
           if (isV6RawAnalysis(raw)) {
-            const collectionFromJson = (raw as any).collection as Collection | undefined;
+            const collectionFromJson = (raw as unknown as Record<string, unknown>).collection as Collection | undefined;
             const collection: Collection = collectionFromJson || 'V6 Analysis';
             const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
             screenplays.push(screenplay);

@@ -11,10 +11,30 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
+
 import type { Screenplay, RecommendationTier } from '@/types';
 
 interface TierBreakdownProps {
   screenplays: Screenplay[];
+  onTierClick?: (tier: RecommendationTier) => void;
+}
+
+interface TierChartItem {
+  tier: RecommendationTier;
+  name: string;
+  value: number;
+  color: string;
+  percentage: number | string;
+}
+
+interface LegendEntry {
+  value: string;
+  color: string;
+}
+
+interface CustomLegendProps {
+  payload?: LegendEntry[];
+  data: TierChartItem[];
   onTierClick?: (tier: RecommendationTier) => void;
 }
 
@@ -26,51 +46,34 @@ const TIER_CONFIG: Record<RecommendationTier, { label: string; color: string }> 
   pass: { label: 'Pass', color: '#EF4444' },
 };
 
-export function TierBreakdown({ screenplays, onTierClick }: TierBreakdownProps) {
-  // Calculate tier distribution
-  const tierCounts = screenplays.reduce(
-    (acc, sp) => {
-      acc[sp.recommendation] = (acc[sp.recommendation] || 0) + 1;
-      return acc;
-    },
-    {} as Record<RecommendationTier, number>
-  );
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: ReadonlyArray<{ payload: TierChartItem }>;
+}
 
-  const data = (Object.entries(TIER_CONFIG) as [RecommendationTier, typeof TIER_CONFIG.film_now][])
-    .map(([tier, config]) => ({
-      tier,
-      name: config.label,
-      value: tierCounts[tier] || 0,
-      color: config.color,
-      percentage: screenplays.length > 0
-        ? ((tierCounts[tier] || 0) / screenplays.length * 100).toFixed(0)
-        : 0,
-    }))
-    .filter((d) => d.value > 0);
+// Hoisted to module scope — avoids react-hooks/static-components violation
+function CustomTooltip({ active, payload }: ChartTooltipProps) {
+  if (active && payload && payload.length) {
+    const item = payload[0].payload as TierChartItem;
+    return (
+      <div className="glass p-3 rounded-lg border border-black-700 text-sm">
+        <p className="font-medium mb-1" style={{ color: item.color }}>
+          {item.name}
+        </p>
+        <p className="text-white">
+          <span className="font-mono font-bold">{item.value}</span> screenplays
+        </p>
+        <p className="text-black-400 text-xs">{item.percentage}% of total</p>
+      </div>
+    );
+  }
+  return null;
+}
 
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      return (
-        <div className="glass p-3 rounded-lg border border-black-700 text-sm">
-          <p className="font-medium mb-1" style={{ color: item.color }}>
-            {item.name}
-          </p>
-          <p className="text-white">
-            <span className="font-mono font-bold">{item.value}</span> screenplays
-          </p>
-          <p className="text-black-400 text-xs">{item.percentage}% of total</p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  // Custom legend
-  const CustomLegend = ({ payload }: any) => (
+function CustomLegend({ payload, data, onTierClick }: CustomLegendProps) {
+  return (
     <div className="flex flex-wrap justify-center gap-3 mt-2">
-      {payload?.map((entry: any) => (
+      {payload?.map((entry) => (
         <button
           key={entry.value}
           onClick={() => {
@@ -88,6 +91,29 @@ export function TierBreakdown({ screenplays, onTierClick }: TierBreakdownProps) 
       ))}
     </div>
   );
+}
+
+export function TierBreakdown({ screenplays, onTierClick }: TierBreakdownProps) {
+  // Calculate tier distribution
+  const tierCounts = screenplays.reduce(
+    (acc, sp) => {
+      acc[sp.recommendation] = (acc[sp.recommendation] || 0) + 1;
+      return acc;
+    },
+    {} as Record<RecommendationTier, number>
+  );
+
+  const data: TierChartItem[] = (Object.entries(TIER_CONFIG) as [RecommendationTier, typeof TIER_CONFIG.film_now][])
+    .map(([tier, config]) => ({
+      tier,
+      name: config.label,
+      value: tierCounts[tier] || 0,
+      color: config.color,
+      percentage: screenplays.length > 0
+        ? ((tierCounts[tier] || 0) / screenplays.length * 100).toFixed(0)
+        : 0,
+    }))
+    .filter((d) => d.value > 0);
 
   // Center label showing total
   const total = screenplays.length;
@@ -114,8 +140,14 @@ export function TierBreakdown({ screenplays, onTierClick }: TierBreakdownProps) 
               <Cell key={entry.tier} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
-          <Legend content={<CustomLegend />} />
+          <Tooltip content={(props) => <CustomTooltip {...props} />} />
+          <Legend content={(props) => (
+            <CustomLegend
+              payload={props.payload as LegendEntry[] | undefined}
+              data={data}
+              onTierClick={onTierClick}
+            />
+          )} />
         </PieChart>
       </ResponsiveContainer>
 

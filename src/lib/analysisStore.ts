@@ -119,55 +119,52 @@ let _bgSyncDone = false;
 
 /**
  * Background Firestore sync — runs AFTER the UI has loaded.
- * Merges Firestore data into localStorage and pushes any missing entries.
+ *
+ * STRATEGY: Firestore is authoritative.
+ * localStorage is REPLACED with Firestore data, not merged.
+ * This ensures that items deleted from Firestore also disappear
+ * from localStorage on the next session load.
  */
 async function backgroundFirestoreSync(): Promise<void> {
     if (_bgSyncDone) return;
     _bgSyncDone = true;
 
     try {
-        // Flush pending writes first
+        // Flush any locally-queued writes first
         await flushPendingWrites();
 
-        // Load from Firestore
+        // Load authoritative data from Firestore
         const q = query(collection(db, FIRESTORE_COLLECTION));
         const snapshot = await getDocs(q);
 
-        if (snapshot.empty) return;
-
         const firestoreData = snapshot.docs.map((d) => {
             const data = d.data() as Record<string, unknown>;
-            const { _savedAt: _, _docId: __, ...raw } = data;
-            return raw;
+            return Object.fromEntries(
+                Object.entries(data).filter(([k]) => k !== '_savedAt' && k !== '_docId')
+            ) as Record<string, unknown>;
         });
 
+        if (firestoreData.length === 0) {
+            // Firestore is empty — wipe localStorage to match
+            writeToLocal([]);
+            console.log('[Lemon] Firestore empty → localStorage cleared');
+            return;
+        }
+
+        // REPLACE: Firestore is the ground truth.
+        // Push any localStorage-only items that Firestore doesn't have yet
+        // (e.g. items written while offline / App Check was broken).
         const localData = readFromLocal();
-
-        // Merge: Firestore wins on conflict
-        const merged = new Map<string, Record<string, unknown>>();
-        for (const item of localData) {
-            const key = (item.source_file as string) || JSON.stringify(item).slice(0, 100);
-            merged.set(key, item);
-        }
-        for (const item of firestoreData) {
-            const key = (item.source_file as string) || JSON.stringify(item).slice(0, 100);
-            merged.set(key, item);
-        }
-
-        // Update localStorage with merged data
-        const result = Array.from(merged.values());
-        writeToLocal(result);
-
-        // Push any localStorage-only entries to Firestore (parallel)
         const firestoreKeys = new Set(firestoreData.map((f) => f.source_file as string));
-        const missingInFirestore = localData.filter(
-            (l) => !firestoreKeys.has(l.source_file as string)
+
+        const localOnlyItems = localData.filter(
+            (l) => l.source_file && !firestoreKeys.has(l.source_file as string)
         );
 
-        if (missingInFirestore.length > 0) {
-            console.log(`[Lemon] Background syncing ${missingInFirestore.length} entries to Firestore...`);
+        if (localOnlyItems.length > 0) {
+            console.log(`[Lemon] Background syncing ${localOnlyItems.length} local-only entries to Firestore...`);
             await Promise.allSettled(
-                missingInFirestore.map(async (item) => {
+                localOnlyItems.map(async (item) => {
                     const sf = (item.source_file as string) || `unknown_${Date.now()}`;
                     const docId = toDocId(sf);
                     await setDoc(doc(db, FIRESTORE_COLLECTION, docId), {
@@ -177,9 +174,13 @@ async function backgroundFirestoreSync(): Promise<void> {
                     });
                 })
             );
+            // Include those items in the final set
+            firestoreData.push(...localOnlyItems);
         }
 
-        console.log(`[Lemon] Background sync complete: ${result.length} total analyses`);
+        // Overwrite localStorage with the authoritative Firestore set
+        writeToLocal(firestoreData);
+        console.log(`[Lemon] Sync complete: localStorage replaced with ${firestoreData.length} Firestore entries`);
     } catch (err) {
         console.warn('[Lemon] Background Firestore sync failed:', err);
     }

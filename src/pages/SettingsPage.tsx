@@ -1,6 +1,7 @@
 /**
  * Settings Page
  * Tabbed interface for all application settings
+ * Consolidated from 8 → 6 tabs. Upload & Calibration are password-gated.
  */
 
 import { useState } from 'react';
@@ -13,12 +14,15 @@ import { DataManagement } from '@/components/settings/DataManagement';
 import { CategoryManagement } from '@/components/settings/CategoryManagement';
 import { ModelComparisonPanel } from '@/components/settings/ModelComparisonPanel';
 import { CalibrationPanel } from '@/components/settings/CalibrationPanel';
+import { PdfUploadPanel } from '@/components/settings/PdfUploadPanel';
+import { SettingsPasswordGate } from '@/components/settings/SettingsPasswordGate';
 
-type Tab = 'upload' | 'categories' | 'appearance' | 'favorites' | 'data' | 'comparison' | 'calibration';
+type Tab = 'appearance' | 'upload' | 'favorites' | 'data' | 'calibration' | 'pdf';
 
 interface TabConfig {
   id: Tab;
   label: string;
+  locked?: boolean;
   icon: React.ReactNode;
 }
 
@@ -35,18 +39,10 @@ const TABS: TabConfig[] = [
   {
     id: 'upload',
     label: 'Upload',
+    locked: true,
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-      </svg>
-    ),
-  },
-  {
-    id: 'categories',
-    label: 'Categories',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
       </svg>
     ),
   },
@@ -69,44 +65,108 @@ const TABS: TabConfig[] = [
     ),
   },
   {
-    id: 'comparison',
-    label: 'Compare',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
-  },
-  {
     id: 'calibration',
     label: 'Calibration',
+    locked: true,
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
       </svg>
     ),
   },
+  {
+    id: 'pdf',
+    label: 'PDF Files',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
 ];
+
+/** Data tab content — includes exports AND model comparison as a sub-section */
+function DataTab() {
+  const [showCompare, setShowCompare] = useState(false);
+
+  return (
+    <div className="space-y-8">
+      <DataManagement />
+
+      {/* Model Comparison — collapsible sub-section */}
+      <div className="border-t border-gold-500/10 pt-6">
+        <button
+          onClick={() => setShowCompare((v) => !v)}
+          className="flex items-center gap-3 w-full text-left group"
+        >
+          <svg className="w-5 h-5 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <span className="font-display text-gold-200 text-lg">Model Comparison</span>
+          <svg
+            className={clsx('w-4 h-4 text-black-400 ml-auto transition-transform', showCompare && 'rotate-180')}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <p className="text-sm text-black-500 mt-1 ml-8">Compare analysis results across different AI models</p>
+
+        {showCompare && (
+          <div className="mt-6">
+            <ModelComparisonPanel />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Upload tab content — includes upload panel + categories as a sub-section */
+function UploadTab() {
+  return (
+    <div className="space-y-8">
+      <UploadPanel />
+
+      {/* Categories — sub-section */}
+      <div className="border-t border-gold-500/10 pt-6">
+        <div className="flex items-center gap-3 mb-4">
+          <svg className="w-5 h-5 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+          <span className="font-display text-gold-200 text-lg">Categories</span>
+        </div>
+        <CategoryManagement />
+      </div>
+    </div>
+  );
+}
 
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('appearance');
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'upload':
-        return <UploadPanel />;
-      case 'categories':
-        return <CategoryManagement />;
       case 'appearance':
         return <AppearanceSettings />;
+      case 'upload':
+        return (
+          <SettingsPasswordGate label="Upload" key="upload-gate">
+            <UploadTab />
+          </SettingsPasswordGate>
+        );
       case 'favorites':
         return <FavoritesPanel />;
       case 'data':
-        return <DataManagement />;
-      case 'comparison':
-        return <ModelComparisonPanel />;
+        return <DataTab />;
       case 'calibration':
-        return <CalibrationPanel />;
+        return (
+          <SettingsPasswordGate label="Calibration" key="calibration-gate">
+            <CalibrationPanel />
+          </SettingsPasswordGate>
+        );
+      case 'pdf':
+        return <PdfUploadPanel />;
       default:
         return null;
     }
@@ -129,7 +189,7 @@ export function SettingsPage() {
             </Link>
           </div>
           <h1 className="text-xl font-display text-gold-200">Settings</h1>
-          <div className="w-32" /> {/* Spacer for centering */}
+          <div className="w-32" />
         </div>
       </header>
 
@@ -151,7 +211,12 @@ export function SettingsPage() {
                   )}
                 >
                   {tab.icon}
-                  <span className="font-medium">{tab.label}</span>
+                  <span className="font-medium flex-1">{tab.label}</span>
+                  {tab.locked && (
+                    <svg className="w-3.5 h-3.5 text-black-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  )}
                 </button>
               ))}
             </nav>
@@ -169,7 +234,7 @@ export function SettingsPage() {
       {/* Footer */}
       <footer className="border-t border-gold-500/10 py-4">
         <div className="max-w-[1400px] mx-auto px-6 text-center text-sm text-black-500">
-          <p>Lemon Screenplay Dashboard v6.0</p>
+          <p>Lemon Screenplay Dashboard v{__APP_VERSION__}</p>
         </div>
       </footer>
     </div>

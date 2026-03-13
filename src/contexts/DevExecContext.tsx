@@ -146,6 +146,7 @@ export function DevExecProvider({ children, screenplays, apiKey }: DevExecProvid
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useDevExec() {
     const context = useContext(DevExecContext);
     if (!context) throw new Error('useDevExec must be used within DevExecProvider');

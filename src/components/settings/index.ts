@@ -10,3 +10,7 @@ export { CategoryManagement } from './CategoryManagement';
 export { ApiConfigPanel } from './ApiConfigPanel';
 export { ModelComparisonPanel } from './ModelComparisonPanel';
 export { CalibrationPanel } from './CalibrationPanel';
+export { PdfUploadPanel } from './PdfUploadPanel';
+export { SettingsPasswordGate } from './SettingsPasswordGate';
+
+

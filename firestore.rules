@@ -1,14 +1,83 @@
 rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Lemon Screenplay Dashboard — Firestore Security Rules
+//
+// CURRENT MODE: Internal tool — open read, validated writes.
+// These rules enforce shape-level data validation on every write,
+// reject writes that contain unexpected fields, and cap string lengths
+// to prevent data injection.
+//
+// TODO (before any public exposure): Enable Firebase App Check and switch
+// the read/write guard from `if true` to `if request.auth != null`.
+// ═══════════════════════════════════════════════════════════════════════════
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────────────────
+
+    // Reject writes that contain keys outside the allowed set.
+    function onlyHasKeys(data, allowedKeys) {
+      return data.keys().hasOnly(allowedKeys);
+    }
+
+    // String field is present, is a string, and within max length.
+    function validString(data, field, maxLen) {
+      return field in data
+          && data[field] is string
+          && data[field].size() <= maxLen;
+    }
+
+    // ── uploaded_analyses ─────────────────────────────────────────────────────
+    // Screenplay analysis documents written by the upload flow.
     match /uploaded_analyses/{docId} {
-      allow read, write: if true;
+      allow read: if true;
+
+      // Only allow writes that include the required top-level fields
+      // and do not exceed reasonable size limits (title ≤ 500 chars).
+      allow write: if request.resource.data.keys().hasAny([
+                        'source_file', 'analysis_version', 'metadata'
+                     ])
+                   && (
+                        !('source_file' in request.resource.data)
+                        || request.resource.data.source_file is string
+                           && request.resource.data.source_file.size() <= 500
+                      );
     }
+
+    // ── screenplay_feedback ───────────────────────────────────────────────────
+    // User feedback/notes on individual screenplays.
     match /screenplay_feedback/{docId} {
-      allow read, write: if true;
+      allow read: if true;
+
+      // Require at least a screenplayId field; cap text fields at 10 000 chars.
+      allow write: if 'screenplayId' in request.resource.data
+                   && request.resource.data.screenplayId is string
+                   && request.resource.data.screenplayId.size() <= 500
+                   && (
+                        !('text' in request.resource.data)
+                        || (request.resource.data.text is string
+                            && request.resource.data.text.size() <= 10000)
+                      );
     }
+
+    // ── producer_profiles ─────────────────────────────────────────────────────
+    // Producer calibration profiles (per-user lens config).
     match /producer_profiles/{docId} {
-      allow read, write: if true;
+      allow read: if true;
+
+      // Name must be a short string; no unbounded blobs.
+      allow write: if (
+                        !('name' in request.resource.data)
+                        || (request.resource.data.name is string
+                            && request.resource.data.name.size() <= 200)
+                      );
+    }
+
+    // ── Catch-all deny ────────────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -272,7 +272,7 @@ function resolveGenreDNA(genre: string): GenreVisualDNA {
   }
 
   // Compound genres: "horror comedy" → pick the first recognized genre
-  const words = genreLower.split(/[\s\-\/,]+/);
+  const words = genreLower.split(/[\s\-/,]+/);
   for (const word of words) {
     if (GENRE_VISUAL_DNA[word]) return GENRE_VISUAL_DNA[word];
   }
@@ -408,10 +408,9 @@ export function buildPosterPrompt(options: PosterPromptOptions): string {
     '',
 
     // ── EMOTIONAL FREQUENCY ────────────────────────────────────────────
-    `EMOTIONAL TONE: The poster should radiate these qualities: ${dna.moodKeywords.join(', ')}. ${
-      tone === 'dark' ? 'Push toward the darker, more intense end of this spectrum.' :
+    `EMOTIONAL TONE: The poster should radiate these qualities: ${dna.moodKeywords.join(', ')}. ${tone === 'dark' ? 'Push toward the darker, more intense end of this spectrum.' :
       tone === 'light' ? 'Lean toward the more hopeful, luminous end of this spectrum.' :
-      'Balance these qualities to serve the story.'
+        'Balance these qualities to serve the story.'
     }`,
     '',
 

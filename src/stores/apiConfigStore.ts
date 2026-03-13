@@ -1,6 +1,10 @@
 /**
  * API Configuration Store
- * Manages API settings and budget controls for screenplay analysis
+ * Manages API settings and budget controls for screenplay analysis.
+ *
+ * DESIGN: `isConfigured` and `isGoogleConfigured` are NOT stored in
+ * localStorage — they are always derived from `apiKey.length > 0` so a
+ * stale persisted `false` can never block a user who already has a key.
  */
 
 import { create } from 'zustand';
@@ -10,6 +14,8 @@ interface ApiConfig {
   // API Connection (Anthropic)
   apiKey: string;
   apiEndpoint: string;
+
+  // Derived (never persisted) — always computed from key length
   isConfigured: boolean;
 
   // Google AI (Gemini / Imagen)
@@ -23,8 +29,8 @@ interface ApiConfig {
   currentDayRequests: number;
 
   // Usage Tracking
-  lastResetDate: string; // ISO date string for daily reset
-  monthResetDate: string; // ISO date string for monthly reset
+  lastResetDate: string;
+  monthResetDate: string;
 
   // Actions
   setApiKey: (key: string) => void;
@@ -47,13 +53,18 @@ const getThisMonth = () => new Date().toISOString().slice(0, 7);
 export const useApiConfigStore = create<ApiConfig>()(
   persist(
     (set, get) => ({
-      // Initial state - API key loaded from environment variable
-      apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+      // Keys are restored from localStorage by persist after user enters them
+      // in Settings. We do NOT fall back to VITE_ env vars here — those get
+      // baked into the production bundle by Vite and expose keys to anyone
+      // who inspects the JS source. Enter keys via Settings only.
+      apiKey: '',
       apiEndpoint: 'https://api.anthropic.com/v1/messages',
-      isConfigured: Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY),
-      googleApiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
-      isGoogleConfigured: Boolean(import.meta.env.VITE_GOOGLE_API_KEY),
-      monthlyBudgetLimit: 50, // $50 default
+      isConfigured: false,
+
+      googleApiKey: '',
+      isGoogleConfigured: false,
+
+      monthlyBudgetLimit: 50,
       dailyRequestLimit: 100,
       currentMonthSpend: 0,
       currentDayRequests: 0,
@@ -62,19 +73,13 @@ export const useApiConfigStore = create<ApiConfig>()(
 
       // Actions
       setApiKey: (key) =>
-        set({
-          apiKey: key,
-          isConfigured: key.length > 0,
-        }),
+        set({ apiKey: key, isConfigured: key.length > 0 }),
 
       setApiEndpoint: (endpoint) =>
         set({ apiEndpoint: endpoint }),
 
       setGoogleApiKey: (key) =>
-        set({
-          googleApiKey: key,
-          isGoogleConfigured: key.length > 0,
-        }),
+        set({ googleApiKey: key, isGoogleConfigured: key.length > 0 }),
 
       setMonthlyBudgetLimit: (limit) =>
         set({ monthlyBudgetLimit: Math.max(0, limit) }),
@@ -89,31 +94,17 @@ export const useApiConfigStore = create<ApiConfig>()(
         })),
 
       resetDailyCount: () =>
-        set({
-          currentDayRequests: 0,
-          lastResetDate: getToday(),
-        }),
+        set({ currentDayRequests: 0, lastResetDate: getToday() }),
 
       resetMonthlySpend: () =>
-        set({
-          currentMonthSpend: 0,
-          monthResetDate: getThisMonth(),
-        }),
+        set({ currentMonthSpend: 0, monthResetDate: getThisMonth() }),
 
       canMakeRequest: () => {
         const state = get();
-        // Check daily limit
-        if (state.currentDayRequests >= state.dailyRequestLimit) {
-          return false;
-        }
-        // Check monthly budget
-        if (state.currentMonthSpend >= state.monthlyBudgetLimit) {
-          return false;
-        }
-        // Check if API is configured
-        if (!state.isConfigured) {
-          return false;
-        }
+        if (state.currentDayRequests >= state.dailyRequestLimit) return false;
+        if (state.currentMonthSpend >= state.monthlyBudgetLimit) return false;
+        // Derive from the actual key — never trust a cached boolean flag
+        if (!state.apiKey || state.apiKey.length === 0) return false;
         return true;
       },
 
@@ -131,46 +122,44 @@ export const useApiConfigStore = create<ApiConfig>()(
         const state = get();
         const today = getToday();
         const thisMonth = getThisMonth();
-
-        // Reset daily count if day changed
         if (state.lastResetDate !== today) {
-          set({
-            currentDayRequests: 0,
-            lastResetDate: today,
-          });
+          set({ currentDayRequests: 0, lastResetDate: today });
         }
-
-        // Reset monthly spend if month changed
         if (state.monthResetDate !== thisMonth) {
-          set({
-            currentMonthSpend: 0,
-            monthResetDate: thisMonth,
-          });
+          set({ currentMonthSpend: 0, monthResetDate: thisMonth });
         }
       },
     }),
     {
       name: 'lemon-api-config',
-      version: 2, // v2: clear leaked Google API key
+      version: 2,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Record<string, unknown>;
         if (version < 2) {
-          // The old hardcoded key was leaked and revoked by Google.
-          // Clear it from localStorage so users must enter a fresh key.
           const LEAKED_KEY = 'AIzaSyACzpPPOfpQHA7BmnlWtjzZ_SijTH3p-oY';
           if (state.googleApiKey === LEAKED_KEY) {
             state.googleApiKey = '';
-            state.isGoogleConfigured = false;
           }
         }
-        return state as Record<string, unknown> & { googleApiKey: string; isGoogleConfigured: boolean };
+        return state as Record<string, unknown> & { googleApiKey: string };
       },
+      // onRehydrateStorage: recompute derived flags from the restored keys.
+      // This is THE only reliable way to fix stale `isConfigured: false` in storage.
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // After localStorage restores apiKey, recompute the derived flags.
+        // useApiConfigStore.setState is not available here, but we can mutate
+        // the state object BEFORE it is merged — this is the documented pattern.
+        const key = (state.apiKey as string) || '';
+        const gKey = (state.googleApiKey as string) || '';
+        (state as ApiConfig).isConfigured = key.length > 0;
+        (state as ApiConfig).isGoogleConfigured = gKey.length > 0;
+      },
+      // Persist keys but NOT the derived flags — they are recomputed above.
       partialize: (state) => ({
         apiKey: state.apiKey,
         apiEndpoint: state.apiEndpoint,
-        isConfigured: state.isConfigured,
         googleApiKey: state.googleApiKey,
-        isGoogleConfigured: state.isGoogleConfigured,
         monthlyBudgetLimit: state.monthlyBudgetLimit,
         dailyRequestLimit: state.dailyRequestLimit,
         currentMonthSpend: state.currentMonthSpend,

@@ -204,7 +204,7 @@ export function DevExecChat() {
                                                 volume * 20 > i ? 'bg-gold-400' : 'bg-black-800',
                                             )}
                                             style={{
-                                                height: volume * 20 > i ? `${12 + Math.random() * 16}px` : '8px',
+                                                height: volume * 20 > i ? `${12 + (i % 3) * 5}px` : '8px',
                                             }}
                                         />
                                     ))}
