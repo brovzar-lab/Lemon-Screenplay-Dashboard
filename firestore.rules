@@ -3,13 +3,15 @@ rules_version = '2';
 // ═══════════════════════════════════════════════════════════════════════════
 // Lemon Screenplay Dashboard — Firestore Security Rules
 //
-// CURRENT MODE: Internal tool — open read, validated writes.
-// These rules enforce shape-level data validation on every write,
-// reject writes that contain unexpected fields, and cap string lengths
-// to prevent data injection.
+// CURRENT MODE: Internal tool — anonymous auth required for internal
+// collections; shared_views readable by token URL.
 //
-// TODO (before any public exposure): Enable Firebase App Check and switch
-// the read/write guard from `if true` to `if request.auth != null`.
+// All internal collections (uploaded_analyses, screenplay_feedback,
+// producer_profiles) require request.auth != null. The client obtains
+// an anonymous session via signInAnonymously() before any Firestore call.
+//
+// Shape-level data validation is enforced on every write: unexpected
+// fields are rejected, string lengths are capped.
 // ═══════════════════════════════════════════════════════════════════════════
 
 service cloud.firestore {
@@ -32,11 +34,12 @@ service cloud.firestore {
     // ── uploaded_analyses ─────────────────────────────────────────────────────
     // Screenplay analysis documents written by the upload flow.
     match /uploaded_analyses/{docId} {
-      allow read: if true;
+      allow read: if request.auth != null;
 
       // Only allow writes that include the required top-level fields
-      // and do not exceed reasonable size limits (title ≤ 500 chars).
-      allow write: if request.resource.data.keys().hasAny([
+      // and do not exceed reasonable size limits (title <= 500 chars).
+      allow write: if request.auth != null
+                   && request.resource.data.keys().hasAny([
                         'source_file', 'analysis_version', 'metadata'
                      ])
                    && (
@@ -48,11 +51,13 @@ service cloud.firestore {
 
     // ── screenplay_feedback ───────────────────────────────────────────────────
     // User feedback/notes on individual screenplays.
+    // Intentionally readable by any authenticated session — producer notes are visible in shared views
     match /screenplay_feedback/{docId} {
-      allow read: if true;
+      allow read: if request.auth != null;
 
       // Require at least a screenplayId field; cap text fields at 10 000 chars.
-      allow write: if 'screenplayId' in request.resource.data
+      allow write: if request.auth != null
+                   && 'screenplayId' in request.resource.data
                    && request.resource.data.screenplayId is string
                    && request.resource.data.screenplayId.size() <= 500
                    && (
@@ -65,14 +70,24 @@ service cloud.firestore {
     // ── producer_profiles ─────────────────────────────────────────────────────
     // Producer calibration profiles (per-user lens config).
     match /producer_profiles/{docId} {
-      allow read: if true;
+      allow read: if request.auth != null;
 
       // Name must be a short string; no unbounded blobs.
-      allow write: if (
+      allow write: if request.auth != null
+                   && (
                         !('name' in request.resource.data)
                         || (request.resource.data.name is string
                             && request.resource.data.name.size() <= 200)
                       );
+    }
+
+    // ── shared_views (Phase 5 creates this collection) ────────────────────────
+    // Token = capability: anyone with the share URL may read the document.
+    // Only authenticated sessions (the dashboard) may create or revoke tokens.
+    // Phase 5 will refine the read rule if parameterized token lookup is needed.
+    match /shared_views/{tokenId} {
+      allow read: if true;
+      allow write: if request.auth != null;
     }
 
     // ── Catch-all deny ────────────────────────────────────────────────────────
