@@ -12,7 +12,7 @@ This milestone adds partner sharing, export packages, market intelligence enrich
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Firestore Security Hardening** - Tighten Firestore rules and re-enable App Check before any external sharing
+- [ ] **Phase 1: Firestore Security Hardening** - Add anonymous auth and tighten Firestore rules before any external sharing
 - [ ] **Phase 2: Sync Status Visibility** - Producer can see pending sync count and manually retry failed Firestore writes
 - [ ] **Phase 3: Data Safety** - Soft-delete recovery window and quarantine pattern replace destructive data loss
 - [ ] **Phase 4: UX Polish Scaffolding** - Skeleton loaders, empty states, and inline error feedback replace silent failures
@@ -29,15 +29,15 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: None (infrastructure prerequisite — research confirms open `allow read: if true` rules and disabled App Check become production security incidents the moment external partners receive share links)
 **Success Criteria** (what must be TRUE):
   1. A browser console `getDocs(collection(db, 'uploaded_analyses'))` call using a share token returns a permission-denied error, not all 500+ screenplays
-  2. App Check is re-enabled and a valid reCAPTCHA token is required for all Firestore reads from the client
+  2. Anonymous auth initializes silently on load — no login screen, experience identical to today
   3. Firestore security rules restrict `uploaded_analyses` and `screenplay_feedback` reads to authenticated internal context only; `shared_views` collection is readable by token lookup only
   4. Existing dashboard functionality (load, filter, sort, upload) still works after rule tightening
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Audit and rewrite Firestore security rules for all collections
-- [ ] 01-02: Re-enable Firebase App Check with reCAPTCHA v3 integration
-- [ ] 01-03: Verify dashboard functionality end-to-end after rule changes
+- [ ] 01-01-PLAN.md — Add Firebase anonymous auth to firebase.ts (authReady promise + unit tests)
+- [ ] 01-02-PLAN.md — Gate analysisStore.ts Firestore calls on authReady; rewrite and deploy firestore.rules
+- [ ] 01-03-PLAN.md — Deploy to production and human-verify dashboard + unauthenticated probe
 
 ### Phase 2: Sync Status Visibility
 **Goal**: Producer can see at a glance how many screenplays are pending Firestore sync and can manually trigger a retry when writes fail
