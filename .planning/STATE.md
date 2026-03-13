@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.8
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-03-13T23:43:44.897Z"
-last_activity: 2026-03-13 — Completed Plan 01 (anonymous auth init)
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-03-13T23:47:31Z"
+last_activity: 2026-03-13 — Completed Plan 02 (Firestore auth gates + security rules)
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 1 of 8 (Firestore Security Hardening)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: Executing
-Last activity: 2026-03-13 — Completed Plan 01 (anonymous auth init)
+Last activity: 2026-03-13 — Completed Plan 02 (Firestore auth gates + security rules)
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████░░░░] 67%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [███░░░░░░░] 33%
 
 *Updated after each plan completion*
 | Phase 01 P01 | 1min | 2 tasks | 2 files |
+| Phase 01 P02 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,8 @@ Recent decisions affecting current work:
 - [Pre-phase]: Market intelligence uses existing Claude lens architecture for timing/feasibility — no new API integrations; TMDB via Cloud Function proxy for comp enrichment
 - [Pre-phase]: Phase 1 (security) is a hard prerequisite before any share link is generated for an external partner
 - [Phase 01]: App Check intentionally skipped (prior provider mismatch caused 400 errors); anonymous auth with browserLocalPersistence chosen instead
+- [Phase 01]: flushPendingWrites not separately gated by authReady (only called from backgroundFirestoreSync which already gates)
+- [Phase 01]: shared_views allows public read (token = capability); storage.rules left unchanged per user decision
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T23:43:44.895Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-03-13T23:47:31Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
