@@ -18,7 +18,7 @@ import {
     query,
     getCountFromServer,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { authReady, db } from './firebase';
 
 const FIRESTORE_COLLECTION = 'uploaded_analyses';
 const LOCAL_CACHE_KEY = 'lemon-local-analyses';
@@ -130,6 +130,9 @@ async function backgroundFirestoreSync(): Promise<void> {
     _bgSyncDone = true;
 
     try {
+        // Gate: wait for anonymous auth before any Firestore calls
+        await authReady;
+
         // Flush any locally-queued writes first
         await flushPendingWrites();
 
@@ -204,6 +207,7 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
     console.log(`[Lemon] Analysis saved to localStorage: ${sourceFile}`);
 
     // Step 2: Save to Firestore (persistent, may fail)
+    await authReady;
     const docId = toDocId(sourceFile);
     try {
         const docRef = doc(db, FIRESTORE_COLLECTION, docId);
@@ -254,6 +258,7 @@ export async function removeAnalysis(sourceFile: string): Promise<void> {
     writeToLocal(filtered);
 
     // Remove from Firestore in background
+    await authReady;
     const docId = toDocId(sourceFile);
     try {
         await deleteDoc(doc(db, FIRESTORE_COLLECTION, docId));
@@ -276,6 +281,7 @@ export async function clearAllAnalyses(): Promise<void> {
     }
 
     // Clear Firestore in background
+    await authReady;
     try {
         const q = query(collection(db, FIRESTORE_COLLECTION));
         const snapshot = await getDocs(q);
@@ -296,6 +302,7 @@ export async function getAnalysisCount(): Promise<number> {
 
     // Fallback: query Firestore
     try {
+        await authReady;
         const coll = collection(db, FIRESTORE_COLLECTION);
         const snapshot = await getCountFromServer(coll);
         return snapshot.data().count;
@@ -318,6 +325,7 @@ export async function removeMultipleAnalyses(sourceFiles: string[]): Promise<voi
     console.log(`[Lemon] Removed ${sourceFiles.length} analyses from localStorage`);
 
     // Remove from Firestore in parallel (batches of 10)
+    await authReady;
     const batchSize = 10;
     for (let i = 0; i < sourceFiles.length; i += batchSize) {
         const batch = sourceFiles.slice(i, i + batchSize);
