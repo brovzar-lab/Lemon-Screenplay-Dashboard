@@ -109,13 +109,11 @@ Plans:
   3. An expired or revoked token shows a clear "This link is no longer available" message — not a 404 or blank page
   4. The shared view is read-only: the partner cannot edit notes, change scores, delete the screenplay, or access any other part of the application
   5. The shared view route (`/share/:token`) is lazy-loaded and does not include any dashboard bundle code
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 06-01: Register /share/:token route in App.tsx as a React.lazy() loaded route
-- [ ] 06-02: Build SharedViewPage.tsx resolving the token from Firestore via shareService.resolveShareToken()
-- [ ] 06-03: Build SharedViewLayout.tsx with stripped-down analysis presentation (no Header, no FilterBar, no Settings)
-- [ ] 06-04: Handle expired/invalid/not-found token states with clear user-facing messages
+- [ ] 06-01-PLAN.md — Extend createShareToken with analysis snapshot + add resolveShareToken for public reads + copy logo asset
+- [ ] 06-02-PLAN.md — Build SharedViewPage, SharedViewLayout, SharedScoresPanel, SharedContentDetails, ExpiredLinkPage + register lazy route in main.tsx
 
 ### Phase 7: Export Coverage Package
 **Goal**: Producer can download a formatted single-screenplay coverage PDF containing the analysis summary, scores, producer notes, and recommendation — suitable for formal sharing with partners
@@ -164,6 +162,6 @@ Note: Phases 2, 3, and 4 depend only on Phase 1 and can proceed in parallel. Pha
 | 3. Data Safety | 2/2 | Complete   | 2026-03-14 |
 | 4. UX Polish Scaffolding | 2/2 | Complete   | 2026-03-14 |
 | 5. Share Token Generation | 2/2 | Complete   | 2026-03-14 |
-| 6. Shared Partner View | 0/4 | Not started | - |
+| 6. Shared Partner View | 0/2 | Not started | - |
 | 7. Export Coverage Package | 0/3 | Not started | - |
 | 8. Market Intelligence | 0/4 | Not started | - |
