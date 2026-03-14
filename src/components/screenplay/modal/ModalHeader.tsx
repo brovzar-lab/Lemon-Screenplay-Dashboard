@@ -14,6 +14,8 @@ import { ShareButton } from './ShareButton';
 import { useDeleteScreenplays } from '@/hooks/useScreenplays';
 import { storage } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
+import { downloadCoveragePdf } from '@/components/export/exportCoverage';
+import { useToastStore } from '@/stores/toastStore';
 import type { RefObject } from 'react';
 
 interface ModalHeaderProps {
@@ -71,6 +73,22 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
         // Show error on button, reset after 3s
         setPdfState('error');
         setTimeout(() => setPdfState('idle'), 3000);
+    };
+
+    const [coverageState, setCoverageState] = useState<'idle' | 'loading' | 'error'>('idle');
+
+    const handleDownloadCoverage = async () => {
+        if (coverageState === 'loading') return;
+        setCoverageState('loading');
+        try {
+            await downloadCoveragePdf(screenplay);
+            setCoverageState('idle');
+        } catch (error) {
+            console.error('[Coverage PDF] Generation failed:', error);
+            useToastStore.getState().addToast('Coverage PDF generation failed — please try again');
+            setCoverageState('error');
+            setTimeout(() => setCoverageState('idle'), 3000);
+        }
     };
 
     const handleDelete = () => {
@@ -135,6 +153,38 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                     {/* Right: Share + Re-analyze + PDF + Delete + Badge */}
                     <div className="flex items-center gap-2">
                         <ShareButton screenplay={screenplay} />
+                        <button
+                            onClick={handleDownloadCoverage}
+                            disabled={coverageState === 'loading'}
+                            className={clsx(
+                                'btn text-xs flex items-center gap-1.5 py-1.5 px-3 transition-all',
+                                coverageState === 'error'
+                                    ? 'bg-red-600/20 text-red-400 border border-red-500/30 cursor-default'
+                                    : 'btn-primary',
+                                coverageState === 'loading' && 'opacity-60 cursor-wait',
+                            )}
+                            title={
+                                coverageState === 'error'
+                                    ? 'Coverage PDF generation failed'
+                                    : 'Download coverage report as PDF'
+                            }
+                        >
+                            {coverageState === 'loading' ? (
+                                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                </svg>
+                            ) : coverageState === 'error' ? (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                </svg>
+                            ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            )}
+                            {coverageState === 'error' ? 'Failed' : 'Coverage'}
+                        </button>
                         <ReanalyzeButton screenplay={screenplay} onComplete={onReanalyzeComplete} />
                         <button
                             onClick={handleDownloadPdf}
