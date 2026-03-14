@@ -42,6 +42,7 @@ A partner who receives a share link sees a clean, standalone read-only analysis 
 <specifics>
 ## Specific Ideas
 
+- **Lemon Studios logo**: `Lemon Studios Brand/lemon-logo-black-800x800.png` — use in the shared view header branding. Copy to `public/` for static serving.
 - Route: `/share/:token` — lazy-loaded via `React.lazy()` to avoid including dashboard bundle code
 - Token resolution: read from `shared_views` Firestore collection (already `allow read: if true`)
 - The share doc contains: `screenplayId`, `token`, `includeNotes`, `pdfUrl`, `createdAt`
