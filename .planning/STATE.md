@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.8
 milestone_name: milestone
 status: completed
-stopped_at: Phase 6 context gathered
-last_updated: "2026-03-14T07:53:19.522Z"
-last_activity: 2026-03-14 — Completed Plan 02 (Share Token Generation UI)
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-03-14T15:14:57.556Z"
+last_activity: 2026-03-14 — Completed Plan 02 (Shared Partner View)
 progress:
   total_phases: 8
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 13
-  completed_plans: 12
+  completed_plans: 13
   percent: 100
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 6 of 8 (Shared Partner View)
-Plan: 1 of 2 in current phase
-Status: Plan 01 Complete
-Last activity: 2026-03-14 — Completed Plan 01 (Share Service Data Layer)
+Plan: 2 of 2 in current phase
+Status: Phase 06 Complete
+Last activity: 2026-03-14 — Completed Plan 02 (Shared Partner View)
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [█████████░] 92%
 | Phase 05 P01 | 2min | 1 tasks | 5 files |
 | Phase 05 P02 | 4min | 3 tasks | 6 files |
 | Phase 06 P01 | 3min | 2 tasks | 4 files |
+| Phase 06 P02 | 5min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,9 @@ Recent decisions affecting current work:
 - [Phase 06]: resolveShareToken bypasses authReady for public partner access
 - [Phase 06]: pdfUrl resolved via getDownloadURL at share creation, stored as null if not found
 - [Phase 06]: Notes snapshot includes only content and createdAt (strips id, author, screenplayId, updatedAt)
+- [Phase 06]: Share URL uses window.location.origin instead of hardcoded production URL for dev/staging compatibility
+- [Phase 06]: Header logo is theme-aware: white on dark, black on light; shared view always uses white version
+- [Phase 06]: Shared view components use props-only pattern (no Zustand/React Query) for bundle isolation
 
 ### Pending Todos
 
@@ -116,6 +120,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T07:52:31Z
-Stopped at: Completed 06-01-PLAN.md
-Resume file: .planning/phases/06-shared-partner-view/06-01-SUMMARY.md
+Last session: 2026-03-14T15:14:57.554Z
+Stopped at: Completed 06-02-PLAN.md
+Resume file: None

@@ -24,7 +24,7 @@
 - [x] **SHARE-01**: User can generate a shareable link for any single screenplay
 - [x] **SHARE-02**: Partner can open a share link and see a read-only view with analysis, scores, and producer notes
 - [x] **SHARE-03**: Partner can download the screenplay PDF from the shared view
-- [ ] **SHARE-04**: Shared view is clean and standalone (no dashboard chrome, no settings access)
+- [x] **SHARE-04**: Shared view is clean and standalone (no dashboard chrome, no settings access)
 
 ### Export Package
 
@@ -83,7 +83,7 @@
 | SHARE-01 | Phase 5 | Complete |
 | SHARE-02 | Phase 6 | Complete |
 | SHARE-03 | Phase 6 | Complete |
-| SHARE-04 | Phase 6 | Pending |
+| SHARE-04 | Phase 6 | Complete |
 | EXPORT-01 | Phase 7 | Pending |
 | INTEL-01 | Phase 8 | Pending |
 | INTEL-02 | Phase 8 | Pending |
