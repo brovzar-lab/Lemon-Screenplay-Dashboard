@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v6.8
 milestone_name: milestone
-status: completed
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-14T02:26:42.288Z"
-last_activity: 2026-03-14 — Completed Plan 02 (Sync Status Indicator) -- Phase 2 COMPLETE
+status: in-progress
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-14T02:32:06Z"
+last_activity: 2026-03-14 — Completed Plan 01 (Soft-Delete & Quarantine Core) of Phase 3
 progress:
   total_phases: 8
   completed_phases: 2
   total_plans: 7
-  completed_plans: 5
-  percent: 100
+  completed_plans: 6
+  percent: 85
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Surface the best screenplays from a large pipeline so the producer doesn't waste time reading bad ones
-**Current focus:** Phase 2 COMPLETE — Ready for Phase 3
+**Current focus:** Phase 3 in progress — Soft-Delete & Quarantine
 
 ## Current Position
 
-Phase: 2 of 8 (Sync Status Visibility)
-Plan: 2 of 2 in current phase
-Status: Completed
-Last activity: 2026-03-14 — Completed Plan 02 (Sync Status Indicator) -- Phase 2 COMPLETE
+Phase: 3 of 8 (Data Safety)
+Plan: 1 of 2 in current phase
+Status: In Progress
+Last activity: 2026-03-14 — Completed Plan 01 (Soft-Delete & Quarantine Core)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 85%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 | Phase 01 P03 | 10min | 2 tasks | 0 files |
 | Phase 02 P01 | 3min | 2 tasks | 5 files |
 | Phase 02 P02 | 4min | 3 tasks | 5 files |
+| Phase 03 P01 | 5min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,10 @@ Recent decisions affecting current work:
 - [Phase 02]: syncStatusStore is ephemeral (no persist middleware) -- session-only data
 - [Phase 02]: useSyncRetry guards concurrent retries via isRetrying check before flush
 - [Phase 02]: SyncStatusIndicator returns null when no pending writes (zero visual noise)
+- [Phase 03]: Old removeAnalysis/removeMultipleAnalyses/clearAllAnalyses kept as deprecated aliases to soft-delete versions for backward compatibility
+- [Phase 03]: Quarantine stores full raw document + _quarantined_at/_quarantine_reason/_original_collection metadata
+- [Phase 03]: _deleted_at preserved through backgroundFirestoreSync round-trips (not stripped like _savedAt/_docId)
+- [Phase 03]: getDeletedAnalyses reads from localStorage only (synchronous, 30-day sliding window)
 
 ### Pending Todos
 
@@ -88,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T02:26:42.285Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-ux-polish-scaffolding/04-CONTEXT.md
+Last session: 2026-03-14T02:32:06Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: .planning/phases/03-data-safety/03-01-SUMMARY.md
