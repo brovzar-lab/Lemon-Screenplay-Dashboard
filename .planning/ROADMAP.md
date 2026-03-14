@@ -78,13 +78,11 @@ Plans:
   2. When active filters produce zero results, the user sees a contextual empty state message with a "Clear Filters" action — not an empty grid
   3. When a write operation fails (upload, delete, note save), the user sees an inline toast or banner with the error — the failure is never silently swallowed
   4. A malformed localStorage value (corrupt JSON, unexpected schema) does not crash the app — the affected store resets to a safe default and the user can continue working
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: Build SkeletonCard and SkeletonModal components; integrate into ScreenplayGrid and ScreenplayModal loading paths
-- [ ] 04-02: Build EmptyState component; integrate into ScreenplayGrid filtered-zero-results path with filter-reset action
-- [ ] 04-03: Build toast/banner error notification system; replace all silent console.error calls with user-visible feedback
-- [ ] 04-04: Audit all JSON.parse call sites and wrap with try/catch + safe defaults
+- [ ] 04-01-PLAN.md — Verify pre-existing UX-01/UX-02; build toast infrastructure (toastStore + ToastContainer + App.tsx wiring)
+- [ ] 04-02-PLAN.md — Wire toast calls into 14 user-facing error sites (UX-03); harden JSON.parse sites with safeJsonParse utility (UX-04)
 
 ### Phase 5: Share Token Generation
 **Goal**: Producer can generate a secure, per-screenplay shareable link that does not expose the full dashboard or any other screenplay
@@ -165,7 +163,7 @@ Note: Phases 2, 3, and 4 depend only on Phase 1 and can proceed in parallel. Pha
 | 1. Firestore Security Hardening | 3/3 | Complete   | 2026-03-14 |
 | 2. Sync Status Visibility | 2/2 | Complete   | 2026-03-14 |
 | 3. Data Safety | 2/2 | Complete   | 2026-03-14 |
-| 4. UX Polish Scaffolding | 0/4 | Not started | - |
+| 4. UX Polish Scaffolding | 0/2 | Not started | - |
 | 5. Share Token Generation | 0/3 | Not started | - |
 | 6. Shared Partner View | 0/4 | Not started | - |
 | 7. Export Coverage Package | 0/3 | Not started | - |
