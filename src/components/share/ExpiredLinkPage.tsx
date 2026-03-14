@@ -12,7 +12,7 @@ export function ExpiredLinkPage() {
     <div className="min-h-screen bg-black-900 flex flex-col items-center justify-center px-4">
       <div className="flex flex-col items-center gap-6 text-center max-w-md">
         <img
-          src="/lemon-logo.png"
+          src="/lemon-logo-white.png"
           alt="Lemon Studios"
           className="h-12 w-12"
         />

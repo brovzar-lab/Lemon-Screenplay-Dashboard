@@ -92,7 +92,9 @@ export interface SharedViewDocument {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const SHARED_VIEWS_COLLECTION = 'shared_views';
-const SHARE_BASE_URL = 'https://lemon-screenplay-dashboard.web.app/share';
+function getShareBaseUrl(): string {
+    return `${window.location.origin}/share`;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -197,7 +199,7 @@ export async function createShareToken(
 
     return {
         token,
-        url: `${SHARE_BASE_URL}/${token}`,
+        url: `${getShareBaseUrl()}/${token}`,
     };
 }
 

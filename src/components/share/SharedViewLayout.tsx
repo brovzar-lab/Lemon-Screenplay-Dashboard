@@ -27,7 +27,7 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
         {/* Header with logo */}
         <header className="flex items-center justify-center mb-8">
           <img
-            src="/lemon-logo.png"
+            src="/lemon-logo-white.png"
             alt="Lemon Studios"
             className="h-8 w-8"
           />

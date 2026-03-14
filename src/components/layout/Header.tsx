@@ -49,7 +49,7 @@ export function Header() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-4">
-            <span className="text-3xl" role="img" aria-label="Lemon">🍋</span>
+            <img src={resolvedTheme === 'dark' ? '/lemon-logo-white.png' : '/lemon-logo-black.png'} alt="Lemon Studios" className="h-9 w-9" />
             <h1 className="text-2xl font-display m-0">
               <span className="text-gradient-gold font-bold tracking-tight">LEMON</span>
               <span className="text-black-200 font-light ml-2">Screenplay Dashboard</span>
