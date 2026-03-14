@@ -16,7 +16,7 @@ Producer can download a formatted single-screenplay coverage PDF from the detail
 ### PDF content & layout
 - **Full analysis** — logline, synopsis, all dimension scores with score bars, strengths, weaknesses, recommendation, comparable films, characters, and producer notes
 - **Poster image** as cover page or hero image at the top
-- **Producer notes always included** — no toggle (this is a document the producer generates)
+- **Producer notes always included** — no toggle (this is a document the producer generates). Section omitted entirely if no notes exist (no empty placeholder needed).
 - **Score bars with numbers** — colored bars showing each dimension score with numeric values (visual + informative)
 
 ### Branding & design

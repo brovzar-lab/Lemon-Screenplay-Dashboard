@@ -4,7 +4,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock @react-pdf/renderer before importing the module under test
 vi.mock('@react-pdf/renderer', () => ({
   pdf: vi.fn(() => ({
     toBlob: vi.fn(() => Promise.resolve(new Blob(['test'], { type: 'application/pdf' }))),
@@ -18,7 +17,6 @@ vi.mock('@react-pdf/renderer', () => ({
   Font: { register: vi.fn() },
 }));
 
-// Mock notesStore
 vi.mock('@/stores/notesStore', () => ({
   useNotesStore: {
     getState: () => ({
@@ -138,7 +136,6 @@ describe('downloadCoveragePdf', () => {
   it('calls pdf().toBlob() and triggers anchor click download', async () => {
     const { pdf } = await import('@react-pdf/renderer');
     const screenplay = createMockScreenplay();
-
     await downloadCoveragePdf(screenplay);
 
     expect(pdf).toHaveBeenCalled();
@@ -152,25 +149,19 @@ describe('downloadCoveragePdf', () => {
 
   it('sanitizes the filename to {Title}-Coverage.pdf', async () => {
     const screenplay = createMockScreenplay({ title: 'The Last Summer' });
-
     await downloadCoveragePdf(screenplay);
-
     expect(mockLink.download).toBe('The-Last-Summer-Coverage.pdf');
   });
 
   it('handles empty title with fallback filename', async () => {
     const screenplay = createMockScreenplay({ title: '' });
-
     await downloadCoveragePdf(screenplay);
-
     expect(mockLink.download).toBe('Untitled-Coverage.pdf');
   });
 
   it('strips special characters from filename', async () => {
     const screenplay = createMockScreenplay({ title: 'Hello/World?' });
-
     await downloadCoveragePdf(screenplay);
-
     expect(mockLink.download).toBe('HelloWorld-Coverage.pdf');
   });
 });

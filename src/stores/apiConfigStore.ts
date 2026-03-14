@@ -50,16 +50,17 @@ interface ApiConfig {
 const getToday = () => new Date().toISOString().split('T')[0];
 const getThisMonth = () => new Date().toISOString().slice(0, 7);
 
+// Read from .env at build time — safe for an internal tool.
+// localStorage (via persist) will override these if the user has
+// manually entered a different key via Settings.
+const ENV_ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined ?? '';
+
 export const useApiConfigStore = create<ApiConfig>()(
   persist(
     (set, get) => ({
-      // Keys are restored from localStorage by persist after user enters them
-      // in Settings. We do NOT fall back to VITE_ env vars here — those get
-      // baked into the production bundle by Vite and expose keys to anyone
-      // who inspects the JS source. Enter keys via Settings only.
-      apiKey: '',
+      apiKey: ENV_ANTHROPIC_KEY,
       apiEndpoint: 'https://api.anthropic.com/v1/messages',
-      isConfigured: false,
+      isConfigured: ENV_ANTHROPIC_KEY.length > 0,
 
       googleApiKey: '',
       isGoogleConfigured: false,
@@ -147,10 +148,11 @@ export const useApiConfigStore = create<ApiConfig>()(
       // This is THE only reliable way to fix stale `isConfigured: false` in storage.
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        // After localStorage restores apiKey, recompute the derived flags.
-        // useApiConfigStore.setState is not available here, but we can mutate
-        // the state object BEFORE it is merged — this is the documented pattern.
-        const key = (state.apiKey as string) || '';
+        // If localStorage had an empty key (e.g. previously cleared), fall back
+        // to the env-var key so the app stays configured after a store reset.
+        let key = (state.apiKey as string) || '';
+        if (!key) key = ENV_ANTHROPIC_KEY;
+        (state as ApiConfig).apiKey = key;
         const gKey = (state.googleApiKey as string) || '';
         (state as ApiConfig).isConfigured = key.length > 0;
         (state as ApiConfig).isGoogleConfigured = gKey.length > 0;
