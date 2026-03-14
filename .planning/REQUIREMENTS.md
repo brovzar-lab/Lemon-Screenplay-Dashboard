@@ -28,7 +28,7 @@
 
 ### Export Package
 
-- [ ] **EXPORT-01**: User can download a single-screenplay coverage PDF with logline, synopsis, scores, producer notes, and recommendation
+- [x] **EXPORT-01**: User can download a single-screenplay coverage PDF with logline, synopsis, scores, producer notes, and recommendation
 
 ### Market Intelligence
 
@@ -84,7 +84,7 @@
 | SHARE-02 | Phase 6 | Complete |
 | SHARE-03 | Phase 6 | Complete |
 | SHARE-04 | Phase 6 | Complete |
-| EXPORT-01 | Phase 7 | Pending |
+| EXPORT-01 | Phase 7 | Complete |
 | INTEL-01 | Phase 8 | Pending |
 | INTEL-02 | Phase 8 | Pending |
 
