@@ -32,7 +32,7 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Sanitize source_file into a Firestore-safe document ID. */
-function toDocId(sourceFile: string): string {
+export function toDocId(sourceFile: string): string {
     return sourceFile
         .replace(/[/\\]/g, '_')
         .replace(/[^a-zA-Z0-9_\-. ]/g, '')
