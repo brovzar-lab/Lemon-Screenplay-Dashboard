@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { loadAllScreenplaysVite, getScreenplayStats } from '@/lib/api';
-import { removeAnalysis, removeMultipleAnalyses } from '@/lib/analysisStore';
+import { removeAnalysis, removeMultipleAnalyses, getDeletedAnalyses, restoreAnalysis } from '@/lib/analysisStore';
 import { canonicalizeGenre } from '@/lib/calculations';
 
 
@@ -13,6 +13,20 @@ import { canonicalizeGenre } from '@/lib/calculations';
  * Query key for screenplays
  */
 export const SCREENPLAYS_QUERY_KEY = ['screenplays'];
+
+/**
+ * Query key for deleted screenplays
+ */
+export const DELETED_SCREENPLAYS_QUERY_KEY = ['deleted-screenplays'];
+
+/**
+ * Display shape for a deleted screenplay in the recovery UI.
+ */
+export interface DeletedScreenplayEntry {
+  sourceFile: string;
+  title: string;
+  deletedAt: string;
+}
 
 /**
  * Hook to fetch all screenplays
@@ -110,5 +124,44 @@ export function useThemes() {
   });
 
   return Array.from(themes).sort();
+}
+
+/**
+ * Hook to fetch soft-deleted screenplays within the last 30 days.
+ * Returns a list of simplified display entries for the recovery UI.
+ */
+export function useDeletedScreenplays() {
+  return useQuery({
+    queryKey: DELETED_SCREENPLAYS_QUERY_KEY,
+    queryFn: (): DeletedScreenplayEntry[] => {
+      const raw = getDeletedAnalyses();
+      return raw.map((entry) => {
+        const sourceFile = (entry.source_file as string) || '';
+        const metadata = entry.metadata as Record<string, unknown> | undefined;
+        const title = (metadata?.title as string) || sourceFile;
+        const deletedAt = (entry._deleted_at as string) || '';
+        return { sourceFile, title, deletedAt };
+      });
+    },
+    staleTime: 0,
+  });
+}
+
+/**
+ * Hook to restore a soft-deleted screenplay.
+ * Invalidates both the deleted list and main screenplays cache on success.
+ */
+export function useRestoreScreenplay() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (sourceFile: string) => {
+      await restoreAnalysis(sourceFile);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: DELETED_SCREENPLAYS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+    },
+  });
 }
 
