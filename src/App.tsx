@@ -8,7 +8,7 @@ import { Header, FilterBar } from '@/components/layout';
 import { ScreenplayGrid, ScreenplayModal } from '@/components/screenplay';
 import { CollectionTabs } from '@/components/filters';
 import { ComparisonBar } from '@/components/comparison';
-import { ErrorBoundary, LoadingFallback } from '@/components/ui';
+import { ErrorBoundary, LoadingFallback, ToastContainer } from '@/components/ui';
 import { DevExecChat } from '@/components/devexec';
 import { DevExecProvider } from '@/contexts/DevExecContext';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
@@ -147,6 +147,9 @@ function App() {
 
         {/* Dev Exec AI Chat */}
         <DevExecChat />
+
+        {/* Toast Notifications (outside ErrorBoundary — always visible) */}
+        <ToastContainer />
       </div>
     </DevExecProvider>
   );
