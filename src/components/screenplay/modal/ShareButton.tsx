@@ -16,6 +16,7 @@ import {
     isScreenplaySynced,
 } from '@/lib/shareService';
 import { useShareStore } from '@/stores/shareStore';
+import { useNotesStore } from '@/stores/notesStore';
 import { useToastStore } from '@/stores/toastStore';
 
 interface ShareButtonProps {
@@ -91,7 +92,7 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
     // Create token mutation
     const createMutation = useMutation({
         mutationFn: () =>
-            createShareToken(screenplayId, screenplay.title, includeNotes),
+            createShareToken(screenplayId, screenplay, includeNotes, useNotesStore.getState().notes[screenplayId]),
         onSuccess: (result) => {
             useShareStore.getState().setToken(screenplayId, {
                 token: result.token,
