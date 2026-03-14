@@ -38,16 +38,16 @@ created: 2026-03-14
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 07-01-01 | 01 | 1 | EXPORT-01 | build | `npm run build` | N/A | ⬜ pending |
-| 07-01-02 | 01 | 1 | EXPORT-01 | build+suite | `npm run build && npm run test:run` | N/A | ⬜ pending |
+| 07-01-T1 | 01 | 1 | EXPORT-01 | vitest | `npx vitest run src/components/export/exportCoverage.test.ts src/components/export/CoverageDocument.test.tsx -x` | N/A | pending |
+| 07-02-T1 | 02 | 2 | EXPORT-01 | build | `npm run build` | N/A | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-*No new test files needed — @react-pdf/renderer components are validated by build (TypeScript) and manual PDF inspection.*
+*No new test files needed ahead of task execution — test files are created inline within 07-01-T1 (TDD task).*
 
 ---
 
