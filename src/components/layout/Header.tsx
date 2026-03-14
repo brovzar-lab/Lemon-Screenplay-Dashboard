@@ -8,6 +8,7 @@ import { useScreenplayStats } from '@/hooks/useScreenplays';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
 import { useThemeStore } from '@/stores/themeStore';
 import { DevExecToggle } from '@/components/devexec';
+import { SyncStatusIndicator } from './SyncStatusIndicator';
 
 interface StatPillProps {
   label: string;
@@ -82,6 +83,9 @@ export function Header() {
                 )}
               </>
             )}
+
+            {/* Sync Status */}
+            <SyncStatusIndicator />
 
             {/* Dev Exec AI */}
             <DevExecToggle />
