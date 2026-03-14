@@ -5,6 +5,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { loadAllScreenplaysVite, getScreenplayStats } from '@/lib/api';
 import { removeAnalysis, removeMultipleAnalyses, getDeletedAnalyses, restoreAnalysis } from '@/lib/analysisStore';
+import { getExistingShareToken, revokeShareToken } from '@/lib/shareService';
+import { useShareStore } from '@/stores/shareStore';
 import { canonicalizeGenre } from '@/lib/calculations';
 
 
@@ -57,9 +59,32 @@ export function useDeleteScreenplays() {
         await removeAnalysis(sourceFiles);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: DELETED_SCREENPLAYS_QUERY_KEY });
+
+      // Auto-revoke share tokens for deleted screenplays (fire-and-forget)
+      const sourceFiles = Array.isArray(variables) ? variables : [variables];
+      try {
+        for (const sf of sourceFiles) {
+          const cached = useShareStore.getState().tokens[sf];
+          if (cached) {
+            revokeShareToken(cached.token, sf).catch(() => {
+              // Best-effort: never block delete flow
+            });
+          } else {
+            getExistingShareToken(sf)
+              .then((view) => {
+                if (view) {
+                  revokeShareToken(view.token, sf).catch(() => {});
+                }
+              })
+              .catch(() => {});
+          }
+        }
+      } catch {
+        // Auto-revoke must never block or error the delete operation
+      }
     },
   });
 }
