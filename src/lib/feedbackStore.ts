@@ -16,6 +16,7 @@ import {
     query,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { useToastStore } from '@/stores/toastStore';
 
 const FEEDBACK_COLLECTION = 'screenplay_feedback';
 const PROFILE_COLLECTION = 'producer_profiles';
@@ -72,6 +73,7 @@ export async function saveFeedback(feedback: ScreenplayFeedback): Promise<void> 
         console.log(`[Lemon] Feedback saved for ${feedback.screenplayTitle}`);
     } catch (err) {
         console.error('[Lemon] Failed to save feedback:', err);
+        useToastStore.getState().addToast('Failed to save notes — your changes may not be saved');
     }
 }
 
@@ -111,6 +113,7 @@ export async function saveCalibrationProfile(profile: CalibrationProfile): Promi
         console.log('[Lemon] Calibration profile saved');
     } catch (err) {
         console.error('[Lemon] Failed to save calibration profile:', err);
+        useToastStore.getState().addToast('Failed to save calibration profile');
     }
 }
 

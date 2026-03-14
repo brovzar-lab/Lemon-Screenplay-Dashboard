@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Screenplay } from '@/types';
 import { usePosterStore } from '@/stores/posterStore';
 import { generatePoster } from '@/lib/analysisService';
+import { useToastStore } from '@/stores/toastStore';
 
 interface PosterSectionProps {
     screenplay: Screenplay;
@@ -27,6 +28,9 @@ export function PosterSection({ screenplay }: PosterSectionProps) {
                     setErrorType(null);
                 } catch (error) {
                     console.error('Poster generation failed', error);
+                    if (!(error instanceof Error && error.message === 'GOOGLE_API_KEY_MISSING')) {
+                        useToastStore.getState().addToast('Poster generation failed', 'warning');
+                    }
                     setErrorType(error instanceof Error && error.message === 'GOOGLE_API_KEY_MISSING' ? 'key_missing' : 'generic');
                     setPosterStatus(screenplay.id, 'error');
                 }

@@ -13,6 +13,7 @@ import { analyzeScreenplay } from '@/lib/analysisService';
 import { saveAnalysis } from '@/lib/analysisStore';
 import useCategories from '@/hooks/useCategories';
 import { ApiConfigPanel } from './ApiConfigPanel';
+import { useToastStore } from '@/stores/toastStore';
 
 
 // ─── Model definitions ───────────────────────────────────────────────────────
@@ -257,6 +258,7 @@ export function UploadPanel() {
           message = message.replace(/^(functions\/[a-z-]+:\s*)/i, '');
         }
         console.error('[Upload] Analysis failed:', err);
+        useToastStore.getState().addToast('Analysis failed — please check the file and try again');
         updateJob(job.id, {
           status: 'error',
           error: message,

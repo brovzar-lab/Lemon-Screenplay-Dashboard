@@ -21,6 +21,7 @@ import {
     getCountFromServer,
 } from 'firebase/firestore';
 import { authReady, db } from './firebase';
+import { useToastStore } from '@/stores/toastStore';
 
 const FIRESTORE_COLLECTION = 'uploaded_analyses';
 const _QUARANTINE_COLLECTION = '_unrecognized_analyses';
@@ -46,6 +47,7 @@ function writeToLocal(analyses: Record<string, unknown>[]): void {
         localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(analyses));
     } catch (err) {
         console.error('[Lemon] localStorage write failed:', err);
+        useToastStore.getState().addToast('Failed to save screenplay locally — storage may be full');
     }
 }
 
@@ -238,6 +240,7 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
         console.log(`[Lemon] Analysis saved to Firestore: ${docId}`);
     } catch (err) {
         console.warn(`[Lemon] Firestore write failed for ${docId} (queued for retry):`, err);
+        useToastStore.getState().addToast('Failed to sync screenplay to cloud — will retry automatically', 'warning');
         queueForRetry(raw);
         // Do NOT re-throw — the analysis is safely in localStorage.
     }
@@ -292,6 +295,7 @@ export async function softDeleteAnalysis(sourceFile: string): Promise<void> {
         console.log(`[Lemon] Soft-deleted in Firestore: ${docId}`);
     } catch (err) {
         console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
+        useToastStore.getState().addToast('Failed to delete screenplay — please try again');
     }
 }
 
@@ -331,6 +335,7 @@ export async function softDeleteAllAnalyses(): Promise<void> {
         console.log(`[Lemon] Soft-deleted ${snapshot.size} analyses in Firestore`);
     } catch (err) {
         console.warn('[Lemon] Firestore soft-delete-all failed:', err);
+        useToastStore.getState().addToast('Failed to delete screenplays — please try again');
     }
 }
 
@@ -364,6 +369,7 @@ export async function restoreAnalysis(sourceFile: string): Promise<void> {
         console.log(`[Lemon] Restored in Firestore: ${docId}`);
     } catch (err) {
         console.warn(`[Lemon] Firestore restore failed for ${docId}:`, err);
+        useToastStore.getState().addToast('Failed to restore screenplay — please try again');
     }
 }
 

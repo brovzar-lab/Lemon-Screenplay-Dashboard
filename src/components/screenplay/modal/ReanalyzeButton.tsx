@@ -14,6 +14,7 @@ import type { Screenplay } from '@/types';
 import { reanalyzeFromStorage, type AnalysisProgress } from '@/lib/analysisService';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { useQueryClient } from '@tanstack/react-query';
+import { useToastStore } from '@/stores/toastStore';
 
 interface ReanalyzeButtonProps {
     screenplay: Screenplay;
@@ -82,6 +83,7 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
             const msg = err instanceof Error ? err.message : 'Re-analysis failed';
             setError(msg);
             console.error('[ReanalyzeButton]', err);
+            useToastStore.getState().addToast('Reanalysis failed — please try again');
         } finally {
             setIsAnalyzing(false);
         }

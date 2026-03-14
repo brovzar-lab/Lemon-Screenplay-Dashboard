@@ -11,6 +11,7 @@ import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { softDeleteAllAnalyses, resetMigrationFlag, getQuarantineCount } from '@/lib/analysisStore';
 import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { useQueryClient } from '@tanstack/react-query';
+import { useToastStore } from '@/stores/toastStore';
 
 export function DataManagement() {
   const { data: screenplays = [] } = useScreenplays();
@@ -143,6 +144,7 @@ export function DataManagement() {
       setShowDeleteAllConfirm(false);
     } catch (err) {
       console.error('[Lemon] Failed to delete all screenplays:', err);
+      useToastStore.getState().addToast('Failed to delete all screenplays — please try again');
     } finally {
       setIsDeleting(false);
     }

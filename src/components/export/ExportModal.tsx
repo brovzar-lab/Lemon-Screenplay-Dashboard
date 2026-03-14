@@ -9,6 +9,7 @@ import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { exportToCSV } from './csvExport';
 import { PdfDocument } from './PdfDocument';
+import { useToastStore } from '@/stores/toastStore';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -74,6 +75,7 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
       }, 1000);
     } catch (error) {
       console.error('Export failed:', error);
+      useToastStore.getState().addToast('Export failed — please try again');
       setIsExporting(false);
       setExportProgress(0);
     }

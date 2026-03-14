@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import type { RecommendationTier, BudgetCategory, Collection, SortDirection, SortField } from '@/types';
+import { useToastStore } from '@/stores/toastStore';
 
 // URL parameter keys
 const PARAM_KEYS = {
@@ -246,6 +247,7 @@ export async function copyShareableUrl(): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('Failed to copy URL:', error);
+    useToastStore.getState().addToast('Failed to copy URL to clipboard', 'warning');
     return false;
   }
 }
