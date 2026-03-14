@@ -6,8 +6,9 @@ import { ErrorBoundary, LoadingFallback } from '@/components/ui';
 import './index.css';
 import App from './App';
 
-// Lazy-loaded routes — Settings page loaded on demand
+// Lazy-loaded routes — loaded on demand for code splitting
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const SharedViewPage = lazy(() => import('./pages/SharedViewPage'));
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -30,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
             <Routes>
               <Route path="/" element={<App />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/share/:token" element={<SharedViewPage />} />
             </Routes>
           </Suspense>
         </BrowserRouter>
