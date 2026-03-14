@@ -346,7 +346,8 @@ export async function restoreAnalysis(sourceFile: string): Promise<void> {
     const existing = readFromLocal();
     const updated = existing.map((a) => {
         if (a.source_file === sourceFile) {
-            const { _deleted_at: _, ...rest } = a;
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { _deleted_at: _discarded, ...rest } = a;
             return rest;
         }
         return a;

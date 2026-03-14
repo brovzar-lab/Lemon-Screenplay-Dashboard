@@ -2,7 +2,7 @@ import type { Screenplay, Collection } from '@/types';
 import type { V6ScreenplayAnalysis } from '@/types/screenplay-v6';
 import type { ScreenplayWithV6 } from './normalize';
 import { isV6RawAnalysis, normalizeV6Screenplay } from './normalize';
-import { loadAllAnalyses, removeAnalysis, isMigrationComplete, migrateStaticToFirestore } from './analysisStore';
+import { loadAllAnalyses, quarantineAnalysis, isMigrationComplete, migrateStaticToFirestore } from './analysisStore';
 
 /**
  * Load all screenplay data.
@@ -64,19 +64,15 @@ export async function loadAllScreenplaysVite(): Promise<ScreenplayWithV6[]> {
           screenplays.push(sp);
           loadedCount++;
         } else {
-          // Pre-V6 upload detected — remove it
+          // Pre-V6 upload detected — quarantine it for review
           const sourceFile = (raw as Record<string, unknown>).source_file as string | undefined;
-          console.warn('[Lemon] Removing pre-V6 uploaded analysis:', sourceFile);
-          if (sourceFile) {
-            try { await removeAnalysis(sourceFile); } catch { /* ignore */ }
-          }
+          console.warn('[Lemon] Quarantining pre-V6 uploaded analysis:', sourceFile);
+          try { await quarantineAnalysis(raw as Record<string, unknown>, 'failed isV6RawAnalysis type guard'); } catch { /* ignore */ }
         }
       } catch (err) {
         const sourceFile = (raw as Record<string, unknown>).source_file as string | undefined;
-        console.error(`[Lemon] Failed to normalize uploaded analysis "${sourceFile || 'unknown'}", removing corrupted entry:`, err);
-        if (sourceFile) {
-          try { await removeAnalysis(sourceFile); } catch { /* ignore cleanup errors */ }
-        }
+        console.error(`[Lemon] Failed to normalize uploaded analysis "${sourceFile || 'unknown'}", quarantining corrupted entry:`, err);
+        try { await quarantineAnalysis(raw as Record<string, unknown>, 'normalization error: ' + (err instanceof Error ? err.message : String(err))); } catch { /* ignore cleanup errors */ }
       }
     }
     if (localRawList.length > 0) {

@@ -90,6 +90,12 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    // ── _unrecognized_analyses (Phase 3 quarantine collection) ──────────────
+    // Documents that failed type-guard validation, preserved for manual review.
+    match /_unrecognized_analyses/{docId} {
+      allow read, write: if request.auth != null;
+    }
+
     // ── Catch-all deny ────────────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
