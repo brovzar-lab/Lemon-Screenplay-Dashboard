@@ -21,7 +21,7 @@
 
 ### Partner Sharing
 
-- [ ] **SHARE-01**: User can generate a shareable link for any single screenplay
+- [x] **SHARE-01**: User can generate a shareable link for any single screenplay
 - [ ] **SHARE-02**: Partner can open a share link and see a read-only view with analysis, scores, and producer notes
 - [ ] **SHARE-03**: Partner can download the screenplay PDF from the shared view
 - [ ] **SHARE-04**: Shared view is clean and standalone (no dashboard chrome, no settings access)
@@ -80,7 +80,7 @@
 | UX-02 | Phase 4 | Complete |
 | UX-03 | Phase 4 | Complete |
 | UX-04 | Phase 4 | Complete |
-| SHARE-01 | Phase 5 | Pending |
+| SHARE-01 | Phase 5 | Complete |
 | SHARE-02 | Phase 6 | Pending |
 | SHARE-03 | Phase 6 | Pending |
 | SHARE-04 | Phase 6 | Pending |

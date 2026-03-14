@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v6.8
 milestone_name: milestone
-status: completed
-stopped_at: Phase 5 context gathered
-last_updated: "2026-03-14T05:42:36.233Z"
-last_activity: 2026-03-14 — Completed Plan 02 (Error Site Toast Integration)
+status: in-progress
+stopped_at: Completed 05-01 (Share Service Layer)
+last_updated: "2026-03-14T06:01:23.816Z"
+last_activity: 2026-03-14 — Completed Plan 01 (Share Service Layer)
 progress:
   total_phases: 8
   completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 11
+  completed_plans: 10
   percent: 100
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Surface the best screenplays from a large pipeline so the producer doesn't waste time reading bad ones
-**Current focus:** Phase 4 complete — UX Polish Scaffolding (Toast infrastructure + error site integration done)
+**Current focus:** Phase 5 in progress — Share Token Generation (service layer + session cache done)
 
 ## Current Position
 
-Phase: 4 of 8 (UX Polish Scaffolding)
-Plan: 2 of 2 in current phase
-Status: Phase 04 Complete
-Last activity: 2026-03-14 — Completed Plan 02 (Error Site Toast Integration)
+Phase: 5 of 8 (Share Token Generation)
+Plan: 1 of 2 in current phase
+Status: Plan 01 Complete
+Last activity: 2026-03-14 — Completed Plan 01 (Share Service Layer)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [██████████] 100%
 | Phase 03 P02 | 8min | 3 tasks | 5 files |
 | Phase 04 P01 | 3min | 2 tasks | 7 files |
 | Phase 04 P02 | 3min | 2 tasks | 12 files |
+| Phase 05 P01 | 2min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,8 @@ Recent decisions affecting current work:
 - [Phase 04]: Toast calls are additive (console.error preserved) for debug logging
 - [Phase 04]: Background operations (api.ts, sync, migration) remain console-only — no toast spam
 - [Phase 04]: PosterSection skips toast for GOOGLE_API_KEY_MISSING (has dedicated UI)
+- [Phase 05]: revokeShareToken accepts both token and screenplayId params to avoid extra query for cache invalidation
+- [Phase 05]: shareStore is ephemeral (no persist middleware) matching syncStatusStore/toastStore pattern
 
 ### Pending Todos
 
@@ -105,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T05:42:36.230Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-share-token-generation/05-CONTEXT.md
+Last session: 2026-03-14T06:01:00.000Z
+Stopped at: Completed 05-01-PLAN.md
+Resume file: .planning/phases/05-share-token-generation/05-01-SUMMARY.md
