@@ -59,6 +59,7 @@ export function useDeleteScreenplays() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: DELETED_SCREENPLAYS_QUERY_KEY });
     },
   });
 }
@@ -157,10 +158,27 @@ export function useRestoreScreenplay() {
   return useMutation({
     mutationFn: async (sourceFile: string) => {
       await restoreAnalysis(sourceFile);
+      return sourceFile;
     },
-    onSuccess: () => {
+    onMutate: async (sourceFile: string) => {
+      // Optimistic update: remove from deleted list immediately
+      await queryClient.cancelQueries({ queryKey: DELETED_SCREENPLAYS_QUERY_KEY });
+      const previous = queryClient.getQueryData<DeletedScreenplayEntry[]>(DELETED_SCREENPLAYS_QUERY_KEY);
+      queryClient.setQueryData<DeletedScreenplayEntry[]>(
+        DELETED_SCREENPLAYS_QUERY_KEY,
+        (old) => old?.filter((item) => item.sourceFile !== sourceFile) ?? []
+      );
+      return { previous };
+    },
+    onError: (_err, _sourceFile, context) => {
+      // Roll back on error
+      if (context?.previous) {
+        queryClient.setQueryData(DELETED_SCREENPLAYS_QUERY_KEY, context.previous);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: DELETED_SCREENPLAYS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+      queryClient.resetQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
     },
   });
 }

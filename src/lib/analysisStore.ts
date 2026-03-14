@@ -225,10 +225,10 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
     writeToLocal(filtered);
     console.log(`[Lemon] Analysis saved to localStorage: ${sourceFile}`);
 
-    // Step 2: Save to Firestore (persistent, may fail)
-    await authReady;
+    // Step 2: Save to Firestore (persistent, may fail). Never throw — localStorage is the success path.
     const docId = toDocId(sourceFile);
     try {
+        await authReady;
         const docRef = doc(db, FIRESTORE_COLLECTION, docId);
         await setDoc(docRef, {
             ...raw,
@@ -237,8 +237,9 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
         });
         console.log(`[Lemon] Analysis saved to Firestore: ${docId}`);
     } catch (err) {
-        console.error(`[Lemon] Firestore write failed for ${docId}, queuing for retry:`, err);
+        console.warn(`[Lemon] Firestore write failed for ${docId} (queued for retry):`, err);
         queueForRetry(raw);
+        // Do NOT re-throw — the analysis is safely in localStorage.
     }
 }
 
@@ -283,10 +284,10 @@ export async function softDeleteAnalysis(sourceFile: string): Promise<void> {
     writeToLocal(updated);
     console.log(`[Lemon] Soft-deleted from localStorage: ${sourceFile}`);
 
-    // Set _deleted_at in Firestore
-    await authReady;
+    // Set _deleted_at in Firestore — never throw, localStorage is the success path
     const docId = toDocId(sourceFile);
     try {
+        await authReady;
         await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { _deleted_at: deletedAt });
         console.log(`[Lemon] Soft-deleted in Firestore: ${docId}`);
     } catch (err) {
@@ -317,9 +318,9 @@ export async function softDeleteAllAnalyses(): Promise<void> {
         // ignore
     }
 
-    // Set _deleted_at on all Firestore docs
-    await authReady;
+    // Set _deleted_at on all Firestore docs — never throw, localStorage is the success path
     try {
+        await authReady;
         const q = query(collection(db, FIRESTORE_COLLECTION));
         const snapshot = await getDocs(q);
         await Promise.all(
@@ -466,9 +467,14 @@ export async function softDeleteMultipleAnalyses(sourceFiles: string[]): Promise
     writeToLocal(updated);
     console.log(`[Lemon] Soft-deleted ${sourceFiles.length} analyses in localStorage`);
 
-    // Soft-delete in Firestore in parallel (batches of 10)
-    await authReady;
+    // Soft-delete in Firestore in parallel (batches of 10) — never throw
     const batchSize = 10;
+    try {
+        await authReady;
+    } catch {
+        console.warn('[Lemon] Firestore auth not ready, skipping Firestore batch soft-delete');
+        return;
+    }
     for (let i = 0; i < sourceFiles.length; i += batchSize) {
         const batch = sourceFiles.slice(i, i + batchSize);
         await Promise.allSettled(

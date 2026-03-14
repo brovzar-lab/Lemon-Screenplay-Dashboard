@@ -26,6 +26,7 @@ export function DataManagement() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeletedList, setShowDeletedList] = useState(false);
   const [quarantineCount, setQuarantineCount] = useState<number>(0);
+  const [restoredName, setRestoredName] = useState<string | null>(null);
 
   useEffect(() => {
     getQuarantineCount().then(setQuarantineCount).catch(() => setQuarantineCount(0));
@@ -284,6 +285,14 @@ export function DataManagement() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
+            {restoredName && (
+              <div className="mb-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
+                <span className="text-emerald-400 text-sm">✓</span>
+                <span className="text-sm text-emerald-300">
+                  &quot;{restoredName}&quot; restored to dashboard
+                </span>
+              </div>
+            )}
             {showDeletedList && (
               <div className="space-y-2">
                 {deletedScreenplays.map((item) => {
@@ -301,7 +310,14 @@ export function DataManagement() {
                         <p className="text-xs text-zinc-500">Deleted {timeLabel}</p>
                       </div>
                       <button
-                        onClick={() => restoreScreenplay.mutate(item.sourceFile)}
+                        onClick={() => {
+                          restoreScreenplay.mutate(item.sourceFile, {
+                            onSuccess: () => {
+                              setRestoredName(item.title);
+                              setTimeout(() => setRestoredName(null), 3000);
+                            },
+                          });
+                        }}
                         disabled={restoreScreenplay.isPending}
                         className="ml-3 px-3 py-1 text-sm font-medium text-emerald-400 hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >

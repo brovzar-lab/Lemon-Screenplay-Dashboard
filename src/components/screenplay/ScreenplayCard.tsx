@@ -218,7 +218,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
         onConfirm={handleConfirmDelete}
         onCancel={() => setShowDeleteConfirm(false)}
         title={`Delete "${screenplay.title}"?`}
-        message={`This will permanently remove the analysis for "${screenplay.title}" from your database.`}
+        message={`Remove "${screenplay.title}" from the dashboard? You can restore it from Settings > Data.`}
         isPending={deleteMutation.isPending}
       />
     </>

@@ -82,11 +82,11 @@ export function DeleteConfirmDialog({
                 </p>
                 {count !== undefined && count > 1 && (
                     <p className="text-center text-xs text-red-400 font-medium mb-4">
-                        {count} screenplay{count > 1 ? 's' : ''} will be permanently deleted
+                        {count} screenplay{count > 1 ? 's' : ''} will be removed
                     </p>
                 )}
                 <p className="text-center text-xs text-black-500 mb-6">
-                    This action cannot be undone.
+                    You can recover deleted items from Settings &gt; Data within 30 days.
                 </p>
 
                 {/* Actions */}
