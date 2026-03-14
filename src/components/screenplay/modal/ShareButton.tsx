@@ -23,7 +23,9 @@ interface ShareButtonProps {
     screenplay: Screenplay;
 }
 
-const SHARE_BASE_URL = 'https://lemon-screenplay-dashboard.web.app/share';
+function getShareBaseUrl(): string {
+  return `${window.location.origin}/share`;
+}
 
 export function ShareButton({ screenplay }: ShareButtonProps) {
     const screenplayId = screenplay.sourceFile;
@@ -142,7 +144,7 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
     };
 
     const shareUrl = cachedToken
-        ? `${SHARE_BASE_URL}/${cachedToken.token}`
+        ? `${getShareBaseUrl()}/${cachedToken.token}`
         : '';
 
     const handleCopy = useCallback(async () => {
