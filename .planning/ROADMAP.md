@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Sync Status Visibility** - Producer can see pending sync count and manually retry failed Firestore writes (completed 2026-03-14)
 - [x] **Phase 3: Data Safety** - Soft-delete recovery window and quarantine pattern replace destructive data loss (completed 2026-03-14)
 - [x] **Phase 4: UX Polish Scaffolding** - Skeleton loaders, empty states, and inline error feedback replace silent failures (completed 2026-03-14)
-- [ ] **Phase 5: Share Token Generation** - Producer can generate a per-screenplay shareable link with a secure token
+- [x] **Phase 5: Share Token Generation** - Producer can generate a per-screenplay shareable link with a secure token (completed 2026-03-14)
 - [ ] **Phase 6: Shared Partner View** - Partner can open a share link and see a clean read-only analysis view
 - [ ] **Phase 7: Export Coverage Package** - Producer can download a formatted coverage PDF for formal sharing
 - [ ] **Phase 8: Market Intelligence** - Comparable titles and scoped DevExec AI chat surface inside the screenplay detail modal
@@ -163,7 +163,7 @@ Note: Phases 2, 3, and 4 depend only on Phase 1 and can proceed in parallel. Pha
 | 2. Sync Status Visibility | 2/2 | Complete   | 2026-03-14 |
 | 3. Data Safety | 2/2 | Complete   | 2026-03-14 |
 | 4. UX Polish Scaffolding | 2/2 | Complete   | 2026-03-14 |
-| 5. Share Token Generation | 0/2 | Not started | - |
+| 5. Share Token Generation | 2/2 | Complete   | 2026-03-14 |
 | 6. Shared Partner View | 0/4 | Not started | - |
 | 7. Export Coverage Package | 0/3 | Not started | - |
 | 8. Market Intelligence | 0/4 | Not started | - |

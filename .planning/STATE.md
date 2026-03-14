@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.8
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 05-01 (Share Service Layer)
-last_updated: "2026-03-14T06:01:23.816Z"
-last_activity: 2026-03-14 — Completed Plan 01 (Share Service Layer)
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-03-14T06:33:36Z"
+last_activity: 2026-03-14 — Completed Plan 02 (Share Token Generation UI)
 progress:
   total_phases: 8
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
   percent: 100
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Surface the best screenplays from a large pipeline so the producer doesn't waste time reading bad ones
-**Current focus:** Phase 5 in progress — Share Token Generation (service layer + session cache done)
+**Current focus:** Phase 5 complete — Share Token Generation (all plans done)
 
 ## Current Position
 
 Phase: 5 of 8 (Share Token Generation)
-Plan: 1 of 2 in current phase
-Status: Plan 01 Complete
-Last activity: 2026-03-14 — Completed Plan 01 (Share Service Layer)
+Plan: 2 of 2 in current phase
+Status: Phase 05 Complete
+Last activity: 2026-03-14 — Completed Plan 02 (Share Token Generation UI)
 
-Progress: [█████████░] 91%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [█████████░] 91%
 | Phase 04 P01 | 3min | 2 tasks | 7 files |
 | Phase 04 P02 | 3min | 2 tasks | 12 files |
 | Phase 05 P01 | 2min | 1 tasks | 5 files |
+| Phase 05 P02 | 4min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,8 @@ Recent decisions affecting current work:
 - [Phase 04]: PosterSection skips toast for GOOGLE_API_KEY_MISSING (has dedicated UI)
 - [Phase 05]: revokeShareToken accepts both token and screenplayId params to avoid extra query for cache invalidation
 - [Phase 05]: shareStore is ephemeral (no persist middleware) matching syncStatusStore/toastStore pattern
+- [Phase 05]: ShareButton uses inline absolute-positioned popover (no portal needed)
+- [Phase 05]: Auto-revoke on soft-delete is fire-and-forget to never block the delete operation
 
 ### Pending Todos
 
@@ -108,6 +111,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T06:01:00.000Z
-Stopped at: Completed 05-01-PLAN.md
-Resume file: .planning/phases/05-share-token-generation/05-01-SUMMARY.md
+Last session: 2026-03-14T06:33:36Z
+Stopped at: Completed 05-02-PLAN.md
+Resume file: .planning/phases/05-share-token-generation/05-02-SUMMARY.md
