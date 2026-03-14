@@ -51,6 +51,12 @@ const mockGetCountFromServer = vi.fn().mockImplementation(() => {
     callOrder.push('getCountFromServer');
     return Promise.resolve({ data: () => ({ count: 5 }) });
 });
+const mockUpdateDoc = vi.fn().mockImplementation(() => {
+    callOrder.push('updateDoc');
+    return Promise.resolve();
+});
+const mockDeleteFieldSentinel = Symbol('deleteField');
+const mockDeleteField = vi.fn(() => mockDeleteFieldSentinel);
 
 vi.mock('firebase/firestore', () => ({
     collection: vi.fn(() => 'mock-collection-ref'),
@@ -60,6 +66,8 @@ vi.mock('firebase/firestore', () => ({
     setDoc: (...args: unknown[]) => mockSetDoc(...args),
     deleteDoc: (...args: unknown[]) => mockDeleteDoc(...args),
     getCountFromServer: (...args: unknown[]) => mockGetCountFromServer(...args),
+    updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
+    deleteField: () => mockDeleteField(),
 }));
 
 // Mock localStorage
@@ -79,6 +87,8 @@ describe('analysisStore authReady gates', () => {
         mockGetDocs.mockClear();
         mockSetDoc.mockClear();
         mockDeleteDoc.mockClear();
+        mockUpdateDoc.mockClear();
+        mockDeleteField.mockClear();
         mockGetCountFromServer.mockClear();
         mockLocalStorage.getItem.mockClear();
         mockLocalStorage.setItem.mockClear();
@@ -142,7 +152,7 @@ describe('analysisStore authReady gates', () => {
         expect(setDocIdx).toBeGreaterThan(authIdx);
     });
 
-    it('removeAnalysis awaits authReady before calling deleteDoc', async () => {
+    it('removeAnalysis (soft-delete) awaits authReady before calling updateDoc', async () => {
         const { removeAnalysis } = await import('./analysisStore');
 
         const removePromise = removeAnalysis('test.pdf');
@@ -150,22 +160,40 @@ describe('analysisStore authReady gates', () => {
         // Wait for microtasks
         await new Promise((r) => setTimeout(r, 50));
 
-        // deleteDoc should NOT have been called yet
-        expect(callOrder).not.toContain('deleteDoc');
+        // updateDoc should NOT have been called yet
+        expect(callOrder).not.toContain('updateDoc');
 
         // Resolve authReady
         resolveAuthReady();
         await removePromise;
 
-        // deleteDoc should come after authReady
+        // updateDoc should come after authReady
         const authIdx = callOrder.indexOf('authReady:resolved');
-        const deleteIdx = callOrder.indexOf('deleteDoc');
+        const updateIdx = callOrder.indexOf('updateDoc');
         expect(authIdx).toBeGreaterThanOrEqual(0);
-        expect(deleteIdx).toBeGreaterThan(authIdx);
+        expect(updateIdx).toBeGreaterThan(authIdx);
     });
 
-    it('clearAllAnalyses awaits authReady before calling getDocs', async () => {
+    it('clearAllAnalyses (soft-delete) awaits authReady before calling getDocs/updateDoc', async () => {
         const { clearAllAnalyses } = await import('./analysisStore');
+
+        // Seed localStorage with data so soft-delete has items to mark
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'a.pdf' },
+            { source_file: 'b.pdf' },
+        ]);
+
+        // Mock getDocs to return docs so updateDoc gets called
+        mockGetDocs.mockImplementationOnce(() => {
+            callOrder.push('getDocs');
+            return Promise.resolve({
+                docs: [
+                    { ref: 'mock-ref-a', data: () => ({ source_file: 'a.pdf' }) },
+                    { ref: 'mock-ref-b', data: () => ({ source_file: 'b.pdf' }) },
+                ],
+                size: 2,
+            });
+        });
 
         const clearPromise = clearAllAnalyses();
 
@@ -229,5 +257,213 @@ describe('flushPendingWrites export', () => {
     it('is exported and callable externally', async () => {
         const { flushPendingWrites } = await import('./analysisStore');
         expect(typeof flushPendingWrites).toBe('function');
+    });
+});
+
+// ─── Soft-delete, restore, quarantine tests ─────────────────────────────────
+
+describe('softDeleteAnalysis', () => {
+    beforeEach(() => {
+        callOrder.length = 0;
+        mockUpdateDoc.mockClear();
+        mockDeleteField.mockClear();
+        Object.keys(localStore).forEach((k) => delete localStore[k]);
+        resetAuthReady();
+        vi.resetModules();
+    });
+
+    it('sets _deleted_at on the matching localStorage entry', async () => {
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'keep.pdf', title: 'Keep' },
+            { source_file: 'delete-me.pdf', title: 'Delete Me' },
+        ]);
+
+        const { softDeleteAnalysis } = await import('./analysisStore');
+        resolveAuthReady();
+        await softDeleteAnalysis('delete-me.pdf');
+
+        const stored = JSON.parse(localStore['lemon-local-analyses']);
+        const deleted = stored.find((a: Record<string, unknown>) => a.source_file === 'delete-me.pdf');
+        const kept = stored.find((a: Record<string, unknown>) => a.source_file === 'keep.pdf');
+        expect(deleted._deleted_at).toBeDefined();
+        expect(typeof deleted._deleted_at).toBe('string');
+        expect(kept._deleted_at).toBeUndefined();
+    });
+
+    it('calls updateDoc on Firestore with _deleted_at', async () => {
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'test.pdf' },
+        ]);
+
+        const { softDeleteAnalysis } = await import('./analysisStore');
+        resolveAuthReady();
+        await softDeleteAnalysis('test.pdf');
+
+        expect(mockUpdateDoc).toHaveBeenCalled();
+    });
+});
+
+describe('loadAllAnalyses filters soft-deleted items', () => {
+    beforeEach(() => {
+        callOrder.length = 0;
+        Object.keys(localStore).forEach((k) => delete localStore[k]);
+        resetAuthReady();
+        vi.resetModules();
+    });
+
+    it('excludes items with _deleted_at from the return value', async () => {
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'visible.pdf', title: 'Visible' },
+            { source_file: 'hidden.pdf', title: 'Hidden', _deleted_at: '2026-03-10T00:00:00Z' },
+        ]);
+
+        const { loadAllAnalyses } = await import('./analysisStore');
+        vi.useFakeTimers();
+        const result = await loadAllAnalyses();
+        vi.useRealTimers();
+
+        expect(result).toHaveLength(1);
+        expect(result[0].source_file).toBe('visible.pdf');
+    });
+});
+
+describe('restoreAnalysis', () => {
+    beforeEach(() => {
+        callOrder.length = 0;
+        mockUpdateDoc.mockClear();
+        mockDeleteField.mockClear();
+        Object.keys(localStore).forEach((k) => delete localStore[k]);
+        resetAuthReady();
+        vi.resetModules();
+    });
+
+    it('removes _deleted_at from localStorage and calls updateDoc with deleteField()', async () => {
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'restore-me.pdf', title: 'Restore', _deleted_at: '2026-03-10T00:00:00Z' },
+        ]);
+
+        const { restoreAnalysis } = await import('./analysisStore');
+        resolveAuthReady();
+        await restoreAnalysis('restore-me.pdf');
+
+        const stored = JSON.parse(localStore['lemon-local-analyses']);
+        const restored = stored.find((a: Record<string, unknown>) => a.source_file === 'restore-me.pdf');
+        expect(restored._deleted_at).toBeUndefined();
+        expect(mockUpdateDoc).toHaveBeenCalled();
+    });
+});
+
+describe('getDeletedAnalyses', () => {
+    beforeEach(() => {
+        Object.keys(localStore).forEach((k) => delete localStore[k]);
+        vi.resetModules();
+    });
+
+    it('returns items deleted within last 30 days', async () => {
+        const recentDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(); // 5 days ago
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'active.pdf', title: 'Active' },
+            { source_file: 'recent-del.pdf', title: 'Recent Del', _deleted_at: recentDate },
+        ]);
+
+        const { getDeletedAnalyses } = await import('./analysisStore');
+        const result = getDeletedAnalyses();
+
+        expect(result).toHaveLength(1);
+        expect(result[0].source_file).toBe('recent-del.pdf');
+    });
+
+    it('excludes items deleted more than 30 days ago', async () => {
+        const oldDate = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(); // 45 days ago
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'old-del.pdf', title: 'Old Del', _deleted_at: oldDate },
+        ]);
+
+        const { getDeletedAnalyses } = await import('./analysisStore');
+        const result = getDeletedAnalyses();
+
+        expect(result).toHaveLength(0);
+    });
+});
+
+describe('quarantineAnalysis', () => {
+    beforeEach(() => {
+        callOrder.length = 0;
+        mockSetDoc.mockClear();
+        mockDeleteDoc.mockClear();
+        Object.keys(localStore).forEach((k) => delete localStore[k]);
+        resetAuthReady();
+        vi.resetModules();
+    });
+
+    it('calls setDoc on _unrecognized_analyses and deleteDoc on source collection', async () => {
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'bad.pdf', title: 'Bad' },
+        ]);
+
+        const { quarantineAnalysis } = await import('./analysisStore');
+        resolveAuthReady();
+        await quarantineAnalysis({ source_file: 'bad.pdf', title: 'Bad' }, 'failed type guard');
+
+        expect(mockSetDoc).toHaveBeenCalled();
+        expect(mockDeleteDoc).toHaveBeenCalled();
+
+        // Should also remove from localStorage
+        const stored = JSON.parse(localStore['lemon-local-analyses']);
+        expect(stored.find((a: Record<string, unknown>) => a.source_file === 'bad.pdf')).toBeUndefined();
+    });
+});
+
+describe('backgroundFirestoreSync preserves _deleted_at', () => {
+    beforeEach(() => {
+        callOrder.length = 0;
+        mockGetDocs.mockClear();
+        Object.keys(localStore).forEach((k) => delete localStore[k]);
+        resetAuthReady();
+        vi.resetModules();
+    });
+
+    it('preserves _deleted_at field in synced data (does not strip it)', async () => {
+        const deletedAt = '2026-03-10T00:00:00Z';
+
+        // Mock Firestore to return a doc with _deleted_at, _savedAt, and _docId
+        mockGetDocs.mockImplementationOnce(() => {
+            callOrder.push('getDocs');
+            return Promise.resolve({
+                docs: [
+                    {
+                        data: () => ({
+                            source_file: 'soft-del.pdf',
+                            title: 'Soft Deleted',
+                            _deleted_at: deletedAt,
+                            _savedAt: '2026-03-09T00:00:00Z',
+                            _docId: 'soft-del_pdf',
+                        }),
+                    },
+                ],
+                size: 1,
+            });
+        });
+
+        const { loadAllAnalyses } = await import('./analysisStore');
+
+        resolveAuthReady();
+        vi.useFakeTimers();
+        await loadAllAnalyses();
+
+        // Advance timer to trigger background sync
+        vi.advanceTimersByTime(3000);
+        vi.useRealTimers();
+
+        // Wait for sync to complete
+        await new Promise((r) => setTimeout(r, 200));
+
+        // Check localStorage — _deleted_at should be preserved, _savedAt/_docId stripped
+        const stored = JSON.parse(localStore['lemon-local-analyses']);
+        const entry = stored.find((a: Record<string, unknown>) => a.source_file === 'soft-del.pdf');
+        expect(entry).toBeDefined();
+        expect(entry._deleted_at).toBe(deletedAt);
+        expect(entry._savedAt).toBeUndefined();
+        expect(entry._docId).toBeUndefined();
     });
 });
