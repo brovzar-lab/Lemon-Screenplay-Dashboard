@@ -63,12 +63,11 @@ Plans:
   2. A Firestore document that fails the `isV6RawAnalysis()` type guard is moved to an `_unrecognized_analyses` collection rather than permanently deleted
   3. The quarantine collection is accessible to the producer for manual review and is not silently discarded
   4. Normal screenplay operations (upload, analyze, delete) still work correctly with the soft-delete and quarantine patterns in place
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Implement soft-delete pattern in Firestore (deleted_at field + 30-day TTL) and update all delete call sites
-- [ ] 03-02: Replace destructive removeAnalysis() with quarantine pattern moving unrecognized docs to _unrecognized_analyses
-- [ ] 03-03: Add "Recently Deleted" recovery UI entry point in Settings or dashboard
+- [ ] 03-01-PLAN.md — Implement soft-delete, quarantine, and restore functions in analysisStore.ts; replace api.ts destructive deletes; update firestore.rules
+- [ ] 03-02-PLAN.md — Add Recently Deleted recovery UI and quarantine visibility to Settings Data tab
 
 ### Phase 4: UX Polish Scaffolding
 **Goal**: The dashboard communicates its state (loading, empty, error) clearly at every step — no silent failures, no blank screens
@@ -165,7 +164,7 @@ Note: Phases 2, 3, and 4 depend only on Phase 1 and can proceed in parallel. Pha
 |-------|----------------|--------|-----------|
 | 1. Firestore Security Hardening | 3/3 | Complete   | 2026-03-14 |
 | 2. Sync Status Visibility | 2/2 | Complete   | 2026-03-14 |
-| 3. Data Safety | 0/3 | Not started | - |
+| 3. Data Safety | 0/2 | Not started | - |
 | 4. UX Polish Scaffolding | 0/4 | Not started | - |
 | 5. Share Token Generation | 0/3 | Not started | - |
 | 6. Shared Partner View | 0/4 | Not started | - |
