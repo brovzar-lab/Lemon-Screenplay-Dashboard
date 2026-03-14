@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: UX Polish Scaffolding** - Skeleton loaders, empty states, and inline error feedback replace silent failures (completed 2026-03-14)
 - [x] **Phase 5: Share Token Generation** - Producer can generate a per-screenplay shareable link with a secure token (completed 2026-03-14)
 - [ ] **Phase 6: Shared Partner View** - Partner can open a share link and see a clean read-only analysis view
-- [ ] **Phase 7: Export Coverage Package** - Producer can download a formatted coverage PDF for formal sharing
+- [x] **Phase 7: Export Coverage Package** - Producer can download a formatted coverage PDF for formal sharing (completed 2026-03-14)
 - [ ] **Phase 8: Market Intelligence** - Comparable titles and scoped DevExec AI chat surface inside the screenplay detail modal
 
 ## Phase Details
@@ -162,5 +162,5 @@ Note: Phases 2, 3, and 4 depend only on Phase 1 and can proceed in parallel. Pha
 | 4. UX Polish Scaffolding | 2/2 | Complete   | 2026-03-14 |
 | 5. Share Token Generation | 2/2 | Complete   | 2026-03-14 |
 | 6. Shared Partner View | 1/2 | In Progress|  |
-| 7. Export Coverage Package | 1/2 | In Progress|  |
+| 7. Export Coverage Package | 2/2 | Complete   | 2026-03-14 |
 | 8. Market Intelligence | 0/4 | Not started | - |
