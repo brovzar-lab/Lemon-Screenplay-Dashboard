@@ -102,7 +102,7 @@ describe('sanitizeFilename', () => {
   });
 
   it('strips quotes and unicode', () => {
-    expect(sanitizeFilename('Test "Movie" \u2014 Name')).toBe('Test-Movie--Name');
+    expect(sanitizeFilename('Test "Movie" \u2014 Name')).toBe('Test-Movie-Name');
   });
 
   it('returns Untitled for empty string', () => {

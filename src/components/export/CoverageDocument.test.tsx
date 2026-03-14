@@ -6,10 +6,11 @@ import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 
 // Mock @react-pdf/renderer with basic React component stubs
+// We strip style/fixed/wrap/render/size/src props to avoid jsdom CSSStyleDeclaration errors
 vi.mock('@react-pdf/renderer', () => {
   const createStub = (name: string) => {
-    const Stub = ({ children, ...props }: Record<string, unknown>) =>
-      React.createElement('mock-' + name, props, children as React.ReactNode);
+    const Stub = ({ children }: { children?: React.ReactNode; [key: string]: unknown }) =>
+      React.createElement('mock-' + name, { 'data-testid': name }, children);
     Stub.displayName = name;
     return Stub;
   };
