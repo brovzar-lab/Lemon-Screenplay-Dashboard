@@ -417,6 +417,21 @@ export async function quarantineAnalysis(
 }
 
 /**
+ * Get count of quarantined documents in the _unrecognized_analyses collection.
+ * Returns 0 if the collection is empty or on error.
+ */
+export async function getQuarantineCount(): Promise<number> {
+    try {
+        await authReady;
+        const coll = collection(db, _QUARANTINE_COLLECTION);
+        const snapshot = await getCountFromServer(coll);
+        return snapshot.data().count;
+    } catch {
+        return 0;
+    }
+}
+
+/**
  * Get count of uploaded analyses.
  */
 export async function getAnalysisCount(): Promise<number> {

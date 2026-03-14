@@ -3,12 +3,12 @@
  * Export, import, and cache management
  */
 
-import { useState } from 'react';
-import { useScreenplays, SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
+import { useState, useEffect } from 'react';
+import { useScreenplays, useDeletedScreenplays, useRestoreScreenplay, SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
-import { clearAllAnalyses, resetMigrationFlag } from '@/lib/analysisStore';
+import { softDeleteAllAnalyses, resetMigrationFlag, getQuarantineCount } from '@/lib/analysisStore';
 import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -18,9 +18,18 @@ export function DataManagement() {
   const { lists, quickFavorites } = useFavoritesStore();
   const queryClient = useQueryClient();
 
+  const { data: deletedScreenplays = [] } = useDeletedScreenplays();
+  const restoreScreenplay = useRestoreScreenplay();
+
   const [exportStatus, setExportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeletedList, setShowDeletedList] = useState(false);
+  const [quarantineCount, setQuarantineCount] = useState<number>(0);
+
+  useEffect(() => {
+    getQuarantineCount().then(setQuarantineCount).catch(() => setQuarantineCount(0));
+  }, []);
 
   const handleExportJSON = () => {
     try {
@@ -127,7 +136,7 @@ export function DataManagement() {
   const handleDeleteAllScreenplays = async () => {
     setIsDeleting(true);
     try {
-      await clearAllAnalyses();
+      await softDeleteAllAnalyses();
       resetMigrationFlag();
       await queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
       setShowDeleteAllConfirm(false);
@@ -245,6 +254,80 @@ export function DataManagement() {
         </div>
       </div>
 
+      {/* Recently Deleted */}
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <h3 className="text-lg font-medium text-gold-200">Recently Deleted</h3>
+          {deletedScreenplays.length > 0 && (
+            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-500/20 text-amber-400">
+              {deletedScreenplays.length}
+            </span>
+          )}
+        </div>
+        {deletedScreenplays.length === 0 ? (
+          <p className="text-sm text-zinc-500">No recently deleted screenplays</p>
+        ) : (
+          <div>
+            <button
+              onClick={() => setShowDeletedList(!showDeletedList)}
+              className="w-full p-3 rounded-lg bg-black-800/50 border border-black-700 hover:border-gold-500/30 transition-colors text-left flex items-center justify-between mb-2"
+            >
+              <span className="text-sm text-gold-200">
+                {showDeletedList ? 'Hide' : 'Show'} {deletedScreenplays.length} recoverable {deletedScreenplays.length === 1 ? 'screenplay' : 'screenplays'}
+              </span>
+              <svg
+                className={`w-4 h-4 text-black-400 transition-transform ${showDeletedList ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showDeletedList && (
+              <div className="space-y-2">
+                {deletedScreenplays.map((item) => {
+                  const deletedDate = new Date(item.deletedAt);
+                  const daysAgo = Math.floor((Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24));
+                  const timeLabel = daysAgo === 0 ? 'Today' : daysAgo === 1 ? '1 day ago' : `${daysAgo} days ago`;
+
+                  return (
+                    <div
+                      key={item.sourceFile}
+                      className="flex items-center justify-between p-3 rounded-lg bg-black-800/30 border border-black-700/50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gold-200 truncate">{item.title}</p>
+                        <p className="text-xs text-zinc-500">Deleted {timeLabel}</p>
+                      </div>
+                      <button
+                        onClick={() => restoreScreenplay.mutate(item.sourceFile)}
+                        disabled={restoreScreenplay.isPending}
+                        className="ml-3 px-3 py-1 text-sm font-medium text-emerald-400 hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {restoreScreenplay.isPending ? 'Restoring...' : 'Restore'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Quarantine Info */}
+      {quarantineCount > 0 && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-black-800/30 border border-black-700/50">
+          <svg className="w-4 h-4 text-zinc-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-sm text-zinc-500">
+            {quarantineCount} quarantined {quarantineCount === 1 ? 'document' : 'documents'} with unrecognized formats have been preserved in Firestore for safety and can be reviewed manually.
+          </p>
+        </div>
+      )}
+
       {/* Danger Zone */}
       <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5">
         <h3 className="text-lg font-medium text-red-400 mb-4">Danger Zone</h3>
@@ -256,7 +339,7 @@ export function DataManagement() {
             <div>
               <p className="font-medium text-red-400">Delete All Screenplays</p>
               <p className="text-sm text-red-400/70">
-                Remove all {screenplays.length} screenplays from database
+                Soft-delete all {screenplays.length} screenplays (recoverable for 30 days)
               </p>
             </div>
             <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -285,7 +368,7 @@ export function DataManagement() {
         onConfirm={handleDeleteAllScreenplays}
         onCancel={() => setShowDeleteAllConfirm(false)}
         title="Delete all screenplays?"
-        message="This will permanently remove ALL screenplays from your database. The only way to restore them is by re-analyzing the PDFs."
+        message="This will remove all screenplays from the dashboard. They can be recovered from the Recently Deleted section within 30 days."
         count={screenplays.length}
         isPending={isDeleting}
       />
