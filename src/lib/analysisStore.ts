@@ -15,14 +15,18 @@ import {
     setDoc,
     getDocs,
     deleteDoc,
+    updateDoc,
+    deleteField,
     query,
     getCountFromServer,
 } from 'firebase/firestore';
 import { authReady, db } from './firebase';
 
 const FIRESTORE_COLLECTION = 'uploaded_analyses';
+const _QUARANTINE_COLLECTION = '_unrecognized_analyses';
 const LOCAL_CACHE_KEY = 'lemon-local-analyses';
 const MIGRATION_KEY = 'lemon-migration-v6-done';
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -158,7 +162,7 @@ async function backgroundFirestoreSync(): Promise<void> {
         const firestoreData = snapshot.docs.map((d) => {
             const data = d.data() as Record<string, unknown>;
             return Object.fromEntries(
-                Object.entries(data).filter(([k]) => k !== '_savedAt' && k !== '_docId')
+                Object.entries(data).filter(([k]) => k !== '_savedAt' && k !== '_docId' && k !== '_quarantined_at' && k !== '_quarantine_reason' && k !== '_original_collection')
             ) as Record<string, unknown>;
         });
 
@@ -246,7 +250,8 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
  */
 export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
     // Return localStorage data instantly — no Firestore blocking
-    const localData = readFromLocal();
+    // Filter out soft-deleted items (items with _deleted_at)
+    const localData = readFromLocal().filter((a) => !a._deleted_at);
 
     if (localData.length > 0) {
         console.log(`[Lemon] Loaded ${localData.length} analyses from localStorage (instant)`);
@@ -264,46 +269,149 @@ export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
 }
 
 /**
- * Remove an analysis by source_file key from both stores.
+ * Soft-delete an analysis by setting _deleted_at timestamp.
+ * The document is preserved in both stores but hidden from loadAllAnalyses.
  */
-export async function removeAnalysis(sourceFile: string): Promise<void> {
-    // Remove from localStorage immediately
-    const existing = readFromLocal();
-    const filtered = existing.filter((a) => a.source_file !== sourceFile);
-    writeToLocal(filtered);
+export async function softDeleteAnalysis(sourceFile: string): Promise<void> {
+    const deletedAt = new Date().toISOString();
 
-    // Remove from Firestore in background
+    // Set _deleted_at in localStorage immediately
+    const existing = readFromLocal();
+    const updated = existing.map((a) =>
+        a.source_file === sourceFile ? { ...a, _deleted_at: deletedAt } : a
+    );
+    writeToLocal(updated);
+    console.log(`[Lemon] Soft-deleted from localStorage: ${sourceFile}`);
+
+    // Set _deleted_at in Firestore
     await authReady;
     const docId = toDocId(sourceFile);
     try {
-        await deleteDoc(doc(db, FIRESTORE_COLLECTION, docId));
-        console.log(`[Lemon] Removed from Firestore: ${docId}`);
+        await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { _deleted_at: deletedAt });
+        console.log(`[Lemon] Soft-deleted in Firestore: ${docId}`);
     } catch (err) {
-        console.warn(`[Lemon] Firestore delete failed for ${docId}:`, err);
+        console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
     }
 }
 
 /**
- * Clear all uploaded analyses from both stores.
+ * @deprecated Use softDeleteAnalysis instead. Kept for backward compatibility.
  */
-export async function clearAllAnalyses(): Promise<void> {
-    // Clear localStorage immediately
+export const removeAnalysis = softDeleteAnalysis;
+
+/**
+ * Soft-delete ALL uploaded analyses by setting _deleted_at on every entry.
+ */
+export async function softDeleteAllAnalyses(): Promise<void> {
+    const deletedAt = new Date().toISOString();
+
+    // Set _deleted_at on all localStorage entries
+    const existing = readFromLocal();
+    const updated = existing.map((a) => ({ ...a, _deleted_at: deletedAt }));
+    writeToLocal(updated);
+
+    // Clear the pending write queue
     try {
-        localStorage.removeItem(LOCAL_CACHE_KEY);
         localStorage.removeItem(PENDING_QUEUE_KEY);
     } catch {
         // ignore
     }
 
-    // Clear Firestore in background
+    // Set _deleted_at on all Firestore docs
     await authReady;
     try {
         const q = query(collection(db, FIRESTORE_COLLECTION));
         const snapshot = await getDocs(q);
-        await Promise.all(snapshot.docs.map((d) => deleteDoc(d.ref)));
-        console.log(`[Lemon] Cleared ${snapshot.size} analyses from Firestore`);
+        await Promise.all(
+            snapshot.docs.map((d) =>
+                updateDoc(d.ref, { _deleted_at: deletedAt })
+            )
+        );
+        console.log(`[Lemon] Soft-deleted ${snapshot.size} analyses in Firestore`);
     } catch (err) {
-        console.warn('[Lemon] Firestore clear failed:', err);
+        console.warn('[Lemon] Firestore soft-delete-all failed:', err);
+    }
+}
+
+/**
+ * @deprecated Use softDeleteAllAnalyses instead. Kept for backward compatibility.
+ */
+export const clearAllAnalyses = softDeleteAllAnalyses;
+
+/**
+ * Restore a soft-deleted analysis by removing its _deleted_at field.
+ */
+export async function restoreAnalysis(sourceFile: string): Promise<void> {
+    // Remove _deleted_at from localStorage entry
+    const existing = readFromLocal();
+    const updated = existing.map((a) => {
+        if (a.source_file === sourceFile) {
+            const { _deleted_at: _, ...rest } = a;
+            return rest;
+        }
+        return a;
+    });
+    writeToLocal(updated);
+    console.log(`[Lemon] Restored in localStorage: ${sourceFile}`);
+
+    // Remove _deleted_at from Firestore
+    await authReady;
+    const docId = toDocId(sourceFile);
+    try {
+        await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { _deleted_at: deleteField() });
+        console.log(`[Lemon] Restored in Firestore: ${docId}`);
+    } catch (err) {
+        console.warn(`[Lemon] Firestore restore failed for ${docId}:`, err);
+    }
+}
+
+/**
+ * Get all soft-deleted analyses within the last 30 days.
+ */
+export function getDeletedAnalyses(): Record<string, unknown>[] {
+    const cutoff = Date.now() - THIRTY_DAYS_MS;
+    return readFromLocal().filter((a) => {
+        if (!a._deleted_at) return false;
+        const deletedTime = new Date(a._deleted_at as string).getTime();
+        return deletedTime >= cutoff;
+    });
+}
+
+/**
+ * Quarantine a document that failed type-guard validation.
+ * Copies the document to _unrecognized_analyses with metadata,
+ * then removes it from the source collection and localStorage.
+ */
+export async function quarantineAnalysis(
+    raw: Record<string, unknown>,
+    reason: string
+): Promise<void> {
+    const sourceFile = raw.source_file as string | undefined;
+    if (!sourceFile) return;
+
+    await authReady;
+    const docId = toDocId(sourceFile);
+
+    try {
+        // Copy to quarantine collection with metadata
+        await setDoc(doc(db, _QUARANTINE_COLLECTION, docId), {
+            ...raw,
+            _quarantined_at: new Date().toISOString(),
+            _quarantine_reason: reason,
+            _original_collection: FIRESTORE_COLLECTION,
+        });
+
+        // Remove from source collection
+        await deleteDoc(doc(db, FIRESTORE_COLLECTION, docId));
+
+        // Remove from localStorage
+        const existing = readFromLocal();
+        const filtered = existing.filter((a) => a.source_file !== sourceFile);
+        writeToLocal(filtered);
+
+        console.log(`[Lemon] Quarantined "${sourceFile}" to ${_QUARANTINE_COLLECTION}: ${reason}`);
+    } catch (err) {
+        console.warn(`[Lemon] Quarantine failed for "${sourceFile}":`, err);
     }
 }
 
@@ -327,19 +435,22 @@ export async function getAnalysisCount(): Promise<number> {
 }
 
 /**
- * Remove multiple analyses by source_file keys (batch delete).
+ * Soft-delete multiple analyses by source_file keys (batch soft-delete).
  */
-export async function removeMultipleAnalyses(sourceFiles: string[]): Promise<void> {
+export async function softDeleteMultipleAnalyses(sourceFiles: string[]): Promise<void> {
     if (sourceFiles.length === 0) return;
+    const deletedAt = new Date().toISOString();
 
-    // Remove all from localStorage in one pass
+    // Set _deleted_at on all matching localStorage entries in one pass
     const existing = readFromLocal();
     const sourceFileSet = new Set(sourceFiles);
-    const filtered = existing.filter((a) => !sourceFileSet.has(a.source_file as string));
-    writeToLocal(filtered);
-    console.log(`[Lemon] Removed ${sourceFiles.length} analyses from localStorage`);
+    const updated = existing.map((a) =>
+        sourceFileSet.has(a.source_file as string) ? { ...a, _deleted_at: deletedAt } : a
+    );
+    writeToLocal(updated);
+    console.log(`[Lemon] Soft-deleted ${sourceFiles.length} analyses in localStorage`);
 
-    // Remove from Firestore in parallel (batches of 10)
+    // Soft-delete in Firestore in parallel (batches of 10)
     await authReady;
     const batchSize = 10;
     for (let i = 0; i < sourceFiles.length; i += batchSize) {
@@ -348,15 +459,20 @@ export async function removeMultipleAnalyses(sourceFiles: string[]): Promise<voi
             batch.map(async (sf) => {
                 const docId = toDocId(sf);
                 try {
-                    await deleteDoc(doc(db, FIRESTORE_COLLECTION, docId));
+                    await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { _deleted_at: deletedAt });
                 } catch (err) {
-                    console.warn(`[Lemon] Firestore delete failed for ${docId}:`, err);
+                    console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
                 }
             })
         );
     }
-    console.log(`[Lemon] Removed ${sourceFiles.length} analyses from Firestore`);
+    console.log(`[Lemon] Soft-deleted ${sourceFiles.length} analyses in Firestore`);
 }
+
+/**
+ * @deprecated Use softDeleteMultipleAnalyses instead. Kept for backward compatibility.
+ */
+export const removeMultipleAnalyses = softDeleteMultipleAnalyses;
 
 /**
  * Check if static-to-Firestore migration is complete.
