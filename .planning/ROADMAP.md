@@ -124,12 +124,11 @@ Plans:
   2. The coverage PDF contains: logline, synopsis, dimension scores, overall recommendation, and any producer notes written for that screenplay
   3. The PDF is generated client-side using the existing `@react-pdf/renderer` integration — no server round-trip required for the analysis-only document
   4. The downloaded filename includes the screenplay title and a document ID suffix to prevent collisions between similarly-named scripts
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: Build CoveragePackageDocument.tsx as a new @react-pdf/renderer document template with all required sections
-- [ ] 07-02: Build exportPackageService.ts orchestrating PDF generation and download via file-saver
-- [ ] 07-03: Add "Download Coverage PDF" action to ScreenplayModal (or ExportModal) with loading state during PDF render
+- [ ] 07-01-PLAN.md — Build CoverageDocument.tsx template + exportCoverage.ts service + unit tests
+- [ ] 07-02-PLAN.md — Wire "Coverage" download button into ModalHeader + human-verify PDF output
 
 ### Phase 8: Market Intelligence
 **Goal**: Producer can see comparable produced films alongside a screenplay's analysis, and can launch an AI chat session scoped to that specific script for deeper market discussion
@@ -163,5 +162,5 @@ Note: Phases 2, 3, and 4 depend only on Phase 1 and can proceed in parallel. Pha
 | 4. UX Polish Scaffolding | 2/2 | Complete   | 2026-03-14 |
 | 5. Share Token Generation | 2/2 | Complete   | 2026-03-14 |
 | 6. Shared Partner View | 1/2 | In Progress|  |
-| 7. Export Coverage Package | 0/3 | Not started | - |
+| 7. Export Coverage Package | 0/2 | Not started | - |
 | 8. Market Intelligence | 0/4 | Not started | - |
