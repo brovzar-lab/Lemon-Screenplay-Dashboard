@@ -186,3 +186,48 @@ describe('analysisStore authReady gates', () => {
         expect(getDocsIdx).toBeGreaterThan(authIdx);
     });
 });
+
+describe('getPendingWriteCount', () => {
+    beforeEach(() => {
+        Object.keys(localStore).forEach((k) => delete localStore[k]);
+        vi.resetModules();
+    });
+
+    it('returns 0 when PENDING_QUEUE_KEY is absent from localStorage', async () => {
+        const { getPendingWriteCount } = await import('./analysisStore');
+        expect(getPendingWriteCount()).toBe(0);
+    });
+
+    it('returns 0 when PENDING_QUEUE_KEY contains invalid JSON', async () => {
+        const { getPendingWriteCount } = await import('./analysisStore');
+        localStore['lemon-pending-writes'] = 'not-valid-json{{{';
+        expect(getPendingWriteCount()).toBe(0);
+    });
+
+    it('returns N when PENDING_QUEUE_KEY contains a JSON array of N items', async () => {
+        const { getPendingWriteCount } = await import('./analysisStore');
+        localStore['lemon-pending-writes'] = JSON.stringify([
+            { source_file: 'a.pdf' },
+            { source_file: 'b.pdf' },
+            { source_file: 'c.pdf' },
+        ]);
+        expect(getPendingWriteCount()).toBe(3);
+    });
+
+    it('returns 0 when PENDING_QUEUE_KEY contains a non-array JSON value', async () => {
+        const { getPendingWriteCount } = await import('./analysisStore');
+        localStore['lemon-pending-writes'] = JSON.stringify({ not: 'an array' });
+        expect(getPendingWriteCount()).toBe(0);
+    });
+});
+
+describe('flushPendingWrites export', () => {
+    beforeEach(() => {
+        vi.resetModules();
+    });
+
+    it('is exported and callable externally', async () => {
+        const { flushPendingWrites } = await import('./analysisStore');
+        expect(typeof flushPendingWrites).toBe('function');
+    });
+});

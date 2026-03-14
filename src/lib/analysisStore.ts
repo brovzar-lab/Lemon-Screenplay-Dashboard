@@ -72,7 +72,7 @@ function queueForRetry(raw: Record<string, unknown>): void {
 }
 
 /** Flush any pending Firestore writes that failed previously. Non-blocking. */
-async function flushPendingWrites(): Promise<void> {
+export async function flushPendingWrites(): Promise<void> {
     try {
         const raw = localStorage.getItem(PENDING_QUEUE_KEY);
         if (!raw) return;
@@ -111,6 +111,21 @@ async function flushPendingWrites(): Promise<void> {
         }
     } catch {
         // Non-critical
+    }
+}
+
+/**
+ * Get the number of pending Firestore writes queued for retry.
+ * Returns 0 if the queue is empty, absent, or corrupt.
+ */
+export function getPendingWriteCount(): number {
+    try {
+        const raw = localStorage.getItem(PENDING_QUEUE_KEY);
+        if (!raw) return 0;
+        const queue = JSON.parse(raw);
+        return Array.isArray(queue) ? queue.length : 0;
+    } catch {
+        return 0;
     }
 }
 
