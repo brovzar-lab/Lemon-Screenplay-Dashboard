@@ -17,7 +17,7 @@
 - [x] **UX-01**: User sees skeleton loading cards while screenplays are loading
 - [x] **UX-02**: User sees contextual empty state with filter-reset action when no results match
 - [x] **UX-03**: User receives inline error feedback (toast/banner) for failed operations instead of silent console errors
-- [ ] **UX-04**: All JSON.parse calls are wrapped with error handling and sensible defaults
+- [x] **UX-04**: All JSON.parse calls are wrapped with error handling and sensible defaults
 
 ### Partner Sharing
 
@@ -79,7 +79,7 @@
 | UX-01 | Phase 4 | Complete |
 | UX-02 | Phase 4 | Complete |
 | UX-03 | Phase 4 | Complete |
-| UX-04 | Phase 4 | Pending |
+| UX-04 | Phase 4 | Complete |
 | SHARE-01 | Phase 5 | Pending |
 | SHARE-02 | Phase 6 | Pending |
 | SHARE-03 | Phase 6 | Pending |
