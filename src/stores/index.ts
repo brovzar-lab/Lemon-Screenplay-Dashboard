@@ -8,3 +8,4 @@ export * from './comparisonStore';
 export * from './notesStore';
 export * from './exportSelectionStore';
 export * from './deleteSelectionStore';
+export * from './syncStatusStore';
