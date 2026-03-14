@@ -93,12 +93,11 @@ Plans:
   2. The generated link uses a `crypto.randomUUID()` token stored in a Firestore `shared_views` collection — not the dashboard URL or any localStorage value
   3. The producer can copy the generated link to clipboard with one click
   4. Before generating the token, the system verifies the screenplay exists in Firestore — if it has not synced, the producer sees a clear error instead of creating a broken link
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: Build shareService.ts with createShareToken() and revokeShareToken() backed by Firestore shared_views collection
-- [ ] 05-02: Add Share button and ShareTokenModal to ScreenplayModal; include copy-to-clipboard and Firestore sync pre-check
-- [ ] 05-03: Add shareStore.ts tracking generated tokens per session (Firestore-backed, not localStorage)
+- [ ] 05-01-PLAN.md — Create shareService.ts (Firestore CRUD for shared_views) + shareStore.ts (session cache) + tests
+- [ ] 05-02-PLAN.md — Build ShareButton with popover in ModalHeader, SharedLinksPanel in Settings, auto-revoke on soft-delete
 
 ### Phase 6: Shared Partner View
 **Goal**: A partner who receives a share link sees a clean, standalone read-only analysis view — with no access to the dashboard, settings, or other screenplays
@@ -164,7 +163,7 @@ Note: Phases 2, 3, and 4 depend only on Phase 1 and can proceed in parallel. Pha
 | 2. Sync Status Visibility | 2/2 | Complete   | 2026-03-14 |
 | 3. Data Safety | 2/2 | Complete   | 2026-03-14 |
 | 4. UX Polish Scaffolding | 2/2 | Complete   | 2026-03-14 |
-| 5. Share Token Generation | 0/3 | Not started | - |
+| 5. Share Token Generation | 0/2 | Not started | - |
 | 6. Shared Partner View | 0/4 | Not started | - |
 | 7. Export Coverage Package | 0/3 | Not started | - |
 | 8. Market Intelligence | 0/4 | Not started | - |
