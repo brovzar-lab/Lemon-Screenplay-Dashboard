@@ -8,7 +8,7 @@
 ### Data Reliability
 
 - [x] **SYNC-01**: User can see how many screenplays are pending Firestore sync
-- [ ] **SYNC-02**: User can force retry failed Firestore writes with a "Retry Now" button
+- [x] **SYNC-02**: User can force retry failed Firestore writes with a "Retry Now" button
 - [ ] **SYNC-03**: Deleted screenplays are soft-deleted with 30-day recovery window
 - [ ] **SYNC-04**: Unrecognized data formats are quarantined (archived), not permanently deleted
 
@@ -73,7 +73,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | SYNC-01 | Phase 2 | Complete |
-| SYNC-02 | Phase 2 | Pending |
+| SYNC-02 | Phase 2 | Complete |
 | SYNC-03 | Phase 3 | Pending |
 | SYNC-04 | Phase 3 | Pending |
 | UX-01 | Phase 4 | Pending |

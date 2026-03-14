@@ -13,7 +13,7 @@ This milestone adds partner sharing, export packages, market intelligence enrich
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Firestore Security Hardening** - Add anonymous auth and tighten Firestore rules before any external sharing (completed 2026-03-14)
-- [ ] **Phase 2: Sync Status Visibility** - Producer can see pending sync count and manually retry failed Firestore writes
+- [x] **Phase 2: Sync Status Visibility** - Producer can see pending sync count and manually retry failed Firestore writes (completed 2026-03-14)
 - [ ] **Phase 3: Data Safety** - Soft-delete recovery window and quarantine pattern replace destructive data loss
 - [ ] **Phase 4: UX Polish Scaffolding** - Skeleton loaders, empty states, and inline error feedback replace silent failures
 - [ ] **Phase 5: Share Token Generation** - Producer can generate a per-screenplay shareable link with a secure token
@@ -164,7 +164,7 @@ Note: Phases 2, 3, and 4 depend only on Phase 1 and can proceed in parallel. Pha
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Firestore Security Hardening | 3/3 | Complete   | 2026-03-14 |
-| 2. Sync Status Visibility | 0/2 | Not started | - |
+| 2. Sync Status Visibility | 2/2 | Complete   | 2026-03-14 |
 | 3. Data Safety | 0/3 | Not started | - |
 | 4. UX Polish Scaffolding | 0/4 | Not started | - |
 | 5. Share Token Generation | 0/3 | Not started | - |
