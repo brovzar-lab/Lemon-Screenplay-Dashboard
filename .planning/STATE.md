@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v6.8
 milestone_name: milestone
-status: completed
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-14T04:31:42.710Z"
-last_activity: 2026-03-14 — Completed Plan 02 (Recovery UI & Quarantine Visibility)
+status: in_progress
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-14T05:04:00Z"
+last_activity: 2026-03-14 — Completed Plan 01 (Toast Notification Infrastructure)
 progress:
   total_phases: 8
   completed_phases: 3
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Surface the best screenplays from a large pipeline so the producer doesn't waste time reading bad ones
-**Current focus:** Phase 3 complete — Data Safety (Soft-Delete, Quarantine, Recovery UI)
+**Current focus:** Phase 4 in progress — UX Polish Scaffolding (Toast infrastructure built, error integration next)
 
 ## Current Position
 
-Phase: 3 of 8 (Data Safety) — COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase Complete
-Last activity: 2026-03-14 — Completed Plan 02 (Recovery UI & Quarantine Visibility)
+Phase: 4 of 8 (UX Polish Scaffolding)
+Plan: 1 of 2 in current phase
+Status: Plan 01 Complete
+Last activity: 2026-03-14 — Completed Plan 01 (Toast Notification Infrastructure)
 
 Progress: [██████████] 100%
 
@@ -57,6 +57,7 @@ Progress: [██████████] 100%
 | Phase 02 P02 | 4min | 3 tasks | 5 files |
 | Phase 03 P01 | 5min | 2 tasks | 4 files |
 | Phase 03 P02 | 8min | 3 tasks | 5 files |
+| Phase 04 P01 | 3min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,9 @@ Recent decisions affecting current work:
 - [Phase 03]: Optimistic update on restore removes item from deleted list immediately before server confirms
 - [Phase 03]: Delete confirmation text updated to "recoverable within 30 days" reflecting soft-delete
 - [Phase 03]: authReady moved inside try-catch so Firestore auth failures never block localStorage operations
+- [Phase 04]: Toast store is ephemeral (no persist) matching syncStatusStore pattern
+- [Phase 04]: ToastContainer placed outside ErrorBoundary for always-visible feedback
+- [Phase 04]: UX-01 (SkeletonCard) and UX-02 (EmptyState) verified as pre-existing in ScreenplayGrid
 
 ### Pending Todos
 
@@ -97,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T04:25:12Z
-Stopped at: Completed 03-02-PLAN.md
-Resume file: .planning/phases/03-data-safety/03-02-SUMMARY.md
+Last session: 2026-03-14T05:04:00Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: .planning/phases/04-ux-polish-scaffolding/04-01-SUMMARY.md
