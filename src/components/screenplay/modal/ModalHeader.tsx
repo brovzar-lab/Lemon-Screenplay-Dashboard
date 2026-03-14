@@ -10,6 +10,7 @@ import { BUDGET_TIERS } from '@/types';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { ReanalyzeButton } from './ReanalyzeButton';
+import { ShareButton } from './ShareButton';
 import { useDeleteScreenplays } from '@/hooks/useScreenplays';
 import { storage } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
@@ -131,8 +132,9 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                         </span>
                     </div>
 
-                    {/* Right: Re-analyze + PDF + Delete + Badge */}
+                    {/* Right: Share + Re-analyze + PDF + Delete + Badge */}
                     <div className="flex items-center gap-2">
+                        <ShareButton screenplay={screenplay} />
                         <ReanalyzeButton screenplay={screenplay} onComplete={onReanalyzeComplete} />
                         <button
                             onClick={handleDownloadPdf}

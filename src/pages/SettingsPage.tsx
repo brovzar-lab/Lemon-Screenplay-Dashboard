@@ -16,6 +16,7 @@ import { ModelComparisonPanel } from '@/components/settings/ModelComparisonPanel
 import { CalibrationPanel } from '@/components/settings/CalibrationPanel';
 import { PdfUploadPanel } from '@/components/settings/PdfUploadPanel';
 import { SettingsPasswordGate } from '@/components/settings/SettingsPasswordGate';
+import { SharedLinksPanel } from '@/components/settings/SharedLinksPanel';
 
 type Tab = 'appearance' | 'upload' | 'favorites' | 'data' | 'calibration' | 'pdf';
 
@@ -92,6 +93,17 @@ function DataTab() {
   return (
     <div className="space-y-8">
       <DataManagement />
+
+      {/* Shared Links — sub-section */}
+      <div className="border-t border-gold-500/10 pt-6">
+        <div className="flex items-center gap-3 mb-4">
+          <svg className="w-5 h-5 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          <span className="font-display text-gold-200 text-lg">Shared Links</span>
+        </div>
+        <SharedLinksPanel />
+      </div>
 
       {/* Model Comparison — collapsible sub-section */}
       <div className="border-t border-gold-500/10 pt-6">
