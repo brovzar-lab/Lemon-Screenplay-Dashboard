@@ -14,6 +14,7 @@
 import { parsePDF, type ParsedPDF } from './pdfParser';
 import { uploadScreenplayPdf } from './firebase';
 import { saveAnalysis } from './analysisStore';
+import { useToastStore } from '@/stores/toastStore';
 import type { Screenplay } from '@/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -226,6 +227,7 @@ async function callAnthropicDirect(
     // Extract the first complete JSON object using brace counting
     const startIdx = responseText.indexOf('{');
     if (startIdx === -1) {
+      useToastStore.getState().addToast('Failed to parse analysis response — the AI may have returned an unexpected format');
       throw new Error('Failed to parse analysis JSON from Claude response');
     }
     let depth = 0;
@@ -242,9 +244,15 @@ async function callAnthropicDirect(
       else if (ch === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
     }
     if (endIdx === -1) {
+      useToastStore.getState().addToast('Failed to parse analysis response — the AI may have returned an unexpected format');
       throw new Error('Failed to parse analysis JSON from Claude response');
     }
-    analysis = JSON.parse(responseText.slice(startIdx, endIdx + 1));
+    try {
+      analysis = JSON.parse(responseText.slice(startIdx, endIdx + 1));
+    } catch {
+      useToastStore.getState().addToast('Failed to parse analysis response — the AI may have returned an unexpected format');
+      throw new Error('Failed to parse analysis JSON from Claude response');
+    }
   }
 
   // Wrap in standard V6 structure
