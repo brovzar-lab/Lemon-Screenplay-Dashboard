@@ -4,13 +4,13 @@ milestone: v6.8
 milestone_name: milestone
 status: completed
 stopped_at: Phase 6 context gathered
-last_updated: "2026-03-14T07:27:54.445Z"
+last_updated: "2026-03-14T07:53:19.522Z"
 last_activity: 2026-03-14 — Completed Plan 02 (Share Token Generation UI)
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 13
+  completed_plans: 12
   percent: 100
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Surface the best screenplays from a large pipeline so the producer doesn't waste time reading bad ones
-**Current focus:** Phase 5 complete — Share Token Generation (all plans done)
+**Current focus:** Phase 6 in progress — Shared Partner View (Plan 01 complete)
 
 ## Current Position
 
-Phase: 5 of 8 (Share Token Generation)
-Plan: 2 of 2 in current phase
-Status: Phase 05 Complete
-Last activity: 2026-03-14 — Completed Plan 02 (Share Token Generation UI)
+Phase: 6 of 8 (Shared Partner View)
+Plan: 1 of 2 in current phase
+Status: Plan 01 Complete
+Last activity: 2026-03-14 — Completed Plan 01 (Share Service Data Layer)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [██████████] 100%
 | Phase 04 P02 | 3min | 2 tasks | 12 files |
 | Phase 05 P01 | 2min | 1 tasks | 5 files |
 | Phase 05 P02 | 4min | 3 tasks | 6 files |
+| Phase 06 P01 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,10 @@ Recent decisions affecting current work:
 - [Phase 05]: shareStore is ephemeral (no persist middleware) matching syncStatusStore/toastStore pattern
 - [Phase 05]: ShareButton uses inline absolute-positioned popover (no portal needed)
 - [Phase 05]: Auto-revoke on soft-delete is fire-and-forget to never block the delete operation
+- [Phase 06]: Analysis data fully embedded in shared_views doc at creation time (snapshot pattern)
+- [Phase 06]: resolveShareToken bypasses authReady for public partner access
+- [Phase 06]: pdfUrl resolved via getDownloadURL at share creation, stored as null if not found
+- [Phase 06]: Notes snapshot includes only content and createdAt (strips id, author, screenplayId, updatedAt)
 
 ### Pending Todos
 
@@ -111,6 +116,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T07:27:54.443Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-shared-partner-view/06-CONTEXT.md
+Last session: 2026-03-14T07:52:31Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: .planning/phases/06-shared-partner-view/06-01-SUMMARY.md
