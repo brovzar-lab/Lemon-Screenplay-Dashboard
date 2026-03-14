@@ -48,12 +48,11 @@ Plans:
   2. When one or more writes have failed, a "Retry Now" button appears in the header sync indicator and triggers a retry of all queued writes
   3. After a successful retry, the pending count decrements and the failure indicator clears
   4. The sync indicator is absent (or shows zero) when all screenplays are synced — it does not create visual noise during normal operation
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Build syncStatusStore.ts tracking pending/failed Firestore write counts from existing PENDING_QUEUE_KEY
-- [ ] 02-02: Build SyncStatusIndicator component in Header with count badge and retry button
-- [ ] 02-03: Wire useSyncRetry hook to existing retry queue and connect to SyncStatusIndicator
+- [ ] 02-01-PLAN.md — Create syncStatusStore with polling + export getPendingWriteCount/flushPendingWrites from analysisStore
+- [ ] 02-02-PLAN.md — Build SyncStatusIndicator component, useSyncRetry hook, wire into Header
 
 ### Phase 3: Data Safety
 **Goal**: Deleted screenplays are recoverable for 30 days, and unrecognized data formats are quarantined instead of permanently destroyed
@@ -165,7 +164,7 @@ Note: Phases 2, 3, and 4 depend only on Phase 1 and can proceed in parallel. Pha
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Firestore Security Hardening | 3/3 | Complete   | 2026-03-14 |
-| 2. Sync Status Visibility | 0/3 | Not started | - |
+| 2. Sync Status Visibility | 0/2 | Not started | - |
 | 3. Data Safety | 0/3 | Not started | - |
 | 4. UX Polish Scaffolding | 0/4 | Not started | - |
 | 5. Share Token Generation | 0/3 | Not started | - |
