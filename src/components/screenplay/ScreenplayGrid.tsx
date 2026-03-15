@@ -7,6 +7,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { ScreenplayCard } from './ScreenplayCard';
 import { ErrorBoundary } from '@/components/ui';
+import { EmptyState, SpotlightIcon, DimmedStarIcon, SearchEmptyIcon } from '@/components/ui/EmptyState';
 import { useFilterStore } from '@/stores/filterStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
@@ -69,62 +70,69 @@ function SkeletonCard() {
 }
 
 /**
- * Empty state component with actionable suggestions
+ * Context-aware empty state — resolves from Zustand store
  */
-function EmptyState() {
+function GridEmptyState() {
   const searchQuery = useFilterStore((s) => s.searchQuery);
   const setSearchQuery = useFilterStore((s) => s.setSearchQuery);
   const resetFilters = useFilterStore((s) => s.resetFilters);
+  const recommendationTiers = useFilterStore((s) => s.recommendationTiers);
   const hasFilters = useHasActiveFilters();
 
+  const isFilmNowOnly =
+    recommendationTiers.length === 1 && recommendationTiers[0] === 'film_now';
+
+  if (searchQuery) {
+    return (
+      <EmptyState
+        icon={<SearchEmptyIcon />}
+        title="No scripts match that search"
+        description={`No results for "${searchQuery}". Try a different search term.`}
+        action={
+          <button onClick={() => setSearchQuery('')} className="btn btn-secondary text-sm">
+            Clear Search
+          </button>
+        }
+      />
+    );
+  }
+
+  if (isFilmNowOnly) {
+    return (
+      <EmptyState
+        icon={<DimmedStarIcon />}
+        title="No FILM NOW contenders yet"
+        description="None of the current screenplays have earned top-tier status"
+        action={
+          <button onClick={resetFilters} className="btn btn-secondary text-sm">
+            Reset Filters
+          </button>
+        }
+      />
+    );
+  }
+
+  if (hasFilters) {
+    return (
+      <EmptyState
+        icon={<SpotlightIcon />}
+        title="Nothing made the cut"
+        description="Try adjusting your filters to see more screenplays"
+        action={
+          <button onClick={resetFilters} className="btn btn-primary text-sm">
+            Reset All Filters
+          </button>
+        }
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-24 h-24 rounded-full bg-black-800/80 flex items-center justify-center mb-6 border border-black-700">
-        <span className="text-5xl">🎬</span>
-      </div>
-      <h3 className="text-2xl font-display text-gold-100 mb-3">
-        {hasFilters || searchQuery ? 'No Screenplays Match' : 'No Screenplays Found'}
-      </h3>
-      <p className="text-black-400 max-w-md mb-6">
-        {searchQuery
-          ? `No results for "${searchQuery}". Try a different search term.`
-          : hasFilters
-            ? 'Try adjusting your filters to find more screenplays.'
-            : 'There are no screenplays loaded. Make sure the analysis data is available.'}
-      </p>
-
-      {/* Action buttons */}
-      {(hasFilters || searchQuery) && (
-        <div className="flex gap-3">
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="btn btn-secondary text-sm"
-            >
-              Clear Search
-            </button>
-          )}
-          {hasFilters && (
-            <button
-              onClick={resetFilters}
-              className="btn btn-primary text-sm"
-            >
-              Reset All Filters
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Keyboard shortcut hints */}
-      <div className="mt-8 flex gap-6 text-xs text-black-600">
-        <span>
-          <kbd className="px-1.5 py-0.5 rounded bg-black-700 border border-black-600 font-mono">/</kbd> Search
-        </span>
-        <span>
-          <kbd className="px-1.5 py-0.5 rounded bg-black-700 border border-black-600 font-mono">⌘F</kbd> Filters
-        </span>
-      </div>
-    </div>
+    <EmptyState
+      icon={<SpotlightIcon />}
+      title="No screenplays found"
+      description="Make sure the analysis data is available and has been uploaded"
+    />
   );
 }
 
@@ -202,7 +210,7 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
 
   // Empty state
   if (screenplays.length === 0) {
-    return <EmptyState />;
+    return <GridEmptyState />;
   }
 
   return (
