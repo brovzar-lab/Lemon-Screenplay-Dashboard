@@ -35,11 +35,20 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const heroBannerRef = useRef<HTMLDivElement>(null);
   const [isHeroBannerHidden, setIsHeroBannerHidden] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsClosing(false);
+      onClose();
+    }, 150);
+  };
 
   // Close on escape key and manage focus / body scroll
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') handleClose();
     };
 
     if (isOpen) {
@@ -101,20 +110,27 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center p-4 md:p-8 overflow-y-auto"
-      onClick={onClose}
+      onClick={handleClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" aria-hidden="true" />
+      <div
+        className={clsx(
+          'fixed inset-0 bg-black-950/80 backdrop-blur-sm transition-opacity duration-150',
+          isClosing ? 'opacity-0' : 'opacity-100'
+        )}
+        aria-hidden="true"
+      />
 
       {/* Modal Content */}
       <div
         ref={modalRef}
         className={clsx(
-          'relative w-full max-w-4xl my-8 rounded-2xl overflow-hidden animate-scale-in',
+          'relative w-full max-w-4xl my-8 rounded-2xl overflow-hidden',
           'glass border flex flex-col',
+          isClosing ? 'animate-scale-out' : 'animate-scale-in',
           screenplay.isFilmNow ? 'border-gold-400 film-now-glow' : 'border-gold-500/20'
         )}
         onClick={(e) => e.stopPropagation()}
@@ -128,7 +144,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
             <ModalHeader
               screenplay={screenplay}
               closeButtonRef={closeButtonRef}
-              onClose={onClose}
+              onClose={handleClose}
             />
           </div>
 
@@ -168,7 +184,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
         </div>
 
         {/* 5. Floating Actions Bar — sticky at bottom, outside scroll container */}
-        <ModalActionsBar screenplay={screenplay} onClose={onClose} />
+        <ModalActionsBar screenplay={screenplay} onClose={handleClose} />
       </div>
     </div>
   );
