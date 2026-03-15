@@ -3,11 +3,12 @@
  * Collapsible panel containing all analytics charts
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ScoreDistribution } from './ScoreDistribution';
 import { TierBreakdown } from './TierBreakdown';
 import { GenreChart } from './GenreChart';
 import { BudgetChart } from './BudgetChart';
+import { useCountUp } from '../../hooks/useCountUp';
 import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
 
 interface AnalyticsDashboardProps {
@@ -28,15 +29,55 @@ export function AnalyticsDashboard({
   onFilterByBudget,
 }: AnalyticsDashboardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const isFiltered = totalScreenplays && totalScreenplays.length !== screenplays.length;
 
-  // Calculate quick stats from the displayed (filtered) set
-  const avgScore = screenplays.length > 0
-    ? (screenplays.reduce((sum, sp) => sum + sp.weightedScore, 0) / screenplays.length).toFixed(1)
-    : '0.0';
+  // Raw numeric values for count-up
+  const avgScoreRaw =
+    screenplays.length > 0
+      ? screenplays.reduce((sum, sp) => sum + sp.weightedScore, 0) / screenplays.length
+      : 0;
   const filmNowCount = screenplays.filter((sp) => sp.recommendation === 'film_now').length;
   const recommendCount = screenplays.filter((sp) => sp.recommendation === 'recommend').length;
+
+  // Animated count-up values — only run once when panel is first expanded
+  const animatedTotal = useCountUp(screenplays.length, 600, isExpanded);
+  const animatedAvg = useCountUp(avgScoreRaw, 600, isExpanded);
+  const animatedFilmNow = useCountUp(filmNowCount, 600, isExpanded);
+  const animatedRecommend = useCountUp(recommendCount, 600, isExpanded);
+
+  // Chart cards: each gets a stagger delay offset (100 ms apart)
+  const chartCards = [
+    {
+      title: 'Score Distribution',
+      hint: onFilterByScoreRange ? 'Click a bar to filter' : null,
+      content: (
+        <ScoreDistribution screenplays={screenplays} onBarClick={onFilterByScoreRange} />
+      ),
+    },
+    {
+      title: 'Recommendation Tiers',
+      hint: onFilterByTier ? 'Click to filter by tier' : null,
+      content: (
+        <TierBreakdown screenplays={screenplays} onTierClick={onFilterByTier} />
+      ),
+    },
+    {
+      title: 'Top Genres',
+      hint: onFilterByGenre ? 'Click to filter by genre' : null,
+      content: (
+        <GenreChart screenplays={screenplays} maxGenres={6} onGenreClick={onFilterByGenre} />
+      ),
+    },
+    {
+      title: 'Budget Tiers',
+      hint: onFilterByBudget ? 'Click to filter by budget' : null,
+      content: (
+        <BudgetChart screenplays={screenplays} onBudgetClick={onFilterByBudget} />
+      ),
+    },
+  ];
 
   return (
     <div className="mb-6">
@@ -63,24 +104,35 @@ export function AnalyticsDashboard({
             <span className="font-semibold text-white">Analytics Dashboard</span>
           </div>
 
-          {/* Quick stats when collapsed */}
+          {/* Quick stats — count-up when expanded, static when collapsed */}
           <div className="flex items-center gap-4 text-sm">
             <span className="text-black-400">
-              <span className="font-mono text-gold-400">{screenplays.length}</span>
+              <span className="font-mono text-gold-400">
+                {isExpanded ? animatedTotal.toFixed(0) : screenplays.length}
+              </span>
               {isFiltered ? ` of ${totalScreenplays.length}` : ''} screenplays
               {isFiltered && <span className="ml-1 text-gold-500/70">(filtered)</span>}
             </span>
             <span className="text-black-500">|</span>
             <span className="text-black-400">
-              Avg Score: <span className="font-mono text-emerald-400">{avgScore}</span>
+              Avg Score:{' '}
+              <span className="font-mono text-emerald-400">
+                {isExpanded ? animatedAvg.toFixed(1) : avgScoreRaw.toFixed(1)}
+              </span>
             </span>
             <span className="text-black-500">|</span>
             <span className="text-black-400">
-              <span className="font-mono text-gold-400">{filmNowCount}</span> FILM NOW
+              <span className="font-mono text-gold-400">
+                {isExpanded ? animatedFilmNow.toFixed(0) : filmNowCount}
+              </span>{' '}
+              FILM NOW
             </span>
             <span className="text-black-500">|</span>
             <span className="text-black-400">
-              <span className="font-mono text-emerald-400">{recommendCount}</span> Recommend
+              <span className="font-mono text-emerald-400">
+                {isExpanded ? animatedRecommend.toFixed(0) : recommendCount}
+              </span>{' '}
+              Recommend
             </span>
           </div>
         </div>
@@ -96,67 +148,44 @@ export function AnalyticsDashboard({
         </svg>
       </button>
 
-      {/* Expandable content */}
-      {isExpanded && (
+      {/* Expandable content — smooth height + opacity transition */}
+      <div
+        ref={contentRef}
+        className="overflow-hidden transition-all duration-400 ease-out"
+        style={
+          isExpanded
+            ? {
+                maxHeight: contentRef.current?.scrollHeight ?? 2000,
+                opacity: 1,
+              }
+            : {
+                maxHeight: 0,
+                opacity: 0,
+              }
+        }
+      >
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Score Distribution */}
-          <div className="glass rounded-lg border border-black-700 p-4">
-            <h3 className="text-sm font-medium text-black-300 mb-3">Score Distribution</h3>
-            <div className="h-48">
-              <ScoreDistribution
-                screenplays={screenplays}
-                onBarClick={onFilterByScoreRange}
-              />
+          {chartCards.map((card, i) => (
+            <div
+              key={card.title}
+              className={isExpanded ? 'card-enter' : ''}
+              style={
+                isExpanded
+                  ? { animationDelay: `${i * 100}ms`, animationFillMode: 'both' }
+                  : undefined
+              }
+            >
+              <div className="glass rounded-lg border border-black-700 p-4 h-full">
+                <h3 className="text-sm font-medium text-black-300 mb-3">{card.title}</h3>
+                <div className="h-48">{card.content}</div>
+                {card.hint && (
+                  <p className="text-xs text-black-500 mt-2 text-center">{card.hint}</p>
+                )}
+              </div>
             </div>
-            {onFilterByScoreRange && (
-              <p className="text-xs text-black-500 mt-2 text-center">Click a bar to filter</p>
-            )}
-          </div>
-
-          {/* Tier Breakdown */}
-          <div className="glass rounded-lg border border-black-700 p-4">
-            <h3 className="text-sm font-medium text-black-300 mb-3">Recommendation Tiers</h3>
-            <div className="h-48">
-              <TierBreakdown
-                screenplays={screenplays}
-                onTierClick={onFilterByTier}
-              />
-            </div>
-            {onFilterByTier && (
-              <p className="text-xs text-black-500 mt-2 text-center">Click to filter by tier</p>
-            )}
-          </div>
-
-          {/* Genre Chart */}
-          <div className="glass rounded-lg border border-black-700 p-4">
-            <h3 className="text-sm font-medium text-black-300 mb-3">Top Genres</h3>
-            <div className="h-48">
-              <GenreChart
-                screenplays={screenplays}
-                maxGenres={6}
-                onGenreClick={onFilterByGenre}
-              />
-            </div>
-            {onFilterByGenre && (
-              <p className="text-xs text-black-500 mt-2 text-center">Click to filter by genre</p>
-            )}
-          </div>
-
-          {/* Budget Distribution */}
-          <div className="glass rounded-lg border border-black-700 p-4">
-            <h3 className="text-sm font-medium text-black-300 mb-3">Budget Tiers</h3>
-            <div className="h-48">
-              <BudgetChart
-                screenplays={screenplays}
-                onBudgetClick={onFilterByBudget}
-              />
-            </div>
-            {onFilterByBudget && (
-              <p className="text-xs text-black-500 mt-2 text-center">Click to filter by budget</p>
-            )}
-          </div>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
