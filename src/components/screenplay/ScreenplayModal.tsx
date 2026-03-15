@@ -128,7 +128,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
       <div
         ref={modalRef}
         className={clsx(
-          'relative w-full max-w-4xl my-8 rounded-2xl overflow-hidden',
+          'relative w-full max-w-5xl my-8 rounded-2xl overflow-hidden',
           'glass border flex flex-col',
           isClosing ? 'animate-scale-out' : 'animate-scale-in',
           screenplay.isFilmNow ? 'border-gold-400 film-now-glow' : 'border-gold-500/20'
@@ -154,7 +154,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
           {/* 3. Split Panel */}
           <div className="flex flex-col md:flex-row bg-black-950/50">
             {/* Left: Scores */}
-            <div className="md:w-2/5 md:max-w-[360px] p-6 md:border-r border-gold-500/10 space-y-8">
+            <div className="md:w-1/2 p-6 md:border-r border-gold-500/10 space-y-8">
               <ScoresPanel screenplay={screenplay} />
               <ProducerMetricsPanel screenplay={screenplay} />
             </div>
