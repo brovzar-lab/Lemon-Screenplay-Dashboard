@@ -82,47 +82,55 @@ function App() {
       <ScrollProgress />
       <div className="min-h-screen flex flex-col">
         <div className="bokeh-atmosphere" aria-hidden="true" />
-        <Header />
+        <div className="page-enter-header">
+          <Header />
+        </div>
 
         <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-8">
-          {/* Collection Tabs */}
-          {!isLoading && allScreenplays.length > 0 && (
-            <div className="mb-6">
-              <CollectionTabs screenplays={allScreenplays} />
-            </div>
-          )}
+          {/* Collection Tabs + Filter Bar — animate as one unit */}
+          <div className="page-enter-filters">
+            {/* Collection Tabs */}
+            {!isLoading && allScreenplays.length > 0 && (
+              <div className="mb-6">
+                <CollectionTabs screenplays={allScreenplays} />
+              </div>
+            )}
 
-          {/* Search, Filters, Sort, Export, Share */}
-          <FilterBar
-            screenplays={screenplays}
-            isLoading={isLoading}
-            filteredCount={filteredCount}
-            totalCount={totalCount}
-          />
+            {/* Search, Filters, Sort, Export, Share */}
+            <FilterBar
+              screenplays={screenplays}
+              isLoading={isLoading}
+              filteredCount={filteredCount}
+              totalCount={totalCount}
+            />
+          </div>
 
-          {/* Analytics Dashboard — lazy-loaded (contains recharts) */}
-          {!isLoading && allScreenplays.length > 0 && (
-            <ErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <AnalyticsDashboard
-                  key={`analytics-${screenplays.length}-${screenplays.map(s => s.id).join(',').slice(0, 100)}`}
-                  screenplays={screenplays}
-                  totalScreenplays={allScreenplays}
-                  onFilterByScoreRange={handleFilterByScoreRange}
-                  onFilterByTier={handleFilterByTier}
-                  onFilterByGenre={handleFilterByGenre}
-                  onFilterByBudget={handleFilterByBudget}
-                />
-              </Suspense>
-            </ErrorBoundary>
-          )}
+          {/* Analytics Dashboard + Screenplay Grid — animate as one unit */}
+          <div className="page-enter-content">
+            {/* Analytics Dashboard — lazy-loaded (contains recharts) */}
+            {!isLoading && allScreenplays.length > 0 && (
+              <ErrorBoundary>
+                <Suspense fallback={<LoadingFallback />}>
+                  <AnalyticsDashboard
+                    key={`analytics-${screenplays.length}-${screenplays.map(s => s.id).join(',').slice(0, 100)}`}
+                    screenplays={screenplays}
+                    totalScreenplays={allScreenplays}
+                    onFilterByScoreRange={handleFilterByScoreRange}
+                    onFilterByTier={handleFilterByTier}
+                    onFilterByGenre={handleFilterByGenre}
+                    onFilterByBudget={handleFilterByBudget}
+                  />
+                </Suspense>
+              </ErrorBoundary>
+            )}
 
-          {/* Screenplay Grid */}
-          <ScreenplayGrid
-            screenplays={screenplays}
-            isLoading={isLoading}
-            onCardClick={handleCardClick}
-          />
+            {/* Screenplay Grid */}
+            <ScreenplayGrid
+              screenplays={screenplays}
+              isLoading={isLoading}
+              onCardClick={handleCardClick}
+            />
+          </div>
         </main>
 
         {/* Footer */}
