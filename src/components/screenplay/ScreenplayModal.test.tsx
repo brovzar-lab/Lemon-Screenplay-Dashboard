@@ -80,7 +80,7 @@ describe('ScreenplayModal', () => {
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByRole('dialog')).toBeInTheDocument();
-            expect(screen.getAllByText('Visible Movie').length).toBeGreaterThanOrEqual(1);
+            expect(screen.getByText('Visible Movie')).toBeInTheDocument();
         });
     });
 
@@ -217,8 +217,7 @@ describe('ScreenplayModal', () => {
             renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
-            // Title appears in both hero banner and sticky bar
-            expect(screen.getAllByText('Content Test').length).toBeGreaterThanOrEqual(1);
+            expect(screen.getByText('Content Test')).toBeInTheDocument();
             expect(screen.getByText('by Jane Doe')).toBeInTheDocument();
         });
 
@@ -260,7 +259,7 @@ describe('ScreenplayModal', () => {
             renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
-            expect(screen.getAllByText('FILM NOW').length).toBeGreaterThanOrEqual(1);
+            expect(screen.getByText('FILM NOW')).toBeInTheDocument();
         });
 
         it('displays verdict statement', () => {

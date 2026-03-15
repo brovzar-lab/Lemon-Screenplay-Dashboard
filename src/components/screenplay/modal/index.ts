@@ -16,5 +16,3 @@ export { ModalFooter } from './ModalFooter';
 export { hasV6Fields } from './utils';
 export { PosterSection } from './PosterSection';
 export { FeedbackSection } from './FeedbackSection';
-export { ModalStickyBar } from './ModalStickyBar';
-export { ModalActionsBar } from './ModalActionsBar';

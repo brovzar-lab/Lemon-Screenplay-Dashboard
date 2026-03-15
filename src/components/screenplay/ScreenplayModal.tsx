@@ -2,8 +2,8 @@
  * ScreenplayModal Component
  * Full detail view for a screenplay with all V3/V5/V6 analysis data.
  *
- * Split-panel layout: hero banner, sticky score bar, left scores / right content,
- * and a floating actions bar at the bottom.
+ * Decomposed into sub-components under ./modal/ for maintainability.
+ * Shell handles: open/close, focus trap, backdrop, ARIA.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -21,8 +21,6 @@ import {
   ModalFooter,
   PosterSection,
 } from './modal';
-import { ModalStickyBar } from './modal/ModalStickyBar';
-import { ModalActionsBar } from './modal/ModalActionsBar';
 
 interface ScreenplayModalProps {
   screenplay: Screenplay | null;
@@ -33,8 +31,6 @@ interface ScreenplayModalProps {
 export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const heroBannerRef = useRef<HTMLDivElement>(null);
-  const [isHeroBannerHidden, setIsHeroBannerHidden] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
   const handleClose = () => {
@@ -93,18 +89,6 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
     return () => modal.removeEventListener('keydown', handleTabKey);
   }, [isOpen]);
 
-  // IntersectionObserver — track hero banner visibility for sticky bar
-  useEffect(() => {
-    const el = heroBannerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsHeroBannerHidden(!entry.isIntersecting),
-      { threshold: 0 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isOpen]);
-
   if (!isOpen || !screenplay) return null;
 
   return (
@@ -128,19 +112,18 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
       <div
         ref={modalRef}
         className={clsx(
-          'relative w-full max-w-5xl my-8 rounded-2xl overflow-hidden',
-          'glass border flex flex-col',
+          'relative w-full max-w-4xl my-8 rounded-2xl overflow-hidden',
+          'glass border',
           isClosing ? 'animate-scale-out' : 'animate-scale-in',
           screenplay.isFilmNow ? 'border-gold-400 film-now-glow' : 'border-gold-500/20'
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="max-h-[85vh] overflow-y-auto scrollbar-hide relative flex-1">
-          {/* Bottom scroll affordance */}
+        <div className="max-h-[85vh] overflow-y-auto scrollbar-hide relative">
+          {/* Bottom scroll affordance — fades out when scrolled to bottom via CSS */}
           <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black-950/80 to-transparent z-30 rounded-b-2xl" aria-hidden="true" />
-
-          {/* 1. Hero Banner */}
-          <div ref={heroBannerRef}>
+          {/* 1. Sticky Header */}
+          <div className="sticky top-0 z-40 backdrop-blur-xl">
             <ModalHeader
               screenplay={screenplay}
               closeButtonRef={closeButtonRef}
@@ -148,43 +131,30 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
             />
           </div>
 
-          {/* 2. Sticky Score Bar — appears when hero scrolls out */}
-          <ModalStickyBar screenplay={screenplay} visible={isHeroBannerHidden} />
+          {/* 2. Scrollable Content Body */}
+          <div className="modal-body p-6 space-y-8 bg-black-950/50">
+            <AlertBanners screenplay={screenplay} />
+            <FilmNowSection screenplay={screenplay} />
 
-          {/* 3. Split Panel */}
-          <div className="flex flex-col md:flex-row bg-black-950/50">
-            {/* Left: Scores */}
-            <div className="md:w-1/2 p-6 md:border-r border-gold-500/10 space-y-8">
-              <ScoresPanel screenplay={screenplay} />
-              <ProducerMetricsPanel screenplay={screenplay} />
+            {/* Logline */}
+            <div>
+              <h3 className="text-lg font-display text-gold-200 mb-4 flex items-center gap-2">
+                <span>📄</span>Logline
+              </h3>
+              <p className="text-black-300 leading-relaxed">{screenplay.logline}</p>
             </div>
 
-            {/* Right: Content */}
-            <div className="flex-1 p-6 space-y-8">
-              <AlertBanners screenplay={screenplay} />
-              <FilmNowSection screenplay={screenplay} />
-
-              {/* Logline */}
-              <div>
-                <h3 className="text-lg font-display text-gold-200 mb-4 flex items-center gap-2">
-                  <span>📄</span>Logline
-                </h3>
-                <p className="text-black-300 leading-relaxed">{screenplay.logline}</p>
-              </div>
-
-              <ContentDetails screenplay={screenplay} />
-              <NotesSection screenplayId={screenplay.id} />
-              <FeedbackSection screenplay={screenplay} />
-              <ModalFooter screenplay={screenplay} />
-            </div>
+            <ScoresPanel screenplay={screenplay} />
+            <ProducerMetricsPanel screenplay={screenplay} />
+            <ContentDetails screenplay={screenplay} />
+            <NotesSection screenplayId={screenplay.id} />
+            <FeedbackSection screenplay={screenplay} />
+            <ModalFooter screenplay={screenplay} />
           </div>
 
-          {/* 4. Poster */}
+          {/* 3. Cinematic Poster — generated in background, shown at bottom */}
           <PosterSection screenplay={screenplay} />
         </div>
-
-        {/* 5. Floating Actions Bar — sticky at bottom, outside scroll container */}
-        <ModalActionsBar screenplay={screenplay} onClose={handleClose} />
       </div>
     </div>
   );

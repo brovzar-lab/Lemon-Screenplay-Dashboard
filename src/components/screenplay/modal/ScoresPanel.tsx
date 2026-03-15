@@ -18,8 +18,35 @@ interface ScoresPanelProps {
 
 export function ScoresPanel({ screenplay }: ScoresPanelProps) {
     return (
-        <div className="space-y-8">
-            {/* CVS Breakdown — on top */}
+        <div className="grid md:grid-cols-2 gap-6">
+            {/* Dimension Scores */}
+            <div>
+                <SectionHeader icon="📊">Dimension Scores</SectionHeader>
+                <div className="space-y-4">
+                    {getDimensionDisplay(screenplay).map((dim) => (
+                        <ScoreBar
+                            key={dim.key}
+                            label={`${dim.label} (${Math.round(dim.weight * 100)}%)`}
+                            score={dim.score}
+                            showJustification
+                            justification={dim.justification}
+                        />
+                    ))}
+                    <div className="pt-4 border-t border-black-700">
+                        <div className="flex justify-between items-center">
+                            <span className="text-lg font-medium text-gold-200">Weighted Score</span>
+                            <span className={clsx(
+                                'text-2xl font-mono font-bold',
+                                getScoreColorClass(toNumber(screenplay.weightedScore))
+                            )}>
+                                {toNumber(screenplay.weightedScore).toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* CVS Breakdown */}
             <div>
                 <SectionHeader icon="💰">Commercial Viability Score</SectionHeader>
                 {screenplay.commercialViability.cvsAssessed === false ? (
@@ -51,33 +78,6 @@ export function ScoresPanel({ screenplay }: ScoresPanelProps) {
                         </div>
                     </div>
                 )}
-            </div>
-
-            {/* Dimension Scores — below CVS */}
-            <div>
-                <SectionHeader icon="📊">Dimension Scores</SectionHeader>
-                <div className="space-y-4">
-                    {getDimensionDisplay(screenplay).map((dim) => (
-                        <ScoreBar
-                            key={dim.key}
-                            label={`${dim.label} (${Math.round(dim.weight * 100)}%)`}
-                            score={dim.score}
-                            showJustification
-                            justification={dim.justification}
-                        />
-                    ))}
-                    <div className="pt-4 border-t border-black-700">
-                        <div className="flex justify-between items-center">
-                            <span className="text-lg font-medium text-gold-200">Weighted Score</span>
-                            <span className={clsx(
-                                'text-2xl font-mono font-bold',
-                                getScoreColorClass(toNumber(screenplay.weightedScore))
-                            )}>
-                                {toNumber(screenplay.weightedScore).toFixed(2)}
-                            </span>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     );
