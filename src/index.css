@@ -419,6 +419,40 @@
   .animate-slide-in-left {
     animation: slide-in-left var(--duration-slow) var(--ease-out);
   }
+
+  /* ===== DRAG INTERACTION UTILITIES ===== */
+
+  .card-dragging {
+    transform: rotate(2deg) scale(1.05);
+    box-shadow: 0 20px 40px rgba(245, 158, 11, 0.2);
+    z-index: 50;
+    cursor: grabbing;
+  }
+
+  .card-drag-ghost {
+    opacity: 0.3;
+  }
+
+  .card-drop-zone {
+    border: 2px dashed var(--color-gold-400);
+    background: rgba(245, 158, 11, 0.05);
+    animation: pulse-drop-zone 0.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse-drop-zone {
+    from { border-color: rgba(245, 158, 11, 0.3); }
+    to { border-color: rgba(245, 158, 11, 0.8); }
+  }
+
+  .card-drop-bounce {
+    animation: drop-bounce 300ms ease;
+  }
+
+  @keyframes drop-bounce {
+    0% { transform: scale(1.05); }
+    50% { transform: scale(0.98); }
+    100% { transform: scale(1); }
+  }
 }
 
 /* ===== COMPONENT STYLES ===== */
