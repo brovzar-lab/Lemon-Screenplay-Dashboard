@@ -74,6 +74,20 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
     });
   };
 
+  // Determine tier class based on recommendation
+  const tierClass = (() => {
+    const rec = screenplay.recommendation;
+    if (rec === 'film_now') return 'card-film-now';
+    if (rec === 'recommend') return 'card-recommend';
+    if (rec === 'pass') return 'card-pass';
+    return '';
+  })();
+
+  // De-emphasize scores for PASS cards
+  const isPass = screenplay.recommendation === 'pass';
+  const scoreNumClass = isPass ? 'font-mono text-base font-bold' : 'font-mono text-xl font-bold';
+  const scoreTextClass = isPass ? 'text-xs' : 'text-sm';
+
   // Determine checkbox visual state
   const isChecked = isDeleteMode ? isDeleteSelected : isExportSelected;
   const checkboxColor = isDeleteMode
@@ -90,7 +104,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
         onClick={onClick}
         className={clsx(
           'card cursor-pointer relative group',
-          screenplay.isFilmNow && 'card-film-now',
+          tierClass,
           isDeleteMode && isDeleteSelected && 'ring-2 ring-red-500/50'
         )}
       >
@@ -156,7 +170,9 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
         </div>
 
         {/* Logline */}
-        <p className="text-sm text-black-300 mb-5 line-clamp-2 leading-relaxed">
+        <p className={`text-sm text-black-300 mb-5 leading-relaxed ${
+          screenplay.recommendation === 'film_now' ? '' : 'line-clamp-2'
+        }`}>
           {screenplay.logline}
         </p>
 
@@ -178,7 +194,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
             <div>
               <span className="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
               <span className={clsx(
-                'font-mono text-xl font-bold',
+                scoreNumClass,
                 getScoreColorClass(Number(screenplay.weightedScore) || 0)
               )}>
                 {(Number(screenplay.weightedScore) || 0).toFixed(1)}
@@ -187,10 +203,10 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
             <div>
               <span className="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
               {screenplay.commercialViability.cvsAssessed === false ? (
-                <span className="text-sm text-black-500 italic">N/A</span>
+                <span className={`${scoreTextClass} text-black-500 italic`}>N/A</span>
               ) : (
                 <span className={clsx(
-                  'font-mono text-xl font-bold',
+                  scoreNumClass,
                   getScoreColorClass(Number(screenplay.cvsTotal) || 0, 18)
                 )}>
                   {Number(screenplay.cvsTotal) || 0}/18
