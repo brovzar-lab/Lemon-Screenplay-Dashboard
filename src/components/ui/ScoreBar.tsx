@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import { getScoreColorClass, getScoreBarFillClass } from '@/lib/calculations';
 import { toNumber } from '@/lib/utils';
+import { useCountUp } from '../../hooks/useCountUp';
 
 interface ScoreBarProps {
   label: string;
@@ -10,6 +11,8 @@ interface ScoreBarProps {
   compact?: boolean;
   showJustification?: boolean;
   justification?: string;
+  /** Animate bar width from 0 to final value on mount/trigger */
+  animate?: boolean;
 }
 
 export function ScoreBar({
@@ -19,9 +22,12 @@ export function ScoreBar({
   compact = false,
   showJustification,
   justification,
+  animate,
 }: ScoreBarProps) {
   const safeScore = toNumber(score);
-  const percentage = (safeScore / max) * 100;
+  const animatedScore = useCountUp(safeScore, 600, animate ?? false);
+  const displayScore = animate ? animatedScore : safeScore;
+  const displayWidth = `${(displayScore / max) * 100}%`;
   const colorClass = getScoreBarFillClass(safeScore, max);
 
   if (compact) {
@@ -36,7 +42,7 @@ export function ScoreBar({
         <div className="score-bar">
           <div
             className={clsx('score-bar-fill', colorClass)}
-            style={{ width: `${percentage}%` }}
+            style={{ width: displayWidth }}
           />
         </div>
       </div>
@@ -54,7 +60,7 @@ export function ScoreBar({
       <div className="score-bar h-2">
         <div
           className={clsx('score-bar-fill', colorClass)}
-          style={{ width: `${percentage}%` }}
+          style={{ width: displayWidth }}
         />
       </div>
       {showJustification && justification && (

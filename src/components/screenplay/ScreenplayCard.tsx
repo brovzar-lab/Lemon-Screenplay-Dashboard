@@ -4,7 +4,7 @@
  */
 
 // ... imports ...
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { getScoreColorClass } from '@/lib/calculations';
@@ -52,6 +52,27 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
   const isDeleteSelected = useIsSelectedForDelete(screenplay.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
+
+  const [isRevealed, setIsRevealed] = useState(false);
+  const cardRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsRevealed(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.3 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const handleSelectClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -101,6 +122,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
   return (
     <>
       <article
+        ref={cardRef}
         onClick={onClick}
         className={clsx(
           'card cursor-pointer relative group',
@@ -184,6 +206,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
               score={dim.score}
               label={dim.label}
               compact
+              animate={isRevealed}
             />
           ))}
         </div>
