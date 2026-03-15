@@ -10,3 +10,4 @@ export { DeleteConfirmDialog } from './DeleteConfirmDialog';
 export { ToastContainer } from './ToastContainer';
 export { ScrollProgress } from './ScrollProgress';
 export { EmptyState, SpotlightIcon, DimmedStarIcon, FilmReelIcon, SearchEmptyIcon } from './EmptyState';
+export { ShortcutHint } from './ShortcutHint';

@@ -14,6 +14,7 @@ import { useExportSelectionStore, useExportSelectionCount } from '@/stores/expor
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import { buildShareableUrl } from '@/hooks/useUrlState';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { ShortcutHint } from '@/components/ui/ShortcutHint';
 import type { Screenplay, SortField } from '@/types';
 
 const SEARCH_INPUT_ID = 'screenplay-search';
@@ -167,6 +168,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
                 ✕
               </button>
             )}
+            <ShortcutHint id="search" label="/ to search" position="bottom" />
           </div>
 
           {/* Results Count & Actions */}
