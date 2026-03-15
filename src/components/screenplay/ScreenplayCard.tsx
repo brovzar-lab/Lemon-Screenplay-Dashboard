@@ -56,6 +56,22 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
   const [isRevealed, setIsRevealed] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
 
+  const [isPeeking, setIsPeeking] = useState(false);
+  const peekTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const supportsHover = typeof window !== 'undefined' &&
+    window.matchMedia('(hover: hover)').matches;
+
+  const handlePeekEnter = () => {
+    if (!supportsHover) return;
+    peekTimerRef.current = setTimeout(() => setIsPeeking(true), 500);
+  };
+
+  const handlePeekLeave = () => {
+    clearTimeout(peekTimerRef.current);
+    setIsPeeking(false);
+  };
+
   useEffect(() => {
     const el = cardRef.current;
     if (!el) return;
@@ -72,6 +88,10 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
 
     observer.observe(el);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    return () => clearTimeout(peekTimerRef.current);
   }, []);
 
   const handleSelectClick = (e: React.MouseEvent) => {
@@ -124,10 +144,13 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
       <article
         ref={cardRef}
         onClick={onClick}
+        onMouseEnter={handlePeekEnter}
+        onMouseLeave={handlePeekLeave}
         className={clsx(
-          'card cursor-pointer relative group',
+          'card cursor-pointer relative group transition-all duration-200 ease-out',
           tierClass,
-          isDeleteMode && isDeleteSelected && 'ring-2 ring-red-500/50'
+          isDeleteMode && isDeleteSelected && 'ring-2 ring-red-500/50',
+          isPeeking && 'scale-[1.02] shadow-lg shadow-gold-500/10'
         )}
       >
         {/* Selection checkbox (export) — only visible on hover or when selected */}
@@ -192,11 +215,34 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
         </div>
 
         {/* Logline */}
-        <p className={`text-sm text-black-300 mb-5 leading-relaxed ${
-          screenplay.recommendation === 'film_now' ? '' : 'line-clamp-2'
+        <p className={`text-sm text-black-300 leading-relaxed ${
+          screenplay.recommendation === 'film_now' || isPeeking ? '' : 'line-clamp-2'
         }`}>
           {screenplay.logline}
         </p>
+
+        {/* Quick-peek expanded content */}
+        <div
+          className={clsx(
+            'overflow-hidden transition-all duration-200 ease-out',
+            isPeeking ? 'max-h-24 opacity-100 mt-2 mb-5' : 'max-h-0 opacity-0 mb-5'
+          )}
+        >
+          <div className="flex gap-1.5 flex-wrap">
+            {getDimensionDisplay(screenplay)
+              .slice()
+              .sort((a, b) => b.score - a.score)
+              .slice(0, 3)
+              .map((dim) => (
+                <span
+                  key={dim.key}
+                  className="text-xs font-mono px-2 py-0.5 rounded-full bg-black-800 text-black-200"
+                >
+                  {dim.label}: {dim.score.toFixed(1)}
+                </span>
+              ))}
+          </div>
+        </div>
 
         {/* Scores Grid */}
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-5">
