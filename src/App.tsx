@@ -80,6 +80,7 @@ function App() {
   return (
     <DevExecProvider screenplays={allScreenplays} apiKey={googleApiKey}>
       <div className="min-h-screen flex flex-col">
+        <div className="bokeh-atmosphere" aria-hidden="true" />
         <Header />
 
         <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-8">
