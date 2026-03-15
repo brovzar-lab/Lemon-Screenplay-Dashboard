@@ -8,7 +8,7 @@ import { Header, FilterBar } from '@/components/layout';
 import { ScreenplayGrid, ScreenplayModal } from '@/components/screenplay';
 import { CollectionTabs } from '@/components/filters';
 import { ComparisonBar } from '@/components/comparison';
-import { ErrorBoundary, LoadingFallback, ToastContainer } from '@/components/ui';
+import { ErrorBoundary, LoadingFallback, ToastContainer, ScrollProgress } from '@/components/ui';
 import { DevExecChat } from '@/components/devexec';
 import { DevExecProvider } from '@/contexts/DevExecContext';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
@@ -79,6 +79,7 @@ function App() {
 
   return (
     <DevExecProvider screenplays={allScreenplays} apiKey={googleApiKey}>
+      <ScrollProgress />
       <div className="min-h-screen flex flex-col">
         <div className="bokeh-atmosphere" aria-hidden="true" />
         <Header />

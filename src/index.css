@@ -193,21 +193,28 @@
 
   /* Scrollbar Styling */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background: var(--color-black-900);
+    background: rgba(255, 255, 255, 0.02);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--color-black-600);
-    border-radius: 4px;
+    background: rgba(245, 158, 11, 0.25);
+    border-radius: 3px;
+    transition: background 0.2s;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-black-500);
+    background: rgba(245, 158, 11, 0.5);
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(245, 158, 11, 0.25) transparent;
   }
 
   body::after {
@@ -731,17 +738,11 @@ html.light ::selection {
 
 /* ─── SCROLLBAR ─────────────────────────────────────────────────────────────── */
 
-html.light ::-webkit-scrollbar-track {
-  background: #E2E8F0;
-}
-
 html.light ::-webkit-scrollbar-thumb {
-  background: #94A3B8;
-  border-radius: 4px;
+  background: rgba(180, 83, 9, 0.2);
 }
-
 html.light ::-webkit-scrollbar-thumb:hover {
-  background: #64748B;
+  background: rgba(180, 83, 9, 0.4);
 }
 
 /* ─── HEADER / NAV ──────────────────────────────────────────────────────────── */

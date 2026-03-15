@@ -8,3 +8,4 @@ export { RecommendationBadge } from './RecommendationBadge';
 export { ScoreBar } from './ScoreBar';
 export { DeleteConfirmDialog } from './DeleteConfirmDialog';
 export { ToastContainer } from './ToastContainer';
+export { ScrollProgress } from './ScrollProgress';
