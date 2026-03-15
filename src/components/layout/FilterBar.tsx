@@ -4,7 +4,7 @@
  * Owns the overlay modals triggered from its buttons.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { FilterPanel, AdvancedSortPanel } from '@/components/filters';
 import { ExportModal } from '@/components/export';
 import { ShareModal } from '@/components/share';
@@ -113,19 +113,40 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
 
   const activeFilter = getActiveFilter();
 
+  // Task 10: Sliding indicator for filter chips
+  const chipsContainerRef = useRef<HTMLDivElement>(null);
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+
+  useEffect(() => {
+    const container = chipsContainerRef.current;
+    if (!container) return;
+    const activeChip = container.querySelector('[data-active="true"]') as HTMLElement | null;
+    if (activeChip) {
+      setIndicatorStyle({
+        left: activeChip.offsetLeft,
+        width: activeChip.offsetWidth,
+      });
+    }
+  }, [activeFilter]);
+
+  // Task 11: Search expand on focus
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
   return (
     <>
       <div className="mb-8">
         <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           {/* Search Input */}
-          <div className="w-full md:w-96 relative">
+          <div className="relative">
             <input
               id={SEARCH_INPUT_ID}
               type="text"
-              className="input pl-10 pr-16"
+              className={`input pl-10 pr-16 transition-all duration-300 ease-out ${isSearchFocused ? 'w-[360px]' : 'w-52'}`}
               placeholder="Search title, author, genre, logline..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
               aria-label="Search screenplays"
             />
             {/* Keyboard shortcut hint */}
@@ -154,7 +175,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               {isLoading ? (
                 <span>Loading...</span>
               ) : (
-                <span>
+                <span key={filteredCount} className="animate-fade-in">
                   Showing <strong className="text-gold-400">{filteredCount}</strong> of{' '}
                   <strong>{totalCount}</strong> screenplays
                 </span>
@@ -243,10 +264,21 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
         </div>
 
         {/* Quick Filter Chips */}
-        <div className="flex flex-wrap gap-2 mt-4">
+        <div ref={chipsContainerRef} className="relative flex flex-wrap gap-2 mt-4 pb-1">
+          {/* Sliding active indicator */}
+          <div
+            className="absolute bottom-0 h-[3px] rounded-full bg-gold-500 transition-all duration-250"
+            style={{
+              left: indicatorStyle.left,
+              width: indicatorStyle.width,
+              transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }}
+          />
+
           {FILTER_CHIPS.map((chip) => (
             <button
               key={chip.id}
+              data-active={chip.id === activeFilter ? 'true' : 'false'}
               onClick={() => handleFilterClick(chip.id)}
               className={`chip cursor-pointer transition-all ${activeFilter === chip.id
                 ? chip.activeClass
