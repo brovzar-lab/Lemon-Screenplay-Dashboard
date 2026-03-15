@@ -41,9 +41,8 @@ describe('ScreenplayGrid', () => {
   it('renders empty state when no screenplays', () => {
     render(<ScreenplayGrid screenplays={[]} isLoading={false} />);
 
-    expect(screen.getByText('No Screenplays Found')).toBeInTheDocument();
-    expect(screen.getByText(/no screenplays loaded/i)).toBeInTheDocument();
-    expect(screen.getByText('🎬')).toBeInTheDocument();
+    // Cinematic empty state (replaced generic emoji state)
+    expect(screen.getByText('No screenplays found')).toBeInTheDocument();
   });
 
   it('renders screenplay cards when data is provided', () => {

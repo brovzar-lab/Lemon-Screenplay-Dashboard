@@ -80,7 +80,7 @@ describe('ScreenplayModal', () => {
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             expect(screen.getByRole('dialog')).toBeInTheDocument();
-            expect(screen.getByText('Visible Movie')).toBeInTheDocument();
+            expect(screen.getAllByText('Visible Movie').length).toBeGreaterThanOrEqual(1);
         });
     });
 
@@ -141,6 +141,8 @@ describe('ScreenplayModal', () => {
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             fireEvent.keyDown(document, { key: 'Escape' });
+            // handleClose delays onClose by 150ms for close animation
+            act(() => { vi.advanceTimersByTime(200); });
             expect(mockOnClose).toHaveBeenCalledTimes(1);
         });
 
@@ -151,6 +153,8 @@ describe('ScreenplayModal', () => {
             );
             // Click the outer dialog wrapper (the backdrop click zone)
             fireEvent.click(screen.getByRole('dialog'));
+            // handleClose delays onClose by 150ms for close animation
+            act(() => { vi.advanceTimersByTime(200); });
             expect(mockOnClose).toHaveBeenCalledTimes(1);
         });
 
@@ -170,6 +174,8 @@ describe('ScreenplayModal', () => {
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
             fireEvent.click(screen.getByLabelText('Close modal'));
+            // handleClose delays onClose by 150ms for close animation
+            act(() => { vi.advanceTimersByTime(200); });
             expect(mockOnClose).toHaveBeenCalledTimes(1);
         });
     });
@@ -211,7 +217,8 @@ describe('ScreenplayModal', () => {
             renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
-            expect(screen.getByText('Content Test')).toBeInTheDocument();
+            // Title appears in both hero banner and sticky bar
+            expect(screen.getAllByText('Content Test').length).toBeGreaterThanOrEqual(1);
             expect(screen.getByText('by Jane Doe')).toBeInTheDocument();
         });
 
@@ -253,7 +260,7 @@ describe('ScreenplayModal', () => {
             renderWithClient(
                 <ScreenplayModal screenplay={screenplay} isOpen={true} onClose={mockOnClose} />
             );
-            expect(screen.getByText('FILM NOW')).toBeInTheDocument();
+            expect(screen.getAllByText('FILM NOW').length).toBeGreaterThanOrEqual(1);
         });
 
         it('displays verdict statement', () => {
