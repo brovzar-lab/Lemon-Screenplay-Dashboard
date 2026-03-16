@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lemon Dashboard — Palette Comparison</title>
+<style>
+  @import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Satoshi', system-ui, sans-serif;
+    background: #111;
+    color: #ccc;
+    padding: 2rem;
+  }
+
+  h1 {
+    text-align: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #888;
+    margin-bottom: 2rem;
+  }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .column-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    text-align: center;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+  }
+
+  .old .column-label {
+    background: rgba(245, 158, 11, 0.1);
+    color: #F59E0B;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+
+  .new .column-label {
+    background: rgba(212, 168, 67, 0.08);
+    color: #D4A843;
+    border: 1px solid rgba(212, 168, 67, 0.15);
+  }
+
+  /* ─── Sections ─── */
+  .section {
+    margin-bottom: 2rem;
+  }
+
+  .section-title {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #555;
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+  }
+
+  /* ─── Color Swatches ─── */
+  .swatches {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .swatch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+  }
+
+  .swatch-name {
+    opacity: 0.7;
+  }
+
+  /* ─── Card Mock ─── */
+  .mock-card {
+    border-radius: 12px;
+    padding: 1.25rem;
+    transition: all 0.25s;
+  }
+
+  .mock-card:hover {
+    transform: translateY(-3px);
+  }
+
+  .mock-card .card-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+
+  .mock-card .card-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .mock-card .card-author {
+    font-size: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .mock-card .card-logline {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .mock-card .card-scores {
+    display: flex;
+    gap: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+  }
+
+  .mock-card .score-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mock-card .score-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .score-bar-track {
+    height: 3px;
+    border-radius: 2px;
+    width: 60px;
+    margin-top: 3px;
+  }
+
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+  }
+
+  /* ─── Button Row ─── */
+  .button-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .mock-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Satoshi', sans-serif;
+  }
+
+  /* ─── Header Mock ─── */
+  .mock-header {
+    padding: 1rem 1.25rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mock-header .logo {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+  }
+
+  .mock-header .header-pills {
+    display: flex;
+    gap: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+  }
+
+  .mock-header .pill {
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+  }
+
+  /* ─── Section Header Mock ─── */
+  .mock-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ─── Filter Chips ─── */
+  .chip-row {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .mock-chip {
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  /* ═══════════════════════════════════════
+     OLD PALETTE (Cinematic Luxury)
+     ═══════════════════════════════════════ */
+
+  .old .mock-card {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(245, 158, 11, 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .old .mock-card:hover {
+    border-color: rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.15);
+  }
+
+  .old .mock-card .card-badge {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    color: #000;
+  }
+
+  .old .mock-card .card-title { color: #F1F5F9; }
+  .old .mock-card .card-author { color: #94A3B8; }
+  .old .mock-card .card-logline { color: #CBD5E1; }
+  .old .mock-card .score-label { color: #94A3B8; }
+  .old .mock-card .score-item { color: #FBBF24; }
+
+  .old .score-bar-track { background: #1E293B; }
+  .old .score-bar-fill { background: linear-gradient(90deg, #10B981, #059669); }
+
+  .old .mock-btn.primary {
+    background: linear-gradient(135deg, #F59E0B, #D97706);
+    color: #000;
+    border: none;
+    font-weight: 600;
+  }
+  .old .mock-btn.primary:hover {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+  }
+
+  .old .mock-btn.secondary {
+    background: #1E293B;
+    color: #94A3B8;
+    border: 1px solid #334155;
+  }
+
+  .old .mock-btn.ghost {
+    background: transparent;
+    color: #94A3B8;
+    border: 1px solid transparent;
+  }
+  .old .mock-btn.ghost:hover {
+    background: rgba(245, 158, 11, 0.1);
+    color: #FBBF24;
+  }
+
+  .old .mock-header {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(245, 158, 11, 0.1);
+    backdrop-filter: blur(20px);
+  }
+  .old .mock-header .logo { color: #FBBF24; }
+  .old .mock-header .pill {
+    background: rgba(245, 158, 11, 0.1);
+    color: #FBBF24;
+  }
+
+  .old .mock-section-header {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.1rem;
+    color: #FBBF24;
+  }
+
+  .old .mock-chip {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.15);
+    color: #94A3B8;
+  }
+  .old .mock-chip.active {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.2));
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #FBBF24;
+  }
+
+  /* ═══════════════════════════════════════
+     NEW PALETTE (Editorial Magazine)
+     ═══════════════════════════════════════ */
+
+  .new .mock-card {
+    background: #131D2E;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .new .mock-card:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  }
+
+  .new .mock-card .card-badge {
+    background: rgba(212, 168, 67, 0.15);
+    color: #D4A843;
+    border: 1px solid rgba(212, 168, 67, 0.2);
+  }
+
+  .new .mock-card .card-title { color: #E8ECF1; }
+  .new .mock-card .card-author { color: #5A6478; }
+  .new .mock-card .card-logline { color: #8A94A6; }
+  .new .mock-card .score-label { color: #5A6478; }
+  .new .mock-card .score-item { color: #4ADE80; }
+
+  .new .score-bar-track { background: #1A2538; }
+  .new .score-bar-fill { background: linear-gradient(90deg, #4ADE80, #22C55E); }
+
+  .new .mock-btn.primary {
+    background: transparent;
+    color: #E8ECF1;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+  .new .mock-btn.primary:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  .new .mock-btn.secondary {
+    background: transparent;
+    color: #8A94A6;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .new .mock-btn.ghost {
+    background: transparent;
+    color: #5A6478;
+    border: 1px solid transparent;
+  }
+  .new .mock-btn.ghost:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: #E8ECF1;
+  }
+
+  .new .mock-header {
+    background: #0B1120;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .new .mock-header .logo { color: #D4A843; }
+  .new .mock-header .pill {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #8A94A6;
+  }
+
+  .new .mock-section-header {
+    font-family: 'Satoshi', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #5A6478;
+  }
+
+  .new .mock-chip {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #8A94A6;
+  }
+  .new .mock-chip.active {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #E8ECF1;
+  }
+
+  /* ─── Film Now card variants ─── */
+  .old .mock-card.film-now {
+    border: 2px solid #F59E0B;
+    box-shadow: 0 0 40px rgba(245, 158, 11, 0.2);
+    background-image: linear-gradient(180deg, rgba(245,158,11,0.08) 0%, transparent 30%);
+  }
+
+  .new .mock-card.film-now {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: 2px solid #D4A843;
+  }
+</style>
+</head>
+<body>
+
+<h1>Lemon Screenplay Dashboard — Palette Comparison</h1>
+
+<div class="comparison">
+
+  <!-- ═══ OLD COLUMN ═══ -->
+  <div class="old">
+    <div class="column-label">Before — Cinematic Luxury</div>
+
+    <!-- Color Palette -->
+    <div class="section">
+      <div class="section-title">Color Palette</div>
+      <div class="swatches">
+        <div class="swatch" style="background:#020617; color:#F1F5F9"><span class="swatch-name">bg-950</span>#020617</div>
+        <div class="swatch" style="background:#0F172A; color:#F1F5F9"><span class="swatch-name">bg-900</span>#0F172A</div>
+        <div class="swatch" style="background:#1E293B; color:#F1F5F9"><span class="swatch-name">bg-800</span>#1E293B</div>
+        <div class="swatch" style="background:#334155; color:#F1F5F9"><span class="swatch-name">border</span>#334155</div>
+        <div class="swatch" style="background:#F59E0B; color:#000"><span class="swatch-name">accent</span>#F59E0B</div>
+        <div class="swatch" style="background:#FBBF24; color:#000"><span class="swatch-name">accent-lt</span>#FBBF24</div>
+        <div class="swatch" style="background:#D97706; color:#000"><span class="swatch-name">accent-dk</span>#D97706</div>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <div class="section">
+      <div class="section-title">Header</div>
+      <div class="mock-header">
+        <div class="logo">LEMON <span style="color:#94A3B8; font-weight:400">Screenplay Dashboard</span></div>
+        <div class="header-pills">
+          <span class="pill">42 / 156</span>
+          <span class="pill">Avg 7.2</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section Header -->
+    <div class="section">
+      <div class="section-title">Section Headers</div>
+      <div class="mock-section-header">
+        <span>📊</span> Dimension Scores
+      </div>
+      <div class="mock-section-header">
+        <span>💰</span> Commercial Viability
+      </div>
+    </div>
+
+    <!-- Card -->
+    <div class="section">
+      <div class="section-title">Screenplay Card</div>
+      <div class="mock-card">
+        <div class="card-badge">RECOMMEND</div>
+        <div class="card-title">MATADERO v4.1</div>
+        <div class="card-author">by Mariano Borgognone</div>
+        <div class="card-logline">A confidently executed horror screenplay that uses slasher conventions to explore serious themes of consumption and dehumanization.</div>
+        <div class="card-scores">
+          <div class="score-item">
+            <span class="score-label">Weighted</span>
+            <span>7.2</span>
+            <div class="score-bar-track"><div class="score-bar-fill" style="width:72%"></div></div>
+          </div>
+          <div class="score-item">
+            <span class="score-label">CVS</span>
+            <span>7.1</span>
+            <div class="score-bar-track"><div class="score-bar-fill" style="width:59%"></div></div>
+          </div>
+          <div class="score-item">
+            <span class="score-label">Market</span>
+            <span>19%</span>
+            <div class="score-bar-track"><div class="score-bar-fill" style="width:19%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Film Now Card -->
+    <div class="section">
+      <div class="section-title">Film Now Card</div>
+      <div class="mock-card film-now">
+        <div class="card-badge" style="background:linear-gradient(135deg,#FFD700,#FFA500);animation:pulse 2s ease-in-out infinite alternate">FILM NOW</div>
+        <div class="card-title">THE UNTITLED PROJECT</div>
+        <div class="card-author">by Alex Rivera</div>
+        <div class="card-logline">An ambitious sci-fi thriller that redefines the genre with its unique blend of practical effects and emotional storytelling.</div>
+        <div class="card-scores">
+          <div class="score-item"><span class="score-label">Weighted</span><span>9.1</span></div>
+          <div class="score-item"><span class="score-label">CVS</span><span>14.2</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="section">
+      <div class="section-title">Buttons</div>
+      <div class="button-row">
+        <button class="mock-btn primary">Export</button>
+        <button class="mock-btn secondary">Advanced Sort</button>
+        <button class="mock-btn ghost">Filters</button>
+      </div>
+    </div>
+
+    <!-- Chips -->
+    <div class="section">
+      <div class="section-title">Filter Chips</div>
+      <div class="chip-row">
+        <span class="mock-chip active">All</span>
+        <span class="mock-chip">Pass</span>
+        <span class="mock-chip">Consider</span>
+        <span class="mock-chip">Recommend</span>
+        <span class="mock-chip">Film Now</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ NEW COLUMN ═══ -->
+  <div class="new">
+    <div class="column-label">After — Editorial Magazine</div>
+
+    <!-- Color Palette -->
+    <div class="section">
+      <div class="section-title">Color Palette</div>
+      <div class="swatches">
+        <div class="swatch" style="background:#0B1120; color:#E8ECF1"><span class="swatch-name">bg-950</span>#0B1120</div>
+        <div class="swatch" style="background:#131D2E; color:#E8ECF1"><span class="swatch-name">bg-900</span>#131D2E</div>
+        <div class="swatch" style="background:#1A2538; color:#E8ECF1"><span class="swatch-name">bg-800</span>#1A2538</div>
+        <div class="swatch" style="background:#1F2937; color:#E8ECF1"><span class="swatch-name">border</span>white/6%</div>
+        <div class="swatch" style="background:#D4A843; color:#0B1120"><span class="swatch-name">accent</span>#D4A843</div>
+        <div class="swatch" style="background:#E2BC5A; color:#0B1120"><span class="swatch-name">accent-lt</span>#E2BC5A</div>
+        <div class="swatch" style="background:#9E7B2F; color:#E8ECF1"><span class="swatch-name">accent-dk</span>#9E7B2F</div>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <div class="section">
+      <div class="section-title">Header</div>
+      <div class="mock-header">
+        <div class="logo">LEMON <span style="color:#5A6478; font-weight:400">Screenplay Dashboard</span></div>
+        <div class="header-pills">
+          <span class="pill">42 / 156</span>
+          <span class="pill">Avg 7.2</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section Header -->
+    <div class="section">
+      <div class="section-title">Section Headers</div>
+      <div class="mock-section-header">
+        <span>📊</span> DIMENSION SCORES
+      </div>
+      <div class="mock-section-header">
+        <span>💰</span> COMMERCIAL VIABILITY
+      </div>
+    </div>
+
+    <!-- Card -->
+    <div class="section">
+      <div class="section-title">Screenplay Card</div>
+      <div class="mock-card">
+        <div class="card-badge">RECOMMEND</div>
+        <div class="card-title">MATADERO v4.1</div>
+        <div class="card-author">by Mariano Borgognone</div>
+        <div class="card-logline">A confidently executed horror screenplay that uses slasher conventions to explore serious themes of consumption and dehumanization.</div>
+        <div class="card-scores">
+          <div class="score-item">
+            <span class="score-label">Weighted</span>
+            <span>7.2</span>
+            <div class="score-bar-track"><div class="score-bar-fill" style="width:72%"></div></div>
+          </div>
+          <div class="score-item">
+            <span class="score-label">CVS</span>
+            <span>7.1</span>
+            <div class="score-bar-track"><div class="score-bar-fill" style="width:59%"></div></div>
+          </div>
+          <div class="score-item">
+            <span class="score-label">Market</span>
+            <span>19%</span>
+            <div class="score-bar-track"><div class="score-bar-fill" style="width:19%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Film Now Card -->
+    <div class="section">
+      <div class="section-title">Film Now Card</div>
+      <div class="mock-card film-now">
+        <div class="card-badge" style="background:rgba(212,168,67,0.15); color:#D4A843; border:1px solid rgba(212,168,67,0.25)">FILM NOW</div>
+        <div class="card-title">THE UNTITLED PROJECT</div>
+        <div class="card-author">by Alex Rivera</div>
+        <div class="card-logline">An ambitious sci-fi thriller that redefines the genre with its unique blend of practical effects and emotional storytelling.</div>
+        <div class="card-scores">
+          <div class="score-item"><span class="score-label">Weighted</span><span>9.1</span></div>
+          <div class="score-item"><span class="score-label">CVS</span><span>14.2</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="section">
+      <div class="section-title">Buttons</div>
+      <div class="button-row">
+        <button class="mock-btn primary">Export</button>
+        <button class="mock-btn secondary">Advanced Sort</button>
+        <button class="mock-btn ghost">Filters</button>
+      </div>
+    </div>
+
+    <!-- Chips -->
+    <div class="section">
+      <div class="section-title">Filter Chips</div>
+      <div class="chip-row">
+        <span class="mock-chip active">All</span>
+        <span class="mock-chip">Pass</span>
+        <span class="mock-chip">Consider</span>
+        <span class="mock-chip">Recommend</span>
+        <span class="mock-chip">Film Now</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
