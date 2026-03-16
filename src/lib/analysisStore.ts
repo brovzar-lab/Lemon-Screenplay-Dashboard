@@ -270,10 +270,9 @@ export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
     }
 
     // Cold start path: localStorage is empty — load directly from Firestore
-    // (This blocks until data arrives, but prevents the UI from permanently showing 0)
+    // Reads are public (allow read: if true in firestore.rules) — no auth needed.
     console.log('[Lemon] localStorage empty — loading directly from Firestore...');
     try {
-        await authReady;
         const q = query(collection(db, FIRESTORE_COLLECTION));
         const snapshot = await getDocs(q);
 
