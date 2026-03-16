@@ -6,7 +6,7 @@
  * Shell handles: open/close, focus trap, backdrop, ARIA.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import {
@@ -33,13 +33,13 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [isClosing, setIsClosing] = useState(false);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setIsClosing(true);
     setTimeout(() => {
       setIsClosing(false);
       onClose();
     }, 150);
-  };
+  }, [onClose]);
 
   // Close on escape key and manage focus / body scroll
   useEffect(() => {
@@ -57,7 +57,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, handleClose]);
 
   // Focus trap — keep focus within modal
   useEffect(() => {

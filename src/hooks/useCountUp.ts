@@ -9,16 +9,16 @@ export function useCountUp(
   duration: number = 600,
   trigger: boolean = true
 ): number {
-  const [value, setValue] = useState(0);
+  // Initialize to target immediately for reduced-motion users — no effect needed.
+  const [value, setValue] = useState(() => (prefersReducedMotion ? target : 0));
   const startTimeRef = useRef<number | null>(null);
   const rafRef = useRef<number | undefined>(undefined);
   const hasAnimated = useRef(false);
 
   useEffect(() => {
-    if (prefersReducedMotion) {
-      setValue(target);
-      return;
-    }
+    // Reduced-motion users skip the animation — their value is already initialized
+    // to `target` in useState(), so there's nothing to do in the effect for that case.
+    if (prefersReducedMotion) return;
 
     if (!trigger || hasAnimated.current || target === 0) return;
 

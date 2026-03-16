@@ -3,7 +3,7 @@
  * Collapsible panel containing all analytics charts
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 import { ScoreDistribution } from './ScoreDistribution';
 import { TierBreakdown } from './TierBreakdown';
 import { GenreChart } from './GenreChart';
@@ -30,6 +30,15 @@ export function AnalyticsDashboard({
 }: AnalyticsDashboardProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState(2000);
+
+  // Measure content height after each expansion so the style reads from state,
+  // not from ref.current directly during render (avoids react-hooks/refs error).
+  useLayoutEffect(() => {
+    if (isExpanded && contentRef.current) {
+      setContentHeight(contentRef.current.scrollHeight);
+    }
+  }, [isExpanded]);
 
   const isFiltered = totalScreenplays && totalScreenplays.length !== screenplays.length;
 
@@ -155,13 +164,13 @@ export function AnalyticsDashboard({
         style={
           isExpanded
             ? {
-                maxHeight: contentRef.current?.scrollHeight ?? 2000,
-                opacity: 1,
-              }
+              maxHeight: contentHeight,
+              opacity: 1,
+            }
             : {
-                maxHeight: 0,
-                opacity: 0,
-              }
+              maxHeight: 0,
+              opacity: 0,
+            }
         }
       >
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

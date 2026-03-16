@@ -29,10 +29,11 @@ export const useShareStore = create<ShareState>((set) => ({
         })),
 
     removeToken: (screenplayId) =>
-        set((state) => {
-            const { [screenplayId]: _, ...rest } = state.tokens;
-            return { tokens: rest };
-        }),
+        set((state) => ({
+            tokens: Object.fromEntries(
+                Object.entries(state.tokens).filter(([key]) => key !== screenplayId)
+            ),
+        })),
 
     clearAll: () => set({ tokens: {} }),
 }));

@@ -24,7 +24,7 @@ interface ShareButtonProps {
 }
 
 function getShareBaseUrl(): string {
-  return `${window.location.origin}/share`;
+    return `${window.location.origin}/share`;
 }
 
 export function ShareButton({ screenplay }: ShareButtonProps) {
@@ -32,7 +32,6 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
 
     const [showPopover, setShowPopover] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [includeNotes, setIncludeNotes] = useState(false);
     const [synced, setSynced] = useState<boolean | null>(null);
     const [confirmRevoke, setConfirmRevoke] = useState(false);
 
@@ -40,6 +39,9 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
     const buttonRef = useRef<HTMLButtonElement>(null);
 
     const cachedToken = useShareStore((s) => s.tokens[screenplayId]);
+
+    // Derive includeNotes from cached token — initialized here to avoid sync setState in effect.
+    const [includeNotes, setIncludeNotes] = useState(() => cachedToken?.includeNotes ?? false);
 
     // Check sync status on mount
     useEffect(() => {
@@ -52,12 +54,10 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
         return () => { cancelled = true; };
     }, [screenplayId]);
 
-    // Check for existing token on mount (cache miss -> Firestore lookup)
+    // Check for existing token on mount (cache miss -> Firestore lookup).
+    // If the token is already cached, includeNotes is pre-initialized above.
     useEffect(() => {
-        if (cachedToken) {
-            setIncludeNotes(cachedToken.includeNotes);
-            return;
-        }
+        if (cachedToken) return;
 
         let cancelled = false;
         getExistingShareToken(screenplayId).then((view) => {
@@ -191,17 +191,16 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
                 ref={buttonRef}
                 onClick={handleClick}
                 disabled={isDisabled}
-                className={`text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border ${
-                    isDisabled
+                className={`text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border ${isDisabled
                         ? 'bg-black-700/50 text-black-500 border-black-600/30 cursor-not-allowed'
                         : 'bg-gold-500/90 hover:bg-gold-400 text-black-900 border-gold-400/50 shadow-sm shadow-gold-500/20'
-                }`}
+                    }`}
                 title={
                     synced === false
                         ? 'Sync pending -- wait for Firestore sync before sharing'
                         : synced === null
-                          ? 'Checking sync status...'
-                          : 'Share this screenplay'
+                            ? 'Checking sync status...'
+                            : 'Share this screenplay'
                 }
             >
                 {createMutation.isPending ? (
@@ -283,11 +282,10 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
                         </div>
                         <button
                             onClick={handleCopy}
-                            className={`shrink-0 text-xs px-2.5 py-1.5 rounded font-medium transition-all border ${
-                                copied
+                            className={`shrink-0 text-xs px-2.5 py-1.5 rounded font-medium transition-all border ${copied
                                     ? 'bg-green-600/20 text-green-400 border-green-500/30'
                                     : 'bg-gold-500/20 text-gold-300 border-gold-500/30 hover:bg-gold-500/30'
-                            }`}
+                                }`}
                         >
                             {copied ? 'Copied!' : 'Copy'}
                         </button>

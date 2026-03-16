@@ -34,19 +34,7 @@ function toDocId(sourceFile: string): string {
         .slice(0, 200) || `doc_${Date.now()}`;
 }
 
-/**
- * Build the Firebase Storage path for a screenplay's PDF.
- * MUST match the logic in ModalHeader.tsx handleDownloadPdf exactly.
- */
-export function buildStoragePath(screenplay: Screenplay): string {
-    const category = screenplay.category || 'OTHER';
-    const safeName = (screenplay.title || screenplay.sourceFile || 'untitled')
-        .replace(/\.pdf$/i, '')
-        .replace(/[^a-zA-Z0-9_\- ]/g, '')
-        .trim()
-        .replace(/\s+/g, '_');
-    return `screenplays/${category}/${safeName}.pdf`;
-}
+import { buildStoragePath } from './pdfUploadPanel.helpers';
 
 // ─── Filename matching ────────────────────────────────────────────────────────
 
@@ -111,11 +99,14 @@ export function PdfUploadPanel() {
     const toggleSelect = (id: string) => {
         setSelectedIds((prev) => {
             const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
             return next;
         });
     };
-
     const toggleSelectAll = () => {
         if (selectedIds.size === filteredScreenplays.length && filteredScreenplays.length > 0) {
             setSelectedIds(new Set());
@@ -184,8 +175,17 @@ export function PdfUploadPanel() {
     // Auto-scan when the panel loads (or when screenplay list changes)
     useEffect(() => {
         if (!screenplays || screenplays.length === 0) return;
-        setPdfStoreScanning(true);
-        checkStoragePaths(screenplays).finally(() => setPdfStoreScanning(false));
+        let active = true;
+        async function runScan() {
+            setPdfStoreScanning(true);
+            try {
+                await checkStoragePaths(screenplays!);
+            } finally {
+                if (active) setPdfStoreScanning(false);
+            }
+        }
+        void runScan();
+        return () => { active = false; };
     }, [screenplays, checkStoragePaths, setPdfStoreScanning]);
 
     // ─── "Scan & Sync" — write hasPdf to Firestore for found PDFs ──────────
@@ -245,7 +245,7 @@ export function PdfUploadPanel() {
                 setPdfStoreStatus(id, 'missing'); // update shared store
             }
         },
-        [queryClient]
+        [queryClient, setPdfStoreStatus]
     );
 
     const handleFile = useCallback(
@@ -316,7 +316,7 @@ export function PdfUploadPanel() {
         });
     }, [screenplays, storageStatuses]);
 
-    const filteredScreenplays = useMemo(() => {
+    const filteredScreenplays = (() => {
         let list = sortedScreenplays;
         if (showMissingOnly) list = list.filter((s) => storageStatuses[s.id] !== 'found');
         if (searchQuery.trim()) {
@@ -326,7 +326,7 @@ export function PdfUploadPanel() {
             );
         }
         return list;
-    }, [sortedScreenplays, storageStatuses, showMissingOnly, searchQuery]);
+    })();
 
     if (isLoading) {
         return (

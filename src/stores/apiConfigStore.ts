@@ -54,6 +54,8 @@ const getThisMonth = () => new Date().toISOString().slice(0, 7);
 // localStorage (via persist) will override these if the user has
 // manually entered a different key via Settings.
 const ENV_ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined ?? '';
+const ENV_GOOGLE_KEY = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined ?? '';
+
 
 export const useApiConfigStore = create<ApiConfig>()(
   persist(
@@ -62,8 +64,8 @@ export const useApiConfigStore = create<ApiConfig>()(
       apiEndpoint: 'https://api.anthropic.com/v1/messages',
       isConfigured: ENV_ANTHROPIC_KEY.length > 0,
 
-      googleApiKey: '',
-      isGoogleConfigured: false,
+      googleApiKey: ENV_GOOGLE_KEY,
+      isGoogleConfigured: ENV_GOOGLE_KEY.length > 0,
 
       monthlyBudgetLimit: 50,
       dailyRequestLimit: 100,
@@ -153,7 +155,10 @@ export const useApiConfigStore = create<ApiConfig>()(
         let key = (state.apiKey as string) || '';
         if (!key) key = ENV_ANTHROPIC_KEY;
         (state as ApiConfig).apiKey = key;
-        const gKey = (state.googleApiKey as string) || '';
+        // Same fallback for Google key
+        let gKey = (state.googleApiKey as string) || '';
+        if (!gKey) gKey = ENV_GOOGLE_KEY;
+        (state as ApiConfig).googleApiKey = gKey;
         (state as ApiConfig).isConfigured = key.length > 0;
         (state as ApiConfig).isGoogleConfigured = gKey.length > 0;
       },

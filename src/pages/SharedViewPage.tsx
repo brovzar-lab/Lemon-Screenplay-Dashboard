@@ -23,13 +23,13 @@ type ViewState =
 
 export default function SharedViewPage() {
   const { token } = useParams<{ token: string }>();
-  const [state, setState] = useState<ViewState>({ status: 'loading' });
+  // Derive initial state from token — avoids sync setState inside the effect.
+  const [state, setState] = useState<ViewState>(() =>
+    token ? { status: 'loading' } : { status: 'not_found' }
+  );
 
   useEffect(() => {
-    if (!token) {
-      setState({ status: 'not_found' });
-      return;
-    }
+    if (!token) return;
 
     let cancelled = false;
 
