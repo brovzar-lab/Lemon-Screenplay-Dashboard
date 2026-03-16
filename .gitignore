@@ -46,3 +46,4 @@ coverage/
 *.tmp
 .tmp/
 .npm-cache/
+service-account.json
