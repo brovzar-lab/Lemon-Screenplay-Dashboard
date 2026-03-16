@@ -154,8 +154,10 @@ async function backgroundFirestoreSync(): Promise<void> {
         // Gate: wait for anonymous auth before any Firestore calls
         await authReady;
 
-        // Flush any locally-queued writes first
-        await flushPendingWrites();
+        // Flush pending writes — isolated so failures don't abort the read sync
+        flushPendingWrites().catch((err) => {
+            console.warn('[Lemon] flushPendingWrites failed (non-critical):', err);
+        });
 
         // Load authoritative data from Firestore
         const q = query(collection(db, FIRESTORE_COLLECTION));
@@ -249,27 +251,57 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
 /**
  * Load all uploaded analyses.
  *
- * FAST PATH: Returns localStorage data immediately (no network wait).
- * Firestore sync happens in background and updates localStorage for next load.
+ * FAST PATH: if localStorage has data, return it instantly and sync in background.
+ * COLD START: if localStorage is empty (fresh browser / cleared site data),
+ *             load DIRECTLY from Firestore so the UI shows real data on first load.
  */
 export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
-    // Return localStorage data instantly — no Firestore blocking
-    // Filter out soft-deleted items (items with _deleted_at)
     const localData = readFromLocal().filter((a) => !a._deleted_at);
 
     if (localData.length > 0) {
+        // Fast path: localStorage has data — return instantly, sync in background
         console.log(`[Lemon] Loaded ${localData.length} analyses from localStorage (instant)`);
+        setTimeout(() => {
+            backgroundFirestoreSync().catch(() => {
+                // Silent — localStorage data is already serving the UI
+            });
+        }, 2000);
+        return localData;
     }
 
-    // Schedule background Firestore sync (non-blocking)
-    // Uses setTimeout to ensure UI renders first
-    setTimeout(() => {
-        backgroundFirestoreSync().catch(() => {
-            // Silent — localStorage data is already serving the UI
-        });
-    }, 2000); // 2 second delay to let UI fully render first
+    // Cold start path: localStorage is empty — load directly from Firestore
+    // (This blocks until data arrives, but prevents the UI from permanently showing 0)
+    console.log('[Lemon] localStorage empty — loading directly from Firestore...');
+    try {
+        await authReady;
+        const q = query(collection(db, FIRESTORE_COLLECTION));
+        const snapshot = await getDocs(q);
 
-    return localData;
+        const firestoreData = snapshot.docs
+            .map((d) => {
+                const data = d.data() as Record<string, unknown>;
+                return Object.fromEntries(
+                    Object.entries(data).filter(
+                        ([k]) => k !== '_savedAt' && k !== '_docId' && k !== '_quarantined_at' && k !== '_quarantine_reason' && k !== '_original_collection'
+                    )
+                ) as Record<string, unknown>;
+            })
+            .filter((d) => !d._deleted_at);
+
+        if (firestoreData.length > 0) {
+            writeToLocal(firestoreData);
+            console.log(`[Lemon] Cold-loaded ${firestoreData.length} analyses from Firestore`);
+        } else {
+            console.log('[Lemon] Firestore is also empty — no analyses available');
+        }
+
+        // Mark bg sync as done since we just did a full load
+        _bgSyncDone = true;
+        return firestoreData;
+    } catch (err) {
+        console.warn('[Lemon] Firestore cold load failed:', err);
+        return [];
+    }
 }
 
 /**
