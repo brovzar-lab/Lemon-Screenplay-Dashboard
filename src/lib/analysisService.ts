@@ -280,7 +280,7 @@ async function callAnthropicDirect(
 
 // ─── Poster Generation (Gemini 2.5 Flash Image) ─────────────────────────────
 
-import { storage } from '@/lib/firebase';
+import { storage, authReady } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL, getBlob } from 'firebase/storage';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 
@@ -293,6 +293,7 @@ import { buildSimplePosterPrompt as buildPosterPrompt } from './Prompt Enhanceme
  */
 async function getExistingPoster(screenplayId: string): Promise<string | null> {
   try {
+    await authReady; // ensure anonymous session before Storage read
     const posterRef = ref(storage, `Posters/${screenplayId}.png`);
     const url = await getDownloadURL(posterRef);
     return url;
@@ -311,6 +312,8 @@ async function uploadPosterToStorage(
   base64Data: string,
   mimeType: string,
 ): Promise<string> {
+  await authReady; // ensure anonymous session before Storage write
+
   // Convert base64 to Uint8Array for upload
   const byteCharacters = atob(base64Data);
   const byteArray = new Uint8Array(byteCharacters.length);
