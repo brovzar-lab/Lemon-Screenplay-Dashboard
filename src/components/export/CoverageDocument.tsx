@@ -127,11 +127,12 @@ const s = StyleSheet.create({
     fontSize: 22,
     fontFamily: 'Helvetica-Bold',
     color: C.grey900,
-    marginBottom: 3,
+    marginBottom: 8,
   },
   authorText: {
     fontSize: 11,
     color: C.grey700,
+    marginTop: 2,
   },
 
   // ── Meta grid ──
