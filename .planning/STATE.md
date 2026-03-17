@@ -121,7 +121,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- [Phase 07 — deferred]: Coverage PDF cover page: score number and verdict badge are too visually merged — need spacing/separation between the weighted score and the recommendation badge. Deferred by user on 2026-03-17.
 
 ### Blockers/Concerns
 
