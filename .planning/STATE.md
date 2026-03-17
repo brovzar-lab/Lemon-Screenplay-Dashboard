@@ -4,7 +4,7 @@ milestone: v6.8
 milestone_name: milestone
 status: completed
 stopped_at: Completed 07-03-PLAN.md (all tasks done; Task 2 human-verified and approved)
-last_updated: "2026-03-17T18:14:12.251Z"
+last_updated: "2026-03-17T18:16:03.716Z"
 last_activity: 2026-03-14 — Completed Plan 02 (Coverage download button + human verification)
 progress:
   total_phases: 7
@@ -18,10 +18,10 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-13)
+See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Surface the best screenplays from a large pipeline so the producer doesn't waste time reading bad ones
-**Current focus:** Phase 7 complete — Export Coverage Package; Phase 8 next (Market Intelligence)
+**Current focus:** v6.8 milestone complete — planning next milestone (PDF polish, performance, bulk ops)
 
 ## Current Position
 
