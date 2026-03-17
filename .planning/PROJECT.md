@@ -1,5 +1,19 @@
 # Lemon Screenplay Dashboard
 
+## Current Milestone: v7.0 Pipeline Scale & Bulk Operations
+
+**Goal:** Make the dashboard fast and functional at 500–1000+ screenplays, simplify filtering, surface file health per card, and enable bulk operations.
+
+**Target features:**
+- PDF cover page spacing fix (deferred from v6.8)
+- Storage status + analysis version badges on screenplay cards
+- FilterPanel smart defaults (dimension sliders hidden; Genre/Budget prominent)
+- Virtual scrolling for 500–1000+ screenplays without jank
+- Bulk share link generation + bulk re-analyze from Firebase Storage
+- CSV export scope confirmation clarity
+
+---
+
 ## What This Is
 
 A screenplay analysis dashboard for Lemon Studios. Screenplays are uploaded, automatically analyzed by AI (Claude), scored across multiple dimensions, and presented in a filterable, sortable dashboard. The tool replaces manual coverage — letting the producer quickly identify which scripts are worth reading from a high-volume pipeline (500+ scripts). When a promising script is found, the producer can read the analysis, download the PDF, add notes, generate a share link for partners, and download a branded coverage PDF for formal distribution.
@@ -33,14 +47,24 @@ Surface the best screenplays from a large pipeline so the producer doesn't waste
 - ✓ Partner sharing via secure token link — producer generates per-screenplay share links — v6.8
 - ✓ Shared partner view — read-only standalone analysis page, no dashboard access — v6.8
 - ✓ Coverage PDF export — branded multi-page PDF with scores, analysis, notes, recommendation — v6.8
+- ✓ PDF polish deferred — cover page score/verdict spacing fix carried to v7.0
 
 ### Active
 
-- [ ] PDF polish — score/verdict spacing on coverage PDF cover page; audit all pages for layout issues
-- [ ] Performance at scale — virtual scrolling and memoized filtering for 500-1000+ screenplays
-- [ ] Bulk operations — batch coverage PDF generation, bulk share token management, multi-select export
-- [ ] Comparable titles — surface similar produced films per screenplay (deferred from v6.8)
-- [ ] Market timing insights — genre/theme trend indicators (saturated vs. underserved)
+- [ ] PDF-01: Coverage PDF cover page — score number and verdict badge have visible vertical separation
+- [ ] FILE-01: Storage-status badge on each card (Firebase ✓ / Missing ✗)
+- [ ] FILE-02: Analysis-version badge on each card (current v6_core_lenses / legacy)
+- [ ] FILE-03: "Missing PDF" filter promoted to FilterBar quick-access row with count badge
+- [ ] FILE-04: Bulk PDF upload action for selected missing-PDF screenplays
+- [ ] FILTER-01: FilterPanel default section changed to Genre & Theme (not Core Scores)
+- [ ] FILTER-02: Dimension score sliders hidden behind "Advanced" disclosure toggle
+- [ ] FILTER-03: "Filters" button shows active-hidden-filter count badge
+- [ ] FILTER-04: FilterPanel auto-expands sections with active filters on open
+- [ ] PERF-01: Virtualized screenplay grid for 500–1000+ items
+- [ ] PERF-02: Memoized filter/sort pipeline — no freeze on 1000 screenplays
+- [ ] BULK-01: Bulk share token generation with copy-all links
+- [ ] BULK-02: Bulk re-analyze via Firebase Storage download (hasPdf=true only)
+- [ ] BULK-03: CSV export modal scope confirmation clarity
 
 ### Out of Scope
 
@@ -87,4 +111,4 @@ Surface the best screenplays from a large pipeline so the producer doesn't waste
 | Market Intelligence (INTEL-01/02) deferred | Comparable films fill rate uncertain; producer workflow complete without it | — Deferred to future milestone |
 
 ---
-*Last updated: 2026-03-17 after v6.8 milestone*
+*Last updated: 2026-03-17 after v7.0 milestone start*
