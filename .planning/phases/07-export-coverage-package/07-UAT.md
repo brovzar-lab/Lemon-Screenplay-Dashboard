@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 07-export-coverage-package
 source: [07-01-SUMMARY.md, 07-02-SUMMARY.md]
 started: 2026-03-16T00:00:00Z
@@ -51,7 +51,15 @@ skipped: 0
   reason: "User reported: we just need to modify or take care of the formatting better with a PDF skill because some text is overlapping like the title is overlapping with the authors name"
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "titleText.marginBottom is 3pt — far too small for a 22pt heading. The 22pt title with lineHeight 1.4 renders ~30.8pt tall, and only 3pt separates it from the 11pt author line below, causing descenders to visually overlap with the author text."
+  artifacts:
+    - path: "src/components/export/CoverageDocument.tsx"
+      issue: "titleText.marginBottom: 3 is insufficient separation between 22pt title and 11pt author text"
+      line_numbers: [126, 127, 128, 129, 130, 131]
+    - path: "src/components/export/CoverageDocument.tsx"
+      issue: "authorText has no marginTop — entire gap is solely the 3pt marginBottom on titleText"
+      line_numbers: [132, 133, 134, 135]
+  missing:
+    - "Change marginBottom on titleText from 3 to 8 for comfortable separation between 22pt heading and 11pt body text"
+    - "Optionally add marginTop: 2 to authorText as defensive secondary gap"
   debug_session: ""

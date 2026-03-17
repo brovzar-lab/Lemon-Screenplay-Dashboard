@@ -12,14 +12,13 @@ This milestone adds partner sharing, export packages, market intelligence enrich
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [x] **Phase 1: Firestore Security Hardening** - Add anonymous auth and tighten Firestore rules before any external sharing (completed 2026-03-14)
-- [x] **Phase 2: Sync Status Visibility** - Producer can see pending sync count and manually retry failed Firestore writes (completed 2026-03-14)
-- [x] **Phase 3: Data Safety** - Soft-delete recovery window and quarantine pattern replace destructive data loss (completed 2026-03-14)
-- [x] **Phase 4: UX Polish Scaffolding** - Skeleton loaders, empty states, and inline error feedback replace silent failures (completed 2026-03-14)
-- [x] **Phase 5: Share Token Generation** - Producer can generate a per-screenplay shareable link with a secure token (completed 2026-03-14)
+- [x] **Phase 1: Firestore Security Hardening** - Add anonymous auth and tighten Firestore rules before any external sharing (completed 2008-03-14)
+- [x] **Phase 2: Sync Status Visibility** - Producer can see pending sync count and manually retry failed Firestore writes (completed 2008-03-14)
+- [x] **Phase 3: Data Safety** - Soft-delete recovery window and quarantine pattern replace destructive data loss (completed 2008-03-14)
+- [x] **Phase 4: UX Polish Scaffolding** - Skeleton loaders, empty states, and inline error feedback replace silent failures (completed 2008-03-14)
+- [x] **Phase 5: Share Token Generation** - Producer can generate a per-screenplay shareable link with a secure token (completed 2008-03-14)
 - [ ] **Phase 6: Shared Partner View** - Partner can open a share link and see a clean read-only analysis view
-- [x] **Phase 7: Export Coverage Package** - Producer can download a formatted coverage PDF for formal sharing (completed 2026-03-14)
-- [ ] **Phase 8: Market Intelligence** - Comparable titles and scoped DevExec AI chat surface inside the screenplay detail modal
+- [x] **Phase 7: Export Coverage Package** - Producer can download a formatted coverage PDF for formal sharing (completed 2008-03-14)
 
 ## Phase Details
 
@@ -129,38 +128,3 @@ Plans:
 Plans:
 - [ ] 07-01-PLAN.md — Build CoverageDocument.tsx template + exportCoverage.ts service + unit tests
 - [ ] 07-02-PLAN.md — Wire "Coverage" download button into ModalHeader + human-verify PDF output
-
-### Phase 8: Market Intelligence
-**Goal**: Producer can see comparable produced films alongside a screenplay's analysis, and can launch an AI chat session scoped to that specific script for deeper market discussion
-**Depends on**: Phase 4
-**Requirements**: INTEL-01, INTEL-02
-**Success Criteria** (what must be TRUE):
-  1. The screenplay detail modal displays a "Comparable Titles" section listing films from the existing `comparableFilms[]` array with title, similarity rationale, and box office relevance notes
-  2. When comparable titles are not populated for a screenplay (empty array), the section shows a graceful empty state — not a blank panel or JavaScript error
-  3. A "Discuss with DevExec" button inside the screenplay detail modal opens an AI chat session pre-scoped to that screenplay's analysis data and comparable titles — not the full pipeline
-  4. The per-screenplay DevExec session generates responses that reference the specific script being discussed, not generic pipeline-level recommendations
-**Plans**: TBD
-
-Plans:
-- [ ] 08-01: Build ComparableTitlesPanel.tsx in ScreenplayModal rendering comparableFilms[] array with title, similarity, and box_office_relevance fields
-- [ ] 08-02: Add empty/loading/error states to ComparableTitlesPanel for zero-fill-rate resilience
-- [ ] 08-03: Extend devExecService.ts with a per-screenplay mode that scopes context to a single screenplay + its comps
-- [ ] 08-04: Add "Discuss with DevExec" entry point in ScreenplayModal wired to the scoped devExec variant
-
-## Progress
-
-**Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
-
-Note: Phases 2, 3, and 4 depend only on Phase 1 and can proceed in parallel. Phase 5 depends on Phases 1, 2, and 3 completing. Phases 7 and 8 depend only on Phase 4 and can proceed in parallel with Phase 6.
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Firestore Security Hardening | 3/3 | Complete   | 2026-03-14 |
-| 2. Sync Status Visibility | 2/2 | Complete   | 2026-03-14 |
-| 3. Data Safety | 2/2 | Complete   | 2026-03-14 |
-| 4. UX Polish Scaffolding | 2/2 | Complete   | 2026-03-14 |
-| 5. Share Token Generation | 2/2 | Complete   | 2026-03-14 |
-| 6. Shared Partner View | 1/2 | In Progress|  |
-| 7. Export Coverage Package | 3/3 | Complete   | 2026-03-17 |
-| 8. Market Intelligence | 0/4 | Not started | - |
