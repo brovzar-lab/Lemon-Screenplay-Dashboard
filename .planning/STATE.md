@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: Defining requirements
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-19T02:40:17.728Z"
+stopped_at: "Checkpoint: Task 3 human-verify in 08-01-PLAN.md (visual PDF verification)"
+last_updated: "2026-03-19T03:10:35.098Z"
 last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
   percent: 0
 ---
 
@@ -85,6 +85,8 @@ Recent decisions affecting current work:
 - [v7.0 pre-phase]: BULK-02 re-analyze downloads PDF from Firebase Storage (getDownloadURL → fetch → File object) — only hasPdf=true screenplays are eligible; others excluded from bulk re-analyze selection
 - [v7.0 pre-phase]: PERF-01 column-aware virtualization — ScreenplayGrid uses responsive grid-cols-1/2/3/4; Phase 10 research plan must confirm @tanstack/react-virtual vs alternatives and measure column count at runtime
 - [v7.0 pre-phase]: FILTER-02 disclosure toggle wraps existing Dimension Scores section; existing badge prop becomes source for FILTER-03 active-filter count
+- [Phase 08-pdf-cover-page-polish]: scoreLeft layout uses single centered-group View with marginTop:16 gap constant (__scoreGapStyle) instead of dual-flex siblings that collapse in react-pdf
+- [Phase 08-pdf-cover-page-polish]: Test-only exports (__coverageDocStyles, __scoreGapStyle) allow stylesheet regression assertions without DOM traversal (react-pdf stubs strip style props)
 
 ### Pending Todos
 
@@ -97,6 +99,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-19T02:40:17.720Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-pdf-cover-page-polish/08-CONTEXT.md
+Last session: 2026-03-19T03:10:35.092Z
+Stopped at: Checkpoint: Task 3 human-verify in 08-01-PLAN.md (visual PDF verification)
+Resume file: None

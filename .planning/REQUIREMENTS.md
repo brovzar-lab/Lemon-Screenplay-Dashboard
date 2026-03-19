@@ -10,7 +10,7 @@
 
 ### PDF Polish
 
-- [ ] **PDF-01**: User can download a coverage PDF whose cover page shows the score number and recommendation badge with visible vertical separation so the two elements do not appear merged (deferred spacing fix from v6.8)
+- [x] **PDF-01**: User can download a coverage PDF whose cover page shows the score number and recommendation badge with visible vertical separation so the two elements do not appear merged (deferred spacing fix from v6.8)
 
 ### File Management
 
@@ -96,7 +96,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PDF-01 | Phase 8 | Pending |
+| PDF-01 | Phase 8 | Complete |
 | FILE-01 | Phase 9 | Pending |
 | FILE-02 | Phase 9 | Pending |
 | FILE-03 | Phase 9 | Pending |
