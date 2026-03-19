@@ -12,10 +12,14 @@ import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { useExportSelectionStore, useIsSelectedForExport } from '@/stores/exportSelectionStore';
 import { useDeleteSelectionStore, useIsSelectedForDelete } from '@/stores/deleteSelectionStore';
 import { useDeleteScreenplays } from '@/hooks/useScreenplays';
+import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { ProductionBadge } from './ProductionBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { ScoreBar } from '@/components/ui/ScoreBar';
+
+// FILE-02: current analysis version strings — module-level constant to avoid re-creation per render
+const CURRENT_VERSIONS = new Set(['v6_core_lenses', 'v6_unified']);
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
@@ -52,6 +56,28 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
   const isDeleteSelected = useIsSelectedForDelete(screenplay.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
+
+  // FILE-01: per-id selector prevents mass re-renders during scan updates
+  const myPdfStatus = usePdfStatusStore((s) => s.statuses[screenplay.id]);
+  const hasScanResult = usePdfStatusStore((s) => s.hasScanResult);
+
+  // FILE-01: derive pdf badge status
+  const pdfBadgeStatus: 'found' | 'missing' | 'unknown' = (() => {
+    if (hasScanResult) {
+      if (myPdfStatus === 'found') return 'found';
+      if (myPdfStatus === 'missing') return 'missing';
+      return 'unknown'; // not yet scanned in this batch
+    }
+    // Fallback to Firestore field
+    if (screenplay.hasPdf === true) return 'found';
+    if (screenplay.hasPdf === false) return 'missing';
+    return 'unknown';
+  })();
+
+  // FILE-02: show Legacy badge for non-current versions; undefined = no badge
+  const isLegacyVersion = screenplay.analysisVersion
+    ? !CURRENT_VERSIONS.has(screenplay.analysisVersion)
+    : false;
 
   const [isRevealed, setIsRevealed] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
@@ -212,6 +238,31 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
           <span className="chip chip-budget">{screenplay.budgetCategory}</span>
           <span className="chip">{screenplay.collection.replace(' Black List', '')}</span>
           <ProductionBadge tmdbStatus={screenplay.tmdbStatus} compact />
+
+          {/* FILE-01: PDF storage status badge */}
+          {pdfBadgeStatus !== 'unknown' && (
+            <span
+              className={clsx(
+                'chip text-xs',
+                pdfBadgeStatus === 'found'
+                  ? 'border-emerald-500/40 text-emerald-400'
+                  : 'border-amber-500/40 text-amber-400'
+              )}
+              title={pdfBadgeStatus === 'found' ? 'PDF in Storage' : 'PDF missing from Storage'}
+            >
+              {pdfBadgeStatus === 'found' ? 'PDF ✓' : 'No PDF'}
+            </span>
+          )}
+
+          {/* FILE-02: Analysis version badge — only shown for legacy */}
+          {isLegacyVersion && (
+            <span
+              className="chip text-xs border-black-600/40 text-black-500"
+              title={`Analyzed with ${screenplay.analysisVersion} — re-analyze for current engine`}
+            >
+              Legacy
+            </span>
+          )}
         </div>
 
         {/* Logline */}
