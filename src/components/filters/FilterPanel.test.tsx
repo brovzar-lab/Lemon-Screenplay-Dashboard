@@ -279,9 +279,12 @@ describe('FilterPanel', () => {
     // ────────────────────────────────────────────
 
     describe('dimension scores section', () => {
-        it('renders all 7 dimension range sliders when opened', () => {
+        it('renders all 7 dimension range sliders when Dimension Scores and Advanced are opened', () => {
             render(<FilterPanel isOpen={true} onClose={mockOnClose} />);
+            // Open Dimension Scores accordion first
             fireEvent.click(screen.getByText('Dimension Scores'));
+            // Then open the Advanced disclosure to reveal sliders (FILTER-02)
+            fireEvent.click(screen.getByText('Advanced'));
 
             expect(screen.getByText('Concept')).toBeInTheDocument();
             expect(screen.getByText('Structure')).toBeInTheDocument();
