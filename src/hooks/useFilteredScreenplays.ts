@@ -4,6 +4,7 @@
  */
 
 import { useMemo } from 'react';
+import { useShallow } from 'zustand/shallow';
 import { useScreenplays } from './useScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
@@ -289,7 +290,7 @@ export function useFilteredScreenplays() {
   const { data: screenplays, isLoading, error } = useScreenplays();
 
   // Get filter state (selective subscription to avoid re-renders)
-  const filters = useFilterStore();
+  const filters = useFilterStore(useShallow(s => s));
   const { sortConfigs, prioritizeFilmNow } = useSortStore();
   // Subscribe to pdfStatusStore so grid re-renders when scan results arrive
   const pdfStatuses = usePdfStatusStore((s) => s.statuses);
@@ -321,7 +322,7 @@ export function useFilteredScreenplays() {
  * Hook to check if any filters are active
  */
 export function useHasActiveFilters(): boolean {
-  const filters = useFilterStore();
+  const filters = useFilterStore(useShallow(s => s));
 
   return (
     filters.searchQuery !== '' ||

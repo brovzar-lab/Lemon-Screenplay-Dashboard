@@ -18,6 +18,11 @@ import { useFilterStore } from '@/stores/filterStore';
 import type { Screenplay } from '@/types';
 import type { FilterState, SortConfig } from '@/types/filters';
 
+// Module-level mock so Vitest hoisting works correctly
+vi.mock('@/hooks/useScreenplays', () => ({
+    useScreenplays: vi.fn(),
+}));
+
 // ─── Mock Factory ───────────────────────────────────────────
 
 function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
@@ -442,22 +447,22 @@ describe('sortScreenplays', () => {
 
 // ─── useFilteredScreenplays memoization ─────────────────────
 
+import { useScreenplays } from './useScreenplays';
+
 describe('useFilteredScreenplays memoization', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         // Reset filter store to default state before each test
         useFilterStore.setState(DEFAULT_FILTER_STATE);
+        // Configure the mocked hook to return stable screenplay data
+        vi.mocked(useScreenplays).mockReturnValue({
+            data: [createMockScreenplay({ id: '1' }), createMockScreenplay({ id: '2' })],
+            isLoading: false,
+            error: null,
+        } as ReturnType<typeof useScreenplays>);
     });
 
     it('does not re-run sorted result when unrelated filter store field changes', () => {
-        vi.mock('@/hooks/useScreenplays', () => ({
-            useScreenplays: () => ({
-                data: [createMockScreenplay({ id: '1' }), createMockScreenplay({ id: '2' })],
-                isLoading: false,
-                error: null,
-            }),
-        }));
-
         const { result, rerender } = renderHook(() => useFilteredScreenplays());
         const firstResult = result.current.screenplays;
 
