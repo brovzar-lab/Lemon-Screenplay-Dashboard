@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: Defining requirements
-stopped_at: Phase 10 context gathered
-last_updated: "2026-03-19T06:07:39.279Z"
+stopped_at: Completed 10-01-PLAN.md (Wave 0 scaffolding)
+last_updated: "2026-03-19T09:08:23.036Z"
 last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 7
+  completed_plans: 5
   percent: 100
 ---
 
@@ -94,6 +94,8 @@ Recent decisions affecting current work:
 - [Phase 09-filter-ux-simplification-file-status-badges]: Count display changed to single strong element to fix test collision when filteredCount=totalCount
 - [Phase 09-filter-ux-simplification-file-status-badges]: Missing PDF chip uses setMissingPdfOnly directly (not handleFilterClick) — independent of recommendation tier filter
 - [Phase 09-filter-ux-simplification-file-status-badges]: isLegacyVersion returns false when analysisVersion is undefined — no badge for data without version info
+- [Phase 10-virtual-scrolling-performance]: Removed role=list/listitem ARIA tests in Wave 0 — data-card attribute is the stable query point for virtual DOM structure
+- [Phase 10-virtual-scrolling-performance]: Memoization test uses toBe (Object.is identity) not toStrictEqual — referential stability is what PERF-02 requires
 
 ### Pending Todos
 
@@ -106,6 +108,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-19T06:07:39.276Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-virtual-scrolling-performance/10-CONTEXT.md
+Last session: 2026-03-19T09:08:23.030Z
+Stopped at: Completed 10-01-PLAN.md (Wave 0 scaffolding)
+Resume file: None

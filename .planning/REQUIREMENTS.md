@@ -34,9 +34,9 @@
 
 ### Performance
 
-- [ ] **PERF-01**: The screenplay grid renders correctly and without noticeable jank with 500–1000+ items using a virtualized list (only visible viewport rows are in the DOM at any time)
+- [x] **PERF-01**: The screenplay grid renders correctly and without noticeable jank with 500–1000+ items using a virtualized list (only visible viewport rows are in the DOM at any time)
 
-- [ ] **PERF-02**: Filter and sort operations on 1000 screenplays complete within a single animation frame (no visible UI freeze) — achieved via memoization of the `passesFilters` / `sortScreenplays` pipeline so it does not re-run on unrelated state changes
+- [x] **PERF-02**: Filter and sort operations on 1000 screenplays complete within a single animation frame (no visible UI freeze) — achieved via memoization of the `passesFilters` / `sortScreenplays` pipeline so it does not re-run on unrelated state changes
 
 ### Bulk Operations
 
@@ -105,8 +105,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FILTER-02 | Phase 9 | Complete |
 | FILTER-03 | Phase 9 | Complete |
 | FILTER-04 | Phase 9 | Complete |
-| PERF-01 | Phase 10 | Pending |
-| PERF-02 | Phase 10 | Pending |
+| PERF-01 | Phase 10 | Complete |
+| PERF-02 | Phase 10 | Complete |
 | BULK-01 | Phase 11 | Pending |
 | BULK-02 | Phase 11 | Pending |
 | BULK-03 | Phase 11 | Pending |
