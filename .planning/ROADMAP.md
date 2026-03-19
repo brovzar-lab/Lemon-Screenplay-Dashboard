@@ -22,7 +22,7 @@
 ### v7.0 Pipeline Scale & Bulk Operations
 
 - [x] Phase 8: PDF Cover Page Polish (1 plan) — PDF-01 (completed 2026-03-19)
-- [ ] Phase 9: Filter UX + File Status Badges (3 plans) — FILTER-01–04, FILE-01–03
+- [x] Phase 9: Filter UX + File Status Badges (3 plans) — FILTER-01–04, FILE-01–03 (completed 2026-03-19)
 - [ ] Phase 10: Virtual Scrolling + Performance (3 plans) — PERF-01–02
 - [ ] Phase 11: Bulk Operations (3 plans) — BULK-01–03
 - [ ] Phase 12: Bulk PDF Upload + Integration (2 plans) — FILE-04
@@ -55,7 +55,7 @@ Plans:
 
 **Requirements:** FILTER-01, FILTER-02, FILTER-03, FILTER-04, FILE-01, FILE-02, FILE-03
 
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 09-01-PLAN.md — Wave 0 test scaffolding: create FilterBar.test.tsx, update FilterPanel.test.tsx and ScreenplayCard.test.tsx with RED failing assertions for all Phase 9 behaviors
@@ -131,7 +131,7 @@ Plans:
 | 6. Shared Partner View | v6.8 | 2/2 | Complete | 2026-03-14 |
 | 7. Export Coverage Package | v6.8 | 3/3 | Complete | 2026-03-17 |
 | 8. PDF Cover Page Polish | 1/1 | Complete   | 2026-03-19 | — |
-| 9. Filter UX + File Status Badges | v7.0 | 0/3 | Pending | — |
+| 9. Filter UX + File Status Badges | v7.0 | Complete    | 2026-03-19 | — |
 | 10. Virtual Scrolling + Performance | v7.0 | 0/3 | Pending | — |
 | 11. Bulk Operations | v7.0 | 0/3 | Pending | — |
 | 12. Bulk PDF Upload + Integration | v7.0 | 0/2 | Pending | — |
