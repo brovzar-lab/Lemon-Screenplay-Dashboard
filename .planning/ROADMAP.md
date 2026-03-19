@@ -55,6 +55,13 @@ Plans:
 
 **Requirements:** FILTER-01, FILTER-02, FILTER-03, FILTER-04, FILE-01, FILE-02, FILE-03
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Wave 0 test scaffolding: create FilterBar.test.tsx, update FilterPanel.test.tsx and ScreenplayCard.test.tsx with RED failing assertions for all Phase 9 behaviors
+- [ ] 09-02-PLAN.md — FilterPanel accordion rework: Genre & Theme default (FILTER-01), Advanced disclosure toggle (FILTER-02), auto-expand active section (FILTER-04)
+- [ ] 09-03-PLAN.md — FilterBar Filters badge + Missing PDF chip (FILTER-03, FILE-03); ScreenplayCard PDF status + Legacy version badges (FILE-01, FILE-02)
+
 **Success Criteria:**
 1. FilterPanel opens with Genre & Theme expanded; 7 dimension sliders not visible until "Advanced" clicked
 2. "Filters" button badge shows correct count of active Advanced-section filters
