@@ -174,21 +174,18 @@ const s = StyleSheet.create({
   },
   scoreLeft: {
     width: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 8,
+    alignItems: 'stretch',
     backgroundColor: C.grey50,
     borderRightWidth: 0.5,
     borderRightColor: C.grey300,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
   scoreNum: {
-    fontSize: 32,
+    fontSize: 28,
     fontFamily: 'Helvetica-Bold',
-    marginBottom: 2,
   },
-  scoreOf: { fontSize: 7, color: C.grey500, marginBottom: 6 },
-  recBadge: { paddingVertical: 3, paddingHorizontal: 12, borderRadius: 2 },
+  recBadge: { paddingVertical: 4, paddingHorizontal: 12, borderRadius: 2 },
   recBadgeText: {
     fontSize: 8,
     fontFamily: 'Helvetica-Bold',
@@ -614,21 +611,23 @@ export function CoverageDocument({ screenplay, notes }: CoverageDocumentProps) {
             <Text style={s.metaLabel}>Themes</Text>
             <Text style={s.metaValue}>{(screenplay.themes?.length ?? 0) > 0 ? screenplay.themes.join(', ') : '—'}</Text>
           </View>
-          <View style={s.metaCell}>
-            <Text style={s.metaLabel}>Analysis</Text>
-            <Text style={s.metaValue}>{(screenplay.analysisVersion || 'Unknown').toUpperCase()} — {screenplay.analysisModel || 'Unknown'}</Text>
-          </View>
+
         </View>
 
-        {/* Score hero — verdict truncated to fit */}
+        {/* Score hero */}
         <View style={s.scoreCard}>
           <View style={s.scoreLeft}>
-            <Text style={[s.scoreNum, { color: scoreColor(Number(screenplay.weightedScore) || 0) }]}>
-              {(Number(screenplay.weightedScore) || 0).toFixed(1)}
-            </Text>
-            <Text style={s.scoreOf}>out of 10</Text>
-            <View style={[s.recBadge, { backgroundColor: recColor(screenplay.recommendation) }]}>
-              <Text style={s.recBadgeText}>{recLabel(screenplay.recommendation)}</Text>
+            {/* Top half — score number anchored to bottom */}
+            <View style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 5 }}>
+              <Text style={[s.scoreNum, { color: scoreColor(Number(screenplay.weightedScore) || 0) }]}>
+                {(Number(screenplay.weightedScore) || 0).toFixed(1)}
+              </Text>
+            </View>
+            {/* Bottom half — badge anchored to top */}
+            <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'center', paddingTop: 5 }}>
+              <View style={[s.recBadge, { backgroundColor: recColor(screenplay.recommendation) }]}>
+                <Text style={s.recBadgeText}>{recLabel(screenplay.recommendation)}</Text>
+              </View>
             </View>
           </View>
           <View style={s.scoreRight}>
@@ -949,5 +948,9 @@ export function CoverageDocument({ screenplay, notes }: CoverageDocumentProps) {
     </Document>
   );
 }
+
+// Test-only exports: raw stylesheet values and gap constant for regression assertions
+export const __coverageDocStyles = s;
+export const __scoreGapStyle = { marginTop: 16 } as const;
 
 export default CoverageDocument;
