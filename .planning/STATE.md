@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: Defining requirements
-stopped_at: Completed 09-02-PLAN.md (FilterPanel UX simplification — FILTER-01, FILTER-02, FILTER-04 all GREEN)
-last_updated: "2026-03-19T04:44:38.673Z"
+stopped_at: Completed 09-03-PLAN.md (FilterBar badges + ScreenplayCard status badges — all tests GREEN)
+last_updated: "2026-03-19T04:52:24.204Z"
 last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 100
 ---
 
@@ -91,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase 09-02]: initialSection IIFE in useState derives correct section at mount from active filters; includes 'dimensions' case for dimension-range-enabled auto-expand
 - [Phase 09-02]: AdvancedDisclosure nested inside Dimension Scores Section — two-level disclosure (accordion outer + disclosure inner) with independent boolean states
 - [Phase 09-02]: Store destructuring block moved above useState calls — required for IIFE initializers to reference destructured store values
+- [Phase 09-filter-ux-simplification-file-status-badges]: Count display changed to single strong element to fix test collision when filteredCount=totalCount
+- [Phase 09-filter-ux-simplification-file-status-badges]: Missing PDF chip uses setMissingPdfOnly directly (not handleFilterClick) — independent of recommendation tier filter
+- [Phase 09-filter-ux-simplification-file-status-badges]: isLegacyVersion returns false when analysisVersion is undefined — no badge for data without version info
 
 ### Pending Todos
 
@@ -103,6 +106,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-19T04:44:38.667Z
-Stopped at: Completed 09-02-PLAN.md (FilterPanel UX simplification — FILTER-01, FILTER-02, FILTER-04 all GREEN)
+Last session: 2026-03-19T04:52:24.197Z
+Stopped at: Completed 09-03-PLAN.md (FilterBar badges + ScreenplayCard status badges — all tests GREEN)
 Resume file: None
