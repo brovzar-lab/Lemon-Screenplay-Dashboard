@@ -617,16 +617,15 @@ export function CoverageDocument({ screenplay, notes }: CoverageDocumentProps) {
         {/* Score hero */}
         <View style={s.scoreCard}>
           <View style={s.scoreLeft}>
-            {/* Top half — score number anchored to bottom */}
-            <View style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 5 }}>
+            {/* Score + badge as centered group — explicit marginTop is reliable in react-pdf (flex distribution collapses) */}
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={[s.scoreNum, { color: scoreColor(Number(screenplay.weightedScore) || 0) }]}>
                 {(Number(screenplay.weightedScore) || 0).toFixed(1)}
               </Text>
-            </View>
-            {/* Bottom half — badge anchored to top */}
-            <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'center', paddingTop: 5 }}>
-              <View style={[s.recBadge, { backgroundColor: recColor(screenplay.recommendation) }]}>
-                <Text style={s.recBadgeText}>{recLabel(screenplay.recommendation)}</Text>
+              <View style={__scoreGapStyle}>
+                <View style={[s.recBadge, { backgroundColor: recColor(screenplay.recommendation) }]}>
+                  <Text style={s.recBadgeText}>{recLabel(screenplay.recommendation)}</Text>
+                </View>
               </View>
             </View>
           </View>
