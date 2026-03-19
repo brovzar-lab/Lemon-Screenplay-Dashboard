@@ -4,13 +4,15 @@
  * Owns the overlay modals triggered from its buttons.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { clsx } from 'clsx';
 import { FilterPanel, AdvancedSortPanel } from '@/components/filters';
 import { ExportModal } from '@/components/export';
 import { ShareModal } from '@/components/share';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import { useExportSelectionStore, useExportSelectionCount } from '@/stores/exportSelectionStore';
+import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import { buildShareableUrl } from '@/hooks/useUrlState';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
@@ -46,6 +48,36 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   const recommendationTiers = useFilterStore((s) => s.recommendationTiers);
   const setRecommendationTiers = useFilterStore((s) => s.setRecommendationTiers);
   const resetFilters = useFilterStore((s) => s.resetFilters);
+  const missingPdfOnly = useFilterStore((s) => s.missingPdfOnly);
+  const setMissingPdfOnly = useFilterStore((s) => s.setMissingPdfOnly);
+
+  // FILTER-03: count active dimension range filters
+  const advancedFilterCount = useFilterStore((s) =>
+    [
+      s.conceptRange.enabled,
+      s.structureRange.enabled,
+      s.protagonistRange.enabled,
+      s.supportingCastRange.enabled,
+      s.dialogueRange.enabled,
+      s.genreExecutionRange.enabled,
+      s.originalityRange.enabled,
+    ].filter(Boolean).length
+  );
+
+  // FILE-03: pdf status store for missing PDF chip count
+  const pdfStatuses = usePdfStatusStore((s) => s.statuses);
+  const hasScanResult = usePdfStatusStore((s) => s.hasScanResult);
+
+  // FILE-03: count missing PDFs from unfiltered list
+  const missingPdfCount = useMemo(() => {
+    if (!screenplays) return 0;
+    return screenplays.filter((sp) => {
+      if (hasScanResult) {
+        return pdfStatuses[sp.id] === 'missing' || pdfStatuses[sp.id] === undefined;
+      }
+      return sp.hasPdf !== true;
+    }).length;
+  }, [screenplays, pdfStatuses, hasScanResult]);
 
   // Sort store
   const sortConfigs = useSortStore((s) => s.sortConfigs);
@@ -178,8 +210,9 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
                 <span>Loading...</span>
               ) : (
                 <span key={filteredCount} className="animate-fade-in">
-                  Showing <strong className="text-gold-400">{filteredCount}</strong> of{' '}
-                  <strong>{totalCount}</strong> screenplays
+                  {'Showing '}
+                  <strong className="text-gold-400">{filteredCount} of {totalCount}</strong>
+                  {' screenplays'}
                 </span>
               )}
             </div>
@@ -226,6 +259,11 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
               Filters
+              {advancedFilterCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold">
+                  {advancedFilterCount}
+                </span>
+              )}
             </button>
 
             {/* Share Button */}
@@ -290,6 +328,27 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               {chip.label}
             </button>
           ))}
+
+          {/* FILE-03: Missing PDF quick-filter chip */}
+          {(missingPdfCount > 0 || missingPdfOnly) && (
+            <button
+              data-active={missingPdfOnly ? 'true' : 'false'}
+              onClick={() => setMissingPdfOnly(!missingPdfOnly)}
+              className={clsx(
+                'chip cursor-pointer transition-all',
+                missingPdfOnly
+                  ? 'bg-amber-500 border-amber-500 !text-black-950 font-semibold'
+                  : 'hover:border-amber-500'
+              )}
+            >
+              Missing PDF
+              {missingPdfCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-black-800 text-amber-300 text-xs font-bold">
+                  {missingPdfCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {hasActiveFilters && (
             <button
