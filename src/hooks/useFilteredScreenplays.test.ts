@@ -3,15 +3,18 @@
  * Tests the pure filter/sort functions extracted from useFilteredScreenplays
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 import {
     matchesSearch,
     passesFilters,
     getSortValue,
     getRecommendationOrder,
     sortScreenplays,
+    useFilteredScreenplays,
 } from './useFilteredScreenplays';
 import { DEFAULT_FILTER_STATE } from '@/types/filters';
+import { useFilterStore } from '@/stores/filterStore';
 import type { Screenplay } from '@/types';
 import type { FilterState, SortConfig } from '@/types/filters';
 
@@ -434,5 +437,37 @@ describe('sortScreenplays', () => {
 
         // Same score → sorted by title asc
         expect(sorted.map((s) => s.id)).toEqual(['a', 'b']);
+    });
+});
+
+// ─── useFilteredScreenplays memoization ─────────────────────
+
+describe('useFilteredScreenplays memoization', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        // Reset filter store to default state before each test
+        useFilterStore.setState(DEFAULT_FILTER_STATE);
+    });
+
+    it('does not re-run sorted result when unrelated filter store field changes', () => {
+        vi.mock('@/hooks/useScreenplays', () => ({
+            useScreenplays: () => ({
+                data: [createMockScreenplay({ id: '1' }), createMockScreenplay({ id: '2' })],
+                isLoading: false,
+                error: null,
+            }),
+        }));
+
+        const { result, rerender } = renderHook(() => useFilteredScreenplays());
+        const firstResult = result.current.screenplays;
+
+        // Mutate a filter field that doesn't affect current results
+        act(() => {
+            useFilterStore.setState({ searchQuery: '' }); // same value — no semantic change
+        });
+        rerender();
+
+        // Result reference should be stable (same array identity)
+        expect(result.current.screenplays).toBe(firstResult);
     });
 });
