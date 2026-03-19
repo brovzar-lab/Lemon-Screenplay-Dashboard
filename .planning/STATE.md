@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: Defining requirements
-stopped_at: Completed 08-01-PLAN.md (PDF cover page polish — all 3 tasks done, visual sign-off approved)
-last_updated: "2026-03-19T04:07:55.293Z"
+stopped_at: Completed 09-01-PLAN.md (Wave 0 test scaffolding — all 3 tasks done, 18 assertions RED)
+last_updated: "2026-03-19T04:39:11.449Z"
 last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  total_plans: 4
+  completed_plans: 2
   percent: 100
 ---
 
@@ -87,6 +87,7 @@ Recent decisions affecting current work:
 - [v7.0 pre-phase]: FILTER-02 disclosure toggle wraps existing Dimension Scores section; existing badge prop becomes source for FILTER-03 active-filter count
 - [Phase 08-pdf-cover-page-polish]: scoreLeft layout uses single centered-group View with marginTop:16 gap constant (__scoreGapStyle) instead of dual-flex siblings that collapse in react-pdf
 - [Phase 08-pdf-cover-page-polish]: Test-only exports (__coverageDocStyles, __scoreGapStyle) allow stylesheet regression assertions without DOM traversal (react-pdf stubs strip style props)
+- [Phase 09-filter-ux-simplification-file-status-badges]: FilterPanel tests use real Zustand store (useFilterStore.setState); FilterBar uses selector-intercepting mock; ScreenplayCard adds pdfStatusStore selector mock
 
 ### Pending Todos
 
@@ -99,6 +100,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-19T03:28:02.795Z
-Stopped at: Completed 08-01-PLAN.md (PDF cover page polish — all 3 tasks done, visual sign-off approved)
+Last session: 2026-03-19T04:39:11.443Z
+Stopped at: Completed 09-01-PLAN.md (Wave 0 test scaffolding — all 3 tasks done, 18 assertions RED)
 Resume file: None

@@ -14,23 +14,23 @@
 
 ### File Management
 
-- [ ] **FILE-01**: User can see a storage-status badge on each screenplay card indicating whether the source PDF exists in Firebase Storage (found / missing) — uses live `pdfStatusStore` scan data when available, falls back to `hasPdf` Firestore field otherwise
+- [x] **FILE-01**: User can see a storage-status badge on each screenplay card indicating whether the source PDF exists in Firebase Storage (found / missing) — uses live `pdfStatusStore` scan data when available, falls back to `hasPdf` Firestore field otherwise
 
-- [ ] **FILE-02**: User can see an analysis-version badge on each screenplay card indicating whether the screenplay was analyzed with the current engine version (`v6_core_lenses`) or a legacy version, so stale analyses are immediately visible
+- [x] **FILE-02**: User can see an analysis-version badge on each screenplay card indicating whether the screenplay was analyzed with the current engine version (`v6_core_lenses`) or a legacy version, so stale analyses are immediately visible
 
-- [ ] **FILE-03**: User can filter the grid to show only screenplays with a missing PDF via a "Missing PDF" chip in the FilterBar quick-access row (alongside recommendation chips), with a count badge showing how many are missing
+- [x] **FILE-03**: User can filter the grid to show only screenplays with a missing PDF via a "Missing PDF" chip in the FilterBar quick-access row (alongside recommendation chips), with a count badge showing how many are missing
 
 - [ ] **FILE-04**: User can select N cards whose PDF is missing and trigger an "Upload PDFs" bulk action from FilterBar that opens PdfUploadPanel pre-scoped to those selected IDs
 
 ### Filter Simplification
 
-- [ ] **FILTER-01**: FilterPanel opens with the Genre & Theme section expanded by default — not Core Scores
+- [x] **FILTER-01**: FilterPanel opens with the Genre & Theme section expanded by default — not Core Scores
 
-- [ ] **FILTER-02**: The 7 dimension score sliders (Concept, Structure, Protagonist, Supporting Cast, Dialogue, Genre Execution, Originality) are hidden behind an "Advanced" disclosure toggle inside FilterPanel and collapsed by default — not visible when the panel first opens
+- [x] **FILTER-02**: The 7 dimension score sliders (Concept, Structure, Protagonist, Supporting Cast, Dialogue, Genre Execution, Originality) are hidden behind an "Advanced" disclosure toggle inside FilterPanel and collapsed by default — not visible when the panel first opens
 
-- [ ] **FILTER-03**: The "Filters" button in FilterBar shows a count badge of currently active filters that are hidden inside the "Advanced" collapsed section, so the user knows when hidden filters are affecting the grid even with the panel closed
+- [x] **FILTER-03**: The "Filters" button in FilterBar shows a count badge of currently active filters that are hidden inside the "Advanced" collapsed section, so the user knows when hidden filters are affecting the grid even with the panel closed
 
-- [ ] **FILTER-04**: FilterPanel auto-expands any section that contains an active filter when the panel opens — no silent active-filter hiding
+- [x] **FILTER-04**: FilterPanel auto-expands any section that contains an active filter when the panel opens — no silent active-filter hiding
 
 ### Performance
 
@@ -97,14 +97,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | PDF-01 | Phase 8 | Complete |
-| FILE-01 | Phase 9 | Pending |
-| FILE-02 | Phase 9 | Pending |
-| FILE-03 | Phase 9 | Pending |
+| FILE-01 | Phase 9 | Complete |
+| FILE-02 | Phase 9 | Complete |
+| FILE-03 | Phase 9 | Complete |
 | FILE-04 | Phase 12 | Pending |
-| FILTER-01 | Phase 9 | Pending |
-| FILTER-02 | Phase 9 | Pending |
-| FILTER-03 | Phase 9 | Pending |
-| FILTER-04 | Phase 9 | Pending |
+| FILTER-01 | Phase 9 | Complete |
+| FILTER-02 | Phase 9 | Complete |
+| FILTER-03 | Phase 9 | Complete |
+| FILTER-04 | Phase 9 | Complete |
 | PERF-01 | Phase 10 | Pending |
 | PERF-02 | Phase 10 | Pending |
 | BULK-01 | Phase 11 | Pending |
