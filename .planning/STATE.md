@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: Defining requirements
-stopped_at: Completed 10-01-PLAN.md (Wave 0 scaffolding)
-last_updated: "2026-03-19T09:08:23.036Z"
+stopped_at: Completed 10-02-PLAN.md (Virtual grid rewrite with useWindowVirtualizer)
+last_updated: "2026-03-19T09:14:06.463Z"
 last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
   percent: 100
 ---
 
@@ -96,6 +96,8 @@ Recent decisions affecting current work:
 - [Phase 09-filter-ux-simplification-file-status-badges]: isLegacyVersion returns false when analysisVersion is undefined — no badge for data without version info
 - [Phase 10-virtual-scrolling-performance]: Removed role=list/listitem ARIA tests in Wave 0 — data-card attribute is the stable query point for virtual DOM structure
 - [Phase 10-virtual-scrolling-performance]: Memoization test uses toBe (Object.is identity) not toStrictEqual — referential stability is what PERF-02 requires
+- [Phase 10-virtual-scrolling-performance]: useWindowVirtualizer chosen over useVirtualizer — page uses window scroll (min-h-screen flex, no bounded container)
+- [Phase 10-virtual-scrolling-performance]: card-enter uses 100ms ease-out opacity fade replacing useScrollReveal IntersectionObserver — simpler, no stagger in virtual rows
 
 ### Pending Todos
 
@@ -108,6 +110,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-19T09:08:23.030Z
-Stopped at: Completed 10-01-PLAN.md (Wave 0 scaffolding)
+Last session: 2026-03-19T09:14:06.457Z
+Stopped at: Completed 10-02-PLAN.md (Virtual grid rewrite with useWindowVirtualizer)
 Resume file: None

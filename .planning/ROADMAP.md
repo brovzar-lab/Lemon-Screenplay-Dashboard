@@ -79,7 +79,7 @@ Plans:
 
 **Constraint:** `ScreenplayGrid` uses responsive `grid-cols-1/2/3/4`. Must measure container width → derive column count → virtualize rows of N cards. Research plan must confirm `@tanstack/react-virtual` and column-measurement approach.
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 10-01-PLAN.md — Wave 0 scaffolding: install @tanstack/react-virtual, update ScreenplayGrid tests (fix 4 ARIA tests, add DOM count RED test), add memo RED test to useFilteredScreenplays.test.ts
@@ -139,6 +139,6 @@ Plans:
 | 7. Export Coverage Package | v6.8 | 3/3 | Complete | 2026-03-17 |
 | 8. PDF Cover Page Polish | 1/1 | Complete   | 2026-03-19 | — |
 | 9. Filter UX + File Status Badges | v7.0 | Complete    | 2026-03-19 | — |
-| 10. Virtual Scrolling + Performance | 1/3 | In Progress|  | — |
+| 10. Virtual Scrolling + Performance | 2/3 | In Progress|  | — |
 | 11. Bulk Operations | v7.0 | 0/3 | Pending | — |
 | 12. Bulk PDF Upload + Integration | v7.0 | 0/2 | Pending | — |
