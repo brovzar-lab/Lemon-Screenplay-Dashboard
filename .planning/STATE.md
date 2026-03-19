@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: Defining requirements
-stopped_at: Completed 09-01-PLAN.md (Wave 0 test scaffolding — all 3 tasks done, 18 assertions RED)
-last_updated: "2026-03-19T04:39:11.449Z"
+stopped_at: Completed 09-02-PLAN.md (FilterPanel UX simplification — FILTER-01, FILTER-02, FILTER-04 all GREEN)
+last_updated: "2026-03-19T04:44:38.673Z"
 last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
   percent: 100
 ---
 
@@ -88,6 +88,9 @@ Recent decisions affecting current work:
 - [Phase 08-pdf-cover-page-polish]: scoreLeft layout uses single centered-group View with marginTop:16 gap constant (__scoreGapStyle) instead of dual-flex siblings that collapse in react-pdf
 - [Phase 08-pdf-cover-page-polish]: Test-only exports (__coverageDocStyles, __scoreGapStyle) allow stylesheet regression assertions without DOM traversal (react-pdf stubs strip style props)
 - [Phase 09-filter-ux-simplification-file-status-badges]: FilterPanel tests use real Zustand store (useFilterStore.setState); FilterBar uses selector-intercepting mock; ScreenplayCard adds pdfStatusStore selector mock
+- [Phase 09-02]: initialSection IIFE in useState derives correct section at mount from active filters; includes 'dimensions' case for dimension-range-enabled auto-expand
+- [Phase 09-02]: AdvancedDisclosure nested inside Dimension Scores Section — two-level disclosure (accordion outer + disclosure inner) with independent boolean states
+- [Phase 09-02]: Store destructuring block moved above useState calls — required for IIFE initializers to reference destructured store values
 
 ### Pending Todos
 
@@ -100,6 +103,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-19T04:39:11.443Z
-Stopped at: Completed 09-01-PLAN.md (Wave 0 test scaffolding — all 3 tasks done, 18 assertions RED)
+Last session: 2026-03-19T04:44:38.667Z
+Stopped at: Completed 09-02-PLAN.md (FilterPanel UX simplification — FILTER-01, FILTER-02, FILTER-04 all GREEN)
 Resume file: None
