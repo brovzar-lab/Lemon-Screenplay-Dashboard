@@ -79,6 +79,13 @@ Plans:
 
 **Constraint:** `ScreenplayGrid` uses responsive `grid-cols-1/2/3/4`. Must measure container width → derive column count → virtualize rows of N cards. Research plan must confirm `@tanstack/react-virtual` and column-measurement approach.
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Wave 0 scaffolding: install @tanstack/react-virtual, update ScreenplayGrid tests (fix 4 ARIA tests, add DOM count RED test), add memo RED test to useFilteredScreenplays.test.ts
+- [ ] 10-02-PLAN.md — Virtualize ScreenplayGrid: useWindowVirtualizer + ResizeObserver column count + CSS fade; delete useScrollReveal (PERF-01)
+- [ ] 10-03-PLAN.md — Fix filter memoization: apply useShallow to useFilterStore subscriptions in useFilteredScreenplays.ts (PERF-02)
+
 **Success Criteria:**
 1. 1000 screenplays: DOM has no more than ~50–80 card elements at any time
 2. Filter toggle causes no long task >100ms
