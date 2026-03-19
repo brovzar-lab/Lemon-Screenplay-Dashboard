@@ -139,6 +139,6 @@ Plans:
 | 7. Export Coverage Package | v6.8 | 3/3 | Complete | 2026-03-17 |
 | 8. PDF Cover Page Polish | 1/1 | Complete   | 2026-03-19 | — |
 | 9. Filter UX + File Status Badges | v7.0 | Complete    | 2026-03-19 | — |
-| 10. Virtual Scrolling + Performance | 3/3 | Complete   | 2026-03-19 | — |
+| 10. Virtual Scrolling + Performance | 3/3 | Complete    | 2026-03-19 | — |
 | 11. Bulk Operations | v7.0 | 0/3 | Pending | — |
 | 12. Bulk PDF Upload + Integration | v7.0 | 0/2 | Pending | — |

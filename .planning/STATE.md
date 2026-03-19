@@ -4,7 +4,7 @@ milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: Defining requirements
 stopped_at: Completed 10-03-PLAN.md (useShallow filter subscription fix)
-last_updated: "2026-03-19T09:20:08.961Z"
+last_updated: "2026-03-19T09:24:42.677Z"
 last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
   total_phases: 5
