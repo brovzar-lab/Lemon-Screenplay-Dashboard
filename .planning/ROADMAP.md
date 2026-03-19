@@ -23,7 +23,7 @@
 
 - [x] Phase 8: PDF Cover Page Polish (1 plan) — PDF-01 (completed 2026-03-19)
 - [x] Phase 9: Filter UX + File Status Badges (3 plans) — FILTER-01–04, FILE-01–03 (completed 2026-03-19)
-- [ ] Phase 10: Virtual Scrolling + Performance (3 plans) — PERF-01–02
+- [x] Phase 10: Virtual Scrolling + Performance (3 plans) — PERF-01–02 (completed 2026-03-19)
 - [ ] Phase 11: Bulk Operations (3 plans) — BULK-01–03
 - [ ] Phase 12: Bulk PDF Upload + Integration (2 plans) — FILE-04
 
@@ -79,7 +79,7 @@ Plans:
 
 **Constraint:** `ScreenplayGrid` uses responsive `grid-cols-1/2/3/4`. Must measure container width → derive column count → virtualize rows of N cards. Research plan must confirm `@tanstack/react-virtual` and column-measurement approach.
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 10-01-PLAN.md — Wave 0 scaffolding: install @tanstack/react-virtual, update ScreenplayGrid tests (fix 4 ARIA tests, add DOM count RED test), add memo RED test to useFilteredScreenplays.test.ts
@@ -139,6 +139,6 @@ Plans:
 | 7. Export Coverage Package | v6.8 | 3/3 | Complete | 2026-03-17 |
 | 8. PDF Cover Page Polish | 1/1 | Complete   | 2026-03-19 | — |
 | 9. Filter UX + File Status Badges | v7.0 | Complete    | 2026-03-19 | — |
-| 10. Virtual Scrolling + Performance | 2/3 | In Progress|  | — |
+| 10. Virtual Scrolling + Performance | 3/3 | Complete   | 2026-03-19 | — |
 | 11. Bulk Operations | v7.0 | 0/3 | Pending | — |
 | 12. Bulk PDF Upload + Integration | v7.0 | 0/2 | Pending | — |
