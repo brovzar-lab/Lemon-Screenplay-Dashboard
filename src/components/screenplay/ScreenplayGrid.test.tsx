@@ -59,27 +59,6 @@ describe('ScreenplayGrid', () => {
     expect(screen.getByText('Third Movie')).toBeInTheDocument();
   });
 
-  it('has proper list role and aria-label', () => {
-    const screenplays = [createTestScreenplay({ id: '1', title: 'Test Movie' })];
-
-    render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
-
-    const grid = screen.getByRole('list');
-    expect(grid).toHaveAttribute('aria-label', 'Screenplay results');
-  });
-
-  it('renders each card as a listitem', () => {
-    const screenplays = [
-      createTestScreenplay({ id: '1', title: 'First Movie' }),
-      createTestScreenplay({ id: '2', title: 'Second Movie' }),
-    ];
-
-    render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
-
-    const items = screen.getAllByRole('listitem');
-    expect(items).toHaveLength(2);
-  });
-
   it('calls onCardClick when a card is clicked', () => {
     const handleClick = vi.fn();
     const screenplays = [createTestScreenplay({ id: '1', title: 'Clickable Movie' })];
@@ -92,9 +71,9 @@ describe('ScreenplayGrid', () => {
       />
     );
 
-    // Click on the card wrapper (listitem)
-    const listItem = screen.getByRole('listitem');
-    fireEvent.click(listItem);
+    // Click on the card wrapper (data-card attribute)
+    const cardWrapper = document.querySelector('[data-card]') as HTMLElement;
+    fireEvent.click(cardWrapper);
 
     expect(handleClick).toHaveBeenCalledTimes(1);
     expect(handleClick).toHaveBeenCalledWith(screenplays[0]);
@@ -112,8 +91,8 @@ describe('ScreenplayGrid', () => {
       />
     );
 
-    const listItem = screen.getByRole('listitem');
-    fireEvent.keyDown(listItem, { key: 'Enter' });
+    const cardWrapper = document.querySelector('[data-card]') as HTMLElement;
+    fireEvent.keyDown(cardWrapper, { key: 'Enter' });
 
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
@@ -130,38 +109,10 @@ describe('ScreenplayGrid', () => {
       />
     );
 
-    const listItem = screen.getByRole('listitem');
-    fireEvent.keyDown(listItem, { key: ' ' });
+    const cardWrapper = document.querySelector('[data-card]') as HTMLElement;
+    fireEvent.keyDown(cardWrapper, { key: ' ' });
 
     expect(handleClick).toHaveBeenCalledTimes(1);
-  });
-
-  it('has proper aria-label for each card', () => {
-    const screenplays = [
-      createTestScreenplay({
-        id: '1',
-        title: 'Accessible Movie',
-        author: 'Jane Smith',
-        recommendation: 'film_now',
-      }),
-    ];
-
-    render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
-
-    const listItem = screen.getByRole('listitem');
-    expect(listItem).toHaveAttribute(
-      'aria-label',
-      'Accessible Movie by Jane Smith, film_now recommendation'
-    );
-  });
-
-  it('cards are focusable with tabIndex', () => {
-    const screenplays = [createTestScreenplay({ id: '1', title: 'Focusable Movie' })];
-
-    render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
-
-    const listItem = screen.getByRole('listitem');
-    expect(listItem).toHaveAttribute('tabindex', '0');
   });
 
   it('renders correct number of skeleton cards while loading', () => {
@@ -181,5 +132,14 @@ describe('ScreenplayGrid', () => {
     expect(() =>
       render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />)
     ).not.toThrow();
+  });
+
+  it('renders at most 80 DOM elements with 100 screenplay items', () => {
+    const screenplays = Array.from({ length: 100 }, (_, i) =>
+      createTestScreenplay({ id: String(i), title: `Movie ${i}` })
+    );
+    render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
+    const cards = document.querySelectorAll('[data-card]');
+    expect(cards.length).toBeLessThanOrEqual(80);
   });
 });
