@@ -37,6 +37,11 @@
 
 **Requirements:** PDF-01
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 08-01-PLAN.md — Fix scoreLeft dual-flex layout: replace with centered-group View + explicit marginTop gap; add regression guard tests
+
 **Success Criteria:**
 1. Generated coverage PDF: score number and recommendation badge have visible vertical gap on cover page
 2. No regression to title/author spacing (v6.8 fix at `titleText.marginBottom 8` preserved)
