@@ -103,7 +103,14 @@ Plans:
 **Constraints:**
 - Token generation sequential (not `Promise.all`) to avoid Firestore burst
 - Reuse `getExistingShareToken` before creating new tokens
-- BULK-02: `getDownloadURL` → `fetch` → `File` → `analyzeScreenplay`; only `hasPdf=true` eligible
+- BULK-02: `reanalyzeFromStorage` (getBlob → File → analyzeScreenplay); only `hasPdf=true` eligible
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Wave 0 test scaffolding: BulkShareModal.test.tsx, BulkReanalyzeModal.test.tsx, ExportModal.test.tsx RED stubs, bulk/index.ts barrel
+- [ ] 11-02-PLAN.md — ActionsDropdown in FilterBar + BulkShareModal progressive fill (BULK-01)
+- [ ] 11-03-PLAN.md — BulkReanalyzeModal cancel/retry loop + ExportModal scope text fix (BULK-02, BULK-03)
 
 **Success Criteria:**
 1. Select 5 screenplays → "Generate Share Links" → 5 URLs in modal, individually copyable + "Copy All"
