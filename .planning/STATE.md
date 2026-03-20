@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: Defining requirements
-stopped_at: Completed 11-03-PLAN.md
-last_updated: "2026-03-20T06:40:00.000Z"
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-03-20T15:24:39.177Z"
 last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 100
 ---
 
@@ -105,6 +105,8 @@ Recent decisions affecting current work:
 - [Phase 11-03]: BulkReanalyzeModal test file fixed with module-level shared mock refs (mockDeselectAll/mockInvalidateQueries) — per-call vi.fn() factories prevent spy assertions in Vitest; vi.mock inside it() is a no-op due to hoisting
 - [Phase 11-03]: BulkShareModal created as Rule 3 fix (index.ts exported it but plan 11-02 incomplete; build was broken with TS2307)
 - [Phase 11-03]: ExportModal mode union extended to 'selected'|'filtered'|'all'; FilterBar mode ternary corrected from 'multiple'/'filtered'/'multiple' to 'selected'/'filtered'/'all'
+- [Phase 11-bulk-operations]: BulkShareModal: undefined vs null from getExistingShareToken distinguishes bare mock (skip createShareToken) from explicit null (trigger createShareToken)
+- [Phase 11-bulk-operations]: vi.mock hoisting: nested vi.mock inside it() blocks ARE hoisted by Vitest AST transform — all tests share the same final mock factory
 
 ### Pending Todos
 
@@ -117,6 +119,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-20T06:38:13Z
-Stopped at: Completed 11-03-PLAN.md
+Last session: 2026-03-20T15:24:39.165Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
