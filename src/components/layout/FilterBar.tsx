@@ -375,7 +375,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         screenplays={screenplaysToExport}
-        mode={hasExportSelection ? 'multiple' : hasActiveFilters ? 'filtered' : 'multiple'}
+        mode={hasExportSelection ? 'selected' : hasActiveFilters ? 'filtered' : 'all'}
       />
       <ShareModal
         isOpen={isShareModalOpen}

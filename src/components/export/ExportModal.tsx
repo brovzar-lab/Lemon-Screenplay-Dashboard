@@ -15,7 +15,7 @@ interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   screenplays: Screenplay[];
-  mode: 'single' | 'multiple' | 'filtered';
+  mode: 'single' | 'multiple' | 'filtered' | 'selected' | 'all';
 }
 
 type ExportFormat = 'pdf' | 'csv';
@@ -38,7 +38,9 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
           ? screenplays[0].title.replace(/\s+/g, '_')
           : mode === 'filtered'
             ? 'filtered_screenplays'
-            : 'selected_screenplays';
+            : mode === 'all'
+              ? 'all_screenplays'
+              : 'selected_screenplays';
 
         exportToCSV(screenplays, filename);
         setExportProgress(100);
@@ -106,11 +108,17 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
           {/* Export Summary */}
           <div className="p-3 bg-black-900/50 rounded-lg">
             <p className="text-sm text-black-400">
-              Exporting <strong className="text-gold-400">{screenplays.length}</strong>{' '}
-              {screenplays.length === 1 ? 'screenplay' : 'screenplays'}
-              {mode === 'multiple' && screenplays.length > 0 && (
-                <span className="text-black-500 ml-1">(selected)</span>
-              )}
+              <strong className="text-gold-400">
+                {mode === 'selected'
+                  ? `Exporting ${screenplays.length} selected ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`
+                  : mode === 'filtered'
+                    ? `Exporting ${screenplays.length} filtered ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`
+                    : mode === 'all'
+                      ? `Exporting all ${screenplays.length} ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`
+                      : mode === 'single'
+                        ? `Exporting ${screenplays.length} ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`
+                        : /* 'multiple' */ `Exporting ${screenplays.length} selected ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`}
+              </strong>
             </p>
             {screenplays.length <= 5 && (
               <ul className="mt-2 space-y-1">
@@ -244,7 +252,7 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Export {format.toUpperCase()}
+                Export {screenplays.length} Screenplay{screenplays.length !== 1 ? 's' : ''}
               </>
             )}
           </button>
