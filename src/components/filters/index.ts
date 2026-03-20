@@ -8,3 +8,4 @@ export { SortableItem } from './SortableItem';
 export { AdvancedSortPanel } from './AdvancedSortPanel';
 export { FilterPanel } from './FilterPanel';
 export { CollectionTabs } from './CollectionTabs';
+export { ActionsDropdown } from './ActionsDropdown';
