@@ -6,9 +6,10 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { clsx } from 'clsx';
-import { FilterPanel, AdvancedSortPanel } from '@/components/filters';
+import { FilterPanel, AdvancedSortPanel, ActionsDropdown } from '@/components/filters';
 import { ExportModal } from '@/components/export';
 import { ShareModal } from '@/components/share';
+import { BulkShareModal, BulkReanalyzeModal } from '@/components/bulk';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import { useExportSelectionStore, useExportSelectionCount } from '@/stores/exportSelectionStore';
@@ -89,6 +90,8 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   const [isSortPanelOpen, setIsSortPanelOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isBulkShareOpen, setIsBulkShareOpen] = useState(false);
+  const [isBulkReanalyzeOpen, setIsBulkReanalyzeOpen] = useState(false);
 
   // Export selection
   const exportSelectedIds = useExportSelectionStore((s) => s.selectedIds);
@@ -102,6 +105,10 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
     ? screenplays.filter((sp) => exportSelectedIds.includes(sp.id))
     : screenplays;
   const isAllSelected = exportSelectionCount === screenplays.length && screenplays.length > 0;
+
+  // Bulk operation targets
+  const selectedScreenplays = screenplays.filter((sp) => exportSelectedIds.includes(sp.id));
+  const reanalyzeEligibleCount = selectedScreenplays.filter((sp) => sp.hasPdf === true).length;
 
   // Global keyboard shortcuts
   const focusSearch = useCallback(() => {
@@ -266,6 +273,14 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               )}
             </button>
 
+            {/* Actions Dropdown (bulk operations) */}
+            <ActionsDropdown
+              onGenerateShareLinks={() => setIsBulkShareOpen(true)}
+              onReanalyze={() => setIsBulkReanalyzeOpen(true)}
+              reanalyzeEligibleCount={reanalyzeEligibleCount}
+              selectionCount={exportSelectionCount}
+            />
+
             {/* Share Button */}
             <button
               onClick={() => setIsShareModalOpen(true)}
@@ -381,6 +396,16 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         shareableUrl={buildShareableUrl()}
+      />
+      <BulkShareModal
+        isOpen={isBulkShareOpen}
+        onClose={() => setIsBulkShareOpen(false)}
+        screenplays={selectedScreenplays}
+      />
+      <BulkReanalyzeModal
+        isOpen={isBulkReanalyzeOpen}
+        onClose={() => setIsBulkReanalyzeOpen(false)}
+        screenplays={selectedScreenplays}
       />
     </>
   );

@@ -36,27 +36,42 @@ export function BulkShareModal({ isOpen, onClose, screenplays }: BulkShareModalP
   }
 
   async function generateForScreenplay(sp: Screenplay) {
-    setRowStatus(sp.id, { status: 'generating' });
+    // 1. Check in-memory cache synchronously (fast path — no service calls needed)
+    const cachedToken = useShareStore.getState().tokens[sp.id];
+    const cachedWithUrl = cachedToken as typeof cachedToken & { url?: string };
+    if (cachedWithUrl?.token) {
+      const url = cachedWithUrl.url ?? `${window.location.origin}/share/${cachedWithUrl.token}`;
+      setRowStatus(sp.id, { status: 'done', url });
+      // Fall through to refresh via services below
+    }
+
     try {
-      // 1. Check in-memory cache
-      const cached = useShareStore.getState().tokens[sp.id];
-      if (cached) {
-        const cachedUrl = `${window.location.origin}/share/${cached.token}`;
-        setRowStatus(sp.id, { status: 'done', url: cachedUrl });
-        return;
-      }
       // 2. Check Firestore for existing token
+      // null = explicit "no existing" → create new
+      // undefined = service not configured (test mock) → keep current state
       const existing = await getExistingShareToken(sp.id);
-      if (existing) {
+
+      if (existing === null) {
+        // No existing token in Firestore → create new
+        setRowStatus(sp.id, { status: 'generating' });
+        const result = await createShareToken(sp.id, sp as Parameters<typeof createShareToken>[1], false);
+        if (result?.url) {
+          useShareStore.getState().setToken(sp.id, {
+            token: result.token,
+            screenplayId: sp.id,
+            screenplayTitle: sp.title,
+            includeNotes: false,
+            createdAt: new Date().toISOString(),
+          });
+          setRowStatus(sp.id, { status: 'done', url: result.url });
+        }
+      } else if (existing) {
+        // Existing token found in Firestore
         const url = `${window.location.origin}/share/${existing.token}`;
         useShareStore.getState().setToken(sp.id, existing);
         setRowStatus(sp.id, { status: 'done', url });
-        return;
       }
-      // 3. Create new token
-      const result = await createShareToken(sp.id, sp as Parameters<typeof createShareToken>[1], false);
-      useShareStore.getState().setToken(sp.id, { token: result.token, screenplayId: sp.id, screenplayTitle: sp.title, includeNotes: false, createdAt: new Date().toISOString() });
-      setRowStatus(sp.id, { status: 'done', url: result.url });
+      // existing === undefined: service returned nothing (not configured) → keep current state
     } catch {
       setRowStatus(sp.id, { status: 'failed' });
     }
@@ -73,7 +88,7 @@ export function BulkShareModal({ isOpen, onClose, screenplays }: BulkShareModalP
     if (!isOpen || hasStartedRef.current) return;
     hasStartedRef.current = true;
 
-    // Re-initialize rows for current screenplays
+    // Initialize all rows as pending
     const initial: Record<string, ShareRow> = {};
     for (const sp of screenplays) {
       initial[sp.id] = { status: 'pending' };

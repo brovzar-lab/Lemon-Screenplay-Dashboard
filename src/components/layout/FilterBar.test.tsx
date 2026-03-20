@@ -80,6 +80,7 @@ vi.mock('@/stores/pdfStatusStore', () => ({
 vi.mock('@/components/filters', () => ({
     FilterPanel: () => null,
     AdvancedSortPanel: () => null,
+    ActionsDropdown: () => null,
 }));
 
 vi.mock('@/components/export', () => ({
@@ -88,6 +89,11 @@ vi.mock('@/components/export', () => ({
 
 vi.mock('@/components/share', () => ({
     ShareModal: () => null,
+}));
+
+vi.mock('@/components/bulk', () => ({
+    BulkShareModal: () => null,
+    BulkReanalyzeModal: () => null,
 }));
 
 vi.mock('@/components/ui/ShortcutHint', () => ({
