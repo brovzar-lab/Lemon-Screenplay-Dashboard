@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
+// Shared mock functions for assertions across tests
+const mockDeselectAll = vi.fn();
+const mockInvalidateQueries = vi.fn();
+
 vi.mock('@/lib/analysisService', () => ({
   reanalyzeFromStorage: vi.fn(),
 }));
 vi.mock('@/stores/exportSelectionStore', () => ({
-  useExportSelectionStore: { getState: () => ({ deselectAll: vi.fn() }) },
+  useExportSelectionStore: { getState: () => ({ deselectAll: mockDeselectAll }) },
 }));
 vi.mock('@/stores/apiConfigStore', () => ({
   useApiConfigStore: { getState: () => ({ apiKey: 'test-key' }) },
@@ -13,7 +17,7 @@ vi.mock('@/stores/apiConfigStore', () => ({
 
 // QueryClient mock
 vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
 }));
 
 import { BulkReanalyzeModal } from './BulkReanalyzeModal';
@@ -92,14 +96,6 @@ describe('BulkReanalyzeModal — BULK-02', () => {
   });
 
   it('React Query invalidated when modal closes after completion', async () => {
-    const invalidateQueries = vi.fn();
-    vi.mocked(vi.importMock('@tanstack/react-query')).then;
-
-    // Override the mock for this test
-    const { useQueryClient } = await import('@tanstack/react-query');
-    const mockQC = useQueryClient();
-    (mockQC.invalidateQueries as ReturnType<typeof vi.fn>) = invalidateQueries;
-
     (reanalyzeFromStorage as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
     render(
@@ -116,17 +112,12 @@ describe('BulkReanalyzeModal — BULK-02', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
 
-    expect(invalidateQueries).toHaveBeenCalledWith(
+    expect(mockInvalidateQueries).toHaveBeenCalledWith(
       expect.objectContaining({ queryKey: expect.arrayContaining(['screenplays']) })
     );
   });
 
   it('deselectAll called when modal closes', async () => {
-    const deselectAll = vi.fn();
-    vi.mock('@/stores/exportSelectionStore', () => ({
-      useExportSelectionStore: { getState: () => ({ deselectAll }) },
-    }));
-
     (reanalyzeFromStorage as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
     render(
@@ -143,6 +134,6 @@ describe('BulkReanalyzeModal — BULK-02', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
 
-    expect(deselectAll).toHaveBeenCalled();
+    expect(mockDeselectAll).toHaveBeenCalled();
   });
 });
