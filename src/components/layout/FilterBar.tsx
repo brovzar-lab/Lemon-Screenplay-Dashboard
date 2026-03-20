@@ -108,7 +108,10 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
 
   // Bulk operation targets
   const selectedScreenplays = screenplays.filter((sp) => exportSelectedIds.includes(sp.id));
-  const reanalyzeEligibleCount = selectedScreenplays.filter((sp) => sp.hasPdf === true).length;
+  const reanalyzeEligibleCount = selectedScreenplays.filter((sp) => {
+    if (hasScanResult) return pdfStatuses[sp.id] === 'found';
+    return sp.hasPdf === true;
+  }).length;
 
   // Global keyboard shortcuts
   const focusSearch = useCallback(() => {
