@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: Defining requirements
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-03-20T05:01:41.616Z"
+stopped_at: Completed 11-03-PLAN.md
+last_updated: "2026-03-20T06:40:00.000Z"
 last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
   percent: 100
 ---
 
@@ -102,6 +102,9 @@ Recent decisions affecting current work:
 - [Phase 10-virtual-scrolling-performance]: vi.mock must be at module scope for Vitest hoisting — calling inside it() is a no-op for module mocking
 - [Phase 11-bulk-operations]: BulkReanalyzeModal.tsx is a null stub — plan 11-03 provides real implementation
 - [Phase 11-bulk-operations]: ExportModal BULK-03 tests use 'selected'/'all' modes not yet in ExportModal.tsx — tests correctly RED
+- [Phase 11-03]: BulkReanalyzeModal test file fixed with module-level shared mock refs (mockDeselectAll/mockInvalidateQueries) — per-call vi.fn() factories prevent spy assertions in Vitest; vi.mock inside it() is a no-op due to hoisting
+- [Phase 11-03]: BulkShareModal created as Rule 3 fix (index.ts exported it but plan 11-02 incomplete; build was broken with TS2307)
+- [Phase 11-03]: ExportModal mode union extended to 'selected'|'filtered'|'all'; FilterBar mode ternary corrected from 'multiple'/'filtered'/'multiple' to 'selected'/'filtered'/'all'
 
 ### Pending Todos
 
@@ -114,6 +117,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-20T05:01:41.612Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-03-20T06:38:13Z
+Stopped at: Completed 11-03-PLAN.md
 Resume file: None
