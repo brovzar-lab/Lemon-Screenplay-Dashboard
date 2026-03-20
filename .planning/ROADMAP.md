@@ -105,7 +105,7 @@ Plans:
 - Reuse `getExistingShareToken` before creating new tokens
 - BULK-02: `reanalyzeFromStorage` (getBlob → File → analyzeScreenplay); only `hasPdf=true` eligible
 
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 11-01-PLAN.md — Wave 0 test scaffolding: BulkShareModal.test.tsx, BulkReanalyzeModal.test.tsx, ExportModal.test.tsx RED stubs, bulk/index.ts barrel
@@ -147,5 +147,5 @@ Plans:
 | 8. PDF Cover Page Polish | 1/1 | Complete   | 2026-03-19 | — |
 | 9. Filter UX + File Status Badges | v7.0 | Complete    | 2026-03-19 | — |
 | 10. Virtual Scrolling + Performance | 3/3 | Complete    | 2026-03-19 | — |
-| 11. Bulk Operations | v7.0 | 0/3 | Pending | — |
+| 11. Bulk Operations | 1/3 | In Progress|  | — |
 | 12. Bulk PDF Upload + Integration | v7.0 | 0/2 | Pending | — |

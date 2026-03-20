@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: Defining requirements
-stopped_at: Phase 11 context gathered
-last_updated: "2026-03-20T02:18:26.563Z"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-20T05:01:41.616Z"
 last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 10
+  completed_plans: 8
   percent: 100
 ---
 
@@ -100,6 +100,8 @@ Recent decisions affecting current work:
 - [Phase 10-virtual-scrolling-performance]: card-enter uses 100ms ease-out opacity fade replacing useScrollReveal IntersectionObserver — simpler, no stagger in virtual rows
 - [Phase 10-virtual-scrolling-performance]: useShallow(s => s) replaces bare useFilterStore() in useFilteredScreenplays and useHasActiveFilters — stable memo reference when no filter field changed
 - [Phase 10-virtual-scrolling-performance]: vi.mock must be at module scope for Vitest hoisting — calling inside it() is a no-op for module mocking
+- [Phase 11-bulk-operations]: BulkReanalyzeModal.tsx is a null stub — plan 11-03 provides real implementation
+- [Phase 11-bulk-operations]: ExportModal BULK-03 tests use 'selected'/'all' modes not yet in ExportModal.tsx — tests correctly RED
 
 ### Pending Todos
 
@@ -112,6 +114,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-20T02:18:26.558Z
-Stopped at: Phase 11 context gathered
-Resume file: .planning/phases/11-bulk-operations/11-CONTEXT.md
+Last session: 2026-03-20T05:01:41.612Z
+Stopped at: Completed 11-01-PLAN.md
+Resume file: None

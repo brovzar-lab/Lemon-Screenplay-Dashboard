@@ -40,11 +40,11 @@
 
 ### Bulk Operations
 
-- [ ] **BULK-01**: User can select N screenplays (using the existing gold export checkboxes) and generate share tokens for all selected screenplays in a single action — the result is a list of share URLs the user can copy individually or copy all at once
+- [x] **BULK-01**: User can select N screenplays (using the existing gold export checkboxes) and generate share tokens for all selected screenplays in a single action — the result is a list of share URLs the user can copy individually or copy all at once
 
-- [ ] **BULK-02**: User can select N screenplays with legacy analysis versions and queue them for re-analysis — the dashboard downloads their PDFs from Firebase Storage (only `hasPdf=true` screenplays are eligible; others are excluded from selection) and pipes each through `analyzeScreenplay`, showing "Re-analyzing N of M" progress
+- [x] **BULK-02**: User can select N screenplays with legacy analysis versions and queue them for re-analysis — the dashboard downloads their PDFs from Firebase Storage (only `hasPdf=true` screenplays are eligible; others are excluded from selection) and pipes each through `analyzeScreenplay`, showing "Re-analyzing N of M" progress
 
-- [ ] **BULK-03**: User can export a CSV of the selected screenplays with the scope clearly confirmed before download — the Export modal states "Exporting X selected screenplays (CSV)" and the count is accurate before the download button is clicked
+- [x] **BULK-03**: User can export a CSV of the selected screenplays with the scope clearly confirmed before download — the Export modal states "Exporting X selected screenplays (CSV)" and the count is accurate before the download button is clicked
 
 ---
 
@@ -107,9 +107,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FILTER-04 | Phase 9 | Complete |
 | PERF-01 | Phase 10 | Complete |
 | PERF-02 | Phase 10 | Complete |
-| BULK-01 | Phase 11 | Pending |
-| BULK-02 | Phase 11 | Pending |
-| BULK-03 | Phase 11 | Pending |
+| BULK-01 | Phase 11 | Complete |
+| BULK-02 | Phase 11 | Complete |
+| BULK-03 | Phase 11 | Complete |
 
 **Coverage:**
 - v1 requirements: 14 total
