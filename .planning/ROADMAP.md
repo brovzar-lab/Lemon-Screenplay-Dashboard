@@ -22,7 +22,7 @@
 
 ### v7.0 Pipeline Scale & Bulk Operations
 
-- [ ] **Phase 1: PDF Polish** - Fix coverage PDF cover page spacing (score/verdict separation)
+- [x] **Phase 1: PDF Polish** - Fix coverage PDF cover page spacing (score/verdict separation) (completed 2026-03-23)
 - [ ] **Phase 2: Performance at Scale** - Virtual scrolling + memoized filtering for 500-1000+ screenplays
 - [ ] **Phase 3: Selection Mode Foundation** - Multi-select checkboxes, selection store, bulk action bar
 - [ ] **Phase 4: Bulk Action Integrations** - Wire up export, compare, collection, favorites from selection store
@@ -59,7 +59,7 @@
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. PDF Polish | v7.0 | 0/1 | Pending | — |
+| 1. PDF Polish | v7.0 | 1/1 | Complete | 2026-03-23 |
 | 2. Performance at Scale | v7.0 | 0/? | Pending | — |
 | 3. Selection Mode Foundation | v7.0 | 0/? | Pending | — |
 | 4. Bulk Action Integrations | v7.0 | 0/? | Pending | — |
