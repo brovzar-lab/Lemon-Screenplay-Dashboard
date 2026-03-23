@@ -20,8 +20,8 @@ interface ScreenplayGridProps {
   onCardClick?: (screenplay: Screenplay) => void;
 }
 
-// Card height (340px) + row gap (24px = gap-6)
-const ROW_HEIGHT = 364;
+// Generous estimate used before measurement — actual heights are measured dynamically
+const ROW_HEIGHT_ESTIMATE = 420;
 
 function getColumnCount(width: number): number {
   if (width >= 1536) return 4; // 2xl:grid-cols-4
@@ -156,13 +156,11 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
   );
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setColumns(getColumnCount(entry.contentRect.width));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+    const update = () => setColumns(getColumnCount(window.innerWidth));
+    window.addEventListener('resize', update);
+    // Sync immediately in case window was resized before mount
+    update();
+    return () => window.removeEventListener('resize', update);
   }, []);
 
   // Group flat array into rows of N columns
@@ -171,9 +169,10 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
   // useWindowVirtualizer uses window scroll — matches the page's min-h-screen flex layout
   const rowVirtualizer = useWindowVirtualizer({
     count: rowCount,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
     overscan: 3,
     scrollMargin: containerRef.current?.offsetTop ?? 0,
+    measureElement: (el) => el.getBoundingClientRect().height,
   });
 
   // Keyboard navigation — uses `columns` state (not getComputedStyle)
@@ -182,24 +181,26 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
       const grid = containerRef.current;
       if (!grid) return;
 
-      const cards = grid.querySelectorAll<HTMLElement>('[data-card]');
-      const currentCard = cards[globalIndex];
-      if (!currentCard) return;
+      // With virtual scrolling only visible cards are in the DOM —
+      // use the event target's DOM position, not the global screenplay index.
+      const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-card]'));
+      const domIndex = cards.indexOf(e.currentTarget as HTMLElement);
+      if (domIndex === -1) return;
 
-      let nextIndex: number | null = null;
+      let nextDomIndex: number | null = null;
 
       switch (e.key) {
         case 'ArrowRight':
-          nextIndex = Math.min(globalIndex + 1, cards.length - 1);
+          nextDomIndex = Math.min(domIndex + 1, cards.length - 1);
           break;
         case 'ArrowLeft':
-          nextIndex = Math.max(globalIndex - 1, 0);
+          nextDomIndex = Math.max(domIndex - 1, 0);
           break;
         case 'ArrowDown':
-          nextIndex = Math.min(globalIndex + columns, cards.length - 1);
+          nextDomIndex = Math.min(domIndex + columns, cards.length - 1);
           break;
         case 'ArrowUp':
-          nextIndex = Math.max(globalIndex - columns, 0);
+          nextDomIndex = Math.max(domIndex - columns, 0);
           break;
         case 'Enter':
         case ' ':
@@ -210,9 +211,9 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
           return;
       }
 
-      if (nextIndex !== null && nextIndex !== globalIndex) {
+      if (nextDomIndex !== null && nextDomIndex !== domIndex) {
         e.preventDefault();
-        cards[nextIndex]?.focus();
+        cards[nextDomIndex]?.focus();
       }
     },
     [screenplays, onCardClick, columns]
@@ -247,7 +248,7 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
               key={virtualRow.key}
               fallback={
                 <div
-                  style={{ height: ROW_HEIGHT }}
+                  style={{ height: ROW_HEIGHT_ESTIMATE }}
                   className="flex items-center justify-center text-red-400 text-sm"
                 >
                   Error rendering row
@@ -255,24 +256,28 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
               }
             >
               <div
+                data-index={virtualRow.index}
+                ref={rowVirtualizer.measureElement}
                 style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   width: '100%',
-                  height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                  gap: '1.5rem',
+                  paddingBottom: '1.5rem',
                 }}
-                className="flex gap-4 md:gap-6"
               >
                 {rowScreenplays.map((screenplay, colIdx) => {
                   const globalIndex = startIdx + colIdx;
                   return (
                     <div
-                      key={screenplay.id}
+                      key={`${screenplay.id}-${globalIndex}`}
                       data-card
                       tabIndex={0}
-                      className="card-enter flex-1 min-w-0 focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 focus:ring-offset-black-900 rounded-xl"
+                      className="card-enter min-w-0 focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 focus:ring-offset-black-900 rounded-xl"
                       onKeyDown={(e) => handleKeyDown(e, globalIndex)}
                       onClick={() => onCardClick?.(screenplay)}
                     >
@@ -280,11 +285,6 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
                     </div>
                   );
                 })}
-                {/* Fill empty slots in the last row so flex layout stays consistent */}
-                {rowScreenplays.length < columns &&
-                  Array.from({ length: columns - rowScreenplays.length }).map((_, i) => (
-                    <div key={`empty-${i}`} className="flex-1 min-w-0" aria-hidden="true" />
-                  ))}
               </div>
             </ErrorBoundary>
           );
