@@ -22,40 +22,38 @@
 
 ### v7.0 Pipeline Scale & Bulk Operations
 
-#### Phase 1: PDF Polish
+- [ ] **Phase 1: PDF Polish** - Fix coverage PDF cover page spacing (score/verdict separation)
+- [ ] **Phase 2: Performance at Scale** - Virtual scrolling + memoized filtering for 500-1000+ screenplays
+- [ ] **Phase 3: Selection Mode Foundation** - Multi-select checkboxes, selection store, bulk action bar
+- [ ] **Phase 4: Bulk Action Integrations** - Wire up export, compare, collection, favorites from selection store
+- [ ] **Phase 5: Bulk PDF Upload Modal** - Streamlined upload with per-title dropzones
+
+## Phase Details
+
+### Phase 1: PDF Polish
 **Goal:** Fix the known coverage PDF cover page spacing issue — proper visual separation between weighted score and recommendation badge.
 **Requirements:** PDF-01
 **Depends on:** None
-**Estimated plans:** 1
-**Risk:** Low — isolated @react-pdf/renderer style fix
 
-#### Phase 2: Performance at Scale
+### Phase 2: Performance at Scale
 **Goal:** Make the dashboard performant with 500-1000+ screenplays through virtual scrolling and memoized filtering.
 **Requirements:** PERF-01, PERF-02
-**Depends on:** Phase 1 (sequential, but no technical dependency)
-**Estimated plans:** 2-3
-**Risk:** Medium — virtual scrolling library choice affects card rendering; must validate with existing card interactions (modal open, context menu, etc.)
+**Depends on:** Phase 1
 
-#### Phase 3: Selection Mode Foundation
+### Phase 3: Selection Mode Foundation
 **Goal:** Add multi-select checkboxes to screenplay cards, build the selection Zustand store, render the sticky bottom bulk action bar shell, and wire up Select All/Deselect All.
 **Requirements:** BULK-01, BULK-02, BULK-03, BULK-10, BULK-11
-**Depends on:** Phase 2 (virtual scrolling must be in place — checkboxes render inside virtualized cards)
-**Estimated plans:** 2-3
-**Context:** [03-CONTEXT.md](phases/03-selection-mode-foundation/03-CONTEXT.md) — full decisions on checkbox style, bar placement, selection UX
+**Depends on:** Phase 2
 
-#### Phase 4: Bulk Action Integrations
+### Phase 4: Bulk Action Integrations
 **Goal:** Wire up the five always-available bulk actions — export CSV, export PDF, compare, add to collection, add to favorites — connecting the selection store to existing modals and stores.
 **Requirements:** BULK-04, BULK-05, BULK-06, BULK-08, BULK-09
-**Depends on:** Phase 3 (selection store and action bar must exist)
-**Estimated plans:** 2
-**Risk:** Low — mostly glue code between selection store and existing features (ExportModal, ComparisonModal, favorites/collections stores)
+**Depends on:** Phase 3
 
-#### Phase 5: Bulk PDF Upload Modal
+### Phase 5: Bulk PDF Upload Modal
 **Goal:** Build the streamlined bulk PDF upload experience — one dropzone per title, filtered to missing-PDF screenplays only, with success summary.
 **Requirements:** BULK-07, BULK-12
-**Depends on:** Phase 3 (selection store must exist)
-**Estimated plans:** 2
-**Context:** [03-CONTEXT.md](phases/03-selection-mode-foundation/03-CONTEXT.md) — Area 1 decisions on upload UX
+**Depends on:** Phase 3
 
 ## Progress
 
