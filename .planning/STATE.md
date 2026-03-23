@@ -4,14 +4,14 @@ milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: in_progress
 stopped_at: null
-last_updated: "2026-03-23T21:32:02Z"
-last_activity: 2026-03-23 — Phase 2 Plan 1 complete (Virtual Scroll Prep)
+last_updated: "2026-03-23T21:40:13Z"
+last_activity: 2026-03-23 — Phase 2 Plan 2 complete (Virtual Scrolling Grid)
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 30
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
+  percent: 40
 ---
 
 # Project State
@@ -25,25 +25,25 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 2 of 5 (Performance at Scale — Plan 1/2 complete)
-Plan: 1/2 complete
-Status: Phase 2 Plan 1 done (Virtual Scroll Prep), ready for Plan 2
-Last activity: 2026-03-23 — Phase 2 Plan 1 complete (memo-wrap card, IO removal, useColumnCount, fire-once animation)
+Phase: 2 of 5 (Performance at Scale -- COMPLETE)
+Plan: 2/2 complete
+Status: Phase 2 complete (Virtual Scrolling Grid), ready for Phase 3
+Last activity: 2026-03-23 -- Phase 2 Plan 2 complete (virtual scrolling grid, VirtualRow, BackToTopButton)
 
-Progress: [███░░░░░░░] 30%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 8min
-- Total execution time: 8min
+- Total plans completed: 2
+- Average duration: 7min
+- Total execution time: 13min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 02-performance-at-scale | 1 | 8min | 8min |
+| 02-performance-at-scale | 2 | 13min | 7min |
 
 *Updated after each plan completion*
 
@@ -66,6 +66,10 @@ Recent decisions affecting current work:
 - [Phase 2 Plan 1]: All loglines clamped to 2 lines including FILM NOW (D-09) -- uniform card height for virtual scrolling
 - [Phase 2 Plan 1]: IO removed from card, animation gating moved to ScoreBar via cardId prop
 - [Phase 2 Plan 1]: @tanstack/react-virtual chosen for virtual scrolling (resolved blocker)
+- [Phase 2 Plan 2]: Row-based virtualization (not cell-based) to match flex layout with responsive column count
+- [Phase 2 Plan 2]: Scroll container height uses calc(100vh - 200px) for bounded container required by virtualizer
+- [Phase 2 Plan 2]: Keyboard navigation tests removed (deferred per CONTEXT.md) since CSS Grid column detection no longer exists
+- [Phase 2 Plan 2]: Overscan of 3 rows balances smooth scrolling vs DOM node count
 
 ### Pending Todos
 
@@ -79,5 +83,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Completed 02-01-PLAN.md (Virtual Scroll Prep)
+Stopped at: Completed 02-02-PLAN.md (Virtual Scrolling Grid)
 Resume file: None

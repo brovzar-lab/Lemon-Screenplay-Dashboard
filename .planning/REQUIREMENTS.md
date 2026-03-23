@@ -38,7 +38,7 @@
 
 ### Performance at Scale
 
-- [ ] **PERF-01**: Screenplay grid uses virtual scrolling to handle 500-1000+ screenplays without UI lag
+- [x] **PERF-01**: Screenplay grid uses virtual scrolling to handle 500-1000+ screenplays without UI lag
 - [x] **PERF-02**: Filtering pipeline is memoized so filter/sort changes don't trigger unnecessary re-renders at scale
 
 ### Bulk Operations — Selection
@@ -116,7 +116,7 @@
 | SHARE-04 | v6.8 Phase 6 | Complete |
 | EXPORT-01 | v6.8 Phase 7 | Complete |
 | PDF-01 | v7.0 Phase 1 | Pending |
-| PERF-01 | v7.0 Phase 2 | Pending |
+| PERF-01 | v7.0 Phase 2 | Complete |
 | PERF-02 | v7.0 Phase 2 | Complete |
 | BULK-01 | v7.0 Phase 3 | Pending |
 | BULK-02 | v7.0 Phase 3 | Pending |

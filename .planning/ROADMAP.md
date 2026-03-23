@@ -23,7 +23,7 @@
 ### v7.0 Pipeline Scale & Bulk Operations
 
 - [x] **Phase 1: PDF Polish** - Fix coverage PDF cover page spacing (score/verdict separation) (completed 2026-03-23)
-- [ ] **Phase 2: Performance at Scale** - Virtual scrolling + memoized filtering for 500-1000+ screenplays
+- [x] **Phase 2: Performance at Scale** - Virtual scrolling + memoized filtering for 500-1000+ screenplays (completed 2026-03-23)
 - [ ] **Phase 3: Selection Mode Foundation** - Multi-select checkboxes, selection store, bulk action bar
 - [ ] **Phase 4: Bulk Action Integrations** - Wire up export, compare, collection, favorites from selection store
 - [ ] **Phase 5: Bulk PDF Upload Modal** - Streamlined upload with per-title dropzones
@@ -43,7 +43,7 @@
 
 Plans:
 - [x] 02-01-PLAN.md — Card preparation: memo-wrap ScreenplayCard, remove IO, standardize height, fire-once animation, install @tanstack/react-virtual, create useColumnCount hook (completed 2026-03-23)
-- [ ] 02-02-PLAN.md — Virtual grid: rewrite ScreenplayGrid with row-based virtual scrolling, BackToTopButton, initial load stagger
+- [x] 02-02-PLAN.md — Virtual grid: rewrite ScreenplayGrid with row-based virtual scrolling, BackToTopButton, initial load stagger (completed 2026-03-23)
 
 ### Phase 3: Selection Mode Foundation
 **Goal:** Add multi-select checkboxes to screenplay cards, build the selection Zustand store, render the sticky bottom bulk action bar shell, and wire up Select All/Deselect All.
@@ -65,7 +65,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. PDF Polish | v7.0 | 1/1 | Complete | 2026-03-23 |
-| 2. Performance at Scale | v7.0 | 1/2 | In Progress | — |
+| 2. Performance at Scale | v7.0 | 2/2 | Complete | 2026-03-23 |
 | 3. Selection Mode Foundation | v7.0 | 0/? | Pending | — |
 | 4. Bulk Action Integrations | v7.0 | 0/? | Pending | — |
 | 5. Bulk PDF Upload Modal | v7.0 | 0/? | Pending | — |
