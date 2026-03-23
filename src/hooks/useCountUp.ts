@@ -1,5 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 
+/**
+ * Module-level set tracking which card IDs have already animated their ScoreBar.
+ * Persists across re-renders and re-mounts; clears on page reload.
+ */
+const animatedCardIds = new Set<string>();
+
+/** Mark a card as having completed its count-up animation. */
+export function markCardAnimated(cardId: string): void {
+  animatedCardIds.add(cardId);
+}
+
+/** Check whether a card has already animated its count-up. */
+export function hasCardAnimated(cardId: string): boolean {
+  return animatedCardIds.has(cardId);
+}
+
 const prefersReducedMotion =
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
