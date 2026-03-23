@@ -34,13 +34,19 @@ Surface the best screenplays from a large pipeline so the producer doesn't waste
 - ✓ Shared partner view — read-only standalone analysis page, no dashboard access — v6.8
 - ✓ Coverage PDF export — branded multi-page PDF with scores, analysis, notes, recommendation — v6.8
 
-### Active
+### Active (v7.0 — Pipeline Scale & Bulk Operations)
 
-- [ ] PDF polish — score/verdict spacing on coverage PDF cover page; audit all pages for layout issues
+- [ ] PDF polish — score/verdict spacing on coverage PDF cover page
 - [ ] Performance at scale — virtual scrolling and memoized filtering for 500-1000+ screenplays
-- [ ] Bulk operations — batch coverage PDF generation, bulk share token management, multi-select export
+- [ ] Bulk operations — multi-select grid with always-on checkboxes, sticky bulk action bar, batch export (CSV/PDF), batch compare, bulk PDF upload, batch add-to-collection/favorites
+
+### Backlog
+
 - [ ] Comparable titles — surface similar produced films per screenplay (deferred from v6.8)
 - [ ] Market timing insights — genre/theme trend indicators (saturated vs. underserved)
+- [ ] Bulk share token management — generate tokens for N screenplays at once
+- [ ] Bulk delete with confirmation — soft-delete integration for multi-select
+- [ ] Keyboard shortcuts for selection — Shift+click range, Cmd+A
 
 ### Out of Scope
 
@@ -57,13 +63,15 @@ Surface the best screenplays from a large pipeline so the producer doesn't waste
 ## Context
 
 - Shipped v6.8 on 2026-03-17 — security hardening, sync visibility, data safety, partner sharing, coverage PDF export
+- Starting v7.0 on 2026-03-23 — PDF polish, performance at scale, bulk operations
 - The analysis engine (Claude-powered) is the strongest part — producer is happy with analysis quality
 - 500+ screenplays in the pipeline; performance at scale is the next meaningful constraint
 - Dual-write pattern (localStorage + Firestore) is now hardened with sync status visibility and soft-delete recovery
 - Firestore is secured with anonymous auth + tight rules — safe to share external links
-- Coverage PDF export is live; cover page has a known spacing issue (score/verdict) deferred to next milestone
+- Coverage PDF export is live; cover page has a known spacing issue (score/verdict) to fix in v7.0
 - Firebase App Check is still disabled — acceptable for internal tool
 - The visual design (gold/black premium theme with glassmorphism) is liked and should be preserved
+- Bulk operations discussed in detail — always-on checkboxes, sticky bottom action bar, streamlined PDF upload modal (see Phase 12 CONTEXT.md decisions)
 
 ## Constraints
 
@@ -84,7 +92,11 @@ Surface the best screenplays from a large pipeline so the producer doesn't waste
 | Anonymous auth + Firestore rules (no App Check) | Prior App Check config mismatch caused 400 errors; anonymous auth with browserLocalPersistence chosen | ✓ Production stable |
 | Snapshot pattern for shared_views | Analysis data embedded at token creation — no live sync needed for partner view | ✓ Clean isolation |
 | Coverage PDF client-side (@react-pdf/renderer) | No server round-trip needed; existing dependency | ✓ Works well |
-| Market Intelligence (INTEL-01/02) deferred | Comparable films fill rate uncertain; producer workflow complete without it | — Deferred to future milestone |
+| Market Intelligence (INTEL-01/02) deferred | Comparable films fill rate uncertain; producer workflow complete without it | — Deferred to backlog |
+| v7.0 scope: polish + perf + bulk ops | These 3 are all about making the dashboard work at scale; market intelligence is a different flavor | — v7.0 milestone |
+| Always-on checkboxes (not mode toggle) | Producer selects often enough that a mode toggle becomes friction | — v7.0 bulk ops |
+| Streamlined upload modal (not full panel) | Selection already done in grid; no need to re-search in the upload modal | — v7.0 bulk ops |
+| Sticky bottom action bar | Keeps filters visible while selecting; standard pattern | — v7.0 bulk ops |
 
 ---
-*Last updated: 2026-03-17 after v6.8 milestone*
+*Last updated: 2026-03-23 — v7.0 milestone kickoff*
