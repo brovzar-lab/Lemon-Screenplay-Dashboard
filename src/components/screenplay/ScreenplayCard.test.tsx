@@ -7,6 +7,15 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ScreenplayCard } from './ScreenplayCard';
 import { createTestScreenplay } from '@/test/factories';
 
+// Mock the selection store
+const mockUseIsSelected = vi.fn(() => false);
+const mockToggle = vi.fn();
+vi.mock('@/stores/selectionStore', () => ({
+  useIsSelected: (...args: unknown[]) => mockUseIsSelected(...args),
+  useSelectionStore: (sel: ((s: { toggle: typeof mockToggle }) => unknown) | undefined) =>
+    sel ? sel({ toggle: mockToggle }) : { toggle: mockToggle },
+}));
+
 // Mock the comparison store
 vi.mock('@/stores/comparisonStore', () => ({
   useComparisonStore: () => vi.fn(),
@@ -170,11 +179,25 @@ describe('ScreenplayCard', () => {
     expect(screen.getByText('Supporting Cast')).toBeInTheDocument();
   });
 
-  it('has export selection button with correct aria-label', () => {
+  it('renders always-visible bulk selection checkbox', () => {
     const screenplay = createTestScreenplay();
     render(<ScreenplayCard screenplay={screenplay} />);
 
-    expect(screen.getByLabelText('Select for export')).toBeInTheDocument();
+    const checkbox = screen.getByLabelText('Select screenplay');
+    expect(checkbox).toBeInTheDocument();
+    // Always visible -- should NOT have opacity-0 class
+    expect(checkbox.className).not.toContain('opacity-0');
+  });
+
+  it('shows gold ring when selected', () => {
+    mockUseIsSelected.mockReturnValue(true);
+    const screenplay = createTestScreenplay();
+    render(<ScreenplayCard screenplay={screenplay} />);
+
+    const article = screen.getByRole('article');
+    expect(article.className).toContain('ring-2');
+    expect(article.className).toContain('ring-gold-500/50');
+    mockUseIsSelected.mockReturnValue(false);
   });
 
   it('handles screenplay with missing producerMetrics gracefully', () => {
