@@ -49,6 +49,11 @@ Plans:
 **Goal:** Add multi-select checkboxes to screenplay cards, build the selection Zustand store, render the sticky bottom bulk action bar shell, and wire up Select All/Deselect All.
 **Requirements:** BULK-01, BULK-02, BULK-03, BULK-10, BULK-11
 **Depends on:** Phase 2
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Selection store (Set-based Zustand) + always-visible checkbox and gold ring on ScreenplayCard
+- [ ] 03-02-PLAN.md — BulkActionBar shell (sticky bottom, six disabled buttons, Select All/Deselect All) + BackToTopButton offset
 
 ### Phase 4: Bulk Action Integrations
 **Goal:** Wire up the five always-available bulk actions — export CSV, export PDF, compare, add to collection, add to favorites — connecting the selection store to existing modals and stores.
@@ -66,7 +71,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 1. PDF Polish | v7.0 | 1/1 | Complete | 2026-03-23 |
 | 2. Performance at Scale | v7.0 | 2/2 | Complete | 2026-03-23 |
-| 3. Selection Mode Foundation | v7.0 | 0/? | Pending | — |
+| 3. Selection Mode Foundation | v7.0 | 0/2 | Pending | — |
 | 4. Bulk Action Integrations | v7.0 | 0/? | Pending | — |
 | 5. Bulk PDF Upload Modal | v7.0 | 0/? | Pending | — |
 
