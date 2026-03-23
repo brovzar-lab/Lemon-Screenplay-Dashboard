@@ -4,14 +4,14 @@ milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: in_progress
 stopped_at: null
-last_updated: "2026-03-23T21:40:13Z"
-last_activity: 2026-03-23 — Phase 2 Plan 2 complete (Virtual Scrolling Grid)
+last_updated: "2026-03-23T23:52:38Z"
+last_activity: 2026-03-23 — Phase 3 Plan 1 complete (Selection Store & Card Checkbox)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
-  percent: 40
+  total_plans: 4
+  completed_plans: 4
+  percent: 50
 ---
 
 # Project State
@@ -25,25 +25,26 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 2 of 5 (Performance at Scale -- COMPLETE)
-Plan: 2/2 complete
-Status: Phase 2 complete (Virtual Scrolling Grid), ready for Phase 3
-Last activity: 2026-03-23 -- Phase 2 Plan 2 complete (virtual scrolling grid, VirtualRow, BackToTopButton)
+Phase: 3 of 5 (Selection Mode Foundation)
+Plan: 1/2 complete
+Status: Phase 3 Plan 1 complete (Selection Store & Card Checkbox)
+Last activity: 2026-03-23 -- Phase 3 Plan 1 complete (selectionStore, ScreenplayCard checkbox)
 
-Progress: [████░░░░░░] 40%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 7min
-- Total execution time: 13min
+- Total plans completed: 3
+- Average duration: 6min
+- Total execution time: 17min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 02-performance-at-scale | 2 | 13min | 7min |
+| 03-selection-mode-foundation | 1 | 4min | 4min |
 
 *Updated after each plan completion*
 
@@ -70,6 +71,10 @@ Recent decisions affecting current work:
 - [Phase 2 Plan 2]: Scroll container height uses calc(100vh - 200px) for bounded container required by virtualizer
 - [Phase 2 Plan 2]: Keyboard navigation tests removed (deferred per CONTEXT.md) since CSS Grid column detection no longer exists
 - [Phase 2 Plan 2]: Overscan of 3 rows balances smooth scrolling vs DOM node count
+- [Phase 3 Plan 1]: Set-based selectionStore (not array) for O(1) has/toggle operations
+- [Phase 3 Plan 1]: No persist middleware -- selection is ephemeral, clears on page refresh
+- [Phase 3 Plan 1]: Bulk checkbox always visible (not hover-gated) per D-05 decision
+- [Phase 3 Plan 1]: Gold ring only shows when NOT in delete mode to avoid double rings
 
 ### Pending Todos
 
@@ -83,5 +88,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Completed 02-02-PLAN.md (Virtual Scrolling Grid)
+Stopped at: Completed 03-01-PLAN.md (Selection Store & Card Checkbox)
 Resume file: None
