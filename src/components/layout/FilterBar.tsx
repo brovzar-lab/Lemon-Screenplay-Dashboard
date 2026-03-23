@@ -349,7 +349,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
         </div>
 
         {/* Quick Filter Chips — horizontal scroll on mobile, wrap on sm+ */}
-        <div className="overflow-x-auto scrollbar-hide mt-4">
+        <nav aria-label="Filter screenplays" className="overflow-x-auto scrollbar-hide mt-4">
         <div ref={chipsContainerRef} className="relative flex flex-nowrap sm:flex-wrap gap-2 pb-1 min-w-max sm:min-w-0">
           {/* Sliding active indicator */}
           <div
@@ -424,7 +424,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
             </button>
           )}
         </div>
-        </div>
+        </nav>
       </div>
 
       {/* Overlay panels & modals owned by FilterBar */}
