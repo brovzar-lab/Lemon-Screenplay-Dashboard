@@ -39,6 +39,11 @@
 **Goal:** Make the dashboard performant with 500-1000+ screenplays through virtual scrolling and memoized filtering.
 **Requirements:** PERF-01, PERF-02
 **Depends on:** Phase 1
+**Plans:** 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Card preparation: memo-wrap ScreenplayCard, remove IO, standardize height, fire-once animation, install @tanstack/react-virtual, create useColumnCount hook
+- [ ] 02-02-PLAN.md — Virtual grid: rewrite ScreenplayGrid with row-based virtual scrolling, BackToTopButton, initial load stagger
 
 ### Phase 3: Selection Mode Foundation
 **Goal:** Add multi-select checkboxes to screenplay cards, build the selection Zustand store, render the sticky bottom bulk action bar shell, and wire up Select All/Deselect All.
@@ -60,7 +65,7 @@
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. PDF Polish | v7.0 | 1/1 | Complete | 2026-03-23 |
-| 2. Performance at Scale | v7.0 | 0/? | Pending | — |
+| 2. Performance at Scale | v7.0 | 0/2 | Planned | — |
 | 3. Selection Mode Foundation | v7.0 | 0/? | Pending | — |
 | 4. Bulk Action Integrations | v7.0 | 0/? | Pending | — |
 | 5. Bulk PDF Upload Modal | v7.0 | 0/? | Pending | — |
