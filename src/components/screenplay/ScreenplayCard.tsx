@@ -35,7 +35,7 @@ function ProducerMetricsMini({ screenplay }: { screenplay: Screenplay }) {
   return (
     <div className="flex gap-4 text-xs">
       <div className="flex items-center gap-1" title="AI-analyzed market potential">
-        <span className="text-black-500">Mkt</span>
+        <span className="text-black-400">Mkt</span>
         {mp !== null && mp !== undefined ? (
           <span className={clsx('font-mono font-bold', getScoreColorClass(mp))}>
             {mp}
@@ -82,21 +82,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
   const [isRevealed, setIsRevealed] = useState(false);
   const cardRef = useRef<HTMLElement>(null);
 
-  const [isPeeking, setIsPeeking] = useState(false);
-  const peekTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const supportsHover = typeof window !== 'undefined' &&
-    window.matchMedia('(hover: hover)').matches;
-
-  const handlePeekEnter = () => {
-    if (!supportsHover) return;
-    peekTimerRef.current = setTimeout(() => setIsPeeking(true), 500);
-  };
-
-  const handlePeekLeave = () => {
-    clearTimeout(peekTimerRef.current);
-    setIsPeeking(false);
-  };
 
   useEffect(() => {
     const el = cardRef.current;
@@ -116,9 +102,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    return () => clearTimeout(peekTimerRef.current);
-  }, []);
+
 
   const handleSelectClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -170,13 +154,11 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
       <article
         ref={cardRef}
         onClick={onClick}
-        onMouseEnter={handlePeekEnter}
-        onMouseLeave={handlePeekLeave}
         className={clsx(
           'card cursor-pointer relative group transition-all duration-200 ease-out',
+          'h-[420px] flex flex-col overflow-hidden',
           tierClass,
           isDeleteMode && isDeleteSelected && 'ring-2 ring-red-500/50',
-          isPeeking && 'scale-[1.02] shadow-lg shadow-gold-500/10'
         )}
       >
         {/* Selection checkbox (export) — only visible on hover or when selected */}
@@ -257,7 +239,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
           {/* FILE-02: Analysis version badge — only shown for legacy */}
           {isLegacyVersion && (
             <span
-              className="chip text-xs border-black-600/40 text-black-500"
+              className="chip text-xs border-black-600/40 text-black-400"
               title={`Analyzed with ${screenplay.analysisVersion} — re-analyze for current engine`}
             >
               Legacy
@@ -266,36 +248,14 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
         </div>
 
         {/* Logline */}
-        <p className={`text-sm text-black-300 leading-relaxed ${
-          screenplay.recommendation === 'film_now' || isPeeking ? '' : 'line-clamp-2'
-        }`}>
+        <p className="text-sm text-black-300 leading-relaxed mb-5 line-clamp-2">
           {screenplay.logline}
         </p>
 
-        {/* Quick-peek expanded content */}
-        <div
-          className={clsx(
-            'overflow-hidden transition-all duration-200 ease-out',
-            isPeeking ? 'max-h-24 opacity-100 mt-2 mb-5' : 'max-h-0 opacity-0 mb-5'
-          )}
-        >
-          <div className="flex gap-1.5 flex-wrap">
-            {getDimensionDisplay(screenplay)
-              .slice()
-              .sort((a, b) => b.score - a.score)
-              .slice(0, 3)
-              .map((dim) => (
-                <span
-                  key={dim.key}
-                  className="text-xs font-mono px-2 py-0.5 rounded-full bg-black-800 text-black-200"
-                >
-                  {dim.label}: {dim.score.toFixed(1)}
-                </span>
-              ))}
-          </div>
-        </div>
-
         {/* Scores Grid */}
+        {/* Spacer pushes scores to bottom */}
+        <div className="flex-1" />
+
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-5">
           {getDimensionDisplay(screenplay).slice(0, 4).map((dim) => (
             <ScoreBar
@@ -312,7 +272,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
         <div className="flex items-center justify-between pt-4 border-t border-black-700">
           <div className="flex items-center gap-5">
             <div>
-              <span className="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+              <span className="text-[11px] font-semibold tracking-widest uppercase text-black-400 block">Score</span>
               <span className={clsx(
                 scoreNumClass,
                 getScoreColorClass(Number(screenplay.weightedScore) || 0)
@@ -321,9 +281,9 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
               </span>
             </div>
             <div>
-              <span className="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+              <span className="text-[11px] font-semibold tracking-widest uppercase text-black-400 block">CVS</span>
               {screenplay.commercialViability.cvsAssessed === false ? (
-                <span className={`${scoreTextClass} text-black-500 italic`}>N/A</span>
+                <span className={`${scoreTextClass} text-black-400 italic`}>N/A</span>
               ) : (
                 <span className={clsx(
                   scoreNumClass,

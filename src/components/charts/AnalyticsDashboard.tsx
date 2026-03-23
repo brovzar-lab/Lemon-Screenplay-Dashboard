@@ -120,23 +120,23 @@ export function AnalyticsDashboard({
                 {isExpanded ? animatedTotal.toFixed(0) : screenplays.length}
               </span>
               {isFiltered ? ` of ${totalScreenplays.length}` : ''} screenplays
-              {isFiltered && <span className="ml-1 text-gold-500/70">(filtered)</span>}
+              {isFiltered && <span className="ml-1 text-gold-500">(filtered)</span>}
             </span>
-            <span className="text-black-500">|</span>
+            <span className="text-black-400">|</span>
             <span className="text-black-400">
               Avg Score:{' '}
               <span className="font-mono text-emerald-400">
                 {isExpanded ? animatedAvg.toFixed(1) : avgScoreRaw.toFixed(1)}
               </span>
             </span>
-            <span className="text-black-500">|</span>
+            <span className="text-black-400">|</span>
             <span className="text-black-400">
               <span className="font-mono text-gold-400">
                 {isExpanded ? animatedFilmNow.toFixed(0) : filmNowCount}
               </span>{' '}
               FILM NOW
             </span>
-            <span className="text-black-500">|</span>
+            <span className="text-black-400">|</span>
             <span className="text-black-400">
               <span className="font-mono text-emerald-400">
                 {isExpanded ? animatedRecommend.toFixed(0) : recommendCount}
@@ -185,10 +185,10 @@ export function AnalyticsDashboard({
               }
             >
               <div className="glass rounded-lg border border-black-700 p-4 h-full">
-                <h3 className="text-sm font-medium text-black-300 mb-3">{card.title}</h3>
+                <h2 className="text-sm font-medium text-black-300 mb-3">{card.title}</h2>
                 <div className="h-48">{card.content}</div>
                 {card.hint && (
-                  <p className="text-xs text-black-500 mt-2 text-center">{card.hint}</p>
+                  <p className="text-xs text-black-400 mt-2 text-center">{card.hint}</p>
                 )}
               </div>
             </div>

@@ -15,6 +15,8 @@ import { useSortStore } from '@/stores/sortStore';
 import { useExportSelectionStore, useExportSelectionCount } from '@/stores/exportSelectionStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
+import { useScreenplays } from '@/hooks/useScreenplays';
+import { usePdfScan } from '@/hooks/usePdfScan';
 import { buildShareableUrl } from '@/hooks/useUrlState';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { ShortcutHint } from '@/components/ui/ShortcutHint';
@@ -51,6 +53,20 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   const resetFilters = useFilterStore((s) => s.resetFilters);
   const missingPdfOnly = useFilterStore((s) => s.missingPdfOnly);
   const setMissingPdfOnly = useFilterStore((s) => s.setMissingPdfOnly);
+  const hasPdfOnly = useFilterStore((s) => s.hasPdfOnly);
+  const setHasPdfOnly = useFilterStore((s) => s.setHasPdfOnly);
+
+  // Full (unfiltered) screenplay list — needed so the PDF scan runs against all
+  // screenplays, not just the filtered subset (which may be empty before scan).
+  const { data: allScreenplays = [] } = useScreenplays();
+
+  // Auto-trigger PDF storage scan when PDF filters are activated
+  const { triggerScan } = usePdfScan();
+  useEffect(() => {
+    if ((hasPdfOnly || missingPdfOnly) && allScreenplays.length > 0) {
+      triggerScan(allScreenplays);
+    }
+  }, [hasPdfOnly, missingPdfOnly, allScreenplays, triggerScan]);
 
   // FILTER-03: count active dimension range filters
   const advancedFilterCount = useFilterStore((s) =>
@@ -69,7 +85,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   const pdfStatuses = usePdfStatusStore((s) => s.statuses);
   const hasScanResult = usePdfStatusStore((s) => s.hasScanResult);
 
-  // FILE-03: count missing PDFs from unfiltered list
+  // FILE-03: count missing/found PDFs from unfiltered list
   const missingPdfCount = useMemo(() => {
     if (!screenplays) return 0;
     return screenplays.filter((sp) => {
@@ -79,6 +95,11 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
       return sp.hasPdf !== true;
     }).length;
   }, [screenplays, pdfStatuses, hasScanResult]);
+
+  const hasPdfCount = useMemo(() => {
+    if (!hasScanResult) return 0;
+    return allScreenplays.filter((sp) => pdfStatuses[sp.id] === 'found').length;
+  }, [allScreenplays, pdfStatuses, hasScanResult]);
 
   // Sort store
   const sortConfigs = useSortStore((s) => s.sortConfigs);
@@ -230,6 +251,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
             {/* Quick Sort Dropdown */}
             <select
               className="input py-2 px-3 w-auto text-sm"
+              aria-label="Sort screenplays by"
               value={sortConfigs[0]?.field || 'marketPotential'}
               onChange={(e) => {
                 resetSort();
@@ -367,6 +389,25 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               )}
             </button>
           )}
+
+          {/* Has PDF quick-filter chip — inverse of Missing PDF */}
+          <button
+            data-active={hasPdfOnly ? 'true' : 'false'}
+            onClick={() => setHasPdfOnly(!hasPdfOnly)}
+            className={clsx(
+              'chip cursor-pointer transition-all',
+              hasPdfOnly
+                ? 'bg-green-500 border-green-500 !text-black-950 font-semibold'
+                : 'hover:border-green-500'
+            )}
+          >
+            Has PDF
+            {hasPdfCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-black-800 text-green-300 text-xs font-bold">
+                {hasPdfCount}
+              </span>
+            )}
+          </button>
 
           {hasActiveFilters && (
             <button

@@ -162,6 +162,7 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
                   value={selectedField}
                   onChange={(e) => setSelectedField(e.target.value as SortField)}
                   className="flex-1 input py-2 text-sm"
+                  aria-label="Select sort field"
                 >
                   <option value="">Select field...</option>
                   {groupedFields.score.length > 0 && (

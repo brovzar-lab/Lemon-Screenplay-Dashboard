@@ -289,7 +289,7 @@
   /* Status Badges */
   .badge-recommend {
     background: var(--color-emerald-500);
-    color: white;
+    color: var(--color-black-950);
   }
 
   .badge-consider {
@@ -472,7 +472,6 @@
 
   .card:hover {
     border-color: rgba(245, 158, 11, 0.3);
-    transform: translateY(-4px);
     box-shadow: var(--shadow-gold);
   }
 

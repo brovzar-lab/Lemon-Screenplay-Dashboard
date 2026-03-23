@@ -71,7 +71,7 @@ export function CollectionTabs({ screenplays }: CollectionTabsProps) {
         <span
           className={`
             text-xs px-1.5 py-0.5 rounded-full font-mono
-            ${activeCategory === 'all' ? 'bg-gold-500/30 text-gold-300' : 'bg-black-700 text-black-400'}
+            ${activeCategory === 'all' ? 'bg-gold-500/30 text-gold-300' : 'bg-black-700 text-black-300'}
           `}
         >
           {screenplays.length}
@@ -100,7 +100,7 @@ export function CollectionTabs({ screenplays }: CollectionTabsProps) {
             <span
               className={`
                 text-xs px-1.5 py-0.5 rounded-full font-mono
-                ${isActive ? 'bg-gold-500/30 text-gold-300' : 'bg-black-700 text-black-400'}
+                ${isActive ? 'bg-gold-500/30 text-gold-300' : 'bg-black-700 text-black-300'}
               `}
             >
               {count}

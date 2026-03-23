@@ -21,18 +21,9 @@ import type { Screenplay } from '@/types';
 
 // ─── Firestore / Storage helpers ──────────────────────────────────────────────
 
-const FIRESTORE_COLLECTION = 'screenplays';
+import { toDocId } from '@/lib/analysisStore';
 
-/** Mirror the toDocId logic from analysisStore.ts */
-function toDocId(sourceFile: string): string {
-    return String(sourceFile || '')
-        .replace(/\\/g, '/')
-        .split('/')
-        .pop()!
-        .replace(/\s+/g, '_')
-        .replace(/[^a-zA-Z0-9._-]/g, '')
-        .slice(0, 200) || `doc_${Date.now()}`;
-}
+const FIRESTORE_COLLECTION = 'uploaded_analyses';
 
 import { buildStoragePath } from './pdfUploadPanel.helpers';
 
@@ -439,6 +430,7 @@ export function PdfUploadPanel() {
                             value={manualPickId}
                             onChange={(e) => setManualPickId(e.target.value)}
                             className="w-full bg-black-800 border border-black-600 rounded-lg text-sm text-gold-200 px-3 py-2 focus:outline-none focus:border-gold-500/50"
+                            aria-label="Link PDF to screenplay"
                         >
                             {sortedScreenplays.map((s) => (
                                 <option key={s.id} value={s.id}>
