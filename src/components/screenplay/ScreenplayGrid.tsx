@@ -9,6 +9,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { VirtualRow } from './VirtualRow';
 import { BackToTopButton } from './BackToTopButton';
+import { BulkActionBar } from './BulkActionBar';
 import { useColumnCount } from '@/hooks/useColumnCount';
 import { EmptyState, SpotlightIcon, DimmedStarIcon, SearchEmptyIcon } from '@/components/ui/EmptyState';
 import { useFilterStore } from '@/stores/filterStore';
@@ -256,6 +257,7 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
         </div>
       </div>
       <BackToTopButton visible={showBackToTop} onClick={scrollToTop} />
+      <BulkActionBar />
     </>
   );
 }

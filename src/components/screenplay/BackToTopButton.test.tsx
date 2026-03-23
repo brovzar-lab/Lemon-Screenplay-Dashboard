@@ -2,6 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BackToTopButton } from './BackToTopButton';
 
+// Mock selection store -- default: no selection
+let mockHasSelection = false;
+
+vi.mock('@/stores/selectionStore', () => ({
+  useHasSelection: () => mockHasSelection,
+}));
+
 describe('BackToTopButton', () => {
   it('renders with "Scroll to top" aria-label', () => {
     render(<BackToTopButton visible={true} onClick={vi.fn()} />);
@@ -32,5 +39,21 @@ describe('BackToTopButton', () => {
   it('displays "Top" text', () => {
     render(<BackToTopButton visible={true} onClick={vi.fn()} />);
     expect(screen.getByText('Top')).toBeInTheDocument();
+  });
+
+  it('uses bottom-6 when no selection', () => {
+    mockHasSelection = false;
+    render(<BackToTopButton visible={true} onClick={vi.fn()} />);
+    const btn = screen.getByLabelText('Scroll to top');
+    expect(btn.className).toContain('bottom-6');
+    expect(btn.className).not.toContain('bottom-20');
+  });
+
+  it('uses bottom-20 when selection active', () => {
+    mockHasSelection = true;
+    render(<BackToTopButton visible={true} onClick={vi.fn()} />);
+    const btn = screen.getByLabelText('Scroll to top');
+    expect(btn.className).toContain('bottom-20');
+    expect(btn.className).not.toContain('bottom-6');
   });
 });

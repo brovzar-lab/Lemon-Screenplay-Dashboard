@@ -45,6 +45,22 @@ vi.mock('@/hooks/useScreenplays', () => ({
   SCREENPLAYS_QUERY_KEY: ['screenplays'],
 }));
 
+// Mock BulkActionBar to avoid its internal dependencies
+vi.mock('./BulkActionBar', () => ({
+  BulkActionBar: () => <div data-testid="bulk-action-bar" />,
+}));
+
+// Mock selection store (used by BackToTopButton and cards)
+vi.mock('@/stores/selectionStore', () => ({
+  useSelectionStore: (sel: (s: Record<string, unknown>) => unknown) =>
+    sel
+      ? sel({ toggle: vi.fn(), selectAll: vi.fn(), deselectAll: vi.fn(), selectedIds: new Set() })
+      : {},
+  useIsSelected: () => false,
+  useSelectionCount: () => 0,
+  useHasSelection: () => false,
+}));
+
 
 describe('ScreenplayGrid', () => {
   beforeEach(() => {
@@ -123,6 +139,12 @@ describe('ScreenplayGrid', () => {
     expect(() =>
       render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />)
     ).not.toThrow();
+  });
+
+  it('renders BulkActionBar as sibling', () => {
+    const screenplays = [createTestScreenplay({ id: '1', title: 'Test Movie' })];
+    render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
+    expect(screen.getByTestId('bulk-action-bar')).toBeInTheDocument();
   });
 
   it('calls onCardClick when a card is clicked', () => {
