@@ -236,7 +236,7 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
   }
 
   return (
-    <div ref={containerRef} className="relative bg-black-950">
+    <div ref={containerRef} data-testid="screenplay-grid" className="relative bg-black-950">
       {/* Sentinel div establishes the total scroll height for the virtualizer */}
       <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {

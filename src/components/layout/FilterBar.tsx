@@ -204,6 +204,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
           <div className="relative w-full sm:w-auto">
             <input
               id={SEARCH_INPUT_ID}
+              data-testid="search-input"
               type="text"
               className={`input pl-10 pr-16 transition-all duration-300 ease-out w-full sm:w-auto ${isSearchFocused ? 'sm:w-[360px]' : 'sm:w-52'}`}
               placeholder="Search title, author, genre, logline..."
@@ -252,6 +253,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide w-full sm:w-auto pb-1 sm:pb-0">
               {/* Quick Sort Dropdown */}
               <select
+                data-testid="sort-select"
                 className="input py-2 px-3 w-auto text-sm shrink-0 min-h-[44px]"
                 aria-label="Sort screenplays by"
                 value={sortConfigs[0]?.field || 'marketPotential'}

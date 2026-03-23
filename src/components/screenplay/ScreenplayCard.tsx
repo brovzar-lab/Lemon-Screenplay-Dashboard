@@ -153,6 +153,7 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
     <>
       <article
         ref={cardRef}
+        data-testid={`screenplay-card-${screenplay.id}`}
         onClick={onClick}
         className={clsx(
           'card cursor-pointer relative group transition-all duration-200 ease-out',

@@ -84,7 +84,7 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div data-testid="export-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} />
 
