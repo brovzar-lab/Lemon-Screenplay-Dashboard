@@ -240,6 +240,16 @@
 
 @layer utilities {
 
+  /* Scrollbar Hide — used for horizontally-scrollable rows on mobile */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Font Utilities */
   .font-heading {
     font-family: var(--font-heading);

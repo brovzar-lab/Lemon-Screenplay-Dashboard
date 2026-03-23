@@ -199,13 +199,13 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   return (
     <>
       <div className="mb-8">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           {/* Search Input */}
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <input
               id={SEARCH_INPUT_ID}
               type="text"
-              className={`input pl-10 pr-16 transition-all duration-300 ease-out ${isSearchFocused ? 'w-[360px]' : 'w-52'}`}
+              className={`input pl-10 pr-16 transition-all duration-300 ease-out w-full sm:w-auto ${isSearchFocused ? 'sm:w-[360px]' : 'sm:w-52'}`}
               placeholder="Search title, author, genre, logline..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -225,7 +225,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-black-500 hover:text-gold-400"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-black-500 hover:text-gold-400 min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="Clear search"
               >
                 ✕
@@ -235,8 +235,8 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
           </div>
 
           {/* Results Count & Actions */}
-          <div className="flex items-center gap-3">
-            <div className="text-sm text-black-400">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="text-sm text-black-400 shrink-0">
               {isLoading ? (
                 <span>Loading...</span>
               ) : (
@@ -248,103 +248,109 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               )}
             </div>
 
-            {/* Quick Sort Dropdown */}
-            <select
-              className="input py-2 px-3 w-auto text-sm"
-              aria-label="Sort screenplays by"
-              value={sortConfigs[0]?.field || 'marketPotential'}
-              onChange={(e) => {
-                resetSort();
-                addSortColumn(e.target.value as SortField, 'desc');
-              }}
-            >
-              <option value="marketPotential">Sort: Market Potential</option>
-              <option value="weightedScore">Sort: Weighted Score</option>
-              <option value="cvsTotal">Sort: CVS Total</option>
+            {/* Action buttons row — scrollable on mobile */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide w-full sm:w-auto pb-1 sm:pb-0">
+              {/* Quick Sort Dropdown */}
+              <select
+                className="input py-2 px-3 w-auto text-sm shrink-0 min-h-[44px]"
+                aria-label="Sort screenplays by"
+                value={sortConfigs[0]?.field || 'marketPotential'}
+                onChange={(e) => {
+                  resetSort();
+                  addSortColumn(e.target.value as SortField, 'desc');
+                }}
+              >
+                <option value="marketPotential">Sort: Market Potential</option>
+                <option value="weightedScore">Sort: Weighted Score</option>
+                <option value="cvsTotal">Sort: CVS Total</option>
 
-              <option value="title">Sort: Title A-Z</option>
-            </select>
+                <option value="title">Sort: Title A-Z</option>
+              </select>
 
-            {/* Advanced Sort Button */}
-            <button
-              onClick={() => setIsSortPanelOpen(true)}
-              className="btn btn-secondary text-sm"
-              title="Advanced Sorting"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-              </svg>
-              {sortConfigs.length > 1 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold">
-                  {sortConfigs.length}
-                </span>
-              )}
-            </button>
+              {/* Advanced Sort Button */}
+              <button
+                onClick={() => setIsSortPanelOpen(true)}
+                className="btn btn-secondary text-sm shrink-0 min-h-[44px]"
+                title="Advanced Sorting"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                </svg>
+                {sortConfigs.length > 1 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold">
+                    {sortConfigs.length}
+                  </span>
+                )}
+              </button>
 
-            {/* Advanced Filters Button */}
-            <button
-              onClick={() => setIsFilterPanelOpen(true)}
-              className="btn btn-secondary text-sm"
-              title="Advanced Filters"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              Filters
-              {advancedFilterCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold">
-                  {advancedFilterCount}
-                </span>
-              )}
-            </button>
+              {/* Advanced Filters Button */}
+              <button
+                onClick={() => setIsFilterPanelOpen(true)}
+                className="btn btn-secondary text-sm shrink-0 min-h-[44px]"
+                title="Advanced Filters"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filters
+                {advancedFilterCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold">
+                    {advancedFilterCount}
+                  </span>
+                )}
+              </button>
 
-            {/* Actions Dropdown (bulk operations) */}
-            <ActionsDropdown
-              onGenerateShareLinks={() => setIsBulkShareOpen(true)}
-              onReanalyze={() => setIsBulkReanalyzeOpen(true)}
-              reanalyzeEligibleCount={reanalyzeEligibleCount}
-              selectionCount={exportSelectionCount}
-            />
+              {/* Actions Dropdown (bulk operations) */}
+              <div className="shrink-0">
+                <ActionsDropdown
+                  onGenerateShareLinks={() => setIsBulkShareOpen(true)}
+                  onReanalyze={() => setIsBulkReanalyzeOpen(true)}
+                  reanalyzeEligibleCount={reanalyzeEligibleCount}
+                  selectionCount={exportSelectionCount}
+                />
+              </div>
 
-            {/* Share Button */}
-            <button
-              onClick={() => setIsShareModalOpen(true)}
-              className="btn btn-secondary text-sm"
-              title="Share dashboard"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
-              Share
-            </button>
+              {/* Share Button */}
+              <button
+                onClick={() => setIsShareModalOpen(true)}
+                className="btn btn-secondary text-sm shrink-0 min-h-[44px]"
+                title="Share dashboard"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                Share
+              </button>
 
-            {/* Select All / Deselect All */}
-            <button
-              onClick={() => isAllSelected ? deselectAllExport() : selectAllForExport(screenplays.map((sp) => sp.id))}
-              className="btn btn-secondary text-sm"
-              title={isAllSelected ? 'Deselect all' : 'Select all for export'}
-              disabled={screenplays.length === 0}
-            >
-              {isAllSelected ? '☐ Deselect' : '☑ Select All'}
-            </button>
+              {/* Select All / Deselect All */}
+              <button
+                onClick={() => isAllSelected ? deselectAllExport() : selectAllForExport(screenplays.map((sp) => sp.id))}
+                className="btn btn-secondary text-sm shrink-0 min-h-[44px]"
+                title={isAllSelected ? 'Deselect all' : 'Select all for export'}
+                disabled={screenplays.length === 0}
+              >
+                {isAllSelected ? '☐ Deselect' : '☑ Select All'}
+              </button>
 
-            {/* Export Button */}
-            <button
-              onClick={() => setIsExportModalOpen(true)}
-              className="btn btn-primary text-sm"
-              title="Export screenplays"
-              disabled={screenplays.length === 0}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Export ({hasExportSelection ? `${exportSelectionCount} selected` : screenplays.length})
-            </button>
+              {/* Export Button */}
+              <button
+                onClick={() => setIsExportModalOpen(true)}
+                className="btn btn-primary text-sm shrink-0 min-h-[44px]"
+                title="Export screenplays"
+                disabled={screenplays.length === 0}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export ({hasExportSelection ? `${exportSelectionCount} selected` : screenplays.length})
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Quick Filter Chips */}
-        <div ref={chipsContainerRef} className="relative flex flex-wrap gap-2 mt-4 pb-1">
+        {/* Quick Filter Chips — horizontal scroll on mobile, wrap on sm+ */}
+        <div className="overflow-x-auto scrollbar-hide mt-4">
+        <div ref={chipsContainerRef} className="relative flex flex-nowrap sm:flex-wrap gap-2 pb-1 min-w-max sm:min-w-0">
           {/* Sliding active indicator */}
           <div
             className="absolute bottom-0 h-[3px] rounded-full bg-gold-500 transition-all duration-250"
@@ -412,13 +418,14 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="chip cursor-pointer text-red-400 border-red-400/50 hover:bg-red-400/10"
+              className="chip cursor-pointer text-red-400 border-red-400/50 hover:bg-red-400/10 min-h-[44px]"
             >
               Clear All ✕
             </button>
           )}
         </div>
-      </div >
+        </div>
+      </div>
 
       {/* Overlay panels & modals owned by FilterBar */}
       < AdvancedSortPanel
