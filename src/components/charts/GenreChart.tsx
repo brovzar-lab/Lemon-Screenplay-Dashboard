@@ -15,6 +15,7 @@ import {
 
 import type { Screenplay } from '@/types';
 import { canonicalizeGenre } from '@/lib/calculations';
+import { CHART_COLORS } from '@/lib/chartColors';
 
 interface GenreChartProps {
   screenplays: Screenplay[];
@@ -31,14 +32,14 @@ interface GenreChartItem {
 
 // Genre colors - rotating palette
 const GENRE_COLORS = [
-  '#F59E0B', // Gold
-  '#10B981', // Emerald
-  '#8B5CF6', // Violet
-  '#EC4899', // Pink
-  '#06B6D4', // Cyan
-  '#F97316', // Orange
-  '#6366F1', // Indigo
-  '#14B8A6', // Teal
+  CHART_COLORS.gold,
+  CHART_COLORS.emerald,
+  CHART_COLORS.violet,
+  CHART_COLORS.pink,
+  CHART_COLORS.cyan,
+  CHART_COLORS.orange,
+  CHART_COLORS.indigo,
+  CHART_COLORS.teal,
 ];
 
 interface ChartTooltipProps {

@@ -16,6 +16,7 @@ import {
 
 import type { Screenplay, BudgetCategory } from '@/types';
 import { BUDGET_TIERS } from '@/types';
+import { CHART_COLORS } from '@/lib/chartColors';
 
 interface BudgetChartProps {
   screenplays: Screenplay[];
@@ -33,11 +34,11 @@ interface BudgetChartItem {
 
 // Budget colors - from low to high
 const BUDGET_COLORS: Record<BudgetCategory, string> = {
-  micro: '#10B981',  // Emerald - low risk
-  low: '#06B6D4',    // Cyan
-  medium: '#F59E0B', // Gold
-  high: '#EF4444',   // Red - high risk
-  unknown: '#6B7280', // Gray
+  micro: CHART_COLORS.emerald, // Emerald - low risk
+  low: CHART_COLORS.cyan,      // Cyan
+  medium: CHART_COLORS.gold,   // Gold
+  high: CHART_COLORS.red,      // Red - high risk
+  unknown: CHART_COLORS.gray,  // Gray
 };
 
 interface ChartTooltipProps {
