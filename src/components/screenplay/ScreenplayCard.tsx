@@ -4,7 +4,7 @@
  */
 
 // ... imports ...
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { getScoreColorClass } from '@/lib/calculations';
@@ -48,7 +48,7 @@ function ProducerMetricsMini({ screenplay }: { screenplay: Screenplay }) {
   );
 }
 
-export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
+function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
   const toggleExportSelection = useExportSelectionStore((s) => s.toggle);
   const isExportSelected = useIsSelectedForExport(screenplay.id);
   const isDeleteMode = useDeleteSelectionStore((s) => s.isDeleteMode);
@@ -321,5 +321,6 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
   );
 }
 
+export const ScreenplayCard = memo(ScreenplayCardInner);
 export default ScreenplayCard;
 
