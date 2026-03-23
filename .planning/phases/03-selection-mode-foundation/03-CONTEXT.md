@@ -1,110 +1,100 @@
-# Phase 3 Context: Selection Mode Foundation — Bulk Operations & Multi-Select
+# Phase 3: Selection Mode Foundation - Context
 
-**Created:** 2026-03-23
-**Phase goal:** Add multi-select to the screenplay grid and expose bulk actions (export, compare, PDF upload, favorites, collections) from a persistent action bar.
+**Gathered:** 2026-03-23 (pre-milestone discussion)
+**Updated:** 2026-03-23 (code context updated post-Phase 2 virtual grid)
+**Status:** Ready for planning
 
----
+<domain>
+## Phase Boundary
 
-## Prior Decisions Applied
+Add multi-select checkboxes to screenplay cards, build the selection Zustand store, render the sticky bottom bulk action bar shell, and wire up Select All/Deselect All. This phase builds the selection infrastructure — Phase 4 wires the actual bulk actions (export, compare, etc.) and Phase 5 builds the bulk PDF upload modal.
 
-- Coverage PDF export exists (Phase 7) — bulk export extends this
-- Share tokens exist (Phase 5) — not in bulk scope yet
-- PdfUploadPanel exists in Settings — will be reused in scoped mode
-- ComparisonModal exists — bulk compare extends selection into it
-- Zustand stores per domain (filter, sort, comparison, favorites) — new selection store follows same pattern
-- CollectionTabs exist — "Add to Collection" action integrates with existing store
+</domain>
 
----
+<decisions>
+## Implementation Decisions
 
-## Area 1: PdfUploadPanel Scoped Behavior
+### PdfUploadPanel scoped behavior (Phase 5 prep)
+- **D-01:** New `BulkPdfUploadModal` component (not a mode of existing PdfUploadPanel). Reuse upload logic/hooks, purpose-built UI
+- **D-02:** Shows only missing-PDF screenplays from selection. Note at top: "2 of 5 already have PDFs" if some have PDFs
+- **D-03:** Stays open with success summary ("3/3 uploaded") until user dismisses. No auto-close
+- **D-04:** One dropzone per screenplay — individual dropzones mapped to titles, no filename auto-matching
 
-**Decision:** Streamlined upload modal, not the full PdfUploadPanel.
+### Selection mode UX
+- **D-05:** Always-on checkboxes — every card shows a checkbox in its corner at all times. No mode toggle
+- **D-06:** Sticky bottom bar slides up when first card is selected. Keeps filter/sort bar visible above
+- **D-07:** Highlight ring on selected cards — subtle ring/border + count badge. No dimming of unselected cards
+- **D-08:** No global selection cap — select freely. Per-action limits enforced at the button level
 
-| Question | Decision |
-|----------|----------|
-| Full panel vs streamlined? | **Streamlined** — just titles + dropzones. The selection was already made in the grid; no need to re-search or re-filter inside the modal. |
-| Auto-close on completion? | **No** — stay open with success summary ("3/3 uploaded") until user dismisses. Close on click or Escape. |
-| Show all selected or only missing-PDF? | **Only missing-PDF** — if 5 selected but only 3 need PDFs, show 3 dropzones. Small note at top: "2 of 5 already have PDFs." |
-| Drag-and-drop model? | **One dropzone per screenplay** — individual dropzones mapped to titles. No filename auto-matching (too fragile with files like `final_v3_REAL.pdf`). |
+### Bulk action bar
+- **D-09:** Six actions: Export CSV, Export PDF, Compare (2-5 max), Upload PDFs (≥1 missing PDF), Add to Collection, Add to Favorites
+- **D-10:** Visible-but-disabled buttons with tooltip when conditions not met ("Compare — need 2+"). Never hide actions
+- **D-11:** Select All (filtered) + Deselect All buttons. Select All dispatches all currently-filtered screenplay IDs
+- **D-12:** Left side: "3 screenplays selected ×" (count + clear). Right side: action buttons
 
-**Implementation note:** This is a new `BulkPdfUploadModal` component, not a mode of the existing PdfUploadPanel. Reuse the upload logic/hooks from the existing panel, but the UI is purpose-built for the scoped context.
+### Claude's Discretion
+- Checkbox visual style (checkbox icon, position within card corner)
+- BulkActionBar slide-up animation timing
+- Tooltip implementation (native title vs custom component)
+- Whether selectionStore uses persist middleware (probably not — ephemeral like syncStatusStore)
+- How to handle selection state when filter changes remove selected items from view
 
----
+</decisions>
 
-## Area 2: Selection Mode UX
+<canonical_refs>
+## Canonical References
 
-**Decision:** Always-on checkboxes with sticky bottom action bar.
+No external specs — requirements are fully captured in decisions above.
 
-| Question | Decision |
-|----------|----------|
-| How to enter selection mode? | **Always-on checkboxes** — every card shows a checkbox in its corner at all times. No mode toggle needed. One click to start selecting. |
-| Bulk action bar placement? | **Sticky bottom bar** — slides up when first card is selected. Keeps filter/sort bar visible above. |
-| Visual treatment of selected cards? | **Highlight ring on selected cards** — subtle ring/border + count badge. No dimming of unselected cards (would hurt scanning across 500+ cards). |
-| Selection limits? | **No global cap** — select freely. Per-action limits enforced at the action button level (e.g., Compare shows "3/5 max"). |
+### Phase dependencies
+- `.planning/phases/02-performance-at-scale/02-CONTEXT.md` — Virtual grid architecture decisions that constrain how checkbox overlays and action bar integrate
+- `.planning/REQUIREMENTS.md` — BULK-01, BULK-02, BULK-03, BULK-10, BULK-11
 
-**Implementation note:** New `useSelectionStore` (Zustand) holds `selectedIds: Set<string>`. The `ScreenplayCard` component gets a checkbox overlay. `BulkActionBar` is a new layout-level component that conditionally renders based on selection count > 0.
+</canonical_refs>
 
----
+<specifics>
+## Specific Ideas
 
-## Area 3: Bulk Action Bar — Actions & Conditions
+- The BulkActionBar is purely a shell in this phase — buttons render but don't trigger export/compare/upload modals yet (Phase 4 wires those)
+- The premium visual design (gold/black theme with glassmorphism) must be preserved in the action bar styling
+- BackToTopButton is already `fixed bottom-6 right-6 z-40` — the BulkActionBar should use a different positioning strategy (sticky bottom full-width) so they don't overlap. BackToTopButton may need a slight upward shift when the bar is visible
 
-**Decision:** Six actions with visible-but-disabled pattern.
+</specifics>
 
-| Action | Min | Max | Condition |
-|--------|-----|-----|-----------|
-| Export CSV | 1 | unlimited | always |
-| Export PDF | 1 | unlimited | always |
-| Compare | 2 | 5 | always |
-| Upload PDFs | 1 | unlimited | at least 1 selected has no PDF |
-| Add to Collection | 1 | unlimited | always |
-| Add to Favorites | 1 | unlimited | always |
+<code_context>
+## Existing Code Insights (Updated Post-Phase 2)
 
-| Question | Decision |
-|----------|----------|
-| Disabled vs hidden buttons? | **Visible but disabled + tooltip** — grayed-out buttons with explanatory tooltip ("Compare — need 2+"). Never hide actions. |
-| Select All / Deselect All? | **Yes, both** — "Select All (filtered)" selects everything matching current filters. "Deselect All" clears. Essential for batch export. |
-| Bar layout? | **Count + clear on left, actions on right** — "3 screenplays selected x" on the left provides constant feedback and escape hatch. Action buttons on the right. |
+### Reusable Assets
+- `src/stores/exportSelectionStore.ts` + `src/stores/deleteSelectionStore.ts` — Existing selection store patterns in ScreenplayCard. The new `selectionStore` follows the same hook pattern (`useSelectionStore`, `useIsSelected(id)`)
+- `src/hooks/useFilteredScreenplays.ts` — Provides the filtered screenplay set for "Select All (filtered)"
+- `src/hooks/useColumnCount.ts` — Returns current column count (needed to understand grid layout context)
 
-**Implementation note:** `BulkActionBar` reads from `useSelectionStore` and `useFilteredScreenplays`. Each action button computes its own enabled/disabled state from the selection set. "Select All" dispatches all currently-filtered screenplay IDs into the store.
+### Established Patterns
+- Zustand stores per domain (filter, sort, comparison, favorites, syncStatus, toast, exportSelection, deleteSelection) — new `selectionStore` follows same pattern, likely ephemeral (no persist middleware)
+- `ScreenplayCard` is wrapped in `React.memo` — adding `isSelected` and `onSelect` props means the memo will correctly skip re-renders when only unrelated props change (memo compares all props shallowly)
+- Tailwind-only styling — all new components use Tailwind classes
+- ErrorBoundary wraps each card inside VirtualRow
 
----
+### Integration Points (Post-Virtual Grid)
+- **VirtualRow** (`src/components/screenplay/VirtualRow.tsx`) — Renders N cards per row. Must pass `onSelect` and `selectedIds` (or `isSelected` per card) through VirtualRow → ScreenplayCard. VirtualRow currently accepts: `virtualRow`, `screenplays`, `columnCount`, `onCardClick`, `staggerDelay`
+- **ScreenplayGrid** (`src/components/screenplay/ScreenplayGrid.tsx`) — Virtualized grid container. The `BulkActionBar` should mount as a sibling of the scroll container div (not inside it, or it would scroll away). Grid currently accepts: `screenplays`, `isLoading`, `onCardClick`
+- **ScreenplayCard** (`src/components/screenplay/ScreenplayCard.tsx`) — Already has checkbox patterns from exportSelectionStore/deleteSelectionStore. New bulk selection checkbox is always-visible (not conditional on a mode). Card currently accepts: `screenplay`, `onClick`
+- **BackToTopButton** (`src/components/screenplay/BackToTopButton.tsx`) — `fixed bottom-6 right-6 z-40`. When BulkActionBar is visible, BackToTopButton needs `bottom` offset increased so it doesn't overlap the bar
+- **Page-level layout** — BulkActionBar could mount at the page level (above ScreenplayGrid) or inside ScreenplayGrid as a sibling to the scroll container. Placing it at the Grid level keeps selection concerns colocated
 
-## Code Context
+</code_context>
 
-### Existing assets to reuse
-- `src/components/settings/PdfUploadPanel.tsx` — upload logic, file validation, progress tracking (reuse hooks, not the UI)
-- `src/components/comparison/ComparisonModal.tsx` — receives screenplay IDs for comparison
-- `src/components/export/ExportModal.tsx` — CSV/PDF export accepts screenplay array
-- `src/stores/` — pattern: one Zustand store per domain with persist middleware where needed
-- `src/hooks/useFilteredScreenplays.ts` — provides the filtered set for "Select All (filtered)"
-- `src/components/screenplay/ScreenplayCard.tsx` — gets checkbox overlay
-- `src/components/screenplay/ScreenplayGrid.tsx` — layout container, BulkActionBar mounts here or in parent
-
-### New files anticipated
-- `src/stores/selectionStore.ts` — `selectedIds`, `toggleSelection`, `selectAll`, `clearSelection`
-- `src/components/bulk/BulkActionBar.tsx` — sticky bottom bar with action buttons
-- `src/components/bulk/BulkPdfUploadModal.tsx` — streamlined upload modal for selected screenplays
-- `src/components/bulk/index.ts` — barrel export
-
-### Integration points
-- `ScreenplayCard` — add optional `onSelect` prop + checkbox overlay when selection store is non-empty or always visible
-- `ScreenplayGrid` or page-level layout — mount `BulkActionBar` as sibling
-- Existing `ExportModal` and `ComparisonModal` — accept pre-selected IDs from selection store
-- `useFilteredScreenplays` — provides IDs for "Select All (filtered)"
-
----
-
+<deferred>
 ## Deferred Ideas
 
 - Bulk share token management (generate tokens for N screenplays at once) — separate phase
 - Bulk delete with confirmation — separate phase, needs careful soft-delete integration
 - Keyboard shortcuts for selection (Shift+click range select, Cmd+A) — polish pass after core works
+- Drag-to-select (marquee selection) — not needed with always-on checkboxes
+
+</deferred>
 
 ---
 
-## Next Steps
-
-> **Note:** Phase 3 is part of v7.0 milestone.
-
-Once milestone is set up:
-1. `/gsd:plan-phase 3` to generate the execution plan
+*Phase: 03-selection-mode-foundation*
+*Context gathered: 2026-03-23 (updated post-Phase 2)*
