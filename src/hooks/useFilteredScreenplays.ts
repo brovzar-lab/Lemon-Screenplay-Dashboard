@@ -29,10 +29,21 @@ export function matchesSearch(screenplay: Screenplay, query: string): boolean {
   );
 }
 
+import type { PdfStorageStatus } from '@/stores/pdfStatusStore';
+
+interface PdfScanData {
+  statuses: Record<string, PdfStorageStatus>;
+  hasScanResult: boolean;
+}
+
 /**
  * Check if screenplay passes all filters
  */
-export function passesFilters(screenplay: Screenplay, filters: FilterState): boolean {
+export function passesFilters(
+  screenplay: Screenplay,
+  filters: FilterState,
+  pdfScanData: PdfScanData = { statuses: {}, hasScanResult: false },
+): boolean {
   // Search
   if (!matchesSearch(screenplay, filters.searchQuery)) return false;
 
@@ -175,14 +186,20 @@ export function passesFilters(screenplay: Screenplay, filters: FilterState): boo
   // Missing PDF only — use live Storage scan results when available,
   // fall back to the hasPdf Firestore field if no scan has run yet.
   if (filters.missingPdfOnly) {
-    const liveStatuses = usePdfStatusStore.getState().statuses;
-    const hasScanResult = usePdfStatusStore.getState().hasScanResult;
-    if (hasScanResult) {
+    if (pdfScanData.hasScanResult) {
       // Live scan data available: exclude screenplays that have a confirmed PDF in Storage
-      if (liveStatuses[screenplay.id] === 'found') return false;
+      if (pdfScanData.statuses[screenplay.id] === 'found') return false;
     } else {
       // No scan yet: fall back to hasPdf field
       if (screenplay.hasPdf === true) return false;
+    }
+  }
+
+  if (filters.hasPdfOnly) {
+    if (pdfScanData.hasScanResult) {
+      if (pdfScanData.statuses[screenplay.id] !== 'found') return false;
+    } else {
+      if (screenplay.hasPdf !== true) return false;
     }
   }
 
@@ -300,8 +317,10 @@ export function useFilteredScreenplays() {
   const filteredScreenplays = useMemo(() => {
     if (!screenplays) return [];
 
+    const pdfScanData = { statuses: pdfStatuses, hasScanResult: hasPdfScanResult };
+
     // Filter
-    const filtered = screenplays.filter((sp) => passesFilters(sp, filters));
+    const filtered = screenplays.filter((sp) => passesFilters(sp, filters, pdfScanData));
 
     // Sort
     return sortScreenplays(filtered, sortConfigs, prioritizeFilmNow);
@@ -347,6 +366,7 @@ export function useHasActiveFilters(): boolean {
     filters.hasCriticalFailures !== null ||
     !filters.hideProduced || // Default is true (hide produced). Active when user opted to show produced films.
     !filters.hideNonScreenplays || // Default is true (hide non-screenplays). Active when user opted to show them.
-    filters.missingPdfOnly
+    filters.missingPdfOnly ||
+    filters.hasPdfOnly
   );
 }

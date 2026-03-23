@@ -66,6 +66,7 @@ export interface FilterState {
 
   // PDF Status
   missingPdfOnly: boolean; // Show only screenplays without a working PDF
+  hasPdfOnly: boolean;     // Show only screenplays that have a working PDF
 }
 
 // ============================================
@@ -102,6 +103,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   hideNonScreenplays: true, // Default: hide non-screenplay documents
   hideProduced: true, // Default: hide produced films
   missingPdfOnly: false,
+  hasPdfOnly: false,
 };
 
 // ============================================

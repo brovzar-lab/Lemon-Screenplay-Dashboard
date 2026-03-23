@@ -1,0 +1,368 @@
+================================================================================
+ACCESSIBILITY AUDIT REPORT — Lemon Screenplay Dashboard
+Date: 2026-03-23T01:45:15.393Z
+URL: http://localhost:5173
+Standards: WCAG 2.1 A, AA + Best Practices
+Tool: axe-core via @axe-core/playwright
+================================================================================
+
+── SUMMARY ──────────────────────────────────────────────────────────────────
+
+Total violations:      3
+Total affected elements: 55
+Passes:                40
+Incomplete (needs review): 1
+Inapplicable:          48
+
+Violations by impact:
+  Critical:  1
+  Serious:   1
+  Moderate:  1
+  Minor:     0
+
+WCAG A/AA violations (legal risk): 2
+
+── ALL VIOLATIONS (sorted by severity) ──────────────────────────────────────
+
+1. [CRITICAL] select-name
+   Description: Ensure select element has an accessible name
+   Help:        Select element must have an accessible name
+   Help URL:    https://dequeuniversity.com/rules/axe/4.11/select-name?application=playwright
+   WCAG Tags:   wcag2a, wcag412
+   Legal Risk:  YES — WCAG A/AA failure
+   Affected elements (1):
+     - Selector: select
+       HTML:     <select class="input py-2 px-3 w-auto text-sm"><option value="marketPotential">Sort: Market Potential</option><option value="weightedScore">Sort: Weighted Score</option><option value="cvsTotal">Sort: ...
+       Fix:
+                Fix any of the following:
+                  Element does not have an implicit (wrapped) <label>
+                  Element does not have an explicit <label>
+                  aria-label attribute does not exist or is empty
+                  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty
+                  Element has no title attribute
+                  Element's default semantics were not overridden with role="none" or role="presentation"
+
+2. [SERIOUS] color-contrast
+   Description: Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds
+   Help:        Elements must meet minimum color contrast ratio thresholds
+   Help URL:    https://dequeuniversity.com/rules/axe/4.11/color-contrast?application=playwright
+   WCAG Tags:   wcag2aa, wcag143
+   Legal Risk:  YES — WCAG A/AA failure
+   Affected elements (53):
+     - Selector: button[title="Lemon"] > .bg-black-700.px-1\.5.py-0\.5
+       HTML:     <span class="
+                text-xs px-1.5 py-0.5 rounded-full font-mono
+                bg-black-700 text-black-400
+              ">59</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 4.03 (foreground color: #94a3b8, background color: #334155, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: button[title="Other"] > .bg-black-700.px-1\.5.py-0\.5
+       HTML:     <span class="
+                text-xs px-1.5 py-0.5 rounded-full font-mono
+                bg-black-700 text-black-400
+              ">17</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 4.03 (foreground color: #94a3b8, background color: #334155, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .text-gold-500\/70
+       HTML:     <span class="ml-1 text-gold-500/70">(filtered)</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 4.39 (foreground color: #b27816, background color: #161f30, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .card-enter:nth-child(1) > .p-4.glass.h-full > .mt-2.text-center
+       HTML:     <p class="text-xs text-black-500 mt-2 text-center">Click a bar to filter</p>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .card-enter:nth-child(2) > .p-4.glass.h-full > .mt-2.text-center
+       HTML:     <p class="text-xs text-black-500 mt-2 text-center">Click to filter by tier</p>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .card-enter:nth-child(3) > .p-4.glass.h-full > .mt-2.text-center
+       HTML:     <p class="text-xs text-black-500 mt-2 text-center">Click to filter by genre</p>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .card-enter:nth-child(4) > .p-4.glass.h-full > .mt-2.text-center
+       HTML:     <p class="text-xs text-black-500 mt-2 text-center">Click to filter by budget</p>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > .card-recommend > .pr-8.mb-5 > .mb-3 > .badge-recommend.inline-flex.tracking-wider
+       HTML:     <span class="inline-flex items-center justify-center font-bold uppercase tracking-wider rounded-lg px-3 py-1 text-xs badge-recommend">RECOMMEND</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 2.53 (foreground color: #ffffff, background color: #10b981, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > .card-recommend > .pr-8.mb-5 > .mb-3 > .badge-recommend.inline-flex.tracking-wider
+       HTML:     <span class="inline-flex items-center justify-center font-bold uppercase tracking-wider rounded-lg px-3 py-1 text-xs badge-recommend">RECOMMEND</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 2.53 (foreground color: #ffffff, background color: #10b981, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .italic.text-sm.text-black-500
+       HTML:     <span class="text-sm text-black-500 italic">N/A</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="0"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > article > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > .card-recommend > .pr-8.mb-5 > .mb-3 > .badge-recommend.inline-flex.tracking-wider
+       HTML:     <span class="inline-flex items-center justify-center font-bold uppercase tracking-wider rounded-lg px-3 py-1 text-xs badge-recommend">RECOMMEND</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 2.53 (foreground color: #ffffff, background color: #10b981, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > .card-recommend > .pr-8.mb-5 > .mb-3 > .badge-recommend.inline-flex.tracking-wider
+       HTML:     <span class="inline-flex items-center justify-center font-bold uppercase tracking-wider rounded-lg px-3 py-1 text-xs badge-recommend">RECOMMEND</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 2.53 (foreground color: #ffffff, background color: #10b981, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .italic.text-sm.text-black-500
+       HTML:     <span class="text-sm text-black-500 italic">N/A</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="1"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > article > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="2"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="2"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="2"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > article > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="2"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="2"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="2"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .italic.text-sm.text-black-500
+       HTML:     <span class="text-sm text-black-500 italic">N/A</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="2"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > article > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > .card-recommend > .pr-8.mb-5 > .mb-3 > .badge-recommend.inline-flex.tracking-wider
+       HTML:     <span class="inline-flex items-center justify-center font-bold uppercase tracking-wider rounded-lg px-3 py-1 text-xs badge-recommend">RECOMMEND</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 2.53 (foreground color: #ffffff, background color: #10b981, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1
+     - Selector: .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > .card-recommend > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="3"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="3"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="3"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(1) > article > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="3"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="3"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="3"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .italic.text-sm.text-black-500
+       HTML:     <span class="text-sm text-black-500 italic">N/A</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="3"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(2) > article > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="3"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(1) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="3"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > article > .pt-4.border-t.border-black-700 > .gap-5.items-center.flex > div:nth-child(2) > .tracking-widest.block.text-\[10px\]
+       HTML:     <span class="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: div[data-index="3"] > .min-w-0.focus\:outline-none.focus\:ring-2:nth-child(3) > article > .pt-4.border-t.border-black-700 > .gap-4.text-xs.flex > .gap-1.items-center[title="AI-analyzed market potential"] > .text-black-500
+       HTML:     <span class="text-black-500">Mkt</span>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 3.46 (foreground color: #64748b, background color: #161f30, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1
+     - Selector: .max-w-\[1800px\].mx-auto.px-6 > p
+       HTML:     <p>Lemon Screenplay Dashboard v6.5 - Powered by V6 Core + Lenses AI Analysis</p>
+       Fix:
+                Fix any of the following:
+                  Element has insufficient color contrast of 4.23 (foreground color: #64748b, background color: #020617, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1
+
+3. [MODERATE] heading-order
+   Description: Ensure the order of headings is semantically correct
+   Help:        Heading levels should only increase by one
+   Help URL:    https://dequeuniversity.com/rules/axe/4.11/heading-order?application=playwright
+   WCAG Tags:   best-practice
+   Legal Risk:  No (best practice)
+   Affected elements (1):
+     - Selector: .card-enter:nth-child(1) > .p-4.glass.h-full > .font-medium
+       HTML:     <h3 class="text-sm font-medium text-black-300 mb-3">Score Distribution</h3>
+       Fix:
+                Fix any of the following:
+                  Heading order invalid
+
+── TOP 5 MOST IMPORTANT VIOLATIONS ──────────────────────────────────────────
+
+1. [CRITICAL] select-name
+   Select element must have an accessible name
+   Elements: 1
+   First selector: select
+   WCAG: wcag2a, wcag412
+
+2. [SERIOUS] color-contrast
+   Elements must meet minimum color contrast ratio thresholds
+   Elements: 53
+   First selector: button[title="Lemon"] > .bg-black-700.px-1\.5.py-0\.5
+   WCAG: wcag2aa, wcag143
+
+3. [MODERATE] heading-order
+   Heading levels should only increase by one
+   Elements: 1
+   First selector: .card-enter:nth-child(1) > .p-4.glass.h-full > .font-medium
+   WCAG: 
+
+── WCAG A/AA LEGAL RISK VIOLATIONS ─────────────────────────────────────────
+
+  [SERIOUS] color-contrast: Elements must meet minimum color contrast ratio thresholds (53 elements)
+  [CRITICAL] select-name: Select element must have an accessible name (1 elements)
+
+── INCOMPLETE CHECKS (need manual review) ─────────────────────────────────
+
+  [SERIOUS] color-contrast: Elements must meet minimum color contrast ratio thresholds (48 elements)
+
+================================================================================
+END OF REPORT
+================================================================================

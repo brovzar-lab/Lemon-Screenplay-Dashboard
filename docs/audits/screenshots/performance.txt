@@ -1,0 +1,169 @@
+================================================================================
+  PERFORMANCE AUDIT — Lemon Screenplay Dashboard
+  Phase 2.3 | Date: 2026-03-22 | Branch: v7.0
+================================================================================
+
+1. BUNDLE SIZE SUMMARY (Production Build)
+--------------------------------------------------------------------------------
+
+  Total JS  (raw):      3.3 MB  (3,498,195 bytes)
+  Total JS  (gzipped):  1,071.6 KB  (1,097,367 bytes)
+  Total CSS (raw):      102.6 KB  (105,139 bytes)
+  Total CSS (gzipped):  16.9 KB  (17,399 bytes)
+  Total Assets Folder:  4.5 MB
+
+  JS Chunks (sorted by size):
+  -------------------------------------------------------
+  vendor-react-pdf    1.5 MB raw    511.0 KB gzip   ** CRITICAL **
+  index (main bundle) 1.2 MB raw    385.3 KB gzip   ** WARNING **
+  vendor-recharts     384 KB raw    110.9 KB gzip
+  SettingsPage        100 KB raw     23.7 KB gzip
+  vendor-react         46 KB raw     16.3 KB gzip
+  vendor-state         36 KB raw     10.7 KB gzip
+  ComparisonModal      15 KB raw      3.7 KB gzip
+  promptClient         12 KB raw      4.0 KB gzip
+  SharedViewPage       11 KB raw      2.7 KB gzip
+  AnalyticsDashboard   11 KB raw      3.3 KB gzip
+
+  CSS:
+  -------------------------------------------------------
+  index.css           103 KB raw     17.0 KB gzip
+
+
+2. RUNTIME PERFORMANCE (Dev Server, headless Chromium)
+--------------------------------------------------------------------------------
+
+  Page Load (networkidle):  2,869 ms
+  DOM Content Loaded:         704 ms
+  Load Complete:              844 ms
+  DOM Interactive:              9 ms
+  TTFB:                         4 ms
+  LCP:                        812 ms
+
+  Note: Dev mode includes unminified source, HMR client, and React DevTools
+  hooks. Production would be significantly faster.
+
+
+3. TOP 15 RESOURCES BY TRANSFER SIZE (Dev Server)
+--------------------------------------------------------------------------------
+
+  #   Resource                        Transfer Size    Duration
+  --  ------------------------------  ---------------  --------
+  1   @react-pdf/renderer             3,612 KB         53 ms
+  2   recharts                        1,273 KB         28 ms
+  3   react-dom/client                1,006 KB         33 ms
+  4   pdfjs-dist                        793 KB         29 ms
+  5   firebase/firestore                707 KB         25 ms
+  6   react-router-dom                  452 KB         34 ms
+  7   firebase/auth                     275 KB         31 ms
+  8   Vite HMR client                   179 KB        114 ms
+  9   CoverageDocument.tsx              156 KB         25 ms
+  10  index.css                         145 KB         20 ms
+  11  @tanstack/react-query             113 KB         11 ms
+  12  @react-refresh                    112 KB        106 ms
+  13  chunk (d3 internals)              104 KB         31 ms
+  14  FilterPanel.tsx                    92 KB         20 ms
+  15  lemon-logo-white.png               82 KB          5 ms
+
+  Total dev resources: 152 scripts, 2 stylesheets, 1 image, 6 fetch calls
+  Total dev transfer: ~11.2 MB (unminified, unbundled)
+
+
+4. RESOURCE BREAKDOWN BY TYPE (Dev Server)
+--------------------------------------------------------------------------------
+
+  Type              Count    Total Transfer
+  ----------------  -----    ---------------
+  script            152      11,725 KB
+  img                 1          82 KB
+  link (CSS)          2           1.5 KB
+  fetch               6           0.3 KB
+
+
+5. VITE BUILD CONFIGURATION
+--------------------------------------------------------------------------------
+
+  Manual chunks configured:
+  - vendor-react:      react, react-dom, react-router-dom
+  - vendor-recharts:   recharts
+  - vendor-react-pdf:  @react-pdf/renderer
+  - vendor-state:      zustand, @tanstack/react-query
+
+  Code splitting: SettingsPage, ComparisonModal, SharedViewPage,
+                  AnalyticsDashboard (lazy-loaded)
+
+  ISSUE: emptyOutDir: false causes stale builds to accumulate.
+         Before clean rebuild, dist/assets/ was 158 MB with 513 JS files.
+
+
+6. PERFORMANCE CONCERNS
+================================================================================
+
+  CRITICAL: vendor-react-pdf chunk is 1.5 MB raw / 511 KB gzipped
+  -----------------------------------------------------------------------
+  @react-pdf/renderer is the single largest dependency. Even gzipped it
+  exceeds the 500 KB threshold. It is code-split but still loads as a
+  heavy chunk when PDF export is triggered.
+
+  Recommendations:
+  - Consider dynamic import() only when user clicks "Export PDF"
+  - Investigate lighter PDF alternatives (jsPDF, html2pdf.js)
+  - If @react-pdf/renderer is essential, ensure it is never in the
+    critical path (verify it is truly lazy-loaded)
+
+  WARNING: Main index bundle is 1.2 MB raw / 385 KB gzipped
+  -----------------------------------------------------------------------
+  The main bundle contains all app code plus any non-split dependencies
+  (Firebase, pdfjs-dist, d3 sub-modules via recharts, dnd-kit, etc.).
+
+  Recommendations:
+  - Split Firebase (firestore 707 KB + auth 275 KB in dev) into its
+    own vendor chunk: manualChunks['vendor-firebase'] = ['firebase/app',
+    'firebase/firestore', 'firebase/auth']
+  - Split pdfjs-dist into vendor-pdfjs (793 KB in dev)
+  - Consider tree-shaking firebase imports (modular SDK)
+  - Review if dnd-kit can be lazy-loaded
+
+  WARNING: Stale build artifacts (emptyOutDir: false)
+  -----------------------------------------------------------------------
+  The dist/assets/ folder had accumulated 513 JS files and 47 CSS files
+  totaling 158 MB before this audit cleaned it. The emptyOutDir: false
+  setting (used to avoid macOS .DS_Store EPERM errors) prevents Vite
+  from cleaning old output.
+
+  Recommendations:
+  - Add a pre-build script: "prebuild": "rm -rf dist/assets"
+  - Or switch emptyOutDir back to true and fix the .DS_Store issue
+    at the OS level (defaults write com.apple.desktopservices
+    DSDontWriteNetworkStores true)
+
+  INFO: CSS is well-optimized
+  -----------------------------------------------------------------------
+  Single 103 KB CSS file (17 KB gzipped) is excellent for a full
+  dashboard application with Tailwind.
+
+  INFO: Good code-splitting already in place
+  -----------------------------------------------------------------------
+  SettingsPage, ComparisonModal, SharedViewPage, and AnalyticsDashboard
+  are properly split into separate lazy-loaded chunks.
+
+
+7. SUMMARY SCORECARD
+================================================================================
+
+  Metric                          Value         Status
+  ----------------------------    -----------   ------
+  Total JS (gzipped)              1,072 KB      WARNING (target < 500 KB)
+  Total CSS (gzipped)                17 KB      PASS
+  Largest chunk (gzipped)           511 KB      CRITICAL (> 500 KB)
+  Main bundle (gzipped)             385 KB      WARNING (target < 250 KB)
+  Code splitting                    Yes          PASS
+  Lazy routes                       4 routes     PASS
+  Vendor chunking                   4 chunks     PASS (could add 2 more)
+  LCP (dev mode)                    812 ms       PASS (< 2500 ms)
+  DOM Content Loaded (dev)          704 ms       PASS
+  Stale build cleanup               No           FAIL
+
+================================================================================
+  End of Performance Audit
+================================================================================

@@ -11,6 +11,7 @@ import type { Screenplay } from '@/types';
 import { reanalyzeFromStorage } from '@/lib/analysisService';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { useExportSelectionStore } from '@/stores/exportSelectionStore';
+import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
 
 type ReanalyzeItemStatus = 'queued' | 'analyzing' | 'done' | 'failed';
@@ -33,9 +34,14 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
   const [completedCount, setCompletedCount] = useState(0);
   const [summary, setSummary] = useState('');
   const queryClient = useQueryClient();
+  const pdfStatuses = usePdfStatusStore((s) => s.statuses);
+  const hasScanResult = usePdfStatusStore((s) => s.hasScanResult);
 
   // Derived — not stored in state
-  const eligible = screenplays.filter((sp) => sp.hasPdf === true);
+  // Use live Storage scan results when available; fall back to Firestore hasPdf field.
+  const eligible = screenplays.filter((sp) =>
+    hasScanResult ? pdfStatuses[sp.id] === 'found' : sp.hasPdf === true
+  );
   const ineligibleCount = screenplays.length - eligible.length;
 
   function setItemStatus(id: string, status: ReanalyzeItemStatus) {
