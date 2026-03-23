@@ -42,7 +42,7 @@
 **Plans:** 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Card preparation: memo-wrap ScreenplayCard, remove IO, standardize height, fire-once animation, install @tanstack/react-virtual, create useColumnCount hook
+- [x] 02-01-PLAN.md — Card preparation: memo-wrap ScreenplayCard, remove IO, standardize height, fire-once animation, install @tanstack/react-virtual, create useColumnCount hook (completed 2026-03-23)
 - [ ] 02-02-PLAN.md — Virtual grid: rewrite ScreenplayGrid with row-based virtual scrolling, BackToTopButton, initial load stagger
 
 ### Phase 3: Selection Mode Foundation
@@ -65,7 +65,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. PDF Polish | v7.0 | 1/1 | Complete | 2026-03-23 |
-| 2. Performance at Scale | v7.0 | 0/2 | Planned | — |
+| 2. Performance at Scale | v7.0 | 1/2 | In Progress | — |
 | 3. Selection Mode Foundation | v7.0 | 0/? | Pending | — |
 | 4. Bulk Action Integrations | v7.0 | 0/? | Pending | — |
 | 5. Bulk PDF Upload Modal | v7.0 | 0/? | Pending | — |

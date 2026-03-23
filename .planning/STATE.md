@@ -4,14 +4,14 @@ milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: in_progress
 stopped_at: null
-last_updated: "2026-03-23T00:00:00.000Z"
-last_activity: 2026-03-23 — Phase 1 complete (PDF Polish — score/verdict spacing fix)
+last_updated: "2026-03-23T21:32:02Z"
+last_activity: 2026-03-23 — Phase 2 Plan 1 complete (Virtual Scroll Prep)
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 20
+  total_plans: 2
+  completed_plans: 2
+  percent: 30
 ---
 
 # Project State
@@ -25,25 +25,25 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 1 of 5 (PDF Polish — COMPLETE)
-Plan: 1/1 complete
-Status: Phase 1 done, ready for Phase 2
-Last activity: 2026-03-23 — Phase 1 complete (PDF spacing fix)
+Phase: 2 of 5 (Performance at Scale — Plan 1/2 complete)
+Plan: 1/2 complete
+Status: Phase 2 Plan 1 done (Virtual Scroll Prep), ready for Plan 2
+Last activity: 2026-03-23 — Phase 2 Plan 1 complete (memo-wrap card, IO removal, useColumnCount, fire-once animation)
 
-Progress: [██░░░░░░░░] 20%
+Progress: [███░░░░░░░] 30%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: —
+- Total plans completed: 1
+- Average duration: 8min
+- Total execution time: 8min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 02-performance-at-scale | 1 | 8min | 8min |
 
 *Updated after each plan completion*
 
@@ -62,6 +62,10 @@ Recent decisions affecting current work:
 - [Pre-milestone]: No global selection cap; per-action limits at the button level
 - [Pre-milestone]: One dropzone per screenplay (no filename auto-matching)
 - [Pre-milestone]: Phase 3 CONTEXT.md carries detailed decisions from pre-milestone discussion
+- [Phase 2 Plan 1]: Module-level Set for fire-once animation gating (D-01) -- persists across re-mounts, clears on page reload
+- [Phase 2 Plan 1]: All loglines clamped to 2 lines including FILM NOW (D-09) -- uniform card height for virtual scrolling
+- [Phase 2 Plan 1]: IO removed from card, animation gating moved to ScoreBar via cardId prop
+- [Phase 2 Plan 1]: @tanstack/react-virtual chosen for virtual scrolling (resolved blocker)
 
 ### Pending Todos
 
@@ -69,11 +73,11 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- Virtual scrolling library choice (Phase 2) needs evaluation — react-window vs react-virtuoso vs @tanstack/virtual
+- ~~Virtual scrolling library choice (Phase 2) needs evaluation~~ RESOLVED: @tanstack/react-virtual installed
 - Virtual scrolling may affect existing card interactions (modal open, context menu, checkbox clicks)
 
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Milestone v7.0 created
+Stopped at: Completed 02-01-PLAN.md (Virtual Scroll Prep)
 Resume file: None
