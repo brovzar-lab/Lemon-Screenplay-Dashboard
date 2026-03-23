@@ -1,12 +1,15 @@
 /**
  * ScreenplayGrid Component
- * Displays grid of screenplay cards with loading and empty states.
- * Delete is handled per-card (trash icon on hover) and in the modal header.
+ * Virtualized grid of screenplay cards using @tanstack/react-virtual.
+ * Only visible rows (plus overscan buffer) are rendered to the DOM,
+ * keeping node count constant regardless of dataset size (PERF-01).
  */
 
-import { useRef, useCallback } from 'react';
-import { ScreenplayCard } from './ScreenplayCard';
-import { ErrorBoundary } from '@/components/ui';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { VirtualRow } from './VirtualRow';
+import { BackToTopButton } from './BackToTopButton';
+import { useColumnCount } from '@/hooks/useColumnCount';
 import { EmptyState, SpotlightIcon, DimmedStarIcon, SearchEmptyIcon } from '@/components/ui/EmptyState';
 import { useFilterStore } from '@/stores/filterStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
@@ -17,6 +20,24 @@ interface ScreenplayGridProps {
   isLoading: boolean;
   onCardClick?: (screenplay: Screenplay) => void;
 }
+
+/**
+ * Row height constants per column count.
+ * Taller rows for fewer columns (more content visible per card).
+ */
+const ROW_HEIGHTS: Record<number, number> = {
+  1: 420,  // mobile: 1-col, taller cards
+  2: 380,  // sm/lg: 2-col
+  3: 360,  // xl: 3-col
+  4: 340,  // 2xl: 4-col, most compact
+};
+
+function getRowHeight(columnCount: number): number {
+  return ROW_HEIGHTS[columnCount] ?? 380;
+}
+
+/** Module-level flag: stagger animation fires once per page load (D-02) */
+let hasCompletedInitialReveal = false;
 
 /**
  * Loading skeleton card
@@ -136,54 +157,59 @@ function GridEmptyState() {
 }
 
 export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: ScreenplayGridProps) {
-  const gridRef = useRef<HTMLDivElement>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
+  const columnCount = useColumnCount();
+  const rowCount = Math.ceil(screenplays.length / columnCount);
+  const rowHeight = getRowHeight(columnCount);
 
-  // Keyboard navigation handler
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent, index: number) => {
-      const grid = gridRef.current;
-      if (!grid) return;
+  // Per D-06: show back-to-top after scrolling past ~5 rows (~20 cards at 4-col)
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
-      const cards = grid.querySelectorAll<HTMLElement>('[data-card]');
-      const currentCard = cards[index];
-      if (!currentCard) return;
+  // Track initial render for stagger animation (D-02)
+  const [isInitialRender, setIsInitialRender] = useState(true);
 
-      const gridStyles = window.getComputedStyle(grid);
-      const columns = gridStyles.gridTemplateColumns.split(' ').length;
-
-      let nextIndex: number | null = null;
-
-      switch (e.key) {
-        case 'ArrowRight':
-          nextIndex = Math.min(index + 1, cards.length - 1);
-          break;
-        case 'ArrowLeft':
-          nextIndex = Math.max(index - 1, 0);
-          break;
-        case 'ArrowDown':
-          nextIndex = Math.min(index + columns, cards.length - 1);
-          break;
-        case 'ArrowUp':
-          nextIndex = Math.max(index - columns, 0);
-          break;
-        case 'Enter':
-        case ' ':
-          e.preventDefault();
-          onCardClick?.(screenplays[index]);
-          return;
-        default:
-          return;
-      }
-
-      if (nextIndex !== null && nextIndex !== index) {
-        e.preventDefault();
-        cards[nextIndex]?.focus();
-      }
+  const virtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => rowHeight,
+    overscan: 3,
+    gap: 24, // matches gap-6 (1.5rem = 24px at default)
+    onChange: (instance) => {
+      // Per D-06: threshold = 5 rows worth of scroll
+      setShowBackToTop((instance.scrollOffset ?? 0) > rowHeight * 5);
     },
-    [screenplays, onCardClick]
-  );
+  });
 
-  // Loading state
+  // Per D-05: jump to top when screenplays list changes (filter/sort)
+  useEffect(() => {
+    if (parentRef.current) {
+      parentRef.current.scrollTop = 0;
+    }
+  }, [screenplays]);
+
+  // Per D-08/Pitfall 4: re-measure when column count changes
+  useEffect(() => {
+    virtualizer.measure();
+  }, [columnCount, virtualizer]);
+
+  // Mark initial reveal complete after first render with data
+  useEffect(() => {
+    if (screenplays.length > 0 && isInitialRender) {
+      const timer = setTimeout(() => {
+        hasCompletedInitialReveal = true;
+        setIsInitialRender(false);
+      }, 800); // allow stagger animations to complete
+      return () => clearTimeout(timer);
+    }
+  }, [screenplays.length, isInitialRender]);
+
+  const scrollToTop = useCallback(() => {
+    if (parentRef.current) {
+      parentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
+  // Loading state — keep existing skeleton grid
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6">
@@ -194,43 +220,43 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
     );
   }
 
-  // Empty state
+  // Empty state — keep existing context-aware empty state
   if (screenplays.length === 0) {
     return <GridEmptyState />;
   }
 
+  // Calculate stagger delay per D-02:
+  // Only on initial page load. First visible rows get stagger delays.
+  // After initial reveal completes, no animation.
+  const shouldStagger = isInitialRender && !hasCompletedInitialReveal;
+
   return (
-    <div
-      ref={gridRef}
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6"
-      role="list"
-      aria-label="Screenplay results"
-    >
-      {screenplays.map((screenplay, index) => (
-        <ErrorBoundary
-          key={screenplay.id}
-          fallback={
-            <div className="card bg-red-500/10 border-red-500/30" role="listitem">
-              <p className="text-red-400 text-sm">
-                Error rendering: {screenplay.title || 'Unknown'}
-              </p>
-            </div>
-          }
+    <>
+      <div
+        ref={parentRef}
+        className="flex-1 overflow-y-auto"
+        style={{ height: 'calc(100vh - 200px)' }}
+        role="list"
+        aria-label="Screenplay results"
+      >
+        <div
+          className="relative w-full"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
         >
-          <div
-            data-card
-            tabIndex={0}
-            role="listitem"
-            aria-label={`${screenplay.title} by ${screenplay.author}, ${screenplay.recommendation} recommendation`}
-            onKeyDown={(e) => handleKeyDown(e, index)}
-            onClick={() => onCardClick?.(screenplay)}
-            className="focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 focus:ring-offset-black-900 rounded-xl"
-          >
-            <ScreenplayCard screenplay={screenplay} />
-          </div>
-        </ErrorBoundary>
-      ))}
-    </div>
+          {virtualizer.getVirtualItems().map((virtualRow) => (
+            <VirtualRow
+              key={virtualRow.key}
+              virtualRow={virtualRow}
+              screenplays={screenplays}
+              columnCount={columnCount}
+              onCardClick={onCardClick}
+              staggerDelay={shouldStagger ? virtualRow.index * 80 : 0}
+            />
+          ))}
+        </div>
+      </div>
+      <BackToTopButton visible={showBackToTop} onClick={scrollToTop} />
+    </>
   );
 }
 
