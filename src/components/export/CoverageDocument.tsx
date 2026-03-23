@@ -187,8 +187,8 @@ const s = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     marginBottom: 2,
   },
-  scoreOf: { fontSize: 7, color: C.grey500, marginBottom: 6 },
-  recBadge: { paddingVertical: 3, paddingHorizontal: 12, borderRadius: 2 },
+  scoreOf: { fontSize: 7, color: C.grey500, marginBottom: 10 },
+  recBadge: { marginTop: 4, paddingVertical: 3, paddingHorizontal: 12, borderRadius: 2 },
   recBadgeText: {
     fontSize: 8,
     fontFamily: 'Helvetica-Bold',
