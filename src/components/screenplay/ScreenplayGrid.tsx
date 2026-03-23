@@ -4,13 +4,12 @@
  * Delete is handled per-card (trash icon on hover) and in the modal header.
  */
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback } from 'react';
 import { ScreenplayCard } from './ScreenplayCard';
 import { ErrorBoundary } from '@/components/ui';
 import { EmptyState, SpotlightIcon, DimmedStarIcon, SearchEmptyIcon } from '@/components/ui/EmptyState';
 import { useFilterStore } from '@/stores/filterStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
-import { useScrollReveal } from '@/hooks/useScrollReveal';
 import type { Screenplay } from '@/types';
 
 interface ScreenplayGridProps {
@@ -138,19 +137,6 @@ function GridEmptyState() {
 
 export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: ScreenplayGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
-  const { containerRef: revealRef, refresh: refreshReveals } = useScrollReveal<HTMLDivElement>();
-
-  // Sync gridRef for keyboard navigation
-  useEffect(() => {
-    if (revealRef.current) {
-      (gridRef as React.MutableRefObject<HTMLDivElement | null>).current = revealRef.current;
-    }
-  });
-
-  // Re-observe when screenplays change (e.g., after filtering)
-  useEffect(() => {
-    refreshReveals();
-  }, [screenplays, refreshReveals]);
 
   // Keyboard navigation handler
   const handleKeyDown = useCallback(
@@ -215,7 +201,7 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
 
   return (
     <div
-      ref={revealRef}
+      ref={gridRef}
       className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6"
       role="list"
       aria-label="Screenplay results"
@@ -233,8 +219,6 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
         >
           <div
             data-card
-            data-reveal
-            style={{ transitionDelay: `${Math.min(index, 12) * 50}ms` }}
             tabIndex={0}
             role="listitem"
             aria-label={`${screenplay.title} by ${screenplay.author}, ${screenplay.recommendation} recommendation`}

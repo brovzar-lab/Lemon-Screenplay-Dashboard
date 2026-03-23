@@ -195,4 +195,21 @@ describe('ScreenplayCard', () => {
     expect(() => render(<ScreenplayCard screenplay={screenplay} />)).not.toThrow();
     expect(screen.getByText('7.5')).toBeInTheDocument();
   });
+
+  it('is wrapped in React.memo', () => {
+    // React.memo components have a $$typeof of Symbol(react.memo)
+    expect((ScreenplayCard as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+  });
+
+  it('clamps all loglines to 2 lines regardless of recommendation tier', () => {
+    const screenplay = createTestScreenplay({
+      recommendation: 'film_now',
+      isFilmNow: true,
+      logline: 'A prestigious screenplay with a very long logline that should be clamped.',
+    });
+    render(<ScreenplayCard screenplay={screenplay} />);
+
+    const logline = screen.getByText('A prestigious screenplay with a very long logline that should be clamped.');
+    expect(logline).toHaveClass('line-clamp-2');
+  });
 });

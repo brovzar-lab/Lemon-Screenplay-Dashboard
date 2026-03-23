@@ -4,7 +4,7 @@
  */
 
 // ... imports ...
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { getScoreColorClass } from '@/lib/calculations';
@@ -44,7 +44,7 @@ function ProducerMetricsMini({ screenplay }: { screenplay: Screenplay }) {
   );
 }
 
-export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
+export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
   const toggleExportSelection = useExportSelectionStore((s) => s.toggle);
   const isExportSelected = useIsSelectedForExport(screenplay.id);
   const isDeleteMode = useDeleteSelectionStore((s) => s.isDeleteMode);
@@ -52,9 +52,6 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
   const isDeleteSelected = useIsSelectedForDelete(screenplay.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
-
-  const [isRevealed, setIsRevealed] = useState(false);
-  const cardRef = useRef<HTMLElement>(null);
 
   const [isPeeking, setIsPeeking] = useState(false);
   const peekTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -71,24 +68,6 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
     clearTimeout(peekTimerRef.current);
     setIsPeeking(false);
   };
-
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsRevealed(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.3 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     return () => clearTimeout(peekTimerRef.current);
@@ -142,7 +121,6 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
   return (
     <>
       <article
-        ref={cardRef}
         onClick={onClick}
         onMouseEnter={handlePeekEnter}
         onMouseLeave={handlePeekLeave}
@@ -216,7 +194,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
 
         {/* Logline */}
         <p className={`text-sm text-black-300 leading-relaxed ${
-          screenplay.recommendation === 'film_now' || isPeeking ? '' : 'line-clamp-2'
+          isPeeking ? '' : 'line-clamp-2'
         }`}>
           {screenplay.logline}
         </p>
@@ -252,7 +230,8 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
               score={dim.score}
               label={dim.label}
               compact
-              animate={isRevealed}
+              animate
+              cardId={screenplay.id}
             />
           ))}
         </div>
@@ -308,7 +287,7 @@ export function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
       />
     </>
   );
-}
+});
 
 export default ScreenplayCard;
 
