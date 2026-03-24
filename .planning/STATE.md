@@ -4,14 +4,14 @@ milestone: v7.0
 milestone_name: Pipeline Scale & Bulk Operations
 status: in_progress
 stopped_at: null
-last_updated: "2026-03-23T23:52:38Z"
-last_activity: 2026-03-23 — Phase 3 Plan 1 complete (Selection Store & Card Checkbox)
+last_updated: "2026-03-23T23:59:32Z"
+last_activity: 2026-03-23 — Phase 3 Plan 2 complete (Bulk Action Bar Shell)
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 50
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -26,25 +26,25 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 3 of 5 (Selection Mode Foundation)
-Plan: 1/2 complete
-Status: Phase 3 Plan 1 complete (Selection Store & Card Checkbox)
-Last activity: 2026-03-23 -- Phase 3 Plan 1 complete (selectionStore, ScreenplayCard checkbox)
+Plan: 2/2 complete
+Status: Phase 3 complete (Selection Mode Foundation) -- ready for verification
+Last activity: 2026-03-23 -- Phase 3 Plan 2 complete (BulkActionBar shell, BackToTopButton offset)
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 6min
-- Total execution time: 17min
+- Total plans completed: 4
+- Average duration: 5min
+- Total execution time: 20min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 02-performance-at-scale | 2 | 13min | 7min |
-| 03-selection-mode-foundation | 1 | 4min | 4min |
+| 03-selection-mode-foundation | 2 | 7min | 4min |
 
 *Updated after each plan completion*
 
@@ -75,6 +75,9 @@ Recent decisions affecting current work:
 - [Phase 3 Plan 1]: No persist middleware -- selection is ephemeral, clears on page refresh
 - [Phase 3 Plan 1]: Bulk checkbox always visible (not hover-gated) per D-05 decision
 - [Phase 3 Plan 1]: Gold ring only shows when NOT in delete mode to avoid double rings
+- [Phase 3 Plan 2]: BulkActionBar uses same glass styling as ComparisonBar for visual consistency
+- [Phase 3 Plan 2]: BackToTopButton shifts bottom-6 to bottom-20 via clsx + useHasSelection
+- [Phase 3 Plan 2]: Six action buttons disabled with native title tooltips per D-10 (visible-but-disabled)
 
 ### Pending Todos
 
@@ -88,5 +91,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Completed 03-01-PLAN.md (Selection Store & Card Checkbox)
+Stopped at: Completed 03-02-PLAN.md (Bulk Action Bar Shell)
 Resume file: None
