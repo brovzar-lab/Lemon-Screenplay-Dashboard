@@ -24,8 +24,8 @@
 
 - [x] **Phase 1: PDF Polish** - Fix coverage PDF cover page spacing (score/verdict separation) (completed 2026-03-23)
 - [x] **Phase 2: Performance at Scale** - Virtual scrolling + memoized filtering for 500-1000+ screenplays (completed 2026-03-23)
-- [ ] **Phase 3: Selection Mode Foundation** - Multi-select checkboxes, selection store, bulk action bar
-- [ ] **Phase 4: Bulk Action Integrations** - Wire up export, compare, collection, favorites from selection store
+- [x] **Phase 3: Selection Mode Foundation** - Multi-select checkboxes, selection store, bulk action bar (completed 2026-03-23)
+- [ ] **Phase 4: Bulk Action Integrations** - Wire up export, compare, collection, favorites from selection store (1/3 plans)
 - [ ] **Phase 5: Bulk PDF Upload Modal** - Streamlined upload with per-title dropzones
 
 ## Phase Details
@@ -52,8 +52,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Selection store (Set-based Zustand) + always-visible checkbox and gold ring on ScreenplayCard
-- [ ] 03-02-PLAN.md — BulkActionBar shell (sticky bottom, six disabled buttons, Select All/Deselect All) + BackToTopButton offset
+- [x] 03-01-PLAN.md — Selection store (Set-based Zustand) + always-visible checkbox and gold ring on ScreenplayCard (completed 2026-03-23)
+- [x] 03-02-PLAN.md — BulkActionBar shell (sticky bottom, six disabled buttons, Select All/Deselect All) + BackToTopButton offset (completed 2026-03-23)
 
 ### Phase 4: Bulk Action Integrations
 **Goal:** Wire up the five always-available bulk actions — export CSV, export PDF, compare, set category, add to favorites — connecting the selection store to existing modals and stores.
@@ -62,7 +62,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Prerequisites (toast success severity, patchAnalysisField, JSZip install) + wire CSV Export and Compare buttons
+- [x] 04-01-PLAN.md — Prerequisites (toast success severity, patchAnalysisField, JSZip install) + wire CSV Export and Compare buttons (completed 2026-03-24)
 - [ ] 04-02-PLAN.md — SetCategoryModal and AddToFavoritesModal + wire Set Category and Favorites buttons
 - [ ] 04-03-PLAN.md — Bulk PDF export utility (JSZip) + wire Export PDF button with inline progress
 
@@ -77,8 +77,8 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 1. PDF Polish | v7.0 | 1/1 | Complete | 2026-03-23 |
 | 2. Performance at Scale | v7.0 | 2/2 | Complete | 2026-03-23 |
-| 3. Selection Mode Foundation | v7.0 | 0/2 | Pending | — |
-| 4. Bulk Action Integrations | v7.0 | 0/3 | Pending | — |
+| 3. Selection Mode Foundation | v7.0 | 2/2 | Complete | 2026-03-23 |
+| 4. Bulk Action Integrations | v7.0 | 1/3 | In Progress | — |
 | 5. Bulk PDF Upload Modal | v7.0 | 0/? | Pending | — |
 
 ## Requirement Coverage
