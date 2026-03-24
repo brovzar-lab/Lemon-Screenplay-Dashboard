@@ -74,6 +74,7 @@ vi.mock('@/stores/toastStore', () => ({
 vi.mock('@/components/bulk', () => ({
   SetCategoryModal: () => null,
   AddToFavoritesModal: () => null,
+  BulkPdfUploadModal: () => null,
 }));
 
 describe('BulkActionBar', () => {
@@ -143,15 +144,15 @@ describe('BulkActionBar', () => {
     }
   });
 
-  it('disabled buttons have title tooltips (2 disabled when count=1)', () => {
+  it('disabled buttons have title tooltips (1 disabled when count=1)', () => {
     mockHasSelection = true;
     mockSelectionCount = 1;
     render(<BulkActionBar />);
 
     const disabledButtons = screen.getAllByRole('button').filter((btn) => btn.hasAttribute('disabled'));
-    // 2 disabled: Compare (count=1), Upload PDFs
-    // Not disabled: Export CSV, Export PDF, Set Category, Favorites, Clear selection, Select All, Deselect All
-    expect(disabledButtons.length).toBe(2);
+    // 1 disabled: Compare (count=1)
+    // Not disabled: Export CSV, Export PDF, Upload PDFs, Set Category, Favorites, Clear selection, Select All, Deselect All
+    expect(disabledButtons.length).toBe(1);
 
     for (const btn of disabledButtons) {
       expect(btn.getAttribute('title')).toBeTruthy();
