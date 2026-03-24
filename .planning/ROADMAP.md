@@ -70,6 +70,11 @@ Plans:
 **Goal:** Build the streamlined bulk PDF upload experience — one dropzone per title, filtered to missing-PDF screenplays only, with success summary.
 **Requirements:** BULK-07, BULK-12
 **Depends on:** Phase 3
+**Plans:** 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Helper functions (validatePdfFile, matchScore, matchFilesToScreenplays, middleTruncate) with TDD tests
+- [ ] 05-02-PLAN.md — BulkPdfUploadModal component (per-row dropzones, batch zone, progress, retry) + wire Upload PDFs button in BulkActionBar
 
 ## Progress
 
@@ -79,7 +84,7 @@ Plans:
 | 2. Performance at Scale | v7.0 | 2/2 | Complete | 2026-03-23 |
 | 3. Selection Mode Foundation | v7.0 | 2/2 | Complete | 2026-03-23 |
 | 4. Bulk Action Integrations | v7.0 | 3/3 | Complete | 2026-03-24 |
-| 5. Bulk PDF Upload Modal | v7.0 | 0/? | Pending | — |
+| 5. Bulk PDF Upload Modal | v7.0 | 0/2 | Pending | — |
 
 ## Requirement Coverage
 
