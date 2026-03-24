@@ -93,6 +93,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
 
   return (
     <div
+      data-testid="screenplay-modal"
       className="fixed inset-0 z-50 flex items-start justify-center p-4 md:p-8 overflow-y-auto"
       onClick={handleClose}
       role="dialog"

@@ -59,6 +59,9 @@ export default defineConfig({
           'vendor-react-pdf': ['@react-pdf/renderer'],
           // State management
           'vendor-state': ['zustand', '@tanstack/react-query'],
+          // Split heavy deps out of main bundle for better caching
+          'vendor-firebase': ['firebase/app', 'firebase/firestore', 'firebase/auth'],
+          'vendor-pdfjs': ['pdfjs-dist'],
         },
       },
     },

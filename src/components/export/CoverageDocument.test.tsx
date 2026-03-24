@@ -34,7 +34,7 @@ vi.mock('@/lib/dimensionDisplay', () => ({
 }));
 
 import { render } from '@testing-library/react';
-import { CoverageDocument } from './CoverageDocument';
+import { CoverageDocument, __coverageDocStyles, __scoreGapStyle } from './CoverageDocument';
 import type { Screenplay } from '@/types';
 import type { Note } from '@/types/filters';
 
@@ -283,5 +283,15 @@ describe('CoverageDocument', () => {
     );
     // Should contain truncation ellipsis
     expect(container.textContent).toContain('...');
+  });
+
+  // ── Regression guards ──
+
+  it('preserves v6.8 fix: titleText.marginBottom is 8', () => {
+    expect((__coverageDocStyles as Record<string, Record<string, unknown>>).titleText.marginBottom).toBe(8);
+  });
+
+  it('score/badge gap wrapper has marginTop >= 16', () => {
+    expect(__scoreGapStyle.marginTop).toBeGreaterThanOrEqual(16);
   });
 });

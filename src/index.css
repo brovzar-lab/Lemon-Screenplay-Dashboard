@@ -240,6 +240,16 @@
 
 @layer utilities {
 
+  /* Scrollbar Hide — used for horizontally-scrollable rows on mobile */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Font Utilities */
   .font-heading {
     font-family: var(--font-heading);
@@ -289,7 +299,7 @@
   /* Status Badges */
   .badge-recommend {
     background: var(--color-emerald-500);
-    color: white;
+    color: var(--color-black-950);
   }
 
   .badge-consider {
@@ -472,7 +482,6 @@
 
   .card:hover {
     border-color: rgba(245, 158, 11, 0.3);
-    transform: translateY(-4px);
     box-shadow: var(--shadow-gold);
   }
 

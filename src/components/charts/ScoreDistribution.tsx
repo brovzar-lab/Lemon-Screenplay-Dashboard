@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 
 import type { Screenplay } from '@/types';
+import { CHART_COLORS } from '@/lib/chartColors';
 
 interface ScoreDistributionProps {
   screenplays: Screenplay[];
@@ -42,10 +43,10 @@ const SCORE_BINS = [
 
 // Color based on score quality
 function getBarColor(min: number): string {
-  if (min >= 8) return '#F59E0B'; // Gold - excellent
-  if (min >= 7) return '#10B981'; // Emerald - good
-  if (min >= 5) return '#6B7280'; // Gray - average
-  return '#EF4444'; // Red - poor
+  if (min >= 8) return CHART_COLORS.gold;    // Gold - excellent
+  if (min >= 7) return CHART_COLORS.emerald; // Emerald - good
+  if (min >= 5) return CHART_COLORS.gray;    // Gray - average
+  return CHART_COLORS.red;                   // Red - poor
 }
 
 interface ChartTooltipProps {

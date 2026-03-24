@@ -37,7 +37,7 @@ Thumbs.db
 # Test artifacts
 test-results/
 playwright-report/
-coverage/
+/coverage/
 
 # Firebase cache
 .firebase/

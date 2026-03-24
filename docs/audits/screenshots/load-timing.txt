@@ -1,0 +1,6 @@
+Page Load Timing (Desktop 1440x900)
+=====================================
+domContentLoaded: 802 ms
+load:             1049 ms
+Captured at:      2026-03-23T01:44:33.759Z
+URL:              http://localhost:5173

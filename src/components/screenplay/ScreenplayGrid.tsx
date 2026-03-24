@@ -1,22 +1,33 @@
 /**
  * ScreenplayGrid Component
  * Displays grid of screenplay cards with loading and empty states.
- * Delete is handled per-card (trash icon on hover) and in the modal header.
+ * Uses @tanstack/react-virtual useWindowVirtualizer for efficient rendering
+ * of large screenplay lists. Delete is handled per-card and in the modal header.
  */
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { ScreenplayCard } from './ScreenplayCard';
 import { ErrorBoundary } from '@/components/ui';
 import { EmptyState, SpotlightIcon, DimmedStarIcon, SearchEmptyIcon } from '@/components/ui/EmptyState';
 import { useFilterStore } from '@/stores/filterStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
-import { useScrollReveal } from '@/hooks/useScrollReveal';
 import type { Screenplay } from '@/types';
 
 interface ScreenplayGridProps {
   screenplays: Screenplay[];
   isLoading: boolean;
   onCardClick?: (screenplay: Screenplay) => void;
+}
+
+// Generous estimate used before measurement — actual heights are measured dynamically
+const ROW_HEIGHT_ESTIMATE = 420;
+
+function getColumnCount(width: number): number {
+  if (width >= 1536) return 4; // 2xl:grid-cols-4
+  if (width >= 1280) return 3; // xl:grid-cols-3
+  if (width >= 640) return 2;  // sm:grid-cols-2
+  return 1;                     // grid-cols-1
 }
 
 /**
@@ -137,67 +148,78 @@ function GridEmptyState() {
 }
 
 export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: ScreenplayGridProps) {
-  const gridRef = useRef<HTMLDivElement>(null);
-  const { containerRef: revealRef, refresh: refreshReveals } = useScrollReveal<HTMLDivElement>();
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Sync gridRef for keyboard navigation
+  // Track column count via ResizeObserver on the container element
+  const [columns, setColumns] = useState(() =>
+    typeof window !== 'undefined' ? getColumnCount(window.innerWidth) : 1
+  );
+
   useEffect(() => {
-    if (revealRef.current) {
-      (gridRef as React.MutableRefObject<HTMLDivElement | null>).current = revealRef.current;
-    }
+    const update = () => setColumns(getColumnCount(window.innerWidth));
+    window.addEventListener('resize', update);
+    // Sync immediately in case window was resized before mount
+    update();
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  // Group flat array into rows of N columns
+  const rowCount = Math.ceil(screenplays.length / columns);
+
+  // useWindowVirtualizer uses window scroll — matches the page's min-h-screen flex layout
+  const rowVirtualizer = useWindowVirtualizer({
+    count: rowCount,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 3,
+    scrollMargin: containerRef.current?.offsetTop ?? 0,
+    measureElement: (el) => el.getBoundingClientRect().height,
   });
 
-  // Re-observe when screenplays change (e.g., after filtering)
-  useEffect(() => {
-    refreshReveals();
-  }, [screenplays, refreshReveals]);
-
-  // Keyboard navigation handler
+  // Keyboard navigation — uses `columns` state (not getComputedStyle)
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent, index: number) => {
-      const grid = gridRef.current;
+    (e: React.KeyboardEvent, globalIndex: number) => {
+      const grid = containerRef.current;
       if (!grid) return;
 
-      const cards = grid.querySelectorAll<HTMLElement>('[data-card]');
-      const currentCard = cards[index];
-      if (!currentCard) return;
+      // With virtual scrolling only visible cards are in the DOM —
+      // use the event target's DOM position, not the global screenplay index.
+      const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-card]'));
+      const domIndex = cards.indexOf(e.currentTarget as HTMLElement);
+      if (domIndex === -1) return;
 
-      const gridStyles = window.getComputedStyle(grid);
-      const columns = gridStyles.gridTemplateColumns.split(' ').length;
-
-      let nextIndex: number | null = null;
+      let nextDomIndex: number | null = null;
 
       switch (e.key) {
         case 'ArrowRight':
-          nextIndex = Math.min(index + 1, cards.length - 1);
+          nextDomIndex = Math.min(domIndex + 1, cards.length - 1);
           break;
         case 'ArrowLeft':
-          nextIndex = Math.max(index - 1, 0);
+          nextDomIndex = Math.max(domIndex - 1, 0);
           break;
         case 'ArrowDown':
-          nextIndex = Math.min(index + columns, cards.length - 1);
+          nextDomIndex = Math.min(domIndex + columns, cards.length - 1);
           break;
         case 'ArrowUp':
-          nextIndex = Math.max(index - columns, 0);
+          nextDomIndex = Math.max(domIndex - columns, 0);
           break;
         case 'Enter':
         case ' ':
           e.preventDefault();
-          onCardClick?.(screenplays[index]);
+          onCardClick?.(screenplays[globalIndex]);
           return;
         default:
           return;
       }
 
-      if (nextIndex !== null && nextIndex !== index) {
+      if (nextDomIndex !== null && nextDomIndex !== domIndex) {
         e.preventDefault();
-        cards[nextIndex]?.focus();
+        cards[nextDomIndex]?.focus();
       }
     },
-    [screenplays, onCardClick]
+    [screenplays, onCardClick, columns]
   );
 
-  // Loading state
+  // Loading state — unchanged
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6">
@@ -208,44 +230,66 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
     );
   }
 
-  // Empty state
+  // Empty state — unchanged
   if (screenplays.length === 0) {
     return <GridEmptyState />;
   }
 
   return (
-    <div
-      ref={revealRef}
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6"
-      role="list"
-      aria-label="Screenplay results"
-    >
-      {screenplays.map((screenplay, index) => (
-        <ErrorBoundary
-          key={screenplay.id}
-          fallback={
-            <div className="card bg-red-500/10 border-red-500/30" role="listitem">
-              <p className="text-red-400 text-sm">
-                Error rendering: {screenplay.title || 'Unknown'}
-              </p>
-            </div>
-          }
-        >
-          <div
-            data-card
-            data-reveal
-            style={{ transitionDelay: `${Math.min(index, 12) * 50}ms` }}
-            tabIndex={0}
-            role="listitem"
-            aria-label={`${screenplay.title} by ${screenplay.author}, ${screenplay.recommendation} recommendation`}
-            onKeyDown={(e) => handleKeyDown(e, index)}
-            onClick={() => onCardClick?.(screenplay)}
-            className="focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 focus:ring-offset-black-900 rounded-xl"
-          >
-            <ScreenplayCard screenplay={screenplay} />
-          </div>
-        </ErrorBoundary>
-      ))}
+    <div ref={containerRef} data-testid="screenplay-grid" className="relative bg-black-950">
+      {/* Sentinel div establishes the total scroll height for the virtualizer */}
+      <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const startIdx = virtualRow.index * columns;
+          const rowScreenplays = screenplays.slice(startIdx, startIdx + columns);
+
+          return (
+            <ErrorBoundary
+              key={virtualRow.key}
+              fallback={
+                <div
+                  style={{ height: ROW_HEIGHT_ESTIMATE }}
+                  className="flex items-center justify-center text-red-400 text-sm"
+                >
+                  Error rendering row
+                </div>
+              }
+            >
+              <div
+                data-index={virtualRow.index}
+                ref={rowVirtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                  gap: '1.5rem',
+                  paddingBottom: '1.5rem',
+                }}
+              >
+                {rowScreenplays.map((screenplay, colIdx) => {
+                  const globalIndex = startIdx + colIdx;
+                  return (
+                    <div
+                      key={`${screenplay.id}-${globalIndex}`}
+                      data-card
+                      tabIndex={0}
+                      className="card-enter min-w-0 focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 focus:ring-offset-black-900 rounded-xl"
+                      onKeyDown={(e) => handleKeyDown(e, globalIndex)}
+                      onClick={() => onCardClick?.(screenplay)}
+                    >
+                      <ScreenplayCard screenplay={screenplay} />
+                    </div>
+                  );
+                })}
+              </div>
+            </ErrorBoundary>
+          );
+        })}
+      </div>
     </div>
   );
 }

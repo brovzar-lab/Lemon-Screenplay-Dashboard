@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { clsx } from 'clsx';
 import { getScoreColorClass, getScoreBarFillClass } from '@/lib/calculations';
 import { toNumber } from '@/lib/utils';
@@ -15,7 +16,7 @@ interface ScoreBarProps {
   animate?: boolean;
 }
 
-export function ScoreBar({
+function ScoreBarInner({
   label,
   score,
   max = 10,
@@ -69,3 +70,5 @@ export function ScoreBar({
     </div>
   );
 }
+
+export const ScoreBar = memo(ScoreBarInner);

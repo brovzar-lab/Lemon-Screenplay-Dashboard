@@ -25,7 +25,7 @@ export function ModalFooter({ screenplay }: ModalFooterProps) {
                         ))}
                     </div>
                     {screenplay.v6BudgetCeilingUsed && (
-                        <p className="text-xs text-black-500 mt-2">
+                        <p className="text-xs text-black-400 mt-2">
                             Budget ceiling: ${(screenplay.v6BudgetCeilingUsed / 1000000).toFixed(0)}M
                         </p>
                     )}
@@ -34,7 +34,7 @@ export function ModalFooter({ screenplay }: ModalFooterProps) {
 
             {/* Metadata & Version Control */}
             <div className="pt-6 mt-6 border-t border-black-700">
-                <div className="flex flex-wrap gap-4 text-xs text-black-500 mb-3">
+                <div className="flex flex-wrap gap-4 text-xs text-black-400 mb-3">
                     <span>Pages: {screenplay.metadata?.pageCount || 'N/A'}</span>
                     <span>Words: {(screenplay.metadata?.wordCount || 0).toLocaleString()}</span>
                     <span>Source: {screenplay.sourceFile || 'N/A'}</span>

@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 
 import type { Screenplay, RecommendationTier } from '@/types';
+import { CHART_COLORS, TIER_COLORS } from '@/lib/chartColors';
 
 interface TierBreakdownProps {
   screenplays: Screenplay[];
@@ -40,10 +41,10 @@ interface CustomLegendProps {
 
 // Tier colors matching the design system
 const TIER_CONFIG: Record<RecommendationTier, { label: string; color: string }> = {
-  film_now: { label: 'FILM NOW', color: '#F59E0B' },
-  recommend: { label: 'Recommend', color: '#10B981' },
-  consider: { label: 'Consider', color: '#6B7280' },
-  pass: { label: 'Pass', color: '#EF4444' },
+  film_now: { label: 'FILM NOW', color: TIER_COLORS.film_now },
+  recommend: { label: 'Recommend', color: TIER_COLORS.recommend },
+  consider: { label: 'Consider', color: CHART_COLORS.gray },
+  pass: { label: 'Pass', color: TIER_COLORS.pass },
 };
 
 interface ChartTooltipProps {

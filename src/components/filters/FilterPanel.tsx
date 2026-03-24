@@ -33,8 +33,6 @@ interface FilterPanelProps {
 }
 
 export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
-  const [activeSection, setActiveSection] = useState<string | null>('scores');
-
   // Data-derived genres/themes (fall back to hardcoded while loading)
   const dataGenres = useGenres();
   const dataThemes = useThemes();
@@ -80,6 +78,39 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
     // Actions
     resetFilters,
   } = useFilterStore();
+
+  // FILTER-04: derive initial section from active filter state at mount
+  // FILTER-01: fallback default is 'genre' (Genre & Theme)
+  // Priority: genre/theme > category > core scores > producer > dimension > fallback 'genre'
+  const [activeSection, setActiveSection] = useState<string | null>(() => {
+    if (genres.length > 0 || themes.length > 0) return 'genre';
+    if (categories.length > 0) return 'category';
+    if (weightedScoreRange.enabled || cvsRange.enabled) return 'scores';
+    if (marketPotentialRange.enabled) return 'producer';
+    if (
+      conceptRange.enabled ||
+      structureRange.enabled ||
+      protagonistRange.enabled ||
+      supportingCastRange.enabled ||
+      dialogueRange.enabled ||
+      genreExecutionRange.enabled ||
+      originalityRange.enabled
+    ) return 'dimensions';
+    return 'genre';
+  });
+
+  // FILTER-02 + FILTER-04: Advanced disclosure — auto-expand when any dimension range is enabled
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(() =>
+    [
+      conceptRange,
+      structureRange,
+      protagonistRange,
+      supportingCastRange,
+      dialogueRange,
+      genreExecutionRange,
+      originalityRange,
+    ].some((r) => r.enabled)
+  );
 
   const { hasScanResult, isScanning: isPdfScanning } = usePdfStatusStore();
 
@@ -284,7 +315,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
             </div>
           </Section>
 
-          {/* Dimension Scores Section */}
+          {/* Dimension Scores Section — wrapped in AdvancedDisclosure (FILTER-02) */}
           <Section
             title="Dimension Scores"
             isOpen={activeSection === 'dimensions'}
@@ -301,78 +332,83 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
               ? `${[conceptRange.enabled, structureRange.enabled, protagonistRange.enabled, supportingCastRange.enabled, dialogueRange.enabled, genreExecutionRange.enabled, originalityRange.enabled].filter(Boolean).length}`
               : undefined}
           >
-            <div className="space-y-3">
-              <RangeSlider
-                label="Concept"
-                min={0}
-                max={10}
-                step={0.5}
-                value={[conceptRange.min, conceptRange.max]}
-                onChange={([min, max]) => setConceptRange({ min, max })}
-                enabled={conceptRange.enabled}
-                onEnabledChange={(enabled) => setConceptRange({ enabled })}
-              />
-              <RangeSlider
-                label="Structure"
-                min={0}
-                max={10}
-                step={0.5}
-                value={[structureRange.min, structureRange.max]}
-                onChange={([min, max]) => setStructureRange({ min, max })}
-                enabled={structureRange.enabled}
-                onEnabledChange={(enabled) => setStructureRange({ enabled })}
-              />
-              <RangeSlider
-                label="Protagonist"
-                min={0}
-                max={10}
-                step={0.5}
-                value={[protagonistRange.min, protagonistRange.max]}
-                onChange={([min, max]) => setProtagonistRange({ min, max })}
-                enabled={protagonistRange.enabled}
-                onEnabledChange={(enabled) => setProtagonistRange({ enabled })}
-              />
-              <RangeSlider
-                label="Supporting Cast"
-                min={0}
-                max={10}
-                step={0.5}
-                value={[supportingCastRange.min, supportingCastRange.max]}
-                onChange={([min, max]) => setSupportingCastRange({ min, max })}
-                enabled={supportingCastRange.enabled}
-                onEnabledChange={(enabled) => setSupportingCastRange({ enabled })}
-              />
-              <RangeSlider
-                label="Dialogue"
-                min={0}
-                max={10}
-                step={0.5}
-                value={[dialogueRange.min, dialogueRange.max]}
-                onChange={([min, max]) => setDialogueRange({ min, max })}
-                enabled={dialogueRange.enabled}
-                onEnabledChange={(enabled) => setDialogueRange({ enabled })}
-              />
-              <RangeSlider
-                label="Genre Execution"
-                min={0}
-                max={10}
-                step={0.5}
-                value={[genreExecutionRange.min, genreExecutionRange.max]}
-                onChange={([min, max]) => setGenreExecutionRange({ min, max })}
-                enabled={genreExecutionRange.enabled}
-                onEnabledChange={(enabled) => setGenreExecutionRange({ enabled })}
-              />
-              <RangeSlider
-                label="Originality"
-                min={0}
-                max={10}
-                step={0.5}
-                value={[originalityRange.min, originalityRange.max]}
-                onChange={([min, max]) => setOriginalityRange({ min, max })}
-                enabled={originalityRange.enabled}
-                onEnabledChange={(enabled) => setOriginalityRange({ enabled })}
-              />
-            </div>
+            <AdvancedDisclosure
+              isOpen={isAdvancedOpen}
+              onToggle={() => setIsAdvancedOpen((prev) => !prev)}
+            >
+              <div className="space-y-3">
+                <RangeSlider
+                  label="Concept"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  value={[conceptRange.min, conceptRange.max]}
+                  onChange={([min, max]) => setConceptRange({ min, max })}
+                  enabled={conceptRange.enabled}
+                  onEnabledChange={(enabled) => setConceptRange({ enabled })}
+                />
+                <RangeSlider
+                  label="Structure"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  value={[structureRange.min, structureRange.max]}
+                  onChange={([min, max]) => setStructureRange({ min, max })}
+                  enabled={structureRange.enabled}
+                  onEnabledChange={(enabled) => setStructureRange({ enabled })}
+                />
+                <RangeSlider
+                  label="Protagonist"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  value={[protagonistRange.min, protagonistRange.max]}
+                  onChange={([min, max]) => setProtagonistRange({ min, max })}
+                  enabled={protagonistRange.enabled}
+                  onEnabledChange={(enabled) => setProtagonistRange({ enabled })}
+                />
+                <RangeSlider
+                  label="Supporting Cast"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  value={[supportingCastRange.min, supportingCastRange.max]}
+                  onChange={([min, max]) => setSupportingCastRange({ min, max })}
+                  enabled={supportingCastRange.enabled}
+                  onEnabledChange={(enabled) => setSupportingCastRange({ enabled })}
+                />
+                <RangeSlider
+                  label="Dialogue"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  value={[dialogueRange.min, dialogueRange.max]}
+                  onChange={([min, max]) => setDialogueRange({ min, max })}
+                  enabled={dialogueRange.enabled}
+                  onEnabledChange={(enabled) => setDialogueRange({ enabled })}
+                />
+                <RangeSlider
+                  label="Genre Execution"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  value={[genreExecutionRange.min, genreExecutionRange.max]}
+                  onChange={([min, max]) => setGenreExecutionRange({ min, max })}
+                  enabled={genreExecutionRange.enabled}
+                  onEnabledChange={(enabled) => setGenreExecutionRange({ enabled })}
+                />
+                <RangeSlider
+                  label="Originality"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  value={[originalityRange.min, originalityRange.max]}
+                  onChange={([min, max]) => setOriginalityRange({ min, max })}
+                  enabled={originalityRange.enabled}
+                  onEnabledChange={(enabled) => setOriginalityRange({ enabled })}
+                />
+              </div>
+            </AdvancedDisclosure>
           </Section>
 
           {/* Producer Metrics Section */}
@@ -443,6 +479,39 @@ function Section({ title, isOpen, onToggle, badge, children }: SectionProps) {
         </div>
         <svg
           className={clsx('w-4 h-4 text-black-400 transition-transform', isOpen && 'rotate-180')}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="p-3 pt-0 border-t border-black-700">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Advanced Disclosure Component — wraps dimension sliders (FILTER-02)
+interface AdvancedDisclosureProps {
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+function AdvancedDisclosure({ isOpen, onToggle, children }: AdvancedDisclosureProps) {
+  return (
+    <div className="border border-black-700 rounded-lg overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between p-3 text-sm font-medium text-black-200 hover:bg-black-800 transition-colors"
+      >
+        <span>Advanced</span>
+        <svg
+          className={clsx('w-4 h-4 transition-transform', isOpen && 'rotate-180')}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

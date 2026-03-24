@@ -24,10 +24,20 @@ vi.mock('@/hooks/useScreenplays', () => ({
   SCREENPLAYS_QUERY_KEY: ['screenplays'],
 }));
 
+// ─────────────────────────────────────────────────────────
+// PDF Status Store mock
+// ─────────────────────────────────────────────────────────
+
+let mockPdfState = { statuses: {} as Record<string, string>, hasScanResult: false, isScanning: false };
+
+vi.mock('@/stores/pdfStatusStore', () => ({
+  usePdfStatusStore: (selector: (s: unknown) => unknown) => selector(mockPdfState),
+}));
 
 describe('ScreenplayCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPdfState = { statuses: {}, hasScanResult: false, isScanning: false };
   });
 
   it('renders screenplay title and author', () => {
@@ -194,5 +204,88 @@ describe('ScreenplayCard', () => {
     // Should not throw
     expect(() => render(<ScreenplayCard screenplay={screenplay} />)).not.toThrow();
     expect(screen.getByText('7.5')).toBeInTheDocument();
+  });
+
+  // ────────────────────────────────────────────
+  // PDF Status Badge (FILE-01)
+  // ────────────────────────────────────────────
+
+  describe('PDF status badge', () => {
+    it('shows PDF found badge when hasScanResult=true and status is found', () => {
+      const screenplay = createTestScreenplay({ id: 'sp-found' });
+      mockPdfState = { statuses: { 'sp-found': 'found' }, hasScanResult: true, isScanning: false };
+
+      render(<ScreenplayCard screenplay={screenplay} />);
+      expect(screen.getByText('PDF ✓')).toBeInTheDocument();
+    });
+
+    it('shows No PDF badge when hasScanResult=true and status is missing', () => {
+      const screenplay = createTestScreenplay({ id: 'sp-missing' });
+      mockPdfState = { statuses: { 'sp-missing': 'missing' }, hasScanResult: true, isScanning: false };
+
+      render(<ScreenplayCard screenplay={screenplay} />);
+      expect(screen.getByText('No PDF')).toBeInTheDocument();
+    });
+
+    it('shows no PDF badge when status is unknown (no scan result, no hasPdf field)', () => {
+      const screenplay = createTestScreenplay({ id: 'sp-unknown', hasPdf: undefined });
+      mockPdfState = { statuses: {}, hasScanResult: false, isScanning: false };
+
+      render(<ScreenplayCard screenplay={screenplay} />);
+      expect(screen.queryByText('PDF ✓')).not.toBeInTheDocument();
+      expect(screen.queryByText('No PDF')).not.toBeInTheDocument();
+    });
+
+    it('falls back to hasPdf=true when no scan result', () => {
+      const screenplay = createTestScreenplay({ id: 'sp-fallback-found', hasPdf: true });
+      mockPdfState = { statuses: {}, hasScanResult: false, isScanning: false };
+
+      render(<ScreenplayCard screenplay={screenplay} />);
+      expect(screen.getByText('PDF ✓')).toBeInTheDocument();
+    });
+
+    it('falls back to hasPdf=false when no scan result', () => {
+      const screenplay = createTestScreenplay({ id: 'sp-fallback-missing', hasPdf: false });
+      mockPdfState = { statuses: {}, hasScanResult: false, isScanning: false };
+
+      render(<ScreenplayCard screenplay={screenplay} />);
+      expect(screen.getByText('No PDF')).toBeInTheDocument();
+    });
+  });
+
+  // ────────────────────────────────────────────
+  // Legacy Version Badge (FILE-02)
+  // ────────────────────────────────────────────
+
+  describe('Legacy version badge', () => {
+    it('shows Legacy badge when analysisVersion is not current (v5)', () => {
+      const screenplay = createTestScreenplay({ analysisVersion: 'v5' });
+      render(<ScreenplayCard screenplay={screenplay} />);
+      expect(screen.getByText('Legacy')).toBeInTheDocument();
+    });
+
+    it('shows Legacy badge when analysisVersion is v6.0', () => {
+      const screenplay = createTestScreenplay({ analysisVersion: 'v6.0' });
+      render(<ScreenplayCard screenplay={screenplay} />);
+      expect(screen.getByText('Legacy')).toBeInTheDocument();
+    });
+
+    it('does not show Legacy badge when analysisVersion is v6_core_lenses', () => {
+      const screenplay = createTestScreenplay({ analysisVersion: 'v6_core_lenses' });
+      render(<ScreenplayCard screenplay={screenplay} />);
+      expect(screen.queryByText('Legacy')).not.toBeInTheDocument();
+    });
+
+    it('does not show Legacy badge when analysisVersion is v6_unified', () => {
+      const screenplay = createTestScreenplay({ analysisVersion: 'v6_unified' });
+      render(<ScreenplayCard screenplay={screenplay} />);
+      expect(screen.queryByText('Legacy')).not.toBeInTheDocument();
+    });
+
+    it('does not show Legacy badge when analysisVersion is undefined', () => {
+      const screenplay = createTestScreenplay({ analysisVersion: undefined });
+      render(<ScreenplayCard screenplay={screenplay} />);
+      expect(screen.queryByText('Legacy')).not.toBeInTheDocument();
+    });
   });
 });

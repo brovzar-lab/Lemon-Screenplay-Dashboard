@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v6.8
-milestone_name: milestone
-status: completed
-stopped_at: Phase 7 context gathered
-last_updated: "2026-03-14T15:35:39.428Z"
-last_activity: 2026-03-14 — Completed Plan 02 (Shared Partner View)
+milestone: v7.0
+milestone_name: Pipeline Scale & Bulk Operations
+status: Defining requirements
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-03-20T15:24:39.177Z"
+last_activity: 2026-03-17 — Milestone v7.0 started
 progress:
-  total_phases: 8
-  completed_phases: 6
-  total_plans: 13
-  completed_plans: 13
+  total_phases: 5
+  completed_phases: 4
+  total_plans: 10
+  completed_plans: 10
   percent: 100
 ---
 
@@ -18,53 +18,19 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-13)
+See: .planning/PROJECT.md (updated 2026-03-17)
 
 **Core value:** Surface the best screenplays from a large pipeline so the producer doesn't waste time reading bad ones
-**Current focus:** Phase 7 complete — Export Coverage Package; Phase 8 next (Market Intelligence)
+**Current focus:** v7.0 milestone — Phase 8 complete; next phase TBD per ROADMAP
 
 ## Current Position
 
-Phase: 7 of 8 (Export Coverage Package)
-Plan: 2 of 2 in current phase
-Status: Phase 07 Complete
-Last activity: 2026-03-14 — Completed Plan 02 (Coverage download button + human verification)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-17 — Milestone v7.0 started
 
 Progress: [██████████] 100%
-
-## Performance Metrics
-
-**Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: —
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| - | - | - | - |
-
-**Recent Trend:**
-- Last 5 plans: —
-- Trend: —
-
-*Updated after each plan completion*
-| Phase 01 P01 | 1min | 2 tasks | 2 files |
-| Phase 01 P02 | 3min | 2 tasks | 3 files |
-| Phase 01 P03 | 10min | 2 tasks | 0 files |
-| Phase 02 P01 | 3min | 2 tasks | 5 files |
-| Phase 02 P02 | 4min | 3 tasks | 5 files |
-| Phase 03 P01 | 5min | 2 tasks | 4 files |
-| Phase 03 P02 | 8min | 3 tasks | 5 files |
-| Phase 04 P01 | 3min | 2 tasks | 7 files |
-| Phase 04 P02 | 3min | 2 tasks | 12 files |
-| Phase 05 P01 | 2min | 1 tasks | 5 files |
-| Phase 05 P02 | 4min | 3 tasks | 6 files |
-| Phase 06 P01 | 3min | 2 tasks | 4 files |
-| Phase 06 P02 | 5min | 3 tasks | 12 files |
-| Phase 07 P01 | 4min | 1 tasks | 5 files |
-| Phase 07 P02 | 5min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -109,26 +75,50 @@ Recent decisions affecting current work:
 - [Phase 06]: Share URL uses window.location.origin instead of hardcoded production URL for dev/staging compatibility
 - [Phase 06]: Header logo is theme-aware: white on dark, black on light; shared view always uses white version
 - [Phase 06]: Shared view components use props-only pattern (no Zustand/React Query) for bundle isolation
-
 - [Phase 07]: Notes section omitted entirely when no notes exist (no empty placeholder) per CONTEXT.md decision
 - [Phase 07]: exportCoverage uses .tsx extension for JSX in pdf() call
 - [Phase 07]: Score color thresholds 70%/40% for coverage doc (differs from PdfDocument.tsx 80%/60%)
 - [Phase 07]: Dimension score bars use max=10 regardless of V5/V6 format
 - [Phase 07]: Coverage button placed after ShareButton, before ReanalyzeButton in modal action bar
 - [Phase 07]: Coverage button uses loading spinner + 3s error auto-reset with toast feedback
+- [Phase 07]: titleText.marginBottom 3→8 and authorText.marginTop 2 added to fix cover page title/author overlap (UAT test 4)
+- [v7.0 pre-phase]: BULK-02 re-analyze downloads PDF from Firebase Storage (getDownloadURL → fetch → File object) — only hasPdf=true screenplays are eligible; others excluded from bulk re-analyze selection
+- [v7.0 pre-phase]: PERF-01 column-aware virtualization — ScreenplayGrid uses responsive grid-cols-1/2/3/4; Phase 10 research plan must confirm @tanstack/react-virtual vs alternatives and measure column count at runtime
+- [v7.0 pre-phase]: FILTER-02 disclosure toggle wraps existing Dimension Scores section; existing badge prop becomes source for FILTER-03 active-filter count
+- [Phase 08-pdf-cover-page-polish]: scoreLeft layout uses single centered-group View with marginTop:16 gap constant (__scoreGapStyle) instead of dual-flex siblings that collapse in react-pdf
+- [Phase 08-pdf-cover-page-polish]: Test-only exports (__coverageDocStyles, __scoreGapStyle) allow stylesheet regression assertions without DOM traversal (react-pdf stubs strip style props)
+- [Phase 09-filter-ux-simplification-file-status-badges]: FilterPanel tests use real Zustand store (useFilterStore.setState); FilterBar uses selector-intercepting mock; ScreenplayCard adds pdfStatusStore selector mock
+- [Phase 09-02]: initialSection IIFE in useState derives correct section at mount from active filters; includes 'dimensions' case for dimension-range-enabled auto-expand
+- [Phase 09-02]: AdvancedDisclosure nested inside Dimension Scores Section — two-level disclosure (accordion outer + disclosure inner) with independent boolean states
+- [Phase 09-02]: Store destructuring block moved above useState calls — required for IIFE initializers to reference destructured store values
+- [Phase 09-filter-ux-simplification-file-status-badges]: Count display changed to single strong element to fix test collision when filteredCount=totalCount
+- [Phase 09-filter-ux-simplification-file-status-badges]: Missing PDF chip uses setMissingPdfOnly directly (not handleFilterClick) — independent of recommendation tier filter
+- [Phase 09-filter-ux-simplification-file-status-badges]: isLegacyVersion returns false when analysisVersion is undefined — no badge for data without version info
+- [Phase 10-virtual-scrolling-performance]: Removed role=list/listitem ARIA tests in Wave 0 — data-card attribute is the stable query point for virtual DOM structure
+- [Phase 10-virtual-scrolling-performance]: Memoization test uses toBe (Object.is identity) not toStrictEqual — referential stability is what PERF-02 requires
+- [Phase 10-virtual-scrolling-performance]: useWindowVirtualizer chosen over useVirtualizer — page uses window scroll (min-h-screen flex, no bounded container)
+- [Phase 10-virtual-scrolling-performance]: card-enter uses 100ms ease-out opacity fade replacing useScrollReveal IntersectionObserver — simpler, no stagger in virtual rows
+- [Phase 10-virtual-scrolling-performance]: useShallow(s => s) replaces bare useFilterStore() in useFilteredScreenplays and useHasActiveFilters — stable memo reference when no filter field changed
+- [Phase 10-virtual-scrolling-performance]: vi.mock must be at module scope for Vitest hoisting — calling inside it() is a no-op for module mocking
+- [Phase 11-bulk-operations]: BulkReanalyzeModal.tsx is a null stub — plan 11-03 provides real implementation
+- [Phase 11-bulk-operations]: ExportModal BULK-03 tests use 'selected'/'all' modes not yet in ExportModal.tsx — tests correctly RED
+- [Phase 11-03]: BulkReanalyzeModal test file fixed with module-level shared mock refs (mockDeselectAll/mockInvalidateQueries) — per-call vi.fn() factories prevent spy assertions in Vitest; vi.mock inside it() is a no-op due to hoisting
+- [Phase 11-03]: BulkShareModal created as Rule 3 fix (index.ts exported it but plan 11-02 incomplete; build was broken with TS2307)
+- [Phase 11-03]: ExportModal mode union extended to 'selected'|'filtered'|'all'; FilterBar mode ternary corrected from 'multiple'/'filtered'/'multiple' to 'selected'/'filtered'/'all'
+- [Phase 11-bulk-operations]: BulkShareModal: undefined vs null from getExistingShareToken distinguishes bare mock (skip createShareToken) from explicit null (trigger createShareToken)
+- [Phase 11-bulk-operations]: vi.mock hoisting: nested vi.mock inside it() blocks ARE hoisted by Vitest AST transform — all tests share the same final mock factory
 
 ### Pending Todos
 
-None yet.
+(none — starting fresh for v7.0)
 
 ### Blockers/Concerns
 
-- [Phase 1]: App Check was previously disabled due to config mismatch (src/lib/firebase.ts has it commented out) — understand why before re-enabling to avoid reintroducing the same issue
-- [Phase 8]: TMDB rate limits in 2026 need validation at developers.themoviedb.org before building the proxy Cloud Function
-- [Phase 8]: comparable_films[] array fill rate across production Firestore data needs audit — if <70% of screenplays have populated comps, a fallback empty state must be designed upfront
+- [Phase 8 note]: App Check still disabled (commented out in src/lib/firebase.ts) — acceptable for internal tool, do not re-enable without understanding prior mismatch
+- [Phase 8 resolved]: Coverage PDF cover page score/badge gap defect (PDF-01) — fixed in Phase 08-01, visual sign-off confirmed 2026-03-19
 
 ## Session Continuity
 
-Last session: 2026-03-14T22:28:20Z
-Stopped at: Completed 07-02-PLAN.md (Phase 07 complete)
-Resume file: .planning/phases/07-export-coverage-package/07-02-SUMMARY.md
+Last session: 2026-03-20T15:24:39.165Z
+Stopped at: Completed 11-02-PLAN.md
+Resume file: None

@@ -52,6 +52,7 @@ interface FilterActions {
   setHideNonScreenplays: (hide: boolean) => void;
   setHideProduced: (hide: boolean) => void;
   setMissingPdfOnly: (value: boolean) => void;
+  setHasPdfOnly: (value: boolean) => void;
 
   // Bulk operations
   resetFilters: () => void;
@@ -179,6 +180,7 @@ export const useFilterStore = create<FilterStore>()(
       setHideNonScreenplays: (hide) => set({ hideNonScreenplays: hide }),
       setHideProduced: (hide) => set({ hideProduced: hide }),
       setMissingPdfOnly: (value) => set({ missingPdfOnly: value }),
+      setHasPdfOnly: (value) => set({ hasPdfOnly: value }),
 
       // Bulk operations
       resetFilters: () => set(DEFAULT_FILTER_STATE),
