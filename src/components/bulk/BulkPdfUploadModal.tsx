@@ -50,15 +50,12 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
   const [dragActiveId, setDragActiveId] = useState<string | null>(null);
   const [batchDragActive, setBatchDragActive] = useState(false);
   const [batchError, setBatchError] = useState<string | null>(null);
-  const [_retriedIds, setRetriedIds] = useState<Set<string>>(new Set());
+  const retriedIdsRef = useRef<Set<string>>(new Set());
 
   // Per-row hidden file input refs
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Early return when not open
-  if (!isOpen) return null;
-
-  // Data derivation
+  // Data derivation (hooks must be called before any conditional return)
   const missingPdfScreenplays = useMemo(() => {
     if (!allScreenplays) return [];
     return allScreenplays.filter((sp) => selectedIds.has(sp.id) && !sp.hasPdf);
@@ -104,22 +101,58 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
           }));
         },
         (error) => {
-          // Auto-retry once (D-07)
-          setRetriedIds((prev) => {
-            if (!prev.has(screenplay.id)) {
-              const next = new Set(prev);
-              next.add(screenplay.id);
-              // Retry with a fresh call
-              setTimeout(() => startUpload(file, screenplay), 0);
-              return next;
-            }
+          // Auto-retry once (D-07) — use ref to avoid stale closure
+          if (!retriedIdsRef.current.has(screenplay.id)) {
+            retriedIdsRef.current.add(screenplay.id);
+            // Retry with a fresh call
+            setRowStates((prev) => ({
+              ...prev,
+              [screenplay.id]: { status: 'uploading', progress: 0 },
+            }));
+            const retryPath = buildStoragePath(screenplay);
+            const retryRef = ref(storage, retryPath);
+            uploadBytesResumable(retryRef, file, {
+              contentType: 'application/pdf',
+              customMetadata: {
+                originalFilename: file.name,
+                category: screenplay.category || 'OTHER',
+                uploadedAt: new Date().toISOString(),
+              },
+            }).on(
+              'state_changed',
+              (snapshot) => {
+                const p = Math.round(
+                  (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+                );
+                setRowStates((prev) => ({
+                  ...prev,
+                  [screenplay.id]: { status: 'uploading', progress: p },
+                }));
+              },
+              () => {
+                // Second failure — show error
+                setRowStates((prevStates) => ({
+                  ...prevStates,
+                  [screenplay.id]: { status: 'error', message: error.message, file },
+                }));
+              },
+              async () => {
+                await patchAnalysisField(screenplay.sourceFile, 'hasPdf', true);
+                usePdfStatusStore.getState().setStatus(screenplay.id, 'found');
+                queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+                setRowStates((prev) => ({
+                  ...prev,
+                  [screenplay.id]: { status: 'done' },
+                }));
+              }
+            );
+          } else {
             // Already retried, show error
             setRowStates((prevStates) => ({
               ...prevStates,
               [screenplay.id]: { status: 'error', message: error.message, file },
             }));
-            return prev;
-          });
+          }
         },
         async () => {
           await patchAnalysisField(screenplay.sourceFile, 'hasPdf', true);
@@ -232,6 +265,9 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
     },
     [startUpload]
   );
+
+  // Early return when not open (after all hooks to satisfy Rules of Hooks)
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
