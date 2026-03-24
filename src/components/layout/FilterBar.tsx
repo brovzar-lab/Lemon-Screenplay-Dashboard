@@ -302,16 +302,6 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
                 )}
               </button>
 
-              {/* Actions Dropdown (bulk operations) */}
-              <div className="shrink-0">
-                <ActionsDropdown
-                  onGenerateShareLinks={() => setIsBulkShareOpen(true)}
-                  onReanalyze={() => setIsBulkReanalyzeOpen(true)}
-                  reanalyzeEligibleCount={reanalyzeEligibleCount}
-                  selectionCount={exportSelectionCount}
-                />
-              </div>
-
               {/* Share Button */}
               <button
                 onClick={() => setIsShareModalOpen(true)}
@@ -347,6 +337,14 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
                 Export ({hasExportSelection ? `${exportSelectionCount} selected` : screenplays.length})
               </button>
             </div>
+
+            {/* Actions Dropdown — outside overflow-x-auto to prevent dropdown clipping */}
+            <ActionsDropdown
+              onGenerateShareLinks={() => setIsBulkShareOpen(true)}
+              onReanalyze={() => setIsBulkReanalyzeOpen(true)}
+              reanalyzeEligibleCount={reanalyzeEligibleCount}
+              selectionCount={exportSelectionCount}
+            />
           </div>
         </div>
 
