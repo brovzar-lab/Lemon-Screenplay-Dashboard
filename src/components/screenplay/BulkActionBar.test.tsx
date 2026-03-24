@@ -1,6 +1,6 @@
 /**
  * BulkActionBar Component Tests
- * Tests visibility, count display, clear/select actions, and disabled button shell.
+ * Tests visibility, count display, clear/select actions, CSV export, Compare logic, and disabled buttons.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -13,13 +13,14 @@ const mockSelectAll = vi.fn();
 
 let mockHasSelection = false;
 let mockSelectionCount = 0;
+let mockSelectedIds = new Set<string>();
 
 vi.mock('@/stores/selectionStore', () => ({
   useSelectionStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({
       selectAll: mockSelectAll,
       deselectAll: mockDeselectAll,
-      selectedIds: new Set(),
+      selectedIds: mockSelectedIds,
       toggle: vi.fn(),
     }),
   useSelectionCount: () => mockSelectionCount,
@@ -40,9 +41,28 @@ vi.mock('@/hooks/useFilteredScreenplays', () => ({
   }),
 }));
 
-// Mock useScreenplays (dependency of useFilteredScreenplays)
+// Mock useScreenplays (used for resolving selected IDs to full objects)
 vi.mock('@/hooks/useScreenplays', () => ({
   useScreenplays: () => ({ data: [], isLoading: false }),
+}));
+
+// Mock CSV export
+vi.mock('@/components/export/csvExport', () => ({
+  exportToCSV: vi.fn(),
+}));
+
+// Mock comparison store
+vi.mock('@/stores/comparisonStore', () => ({
+  useComparisonStore: {
+    getState: () => ({ openComparison: vi.fn() }),
+  },
+}));
+
+// Mock toast store
+vi.mock('@/stores/toastStore', () => ({
+  useToastStore: {
+    getState: () => ({ addToast: vi.fn() }),
+  },
 }));
 
 describe('BulkActionBar', () => {
@@ -50,6 +70,7 @@ describe('BulkActionBar', () => {
     vi.clearAllMocks();
     mockHasSelection = false;
     mockSelectionCount = 0;
+    mockSelectedIds = new Set<string>();
     mockFilteredScreenplays = [];
   });
 
@@ -91,7 +112,7 @@ describe('BulkActionBar', () => {
     expect(mockSelectAll).toHaveBeenCalledWith(['a', 'b', 'c']);
   });
 
-  it('six action buttons are rendered and disabled', () => {
+  it('six action buttons are rendered with correct labels', () => {
     mockHasSelection = true;
     mockSelectionCount = 1;
     render(<BulkActionBar />);
@@ -101,27 +122,61 @@ describe('BulkActionBar', () => {
       'Export PDF',
       'Compare',
       'Upload PDFs',
-      'Collection',
+      'Set Category',
       'Favorites',
     ];
 
     for (const label of expectedLabels) {
       const btn = screen.getByText(label);
       expect(btn).toBeInTheDocument();
-      expect(btn).toBeDisabled();
     }
   });
 
-  it('disabled buttons have title tooltips', () => {
+  it('disabled buttons have title tooltips (5 disabled when count=1)', () => {
     mockHasSelection = true;
     mockSelectionCount = 1;
     render(<BulkActionBar />);
 
     const disabledButtons = screen.getAllByRole('button').filter((btn) => btn.hasAttribute('disabled'));
-    expect(disabledButtons.length).toBe(6);
+    // 5 disabled: Export PDF, Compare (count=1), Upload PDFs, Set Category, Favorites
+    // Not disabled: Export CSV, Clear selection, Select All, Deselect All
+    expect(disabledButtons.length).toBe(5);
 
     for (const btn of disabledButtons) {
       expect(btn.getAttribute('title')).toBeTruthy();
     }
+  });
+
+  it('Export CSV button is enabled and clickable', () => {
+    mockHasSelection = true;
+    mockSelectionCount = 2;
+    render(<BulkActionBar />);
+    const btn = screen.getByText('Export CSV');
+    expect(btn).not.toBeDisabled();
+  });
+
+  it('Compare button is disabled when count < 2', () => {
+    mockHasSelection = true;
+    mockSelectionCount = 1;
+    render(<BulkActionBar />);
+    const btn = screen.getByText('Compare');
+    expect(btn).toBeDisabled();
+    expect(btn.getAttribute('title')).toBe('Select 2-3 to compare');
+  });
+
+  it('Compare button is disabled when count > 3', () => {
+    mockHasSelection = true;
+    mockSelectionCount = 4;
+    render(<BulkActionBar />);
+    const btn = screen.getByText('Compare');
+    expect(btn).toBeDisabled();
+  });
+
+  it('Compare button is enabled when count is 2 or 3', () => {
+    mockHasSelection = true;
+    mockSelectionCount = 3;
+    render(<BulkActionBar />);
+    const btn = screen.getByText('Compare');
+    expect(btn).not.toBeDisabled();
   });
 });

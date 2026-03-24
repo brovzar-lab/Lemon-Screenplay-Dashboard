@@ -51,7 +51,7 @@
 
 - [ ] **BULK-04**: User can export selected screenplays as CSV from the bulk action bar
 - [ ] **BULK-05**: User can export selected screenplays as PDF reports from the bulk action bar
-- [ ] **BULK-06**: User can compare 2-5 selected screenplays (button disabled with tooltip below minimum/above maximum)
+- [ ] **BULK-06**: User can compare 2-3 selected screenplays (button disabled with tooltip below minimum/above maximum)
 - [ ] **BULK-07**: User can upload PDFs for selected screenplays missing them via a streamlined modal with one dropzone per title
 - [ ] **BULK-08**: User can add selected screenplays to a collection from the bulk action bar
 - [ ] **BULK-09**: User can add selected screenplays to favorites from the bulk action bar

@@ -1,19 +1,50 @@
 /**
  * BulkActionBar Component
  * Sticky bottom action bar that appears when 1+ screenplays are selected.
- * Shows selection count, clear/Select All/Deselect All, and six disabled action buttons.
- * Action buttons are wired in Phase 4 -- this is the shell with title tooltips (D-09, D-10).
+ * Shows selection count, clear/Select All/Deselect All, and six action buttons.
+ * Export CSV and Compare are wired (Plan 04-01). Others wired in Plans 02/03.
  */
 
 import { useSelectionStore, useSelectionCount, useHasSelection } from '@/stores/selectionStore';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
+import { useScreenplays } from '@/hooks/useScreenplays';
+import { exportToCSV } from '@/components/export/csvExport';
+import { useComparisonStore } from '@/stores/comparisonStore';
+import { useToastStore } from '@/stores/toastStore';
 
 export function BulkActionBar() {
   const count = useSelectionCount();
   const hasSelection = useHasSelection();
   const selectAll = useSelectionStore((s) => s.selectAll);
   const deselectAll = useSelectionStore((s) => s.deselectAll);
+  const selectedIds = useSelectionStore((s) => s.selectedIds);
   const { screenplays: filtered } = useFilteredScreenplays();
+  const { data: allScreenplays } = useScreenplays();
+
+  /** Resolve selected IDs to full Screenplay objects */
+  const getSelectedScreenplays = () => {
+    if (!allScreenplays) return [];
+    return allScreenplays.filter((sp) => selectedIds.has(sp.id));
+  };
+
+  /** CSV Export -- direct call, no modal (D-14, BULK-04) */
+  const handleExportCSV = () => {
+    const selected = getSelectedScreenplays();
+    if (selected.length === 0) return;
+    exportToCSV(selected, 'selected_screenplays');
+    useToastStore.getState().addToast(
+      `Exported ${selected.length} screenplay${selected.length !== 1 ? 's' : ''} as CSV`,
+      'success'
+    );
+  };
+
+  /** Compare -- store call with guard (D-08, D-09, D-10, BULK-06) */
+  const handleCompare = () => {
+    const ids = Array.from(selectedIds);
+    useComparisonStore.getState().openComparison(ids);
+  };
+
+  const compareDisabled = count < 2 || count > 3;
 
   if (!hasSelection) return null;
 
@@ -56,24 +87,29 @@ export function BulkActionBar() {
               </button>
             </div>
 
-            {/* Right side: six action buttons, all disabled shell */}
+            {/* Right side: six action buttons */}
             <div className="flex items-center gap-2">
-              <button disabled title="Export CSV -- wired in Phase 4" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+              <button onClick={handleExportCSV} className="btn btn-ghost text-sm">
                 Export CSV
               </button>
-              <button disabled title="Export PDF -- wired in Phase 4" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+              <button disabled title="Export PDF -- wired next" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                 Export PDF
               </button>
-              <button disabled title="Compare -- select 2-5 screenplays" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+              <button
+                disabled={compareDisabled}
+                title={compareDisabled ? 'Select 2-3 to compare' : 'Compare selected screenplays'}
+                onClick={!compareDisabled ? handleCompare : undefined}
+                className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              >
                 Compare
               </button>
-              <button disabled title="Upload PDFs -- wired in Phase 4" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+              <button disabled title="Coming soon" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                 Upload PDFs
               </button>
-              <button disabled title="Add to Collection -- wired in Phase 4" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                Collection
+              <button disabled title="Set Category -- wired next" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                Set Category
               </button>
-              <button disabled title="Add to Favorites -- wired in Phase 4" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+              <button disabled title="Add to Favorites -- wired next" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                 Favorites
               </button>
             </div>
