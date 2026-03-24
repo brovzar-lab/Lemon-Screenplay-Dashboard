@@ -38,12 +38,12 @@ created: 2026-03-23
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 04-01-01 | 01 | 1 | BULK-04 | unit | `npx vitest run src/components/export/csvExport.test.ts` | ❌ W0 | ⬜ pending |
-| 04-01-02 | 01 | 1 | BULK-05 | unit | `npx vitest run src/components/export/batchPdfExport.test.ts` | ❌ W0 | ⬜ pending |
-| 04-01-03 | 01 | 1 | BULK-06 | unit | `npx vitest run src/stores/comparisonStore.test.ts` | ❌ W0 | ⬜ pending |
-| 04-02-01 | 02 | 1 | BULK-08 | unit | `npx vitest run src/components/screenplay/SetCategoryModal.test.tsx` | ❌ W0 | ⬜ pending |
-| 04-02-02 | 02 | 1 | BULK-09 | unit | `npx vitest run src/stores/favoritesStore.test.ts` | ❌ W0 | ⬜ pending |
-| 04-03-01 | 01 | 1 | D-05 | unit | `npx vitest run src/stores/toastStore.test.ts` | ❌ W0 | ⬜ pending |
+| 04-01-01 | 01 | 1 | BULK-04 | unit | `npx vitest run src/components/screenplay/BulkActionBar.test.tsx` | ✅ exists | ⬜ pending |
+| 04-01-02 | 01 | 1 | BULK-05 | unit | `npx vitest run src/components/export/bulkPdfExport.test.ts` | ✅ plan 03 creates | ⬜ pending |
+| 04-01-03 | 01 | 1 | BULK-06 | unit | `npx vitest run src/components/screenplay/BulkActionBar.test.tsx` | ✅ exists | ⬜ pending |
+| 04-02-01 | 02 | 2 | BULK-08 | unit | `npx vitest run src/components/bulk/SetCategoryModal.test.tsx` | ✅ plan 02 creates | ⬜ pending |
+| 04-02-02 | 02 | 2 | BULK-09 | unit | `npx vitest run src/components/bulk/AddToFavoritesModal.test.tsx` | ✅ plan 02 creates | ⬜ pending |
+| 04-03-01 | 01 | 1 | D-05 | unit | `npx vitest run src/stores/toastStore.test.ts` | ✅ exists | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -51,10 +51,9 @@ created: 2026-03-23
 
 ## Wave 0 Requirements
 
-- [ ] Toast store 'success' severity — add to existing toastStore types
-- [ ] `src/components/export/batchPdfExport.test.ts` — stubs for BULK-05 batch PDF + zip
-- [ ] `src/components/screenplay/SetCategoryModal.test.tsx` — stubs for BULK-08 category modal
-- [ ] `src/stores/toastStore.test.ts` — stubs for success toast verification
+No separate Wave 0 test scaffolding needed. All test files are either:
+- Already existing from Phase 3 (`BulkActionBar.test.tsx`, `toastStore.test.ts`)
+- Created by the plan that implements the feature (`SetCategoryModal.test.tsx`, `AddToFavoritesModal.test.tsx`, `bulkPdfExport.test.ts`)
 
 *Existing test infrastructure (Vitest + Testing Library) covers framework needs.*
 
