@@ -50,11 +50,11 @@
 ### Bulk Operations — Actions
 
 - [x] **BULK-04**: User can export selected screenplays as CSV from the bulk action bar
-- [ ] **BULK-05**: User can export selected screenplays as PDF reports from the bulk action bar
+- [x] **BULK-05**: User can export selected screenplays as PDF reports from the bulk action bar
 - [x] **BULK-06**: User can compare 2-3 selected screenplays (button disabled with tooltip below minimum/above maximum)
 - [ ] **BULK-07**: User can upload PDFs for selected screenplays missing them via a streamlined modal with one dropzone per title
-- [ ] **BULK-08**: User can add selected screenplays to a collection from the bulk action bar
-- [ ] **BULK-09**: User can add selected screenplays to favorites from the bulk action bar
+- [x] **BULK-08**: User can add selected screenplays to a collection from the bulk action bar
+- [x] **BULK-09**: User can add selected screenplays to favorites from the bulk action bar
 
 ### Bulk Operations — UX
 
@@ -122,11 +122,11 @@
 | BULK-02 | v7.0 Phase 3 | Pending |
 | BULK-03 | v7.0 Phase 3 | Pending |
 | BULK-04 | v7.0 Phase 4 | Complete |
-| BULK-05 | v7.0 Phase 4 | Pending |
+| BULK-05 | v7.0 Phase 4 | Complete |
 | BULK-06 | v7.0 Phase 4 | Complete |
 | BULK-07 | v7.0 Phase 5 | Pending |
-| BULK-08 | v7.0 Phase 4 | Pending |
-| BULK-09 | v7.0 Phase 4 | Pending |
+| BULK-08 | v7.0 Phase 4 | Complete |
+| BULK-09 | v7.0 Phase 4 | Complete |
 | BULK-10 | v7.0 Phase 3 | Pending |
 | BULK-11 | v7.0 Phase 3 | Pending |
 | BULK-12 | v7.0 Phase 5 | Pending |
