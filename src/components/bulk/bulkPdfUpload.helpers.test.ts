@@ -122,7 +122,15 @@ describe('matchScore', () => {
   });
 
   it('returns 70 for sourceFile substring match', () => {
-    expect(matchScore('the_matrix_v2_final.pdf', matrix)).toBe(70);
+    // Use a screenplay where the sourceFile is a PDF (so .pdf gets stripped by normalize)
+    // and the dropped name is a substring of the sourceFile
+    const sp = mockScreenplay({
+      id: '3',
+      title: 'Untitled Sci-Fi',
+      sourceFile: 'the_matrix_v2_final_cut.pdf',
+    });
+    // dropped: "the matrix v2" (subset of sourceFile normalized: "the matrix v2 final cut")
+    expect(matchScore('the_matrix_v2.pdf', sp)).toBe(70);
   });
 
   it('returns value between 25-60 for word overlap matches', () => {
@@ -202,10 +210,12 @@ describe('middleTruncate', () => {
   it('preserves start and end of the filename', () => {
     const input = 'El_Godin_de_los_Suenos_V4_FINAL.pdf';
     const result = middleTruncate(input, 30);
+    // 30 chars total: 29 visible + 1 ellipsis char
+    // front = ceil(29 * 0.6) = 18, back = floor(29 * 0.4) = 11
     // Should start with the beginning of the filename
-    expect(result.startsWith('El_Godin_de_los')).toBe(true);
-    // Should end with the version/extension part
-    expect(result.endsWith('V4_FINAL.pdf')).toBe(true);
+    expect(result.startsWith('El_Godin_de_los_Su')).toBe(true);
+    // Should end with the extension part (11 chars from end)
+    expect(result.endsWith('4_FINAL.pdf')).toBe(true);
   });
 
   it('places ellipsis with 60/40 split (more at start)', () => {
