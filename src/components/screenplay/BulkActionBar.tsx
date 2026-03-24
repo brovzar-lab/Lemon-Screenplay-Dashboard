@@ -13,13 +13,14 @@ import { exportToCSV } from '@/components/export/csvExport';
 import { bulkExportPdfs, type BulkPdfProgress } from '@/components/export/bulkPdfExport';
 import { useComparisonStore } from '@/stores/comparisonStore';
 import { useToastStore } from '@/stores/toastStore';
-import { SetCategoryModal, AddToFavoritesModal } from '@/components/bulk';
+import { SetCategoryModal, AddToFavoritesModal, BulkPdfUploadModal } from '@/components/bulk';
 
 export function BulkActionBar() {
   const count = useSelectionCount();
   const [pdfProgress, setPdfProgress] = useState<BulkPdfProgress | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const hasSelection = useHasSelection();
   const selectAll = useSelectionStore((s) => s.selectAll);
   const deselectAll = useSelectionStore((s) => s.deselectAll);
@@ -143,7 +144,7 @@ export function BulkActionBar() {
               >
                 Compare
               </button>
-              <button disabled title="Coming soon" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+              <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost text-sm">
                 Upload PDFs
               </button>
               <button onClick={() => setShowCategoryModal(true)} className="btn btn-ghost text-sm">
@@ -163,6 +164,10 @@ export function BulkActionBar() {
       <AddToFavoritesModal
         isOpen={showFavoritesModal}
         onClose={() => setShowFavoritesModal(false)}
+      />
+      <BulkPdfUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
       />
     </div>
   );

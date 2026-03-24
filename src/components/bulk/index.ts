@@ -1,5 +1,6 @@
 export { SetCategoryModal } from './SetCategoryModal';
 export { AddToFavoritesModal } from './AddToFavoritesModal';
+export { BulkPdfUploadModal } from './BulkPdfUploadModal';
 export {
   validatePdfFile,
   validationMessage,
