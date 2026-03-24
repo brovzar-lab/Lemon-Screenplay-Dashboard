@@ -56,9 +56,15 @@ Plans:
 - [ ] 03-02-PLAN.md — BulkActionBar shell (sticky bottom, six disabled buttons, Select All/Deselect All) + BackToTopButton offset
 
 ### Phase 4: Bulk Action Integrations
-**Goal:** Wire up the five always-available bulk actions — export CSV, export PDF, compare, add to collection, add to favorites — connecting the selection store to existing modals and stores.
+**Goal:** Wire up the five always-available bulk actions — export CSV, export PDF, compare, set category, add to favorites — connecting the selection store to existing modals and stores.
 **Requirements:** BULK-04, BULK-05, BULK-06, BULK-08, BULK-09
 **Depends on:** Phase 3
+**Plans:** 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Prerequisites (toast success severity, patchAnalysisField, JSZip install) + wire CSV Export and Compare buttons
+- [ ] 04-02-PLAN.md — SetCategoryModal and AddToFavoritesModal + wire Set Category and Favorites buttons
+- [ ] 04-03-PLAN.md — Bulk PDF export utility (JSZip) + wire Export PDF button with inline progress
 
 ### Phase 5: Bulk PDF Upload Modal
 **Goal:** Build the streamlined bulk PDF upload experience — one dropzone per title, filtered to missing-PDF screenplays only, with success summary.
@@ -72,7 +78,7 @@ Plans:
 | 1. PDF Polish | v7.0 | 1/1 | Complete | 2026-03-23 |
 | 2. Performance at Scale | v7.0 | 2/2 | Complete | 2026-03-23 |
 | 3. Selection Mode Foundation | v7.0 | 0/2 | Pending | — |
-| 4. Bulk Action Integrations | v7.0 | 0/? | Pending | — |
+| 4. Bulk Action Integrations | v7.0 | 0/3 | Pending | — |
 | 5. Bulk PDF Upload Modal | v7.0 | 0/? | Pending | — |
 
 ## Requirement Coverage
