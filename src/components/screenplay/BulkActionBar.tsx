@@ -2,18 +2,24 @@
  * BulkActionBar Component
  * Sticky bottom action bar that appears when 1+ screenplays are selected.
  * Shows selection count, clear/Select All/Deselect All, and six action buttons.
- * Export CSV and Compare are wired (Plan 04-01). Others wired in Plans 02/03.
+ * Export CSV, Compare, Export PDF, Set Category, and Favorites are wired. Upload PDFs wired in Plan 03.
  */
 
+import { useState } from 'react';
 import { useSelectionStore, useSelectionCount, useHasSelection } from '@/stores/selectionStore';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { exportToCSV } from '@/components/export/csvExport';
+import { bulkExportPdfs, type BulkPdfProgress } from '@/components/export/bulkPdfExport';
 import { useComparisonStore } from '@/stores/comparisonStore';
 import { useToastStore } from '@/stores/toastStore';
+import { SetCategoryModal, AddToFavoritesModal } from '@/components/bulk';
 
 export function BulkActionBar() {
   const count = useSelectionCount();
+  const [pdfProgress, setPdfProgress] = useState<BulkPdfProgress | null>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showFavoritesModal, setShowFavoritesModal] = useState(false);
   const hasSelection = useHasSelection();
   const selectAll = useSelectionStore((s) => s.selectAll);
   const deselectAll = useSelectionStore((s) => s.deselectAll);
@@ -44,6 +50,30 @@ export function BulkActionBar() {
     useComparisonStore.getState().openComparison(ids);
   };
 
+  /** Bulk PDF Export -- zip of individual PDFs (D-11, D-12, D-13, BULK-05) */
+  const handleExportPDF = async () => {
+    const selected = getSelectedScreenplays();
+    if (selected.length === 0) return;
+    try {
+      await bulkExportPdfs(selected, (progress) => {
+        setPdfProgress(progress);
+      });
+      useToastStore.getState().addToast(
+        `Exported ${selected.length} screenplay${selected.length !== 1 ? 's' : ''} as PDF`,
+        'success'
+      );
+    } catch (err) {
+      console.error('Bulk PDF export failed:', err);
+      useToastStore.getState().addToast(
+        'PDF export failed. Try selecting fewer screenplays.',
+        'error'
+      );
+    } finally {
+      setPdfProgress(null);
+    }
+  };
+
+  const isExportingPdf = pdfProgress !== null;
   const compareDisabled = count < 2 || count > 3;
 
   if (!hasSelection) return null;
@@ -92,8 +122,18 @@ export function BulkActionBar() {
               <button onClick={handleExportCSV} className="btn btn-ghost text-sm">
                 Export CSV
               </button>
-              <button disabled title="Export PDF -- wired next" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                Export PDF
+              <button
+                disabled={isExportingPdf}
+                onClick={!isExportingPdf ? handleExportPDF : undefined}
+                className={`btn btn-ghost text-sm ${isExportingPdf ? 'pointer-events-none' : 'disabled:opacity-40 disabled:cursor-not-allowed'}`}
+              >
+                {isExportingPdf && pdfProgress ? (
+                  <span className="text-gold-200">
+                    Exporting {pdfProgress.current} of {pdfProgress.total}...
+                  </span>
+                ) : (
+                  'Export PDF'
+                )}
               </button>
               <button
                 disabled={compareDisabled}
@@ -106,16 +146,24 @@ export function BulkActionBar() {
               <button disabled title="Coming soon" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                 Upload PDFs
               </button>
-              <button disabled title="Set Category -- wired next" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+              <button onClick={() => setShowCategoryModal(true)} className="btn btn-ghost text-sm">
                 Set Category
               </button>
-              <button disabled title="Add to Favorites -- wired next" className="btn btn-ghost text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+              <button onClick={() => setShowFavoritesModal(true)} className="btn btn-ghost text-sm">
                 Favorites
               </button>
             </div>
           </div>
         </div>
       </div>
+      <SetCategoryModal
+        isOpen={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+      />
+      <AddToFavoritesModal
+        isOpen={showFavoritesModal}
+        onClose={() => setShowFavoritesModal(false)}
+      />
     </div>
   );
 }

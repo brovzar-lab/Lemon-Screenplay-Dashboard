@@ -51,6 +51,11 @@ vi.mock('@/components/export/csvExport', () => ({
   exportToCSV: vi.fn(),
 }));
 
+// Mock bulk PDF export
+vi.mock('@/components/export/bulkPdfExport', () => ({
+  bulkExportPdfs: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Mock comparison store
 vi.mock('@/stores/comparisonStore', () => ({
   useComparisonStore: {
@@ -63,6 +68,12 @@ vi.mock('@/stores/toastStore', () => ({
   useToastStore: {
     getState: () => ({ addToast: vi.fn() }),
   },
+}));
+
+// Mock bulk modal components
+vi.mock('@/components/bulk', () => ({
+  SetCategoryModal: () => null,
+  AddToFavoritesModal: () => null,
 }));
 
 describe('BulkActionBar', () => {
@@ -132,15 +143,15 @@ describe('BulkActionBar', () => {
     }
   });
 
-  it('disabled buttons have title tooltips (5 disabled when count=1)', () => {
+  it('disabled buttons have title tooltips (2 disabled when count=1)', () => {
     mockHasSelection = true;
     mockSelectionCount = 1;
     render(<BulkActionBar />);
 
     const disabledButtons = screen.getAllByRole('button').filter((btn) => btn.hasAttribute('disabled'));
-    // 5 disabled: Export PDF, Compare (count=1), Upload PDFs, Set Category, Favorites
-    // Not disabled: Export CSV, Clear selection, Select All, Deselect All
-    expect(disabledButtons.length).toBe(5);
+    // 2 disabled: Compare (count=1), Upload PDFs
+    // Not disabled: Export CSV, Export PDF, Set Category, Favorites, Clear selection, Select All, Deselect All
+    expect(disabledButtons.length).toBe(2);
 
     for (const btn of disabledButtons) {
       expect(btn.getAttribute('title')).toBeTruthy();
