@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 5 of 5 (Bulk PDF Upload Modal)
-Plan: 1/2 complete
-Status: Phase 5 in progress -- Plan 01 complete (Bulk PDF Upload Helpers)
-Last activity: 2026-03-24 -- Phase 5 Plan 1 complete (validatePdfFile, matchScore, matchFilesToScreenplays, middleTruncate)
+Plan: 2/2 complete
+Status: Phase 5 complete -- all plans executed
+Last activity: 2026-03-24 -- Phase 5 Plan 2 complete (BulkPdfUploadModal + BulkActionBar wiring)
 
 Progress: [██████████] 100%
 
@@ -83,6 +83,7 @@ Recent decisions affecting current work:
 - [Phase 5 Plan 1]: MATCH_THRESHOLD = 50 for auto-assignment; below this files go to unmatched
 - [Phase 5 Plan 1]: middleTruncate uses 60/40 front/back split to preserve filename start and version/extension
 - [Phase 5 Plan 1]: validatePdfFile accepts .pdf extension even with empty MIME type (OS edge case)
+- [Phase 5 Plan 2]: uploadBytesResumable for progress-tracked per-row uploads (not uploadBytes)
 
 ### Pending Todos
 
@@ -96,5 +97,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-24
-Stopped at: Completed 05-01-PLAN.md (Bulk PDF Upload Helpers)
+Stopped at: Completed 05-02-PLAN.md (BulkPdfUploadModal + BulkActionBar wiring)
 Resume file: None
