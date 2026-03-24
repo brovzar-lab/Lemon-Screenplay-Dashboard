@@ -48,17 +48,19 @@ Exceptions: none -- all Phase 4 components use existing spacing tokens.
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px (text-sm) | 400 (normal) | 1.5 (leading-normal) |
-| Label | 13px (text-sm) / 11px (text-xs) for uppercase | 500 (medium) | 1.5 (leading-normal) |
+| Label | 12px (text-xs) / 11px (text-xs) for uppercase | 400 (normal) | 1.5 (leading-normal) |
 | Heading | 18px (text-lg) | 600 (semibold) | 1.25 (leading-tight) |
-| Button | 14px (text-sm) | 500 (medium) | 1.5 (leading-normal) |
+| Button | 14px (text-sm) | 400 (normal) | 1.5 (leading-normal) |
 
 Phase-specific usage:
 - **Modal titles:** 18px semibold, font-heading (Barlow Condensed), text-gold-200
-- **Button labels:** 14px medium, default font-body (Satoshi/Inter)
+- **Button labels:** 14px normal, default font-body (Satoshi/Inter)
 - **Toast messages:** 14px normal, text-white/90
-- **Progress text:** 14px medium, text-gold-200 (inline in button during PDF export)
-- **Count label:** 14px medium, text-gold-200 (existing BulkActionBar pattern)
+- **Progress text:** 14px normal, text-gold-200 (inline in button during PDF export)
+- **Count label:** 14px normal, text-gold-200 (existing BulkActionBar pattern)
 - **Tooltip text:** Native `title` attribute (browser default rendering)
+
+Visual hierarchy note: Primary visual anchor is the BulkActionBar count label (text-gold-200) which draws focus during active selection; action buttons are secondary and use normal weight to reinforce this hierarchy.
 
 ---
 
@@ -108,15 +110,15 @@ Accent reserved for:
 Layout:
   - Fixed overlay: z-50, bg-black-950/80, backdrop-blur-sm
   - Panel: max-w-md, glass, border border-gold-500/20, rounded-xl, animate-scale-in
-  - Header: px-6 py-4, text-lg font-heading text-gold-200, "Set Category"
+  - Header: px-6 py-4, text-lg font-heading font-semibold text-gold-200, "Set Category"
   - Body: px-6 py-4
-    - Label: text-sm text-black-400, "Choose a category for N screenplays"
+    - Label: text-xs text-black-400, "Choose a category for N screenplays"
     - Dropdown: w-full, glass-input styling, mt-2
       - Options: existing categories from useCategories()
       - No "create new" option (D-02)
   - Footer: px-6 py-4, flex justify-end gap-3
-    - Cancel: btn btn-ghost text-sm
-    - Apply: btn btn-primary text-sm, "Set Category"
+    - Keep Categories: btn btn-ghost text-sm font-normal
+    - Apply: btn btn-primary text-sm font-normal, "Set Category"
       - Disabled when no category selected
 ```
 
@@ -128,6 +130,7 @@ Interaction:
 - Selection stays intact after action (D-04)
 - Modal closes after successful operation
 - Backdrop click closes modal
+- "Keep Categories" button closes modal without changes
 
 #### AddToFavoritesModal
 
@@ -135,21 +138,21 @@ Interaction:
 Layout:
   - Fixed overlay: z-50, bg-black-950/80, backdrop-blur-sm
   - Panel: max-w-md, glass, border border-gold-500/20, rounded-xl, animate-scale-in
-  - Header: px-6 py-4, text-lg font-heading text-gold-200, "Add to Favorites"
+  - Header: px-6 py-4, text-lg font-heading font-semibold text-gold-200, "Add to Favorites"
   - Body: px-6 py-4, space-y-3
     - Quick Favorites row (always first):
       - flex items-center gap-3, p-3, rounded-lg, bg-black-800/50, border border-black-700
       - Star icon (w-5 h-5, text-gold-400)
-      - "Quick Favorites" label (text-sm font-medium text-gold-200)
+      - "Quick Favorites" label (text-xs font-normal text-gold-200)
       - Radio/checkbox on right
     - Named lists (if any):
       - Same row pattern per list
-      - List name (text-sm text-black-200)
+      - List name (text-xs font-normal text-black-200)
       - Radio/checkbox on right
     - If no named lists: only Quick Favorites shown (no empty state needed)
   - Footer: px-6 py-4, flex justify-end gap-3
-    - Cancel: btn btn-ghost text-sm
-    - Add: btn btn-primary text-sm, "Add to Favorites"
+    - Keep Favorites: btn btn-ghost text-sm font-normal
+    - Add: btn btn-primary text-sm font-normal, "Add to Favorites"
       - Disabled when no list selected
 ```
 
@@ -162,6 +165,7 @@ Interaction:
 - Selection stays intact after action (D-04)
 - Modal closes after successful operation
 - Backdrop click closes modal
+- "Keep Favorites" button closes modal without changes
 
 #### BulkActionBar Button States (Phase 4 updates)
 
@@ -178,12 +182,12 @@ Interaction:
 
 ```
 Default state:
-  btn btn-ghost text-sm
+  btn btn-ghost text-sm font-normal
   Label: "Export PDF"
 
 Progress state (during generation):
   btn btn-ghost text-sm, pointer-events-none, opacity-100
-  Label: "Exporting 3 of 20..." (text-gold-200, font-medium)
+  Label: "Exporting 3 of 20..." (text-gold-200, font-normal)
   No spinner -- text update is sufficient per D-13
 
 Complete state:
@@ -217,10 +221,10 @@ Layout (matches existing ToastContainer pattern):
 | SetCategoryModal title | "Set Category" |
 | SetCategoryModal body | "Choose a category for {N} screenplays" |
 | SetCategoryModal apply button | "Set Category" |
-| SetCategoryModal cancel | "Cancel" |
+| SetCategoryModal cancel | "Keep Categories" |
 | AddToFavoritesModal title | "Add to Favorites" |
 | AddToFavoritesModal apply button | "Add to Favorites" |
-| AddToFavoritesModal cancel | "Cancel" |
+| AddToFavoritesModal cancel | "Keep Favorites" |
 | Compare disabled tooltip | "Select 2-3 to compare" |
 | Upload PDFs disabled tooltip | "Coming soon" |
 | PDF progress inline | "Exporting {current} of {total}..." |
@@ -250,7 +254,7 @@ Selection stays intact after every bulk action. User can chain multiple actions 
 ### Modal Dismissal
 All modals close on:
 - Backdrop click
-- Cancel button click
+- Cancel button click ("Keep Categories" / "Keep Favorites")
 - Successful action completion
 - Escape key (if existing modal pattern supports it)
 
