@@ -25,19 +25,19 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 4 of 5 (Bulk Action Integrations)
-Plan: 1/3 complete
-Status: Phase 4 in progress -- Plan 01 complete (CSV Export & Compare Wiring)
-Last activity: 2026-03-24 -- Phase 4 Plan 1 complete (Export CSV, Compare, toast success, patchAnalysisField)
+Phase: 5 of 5 (Bulk PDF Upload Modal)
+Plan: 1/2 complete
+Status: Phase 5 in progress -- Plan 01 complete (Bulk PDF Upload Helpers)
+Last activity: 2026-03-24 -- Phase 5 Plan 1 complete (validatePdfFile, matchScore, matchFilesToScreenplays, middleTruncate)
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
+- Total plans completed: 6
 - Average duration: 5min
-- Total execution time: 23min
+- Total execution time: 27min
 
 **By Phase:**
 
@@ -46,6 +46,7 @@ Progress: [██████████] 100%
 | 02-performance-at-scale | 2 | 13min | 7min |
 | 03-selection-mode-foundation | 2 | 7min | 4min |
 | 04-bulk-action-integrations | 1 | 3min | 3min |
+| 05-bulk-pdf-upload-modal | 1 | 4min | 4min |
 
 *Updated after each plan completion*
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 3 Plan 2]: BulkActionBar uses same glass styling as ComparisonBar for visual consistency
 - [Phase 3 Plan 2]: BackToTopButton shifts bottom-6 to bottom-20 via clsx + useHasSelection
 - [Phase 3 Plan 2]: Six action buttons disabled with native title tooltips per D-10 (visible-but-disabled)
+- [Phase 5 Plan 1]: MATCH_THRESHOLD = 50 for auto-assignment; below this files go to unmatched
+- [Phase 5 Plan 1]: middleTruncate uses 60/40 front/back split to preserve filename start and version/extension
+- [Phase 5 Plan 1]: validatePdfFile accepts .pdf extension even with empty MIME type (OS edge case)
 
 ### Pending Todos
 
@@ -92,5 +96,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-24
-Stopped at: Completed 04-01-PLAN.md (CSV Export & Compare Wiring)
+Stopped at: Completed 05-01-PLAN.md (Bulk PDF Upload Helpers)
 Resume file: None

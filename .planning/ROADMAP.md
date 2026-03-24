@@ -73,7 +73,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Helper functions (validatePdfFile, matchScore, matchFilesToScreenplays, middleTruncate) with TDD tests
+- [x] 05-01-PLAN.md — Helper functions (validatePdfFile, matchScore, matchFilesToScreenplays, middleTruncate) with TDD tests (completed 2026-03-24)
 - [ ] 05-02-PLAN.md — BulkPdfUploadModal component (per-row dropzones, batch zone, progress, retry) + wire Upload PDFs button in BulkActionBar
 
 ## Progress
@@ -84,7 +84,7 @@ Plans:
 | 2. Performance at Scale | v7.0 | 2/2 | Complete | 2026-03-23 |
 | 3. Selection Mode Foundation | v7.0 | 2/2 | Complete | 2026-03-23 |
 | 4. Bulk Action Integrations | v7.0 | 3/3 | Complete | 2026-03-24 |
-| 5. Bulk PDF Upload Modal | v7.0 | 0/2 | Pending | — |
+| 5. Bulk PDF Upload Modal | v7.0 | 1/2 | In Progress | — |
 
 ## Requirement Coverage
 
