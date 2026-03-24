@@ -25,8 +25,8 @@
 - [x] **Phase 1: PDF Polish** - Fix coverage PDF cover page spacing (score/verdict separation) (completed 2026-03-23)
 - [x] **Phase 2: Performance at Scale** - Virtual scrolling + memoized filtering for 500-1000+ screenplays (completed 2026-03-23)
 - [x] **Phase 3: Selection Mode Foundation** - Multi-select checkboxes, selection store, bulk action bar (completed 2026-03-23)
-- [ ] **Phase 4: Bulk Action Integrations** - Wire up export, compare, collection, favorites from selection store (1/3 plans)
-- [ ] **Phase 5: Bulk PDF Upload Modal** - Streamlined upload with per-title dropzones
+- [x] **Phase 4: Bulk Action Integrations** - Wire up export, compare, collection, favorites from selection store (completed 2026-03-24)
+- [x] **Phase 5: Bulk PDF Upload Modal** - Streamlined upload with per-title dropzones (completed 2026-03-24)
 
 ## Phase Details
 
@@ -63,8 +63,8 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md — Prerequisites (toast success severity, patchAnalysisField, JSZip install) + wire CSV Export and Compare buttons (completed 2026-03-24)
-- [ ] 04-02-PLAN.md — SetCategoryModal and AddToFavoritesModal + wire Set Category and Favorites buttons
-- [ ] 04-03-PLAN.md — Bulk PDF export utility (JSZip) + wire Export PDF button with inline progress
+- [x] 04-02-PLAN.md — SetCategoryModal and AddToFavoritesModal + wire Set Category and Favorites buttons (completed 2026-03-24)
+- [x] 04-03-PLAN.md — Bulk PDF export utility (JSZip) + wire Export PDF button with inline progress (completed 2026-03-24)
 
 ### Phase 5: Bulk PDF Upload Modal
 **Goal:** Build the streamlined bulk PDF upload experience — one dropzone per title, filtered to missing-PDF screenplays only, with success summary.
@@ -74,7 +74,7 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md — Helper functions (validatePdfFile, matchScore, matchFilesToScreenplays, middleTruncate) with TDD tests (completed 2026-03-24)
-- [ ] 05-02-PLAN.md — BulkPdfUploadModal component (per-row dropzones, batch zone, progress, retry) + wire Upload PDFs button in BulkActionBar
+- [x] 05-02-PLAN.md — BulkPdfUploadModal component (per-row dropzones, batch zone, progress, retry) + wire Upload PDFs button in BulkActionBar (completed 2026-03-24)
 
 ## Progress
 
@@ -84,7 +84,7 @@ Plans:
 | 2. Performance at Scale | v7.0 | 2/2 | Complete | 2026-03-23 |
 | 3. Selection Mode Foundation | v7.0 | 2/2 | Complete | 2026-03-23 |
 | 4. Bulk Action Integrations | v7.0 | 3/3 | Complete | 2026-03-24 |
-| 5. Bulk PDF Upload Modal | v7.0 | 1/2 | In Progress | — |
+| 5. Bulk PDF Upload Modal | v7.0 | 2/2 | Complete | 2026-03-24 |
 
 ## Requirement Coverage
 
