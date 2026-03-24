@@ -336,6 +336,33 @@ export async function softDeleteAnalysis(sourceFile: string): Promise<void> {
 export const removeAnalysis = softDeleteAnalysis;
 
 /**
+ * Patch a single field on a raw analysis document.
+ * Dual-write: localStorage immediately, Firestore non-blocking.
+ * Caller must invalidate SCREENPLAYS_QUERY_KEY to refresh UI.
+ */
+export async function patchAnalysisField(
+    sourceFile: string,
+    field: string,
+    value: unknown
+): Promise<void> {
+    // Step 1: Patch in localStorage immediately
+    const existing = readFromLocal();
+    const updated = existing.map((a) =>
+        a.source_file === sourceFile ? { ...a, [field]: value } : a
+    );
+    writeToLocal(updated);
+
+    // Step 2: Patch in Firestore (non-blocking, never throws)
+    const docId = toDocId(sourceFile);
+    try {
+        await authReady;
+        await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { [field]: value });
+    } catch (err) {
+        console.warn(`[Lemon] Firestore patch failed for ${docId}.${field}:`, err);
+    }
+}
+
+/**
  * Soft-delete ALL uploaded analyses by setting _deleted_at on every entry.
  */
 export async function softDeleteAllAnalyses(): Promise<void> {

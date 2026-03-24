@@ -39,6 +39,13 @@ describe('toastStore', () => {
             expect(toasts[0].severity).toBe('warning');
         });
 
+        it('creates a toast with specified severity "success"', () => {
+            useToastStore.getState().addToast('Operation completed', 'success');
+            const toasts = useToastStore.getState().toasts;
+            expect(toasts).toHaveLength(1);
+            expect(toasts[0].severity).toBe('success');
+        });
+
         it('caps the toast array at 10 entries (keeps newest)', () => {
             for (let i = 0; i < 12; i++) {
                 useToastStore.getState().addToast(`Toast ${i}`);
@@ -52,7 +59,14 @@ describe('toastStore', () => {
             expect(toasts[0].message).toBe('Toast 2');
         });
 
-        it('auto-dismisses after ~5 seconds', () => {
+        it('auto-dismisses success toasts after ~3 seconds', () => {
+            useToastStore.getState().addToast('Quick toast', 'success');
+            expect(useToastStore.getState().toasts).toHaveLength(1);
+            vi.advanceTimersByTime(3000);
+            expect(useToastStore.getState().toasts).toHaveLength(0);
+        });
+
+        it('auto-dismisses error/warning toasts after ~5 seconds', () => {
             useToastStore.getState().addToast('Will disappear');
             expect(useToastStore.getState().toasts).toHaveLength(1);
 

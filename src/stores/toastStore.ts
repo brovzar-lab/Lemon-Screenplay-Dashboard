@@ -7,7 +7,7 @@
 
 import { create } from 'zustand';
 
-export type ToastSeverity = 'error' | 'warning';
+export type ToastSeverity = 'error' | 'warning' | 'success';
 
 export interface Toast {
     id: string;
@@ -29,8 +29,11 @@ export const MAX_VISIBLE = 3;
 /** Maximum toasts stored (prevents memory leak from rapid errors) */
 const MAX_STORED = 10;
 
-/** Auto-dismiss delay in milliseconds */
-const AUTO_DISMISS_MS = 5000;
+/** Auto-dismiss delay for success toasts (shorter for lightweight confirmations) */
+const SUCCESS_DISMISS_MS = 3000;
+
+/** Auto-dismiss delay for error/warning toasts */
+const DEFAULT_DISMISS_MS = 5000;
 
 export const useToastStore = create<ToastStore>((set) => ({
     toasts: [],
@@ -50,10 +53,11 @@ export const useToastStore = create<ToastStore>((set) => ({
             return { toasts: updated.slice(-MAX_STORED) };
         });
 
-        // Schedule auto-dismiss
+        // Schedule auto-dismiss (success toasts dismiss faster)
+        const dismissMs = severity === 'success' ? SUCCESS_DISMISS_MS : DEFAULT_DISMISS_MS;
         setTimeout(() => {
             useToastStore.getState().removeToast(id);
-        }, AUTO_DISMISS_MS);
+        }, dismissMs);
     },
 
     removeToast: (id) => {
