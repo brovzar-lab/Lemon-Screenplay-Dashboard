@@ -34,9 +34,9 @@ const MODEL_IDS = {
 };
 
 const MODEL_COSTS = {
-  haiku:  { input: 0.001, output: 0.005, perScript: 0.06 },
-  sonnet: { input: 0.003, output: 0.015, perScript: 0.22 },
-  opus:   { input: 0.015, output: 0.075, perScript: 0.90 },
+  haiku:  { input: 1, output: 5, perScript: 0.06 },
+  sonnet: { input: 3, output: 15, perScript: 0.22 },
+  opus:   { input: 15, output: 75, perScript: 0.90 },
 };
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -373,7 +373,7 @@ async function uploadPdf(category, safeName, filePath) {
     const { ref, uploadBytes } = await import('firebase/storage');
     const buffer = fs.readFileSync(filePath);
     const storageRef = ref(firebaseStorage, `screenplays/${category}/${safeName}.pdf`);
-    await uploadBytes(storageRef, buffer);
+    await uploadBytes(storageRef, buffer, { contentType: 'application/pdf' });
     return true;
   } catch (err) {
     console.error(`  PDF upload failed for ${safeName}: ${err.message}`);
