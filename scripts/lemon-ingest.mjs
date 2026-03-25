@@ -880,9 +880,8 @@ function parseArgs() {
   }
 
   if (!options.folder) {
-    console.error('Error: No folder specified.\n');
-    printUsage();
-    process.exit(1);
+    // No folder = interactive wizard mode
+    return null;
   }
 
   const validModels = ['sonnet', 'haiku', 'opus', 'hybrid'];
@@ -921,10 +920,74 @@ function printBanner() {
   console.log('');
 }
 
+async function interactiveWizard() {
+  const rl = createRL();
+  const ask = (q) => askQuestion(rl, q);
+
+  try {
+    console.log('  Welcome! Let\'s set up your bulk analysis.\n');
+
+    // 1. Folder
+    console.log('\x1b[33m  📁 Drag a folder into this window, or type the path:\x1b[0m');
+    let folder = (await ask('  > ')).trim().replace(/\\ /g, ' ').replace(/['"`]/g, '');
+    if (!folder) { console.log('  No folder provided. Exiting.'); process.exit(0); }
+    folder = path.resolve(folder);
+    if (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) {
+      console.error(`  "${folder}" is not a valid directory.`); process.exit(1);
+    }
+
+    // 2. Model
+    console.log('');
+    console.log('\x1b[33m  🤖 Choose analysis model:\x1b[0m');
+    console.log('     1. Sonnet 4.5    — ~$0.22/script, ~3 min  \x1b[2m(best balance)\x1b[0m');
+    console.log('     2. Haiku 4.5     — ~$0.06/script, ~1 min  \x1b[2m(fast & cheap)\x1b[0m');
+    console.log('     3. Opus 4.6      — ~$0.90/script, ~5 min  \x1b[2m(premium quality)\x1b[0m');
+    console.log('     4. Hybrid        — $0.22–$1.12/script     \x1b[2m(Sonnet first, Opus for the best)\x1b[0m');
+    const modelChoice = (await ask('  > ')).trim();
+    const modelMap = { '1': 'sonnet', '2': 'haiku', '3': 'opus', '4': 'hybrid' };
+    const model = modelMap[modelChoice] || 'sonnet';
+    console.log(`     → ${model}`);
+
+    // 3. Category override
+    console.log('');
+    console.log('\x1b[33m  🏷️  Category override \x1b[2m(press Enter to use folder names as categories):\x1b[0m');
+    const category = (await ask('  > ')).trim() || null;
+    if (category) console.log(`     → All scripts will be labeled "${category}"`);
+    else console.log('     → Using folder names');
+
+    // 4. API key
+    console.log('');
+    const envKey = process.env.ANTHROPIC_API_KEY;
+    if (envKey) {
+      console.log(`\x1b[33m  🔑 Found API key: ${maskKey(envKey)}\x1b[0m`);
+      const useIt = (await ask('     Use this key? (y/n): ')).trim().toLowerCase();
+      if (useIt === 'n' || useIt === 'no') {
+        const newKey = (await ask('     Enter new API key: ')).trim();
+        if (!newKey) { console.log('  No key provided. Exiting.'); process.exit(1); }
+        return { folder, model, category, apiKey: newKey, dryRun: false, resume: false };
+      }
+      return { folder, model, category, apiKey: envKey, dryRun: false, resume: false };
+    }
+    console.log('\x1b[33m  🔑 Enter your Anthropic API key:\x1b[0m');
+    const apiKey = (await ask('  > ')).trim();
+    if (!apiKey) { console.log('  No key provided. Exiting.'); process.exit(1); }
+
+    return { folder, model, category, apiKey, dryRun: false, resume: false };
+  } finally {
+    rl.close();
+  }
+}
+
 async function main() {
   printBanner();
 
-  const options = parseArgs();
+  let options = parseArgs();
+
+  // If no folder was given, run interactive wizard
+  if (!options) {
+    options = await interactiveWizard();
+  }
+
   const { folder, model, category, dryRun, resume } = options;
 
   // Load prompts
