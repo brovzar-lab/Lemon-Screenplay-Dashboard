@@ -231,23 +231,6 @@
   animation: checkmark 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* ── Scroll-triggered reveal animation ── */
-/* Cards start invisible; IntersectionObserver sets data-revealed="true" to trigger entrance */
-[data-reveal] {
-  opacity: 0;
-  transform: translateY(24px);
-  will-change: opacity, transform;
-  transition:
-    opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  /* delay is set inline via style prop for staggering */
-}
-
-[data-reveal][data-revealed="true"] {
-  opacity: 1;
-  transform: translateY(0);
-}
-
 /* ── Page load entrance orchestration ── */
 @keyframes page-enter-slide-down {
   from {
@@ -319,11 +302,5 @@
   .stagger-children>* {
     animation: none;
     opacity: 1;
-  }
-
-  [data-reveal] {
-    opacity: 1;
-    transform: none;
-    transition: none;
   }
 }

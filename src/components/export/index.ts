@@ -7,3 +7,4 @@ export { PdfDocument } from './PdfDocument';
 export { exportToCSV, exportComparisonToCSV } from './csvExport';
 export { CoverageDocument } from './CoverageDocument';
 export { downloadCoveragePdf } from './exportCoverage';
+export { bulkExportPdfs, type BulkPdfProgress } from './bulkPdfExport';

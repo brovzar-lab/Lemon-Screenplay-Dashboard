@@ -52,8 +52,61 @@
 
 ---
 
+## Milestone: v7.0 — Pipeline Scale & Bulk Operations
+
+**Shipped:** 2026-03-24
+**Phases:** 5 | **Plans:** 10
+
+### What Was Built
+
+- Fixed coverage PDF cover page score/verdict visual separation
+- Row-based virtual scrolling grid with @tanstack/react-virtual for 500-1000+ screenplays
+- Set-based Zustand selection store with always-on checkboxes and gold highlight ring
+- Sticky bottom bulk action bar with 6 wired actions and Select All/Deselect All
+- Bulk CSV export and bulk PDF zip export (JSZip) with inline progress
+- SetCategoryModal and AddToFavoritesModal for batch operations from action bar
+- Bulk PDF upload modal with per-row dropzones, batch zone, Firebase progress tracking and retry
+
+### What Worked
+
+- **Thorough pre-milestone discussion** — all gray areas (checkbox behavior, action bar placement, upload modal design, disabled button UX) were decided before coding started, eliminating mid-phase pivots
+- **Dependency-ordered phases** — PDF fix → virtual scrolling → selection → actions → upload built cleanly on each other with no circular dependencies
+- **TDD for utility modules** — Plan 05-01 (bulk upload helpers) used red-green TDD which caught edge cases in filename matching and validation early
+- **Reusing existing patterns** — toast store, modal patterns, Zustand store patterns were well-established from v6.8; new stores and modals followed the same structure
+- **Small, focused plans** — 10 plans across 5 phases, each taking 3-13 minutes, kept execution crisp
+
+### What Was Inefficient
+
+- **REQUIREMENTS.md traceability not updated** — 7 items still marked "Pending" at milestone close despite code being done; bookkeeping fell behind
+- **Phase 1 was a single-task plan** — the PDF spacing fix could have been part of Phase 2 prep rather than its own phase, saving overhead
+- **Virtual scrolling keyboard navigation deferred** — removing CSS Grid broke column-aware arrow key navigation; not planned for and had to be deferred
+
+### Patterns Established
+
+- Set-based Zustand store for O(1) multi-select operations at scale
+- Always-visible checkbox pattern (not mode toggle) for frequent-selection UIs
+- Visible-but-disabled button pattern with native title tooltips
+- Module-level Set for fire-once animation gating (persists across re-mounts, clears on reload)
+- Row-based virtual scrolling with responsive column count (useColumnCount + @tanstack/react-virtual)
+- TDD red-green for pure utility modules before component integration
+
+### Key Lessons
+
+- Pre-milestone discussion is high-ROI: every gray area resolved before coding saves 5-10x the time in mid-phase pivots
+- Keep REQUIREMENTS.md traceability updated as plans complete, not at milestone close
+- When removing a browser API (IntersectionObserver) from a component, audit all dependent features (keyboard nav) first
+
+### Cost Observations
+
+- Execution: 2 days (2026-03-23 → 2026-03-24)
+- Plans: 3-13 min each, average ~5 min
+- Notable: Phase 2 (virtual scrolling) was the most complex; Phases 4-5 executed fastest due to established patterns
+
+---
+
 ## Cross-Milestone Trends
 
 | Milestone | Phases | Plans | Days | Notable |
 |-----------|--------|-------|------|---------|
 | v6.8 Dev Exec Insights + Sharing | 7 | 16 | 4 | First sharing + export milestone; PDF layout debt identified |
+| v7.0 Pipeline Scale & Bulk Operations | 5 | 10 | 2 | Scale + bulk ops; pre-milestone discussion eliminated mid-phase pivots |

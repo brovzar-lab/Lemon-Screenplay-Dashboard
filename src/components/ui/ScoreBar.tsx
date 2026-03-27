@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { clsx } from 'clsx';
 import { getScoreColorClass, getScoreBarFillClass } from '@/lib/calculations';
 import { toNumber } from '@/lib/utils';
-import { useCountUp } from '../../hooks/useCountUp';
+import { useCountUp, hasCardAnimated, markCardAnimated } from '../../hooks/useCountUp';
 
 interface ScoreBarProps {
   label: string;
@@ -14,6 +14,8 @@ interface ScoreBarProps {
   justification?: string;
   /** Animate bar width from 0 to final value on mount/trigger */
   animate?: boolean;
+  /** Card ID for fire-once animation tracking (skip re-animation on re-mount) */
+  cardId?: string;
 }
 
 function ScoreBarInner({
@@ -24,10 +26,21 @@ function ScoreBarInner({
   showJustification,
   justification,
   animate,
+  cardId,
 }: ScoreBarProps) {
   const safeScore = toNumber(score);
-  const animatedScore = useCountUp(safeScore, 600, animate ?? false);
-  const displayScore = animate ? animatedScore : safeScore;
+
+  // Fire-once gating: if this card already animated, skip animation entirely
+  const alreadyAnimated = cardId ? hasCardAnimated(cardId) : false;
+  const shouldAnimate = (animate ?? false) && !alreadyAnimated;
+
+  const animatedScore = useCountUp(safeScore, 600, shouldAnimate);
+  const displayScore = shouldAnimate ? animatedScore : safeScore;
+
+  // Mark card as animated once count-up completes
+  if (cardId && shouldAnimate && animatedScore >= safeScore && safeScore > 0) {
+    markCardAnimated(cardId);
+  }
   const displayWidth = `${(displayScore / max) * 100}%`;
   const colorClass = getScoreBarFillClass(safeScore, max);
 

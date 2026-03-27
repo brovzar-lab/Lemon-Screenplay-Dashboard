@@ -26,9 +26,11 @@ export function ToastContainer() {
                 const showOverflow = isLastVisible && overflowCount > 0;
 
                 const borderColor =
-                    toast.severity === 'warning'
-                        ? 'border-l-amber-500'
-                        : 'border-l-red-500';
+                    toast.severity === 'success'
+                        ? 'border-l-emerald-500'
+                        : toast.severity === 'warning'
+                          ? 'border-l-amber-500'
+                          : 'border-l-red-500';
 
                 return (
                     <div

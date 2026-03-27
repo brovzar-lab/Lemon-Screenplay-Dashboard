@@ -7,6 +7,15 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ScreenplayCard } from './ScreenplayCard';
 import { createTestScreenplay } from '@/test/factories';
 
+// Mock the selection store
+const mockUseIsSelected = vi.fn(() => false);
+const mockToggle = vi.fn();
+vi.mock('@/stores/selectionStore', () => ({
+  useIsSelected: (...args: unknown[]) => mockUseIsSelected(...args),
+  useSelectionStore: (sel: ((s: { toggle: typeof mockToggle }) => unknown) | undefined) =>
+    sel ? sel({ toggle: mockToggle }) : { toggle: mockToggle },
+}));
+
 // Mock the comparison store
 vi.mock('@/stores/comparisonStore', () => ({
   useComparisonStore: () => vi.fn(),
@@ -24,20 +33,10 @@ vi.mock('@/hooks/useScreenplays', () => ({
   SCREENPLAYS_QUERY_KEY: ['screenplays'],
 }));
 
-// ─────────────────────────────────────────────────────────
-// PDF Status Store mock
-// ─────────────────────────────────────────────────────────
-
-let mockPdfState = { statuses: {} as Record<string, string>, hasScanResult: false, isScanning: false };
-
-vi.mock('@/stores/pdfStatusStore', () => ({
-  usePdfStatusStore: (selector: (s: unknown) => unknown) => selector(mockPdfState),
-}));
 
 describe('ScreenplayCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPdfState = { statuses: {}, hasScanResult: false, isScanning: false };
   });
 
   it('renders screenplay title and author', () => {
@@ -180,11 +179,25 @@ describe('ScreenplayCard', () => {
     expect(screen.getByText('Supporting Cast')).toBeInTheDocument();
   });
 
-  it('has export selection button with correct aria-label', () => {
+  it('renders always-visible bulk selection checkbox', () => {
     const screenplay = createTestScreenplay();
     render(<ScreenplayCard screenplay={screenplay} />);
 
-    expect(screen.getByLabelText('Select for export')).toBeInTheDocument();
+    const checkbox = screen.getByLabelText('Select screenplay');
+    expect(checkbox).toBeInTheDocument();
+    // Always visible -- should NOT have opacity-0 class
+    expect(checkbox.className).not.toContain('opacity-0');
+  });
+
+  it('shows gold ring when selected', () => {
+    mockUseIsSelected.mockReturnValue(true);
+    const screenplay = createTestScreenplay();
+    render(<ScreenplayCard screenplay={screenplay} />);
+
+    const article = screen.getByRole('article');
+    expect(article.className).toContain('ring-2');
+    expect(article.className).toContain('ring-gold-500/50');
+    mockUseIsSelected.mockReturnValue(false);
   });
 
   it('handles screenplay with missing producerMetrics gracefully', () => {
@@ -206,86 +219,20 @@ describe('ScreenplayCard', () => {
     expect(screen.getByText('7.5')).toBeInTheDocument();
   });
 
-  // ────────────────────────────────────────────
-  // PDF Status Badge (FILE-01)
-  // ────────────────────────────────────────────
-
-  describe('PDF status badge', () => {
-    it('shows PDF found badge when hasScanResult=true and status is found', () => {
-      const screenplay = createTestScreenplay({ id: 'sp-found' });
-      mockPdfState = { statuses: { 'sp-found': 'found' }, hasScanResult: true, isScanning: false };
-
-      render(<ScreenplayCard screenplay={screenplay} />);
-      expect(screen.getByText('PDF ✓')).toBeInTheDocument();
-    });
-
-    it('shows No PDF badge when hasScanResult=true and status is missing', () => {
-      const screenplay = createTestScreenplay({ id: 'sp-missing' });
-      mockPdfState = { statuses: { 'sp-missing': 'missing' }, hasScanResult: true, isScanning: false };
-
-      render(<ScreenplayCard screenplay={screenplay} />);
-      expect(screen.getByText('No PDF')).toBeInTheDocument();
-    });
-
-    it('shows no PDF badge when status is unknown (no scan result, no hasPdf field)', () => {
-      const screenplay = createTestScreenplay({ id: 'sp-unknown', hasPdf: undefined });
-      mockPdfState = { statuses: {}, hasScanResult: false, isScanning: false };
-
-      render(<ScreenplayCard screenplay={screenplay} />);
-      expect(screen.queryByText('PDF ✓')).not.toBeInTheDocument();
-      expect(screen.queryByText('No PDF')).not.toBeInTheDocument();
-    });
-
-    it('falls back to hasPdf=true when no scan result', () => {
-      const screenplay = createTestScreenplay({ id: 'sp-fallback-found', hasPdf: true });
-      mockPdfState = { statuses: {}, hasScanResult: false, isScanning: false };
-
-      render(<ScreenplayCard screenplay={screenplay} />);
-      expect(screen.getByText('PDF ✓')).toBeInTheDocument();
-    });
-
-    it('falls back to hasPdf=false when no scan result', () => {
-      const screenplay = createTestScreenplay({ id: 'sp-fallback-missing', hasPdf: false });
-      mockPdfState = { statuses: {}, hasScanResult: false, isScanning: false };
-
-      render(<ScreenplayCard screenplay={screenplay} />);
-      expect(screen.getByText('No PDF')).toBeInTheDocument();
-    });
+  it('is wrapped in React.memo', () => {
+    // React.memo components have a $$typeof of Symbol(react.memo)
+    expect((ScreenplayCard as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
   });
 
-  // ────────────────────────────────────────────
-  // Legacy Version Badge (FILE-02)
-  // ────────────────────────────────────────────
-
-  describe('Legacy version badge', () => {
-    it('shows Legacy badge when analysisVersion is not current (v5)', () => {
-      const screenplay = createTestScreenplay({ analysisVersion: 'v5' });
-      render(<ScreenplayCard screenplay={screenplay} />);
-      expect(screen.getByText('Legacy')).toBeInTheDocument();
+  it('clamps all loglines to 2 lines regardless of recommendation tier', () => {
+    const screenplay = createTestScreenplay({
+      recommendation: 'film_now',
+      isFilmNow: true,
+      logline: 'A prestigious screenplay with a very long logline that should be clamped.',
     });
+    render(<ScreenplayCard screenplay={screenplay} />);
 
-    it('shows Legacy badge when analysisVersion is v6.0', () => {
-      const screenplay = createTestScreenplay({ analysisVersion: 'v6.0' });
-      render(<ScreenplayCard screenplay={screenplay} />);
-      expect(screen.getByText('Legacy')).toBeInTheDocument();
-    });
-
-    it('does not show Legacy badge when analysisVersion is v6_core_lenses', () => {
-      const screenplay = createTestScreenplay({ analysisVersion: 'v6_core_lenses' });
-      render(<ScreenplayCard screenplay={screenplay} />);
-      expect(screen.queryByText('Legacy')).not.toBeInTheDocument();
-    });
-
-    it('does not show Legacy badge when analysisVersion is v6_unified', () => {
-      const screenplay = createTestScreenplay({ analysisVersion: 'v6_unified' });
-      render(<ScreenplayCard screenplay={screenplay} />);
-      expect(screen.queryByText('Legacy')).not.toBeInTheDocument();
-    });
-
-    it('does not show Legacy badge when analysisVersion is undefined', () => {
-      const screenplay = createTestScreenplay({ analysisVersion: undefined });
-      render(<ScreenplayCard screenplay={screenplay} />);
-      expect(screen.queryByText('Legacy')).not.toBeInTheDocument();
-    });
+    const logline = screen.getByText('A prestigious screenplay with a very long logline that should be clamped.');
+    expect(logline).toHaveClass('line-clamp-2');
   });
 });

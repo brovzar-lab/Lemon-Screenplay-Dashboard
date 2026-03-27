@@ -3,6 +3,7 @@
 ## Milestones
 
 - ✅ **v6.8 Dev Exec Insights + Sharing** — Phases 1-7 (shipped 2026-03-17) — [Archive](milestones/v6.8-ROADMAP.md)
+- ✅ **v7.0 Pipeline Scale & Bulk Operations** — Phases 1-5 (shipped 2026-03-24) — [Archive](milestones/v7.0-ROADMAP.md)
 
 ## Phases
 
@@ -19,133 +20,23 @@
 
 </details>
 
-### v7.0 Pipeline Scale & Bulk Operations
+<details>
+<summary>✅ v7.0 Pipeline Scale & Bulk Operations (Phases 1-5) — SHIPPED 2026-03-24</summary>
 
-- [x] Phase 8: PDF Cover Page Polish (1 plan) — PDF-01 (completed 2026-03-19)
-- [x] Phase 9: Filter UX + File Status Badges (3 plans) — FILTER-01–04, FILE-01–03 (completed 2026-03-19)
-- [x] Phase 10: Virtual Scrolling + Performance (3 plans) — PERF-01–02 (completed 2026-03-19)
-- [x] Phase 11: Bulk Operations (3 plans) — BULK-01–03 (completed 2026-03-20)
-- [ ] Phase 12: Bulk PDF Upload + Integration (2 plans) — FILE-04
+- [x] Phase 1: PDF Polish (1/1 plan) — completed 2026-03-23
+- [x] Phase 2: Performance at Scale (2/2 plans) — completed 2026-03-23
+- [x] Phase 3: Selection Mode Foundation (2/2 plans) — completed 2026-03-23
+- [x] Phase 4: Bulk Action Integrations (3/3 plans) — completed 2026-03-24
+- [x] Phase 5: Bulk PDF Upload Modal (2/2 plans) — completed 2026-03-24
 
----
-
-## Phase Detail
-
-### Phase 8: PDF Cover Page Polish
-
-**Goal:** Fix the single deferred defect from v6.8 — the weighted score number and recommendation badge on the coverage PDF cover page are visually merged. Isolated to `CoverageDocument.tsx` only.
-
-**Requirements:** PDF-01
-
-**Plans:** 1/1 plans complete
-
-Plans:
-- [ ] 08-01-PLAN.md — Fix scoreLeft dual-flex layout: replace with centered-group View + explicit marginTop gap; add regression guard tests
-
-**Success Criteria:**
-1. Generated coverage PDF: score number and recommendation badge have visible vertical gap on cover page
-2. No regression to title/author spacing (v6.8 fix at `titleText.marginBottom 8` preserved)
-3. `npm run build` and `npm run test:run` pass
-
----
-
-### Phase 9: Filter UX Simplification + File Status Badges
-
-**Goal:** Reduce FilterPanel cognitive load by hiding 7 dimension sliders behind "Advanced"; add storage-status and analysis-version badges to screenplay cards. Ships together because both touch `ScreenplayCard.tsx` and share `pdfStatusStore`.
-
-**Requirements:** FILTER-01, FILTER-02, FILTER-03, FILTER-04, FILE-01, FILE-02, FILE-03
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [ ] 09-01-PLAN.md — Wave 0 test scaffolding: create FilterBar.test.tsx, update FilterPanel.test.tsx and ScreenplayCard.test.tsx with RED failing assertions for all Phase 9 behaviors
-- [ ] 09-02-PLAN.md — FilterPanel accordion rework: Genre & Theme default (FILTER-01), Advanced disclosure toggle (FILTER-02), auto-expand active section (FILTER-04)
-- [ ] 09-03-PLAN.md — FilterBar Filters badge + Missing PDF chip (FILTER-03, FILE-03); ScreenplayCard PDF status + Legacy version badges (FILE-01, FILE-02)
-
-**Success Criteria:**
-1. FilterPanel opens with Genre & Theme expanded; 7 dimension sliders not visible until "Advanced" clicked
-2. "Filters" button badge shows correct count of active Advanced-section filters
-3. Each ScreenplayCard shows PDF status badge and analysis-version badge when `pdfStatusStore` has scan results
-4. FilterPanel auto-expands sections with active filters on open
-5. FilterBar has "Missing PDF" chip with count badge
-
----
-
-### Phase 10: Virtual Scrolling + Performance
-
-**Goal:** Replace simple `.map()` in `ScreenplayGrid.tsx` with windowed virtualization. Memoize filter/sort pipeline.
-
-**Requirements:** PERF-01, PERF-02
-
-**Constraint:** `ScreenplayGrid` uses responsive `grid-cols-1/2/3/4`. Must measure container width → derive column count → virtualize rows of N cards. Research plan must confirm `@tanstack/react-virtual` and column-measurement approach.
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [ ] 10-01-PLAN.md — Wave 0 scaffolding: install @tanstack/react-virtual, update ScreenplayGrid tests (fix 4 ARIA tests, add DOM count RED test), add memo RED test to useFilteredScreenplays.test.ts
-- [ ] 10-02-PLAN.md — Virtualize ScreenplayGrid: useWindowVirtualizer + ResizeObserver column count + CSS fade; delete useScrollReveal (PERF-01)
-- [ ] 10-03-PLAN.md — Fix filter memoization: apply useShallow to useFilterStore subscriptions in useFilteredScreenplays.ts (PERF-02)
-
-**Success Criteria:**
-1. 1000 screenplays: DOM has no more than ~50–80 card elements at any time
-2. Filter toggle causes no long task >100ms
-3. Scroll reveal animation preserved or replaced
-4. Keyboard navigation continues to function
-
----
-
-### Phase 11: Bulk Operations
-
-**Goal:** Bulk share token generation, bulk re-analysis via Firebase Storage download, CSV export scope confirmation.
-
-**Requirements:** BULK-01, BULK-02, BULK-03
-
-**Constraints:**
-- Token generation sequential (not `Promise.all`) to avoid Firestore burst
-- Reuse `getExistingShareToken` before creating new tokens
-- BULK-02: `reanalyzeFromStorage` (getBlob → File → analyzeScreenplay); only `hasPdf=true` eligible
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [ ] 11-01-PLAN.md — Wave 0 test scaffolding: BulkShareModal.test.tsx, BulkReanalyzeModal.test.tsx, ExportModal.test.tsx RED stubs, bulk/index.ts barrel
-- [ ] 11-02-PLAN.md — ActionsDropdown in FilterBar + BulkShareModal progressive fill (BULK-01)
-- [ ] 11-03-PLAN.md — BulkReanalyzeModal cancel/retry loop + ExportModal scope text fix (BULK-02, BULK-03)
-
-**Success Criteria:**
-1. Select 5 screenplays → "Generate Share Links" → 5 URLs in modal, individually copyable + "Copy All"
-2. Select 3 legacy screenplays → "Re-analyze Selected" → "Re-analyzing 1 of 3…" progress → version badges update
-3. Export modal states "Exporting X selected screenplays (CSV)" before download
-4. Existing share tokens reused (no duplication)
-
----
-
-### Phase 12: Bulk PDF Upload + Integration Testing
-
-**Goal:** Wire FILE-04 bulk upload action; run complete integration pass across all v7.0 phases.
-
-**Requirements:** FILE-04
-
-**Success Criteria:**
-1. Filter to "Missing PDF" → select 3 cards → "Upload PDFs" bulk action → PdfUploadPanel opens scoped to those 3 IDs
-2. Full smoke test: 1000 screenplays → filter → enable 2 dimension sliders → verify badge "2" → select 5 cards → bulk share → all 5 links resolve
-3. `npm run build` + `npm run test:run` pass; production deploy succeeds
-
----
+</details>
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 1. Firestore Security Hardening | v6.8 | 3/3 | Complete | 2026-03-14 |
-| 2. Sync Status Visibility | v6.8 | 2/2 | Complete | 2026-03-14 |
-| 3. Data Safety | v6.8 | 2/2 | Complete | 2026-03-14 |
-| 4. UX Polish Scaffolding | v6.8 | 2/2 | Complete | 2026-03-14 |
-| 5. Share Token Generation | v6.8 | 2/2 | Complete | 2026-03-14 |
-| 6. Shared Partner View | v6.8 | 2/2 | Complete | 2026-03-14 |
-| 7. Export Coverage Package | v6.8 | 3/3 | Complete | 2026-03-17 |
-| 8. PDF Cover Page Polish | 1/1 | Complete   | 2026-03-19 | — |
-| 9. Filter UX + File Status Badges | v7.0 | Complete    | 2026-03-19 | — |
-| 10. Virtual Scrolling + Performance | 3/3 | Complete    | 2026-03-19 | — |
-| 11. Bulk Operations | 3/3 | Complete   | 2026-03-20 | — |
-| 12. Bulk PDF Upload + Integration | v7.0 | 0/2 | Pending | — |
+| 1. PDF Polish | v7.0 | 1/1 | Complete | 2026-03-23 |
+| 2. Performance at Scale | v7.0 | 2/2 | Complete | 2026-03-23 |
+| 3. Selection Mode Foundation | v7.0 | 2/2 | Complete | 2026-03-23 |
+| 4. Bulk Action Integrations | v7.0 | 3/3 | Complete | 2026-03-24 |
+| 5. Bulk PDF Upload Modal | v7.0 | 2/2 | Complete | 2026-03-24 |

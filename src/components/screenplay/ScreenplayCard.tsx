@@ -9,19 +9,13 @@ import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { getScoreColorClass } from '@/lib/calculations';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
-import { useExportSelectionStore, useIsSelectedForExport } from '@/stores/exportSelectionStore';
+import { useIsSelected, useSelectionStore } from '@/stores/selectionStore';
 import { useDeleteSelectionStore, useIsSelectedForDelete } from '@/stores/deleteSelectionStore';
 import { useDeleteScreenplays } from '@/hooks/useScreenplays';
-import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { ProductionBadge } from './ProductionBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
-import { PercentileBadge } from '@/components/ui/PercentileBadge';
 import { ScoreBar } from '@/components/ui/ScoreBar';
-import { useScreenplayPercentile } from '@/hooks/usePercentiles';
-
-// FILE-02: current analysis version strings — module-level constant to avoid re-creation per render
-const CURRENT_VERSIONS = new Set(['v6_core_lenses', 'v6_unified', 'v7_archaeology', 'v7_triage']);
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
@@ -37,7 +31,7 @@ function ProducerMetricsMini({ screenplay }: { screenplay: Screenplay }) {
   return (
     <div className="flex gap-4 text-xs">
       <div className="flex items-center gap-1" title="AI-analyzed market potential">
-        <span className="text-black-400">Mkt</span>
+        <span className="text-black-500">Mkt</span>
         {mp !== null && mp !== undefined ? (
           <span className={clsx('font-mono font-bold', getScoreColorClass(mp))}>
             {mp}
@@ -50,76 +44,43 @@ function ProducerMetricsMini({ screenplay }: { screenplay: Screenplay }) {
   );
 }
 
-function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
-  const toggleExportSelection = useExportSelectionStore((s) => s.toggle);
-  const isExportSelected = useIsSelectedForExport(screenplay.id);
+export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
+  const isBulkSelected = useIsSelected(screenplay.id);
+  const toggleBulkSelection = useSelectionStore((s) => s.toggle);
   const isDeleteMode = useDeleteSelectionStore((s) => s.isDeleteMode);
   const toggleDeleteSelection = useDeleteSelectionStore((s) => s.toggle);
   const isDeleteSelected = useIsSelectedForDelete(screenplay.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
-  const percentileRank = useScreenplayPercentile(screenplay.id);
 
-  // V7: goosebumps moments
-  const goosebumpsCount = (() => {
-    const sp = screenplay as unknown as Record<string, unknown>;
-    return Array.isArray(sp.v7GoosebumpsMoments) ? sp.v7GoosebumpsMoments.length : 0;
-  })();
+  const [isPeeking, setIsPeeking] = useState(false);
+  const peekTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // FILE-01: per-id selector prevents mass re-renders during scan updates
-  const myPdfStatus = usePdfStatusStore((s) => s.statuses[screenplay.id]);
-  const hasScanResult = usePdfStatusStore((s) => s.hasScanResult);
+  const supportsHover = typeof window !== 'undefined' &&
+    window.matchMedia('(hover: hover)').matches;
 
-  // FILE-01: derive pdf badge status
-  const pdfBadgeStatus: 'found' | 'missing' | 'unknown' = (() => {
-    if (hasScanResult) {
-      if (myPdfStatus === 'found') return 'found';
-      if (myPdfStatus === 'missing') return 'missing';
-      return 'unknown'; // not yet scanned in this batch
-    }
-    // Fallback to Firestore field
-    if (screenplay.hasPdf === true) return 'found';
-    if (screenplay.hasPdf === false) return 'missing';
-    return 'unknown';
-  })();
+  const handlePeekEnter = () => {
+    if (!supportsHover) return;
+    peekTimerRef.current = setTimeout(() => setIsPeeking(true), 500);
+  };
 
-  // FILE-02: show Legacy badge for non-current versions; undefined = no badge
-  const isLegacyVersion = screenplay.analysisVersion
-    ? !CURRENT_VERSIONS.has(screenplay.analysisVersion)
-    : false;
-
-  const [isRevealed, setIsRevealed] = useState(false);
-  const cardRef = useRef<HTMLElement>(null);
-
-
+  const handlePeekLeave = () => {
+    clearTimeout(peekTimerRef.current);
+    setIsPeeking(false);
+  };
 
   useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsRevealed(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.3 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
+    return () => clearTimeout(peekTimerRef.current);
   }, []);
 
-
-
-  const handleSelectClick = (e: React.MouseEvent) => {
+  const handleBulkSelectClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isDeleteMode) {
-      toggleDeleteSelection(screenplay.id);
-    } else {
-      toggleExportSelection(screenplay.id);
-    }
+    toggleBulkSelection(screenplay.id);
+  };
+
+  const handleDeleteSelectClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleDeleteSelection(screenplay.id);
   };
 
   const handleTrashClick = (e: React.MouseEvent) => {
@@ -148,49 +109,57 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
   const scoreNumClass = isPass ? 'font-mono text-base font-bold' : 'font-mono text-xl font-bold';
   const scoreTextClass = isPass ? 'text-xs' : 'text-sm';
 
-  // Determine checkbox visual state
-  const isChecked = isDeleteMode ? isDeleteSelected : isExportSelected;
-  const checkboxColor = isDeleteMode
-    ? isChecked
-      ? 'bg-red-500 border-red-400 text-white'
-      : 'border-red-400/50 text-transparent hover:border-red-400'
-    : isChecked
-      ? 'bg-gold-500 border-gold-400 text-black-950'
-      : 'border-black-600 text-transparent hover:border-gold-500';
-
   return (
     <>
       <article
-        ref={cardRef}
-        data-testid={`screenplay-card-${screenplay.id}`}
         onClick={onClick}
+        onMouseEnter={handlePeekEnter}
+        onMouseLeave={handlePeekLeave}
         className={clsx(
           'card cursor-pointer relative group transition-all duration-200 ease-out',
-          'h-[420px] flex flex-col overflow-hidden',
           tierClass,
           isDeleteMode && isDeleteSelected && 'ring-2 ring-red-500/50',
+          !isDeleteMode && isBulkSelected && 'ring-2 ring-gold-500/50',
+          isPeeking && 'scale-[1.02] shadow-lg shadow-gold-500/10'
         )}
       >
-        {/* Selection checkbox (export) — only visible on hover or when selected */}
-        <button
-          onClick={handleSelectClick}
-          title={isExportSelected ? 'Deselect for export' : 'Select for export'}
-          className={clsx(
-            'absolute top-4 right-4 w-6 h-6 rounded-md border-2 flex items-center justify-center',
-            'transition-all duration-150 z-10',
-            isChecked
-              ? 'opacity-100'
-              : 'opacity-0 group-hover:opacity-100',
-            checkboxColor,
-          )}
-          aria-label={
-            isDeleteMode
-              ? isDeleteSelected ? 'Deselect for deletion' : 'Select for deletion'
-              : isExportSelected ? 'Deselect for export' : 'Select for export'
-          }
-        >
-          {isChecked && '✓'}
-        </button>
+        {/* Bulk selection checkbox -- always visible (D-05) */}
+        {!isDeleteMode && (
+          <button
+            onClick={handleBulkSelectClick}
+            className={clsx(
+              'absolute top-3 left-3 w-6 h-6 rounded border-2 flex items-center justify-center',
+              'transition-all duration-150 z-10',
+              isBulkSelected
+                ? 'bg-gold-500 border-gold-400 text-black-950'
+                : 'border-black-500 bg-black-800/50 hover:border-gold-500/50'
+            )}
+            aria-label={isBulkSelected ? 'Deselect screenplay' : 'Select screenplay'}
+          >
+            {isBulkSelected && (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </button>
+        )}
+
+        {/* Delete mode checkbox -- only visible in delete mode */}
+        {isDeleteMode && (
+          <button
+            onClick={handleDeleteSelectClick}
+            className={clsx(
+              'absolute top-4 right-4 w-6 h-6 rounded-md border-2 flex items-center justify-center',
+              'transition-all duration-150 z-10',
+              isDeleteSelected
+                ? 'opacity-100 bg-red-500 border-red-400 text-white'
+                : 'opacity-0 group-hover:opacity-100 border-red-400/50 text-transparent hover:border-red-400',
+            )}
+            aria-label={isDeleteSelected ? 'Deselect for deletion' : 'Select for deletion'}
+          >
+            {isDeleteSelected && '\u2713'}
+          </button>
+        )}
 
         {/* Trash icon — visible on hover, only when NOT in delete mode */}
         {!isDeleteMode && (
@@ -212,7 +181,7 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
         )}
 
         {/* Header: badge → generous gap → full-width title */}
-        <div className="mb-5 pr-8">
+        <div className="mb-5 pl-8 pr-8">
           <div className="mb-3">
             <RecommendationBadge tier={screenplay.recommendation} />
           </div>
@@ -230,55 +199,39 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
           <span className="chip chip-budget">{screenplay.budgetCategory}</span>
           <span className="chip">{screenplay.collection.replace(' Black List', '')}</span>
           <ProductionBadge tmdbStatus={screenplay.tmdbStatus} compact />
-
-          {/* FILE-01: PDF storage status badge */}
-          {pdfBadgeStatus !== 'unknown' && (
-            <span
-              className={clsx(
-                'chip text-xs',
-                pdfBadgeStatus === 'found'
-                  ? 'border-emerald-500/40 text-emerald-400'
-                  : 'border-amber-500/40 text-amber-400'
-              )}
-              title={pdfBadgeStatus === 'found' ? 'PDF in Storage' : 'PDF missing from Storage'}
-            >
-              {pdfBadgeStatus === 'found' ? 'PDF ✓' : 'No PDF'}
-            </span>
-          )}
-
-          {/* FILE-02: Analysis version badge — only shown for legacy */}
-          {isLegacyVersion && (
-            <span
-              className="chip text-xs border-black-600/40 text-black-400"
-              title={`Analyzed with ${screenplay.analysisVersion} — re-analyze for current engine`}
-            >
-              Legacy
-            </span>
-          )}
-
-          {/* V7: Goosebumps moments indicator */}
-          {goosebumpsCount > 0 && (
-            <span
-              className="chip text-xs border-amber-500/30 text-amber-300"
-              title={`${goosebumpsCount} goosebumps moment${goosebumpsCount > 1 ? 's' : ''} identified`}
-            >
-              ✨ {goosebumpsCount}
-            </span>
-          )}
-
-          {/* Percentile badge */}
-          <PercentileBadge rank={percentileRank} />
         </div>
 
         {/* Logline */}
-        <p className="text-sm text-black-300 leading-relaxed mb-5 line-clamp-2">
+        <p className={`text-sm text-black-300 leading-relaxed ${
+          isPeeking ? '' : 'line-clamp-2'
+        }`}>
           {screenplay.logline}
         </p>
 
-        {/* Scores Grid */}
-        {/* Spacer pushes scores to bottom */}
-        <div className="flex-1" />
+        {/* Quick-peek expanded content */}
+        <div
+          className={clsx(
+            'overflow-hidden transition-all duration-200 ease-out',
+            isPeeking ? 'max-h-24 opacity-100 mt-2 mb-5' : 'max-h-0 opacity-0 mb-5'
+          )}
+        >
+          <div className="flex gap-1.5 flex-wrap">
+            {getDimensionDisplay(screenplay)
+              .slice()
+              .sort((a, b) => b.score - a.score)
+              .slice(0, 3)
+              .map((dim) => (
+                <span
+                  key={dim.key}
+                  className="text-xs font-mono px-2 py-0.5 rounded-full bg-black-800 text-black-200"
+                >
+                  {dim.label}: {dim.score.toFixed(1)}
+                </span>
+              ))}
+          </div>
+        </div>
 
+        {/* Scores Grid — V7 uses 3-col for 5 pillars, V6 uses 2-col for 4 */}
         {(() => {
           const dims = getDimensionDisplay(screenplay);
           const isV7 = dims.length === 5;
@@ -290,7 +243,8 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
                   score={dim.score}
                   label={dim.label}
                   compact
-                  animate={isRevealed}
+                  animate
+                  cardId={screenplay.id}
                 />
               ))}
             </div>
@@ -301,7 +255,7 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
         <div className="flex items-center justify-between pt-4 border-t border-black-700">
           <div className="flex items-center gap-5">
             <div>
-              <span className="text-[11px] font-semibold tracking-widest uppercase text-black-400 block">Score</span>
+              <span className="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">Score</span>
               <span className={clsx(
                 scoreNumClass,
                 getScoreColorClass(Number(screenplay.weightedScore) || 0)
@@ -310,9 +264,9 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
               </span>
             </div>
             <div>
-              <span className="text-[11px] font-semibold tracking-widest uppercase text-black-400 block">CVS</span>
+              <span className="text-[10px] font-semibold tracking-widest uppercase text-black-500 block">CVS</span>
               {screenplay.commercialViability.cvsAssessed === false ? (
-                <span className={`${scoreTextClass} text-black-400 italic`}>N/A</span>
+                <span className={`${scoreTextClass} text-black-500 italic`}>N/A</span>
               ) : (
                 <span className={clsx(
                   scoreNumClass,
@@ -348,8 +302,7 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
       />
     </>
   );
-}
+});
 
-export const ScreenplayCard = memo(ScreenplayCardInner);
 export default ScreenplayCard;
 
