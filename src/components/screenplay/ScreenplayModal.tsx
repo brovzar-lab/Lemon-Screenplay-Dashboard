@@ -113,26 +113,27 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
       <div
         ref={modalRef}
         className={clsx(
-          'relative w-full max-w-4xl my-8 rounded-2xl overflow-hidden',
+          'relative w-full max-w-4xl my-8 rounded-2xl flex flex-col',
           'glass border',
           isClosing ? 'animate-scale-out' : 'animate-scale-in',
           screenplay.isFilmNow ? 'border-gold-400 film-now-glow' : 'border-gold-500/20'
         )}
         onClick={(e) => e.stopPropagation()}
+        style={{ maxHeight: '85vh' }}
       >
-        <div className="max-h-[85vh] overflow-y-auto scrollbar-hide relative">
-          {/* Bottom scroll affordance — fades out when scrolled to bottom via CSS */}
-          <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black-950/80 to-transparent z-30 rounded-b-2xl" aria-hidden="true" />
-          {/* 1. Sticky Header */}
-          <div className="sticky top-0 z-40 backdrop-blur-xl">
-            <ModalHeader
-              screenplay={screenplay}
-              closeButtonRef={closeButtonRef}
-              onClose={handleClose}
-            />
-          </div>
+        {/* 1. Header — OUTSIDE scroll container so popovers aren't clipped */}
+        <div className="relative z-40 shrink-0 rounded-t-2xl overflow-visible">
+          <ModalHeader
+            screenplay={screenplay}
+            closeButtonRef={closeButtonRef}
+            onClose={handleClose}
+          />
+        </div>
 
-          {/* 2. Scrollable Content Body */}
+        {/* 2. Scrollable Content Body */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide relative">
+          {/* Bottom scroll affordance */}
+          <div className="pointer-events-none sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black-950/80 to-transparent z-30 rounded-b-2xl" aria-hidden="true" />
           <div className="modal-body p-6 space-y-8 bg-black-950/50">
             <AlertBanners screenplay={screenplay} />
             <FilmNowSection screenplay={screenplay} />

@@ -16,6 +16,12 @@ import { uploadScreenplayPdf } from './firebase';
 import { saveAnalysis } from './analysisStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { Screenplay } from '@/types';
+import {
+  runMultiReaderAnalysis,
+  runTriage,
+  type V7AnalysisOptions,
+  type V7AnalysisProgress,
+} from './multiPassAnalysis';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -27,6 +33,10 @@ export interface AnalysisOptions {
   lenses?: AnalysisLens[];
   /** Firebase Cloud Function URL (for production). If absent, uses Vite proxy. */
   functionUrl?: string;
+  /** Analysis version: 'v6' (single-pass) or 'v7' (multi-reader archaeology engine) */
+  analysisVersion?: 'v6' | 'v7';
+  /** V7 mode: 'full' (5 readers + synthesis) or 'triage' (quick Haiku filter) */
+  v7Mode?: 'full' | 'triage';
 }
 
 export interface AnalysisProgress {
@@ -77,7 +87,12 @@ export async function analyzeScreenplay(
 
   onProgress?.({ stage: 'analyzing', percent: 0, message: 'Sending to AI for analysis...' });
 
-  // Stage 2 — Call API
+  // ── V7 Multi-Reader Path ──
+  if (options.analysisVersion === 'v7') {
+    return analyzeV7Path(parsed, category, options, onProgress);
+  }
+
+  // ── V6 Single-Pass Path (default) ──
   const lenses = options.lenses ?? ['commercial'];
   const model = options.model ?? 'sonnet';
 
@@ -85,35 +100,140 @@ export async function analyzeScreenplay(
   let usage: { input_tokens: number; output_tokens: number } | undefined;
 
   if (options.functionUrl) {
-    // Explicit Cloud Function URL (legacy / override path)
     const result = await callCloudFunction(parsed, lenses, options);
     raw = result.raw;
     usage = result.usage;
   } else {
-    // Both dev and production: call Anthropic directly.
-    // Dev uses Vite proxy at /api/anthropic (no CORS needed).
-    // Production uses the anthropic-dangerous-direct-browser-access header
-    // which Anthropic officially supports for direct browser CORS.
     const result = await callAnthropicDirect(parsed, lenses, model, options.apiKey);
     raw = result.raw;
     usage = result.usage;
   }
 
-  // Inject collection info for normalization
   (raw as Record<string, unknown>).collection = category;
 
   onProgress?.({ stage: 'complete', percent: 100, message: 'Analysis complete!' });
 
-  // Stage 3 — Upload PDF to Firebase Storage (non-blocking)
+  // Upload PDF to Firebase Storage (non-blocking)
   try {
     const title = (raw as Record<string, Record<string, unknown>>).analysis?.title as string | undefined;
     await uploadScreenplayPdf(file, category, title);
   } catch (err) {
-    // Don't fail the analysis if upload fails
     console.warn('[Firebase Storage] PDF upload failed:', err);
   }
 
   return { raw, parsed, usage };
+}
+
+// ─── V7 Multi-Reader Analysis Path ──────────────────────────────────────────
+
+async function analyzeV7Path(
+  parsed: ParsedPDF,
+  category: string,
+  options: AnalysisOptions,
+  onProgress?: (p: AnalysisProgress) => void,
+): Promise<AnalysisResult> {
+  const v7Mode = options.v7Mode ?? 'full';
+  const model = options.model === 'haiku' ? 'sonnet' : (options.model ?? 'sonnet') as 'sonnet' | 'opus';
+
+  // Load calibration profile
+  let calibrationPrompt: string | undefined;
+  try {
+    const { loadCalibrationProfile } = await import('./feedbackStore');
+    const profile = await loadCalibrationProfile();
+    if (profile?.enabled && profile.calibrationPrompt) {
+      calibrationPrompt = profile.calibrationPrompt;
+    }
+  } catch {
+    // Calibration is optional
+  }
+
+  if (v7Mode === 'triage') {
+    // Quick triage — single Haiku pass
+    onProgress?.({ stage: 'analyzing', percent: 50, message: 'Running triage scan...' });
+
+    const triageResult = await runTriage(parsed, options.apiKey);
+
+    const raw = {
+      source_file: parsed.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
+      analysis_model: 'claude-haiku',
+      analysis_version: 'v7_triage',
+      lenses_enabled: [],
+      collection: category,
+      metadata: {
+        filename: parsed.title + '.pdf',
+        page_count: parsed.pageCount,
+        word_count: parsed.wordCount,
+      },
+      triage: triageResult,
+      analysis: {
+        title: parsed.title,
+        triage_score: triageResult.triage_score,
+        verdict: triageResult.verdict,
+        genre: triageResult.genre,
+        logline: triageResult.logline,
+        should_deep_analyze: triageResult.should_deep_analyze,
+      },
+    };
+
+    onProgress?.({ stage: 'complete', percent: 100, message: `Triage complete: ${triageResult.triage_score}/10` });
+    return { raw, parsed, usage: triageResult.usage };
+  }
+
+  // Full 5-reader + synthesis
+  const v7Options: V7AnalysisOptions = {
+    apiKey: options.apiKey,
+    mode: 'full',
+    model,
+    lenses: options.lenses ?? ['commercial'],
+    calibrationPrompt,
+  };
+
+  const v7Result = await runMultiReaderAnalysis(parsed, v7Options, (p: V7AnalysisProgress) => {
+    onProgress?.({
+      stage: p.stage === 'complete' ? 'complete' : 'analyzing',
+      percent: p.percent,
+      message: p.message,
+    });
+  });
+
+  // Wrap in standard structure for compatibility
+  const raw = {
+    source_file: parsed.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
+    analysis_model: `claude-${model}`,
+    analysis_version: 'v7_archaeology',
+    lenses_enabled: options.lenses ?? ['commercial'],
+    collection: category,
+    metadata: {
+      filename: parsed.title + '.pdf',
+      page_count: parsed.pageCount,
+      word_count: parsed.wordCount,
+    },
+    analysis: v7Result.analysis,
+    v7_meta: {
+      reader_count: v7Result.readerResults.length,
+      total_tokens: v7Result.totalUsage,
+      total_duration_ms: v7Result.totalDurationMs,
+      reader_durations: Object.fromEntries(
+        v7Result.readerResults.map((r) => [r.reader, r.durationMs]),
+      ),
+    },
+  };
+
+  onProgress?.({ stage: 'complete', percent: 100, message: 'V7 analysis complete!' });
+
+  // Upload PDF to Firebase Storage (non-blocking)
+  try {
+    const title = (v7Result.analysis as Record<string, unknown>).title as string | undefined;
+    await uploadScreenplayPdf(parsed.title + '.pdf' as unknown as File, category, title);
+  } catch (err) {
+    console.warn('[Firebase Storage] PDF upload failed:', err);
+  }
+
+  return {
+    raw,
+    parsed,
+    usage: v7Result.totalUsage,
+  };
 }
 
 
@@ -438,9 +558,10 @@ export async function generatePoster(
  */
 export async function reanalyzeFromStorage(
   screenplay: Screenplay,
-  model: 'sonnet' | 'opus',
+  model: 'sonnet' | 'opus' | 'haiku',
   apiKey: string,
   onProgress?: (p: AnalysisProgress) => void,
+  engineOptions?: { analysisVersion?: 'v6' | 'v7'; v7Mode?: 'full' | 'triage' },
 ): Promise<AnalysisResult> {
   onProgress?.({ stage: 'parsing', percent: 0, message: 'Fetching PDF from storage...' });
 
@@ -483,7 +604,13 @@ export async function reanalyzeFromStorage(
     result = await analyzeScreenplay(
       file,
       category,
-      { apiKey, model, lenses: ['commercial'] },
+      {
+        apiKey,
+        model: model === 'haiku' ? 'haiku' : model,
+        lenses: ['commercial'],
+        analysisVersion: engineOptions?.analysisVersion,
+        v7Mode: engineOptions?.v7Mode,
+      },
       (p) => {
         // Map progress: parsing 40-50%, analyzing 50-95%
         if (p.stage === 'parsing') {

@@ -16,10 +16,12 @@ import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { ProductionBadge } from './ProductionBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
+import { PercentileBadge } from '@/components/ui/PercentileBadge';
 import { ScoreBar } from '@/components/ui/ScoreBar';
+import { useScreenplayPercentile } from '@/hooks/usePercentiles';
 
 // FILE-02: current analysis version strings — module-level constant to avoid re-creation per render
-const CURRENT_VERSIONS = new Set(['v6_core_lenses', 'v6_unified']);
+const CURRENT_VERSIONS = new Set(['v6_core_lenses', 'v6_unified', 'v7_archaeology', 'v7_triage']);
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
@@ -56,6 +58,13 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
   const isDeleteSelected = useIsSelectedForDelete(screenplay.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
+  const percentileRank = useScreenplayPercentile(screenplay.id);
+
+  // V7: goosebumps moments
+  const goosebumpsCount = (() => {
+    const sp = screenplay as unknown as Record<string, unknown>;
+    return Array.isArray(sp.v7GoosebumpsMoments) ? sp.v7GoosebumpsMoments.length : 0;
+  })();
 
   // FILE-01: per-id selector prevents mass re-renders during scan updates
   const myPdfStatus = usePdfStatusStore((s) => s.statuses[screenplay.id]);
@@ -246,6 +255,19 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
               Legacy
             </span>
           )}
+
+          {/* V7: Goosebumps moments indicator */}
+          {goosebumpsCount > 0 && (
+            <span
+              className="chip text-xs border-amber-500/30 text-amber-300"
+              title={`${goosebumpsCount} goosebumps moment${goosebumpsCount > 1 ? 's' : ''} identified`}
+            >
+              ✨ {goosebumpsCount}
+            </span>
+          )}
+
+          {/* Percentile badge */}
+          <PercentileBadge rank={percentileRank} />
         </div>
 
         {/* Logline */}
@@ -257,17 +279,23 @@ function ScreenplayCardInner({ screenplay, onClick }: ScreenplayCardProps) {
         {/* Spacer pushes scores to bottom */}
         <div className="flex-1" />
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-5">
-          {getDimensionDisplay(screenplay).slice(0, 4).map((dim) => (
-            <ScoreBar
-              key={dim.key}
-              score={dim.score}
-              label={dim.label}
-              compact
-              animate={isRevealed}
-            />
-          ))}
-        </div>
+        {(() => {
+          const dims = getDimensionDisplay(screenplay);
+          const isV7 = dims.length === 5;
+          return (
+            <div className={isV7 ? 'grid grid-cols-3 gap-x-3 gap-y-2 mb-5' : 'grid grid-cols-2 gap-x-4 gap-y-3 mb-5'}>
+              {dims.slice(0, isV7 ? 5 : 4).map((dim) => (
+                <ScoreBar
+                  key={dim.key}
+                  score={dim.score}
+                  label={dim.label}
+                  compact
+                  animate={isRevealed}
+                />
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Main Scores */}
         <div className="flex items-center justify-between pt-4 border-t border-black-700">

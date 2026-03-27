@@ -1,0 +1,13 @@
+#!/bin/bash
+# Lemon Ingest — Launch the bulk screenplay analyzer in Terminal
+
+PROJECT_DIR="/Users/quantumcode/CODE/LEMON-SCREENPLAY-DASHBOARD"
+SCRIPT="$PROJECT_DIR/scripts/lemon-ingest.mjs"
+
+# Open Terminal.app and run the script in interactive mode
+osascript -e "
+tell application \"Terminal\"
+    activate
+    set newTab to do script \"cd '$PROJECT_DIR' && clear && node '$SCRIPT'\"
+end tell
+"

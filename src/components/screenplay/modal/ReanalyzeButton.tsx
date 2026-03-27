@@ -1,9 +1,11 @@
 /**
- * ReanalyzeButton — Model picker + re-analysis trigger in the screenplay modal header.
+ * ReanalyzeButton — Model picker + engine selector + re-analysis trigger.
  *
  * Flow:
- *   1. Click "🔄 Re-analyze" → dropdown with Sonnet / Opus
- *   2. Picks model → spinner + progress message
+ *   1. Click "🔄 Re-analyze ▾" → dropdown with:
+ *      - Engine: V6 (4-Pillar) | V7 Archaeology (5-Reader) — current version shown
+ *      - Model: Sonnet | Opus | Hybrid (Haiku triage → Sonnet full)
+ *   2. Picks combo → spinner + progress message
  *   3. Calls reanalyzeFromStorage → replaces data
  *   4. Invalidates React Query cache → modal/dashboard auto-updates
  */
@@ -15,6 +17,7 @@ import { reanalyzeFromStorage, type AnalysisProgress } from '@/lib/analysisServi
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToastStore } from '@/stores/toastStore';
+import { getAnalysisVersionLabel } from '@/lib/dimensionDisplay';
 
 interface ReanalyzeButtonProps {
     screenplay: Screenplay;
@@ -22,7 +25,13 @@ interface ReanalyzeButtonProps {
 }
 
 type ModelOption = {
-    id: 'sonnet' | 'opus';
+    id: 'sonnet' | 'opus' | 'hybrid';
+    label: string;
+    desc: string;
+};
+
+type EngineOption = {
+    id: 'v6' | 'v7';
     label: string;
     desc: string;
 };
@@ -30,6 +39,12 @@ type ModelOption = {
 const MODELS: ModelOption[] = [
     { id: 'sonnet', label: 'Sonnet', desc: 'Fast · ~$0.50' },
     { id: 'opus', label: 'Opus', desc: 'Deep · ~$2.00' },
+    { id: 'hybrid', label: 'Hybrid', desc: 'Triage → Full · ~$0.35' },
+];
+
+const ENGINES: EngineOption[] = [
+    { id: 'v6', label: 'V6 (4-Pillar)', desc: 'Single-pass analysis' },
+    { id: 'v7', label: 'V7 Archaeology', desc: '5-reader multi-pass' },
 ];
 
 export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps) {
@@ -37,10 +52,14 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [progress, setProgress] = useState<AnalysisProgress | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [selectedEngine, setSelectedEngine] = useState<'v6' | 'v7'>('v7');
     const dropdownRef = useRef<HTMLDivElement>(null);
     const queryClient = useQueryClient();
 
     const { apiKey, isConfigured, canMakeRequest, checkAndResetIfNeeded } = useApiConfigStore();
+
+    // Detect current analysis engine from screenplay
+    const currentVersionLabel = getAnalysisVersionLabel(screenplay);
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -55,7 +74,7 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
         }
     }, [isOpen]);
 
-    const handleReanalyze = async (model: 'sonnet' | 'opus') => {
+    const handleReanalyze = async (modelId: 'sonnet' | 'opus' | 'hybrid') => {
         setIsOpen(false);
         setIsAnalyzing(true);
         setProgress(null);
@@ -68,11 +87,17 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
                 throw new Error('Budget or request limit reached. Check Settings → API Configuration.');
             }
 
+            // Map hybrid → haiku model with v7 triage
+            const model: 'sonnet' | 'opus' | 'haiku' = modelId === 'hybrid' ? 'haiku' : modelId;
+            const analysisVersion = selectedEngine;
+            const v7Mode = modelId === 'hybrid' ? 'triage' as const : 'full' as const;
+
             await reanalyzeFromStorage(
                 screenplay,
                 model,
                 apiKey,
                 (p) => setProgress(p),
+                { analysisVersion, v7Mode },
             );
 
             // Invalidate React Query cache so data refreshes everywhere
@@ -134,7 +159,7 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
         );
     }
 
-    // Default — button with model dropdown
+    // Default — button with engine + model dropdown
     return (
         <div className="relative" ref={dropdownRef}>
             <button
@@ -152,22 +177,54 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
                 </svg>
             </button>
 
-            {/* Model dropdown */}
+            {/* Engine + Model dropdown */}
             {isOpen && (
-                <div className="absolute top-full right-0 mt-1 w-48 py-1 bg-black-800 border border-black-600 rounded-lg shadow-xl z-50">
-                    <div className="px-3 py-1.5 text-[10px] font-semibold text-black-500 uppercase tracking-wider">
+                <div className="absolute top-full right-0 mt-1 w-56 py-1 bg-black-800 border border-black-600 rounded-lg shadow-xl z-50">
+                    {/* Current version info */}
+                    <div className="px-3 py-1.5 text-[10px] text-black-500 border-b border-black-700">
+                        Current: <span className="text-black-300">{currentVersionLabel}</span>
+                    </div>
+
+                    {/* Engine selector */}
+                    <div className="px-3 py-1.5 text-[10px] font-semibold text-black-500 uppercase tracking-wider mt-1">
+                        Analysis Engine
+                    </div>
+                    <div className="flex gap-1 px-3 pb-2">
+                        {ENGINES.map((engine) => (
+                            <button
+                                key={engine.id}
+                                onClick={() => setSelectedEngine(engine.id)}
+                                className={clsx(
+                                    'flex-1 py-1.5 px-2 rounded text-[10px] font-medium transition-all text-center',
+                                    selectedEngine === engine.id
+                                        ? 'bg-gold-500/20 text-gold-300 border border-gold-500/40'
+                                        : 'bg-black-700 text-black-400 border border-black-600 hover:border-black-500',
+                                )}
+                                title={engine.desc}
+                            >
+                                {engine.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Model selector */}
+                    <div className="px-3 py-1.5 text-[10px] font-semibold text-black-500 uppercase tracking-wider border-t border-black-700">
                         Choose Model
                     </div>
-                    {MODELS.map((model) => (
-                        <button
-                            key={model.id}
-                            onClick={() => handleReanalyze(model.id)}
-                            className="w-full px-3 py-2 text-left hover:bg-black-700 transition-colors flex items-center justify-between group"
-                        >
-                            <span className="text-sm text-black-200 group-hover:text-gold-300">{model.label}</span>
-                            <span className="text-[10px] text-black-500">{model.desc}</span>
-                        </button>
-                    ))}
+                    {MODELS.map((model) => {
+                        // Hybrid only makes sense with V7
+                        if (model.id === 'hybrid' && selectedEngine !== 'v7') return null;
+                        return (
+                            <button
+                                key={model.id}
+                                onClick={() => handleReanalyze(model.id)}
+                                className="w-full px-3 py-2 text-left hover:bg-black-700 transition-colors flex items-center justify-between group"
+                            >
+                                <span className="text-sm text-black-200 group-hover:text-gold-300">{model.label}</span>
+                                <span className="text-[10px] text-black-500">{model.desc}</span>
+                            </button>
+                        );
+                    })}
                 </div>
             )}
         </div>

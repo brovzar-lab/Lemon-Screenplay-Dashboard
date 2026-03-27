@@ -3,7 +3,7 @@
  * Reorganized layout: Close (X) top-right, then Title row, then action bar.
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { BUDGET_TIERS } from '@/types';
@@ -12,7 +12,7 @@ import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { ReanalyzeButton } from './ReanalyzeButton';
 import { ShareButton } from './ShareButton';
 import { useDeleteScreenplays } from '@/hooks/useScreenplays';
-import { storage } from '@/lib/firebase';
+import { storage, uploadScreenplayPdf } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
 import { downloadCoveragePdf } from '@/components/export/exportCoverage';
 import { useToastStore } from '@/stores/toastStore';
@@ -35,7 +35,27 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
      * The upload path in firebase.ts is: screenplays/{category}/{safeName}.pdf
      * We reconstruct the same path here.
      */
-    const [pdfState, setPdfState] = useState<'idle' | 'loading' | 'error'>('idle');
+    const [pdfState, setPdfState] = useState<'idle' | 'loading' | 'error' | 'uploading'>('idle');
+    const pdfReuploadRef = useRef<HTMLInputElement>(null);
+
+    const handlePdfReupload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setPdfState('uploading');
+        try {
+            const category = screenplay.category || 'OTHER';
+            await uploadScreenplayPdf(file, category, screenplay.title);
+            useToastStore.getState().addToast(`PDF uploaded for "${screenplay.title}"`);
+            setPdfState('idle');
+        } catch (err) {
+            console.error('[PDF Re-upload]', err);
+            useToastStore.getState().addToast('PDF upload failed — please try again');
+            setPdfState('error');
+        }
+        // Reset file input so same file can be re-selected
+        if (pdfReuploadRef.current) pdfReuploadRef.current.value = '';
+    };
 
     const handleDownloadPdf = async () => {
         if (pdfState === 'loading') return;
@@ -186,39 +206,50 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                             {coverageState === 'error' ? 'Failed' : 'Coverage'}
                         </button>
                         <ReanalyzeButton screenplay={screenplay} onComplete={onReanalyzeComplete} />
-                        <button
-                            onClick={handleDownloadPdf}
-                            disabled={pdfState === 'loading'}
-                            className={clsx(
-                                'btn text-xs flex items-center gap-1.5 py-1.5 px-3 transition-all',
-                                pdfState === 'error'
-                                    ? 'bg-red-600/20 text-red-400 border border-red-500/30 cursor-default'
-                                    : 'btn-primary',
-                                pdfState === 'loading' && 'opacity-60 cursor-wait',
-                            )}
-                            title={
-                                pdfState === 'error'
-                                    ? 'PDF not found in storage — upload the PDF first'
-                                    : `Download ${screenplay.sourceFile || screenplay.title}`
-                            }
-                        >
-                            {pdfState === 'loading' ? (
-                                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                                </svg>
-                            ) : pdfState === 'error' ? (
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                                </svg>
-                            ) : (
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                            )}
-                            {pdfState === 'error' ? 'Not Found' : 'PDF'}
-
-                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={pdfState === 'error' ? () => pdfReuploadRef.current?.click() : handleDownloadPdf}
+                                disabled={pdfState === 'loading' || pdfState === 'uploading'}
+                                className={clsx(
+                                    'btn text-xs flex items-center gap-1.5 py-1.5 px-3 transition-all',
+                                    pdfState === 'error'
+                                        ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30 hover:bg-amber-600/30'
+                                        : 'btn-primary',
+                                    (pdfState === 'loading' || pdfState === 'uploading') && 'opacity-60 cursor-wait',
+                                )}
+                                title={
+                                    pdfState === 'error'
+                                        ? 'PDF not found — click to re-upload'
+                                        : pdfState === 'uploading'
+                                            ? 'Uploading PDF...'
+                                            : `Download ${screenplay.sourceFile || screenplay.title}`
+                                }
+                            >
+                                {(pdfState === 'loading' || pdfState === 'uploading') ? (
+                                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                    </svg>
+                                ) : pdfState === 'error' ? (
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                )}
+                                {pdfState === 'error' ? 'Re-Upload PDF' : pdfState === 'uploading' ? 'Uploading...' : 'PDF'}
+                            </button>
+                            {/* Hidden file input for re-upload */}
+                            <input
+                                ref={pdfReuploadRef}
+                                type="file"
+                                accept=".pdf"
+                                className="hidden"
+                                onChange={handlePdfReupload}
+                            />
+                        </div>
                         <button
                             onClick={() => setShowDeleteConfirm(true)}
                             className="modal-delete-btn text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border"

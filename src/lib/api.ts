@@ -1,7 +1,7 @@
 import type { Screenplay, Collection } from '@/types';
 import type { V6ScreenplayAnalysis } from '@/types/screenplay-v6';
 import type { ScreenplayWithV6 } from './normalize';
-import { isV6RawAnalysis, normalizeV6Screenplay } from './normalize';
+import { isV6RawAnalysis, normalizeV6Screenplay, isV7RawAnalysis, normalizeV7Screenplay } from './normalize';
 import { loadAllAnalyses, quarantineAnalysis, isMigrationComplete, migrateStaticToFirestore } from './analysisStore';
 
 /**
@@ -58,7 +58,12 @@ export async function loadAllScreenplaysVite(): Promise<ScreenplayWithV6[]> {
     let loadedCount = 0;
     for (const raw of localRawList) {
       try {
-        if (isV6RawAnalysis(raw)) {
+        if (isV7RawAnalysis(raw)) {
+          const collection = (raw as Record<string, unknown>).collection as Collection | undefined;
+          const sp = normalizeV7Screenplay(raw as Record<string, unknown>, collection || 'V6 Analysis');
+          screenplays.push(sp);
+          loadedCount++;
+        } else if (isV6RawAnalysis(raw)) {
           const collection = (raw as Record<string, unknown>).collection as Collection | undefined;
           const sp = normalizeV6Screenplay(raw as unknown as V6ScreenplayAnalysis, collection || 'V6 Analysis');
           screenplays.push(sp);

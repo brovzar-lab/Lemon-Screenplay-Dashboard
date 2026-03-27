@@ -27,6 +27,7 @@ export function UploadPanel() {
   const [selectedCategory, setSelectedCategory] = useState('LEMON');
   const [selectedModel, setSelectedModel] = useState<ModelOption>('sonnet');
   const [showApiConfig, setShowApiConfig] = useState(false);
+  const [analysisEngine, setAnalysisEngine] = useState<'v6' | 'v7'>('v7');
   const { categoryIds, addCategory: addCategoryToStore } = useCategories();
 
   const { jobs, addJob, updateJob, removeJob, clearCompleted, isProcessing, setProcessing, getFile } = useUploadStore();
@@ -70,6 +71,8 @@ export function UploadPanel() {
             apiKey,
             model: firstPassModel,
             lenses: ['commercial'],
+            analysisVersion: analysisEngine,
+            v7Mode: 'full',
           },
           (progress) => {
             updateJob(job.id, {
@@ -152,7 +155,7 @@ export function UploadPanel() {
     }
 
     setProcessing(false);
-  }, [isProcessing, setProcessing, getFile, updateJob, apiKey, selectedModel, incrementUsage, queryClient]);
+  }, [isProcessing, setProcessing, getFile, updateJob, apiKey, selectedModel, analysisEngine, incrementUsage, queryClient]);
 
   // Retry a failed job: reset to pending and re-trigger processing
   const retryJob = useCallback((jobId: string) => {
@@ -184,7 +187,7 @@ export function UploadPanel() {
       <div>
         <h2 className="text-xl font-display text-gold-200 mb-2">Upload Screenplays</h2>
         <p className="text-sm text-black-400">
-          Upload PDF screenplays for AI analysis. Files will be parsed and analyzed using the V6 Core + Lenses system.
+          Upload PDF screenplays for AI analysis. Select V6 (single-pass) or V7 Archaeology Engine (5-reader deep analysis).
         </p>
       </div>
 
@@ -200,6 +203,78 @@ export function UploadPanel() {
         pendingCount={pendingJobs.length}
         batchCostEstimate={batchCostEstimate}
       />
+
+      {/* Analysis Engine Toggle */}
+      <div>
+        <label className="block text-sm font-medium text-gold-300 mb-3">
+          Analysis Engine
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setAnalysisEngine('v6')}
+            className={`relative p-4 rounded-xl border text-left transition-all ${
+              analysisEngine === 'v6'
+                ? 'border-gold-500/60 bg-gold-500/10 ring-1 ring-gold-500/30'
+                : 'border-black-700 bg-black-800/50 hover:border-gold-500/30 hover:bg-black-800'
+            }`}
+          >
+            {analysisEngine === 'v6' && (
+              <div className="absolute top-3 left-3">
+                <div className="w-4 h-4 rounded-full bg-gold-500 flex items-center justify-center">
+                  <svg className="w-2.5 h-2.5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+            )}
+            <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wider bg-black-600/50 text-black-300">
+              LEGACY
+            </span>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">📋</span>
+              <div>
+                <p className={`font-semibold text-sm ${analysisEngine === 'v6' ? 'text-gold-200' : 'text-black-200'}`}>V6 Standard</p>
+                <p className="text-xs text-black-400">Single-pass analysis</p>
+              </div>
+            </div>
+            <p className="text-xs text-black-400 leading-relaxed">
+              Original single-prompt analysis. 1 API call per script.
+            </p>
+          </button>
+
+          <button
+            onClick={() => setAnalysisEngine('v7')}
+            className={`relative p-4 rounded-xl border text-left transition-all ${
+              analysisEngine === 'v7'
+                ? 'border-gold-500/60 bg-gold-500/10 ring-1 ring-gold-500/30'
+                : 'border-black-700 bg-black-800/50 hover:border-gold-500/30 hover:bg-black-800'
+            }`}
+          >
+            {analysisEngine === 'v7' && (
+              <div className="absolute top-3 left-3">
+                <div className="w-4 h-4 rounded-full bg-gold-500 flex items-center justify-center">
+                  <svg className="w-2.5 h-2.5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </div>
+            )}
+            <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wider bg-amber-500/20 text-amber-400">
+              NEW
+            </span>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">⛏️</span>
+              <div>
+                <p className={`font-semibold text-sm ${analysisEngine === 'v7' ? 'text-gold-200' : 'text-black-200'}`}>V7 Archaeology</p>
+                <p className="text-xs text-black-400">5-reader deep analysis</p>
+              </div>
+            </div>
+            <p className="text-xs text-black-400 leading-relaxed">
+              5 expert readers in parallel + synthesis roundtable. 6 API calls, ~$1/script.
+            </p>
+          </button>
+        </div>
+      </div>
 
       <CategorySelector
         categoryIds={categoryIds}

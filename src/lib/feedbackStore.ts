@@ -133,9 +133,28 @@ export async function loadCalibrationProfile(): Promise<CalibrationProfile | nul
 
 // ─── Calibration Synthesis ───────────────────────────────────────────────────
 
+/** V7 pillar names for mapping dimension overrides → reader pillars */
+const V7_PILLAR_MAP: Record<string, string> = {
+  structure: 'Structure Reader',
+  character: 'Character Reader',
+  craft: 'Craft & Scene Reader',
+  craft_scene: 'Craft & Scene Reader',
+  concept: 'Concept Reader',
+  emotional_resonance: 'Emotional Resonance Reader',
+  emotion: 'Emotional Resonance Reader',
+  // V6 legacy names → closest V7 pillar
+  protagonist: 'Character Reader',
+  supportingCast: 'Character Reader',
+  dialogue: 'Craft & Scene Reader',
+  genreExecution: 'Concept Reader',
+  originality: 'Concept Reader',
+};
+
 /**
  * Synthesize a calibration prompt from all feedback data.
  * Returns a human-readable prompt block that can be injected into analysis prompts.
+ *
+ * Works with both V6 (7-dimension) and V7 (5-pillar) feedback data.
  */
 export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]): string {
     if (feedbackList.length === 0) return '';
@@ -148,6 +167,7 @@ export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]):
 
     // Compute score deltas per dimension
     const dimensionDeltas: Record<string, number[]> = {};
+    const pillarDeltas: Record<string, number[]> = {};
     const verdictOverrides: string[] = [];
     const corrections: string[] = [];
     let totalScoreDelta = 0;
@@ -160,10 +180,17 @@ export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]):
             scoreDeltaCount++;
         }
 
-        // Dimension deltas
+        // Dimension deltas (both V6 dims and V7 pillars)
         for (const [dim, override] of Object.entries(fb.dimensionOverrides)) {
             if (!dimensionDeltas[dim]) dimensionDeltas[dim] = [];
             dimensionDeltas[dim].push(override.userScore - override.aiScore);
+
+            // Aggregate to V7 pillar if mappable
+            const pillar = V7_PILLAR_MAP[dim];
+            if (pillar) {
+                if (!pillarDeltas[pillar]) pillarDeltas[pillar] = [];
+                pillarDeltas[pillar].push(override.userScore - override.aiScore);
+            }
         }
 
         // Verdict disagreements
@@ -179,16 +206,37 @@ export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]):
         }
     }
 
-    // Scoring adjustments
+    // Overall scoring adjustment
     lines.push('SCORING ADJUSTMENTS (average delta: user score - AI score):');
     if (scoreDeltaCount > 0) {
         const avgDelta = totalScoreDelta / scoreDeltaCount;
         lines.push(`  Overall: ${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} bias`);
     }
-    for (const [dim, deltas] of Object.entries(dimensionDeltas)) {
-        const avg = deltas.reduce((a, b) => a + b, 0) / deltas.length;
-        if (Math.abs(avg) >= 0.3) {
-            lines.push(`  ${dim}: ${avg >= 0 ? '+' : ''}${avg.toFixed(1)} bias`);
+
+    // V7 pillar-level adjustments (preferred for V7 analyses)
+    const hasPillarData = Object.keys(pillarDeltas).length > 0;
+    if (hasPillarData) {
+        lines.push('');
+        lines.push('V7 READER BIASES (apply to individual readers):');
+        for (const [pillar, deltas] of Object.entries(pillarDeltas)) {
+            const avg = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+            if (Math.abs(avg) >= 0.3) {
+                const direction = avg > 0 ? 'scores too LOW' : 'scores too HIGH';
+                lines.push(`  ${pillar}: ${avg >= 0 ? '+' : ''}${avg.toFixed(1)} (AI ${direction} by ~${Math.abs(avg).toFixed(1)} points)`);
+            }
+        }
+    }
+
+    // V6 dimension-level adjustments (fallback)
+    const hasLegacyData = Object.keys(dimensionDeltas).some(k => !V7_PILLAR_MAP[k]);
+    if (hasLegacyData || !hasPillarData) {
+        lines.push('');
+        lines.push('DIMENSION BIASES (legacy):');
+        for (const [dim, deltas] of Object.entries(dimensionDeltas)) {
+            const avg = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+            if (Math.abs(avg) >= 0.3) {
+                lines.push(`  ${dim}: ${avg >= 0 ? '+' : ''}${avg.toFixed(1)} bias`);
+            }
         }
     }
     lines.push('');
@@ -228,3 +276,4 @@ export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]):
 
     return lines.join('\n');
 }
+

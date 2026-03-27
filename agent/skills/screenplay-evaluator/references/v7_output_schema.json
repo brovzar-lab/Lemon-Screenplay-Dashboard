@@ -1,0 +1,295 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "V7 Screenplay Evaluation Output",
+  "description": "Output schema for the Screenplay Archaeology Engine multi-reader evaluation system",
+  "type": "object",
+  "required": ["title", "author", "genre", "logline", "pillar_scores", "weighted_score", "verdict", "executive_summary"],
+  "properties": {
+    "title": { "type": "string" },
+    "author": { "type": "string" },
+    "genre": { "type": "string" },
+    "subgenres": { "type": "array", "items": { "type": "string" } },
+    "logline": { "type": "string", "description": "One-sentence premise, 25-40 words" },
+    "analysis_version": { "type": "string", "const": "v7_archaeology" },
+    "analysis_mode": { "type": "string", "enum": ["full", "triage"] },
+
+    "pillar_scores": {
+      "type": "object",
+      "required": ["structure", "character", "craft_scene", "concept", "emotional_resonance"],
+      "properties": {
+        "structure": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 1, "maximum": 10 },
+            "weight": { "type": "number", "const": 0.40 },
+            "sub_scores": {
+              "type": "object",
+              "properties": {
+                "beginning_hook": { "$ref": "#/$defs/scored_item" },
+                "middle_build": { "$ref": "#/$defs/scored_item" },
+                "ending_payoff": { "$ref": "#/$defs/scored_item" },
+                "inciting_incident": { "$ref": "#/$defs/scored_item" },
+                "progressive_complications": { "$ref": "#/$defs/scored_item" },
+                "crisis_quality": { "$ref": "#/$defs/scored_item" },
+                "climax_delivery": { "$ref": "#/$defs/scored_item" },
+                "beat_timing": { "$ref": "#/$defs/scored_item" },
+                "first_plot_point": { "$ref": "#/$defs/scored_item" },
+                "midpoint": { "$ref": "#/$defs/scored_item" },
+                "third_act_turning_point": { "$ref": "#/$defs/scored_item" },
+                "scene_necessity": { "$ref": "#/$defs/scored_item" }
+              }
+            }
+          }
+        },
+        "character": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 1, "maximum": 10 },
+            "weight": { "type": "number", "const": 0.25 },
+            "sub_scores": {
+              "type": "object",
+              "properties": {
+                "ghost": { "$ref": "#/$defs/scored_item" },
+                "lie": { "$ref": "#/$defs/scored_item_with_extraction" },
+                "want_vs_need": { "$ref": "#/$defs/scored_item" },
+                "arc_delivery": { "$ref": "#/$defs/scored_item" },
+                "moral_blind_spot": { "$ref": "#/$defs/scored_item_with_extraction" },
+                "immoral_effect": { "$ref": "#/$defs/scored_item" },
+                "active_vs_passive": { "$ref": "#/$defs/scored_item" },
+                "opponent_design": { "$ref": "#/$defs/scored_item" },
+                "enneagram_consistency": { "$ref": "#/$defs/scored_item" },
+                "supporting_cast_function": { "$ref": "#/$defs/scored_item" },
+                "star_role_potential": { "$ref": "#/$defs/scored_item" }
+              }
+            },
+            "story_vs_situation": {
+              "type": "object",
+              "properties": {
+                "human_condition": { "type": "boolean" },
+                "tests_character": { "type": "boolean" },
+                "twists_reveal_character": { "type": "boolean" },
+                "emotional_shift": { "type": "boolean" },
+                "moral_component_driven": { "type": "boolean" },
+                "total": { "type": "integer", "minimum": 0, "maximum": 5 },
+                "verdict": { "type": "string", "enum": ["story", "borderline", "situation"] }
+              }
+            }
+          }
+        },
+        "craft_scene": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 1, "maximum": 10 },
+            "weight": { "type": "number", "const": 0.15 },
+            "sub_scores": {
+              "type": "object",
+              "properties": {
+                "beat_question_clarity": { "$ref": "#/$defs/scored_item" },
+                "bmoc_architecture": { "$ref": "#/$defs/scored_item" },
+                "power_shifts": { "$ref": "#/$defs/scored_item" },
+                "suspense_tools": { "$ref": "#/$defs/scored_item" },
+                "dialogue_tactic_changes": { "$ref": "#/$defs/scored_item" },
+                "dialogue_voice_distinction": { "$ref": "#/$defs/scored_item" },
+                "dialogue_subtext": { "$ref": "#/$defs/scored_item" },
+                "visual_storytelling": { "$ref": "#/$defs/scored_item" },
+                "format_professionalism": { "$ref": "#/$defs/scored_item" }
+              }
+            },
+            "bmoc_failure_scan": {
+              "type": "object",
+              "properties": {
+                "scenes_sampled": { "type": "integer" },
+                "total_failure_modes_active": { "type": "integer" },
+                "craft_warning": { "type": "boolean" },
+                "failure_modes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "mode": { "type": "string" },
+                      "scenes_affected": { "type": "integer" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "concept": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 1, "maximum": 10 },
+            "weight": { "type": "number", "const": 0.10 },
+            "sub_scores": {
+              "type": "object",
+              "properties": {
+                "hook_clarity": { "$ref": "#/$defs/scored_item" },
+                "narrative_engine": { "$ref": "#/$defs/scored_item" },
+                "freshness": { "$ref": "#/$defs/scored_item" },
+                "genre_execution": { "$ref": "#/$defs/scored_item" },
+                "genre_promise_delivery": { "$ref": "#/$defs/scored_item" },
+                "controlling_idea": { "$ref": "#/$defs/scored_item_with_extraction" },
+                "thematic_resonance": { "$ref": "#/$defs/scored_item" },
+                "premise_line": { "$ref": "#/$defs/scored_item" }
+              }
+            }
+          }
+        },
+        "emotional_resonance": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 1, "maximum": 10 },
+            "weight": { "type": "number", "const": 0.10 },
+            "sub_scores": {
+              "type": "object",
+              "properties": {
+                "emotional_clarity": { "$ref": "#/$defs/scored_item" },
+                "empathy_investment": { "$ref": "#/$defs/scored_item" },
+                "emotional_escalation": { "$ref": "#/$defs/scored_item" },
+                "catharsis_quality": { "$ref": "#/$defs/scored_item" },
+                "truth": { "$ref": "#/$defs/scored_item" },
+                "goosebumps_moments": { "$ref": "#/$defs/scored_item" },
+                "value_turn_range": { "$ref": "#/$defs/scored_item" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "weighted_score": { "type": "number", "minimum": 0, "maximum": 10 },
+    
+    "story_vs_situation": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "integer" },
+        "verdict": { "type": "string", "enum": ["story", "borderline", "situation"] },
+        "gate_applied": { "type": "boolean" }
+      }
+    },
+
+    "false_positive_check": {
+      "type": "object",
+      "properties": {
+        "traps_evaluated": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "triggered": { "type": "boolean" },
+              "tier": { "type": "string", "enum": ["fundamental", "addressable", "warning"] },
+              "weight": { "type": "number" },
+              "evidence": { "type": "string" }
+            }
+          }
+        },
+        "weighted_trap_score": { "type": "number" },
+        "verdict_adjustment": { "type": "string", "enum": ["none", "downgrade_one", "cap_consider"] }
+      }
+    },
+
+    "verdict": { "type": "string", "enum": ["PASS", "CONSIDER", "RECOMMEND", "FILM_NOW"] },
+    "verdict_before_adjustments": { "type": "string", "enum": ["PASS", "CONSIDER", "RECOMMEND", "FILM_NOW"] },
+    "executive_summary": { "type": "string", "description": "1 paragraph: what it is, why it earned this verdict, should you go forward" },
+
+    "comparable_films": {
+      "type": "object",
+      "properties": {
+        "tone": { "type": "object", "properties": { "title": { "type": "string" }, "similarity": { "type": "string" } } },
+        "structure": { "type": "object", "properties": { "title": { "type": "string" }, "similarity": { "type": "string" } } },
+        "market": { "type": "object", "properties": { "title": { "type": "string" }, "similarity": { "type": "string" } } }
+      }
+    },
+
+    "reader_disagreements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "topic": { "type": "string" },
+          "reader_a": { "type": "string" },
+          "reader_a_position": { "type": "string" },
+          "reader_b": { "type": "string" },
+          "reader_b_position": { "type": "string" },
+          "resolution": { "type": "string" }
+        }
+      }
+    },
+
+    "goosebumps_moments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer" },
+          "description": { "type": "string" },
+          "why_it_works": { "type": "string" }
+        }
+      }
+    },
+
+    "characters": {
+      "type": "object",
+      "properties": {
+        "protagonist": { "type": "string" },
+        "protagonist_lie": { "type": "string" },
+        "protagonist_arc_type": { "type": "string", "enum": ["positive_change", "negative_fall", "negative_corruption", "negative_disillusionment", "flat", "absent"] },
+        "protagonist_enneagram_type": { "type": "string" },
+        "antagonist": { "type": "string" },
+        "supporting": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "red_flags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Aggregated red flags from all readers"
+    },
+
+    "reader_reports": {
+      "type": "object",
+      "description": "Full reader JSON outputs preserved for transparency",
+      "properties": {
+        "structure": { "type": "object" },
+        "character": { "type": "object" },
+        "craft_scene": { "type": "object" },
+        "concept": { "type": "object" },
+        "emotional_resonance": { "type": "object" }
+      }
+    },
+
+    "lenses": {
+      "type": "object",
+      "description": "Optional evaluation lenses (LATAM, commercial, production, coproduction)",
+      "properties": {
+        "latam_market": { "type": "object" },
+        "commercial_viability": { "type": "object" },
+        "production_readiness": { "type": "object" },
+        "coproduction": { "type": "object" }
+      }
+    }
+  },
+
+  "$defs": {
+    "scored_item": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "number", "minimum": 1, "maximum": 10 },
+        "justification": { "type": "string" },
+        "page_citations": { "type": "array", "items": { "type": "integer" } }
+      },
+      "required": ["score", "justification"]
+    },
+    "scored_item_with_extraction": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "number", "minimum": 1, "maximum": 10 },
+        "justification": { "type": "string" },
+        "extracted_value": { "type": "string", "description": "The identified Lie, Blind Spot, or Controlling Idea" },
+        "page_citations": { "type": "array", "items": { "type": "integer" } }
+      },
+      "required": ["score", "justification"]
+    }
+  }
+}

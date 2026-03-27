@@ -1,0 +1,76 @@
+{
+  "evaluation_suite": "screenplay-evaluator-v7",
+  "version": "1.0.0",
+  "description": "Test cases for the Screenplay Archaeology Engine multi-reader evaluation system",
+  "test_cases": [
+    {
+      "id": "eval_001",
+      "name": "Strong thriller — expects RECOMMEND",
+      "description": "A well-structured thriller with a clear protagonist arc, tight pacing, and strong genre execution. Should score high on Structure and Craft, moderate on Character (opponent is generic), and produce a RECOMMEND verdict.",
+      "input": {
+        "title": "The Fixer",
+        "genre": "Thriller",
+        "page_count": 112,
+        "synopsis": "A corporate crisis manager (the Fixer) discovers her firm is covering up a pharmaceutical disaster. She must choose between her career and exposing the truth. Tight three-act structure, strong dialogue, clear inciting incident by page 10, midpoint reversal at page 55, dark night at page 85. Protagonist has a clear Lie (loyalty to the firm = safety) and Need (integrity). Opponent is the CEO — personal but somewhat generic. Strong Act 1 and Act 2, slightly rushed Act 3. Goosebumps moment: the warehouse confrontation on page 67."
+      },
+      "expected_output": {
+        "verdict_range": ["RECOMMEND"],
+        "score_range": { "min": 7.5, "max": 8.4 },
+        "structure_should_be": "high (7.5+)",
+        "character_should_be": "moderate (6.5-7.5) — opponent is generic",
+        "craft_should_be": "high (7.5+)",
+        "concept_should_be": "moderate (6.0-7.0) — not fresh, but solid",
+        "emotion_should_be": "high (7.5+) — goosebumps moment identified",
+        "story_vs_situation": "story (4-5/5)",
+        "traps_should_trigger": [],
+        "red_flags_should_include": []
+      }
+    },
+    {
+      "id": "eval_002",
+      "name": "Beautiful writing, no story — expects CONSIDER with SITUATION flag",
+      "description": "A literary drama with gorgeous prose, distinctive dialogue, and atmospheric scene writing — but a passive protagonist, no moral component, and no character change. Should score high on Craft but low on Character and Structure.",
+      "input": {
+        "title": "The Garden Wall",
+        "genre": "Drama",
+        "page_count": 105,
+        "synopsis": "A retired professor tends his garden in a small Italian town while his estranged daughter visits. Beautiful dialogue, evocative visual descriptions, each scene is a miniature painting. But: protagonist has no clear Want, no Lie, no arc. Things happen around him. The daughter leaves. He continues gardening. No inciting incident before page 25. No midpoint shift. No climax choice. The ending is in the same emotional space as the beginning."
+      },
+      "expected_output": {
+        "verdict_range": ["CONSIDER", "PASS"],
+        "score_range": { "min": 4.5, "max": 6.5 },
+        "structure_should_be": "low (3.0-5.0) — no inciting incident, no midpoint, no climax",
+        "character_should_be": "low (3.0-4.5) — passive protagonist, no Lie, no arc",
+        "craft_should_be": "high (7.5+) — beautiful dialogue and scene construction",
+        "concept_should_be": "low (3.0-5.0) — no hook, no narrative engine",
+        "emotion_should_be": "moderate (5.0-6.0) — atmospheric but no catharsis",
+        "story_vs_situation": "situation (0-2/5) — GATE APPLIED, cap at CONSIDER",
+        "traps_should_trigger": ["character_vacuum", "first_act_illusion"],
+        "red_flags_should_include": ["passive protagonist", "no identifiable Lie", "situation not story"]
+      }
+    },
+    {
+      "id": "eval_003",
+      "name": "Hidden gem — expects FILM NOW",
+      "description": "An exceptional screenplay that fires on all cylinders: original concept, devastating character work, masterful structure, scene-level craft, and emotional power. The kind of script that makes you put everything else down.",
+      "input": {
+        "title": "La Promesa",
+        "genre": "Drama/Thriller",
+        "page_count": 118,
+        "synopsis": "A Mexican-American immigration lawyer discovers her dying father was a coyote who caused the death of 12 migrants 30 years ago. She must decide whether to expose him — destroying her family and her own career — or protect the secret and become complicit. Ghost: she was told her father was a hero. Lie: 'My family's honor is my identity.' Want: preserve the family name. Need: confront the truth. Moral Blind Spot: she believes loyalty justifies silence. Immoral Effect: her silence enables her father's old network to continue operating. Active protagonist: every choice creates the next problem. Opponent: her father's former partner, who personifies what she'll become if she doesn't change — a mirror of her de-evolution point. Structure: inciting incident page 8 (discovers the file), first plot point page 24 (confronts father, he confesses), midpoint page 56 (shifts from protecting to investigating), third act turning page 88 (father dies before she can resolve it), climax page 108 (testifies against the network, loses inheritance, gains truth). Goosebumps: the scene where she reads the survivors' testimonies (page 42), the confrontation with her father in the hospital (page 72), the final testimony (page 108). Genre obligations all present. Controlling idea: 'Justice prevails when we sacrifice the comfort of inherited lies.' Enneagram Type 1 protagonist with clear evolution."
+      },
+      "expected_output": {
+        "verdict_range": ["FILM_NOW"],
+        "score_range": { "min": 8.5, "max": 10.0 },
+        "structure_should_be": "exceptional (8.5+)",
+        "character_should_be": "exceptional (8.5+) — complete Weiland + Lyons pipeline",
+        "craft_should_be": "high (7.5+)",
+        "concept_should_be": "exceptional (8.5+) — original, timely, universal",
+        "emotion_should_be": "exceptional (8.5+) — multiple goosebumps moments",
+        "story_vs_situation": "story (5/5)",
+        "traps_should_trigger": [],
+        "red_flags_should_include": []
+      }
+    }
+  ]
+}
