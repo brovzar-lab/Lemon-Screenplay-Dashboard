@@ -58,6 +58,11 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
                 <View style={s.compInfo}>
                   <Text style={s.compTitle}>{film.title}</Text>
                   {film.similarity ? <Text style={s.compSim}>{film.similarity}</Text> : null}
+                  {film.keyDivergence ? (
+                    <Text style={[s.compSim, { fontStyle: 'italic', marginTop: 2 }]}>
+                      Key Divergence: {film.keyDivergence}
+                    </Text>
+                  ) : null}
                 </View>
                 <Text style={[s.compBadge, { color: bo.color, backgroundColor: bo.bg }]}>
                   {bo.text}

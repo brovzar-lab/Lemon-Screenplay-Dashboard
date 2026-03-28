@@ -664,9 +664,14 @@ export function normalizeV7Screenplay(
   const chars = analysis.characters as Record<string, unknown> | undefined;
 
   // Comparable films
-  const comps = analysis.comparable_films as Record<string, { title: string; similarity: string }> | undefined;
+  const comps = analysis.comparable_films as Record<string, { title: string; similarity?: string; structural_match?: string; key_divergence?: string }> | undefined;
   const comparableFilms: ComparableFilm[] = comps
-    ? Object.values(comps).map((c) => ({ title: c.title, similarity: c.similarity, boxOfficeRelevance: 'mixed' as const }))
+    ? Object.values(comps).map((c) => ({
+        title: c.title,
+        similarity: c.similarity || c.structural_match || '',
+        boxOfficeRelevance: 'mixed' as const,
+        ...(c.key_divergence ? { keyDivergence: c.key_divergence } : {}),
+      }))
     : [];
 
   // Goosebumps moments
@@ -675,6 +680,8 @@ export function normalizeV7Screenplay(
     page: typeof g.page === 'number' ? g.page : 0,
     description: String(g.description || ''),
     why_it_works: String(g.why_it_works || ''),
+    arc_connection: String(g.arc_connection || ''),
+    thematic_work: String(g.thematic_work || ''),
   }));
 
   // Story vs. situation
@@ -723,7 +730,11 @@ export function normalizeV7Screenplay(
   return {
     id: generateId(sourceFile),
     title: String(analysis.title || ''),
-    author: String(analysis.author || ''),
+    author: (() => {
+      const raw = String(analysis.author || '');
+      // Clean up synthesis fallbacks that aren't real author names
+      return /not found|unknown/i.test(raw) ? '' : raw;
+    })(),
     collection,
     category: collectionToCategoryId(String(raw.collection || ''), String(raw.collection || '')),
     sourceFile,
@@ -733,9 +744,9 @@ export function normalizeV7Screenplay(
     cvsTotal: commercialViability.cvsTotal,
     genre: String(analysis.genre || ''),
     subgenres: (analysis.subgenres as string[]) || [],
-    themes: [],
+    themes: (analysis.themes as string[]) || [],
     logline: String(analysis.logline || ''),
-    tone: '',
+    tone: String(analysis.tone || ''),
     recommendation,
     recommendationRationale: String(analysis.executive_summary || ''),
     verdictStatement: String(analysis.executive_summary || ''),
@@ -751,18 +762,31 @@ export function normalizeV7Screenplay(
     dimensionScores,
     dimensionJustifications,
     commercialViability,
-    criticalFailures: redFlags || [],
-    criticalFailureDetails: (redFlags || []).map((f) => ({
-      failure: f,
-      severity: 'major' as const,
-      penalty: -0.5,
-      evidence: 'See V7 reader reports',
-    })),
+    criticalFailures: Array.isArray(analysis.critical_failures)
+      ? (analysis.critical_failures as Array<{ failure?: string; why_structural?: string } | string>).map(
+          (cf) => (typeof cf === 'string' ? cf : String(cf.failure || ''))
+        )
+      : redFlags || [],
+    criticalFailureDetails: Array.isArray(analysis.critical_failures)
+      ? (analysis.critical_failures as Array<{ failure?: string; why_structural?: string } | string>).map(
+          (cf) => ({
+            failure: typeof cf === 'string' ? cf : String(cf.failure || ''),
+            severity: 'major' as const,
+            penalty: -0.5,
+            evidence: typeof cf === 'string' ? 'See V7 reader reports' : String(cf.why_structural || 'See V7 reader reports'),
+          })
+        )
+      : (redFlags || []).map((f) => ({
+          failure: f,
+          severity: 'major' as const,
+          penalty: -0.5,
+          evidence: 'See V7 reader reports',
+        })),
     criticalFailureTotalPenalty: 0,
-    majorWeaknesses: redFlags || [],
-    strengths: [],
-    weaknesses: redFlags || [],
-    developmentNotes: [],
+    majorWeaknesses: (analysis.weaknesses as string[]) || redFlags || [],
+    strengths: (analysis.strengths as string[]) || [],
+    weaknesses: (analysis.weaknesses as string[]) || redFlags || [],
+    developmentNotes: (analysis.development_notes as string[]) || [],
     marketability: 'medium',
     budgetCategory: 'unknown',
     budgetJustification: '',
@@ -777,7 +801,12 @@ export function normalizeV7Screenplay(
       pacing: '',
     },
     comparableFilms,
-    standoutScenes: goosebumpsMoments.map((g) => ({ scene: g.description, why: g.why_it_works })),
+    standoutScenes: goosebumpsMoments.map((g) => ({
+      scene: g.description,
+      why: g.why_it_works,
+      ...(g.arc_connection ? { arcConnection: g.arc_connection } : {}),
+      ...(g.thematic_work ? { thematicWork: g.thematic_work } : {}),
+    })),
     targetAudience: {
       primaryDemographic: '',
       genderSkew: 'neutral',

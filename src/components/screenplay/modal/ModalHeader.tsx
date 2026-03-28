@@ -129,20 +129,23 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                     ? 'bg-gradient-to-r from-gold-900/30 to-gold-800/20 border-gold-500/30'
                     : 'bg-black-900/80 border-black-700'
             )}>
-                {/* Close button — absolute top-right */}
-                <button
-                    ref={closeButtonRef}
-                    onClick={onClose}
-                    className="modal-close-btn absolute top-4 right-4 transition-all p-2 rounded-lg z-10 text-black-400 hover:text-black-200 hover:bg-white/10"
-                    aria-label="Close modal"
-                >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+                {/* Tier 1: Verdict Badge (top-left) + Close (top-right) */}
+                <div className="flex items-start justify-between mb-3">
+                    <RecommendationBadge tier={screenplay.recommendation} size="lg" />
+                    <button
+                        ref={closeButtonRef}
+                        onClick={onClose}
+                        className="modal-close-btn transition-all p-2 rounded-lg text-black-400 hover:text-black-200 hover:bg-white/10 shrink-0"
+                        aria-label="Close modal"
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
 
-                {/* Title + Author */}
-                <div className="pr-10 mb-3">
+                {/* Tier 2: Title + Author */}
+                <div className="mb-4">
                     <h2
                         id="modal-title"
                         className={clsx(
@@ -155,7 +158,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                     <p className="text-black-400">by {screenplay.author}</p>
                 </div>
 
-                {/* Action Bar: Chips + Badge + Actions */}
+                {/* Tier 3: Chips (left) + Actions (right) */}
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                     {/* Left: Chips */}
                     <div className="flex flex-wrap items-center gap-2">
@@ -170,7 +173,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                         </span>
                     </div>
 
-                    {/* Right: Share + Re-analyze + PDF + Delete + Badge */}
+                    {/* Right: Share + Coverage + Re-analyze + PDF + Delete */}
                     <div className="flex items-center gap-2">
                         <ShareButton screenplay={screenplay} />
                         <button
@@ -261,7 +264,6 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                             </svg>
                             Delete
                         </button>
-                        <RecommendationBadge tier={screenplay.recommendation} size="lg" />
                     </div>
                 </div>
             </div>
