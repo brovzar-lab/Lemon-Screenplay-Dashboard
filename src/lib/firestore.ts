@@ -50,6 +50,12 @@ export async function fetchCoverageForTitle(titleId: string): Promise<CoverageDo
   return snap.docs.map(d => ({ ...d.data(), id: d.id }) as CoverageDoc)
 }
 
+export async function fetchAllCoverage(): Promise<CoverageDoc[]> {
+  const q = query(coverageCol, orderBy('createdAt', 'desc'))
+  const snap = await getDocs(q)
+  return snap.docs.map(d => ({ ...d.data(), id: d.id }) as CoverageDoc)
+}
+
 export async function fetchMiReports(titleId?: string): Promise<MarketIntelReport[]> {
   const constraints: QueryConstraint[] = titleId
     ? [where('titleId', '==', titleId)]
