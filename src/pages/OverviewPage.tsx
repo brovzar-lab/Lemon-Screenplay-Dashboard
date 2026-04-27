@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useTitleStore } from '../store/titleStore'
 
 const STATUS_COLOR: Record<string, string> = {
@@ -26,9 +27,9 @@ export function OverviewPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {recent.map(title => (
-          <a
+          <Link
             key={title.id}
-            href={`/titles/${title.id}`}
+            to={`/titles/${title.id}`}
             className="block bg-surface-2 border border-border rounded-xl p-4 hover:border-lemon-500/40 hover:bg-surface-3 transition-colors group"
           >
             <div className="flex items-start justify-between gap-2 mb-2">
@@ -47,7 +48,7 @@ export function OverviewPage() {
               <span>·</span>
               <span className="capitalize">{title.pipelineStage.replace(/_/g, ' ')}</span>
             </div>
-          </a>
+          </Link>
         ))}
 
         {!loading && titles.length === 0 && (
