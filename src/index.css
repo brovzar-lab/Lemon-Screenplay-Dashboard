@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --color-lemon-50: #fdfde8;
+  --color-lemon-400: #f5c518;
+  --color-lemon-500: #eab308;
+  --color-lemon-600: #ca8a04;
+
+  --color-slate-950: #0c0e14;
+  --color-surface: #111318;
+  --color-surface-2: #1a1d24;
+  --color-surface-3: #22252f;
+  --color-border: #2e3340;
+
+  --color-status-dev: #6366f1;
+  --color-status-prod: #10b981;
+  --color-status-hold: #f59e0b;
+  --color-status-kill: #ef4444;
+  --color-status-green: #22c55e;
+}
+
+@layer base {
+  html {
+    @apply bg-surface text-gray-200 antialiased;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  * {
+    @apply border-border;
+  }
+}

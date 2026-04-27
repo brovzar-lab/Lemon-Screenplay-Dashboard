@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Only authenticated users from the studio's Google Workspace domain can read.
+    // Write access is further restricted to specific roles (stored in team_members).
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isTeamMember() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/team_members/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isTeamMember() &&
+        get(/databases/$(database)/documents/team_members/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Titles: team read, admin write
+    match /titles/{titleId} {
+      allow read: if isTeamMember();
+      allow write: if isAdmin();
+    }
+
+    // Coverage docs: team read, admin write
+    match /coverage/{docId} {
+      allow read: if isTeamMember();
+      allow write: if isAdmin();
+    }
+
+    // Market intelligence reports: team read, admin write
+    match /mi_reports/{reportId} {
+      allow read: if isTeamMember();
+      allow write: if isAdmin();
+    }
+
+    // Team members: only admins can manage, but members can read own doc
+    match /team_members/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if isAdmin();
+    }
+  }
+}
