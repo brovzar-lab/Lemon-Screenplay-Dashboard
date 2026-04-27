@@ -90,10 +90,24 @@ function parseGenreArray(genreStr) {
 // ── Seed ───────────────────────────────────────────────────────────────────────
 let written = 0
 let skipped = 0
+let deleted = 0
 
 for (const p of projects) {
   const isKilled = p.devStage === 'killed' || p.killReason || p.status === 'cancelled'
-  if (SKIP_NAMES.has(p.name) || isKilled || !p.platform && !p.genre && !p.pitchSynopsis) {
+  if (isKilled) {
+    // Explicitly purge any stale killed-project document from Firestore
+    const ref = db.collection('titles').doc(p.id)
+    const snap = await ref.get()
+    if (snap.exists) {
+      await ref.delete()
+      console.log(`✗ ${p.name} [killed — deleted from Firestore]`)
+      deleted++
+    } else {
+      skipped++
+    }
+    continue
+  }
+  if (SKIP_NAMES.has(p.name) || !p.platform && !p.genre && !p.pitchSynopsis) {
     skipped++
     continue
   }
@@ -128,5 +142,5 @@ for (const p of projects) {
   written++
 }
 
-console.log(`\nDone — ${written} titles written, ${skipped} skipped.`)
+console.log(`\nDone — ${written} titles written, ${deleted} killed deleted, ${skipped} skipped.`)
 process.exit(0)
