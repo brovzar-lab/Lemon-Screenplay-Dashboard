@@ -68,12 +68,14 @@ export async function fetchMiReports(titleId?: string): Promise<MarketIntelRepor
 // ── Active-slate summary (KPI bar) ────────────────────────────────────────────
 export async function fetchKpiSummary() {
   const titles = await fetchTitles()
+  const active = titles.filter(t => t.status !== 'killed')
   return {
-    total: titles.length,
-    greenlit:    titles.filter(t => t.status === 'greenlit').length,
-    active:      titles.filter(t => t.status === 'active').length,
-    development: titles.filter(t => t.status === 'development').length,
-    pitching:    titles.filter(t => t.pipelineStage === 'pitched' || t.pipelineStage === 'pitch_ready').length,
-    hold:        titles.filter(t => t.status === 'hold').length,
+    total:       active.length,
+    greenlit:    active.filter(t => t.status === 'greenlit').length,
+    active:      active.filter(t => t.status === 'active').length,
+    development: active.filter(t => t.status === 'development').length,
+    pitching:    active.filter(t => t.pipelineStage === 'pitched' || t.pipelineStage === 'pitch_ready').length,
+    hold:        active.filter(t => t.status === 'hold').length,
+    killed:      titles.filter(t => t.status === 'killed').length,
   }
 }

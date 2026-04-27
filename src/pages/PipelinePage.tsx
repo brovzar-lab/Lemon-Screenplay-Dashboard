@@ -45,6 +45,7 @@ export function PipelinePage() {
 
   const filtered = useMemo(() => {
     return titles.filter(t => {
+      if (t.status === 'killed') return false  // killed titles are not in the pipeline
       if (filterGenre !== 'all' && !t.genre.includes(filterGenre)) return false
       if (filterOwner !== 'all' && t.owner !== filterOwner) return false
       if (filterStage !== 'all' && t.pipelineStage !== filterStage) return false

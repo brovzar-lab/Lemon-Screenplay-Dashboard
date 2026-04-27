@@ -68,7 +68,7 @@ function mapPipelineStage(devStage) {
     pitched: 'pitched',
     negotiation: 'negotiation',
     greenlit: 'greenlit',
-    killed: 'ip_scouting',
+    // killed intentionally omitted — killed projects are excluded from pipeline
   }
   return map[devStage] ?? 'ip_scouting'
 }
@@ -92,7 +92,8 @@ let written = 0
 let skipped = 0
 
 for (const p of projects) {
-  if (SKIP_NAMES.has(p.name) || !p.platform && !p.genre && !p.pitchSynopsis) {
+  const isKilled = p.devStage === 'killed' || p.killReason || p.status === 'cancelled'
+  if (SKIP_NAMES.has(p.name) || isKilled || !p.platform && !p.genre && !p.pitchSynopsis) {
     skipped++
     continue
   }

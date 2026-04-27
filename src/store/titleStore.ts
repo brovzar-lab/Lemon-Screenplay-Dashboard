@@ -9,6 +9,7 @@ interface KpiSummary {
   development: number
   pitching: number
   hold: number
+  killed: number
 }
 
 interface TitleState {

@@ -29,7 +29,7 @@ const FORMAT_LABEL: Record<string, string> = {
 }
 
 const PLATFORMS: Platform[] = ['Netflix', 'Apple TV+', 'HBO Max', 'Amazon Prime', 'Disney+', 'Theatrical', 'Other']
-const STATUSES: SlateStatus[] = ['active', 'greenlit', 'development', 'hold', 'killed']
+const ACTIVE_STATUSES: SlateStatus[] = ['active', 'greenlit', 'development', 'hold']
 const FORMATS: Format[] = ['feature_film', 'limited_series', 'series', 'documentary']
 
 type SortKey = 'name' | 'status' | 'deliveryDate'
@@ -42,13 +42,15 @@ function formatDate(iso?: string): string {
 export function ActiveSlatePage() {
   const { titles, loading } = useTitleStore()
 
-  const [platform, setPlatform] = useState<Platform | 'all'>('all')
-  const [status, setStatus]     = useState<SlateStatus | 'all'>('all')
-  const [format, setFormat]     = useState<Format | 'all'>('all')
-  const [sortBy, setSortBy]     = useState<SortKey>('status')
+  const [platform, setPlatform]       = useState<Platform | 'all'>('all')
+  const [status, setStatus]           = useState<SlateStatus | 'all'>('all')
+  const [format, setFormat]           = useState<Format | 'all'>('all')
+  const [sortBy, setSortBy]           = useState<SortKey>('status')
+  const [showKilled, setShowKilled]   = useState(false)
 
   const filtered = useMemo(() => {
     let result = titles
+    if (!showKilled) result = result.filter(t => t.status !== 'killed')
     if (platform !== 'all') result = result.filter(t => t.platform === platform)
     if (status  !== 'all') result = result.filter(t => t.status  === status)
     if (format  !== 'all') result = result.filter(t => t.format  === format)
@@ -63,9 +65,10 @@ export function ActiveSlatePage() {
       const order = ['greenlit','active','development','hold','killed']
       return order.indexOf(a.status) - order.indexOf(b.status)
     })
-  }, [titles, platform, status, format, sortBy])
+  }, [titles, platform, status, format, sortBy, showKilled])
 
   const hasFilters = platform !== 'all' || status !== 'all' || format !== 'all'
+  const killedCount = titles.filter(t => t.status === 'killed').length
 
   return (
     <div className="space-y-5">
@@ -99,7 +102,9 @@ export function ActiveSlatePage() {
           className="bg-surface-2 border border-border text-xs text-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-lemon-500/50"
         >
           <option value="all">All Statuses</option>
-          {STATUSES.map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
+          {(showKilled ? [...ACTIVE_STATUSES, 'killed' as SlateStatus] : ACTIVE_STATUSES).map(s => (
+            <option key={s} value={s} className="capitalize">{s}</option>
+          ))}
         </select>
 
         {/* Format */}
@@ -111,6 +116,24 @@ export function ActiveSlatePage() {
           <option value="all">All Formats</option>
           {FORMATS.map(f => <option key={f} value={f}>{FORMAT_LABEL[f]}</option>)}
         </select>
+
+        {/* Show killed toggle */}
+        {killedCount > 0 && (
+          <button
+            onClick={() => {
+              setShowKilled(v => !v)
+              if (showKilled && status === 'killed') setStatus('all')
+            }}
+            className={[
+              'text-xs px-2.5 py-1.5 rounded-lg border transition-colors',
+              showKilled
+                ? 'bg-status-kill/15 text-status-kill border-status-kill/30'
+                : 'bg-surface-2 border-border text-gray-500 hover:text-gray-300',
+            ].join(' ')}
+          >
+            {showKilled ? `Hide killed (${killedCount})` : `Show killed (${killedCount})`}
+          </button>
+        )}
 
         <div className="flex-1" />
 

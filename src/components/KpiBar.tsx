@@ -33,14 +33,20 @@ export function KpiBar() {
   }
 
   return (
-    <div className="bg-surface-2 border-b border-border px-6 py-3 flex items-center gap-8">
-      <KpiItem label="Total Titles" value={kpi.total} />
-      <div className="w-px h-8 bg-border" />
+    <div className="bg-surface-2 border-b border-border px-6 py-3 flex items-center gap-8 overflow-x-auto">
+      <KpiItem label="Active Titles" value={kpi.total} />
+      <div className="w-px h-8 bg-border shrink-0" />
       <KpiItem label="Greenlit" value={kpi.greenlit} color="text-status-green" />
       <KpiItem label="Active Dev" value={kpi.active} color="text-status-dev" />
       <KpiItem label="In Development" value={kpi.development} color="text-blue-400" />
       <KpiItem label="Pitching" value={kpi.pitching} color="text-lemon-400" />
       <KpiItem label="On Hold" value={kpi.hold} color="text-status-hold" />
+      {kpi.killed > 0 && (
+        <>
+          <div className="w-px h-8 bg-border shrink-0" />
+          <KpiItem label="Killed" value={kpi.killed} color="text-status-kill" />
+        </>
+      )}
     </div>
   )
 }
