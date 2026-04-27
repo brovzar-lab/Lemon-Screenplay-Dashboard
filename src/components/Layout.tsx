@@ -31,7 +31,7 @@ export function Layout() {
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-surface-2 md:hidden">
           <button
             onClick={() => setMobileSidebarOpen(true)}
-            className="text-gray-400 hover:text-gray-100 transition-colors text-xl leading-none"
+            className="text-gray-400 hover:text-gray-100 transition-colors text-xl leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lemon-500/50 rounded"
             aria-label="Open navigation"
           >
             ☰

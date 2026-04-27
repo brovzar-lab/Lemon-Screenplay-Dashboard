@@ -47,7 +47,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           {onClose && (
             <button
               onClick={onClose}
-              className="md:hidden text-gray-500 hover:text-gray-300 transition-colors text-lg leading-none"
+              className="md:hidden text-gray-500 hover:text-gray-300 transition-colors text-lg leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lemon-500/50 rounded"
               aria-label="Close navigation"
             >
               ✕
@@ -89,8 +89,9 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             </div>
             <button
               onClick={signOut}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              className="text-xs text-gray-500 hover:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lemon-500/50 rounded"
               title="Sign out"
+              aria-label="Sign out"
             >
               ⎋
             </button>

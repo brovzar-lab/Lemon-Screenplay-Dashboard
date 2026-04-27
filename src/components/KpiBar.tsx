@@ -1,4 +1,5 @@
 import { useTitleStore } from '../store/titleStore'
+import { Skeleton } from './Skeleton'
 
 interface KpiItemProps {
   label: string
@@ -20,8 +21,13 @@ export function KpiBar() {
 
   if (loading || !kpi) {
     return (
-      <div className="h-14 bg-surface-2 border-b border-border flex items-center px-6">
-        <span className="text-xs text-gray-600 animate-pulse">Loading KPIs…</span>
+      <div className="bg-surface-2 border-b border-border px-6 py-3 flex items-center gap-8">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="flex flex-col gap-1">
+            <Skeleton className="h-6 w-8" />
+            <Skeleton className="h-2.5 w-16" />
+          </div>
+        ))}
       </div>
     )
   }

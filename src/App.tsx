@@ -1,15 +1,25 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, Suspense, lazy } from 'react'
 import { useAuthStore } from './store/authStore'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
-import { LoginPage } from './pages/LoginPage'
-import { OverviewPage } from './pages/OverviewPage'
-import { ActiveSlatePage } from './pages/ActiveSlatePage'
-import { PipelinePage } from './pages/PipelinePage'
-import { CoveragePage } from './pages/CoveragePage'
-import { MarketIntelPage } from './pages/MarketIntelPage'
-import { TitleDetailPage } from './pages/TitleDetailPage'
+import { PageSkeleton } from './components/Skeleton'
+
+const LoginPage       = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })))
+const OverviewPage    = lazy(() => import('./pages/OverviewPage').then(m => ({ default: m.OverviewPage })))
+const ActiveSlatePage = lazy(() => import('./pages/ActiveSlatePage').then(m => ({ default: m.ActiveSlatePage })))
+const PipelinePage    = lazy(() => import('./pages/PipelinePage').then(m => ({ default: m.PipelinePage })))
+const CoveragePage    = lazy(() => import('./pages/CoveragePage').then(m => ({ default: m.CoveragePage })))
+const MarketIntelPage = lazy(() => import('./pages/MarketIntelPage').then(m => ({ default: m.MarketIntelPage })))
+const TitleDetailPage = lazy(() => import('./pages/TitleDetailPage').then(m => ({ default: m.TitleDetailPage })))
+
+function PageFallback() {
+  return (
+    <div className="p-6">
+      <PageSkeleton />
+    </div>
+  )
+}
 
 export default function App() {
   const init = useAuthStore(s => s.init)
@@ -21,23 +31,25 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route
-          element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<OverviewPage />} />
-          <Route path="slate" element={<ActiveSlatePage />} />
-          <Route path="pipeline" element={<PipelinePage />} />
-          <Route path="coverage" element={<CoveragePage />} />
-          <Route path="market" element={<MarketIntelPage />} />
-          <Route path="titles/:id" element={<TitleDetailPage />} />
-        </Route>
-      </Routes>
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<OverviewPage />} />
+            <Route path="slate"      element={<ActiveSlatePage />} />
+            <Route path="pipeline"   element={<PipelinePage />} />
+            <Route path="coverage"   element={<CoveragePage />} />
+            <Route path="market"     element={<MarketIntelPage />} />
+            <Route path="titles/:id" element={<TitleDetailPage />} />
+          </Route>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

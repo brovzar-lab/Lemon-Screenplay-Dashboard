@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useTitleStore } from '../store/titleStore'
+import { CardSkeleton } from '../components/Skeleton'
 
 const STATUS_COLOR: Record<string, string> = {
   greenlit:    'bg-status-green/15 text-status-green border-status-green/30',
@@ -21,12 +22,10 @@ export function OverviewPage() {
         <p className="text-sm text-gray-500 mt-0.5">Real-time view of all active and in-development titles</p>
       </div>
 
-      {loading && (
-        <p className="text-sm text-gray-600 animate-pulse">Loading titles…</p>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {recent.map(title => (
+        {loading && Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+
+        {!loading && recent.map(title => (
           <Link
             key={title.id}
             to={`/titles/${title.id}`}
