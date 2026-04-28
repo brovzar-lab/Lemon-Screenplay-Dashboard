@@ -1,22 +1,12 @@
 #!/usr/bin/env node
 /**
  * Seeds Paperclip Coverage Analyst issues into Firestore `coverage` collection.
- *
- * Fetches all done issues assigned to the Coverage Analyst agent,
- * reads their coverage documents, parses them, and writes structured
- * CoverageDoc records — idempotent via merge:true.
- *
- * Required env (auto-injected in agent context):
- *   GOOGLE_APPLICATION_CREDENTIALS_JSON
- *   PAPERCLIP_API_URL
- *   PAPERCLIP_API_KEY
- *   PAPERCLIP_COMPANY_ID
+ * Uses projectId-first matching, falling back to name-based fuzzy match.
  */
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 
-// ── Firebase init ─────────────────────────────────────────────────────────────
 const credJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
 if (!credJson) { console.error('GOOGLE_APPLICATION_CREDENTIALS_JSON not set'); process.exit(1) }
 const serviceAccount = JSON.parse(credJson)
@@ -25,11 +15,9 @@ if (!getApps().length) {
 }
 const db = getFirestore()
 
-// ── Paperclip config ──────────────────────────────────────────────────────────
-const apiUrl = process.env.PAPERCLIP_API_URL
-const apiKey = process.env.PAPERCLIP_API_KEY
+const apiUrl    = process.env.PAPERCLIP_API_URL
+const apiKey    = process.env.PAPERCLIP_API_KEY
 const companyId = process.env.PAPERCLIP_COMPANY_ID
-
 if (!apiUrl || !apiKey || !companyId) {
   console.error('PAPERCLIP_API_URL, PAPERCLIP_API_KEY, PAPERCLIP_COMPANY_ID required')
   process.exit(1)
@@ -38,12 +26,15 @@ if (!apiUrl || !apiKey || !companyId) {
 const COVERAGE_AGENT_ID = 'eb0a5309-e457-445a-987a-bd991a3ea9bc'
 const DOC_KEYS = ['coverage', 'coverage-report', 'report']
 
+const SKIP_NAMES = new Set([
+  'Lemon Studio Dashboard', 'Studio Operations', 'TEST DEAL', 'Idea Vault',
+  'SMOKE TEST — Greenlight Queue Feature Film',
+])
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function paperclipGet(path) {
-  const res = await fetch(`${apiUrl}${path}`, {
-    headers: { Authorization: `Bearer ${apiKey}` }
-  })
+  const res = await fetch(`${apiUrl}${path}`, { headers: { Authorization: `Bearer ${apiKey}` } })
   if (!res.ok) return null
   return res.json()
 }
@@ -56,10 +47,42 @@ async function fetchFirstDocument(issueId) {
   return null
 }
 
-/**
- * Walk up the parent chain (max 3 levels) to find a projectId.
- * Returns null if not found.
- */
+function normalize(str) {
+  if (!str) return ''
+  return str
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function extractTitleFromCoverageTitle(issueTitle) {
+  let t = issueTitle
+  t = t.replace(/^(Coverage|Coverage Report|Coverage Analysis)[:\s—-]+/i, '')
+  t = t.replace(/^Stage Musical Coverage:\s*/i, '')
+  t = t.replace(/\s*[-—]+\s*(full professional|screen translatability|show bible|shared creative|spanish translation)[^)]*$/i, '')
+  t = t.replace(/\s*\([^)]{0,60}\)\s*$/, '')
+  return t.trim()
+}
+
+function findProjectId(name, lookup) {
+  const norm = normalize(name)
+  if (!norm || norm.length < 3) return null
+  if (lookup[norm]) return lookup[norm]
+  for (const [key, id] of Object.entries(lookup)) {
+    if (key.includes(norm) || norm.includes(key)) return id
+  }
+  const queryWords = norm.split(' ').filter(w => w.length > 2)
+  let bestMatch = null, bestScore = 1
+  for (const [key, id] of Object.entries(lookup)) {
+    const keyWords = key.split(' ').filter(w => w.length > 2)
+    const common = queryWords.filter(w => keyWords.includes(w)).length
+    if (common > bestScore) { bestScore = common; bestMatch = id }
+  }
+  return bestMatch
+}
+
 async function resolveProjectId(issue, depth = 0) {
   if (issue.projectId) return issue.projectId
   if (!issue.parentId || depth >= 3) return null
@@ -68,23 +91,18 @@ async function resolveProjectId(issue, depth = 0) {
   return resolveProjectId(parent, depth + 1)
 }
 
-/** Map verdict text to AnalystVerdict enum. */
 function extractVerdict(body) {
-  const upper = body.toUpperCase()
-  // Look for explicit verdict lines first
   const verdictLine = body.match(/\*\*Verdict[:\*]*\*?\*?[:\s]+([A-Z][A-Z\s]+)/i)
     || body.match(/##\s+Verdict[:\s]+([A-Z][A-Z\s]+)/i)
     || body.match(/Verdict[:\s]+([A-Z][A-Z\s]+)/i)
-
   if (verdictLine) {
     const v = verdictLine[1].toUpperCase()
     if (v.includes('RECOMMEND')) return 'recommend'
     if (v.includes('CONSIDER')) return 'consider'
     if (v.includes('PASS')) return 'pass'
   }
-
-  // Fall back to scanning the full body
-  if (upper.includes('VERDICT: RECOMMEND') || upper.includes('VERDICT — RECOMMEND')) return 'recommend'
+  const upper = body.toUpperCase()
+  if (upper.includes('VERDICT: RECOMMEND') || upper.includes('VERDICT — RECOMMEND') || upper.includes('VERDICT: STRONG RECOMMEND')) return 'recommend'
   if (upper.includes('VERDICT: CONSIDER') || upper.includes('VERDICT — CONSIDER')) return 'consider'
   if (upper.includes('VERDICT: PASS') || upper.includes('VERDICT — PASS')) return 'pass'
   if (upper.includes('RECOMMEND')) return 'recommend'
@@ -93,35 +111,15 @@ function extractVerdict(body) {
   return 'pending'
 }
 
-/** Extract title name from document or issue title. */
-function extractTitleName(issueTitle, body) {
-  // Strip "Coverage -- " / "Coverage: " prefix
-  const cleaned = issueTitle
-    .replace(/^Coverage\s*[--:]+\s*/i, '')
-    .replace(/^Stage Musical Coverage:\s*/i, '')
-    .replace(/\s*\(.*?\)\s*$/, '')
-    .trim()
-  return cleaned
-}
-
-/** Extract synopsis / logline from coverage body. */
 function extractSynopsis(body) {
-  // Look for a Logline section
-  const loglineSection = body.match(/##\s*\d*\.?\s*Logline\s*\n+([\s\S]{0,600}?)(?:\n##|\n---|\n\*\*|$)/i)
+  const logline = body.match(/##\s*\d*\.?\s*Logline\s*\n+([\s\S]{0,600}?)(?:\n##|\n---|\n\*\*|$)/i)
     || body.match(/\*\*Logline\*\*[:\s]+([\s\S]{0,400}?)(?:\n\n|\n##)/i)
-  if (loglineSection) return loglineSection[1].trim().slice(0, 500)
-
-  // Look for Synopsis section
-  const synopsisSection = body.match(/##\s*\d*\.?\s*Synopsis\s*\n+([\s\S]{0,600}?)(?:\n##|\n---|\n\*\*|$)/i)
-  if (synopsisSection) return synopsisSection[1].trim().slice(0, 500)
-
-  // Look for Opening / High Concept section
-  const openSection = body.match(/##\s*\d*\.?\s*Opening[^#\n]*\n+([\s\S]{0,400}?)(?:\n##)/i)
-  if (openSection) return openSection[1].trim().slice(0, 500)
-
-  // Fallback: first substantive paragraph
-  const lines = body.split('\n')
-  for (const line of lines) {
+  if (logline) return logline[1].trim().slice(0, 500)
+  const synopsis = body.match(/##\s*\d*\.?\s*Synopsis\s*\n+([\s\S]{0,600}?)(?:\n##|\n---|\n\*\*|$)/i)
+  if (synopsis) return synopsis[1].trim().slice(0, 500)
+  const opening = body.match(/##\s*\d*\.?\s*Opening[^#\n]*\n+([\s\S]{0,400}?)(?:\n##)/i)
+  if (opening) return opening[1].trim().slice(0, 500)
+  for (const line of body.split('\n')) {
     const t = line.trim()
     if (!t || t.startsWith('#') || t.startsWith('*') || t.startsWith('|') || t.startsWith('---')) continue
     if (t.length > 60) return t.slice(0, 500)
@@ -129,13 +127,9 @@ function extractSynopsis(body) {
   return ''
 }
 
-/** Extract notes (key findings / main analysis). */
 function extractNotes(body) {
-  // Try to find a "Key Findings" or numbered sections
   const m = body.match(/##\s*(?:\d+\.?\s+)?(?:Key (?:Findings|Notes)|Overall|Summary|Assessment|Analysis)[^\n]*\n+([\s\S]{0,800}?)(?:\n##|$)/i)
   if (m) return m[1].trim().slice(0, 800)
-
-  // Fall back to first 600 chars of substantive content
   const lines = body.split('\n')
   const notes = []
   let inMeta = true
@@ -149,44 +143,57 @@ function extractNotes(body) {
   return notes.join(' ').slice(0, 800)
 }
 
+// ── Build project name→id lookup ──────────────────────────────────────────────
+const projectsRes = await paperclipGet(`/api/companies/${companyId}/projects`)
+const projects = Array.isArray(projectsRes) ? projectsRes : []
+const nameLookup = {}
+for (const p of projects) {
+  if (!SKIP_NAMES.has(p.name) && p.name) {
+    nameLookup[normalize(p.name)] = p.id
+  }
+}
+console.log(`Loaded ${Object.keys(nameLookup).length} projects for name matching.\n`)
+
 // ── Fetch all coverage issues ─────────────────────────────────────────────────
 const issuesRes = await paperclipGet(
   `/api/companies/${companyId}/issues?assigneeAgentId=${COVERAGE_AGENT_ID}&status=done,in_progress`
 )
 const issues = Array.isArray(issuesRes) ? issuesRes : []
-
-if (!issues.length) {
-  console.log('No coverage issues found.')
-  process.exit(0)
-}
-
 console.log(`Found ${issues.length} coverage issues. Processing…\n`)
 
-let written = 0
-let skipped = 0
+let written = 0, skipped = 0
 
 for (const issue of issues) {
-  // Skip non-coverage issues (e.g. Gauntlet input, screen translatability)
   const titleLower = issue.title.toLowerCase()
-  if (!titleLower.includes('coverage') && !titleLower.includes('coverage report')) {
+  if (!titleLower.includes('coverage')) {
     console.log(`  ⊘  ${issue.title.slice(0, 60)} — not a coverage doc, skipping`)
-    skipped++
-    continue
+    skipped++; continue
   }
 
   const docResult = await fetchFirstDocument(issue.id)
   if (!docResult) {
     console.log(`  ⚠  ${issue.title.slice(0, 60)} — no document, skipping`)
-    skipped++
-    continue
+    skipped++; continue
   }
 
   const { body } = docResult
-  const titleId = await resolveProjectId(issue)
+
+  // Resolve titleId: direct projectId, then parent chain, then name match
+  let titleId = null
+  const directId = await resolveProjectId(issue)
+  if (directId) {
+    titleId = directId
+  } else {
+    const extractedName = extractTitleFromCoverageTitle(issue.title)
+    const matched = findProjectId(extractedName, nameLookup)
+    if (matched) titleId = matched
+  }
+
+  const titleName = extractTitleFromCoverageTitle(issue.title)
 
   const doc = {
-    titleId: titleId ?? null,
-    titleName: extractTitleName(issue.title, body),
+    titleId,
+    titleName: titleName || issue.title,
     analyst: 'Coverage Analyst',
     verdict: extractVerdict(body),
     synopsis: extractSynopsis(body),
@@ -198,7 +205,8 @@ for (const issue of issues) {
   }
 
   await db.collection('coverage').doc(issue.id).set(doc, { merge: true })
-  console.log(`  ✓ ${issue.identifier} — ${issue.title.slice(0, 55)} [${doc.verdict}]`)
+  const matchNote = titleId ? `→ ${titleId.slice(0,8)}` : '→ general'
+  console.log(`  ✓ ${issue.identifier} — ${issue.title.slice(0, 55)} [${doc.verdict}] ${matchNote}`)
   written++
 }
 
