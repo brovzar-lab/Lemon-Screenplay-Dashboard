@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { fetchMiReports } from '../lib/firestore'
+import { exportMiAsPdf, exportMiAsDocx } from '../lib/exportDoc'
 import type { MarketIntelReport } from '../types'
 
 const APPETITE_COLOR: Record<string, string> = {
@@ -10,6 +11,31 @@ const APPETITE_COLOR: Record<string, string> = {
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function ExportButtons({ onPdf, onDocx }: { onPdf: () => void; onDocx: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false)
+  const handleDocx = async () => {
+    setBusy(true)
+    try { await onDocx() } finally { setBusy(false) }
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={onPdf}
+        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-surface-3 border border-border text-gray-300 hover:text-gray-100 hover:border-gray-500 transition-colors"
+      >
+        ↓ PDF
+      </button>
+      <button
+        onClick={handleDocx}
+        disabled={busy}
+        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-surface-3 border border-border text-gray-300 hover:text-gray-100 hover:border-gray-500 transition-colors disabled:opacity-50"
+      >
+        {busy ? '…' : '↓ Word'}
+      </button>
+    </div>
+  )
 }
 
 // Simple inline bar chart — no external library
@@ -203,6 +229,11 @@ export function MarketIntelPage() {
                         </div>
                       </div>
                     )}
+
+                    <ExportButtons
+                      onPdf={() => exportMiAsPdf(report)}
+                      onDocx={() => exportMiAsDocx(report)}
+                    />
                   </div>
                 )}
               </div>

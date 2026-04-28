@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTitleStore } from '../store/titleStore'
 import { fetchAllCoverage } from '../lib/firestore'
+import { exportCoverageAsPdf, exportCoverageAsDocx } from '../lib/exportDoc'
 import type { CoverageDoc, AnalystVerdict } from '../types'
 
 const VERDICT_COLOR: Record<AnalystVerdict, string> = {
@@ -18,6 +19,31 @@ const VERDICT_LABEL: Record<AnalystVerdict, string> = {
 }
 
 const VERDICTS: AnalystVerdict[] = ['recommend', 'consider', 'pass', 'pending']
+
+function ExportButtons({ onPdf, onDocx }: { onPdf: () => void; onDocx: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false)
+  const handleDocx = async () => {
+    setBusy(true)
+    try { await onDocx() } finally { setBusy(false) }
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={onPdf}
+        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-surface-3 border border-border text-gray-300 hover:text-gray-100 hover:border-gray-500 transition-colors"
+      >
+        ↓ PDF
+      </button>
+      <button
+        onClick={handleDocx}
+        disabled={busy}
+        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-surface-3 border border-border text-gray-300 hover:text-gray-100 hover:border-gray-500 transition-colors disabled:opacity-50"
+      >
+        {busy ? '…' : '↓ Word'}
+      </button>
+    </div>
+  )
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -198,16 +224,22 @@ export function CoveragePage() {
                       <p className="text-sm text-gray-400 leading-relaxed">{doc.notes}</p>
                     </div>
                   )}
-                  {doc.pdfUrl && (
-                    <a
-                      href={doc.pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs text-lemon-400 hover:text-lemon-300 transition-colors"
-                    >
-                      <span>⎙</span> View PDF
-                    </a>
-                  )}
+                  <div className="flex items-center gap-3 pt-1">
+                    {doc.pdfUrl && (
+                      <a
+                        href={doc.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-lemon-400 hover:text-lemon-300 transition-colors"
+                      >
+                        <span>⎙</span> View source
+                      </a>
+                    )}
+                    <ExportButtons
+                      onPdf={() => exportCoverageAsPdf(doc)}
+                      onDocx={() => exportCoverageAsDocx(doc)}
+                    />
+                  </div>
                 </div>
               )}
             </div>

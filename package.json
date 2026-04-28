@@ -17,7 +17,9 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
+    "docx": "^9.6.1",
     "firebase": "^12.12.1",
+    "jspdf": "^4.2.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
