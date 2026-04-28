@@ -58,6 +58,34 @@ function formatDate(iso?: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
+function downloadText(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function printHtml(title: string, body: string) {
+  const win = window.open('', '_blank', 'width=800,height=600')
+  if (!win) return
+  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>
+    body{font-family:Georgia,serif;max-width:700px;margin:40px auto;padding:0 20px;color:#111;line-height:1.6}
+    h1{font-size:1.4em;margin-bottom:0.25em}
+    .meta{color:#666;font-size:0.85em;margin-bottom:1.5em}
+    pre{white-space:pre-wrap;font-family:inherit}
+    @media print{body{margin:0}}
+  </style></head><body>
+    <h1>${title}</h1>
+    <pre>${body.replace(/</g, '&lt;')}</pre>
+  </body></html>`)
+  win.document.close()
+  win.focus()
+  win.print()
+}
+
 function formatDateShort(iso?: string): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -290,12 +318,32 @@ export function TitleDetailPage() {
                   <div className="px-4 pb-4 border-t border-border/60 pt-3 space-y-3">
                     {doc.synopsis && <p className="text-sm text-gray-300 leading-relaxed">{doc.synopsis}</p>}
                     {doc.notes && <p className="text-sm text-gray-400 leading-relaxed">{doc.notes}</p>}
-                    {doc.pdfUrl && (
-                      <a href={doc.pdfUrl} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-lemon-400 hover:text-lemon-300 transition-colors">
-                        <span>⎙</span> View PDF
-                      </a>
-                    )}
+                    <div className="flex items-center gap-3 pt-1">
+                      {doc.pdfUrl && (
+                        <a href={doc.pdfUrl} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-lemon-400 hover:text-lemon-300 transition-colors">
+                          <span>⎙</span> View PDF
+                        </a>
+                      )}
+                      <button
+                        onClick={() => printHtml(
+                          `Coverage — ${doc.titleName} (${doc.analyst})`,
+                          `Coverage Report\n${'─'.repeat(40)}\nTitle: ${doc.titleName}\nAnalyst: ${doc.analyst}\nVerdict: ${doc.verdict}\nDate: ${formatDateShort(doc.createdAt)}\n\nSynopsis\n${'─'.repeat(40)}\n${doc.synopsis}\n\nNotes\n${'─'.repeat(40)}\n${doc.notes}`
+                        )}
+                        className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                      >
+                        <span>⎙</span> Print / PDF
+                      </button>
+                      <button
+                        onClick={() => downloadText(
+                          `coverage-${doc.titleName.replace(/\s+/g, '-').toLowerCase()}.txt`,
+                          `Coverage Report\n${'='.repeat(60)}\nTitle: ${doc.titleName}\nAnalyst: ${doc.analyst}\nVerdict: ${doc.verdict}\nDate: ${formatDateShort(doc.createdAt)}\n\nSYNOPSIS\n${'─'.repeat(40)}\n${doc.synopsis}\n\nNOTES\n${'─'.repeat(40)}\n${doc.notes}`
+                        )}
+                        className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                      >
+                        ↓ Export text
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -345,6 +393,26 @@ export function TitleDetailPage() {
                         ))}
                       </ul>
                     )}
+                    <div className="flex items-center gap-3 pt-1">
+                      <button
+                        onClick={() => printHtml(
+                          report.title,
+                          `Market Intelligence Report\n${'─'.repeat(40)}\nTitle: ${report.title}\nPlatform: ${report.platform}\nAppetite: ${report.platformAppetite}\nDate: ${formatDateShort(report.reportDate)}\n\nSummary\n${'─'.repeat(40)}\n${report.summary}\n\nKey Trends\n${'─'.repeat(40)}\n${report.trends.map(t => `• ${t}`).join('\n')}\n\nComp Titles\n${'─'.repeat(40)}\n${report.compTitles.join(', ')}`
+                        )}
+                        className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                      >
+                        <span>⎙</span> Print / PDF
+                      </button>
+                      <button
+                        onClick={() => downloadText(
+                          `mi-report-${report.title.replace(/\s+/g, '-').toLowerCase().slice(0, 40)}.txt`,
+                          `Market Intelligence Report\n${'='.repeat(60)}\nTitle: ${report.title}\nPlatform: ${report.platform}\nPlatform Appetite: ${report.platformAppetite}\nGenre: ${report.genre}\nDate: ${formatDateShort(report.reportDate)}\n\nSUMMARY\n${'─'.repeat(40)}\n${report.summary}\n\nKEY TRENDS\n${'─'.repeat(40)}\n${report.trends.map(t => `• ${t}`).join('\n')}\n\nCOMP TITLES\n${'─'.repeat(40)}\n${report.compTitles.join(', ')}`
+                        )}
+                        className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                      >
+                        ↓ Export text
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

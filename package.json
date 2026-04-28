@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "deploy": "npm run build && firebase deploy --only hosting",
     "deploy:rules": "firebase deploy --only firestore:rules",
-    "firestore:write": "node scripts/firestore-write.mjs"
+    "firestore:write": "node scripts/firestore-write.mjs",
+    "seed:titles": "node scripts/seed-titles.mjs",
+    "seed:mi": "node scripts/seed-mi-reports.mjs",
+    "seed:coverage": "node scripts/seed-coverage.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
@@ -23,7 +26,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "firebase-admin": "^13.8.0",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -31,6 +33,7 @@
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "firebase-admin": "^13.8.0",
     "firebase-tools": "^14.27.0",
     "globals": "^17.5.0",
     "typescript": "~6.0.2",
