@@ -2,23 +2,15 @@
  * API Configuration Store
  * Manages API settings and budget controls for screenplay analysis.
  *
- * DESIGN: `isConfigured` and `isGoogleConfigured` are NOT stored in
- * localStorage — they are always derived from `apiKey.length > 0` so a
- * stale persisted `false` can never block a user who already has a key.
+ * Anthropic API key is now server-side (via LiteLLM proxy).
+ * Only Google API key remains client-side (for poster generation + live audio).
  */
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface ApiConfig {
-  // API Connection (Anthropic)
-  apiKey: string;
-  apiEndpoint: string;
-
-  // Derived (never persisted) — always computed from key length
-  isConfigured: boolean;
-
-  // Google AI (Gemini / Imagen)
+  // Google AI (Gemini / Imagen) — still client-side for poster gen + live audio
   googleApiKey: string;
   isGoogleConfigured: boolean;
 
@@ -33,8 +25,6 @@ interface ApiConfig {
   monthResetDate: string;
 
   // Actions
-  setApiKey: (key: string) => void;
-  setApiEndpoint: (endpoint: string) => void;
   setGoogleApiKey: (key: string) => void;
   setMonthlyBudgetLimit: (limit: number) => void;
   setDailyRequestLimit: (limit: number) => void;
@@ -50,20 +40,13 @@ interface ApiConfig {
 const getToday = () => new Date().toISOString().split('T')[0];
 const getThisMonth = () => new Date().toISOString().slice(0, 7);
 
-// Read from .env at build time — safe for an internal tool.
-// localStorage (via persist) will override these if the user has
-// manually entered a different key via Settings.
-const ENV_ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined ?? '';
+// Google API key from .env — still needed client-side for poster generation + live audio
 const ENV_GOOGLE_KEY = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined ?? '';
 
 
 export const useApiConfigStore = create<ApiConfig>()(
   persist(
     (set, get) => ({
-      apiKey: ENV_ANTHROPIC_KEY,
-      apiEndpoint: 'https://api.anthropic.com/v1/messages',
-      isConfigured: ENV_ANTHROPIC_KEY.length > 0,
-
       googleApiKey: ENV_GOOGLE_KEY,
       isGoogleConfigured: ENV_GOOGLE_KEY.length > 0,
 
@@ -75,12 +58,6 @@ export const useApiConfigStore = create<ApiConfig>()(
       monthResetDate: getThisMonth(),
 
       // Actions
-      setApiKey: (key) =>
-        set({ apiKey: key, isConfigured: key.length > 0 }),
-
-      setApiEndpoint: (endpoint) =>
-        set({ apiEndpoint: endpoint }),
-
       setGoogleApiKey: (key) =>
         set({ googleApiKey: key, isGoogleConfigured: key.length > 0 }),
 
@@ -106,8 +83,6 @@ export const useApiConfigStore = create<ApiConfig>()(
         const state = get();
         if (state.currentDayRequests >= state.dailyRequestLimit) return false;
         if (state.currentMonthSpend >= state.monthlyBudgetLimit) return false;
-        // Derive from the actual key — never trust a cached boolean flag
-        if (!state.apiKey || state.apiKey.length === 0) return false;
         return true;
       },
 
@@ -135,7 +110,7 @@ export const useApiConfigStore = create<ApiConfig>()(
     }),
     {
       name: 'lemon-api-config',
-      version: 2,
+      version: 3,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Record<string, unknown>;
         if (version < 2) {
@@ -144,28 +119,23 @@ export const useApiConfigStore = create<ApiConfig>()(
             state.googleApiKey = '';
           }
         }
+        if (version < 3) {
+          // Remove Anthropic key from localStorage — now server-side
+          delete state.apiKey;
+          delete state.apiEndpoint;
+          delete state.isConfigured;
+        }
         return state as Record<string, unknown> & { googleApiKey: string };
       },
-      // onRehydrateStorage: recompute derived flags from the restored keys.
-      // This is THE only reliable way to fix stale `isConfigured: false` in storage.
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        // If localStorage had an empty key (e.g. previously cleared), fall back
-        // to the env-var key so the app stays configured after a store reset.
-        let key = (state.apiKey as string) || '';
-        if (!key) key = ENV_ANTHROPIC_KEY;
-        (state as ApiConfig).apiKey = key;
-        // Same fallback for Google key
+        // Fallback to env var for Google key
         let gKey = (state.googleApiKey as string) || '';
         if (!gKey) gKey = ENV_GOOGLE_KEY;
         (state as ApiConfig).googleApiKey = gKey;
-        (state as ApiConfig).isConfigured = key.length > 0;
         (state as ApiConfig).isGoogleConfigured = gKey.length > 0;
       },
-      // Persist keys but NOT the derived flags — they are recomputed above.
       partialize: (state) => ({
-        apiKey: state.apiKey,
-        apiEndpoint: state.apiEndpoint,
         googleApiKey: state.googleApiKey,
         monthlyBudgetLimit: state.monthlyBudgetLimit,
         dailyRequestLimit: state.dailyRequestLimit,

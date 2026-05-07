@@ -107,7 +107,6 @@ export function DevExecProvider({ children, screenplays, apiKey }: DevExecProvid
                 content,
                 screenplaysRef.current,
                 messages.slice(-12),
-                apiKey,
             );
 
             const assistantMessage: ChatMessage = {
@@ -134,7 +133,7 @@ export function DevExecProvider({ children, screenplays, apiKey }: DevExecProvid
             setIsLoading(false);
             isLoadingRef.current = false;
         }
-    }, [messages, apiKey, isMinimized]);
+    }, [messages, isMinimized]);
 
     return (
         <DevExecContext.Provider value={{

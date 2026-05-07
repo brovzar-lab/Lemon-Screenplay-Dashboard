@@ -3,12 +3,11 @@
  *
  * Orchestrates the full screenplay analysis pipeline:
  *   1. Parse PDF → extract text
- *   2. Call Anthropic API (via Cloud Function or Vite dev proxy)
+ *   2. Call LLM via proxy (Firebase Cloud Function → LiteLLM)
  *   3. Return raw V6 analysis JSON
  *
- * Environment detection:
- *   - Development: uses Vite proxy at /api/anthropic to bypass CORS
- *   - Production: calls Firebase Cloud Function
+ * All text AI calls route through the proxy client (proxyClient.ts).
+ * API keys never touch the browser.
  */
 
 import { parsePDF, type ParsedPDF } from './pdfParser';
@@ -22,16 +21,16 @@ import {
   type V7AnalysisOptions,
   type V7AnalysisProgress,
 } from './multiPassAnalysis';
+import { callLLM } from './proxyClient';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type AnalysisLens = 'latam' | 'commercial' | 'production' | 'coproduction';
 
 export interface AnalysisOptions {
-  apiKey: string;
   model?: 'sonnet' | 'haiku' | 'opus';
   lenses?: AnalysisLens[];
-  /** Firebase Cloud Function URL (for production). If absent, uses Vite proxy. */
+  /** Firebase Cloud Function URL (for production). If absent, uses proxy client. */
   functionUrl?: string;
   /** Analysis version: 'v6' (single-pass) or 'v7' (multi-reader archaeology engine) */
   analysisVersion?: 'v6' | 'v7';
@@ -54,17 +53,14 @@ export interface AnalysisResult {
   usage?: { input_tokens: number; output_tokens: number };
 }
 
-// ─── Prompt builder (client-side mirror for dev proxy path) ─────────────────
+// ─── Model mapping ──────────────────────────────────────────────────────────
 
-// We import the build function dynamically only in the Cloud Function.
-// For the dev proxy path we need a local copy. To avoid duplicating the huge
-// prompt string, we build a minimal request and let the server-side handle the
-// prompt. In dev mode we call the Anthropic /v1/messages endpoint directly.
+// Maps friendly model names to Anthropic model IDs for the proxy.
 
 const CLAUDE_MODELS: Record<string, string> = {
-  sonnet: 'claude-sonnet-4-5-20250929',
+  sonnet: 'claude-sonnet-4-6',
   haiku: 'claude-haiku-4-5-20251001',
-  opus: 'claude-opus-4-6',              // Opus 4.6 — no date suffix
+  opus: 'claude-opus-4-7',
 };
 
 // ─── Core public API ─────────────────────────────────────────────────────────
@@ -104,7 +100,7 @@ export async function analyzeScreenplay(
     raw = result.raw;
     usage = result.usage;
   } else {
-    const result = await callAnthropicDirect(parsed, lenses, model, options.apiKey);
+    const result = await callAnthropicDirect(parsed, lenses, model);
     raw = result.raw;
     usage = result.usage;
   }
@@ -151,7 +147,7 @@ async function analyzeV7Path(
     // Quick triage — single Haiku pass
     onProgress?.({ stage: 'analyzing', percent: 50, message: 'Running triage scan...' });
 
-    const triageResult = await runTriage(parsed, options.apiKey);
+    const triageResult = await runTriage(parsed);
 
     const raw = {
       source_file: parsed.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
@@ -181,7 +177,6 @@ async function analyzeV7Path(
 
   // Full 5-reader + synthesis
   const v7Options: V7AnalysisOptions = {
-    apiKey: options.apiKey,
     mode: 'full',
     model,
     lenses: options.lenses ?? ['commercial'],
@@ -257,7 +252,6 @@ async function callCloudFunction(
           wordCount: parsed.wordCount,
         },
         lenses,
-        apiKey: options.apiKey,
         model: options.model ?? 'sonnet',
       },
     }),
@@ -273,17 +267,15 @@ async function callCloudFunction(
   return { raw: result, usage: result.usage };
 }
 
-// ─── Direct Anthropic API path (development via Vite proxy) ──────────────────
+// ─── Direct LLM call via proxy (no API keys in the browser) ────────────────
 
 async function callAnthropicDirect(
   parsed: ParsedPDF,
   lenses: AnalysisLens[],
   model: string,
-  apiKey: string,
 ): Promise<{ raw: Record<string, unknown>; usage?: { input_tokens: number; output_tokens: number } }> {
   // Dynamically import the prompt builder to avoid bundling the huge prompt
-  // string in the main chunk. We inline a lightweight version of
-  // buildV6Prompt here instead.
+  // string in the main chunk.
   const { buildV6PromptClient } = await import('./promptClient');
 
   // Load calibration profile if enabled (admin feedback loop)
@@ -306,38 +298,14 @@ async function callAnthropicDirect(
 
   const modelId = CLAUDE_MODELS[model] || CLAUDE_MODELS.sonnet;
 
-  // In dev, use Vite proxy to avoid CORS. In production, call Anthropic directly
-  // (the `anthropic-dangerous-direct-browser-access` header enables browser CORS).
-  const apiBase = import.meta.env.DEV ? '/api/anthropic' : 'https://api.anthropic.com';
-
-  const response = await fetch(`${apiBase}/v1/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: modelId,
-      max_tokens: 16000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+  // Route through the proxy — no API keys, no CORS headers needed
+  const result = await callLLM({
+    model: modelId,
+    prompt,
+    maxTokens: 16000,
   });
 
-  if (!response.ok) {
-    const body = await response.text();
-    if (response.status === 400) {
-      throw new Error(
-        `Screenplay too long for analysis — try a script under ~115 pages. ` +
-        `(API error: ${body.slice(0, 120)})`
-      );
-    }
-    throw new Error(`Anthropic API error (${response.status}): ${body}`);
-  }
-
-  const message = await response.json();
-  const responseText = message.content?.[0]?.text ?? '';
+  const responseText = result.text;
 
   // Parse JSON from response — Claude sometimes adds commentary after the JSON
   let analysis: Record<string, unknown>;
@@ -391,10 +359,7 @@ async function callAnthropicDirect(
 
   return {
     raw,
-    usage: message.usage ? {
-      input_tokens: message.usage.input_tokens,
-      output_tokens: message.usage.output_tokens,
-    } : undefined,
+    usage: result.usage,
   };
 }
 
@@ -559,7 +524,6 @@ export async function generatePoster(
 export async function reanalyzeFromStorage(
   screenplay: Screenplay,
   model: 'sonnet' | 'opus' | 'haiku',
-  apiKey: string,
   onProgress?: (p: AnalysisProgress) => void,
   engineOptions?: { analysisVersion?: 'v6' | 'v7'; v7Mode?: 'full' | 'triage' },
 ): Promise<AnalysisResult> {
@@ -605,7 +569,6 @@ export async function reanalyzeFromStorage(
       file,
       category,
       {
-        apiKey,
         model: model === 'haiku' ? 'haiku' : model,
         lenses: ['commercial'],
         analysisVersion: engineOptions?.analysisVersion,

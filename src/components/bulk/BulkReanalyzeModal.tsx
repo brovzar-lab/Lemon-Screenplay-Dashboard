@@ -9,7 +9,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { reanalyzeFromStorage } from '@/lib/analysisService';
-import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { useExportSelectionStore } from '@/stores/exportSelectionStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
@@ -49,13 +48,6 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
   }
 
   async function runBulkReanalyze() {
-    const apiKey = useApiConfigStore.getState().apiKey;
-    if (!apiKey) {
-      setSummary('No API key configured.');
-      setIsDone(true);
-      return;
-    }
-
     cancelledRef.current = false;
     setIsProcessing(true);
     let completed = 0;
@@ -72,7 +64,7 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
 
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          await reanalyzeFromStorage(sp, 'sonnet', apiKey);
+          await reanalyzeFromStorage(sp, 'sonnet');
           success = true;
           break;
         } catch {

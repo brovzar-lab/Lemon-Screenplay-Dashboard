@@ -31,9 +31,9 @@ export function UploadPanel() {
   const { categoryIds, addCategory: addCategoryToStore } = useCategories();
 
   const { jobs, addJob, updateJob, removeJob, clearCompleted, isProcessing, setProcessing, getFile } = useUploadStore();
-  const { apiKey, canMakeRequest, incrementUsage } = useApiConfigStore();
-  // Derive isConfigured from the actual key — never trust the persisted boolean flag
-  const isConfigured = apiKey.length > 0;
+  const { canMakeRequest, incrementUsage } = useApiConfigStore();
+  // Proxy is always available (API keys are server-side)
+  const isConfigured = true;
   const queryClient = useQueryClient();
 
   const handleFileSelect = (files: FileList | null) => {
@@ -68,7 +68,6 @@ export function UploadPanel() {
           file,
           job.category,
           {
-            apiKey,
             model: firstPassModel,
             lenses: ['commercial'],
             analysisVersion: analysisEngine,
@@ -102,7 +101,7 @@ export function UploadPanel() {
             const opusResult = await analyzeScreenplay(
               file,
               job.category,
-              { apiKey, model: 'opus', lenses: ['commercial'] },
+              { model: 'opus', lenses: ['commercial'] },
               (progress) => {
                 updateJob(job.id, { status: 'promoting', progress: progress.percent });
               },
@@ -155,7 +154,7 @@ export function UploadPanel() {
     }
 
     setProcessing(false);
-  }, [isProcessing, setProcessing, getFile, updateJob, apiKey, selectedModel, analysisEngine, incrementUsage, queryClient]);
+  }, [isProcessing, setProcessing, getFile, updateJob, selectedModel, analysisEngine, incrementUsage, queryClient]);
 
   // Retry a failed job: reset to pending and re-trigger processing
   const retryJob = useCallback((jobId: string) => {

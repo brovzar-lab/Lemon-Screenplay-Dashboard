@@ -17,17 +17,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.analyzeScreenplay = void 0;
 const https_1 = require("firebase-functions/v2/https");
+const params_1 = require("firebase-functions/params");
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const firestore_1 = require("firebase-admin/firestore");
 const app_1 = require("firebase-admin/app");
 const prompts_1 = require("./prompts");
+const anthropicApiKey = (0, params_1.defineString)('ANTHROPIC_API_KEY');
 // Init Firebase Admin once
 if (!(0, app_1.getApps)().length)
     (0, app_1.initializeApp)();
 const CLAUDE_MODELS = {
-    sonnet: 'claude-sonnet-4-5-20250929',
+    sonnet: 'claude-sonnet-4-6',
     haiku: 'claude-haiku-4-5-20251001',
-    opus: 'claude-3-opus-20240229',
+    opus: 'claude-opus-4-7',
 };
 // ≈37.5K tokens — leaves headroom for template (~10K), lenses, and 16K output budget
 const MAX_TEXT_LENGTH = 150_000;
@@ -45,14 +47,7 @@ function sanitizeTitle(raw) {
         .replace(/\s+/g, ' ')
         .trim();
 }
-/**
- * Validate that an Anthropic API key looks structurally correct (Fix H1 partial).
- * Does NOT call the Anthropic API — just checks the format so clearly wrong keys
- * fail fast without consuming a Cloud Function invocation.
- */
-function isValidAnthropicKeyFormat(key) {
-    return /^sk-ant-[a-zA-Z0-9\-_]{20,}$/.test(key);
-}
+// isValidAnthropicKeyFormat removed — API key is now server-side via LiteLLM
 /**
  * Server-side rate gate (Fix H3 partial).
  * Tracks total calls per UTC day in Firestore.
@@ -85,13 +80,6 @@ exports.analyzeScreenplay = (0, https_1.onCall)({
     if (!data.text || typeof data.text !== 'string') {
         throw new https_1.HttpsError('invalid-argument', 'Missing or invalid screenplay text');
     }
-    if (!data.apiKey || typeof data.apiKey !== 'string') {
-        throw new https_1.HttpsError('invalid-argument', 'Missing API key');
-    }
-    // Fix M1: validate key format before forwarding to Anthropic
-    if (!isValidAnthropicKeyFormat(data.apiKey)) {
-        throw new https_1.HttpsError('invalid-argument', 'API key format is invalid');
-    }
     if (!data.metadata?.title) {
         throw new https_1.HttpsError('invalid-argument', 'Missing metadata.title');
     }
@@ -115,17 +103,15 @@ exports.analyzeScreenplay = (0, https_1.onCall)({
     const model = CLAUDE_MODELS[modelKey] || CLAUDE_MODELS.sonnet;
     // Build prompt using sanitized title
     const prompt = (0, prompts_1.buildV6Prompt)(text, { title: safeTitle, pageCount, wordCount }, lenses);
-    // ── Call Anthropic ────────────────────────────────────────────────────────
-    const client = new sdk_1.default({ apiKey: data.apiKey });
+    // ── Call Anthropic API ───────────────────────────────────────────────────
+    const client = new sdk_1.default({ apiKey: anthropicApiKey.value() });
     try {
         const message = await client.messages.create({
             model,
             max_tokens: 16000,
             messages: [{ role: 'user', content: prompt }],
         });
-        const responseText = message.content[0].type === 'text'
-            ? message.content[0].text
-            : '';
+        const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
         // Parse JSON from response
         let analysis;
         try {
@@ -137,7 +123,7 @@ exports.analyzeScreenplay = (0, https_1.onCall)({
                 analysis = JSON.parse(jsonMatch[0]);
             }
             else {
-                throw new https_1.HttpsError('internal', 'Failed to parse analysis JSON from Claude response');
+                throw new https_1.HttpsError('internal', 'Failed to parse analysis JSON from response');
             }
         }
         return {
@@ -161,12 +147,6 @@ exports.analyzeScreenplay = (0, https_1.onCall)({
         if (error instanceof https_1.HttpsError)
             throw error;
         const err = error;
-        if (err.status === 401) {
-            throw new https_1.HttpsError('unauthenticated', 'Invalid Anthropic API key');
-        }
-        if (err.status === 429) {
-            throw new https_1.HttpsError('resource-exhausted', 'Anthropic rate limit exceeded. Please wait and try again.');
-        }
         throw new https_1.HttpsError('internal', `Analysis failed: ${err.message || 'Unknown error'}`);
     }
 });

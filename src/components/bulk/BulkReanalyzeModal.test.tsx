@@ -12,7 +12,7 @@ vi.mock('@/stores/exportSelectionStore', () => ({
   useExportSelectionStore: { getState: () => ({ deselectAll: mockDeselectAll }) },
 }));
 vi.mock('@/stores/apiConfigStore', () => ({
-  useApiConfigStore: { getState: () => ({ apiKey: 'test-key' }) },
+  useApiConfigStore: { getState: () => ({}) },
 }));
 
 // QueryClient mock

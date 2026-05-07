@@ -1,7 +1,6 @@
 /**
  * Settings Page
  * Tabbed interface for all application settings
- * Consolidated from 8 → 6 tabs. Upload & Calibration are password-gated.
  */
 
 import { useState } from 'react';
@@ -15,10 +14,9 @@ import { CategoryManagement } from '@/components/settings/CategoryManagement';
 import { ModelComparisonPanel } from '@/components/settings/ModelComparisonPanel';
 import { CalibrationPanel } from '@/components/settings/CalibrationPanel';
 import { PdfUploadPanel } from '@/components/settings/PdfUploadPanel';
-import { SettingsPasswordGate } from '@/components/settings/SettingsPasswordGate';
 import { SharedLinksPanel } from '@/components/settings/SharedLinksPanel';
 
-type Tab = 'appearance' | 'upload' | 'favorites' | 'data' | 'calibration' | 'pdf';
+type Tab = 'appearance' | 'upload' | 'favorites' | 'data' | 'calibration' | 'pdf' | 'compare';
 
 interface TabConfig {
   id: Tab;
@@ -40,7 +38,6 @@ const TABS: TabConfig[] = [
   {
     id: 'upload',
     label: 'Upload',
-    locked: true,
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -68,7 +65,6 @@ const TABS: TabConfig[] = [
   {
     id: 'calibration',
     label: 'Calibration',
-    locked: true,
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -84,12 +80,19 @@ const TABS: TabConfig[] = [
       </svg>
     ),
   },
+  {
+    id: 'compare',
+    label: 'Compare',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
 ];
 
-/** Data tab content — includes exports AND model comparison as a sub-section */
+/** Data tab content — exports + shared links */
 function DataTab() {
-  const [showCompare, setShowCompare] = useState(false);
-
   return (
     <div className="space-y-8">
       <DataManagement />
@@ -103,32 +106,6 @@ function DataTab() {
           <span className="font-display text-gold-200 text-lg">Shared Links</span>
         </div>
         <SharedLinksPanel />
-      </div>
-
-      {/* Model Comparison — collapsible sub-section */}
-      <div className="border-t border-gold-500/10 pt-6">
-        <button
-          onClick={() => setShowCompare((v) => !v)}
-          className="flex items-center gap-3 w-full text-left group"
-        >
-          <svg className="w-5 h-5 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          <span className="font-display text-gold-200 text-lg">Model Comparison</span>
-          <svg
-            className={clsx('w-4 h-4 text-black-400 ml-auto transition-transform', showCompare && 'rotate-180')}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        <p className="text-sm text-black-500 mt-1 ml-8">Compare analysis results across different AI models</p>
-
-        {showCompare && (
-          <div className="mt-6">
-            <ModelComparisonPanel />
-          </div>
-        )}
       </div>
     </div>
   );
@@ -162,23 +139,17 @@ export function SettingsPage() {
       case 'appearance':
         return <AppearanceSettings />;
       case 'upload':
-        return (
-          <SettingsPasswordGate label="Upload" key="upload-gate">
-            <UploadTab />
-          </SettingsPasswordGate>
-        );
+        return <UploadTab />;
       case 'favorites':
         return <FavoritesPanel />;
       case 'data':
         return <DataTab />;
       case 'calibration':
-        return (
-          <SettingsPasswordGate label="Calibration" key="calibration-gate">
-            <CalibrationPanel />
-          </SettingsPasswordGate>
-        );
+        return <CalibrationPanel />;
       case 'pdf':
         return <PdfUploadPanel />;
+      case 'compare':
+        return <ModelComparisonPanel />;
       default:
         return null;
     }
@@ -224,11 +195,6 @@ export function SettingsPage() {
                 >
                   {tab.icon}
                   <span className="font-medium flex-1">{tab.label}</span>
-                  {tab.locked && (
-                    <svg className="w-3.5 h-3.5 text-black-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  )}
                 </button>
               ))}
             </nav>

@@ -19,13 +19,13 @@ import {
 import type { LensName } from './promptClient';
 import type { ParsedPDF } from './pdfParser';
 import { useToastStore } from '@/stores/toastStore';
+import { callLLM } from './proxyClient';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type V7AnalysisMode = 'full' | 'triage';
 
 export interface V7AnalysisOptions {
-  apiKey: string;
   mode: V7AnalysisMode;
   model?: 'sonnet' | 'opus';
   lenses?: LensName[];
@@ -72,9 +72,9 @@ export interface V7TriageResult {
 // ─── Model IDs ───────────────────────────────────────────────────────────────
 
 const CLAUDE_MODELS: Record<string, string> = {
-  sonnet: 'claude-sonnet-4-5-20250929',
+  sonnet: 'claude-sonnet-4-6',
   haiku: 'claude-haiku-4-5-20251001',
-  opus: 'claude-opus-4-6',
+  opus: 'claude-opus-4-7',
 };
 
 // ─── Anthropic API Call (with retry for network errors) ──────────────────────
@@ -83,67 +83,42 @@ async function callClaude(
   systemPrompt: string,
   userPrompt: string,
   model: string,
-  apiKey: string,
   maxTokens: number = 8000,
   retries: number = 3,
 ): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
   const modelId = CLAUDE_MODELS[model] || CLAUDE_MODELS.sonnet;
-  const apiBase = import.meta.env.DEV ? '/api/anthropic' : 'https://api.anthropic.com';
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const response = await fetch(`${apiBase}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: modelId,
-          max_tokens: maxTokens,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }],
-        }),
+      const result = await callLLM({
+        model: modelId,
+        prompt: userPrompt,
+        systemPrompt,
+        maxTokens,
       });
 
-      if (!response.ok) {
-        const body = await response.text();
-        if (response.status === 429) {
-          throw new Error(`Rate limited — please wait a moment and retry. (${body.slice(0, 120)})`);
-        }
-        if (response.status === 400) {
-          throw new Error(`Script too long for this reader. (${body.slice(0, 120)})`);
-        }
-        // 529 = overloaded, 500/502/503 = server errors — retry
-        if (response.status >= 500 && attempt < retries) {
-          const wait = attempt * 3;
-          console.warn(`[V7] Server error (${response.status}), retrying in ${wait}s...`);
-          await new Promise((r) => setTimeout(r, wait * 1000));
-          continue;
-        }
-        throw new Error(`Anthropic API error (${response.status}): ${body}`);
-      }
-
-      const message = await response.json();
-      const text = message.content?.[0]?.text ?? '';
-      const usage = message.usage ?? { input_tokens: 0, output_tokens: 0 };
-
-      return { text, usage };
+      return {
+        text: result.text,
+        usage: result.usage ?? { input_tokens: 0, output_tokens: 0 },
+      };
     } catch (err: unknown) {
-      const isNetworkError =
+      // Detect server/network errors that are worth retrying
+      const isRetryable =
         err instanceof TypeError ||
         (err instanceof Error && (
           err.message.includes('fetch failed') ||
           err.message.includes('ETIMEDOUT') ||
           err.message.includes('ECONNRESET') ||
-          err.message.includes('network')
+          err.message.includes('network') ||
+          err.message.includes('500') ||
+          err.message.includes('502') ||
+          err.message.includes('503') ||
+          err.message.includes('529')
         ));
 
-      if (isNetworkError && attempt < retries) {
+      if (isRetryable && attempt < retries) {
         const wait = attempt * 5;
-        console.warn(`[V7] Network error, retrying in ${wait}s (attempt ${attempt}/${retries})...`);
+        console.warn(`[V7] Error, retrying in ${wait}s (attempt ${attempt}/${retries})...`);
         await new Promise((r) => setTimeout(r, wait * 1000));
         continue;
       }
@@ -209,7 +184,6 @@ function parseClaudeJSON(text: string): Record<string, unknown> {
  */
 export async function runTriage(
   parsed: ParsedPDF,
-  apiKey: string,
 ): Promise<V7TriageResult> {
   const prompt = buildTriagePrompt(parsed.text, {
     title: parsed.title,
@@ -221,7 +195,6 @@ export async function runTriage(
     'You are a fast script reader doing a quick assessment.',
     prompt,
     'haiku',
-    apiKey,
     2000,
   );
 
@@ -289,7 +262,6 @@ export async function runMultiReaderAnalysis(
       systemPrompt,
       rp.userPrompt,
       model,
-      options.apiKey,
       8000,
     );
 
@@ -368,7 +340,6 @@ export async function runMultiReaderAnalysis(
     synthesisInput.systemPrompt,
     synthesisInput.userPrompt,
     model,
-    options.apiKey,
     12000,
   );
 
@@ -431,7 +402,7 @@ export async function analyzeV7(
   onProgress?: (p: V7AnalysisProgress) => void,
 ): Promise<V7AnalysisResult | V7TriageResult> {
   if (options.mode === 'triage') {
-    return runTriage(parsed, options.apiKey);
+    return runTriage(parsed);
   }
 
   return runMultiReaderAnalysis(parsed, options, onProgress);

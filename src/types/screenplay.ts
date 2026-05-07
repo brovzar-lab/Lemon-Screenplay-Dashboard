@@ -237,6 +237,7 @@ export interface ComparableFilm {
   title: string;
   similarity: string;
   boxOfficeRelevance: BoxOfficeRelevance;
+  keyDivergence?: string;
 }
 
 export interface TargetAudience {

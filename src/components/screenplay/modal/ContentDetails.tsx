@@ -85,6 +85,9 @@ function ComparableFilmsSection({ films }: { films: Screenplay['comparableFilms'
                             </span>
                         </div>
                         <p className="text-xs text-black-500">{film.similarity}</p>
+                        {film.keyDivergence && (
+                            <p className="text-xs text-black-500 italic mt-1">Key Divergence: {film.keyDivergence}</p>
+                        )}
                     </div>
                 ))}
             </div>

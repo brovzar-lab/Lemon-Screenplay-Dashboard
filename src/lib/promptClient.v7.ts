@@ -200,6 +200,9 @@ SUPPORTING CAST:
 10. supporting_cast_function — Classify each: Messenger/Helper, Complication/Red Herring, or Reflection/Cautionary Tale. Are there Reflection characters?
 11. star_role_potential — Would a name actor want this part?
 
+THEMATIC PARALLELS:
+Identify characters who face the same thematic pressure (e.g. economic displacement, loss, injustice) but respond differently. These parallels reveal the screenplay's thematic argument. Name the shared pressure and how each character's response creates meaning.
+
 STORY VS. SITUATION (Lyons 5-Point Test):
 Score each Yes (1) or No (0):
 A. Reveals something about human condition?
@@ -219,7 +222,7 @@ Return ONLY this JSON:
     "arc_delivery": { "score": 0, "justification": "", "arc_type": "positive|negative_fall|negative_corruption|negative_disillusionment|flat|absent" },
     "moral_blind_spot": { "score": 0, "justification": "", "identified_blind_spot": "" },
     "immoral_effect": { "score": 0, "justification": "", "page_citations": [] },
-    "active_vs_passive": { "score": 0, "justification": "", "verdict": "active|passive" },
+    "active_vs_passive": { "score": 0, "justification": "", "verdict": "active|passive", "agency_shifts": [{ "scene_or_page": 0, "event": "", "agency_level": "passive|reactive|active" }] },
     "opponent_design": { "score": 0, "justification": "" },
     "enneagram_consistency": { "score": 0, "justification": "", "likely_type": "", "confidence": "high|medium|low" },
     "supporting_cast_function": { "score": 0, "justification": "", "reflection_characters_count": 0 },
@@ -234,6 +237,9 @@ Return ONLY this JSON:
     "total": 5,
     "verdict": "story|borderline|situation"
   },
+  "thematic_parallels": [
+    { "characters": [], "shared_pressure": "", "different_responses": "", "thematic_meaning": "" }
+  ],
   "red_flags": [],
   "one_sentence_verdict": ""
 }
@@ -277,6 +283,7 @@ PURE CRAFT:
 7. dialogue_subtext — Saying one thing, meaning another?
 8. visual_storytelling — Show don't tell? Emotions delivered through action/image?
 9. format_professionalism — Industry-standard formatting, clean action lines?
+10. exposition_handling — When exposition is delivered, is it dramatized through conflict, broken across scenes, or dumped in monologue? Flag violations with context.
 
 BMOC FAILURE MODE SCAN (on 5 sampled scenes):
 1. Mushy beat question
@@ -303,7 +310,8 @@ Return ONLY this JSON:
     "dialogue_voice_distinction": { "score": 0, "justification": "" },
     "dialogue_subtext": { "score": 0, "justification": "" },
     "visual_storytelling": { "score": 0, "justification": "" },
-    "format_professionalism": { "score": 0, "justification": "" }
+    "format_professionalism": { "score": 0, "justification": "" },
+    "exposition_handling": { "score": 0, "justification": "" }
   },
   "bmoc_failure_scan": {
     "scenes_sampled": 5,
@@ -328,6 +336,9 @@ Return ONLY this JSON:
     { "location": "Act 2 late", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
     { "location": "Act 3", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
     { "location": "Climax", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" }
+  ],
+  "exposition_violations": [
+    { "page": 0, "type": "dump|tell_dont_show|monologue", "dramatic_context": "", "severity": "high|medium|low", "rewrite_direction": "" }
   ],
   "red_flags": [],
   "one_sentence_verdict": ""
@@ -474,6 +485,18 @@ GATES:
 1. Story vs. Situation: If Character Reader's story_vs_situation verdict is "situation" → cap at CONSIDER
 2. False Positive Traps: If weighted_trap_score >= 2.0 → downgrade one tier; >= 3.0 → cap at CONSIDER
 
+CRITICAL OUTPUT RULES:
+- AUTHOR: Extract writer name(s) from the screenplay's title page. If not found, set to "Not found on title page" — NEVER use "Unknown".
+- STRENGTHS: Minimum 4 specific, evidence-based strengths. Even on a PASS verdict, identify what the writer did well. An empty strengths section is NEVER acceptable.
+- WEAKNESSES vs CRITICAL FAILURES: Weaknesses = all notable issues from reader reports. Critical Failures = STRICT SUBSET of weaknesses that would block a greenlight if unaddressed. Each critical failure must explain WHY it is structural (not just fixable in a polish pass). Fewer critical failures than weaknesses is the norm.
+- THEMES: Minimum 2, derived from concept reader's controlling_idea and thematic_resonance sub-scores.
+- TONE: One-phrase tone descriptor derived from craft reader's dialogue_voice + emotion reader's emotional_clarity.
+- LOGLINE: Must encode the protagonist's flaw/wound, the external situation forcing confrontation, and the transformation at stake. A plot-only logline is insufficient.
+- COMPARABLE FILMS: For each comp, specify what structural/tonal element makes it useful AND what key difference separates it from this screenplay. "Mixed" as a standalone label is not acceptable.
+- STANDOUT SCENES: Each must include what character arc or thematic argument the scene serves, not just why it's viscerally effective.
+- DELIBERATE AMBIGUITIES: Flag open endings, unresolved mysteries, or sequel hooks. These affect structural reading, commercial scoring, and franchise potential.
+- COMMERCIAL VIABILITY: Each factor MUST have a non-empty note. If you cannot assess a factor, set note to "Requires human input: [reason]". Zeroes with blank notes are NEVER acceptable.
+
 EXECUTIVE SUMMARY: One paragraph (4-6 sentences). What it is, why it earned this verdict, should you go forward. NO development notes, NO prescriptions.`;
 
   let userPrompt = `SCREENPLAY: "${input.title}"
@@ -503,7 +526,7 @@ SYNTHESIS INSTRUCTIONS:
   // Add lens instructions if requested
   if (input.lenses.length > 0) {
     userPrompt += `\n\nAlso evaluate these optional LENSES and include in the output:\n`;
-    if (input.lenses.includes('commercial')) userPrompt += `- COMMERCIAL VIABILITY: target_audience, high_concept, cast_attachability, marketing_hook, budget_return_ratio, comparable_success (each 1-3)\n`;
+    if (input.lenses.includes('commercial')) userPrompt += `- COMMERCIAL VIABILITY: target_audience, high_concept, cast_attachability, marketing_hook, budget_return_ratio, comparable_success (each 1-3 with REQUIRED non-empty note). Zero scores with blank notes are NEVER acceptable. If unable to assess, set note to "Requires human input: [reason]".\n`;
     if (input.lenses.includes('latam')) userPrompt += `- LATAM MARKET FIT: cultural_resonance, regional_casting, theatrical_appeal, marketing_viability, coproduction_potential (each 1-10)\n`;
     if (input.lenses.includes('production')) userPrompt += `- PRODUCTION READINESS: script_polish, character_casting, production_feasibility, risk_profile (each 0-100)\n`;
     if (input.lenses.includes('coproduction')) userPrompt += `- CO-PRODUCTION: mexico_us, mexico_spain, other_territories (each 1-10)\n`;
@@ -517,6 +540,8 @@ Return ONLY this JSON:
   "author": "",
   "genre": "",
   "subgenres": [],
+  "themes": [],
+  "tone": "",
   "logline": "",
   "analysis_version": "v7_archaeology",
   "pillar_scores": {
@@ -543,21 +568,38 @@ Return ONLY this JSON:
     "weighted_trap_score": 0.0,
     "verdict_adjustment": "none|downgrade_one|cap_consider"
   },
+  "strengths": [],
+  "weaknesses": [],
+  "critical_failures": [
+    { "failure": "", "why_structural": "" }
+  ],
+  "development_notes": [],
   "verdict": "PASS",
   "verdict_before_adjustments": "PASS",
   "executive_summary": "",
   "comparable_films": {
-    "tone": { "title": "", "similarity": "" },
-    "structure": { "title": "", "similarity": "" },
-    "market": { "title": "", "similarity": "" }
+    "tone": { "title": "", "structural_match": "", "key_divergence": "" },
+    "structure": { "title": "", "structural_match": "", "key_divergence": "" },
+    "market": { "title": "", "structural_match": "", "key_divergence": "" }
   },
   "reader_disagreements": [],
-  "goosebumps_moments": [],
+  "goosebumps_moments": [
+    { "page": 0, "description": "", "why_it_works": "", "arc_connection": "", "thematic_work": "" }
+  ],
+  "deliberate_ambiguities": [
+    { "description": "", "structural_impact": "", "franchise_potential": "" }
+  ],
   "characters": { "protagonist": "", "protagonist_lie": "", "protagonist_arc_type": "", "protagonist_enneagram_type": "", "antagonist": "", "supporting": [] },
   "red_flags": [],
   "lenses": {}
 }
 
+IMPORTANT:
+- strengths MUST have minimum 4 items. Empty strengths array is NEVER acceptable.
+- critical_failures must be a STRICT SUBSET of weaknesses. Each must include why_structural.
+- themes MUST have minimum 2 items.
+- tone MUST be non-empty.
+- author MUST NOT be "Unknown" — extract from title page or set "Not found on title page".
 Return ONLY valid JSON.`;
 
   return { systemPrompt, userPrompt };

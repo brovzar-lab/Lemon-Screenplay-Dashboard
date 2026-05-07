@@ -82,13 +82,6 @@ export default defineConfig({
       // Previously `['..']` allowed the full parent directory to be served.
       allow: [path.resolve(__dirname, '../.tmp'), __dirname],
     },
-    proxy: {
-      // Proxy Anthropic API calls in development to avoid CORS
-      '/api/anthropic': {
-        target: 'https://api.anthropic.com',
-        changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api\/anthropic/, ''),
-      },
-    },
+    // Anthropic API proxy removed — all LLM calls now route through Firebase Cloud Function → LiteLLM
   },
 })

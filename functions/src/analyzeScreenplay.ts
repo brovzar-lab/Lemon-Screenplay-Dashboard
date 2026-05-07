@@ -12,18 +12,21 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { defineString } from 'firebase-functions/params';
 import Anthropic from '@anthropic-ai/sdk';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { buildV6Prompt, type LensName } from './prompts';
 
+const anthropicApiKey = defineString('ANTHROPIC_API_KEY');
+
 // Init Firebase Admin once
 if (!getApps().length) initializeApp();
 
 const CLAUDE_MODELS: Record<string, string> = {
-  sonnet: 'claude-sonnet-4-5-20250929',
+  sonnet: 'claude-sonnet-4-6',
   haiku: 'claude-haiku-4-5-20251001',
-  opus: 'claude-3-opus-20240229',
+  opus: 'claude-opus-4-7',
 };
 
 // ≈37.5K tokens — leaves headroom for template (~10K), lenses, and 16K output budget
@@ -40,7 +43,6 @@ interface AnalyzeRequest {
     wordCount: number;
   };
   lenses: LensName[];
-  apiKey: string;
   model?: string; // 'sonnet' | 'haiku' | 'opus'
 }
 
@@ -57,14 +59,7 @@ function sanitizeTitle(raw: string): string {
     .trim();
 }
 
-/**
- * Validate that an Anthropic API key looks structurally correct (Fix H1 partial).
- * Does NOT call the Anthropic API — just checks the format so clearly wrong keys
- * fail fast without consuming a Cloud Function invocation.
- */
-function isValidAnthropicKeyFormat(key: string): boolean {
-  return /^sk-ant-[a-zA-Z0-9\-_]{20,}$/.test(key);
-}
+// isValidAnthropicKeyFormat removed — API key is now server-side via LiteLLM
 
 /**
  * Server-side rate gate (Fix H3 partial).
@@ -110,13 +105,6 @@ export const analyzeScreenplay = onCall(
     if (!data.text || typeof data.text !== 'string') {
       throw new HttpsError('invalid-argument', 'Missing or invalid screenplay text');
     }
-    if (!data.apiKey || typeof data.apiKey !== 'string') {
-      throw new HttpsError('invalid-argument', 'Missing API key');
-    }
-    // Fix M1: validate key format before forwarding to Anthropic
-    if (!isValidAnthropicKeyFormat(data.apiKey)) {
-      throw new HttpsError('invalid-argument', 'API key format is invalid');
-    }
     if (!data.metadata?.title) {
       throw new HttpsError('invalid-argument', 'Missing metadata.title');
     }
@@ -150,9 +138,9 @@ export const analyzeScreenplay = onCall(
     // Build prompt using sanitized title
     const prompt = buildV6Prompt(text, { title: safeTitle, pageCount, wordCount }, lenses);
 
-    // ── Call Anthropic ────────────────────────────────────────────────────────
+    // ── Call Anthropic API ───────────────────────────────────────────────────
 
-    const client = new Anthropic({ apiKey: data.apiKey });
+    const client = new Anthropic({ apiKey: anthropicApiKey.value() });
 
     try {
       const message = await client.messages.create({
@@ -161,9 +149,7 @@ export const analyzeScreenplay = onCall(
         messages: [{ role: 'user', content: prompt }],
       });
 
-      const responseText = message.content[0].type === 'text'
-        ? message.content[0].text
-        : '';
+      const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
 
       // Parse JSON from response
       let analysis: Record<string, unknown>;
@@ -174,7 +160,7 @@ export const analyzeScreenplay = onCall(
         if (jsonMatch) {
           analysis = JSON.parse(jsonMatch[0]);
         } else {
-          throw new HttpsError('internal', 'Failed to parse analysis JSON from Claude response');
+          throw new HttpsError('internal', 'Failed to parse analysis JSON from response');
         }
       }
 
@@ -197,13 +183,7 @@ export const analyzeScreenplay = onCall(
     } catch (error: unknown) {
       if (error instanceof HttpsError) throw error;
 
-      const err = error as { status?: number; message?: string };
-      if (err.status === 401) {
-        throw new HttpsError('unauthenticated', 'Invalid Anthropic API key');
-      }
-      if (err.status === 429) {
-        throw new HttpsError('resource-exhausted', 'Anthropic rate limit exceeded. Please wait and try again.');
-      }
+      const err = error as { message?: string };
       throw new HttpsError('internal', `Analysis failed: ${err.message || 'Unknown error'}`);
     }
   },
