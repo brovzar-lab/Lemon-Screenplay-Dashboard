@@ -56,7 +56,7 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
     const dropdownRef = useRef<HTMLDivElement>(null);
     const queryClient = useQueryClient();
 
-    const { apiKey, isConfigured, canMakeRequest, checkAndResetIfNeeded } = useApiConfigStore();
+    const { canMakeRequest, checkAndResetIfNeeded } = useApiConfigStore();
 
     // Detect current analysis engine from screenplay
     const currentVersionLabel = getAnalysisVersionLabel(screenplay);
@@ -95,7 +95,6 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
             await reanalyzeFromStorage(
                 screenplay,
                 model,
-                apiKey,
                 (p) => setProgress(p),
                 { analysisVersion, v7Mode },
             );
@@ -113,19 +112,6 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
             setIsAnalyzing(false);
         }
     };
-
-    // Not configured — show disabled button with tooltip
-    if (!isConfigured) {
-        return (
-            <button
-                disabled
-                className="btn text-xs flex items-center gap-1.5 py-1.5 px-3 opacity-50 cursor-not-allowed"
-                title="Configure API key in Settings to enable re-analysis"
-            >
-                🔄 Re-analyze
-            </button>
-        );
-    }
 
     // Analyzing — show spinner + status
     if (isAnalyzing) {

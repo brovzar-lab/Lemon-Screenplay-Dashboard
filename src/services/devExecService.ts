@@ -2,13 +2,14 @@
  * Development Executive AI Service
  *
  * Powers the Dev Exec chat panel with Gemini Flash.
- * Uses direct REST API (no SDK required).
+ * Routes through LLM proxy — no API keys in the browser.
  *
  * The persona is Lemon Studios' Head of Development who knows
  * the entire screenplay slate and thinks strategically.
  */
 
 import type { Screenplay } from '@/types';
+import { callLLM } from '@/lib/proxyClient';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -209,16 +210,13 @@ export async function sendDevExecMessage(
     userMessage: string,
     screenplays: Screenplay[],
     conversationHistory: ChatMessage[],
-    apiKey: string,
 ): Promise<string> {
     if (!userMessage.trim()) throw new Error('Message cannot be empty.');
-    if (!apiKey) throw new Error('Google API key not configured. Go to Settings → API Configuration.');
 
     const systemPrompt = generateSystemPrompt(screenplays);
 
     // Build conversation with history
     const parts: string[] = [];
-    parts.push(`SYSTEM CONTEXT:\n${systemPrompt}\n\n`);
 
     if (conversationHistory.length > 0) {
         const recent = conversationHistory.slice(-10);
@@ -235,32 +233,16 @@ export async function sendDevExecMessage(
 
     const fullPrompt = parts.join('\n\n');
 
-    // Call Gemini Flash via REST API
-    const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: fullPrompt }] }],
-                generationConfig: {
-                    maxOutputTokens: 2048,
-                    temperature: 0.8,
-                },
-            }),
-        }
-    );
+    // Call via LLM proxy (no API key needed — proxy handles auth)
+    const result = await callLLM({
+        model: 'gemini-2.5-flash',
+        prompt: fullPrompt,
+        systemPrompt,
+        temperature: 0.8,
+        maxTokens: 2048,
+    });
 
-    if (!response.ok) {
-        const body = await response.text();
-        if (response.status === 400 && body.includes('API_KEY')) {
-            throw new Error('Invalid Google API key. Check Settings → API Configuration.');
-        }
-        throw new Error(`Gemini API error (${response.status}): ${body.substring(0, 200)}`);
-    }
-
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = result.text;
 
     if (!text || text.trim().length === 0) {
         return 'Something went wrong — try rephrasing your question.';

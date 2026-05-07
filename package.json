@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:full": "bash dev-full.sh",
+    "deploy:functions": "cd functions && npm run build && npx firebase deploy --only functions",
     "prebuild": "rm -rf dist/assets",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

@@ -42,6 +42,10 @@
         "function": "analyzeScreenplay"
       },
       {
+        "source": "/api/llm",
+        "function": "llmProxy"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

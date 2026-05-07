@@ -13,7 +13,6 @@ import { useState, useCallback, useRef, useMemo } from 'react';
 import { clsx } from 'clsx';
 import { analyzeScreenplay } from '@/lib/analysisService';
 import type { AnalysisProgress } from '@/lib/analysisService';
-import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 
@@ -143,7 +142,7 @@ function slotKey(engine: EngineId, model: ModelId): SlotKey {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function ModelComparisonPanel() {
-  const apiKey = useApiConfigStore((s) => s.apiKey);
+  // API keys are now server-side — no need to read from store
   const { data: screenplays } = useScreenplays();
 
   // Source mode
@@ -264,7 +263,7 @@ export function ModelComparisonPanel() {
   // ─── Run fresh comparison ────────────────────────────────────────────────
 
   const runComparison = useCallback(async () => {
-    if (!file || !apiKey || isRunning) return;
+    if (!file || isRunning) return;
     if (selectedEngines.size === 0 || selectedModels.size === 0) return;
     setIsRunning(true);
 
@@ -290,7 +289,6 @@ export function ModelComparisonPanel() {
               file,
               'Comparison Lab',
               {
-                apiKey,
                 model,
                 lenses: ['commercial'],
                 analysisVersion: engine,
@@ -337,7 +335,7 @@ export function ModelComparisonPanel() {
 
     await Promise.allSettled(promises);
     setIsRunning(false);
-  }, [file, apiKey, isRunning, selectedEngines, selectedModels]);
+  }, [file, isRunning, selectedEngines, selectedModels]);
 
   // ─── Compute active slots ────────────────────────────────────────────────
 
@@ -429,13 +427,6 @@ export function ModelComparisonPanel() {
       {/* ─── Upload Source ─────────────────────────────────────────────── */}
       {sourceMode === 'upload' && (
         <>
-          {/* API Key Warning */}
-          {!apiKey && (
-            <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm">
-              ⚠️ Configure your Anthropic API key in the <strong>Upload</strong> tab first.
-            </div>
-          )}
-
           {/* Drop Zone */}
           <div
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -640,7 +631,7 @@ export function ModelComparisonPanel() {
       )}
 
       {/* ─── Slot Summary + Run Button ────────────────────────────────── */}
-      {sourceMode === 'upload' && file && apiKey && (
+      {sourceMode === 'upload' && file && (
         <div className="space-y-3">
           {activeSlots.length > 0 && (
             <p className="text-xs text-black-500 text-center">
