@@ -2,55 +2,15 @@ import type { Screenplay, Collection } from '@/types';
 import type { V6ScreenplayAnalysis } from '@/types/screenplay-v6';
 import type { ScreenplayWithV6 } from './normalize';
 import { isV6RawAnalysis, normalizeV6Screenplay, isV7RawAnalysis, normalizeV7Screenplay } from './normalize';
-import { loadAllAnalyses, quarantineAnalysis, isMigrationComplete, migrateStaticToFirestore } from './analysisStore';
+import { loadAllAnalyses, quarantineAnalysis } from './analysisStore';
 
 /**
- * Load all screenplay data.
- *
- * POST-MIGRATION: Reads exclusively from Firestore/localStorage.
- * PRE-MIGRATION:  Falls back to static file fetching + triggers migration.
+ * Load all screenplay data from Firestore/localStorage.
+ * Migration is complete — reads exclusively from Firestore/localStorage.
  */
 export async function loadAllScreenplaysVite(): Promise<ScreenplayWithV6[]> {
   const screenplays: ScreenplayWithV6[] = [];
   const t0 = performance.now();
-
-  const migrated = isMigrationComplete();
-
-  // ── Pre-migration fallback: fetch static files ──────────────────
-  if (!migrated) {
-    let v6FileList: string[] = [];
-    try {
-      const res = await fetch('/data/analysis_v6/index.json');
-      if (res.ok) v6FileList = await res.json() as string[];
-    } catch { /* no V6 index */ }
-
-    console.log(`[Lemon] Found ${v6FileList.length} V6 analysis files (pre-migration)`);
-
-    const fetches = v6FileList.map(async (filename) => {
-      try {
-        const response = await fetch(`/data/analysis_v6/${filename}`);
-        if (!response.ok) return;
-        const raw = await response.json();
-        if (isV6RawAnalysis(raw)) {
-          const collectionFromJson = (raw as unknown as Record<string, unknown>).collection as Collection | undefined;
-          const collection: Collection = collectionFromJson || 'V6 Analysis';
-          const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
-          screenplays.push(screenplay);
-        }
-      } catch (error) {
-        console.warn(`[Lemon] Failed to load/normalize V6 ${filename}:`, error);
-      }
-    });
-
-    await Promise.all(fetches);
-
-    // Trigger migration in background (non-blocking)
-    setTimeout(() => {
-      migrateStaticToFirestore().catch((err) =>
-        console.warn('[Lemon] Background migration failed:', err)
-      );
-    }, 3000);
-  }
 
   // ── Load user-uploaded / migrated screenplays from Firestore ────
   try {
@@ -97,55 +57,6 @@ export async function loadAllScreenplaysVite(): Promise<ScreenplayWithV6[]> {
 
   console.log(`[Lemon] Successfully loaded ${deduplicated.length} unique screenplays in ${Math.round(performance.now() - t0)}ms`);
   return deduplicated;
-}
-
-
-/**
- * Load only V6 analysis files
- * Returns screenplays with V6-specific fields (core quality, lenses, false positive check)
- */
-export async function loadV6ScreenplaysOnly(): Promise<ScreenplayWithV6[]> {
-  const screenplays: ScreenplayWithV6[] = [];
-
-  try {
-    const indexResponse = await fetch('/data/analysis_v6/index.json');
-    if (!indexResponse.ok) {
-      console.warn('[Lemon] No V6 analysis index found');
-      return [];
-    }
-
-    const fileList: string[] = await indexResponse.json();
-    console.log(`[Lemon] Found ${fileList.length} V6 analysis files`);
-
-    for (const filename of fileList) {
-      try {
-        const response = await fetch(`/data/analysis_v6/${filename}`);
-        if (response.ok) {
-          const raw = await response.json();
-          if (isV6RawAnalysis(raw)) {
-            const collectionFromJson = (raw as unknown as Record<string, unknown>).collection as Collection | undefined;
-            const collection: Collection = collectionFromJson || 'V6 Analysis';
-            const screenplay = normalizeV6Screenplay(raw as V6ScreenplayAnalysis, collection);
-            screenplays.push(screenplay);
-          }
-        }
-      } catch (error) {
-        console.warn(`[Lemon] Failed to load V6 ${filename}:`, error);
-      }
-    }
-  } catch (error) {
-    console.error(`[Lemon] Failed to load V6 analysis:`, error);
-  }
-
-  return screenplays;
-}
-
-/**
- * Extract collection name from file path
- */
-export function getCollectionFromPath(path: string): Collection | null {
-  if (path.includes('analysis_v6')) return 'V6 Analysis';
-  return null;
 }
 
 /**

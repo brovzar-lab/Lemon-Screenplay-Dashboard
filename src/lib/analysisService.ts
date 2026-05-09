@@ -13,7 +13,6 @@
 import { parsePDF, type ParsedPDF } from './pdfParser';
 import { uploadScreenplayPdf } from './firebase';
 import { saveAnalysis } from './analysisStore';
-import { useToastStore } from '@/stores/toastStore';
 import type { Screenplay } from '@/types';
 import {
   runMultiReaderAnalysis,
@@ -21,7 +20,7 @@ import {
   type V7AnalysisOptions,
   type V7AnalysisProgress,
 } from './multiPassAnalysis';
-import { callLLM } from './proxyClient';
+import { loadCalibrationProfile } from './feedbackStore';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -53,15 +52,11 @@ export interface AnalysisResult {
   usage?: { input_tokens: number; output_tokens: number };
 }
 
-// ─── Model mapping ──────────────────────────────────────────────────────────
+// ─── Cloud Function URL ──────────────────────────────────────────────────────
 
-// Maps friendly model names to Anthropic model IDs for the proxy.
-
-const CLAUDE_MODELS: Record<string, string> = {
-  sonnet: 'claude-sonnet-4-6',
-  haiku: 'claude-haiku-4-5-20251001',
-  opus: 'claude-opus-4-7',
-};
+const ANALYZE_FUNCTION_URL = import.meta.env.DEV
+  ? 'http://127.0.0.1:5001/lemon-screenplay-dashboard/us-central1/analyzeScreenplay'
+  : '/api/analyze';
 
 // ─── Core public API ─────────────────────────────────────────────────────────
 
@@ -90,20 +85,13 @@ export async function analyzeScreenplay(
 
   // ── V6 Single-Pass Path (default) ──
   const lenses = options.lenses ?? ['commercial'];
-  const model = options.model ?? 'sonnet';
 
   let raw: Record<string, unknown>;
   let usage: { input_tokens: number; output_tokens: number } | undefined;
 
-  if (options.functionUrl) {
-    const result = await callCloudFunction(parsed, lenses, options);
-    raw = result.raw;
-    usage = result.usage;
-  } else {
-    const result = await callAnthropicDirect(parsed, lenses, model);
-    raw = result.raw;
-    usage = result.usage;
-  }
+  const result = await callCloudFunction(parsed, lenses, options);
+  raw = result.raw;
+  usage = result.usage;
 
   (raw as Record<string, unknown>).collection = category;
 
@@ -134,7 +122,6 @@ async function analyzeV7Path(
   // Load calibration profile
   let calibrationPrompt: string | undefined;
   try {
-    const { loadCalibrationProfile } = await import('./feedbackStore');
     const profile = await loadCalibrationProfile();
     if (profile?.enabled && profile.calibrationPrompt) {
       calibrationPrompt = profile.calibrationPrompt;
@@ -240,7 +227,7 @@ async function callCloudFunction(
   lenses: AnalysisLens[],
   options: AnalysisOptions,
 ): Promise<{ raw: Record<string, unknown>; usage?: { input_tokens: number; output_tokens: number } }> {
-  const response = await fetch(options.functionUrl!, {
+  const response = await fetch(options.functionUrl ?? ANALYZE_FUNCTION_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -265,102 +252,6 @@ async function callCloudFunction(
   const json = await response.json();
   const result = json.result ?? json;
   return { raw: result, usage: result.usage };
-}
-
-// ─── Direct LLM call via proxy (no API keys in the browser) ────────────────
-
-async function callAnthropicDirect(
-  parsed: ParsedPDF,
-  lenses: AnalysisLens[],
-  model: string,
-): Promise<{ raw: Record<string, unknown>; usage?: { input_tokens: number; output_tokens: number } }> {
-  // Dynamically import the prompt builder to avoid bundling the huge prompt
-  // string in the main chunk.
-  const { buildV6PromptClient } = await import('./promptClient');
-
-  // Load calibration profile if enabled (admin feedback loop)
-  let calibrationPrompt: string | undefined;
-  try {
-    const { loadCalibrationProfile } = await import('./feedbackStore');
-    const profile = await loadCalibrationProfile();
-    if (profile?.enabled && profile.calibrationPrompt) {
-      calibrationPrompt = profile.calibrationPrompt;
-    }
-  } catch {
-    // Calibration is optional — don't fail analysis if profile load fails
-  }
-
-  const prompt = buildV6PromptClient(parsed.text, {
-    title: parsed.title,
-    pageCount: parsed.pageCount,
-    wordCount: parsed.wordCount,
-  }, lenses, calibrationPrompt);
-
-  const modelId = CLAUDE_MODELS[model] || CLAUDE_MODELS.sonnet;
-
-  // Route through the proxy — no API keys, no CORS headers needed
-  const result = await callLLM({
-    model: modelId,
-    prompt,
-    maxTokens: 16000,
-  });
-
-  const responseText = result.text;
-
-  // Parse JSON from response — Claude sometimes adds commentary after the JSON
-  let analysis: Record<string, unknown>;
-  try {
-    analysis = JSON.parse(responseText);
-  } catch {
-    // Extract the first complete JSON object using brace counting
-    const startIdx = responseText.indexOf('{');
-    if (startIdx === -1) {
-      useToastStore.getState().addToast('Failed to parse analysis response — the AI may have returned an unexpected format');
-      throw new Error('Failed to parse analysis JSON from Claude response');
-    }
-    let depth = 0;
-    let endIdx = -1;
-    let inString = false;
-    let escape = false;
-    for (let i = startIdx; i < responseText.length; i++) {
-      const ch = responseText[i];
-      if (escape) { escape = false; continue; }
-      if (ch === '\\' && inString) { escape = true; continue; }
-      if (ch === '"') { inString = !inString; continue; }
-      if (inString) continue;
-      if (ch === '{') depth++;
-      else if (ch === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
-    }
-    if (endIdx === -1) {
-      useToastStore.getState().addToast('Failed to parse analysis response — the AI may have returned an unexpected format');
-      throw new Error('Failed to parse analysis JSON from Claude response');
-    }
-    try {
-      analysis = JSON.parse(responseText.slice(startIdx, endIdx + 1));
-    } catch {
-      useToastStore.getState().addToast('Failed to parse analysis response — the AI may have returned an unexpected format');
-      throw new Error('Failed to parse analysis JSON from Claude response');
-    }
-  }
-
-  // Wrap in standard V6 structure
-  const raw = {
-    source_file: parsed.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
-    analysis_model: `claude-${model}`,
-    analysis_version: 'v6_unified',
-    lenses_enabled: lenses,
-    metadata: {
-      filename: parsed.title + '.pdf',
-      page_count: parsed.pageCount,
-      word_count: parsed.wordCount,
-    },
-    analysis,
-  };
-
-  return {
-    raw,
-    usage: result.usage,
-  };
 }
 
 // ─── Poster Generation (Gemini 2.5 Flash Image) ─────────────────────────────

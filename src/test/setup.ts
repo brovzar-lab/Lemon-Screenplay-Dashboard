@@ -3,7 +3,37 @@
  * Global setup for Vitest tests
  */
 
+import { vi } from 'vitest';
 import '@testing-library/jest-dom';
+
+vi.mock('firebase/auth', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('firebase/auth')>();
+  return {
+    ...actual,
+    signInAnonymously: vi.fn().mockResolvedValue({
+      user: {
+        uid: 'test-user',
+        email: null,
+        emailVerified: false,
+        isAnonymous: true,
+        metadata: {},
+        providerData: [],
+        refreshToken: '',
+        tenantId: null,
+        delete: vi.fn(),
+        getIdToken: vi.fn().mockResolvedValue('mock-token'),
+        getIdTokenResult: vi.fn(),
+        reload: vi.fn(),
+        toJSON: vi.fn(),
+        displayName: null,
+        phoneNumber: null,
+        photoURL: null,
+        providerId: 'firebase',
+      },
+    }),
+    setPersistence: vi.fn().mockResolvedValue(undefined),
+  };
+});
 
 // Mock window.matchMedia for responsive tests
 Object.defineProperty(window, 'matchMedia', {

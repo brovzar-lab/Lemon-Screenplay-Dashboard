@@ -561,61 +561,6 @@ export async function softDeleteMultipleAnalyses(sourceFiles: string[]): Promise
 export const removeMultipleAnalyses = softDeleteMultipleAnalyses;
 
 /**
- * Check if static-to-Firestore migration is complete.
- */
-export function isMigrationComplete(): boolean {
-    try {
-        return localStorage.getItem(MIGRATION_KEY) === 'true';
-    } catch {
-        return false;
-    }
-}
-
-/**
- * One-time migration: copy static JSON files from /data/analysis_v6/ into Firestore.
- * Runs once, sets a localStorage flag, and is non-blocking.
- */
-export async function migrateStaticToFirestore(): Promise<void> {
-    if (isMigrationComplete()) return;
-
-    console.log('[Lemon] Starting one-time static → Firestore migration...');
-
-    try {
-        // Fetch the static index
-        const res = await fetch('/data/analysis_v6/index.json');
-        if (!res.ok) {
-            console.warn('[Lemon] No static index found, skipping migration');
-            return;
-        }
-        const fileList: string[] = await res.json();
-        console.log(`[Lemon] Migrating ${fileList.length} static analysis files...`);
-
-        let migratedCount = 0;
-        const batchSize = 5;
-
-        for (let i = 0; i < fileList.length; i += batchSize) {
-            const batch = fileList.slice(i, i + batchSize);
-            const results = await Promise.allSettled(
-                batch.map(async (filename) => {
-                    const response = await fetch(`/data/analysis_v6/${filename}`);
-                    if (!response.ok) return;
-                    const raw = await response.json() as Record<string, unknown>;
-                    await saveAnalysis(raw);
-                })
-            );
-            migratedCount += results.filter((r) => r.status === 'fulfilled').length;
-        }
-
-        // Mark migration complete
-        localStorage.setItem(MIGRATION_KEY, 'true');
-        console.log(`[Lemon] Migration complete: ${migratedCount}/${fileList.length} files migrated`);
-    } catch (err) {
-        console.error('[Lemon] Migration failed:', err);
-        // Don't set flag — will retry on next load
-    }
-}
-
-/**
  * Reset migration flag (used when clearing all data).
  */
 export function resetMigrationFlag(): void {

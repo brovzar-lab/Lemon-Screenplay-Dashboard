@@ -27,6 +27,18 @@ export interface CallLLMResult {
   usage?: { input_tokens: number; output_tokens: number };
 }
 
+interface ProxyRequestBody {
+  model: string;
+  messages: Array<{ role: string; content: string }>;
+  temperature?: number;
+  max_tokens?: number;
+}
+
+interface ProxyErrorBody {
+  error?: string;
+  code?: string;
+}
+
 /**
  * Call the LLM proxy. Returns the response text and optional usage data.
  *
@@ -44,17 +56,12 @@ export async function callLLM(options: CallLLMOptions): Promise<CallLLMResult> {
   messages.push({ role: 'user', content: options.prompt });
 
   // Build the request body
-  const body: Record<string, any> = {
+  const body: ProxyRequestBody = {
     model: options.model,
     messages,
+    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    ...(options.maxTokens !== undefined ? { max_tokens: options.maxTokens } : {}),
   };
-
-  if (options.temperature !== undefined) {
-    body.temperature = options.temperature;
-  }
-  if (options.maxTokens !== undefined) {
-    body.max_tokens = options.maxTokens;
-  }
 
   // Send to proxy
   let response: Response;
@@ -64,16 +71,16 @@ export async function callLLM(options: CallLLMOptions): Promise<CallLLMResult> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-  } catch (error: any) {
+  } catch {
     throw new Error(
       'Network error connecting to AI proxy. Check your internet connection.'
     );
   }
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: ProxyErrorBody;
     try {
-      errorData = await response.json();
+      errorData = await response.json() as ProxyErrorBody;
     } catch {
       errorData = { error: `HTTP ${response.status}` };
     }
