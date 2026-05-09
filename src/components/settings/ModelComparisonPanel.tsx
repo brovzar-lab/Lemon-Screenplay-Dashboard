@@ -19,7 +19,7 @@ import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ModelId = 'haiku' | 'sonnet' | 'opus';
-type EngineId = 'v6' | 'v7';
+type EngineId = 'v7';
 type SourceMode = 'upload' | 'dashboard';
 
 interface ModelConfig {
@@ -60,7 +60,6 @@ const MODELS: ModelConfig[] = [
 ];
 
 const ENGINES: EngineConfig[] = [
-  { id: 'v6', name: 'V6 Classic', badge: 'V6', badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30', description: 'Single-pass, 7 dimensions' },
   { id: 'v7', name: 'V7 Archaeology', badge: 'V7', badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30', description: '5-reader pipeline, 5 pillars' },
 ];
 
@@ -159,7 +158,7 @@ export function ModelComparisonPanel() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Engine & model selection
-  const [selectedEngines, setSelectedEngines] = useState<Set<EngineId>>(new Set(['v6', 'v7']));
+  const [selectedEngines, setSelectedEngines] = useState<Set<EngineId>>(new Set(['v7']));
   const [selectedModels, setSelectedModels] = useState<Set<ModelId>>(new Set(['sonnet']));
 
   // Running state
@@ -227,8 +226,7 @@ export function ModelComparisonPanel() {
 
     // Get dimension display data from the stored screenplay
     const dims = getDimensionDisplay(selectedScreenplay);
-    const isV7 = dims.length === 5;
-    const engineUsed = isV7 ? 'v7' : 'v6';
+    const engineUsed: EngineId = 'v7';
     const modelUsed = (selectedScreenplay.analysisModel as ModelId) || 'sonnet';
 
     // Build a pseudo-analysis object from stored data
@@ -358,18 +356,10 @@ export function ModelComparisonPanel() {
 
   // ─── Get dimensions for a result ─────────────────────────────────────────
 
-  function getResultDimensions(r: SlotResult, engine: EngineId): { label: string; score: number }[] {
+  function getResultDimensions(r: SlotResult, _engine: EngineId): { label: string; score: number }[] {
     if (!r.analysis) return [];
-
-    // If loaded from dashboard, use stored dimensions
     const storedDims = (r.analysis as Record<string, unknown>)._dimensions as { label: string; score: number }[] | undefined;
     if (storedDims) return storedDims;
-
-    // For fresh V6 analysis
-    if (engine === 'v6') return getDimensionScoresV6(r.analysis);
-
-    // For fresh V7 analysis, try to extract from raw data
-    // V7 pillars are stored differently — attempt extraction
     return getDimensionScoresV6(r.analysis);
   }
 

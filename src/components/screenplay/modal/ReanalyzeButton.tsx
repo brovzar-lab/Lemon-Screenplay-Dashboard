@@ -30,21 +30,10 @@ type ModelOption = {
     desc: string;
 };
 
-type EngineOption = {
-    id: 'v6' | 'v7';
-    label: string;
-    desc: string;
-};
-
 const MODELS: ModelOption[] = [
     { id: 'sonnet', label: 'Sonnet', desc: 'Fast · ~$0.50' },
     { id: 'opus', label: 'Opus', desc: 'Deep · ~$2.00' },
     { id: 'hybrid', label: 'Hybrid', desc: 'Triage → Full · ~$0.35' },
-];
-
-const ENGINES: EngineOption[] = [
-    { id: 'v6', label: 'V6 (4-Pillar)', desc: 'Single-pass analysis' },
-    { id: 'v7', label: 'V7 Archaeology', desc: '5-reader multi-pass' },
 ];
 
 export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps) {
@@ -52,7 +41,6 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [progress, setProgress] = useState<AnalysisProgress | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [selectedEngine, setSelectedEngine] = useState<'v6' | 'v7'>('v7');
     const dropdownRef = useRef<HTMLDivElement>(null);
     const queryClient = useQueryClient();
 
@@ -89,14 +77,13 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
 
             // Map hybrid → haiku model with v7 triage
             const model: 'sonnet' | 'opus' | 'haiku' = modelId === 'hybrid' ? 'haiku' : modelId;
-            const analysisVersion = selectedEngine;
             const v7Mode = modelId === 'hybrid' ? 'triage' as const : 'full' as const;
 
             await reanalyzeFromStorage(
                 screenplay,
                 model,
                 (p) => setProgress(p),
-                { analysisVersion, v7Mode },
+                { v7Mode },
             );
 
             // Invalidate React Query cache so data refreshes everywhere
@@ -171,35 +158,11 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
                         Current: <span className="text-black-300">{currentVersionLabel}</span>
                     </div>
 
-                    {/* Engine selector */}
-                    <div className="px-3 py-1.5 text-[10px] font-semibold text-black-500 uppercase tracking-wider mt-1">
-                        Analysis Engine
-                    </div>
-                    <div className="flex gap-1 px-3 pb-2">
-                        {ENGINES.map((engine) => (
-                            <button
-                                key={engine.id}
-                                onClick={() => setSelectedEngine(engine.id)}
-                                className={clsx(
-                                    'flex-1 py-1.5 px-2 rounded text-[10px] font-medium transition-all text-center',
-                                    selectedEngine === engine.id
-                                        ? 'bg-gold-500/20 text-gold-300 border border-gold-500/40'
-                                        : 'bg-black-700 text-black-400 border border-black-600 hover:border-black-500',
-                                )}
-                                title={engine.desc}
-                            >
-                                {engine.label}
-                            </button>
-                        ))}
-                    </div>
-
                     {/* Model selector */}
                     <div className="px-3 py-1.5 text-[10px] font-semibold text-black-500 uppercase tracking-wider border-t border-black-700">
                         Choose Model
                     </div>
                     {MODELS.map((model) => {
-                        // Hybrid only makes sense with V7
-                        if (model.id === 'hybrid' && selectedEngine !== 'v7') return null;
                         return (
                             <button
                                 key={model.id}

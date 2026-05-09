@@ -31,8 +31,8 @@ export interface AnalysisOptions {
   lenses?: AnalysisLens[];
   /** Firebase Cloud Function URL (for production). If absent, uses proxy client. */
   functionUrl?: string;
-  /** Analysis version: 'v6' (single-pass) or 'v7' (multi-reader archaeology engine) */
-  analysisVersion?: 'v6' | 'v7';
+  /** Analysis version — always 'v7' (multi-reader archaeology engine) */
+  analysisVersion?: 'v7';
   /** V7 mode: 'full' (5 readers + synthesis) or 'triage' (quick Haiku filter) */
   v7Mode?: 'full' | 'triage';
 }
@@ -44,19 +44,13 @@ export interface AnalysisProgress {
 }
 
 export interface AnalysisResult {
-  /** Raw V6 analysis wrapper — can be fed to normalizeV6Screenplay() */
+  /** Raw analysis wrapper */
   raw: Record<string, unknown>;
   /** Parsed PDF metadata */
   parsed: ParsedPDF;
   /** Token usage from Anthropic */
   usage?: { input_tokens: number; output_tokens: number };
 }
-
-// ─── Cloud Function URL ──────────────────────────────────────────────────────
-
-const ANALYZE_FUNCTION_URL = import.meta.env.DEV
-  ? 'http://127.0.0.1:5001/lemon-screenplay-dashboard/us-central1/analyzeScreenplay'
-  : '/api/analyze';
 
 // ─── Core public API ─────────────────────────────────────────────────────────
 
@@ -78,34 +72,8 @@ export async function analyzeScreenplay(
 
   onProgress?.({ stage: 'analyzing', percent: 0, message: 'Sending to AI for analysis...' });
 
-  // ── V7 Multi-Reader Path ──
-  if (options.analysisVersion === 'v7') {
-    return analyzeV7Path(parsed, category, options, onProgress);
-  }
-
-  // ── V6 Single-Pass Path (default) ──
-  const lenses = options.lenses ?? ['commercial'];
-
-  let raw: Record<string, unknown>;
-  let usage: { input_tokens: number; output_tokens: number } | undefined;
-
-  const result = await callCloudFunction(parsed, lenses, options);
-  raw = result.raw;
-  usage = result.usage;
-
-  (raw as Record<string, unknown>).collection = category;
-
-  onProgress?.({ stage: 'complete', percent: 100, message: 'Analysis complete!' });
-
-  // Upload PDF to Firebase Storage (non-blocking)
-  try {
-    const title = (raw as Record<string, Record<string, unknown>>).analysis?.title as string | undefined;
-    await uploadScreenplayPdf(file, category, title);
-  } catch (err) {
-    console.warn('[Firebase Storage] PDF upload failed:', err);
-  }
-
-  return { raw, parsed, usage };
+  // All analysis goes through V7 Archaeology Engine
+  return analyzeV7Path(parsed, category, options, onProgress);
 }
 
 // ─── V7 Multi-Reader Analysis Path ──────────────────────────────────────────
@@ -219,40 +187,6 @@ async function analyzeV7Path(
 }
 
 
-// ─── Legacy Cloud Function path (explicit functionUrl override) ───────────────
-
-
-async function callCloudFunction(
-  parsed: ParsedPDF,
-  lenses: AnalysisLens[],
-  options: AnalysisOptions,
-): Promise<{ raw: Record<string, unknown>; usage?: { input_tokens: number; output_tokens: number } }> {
-  const response = await fetch(options.functionUrl ?? ANALYZE_FUNCTION_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      data: {
-        text: parsed.text,
-        metadata: {
-          title: parsed.title,
-          pageCount: parsed.pageCount,
-          wordCount: parsed.wordCount,
-        },
-        lenses,
-        model: options.model ?? 'sonnet',
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Cloud Function error (${response.status}): ${body}`);
-  }
-
-  const json = await response.json();
-  const result = json.result ?? json;
-  return { raw: result, usage: result.usage };
-}
 
 // ─── Poster Generation (Gemini 2.5 Flash Image) ─────────────────────────────
 
@@ -416,7 +350,7 @@ export async function reanalyzeFromStorage(
   screenplay: Screenplay,
   model: 'sonnet' | 'opus' | 'haiku',
   onProgress?: (p: AnalysisProgress) => void,
-  engineOptions?: { analysisVersion?: 'v6' | 'v7'; v7Mode?: 'full' | 'triage' },
+  engineOptions?: { v7Mode?: 'full' | 'triage' },
 ): Promise<AnalysisResult> {
   onProgress?.({ stage: 'parsing', percent: 0, message: 'Fetching PDF from storage...' });
 
@@ -462,7 +396,6 @@ export async function reanalyzeFromStorage(
       {
         model: model === 'haiku' ? 'haiku' : model,
         lenses: ['commercial'],
-        analysisVersion: engineOptions?.analysisVersion,
         v7Mode: engineOptions?.v7Mode,
       },
       (p) => {

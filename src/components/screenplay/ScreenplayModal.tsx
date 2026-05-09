@@ -18,6 +18,7 @@ import {
   ContentDetails,
   NotesSection,
   FeedbackSection,
+  BillysTake,
   ModalFooter,
   PosterSection,
 } from './modal';
@@ -137,6 +138,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
           <div className="modal-body p-6 space-y-8 bg-black-950/50">
             <AlertBanners screenplay={screenplay} />
             <FilmNowSection screenplay={screenplay} />
+            <BillysTake screenplay={screenplay} />
 
             {/* Logline */}
             <div>

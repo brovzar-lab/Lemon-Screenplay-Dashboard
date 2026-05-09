@@ -13,7 +13,6 @@
 
 import type { Screenplay } from '@/types';
 import { DIMENSION_CONFIG } from '@/types/screenplay';
-import type { V6CoreQuality } from '@/types/screenplay-v6';
 import type { V7PillarScore } from '@/lib/normalize';
 
 export interface DimensionDisplayItem {
@@ -43,21 +42,10 @@ function hasV7PillarScores(screenplay: Screenplay): screenplay is Screenplay & {
 }
 
 /**
- * Check if a screenplay has V6 core quality data.
- * Works at runtime regardless of static type.
- */
-function hasV6CoreQuality(screenplay: Screenplay): screenplay is Screenplay & { v6CoreQuality: V6CoreQuality } {
-  return 'v6CoreQuality' in screenplay
-    && screenplay.v6CoreQuality != null
-    && typeof screenplay.v6CoreQuality === 'object';
-}
-
-/**
  * Returns version-appropriate dimension display data.
  *
  * V7: 5 pillars from the Archaeology Engine with methodology-specific names
- * V6: 4 pillars with their actual names and weights
- * V5: 7 dimensions from DIMENSION_CONFIG
+ * V5: 7 dimensions from DIMENSION_CONFIG (legacy fallback)
  */
 export function getDimensionDisplay(screenplay: Screenplay): DimensionDisplayItem[] {
   // V7: 5 Archaeology Engine pillars
@@ -72,52 +60,6 @@ export function getDimensionDisplay(screenplay: Screenplay): DimensionDisplayIte
         justification: `See V7 ${display.label} Reader report`,
       };
     });
-  }
-
-  // V6: 4 pillars
-  if (hasV6CoreQuality(screenplay)) {
-    const cq = screenplay.v6CoreQuality;
-    return [
-      {
-        key: 'executionCraft',
-        label: 'Execution Craft',
-        score: cq.execution_craft?.score || 0,
-        weight: 0.40,
-        justification: [
-          cq.execution_craft?.structure?.justification,
-          cq.execution_craft?.scene_writing?.justification,
-          cq.execution_craft?.dialogue?.justification,
-        ].filter(Boolean).join(' '),
-      },
-      {
-        key: 'characterSystem',
-        label: 'Character System',
-        score: cq.character_system?.score || 0,
-        weight: 0.30,
-        justification: [
-          cq.character_system?.protagonist?.justification,
-          cq.character_system?.supporting_cast?.justification,
-          cq.character_system?.relationships?.justification,
-        ].filter(Boolean).join(' '),
-      },
-      {
-        key: 'conceptualStrength',
-        label: 'Conceptual Strength',
-        score: cq.conceptual_strength?.score || 0,
-        weight: 0.20,
-        justification: [
-          cq.conceptual_strength?.premise?.justification,
-          cq.conceptual_strength?.theme?.justification,
-        ].filter(Boolean).join(' '),
-      },
-      {
-        key: 'voiceAndTone',
-        label: 'Voice & Tone',
-        score: cq.voice_and_tone?.score || 0,
-        weight: 0.10,
-        justification: cq.voice_and_tone?.justification || '',
-      },
-    ];
   }
 
   // V5: standard 7-dimension display
@@ -135,7 +77,6 @@ export function getDimensionDisplay(screenplay: Screenplay): DimensionDisplayIte
  */
 export function getAnalysisVersionLabel(screenplay: Screenplay): string {
   if (hasV7PillarScores(screenplay)) return 'V7 (5-Reader Archaeology)';
-  if (hasV6CoreQuality(screenplay)) return 'V6 (4-Pillar)';
   return 'V5 (7-Dimension)';
 }
 

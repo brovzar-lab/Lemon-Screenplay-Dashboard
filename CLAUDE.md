@@ -1,7 +1,9 @@
 # CLAUDE.md — Lemon Screenplay Dashboard
 
 ## Project
-Internal screenplay analysis dashboard for Lemon Studios. Ingests AI-generated screenplay coverage JSONs (V6 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
+Internal screenplay analysis dashboard for Lemon Studios. Ingests AI-generated screenplay coverage JSONs (V7 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
+
+**Analysis engine**: V7 Archaeology Engine only — 5 parallel readers (Structure, Character, Craft, Concept, Emotion) + synthesis roundtable. V6 has been removed. All LLM calls route server-side through the `llmProxy` Cloud Function; API keys never touch the browser.
 
 ## Stack
 - React 19 + TypeScript (strict) + Vite 7
@@ -68,7 +70,7 @@ src/
 ├── stores/                     # 16 Zustand stores (see Stores section)
 ├── hooks/                      # 11 custom hooks (see Hooks section)
 ├── lib/                        # Core logic: api, firebase, analysisStore, normalize, calculations, shareService, etc.
-├── types/                      # screenplay.ts, screenplay-v6.ts, filters.ts
+├── types/                      # screenplay.ts, filters.ts
 ├── styles/                     # premium-theme, editorial-punk-theme, glassmorphism, mesh-gradients, animations, typography
 ├── test/                       # setup.ts (mocks), factories.ts (test data), fix-eperm.cjs (macOS fix)
 ├── utils/                      # audioUtils
@@ -77,9 +79,10 @@ src/
 
 ## Key Files Outside src/
 ```
-functions/                      # Firebase Cloud Functions (Node 20)
-├── src/analyzeScreenplay.ts    # Anthropic-powered screenplay analysis endpoint
-├── src/prompts.ts              # Analysis prompt templates
+functions/                      # Firebase Cloud Functions (Node 22)
+├── src/llmProxy.ts             # LLM proxy — routes all browser AI calls server-side (API key stays here)
+├── src/analyzeScreenplay.ts    # DEPRECATED stub — returns error. V6 removed.
+├── src/prompts.ts              # Prompt type stubs only (V6 prompts removed)
 ├── src/index.ts                # Function exports
 e2e/                            # Playwright specs: dashboard, filters, modal, settings
 agent/                          # READ-ONLY. Antigravity Kit (Gemini framework). Do not modify.
@@ -105,7 +108,8 @@ Data migration: static JSON files → Firestore (handled by `lib/analysisStore.t
 - **Path aliases**: `@` → `src/`, `@data` → `../.tmp`
 - **Lazy loading**: AnalyticsDashboard and ComparisonModal are lazy-loaded (Recharts is heavy). SettingsPage and SharedViewPage are lazy route components.
 - **Chunk splitting**: Separate vendor chunks for react, recharts, react-pdf, zustand+react-query, firebase, pdfjs
-- **Dev proxy**: `/api/anthropic` proxied to `https://api.anthropic.com` in dev (CORS workaround)
+- **LLM proxy**: All AI calls go through `llmProxy` Cloud Function (`/api/llm` in prod, emulator in dev). `proxyClient.ts` is the browser-side client. API keys never touch the browser.
+- **V7 pipeline**: `multiPassAnalysis.ts` → `promptClient.v7.ts` → proxy. Five readers run in parallel via `Promise.allSettled()`, then a synthesis pass.
 - **Auth**: Anonymous Firebase auth. Reads are public, writes require auth token.
 - **DevExec**: AI chat overlay powered by Google Gemini, wrapped in DevExecContext/Provider
 
@@ -117,13 +121,13 @@ Data migration: static JSON files → Firestore (handled by `lib/analysisStore.t
 - Tailwind only — no inline styles or CSS modules
 - Zustand = client state, React Query = server state
 - Use `@/` path alias for all imports (not relative)
-- Check BOTH `types/screenplay.ts` AND `types/screenplay-v6.ts` before touching data types
+- Data types live in `types/screenplay.ts` only (`screenplay-v6.ts` deleted)
 
 ## Before Changes
 1. `npm run build` — TypeScript compiles?
 2. `npm run test:run` — tests pass?
 3. Check relevant Zustand store before adding local state
-4. If touching data types, read both screenplay.ts and screenplay-v6.ts
+4. If touching data types, read `types/screenplay.ts` (single source of truth — v6 removed)
 
 ## Gotchas
 - **macOS EPERM**: Test commands use `TMPDIR=./.tmp` and `fix-eperm.cjs` to work around macOS file permission issues. The Vite build uses `emptyOutDir: false` and a custom plugin to skip `.DS_Store` files.

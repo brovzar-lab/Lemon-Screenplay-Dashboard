@@ -1,15 +1,13 @@
 import type { Screenplay, Collection } from '@/types';
-import type { V6ScreenplayAnalysis } from '@/types/screenplay-v6';
-import type { ScreenplayWithV6 } from './normalize';
-import { isV6RawAnalysis, normalizeV6Screenplay, isV7RawAnalysis, normalizeV7Screenplay } from './normalize';
+import { isV7RawAnalysis, normalizeV7Screenplay } from './normalize';
 import { loadAllAnalyses, quarantineAnalysis } from './analysisStore';
 
 /**
  * Load all screenplay data from Firestore/localStorage.
  * Migration is complete — reads exclusively from Firestore/localStorage.
  */
-export async function loadAllScreenplaysVite(): Promise<ScreenplayWithV6[]> {
-  const screenplays: ScreenplayWithV6[] = [];
+export async function loadAllScreenplaysVite(): Promise<Screenplay[]> {
+  const screenplays: Screenplay[] = [];
   const t0 = performance.now();
 
   // ── Load user-uploaded / migrated screenplays from Firestore ────
@@ -20,18 +18,13 @@ export async function loadAllScreenplaysVite(): Promise<ScreenplayWithV6[]> {
       try {
         if (isV7RawAnalysis(raw)) {
           const collection = (raw as Record<string, unknown>).collection as Collection | undefined;
-          const sp = normalizeV7Screenplay(raw as Record<string, unknown>, collection || 'V6 Analysis');
-          screenplays.push(sp);
-          loadedCount++;
-        } else if (isV6RawAnalysis(raw)) {
-          const collection = (raw as Record<string, unknown>).collection as Collection | undefined;
-          const sp = normalizeV6Screenplay(raw as unknown as V6ScreenplayAnalysis, collection || 'V6 Analysis');
+          const sp = normalizeV7Screenplay(raw as Record<string, unknown>, collection || 'Analysis');
           screenplays.push(sp);
           loadedCount++;
         } else {
-          // Pre-V6 upload detected — quarantine it for review
+          // Unknown format — quarantine it
           const sourceFile = (raw as Record<string, unknown>).source_file as string | undefined;
-          console.warn('[Lemon] Quarantining pre-V6 uploaded analysis:', sourceFile);
+          console.warn('[Lemon] Quarantining unknown format analysis:', sourceFile);
           try { await quarantineAnalysis(raw as Record<string, unknown>, 'failed isV6RawAnalysis type guard'); } catch { /* ignore */ }
         }
       } catch (err) {
@@ -48,7 +41,7 @@ export async function loadAllScreenplaysVite(): Promise<ScreenplayWithV6[]> {
   }
 
   // Deduplicate by title (prefer later entries — locals loaded after static)
-  const seen = new Map<string, ScreenplayWithV6>();
+  const seen = new Map<string, Screenplay>();
   for (const sp of screenplays) {
     const key = (sp.title || '').toLowerCase().trim();
     seen.set(key, sp); // last write wins

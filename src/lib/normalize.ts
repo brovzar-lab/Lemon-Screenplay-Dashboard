@@ -1,6 +1,6 @@
 /**
  * Data Normalization
- * Converts raw V3/V4/V5/V6 JSON analysis to normalized Screenplay objects
+ * Converts raw screenplay JSON analysis to normalized Screenplay objects
  */
 
 import type {
@@ -19,14 +19,6 @@ import type {
   CriticalFailureDetail,
   USPStrength,
 } from '@/types';
-
-import type {
-  V6ScreenplayAnalysis,
-  V6CoreQuality,
-  V6Lenses,
-} from '@/types/screenplay-v6';
-
-import { mapV6VerdictToTier } from '@/types/screenplay-v6';
 
 import { createProducerMetrics } from './calculations';
 import { toNumber } from './utils';
@@ -379,7 +371,7 @@ export function normalizeScreenplays(
 }
 
 // ============================================
-// V6 NORMALIZATION
+// V7 TYPES
 // ============================================
 
 /**
@@ -401,15 +393,9 @@ export interface V7GoosebumpsMoment {
 }
 
 /**
- * Extended Screenplay type with V6/V7-specific fields
+ * Extended Screenplay type with V7-specific fields
  */
-export interface ScreenplayWithV6 extends Screenplay {
-  v6CoreQuality?: V6CoreQuality;
-  v6Lenses?: V6Lenses;
-  v6LensesEnabled?: string[];
-  v6BudgetCeilingUsed?: number | null;
-  falsePositiveRisk?: 'low' | 'moderate' | 'high' | 'critical';
-  trapsTriggered?: number;
+export interface ScreenplayWithV7 extends Screenplay {
   // V7 Archaeology Engine fields
   v7PillarScores?: V7PillarScore[];
   v7GoosebumpsMoments?: V7GoosebumpsMoment[];
@@ -418,187 +404,19 @@ export interface ScreenplayWithV6 extends Screenplay {
   v7ExecutiveSummary?: string;
 }
 
-/**
- * Check if raw data is V6 format
- */
-export function isV6RawAnalysis(raw: unknown): raw is V6ScreenplayAnalysis {
-  if (!raw || typeof raw !== 'object') return false;
-  const r = raw as Record<string, unknown>;
-  // Support both v6_core_lenses and v6_unified (the merged version)
-  return r.analysis_version === 'v6_core_lenses' || r.analysis_version === 'v6_unified';
+/** @deprecated Use ScreenplayWithV7 */
+export type ScreenplayWithV6 = ScreenplayWithV7;
+
+/** @deprecated V6 analysis removed. Returns false always. */
+export function isV6RawAnalysis(_raw: unknown): boolean {
+  return false;
 }
 
-/**
- * Normalize V6 analysis to extended Screenplay object
- */
-export function normalizeV6Screenplay(
-  raw: V6ScreenplayAnalysis,
-  collection: Collection
-): ScreenplayWithV6 {
-  const analysis = raw.analysis;
-  const coreQuality = analysis.core_quality;
-
-  // Map V6 verdict to standard recommendation tier
-  const recommendation = mapV6VerdictToTier(coreQuality.verdict);
-  const isFilmNow = recommendation === 'film_now';
-
-  // Extract budget category from budget lens if available
-  let budgetCategory: BudgetCategory = 'unknown';
-  if (analysis.lenses?.budget_tier?.enabled && analysis.lenses.budget_tier.assessment) {
-    budgetCategory = analysis.lenses.budget_tier.assessment.category as BudgetCategory;
-  }
-
-  // Map V6 dimension scores to legacy format for compatibility
-  const dimensionScores: DimensionScores = {
-    concept: coreQuality.conceptual_strength?.premise?.score || 0,
-    structure: coreQuality.execution_craft?.structure?.score || 0,
-    protagonist: coreQuality.character_system?.protagonist?.score || 0,
-    supportingCast: coreQuality.character_system?.supporting_cast?.score || 0,
-    dialogue: coreQuality.execution_craft?.dialogue?.score || 0,
-    genreExecution: coreQuality.voice_and_tone?.score || 0, // Map voice to genre for compat
-    originality: coreQuality.conceptual_strength?.theme?.score || 0, // Map theme to originality
-    weightedScore: coreQuality.weighted_score,
-  };
-
-  // Map V6 justifications to legacy format
-  const dimensionJustifications: DimensionJustifications = {
-    concept: coreQuality.conceptual_strength?.premise?.justification || '',
-    structure: coreQuality.execution_craft?.structure?.justification || '',
-    protagonist: coreQuality.character_system?.protagonist?.justification || '',
-    supportingCast: coreQuality.character_system?.supporting_cast?.justification || '',
-    dialogue: coreQuality.execution_craft?.dialogue?.justification || '',
-    genreExecution: coreQuality.voice_and_tone?.justification || '',
-    originality: coreQuality.conceptual_strength?.theme?.justification || '',
-  };
-
-  // Build commercial viability from lens if available
-  let commercialViability: CommercialViability;
-  if (analysis.lenses?.commercial_viability?.enabled && analysis.lenses.commercial_viability.assessment) {
-    const cvLens = analysis.lenses.commercial_viability.assessment;
-    commercialViability = {
-      targetAudience: { score: cvLens.target_audience.score, note: cvLens.target_audience.note },
-      highConcept: { score: cvLens.high_concept.score, note: cvLens.high_concept.note },
-      castAttachability: { score: cvLens.cast_attachability.score, note: cvLens.cast_attachability.note },
-      marketingHook: { score: cvLens.marketing_hook.score, note: cvLens.marketing_hook.note },
-      budgetReturnRatio: { score: cvLens.budget_return_ratio.score, note: cvLens.budget_return_ratio.note },
-      comparableSuccess: { score: cvLens.comparable_success.score, note: cvLens.comparable_success.note },
-      cvsTotal: cvLens.cvs_total,
-      cvsAssessed: true,
-    };
-  } else {
-    // Commercial lens disabled — use zeros, not fake averages
-    commercialViability = {
-      targetAudience: { score: 0, note: 'Not assessed (commercial lens disabled)' },
-      highConcept: { score: 0, note: 'Not assessed (commercial lens disabled)' },
-      castAttachability: { score: 0, note: 'Not assessed (commercial lens disabled)' },
-      marketingHook: { score: 0, note: 'Not assessed (commercial lens disabled)' },
-      budgetReturnRatio: { score: 0, note: 'Not assessed (commercial lens disabled)' },
-      comparableSuccess: { score: 0, note: 'Not assessed (commercial lens disabled)' },
-      cvsTotal: 0,
-      cvsAssessed: false,
-    };
-  }
-
-  // Normalize critical failures (call once, reuse result)
-  const criticalFailureData = normalizeCriticalFailures(
-    coreQuality.critical_failures,
-    coreQuality.critical_failure_total_penalty
-  );
-
-  // Build the base screenplay object
-  const baseScreenplay: Omit<ScreenplayWithV6, 'producerMetrics' | 'tmdbStatus'> = {
-    id: generateId(raw.source_file),
-    title: analysis.title,
-    author: analysis.author,
-    collection,
-    category: collectionToCategoryId(collection),
-    sourceFile: raw.source_file,
-    analysisModel: raw.analysis_model,
-    analysisVersion: raw.analysis_version,
-    weightedScore: coreQuality.weighted_score,
-    cvsTotal: commercialViability.cvsTotal,
-    genre: analysis.genre,
-    subgenres: analysis.subgenres || [],
-    themes: analysis.themes || [],
-    logline: analysis.logline,
-    tone: analysis.tone,
-    recommendation,
-    recommendationRationale: coreQuality.verdict_rationale,
-    verdictStatement: analysis.executive_summary,
-    isFilmNow,
-    filmNowAssessment: null, // V6 doesn't have this separate assessment
-    dimensionScores,
-    dimensionJustifications,
-    commercialViability,
-    criticalFailures: criticalFailureData.failures,
-    criticalFailureDetails: criticalFailureData.details,
-    criticalFailureTotalPenalty: criticalFailureData.totalPenalty,
-    majorWeaknesses: coreQuality.major_weaknesses || [],
-    strengths: analysis.assessment?.strengths || [],
-    weaknesses: analysis.assessment?.weaknesses || [],
-    developmentNotes: analysis.assessment?.development_notes || [],
-    marketability: 'medium', // V6 doesn't have direct marketability field
-    budgetCategory,
-    budgetJustification: analysis.lenses?.budget_tier?.assessment?.justification || '',
-    characters: {
-      protagonist: analysis.characters?.protagonist || '',
-      antagonist: analysis.characters?.antagonist || '',
-      supporting: analysis.characters?.supporting || [],
-    },
-    structureAnalysis: {
-      formatQuality: analysis.structure_analysis?.format_quality || 'professional',
-      actBreaks: analysis.structure_analysis?.act_breaks || '',
-      pacing: analysis.structure_analysis?.pacing || '',
-    },
-    comparableFilms: (analysis.comparable_films || []).map((film) => ({
-      title: film.title,
-      similarity: film.similarity,
-      boxOfficeRelevance: film.quality_comparison === 'better' ? 'success' :
-        film.quality_comparison === 'weaker' ? 'failure' : 'mixed',
-    })),
-    standoutScenes: (analysis.standout_scenes || []).map((scene) => ({
-      scene: scene.scene,
-      why: scene.why,
-    })),
-    targetAudience: {
-      primaryDemographic: '', // V6 doesn't have this in same format
-      genderSkew: 'neutral',
-      interests: [],
-    },
-    metadata: {
-      filename: raw.metadata.filename,
-      pageCount: raw.metadata.page_count,
-      wordCount: raw.metadata.word_count,
-    },
-    // V6-specific fields
-    v6CoreQuality: coreQuality,
-    v6Lenses: analysis.lenses,
-    v6LensesEnabled: raw.lenses_enabled || [],
-    v6BudgetCeilingUsed: raw.budget_ceiling_used,
-    falsePositiveRisk: coreQuality.false_positive_check?.risk_level,
-    trapsTriggered: coreQuality.false_positive_check?.traps_triggered_count || 0,
-  };
-
-  // Producer metrics — extract from AI analysis if present
-  const rawPI = (analysis as unknown as Record<string, unknown>).producer_intelligence as
-    | { market_potential?: { score?: number; rationale?: string }; usp_strength?: { assessment?: string; rationale?: string } }
-    | undefined;
-  const producerMetrics = createProducerMetrics(
-    rawPI ? {
-      marketPotential: typeof rawPI.market_potential?.score === 'number' ? rawPI.market_potential.score : null,
-      marketPotentialRationale: rawPI.market_potential?.rationale ?? null,
-      uspStrength: validateUSPStrength(rawPI.usp_strength?.assessment) ?? null,
-      uspStrengthRationale: rawPI.usp_strength?.rationale ?? null,
-    } : undefined
-  );
-
-  return {
-    ...baseScreenplay,
-    producerMetrics,
-    tmdbStatus: null,
-    hasPdf: (raw as unknown as Record<string, unknown>).hasPdf === true,
-  };
+/** @deprecated V6 analysis removed. Throws if called. */
+export function normalizeV6Screenplay(_raw: Record<string, unknown>, _collection: Collection): never {
+  throw new Error('V6 analysis has been removed. All screenplays use V7.');
 }
+
 
 // ============================================
 // V7 NORMALIZATION
@@ -621,7 +439,7 @@ export function isV7RawAnalysis(raw: unknown): boolean {
 export function normalizeV7Screenplay(
   raw: Record<string, unknown>,
   collection: Collection,
-): ScreenplayWithV6 {
+): ScreenplayWithV7 {
   const analysis = raw.analysis as Record<string, unknown> || {};
 
   // Extract pillar scores
@@ -833,14 +651,11 @@ export function normalizeV7Screenplay(
  * Smart normalize function that detects version and calls appropriate normalizer
  */
 export function smartNormalizeScreenplay(
-  raw: RawScreenplayAnalysis | V6ScreenplayAnalysis,
+  raw: RawScreenplayAnalysis,
   collection: Collection
-): Screenplay | ScreenplayWithV6 {
+): Screenplay {
   if (isV7RawAnalysis(raw)) {
     return normalizeV7Screenplay(raw as unknown as Record<string, unknown>, collection);
-  }
-  if (isV6RawAnalysis(raw)) {
-    return normalizeV6Screenplay(raw, collection);
   }
   return normalizeScreenplay(raw as RawScreenplayAnalysis, collection);
 }

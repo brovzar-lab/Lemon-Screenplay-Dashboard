@@ -1,14 +1,14 @@
 /**
  * TypeScript interfaces for Screenplay Analysis Data
  * Lemon Screenplay Dashboard
- * V6 analysis format
+ * Screenplay analysis data types
  */
 
 // ============================================
 // CORE TYPES
 // ============================================
 
-export type Collection = 'V6 Analysis';
+export type Collection = 'Analysis';
 
 export type RecommendationTier = 'film_now' | 'recommend' | 'consider' | 'pass';
 
@@ -460,7 +460,7 @@ export const COLLECTION_CONFIG: Record<Collection, {
   folder: string;
   displayName: string;
 }> = {
-  'V6 Analysis': { folder: 'analysis_v6', displayName: 'V6 Core + Lenses Analysis' },
+  'Analysis': { folder: 'analysis', displayName: 'Screenplay Analysis' },
 };
 
 

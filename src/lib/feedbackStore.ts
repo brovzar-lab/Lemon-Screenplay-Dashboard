@@ -20,6 +20,55 @@ import { useToastStore } from '@/stores/toastStore';
 
 const FEEDBACK_COLLECTION = 'screenplay_feedback';
 const PROFILE_COLLECTION = 'producer_profiles';
+const BRAIN_VERDICTS_COLLECTION = 'brain_verdicts';
+
+// ─── Brain Verdict Types ──────────────────────────────────────────────────────
+
+import type { RecommendationTier } from '@/types/screenplay';
+
+export interface BrainVerdict {
+    screenplayId: string;
+    screenplayTitle: string;
+    /** Billy's real verdict — the learning signal */
+    billyVerdict: RecommendationTier;
+    /** What the AI said — delta vs billyVerdict is the calibration input */
+    aiVerdict: RecommendationTier;
+    /** Optional one-line note */
+    note: string;
+    genre: string;
+    subgenres: string[];
+    weightedScore: number;
+    /** Always 'screenplay-dashboard' — Brain uses this to segment concept vs script taste */
+    source: 'screenplay-dashboard';
+    updatedAt?: string;
+}
+
+// ─── Brain Verdict CRUD ───────────────────────────────────────────────────────
+
+export async function saveBrainVerdict(verdict: BrainVerdict): Promise<void> {
+    try {
+        const docRef = doc(db, BRAIN_VERDICTS_COLLECTION, verdict.screenplayId);
+        await setDoc(docRef, {
+            ...verdict,
+            updatedAt: new Date().toISOString(),
+        });
+        console.log(`[Brain] Verdict saved for ${verdict.screenplayTitle}: ${verdict.billyVerdict}`);
+    } catch (err) {
+        console.error('[Brain] Failed to save verdict:', err);
+        useToastStore.getState().addToast('Failed to save to Brain — try again');
+    }
+}
+
+export async function loadBrainVerdict(screenplayId: string): Promise<BrainVerdict | null> {
+    try {
+        const docRef = doc(db, BRAIN_VERDICTS_COLLECTION, screenplayId);
+        const snap = await getDoc(docRef);
+        return snap.exists() ? (snap.data() as BrainVerdict) : null;
+    } catch (err) {
+        console.warn('[Brain] Failed to load verdict:', err);
+        return null;
+    }
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

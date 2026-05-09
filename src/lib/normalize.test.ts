@@ -7,7 +7,6 @@ import { describe, it, expect } from 'vitest';
 import {
     normalizeScreenplay,
     normalizeScreenplays,
-    isV6RawAnalysis,
     smartNormalizeScreenplay,
 } from './normalize';
 import type { RawScreenplayAnalysis } from '@/types';
@@ -256,31 +255,6 @@ describe('normalizeScreenplays', () => {
     });
 });
 
-// ─── V6 detection ──────────────────────────────────────────
-
-describe('isV6RawAnalysis', () => {
-    it('returns true for v6_core_lenses version', () => {
-        expect(isV6RawAnalysis({ analysis_version: 'v6_core_lenses' })).toBe(true);
-    });
-
-    it('returns true for v6_unified version', () => {
-        expect(isV6RawAnalysis({ analysis_version: 'v6_unified' })).toBe(true);
-    });
-
-    it('returns false for v5', () => {
-        expect(isV6RawAnalysis({ analysis_version: 'v5' })).toBe(false);
-    });
-
-    it('returns false for null/undefined', () => {
-        expect(isV6RawAnalysis(null)).toBe(false);
-        expect(isV6RawAnalysis(undefined)).toBe(false);
-    });
-
-    it('returns false for non-objects', () => {
-        expect(isV6RawAnalysis('string')).toBe(false);
-        expect(isV6RawAnalysis(42)).toBe(false);
-    });
-});
 
 // ─── smartNormalizeScreenplay ───────────────────────────────
 
