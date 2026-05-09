@@ -88,6 +88,19 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    // ── brain_verdicts ────────────────────────────────────────────────────────
+    // Billy's personal verdicts for Obsidian Brain calibration.
+    // Keyed by screenplayId. Auth required to write; public reads fine (no PII).
+    match /brain_verdicts/{screenplayId} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && 'screenplayId' in request.resource.data
+                   && request.resource.data.screenplayId is string
+                   && request.resource.data.screenplayId.size() <= 500
+                   && 'billyVerdict' in request.resource.data
+                   && request.resource.data.billyVerdict in ['pass', 'consider', 'recommend', 'film_now'];
+    }
+
     // ── _unrecognized_analyses (Phase 3 quarantine collection) ──────────────
     // Documents that failed type-guard validation, preserved for manual review.
     match /_unrecognized_analyses/{docId} {
