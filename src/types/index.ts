@@ -58,6 +58,7 @@ export interface CoverageDoc {
   synopsis: string
   notes: string
   pdfUrl?: string
+  driveUrl?: string
   createdAt: string
 }
 
@@ -75,6 +76,7 @@ export interface MarketIntelReport {
   platformAppetite: 'high' | 'medium' | 'low'
   reportDate: string
   createdAt: string
+  driveUrl?: string
 }
 
 /** Firestore collection paths */

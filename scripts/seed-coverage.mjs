@@ -2,10 +2,13 @@
 /**
  * Seeds Paperclip Coverage Analyst issues into Firestore `coverage` collection.
  * Uses projectId-first matching, falling back to name-based fuzzy match.
+ * Also uploads new DOCX deliverables to Google Drive and posts the share URL
+ * as a comment on the originating Paperclip issue.
  */
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
+import { uploadCoverageToDrive } from './drive-upload.mjs'
 
 const credJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
 if (!credJson) { console.error('GOOGLE_APPLICATION_CREDENTIALS_JSON not set'); process.exit(1) }
@@ -143,6 +146,18 @@ function extractNotes(body) {
   return notes.join(' ').slice(0, 800)
 }
 
+// ── Paperclip comment helper ──────────────────────────────────────────────────
+
+async function postDriveComment(issueId, driveUrl, identifier, titleName) {
+  if (!apiUrl || !apiKey) return
+  const headers = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+  if (process.env.PAPERCLIP_RUN_ID) headers['X-Paperclip-Run-Id'] = process.env.PAPERCLIP_RUN_ID
+  const body = `📄 **Coverage report delivered to Google Drive**\n\n- **Title:** ${titleName}\n- **File:** [Coverage — ${titleName}.docx](${driveUrl})\n- **Source:** [${identifier}](/LEMA/issues/${identifier})`
+  await fetch(`${apiUrl}/api/issues/${issueId}/comments`, {
+    method: 'POST', headers, body: JSON.stringify({ body }),
+  })
+}
+
 // ── Build project name→id lookup ──────────────────────────────────────────────
 const projectsRes = await paperclipGet(`/api/companies/${companyId}/projects`)
 const projects = Array.isArray(projectsRes) ? projectsRes : []
@@ -202,6 +217,21 @@ for (const issue of issues) {
     createdAt: issue.createdAt,
     paperclipIssueId: issue.id,
     paperclipIdentifier: issue.identifier,
+  }
+
+  // Drive upload — skip if already uploaded (merge:true preserves existing driveUrl)
+  const existing = await db.collection('coverage').doc(issue.id).get()
+  if (!existing.exists || !existing.data()?.driveUrl) {
+    try {
+      const driveUrl = await uploadCoverageToDrive(serviceAccount, doc)
+      doc.driveUrl = driveUrl
+      await postDriveComment(issue.id, driveUrl, issue.identifier, doc.titleName)
+      console.log(`  ☁  Drive → ${driveUrl.slice(0, 60)}…`)
+    } catch (err) {
+      console.warn(`  ⚠  Drive upload failed: ${err.message}`)
+    }
+  } else {
+    doc.driveUrl = existing.data().driveUrl
   }
 
   await db.collection('coverage').doc(issue.id).set(doc, { merge: true })

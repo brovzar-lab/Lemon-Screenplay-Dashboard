@@ -4,10 +4,13 @@
  * Uses projectId-first matching, falling back to name-based fuzzy match
  * against the Paperclip projects list. Batch/sweep reports with no clear
  * single-title match are stored with titleId: null (general reports).
+ * Also uploads new DOCX deliverables to Google Drive and posts the share URL
+ * as a comment on the originating Paperclip issue.
  */
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
+import { uploadMiToDrive } from './drive-upload.mjs'
 
 // ── Firebase init ─────────────────────────────────────────────────────────────
 const credJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
@@ -182,6 +185,18 @@ function extractGenre(title, body) {
   return 'drama'
 }
 
+// ── Paperclip comment helper ──────────────────────────────────────────────────
+
+async function postDriveComment(issueId, driveUrl, identifier, reportTitle) {
+  if (!apiUrl || !apiKey) return
+  const headers = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+  if (process.env.PAPERCLIP_RUN_ID) headers['X-Paperclip-Run-Id'] = process.env.PAPERCLIP_RUN_ID
+  const body = `📄 **MI report delivered to Google Drive**\n\n- **Report:** ${reportTitle}\n- **File:** [${reportTitle}.docx](${driveUrl})\n- **Source:** [${identifier}](/LEMA/issues/${identifier})`
+  await fetch(`${apiUrl}/api/issues/${issueId}/comments`, {
+    method: 'POST', headers, body: JSON.stringify({ body }),
+  })
+}
+
 // ── Build project name→id lookup ──────────────────────────────────────────────
 const projectsRes = await paperclipGet(`/api/companies/${companyId}/projects`)
 const projects = Array.isArray(projectsRes) ? projectsRes : []
@@ -237,6 +252,21 @@ for (const issue of issues) {
     createdAt: issue.createdAt,
     paperclipIssueId: issue.id,
     paperclipIdentifier: issue.identifier,
+  }
+
+  // Drive upload — skip if already uploaded (merge:true preserves existing driveUrl)
+  const existing = await db.collection('mi_reports').doc(issue.id).get()
+  if (!existing.exists || !existing.data()?.driveUrl) {
+    try {
+      const driveUrl = await uploadMiToDrive(serviceAccount, doc)
+      doc.driveUrl = driveUrl
+      await postDriveComment(issue.id, driveUrl, issue.identifier, doc.title)
+      console.log(`  ☁  Drive → ${driveUrl.slice(0, 60)}…`)
+    } catch (err) {
+      console.warn(`  ⚠  Drive upload failed: ${err.message}`)
+    }
+  } else {
+    doc.driveUrl = existing.data().driveUrl
   }
 
   await db.collection('mi_reports').doc(issue.id).set(doc, { merge: true })
