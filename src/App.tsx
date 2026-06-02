@@ -5,13 +5,15 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { PageSkeleton } from './components/Skeleton'
 
-const LoginPage       = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })))
-const OverviewPage    = lazy(() => import('./pages/OverviewPage').then(m => ({ default: m.OverviewPage })))
-const ActiveSlatePage = lazy(() => import('./pages/ActiveSlatePage').then(m => ({ default: m.ActiveSlatePage })))
-const PipelinePage    = lazy(() => import('./pages/PipelinePage').then(m => ({ default: m.PipelinePage })))
-const CoveragePage    = lazy(() => import('./pages/CoveragePage').then(m => ({ default: m.CoveragePage })))
-const MarketIntelPage = lazy(() => import('./pages/MarketIntelPage').then(m => ({ default: m.MarketIntelPage })))
-const TitleDetailPage = lazy(() => import('./pages/TitleDetailPage').then(m => ({ default: m.TitleDetailPage })))
+const LoginPage            = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })))
+const OverviewPage         = lazy(() => import('./pages/OverviewPage').then(m => ({ default: m.OverviewPage })))
+const ActiveSlatePage      = lazy(() => import('./pages/ActiveSlatePage').then(m => ({ default: m.ActiveSlatePage })))
+const FilmDevelopmentPage  = lazy(() => import('./pages/FilmDevelopmentPage').then(m => ({ default: m.FilmDevelopmentPage })))
+const TVDevelopmentPage    = lazy(() => import('./pages/TVDevelopmentPage').then(m => ({ default: m.TVDevelopmentPage })))
+const PipelinePage         = lazy(() => import('./pages/PipelinePage').then(m => ({ default: m.PipelinePage })))
+const CoveragePage         = lazy(() => import('./pages/CoveragePage').then(m => ({ default: m.CoveragePage })))
+const MarketIntelPage      = lazy(() => import('./pages/MarketIntelPage').then(m => ({ default: m.MarketIntelPage })))
+const TitleDetailPage      = lazy(() => import('./pages/TitleDetailPage').then(m => ({ default: m.TitleDetailPage })))
 
 function PageFallback() {
   return (
@@ -43,6 +45,8 @@ export default function App() {
           >
             <Route index element={<OverviewPage />} />
             <Route path="slate"      element={<ActiveSlatePage />} />
+            <Route path="film-dev"   element={<FilmDevelopmentPage />} />
+            <Route path="tv-dev"     element={<TVDevelopmentPage />} />
             <Route path="pipeline"   element={<PipelinePage />} />
             <Route path="coverage"   element={<CoveragePage />} />
             <Route path="market"     element={<MarketIntelPage />} />

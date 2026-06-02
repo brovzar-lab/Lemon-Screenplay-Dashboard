@@ -4,6 +4,8 @@ import { useAuthStore } from '../store/authStore'
 const links = [
   { to: '/',         label: 'Overview',          icon: '◈' },
   { to: '/slate',    label: 'Active Slate',       icon: '▦' },
+  { to: '/film-dev', label: 'Film Development',   icon: '◫' },
+  { to: '/tv-dev',   label: 'TV Development',     icon: '◪' },
   { to: '/pipeline', label: 'Pipeline',           icon: '⊞' },
   { to: '/coverage', label: 'Coverage & Scripts', icon: '⊡' },
   { to: '/market',   label: 'Market Intel',       icon: '◉' },
