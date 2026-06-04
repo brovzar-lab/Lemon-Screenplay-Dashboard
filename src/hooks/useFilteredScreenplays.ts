@@ -325,7 +325,6 @@ export function useFilteredScreenplays() {
     // Sort
     return sortScreenplays(filtered, sortConfigs, prioritizeFilmNow);
     // pdfStatuses + hasPdfScanResult trigger re-computation when scan results arrive
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenplays, filters, sortConfigs, prioritizeFilmNow, pdfStatuses, hasPdfScanResult]);
 
   return {

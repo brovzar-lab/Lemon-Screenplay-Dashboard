@@ -14,6 +14,10 @@ interface ApiConfig {
   googleApiKey: string;
   isGoogleConfigured: boolean;
 
+  // TMDB (The Movie Database) — production status checks
+  tmdbApiKey: string;
+  isTmdbConfigured: boolean;
+
   // Budget Controls
   monthlyBudgetLimit: number; // in USD
   dailyRequestLimit: number;
@@ -26,6 +30,7 @@ interface ApiConfig {
 
   // Actions
   setGoogleApiKey: (key: string) => void;
+  setTmdbApiKey: (key: string) => void;
   setMonthlyBudgetLimit: (limit: number) => void;
   setDailyRequestLimit: (limit: number) => void;
   incrementUsage: (cost: number) => void;
@@ -43,12 +48,18 @@ const getThisMonth = () => new Date().toISOString().slice(0, 7);
 // Google API key from .env — still needed client-side for poster generation + live audio
 const ENV_GOOGLE_KEY = import.meta.env.VITE_GOOGLE_API_KEY as string | undefined ?? '';
 
+// TMDB key from .env — hard-codes production-status checks without manual entry
+const ENV_TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY as string | undefined ?? '';
+
 
 export const useApiConfigStore = create<ApiConfig>()(
   persist(
     (set, get) => ({
       googleApiKey: ENV_GOOGLE_KEY,
       isGoogleConfigured: ENV_GOOGLE_KEY.length > 0,
+
+      tmdbApiKey: ENV_TMDB_KEY,
+      isTmdbConfigured: ENV_TMDB_KEY.length > 0,
 
       monthlyBudgetLimit: 50,
       dailyRequestLimit: 100,
@@ -60,6 +71,9 @@ export const useApiConfigStore = create<ApiConfig>()(
       // Actions
       setGoogleApiKey: (key) =>
         set({ googleApiKey: key, isGoogleConfigured: key.length > 0 }),
+
+      setTmdbApiKey: (key) =>
+        set({ tmdbApiKey: key, isTmdbConfigured: key.length > 0 }),
 
       setMonthlyBudgetLimit: (limit) =>
         set({ monthlyBudgetLimit: Math.max(0, limit) }),
@@ -110,7 +124,7 @@ export const useApiConfigStore = create<ApiConfig>()(
     }),
     {
       name: 'lemon-api-config',
-      version: 3,
+      version: 4,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Record<string, unknown>;
         if (version < 2) {
@@ -125,6 +139,11 @@ export const useApiConfigStore = create<ApiConfig>()(
           delete state.apiEndpoint;
           delete state.isConfigured;
         }
+        if (version < 4) {
+          // Add TMDB key fields
+          state.tmdbApiKey = state.tmdbApiKey ?? '';
+          state.isTmdbConfigured = false;
+        }
         return state as Record<string, unknown> & { googleApiKey: string };
       },
       onRehydrateStorage: () => (state) => {
@@ -134,9 +153,15 @@ export const useApiConfigStore = create<ApiConfig>()(
         if (!gKey) gKey = ENV_GOOGLE_KEY;
         (state as ApiConfig).googleApiKey = gKey;
         (state as ApiConfig).isGoogleConfigured = gKey.length > 0;
+        // Fallback to env var for TMDB key
+        let tKey = (state.tmdbApiKey as string) || '';
+        if (!tKey) tKey = ENV_TMDB_KEY;
+        (state as ApiConfig).tmdbApiKey = tKey;
+        (state as ApiConfig).isTmdbConfigured = tKey.length > 0;
       },
       partialize: (state) => ({
         googleApiKey: state.googleApiKey,
+        tmdbApiKey: state.tmdbApiKey,
         monthlyBudgetLimit: state.monthlyBudgetLimit,
         dailyRequestLimit: state.dailyRequestLimit,
         currentMonthSpend: state.currentMonthSpend,

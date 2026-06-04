@@ -12,7 +12,7 @@ import { ErrorBoundary, LoadingFallback, ToastContainer, ScrollProgress } from '
 import { DevExecChat } from '@/components/devexec';
 import { DevExecProvider } from '@/contexts/DevExecContext';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
-import { useScreenplays } from '@/hooks/useScreenplays';
+import { useScreenplays, useLiveScreenplaySync } from '@/hooks/useScreenplays';
 import { useUrlState } from '@/hooks/useUrlState';
 import { usePosterBackground } from '@/hooks/usePosterBackground';
 import { useFilterStore } from '@/stores/filterStore';
@@ -26,6 +26,10 @@ const ComparisonModal = lazy(() => import('@/components/comparison/ComparisonMod
 function App() {
   const { screenplays, isLoading, filteredCount, totalCount } = useFilteredScreenplays();
   const { data: allScreenplays = [] } = useScreenplays();
+
+  // Live Firestore sync — new daemon-written analyses appear automatically,
+  // no page refresh needed.
+  useLiveScreenplaySync();
 
   // URL state sync — loads filters from URL on mount
   useUrlState();

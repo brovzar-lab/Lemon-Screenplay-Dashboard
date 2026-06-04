@@ -1,0 +1,1174 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e5]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - img "Lemon Studios" [ref=e9]
+          - heading "LEMONScreenplay Dashboard" [level=1] [ref=e10]
+        - generic [ref=e11]:
+          - generic [ref=e345]:
+            - generic [ref=e346]: Showing
+            - generic [ref=e347]: 17 / 17
+          - generic [ref=e348]:
+            - generic [ref=e349]: Avg Score
+            - generic [ref=e350]: "5.9"
+          - button "Toggle Dev Exec chat" [ref=e16]: 🎬
+          - button "Toggle theme" [ref=e17]:
+            - img [ref=e18]
+          - link "Settings" [ref=e20] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e21]
+    - main [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e352]:
+          - button "All 17" [ref=e353]:
+            - generic [ref=e354]: All
+            - generic [ref=e355]: "17"
+          - button "Lemon 17" [ref=e356]:
+            - generic [ref=e357]: Lemon
+            - generic [ref=e358]: "17"
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - generic [ref=e28]:
+              - textbox "Search screenplays" [ref=e29]:
+                - /placeholder: Search title, author, genre, logline...
+              - generic:
+                - generic: /
+              - generic [ref=e30]: 🔍
+            - generic [ref=e31]:
+              - generic [ref=e359]:
+                - text: Showing
+                - strong [ref=e360]: 17 of 17
+                - text: screenplays
+              - generic [ref=e33]:
+                - combobox "Sort screenplays by" [ref=e34]:
+                  - 'option "Sort: Market Potential" [selected]'
+                  - 'option "Sort: Weighted Score"'
+                  - 'option "Sort: CVS Total"'
+                  - 'option "Sort: Title A-Z"'
+                - button "2" [ref=e35] [cursor=pointer]:
+                  - img [ref=e36]
+                  - generic [ref=e38]: "2"
+                - button "Filters" [ref=e39] [cursor=pointer]:
+                  - img [ref=e40]
+                  - text: Filters
+                - button "Share" [ref=e42] [cursor=pointer]:
+                  - img [ref=e43]
+                  - text: Share
+                - button "☑ Select All" [ref=e45] [cursor=pointer]
+                - button "Export (17)" [ref=e361] [cursor=pointer]:
+                  - img [ref=e47]
+                  - text: Export (17)
+              - button "Actions" [ref=e50] [cursor=pointer]:
+                - text: Actions
+                - img [ref=e51]
+          - navigation "Filter screenplays" [ref=e53]:
+            - generic [ref=e54]:
+              - button "All" [ref=e55] [cursor=pointer]
+              - button "Pass" [ref=e56] [cursor=pointer]
+              - button "Consider" [ref=e57] [cursor=pointer]
+              - button "Recommend" [ref=e58] [cursor=pointer]
+              - button "FILM NOW" [ref=e59] [cursor=pointer]
+              - button "Missing PDF 8" [ref=e363] [cursor=pointer]:
+                - text: Missing PDF
+                - generic [ref=e364]: "8"
+              - button "Has PDF" [ref=e60] [cursor=pointer]
+      - generic [ref=e61]:
+        - generic [ref=e365]:
+          - 'button "Analytics Dashboard 17 screenplays | Avg Score: 5.9 | 0 FILM NOW | 1 Recommend" [ref=e366]':
+            - generic [ref=e367]:
+              - generic [ref=e368]:
+                - img [ref=e369]
+                - generic [ref=e371]: Analytics Dashboard
+              - generic [ref=e372]:
+                - generic [ref=e373]: 17 screenplays
+                - generic [ref=e374]: "|"
+                - generic [ref=e375]: "Avg Score: 5.9"
+                - generic [ref=e376]: "|"
+                - generic [ref=e377]: 0 FILM NOW
+                - generic [ref=e378]: "|"
+                - generic [ref=e379]: 1 Recommend
+            - img [ref=e380]
+          - generic [ref=e383]:
+            - generic [ref=e385]:
+              - heading "Score Distribution" [level=2] [ref=e386]
+              - application [ref=e391]:
+                - generic [ref=e408]:
+                  - generic [ref=e409]:
+                    - generic [ref=e411]: 0-2
+                    - generic [ref=e413]: 2-4
+                    - generic [ref=e415]: 4-5
+                    - generic [ref=e417]: 5-6
+                    - generic [ref=e419]: 6-7
+                    - generic [ref=e421]: 7-8
+                    - generic [ref=e423]: 8-9
+                    - generic [ref=e425]: 9-10
+                  - generic [ref=e426]:
+                    - generic [ref=e428]: "0"
+                    - generic [ref=e430]: "2"
+                    - generic [ref=e432]: "4"
+                    - generic [ref=e434]: "6"
+                    - generic [ref=e436]: "8"
+              - paragraph [ref=e437]: Click a bar to filter
+            - generic [ref=e439]:
+              - heading "Recommendation Tiers" [level=2] [ref=e440]
+              - generic [ref=e442]:
+                - generic [ref=e444]:
+                  - generic [ref=e1538]:
+                    - button "Consider" [ref=e1539]:
+                      - generic [ref=e1541]: Consider
+                    - button "Pass" [ref=e1542]:
+                      - generic [ref=e1544]: Pass
+                    - button "Recommend" [ref=e1545]:
+                      - generic [ref=e1547]: Recommend
+                  - application [ref=e456]
+                - generic:
+                  - paragraph: "17"
+                  - paragraph: Total
+              - paragraph [ref=e457]: Click to filter by tier
+            - generic [ref=e459]:
+              - heading "Top Genres" [level=2] [ref=e460]
+              - application [ref=e465]:
+                - generic [ref=e482]:
+                  - generic [ref=e483]:
+                    - generic [ref=e485]: "0"
+                    - generic [ref=e487]: "1"
+                    - generic [ref=e489]: "2"
+                    - generic [ref=e491]: "3"
+                    - generic [ref=e493]: "4"
+                  - generic [ref=e494]:
+                    - generic [ref=e496]: RomanticComedy
+                    - generic [ref=e498]: GothicHorror
+                    - generic [ref=e500]: Crime Drama
+                    - generic [ref=e502]: PsychologicalHorror/SupernaturalThriller
+                    - generic [ref=e504]: Family Drama
+                    - generic [ref=e506]: Comedy
+              - paragraph [ref=e507]: Click to filter by genre
+            - generic [ref=e509]:
+              - heading "Budget Tiers" [level=2] [ref=e510]
+              - application [ref=e516]
+              - paragraph [ref=e517]: Click to filter by budget
+        - list "Screenplay results" [ref=e518]:
+          - generic [ref=e519]:
+            - group "Row 1" [ref=e520]:
+              - listitem [ref=e521]:
+                - article [ref=e522] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e523]
+                  - button "Delete screenplay" [ref=e524]:
+                    - img [ref=e525]
+                  - generic [ref=e527]:
+                    - generic [ref=e529]: RECOMMEND
+                    - heading "The Enclosed" [level=3] [ref=e530]
+                    - paragraph [ref=e531]: by
+                  - generic [ref=e532]:
+                    - generic [ref=e533]: Gothic Horror
+                    - generic [ref=e534]: unknown
+                    - generic [ref=e535]: LEMON
+                  - paragraph [ref=e536]: A guilt-ridden medieval anchoress who locked herself away for life to atone for abandoning her female lover discovers what she believes is a saint's skull, but must battle the charismatic demon trapped within while confronting the truth that her sacred vows are actually psychological imprisonment, ultimately defeating the demon by embracing her forbidden love rather than her false piety—though her escape leaves her fate uncertain.
+                  - generic [ref=e537]:
+                    - generic [ref=e538]: "Character: 8.5"
+                    - generic [ref=e539]: "Structure: 8.3"
+                    - generic [ref=e540]: "Craft & Scene: 7.8"
+                  - generic [ref=e541]:
+                    - generic [ref=e543]:
+                      - generic [ref=e544]: Concept
+                      - generic [ref=e545]: "7.6"
+                    - generic [ref=e549]:
+                      - generic [ref=e550]: Structure
+                      - generic [ref=e551]: "8.3"
+                    - generic [ref=e555]:
+                      - generic [ref=e556]: Emotion
+                      - generic [ref=e557]: "7.7"
+                    - generic [ref=e561]:
+                      - generic [ref=e562]: Character
+                      - generic [ref=e563]: "8.5"
+                    - generic [ref=e567]:
+                      - generic [ref=e568]: Craft & Scene
+                      - generic [ref=e569]: "7.8"
+                  - generic [ref=e572]:
+                    - generic [ref=e573]:
+                      - generic [ref=e574]:
+                        - generic [ref=e575]: Score
+                        - text: "8.1"
+                      - generic [ref=e576]:
+                        - generic [ref=e577]: CVS
+                        - generic [ref=e578]: 13/18
+                    - generic "AI-analyzed market potential" [ref=e580]:
+                      - generic [ref=e581]: Mkt
+                      - generic [ref=e582]: —
+                  - generic [ref=e584]: ⚠ 2 Critical Failures
+              - listitem [ref=e585]:
+                - article [ref=e586] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e587]
+                  - button "Delete screenplay" [ref=e588]:
+                    - img [ref=e589]
+                  - generic [ref=e591]:
+                    - generic [ref=e593]: CONSIDER
+                    - heading "Oro Verde 101" [level=3] [ref=e594]
+                    - paragraph [ref=e595]: by
+                  - generic [ref=e596]:
+                    - generic [ref=e597]: Crime Drama
+                    - generic [ref=e598]: unknown
+                    - generic [ref=e599]: LEMON
+                  - paragraph [ref=e600]: When their dying matriarch disinherits them as a final act of tough love, three orphaned siblings — led by an insecure eldest brother desperate to prove he isn't useless — seize control of their family's avocado empire, only to discover that the fortune they're fighting over was built on a blood pact with a cartel boss who has come to collect, forcing them to trade a lie for their lives.
+                  - generic [ref=e601]:
+                    - generic [ref=e602]: "Structure: 7.5"
+                    - generic [ref=e603]: "Concept: 7.5"
+                    - generic [ref=e604]: "Emotion: 7.3"
+                  - generic [ref=e605]:
+                    - generic [ref=e607]:
+                      - generic [ref=e608]: Structure
+                      - generic [ref=e609]: "7.5"
+                    - generic [ref=e613]:
+                      - generic [ref=e614]: Craft & Scene
+                      - generic [ref=e615]: "7.0"
+                    - generic [ref=e619]:
+                      - generic [ref=e620]: Character
+                      - generic [ref=e621]: "7.0"
+                    - generic [ref=e625]:
+                      - generic [ref=e626]: Emotion
+                      - generic [ref=e627]: "7.3"
+                    - generic [ref=e631]:
+                      - generic [ref=e632]: Concept
+                      - generic [ref=e633]: "7.5"
+                  - generic [ref=e636]:
+                    - generic [ref=e637]:
+                      - generic [ref=e638]:
+                        - generic [ref=e639]: Score
+                        - text: "7.2"
+                      - generic [ref=e640]:
+                        - generic [ref=e641]: CVS
+                        - generic [ref=e642]: 15/18
+                    - generic "AI-analyzed market potential" [ref=e644]:
+                      - generic [ref=e645]: Mkt
+                      - generic [ref=e646]: —
+                  - generic [ref=e648]: ⚠ 1 Critical Failure
+              - listitem [ref=e649]:
+                - article [ref=e650] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e651]
+                  - button "Delete screenplay" [ref=e652]:
+                    - img [ref=e653]
+                  - generic [ref=e655]:
+                    - generic [ref=e657]: CONSIDER
+                    - heading "The Girl in the Cellar" [level=3] [ref=e658]
+                    - paragraph [ref=e659]: by
+                  - generic [ref=e660]:
+                    - generic [ref=e661]: Psychological Horror/Supernatural Thriller
+                    - generic [ref=e662]: unknown
+                    - generic [ref=e663]: LEMON
+                  - paragraph [ref=e664]: When a self-destructive woman returns to her childhood home with her daughter, the child's communication with a ghost forces the mother to investigate a decades-old disappearance—only to discover the ghost is her own traumatized younger self, leading to the revelation that her father sexually abused her and murdered her childhood friend who witnessed it.
+                  - generic [ref=e665]:
+                    - generic [ref=e666]: "Emotion: 8.3"
+                    - generic [ref=e667]: "Character: 7.6"
+                    - generic [ref=e668]: "Structure: 7.3"
+                  - generic [ref=e669]:
+                    - generic [ref=e671]:
+                      - generic [ref=e672]: Concept
+                      - generic [ref=e673]: "7.1"
+                    - generic [ref=e677]:
+                      - generic [ref=e678]: Craft & Scene
+                      - generic [ref=e679]: "6.2"
+                    - generic [ref=e683]:
+                      - generic [ref=e684]: Character
+                      - generic [ref=e685]: "7.6"
+                    - generic [ref=e689]:
+                      - generic [ref=e690]: Emotion
+                      - generic [ref=e691]: "8.3"
+                    - generic [ref=e695]:
+                      - generic [ref=e696]: Structure
+                      - generic [ref=e697]: "7.3"
+                  - generic [ref=e700]:
+                    - generic [ref=e701]:
+                      - generic [ref=e702]:
+                        - generic [ref=e703]: Score
+                        - text: "7.2"
+                      - generic [ref=e704]:
+                        - generic [ref=e705]: CVS
+                        - generic [ref=e706]: 13/18
+                    - generic "AI-analyzed market potential" [ref=e708]:
+                      - generic [ref=e709]: Mkt
+                      - generic [ref=e710]: —
+                  - generic [ref=e712]: ⚠ 2 Critical Failures
+            - group "Row 2" [ref=e713]:
+              - listitem [ref=e714]:
+                - article [ref=e715] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e716]
+                  - button "Delete screenplay" [ref=e717]:
+                    - img [ref=e718]
+                  - generic [ref=e720]:
+                    - generic [ref=e722]: CONSIDER
+                    - heading "This Wedding Is Fucked" [level=3] [ref=e723]
+                    - paragraph [ref=e724]: by
+                  - generic [ref=e725]:
+                    - generic [ref=e726]: Romantic Comedy
+                    - generic [ref=e727]: unknown
+                    - generic [ref=e728]: LEMON
+                  - paragraph [ref=e729]: "When commitment-phobic artist Melissa and her control-freak tech executive ex Jonathan are forced to serve as maid of honor and best man at her sister's destination wedding, their escalating revenge war forces them to confront the truth they've been avoiding: they sabotaged their relationship not because they didn't love each other, but because neither was willing to sacrifice their identity—and only by destroying everything around them do they finally learn that closure, not victory, is the real prize."
+                  - generic [ref=e730]:
+                    - generic [ref=e731]: "Structure: 6.8"
+                    - generic [ref=e732]: "Concept: 6.8"
+                    - generic [ref=e733]: "Character: 6.5"
+                  - generic [ref=e734]:
+                    - generic [ref=e736]:
+                      - generic [ref=e737]: Structure
+                      - generic [ref=e738]: "6.8"
+                    - generic [ref=e742]:
+                      - generic [ref=e743]: Craft & Scene
+                      - generic [ref=e744]: "6.3"
+                    - generic [ref=e748]:
+                      - generic [ref=e749]: Emotion
+                      - generic [ref=e750]: "5.4"
+                    - generic [ref=e754]:
+                      - generic [ref=e755]: Character
+                      - generic [ref=e756]: "6.5"
+                    - generic [ref=e760]:
+                      - generic [ref=e761]: Concept
+                      - generic [ref=e762]: "6.8"
+                  - generic [ref=e765]:
+                    - generic [ref=e766]:
+                      - generic [ref=e767]:
+                        - generic [ref=e768]: Score
+                        - text: "6.5"
+                      - generic [ref=e769]:
+                        - generic [ref=e770]: CVS
+                        - generic [ref=e771]: 13/18
+                    - generic "AI-analyzed market potential" [ref=e773]:
+                      - generic [ref=e774]: Mkt
+                      - generic [ref=e775]: —
+                  - generic [ref=e777]: ⚠ 3 Critical Failures
+              - listitem [ref=e778]:
+                - article [ref=e779] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e780]
+                  - button "Delete screenplay" [ref=e781]:
+                    - img [ref=e782]
+                  - generic [ref=e784]:
+                    - generic [ref=e786]: CONSIDER
+                    - heading "The Memory Artists" [level=3] [ref=e787]
+                    - paragraph [ref=e788]: by
+                  - generic [ref=e789]:
+                    - generic [ref=e790]: Family Drama
+                    - generic [ref=e791]: unknown
+                    - generic [ref=e792]: LEMON
+                  - paragraph [ref=e793]: A synesthetic man with photographic memory but no creative ability must cure his mother's Alzheimer's while confronting his obsession with the past, ultimately discovering that human connection—not perfect recall or chemical formulas—creates the life worth remembering, transforming from isolated memory bank to present, connected creator.
+                  - generic [ref=e794]:
+                    - generic [ref=e795]: "Emotion: 7.4"
+                    - generic [ref=e796]: "Character: 7.3"
+                    - generic [ref=e797]: "Concept: 7.0"
+                  - generic [ref=e798]:
+                    - generic [ref=e800]:
+                      - generic [ref=e801]: Craft & Scene
+                      - generic [ref=e802]: "4.7"
+                    - generic [ref=e806]:
+                      - generic [ref=e807]: Character
+                      - generic [ref=e808]: "7.3"
+                    - generic [ref=e812]:
+                      - generic [ref=e813]: Emotion
+                      - generic [ref=e814]: "7.4"
+                    - generic [ref=e818]:
+                      - generic [ref=e819]: Structure
+                      - generic [ref=e820]: "6.3"
+                    - generic [ref=e824]:
+                      - generic [ref=e825]: Concept
+                      - generic [ref=e826]: "7.0"
+                  - generic [ref=e829]:
+                    - generic [ref=e830]:
+                      - generic [ref=e831]:
+                        - generic [ref=e832]: Score
+                        - text: "6.5"
+                      - generic [ref=e833]:
+                        - generic [ref=e834]: CVS
+                        - generic [ref=e835]: 13/18
+                    - generic "AI-analyzed market potential" [ref=e837]:
+                      - generic [ref=e838]: Mkt
+                      - generic [ref=e839]: —
+                  - generic [ref=e841]: ⚠ 3 Critical Failures
+              - listitem [ref=e842]:
+                - article [ref=e843] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e844]
+                  - button "Delete screenplay" [ref=e845]:
+                    - img [ref=e846]
+                  - generic [ref=e848]:
+                    - generic [ref=e850]: CONSIDER
+                    - heading "telepathetic" [level=3] [ref=e851]
+                    - paragraph [ref=e852]: by
+                  - generic [ref=e853]:
+                    - generic [ref=e854]: Comedy
+                    - generic [ref=e855]: unknown
+                    - generic [ref=e856]: LEMON
+                  - paragraph [ref=e857]: An anxiety-ridden rookie news anchor haunted by his father's emotional neglect accidentally predicts a catastrophic kite accident on live TV during a panic attack, catapulting him into viral fame where media opportunists and romantic manipulators force him to choose between embracing false prophet status or admitting he's a fraud—but when he finally chooses honesty and denies any psychic ability, an earthquake he casually mentioned actually occurs, forcing him to confront that the universe may be punishing his authenticity with unwanted powers.
+                  - generic [ref=e858]:
+                    - generic [ref=e859]: "Concept: 7.4"
+                    - generic [ref=e860]: "Structure: 7.2"
+                    - generic [ref=e861]: "Craft & Scene: 6.2"
+                  - generic [ref=e862]:
+                    - generic [ref=e864]:
+                      - generic [ref=e865]: Concept
+                      - generic [ref=e866]: "7.4"
+                    - generic [ref=e870]:
+                      - generic [ref=e871]: Structure
+                      - generic [ref=e872]: "7.2"
+                    - generic [ref=e876]:
+                      - generic [ref=e877]: Emotion
+                      - generic [ref=e878]: "5.3"
+                    - generic [ref=e882]:
+                      - generic [ref=e883]: Character
+                      - generic [ref=e884]: "5.5"
+                    - generic [ref=e888]:
+                      - generic [ref=e889]: Craft & Scene
+                      - generic [ref=e890]: "6.2"
+                  - generic [ref=e893]:
+                    - generic [ref=e894]:
+                      - generic [ref=e895]:
+                        - generic [ref=e896]: Score
+                        - text: "6.4"
+                      - generic [ref=e897]:
+                        - generic [ref=e898]: CVS
+                        - generic [ref=e899]: 14/18
+                    - generic "AI-analyzed market potential" [ref=e901]:
+                      - generic [ref=e902]: Mkt
+                      - generic [ref=e903]: —
+                  - generic [ref=e905]: ⚠ 3 Critical Failures
+            - group "Row 3" [ref=e906]:
+              - listitem [ref=e907]:
+                - article [ref=e908] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e909]
+                  - button "Delete screenplay" [ref=e910]:
+                    - img [ref=e911]
+                  - generic [ref=e913]:
+                    - generic [ref=e915]: CONSIDER
+                    - heading "Aura Regresa" [level=3] [ref=e916]
+                    - paragraph [ref=e917]: by
+                  - generic [ref=e918]:
+                    - generic [ref=e919]: Supernatural Thriller
+                    - generic [ref=e920]: unknown
+                    - generic [ref=e921]: LEMON
+                  - paragraph [ref=e922]: A young Mexican woman — haunted by a life spent achieving rather than living — returns as a ghost on Día de Muertos and must coach her autistic, non-verbal sister through drawings to expose a murderous stepmother conspiracy before midnight, risking her only chance at peace if she cannot learn to trust those she always underestimated.
+                  - generic [ref=e923]:
+                    - generic [ref=e924]: "Emotion: 7.4"
+                    - generic [ref=e925]: "Concept: 7.3"
+                    - generic [ref=e926]: "Structure: 6.8"
+                  - generic [ref=e927]:
+                    - generic [ref=e929]:
+                      - generic [ref=e930]: Structure
+                      - generic [ref=e931]: "6.8"
+                    - generic [ref=e935]:
+                      - generic [ref=e936]: Character
+                      - generic [ref=e937]: "5.5"
+                    - generic [ref=e941]:
+                      - generic [ref=e942]: Emotion
+                      - generic [ref=e943]: "7.4"
+                    - generic [ref=e947]:
+                      - generic [ref=e948]: Craft & Scene
+                      - generic [ref=e949]: "6.1"
+                    - generic [ref=e953]:
+                      - generic [ref=e954]: Concept
+                      - generic [ref=e955]: "7.3"
+                  - generic [ref=e958]:
+                    - generic [ref=e959]:
+                      - generic [ref=e960]:
+                        - generic [ref=e961]: Score
+                        - text: "6.4"
+                      - generic [ref=e962]:
+                        - generic [ref=e963]: CVS
+                        - text: N/A
+                    - generic "AI-analyzed market potential" [ref=e965]:
+                      - generic [ref=e966]: Mkt
+                      - generic [ref=e967]: —
+                  - generic [ref=e969]: ⚠ 2 Critical Failures
+              - listitem [ref=e970]:
+                - article [ref=e971] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e972]
+                  - button "Delete screenplay" [ref=e973]:
+                    - img [ref=e974]
+                  - generic [ref=e976]:
+                    - generic [ref=e978]: CONSIDER
+                    - heading "Amor Per Mortem" [level=3] [ref=e979]
+                    - paragraph [ref=e980]: by
+                  - generic [ref=e981]:
+                    - generic [ref=e982]: Dark Comedy / Magical Realism
+                    - generic [ref=e983]: unknown
+                    - generic [ref=e984]: LEMON
+                  - paragraph [ref=e985]: A 65-year-old Mexican widow who has never existed outside of caring for a husband — and who secretly buried herself alongside him — illegally exhumes his corpse and infiltrates a witches' coven to resurrect him, only to discover that the supernatural power she has been growing throughout her grief belongs entirely to her, and must be spent not on bringing him back, but on finally letting him go.
+                  - generic [ref=e986]:
+                    - generic [ref=e987]: "Concept: 6.9"
+                    - generic [ref=e988]: "Emotion: 6.6"
+                    - generic [ref=e989]: "Character: 6.5"
+                  - generic [ref=e990]:
+                    - generic [ref=e992]:
+                      - generic [ref=e993]: Craft & Scene
+                      - generic [ref=e994]: "6.4"
+                    - generic [ref=e998]:
+                      - generic [ref=e999]: Emotion
+                      - generic [ref=e1000]: "6.6"
+                    - generic [ref=e1004]:
+                      - generic [ref=e1005]: Character
+                      - generic [ref=e1006]: "6.5"
+                    - generic [ref=e1010]:
+                      - generic [ref=e1011]: Structure
+                      - generic [ref=e1012]: "6.0"
+                    - generic [ref=e1016]:
+                      - generic [ref=e1017]: Concept
+                      - generic [ref=e1018]: "6.9"
+                  - generic [ref=e1021]:
+                    - generic [ref=e1022]:
+                      - generic [ref=e1023]:
+                        - generic [ref=e1024]: Score
+                        - text: "6.3"
+                      - generic [ref=e1025]:
+                        - generic [ref=e1026]: CVS
+                        - text: N/A
+                    - generic "AI-analyzed market potential" [ref=e1028]:
+                      - generic [ref=e1029]: Mkt
+                      - generic [ref=e1030]: —
+                  - generic [ref=e1032]: ⚠ 3 Critical Failures
+              - listitem [ref=e1033]:
+                - article [ref=e1034] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e1035]
+                  - button "Delete screenplay" [ref=e1036]:
+                    - img [ref=e1037]
+                  - generic [ref=e1039]:
+                    - generic [ref=e1041]: CONSIDER
+                    - heading "Alta Venganza" [level=3] [ref=e1042]
+                    - paragraph [ref=e1043]: by
+                  - generic [ref=e1044]:
+                    - generic [ref=e1045]: Dark Revenge Comedy / Social-Political Drama
+                    - generic [ref=e1046]: unknown
+                    - generic [ref=e1047]: LEMON
+                  - paragraph [ref=e1048]: Haunted by a life of modest failure and unable to protect the wife he adored, a grieving 75-year-old Chilean pensioner teams with a janitor ex-con to wage escalating revenge against the privileged teenager whose lie triggered his wife's fatal heart attack — only to discover the real enemy is the corrupt AFP executive who orchestrated the cover-up, forcing him to choose between a knife and his humanity, and ending as a jailed folk hero whose pyrrhic martyrdom changes nothing and everything.
+                  - generic [ref=e1049]:
+                    - generic [ref=e1050]: "Emotion: 6.7"
+                    - generic [ref=e1051]: "Concept: 6.4"
+                    - generic [ref=e1052]: "Structure: 6.3"
+                  - generic [ref=e1053]:
+                    - generic [ref=e1055]:
+                      - generic [ref=e1056]: Concept
+                      - generic [ref=e1057]: "6.4"
+                    - generic [ref=e1061]:
+                      - generic [ref=e1062]: Structure
+                      - generic [ref=e1063]: "6.3"
+                    - generic [ref=e1067]:
+                      - generic [ref=e1068]: Character
+                      - generic [ref=e1069]: "5.9"
+                    - generic [ref=e1073]:
+                      - generic [ref=e1074]: Emotion
+                      - generic [ref=e1075]: "6.7"
+                    - generic [ref=e1079]:
+                      - generic [ref=e1080]: Craft & Scene
+                      - generic [ref=e1081]: "5.9"
+                  - generic [ref=e1084]:
+                    - generic [ref=e1085]:
+                      - generic [ref=e1086]:
+                        - generic [ref=e1087]: Score
+                        - text: "6.2"
+                      - generic [ref=e1088]:
+                        - generic [ref=e1089]: CVS
+                        - text: N/A
+                    - generic "AI-analyzed market potential" [ref=e1091]:
+                      - generic [ref=e1092]: Mkt
+                      - generic [ref=e1093]: —
+                  - generic [ref=e1095]: ⚠ 3 Critical Failures
+            - group "Row 4" [ref=e1096]:
+              - listitem [ref=e1097]:
+                - article [ref=e1098] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e1099]
+                  - button "Delete screenplay" [ref=e1100]:
+                    - img [ref=e1101]
+                  - generic [ref=e1103]:
+                    - generic [ref=e1105]: CONSIDER
+                    - heading "Asesino de Ocasión" [level=3] [ref=e1106]
+                    - paragraph [ref=e1107]: by
+                  - generic [ref=e1108]:
+                    - generic [ref=e1109]: Dark Comedy / Crime Thriller Hybrid
+                    - generic [ref=e1110]: unknown
+                    - generic [ref=e1111]: LEMON
+                  - paragraph [ref=e1112]: A debt-crushed Mexican crime novelist who believes his worth exists only on the page — never in real life — accidentally advertises himself as a hitman-for-hire, is contracted by a scheming wife to murder her husband, and must choose between the money that would save his apartment and the friendship and love that would finally drag him out of his fiction and into his own story.
+                  - generic [ref=e1113]:
+                    - generic [ref=e1114]: "Concept: 6.5"
+                    - generic [ref=e1115]: "Craft & Scene: 6.1"
+                    - generic [ref=e1116]: "Structure: 6.0"
+                  - generic [ref=e1117]:
+                    - generic [ref=e1119]:
+                      - generic [ref=e1120]: Emotion
+                      - generic [ref=e1121]: "5.6"
+                    - generic [ref=e1125]:
+                      - generic [ref=e1126]: Character
+                      - generic [ref=e1127]: "5.6"
+                    - generic [ref=e1131]:
+                      - generic [ref=e1132]: Craft & Scene
+                      - generic [ref=e1133]: "6.1"
+                    - generic [ref=e1137]:
+                      - generic [ref=e1138]: Structure
+                      - generic [ref=e1139]: "6.0"
+                    - generic [ref=e1143]:
+                      - generic [ref=e1144]: Concept
+                      - generic [ref=e1145]: "6.5"
+                  - generic [ref=e1148]:
+                    - generic [ref=e1149]:
+                      - generic [ref=e1150]:
+                        - generic [ref=e1151]: Score
+                        - text: "6.0"
+                      - generic [ref=e1152]:
+                        - generic [ref=e1153]: CVS
+                        - text: N/A
+                    - generic "AI-analyzed market potential" [ref=e1155]:
+                      - generic [ref=e1156]: Mkt
+                      - generic [ref=e1157]: —
+                  - generic [ref=e1159]: ⚠ 2 Critical Failures
+              - listitem [ref=e1160]:
+                - article [ref=e1161] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e1162]
+                  - button "Delete screenplay" [ref=e1163]:
+                    - img [ref=e1164]
+                  - generic [ref=e1166]:
+                    - generic [ref=e1168]: PASS
+                    - heading "Best Practices" [level=3] [ref=e1169]
+                    - paragraph [ref=e1170]: by
+                  - generic [ref=e1171]:
+                    - generic [ref=e1172]: Half-hour single-camera comedy
+                    - generic [ref=e1173]: unknown
+                    - generic [ref=e1174]: LEMON
+                  - paragraph [ref=e1175]: A failing tech CEO who equates success with being a celebrated speaker must succeed on the motivational conference circuit to save his position, but when he discovers his idolized gurus are struggling with addiction, obsolescence, and impostor syndrome, he's forced to choose between performing inspiration he doesn't feel and embracing his authentic identity as a creator.
+                  - generic [ref=e1176]:
+                    - generic [ref=e1177]: "Concept: 6.5"
+                    - generic [ref=e1178]: "Character: 6.3"
+                    - generic [ref=e1179]: "Emotion: 6.0"
+                  - generic [ref=e1180]:
+                    - generic [ref=e1182]:
+                      - generic [ref=e1183]: Concept
+                      - generic [ref=e1184]: "6.5"
+                    - generic [ref=e1188]:
+                      - generic [ref=e1189]: Character
+                      - generic [ref=e1190]: "6.3"
+                    - generic [ref=e1194]:
+                      - generic [ref=e1195]: Emotion
+                      - generic [ref=e1196]: "6.0"
+                    - generic [ref=e1200]:
+                      - generic [ref=e1201]: Craft & Scene
+                      - generic [ref=e1202]: "4.9"
+                    - generic [ref=e1206]:
+                      - generic [ref=e1207]: Structure
+                      - generic [ref=e1208]: "4.8"
+                  - generic [ref=e1211]:
+                    - generic [ref=e1212]:
+                      - generic [ref=e1213]:
+                        - generic [ref=e1214]: Score
+                        - text: "5.5"
+                      - generic [ref=e1215]:
+                        - generic [ref=e1216]: CVS
+                        - generic [ref=e1217]: 12/18
+                    - generic "AI-analyzed market potential" [ref=e1219]:
+                      - generic [ref=e1220]: Mkt
+                      - generic [ref=e1221]: —
+                  - generic [ref=e1223]: ⚠ 3 Critical Failures
+              - listitem [ref=e1224]:
+                - article [ref=e1225] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e1226]
+                  - button "Delete screenplay" [ref=e1227]:
+                    - img [ref=e1228]
+                  - generic [ref=e1230]:
+                    - generic [ref=e1232]: PASS
+                    - heading "0737" [level=3] [ref=e1233]
+                    - paragraph [ref=e1234]: by
+                  - generic [ref=e1235]:
+                    - generic [ref=e1236]: Psychological Horror / Supernatural Thriller
+                    - generic [ref=e1237]: unknown
+                    - generic [ref=e1238]: LEMON
+                  - paragraph [ref=e1239]: A powerless, theater-obsessed teenage girl — who secretly murdered her mother and buried the memory beneath a fiction of victimhood — is lured into a covert psychiatric experiment designed to unlock her suppressed crime, while a demonic entity that has haunted her family for generations conspires to keep her blind to the truth she must face before it kills her.
+                  - generic [ref=e1240]:
+                    - generic [ref=e1241]: "Craft & Scene: 5.8"
+                    - generic [ref=e1242]: "Emotion: 5.7"
+                    - generic [ref=e1243]: "Concept: 5.5"
+                  - generic [ref=e1244]:
+                    - generic [ref=e1246]:
+                      - generic [ref=e1247]: Concept
+                      - generic [ref=e1248]: "5.5"
+                    - generic [ref=e1252]:
+                      - generic [ref=e1253]: Craft & Scene
+                      - generic [ref=e1254]: "5.8"
+                    - generic [ref=e1258]:
+                      - generic [ref=e1259]: Emotion
+                      - generic [ref=e1260]: "5.7"
+                    - generic [ref=e1264]:
+                      - generic [ref=e1265]: Character
+                      - generic [ref=e1266]: "5.5"
+                    - generic [ref=e1270]:
+                      - generic [ref=e1271]: Structure
+                      - generic [ref=e1272]: "5.0"
+                  - generic [ref=e1275]:
+                    - generic [ref=e1276]:
+                      - generic [ref=e1277]:
+                        - generic [ref=e1278]: Score
+                        - text: "5.4"
+                      - generic [ref=e1279]:
+                        - generic [ref=e1280]: CVS
+                        - text: N/A
+                    - generic "AI-analyzed market potential" [ref=e1282]:
+                      - generic [ref=e1283]: Mkt
+                      - generic [ref=e1284]: —
+                  - generic [ref=e1286]: ⚠ 3 Critical Failures
+            - group "Row 5" [ref=e1287]:
+              - listitem [ref=e1288]:
+                - article [ref=e1289] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e1290]
+                  - button "Delete screenplay" [ref=e1291]:
+                    - img [ref=e1292]
+                  - generic [ref=e1294]:
+                    - generic [ref=e1296]: PASS
+                    - heading "Singularity Revolution" [level=3] [ref=e1297]
+                    - paragraph [ref=e1298]: by
+                  - generic [ref=e1299]:
+                    - generic [ref=e1300]: Action Sci-Fi
+                    - generic [ref=e1301]: unknown
+                    - generic [ref=e1302]: LEMON
+                  - paragraph [ref=e1303]: When an underground fighter discovers she's a secret human-machine hybrid created by her murdered parents, she must master her synthetic abilities to stop her mentor's genocidal son from uploading his consciousness into her indestructible body—learning to accept her hybrid nature to preserve what makes her human.
+                  - generic [ref=e1304]:
+                    - generic [ref=e1305]: "Character: 5.8"
+                    - generic [ref=e1306]: "Concept: 5.6"
+                    - generic [ref=e1307]: "Structure: 5.3"
+                  - generic [ref=e1308]:
+                    - generic [ref=e1310]:
+                      - generic [ref=e1311]: Concept
+                      - generic [ref=e1312]: "5.6"
+                    - generic [ref=e1316]:
+                      - generic [ref=e1317]: Structure
+                      - generic [ref=e1318]: "5.3"
+                    - generic [ref=e1322]:
+                      - generic [ref=e1323]: Character
+                      - generic [ref=e1324]: "5.8"
+                    - generic [ref=e1328]:
+                      - generic [ref=e1329]: Emotion
+                      - generic [ref=e1330]: "4.7"
+                    - generic [ref=e1334]:
+                      - generic [ref=e1335]: Craft & Scene
+                      - generic [ref=e1336]: "4.3"
+                  - generic [ref=e1339]:
+                    - generic [ref=e1340]:
+                      - generic [ref=e1341]:
+                        - generic [ref=e1342]: Score
+                        - text: "5.3"
+                      - generic [ref=e1343]:
+                        - generic [ref=e1344]: CVS
+                        - generic [ref=e1345]: 13/18
+                    - generic "AI-analyzed market potential" [ref=e1347]:
+                      - generic [ref=e1348]: Mkt
+                      - generic [ref=e1349]: —
+                  - generic [ref=e1351]: ⚠ 4 Critical Failures
+              - listitem [ref=e1352]:
+                - article [ref=e1353] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e1354]
+                  - button "Delete screenplay" [ref=e1355]:
+                    - img [ref=e1356]
+                  - generic [ref=e1358]:
+                    - generic [ref=e1360]: PASS
+                    - heading "ALICIA - 26" [level=3] [ref=e1361]
+                    - paragraph [ref=e1362]: by
+                  - generic [ref=e1363]:
+                    - generic [ref=e1364]: Horror-Thriller
+                    - generic [ref=e1365]: unknown
+                    - generic [ref=e1366]: LEMON
+                  - paragraph [ref=e1367]: A grieving 26-year-old woman who cannot accept that death is beyond human control stops at a roadside hotel — and is swallowed by a transhumanist cult that harvests healthy travelers to cheat divine law — forcing her to survive long enough for a private detective to find her, in a race she has already lost by the time rescue arrives.
+                  - generic [ref=e1368]:
+                    - generic [ref=e1369]: "Concept: 6.4"
+                    - generic [ref=e1370]: "Emotion: 6.0"
+                    - generic [ref=e1371]: "Structure: 5.8"
+                  - generic [ref=e1372]:
+                    - generic [ref=e1374]:
+                      - generic [ref=e1375]: Structure
+                      - generic [ref=e1376]: "5.8"
+                    - generic [ref=e1380]:
+                      - generic [ref=e1381]: Craft & Scene
+                      - generic [ref=e1382]: "5.6"
+                    - generic [ref=e1386]:
+                      - generic [ref=e1387]: Character
+                      - generic [ref=e1388]: "4.0"
+                    - generic [ref=e1392]:
+                      - generic [ref=e1393]: Emotion
+                      - generic [ref=e1394]: "6.0"
+                    - generic [ref=e1398]:
+                      - generic [ref=e1399]: Concept
+                      - generic [ref=e1400]: "6.4"
+                  - generic [ref=e1403]:
+                    - generic [ref=e1404]:
+                      - generic [ref=e1405]:
+                        - generic [ref=e1406]: Score
+                        - text: "5.2"
+                      - generic [ref=e1407]:
+                        - generic [ref=e1408]: CVS
+                        - text: N/A
+                    - generic "AI-analyzed market potential" [ref=e1410]:
+                      - generic [ref=e1411]: Mkt
+                      - generic [ref=e1412]: —
+                  - generic [ref=e1414]: ⚠ 3 Critical Failures
+              - listitem [ref=e1415]:
+                - article [ref=e1416] [cursor=pointer]:
+                  - button "Select screenplay" [ref=e1417]
+                  - button "Delete screenplay" [ref=e1418]:
+                    - img [ref=e1419]
+                  - generic [ref=e1421]:
+                    - generic [ref=e1423]: PASS
+                    - heading "Aprendiendo a Volar" [level=3] [ref=e1424]
+                    - paragraph [ref=e1425]: by
+                  - generic [ref=e1426]:
+                    - generic [ref=e1427]: Romantic Comedy
+                    - generic [ref=e1428]: unknown
+                    - generic [ref=e1429]: LEMON
+                  - paragraph [ref=e1430]: A compulsive-collector flight attendant, armored by her orphan wound and freshly shattered by a cheating pilot boyfriend, weaponizes her obsessive nature into a cross-Mexico catalog of disposable men — until she falls for an unclassifiable writer who discovers her archive and forces her to choose between the safety of control and the vulnerability of genuine love, the only way she will ever truly learn to fly.
+                  - generic [ref=e1431]:
+                    - generic [ref=e1432]: "Concept: 5.3"
+                    - generic [ref=e1433]: "Structure: 5.1"
+                    - generic [ref=e1434]: "Character: 4.9"
+                  - generic [ref=e1435]:
+                    - generic [ref=e1437]:
+                      - generic [ref=e1438]: Concept
+                      - generic [ref=e1439]: "5.3"
+                    - generic [ref=e1443]:
+                      - generic [ref=e1444]: Structure
+                      - generic [ref=e1445]: "5.1"
+                    - generic [ref=e1449]:
+                      - generic [ref=e1450]: Character
+                      - generic [ref=e1451]: "4.9"
+                    - generic [ref=e1455]:
+                      - generic [ref=e1456]: Emotion
+                      - generic [ref=e1457]: "4.9"
+                    - generic [ref=e1461]:
+                      - generic [ref=e1462]: Craft & Scene
+                      - generic [ref=e1463]: "4.8"
+                  - generic [ref=e1466]:
+                    - generic [ref=e1467]:
+                      - generic [ref=e1468]:
+                        - generic [ref=e1469]: Score
+                        - text: "5.0"
+                      - generic [ref=e1470]:
+                        - generic [ref=e1471]: CVS
+                        - text: N/A
+                    - generic "AI-analyzed market potential" [ref=e1473]:
+                      - generic [ref=e1474]: Mkt
+                      - generic [ref=e1475]: —
+                  - generic [ref=e1477]: ⚠ 3 Critical Failures
+        - button "Scroll to top":
+          - generic:
+            - img
+            - text: Top
+    - contentinfo [ref=e342]:
+      - paragraph [ref=e344]: Lemon Screenplay Dashboard - Powered by V7 Archaeology Engine
+    - dialog "Oro Verde 101" [ref=e1568]:
+      - generic [ref=e1570]:
+        - generic [ref=e1572]:
+          - generic [ref=e1573]:
+            - generic [ref=e1574]: CONSIDER
+            - button "Close modal" [active] [ref=e1575]:
+              - img [ref=e1576]
+          - generic [ref=e1578]:
+            - heading "Oro Verde 101" [level=2] [ref=e1579]
+            - paragraph [ref=e1580]: by
+          - generic [ref=e1581]:
+            - generic [ref=e1582]:
+              - generic [ref=e1583]: Crime Drama
+              - generic [ref=e1584]: Unknown (TBD)
+              - generic [ref=e1585]: LEMON
+            - generic [ref=e1586]:
+              - button "Share" [ref=e1588]:
+                - img [ref=e1589]
+                - text: Share
+              - button "Coverage" [ref=e1591] [cursor=pointer]:
+                - img [ref=e1592]
+                - text: Coverage
+              - button "🔄 Re-analyze" [ref=e1595] [cursor=pointer]:
+                - text: 🔄 Re-analyze
+                - img [ref=e1596]
+              - button "PDF" [ref=e1599] [cursor=pointer]:
+                - img [ref=e1600]
+                - text: PDF
+              - button "Delete screenplay" [ref=e1602]:
+                - img [ref=e1603]
+                - text: Delete
+        - generic [ref=e1605]:
+          - generic [ref=e1606]:
+            - paragraph [ref=e1608]: ORO VERDE 101 is a bilingual cartel-dynasty pilot that confidently establishes three orphaned siblings fighting for control of Mexico's largest avocado empire after their dying matriarch disinherits them, only to discover the fortune was built on a blood pact with a cartel lord who has come to collect. The script earns its strongest marks for a razor-sharp inciting incident, a devastating double-reversal climax, emotionally rich goosebumps moments (the childhood flashback and deathbed speech are genuinely exceptional), and a star-vehicle protagonist whose moral corruption arc channels Succession's Kendall Roy through a distinctly Mexican lens. It falls short of a RECOMMEND due to one critical structural flaw — the pilot's most consequential escalation (Ernesto's murder) is driven by a random external event rather than a traceable character choice, undermining the moral argument at its foundation — and secondary issues including an underdeveloped corporate antagonist and an AI bluff that needs stronger setup. This is a strong CONSIDER with a clear path to RECOMMEND through targeted structural revision; the writing talent, thematic ambition, and star-role potential are evident and the project merits development engagement.
+            - generic [ref=e1609]:
+              - heading "⚠️ Critical Failures (Auto-PASS)" [level=4] [ref=e1610]
+              - list [ref=e1611]:
+                - listitem [ref=e1612]: Ernesto's murder is caused by an unseen thief's violence rather than a character decision the audience can track — the most consequential plot escalation in the pilot is driven by a random external event.
+            - generic [ref=e1613]:
+              - heading "🧠 Billy's Take" [level=3] [ref=e1614]:
+                - generic [ref=e1615]: 🧠
+                - text: Billy's Take
+              - paragraph [ref=e1616]: "AI verdict: consider"
+              - generic [ref=e1617]:
+                - button "Pass" [ref=e1618]
+                - button "Consider" [ref=e1619]
+                - button "Recommend" [ref=e1620]
+                - button "Film Now" [ref=e1621]
+            - generic [ref=e1622]:
+              - heading "📄 Logline" [level=3] [ref=e1623]:
+                - generic [ref=e1624]: 📄
+                - text: Logline
+              - paragraph [ref=e1625]: When their dying matriarch disinherits them as a final act of tough love, three orphaned siblings — led by an insecure eldest brother desperate to prove he isn't useless — seize control of their family's avocado empire, only to discover that the fortune they're fighting over was built on a blood pact with a cartel boss who has come to collect, forcing them to trade a lie for their lives.
+            - generic [ref=e1626]:
+              - generic [ref=e1627]:
+                - heading "📊 Dimension Scores" [level=3] [ref=e1628]:
+                  - generic [ref=e1629]: 📊
+                  - text: Dimension Scores
+                - generic [ref=e1630]:
+                  - generic [ref=e1631]:
+                    - generic [ref=e1632]:
+                      - generic [ref=e1633]: Structure (40%)
+                      - generic [ref=e1634]: 7.5/10
+                    - paragraph [ref=e1637]: See V7 Structure Reader report
+                  - generic [ref=e1638]:
+                    - generic [ref=e1639]:
+                      - generic [ref=e1640]: Craft & Scene (15%)
+                      - generic [ref=e1641]: 7.0/10
+                    - paragraph [ref=e1644]: See V7 Craft & Scene Reader report
+                  - generic [ref=e1645]:
+                    - generic [ref=e1646]:
+                      - generic [ref=e1647]: Character (25%)
+                      - generic [ref=e1648]: 7.0/10
+                    - paragraph [ref=e1651]: See V7 Character Reader report
+                  - generic [ref=e1652]:
+                    - generic [ref=e1653]:
+                      - generic [ref=e1654]: Emotion (10%)
+                      - generic [ref=e1655]: 7.3/10
+                    - paragraph [ref=e1658]: See V7 Emotion Reader report
+                  - generic [ref=e1659]:
+                    - generic [ref=e1660]:
+                      - generic [ref=e1661]: Concept (10%)
+                      - generic [ref=e1662]: 7.5/10
+                    - paragraph [ref=e1665]: See V7 Concept Reader report
+                  - generic [ref=e1667]:
+                    - generic [ref=e1668]: Weighted Score
+                    - generic [ref=e1669]: "7.23"
+              - generic [ref=e1670]:
+                - heading "💰 Commercial Viability Score" [level=3] [ref=e1671]:
+                  - generic [ref=e1672]: 💰
+                  - text: Commercial Viability Score
+                - generic [ref=e1673]:
+                  - generic [ref=e1674]:
+                    - generic [ref=e1675]: "3"
+                    - generic [ref=e1676]:
+                      - generic [ref=e1677]: Target Audience
+                      - generic [ref=e1678]: Premium bilingual (Spanish/English) drama targeting the rapidly expanding global Latino audience and crossover prestige TV viewers. Directly serves the Netflix/HBO Max/Peacock strategy of Spanish-language premium content with English-language appeal. The Succession-meets-Narcos positioning addresses both the prestige drama audience and the massive narco-thriller fanbase.
+                  - generic [ref=e1679]:
+                    - generic [ref=e1680]: "2"
+                    - generic [ref=e1681]:
+                      - generic [ref=e1682]: High Concept
+                      - generic [ref=e1683]: The premise — orphaned heirs discover their avocado empire was built on a cartel blood pact — is evocative and specific, with strong logline potential. The 'oro verde' (green gold) concept connecting avocados to narco economics is culturally timely. However, the dynasty-plus-cartel space is crowded, and the concept requires character execution to distinguish itself from genre peers.
+                  - generic [ref=e1684]:
+                    - generic [ref=e1685]: "3"
+                    - generic [ref=e1686]:
+                      - generic [ref=e1687]: Cast Attachability
+                      - generic [ref=e1688]: Benjamín is a premium star vehicle requiring a bilingual leading man with range from charm to desperation — ideal for actors like Diego Luna, Gael García Bernal, or Tenoch Huerta. Karla and Don Ezequiel are strong secondary star roles. The ensemble nature and the matriarch role (Carmen, even in limited episodes) offer multiple attachment points for name talent.
+                  - generic [ref=e1689]:
+                    - generic [ref=e1690]: "3"
+                    - generic [ref=e1691]:
+                      - generic [ref=e1692]: Marketing Hook
+                      - generic [ref=e1693]: "'Succession in the avocado cartels' is an immediately communicable pitch. The avocado industry as backdrop is fresh and visually distinctive. The bilingual format is a marketing asset in the current streaming landscape. The pilot's cliffhanger (the algorithm doesn't exist) is trailer-ready."
+                  - generic [ref=e1694]:
+                    - generic [ref=e1695]: "2"
+                    - generic [ref=e1696]:
+                      - generic [ref=e1697]: Budget/Return Ratio
+                      - generic [ref=e1698]: Mexico/Michoacán setting allows cost-effective production compared to US-based prestige drama. Limited VFX needs. However, the script requires multiple high-production-value locations (Dallas suites, Michoacán haciendas, corporate offices, casinos), period flashbacks, and a large ensemble cast. Moderate budget with strong return potential given global Spanish-language content demand.
+                  - generic [ref=e1699]:
+                    - generic [ref=e1700]: "2"
+                    - generic [ref=e1701]:
+                      - generic [ref=e1702]: Comparable Success
+                      - generic [ref=e1703]: "Narcos/Narcos: Mexico (Netflix) demonstrated massive global appetite for premium cartel drama. La Casa de las Flores proved Mexican family-dynasty stories travel internationally. Succession proved the billionaire-family genre's commercial ceiling. The intersection of these proven formats suggests strong commercial viability, though no direct comp has combined all three elements at this scale."
+                  - generic [ref=e1705]:
+                    - generic [ref=e1706]: CVS Total
+                    - generic [ref=e1707]: 15/18
+            - generic [ref=e1708]:
+              - heading "🎯 AI Market Analysis" [level=3] [ref=e1709]:
+                - generic [ref=e1710]: 🎯
+                - text: AI Market Analysis
+              - paragraph [ref=e1711]: Not yet analyzed. Re-analyze this screenplay to generate AI market intelligence.
+            - generic [ref=e1712]:
+              - heading "👥 Characters" [level=3] [ref=e1713]:
+                - generic [ref=e1714]: 👥
+                - text: Characters
+              - generic [ref=e1715]:
+                - generic [ref=e1716]:
+                  - heading "Protagonist" [level=5] [ref=e1717]
+                  - paragraph [ref=e1718]: Benjamín Serrano
+                - generic [ref=e1719]:
+                  - heading "Antagonist" [level=5] [ref=e1720]
+                  - paragraph [ref=e1721]: Don Ezequiel Arellano
+                - generic [ref=e1722]:
+                  - heading "Supporting Cast" [level=5] [ref=e1723]
+                  - list [ref=e1724]:
+                    - listitem [ref=e1725]: Karla Serrano (sister, pragmatist, Type 8 Challenger)
+                    - listitem [ref=e1726]: Isabela Serrano (sister, truth-seeker, Type 6 Loyalist)
+                    - listitem [ref=e1727]: Doña Carmen Serrano (grandmother/matriarch, inciting force)
+                    - listitem [ref=e1728]: Ernesto (surrogate father figure, moral compass, killed as consequence of siblings' actions)
+                    - listitem [ref=e1729]: Javier (corporate rival/hidden cartel agent)
+                    - listitem [ref=e1730]: Lucía (activist, moral mirror for Benjamín)
+                    - listitem [ref=e1731]: Salvador (working-class reflection character)
+                    - listitem [ref=e1732]: Valeria (neglected partner, emotional cost marker)
+                    - listitem [ref=e1733]: Gabriela (helper/assistant)
+            - generic [ref=e1734]:
+              - heading "🎥 Comparable Films" [level=3] [ref=e1735]:
+                - generic [ref=e1736]: 🎥
+                - text: Comparable Films
+              - generic [ref=e1737]:
+                - generic [ref=e1738]:
+                  - generic [ref=e1739]:
+                    - generic [ref=e1740]: "La Reina del Sur / Narcos: Mexico (Netflix/Telemundo)"
+                    - generic [ref=e1741]: mixed
+                  - paragraph [ref=e1742]: Premium Spanish-language cartel drama with crossover English-language appeal, leveraging the narco-thriller genre's proven global audience while centering family dynamics and corporate power — the bilingual format and Mexican agricultural-empire setting map directly onto this market corridor.
+                  - paragraph [ref=e1743]: "Key Divergence: Oro Verde foregrounds corporate dynasty drama over cartel procedural — it's closer to Succession than to Narcos in its emotional center, which positions it as a premium cable/streamer play rather than a traditional narco-novela, potentially expanding the audience but requiring careful marketing to avoid genre-expectation mismatch."
+                - generic [ref=e1744]:
+                  - generic [ref=e1745]:
+                    - generic [ref=e1746]: Succession (HBO)
+                    - generic [ref=e1747]: mixed
+                  - paragraph [ref=e1748]: Family dynasty power struggle driven by a patriarch's rejection of unworthy heirs, with each sibling responding differently to the wound of parental disapproval; the Kendall Roy eulogy-as-power-grab mirrors Benjamín's funeral speech directly.
+                  - paragraph [ref=e1749]: "Key Divergence: Oro Verde layers cartel violence and physical danger onto the corporate intrigue — these characters face literal death, not just disinheritance, and the Mexican setting introduces narco-state economics and bilingual cultural specificity absent from Succession's Manhattan/London world."
+                - generic [ref=e1750]:
+                  - generic [ref=e1751]:
+                    - generic [ref=e1752]: Ozark (Netflix, Pilot)
+                    - generic [ref=e1753]: mixed
+                  - paragraph [ref=e1754]: A protagonist forced into a desperate deal with a cartel after a catastrophic loss of leverage, using a financial/technological bluff to buy survival — the pilot ends with the protagonist trapped in an arrangement far worse than the one they tried to escape.
+                  - paragraph [ref=e1755]: "Key Divergence: Oro Verde is an ensemble sibling story rather than a nuclear family drama, and the protagonists are heirs to the empire rather than outsiders laundering into one — the entitlement dynamic is fundamentally different from Ozark's survival-from-scratch premise."
+            - generic [ref=e1756]:
+              - heading "✨ Standout Scenes" [level=3] [ref=e1757]:
+                - generic [ref=e1758]: ✨
+                - text: Standout Scenes
+              - generic [ref=e1759]:
+                - generic [ref=e1760]:
+                  - paragraph [ref=e1761]: Young Benjamín shows Ernesto a drawing of two avocados holding hands and smiling — then Ernesto must tell him his parents are dead.
+                  - paragraph [ref=e1762]: "Why: The childlike specificity of the drawing (avocados as surrogate for the family empire) against the enormity of the loss creates unbearable dramatic irony. Ernesto's trembling hands and Carmen watching from a distance with clenched fists complete the emotional architecture."
+                - generic [ref=e1763]:
+                  - paragraph [ref=e1764]: Benjamín's deathbed speech pivots from tenderness to cruelty — telling his paralyzed, conscious grandmother that her indifference was worse than her father's beatings.
+                  - paragraph [ref=e1765]: "Why: The moral horror of speaking devastating truth to someone who can hear but cannot respond or defend themselves. It is simultaneously an act of emotional honesty and emotional violence, forcing the audience into irreconcilable sympathy."
+                - generic [ref=e1766]:
+                  - paragraph [ref=e1767]: Reynaldo puts a plastic bag over Karla's head while Benjamín frantically invents a technological solution that doesn't exist, buying her life with a lie.
+                  - paragraph [ref=e1768]: "Why: Physical urgency (Karla's eyes going white, feet hitting the floor) against Benjamín's desperate verbal improvisation creates unbearable tension. The audience realizes he's making it all up — the stakes are his sister's life and the currency is pure fabrication."
+            - generic [ref=e1769]:
+              - generic [ref=e1770]:
+                - heading "💪 Strengths" [level=3] [ref=e1771]:
+                  - generic [ref=e1772]: 💪
+                  - text: Strengths
+                - list [ref=e1773]:
+                  - listitem [ref=e1774]:
+                    - generic [ref=e1775]: ✓
+                    - text: "Crystal-clear inciting incident: Carmen's disinheritance of her grandchildren on pp. 8-9 is emotionally devastating, structurally precise, and sets the entire engine of the pilot in motion with a single irrevocable act scored at 9 by the structure reader."
+                  - listitem [ref=e1776]:
+                    - generic [ref=e1777]: ✓
+                    - text: "Devastating double-reversal climax: Benjamín's triumphant eulogy is immediately undercut by Don Ezequiel's violent takeover, which is then deepened by the revelation that the AI algorithm Benjamín offers as leverage doesn't exist — creating a pilot cliffhanger that resolves the episode question ('can the siblings seize power?') with a resounding and catastrophic 'no.'"
+                  - listitem [ref=e1778]:
+                    - generic [ref=e1779]: ✓
+                    - text: "Rich thematic parallels across the cast: Three distinct character triangles (Benjamín/Carmen/Ezequiel on legacy; the three siblings on responses to abandonment; Salvador/Lucía/Serranos on economic justice) create layered thematic argument without didacticism, with all readers noting the screenplay treats its central paradox — protection-as-damage — as genuinely unresolved."
+                  - listitem [ref=e1780]:
+                    - generic [ref=e1781]: ✓
+                    - text: "Exceptional goosebumps moments with earned emotional weight: The childhood flashback (young Benjamín's smiling avocado drawing moments before learning of his parents' death), the deathbed speech pivoting from tenderness to cruelty against a conscious but paralyzed grandmother, and Karla's suffocation while Benjamín improvises a lie — all identified by the emotion reader as genuinely devastating scenes that serve both character arc and thematic argument."
+                  - listitem [ref=e1782]:
+                    - generic [ref=e1783]: ✓
+                    - text: "Strong star vehicle design: Benjamín as a Type 3 Achiever with a clear ghost wound, moral blind spot (entitlement-as-righteousness), and escalating moral compromise creates a Kendall Roy-caliber role requiring bilingual range, charm, rage, and desperation — scored 8 for star potential."
+                  - listitem [ref=e1784]:
+                    - generic [ref=e1785]: ✓
+                    - text: "Visual storytelling sophistication: The golden avocado in glass shattered by a falling body, Carmen's oxygen monitor as countdown, the Remedios Varo painting concealing the safe, and the parallel grief imagery (Karla throwing objects vs. Isabela in the tub with running mascara) demonstrate a visually literate writer who thinks in images, not just dialogue."
+              - generic [ref=e1786]:
+                - heading "⚠️ Weaknesses" [level=3] [ref=e1787]:
+                  - generic [ref=e1788]: ⚠️
+                  - text: Weaknesses
+                - list [ref=e1789]:
+                  - listitem [ref=e1790]:
+                    - generic [ref=e1791]: ✗
+                    - generic [ref=e1792]: "[Major] Ernesto's murder is driven by an unseen thief's violence rather than a traceable character decision — the script's biggest craft vulnerability, as identified by the craft reader as a 'random surprise' failure mode that breaks causal chain logic."
+                  - listitem [ref=e1793]:
+                    - generic [ref=e1794]: ✗
+                    - generic [ref=e1795]: "[Major] Isabela's consent to the heist comes too quickly, reducing dramatic friction at a key crisis point (structure reader) — the siblings agree in the bar planning scene without sufficient obstacle or dissent."
+                  - listitem [ref=e1796]:
+                    - generic [ref=e1797]: ✗
+                    - generic [ref=e1798]: "[Major] Don Ezequiel's threat level is told more than shown before the climax — his earlier scenes establish menace but his actual power remains abstract until the final pages, making his dominance in the finale feel somewhat imposed rather than organically escalated."
+                  - listitem [ref=e1799]:
+                    - generic [ref=e1800]: ✗
+                    - generic [ref=e1801]: "[Major] Javier's betrayal and alliance with Don Ezequiel lacks sufficient emotional setup — it's revealed as a plot twist rather than emerging from dramatized tension or ambiguity in earlier scenes."
+                  - listitem [ref=e1802]:
+                    - generic [ref=e1803]: ✗
+                    - generic [ref=e1804]: "[Major] Valeria exists primarily as a narrative function (neglected partner) rather than a character — she has no scene outside phone calls, no agency, and serves only to illustrate Benjamín's avoidance."
+                  - listitem [ref=e1805]:
+                    - generic [ref=e1806]: ✗
+                    - generic [ref=e1807]: "[Major] The AI algorithm bluff introduces a major plot element that was only briefly established in the Dallas scene and WhatsApp messages, risking a deus ex machina feeling despite its dramatic effectiveness."
+                  - listitem [ref=e1808]:
+                    - generic [ref=e1809]: ✗
+                    - generic [ref=e1810]: "[Major] Format professionalism issues: camera directions in action lines (DOLLY BACK, LA CÁMARA NO SE MUEVE) are spec-script red flags, and some action lines run long."
+                  - listitem [ref=e1811]:
+                    - generic [ref=e1812]: ✗
+                    - generic [ref=e1813]: "[Major] The midpoint lands slightly late (~57% rather than 50%), and the 6-day countdown established at the top isn't used as a structural clock throughout the episode."
+                  - listitem [ref=e1814]:
+                    - generic [ref=e1815]: ✗
+                    - generic [ref=e1816]: "[Major] Some emotional beats don't breathe long enough — Ernesto's death is learned secondhand and the script moves to plot machinery before we can sit in that grief."
+                  - listitem [ref=e1817]:
+                    - generic [ref=e1818]: "!"
+                    - text: Ernesto's murder is driven by an unseen thief's violence rather than a traceable character decision — the script's biggest craft vulnerability, as identified by the craft reader as a 'random surprise' failure mode that breaks causal chain logic.
+                  - listitem [ref=e1819]:
+                    - generic [ref=e1820]: "!"
+                    - text: Isabela's consent to the heist comes too quickly, reducing dramatic friction at a key crisis point (structure reader) — the siblings agree in the bar planning scene without sufficient obstacle or dissent.
+                  - listitem [ref=e1821]:
+                    - generic [ref=e1822]: "!"
+                    - text: Don Ezequiel's threat level is told more than shown before the climax — his earlier scenes establish menace but his actual power remains abstract until the final pages, making his dominance in the finale feel somewhat imposed rather than organically escalated.
+                  - listitem [ref=e1823]:
+                    - generic [ref=e1824]: "!"
+                    - text: Javier's betrayal and alliance with Don Ezequiel lacks sufficient emotional setup — it's revealed as a plot twist rather than emerging from dramatized tension or ambiguity in earlier scenes.
+                  - listitem [ref=e1825]:
+                    - generic [ref=e1826]: "!"
+                    - text: Valeria exists primarily as a narrative function (neglected partner) rather than a character — she has no scene outside phone calls, no agency, and serves only to illustrate Benjamín's avoidance.
+                  - listitem [ref=e1827]:
+                    - generic [ref=e1828]: "!"
+                    - text: The AI algorithm bluff introduces a major plot element that was only briefly established in the Dallas scene and WhatsApp messages, risking a deus ex machina feeling despite its dramatic effectiveness.
+                  - listitem [ref=e1829]:
+                    - generic [ref=e1830]: "!"
+                    - text: "Format professionalism issues: camera directions in action lines (DOLLY BACK, LA CÁMARA NO SE MUEVE) are spec-script red flags, and some action lines run long."
+                  - listitem [ref=e1831]:
+                    - generic [ref=e1832]: "!"
+                    - text: The midpoint lands slightly late (~57% rather than 50%), and the 6-day countdown established at the top isn't used as a structural clock throughout the episode.
+                  - listitem [ref=e1833]:
+                    - generic [ref=e1834]: "!"
+                    - text: Some emotional beats don't breathe long enough — Ernesto's death is learned secondhand and the script moves to plot machinery before we can sit in that grief.
+            - generic [ref=e1835]:
+              - heading "📋 Development Notes" [level=3] [ref=e1836]:
+                - generic [ref=e1837]: 📋
+                - text: Development Notes
+              - list [ref=e1838]:
+                - listitem [ref=e1839]:
+                  - generic [ref=e1840]: →
+                  - text: Restructure the codicilo heist so that a choice by one of the siblings — not an unseen thief — directly leads to Ernesto's death, making the moral cost traceable to character action.
+                - listitem [ref=e1841]:
+                  - generic [ref=e1842]: →
+                  - text: Deepen the bar planning scene (sc.11) by giving Isabela a genuine reason to resist the theft (her sobriety principles, her discovery of the amapola photo) before she ultimately consents — this strengthens the crisis quality.
+                - listitem [ref=e1843]:
+                  - generic [ref=e1844]: →
+                  - text: "Seed Don Ezequiel's operational power earlier: show his network in action (not just menace in conversation) so his climactic dominance feels inevitable rather than sudden."
+                - listitem [ref=e1845]:
+                  - generic [ref=e1846]: →
+                  - text: Plant the AI/tech concept more substantially before the climax — a second reference in the middle build (perhaps Benjamín working on it alone, or a failed demo) would prevent the bluff from feeling like it arrives from nowhere.
+                - listitem [ref=e1847]:
+                  - generic [ref=e1848]: →
+                  - text: Give Javier at least one earlier scene where his loyalty to Grupo Serrano vs. his hidden allegiance creates visible dramatic tension, so his climactic betrayal feels earned.
+                - listitem [ref=e1849]:
+                  - generic [ref=e1850]: →
+                  - text: Consider connecting Isabela's amapola discovery to the climax so it pays off within the pilot rather than dangling entirely for episode 2.
+            - generic [ref=e1851]:
+              - generic [ref=e1852]:
+                - heading "📝 Notes (0)" [level=3] [ref=e1853]:
+                  - generic [ref=e1854]: 📝
+                  - text: Notes (0)
+                - button "+ Add Note" [ref=e1855] [cursor=pointer]
+              - paragraph [ref=e1856]: No notes yet. Add one to track your thoughts.
+            - generic [ref=e1858]:
+              - heading "🎯 Producer Feedback" [level=3] [ref=e1859]:
+                - generic [ref=e1860]: 🎯
+                - text: Producer Feedback
+              - button "+ Add Feedback" [ref=e1861] [cursor=pointer]
+            - generic [ref=e1862]:
+              - generic [ref=e1863]:
+                - generic [ref=e1864]: "Pages: 51"
+                - generic [ref=e1865]: "Words: 8,518"
+                - generic [ref=e1866]: "Source: ORO_VERDE_101_V8_1_09_01_26_CLEAN.pdf"
+              - generic [ref=e1867]:
+                - text: Analyzed with v7_archaeology
+                - generic [ref=e1868]: "• Model: claude-opus"
+          - generic [ref=e1869]:
+            - img "Poster for Oro Verde 101" [ref=e1873]
+            - button "Regenerate Poster" [ref=e1874]:
+              - img [ref=e1875]
+  - generic [ref=e1478]: Family

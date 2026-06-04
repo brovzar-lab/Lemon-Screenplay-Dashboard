@@ -19,6 +19,10 @@ import {
     deleteField,
     query,
     getCountFromServer,
+    onSnapshot,
+    type QuerySnapshot,
+    type DocumentData,
+    type Unsubscribe,
 } from 'firebase/firestore';
 import { authReady, db } from './firebase';
 import { useToastStore } from '@/stores/toastStore';
@@ -41,14 +45,61 @@ export function toDocId(sourceFile: string): string {
         .slice(0, 200) || `doc_${Date.now()}`;
 }
 
-/** Write to localStorage. */
-function writeToLocal(analyses: Record<string, unknown>[]): void {
+/**
+ * Fields that are safe to strip from a screenplay record when localStorage
+ * is full. These are the heavy LLM response payloads; the UI only needs the
+ * normalized top-level fields that `normalize.ts` reads.
+ */
+const HEAVY_FIELDS = ['analysis', 'v7_meta', 'triage', 'lenses_enabled'] as const;
+
+/** Return a slimmed copy with heavy fields removed. */
+function slimRecord(r: Record<string, unknown>): Record<string, unknown> {
+    const slim = { ...r };
+    for (const f of HEAVY_FIELDS) delete slim[f];
+    return slim;
+}
+
+/**
+ * Write to localStorage with two-level quota fallback:
+ *   1. Try writing full records.
+ *   2. On QuotaExceededError: strip heavy fields, try again.
+ *   3. If still fails: clear the key so Firestore stays authoritative.
+ *
+ * @param silent — if true, suppress error toasts (used for background sync).
+ */
+function writeToLocal(analyses: Record<string, unknown>[], silent = false): void {
+    // Level 1 — full write
     try {
         localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(analyses));
+        return;
     } catch (err) {
-        console.error('[Lemon] localStorage write failed:', err);
-        useToastStore.getState().addToast('Failed to save screenplay locally — storage may be full');
+        const isQuota = err instanceof DOMException &&
+            (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+        if (!isQuota) {
+            console.error('[Lemon] localStorage write failed (non-quota):', err);
+            if (!silent) useToastStore.getState().addToast('Failed to save screenplay locally — storage may be full');
+            return;
+        }
+        console.warn('[Lemon] localStorage quota exceeded — retrying with slim records...');
     }
+
+    // Level 2 — slim write (strip heavy analysis payloads)
+    try {
+        const slim = analyses.map(slimRecord);
+        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(slim));
+        console.log('[Lemon] Slim write succeeded — heavy fields stripped to fit quota');
+        return;
+    } catch {
+        console.warn('[Lemon] localStorage slim write also failed — clearing key, using Firestore as source of truth');
+    }
+
+    // Level 3 — clear so next load uses cold Firestore path
+    try {
+        localStorage.removeItem(LOCAL_CACHE_KEY);
+    } catch {
+        // Nothing more we can do
+    }
+    if (!silent) useToastStore.getState().addToast('Failed to save screenplay locally — storage may be full');
 }
 
 /** Read from localStorage. */
@@ -172,7 +223,7 @@ async function backgroundFirestoreSync(): Promise<void> {
 
         if (firestoreData.length === 0) {
             // Firestore is empty — wipe localStorage to match
-            writeToLocal([]);
+            writeToLocal([], true);
             console.log('[Lemon] Firestore empty → localStorage cleared');
             return;
         }
@@ -205,7 +256,7 @@ async function backgroundFirestoreSync(): Promise<void> {
         }
 
         // Overwrite localStorage with the authoritative Firestore set
-        writeToLocal(firestoreData);
+        writeToLocal(firestoreData, true); // silent — background sync
         console.log(`[Lemon] Sync complete: localStorage replaced with ${firestoreData.length} Firestore entries`);
     } catch (err) {
         console.warn('[Lemon] Background Firestore sync failed:', err);
@@ -288,7 +339,7 @@ export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
             .filter((d) => !d._deleted_at);
 
         if (firestoreData.length > 0) {
-            writeToLocal(firestoreData);
+            writeToLocal(firestoreData, true); // silent — cold Firestore load
             console.log(`[Lemon] Cold-loaded ${firestoreData.length} analyses from Firestore`);
         } else {
             console.log('[Lemon] Firestore is also empty — no analyses available');
@@ -301,6 +352,56 @@ export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
         console.warn('[Lemon] Firestore cold load failed:', err);
         return [];
     }
+}
+
+/**
+ * Subscribe to live changes on the uploaded_analyses collection.
+ *
+ * Fires `onChange` whenever Firestore reports a change (added/modified/removed).
+ * The callback receives the full deduped, non-deleted list — same shape as
+ * loadAllAnalyses returns. Also keeps localStorage in sync so subsequent
+ * page loads start hot.
+ *
+ * Use case: the daemon writes to Firestore from the VPS, completely outside
+ * the browser's saveAnalysis() path. Without a listener, the dashboard only
+ * learns about new analyses on next page load. With this listener, new
+ * analyses appear instantly.
+ *
+ * Returns an Unsubscribe function — call it on cleanup.
+ */
+export function subscribeToAnalyses(
+    onChange: (analyses: Record<string, unknown>[]) => void,
+): Unsubscribe {
+    const stripInternals = (data: Record<string, unknown>): Record<string, unknown> =>
+        Object.fromEntries(
+            Object.entries(data).filter(
+                ([k]) =>
+                    k !== '_savedAt' &&
+                    k !== '_docId' &&
+                    k !== '_quarantined_at' &&
+                    k !== '_quarantine_reason' &&
+                    k !== '_original_collection',
+            ),
+        );
+
+    const q = query(collection(db, FIRESTORE_COLLECTION));
+
+    return onSnapshot(
+        q,
+        (snapshot: QuerySnapshot<DocumentData>) => {
+            const next = snapshot.docs
+                .map((d) => stripInternals(d.data() as Record<string, unknown>))
+                .filter((d) => !d._deleted_at);
+
+            // Mirror to localStorage so the next cold-load is fast.
+            writeToLocal(next, true);
+            console.log(`[Lemon] Live sync: ${next.length} analyses (Firestore snapshot)`);
+            onChange(next);
+        },
+        (err) => {
+            console.warn('[Lemon] Live sync subscription error:', err);
+        },
+    );
 }
 
 /**

@@ -2,15 +2,26 @@
  * Upload Panel
  * File/folder selection, category assignment, model selection, upload queue, API configuration.
  * Orchestrates sub-components under ./upload/ while owning all upload business logic.
+ *
+ * Analysis runs on the VPS daemon (not in-browser):
+ *   PDF -> Storage (ingest-queue/{collection}/{file}.pdf)
+ *        -> onScreenplayUploaded CF creates the Firestore queue doc
+ *        -> daemon claims, runs V7 readers + synthesis, writes uploaded_analyses
+ *        -> browser subscribes to the queue doc by storage_path and mirrors status
+ *
+ * Duplicate detection still runs client-side at queue-add time so the UI can
+ * warn before uploading. TMDB enrichment used to fire post-save here; it's
+ * temporarily disabled in this code path until a CF trigger on
+ * uploaded_analyses takes over the job.
  */
 
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useUploadStore, type UploadStatus } from '@/stores/uploadStore';
+import { useUploadStore } from '@/stores/uploadStore';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
-import { SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
-import { analyzeScreenplay } from '@/lib/analysisService';
-import { saveAnalysis } from '@/lib/analysisStore';
+import { useScreenplays, SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
+import { uploadPdfToIngestQueue } from '@/lib/firebase';
+import { subscribeToIngestJob } from '@/lib/ingestQueueClient';
 import useCategories from '@/hooks/useCategories';
 import { useToastStore } from '@/stores/toastStore';
 
@@ -20,8 +31,23 @@ import { CategorySelector } from './upload/CategorySelector';
 import { UploadDropzone } from './upload/UploadDropzone';
 import { UploadQueue } from './upload/UploadQueue';
 import { UploadInstructions } from './upload/UploadInstructions';
-import { MODEL_OPTIONS, MODEL_COSTS } from './upload/upload.constants';
+import { MODEL_OPTIONS } from './upload/upload.constants';
 import type { ModelOption } from './upload/upload.types';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Infer screenplay title from a PDF filename — identical logic to pdfParser.ts.
+ * We need this client-side before parsing so we can check for duplicates immediately.
+ */
+function inferTitleFromFilename(filename: string): string {
+  return filename
+    .replace(/\.pdf$/i, '')
+    .replace(/[_-]/g, ' ')
+    .trim();
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function UploadPanel() {
   const [selectedCategory, setSelectedCategory] = useState('LEMON');
@@ -30,140 +56,197 @@ export function UploadPanel() {
   const { categoryIds, addCategory: addCategoryToStore } = useCategories();
 
   const { jobs, addJob, updateJob, removeJob, clearCompleted, isProcessing, setProcessing, getFile } = useUploadStore();
-  const { canMakeRequest, incrementUsage } = useApiConfigStore();
+  const { canMakeRequest } = useApiConfigStore();
+  const { data: screenplays } = useScreenplays();
   // Proxy is always available (API keys are server-side)
   const isConfigured = true;
   const queryClient = useQueryClient();
 
-  const handleFileSelect = (files: FileList | null) => {
+  // ─── File selection + duplicate detection ──────────────────────────────────
+
+  /** SHA-256 of a File via Web Crypto. Returns lowercase hex. */
+  async function sha256Hex(file: File): Promise<string> {
+    const buf = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  /** Query Firestore for any uploaded_analyses doc with matching content_hash.
+   *  Returns the existing source_file/title if found. */
+  async function findByContentHash(hash: string): Promise<string | null> {
+    try {
+      const { getDocs, query, collection, where, limit } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      const q = query(
+        collection(db, 'uploaded_analyses'),
+        where('content_hash', '==', hash),
+        limit(1),
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) return null;
+      const data = snap.docs[0].data() as Record<string, unknown>;
+      const analysis = (data.analysis as Record<string, unknown>) || {};
+      return (
+        (analysis.title as string) ||
+        (data.source_file as string) ||
+        snap.docs[0].id
+      );
+    } catch (err) {
+      console.warn('[upload] content-hash dedup check failed:', err);
+      return null;
+    }
+  }
+
+  const handleFileSelect = async (files: FileList | null) => {
     if (!files) return;
-    Array.from(files).forEach((file) => {
-      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        addJob(file.name, selectedCategory, file);
-      }
-    });
+    // Process all files in parallel — hashing is async but local-only.
+    await Promise.all(
+      Array.from(files).map(async (file) => {
+        if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) return;
+        const jobId = addJob(file.name, selectedCategory, file);
+
+        // Layer 1 (fast): title-match against already-loaded screenplays.
+        if (screenplays && screenplays.length > 0) {
+          const inferred = inferTitleFromFilename(file.name).toLowerCase();
+          const match = screenplays.find(
+            (s) => s.title.toLowerCase().trim() === inferred,
+          );
+          if (match) {
+            updateJob(jobId, { isDuplicate: true, existingTitle: match.title });
+            return; // skip the hash check — title match is enough
+          }
+        }
+
+        // Layer 2 (true content dedup): SHA-256 of file bytes → Firestore lookup.
+        // Catches re-uploads of the same PDF under a different filename.
+        try {
+          const hash = await sha256Hex(file);
+          const existing = await findByContentHash(hash);
+          if (existing) {
+            updateJob(jobId, { isDuplicate: true, existingTitle: existing });
+          }
+        } catch (err) {
+          console.warn('[upload] hash compute failed (proceeding):', err);
+        }
+      }),
+    );
   };
 
-  // Process pending jobs sequentially
+  // ─── Duplicate action handlers ─────────────────────────────────────────────
+
+  const handleForceReanalyze = useCallback((jobId: string) => {
+    // Clear the duplicate flag so processJobs will include this job
+    updateJob(jobId, { isDuplicate: false, existingTitle: undefined });
+  }, [updateJob]);
+
+  const handleSkipJob = useCallback((jobId: string) => {
+    updateJob(jobId, { status: 'skipped' });
+  }, [updateJob]);
+
+  // ─── Process pending jobs via VPS daemon ──────────────────────────────────
+  //
+  // Browser uploads PDF to ingest-queue/{collection}/{filename}.pdf in Storage.
+  // The onScreenplayUploaded Cloud Function creates the Firestore queue doc.
+  // The VPS daemon claims it, runs V7 analysis, writes uploaded_analyses.
+  // Browser subscribes to the queue doc by storage_path and mirrors status.
+
+  const processOne = useCallback(async (jobId: string, requestedModel: string) => {
+    const file = getFile(jobId);
+    if (!file) {
+      updateJob(jobId, { status: 'error', error: 'File no longer available. Please re-add.' });
+      return;
+    }
+    const job = useUploadStore.getState().jobs.find((j) => j.id === jobId);
+    if (!job) return;
+
+    try {
+      updateJob(jobId, { status: 'parsing', progress: 5 });
+      const { storagePath } = await uploadPdfToIngestQueue(file, job.category, { requestedModel });
+      updateJob(jobId, { status: 'analyzing', progress: 15, ingestQueueStoragePath: storagePath });
+
+      await new Promise<void>((resolve) => {
+        const unsub = subscribeToIngestJob(
+          storagePath,
+          (update) => {
+            if (update.status === 'pending') {
+              updateJob(jobId, { status: 'analyzing', progress: 20 });
+            } else if (update.status === 'processing') {
+              updateJob(jobId, { status: 'analyzing', progress: 60 });
+            } else if (update.status === 'complete') {
+              updateJob(jobId, {
+                status: 'complete',
+                progress: 100,
+                result: {
+                  title: inferTitleFromFilename(file.name),
+                  author: 'See analysis',
+                  analysisPath: 'firestore',
+                },
+                completedAt: new Date().toISOString(),
+              });
+              queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+              unsub();
+              resolve();
+            } else if (update.status === 'failed') {
+              updateJob(jobId, {
+                status: 'error',
+                error: update.error || 'Daemon analysis failed',
+              });
+              unsub();
+              resolve();
+            } else if (update.status === 'skipped') {
+              updateJob(jobId, {
+                status: 'skipped',
+                error: update.error || 'Job skipped',
+              });
+              unsub();
+              resolve();
+            }
+          },
+          (err) => {
+            updateJob(jobId, { status: 'error', error: `Subscription error: ${err.message}` });
+            unsub();
+            resolve();
+          },
+        );
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[Upload] Failed to enqueue job:', err);
+      useToastStore.getState().addToast(`Upload failed: ${message}`);
+      updateJob(jobId, { status: 'error', error: message });
+    }
+  }, [getFile, updateJob, queryClient]);
+
   const processJobs = useCallback(async () => {
     if (isProcessing) return;
     setProcessing(true);
 
-    const pending = useUploadStore.getState().jobs.filter((j) => j.status === 'pending');
-    const isHybrid = selectedModel === 'hybrid';
-    const firstPassModel = isHybrid ? 'sonnet' : selectedModel;
-    const costRates = MODEL_COSTS[firstPassModel];
+    const pending = useUploadStore.getState().jobs.filter(
+      (j) => j.status === 'pending' && !j.isDuplicate
+    );
 
-    for (const job of pending) {
-      const file = getFile(job.id);
-      if (!file) {
-        updateJob(job.id, { status: 'error', error: 'File no longer available. Please re-add.' });
-        continue;
-      }
+    // V8: daemon now supports `hybrid` directly via ingest_v7.run_v7_hybrid()
+    // (Sonnet first pass; RECOMMEND/FILM_NOW results re-run on Opus).
+    // Pass the user's selection through unchanged.
+    const requestedModel = selectedModel;
 
-      try {
-        // ─── Pass 1: Analyze with selected model (or Sonnet for hybrid) ───
-        const result = await analyzeScreenplay(
-          file,
-          job.category,
-          {
-            model: firstPassModel,
-            lenses: ['commercial'],
-            analysisVersion: 'v7',
-            v7Mode: 'full',
-          },
-          (progress) => {
-            updateJob(job.id, {
-              status: progress.stage === 'error' ? 'error' : progress.stage as UploadStatus,
-              progress: progress.percent,
-            });
-          },
-        );
-
-        // Estimate cost for first pass
-        let totalCost = result.usage
-          ? (result.usage.input_tokens * costRates.input + result.usage.output_tokens * costRates.output) / 1000
-          : 0.50;
-
-        // ─── Hybrid Pass 2: Check verdict and optionally re-analyze with Opus ───
-        let finalRaw = result.raw;
-        if (isHybrid) {
-          const analysis = result.raw.analysis as Record<string, Record<string, unknown>> | undefined;
-          const verdict = (analysis?.core_quality?.verdict as string) ?? '';
-          const vLower = verdict.toLowerCase();
-          const isPromoted = vLower.includes('recommend') || vLower.includes('film_now') || vLower.includes('film now');
-
-          if (isPromoted) {
-            // Promote to Opus deep analysis
-            updateJob(job.id, { status: 'promoting', progress: 0 });
-
-            const opusResult = await analyzeScreenplay(
-              file,
-              job.category,
-              { model: 'opus', lenses: ['commercial'] },
-              (progress) => {
-                updateJob(job.id, { status: 'promoting', progress: progress.percent });
-              },
-            );
-
-            // Add Opus cost
-            const opusCostRates = MODEL_COSTS.opus;
-            if (opusResult.usage) {
-              totalCost += (opusResult.usage.input_tokens * opusCostRates.input + opusResult.usage.output_tokens * opusCostRates.output) / 1000;
-            } else {
-              totalCost += 2.00; // estimate
-            }
-
-            finalRaw = opusResult.raw;
-          }
-        }
-
-        // Save final result to Firestore
-        await saveAnalysis(finalRaw);
-        incrementUsage(totalCost);
-
-        // Determine which model produced the final result
-        const finalModel = (finalRaw.analysis_model as string) ?? firstPassModel;
-        const wasPromoted = isHybrid && finalModel.includes('opus');
-
-        updateJob(job.id, {
-          status: 'complete',
-          progress: 100,
-          result: {
-            title: result.parsed.title,
-            author: wasPromoted ? '\u2B06\uFE0F Opus (promoted)' : 'See analysis',
-            analysisPath: 'firestore',
-          },
-          completedAt: new Date().toISOString(),
-        });
-
-        // Invalidate the screenplays query so the new analysis appears
-        queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
-      } catch (err) {
-        // FirebaseError from httpsCallable has .message with the Cloud Function's message
-        let message = 'Unknown error';
-        if (err instanceof Error) {
-          message = err.message;
-          message = message.replace(/^(functions\/[a-z-]+:\s*)/i, '');
-        }
-        console.error('[Upload] Analysis failed:', err);
-        useToastStore.getState().addToast('Analysis failed — please check the file and try again');
-        updateJob(job.id, { status: 'error', error: message });
-      }
-    }
+    // Run uploads in parallel — daemon enforces its own worker concurrency cap
+    await Promise.all(pending.map((job) => processOne(job.id, requestedModel)));
 
     setProcessing(false);
-  }, [isProcessing, setProcessing, getFile, updateJob, selectedModel, incrementUsage, queryClient]);
+  }, [isProcessing, setProcessing, selectedModel, processOne]);
 
   // Retry a failed job: reset to pending and re-trigger processing
   const retryJob = useCallback((jobId: string) => {
-    updateJob(jobId, { status: 'pending', error: undefined, progress: 0 });
+    updateJob(jobId, { status: 'pending', error: undefined, progress: 0, isDuplicate: false });
     setTimeout(() => { processJobs(); }, 100);
   }, [updateJob, processJobs]);
 
-  const pendingJobs = jobs.filter((j) => j.status === 'pending');
+  const pendingJobs = jobs.filter((j) => j.status === 'pending' && !j.isDuplicate);
 
-  // Calculate batch cost estimate
+  // Calculate batch cost estimate (only actionable pending jobs)
   const batchCostEstimate = pendingJobs.length > 0
     ? `~$${(pendingJobs.length * parseFloat(MODEL_OPTIONS.find(m => m.id === selectedModel)!.costPerScript.replace(/[^0-9.]/g, ''))).toFixed(2)}`
     : null;
@@ -221,6 +304,8 @@ export function UploadPanel() {
         onRetryJob={retryJob}
         onClearCompleted={clearCompleted}
         onStartProcessing={handleStartProcessing}
+        onForceReanalyze={handleForceReanalyze}
+        onSkipJob={handleSkipJob}
       />
 
       <UploadInstructions />

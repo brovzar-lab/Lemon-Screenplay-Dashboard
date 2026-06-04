@@ -1,16 +1,21 @@
 /**
  * ScreenplayGrid Component
- * Virtualized grid of screenplay cards using @tanstack/react-virtual.
- * Only visible rows (plus overscan buffer) are rendered to the DOM,
- * keeping node count constant regardless of dataset size (PERF-01).
+ * Plain CSS Grid of screenplay cards — no virtualization.
+ *
+ * Virtualization was removed because the dataset (~50–200 cards) is too small
+ * to benefit from it, and the fixed row-height requirement caused cards to
+ * overlap when content exceeded the estimated height (PERF-01 no longer applies
+ * at this scale; layout correctness takes priority).
+ *
+ * Responsive columns: 1 → 2 → 3 → 4 via Tailwind grid classes.
+ * Back-to-top and stagger animation are preserved.
  */
 
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { VirtualRow } from './VirtualRow';
+import { ScreenplayCard } from './ScreenplayCard';
 import { BackToTopButton } from './BackToTopButton';
 import { BulkActionBar } from './BulkActionBar';
-import { useColumnCount } from '@/hooks/useColumnCount';
+import { ErrorBoundary } from '@/components/ui';
 import { EmptyState, SpotlightIcon, DimmedStarIcon, SearchEmptyIcon } from '@/components/ui/EmptyState';
 import { useFilterStore } from '@/stores/filterStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
@@ -20,21 +25,6 @@ interface ScreenplayGridProps {
   screenplays: Screenplay[];
   isLoading: boolean;
   onCardClick?: (screenplay: Screenplay) => void;
-}
-
-/**
- * Row height constants per column count.
- * Taller rows for fewer columns (more content visible per card).
- */
-const ROW_HEIGHTS: Record<number, number> = {
-  1: 420,  // mobile: 1-col, taller cards
-  2: 380,  // sm/lg: 2-col
-  3: 360,  // xl: 3-col
-  4: 340,  // 2xl: 4-col, most compact
-};
-
-function getRowHeight(columnCount: number): number {
-  return ROW_HEIGHTS[columnCount] ?? 380;
 }
 
 /** Module-level flag: stagger animation fires once per page load (D-02) */
@@ -159,103 +149,99 @@ function GridEmptyState() {
 
 export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: ScreenplayGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const columnCount = useColumnCount();
-  const rowCount = Math.ceil(screenplays.length / columnCount);
-  const rowHeight = getRowHeight(columnCount);
-
-  // Per D-06: show back-to-top after scrolling past ~5 rows (~20 cards at 4-col)
   const [showBackToTop, setShowBackToTop] = useState(false);
-
-  // Track initial render for stagger animation (D-02)
   const [isInitialRender, setIsInitialRender] = useState(true);
 
-  const virtualizer = useVirtualizer({
-    count: rowCount,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => rowHeight,
-    overscan: 3,
-    gap: 24, // matches gap-6 (1.5rem = 24px at default)
-    onChange: (instance) => {
-      // Per D-06: threshold = 5 rows worth of scroll
-      setShowBackToTop((instance.scrollOffset ?? 0) > rowHeight * 5);
-    },
-  });
+  // Scroll detection for back-to-top button (D-06)
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setShowBackToTop(e.currentTarget.scrollTop > 800);
+  }, []);
 
-  // Per D-05: jump to top when screenplays list changes (filter/sort)
+  // Jump to top when the screenplays list changes (filter/sort) — D-05
   useEffect(() => {
     if (parentRef.current) {
       parentRef.current.scrollTop = 0;
     }
   }, [screenplays]);
 
-  // Per D-08/Pitfall 4: re-measure when column count changes
-  useEffect(() => {
-    virtualizer.measure();
-  }, [columnCount, virtualizer]);
-
-  // Mark initial reveal complete after first render with data
+  // Mark initial reveal complete after first render with data (D-02)
   useEffect(() => {
     if (screenplays.length > 0 && isInitialRender) {
       const timer = setTimeout(() => {
         hasCompletedInitialReveal = true;
         setIsInitialRender(false);
-      }, 800); // allow stagger animations to complete
+      }, 800);
       return () => clearTimeout(timer);
     }
   }, [screenplays.length, isInitialRender]);
 
   const scrollToTop = useCallback(() => {
-    if (parentRef.current) {
-      parentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    parentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Loading state — keep existing skeleton grid
+  // Only animate on the very first load; skip on filter changes
+  const shouldStagger = isInitialRender && !hasCompletedInitialReveal;
+
+  // ── Loading state ────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6">
-        {Array.from({ length: 9 }).map((_, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6">
+        {Array.from({ length: 8 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
       </div>
     );
   }
 
-  // Empty state — keep existing context-aware empty state
+  // ── Empty state ──────────────────────────────────────────────────────────
   if (screenplays.length === 0) {
     return <GridEmptyState />;
   }
 
-  // Calculate stagger delay per D-02:
-  // Only on initial page load. First visible rows get stagger delays.
-  // After initial reveal completes, no animation.
-  const shouldStagger = isInitialRender && !hasCompletedInitialReveal;
-
+  // ── Grid ─────────────────────────────────────────────────────────────────
   return (
     <>
       <div
         ref={parentRef}
         className="flex-1 overflow-y-auto"
         style={{ height: 'calc(100vh - 200px)' }}
+        onScroll={handleScroll}
         role="list"
         aria-label="Screenplay results"
       >
-        <div
-          className="relative w-full"
-          style={{ height: `${virtualizer.getTotalSize()}px` }}
-        >
-          {virtualizer.getVirtualItems().map((virtualRow) => (
-            <VirtualRow
-              key={virtualRow.key}
-              virtualRow={virtualRow}
-              screenplays={screenplays}
-              columnCount={columnCount}
-              onCardClick={onCardClick}
-              staggerDelay={shouldStagger ? virtualRow.index * 80 : 0}
-            />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6 pb-8">
+          {screenplays.map((sp, index) => (
+            <div
+              key={sp.id}
+              role="listitem"
+              style={
+                shouldStagger
+                  ? {
+                      opacity: 0,
+                      animation: `slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${index * 35}ms forwards`,
+                    }
+                  : undefined
+              }
+            >
+              <ErrorBoundary
+                fallback={
+                  <div className="card bg-red-500/10 border-red-500/30">
+                    <p className="text-red-400 text-sm">
+                      Error rendering: {sp.title || 'Unknown'}
+                    </p>
+                  </div>
+                }
+              >
+                <ScreenplayCard
+                  screenplay={sp}
+                  onClick={() => onCardClick?.(sp)}
+                />
+              </ErrorBoundary>
+            </div>
           ))}
         </div>
       </div>
+
       <BackToTopButton visible={showBackToTop} onClick={scrollToTop} />
       <BulkActionBar />
     </>

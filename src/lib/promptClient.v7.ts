@@ -31,6 +31,12 @@ export interface SynthesisPromptInput {
   readerReports: Record<ReaderName, Record<string, unknown>>;
   lenses: LensName[];
   calibrationPrompt?: string;
+  triageImpression?: {
+    triage_score: number;
+    verdict: string;
+    genre: string;
+    logline: string;
+  };
 }
 
 // ─── Reader Weights ──────────────────────────────────────────────────────────
@@ -277,7 +283,7 @@ Pages: ${metadata.pageCount}
 SCREENPLAY TEXT:
 ${text}
 
-SAMPLE 8 SCENES across the script and evaluate these 10 sub-criteria (each 1-10):
+SAMPLE 8 SCENES across the script and evaluate these 9 sub-criteria (each 1-10):
 
 BMOC (PETER RUSSELL):
 1. beat_question_clarity — Can each scene's question be phrased as binary Yes/No?
@@ -291,11 +297,6 @@ PURE CRAFT:
 7. dialogue_subtext — Saying one thing, meaning another?
 8. visual_storytelling — Show don't tell? Emotions delivered through action/image?
 9. exposition_handling — When exposition is delivered, is it dramatized through conflict, broken across scenes, or dumped in monologue? Flag violations with context.
-
-AUTHORED VOICE:
-10. authored_voice — Does this feel like it could ONLY have been written by this specific writer?
-    Is there a consistent philosophical or aesthetic sensibility? A technically competent script with no discernible authorial POV scores low.
-    Score: 10 = unmistakable singular POV (Coen brothers, Kaufman), 7 = clearly authored, 5 = competent but generic, 3 = committee-written feel, 1 = pure formula
 
 BMOC FAILURE MODE SCAN (on 8 sampled scenes):
 1. Mushy beat question
@@ -322,8 +323,7 @@ Return ONLY this JSON:
     "dialogue_voice_distinction": { "score": 0, "justification": "" },
     "dialogue_subtext": { "score": 0, "justification": "" },
     "visual_storytelling": { "score": 0, "justification": "" },
-    "exposition_handling": { "score": 0, "justification": "" },
-    "authored_voice": { "score": 0, "justification": "", "voice_descriptor": "" }
+    "exposition_handling": { "score": 0, "justification": "" }
   },
   "bmoc_failure_scan": {
     "scenes_sampled": 8,
@@ -516,9 +516,21 @@ CRITICAL OUTPUT RULES:
 
 EXECUTIVE SUMMARY: One paragraph (4-6 sentences). What it is, why it earned this verdict, should you go forward. NO development notes, NO prescriptions.`;
 
+  // Inject triage impression as a 6th data point if available
+  const triageBlock = input.triageImpression
+    ? `TRIAGE IMPRESSION (Haiku cold-read, ~60s, before your 5 readers):
+Score: ${input.triageImpression.triage_score}/10 | Verdict: ${input.triageImpression.verdict}
+Genre read: ${input.triageImpression.genre}
+Logline attempt: ${input.triageImpression.logline}
+
+Use as a \"street-level reader\" data point. If triage disagrees with your 5 readers by 3+ points, note in reader_disagreements.
+
+`
+    : '';
+
   let userPrompt = `SCREENPLAY: "${input.title}"
 
-READER REPORTS:
+${triageBlock}READER REPORTS:
 ${JSON.stringify(input.readerReports, null, 2)}
 
 SYNTHESIS INSTRUCTIONS:

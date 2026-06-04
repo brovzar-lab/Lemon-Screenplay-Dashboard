@@ -18,6 +18,11 @@ export interface CallLLMOptions {
   model: string;
   prompt: string;
   systemPrompt?: string;
+  /**
+   * Sampling temperature. Defaults to 0.1 (V8 default) — low jitter for
+   * evaluation tasks where same-script-same-score is desirable. Pass an
+   * explicit value to override (e.g. 0.7 for creative work).
+   */
   temperature?: number;
   maxTokens?: number;
 }
@@ -33,6 +38,11 @@ interface ProxyRequestBody {
   temperature?: number;
   max_tokens?: number;
 }
+
+// V8: default temperature for evaluation calls. Matches DEFAULT_TEMPERATURE in
+// execution/ingest_v7.py so the browser Re-analyze path produces the same
+// scores as the daemon batch path.
+const DEFAULT_TEMPERATURE = 0.1;
 
 interface ProxyErrorBody {
   error?: string;
@@ -55,11 +65,13 @@ export async function callLLM(options: CallLLMOptions): Promise<CallLLMResult> {
 
   messages.push({ role: 'user', content: options.prompt });
 
-  // Build the request body
+  // Build the request body. Temperature defaults to DEFAULT_TEMPERATURE (0.1)
+  // so evaluation scores are stable across re-runs — pass an explicit value
+  // to override.
   const body: ProxyRequestBody = {
     model: options.model,
     messages,
-    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
+    temperature: options.temperature ?? DEFAULT_TEMPERATURE,
     ...(options.maxTokens !== undefined ? { max_tokens: options.maxTokens } : {}),
   };
 

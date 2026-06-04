@@ -29,17 +29,18 @@ export function AlertBanners({ screenplay }: AlertBannersProps) {
 
             {/* Critical Failures */}
             {screenplay.criticalFailures.length > 0 && (
-                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
-                    <h4 className="text-red-400 font-bold mb-2">⚠️ Critical Failures (Auto-PASS)</h4>
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                    <h4 className="text-amber-400/80 font-semibold mb-2 text-sm">⚑ Issues flagged in analysis</h4>
                     <ul className="list-disc list-inside space-y-1">
                         {screenplay.criticalFailures.map((failure, i) => (
-                            <li key={i} className="text-red-300 text-sm">
+                            <li key={i} className="text-amber-200/60 text-sm">
                                 {typeof failure === 'string' ? failure : String((failure as Record<string, unknown>)?.failure || (failure as Record<string, unknown>)?.description || failure)}
                             </li>
                         ))}
                     </ul>
                 </div>
             )}
+
         </>
     );
 }

@@ -27,11 +27,12 @@ interface RadarCustomTooltipProps {
   screenplays: Screenplay[];
 }
 
-// Colors for each screenplay line
+// Comparison line colors — Soft Print warm palette, paired with screenplay
+// labels in the legend so the user never reads status from color alone.
 const COLORS = [
-  { stroke: '#F59E0B', fill: 'rgba(245, 158, 11, 0.2)' }, // Gold
-  { stroke: '#10B981', fill: 'rgba(16, 185, 129, 0.2)' }, // Emerald
-  { stroke: '#8B5CF6', fill: 'rgba(139, 92, 246, 0.2)' }, // Violet
+  { stroke: '#A1505D', fill: 'rgba(161, 80, 93, 0.18)' },  // rose-strong
+  { stroke: '#645C50', fill: 'rgba(100, 92, 80, 0.18)' },  // text-2 warm mid
+  { stroke: '#8A6B5C', fill: 'rgba(138, 107, 92, 0.18)' }, // warm taupe
 ];
 
 // Hoisted to module scope — avoids react-hooks/static-components violation

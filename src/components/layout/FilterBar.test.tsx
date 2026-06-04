@@ -24,6 +24,8 @@ const makeDefaultFilterState = () => ({
     resetFilters: vi.fn(),
     missingPdfOnly: false,
     setMissingPdfOnly: vi.fn(),
+    hasPdfOnly: false,
+    setHasPdfOnly: vi.fn(),
     // 7 dimension ranges — all disabled by default
     conceptRange: { min: 0, max: 10, enabled: false },
     structureRange: { min: 0, max: 10, enabled: false },
@@ -108,6 +110,14 @@ vi.mock('@/components/bulk', () => ({
 
 vi.mock('@/components/ui/ShortcutHint', () => ({
     ShortcutHint: () => null,
+}));
+
+vi.mock('@/hooks/useScreenplays', () => ({
+    useScreenplays: () => ({ data: [], isLoading: false }),
+}));
+
+vi.mock('@/hooks/usePdfScan', () => ({
+    usePdfScan: () => ({ triggerScan: vi.fn(), hasScanResult: false, isScanning: false }),
 }));
 
 // ─────────────────────────────────────────────────────────

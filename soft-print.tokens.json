@@ -1,0 +1,98 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "$description": "Soft Print design tokens. Light is the primary theme; the 'dark' group mirrors every color as a warm-charcoal counterpart. Non-color tokens are theme-independent.",
+  "color": {
+    "$type": "color",
+    "bg":            { "$value": "#F1EBE0", "$description": "App background (light)" },
+    "surface":       { "$value": "#FBF8F2", "$description": "Raised card / panel" },
+    "surface-2":     { "$value": "#F5F0E7", "$description": "Nested / secondary surface" },
+    "sunken":        { "$value": "#E9E2D4", "$description": "Wells, input rest, bar tracks" },
+    "border":        { "$value": "#E4DCCD", "$description": "Hairline divider / card border" },
+    "border-strong": { "$value": "#D5CBB7", "$description": "Emphasized border" },
+    "text":          { "$value": "#2F2B25", "$description": "Primary text" },
+    "text-2":        { "$value": "#645C50", "$description": "Secondary text" },
+    "text-3":        { "$value": "#8A8273", "$description": "Muted text / placeholder" },
+    "rose":          { "$value": "#BC6A77", "$description": "BRAND + primary action (never status)" },
+    "rose-strong":   { "$value": "#A1505D", "$description": "Rose text / hover-press" },
+    "rose-tint":     { "$value": "#F3E2E1", "$description": "Soft fill behind rose" },
+    "on-rose":       { "$value": "#FFFFFF", "$description": "Text/icon on filled rose" },
+    "sage":          { "$value": "#5E8C63", "$description": "Success · Recommend (status only)" },
+    "sage-tint":     { "$value": "#DCE7D6" },
+    "sand":          { "$value": "#B07F2E", "$description": "Warning · Consider (status only)" },
+    "sand-tint":     { "$value": "#F0E6C8" },
+    "clay":          { "$value": "#B0543F", "$description": "Danger · Pass / critical (status only)" },
+    "clay-tint":     { "$value": "#F1DAD0" }
+  },
+  "color-dark": {
+    "$type": "color",
+    "$description": "Dark theme — warm charcoal, not slate. Apply under [data-theme=\"dark\"].",
+    "bg":            { "$value": "#1A1714" },
+    "surface":       { "$value": "#232019" },
+    "surface-2":     { "$value": "#1F1B16" },
+    "sunken":        { "$value": "#15120F" },
+    "border":        { "$value": "#322C25" },
+    "border-strong": { "$value": "#443C32" },
+    "text":          { "$value": "#EDE7DB" },
+    "text-2":        { "$value": "#B2A998" },
+    "text-3":        { "$value": "#7D7464" },
+    "rose":          { "$value": "#DE939D" },
+    "rose-strong":   { "$value": "#E9AEB6" },
+    "rose-tint":     { "$value": "rgba(222,147,157,0.15)" },
+    "on-rose":       { "$value": "#2A1A1D" },
+    "sage":          { "$value": "#95BC8A" },
+    "sage-tint":     { "$value": "rgba(149,188,138,0.16)" },
+    "sand":          { "$value": "#D9B36B" },
+    "sand-tint":     { "$value": "rgba(217,179,107,0.16)" },
+    "clay":          { "$value": "#DD8870" },
+    "clay-tint":     { "$value": "rgba(221,136,112,0.16)" }
+  },
+  "font": {
+    "$type": "fontFamily",
+    "sans": { "$value": ["Hanken Grotesk", "ui-sans-serif", "system-ui", "sans-serif"], "$description": "All UI & body" },
+    "mono": { "$value": ["Spline Sans Mono", "ui-monospace", "monospace"], "$description": "Numerals, labels, code" }
+  },
+  "fontSize": {
+    "$type": "dimension",
+    "xs":   { "$value": "12px" },
+    "sm":   { "$value": "13px" },
+    "base": { "$value": "15px" },
+    "md":   { "$value": "17px" },
+    "lg":   { "$value": "20px" },
+    "xl":   { "$value": "26px" },
+    "2xl":  { "$value": "33px" },
+    "3xl":  { "$value": "42px" }
+  },
+  "fontWeight": {
+    "$type": "fontWeight",
+    "regular":  { "$value": 400 },
+    "medium":   { "$value": 500, "$description": "UI labels & buttons" },
+    "semibold": { "$value": 600, "$description": "Headings & emphasis" },
+    "bold":     { "$value": 700, "$description": "Large numerals" }
+  },
+  "space": {
+    "$type": "dimension",
+    "1": { "$value": "4px" },  "2": { "$value": "8px" },  "3": { "$value": "12px" }, "4": { "$value": "16px" },
+    "5": { "$value": "20px" }, "6": { "$value": "24px" }, "8": { "$value": "32px" }, "10": { "$value": "40px" },
+    "12": { "$value": "48px" }, "16": { "$value": "64px" }
+  },
+  "radius": {
+    "$type": "dimension",
+    "xs": { "$value": "6px" }, "sm": { "$value": "10px" }, "md": { "$value": "14px" },
+    "lg": { "$value": "18px", "$description": "Default card radius" }, "xl": { "$value": "24px" },
+    "full": { "$value": "999px" }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "sm": { "$value": [
+      { "offsetX": "0", "offsetY": "1px", "blur": "2px", "spread": "0", "color": "rgba(47,43,37,0.05)" }
+    ] },
+    "md": { "$value": [
+      { "offsetX": "0", "offsetY": "2px",  "blur": "4px",  "spread": "0",     "color": "rgba(47,43,37,0.04)" },
+      { "offsetX": "0", "offsetY": "8px",  "blur": "20px", "spread": "-10px", "color": "rgba(47,43,37,0.12)" }
+    ] },
+    "lg": { "$value": [
+      { "offsetX": "0", "offsetY": "4px",  "blur": "10px", "spread": "0",     "color": "rgba(47,43,37,0.05)" },
+      { "offsetX": "0", "offsetY": "22px", "blur": "44px", "spread": "-18px", "color": "rgba(47,43,37,0.18)" }
+    ] }
+  }
+}

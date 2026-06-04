@@ -2,9 +2,16 @@
  * React Query hooks for screenplay data
  */
 
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { loadAllScreenplaysVite, getScreenplayStats } from '@/lib/api';
-import { removeAnalysis, removeMultipleAnalyses, getDeletedAnalyses, restoreAnalysis } from '@/lib/analysisStore';
+import {
+  removeAnalysis,
+  removeMultipleAnalyses,
+  getDeletedAnalyses,
+  restoreAnalysis,
+  subscribeToAnalyses,
+} from '@/lib/analysisStore';
 import { getExistingShareToken, revokeShareToken } from '@/lib/shareService';
 import { useShareStore } from '@/stores/shareStore';
 import { canonicalizeGenre } from '@/lib/calculations';
@@ -41,6 +48,31 @@ export function useScreenplays() {
     gcTime: 1000 * 60 * 60, // 1 hour cache
     refetchOnWindowFocus: false,
   });
+}
+
+/**
+ * Live sync — subscribes to Firestore changes on uploaded_analyses and
+ * invalidates the screenplays cache whenever the daemon (or another tab)
+ * writes a new analysis. Mount this once at app level, in <App />.
+ *
+ * Without this, new daemon writes only appear after a manual page reload.
+ * With this, they appear within ~1 second of the daemon completing.
+ */
+export function useLiveScreenplaySync(): void {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAnalyses(() => {
+      // The subscriber already updated localStorage. Invalidate the query so
+      // React Query re-runs loadAllScreenplaysVite (which reads the now-fresh
+      // localStorage) and the UI refreshes.
+      queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [queryClient]);
 }
 
 /**

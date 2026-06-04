@@ -107,6 +107,10 @@ describe('analysisStore authReady gates', () => {
         // Must re-import after vi.resetModules to get fresh module state
         const { loadAllAnalyses } = await import('./analysisStore');
 
+        // Seed localStorage so loadAllAnalyses takes the fast path (triggers backgroundFirestoreSync
+        // via setTimeout) instead of the cold-start path (calls getDocs directly without auth gate).
+        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'seed.pdf' }]);
+
         // loadAllAnalyses triggers backgroundFirestoreSync via setTimeout
         vi.useFakeTimers();
         await loadAllAnalyses();
@@ -452,6 +456,10 @@ describe('backgroundFirestoreSync preserves _deleted_at', () => {
         });
 
         const { loadAllAnalyses } = await import('./analysisStore');
+
+        // Seed localStorage so loadAllAnalyses takes the fast path (triggers backgroundFirestoreSync
+        // via setTimeout) instead of the cold-start path which skips auth gating.
+        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'seed.pdf' }]);
 
         resolveAuthReady();
         vi.useFakeTimers();

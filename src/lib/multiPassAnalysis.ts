@@ -33,7 +33,7 @@ export interface V7AnalysisOptions {
 }
 
 export interface V7AnalysisProgress {
-  stage: 'readers' | 'synthesis' | 'complete' | 'error';
+  stage: 'triage' | 'readers' | 'synthesis' | 'complete' | 'error';
   percent: number;
   message: string;
   /** Which readers have completed (for progress tracking) */
@@ -280,6 +280,7 @@ export async function runMultiReaderAnalysis(
   parsed: ParsedPDF,
   options: V7AnalysisOptions,
   onProgress?: (p: V7AnalysisProgress) => void,
+  triageImpression?: { triage_score: number; verdict: string; genre: string; logline: string },
 ): Promise<V7AnalysisResult> {
   const startTime = Date.now();
   const model = options.model ?? 'sonnet';
@@ -391,6 +392,7 @@ export async function runMultiReaderAnalysis(
     readerReports,
     lenses,
     calibrationPrompt: options.calibrationPrompt,
+    triageImpression,
   });
 
   const synthesisStart = Date.now();
@@ -462,12 +464,14 @@ export async function runMultiReaderAnalysis(
 // ─── Convenience: Full pipeline from ParsedPDF ──────────────────────────────
 
 /**
- * Run V7 analysis with optional triage pre-filter.
+ * Run V7/V8 analysis with optional triage pre-filter.
  *
  * If mode is 'triage', runs the quick Haiku pass and returns early
- * if the score is below threshold (5.0).
+ * if the score is below threshold (6.0).
  *
  * If mode is 'full', skips triage and runs all 5 readers + synthesis.
+ * If mode is 'hybrid' (or default), runs triage first, then if score >= 6.0,
+ * passes the triage result to synthesis as a 6th cold-read data point.
  */
 export async function analyzeV7(
   parsed: ParsedPDF,
@@ -478,5 +482,33 @@ export async function analyzeV7(
     return runTriage(parsed);
   }
 
-  return runMultiReaderAnalysis(parsed, options, onProgress);
+  if (options.mode === 'full') {
+    // Skip triage entirely — trust caller's decision to analyze
+    return runMultiReaderAnalysis(parsed, options, onProgress);
+  }
+
+  // Default / hybrid mode: run triage first, use result to gate and enrich
+  onProgress?.({
+    stage: 'triage',
+    percent: 2,
+    message: 'Running triage pre-filter (Haiku)...',
+    readersComplete: [],
+  });
+
+  const triage = await runTriage(parsed);
+
+  if (!triage.should_deep_analyze) {
+    // Below threshold — return triage result only, do not spend Sonnet
+    return triage;
+  }
+
+  // Pass triage impression to synthesis as a 6th cold-read data point
+  const triageImpression = {
+    triage_score: triage.triage_score,
+    verdict: triage.verdict,
+    genre: triage.genre,
+    logline: triage.logline,
+  };
+
+  return runMultiReaderAnalysis(parsed, options, onProgress, triageImpression);
 }

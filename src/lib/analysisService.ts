@@ -4,7 +4,7 @@
  * Orchestrates the full screenplay analysis pipeline:
  *   1. Parse PDF → extract text
  *   2. Call LLM via proxy (Firebase Cloud Function → LiteLLM)
- *   3. Return raw V6 analysis JSON
+ *   3. Return raw analysis JSON (V7 Archaeology Engine)
  *
  * All text AI calls route through the proxy client (proxyClient.ts).
  * API keys never touch the browser.
@@ -342,7 +342,7 @@ export async function generatePoster(
  * Flow:
  *   1. Reconstruct Storage path from screenplay metadata
  *   2. Fetch PDF → convert to File object
- *   3. Run full V6 analysis with chosen model
+ *   3. Run full V7 Archaeology Engine analysis with chosen model
  *   4. Save to Firestore + localStorage (replaces old analysis)
  *   5. Return new analysis result
  */

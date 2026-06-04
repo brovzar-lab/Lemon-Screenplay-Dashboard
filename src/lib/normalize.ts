@@ -634,7 +634,18 @@ export function normalizeV6UnifiedScreenplay(
 export function isV7RawAnalysis(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object') return false;
   const r = raw as Record<string, unknown>;
-  return r.analysis_version === 'v7_archaeology' || r.analysis_version === 'v7_triage';
+  const v = r.analysis_version;
+  // Accept all V7/V8 variants — the 5-pillar shape is the same regardless.
+  // 'v7' = browser inline path (analyzeScreenplay.ts)
+  // 'v7_archaeology' / 'v7_triage' = old daemon naming
+  // 'v8_archaeology' / 'v8_triage' = new daemon naming (ingest-queue workflow)
+  return (
+    v === 'v8_archaeology' ||
+    v === 'v8_triage' ||
+    v === 'v7_archaeology' ||
+    v === 'v7_triage' ||
+    v === 'v7'
+  );
 }
 
 /**

@@ -20,27 +20,6 @@ Currently at project root, git-ignored but one accidental `git add .` away from 
 **Fix:** Move to `~/.config/lemon-dashboard/service-account.json` or use Application Default Credentials (`gcloud auth application-default login`).
 **Why:** Audit 2026-05-08 flagged as HIGH security risk.
 
-### Tests: Mock `signInAnonymously` to silence 8 pre-existing failures
-Two test files fail with `auth/network-request-failed` because happy-dom makes real Firebase auth calls.
-**Fix:** Add `vi.mock('firebase/auth', ...)` stub for `signInAnonymously` in `src/test/setup.ts`.
-**Files:** `src/lib/analysisStore.test.ts`, `src/lib/firebase.test.ts`
-
-### feedbackStore.ts: Resolve static/dynamic import conflict
-Vite warns that `feedbackStore.ts` is dynamically imported by `analysisService.ts` but statically imported by `FeedbackSection.tsx` and `CalibrationPanel.tsx`.
-**Fix:** Convert `analysisService.ts` to a static import so all consumers are consistent.
-
----
-
-## LOW
-
-### Dead code: Delete pre-migration fallback in `api.ts`
-`src/lib/api.ts` has ~40 lines of static-JSON fetch path guarded by `isMigrationComplete()`.
-Migration is complete and permanent. Safe to delete.
-
-### TypeScript: Fix 3 `any` usages in `proxyClient.ts`
-- `const body: Record<string, any>` (line ~47) — can be typed precisely
-- `let errorData: any` (line ~74) — can be `unknown` with a type guard
-Violates project's strict TypeScript convention.
 
 ### README.md: Replace Vite template boilerplate
 `README.md` still contains Vite template content (ESLint, Babel/SWC notes).
@@ -60,3 +39,8 @@ Low priority — no functional problem, just size.
 - [x] Collection renamed from `'V6 Analysis'` → `'Analysis'`
 - [x] Audit cleanup: AlertBanners, UploadPanel, analysisService, dimensionDisplay slimmed
 - [x] CLAUDE.md updated to V7-only engine description
+- [x] All 8 pre-existing test failures fixed — 458/458 pass (FilterBar QueryClient + analysisStore fast-path seeding)
+- [x] feedbackStore import conflict: already static in analysisService.ts (backlog stale)
+- [x] proxyClient.ts `any` types: already properly typed (backlog stale)
+- [x] api.ts dead code: no isMigrationComplete() present (backlog stale)
+- [x] V6→V7 migration: 84 screenplays running (PID 67802, started 2026-05-09)

@@ -1,0 +1,209 @@
+{
+  "completed": [
+    "0737_pdf",
+    "105_pdf",
+    "ALICIA_26_pdf",
+    "ALTA_VENGANZA_pdf",
+    "AL_FINAL_DE_LA_NOCHE_pdf",
+    "AMOR_PER_MORTEM_pdf",
+    "APRENDIENDO_A_VOLAR_pdf",
+    "ASESINO_DE_OCASIO_N_pdf",
+    "AURA_REGRESA_pdf",
+    "AZUL_OSCURO_pdf",
+    "A_Guy_Named_Heart_pdf",
+    "A_I_pdf",
+    "A_TRAVE_S_DE_TUS_OJOS_pdf",
+    "Abuelas_pdf",
+    "Amarte_pdf",
+    "Amatla_n_pdf",
+    "Amores_Imaginarios_pdf",
+    "BAILO__BERTA_pdf",
+    "BIEN_PORTADA_pdf",
+    "BLOOD_LOSS_pdf",
+    "BODAS_DE_CARTO_N_pdf",
+    "BROTA_pdf",
+    "Ba_jame_de_la_Nube_pdf",
+    "Baby_pdf",
+    "Bala_pdf",
+    "Bendita_Ventana_pdf",
+    "Buenos_Di_as_pdf",
+    "Burn_The_Sky___Almendras_pdf",
+    "Burning_Lace_pdf",
+    "Business_Dog_pdf",
+    "CAMGIRL_pdf",
+    "CHUPAS_pdf",
+    "CLANES_DE_DIOS_pdf",
+    "COSECHA_DE_PESADILLAS_pdf",
+    "CRISA_LIDA_pdf",
+    "Cada_Di_a_Mueres_Un_Poco_Ma_s_pdf",
+    "Calavera_de_Azu_car_pdf",
+    "Caracas_Bogota__pdf",
+    "Carne_De_bil_pdf",
+    "Cartas_A_Mi_Padre_pdf",
+    "Caza_y_Pesca_pdf",
+    "Con_el_Diablo_al_Hombro_pdf",
+    "Conociendo_a_Sara_pdf",
+    "Cuento_de_la_Luna_Azul_pdf",
+    "MARIDO_A_DOMICILIO_guion_noviembre_2024_pdf",
+    "Nick.pdf",
+    "Night_Life.pdf",
+    "No_era_una_etapa.pdf",
+    "No_me_quiero_enamorar.pdf",
+    "Nochebuena.pdf",
+    "Nonentity.pdf",
+    "ReinoAventuraGuio_n_2o_draft.pdf",
+    "Terapia_V4.pdf",
+    "W6__Instinto_.pdf",
+    "Yo_mate__a_Linda.pdf",
+    "Yo_no_soy.pdf",
+    "You_tell_me.pdf",
+    "ZAR___Zombies_American_Revolution.pdf",
+    "_AY_DIOS_MI_O___Y_AHORA_QUE__QUIERE_MAMA___pdf",
+    "_Quiero_Matar_a_Mi_Suegra__pdf",
+    "_VAYA_CUADRO__pdf",
+    "_Ya_Sue_ltame__pdf"
+  ],
+  "failed": [
+    {
+      "id": "0737_pdf",
+      "title": "0737",
+      "error": "Class constructors cannot be invoked without 'new'"
+    },
+    {
+      "id": "105_pdf",
+      "title": "105",
+      "error": "Class constructors cannot be invoked without 'new'"
+    },
+    {
+      "id": "ALICIA_26_pdf",
+      "title": "ALICIA - 26",
+      "error": "Class constructors cannot be invoked without 'new'"
+    },
+    {
+      "id": "ALTA_VENGANZA_pdf",
+      "title": "ALTA VENGANZA",
+      "error": "Class constructors cannot be invoked without 'new'"
+    },
+    {
+      "id": "AL_FINAL_DE_LA_NOCHE_pdf",
+      "title": "AL FINAL DE LA NOCHE",
+      "error": "Class constructors cannot be invoked without 'new'"
+    },
+    {
+      "id": "AMOR_PER_MORTEM_pdf",
+      "title": "AMOR PER MORTEM",
+      "error": "pdf is not a function"
+    },
+    {
+      "id": "A_HISTORY_OF_FOOLS_pdf",
+      "title": "A History of Fools",
+      "error": "PDF not in Storage (tried screenplays/2006 Black List/A_History_of_Fools.pdf, screenplays/A_History_of_Fools.pdf)"
+    },
+    {
+      "id": "A_KILLING_ON_CARNIVAL_ROW.pdf",
+      "title": "A Killing on Carnival Row",
+      "error": "PDF not in Storage (tried screenplays/2005 Black List/A_Killing_on_Carnival_Row.pdf, screenplays/A_Killing_on_Carnival_Row.pdf)"
+    },
+    {
+      "id": "A_LITTLE_GAME_WITHOUT_CONSEQUENCE.pdf",
+      "title": "A Little Game Without Consequence",
+      "error": "PDF not in Storage (tried screenplays/2006 Black List/A_Little_Game_Without_Consequence.pdf, screenplays/A_Little_Game_Without_Consequence.pdf)"
+    },
+    {
+      "id": "A_WILLING_PATRIOT.pdf",
+      "title": "A Willing Patriot",
+      "error": "PDF not in Storage (tried screenplays/2006 Black List/A_Willing_Patriot.pdf, screenplays/A_Willing_Patriot.pdf)"
+    },
+    {
+      "id": "HONEYMOON_WITH_HARRY.pdf",
+      "title": "Honeymoon with Harry",
+      "error": "PDF not in Storage (tried screenplays/2005 Black List/Honeymoon_with_Harry.pdf, screenplays/Honeymoon_with_Harry.pdf)"
+    },
+    {
+      "id": "MAXX_POWERS_AND_THE_LOVE_TRIANGLE_OF_DOOM.pdf",
+      "title": "Maxx Powers and the Love Triangle of Doom",
+      "error": "PDF not in Storage (tried screenplays/2005 Black List/Maxx_Powers_and_the_Love_Triangle_of_Doom.pdf, screenplays/Maxx_Powers_and_the_Love_Triangle_of_Doom.pdf)"
+    },
+    {
+      "id": "NO_ERES_TU___SON_MIS_DADDY_ISSUES.pdf",
+      "title": "No Eres Tú, Son Mis Daddy Issues",
+      "error": "PDF not in Storage (tried screenplays/TEST/No_Eres_T_Son_Mis_Daddy_Issues.pdf, screenplays/No_Eres_T_Son_Mis_Daddy_Issues.pdf)"
+    },
+    {
+      "id": "No_Ficcio_n.pdf",
+      "title": "No Ficción",
+      "error": "PDF not in Storage (tried screenplays/TEST/No_Ficcin.pdf, screenplays/No_Ficcin.pdf)"
+    },
+    {
+      "id": "Nunca_me_Ire_.pdf",
+      "title": "Nunca me Iré",
+      "error": "PDF not in Storage (tried screenplays/TEST/Nunca_me_Ir.pdf, screenplays/Nunca_me_Ir.pdf)"
+    },
+    {
+      "id": "SHADOW_19.pdf",
+      "title": "Shadow 19",
+      "error": "PDF not in Storage (tried screenplays/2006 Black List/Shadow_19.pdf, screenplays/Shadow_19.pdf)"
+    },
+    {
+      "id": "THE_BRIGANDS_OF_RATTLEBORGE.pdf",
+      "title": "The Brigands of Rattleborge",
+      "error": "PDF not in Storage (tried screenplays/2006 Black List/The_Brigands_of_Rattleborge.pdf, screenplays/The_Brigands_of_Rattleborge.pdf)"
+    },
+    {
+      "id": "THE_MIGHTY_FLYNN_pdf",
+      "title": "The Mighty Flynn",
+      "error": "PDF not in Storage (tried screenplays/OTHER/The_Mighty_Flynn.pdf, screenplays/The_Mighty_Flynn.pdf)"
+    },
+    {
+      "id": "VERDAD_O_RETO.pdf",
+      "title": "VERDAD O RETO",
+      "error": "PDF not in Storage (tried screenplays/LEMON/VERDAD_O_RETO.pdf, screenplays/VERDAD_O_RETO.pdf)"
+    },
+    {
+      "id": "dark_ritual.pdf",
+      "title": "Dark Ritual",
+      "error": "PDF not in Storage (tried screenplays/Randoms/Dark_Ritual.pdf, screenplays/Dark_Ritual.pdf)"
+    },
+    {
+      "id": "kill_grandma.pdf",
+      "title": "Kill Grandma",
+      "error": "PDF not in Storage (tried screenplays/Randoms/Kill_Grandma.pdf, screenplays/Kill_Grandma.pdf)"
+    },
+    {
+      "id": "level_up.pdf",
+      "title": "Level UP",
+      "error": "PDF not in Storage (tried screenplays/Randoms/Level_UP.pdf, screenplays/Level_UP.pdf)"
+    },
+    {
+      "id": "like_home.pdf",
+      "title": "Like Home",
+      "error": "PDF not in Storage (tried screenplays/Randoms/Like_Home.pdf, screenplays/Like_Home.pdf)"
+    },
+    {
+      "id": "living_beer.pdf",
+      "title": "Living Beer",
+      "error": "PDF not in Storage (tried screenplays/Randoms/Living_Beer.pdf, screenplays/Living_Beer.pdf)"
+    },
+    {
+      "id": "man_wedding.pdf",
+      "title": "Man Wedding",
+      "error": "PDF not in Storage (tried screenplays/Randoms/Man_Wedding.pdf, screenplays/Man_Wedding.pdf)"
+    },
+    {
+      "id": "second_wind.pdf",
+      "title": "Second Wind",
+      "error": "PDF not in Storage (tried screenplays/Randoms/Second_Wind.pdf, screenplays/Second_Wind.pdf)"
+    },
+    {
+      "id": "the_domovoi.pdf",
+      "title": "The Domovoi",
+      "error": "PDF not in Storage (tried screenplays/Randoms/The_Domovoi.pdf, screenplays/The_Domovoi.pdf)"
+    },
+    {
+      "id": "the_method.pdf",
+      "title": "The Method",
+      "error": "PDF not in Storage (tried screenplays/Randoms/The_Method.pdf, screenplays/The_Method.pdf)"
+    }
+  ],
+  "startedAt": "2026-05-09T21:59:55.755Z"
+}

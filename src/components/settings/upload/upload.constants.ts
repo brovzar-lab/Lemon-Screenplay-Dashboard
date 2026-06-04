@@ -67,7 +67,9 @@ export const STATUS_LABELS: Record<UploadStatus, { label: string; color: string 
   promoting: { label: '\u2B06\uFE0F Promoted \u2192 Opus re-analysis...', color: 'text-purple-400' },
   complete: { label: 'Complete', color: 'text-emerald-400' },
   error: { label: 'Error', color: 'text-red-400' },
+  skipped: { label: 'Skipped (duplicate)', color: 'text-black-400' },
 };
+
 
 // Token cost multipliers per model (per 1K tokens)
 export const MODEL_COSTS: Record<string, { input: number; output: number }> = {

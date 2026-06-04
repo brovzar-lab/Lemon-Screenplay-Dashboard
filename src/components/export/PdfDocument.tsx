@@ -13,30 +13,30 @@ import {
 import type { Screenplay } from '@/types';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 
-// PDF Styles
+// PDF Styles — Soft Print on paper. Rose = brand only; sage/sand/clay = status.
 const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#F1EBE0',
     padding: 40,
     fontFamily: 'Helvetica',
-    color: '#F1F5F9',
+    color: '#2F2B25',
   },
   header: {
     marginBottom: 30,
-    borderBottomWidth: 2,
-    borderBottomColor: '#F59E0B',
+    borderBottomWidth: 1,
+    borderBottomColor: '#D5CBB7',
     paddingBottom: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#FEF3C7',
+    color: '#2F2B25',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: '#94A3B8',
+    color: '#645C50',
     marginBottom: 4,
   },
   badge: {
@@ -44,23 +44,23 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 4,
     paddingHorizontal: 12,
-    borderRadius: 4,
+    borderRadius: 999,
     marginTop: 12,
   },
   badgeFilmNow: {
-    backgroundColor: '#F59E0B',
-    color: '#0F172A',
+    backgroundColor: '#BC6A77',
+    color: '#FFFFFF',
   },
   badgeRecommend: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#5E8C63',
     color: '#FFFFFF',
   },
   badgeConsider: {
-    backgroundColor: '#F59E0B',
-    color: '#0F172A',
+    backgroundColor: '#B07F2E',
+    color: '#FFFFFF',
   },
   badgePass: {
-    backgroundColor: '#EF4444',
+    backgroundColor: '#B0543F',
     color: '#FFFFFF',
   },
   badgeText: {
@@ -72,16 +72,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: 'bold',
-    color: '#F59E0B',
+    color: '#8A8273',
     marginBottom: 12,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.4,
   },
   logline: {
     fontSize: 12,
-    color: '#CBD5E1',
+    color: '#645C50',
     lineHeight: 1.6,
     marginBottom: 16,
     fontStyle: 'italic',
@@ -97,13 +97,14 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 9,
-    color: '#64748B',
+    color: '#8A8273',
     marginBottom: 2,
     textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   infoValue: {
     fontSize: 11,
-    color: '#F1F5F9',
+    color: '#2F2B25',
   },
   scoreGrid: {
     flexDirection: 'row',
@@ -113,13 +114,15 @@ const styles = StyleSheet.create({
   scoreItem: {
     width: '48%',
     marginBottom: 8,
-    padding: 8,
-    backgroundColor: '#1E293B',
-    borderRadius: 4,
+    padding: 10,
+    backgroundColor: '#FBF8F2',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E4DCCD',
   },
   scoreLabel: {
     fontSize: 9,
-    color: '#94A3B8',
+    color: '#645C50',
     marginBottom: 4,
   },
   scoreValue: {
@@ -128,47 +131,49 @@ const styles = StyleSheet.create({
   },
   scoreBar: {
     height: 4,
-    backgroundColor: '#334155',
-    borderRadius: 2,
+    backgroundColor: '#E9E2D4',
+    borderRadius: 999,
     marginTop: 4,
   },
   scoreBarFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 999,
   },
   list: {
     marginLeft: 12,
   },
   listItem: {
     fontSize: 10,
-    color: '#CBD5E1',
+    color: '#645C50',
     marginBottom: 4,
     lineHeight: 1.5,
   },
   strengthItem: {
-    color: '#10B981',
+    color: '#5E8C63',
   },
   weaknessItem: {
-    color: '#F59E0B',
+    color: '#B07F2E',
   },
   criticalItem: {
-    color: '#EF4444',
+    color: '#B0543F',
   },
   comparableFilm: {
     marginBottom: 8,
-    padding: 8,
-    backgroundColor: '#1E293B',
-    borderRadius: 4,
+    padding: 10,
+    backgroundColor: '#FBF8F2',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E4DCCD',
   },
   comparableTitle: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#F1F5F9',
+    color: '#2F2B25',
     marginBottom: 2,
   },
   comparableSimilarity: {
     fontSize: 9,
-    color: '#94A3B8',
+    color: '#645C50',
   },
   footer: {
     position: 'absolute',
@@ -177,23 +182,23 @@ const styles = StyleSheet.create({
     right: 40,
     textAlign: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#334155',
+    borderTopColor: '#E4DCCD',
     paddingTop: 12,
   },
   footerText: {
     fontSize: 8,
-    color: '#64748B',
+    color: '#8A8273',
   },
   verdict: {
     padding: 16,
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#F59E0B',
+    backgroundColor: '#F3E2E1',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#BC6A77',
   },
   verdictText: {
     fontSize: 11,
-    color: '#F1F5F9',
+    color: '#2F2B25',
     lineHeight: 1.6,
   },
   producerMetrics: {
@@ -205,30 +210,34 @@ const styles = StyleSheet.create({
   metricBox: {
     width: '30%',
     padding: 12,
-    backgroundColor: '#1E293B',
-    borderRadius: 4,
+    backgroundColor: '#FBF8F2',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E4DCCD',
     alignItems: 'center',
   },
   metricValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#F59E0B',
+    color: '#A1505D',
   },
   metricLabel: {
     fontSize: 8,
-    color: '#94A3B8',
+    color: '#8A8273',
     textTransform: 'uppercase',
     marginTop: 4,
     textAlign: 'center',
+    letterSpacing: 1.2,
   },
 });
 
-// Helper to get score color
+// Helper to get score color — Soft Print status hues, paired with the numeric
+// value in the markup so color never carries meaning alone.
 const getScoreColor = (score: number, max: number = 10): string => {
   const pct = score / max;
-  if (pct >= 0.8) return '#10B981'; // Emerald
-  if (pct >= 0.6) return '#F59E0B'; // Gold
-  return '#EF4444'; // Red
+  if (pct >= 0.8) return '#5E8C63'; // sage
+  if (pct >= 0.6) return '#B07F2E'; // sand
+  return '#B0543F'; // clay
 };
 
 // Helper to get badge style
