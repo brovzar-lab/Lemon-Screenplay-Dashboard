@@ -77,6 +77,57 @@ const CLAUDE_MODELS: Record<string, string> = {
   opus: 'claude-opus-4-7',
 };
 
+// ─── Score Arithmetic (computed in code, not by the AI) ──────────────────────
+
+/**
+ * Compute pillar_score from sub_scores returned by a reader.
+ * The AI is instructed to return pillar_score: null; we compute it here
+ * to prevent arithmetic errors from propagating into the synthesis.
+ */
+function computePillarScoreFromReport(report: Record<string, unknown>): number | null {
+  const subScores = report.sub_scores;
+  if (!subScores || typeof subScores !== 'object') return null;
+  const values = Object.values(subScores as Record<string, unknown>)
+    .map((v) => {
+      if (v && typeof v === 'object' && typeof (v as Record<string, unknown>).score === 'number') {
+        return (v as Record<string, unknown>).score as number;
+      }
+      return null;
+    })
+    .filter((n): n is number => n !== null && !isNaN(n));
+  if (values.length === 0) return null;
+  return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
+}
+
+/**
+ * Compute the final weighted score from synthesis pillar scores.
+ * Overrides the AI-computed weighted_score with verified arithmetic.
+ */
+function computeWeightedScoreFromSynthesis(
+  synthesis: Record<string, unknown>,
+): number {
+  const pillarScores = synthesis.pillar_scores as
+    | Record<string, { score?: number; weight?: number }>
+    | undefined;
+  if (!pillarScores) return 0;
+
+  // Use weights from READER_WEIGHTS as the authoritative source
+  const WEIGHTS: Record<string, number> = {
+    structure: 0.30,
+    character: 0.30,
+    craft_scene: 0.15,
+    concept: 0.15,
+    emotional_resonance: 0.10,
+  };
+
+  let total = 0;
+  for (const [reader, weight] of Object.entries(WEIGHTS)) {
+    const score = pillarScores[reader]?.score ?? 0;
+    total += score * weight;
+  }
+  return Math.round(total * 100) / 100;
+}
+
 // ─── Anthropic API Call (with retry for network errors) ──────────────────────
 
 async function callClaude(
@@ -181,6 +232,9 @@ function parseClaudeJSON(text: string): Record<string, unknown> {
  * Quick-read triage using Haiku — scores 1-10 and decides
  * whether the script deserves full 5-reader analysis.
  * ~$0.05/script, <15 seconds.
+ *
+ * Threshold: score >= 6.0 (median produced film) to qualify for deep analysis.
+ * Score of 5 = below average — not worth full Sonnet spend.
  */
 export async function runTriage(
   parsed: ParsedPDF,
@@ -199,13 +253,15 @@ export async function runTriage(
   );
 
   const result = parseClaudeJSON(text);
+  const triageScore = (result.triage_score as number) ?? 0;
 
   return {
-    triage_score: (result.triage_score as number) ?? 0,
+    triage_score: triageScore,
     verdict: (result.verdict as string) ?? '',
     genre: (result.genre as string) ?? '',
     logline: (result.logline as string) ?? '',
-    should_deep_analyze: (result.should_deep_analyze as boolean) ?? false,
+    // Raised from 5 to 6: a 5 is "below average" — spend Sonnet on median or above
+    should_deep_analyze: triageScore >= 6.0,
     usage,
   };
 }
@@ -246,26 +302,29 @@ export async function runMultiReaderAnalysis(
   const readerPrompts = buildAllReaderPrompts(parsed.text, metadata);
   const completedReaders: ReaderName[] = [];
 
-  // Inject calibration into each reader's system prompt for bias correction
-  const calibration = options.calibrationPrompt?.trim();
+  // Calibration is intentionally NOT injected into readers — readers use pure methodology.
+  // Producer calibration is applied only at the synthesis stage so it affects verdict,
+  // not the underlying pillar scoring.
 
   const readerPromises = readerPrompts.map(async (rp) => {
     const readerStart = Date.now();
 
-    // Append calibration to the reader system prompt
-    let systemPrompt = rp.systemPrompt;
-    if (calibration) {
-      systemPrompt += `\n\n═══ PRODUCER CALIBRATION ═══\n${calibration}\nApply these biases to your scoring without overriding the methodology.\n`;
-    }
-
     const { text, usage } = await callClaude(
-      systemPrompt,
+      rp.systemPrompt,
       rp.userPrompt,
       model,
       8000,
     );
 
     const report = parseClaudeJSON(text);
+
+    // Compute pillar_score from sub_scores in code — do not trust AI arithmetic.
+    // Readers return pillar_score: null; we fill it here with verified arithmetic.
+    const computedPillar = computePillarScoreFromReport(report);
+    if (computedPillar !== null) {
+      report.pillar_score = computedPillar;
+    }
+
     const durationMs = Date.now() - readerStart;
 
     completedReaders.push(rp.reader);
@@ -345,6 +404,20 @@ export async function runMultiReaderAnalysis(
 
   const synthesis = parseClaudeJSON(synthesisText);
   const synthesisDurationMs = Date.now() - synthesisStart;
+
+  // Override AI-computed weighted_score with verified arithmetic from code.
+  // This prevents synthesis arithmetic errors from affecting the final verdict.
+  const computedWeightedScore = computeWeightedScoreFromSynthesis(synthesis);
+  if (computedWeightedScore > 0) {
+    (synthesis as Record<string, unknown>).weighted_score = computedWeightedScore;
+    // Log if AI and code disagree by more than 0.1
+    const aiScore = synthesis.weighted_score as number | undefined;
+    if (aiScore !== undefined && Math.abs(aiScore - computedWeightedScore) > 0.1) {
+      console.warn(
+        `[V7] Synthesis weighted_score mismatch: AI said ${aiScore}, computed ${computedWeightedScore}. Using computed.`
+      );
+    }
+  }
 
   // Attach full reader reports to synthesis output for transparency
   (synthesis as Record<string, unknown>).reader_reports = readerReports;

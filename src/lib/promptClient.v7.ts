@@ -5,7 +5,7 @@
  * Each reader evaluates the script independently using methodology-specific criteria.
  * The Synthesis pass resolves disagreements and produces the consensus verdict.
  *
- * Reader weights: Structure 40%, Character 25%, Craft 15%, Concept 10%, Emotion 10%
+ * Reader weights: Structure 30%, Character 30%, Craft 15%, Concept 15%, Emotion 10%
  */
 
 import type { LensName } from './promptClient';
@@ -36,10 +36,10 @@ export interface SynthesisPromptInput {
 // ─── Reader Weights ──────────────────────────────────────────────────────────
 
 export const READER_WEIGHTS: Record<ReaderName, number> = {
-  structure: 0.40,
-  character: 0.25,
+  structure: 0.30,      // Structure reduced from 0.40 — was acting as proxy for overall quality.
+  character: 0.30,      // Character raised to match — audiences remember characters.
   craft_scene: 0.15,
-  concept: 0.10,
+  concept: 0.15,        // Concept raised — it is the marketable signal, was underweighted.
   emotional_resonance: 0.10,
 };
 
@@ -101,7 +101,13 @@ Pages: ${metadata.pageCount}
 SCREENPLAY TEXT:
 ${text}
 
-Evaluate these 12 sub-criteria (each 1-10):
+Evaluate these 13 sub-criteria (each 1-10):
+
+FIRST TEN PAGES (evaluated as a standalone procurement gate):
+0. first_ten_pages — Do pages 1-10 establish protagonist, world, and dramatic question compellingly?
+   Does the inciting incident land by page 12-15?
+   Score: 10 = immediate grip (Parasite, Get Out), 8 = solid engagement, 6 = functional, 4 = slow/passive, 2 = nothing established yet.
+   IMPORTANT: If this scores below 5, add "WEAK OPENING — procurement risk" to red_flags.
 
 STORY GRID:
 1. beginning_hook — Does Act 1 (first 25%) establish world, character, stakes with an inciting incident?
@@ -129,12 +135,14 @@ Red flags to check:
 - Climax doesn't deliver genre's obligatory core event
 - Act 3 < 15% of script
 - No genuine crisis dilemma
+- WEAK OPENING: first_ten_pages < 5 (procurement risk)
 
 Return ONLY this JSON:
 {
   "reader": "structure",
-  "pillar_score": 0.0,
+  "pillar_score": null,
   "sub_scores": {
+    "first_ten_pages": { "score": 0, "justification": "", "page_citations": [] },
     "beginning_hook": { "score": 0, "justification": "", "page_citations": [] },
     "middle_build": { "score": 0, "justification": "", "page_citations": [] },
     "ending_payoff": { "score": 0, "justification": "", "page_citations": [] },
@@ -152,7 +160,7 @@ Return ONLY this JSON:
   "one_sentence_verdict": ""
 }
 
-pillar_score = average of all 12 sub-scores.
+pillar_score MUST be null — it is computed server-side from sub_scores. Do NOT calculate it.
 Return ONLY valid JSON.`;
 
   return { reader: 'structure', systemPrompt, userPrompt };
@@ -214,7 +222,7 @@ E. Driven by strong moral component through the middle?
 Return ONLY this JSON:
 {
   "reader": "character",
-  "pillar_score": 0.0,
+  "pillar_score": null,
   "sub_scores": {
     "ghost": { "score": 0, "justification": "", "page_citations": [] },
     "lie": { "score": 0, "justification": "", "identified_lie": "" },
@@ -244,7 +252,7 @@ Return ONLY this JSON:
   "one_sentence_verdict": ""
 }
 
-pillar_score = average of all 11 sub-scores.
+pillar_score MUST be null — it is computed server-side from sub_scores. Do NOT calculate it.
 Return ONLY valid JSON.`;
 
   return { reader: 'character', systemPrompt, userPrompt };
@@ -259,7 +267,7 @@ Evaluate SCENE CRAFT ONLY. Not macro-structure, not character arcs, not concept.
 
 Score anchors: 10 = masterpiece scene craft (No Country for Old Men), 9 = exceptional (Sicario), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = flat, 1-3 = amateur.
 
-Sample 5 scenes: one from Act 1, two from Act 2 (early and late), one from Act 3, and the climax scene.`;
+Sample 8 scenes distributed across the script: opening (pages 1-5), inciting incident area, Act 1 turning point, Act 2 early, midpoint, Act 2 late/dark night, pre-climax, and the climax scene.`;
 
   const userPrompt = `Analyze this screenplay's CRAFT AND SCENE QUALITY:
 
@@ -269,7 +277,7 @@ Pages: ${metadata.pageCount}
 SCREENPLAY TEXT:
 ${text}
 
-SAMPLE 5 SCENES across the script and evaluate these 9 sub-criteria (each 1-10):
+SAMPLE 8 SCENES across the script and evaluate these 10 sub-criteria (each 1-10):
 
 BMOC (PETER RUSSELL):
 1. beat_question_clarity — Can each scene's question be phrased as binary Yes/No?
@@ -282,10 +290,14 @@ PURE CRAFT:
 6. dialogue_voice_distinction — Cover names, still know who's speaking?
 7. dialogue_subtext — Saying one thing, meaning another?
 8. visual_storytelling — Show don't tell? Emotions delivered through action/image?
-9. format_professionalism — Industry-standard formatting, clean action lines?
-10. exposition_handling — When exposition is delivered, is it dramatized through conflict, broken across scenes, or dumped in monologue? Flag violations with context.
+9. exposition_handling — When exposition is delivered, is it dramatized through conflict, broken across scenes, or dumped in monologue? Flag violations with context.
 
-BMOC FAILURE MODE SCAN (on 5 sampled scenes):
+AUTHORED VOICE:
+10. authored_voice — Does this feel like it could ONLY have been written by this specific writer?
+    Is there a consistent philosophical or aesthetic sensibility? A technically competent script with no discernible authorial POV scores low.
+    Score: 10 = unmistakable singular POV (Coen brothers, Kaufman), 7 = clearly authored, 5 = competent but generic, 3 = committee-written feel, 1 = pure formula
+
+BMOC FAILURE MODE SCAN (on 8 sampled scenes):
 1. Mushy beat question
 2. Passive antagonist
 3. No power shift
@@ -300,7 +312,7 @@ BMOC FAILURE MODE SCAN (on 5 sampled scenes):
 Return ONLY this JSON:
 {
   "reader": "craft_scene",
-  "pillar_score": 0.0,
+  "pillar_score": null,
   "sub_scores": {
     "beat_question_clarity": { "score": 0, "justification": "" },
     "bmoc_architecture": { "score": 0, "justification": "" },
@@ -310,11 +322,11 @@ Return ONLY this JSON:
     "dialogue_voice_distinction": { "score": 0, "justification": "" },
     "dialogue_subtext": { "score": 0, "justification": "" },
     "visual_storytelling": { "score": 0, "justification": "" },
-    "format_professionalism": { "score": 0, "justification": "" },
-    "exposition_handling": { "score": 0, "justification": "" }
+    "exposition_handling": { "score": 0, "justification": "" },
+    "authored_voice": { "score": 0, "justification": "", "voice_descriptor": "" }
   },
   "bmoc_failure_scan": {
-    "scenes_sampled": 5,
+    "scenes_sampled": 8,
     "failure_modes_triggered": [
       { "mode": "mushy_beat_question", "scenes_affected": 0 },
       { "mode": "passive_antagonist", "scenes_affected": 0 },
@@ -331,10 +343,13 @@ Return ONLY this JSON:
     "craft_warning": false
   },
   "sampled_scenes": [
-    { "location": "Act 1", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
+    { "location": "Opening (pp 1-5)", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
+    { "location": "Inciting incident", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
+    { "location": "Act 1 turning point", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
     { "location": "Act 2 early", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
-    { "location": "Act 2 late", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
-    { "location": "Act 3", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
+    { "location": "Midpoint", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
+    { "location": "Act 2 late / dark night", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
+    { "location": "Pre-climax", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" },
     { "location": "Climax", "page": 0, "beat_question": "", "bmoc_quality": "strong|adequate|weak" }
   ],
   "exposition_violations": [
@@ -344,7 +359,8 @@ Return ONLY this JSON:
   "one_sentence_verdict": ""
 }
 
-pillar_score = average of all 9 sub-scores. craft_warning = true if 3+ failure modes active.
+pillar_score MUST be null — it is computed server-side from sub_scores. Do NOT calculate it.
+craft_warning = true if 3+ failure modes active.
 Return ONLY valid JSON.`;
 
   return { reader: 'craft_scene', systemPrompt, userPrompt };
@@ -388,7 +404,7 @@ PREMISE LINE (LYONS):
 Return ONLY this JSON:
 {
   "reader": "concept",
-  "pillar_score": 0.0,
+  "pillar_score": null,
   "sub_scores": {
     "hook_clarity": { "score": 0, "justification": "", "one_sentence_pitch": "" },
     "narrative_engine": { "score": 0, "justification": "" },
@@ -403,7 +419,7 @@ Return ONLY this JSON:
   "one_sentence_verdict": ""
 }
 
-pillar_score = average of all 8 sub-scores.
+pillar_score MUST be null — it is computed server-side from sub_scores. Do NOT calculate it.
 Return ONLY valid JSON.`;
 
   return { reader: 'concept', systemPrompt, userPrompt };
@@ -446,7 +462,7 @@ VALUE DYNAMICS:
 Return ONLY this JSON:
 {
   "reader": "emotional_resonance",
-  "pillar_score": 0.0,
+  "pillar_score": null,
   "sub_scores": {
     "emotional_clarity": { "score": 0, "justification": "" },
     "empathy_investment": { "score": 0, "justification": "" },
@@ -463,7 +479,7 @@ Return ONLY this JSON:
   "one_sentence_verdict": ""
 }
 
-pillar_score = average of all 7 sub-scores.
+pillar_score MUST be null — it is computed server-side from sub_scores. Do NOT calculate it.
 If you cannot identify ANY goosebumps scenes, that IS the signal — score goosebumps_moments low.
 Return ONLY valid JSON.`;
 
@@ -477,7 +493,7 @@ export function buildSynthesisPrompt(input: SynthesisPromptInput): { systemPromp
 
 Do NOT add your own analysis. Resolve disagreements, apply quality gates, compute the final score, and write the executive summary.
 
-WEIGHTS: Structure 40%, Character 25%, Craft 15%, Concept 10%, Emotion 10%
+WEIGHTS: Structure 30%, Character 30%, Craft 15%, Concept 15%, Emotion 10%
 
 VERDICTS: PASS (<5.5), CONSIDER (5.5-7.4), RECOMMEND (>=7.5), FILM_NOW (>=8.5)
 
@@ -496,6 +512,7 @@ CRITICAL OUTPUT RULES:
 - STANDOUT SCENES: Each must include what character arc or thematic argument the scene serves, not just why it's viscerally effective.
 - DELIBERATE AMBIGUITIES: Flag open endings, unresolved mysteries, or sequel hooks. These affect structural reading, commercial scoring, and franchise potential.
 - COMMERCIAL VIABILITY: Each factor MUST have a non-empty note. If you cannot assess a factor, set note to "Requires human input: [reason]". Zeroes with blank notes are NEVER acceptable.
+- PRODUCER INTELLIGENCE: development_trajectory MUST be one of "polish", "restructure", or "reconception". why_now MUST be 1-2 sentences on current cultural/market timing. best_talent_match MUST describe a director sensibility category (not a specific name).
 
 EXECUTIVE SUMMARY: One paragraph (4-6 sentences). What it is, why it earned this verdict, should you go forward. NO development notes, NO prescriptions.`;
 
@@ -510,10 +527,18 @@ SYNTHESIS INSTRUCTIONS:
 2. RESOLVE DISAGREEMENTS: Document where readers conflict by 2+ and why
 3. STORY VS. SITUATION GATE: Check character reader's story_vs_situation verdict
 4. FALSE POSITIVE TRAPS: Check using cross-reader data:
-   🔴 FUNDAMENTAL (weight 1.0): character_vacuum (char: star_role<5 AND supporting<5), complexity_theater (struct: scene_necessity<5 AND complications<5), genre_confusion (concept: genre_execution<5 AND promise<5)
-   🟡 ADDRESSABLE (weight 0.5): premise_execution_gap (concept pillar - avg(struct,craft) >= 2.0), first_act_illusion (struct: beginning>=7 AND (middle<5 OR ending<5)), originality_inflation (concept: freshness>=7 AND craft pillar<5), dialogue_disguise (craft: voice>=7 AND struct: complications<5), tonal_whiplash (emotion: clarity<5 AND craft: format>=6)
+   🔴 FUNDAMENTAL (weight 1.0): character_vacuum (char: star_role<5 AND supporting<5), complexity_theater (struct: scene_necessity<5 AND complications<5), genre_confusion (concept: genre_execution<5 AND promise<5), ending_mirage (struct: ending_payoff>=7 AND emotion: catharsis_quality<5)
+   🟡 ADDRESSABLE (weight 0.5): premise_execution_gap (concept pillar - avg(struct,craft) >= 2.0), first_act_illusion (struct: beginning>=7 AND (middle<5 OR ending<5)), originality_inflation (concept: freshness>=7 AND craft pillar<5), dialogue_disguise (craft: voice>=7 AND struct: complications<5), tonal_whiplash (emotion: clarity<5 AND craft: dialogue_voice_distinction>=7), sympathy_substitution (char: empathy_investment>=7 AND arc_delivery<5)
    ⚪ WARNING (weight 0.0): second_lead_syndrome (char: supporting>=7 AND star_role<5)
-5. COMPUTE: final_score = sum(pillar × weight)
+
+CROSS-READER CONTRADICTIONS — check these specific pairs explicitly and flag in reader_disagreements if triggered:
+   craft:dialogue_voice_distinction >= 7 AND emotion:empathy_investment < 5 → "Voice without soul"
+   struct:beginning_hook >= 8 AND struct:ending_payoff < 5 → "Ending Mirage"
+   concept:freshness >= 8 AND craft pillar_score < 5 → "Brilliant concept, poor execution"
+   char:star_role_potential >= 7 AND char:arc_delivery < 5 → "Flashy role, no arc"
+   struct:first_ten_pages < 5 (if present) → flag in red_flags as procurement obstacle
+
+5. COMPUTE: final_score = sum(pillar × weight) using weights Structure 30%, Character 30%, Craft 15%, Concept 15%, Emotion 10%
 6. ASSIGN VERDICT + apply gates
 7. WRITE EXECUTIVE SUMMARY: 1 paragraph, include whether to go forward
 8. LIST 3 COMPARABLE FILMS: tone comp, structure comp, market comp`;
@@ -545,10 +570,10 @@ Return ONLY this JSON:
   "logline": "",
   "analysis_version": "v7_archaeology",
   "pillar_scores": {
-    "structure": { "score": 0, "weight": 0.40 },
-    "character": { "score": 0, "weight": 0.25 },
+    "structure": { "score": 0, "weight": 0.30 },
+    "character": { "score": 0, "weight": 0.30 },
     "craft_scene": { "score": 0, "weight": 0.15 },
-    "concept": { "score": 0, "weight": 0.10 },
+    "concept": { "score": 0, "weight": 0.15 },
     "emotional_resonance": { "score": 0, "weight": 0.10 }
   },
   "weighted_score": 0.00,
@@ -558,11 +583,13 @@ Return ONLY this JSON:
       { "name": "character_vacuum", "triggered": false, "tier": "fundamental", "weight": 1.0, "evidence": "" },
       { "name": "complexity_theater", "triggered": false, "tier": "fundamental", "weight": 1.0, "evidence": "" },
       { "name": "genre_confusion", "triggered": false, "tier": "fundamental", "weight": 1.0, "evidence": "" },
+      { "name": "ending_mirage", "triggered": false, "tier": "fundamental", "weight": 1.0, "evidence": "" },
       { "name": "premise_execution_gap", "triggered": false, "tier": "addressable", "weight": 0.5, "evidence": "" },
       { "name": "first_act_illusion", "triggered": false, "tier": "addressable", "weight": 0.5, "evidence": "" },
       { "name": "originality_inflation", "triggered": false, "tier": "addressable", "weight": 0.5, "evidence": "" },
       { "name": "dialogue_disguise", "triggered": false, "tier": "addressable", "weight": 0.5, "evidence": "" },
       { "name": "tonal_whiplash", "triggered": false, "tier": "addressable", "weight": 0.5, "evidence": "" },
+      { "name": "sympathy_substitution", "triggered": false, "tier": "addressable", "weight": 0.5, "evidence": "" },
       { "name": "second_lead_syndrome", "triggered": false, "tier": "warning", "weight": 0.0, "evidence": "" }
     ],
     "weighted_trap_score": 0.0,
@@ -590,6 +617,17 @@ Return ONLY this JSON:
     { "description": "", "structural_impact": "", "franchise_potential": "" }
   ],
   "characters": { "protagonist": "", "protagonist_lie": "", "protagonist_arc_type": "", "protagonist_enneagram_type": "", "antagonist": "", "supporting": [] },
+  "producer_intelligence": {
+    "market_potential": { "score": 0, "rationale": "" },
+    "usp_strength": { "assessment": "Weak|Moderate|Strong", "rationale": "" },
+    "development_trajectory": {
+      "path": "polish|restructure|reconception",
+      "rationale": "",
+      "estimated_drafts": 0
+    },
+    "why_now": "",
+    "best_talent_match": ""
+  },
   "red_flags": [],
   "lenses": {}
 }
@@ -600,6 +638,9 @@ IMPORTANT:
 - themes MUST have minimum 2 items.
 - tone MUST be non-empty.
 - author MUST NOT be "Unknown" — extract from title page or set "Not found on title page".
+- producer_intelligence.development_trajectory.path MUST be one of "polish", "restructure", or "reconception".
+- producer_intelligence.why_now MUST be 1-2 sentences on current cultural/market timing for this story.
+- producer_intelligence.best_talent_match MUST describe a director sensibility category (e.g. "social realist with low-footprint production instincts"), not a specific person's name.
 Return ONLY valid JSON.`;
 
   return { systemPrompt, userPrompt };

@@ -1,6 +1,7 @@
 import type { Screenplay, Collection } from '@/types';
-import { isV7RawAnalysis, normalizeV7Screenplay } from './normalize';
+import { isV7RawAnalysis, normalizeV7Screenplay, isV6UnifiedAnalysis, normalizeV6UnifiedScreenplay } from './normalize';
 import { loadAllAnalyses, quarantineAnalysis } from './analysisStore';
+
 
 /**
  * Load all screenplay data from Firestore/localStorage.
@@ -21,12 +22,18 @@ export async function loadAllScreenplaysVite(): Promise<Screenplay[]> {
           const sp = normalizeV7Screenplay(raw as Record<string, unknown>, collection || 'Analysis');
           screenplays.push(sp);
           loadedCount++;
+        } else if (isV6UnifiedAnalysis(raw)) {
+          const collection = (raw as Record<string, unknown>).collection as Collection | undefined;
+          const sp = normalizeV6UnifiedScreenplay(raw as Record<string, unknown>, collection || 'Analysis');
+          screenplays.push(sp);
+          loadedCount++;
         } else {
           // Unknown format — quarantine it
           const sourceFile = (raw as Record<string, unknown>).source_file as string | undefined;
           console.warn('[Lemon] Quarantining unknown format analysis:', sourceFile);
           try { await quarantineAnalysis(raw as Record<string, unknown>, 'failed isV6RawAnalysis type guard'); } catch { /* ignore */ }
         }
+
       } catch (err) {
         const sourceFile = (raw as Record<string, unknown>).source_file as string | undefined;
         console.error(`[Lemon] Failed to normalize uploaded analysis "${sourceFile || 'unknown'}", quarantining corrupted entry:`, err);

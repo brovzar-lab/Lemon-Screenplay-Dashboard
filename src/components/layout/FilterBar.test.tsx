@@ -72,6 +72,16 @@ vi.mock('@/hooks/useKeyboardShortcuts', () => ({
     useKeyboardShortcuts: () => undefined,
 }));
 
+vi.mock('@/hooks/useScreenplays', () => ({
+    useScreenplays: () => ({ data: [], isLoading: false }),
+    useDeleteScreenplays: () => ({ mutate: vi.fn(), isPending: false }),
+    SCREENPLAYS_QUERY_KEY: ['screenplays'],
+}));
+
+vi.mock('@/hooks/usePdfScan', () => ({
+    usePdfScan: () => ({ scan: vi.fn(), isScanning: false }),
+}));
+
 vi.mock('@/stores/pdfStatusStore', () => ({
     usePdfStatusStore: (selector: (s: unknown) => unknown) =>
         selector({ statuses: {}, hasScanResult: false, isScanning: false }),
