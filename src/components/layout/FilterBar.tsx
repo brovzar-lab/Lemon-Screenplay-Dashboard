@@ -4,10 +4,12 @@
  * Owns the overlay modals triggered from its buttons.
  */
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { clsx } from 'clsx';
 import { FilterPanel, AdvancedSortPanel, ActionsDropdown } from '@/components/filters';
-import { ExportModal } from '@/components/export';
+// Lazy-load ExportModal — defers the 1.5MB @react-pdf/renderer vendor chunk
+// until the user actually clicks the Export button.
+const ExportModal = lazy(() => import('@/components/export/ExportModal').then(m => ({ default: m.ExportModal })));
 import { ShareModal } from '@/components/share';
 import { BulkShareModal, BulkReanalyzeModal } from '@/components/bulk';
 import { BadFormatModal } from '@/components/badFormat/BadFormatModal';
@@ -474,12 +476,16 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
         isOpen={isFilterPanelOpen}
         onClose={() => setIsFilterPanelOpen(false)}
       />
-      < ExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        screenplays={screenplaysToExport}
-        mode={hasExportSelection ? 'selected' : hasActiveFilters ? 'filtered' : 'all'}
-      />
+      {isExportModalOpen && (
+        <Suspense fallback={null}>
+          <ExportModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            screenplays={screenplaysToExport}
+            mode={hasExportSelection ? 'selected' : hasActiveFilters ? 'filtered' : 'all'}
+          />
+        </Suspense>
+      )}
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}

@@ -270,4 +270,66 @@ test.describe('Dashboard E2E Tests', () => {
       await expect(page.getByText(/Export as/i)).toBeVisible({ timeout: 5000 });
     });
   });
+
+  test.describe('Card Data Verification', () => {
+    test('should display title, weighted score, recommendation, and dimension scores in modal', async ({ page }) => {
+      // Click the first screenplay card to open its modal
+      const firstCard = page.locator('[role="listitem"]').first();
+      await expect(firstCard).toBeVisible({ timeout: 10000 });
+
+      // Capture the card title before clicking (h3 inside the article)
+      const cardTitle = await firstCard.locator('h3').first().textContent();
+
+      await firstCard.click();
+
+      // Modal should be visible
+      const modal = page.getByRole('dialog');
+      await expect(modal).toBeVisible({ timeout: 5000 });
+
+      // 1. Title should be displayed in modal header (h2#modal-title)
+      if (cardTitle) {
+        await expect(modal.locator('#modal-title')).toContainText(cardTitle.trim());
+      }
+
+      // 2. Weighted Score label and value should be visible in the ScoresPanel
+      await expect(modal.getByText('Weighted Score')).toBeVisible();
+
+      // 3. Recommendation badge should be present in the modal header
+      // The RecommendationBadge renders text like "RECOMMEND", "CONSIDER", "PASS", or "FILM NOW"
+      await expect(
+        modal.getByText(/RECOMMEND|CONSIDER|PASS|FILM NOW/i).first()
+      ).toBeVisible();
+
+      // 4. Dimension Scores section should be visible
+      await expect(modal.getByText('Dimension Scores')).toBeVisible();
+    });
+  });
+
+  test.describe('Sort By Weighted Score', () => {
+    test('should sort cards by weighted score descending', async ({ page }) => {
+      // Change sort to Weighted Score
+      const sortSelect = page.getByTestId('sort-select');
+      await expect(sortSelect).toBeVisible();
+      await sortSelect.selectOption('weightedScore');
+      await page.waitForTimeout(500);
+
+      // Collect the Score values from the first two visible cards
+      // Each card has a "Score" label followed by the numeric value
+      const cards = page.locator('[role="listitem"]');
+      const firstCardCount = await cards.count();
+
+      if (firstCardCount >= 2) {
+        // The card footer contains a span with text "Score" and then the numeric score
+        // Get the score text (font-mono font-bold) from each card
+        const firstScore = await cards.nth(0).locator('.font-mono.font-bold').first().textContent();
+        const secondScore = await cards.nth(1).locator('.font-mono.font-bold').first().textContent();
+
+        const score1 = parseFloat(firstScore ?? '0');
+        const score2 = parseFloat(secondScore ?? '0');
+
+        // First card should have score >= second card (descending order)
+        expect(score1).toBeGreaterThanOrEqual(score2);
+      }
+    });
+  });
 });

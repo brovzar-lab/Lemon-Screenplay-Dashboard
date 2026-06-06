@@ -124,7 +124,7 @@ describe('ScreenplayCard', () => {
 
     // Card still shows the weighted score prominently (which includes producer metrics influence)
     // Producer metrics detail is in the modal (V9 card design)
-    expect(screen.getByRole('article')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /view details/i })).toBeInTheDocument();
   });
 
   it('renders collection year', () => {
@@ -132,7 +132,7 @@ describe('ScreenplayCard', () => {
     render(<ScreenplayCard screenplay={screenplay} />);
 
     // Collection may appear in tags or genre strip — verify card renders without error
-    expect(screen.getByRole('article')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /view details/i })).toBeInTheDocument();
   });
 
   it('does not show critical failures warning on card (shown in modal only)', () => {
@@ -157,7 +157,7 @@ describe('ScreenplayCard', () => {
     const screenplay = createTestScreenplay();
     render(<ScreenplayCard screenplay={screenplay} onClick={handleClick} />);
 
-    fireEvent.click(screen.getByRole('article'));
+    fireEvent.click(screen.getByRole('button', { name: /view details/i }));
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
 
@@ -178,7 +178,7 @@ describe('ScreenplayCard', () => {
 
     // V9 card: top-3 dimension pills rendered, not score bars
     // The card renders without error and shows the article element
-    expect(screen.getByRole('article')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /view details/i })).toBeInTheDocument();
   });
 
   it('renders always-visible bulk selection checkbox', () => {
@@ -196,9 +196,9 @@ describe('ScreenplayCard', () => {
     const screenplay = createTestScreenplay();
     render(<ScreenplayCard screenplay={screenplay} />);
 
-    const article = screen.getByRole('article');
-    expect(article.className).toContain('ring-2');
-    expect(article.className).toContain('ring-gold-500/50');
+    const cardButton = screen.getByRole('button', { name: /view details/i });
+    expect(cardButton.className).toContain('ring-2');
+    expect(cardButton.className).toContain('ring-gold-500/50');
     mockUseIsSelected.mockReturnValue(false);
   });
 

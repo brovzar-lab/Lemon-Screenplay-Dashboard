@@ -278,6 +278,9 @@
     border-radius: var(--sp-r-lg);
     box-shadow: var(--sp-shadow-sm);
     padding: var(--sp-5);
+    /* Skip rendering for off-screen cards — saves paint/layout for large grids */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 280px;
     transition:
       box-shadow .2s var(--sp-ease),
       transform .15s var(--sp-ease),

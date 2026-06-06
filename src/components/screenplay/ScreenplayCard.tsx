@@ -95,6 +95,15 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
     <>
       <article
         onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick?.();
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-label={`View details for ${screenplay.title}`}
         onMouseEnter={handlePeekEnter}
         onMouseLeave={handlePeekLeave}
         className={clsx(
@@ -108,6 +117,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
           !isDeleteMode && isBulkSelected && 'ring-2 ring-gold-500/50',
           // Subtle lift on hover — no layout shift
           'hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black-950/40',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500/60',
         )}
       >
         {/* ── Bulk select checkbox ────────────────────────────────────────── */}

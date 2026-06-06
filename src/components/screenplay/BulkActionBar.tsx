@@ -10,7 +10,7 @@ import { useSelectionStore, useSelectionCount, useHasSelection } from '@/stores/
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { exportToCSV } from '@/components/export/csvExport';
-import { bulkExportPdfs, type BulkPdfProgress } from '@/components/export/bulkPdfExport';
+import type { BulkPdfProgress } from '@/components/export/bulkPdfExport';
 import { useComparisonStore } from '@/stores/comparisonStore';
 import { useToastStore } from '@/stores/toastStore';
 import { SetCategoryModal, AddToFavoritesModal, BulkPdfUploadModal } from '@/components/bulk';
@@ -56,6 +56,8 @@ export function BulkActionBar() {
     const selected = getSelectedScreenplays();
     if (selected.length === 0) return;
     try {
+      // Dynamic import — defers 1.5MB @react-pdf/renderer until user clicks
+      const { bulkExportPdfs } = await import('@/components/export/bulkPdfExport');
       await bulkExportPdfs(selected, (progress) => {
         setPdfProgress(progress);
       });

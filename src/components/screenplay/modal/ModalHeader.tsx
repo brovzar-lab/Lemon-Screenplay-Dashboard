@@ -14,7 +14,7 @@ import { ShareButton } from './ShareButton';
 import { useDeleteScreenplays } from '@/hooks/useScreenplays';
 import { storage, uploadScreenplayPdf } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
-import { downloadCoveragePdf } from '@/components/export/exportCoverage';
+// downloadCoveragePdf is dynamically imported below to defer @react-pdf/renderer
 import { useToastStore } from '@/stores/toastStore';
 import type { RefObject } from 'react';
 
@@ -101,6 +101,8 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
         if (coverageState === 'loading') return;
         setCoverageState('loading');
         try {
+            // Dynamic import — defers 1.5MB @react-pdf/renderer until user clicks
+            const { downloadCoveragePdf } = await import('@/components/export/exportCoverage');
             await downloadCoveragePdf(screenplay);
             setCoverageState('idle');
         } catch (error) {
