@@ -101,8 +101,15 @@ describe('analysisStore authReady gates', () => {
     });
 
     it('backgroundFirestoreSync awaits authReady before calling getDocs', async () => {
+        // Seed localStorage so loadAllAnalyses takes the fast path and schedules backgroundFirestoreSync
+        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'seed.pdf', title: 'Seed' }]);
+
         // Must re-import after vi.resetModules to get fresh module state
         const { loadAllAnalyses } = await import('./analysisStore');
+
+        // Seed localStorage so loadAllAnalyses takes the fast path (triggers backgroundFirestoreSync
+        // via setTimeout) instead of the cold-start path (calls getDocs directly without auth gate).
+        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'seed.pdf' }]);
 
         // loadAllAnalyses triggers backgroundFirestoreSync via setTimeout
         vi.useFakeTimers();
@@ -426,6 +433,9 @@ describe('backgroundFirestoreSync preserves _deleted_at', () => {
     it('preserves _deleted_at field in synced data (does not strip it)', async () => {
         const deletedAt = '2026-03-10T00:00:00Z';
 
+        // Seed localStorage so loadAllAnalyses takes the fast path and schedules backgroundFirestoreSync
+        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'other.pdf', title: 'Other' }]);
+
         // Mock Firestore to return a doc with _deleted_at, _savedAt, and _docId
         mockGetDocs.mockImplementationOnce(() => {
             callOrder.push('getDocs');
@@ -446,6 +456,10 @@ describe('backgroundFirestoreSync preserves _deleted_at', () => {
         });
 
         const { loadAllAnalyses } = await import('./analysisStore');
+
+        // Seed localStorage so loadAllAnalyses takes the fast path (triggers backgroundFirestoreSync
+        // via setTimeout) instead of the cold-start path which skips auth gating.
+        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'seed.pdf' }]);
 
         resolveAuthReady();
         vi.useFakeTimers();

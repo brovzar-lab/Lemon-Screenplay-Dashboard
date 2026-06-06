@@ -33,8 +33,9 @@ export function ScrollProgress() {
       aria-hidden="true"
     >
       <div
-        className="h-full bg-gradient-to-r from-gold-400 to-gold-600 shadow-[0_0_8px_rgba(245,158,11,0.3)]"
+        className="h-full"
         style={{
+          background: 'var(--sp-rose)',
           transform: `scaleX(${progress})`,
           transformOrigin: 'left',
           transition: 'transform 0.1s linear',

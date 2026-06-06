@@ -12,7 +12,8 @@ export type UploadStatus =
   | 'analyzing'
   | 'promoting'
   | 'complete'
-  | 'error';
+  | 'error'
+  | 'skipped';
 
 export interface UploadJob {
   id: string;
@@ -28,6 +29,20 @@ export interface UploadJob {
   };
   createdAt: string;
   completedAt?: string;
+  /** Duplicate detection — set when file title matches an existing screenplay */
+  isDuplicate?: boolean;
+  existingTitle?: string;
+  /** TMDB production status — populated after save, non-blocking */
+  tmdbStatus?: {
+    isProduced: boolean;
+    tmdbTitle?: string;
+    releaseDate?: string;
+    confidence: 'high' | 'medium' | 'low';
+  } | null;
+  /** Whether TMDB check is currently running */
+  tmdbChecking?: boolean;
+  /** Storage path (gs://...) for daemon-path uploads — used to find the queue doc */
+  ingestQueueStoragePath?: string;
 }
 
 /**

@@ -1,84 +1,62 @@
 /**
  * Theme Store
- * Manages dark/light theme preference and brand preview with localStorage persistence
+ * Soft Print: light is primary, dark is a warm-charcoal counterpart.
+ * Writes both `data-theme` (Soft Print tokens) and the legacy .light/.dark class
+ * on <html> so any remaining class-scoped rules keep working during transition.
  */
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type Theme = 'dark' | 'light' | 'system';
-export type BrandPreview = 'default' | 'editorial-punk';
 
 interface ThemeState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   resolvedTheme: 'dark' | 'light';
-  brandPreview: BrandPreview;
-  setBrandPreview: (brand: BrandPreview) => void;
 }
 
-// Get system preference
 const getSystemTheme = (): 'dark' | 'light' => {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 };
 
-// Resolve theme (handle 'system' option)
 const resolveTheme = (theme: Theme): 'dark' | 'light' => {
   if (theme === 'system') return getSystemTheme();
   return theme;
 };
 
-// Apply brand class to document
-const applyBrand = (brand: BrandPreview) => {
-  if (brand === 'editorial-punk') {
-    document.documentElement.classList.add('brand-editorial-punk');
+const applyTheme = (resolved: 'dark' | 'light') => {
+  const root = document.documentElement;
+  root.setAttribute('data-theme', resolved);
+  if (resolved === 'dark') {
+    root.classList.add('dark');
+    root.classList.remove('light');
   } else {
-    document.documentElement.classList.remove('brand-editorial-punk');
+    root.classList.add('light');
+    root.classList.remove('dark');
   }
 };
 
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      theme: 'dark',
-      resolvedTheme: 'dark',
-      brandPreview: 'default',
+      theme: 'light',
+      resolvedTheme: 'light',
 
       setTheme: (theme) => {
         const resolved = resolveTheme(theme);
         set({ theme, resolvedTheme: resolved });
-
-        // Apply to document
-        if (resolved === 'dark') {
-          document.documentElement.classList.add('dark');
-          document.documentElement.classList.remove('light');
-        } else {
-          document.documentElement.classList.add('light');
-          document.documentElement.classList.remove('dark');
-        }
-      },
-
-      setBrandPreview: (brand) => {
-        set({ brandPreview: brand });
-        applyBrand(brand);
+        applyTheme(resolved);
       },
     }),
     {
       name: 'lemon-theme',
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Apply theme on rehydration
           const resolved = resolveTheme(state.theme);
-          if (resolved === 'dark') {
-            document.documentElement.classList.add('dark');
-            document.documentElement.classList.remove('light');
-          } else {
-            document.documentElement.classList.add('light');
-            document.documentElement.classList.remove('dark');
-          }
-          // Apply brand on rehydration
-          applyBrand(state.brandPreview);
+          state.resolvedTheme = resolved;
+          applyTheme(resolved);
         }
       },
     }

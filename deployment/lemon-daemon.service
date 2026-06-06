@@ -1,0 +1,46 @@
+[Unit]
+Description=Lemon Studios — Screenplay Ingest Daemon
+Documentation=https://github.com/brovzar-lab/Lemon-Screenplay-Dashboard
+After=network-online.target
+Wants=network-online.target
+# Crash-loop guard — must live in [Unit], not [Service] (modern systemd)
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+# ── Identity ──────────────────────────────────────────────────────────────────
+# Run as a dedicated non-root user for security
+User=lemon
+Group=lemon
+WorkingDirectory=/opt/lemon-ingest
+
+# ── Environment ───────────────────────────────────────────────────────────────
+EnvironmentFile=/opt/lemon-ingest/.env
+
+# ── Start / Stop ──────────────────────────────────────────────────────────────
+ExecStart=/opt/lemon-ingest/venv/bin/python daemon.py
+ExecStop=/bin/kill -SIGTERM $MAINPID
+
+# ── Restart policy ────────────────────────────────────────────────────────────
+# Restart on any crash, but not on clean exit (exit code 0)
+Restart=on-failure
+RestartSec=10s
+
+# ── Process hardening ─────────────────────────────────────────────────────────
+# Give jobs up to 10 min to finish before SIGKILL on stop
+TimeoutStopSec=600
+
+# Prevent the daemon from writing outside its work areas
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+# /tmp/lemon lives inside the PrivateTmp namespace (auto-writable) — don't list it here
+ReadWritePaths=/opt/lemon-ingest /var/log/lemon-daemon
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+# systemd captures stdout/stderr; view with: journalctl -fu lemon-daemon
+StandardOutput=append:/var/log/lemon-daemon/systemd.log
+StandardError=append:/var/log/lemon-daemon/systemd-error.log
+
+[Install]
+WantedBy=multi-user.target

@@ -42,6 +42,19 @@ export const authReady: Promise<User> = (async () => {
 })();
 
 /**
+ * Sanitize a screenplay name for use as a Storage path component.
+ * Same logic both `uploadScreenplayPdf` and `uploadPdfToIngestQueue` share so
+ * the daemon can find the file the browser uploaded.
+ */
+function sanitizeForStoragePath(name: string): string {
+    return name
+        .replace(/\.pdf$/i, '')
+        .replace(/[^a-zA-Z0-9_\- ]/g, '')
+        .trim()
+        .replace(/\s+/g, '_');
+}
+
+/**
  * Upload a screenplay PDF to Firebase Storage.
  * Path: screenplays/{category}/{sanitized_filename}.pdf
  *
@@ -52,12 +65,7 @@ export async function uploadScreenplayPdf(
     category: string,
     title?: string,
 ): Promise<string> {
-    // Build a clean filename
-    const safeName = (title || file.name.replace(/\.pdf$/i, ''))
-        .replace(/[^a-zA-Z0-9_\- ]/g, '')
-        .trim()
-        .replace(/\s+/g, '_');
-
+    const safeName = sanitizeForStoragePath(title || file.name);
     const path = `screenplays/${category}/${safeName}.pdf`;
     const storageRef = ref(storage, path);
 
@@ -71,6 +79,52 @@ export async function uploadScreenplayPdf(
     });
 
     return getDownloadURL(storageRef);
+}
+
+/**
+ * Upload a PDF to the ingest-queue drop zone.
+ * Path: ingest-queue/{collection_id}/{sanitized_filename}.pdf
+ *
+ * The `onScreenplayUploaded` Cloud Function (Storage trigger) watches this
+ * path and writes a pending IngestJob doc to Firestore. The VPS daemon then
+ * claims and processes it.
+ *
+ * Optional `requestedModel` is forwarded via Storage `customMetadata.model`
+ * so the daemon picks the right tier.
+ *
+ * @returns the `gs://bucket/objectName` storage path (used to find the
+ *          resulting `ingest-queue` Firestore doc).
+ */
+export async function uploadPdfToIngestQueue(
+    file: File,
+    collectionId: string,
+    options?: { requestedModel?: string; priority?: number },
+): Promise<{ storagePath: string; objectName: string }> {
+    // ingest-queue/ Storage rule requires auth; ensure anonymous session is live
+    await authReady;
+
+    const safeName = sanitizeForStoragePath(file.name);
+    const objectName = `ingest-queue/${collectionId}/${safeName}.pdf`;
+    const storageRef = ref(storage, objectName);
+
+    const customMetadata: Record<string, string> = {
+        originalFilename: file.name,
+        category: collectionId,
+        uploadedAt: new Date().toISOString(),
+    };
+    if (options?.requestedModel) customMetadata.model = options.requestedModel;
+    if (options?.priority != null) customMetadata.priority = String(options.priority);
+
+    await uploadBytes(storageRef, file, {
+        contentType: 'application/pdf',
+        customMetadata,
+    });
+
+    const bucket = firebaseConfig.storageBucket;
+    return {
+        storagePath: `gs://${bucket}/${objectName}`,
+        objectName,
+    };
 }
 
 export default app;

@@ -2,14 +2,14 @@
 /**
  * analyzeScreenplay Cloud Function
  *
- * Accepts screenplay text + metadata, calls Anthropic API with the V6 prompt,
+ * Accepts screenplay text + metadata, calls Anthropic API with the analysis prompt,
  * and returns the raw analysis JSON. The client normalizes it.
  *
  * Security hardening (v2):
  *   - Input sanitization: title truncated + special chars stripped (M1)
  *   - API key format pre-validation before forwarding (H1 partial)
  *   - Explicit field-count guard to prevent oversized payloads
- *   - Server-side call counter in Firestore (H3 — per-day rate gate)
+ *   - Server-side call counter in Firestore — now shared with the ingest pipeline
  */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
@@ -19,13 +19,26 @@ exports.analyzeScreenplay = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
-const firestore_1 = require("firebase-admin/firestore");
 const app_1 = require("firebase-admin/app");
 const prompts_1 = require("./prompts");
+const budgetCounter_1 = require("./budgetCounter");
+const crypto_1 = require("crypto");
 const anthropicApiKey = (0, params_1.defineString)('ANTHROPIC_API_KEY');
 // Init Firebase Admin once
 if (!(0, app_1.getApps)().length)
     (0, app_1.initializeApp)();
+/**
+ * Short hash of the current prompt template.
+ * Stored with every analysis so results across prompt versions can be compared.
+ * Recomputed at cold-start time; stable within a single deployment.
+ */
+let _promptVersionCache = null;
+function getPromptVersion(prompt) {
+    if (!_promptVersionCache) {
+        _promptVersionCache = (0, crypto_1.createHash)('sha256').update(prompt).digest('hex').slice(0, 8);
+    }
+    return `v7-${_promptVersionCache}`;
+}
 const CLAUDE_MODELS = {
     sonnet: 'claude-sonnet-4-6',
     haiku: 'claude-haiku-4-5-20251001',
@@ -33,8 +46,6 @@ const CLAUDE_MODELS = {
 };
 // ≈37.5K tokens — leaves headroom for template (~10K), lenses, and 16K output budget
 const MAX_TEXT_LENGTH = 150_000;
-// Server-side rate limit: max calls per day across all users
-const DAILY_CALL_LIMIT = 200;
 /**
  * Sanitize title to prevent prompt injection (Fix M1).
  * - Truncates to 200 chars
@@ -48,26 +59,6 @@ function sanitizeTitle(raw) {
         .trim();
 }
 // isValidAnthropicKeyFormat removed — API key is now server-side via LiteLLM
-/**
- * Server-side rate gate (Fix H3 partial).
- * Tracks total calls per UTC day in Firestore.
- * Throws if the daily limit is reached.
- */
-async function checkServerRateLimit() {
-    const db = (0, firestore_1.getFirestore)();
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const ref = db.collection('_rate_limits').doc(`calls_${today}`);
-    const snap = await db.runTransaction(async (tx) => {
-        const doc = await tx.get(ref);
-        const current = doc.exists ? (doc.data()?.count ?? 0) : 0;
-        if (current >= DAILY_CALL_LIMIT) {
-            throw new https_1.HttpsError('resource-exhausted', `Daily analysis limit of ${DAILY_CALL_LIMIT} calls reached. Please try again tomorrow.`);
-        }
-        tx.set(ref, { count: firestore_1.FieldValue.increment(1), date: today }, { merge: true });
-        return current + 1;
-    });
-    console.log(`[RateLimit] Daily call count: ${snap}`);
-}
 exports.analyzeScreenplay = (0, https_1.onCall)({
     timeoutSeconds: 540, // 9 min — analysis can take 2-5 min
     memory: '512MiB',
@@ -90,8 +81,8 @@ exports.analyzeScreenplay = (0, https_1.onCall)({
     const wordCount = Number(data.metadata.wordCount) || 0;
     // Validate lenses array
     const lenses = Array.isArray(data.lenses) ? data.lenses.slice(0, 10) : [];
-    // Fix H3: server-side rate gate
-    await checkServerRateLimit();
+    // Shared budget gate — same Firestore counter used by ingest pipeline & VPS daemon
+    await (0, budgetCounter_1.checkAndIncrementBudget)(undefined, /* throwAsHttpsError */ true);
     // ── Text truncation ───────────────────────────────────────────────────────
     let text = data.text;
     if (text.length > MAX_TEXT_LENGTH) {
@@ -102,7 +93,7 @@ exports.analyzeScreenplay = (0, https_1.onCall)({
     const modelKey = data.model || 'sonnet';
     const model = CLAUDE_MODELS[modelKey] || CLAUDE_MODELS.sonnet;
     // Build prompt using sanitized title
-    const prompt = (0, prompts_1.buildV6Prompt)(text, { title: safeTitle, pageCount, wordCount }, lenses);
+    const prompt = (0, prompts_1.buildAnalysisPrompt)(text, { title: safeTitle, pageCount, wordCount }, lenses);
     // ── Call Anthropic API ───────────────────────────────────────────────────
     const client = new sdk_1.default({ apiKey: anthropicApiKey.value() });
     try {
@@ -129,7 +120,8 @@ exports.analyzeScreenplay = (0, https_1.onCall)({
         return {
             source_file: safeTitle.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
             analysis_model: `claude-${modelKey}`,
-            analysis_version: 'v6_unified',
+            analysis_version: 'v7',
+            prompt_version: getPromptVersion(prompt),
             lenses_enabled: lenses,
             metadata: {
                 filename: safeTitle + '.pdf',
@@ -140,6 +132,7 @@ exports.analyzeScreenplay = (0, https_1.onCall)({
             usage: {
                 input_tokens: message.usage.input_tokens,
                 output_tokens: message.usage.output_tokens,
+                finish_reason: message.stop_reason ?? null,
             },
         };
     }

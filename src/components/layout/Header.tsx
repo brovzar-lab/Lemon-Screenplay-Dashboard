@@ -54,6 +54,10 @@ export function Header() {
               <span className="text-gradient-gold font-bold tracking-tight">LEMON</span>
               <span className="text-black-200 font-light ml-2">Screenplay Dashboard</span>
             </h1>
+            {/* Engine + version badge */}
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono tracking-wide select-none">
+              V9 &middot; 6.9
+            </span>
           </div>
 
           {/* Stats Pills */}

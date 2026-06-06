@@ -107,6 +107,25 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // ── ingest-queue ──────────────────────────────────────────────────────────
+    // Job documents written by onScreenplayUploaded (Admin SDK — bypasses rules).
+    // READ: public — dashboard progress widgets need to poll this.
+    // WRITE from client: prohibited. Only Cloud Functions / VPS daemon write here
+    //   (they use the Admin SDK which bypasses security rules entirely).
+    match /ingest-queue/{jobId} {
+      allow read: if true;
+      allow write: if false; // Admin SDK only
+    }
+
+    // ── system ────────────────────────────────────────────────────────────────
+    // Internal system documents: daily API budget counters, watchdog state.
+    // READ: restricted to auth (budget data is operational, not public).
+    // WRITE: Admin SDK only (Cloud Functions + VPS daemon).
+    match /system/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Admin SDK only
+    }
+
     // ── Catch-all deny ────────────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

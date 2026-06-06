@@ -4,7 +4,7 @@
  * Orchestrates the full screenplay analysis pipeline:
  *   1. Parse PDF → extract text
  *   2. Call LLM via proxy (Firebase Cloud Function → LiteLLM)
- *   3. Return raw V6 analysis JSON
+ *   3. Return raw analysis JSON (V9 Archaeology Engine)
  *
  * All text AI calls route through the proxy client (proxyClient.ts).
  * API keys never touch the browser.
@@ -31,10 +31,10 @@ export interface AnalysisOptions {
   lenses?: AnalysisLens[];
   /** Firebase Cloud Function URL (for production). If absent, uses proxy client. */
   functionUrl?: string;
-  /** Analysis version — always 'v7' (multi-reader archaeology engine) */
-  analysisVersion?: 'v7';
-  /** V7 mode: 'full' (5 readers + synthesis) or 'triage' (quick Haiku filter) */
-  v7Mode?: 'full' | 'triage';
+  /** Analysis version — always 'v9' (multi-reader archaeology engine) */
+  analysisVersion?: 'v9';
+  /** V9 mode: 'full' (5 readers + synthesis) or 'triage' (quick Haiku filter) */
+  v9Mode?: 'full' | 'triage';
 }
 
 export interface AnalysisProgress {
@@ -72,19 +72,19 @@ export async function analyzeScreenplay(
 
   onProgress?.({ stage: 'analyzing', percent: 0, message: 'Sending to AI for analysis...' });
 
-  // All analysis goes through V7 Archaeology Engine
-  return analyzeV7Path(parsed, category, options, onProgress);
+  // All analysis goes through V9 Archaeology Engine
+  return analyzeV9Path(parsed, category, options, onProgress);
 }
 
-// ─── V7 Multi-Reader Analysis Path ──────────────────────────────────────────
+// ─── V9 Multi-Reader Analysis Path ──────────────────────────────────────────
 
-async function analyzeV7Path(
+async function analyzeV9Path(
   parsed: ParsedPDF,
   category: string,
   options: AnalysisOptions,
   onProgress?: (p: AnalysisProgress) => void,
 ): Promise<AnalysisResult> {
-  const v7Mode = options.v7Mode ?? 'full';
+  const v9Mode = options.v9Mode ?? 'full';
   const model = options.model === 'haiku' ? 'sonnet' : (options.model ?? 'sonnet') as 'sonnet' | 'opus';
 
   // Load calibration profile
@@ -98,7 +98,7 @@ async function analyzeV7Path(
     // Calibration is optional
   }
 
-  if (v7Mode === 'triage') {
+  if (v9Mode === 'triage') {
     // Quick triage — single Haiku pass
     onProgress?.({ stage: 'analyzing', percent: 50, message: 'Running triage scan...' });
 
@@ -107,7 +107,7 @@ async function analyzeV7Path(
     const raw = {
       source_file: parsed.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
       analysis_model: 'claude-haiku',
-      analysis_version: 'v7_triage',
+      analysis_version: 'v9_triage',
       lenses_enabled: [],
       collection: category,
       metadata: {
@@ -131,14 +131,14 @@ async function analyzeV7Path(
   }
 
   // Full 5-reader + synthesis
-  const v7Options: V7AnalysisOptions = {
+  const v9Options: V7AnalysisOptions = {
     mode: 'full',
     model,
     lenses: options.lenses ?? ['commercial'],
     calibrationPrompt,
   };
 
-  const v7Result = await runMultiReaderAnalysis(parsed, v7Options, (p: V7AnalysisProgress) => {
+  const v9Result = await runMultiReaderAnalysis(parsed, v9Options, (p: V7AnalysisProgress) => {
     onProgress?.({
       stage: p.stage === 'complete' ? 'complete' : 'analyzing',
       percent: p.percent,
@@ -150,7 +150,7 @@ async function analyzeV7Path(
   const raw = {
     source_file: parsed.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
     analysis_model: `claude-${model}`,
-    analysis_version: 'v7_archaeology',
+    analysis_version: 'v9_archaeology',
     lenses_enabled: options.lenses ?? ['commercial'],
     collection: category,
     metadata: {
@@ -158,13 +158,13 @@ async function analyzeV7Path(
       page_count: parsed.pageCount,
       word_count: parsed.wordCount,
     },
-    analysis: v7Result.analysis,
-    v7_meta: {
-      reader_count: v7Result.readerResults.length,
-      total_tokens: v7Result.totalUsage,
-      total_duration_ms: v7Result.totalDurationMs,
+    analysis: v9Result.analysis,
+    v9_meta: {
+      reader_count: v9Result.readerResults.length,
+      total_tokens: v9Result.totalUsage,
+      total_duration_ms: v9Result.totalDurationMs,
       reader_durations: Object.fromEntries(
-        v7Result.readerResults.map((r) => [r.reader, r.durationMs]),
+        v9Result.readerResults.map((r) => [r.reader, r.durationMs]),
       ),
     },
   };
@@ -173,7 +173,7 @@ async function analyzeV7Path(
 
   // Upload PDF to Firebase Storage (non-blocking)
   try {
-    const title = (v7Result.analysis as Record<string, unknown>).title as string | undefined;
+    const title = (v9Result.analysis as Record<string, unknown>).title as string | undefined;
     await uploadScreenplayPdf(parsed.title + '.pdf' as unknown as File, category, title);
   } catch (err) {
     console.warn('[Firebase Storage] PDF upload failed:', err);
@@ -182,7 +182,7 @@ async function analyzeV7Path(
   return {
     raw,
     parsed,
-    usage: v7Result.totalUsage,
+    usage: v9Result.totalUsage,
   };
 }
 
@@ -244,7 +244,11 @@ async function uploadPosterToStorage(
 }
 
 /**
- * Generates a cinematic movie poster using Gemini 2.5 Flash Image.
+ * Generates a cinematic movie poster using Gemini 2.0 Flash Image Generation.
+ *
+ * Model: gemini-2.0-flash-exp-image-generation
+ * - Native image generation via generateContent (responseModalities: IMAGE)
+ * - 2:3 aspect ratio for theatrical one-sheet format
  *
  * Flow:
  * 1. Check Firebase Storage for existing poster → return if found
@@ -277,7 +281,7 @@ export async function generatePoster(
 
   // ── Step 2: Generate via Gemini ──
   const prompt = buildPosterPrompt(title, logline, genre);
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${googleApiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${googleApiKey}`;
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -286,6 +290,9 @@ export async function generatePoster(
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {
         responseModalities: ['IMAGE', 'TEXT'],
+        imageConfig: {
+          aspectRatio: '2:3',  // Standard theatrical one-sheet portrait
+        },
       },
     }),
   });
@@ -342,7 +349,7 @@ export async function generatePoster(
  * Flow:
  *   1. Reconstruct Storage path from screenplay metadata
  *   2. Fetch PDF → convert to File object
- *   3. Run full V6 analysis with chosen model
+ *   3. Run full V9 Archaeology Engine analysis with chosen model
  *   4. Save to Firestore + localStorage (replaces old analysis)
  *   5. Return new analysis result
  */
@@ -350,7 +357,7 @@ export async function reanalyzeFromStorage(
   screenplay: Screenplay,
   model: 'sonnet' | 'opus' | 'haiku',
   onProgress?: (p: AnalysisProgress) => void,
-  engineOptions?: { v7Mode?: 'full' | 'triage' },
+  engineOptions?: { v9Mode?: 'full' | 'triage' },
 ): Promise<AnalysisResult> {
   onProgress?.({ stage: 'parsing', percent: 0, message: 'Fetching PDF from storage...' });
 
@@ -396,7 +403,7 @@ export async function reanalyzeFromStorage(
       {
         model: model === 'haiku' ? 'haiku' : model,
         lenses: ['commercial'],
-        v7Mode: engineOptions?.v7Mode,
+        v9Mode: engineOptions?.v9Mode,
       },
       (p) => {
         // Map progress: parsing 40-50%, analyzing 50-95%

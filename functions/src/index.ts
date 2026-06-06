@@ -4,3 +4,4 @@
 
 export { analyzeScreenplay } from './analyzeScreenplay';
 export { llmProxy } from './llmProxy';
+export { onScreenplayUploaded } from './onScreenplayUploaded';

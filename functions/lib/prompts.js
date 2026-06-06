@@ -8,7 +8,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.COPRODUCTION_LENS_PROMPT = exports.PRODUCTION_READINESS_LENS_PROMPT = exports.LATAM_LENS_PROMPT = exports.COMMERCIAL_LENS_PROMPT = exports.CORE_QUALITY_PROMPT = void 0;
-exports.buildV6Prompt = buildV6Prompt;
+exports.buildAnalysisPrompt = buildAnalysisPrompt;
 // ─────────────────────────────────────────────────────────────────────────────
 // CORE QUALITY PROMPT (V5 Depth + V6 Architecture)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ is average (5-6) until it PROVES otherwise with specific evidence.
 If you're giving more than 20% of scripts scores of 7+, you're being too generous.
 
 ═══════════════════════════════════════════════════════════════════════════════
-                    V6 EXECUTION-FIRST SCORING SYSTEM
+                       EXECUTION-FIRST SCORING SYSTEM
 ═══════════════════════════════════════════════════════════════════════════════
 
 Weight distribution PRIORITIZES EXECUTION over CONCEPT (because a great concept
@@ -280,7 +280,7 @@ Traps are organized into WEIGHTED TIERS based on how fixable they are in develop
                     VERDICT DETERMINATION (QUALITY-ONLY)
 ═══════════════════════════════════════════════════════════════════════════════
 
-Calculate weighted score using V6 execution-first weights:
+Calculate weighted score using execution-first weights:
 
 **Weighted Score Calculation:**
 Execution Craft = (Structure * 0.375) + (Scene-Writing * 0.375) + (Dialogue * 0.25)
@@ -780,9 +780,9 @@ const LENS_MAP = {
     coproduction: exports.COPRODUCTION_LENS_PROMPT,
 };
 /**
- * Build the complete V6 prompt with core quality and optional lenses.
+ * Build the complete analysis prompt with core quality and optional lenses.
  */
-function buildV6Prompt(text, metadata, lenses) {
+function buildAnalysisPrompt(text, metadata, lenses) {
     let prompt = exports.CORE_QUALITY_PROMPT
         .replace('{title}', metadata.title)
         .replace('{page_count}', String(metadata.pageCount))

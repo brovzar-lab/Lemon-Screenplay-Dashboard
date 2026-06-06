@@ -47,3 +47,5 @@ playwright-report/
 .tmp/
 .npm-cache/
 service-account.json
+lemon-screenplay-dashboard-firebase-adminsdk-fbsvc-2037a834e2.json
+*-adminsdk-*.json

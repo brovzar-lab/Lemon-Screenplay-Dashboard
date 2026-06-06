@@ -1,32 +1,11 @@
 /**
- * Component Tests for ScreenplayGrid (Virtual Scrolling)
+ * Component Tests for ScreenplayGrid (CSS Grid layout)
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ScreenplayGrid } from './ScreenplayGrid';
 import { createTestScreenplay } from '@/test/factories';
-
-// Mock useVirtualizer to avoid scroll container measurement in JSDOM
-vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: ({ count }: { count: number }) => ({
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, i) => ({
-        index: i,
-        key: i,
-        start: i * 380,
-        size: 380,
-      })),
-    getTotalSize: () => count * 380,
-    scrollToOffset: vi.fn(),
-    measure: vi.fn(),
-  }),
-}));
-
-// Mock useColumnCount to default to 2 columns for tests
-vi.mock('@/hooks/useColumnCount', () => ({
-  useColumnCount: () => 2,
-}));
 
 // Mock the comparison store
 vi.mock('@/stores/comparisonStore', () => ({
@@ -105,7 +84,7 @@ describe('ScreenplayGrid', () => {
     expect(grid).toHaveAttribute('aria-label', 'Screenplay results');
   });
 
-  it('renders cards inside virtual rows', () => {
+  it('renders cards as direct list items (CSS Grid, no virtual rows)', () => {
     const screenplays = [
       createTestScreenplay({ id: '1', title: 'First Movie' }),
       createTestScreenplay({ id: '2', title: 'Second Movie' }),
@@ -113,21 +92,17 @@ describe('ScreenplayGrid', () => {
 
     render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
 
-    // VirtualRow renders with role="group"
-    const rowGroups = screen.getAllByRole('group');
-    expect(rowGroups.length).toBeGreaterThan(0);
-
-    // Cards are wrapped in role="listitem"
+    // Cards are wrapped in role="listitem" directly under the list
     const listItems = screen.getAllByRole('listitem');
-    expect(listItems.length).toBeGreaterThan(0);
+    expect(listItems.length).toBe(2);
   });
 
   it('renders correct number of skeleton cards while loading', () => {
     render(<ScreenplayGrid screenplays={[]} isLoading={true} />);
 
-    // Should render 9 skeleton cards
+    // Should render 8 skeleton cards
     const skeletonCards = document.querySelectorAll('.card.animate-pulse');
-    expect(skeletonCards).toHaveLength(9);
+    expect(skeletonCards).toHaveLength(8);
   });
 
   it('wraps cards in ErrorBoundary for resilience', () => {

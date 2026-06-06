@@ -1,27 +1,41 @@
 /**
  * analyzeScreenplay Cloud Function
  *
- * Accepts screenplay text + metadata, calls Anthropic API with the V6 prompt,
+ * Accepts screenplay text + metadata, calls Anthropic API with the analysis prompt,
  * and returns the raw analysis JSON. The client normalizes it.
  *
  * Security hardening (v2):
  *   - Input sanitization: title truncated + special chars stripped (M1)
  *   - API key format pre-validation before forwarding (H1 partial)
  *   - Explicit field-count guard to prevent oversized payloads
- *   - Server-side call counter in Firestore (H3 — per-day rate gate)
+ *   - Server-side call counter in Firestore — now shared with the ingest pipeline
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineString } from 'firebase-functions/params';
 import Anthropic from '@anthropic-ai/sdk';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
-import { buildV6Prompt, type LensName } from './prompts';
+import { buildAnalysisPrompt, type LensName } from './prompts';
+import { checkAndIncrementBudget } from './budgetCounter';
+import { createHash } from 'crypto';
 
 const anthropicApiKey = defineString('ANTHROPIC_API_KEY');
 
 // Init Firebase Admin once
 if (!getApps().length) initializeApp();
+
+/**
+ * Short hash of the current prompt template.
+ * Stored with every analysis so results across prompt versions can be compared.
+ * Recomputed at cold-start time; stable within a single deployment.
+ */
+let _promptVersionCache: string | null = null;
+function getPromptVersion(prompt: string): string {
+  if (!_promptVersionCache) {
+    _promptVersionCache = createHash('sha256').update(prompt).digest('hex').slice(0, 8);
+  }
+  return `v7-${_promptVersionCache}`;
+}
 
 const CLAUDE_MODELS: Record<string, string> = {
   sonnet: 'claude-sonnet-4-6',
@@ -31,9 +45,6 @@ const CLAUDE_MODELS: Record<string, string> = {
 
 // ≈37.5K tokens — leaves headroom for template (~10K), lenses, and 16K output budget
 const MAX_TEXT_LENGTH = 150_000;
-
-// Server-side rate limit: max calls per day across all users
-const DAILY_CALL_LIMIT = 200;
 
 interface AnalyzeRequest {
   text: string;
@@ -60,34 +71,6 @@ function sanitizeTitle(raw: string): string {
 }
 
 // isValidAnthropicKeyFormat removed — API key is now server-side via LiteLLM
-
-/**
- * Server-side rate gate (Fix H3 partial).
- * Tracks total calls per UTC day in Firestore.
- * Throws if the daily limit is reached.
- */
-async function checkServerRateLimit(): Promise<void> {
-  const db = getFirestore();
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  const ref = db.collection('_rate_limits').doc(`calls_${today}`);
-
-  const snap = await db.runTransaction(async (tx) => {
-    const doc = await tx.get(ref);
-    const current = doc.exists ? (doc.data()?.count as number ?? 0) : 0;
-
-    if (current >= DAILY_CALL_LIMIT) {
-      throw new HttpsError(
-        'resource-exhausted',
-        `Daily analysis limit of ${DAILY_CALL_LIMIT} calls reached. Please try again tomorrow.`
-      );
-    }
-
-    tx.set(ref, { count: FieldValue.increment(1), date: today }, { merge: true });
-    return current + 1;
-  });
-
-  console.log(`[RateLimit] Daily call count: ${snap}`);
-}
 
 export const analyzeScreenplay = onCall(
   {
@@ -119,8 +102,8 @@ export const analyzeScreenplay = onCall(
     // Validate lenses array
     const lenses: LensName[] = Array.isArray(data.lenses) ? data.lenses.slice(0, 10) : [];
 
-    // Fix H3: server-side rate gate
-    await checkServerRateLimit();
+    // Shared budget gate — same Firestore counter used by ingest pipeline & VPS daemon
+    await checkAndIncrementBudget(undefined, /* throwAsHttpsError */ true);
 
     // ── Text truncation ───────────────────────────────────────────────────────
 
@@ -136,7 +119,7 @@ export const analyzeScreenplay = onCall(
     const model = CLAUDE_MODELS[modelKey] || CLAUDE_MODELS.sonnet;
 
     // Build prompt using sanitized title
-    const prompt = buildV6Prompt(text, { title: safeTitle, pageCount, wordCount }, lenses);
+    const prompt = buildAnalysisPrompt(text, { title: safeTitle, pageCount, wordCount }, lenses);
 
     // ── Call Anthropic API ───────────────────────────────────────────────────
 
@@ -167,7 +150,8 @@ export const analyzeScreenplay = onCall(
       return {
         source_file: safeTitle.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
         analysis_model: `claude-${modelKey}`,
-        analysis_version: 'v6_unified',
+        analysis_version: 'v7',
+        prompt_version: getPromptVersion(prompt),
         lenses_enabled: lenses,
         metadata: {
           filename: safeTitle + '.pdf',
@@ -178,6 +162,7 @@ export const analyzeScreenplay = onCall(
         usage: {
           input_tokens: message.usage.input_tokens,
           output_tokens: message.usage.output_tokens,
+          finish_reason: message.stop_reason ?? null,
         },
       };
     } catch (error: unknown) {

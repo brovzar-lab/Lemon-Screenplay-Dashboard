@@ -1,0 +1,56 @@
+- generic [ref=e3]:
+  - banner [ref=e5]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - img "Lemon Studios" [ref=e9]
+        - heading "LEMONScreenplay Dashboard" [level=1] [ref=e10]
+      - generic [ref=e11]:
+        - button "Toggle Dev Exec chat" [ref=e16]: 🎬
+        - button "Toggle theme" [ref=e17]:
+          - img [ref=e18]
+        - link "Settings" [ref=e20] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e21]
+  - main [ref=e24]:
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - textbox "Search screenplays" [ref=e29]:
+            - /placeholder: Search title, author, genre, logline...
+          - generic:
+            - generic: /
+          - generic [ref=e30]: 🔍
+        - generic [ref=e31]:
+          - generic [ref=e32]: Loading...
+          - generic [ref=e33]:
+            - combobox "Sort screenplays by" [ref=e34]:
+              - 'option "Sort: Market Potential" [selected]'
+              - 'option "Sort: Weighted Score"'
+              - 'option "Sort: CVS Total"'
+              - 'option "Sort: Title A-Z"'
+            - button "2" [ref=e35] [cursor=pointer]:
+              - img [ref=e36]
+              - generic [ref=e38]: "2"
+            - button "Filters" [ref=e39] [cursor=pointer]:
+              - img [ref=e40]
+              - text: Filters
+            - button "Share" [ref=e42] [cursor=pointer]:
+              - img [ref=e43]
+              - text: Share
+            - button "☑ Select All" [disabled] [ref=e45] [cursor=pointer]
+            - button "Export (0)" [disabled] [ref=e46] [cursor=pointer]:
+              - img [ref=e47]
+              - text: Export (0)
+          - button "Actions" [ref=e50] [cursor=pointer]:
+            - text: Actions
+            - img [ref=e51]
+      - navigation "Filter screenplays" [ref=e53]:
+        - generic [ref=e54]:
+          - button "All" [ref=e55] [cursor=pointer]
+          - button "Pass" [ref=e56] [cursor=pointer]
+          - button "Consider" [ref=e57] [cursor=pointer]
+          - button "Recommend" [ref=e58] [cursor=pointer]
+          - button "FILM NOW" [ref=e59] [cursor=pointer]
+          - button "Has PDF" [ref=e60] [cursor=pointer]
+  - contentinfo [ref=e342]:
+    - paragraph [ref=e344]: Lemon Screenplay Dashboard - Powered by V7 Archaeology Engine

@@ -21,6 +21,18 @@ service firebase.storage {
                    && request.resource.contentType == 'application/pdf';
     }
 
+    // ── Screenplay ingest drop zone ───────────────────────────────────────
+    // Path: ingest-queue/{collection_id}/{filename}.pdf
+    // Authenticated users may upload PDFs (team use only).
+    // The onScreenplayUploaded Cloud Function reads this path via Admin SDK.
+    // Max 50 MB; PDF content-type required (same as /screenplays/).
+    match /ingest-queue/{allPaths=**} {
+      allow read: if request.auth != null;  // Only authenticated readers
+      allow write: if request.auth != null
+                   && request.resource.size < 50 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+    }
+
     // ── Default deny ─────────────────────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

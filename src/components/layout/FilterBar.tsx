@@ -10,6 +10,8 @@ import { FilterPanel, AdvancedSortPanel, ActionsDropdown } from '@/components/fi
 import { ExportModal } from '@/components/export';
 import { ShareModal } from '@/components/share';
 import { BulkShareModal, BulkReanalyzeModal } from '@/components/bulk';
+import { BadFormatModal } from '@/components/badFormat/BadFormatModal';
+import { subscribeToSkippedJobs } from '@/lib/badFormatStore';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import { useExportSelectionStore, useExportSelectionCount } from '@/stores/exportSelectionStore';
@@ -113,6 +115,15 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isBulkShareOpen, setIsBulkShareOpen] = useState(false);
   const [isBulkReanalyzeOpen, setIsBulkReanalyzeOpen] = useState(false);
+  const [isBadFormatOpen, setBadFormatOpen] = useState(false);
+  const [skippedJobCount, setSkippedJobCount] = useState(0);
+
+  // Live count of daemon-skipped jobs (bad format / TMDB / duplicate) so the
+  // FilterBar chip always shows the current number. Subscribes on mount.
+  useEffect(() => {
+    const unsub = subscribeToSkippedJobs((jobs) => setSkippedJobCount(jobs.length));
+    return () => { unsub(); };
+  }, []);
 
   // Export selection
   const exportSelectedIds = useExportSelectionStore((s) => s.selectedIds);
@@ -415,6 +426,32 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
             )}
           </button>
 
+          {/* Bad Format — opens modal listing daemon-skipped files (bad PDFs,
+              TMDB matches, content duplicates). Visible at all times so the
+              producer can spot rejects during a bulk ingest. */}
+          <button
+            onClick={() => setBadFormatOpen(true)}
+            className="chip cursor-pointer transition-all"
+            style={{ borderColor: 'var(--sp-clay)', color: 'var(--sp-clay)' }}
+          >
+            Bad Format
+            {skippedJobCount > 0 && (
+              <span
+                style={{
+                  marginLeft: 4,
+                  padding: '2px 6px',
+                  borderRadius: 'var(--sp-r-full)',
+                  background: 'var(--sp-clay-tint)',
+                  color: 'var(--sp-clay)',
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >
+                {skippedJobCount}
+              </span>
+            )}
+          </button>
+
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
@@ -457,6 +494,10 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
         isOpen={isBulkReanalyzeOpen}
         onClose={() => setIsBulkReanalyzeOpen(false)}
         screenplays={selectedScreenplays}
+      />
+      <BadFormatModal
+        open={isBadFormatOpen}
+        onClose={() => setBadFormatOpen(false)}
       />
     </>
   );
