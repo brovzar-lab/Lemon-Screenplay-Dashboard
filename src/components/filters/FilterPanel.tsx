@@ -138,9 +138,9 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="Advanced Filters">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
       {/* Panel - Slide from right */}
       <div className="relative ml-auto w-full max-w-md h-full glass border-l border-gold-500/20 overflow-hidden animate-slide-in-right flex flex-col">
@@ -154,9 +154,10 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
           </div>
           <button
             onClick={onClose}
+            aria-label="Close filters"
             className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -467,6 +468,7 @@ function Section({ title, isOpen, onToggle, badge, children }: SectionProps) {
     <div className="border border-black-700 rounded-lg overflow-hidden">
       <button
         onClick={onToggle}
+        aria-expanded={isOpen}
         className="w-full flex items-center justify-between p-3 hover:bg-black-800/50 transition-colors"
       >
         <div className="flex items-center gap-2">
@@ -482,6 +484,7 @@ function Section({ title, isOpen, onToggle, badge, children }: SectionProps) {
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
+          aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
@@ -507,6 +510,7 @@ function AdvancedDisclosure({ isOpen, onToggle, children }: AdvancedDisclosurePr
     <div className="border border-black-700 rounded-lg overflow-hidden">
       <button
         onClick={onToggle}
+        aria-expanded={isOpen}
         className="w-full flex items-center justify-between p-3 text-sm font-medium text-black-200 hover:bg-black-800 transition-colors"
       >
         <span>Advanced</span>
@@ -515,6 +519,7 @@ function AdvancedDisclosure({ isOpen, onToggle, children }: AdvancedDisclosurePr
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
+          aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>

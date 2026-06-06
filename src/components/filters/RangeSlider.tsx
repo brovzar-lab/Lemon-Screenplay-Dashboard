@@ -88,6 +88,11 @@ export function RangeSlider({
             step={step}
             value={localValue[0]}
             onChange={handleMinChange}
+            aria-label={`Minimum ${label}`}
+            aria-valuemin={min}
+            aria-valuemax={max}
+            aria-valuenow={localValue[0]}
+            aria-valuetext={formatValue(localValue[0])}
             className="absolute w-full h-2 appearance-none bg-transparent pointer-events-none
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:pointer-events-auto
@@ -110,6 +115,11 @@ export function RangeSlider({
             step={step}
             value={localValue[1]}
             onChange={handleMaxChange}
+            aria-label={`Maximum ${label}`}
+            aria-valuemin={min}
+            aria-valuemax={max}
+            aria-valuenow={localValue[1]}
+            aria-valuetext={formatValue(localValue[1])}
             className="absolute w-full h-2 appearance-none bg-transparent pointer-events-none
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:pointer-events-auto

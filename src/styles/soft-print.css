@@ -20,8 +20,8 @@
 
   /* ---- Text (warm near-black, never pure #000) ---- */
   --sp-text:   #2F2B25;          /* primary */
-  --sp-text-2: #645C50;          /* secondary / supporting */
-  --sp-text-3: #8A8273;          /* muted — labels, captions, placeholders */
+  --sp-text-2: #574F44;          /* secondary / supporting — 5.7:1 on surface-2 */
+  --sp-text-3: #706858;          /* muted — labels, captions, placeholders — 5.1:1 on surface */
 
   /* ---- Brand (rose) — ACTIONS & identity only, never status ---- */
   --sp-rose:        #BC6A77;
@@ -29,12 +29,12 @@
   --sp-rose-tint:   #F3E2E1;     /* soft fill behind rose elements */
   --sp-on-rose:     #FFFFFF;     /* text/icon on a filled rose surface */
 
-  /* ---- Semantic (desaturated, paper-friendly) ---- */
-  --sp-sage:        #5E8C63;     /* success · "Recommend" */
+  /* ---- Semantic (desaturated, paper-friendly) — darkened for 4.5:1 on tint ---- */
+  --sp-sage:        #3E6E43;     /* success · "Recommend" — 5.0:1 on sage-tint */
   --sp-sage-tint:   #DCE7D6;
-  --sp-sand:        #B07F2E;     /* warning · "Consider" */
+  --sp-sand:        #8A6316;     /* warning · "Consider" — 5.0:1 on sand-tint */
   --sp-sand-tint:   #F0E6C8;
-  --sp-clay:        #B0543F;     /* danger · "Pass" / critical */
+  --sp-clay:        #923D2A;     /* danger · "Pass" / critical — 5.0:1 on clay-tint */
   --sp-clay-tint:   #F1DAD0;
 
   /* ---- Radii (generous; Soft Print is round) ---- */
@@ -85,7 +85,7 @@
 
   --sp-text:   #EDE7DB;
   --sp-text-2: #B2A998;
-  --sp-text-3: #7D7464;
+  --sp-text-3: #998A78;          /* darkened from #7D7464 — 4.6:1 on dark surface */
 
   --sp-rose:        #DE939D;
   --sp-rose-strong: #E9AEB6;

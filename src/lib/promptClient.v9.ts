@@ -523,7 +523,7 @@ Score: ${input.triageImpression.triage_score}/10 | Verdict: ${input.triageImpres
 Genre read: ${input.triageImpression.genre}
 Logline attempt: ${input.triageImpression.logline}
 
-Use as a \"street-level reader\" data point. If triage disagrees with your 5 readers by 3+ points, note in reader_disagreements.
+Use as a "street-level reader" data point. If triage disagrees with your 5 readers by 3+ points, note in reader_disagreements.
 
 `
     : '';

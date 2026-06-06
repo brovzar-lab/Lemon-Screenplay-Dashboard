@@ -347,7 +347,6 @@ describe('smartNormalizeScreenplay', () => {
     });
 
     it('delegates to normalizeV6UnifiedScreenplay for v6_unified data', () => {
-        const raw = createMockRawAnalysis({ analysis_version: 'v6_unified' });
         // v6_unified needs a different shape — just verify routing doesn't crash
         const minimalV6: Record<string, unknown> = {
             source_file: 'V6_Script.pdf',

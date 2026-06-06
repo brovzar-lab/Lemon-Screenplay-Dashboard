@@ -91,8 +91,6 @@ test.describe('Filter Chips', () => {
     const initialTotal = parseInt(countText?.match(/of (\d+)/)?.[1] ?? '0');
 
     // The CollectionTabs render as buttons — pick the first non-"All" tab
-    // These are inside a container that has an "All" button first, then dynamic tabs
-    const allCategoryButtons = page.locator('button:has-text("All")');
     // Find a category tab that is NOT the "All" chip (look for a tab with a count badge)
     const categoryTabs = page.locator('div.flex.items-center.gap-1 > button');
     const tabCount = await categoryTabs.count();
@@ -100,7 +98,6 @@ test.describe('Filter Chips', () => {
     if (tabCount > 1) {
       // Click the second tab (first category after "All")
       const categoryTab = categoryTabs.nth(1);
-      const categoryLabel = await categoryTab.textContent();
       await categoryTab.click();
       await page.waitForTimeout(500);
 
@@ -158,8 +155,7 @@ test.describe('Filter Chips', () => {
 
   test('weighted score range filter reduces results', async ({ page }) => {
     // Get the initial total
-    const countText = await page.getByText(/Showing.*of.*screenplays/).textContent();
-    const initialShowing = parseInt(countText?.match(/Showing (\d+)/)?.[1] ?? '0');
+    const _countText = await page.getByText(/Showing.*of.*screenplays/).textContent();
 
     // Open the Advanced Filters panel
     await page.getByRole('button', { name: /Filters/ }).click();

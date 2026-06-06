@@ -6,7 +6,7 @@
  * - Re-analyze Selected (opens BulkReanalyzeModal; disabled when no hasPdf eligible)
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 interface ActionsDropdownProps {
   onGenerateShareLinks: () => void;
@@ -25,6 +25,8 @@ export function ActionsDropdown({
 }: ActionsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Close on outside click
   useEffect(() => {
@@ -37,22 +39,67 @@ export function ActionsDropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
+  // Keyboard navigation for the menu
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!isOpen) return;
+
+    const menu = menuRef.current;
+    if (!menu) return;
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not([disabled])'));
+    const currentIndex = items.findIndex((item) => item === document.activeElement);
+
+    switch (e.key) {
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        triggerRef.current?.focus();
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        items[currentIndex + 1 < items.length ? currentIndex + 1 : 0]?.focus();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        items[currentIndex - 1 >= 0 ? currentIndex - 1 : items.length - 1]?.focus();
+        break;
+      case 'Home':
+        e.preventDefault();
+        items[0]?.focus();
+        break;
+      case 'End':
+        e.preventDefault();
+        items[items.length - 1]?.focus();
+        break;
+    }
+  }, [isOpen]);
+
+  // Focus first menu item when menu opens
+  useEffect(() => {
+    if (isOpen && menuRef.current) {
+      const firstItem = menuRef.current.querySelector<HTMLButtonElement>('[role="menuitem"]:not([disabled])');
+      firstItem?.focus();
+    }
+  }, [isOpen]);
+
   const canReanalyze = reanalyzeEligibleCount > 0;
 
   function handleGenerateShareLinks() {
     onGenerateShareLinks();
     setIsOpen(false);
+    triggerRef.current?.focus();
   }
 
   function handleReanalyze() {
     if (!canReanalyze) return;
     onReanalyze();
     setIsOpen(false);
+    triggerRef.current?.focus();
   }
 
   return (
-    <div ref={dropdownRef} className="relative">
+    <div ref={dropdownRef} className="relative" onKeyDown={handleKeyDown}>
       <button
+        ref={triggerRef}
         onClick={() => setIsOpen((prev) => !prev)}
         className="btn btn-secondary text-sm"
         aria-label="Actions"
@@ -65,20 +112,26 @@ export function ActionsDropdown({
             {selectionCount}
           </span>
         )}
-        <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1 w-52 glass border border-gold-500/20 rounded-lg shadow-xl z-40 overflow-hidden animate-scale-in">
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label="Actions menu"
+          className="absolute right-0 top-full mt-1 w-52 glass border border-gold-500/20 rounded-lg shadow-xl z-40 overflow-hidden animate-scale-in"
+        >
           {/* Generate Share Links */}
           <button
             role="menuitem"
+            tabIndex={0}
             onClick={handleGenerateShareLinks}
             className="w-full text-left px-4 py-2.5 text-sm text-black-200 hover:bg-black-700 hover:text-gold-400 transition-colors flex items-center gap-2"
           >
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -92,6 +145,7 @@ export function ActionsDropdown({
           {/* Re-analyze Selected */}
           <button
             role="menuitem"
+            tabIndex={0}
             onClick={handleReanalyze}
             disabled={!canReanalyze}
             aria-disabled={!canReanalyze}
@@ -102,7 +156,7 @@ export function ActionsDropdown({
             }
             className="w-full text-left px-4 py-2.5 text-sm text-black-200 hover:bg-black-700 hover:text-gold-400 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

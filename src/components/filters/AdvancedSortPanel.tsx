@@ -82,9 +82,9 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20">
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20" role="dialog" aria-modal="true" aria-label="Advanced Sorting">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
       {/* Panel */}
       <div className="relative w-full max-w-md glass border border-gold-500/20 rounded-xl overflow-hidden animate-scale-in">
@@ -93,9 +93,10 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
           <h3 className="text-lg font-display text-gold-200">Advanced Sorting</h3>
           <button
             onClick={onClose}
+            aria-label="Close sorting panel"
             className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>

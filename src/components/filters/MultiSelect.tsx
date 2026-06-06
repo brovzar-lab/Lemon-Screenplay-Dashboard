@@ -37,6 +37,18 @@ export function MultiSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen]);
+
   const filteredOptions = options.filter((opt) =>
     opt.toLowerCase().includes(search.toLowerCase())
   );
@@ -63,6 +75,8 @@ export function MultiSelect({
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
           className={clsx(
             'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-left text-sm',
             'bg-black-900 border transition-all',
@@ -82,6 +96,7 @@ export function MultiSelect({
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            aria-hidden="true"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
@@ -101,6 +116,7 @@ export function MultiSelect({
                     e.stopPropagation();
                     toggleOption(item);
                   }}
+                  aria-label={`Remove ${item}`}
                   className="hover:text-gold-100"
                 >
                   ×
@@ -125,13 +141,14 @@ export function MultiSelect({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search..."
+                aria-label={`Search ${label}`}
                 className="w-full px-2 py-1.5 text-sm bg-black-900 border border-black-700 rounded focus:outline-none focus:border-gold-500"
                 autoFocus
               />
             </div>
 
             {/* Options */}
-            <div className="max-h-40 overflow-y-auto">
+            <div className="max-h-40 overflow-y-auto" role="listbox" aria-label={label}>
               {filteredOptions.length === 0 ? (
                 <div className="px-3 py-2 text-sm text-black-500 text-center">No matches</div>
               ) : (
