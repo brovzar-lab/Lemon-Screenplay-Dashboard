@@ -182,8 +182,8 @@ export async function loadCalibrationProfile(): Promise<CalibrationProfile | nul
 
 // ─── Calibration Synthesis ───────────────────────────────────────────────────
 
-/** V7 pillar names for mapping dimension overrides → reader pillars */
-const V7_PILLAR_MAP: Record<string, string> = {
+/** Pillar names for mapping dimension overrides → reader pillars */
+const PILLAR_MAP: Record<string, string> = {
   structure: 'Structure Reader',
   character: 'Character Reader',
   craft: 'Craft & Scene Reader',
@@ -191,7 +191,7 @@ const V7_PILLAR_MAP: Record<string, string> = {
   concept: 'Concept Reader',
   emotional_resonance: 'Emotional Resonance Reader',
   emotion: 'Emotional Resonance Reader',
-  // V6 legacy names → closest V7 pillar
+  // Legacy dimension names → closest pillar
   protagonist: 'Character Reader',
   supportingCast: 'Character Reader',
   dialogue: 'Craft & Scene Reader',
@@ -203,7 +203,7 @@ const V7_PILLAR_MAP: Record<string, string> = {
  * Synthesize a calibration prompt from all feedback data.
  * Returns a human-readable prompt block that can be injected into analysis prompts.
  *
- * Works with both V6 (7-dimension) and V7 (5-pillar) feedback data.
+ * Works with both legacy (7-dimension) and current (5-pillar) feedback data.
  */
 export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]): string {
     if (feedbackList.length === 0) return '';
@@ -229,13 +229,13 @@ export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]):
             scoreDeltaCount++;
         }
 
-        // Dimension deltas (both V6 dims and V7 pillars)
+        // Dimension deltas (both legacy dims and current pillars)
         for (const [dim, override] of Object.entries(fb.dimensionOverrides)) {
             if (!dimensionDeltas[dim]) dimensionDeltas[dim] = [];
             dimensionDeltas[dim].push(override.userScore - override.aiScore);
 
-            // Aggregate to V7 pillar if mappable
-            const pillar = V7_PILLAR_MAP[dim];
+            // Aggregate to pillar if mappable
+            const pillar = PILLAR_MAP[dim];
             if (pillar) {
                 if (!pillarDeltas[pillar]) pillarDeltas[pillar] = [];
                 pillarDeltas[pillar].push(override.userScore - override.aiScore);
@@ -262,11 +262,11 @@ export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]):
         lines.push(`  Overall: ${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} bias`);
     }
 
-    // V7 pillar-level adjustments (preferred for V7 analyses)
+    // Pillar-level adjustments
     const hasPillarData = Object.keys(pillarDeltas).length > 0;
     if (hasPillarData) {
         lines.push('');
-        lines.push('V7 READER BIASES (apply to individual readers):');
+        lines.push('READER BIASES (apply to individual readers):');;
         for (const [pillar, deltas] of Object.entries(pillarDeltas)) {
             const avg = deltas.reduce((a, b) => a + b, 0) / deltas.length;
             if (Math.abs(avg) >= 0.3) {
@@ -277,7 +277,7 @@ export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]):
     }
 
     // V6 dimension-level adjustments (fallback)
-    const hasLegacyData = Object.keys(dimensionDeltas).some(k => !V7_PILLAR_MAP[k]);
+    const hasLegacyData = Object.keys(dimensionDeltas).some(k => !PILLAR_MAP[k]);
     if (hasLegacyData || !hasPillarData) {
         lines.push('');
         lines.push('DIMENSION BIASES (legacy):');

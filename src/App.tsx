@@ -140,7 +140,7 @@ function App() {
         {/* Footer */}
         <footer className="border-t border-gold-500/10 py-6">
           <div className="max-w-[1800px] mx-auto px-6 text-center text-sm text-black-400">
-            <p>Lemon Screenplay Dashboard - Powered by V7 Archaeology Engine</p>
+            <p>Lemon Screenplay Dashboard - Powered by V9 Archaeology Engine</p>
           </div>
         </footer>
 

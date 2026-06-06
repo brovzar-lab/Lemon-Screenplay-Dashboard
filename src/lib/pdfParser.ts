@@ -13,10 +13,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-// V8: raised from 150_000 → 195_000. Sonnet 4.6 / Opus 4.7 have 200K-token
+// V9: raised from 150_000 → 195_000. Sonnet 4.6 / Opus 4.7 have 200K-token
 // context windows; this fits feature-length scripts (90-130 pages) without
 // losing Act 3 to truncation. Stay in sync with MAX_CHARS in
-// execution/ingest_v7.py.
+// execution/ingest_v9.py.
 const MAX_CHARS = 195_000;
 
 export interface ParsedPDF {

@@ -19,7 +19,7 @@ export interface CallLLMOptions {
   prompt: string;
   systemPrompt?: string;
   /**
-   * Sampling temperature. Defaults to 0.1 (V8 default) — low jitter for
+   * Sampling temperature. Defaults to 0.1 (V9 default) — low jitter for
    * evaluation tasks where same-script-same-score is desirable. Pass an
    * explicit value to override (e.g. 0.7 for creative work).
    */
@@ -39,8 +39,8 @@ interface ProxyRequestBody {
   max_tokens?: number;
 }
 
-// V8: default temperature for evaluation calls. Matches DEFAULT_TEMPERATURE in
-// execution/ingest_v7.py so the browser Re-analyze path produces the same
+// V9: default temperature for evaluation calls. Matches DEFAULT_TEMPERATURE in
+// execution/ingest_v9.py so the browser Re-analyze path produces the same
 // scores as the daemon batch path.
 const DEFAULT_TEMPERATURE = 0.1;
 

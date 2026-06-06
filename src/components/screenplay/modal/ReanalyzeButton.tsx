@@ -3,7 +3,7 @@
  *
  * Flow:
  *   1. Click "🔄 Re-analyze ▾" → dropdown with:
- *      - Engine: V6 (4-Pillar) | V7 Archaeology (5-Reader) — current version shown
+ *      - Engine: V6 (4-Pillar) | V9 Archaeology (5-Reader) — current version shown
  *      - Model: Sonnet | Opus | Hybrid (Haiku triage → Sonnet full)
  *   2. Picks combo → spinner + progress message
  *   3. Calls reanalyzeFromStorage → replaces data
@@ -75,15 +75,15 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
                 throw new Error('Budget or request limit reached. Check Settings → API Configuration.');
             }
 
-            // Map hybrid → haiku model with v7 triage
+            // Map hybrid → haiku model with v9 triage
             const model: 'sonnet' | 'opus' | 'haiku' = modelId === 'hybrid' ? 'haiku' : modelId;
-            const v7Mode = modelId === 'hybrid' ? 'triage' as const : 'full' as const;
+            const v9Mode = modelId === 'hybrid' ? 'triage' as const : 'full' as const;
 
             await reanalyzeFromStorage(
                 screenplay,
                 model,
                 (p) => setProgress(p),
-                { v7Mode },
+                { v9Mode },
             );
 
             // Invalidate React Query cache so data refreshes everywhere

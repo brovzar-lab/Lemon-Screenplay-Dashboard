@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-lemon_ingest.py — Lemon Studios V8 Screenplay Ingest CLI
+lemon_ingest.py — Lemon Studios V9 Screenplay Ingest CLI
 
 Uploads screenplay PDFs to Firebase Storage (ingest-queue/) and monitors
 Firestore for real-time analysis progress from the VPS daemon.
@@ -55,7 +55,7 @@ MAX_FILE_SIZE_MB = 50
 MODEL_COSTS = {"haiku": 0.06, "sonnet": 0.22, "opus": 0.90, "auto": 0.22}
 
 BANNER = """
-[bold yellow]🍋 Lemon Ingest V8[/bold yellow]  [dim]— Screenplay Upload Tool[/dim]
+[bold yellow]🍋 Lemon Ingest V9[/bold yellow]  [dim]— Screenplay Upload Tool[/dim]
 [dim]All analysis runs on the VPS daemon. Firebase is the source of truth.[/dim]
 """
 
@@ -358,7 +358,7 @@ def run_upload(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Lemon Studios V8 — Screenplay Upload CLI",
+        description="Lemon Studios V9 — Screenplay Upload CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

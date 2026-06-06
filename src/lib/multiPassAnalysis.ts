@@ -1,5 +1,5 @@
 /**
- * Multi-Pass Analysis Orchestrator (V7)
+ * Multi-Pass Analysis Orchestrator (V9)
  *
  * Runs the Screenplay Archaeology Engine pipeline:
  *   Pass 0: Extraction (metadata — handled by pdfParser already)
@@ -15,7 +15,7 @@ import {
   buildTriagePrompt,
   type ReaderName,
   type ScriptMetadata,
-} from './promptClient.v7';
+} from './promptClient.v9';
 import type { LensName } from './promptClient';
 import type { ParsedPDF } from './pdfParser';
 import { useToastStore } from '@/stores/toastStore';
@@ -48,7 +48,7 @@ export interface V7ReaderResult {
 }
 
 export interface V7AnalysisResult {
-  /** The synthesized V7 analysis output */
+  /** The synthesized V9 analysis output */
   analysis: Record<string, unknown>;
   /** Individual reader reports for inspection */
   readerResults: V7ReaderResult[];
@@ -169,7 +169,7 @@ async function callClaude(
 
       if (isRetryable && attempt < retries) {
         const wait = attempt * 5;
-        console.warn(`[V7] Error, retrying in ${wait}s (attempt ${attempt}/${retries})...`);
+        console.warn(`[V9] Error, retrying in ${wait}s (attempt ${attempt}/${retries})...`);
         await new Promise((r) => setTimeout(r, wait * 1000));
         continue;
       }
@@ -358,7 +358,7 @@ export async function runMultiReaderAnalysis(
     } else {
       const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
       failedReaders.push(reason);
-      console.error('[V7] Reader failed:', reason);
+      console.error('[V9] Reader failed:', reason);
     }
   }
 
@@ -371,7 +371,7 @@ export async function runMultiReaderAnalysis(
   }
 
   if (failedReaders.length > 0) {
-    console.warn(`[V7] ${failedReaders.length} reader(s) failed, proceeding with ${readerResults.length} results`);
+    console.warn(`[V9] ${failedReaders.length} reader(s) failed, proceeding with ${readerResults.length} results`);
   }
 
   // ── Pass 6: Synthesis roundtable ──
@@ -416,14 +416,14 @@ export async function runMultiReaderAnalysis(
     const aiScore = synthesis.weighted_score as number | undefined;
     if (aiScore !== undefined && Math.abs(aiScore - computedWeightedScore) > 0.1) {
       console.warn(
-        `[V7] Synthesis weighted_score mismatch: AI said ${aiScore}, computed ${computedWeightedScore}. Using computed.`
+        `[V9] Synthesis weighted_score mismatch: AI said ${aiScore}, computed ${computedWeightedScore}. Using computed.`
       );
     }
   }
 
   // Attach full reader reports to synthesis output for transparency
   (synthesis as Record<string, unknown>).reader_reports = readerReports;
-  (synthesis as Record<string, unknown>).analysis_version = 'v7_archaeology';
+  (synthesis as Record<string, unknown>).analysis_version = 'v9_archaeology';
   (synthesis as Record<string, unknown>).analysis_mode = options.mode;
 
   // ── Compute totals ──
@@ -436,7 +436,7 @@ export async function runMultiReaderAnalysis(
   const totalDurationMs = Date.now() - startTime;
 
   console.log(
-    `[V7] Analysis complete: ${readerResults.length} readers + synthesis in ${(totalDurationMs / 1000).toFixed(1)}s. ` +
+    `[V9] Analysis complete: ${readerResults.length} readers + synthesis in ${(totalDurationMs / 1000).toFixed(1)}s. ` +
     `Tokens: ${totalUsage.input_tokens} in, ${totalUsage.output_tokens} out. ` +
     `Synthesis took ${(synthesisDurationMs / 1000).toFixed(1)}s.`,
   );
@@ -464,7 +464,7 @@ export async function runMultiReaderAnalysis(
 // ─── Convenience: Full pipeline from ParsedPDF ──────────────────────────────
 
 /**
- * Run V7/V8 analysis with optional triage pre-filter.
+ * Run V9 analysis with optional triage pre-filter.
  *
  * If mode is 'triage', runs the quick Haiku pass and returns early
  * if the score is below threshold (6.0).
@@ -473,7 +473,7 @@ export async function runMultiReaderAnalysis(
  * If mode is 'hybrid' (or default), runs triage first, then if score >= 6.0,
  * passes the triage result to synthesis as a 6th cold-read data point.
  */
-export async function analyzeV7(
+export async function analyzeV9(
   parsed: ParsedPDF,
   options: V7AnalysisOptions,
   onProgress?: (p: V7AnalysisProgress) => void,

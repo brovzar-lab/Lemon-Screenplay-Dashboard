@@ -1,6 +1,6 @@
 # VPS Daemon — Operations Reference
 
-The VPS daemon is the analysis engine of V8. It polls Firestore for queued
+The VPS daemon is the analysis engine of V9. It polls Firestore for queued
 screenplay jobs and runs the 5-reader archaeology analysis via the Anthropic API.
 
 **Source of truth:** Firebase Firestore `uploaded_analyses` collection.
@@ -11,7 +11,7 @@ screenplay jobs and runs the 5-reader archaeology analysis via the Anthropic API
 
 | Item | Path |
 |---|---|
-| Script | `execution/ingest_v7.py` (on VPS) |
+| Script | `execution/ingest_v9.py` (on VPS) |
 | VPS | Hostinger |
 | Firestore project | `lemon-screenplay-dashboard` |
 
@@ -48,7 +48,7 @@ Dashboard refreshes automatically
 ssh user@vps.hostinger.com
 
 # Check if daemon is running
-ps aux | grep ingest_v7
+ps aux | grep ingest_v9
 
 # View live logs (if running with nohup)
 tail -f /var/log/lemon-ingest.log
@@ -65,14 +65,14 @@ tail -f /var/log/lemon-ingest.log
 ssh user@vps.hostinger.com
 
 # Find and kill existing process
-pkill -f ingest_v7.py
+pkill -f ingest_v9.py
 
 # Restart (from the project directory)
 cd /path/to/lemon-ingest
-nohup python execution/ingest_v7.py >> /var/log/lemon-ingest.log 2>&1 &
+nohup python execution/ingest_v9.py >> /var/log/lemon-ingest.log 2>&1 &
 
 # Verify it started
-sleep 3 && ps aux | grep ingest_v7
+sleep 3 && ps aux | grep ingest_v9
 ```
 
 ---
@@ -89,14 +89,14 @@ sleep 3 && ps aux | grep ingest_v7
 
 ## Analysis Versions
 
-The daemon writes `analysis_version: "v8_archaeology"` (or `"v8_triage"` for triage-only passes).
+The daemon writes `analysis_version: "v9_archaeology"` (or `"v9_triage"` for triage-only passes).
 
 The dashboard normalizer accepts:
-- `v8_archaeology` — full 5-reader analysis
-- `v8_triage` — triage-only (below 6.0 threshold)
-- `v7_archaeology` — legacy daemon output (backward compatible)
-- `v7_triage` — legacy triage output (backward compatible)
-- `v7` — legacy browser inline output (backward compatible)
+- `v9_archaeology` — full 5-reader analysis (current)
+- `v9_triage` — triage-only (below 6.0 threshold, current)
+- `v8_archaeology` — intermediate test documents (backward compat)
+- `v8_triage` — intermediate triage output (backward compat)
+- `v7` — legacy browser inline output (backward compat)
 
 ---
 

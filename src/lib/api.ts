@@ -18,12 +18,12 @@ export async function loadAllScreenplaysVite(): Promise<Screenplay[]> {
     for (const raw of localRawList) {
       try {
         if (isV7RawAnalysis(raw)) {
-          const collection = (raw as Record<string, unknown>).collection as Collection | undefined;
+          const collection = ((raw as Record<string, unknown>).collection_id ?? (raw as Record<string, unknown>).collection) as Collection | undefined;
           const sp = normalizeV7Screenplay(raw as Record<string, unknown>, collection || 'Analysis');
           screenplays.push(sp);
           loadedCount++;
         } else if (isV6UnifiedAnalysis(raw)) {
-          const collection = (raw as Record<string, unknown>).collection as Collection | undefined;
+          const collection = ((raw as Record<string, unknown>).collection_id ?? (raw as Record<string, unknown>).collection) as Collection | undefined;
           const sp = normalizeV6UnifiedScreenplay(raw as Record<string, unknown>, collection || 'Analysis');
           screenplays.push(sp);
           loadedCount++;

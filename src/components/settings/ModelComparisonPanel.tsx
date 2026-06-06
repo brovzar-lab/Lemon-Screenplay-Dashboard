@@ -3,7 +3,7 @@
  *
  * Compare analysis results across AI models (Haiku / Sonnet / Opus).
  * Supports two source modes:
- *   1. Upload — drop a PDF and run fresh analysis with the V7 Archaeology Engine
+ *   1. Upload — drop a PDF and run fresh analysis with the V9 Archaeology Engine
  *   2. Dashboard — pull existing analyzed screenplays for instant comparison
  *
  * Results are displayed in a responsive grid with engine-specific dimension bars.
@@ -19,7 +19,7 @@ import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ModelId = 'haiku' | 'sonnet' | 'opus';
-type EngineId = 'v7';
+type EngineId = 'v9';
 type SourceMode = 'upload' | 'dashboard';
 
 interface ModelConfig {
@@ -60,7 +60,7 @@ const MODELS: ModelConfig[] = [
 ];
 
 const ENGINES: EngineConfig[] = [
-  { id: 'v7', name: 'V7 Archaeology', badge: 'V7', badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30', description: '5-reader pipeline, 5 pillars' },
+  { id: 'v9', name: 'V9 Archaeology', badge: 'V9', badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30', description: '5-reader pipeline, 5 pillars' },
 ];
 
 const COST_RATES: Record<ModelId, { input: number; output: number }> = {
@@ -158,7 +158,7 @@ export function ModelComparisonPanel() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Engine & model selection
-  const [selectedEngines, setSelectedEngines] = useState<Set<EngineId>>(new Set(['v7']));
+  const [selectedEngines, setSelectedEngines] = useState<Set<EngineId>>(new Set(['v9']));
   const [selectedModels, setSelectedModels] = useState<Set<ModelId>>(new Set(['sonnet']));
 
   // Running state
@@ -226,7 +226,7 @@ export function ModelComparisonPanel() {
 
     // Get dimension display data from the stored screenplay
     const dims = getDimensionDisplay(selectedScreenplay);
-    const engineUsed: EngineId = 'v7';
+    const engineUsed: EngineId = 'v9';
     const modelUsed = (selectedScreenplay.analysisModel as ModelId) || 'sonnet';
 
     // Build a pseudo-analysis object from stored data
@@ -289,7 +289,6 @@ export function ModelComparisonPanel() {
               {
                 model,
                 lenses: ['commercial'],
-                analysisVersion: engine,
               },
               (p: AnalysisProgress) => {
                 setResults((prev) => ({
@@ -377,7 +376,7 @@ export function ModelComparisonPanel() {
           Engine Comparison Lab
         </h2>
         <p className="text-black-400 mt-1">
-          Compare AI models side-by-side with the V7 Archaeology Engine.
+          Compare AI models side-by-side with the V9 Archaeology Engine.
           Upload a screenplay or pull from your dashboard.
         </p>
       </div>
@@ -484,7 +483,7 @@ export function ModelComparisonPanel() {
             ) : (
               filteredScreenplays.map((sp) => {
                 const dims = getDimensionDisplay(sp);
-                const isV7 = dims.length === 5;
+                const isPillarBased = dims.length === 5;
                 return (
                   <button
                     key={sp.id}
@@ -504,9 +503,9 @@ export function ModelComparisonPanel() {
                     </div>
                     <span className={clsx(
                       'text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider shrink-0',
-                      isV7 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                      isPillarBased ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30',
                     )}>
-                      {isV7 ? 'V7' : 'LEGACY'}
+                      {isPillarBased ? 'V9' : 'LEGACY'}
                     </span>
                     <span className={clsx(
                       'text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider shrink-0',
@@ -752,7 +751,7 @@ export function ModelComparisonPanel() {
                     {/* Dimension Scores */}
                     <div className="space-y-1.5">
                       <p className="text-xs text-black-500 uppercase tracking-wider">
-                        Pillars (V7)
+                        Pillars (V9)
                       </p>
                       {getResultDimensions(r).map((d) => (
                         <div key={d.label} className="flex items-center gap-2">

@@ -45,7 +45,7 @@ describe('ScreenplayCard', () => {
 
     // Title is always visible on the card
     expect(screen.getByText('The Test Movie')).toBeInTheDocument();
-    // Author is shown in the modal, not on the card (V8 design)
+    // Author is shown in the modal, not on the card (V9 design)
   });
 
   it('renders recommendation badge', () => {
@@ -123,7 +123,7 @@ describe('ScreenplayCard', () => {
     render(<ScreenplayCard screenplay={screenplay} />);
 
     // Card still shows the weighted score prominently (which includes producer metrics influence)
-    // Producer metrics detail is in the modal (V8 card design)
+    // Producer metrics detail is in the modal (V9 card design)
     expect(screen.getByRole('article')).toBeInTheDocument();
   });
 
@@ -141,7 +141,7 @@ describe('ScreenplayCard', () => {
     });
     render(<ScreenplayCard screenplay={screenplay} />);
 
-    // V8 card design: critical failures hidden from card, appear in modal detail view
+    // V9 card design: critical failures hidden from card, appear in modal detail view
     expect(screen.queryByText(/Critical Failure/)).not.toBeInTheDocument();
   });
 
@@ -176,7 +176,7 @@ describe('ScreenplayCard', () => {
     });
     render(<ScreenplayCard screenplay={screenplay} />);
 
-    // V8 card: top-3 dimension pills rendered, not score bars
+    // V9 card: top-3 dimension pills rendered, not score bars
     // The card renders without error and shows the article element
     expect(screen.getByRole('article')).toBeInTheDocument();
   });

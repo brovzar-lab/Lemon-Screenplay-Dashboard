@@ -6,7 +6,7 @@
  * Analysis runs on the VPS daemon (not in-browser):
  *   PDF -> Storage (ingest-queue/{collection}/{file}.pdf)
  *        -> onScreenplayUploaded CF creates the Firestore queue doc
- *        -> daemon claims, runs V7 readers + synthesis, writes uploaded_analyses
+ *        -> daemon claims, runs V9 readers + synthesis, writes uploaded_analyses
  *        -> browser subscribes to the queue doc by storage_path and mirrors status
  *
  * Duplicate detection still runs client-side at queue-add time so the UI can
@@ -149,7 +149,7 @@ export function UploadPanel() {
   //
   // Browser uploads PDF to ingest-queue/{collection}/{filename}.pdf in Storage.
   // The onScreenplayUploaded Cloud Function creates the Firestore queue doc.
-  // The VPS daemon claims it, runs V7 analysis, writes uploaded_analyses.
+  // The VPS daemon claims it, runs V9 analysis, writes uploaded_analyses.
   // Browser subscribes to the queue doc by storage_path and mirrors status.
 
   const processOne = useCallback(async (jobId: string, requestedModel: string) => {
@@ -227,7 +227,7 @@ export function UploadPanel() {
       (j) => j.status === 'pending' && !j.isDuplicate
     );
 
-    // V8: daemon now supports `hybrid` directly via ingest_v7.run_v7_hybrid()
+    // V9: daemon now supports `hybrid` directly via ingest_v9.run_v9_hybrid()
     // (Sonnet first pass; RECOMMEND/FILM_NOW results re-run on Opus).
     // Pass the user's selection through unchanged.
     const requestedModel = selectedModel;
@@ -268,7 +268,7 @@ export function UploadPanel() {
       <div>
         <h2 className="text-xl font-display text-gold-200 mb-2">Upload Screenplays</h2>
         <p className="text-sm text-black-400">
-          Upload PDF screenplays for AI analysis using the V7 Archaeology Engine (5-reader deep analysis).
+          Upload PDF screenplays for AI analysis using the V9 Archaeology Engine (5-reader deep analysis).
         </p>
       </div>
 

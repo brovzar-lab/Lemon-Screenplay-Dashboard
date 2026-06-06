@@ -1,5 +1,5 @@
 /**
- * V7 Multi-Reader Prompt Client
+ * V9 Multi-Reader Prompt Client
  *
  * Builds prompts for the 5-reader Screenplay Archaeology Engine.
  * Each reader evaluates the script independently using methodology-specific criteria.
@@ -84,7 +84,7 @@ Return ONLY this JSON:
   "should_deep_analyze": false
 }
 
-Set should_deep_analyze to true if triage_score >= 5.
+Set should_deep_analyze to true if triage_score >= 6.
 Return ONLY valid JSON.`;
 }
 
@@ -580,7 +580,7 @@ Return ONLY this JSON:
   "themes": [],
   "tone": "",
   "logline": "",
-  "analysis_version": "v7_archaeology",
+  "analysis_version": "v9_archaeology",
   "pillar_scores": {
     "structure": { "score": 0, "weight": 0.30 },
     "character": { "score": 0, "weight": 0.30 },

@@ -1,4 +1,4 @@
-# Lemon Ingest V8 — CLI Upload Tool
+# Lemon Ingest V9 — CLI Upload Tool
 
 Upload screenplay PDFs to the Lemon Studios analysis pipeline.
 
@@ -11,7 +11,7 @@ Firebase Storage: ingest-queue/{collection}/{uuid}_{filename}.pdf
       ↓
 onScreenplayUploaded Cloud Function (creates Firestore job doc)
       ↓
-VPS Daemon (execution/ingest_v7.py) picks up job, runs 5-reader analysis
+VPS Daemon (execution/ingest_v9.py) picks up job, runs 5-reader analysis
       ↓
 Firebase Firestore: uploaded_analyses/{id}  ← SOURCE OF TRUTH
       ↓
@@ -100,7 +100,7 @@ python lemon_ingest.py \
 ## What Happens After Upload
 
 1. **Storage trigger fires** — `onScreenplayUploaded` Cloud Function creates a job doc in `ingest-queue/` Firestore collection with `status: "pending"`
-2. **VPS daemon picks up the job** — `execution/ingest_v7.py` polls `ingest-queue` for pending jobs
+2. **VPS daemon picks up the job** — `execution/ingest_v9.py` polls `ingest-queue` for pending jobs
 3. **Analysis runs** — The daemon runs triage (Haiku, 60s), then if score ≥ 6.0, runs the full 5-reader archaeology analysis (~3–5 min)
 4. **Results written to Firestore** — `uploaded_analyses/{id}` is created/updated with the full analysis result
 5. **Dashboard refreshes** — `useLiveScreenplaySync` detects the new document and invalidates the React Query cache
@@ -116,7 +116,7 @@ python lemon_ingest.py \
 → Storage rules require authentication. The service account must have Storage Writer role.
 
 **Script uploaded but not appearing in dashboard after 10 minutes**
-→ Check VPS daemon is running: `ssh user@vps "ps aux | grep ingest_v7"`
+→ Check VPS daemon is running: `ssh user@vps "ps aux | grep ingest_v9"`
 → Check Firestore `ingest-queue` collection for the job doc and its status
 → See `VPS_DAEMON.md` for daemon restart instructions
 

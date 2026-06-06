@@ -16,7 +16,7 @@ HOW IT WORKS
 4. Computes SHA-256 content hash — skips if already processed (idempotency)
 5. Validates PDF text (length, screenplay markers, not scanned)
 6. Checks shared daily API budget counter (same doc used by Cloud Function)
-7. Runs existing ingest_v7.py analysis pipeline
+7. Runs V9 Archaeology Engine analysis pipeline (ingest_v9.py)
 8. Writes results to Firestore `uploaded_analyses`
 9. Updates job: status='complete' + full telemetry
 10. Heartbeat updates every 60s so the watchdog knows the job is alive
@@ -382,7 +382,7 @@ def validate_screenplay_text(text: str, filename: str) -> tuple[bool, str]:
             f"[validate] '{filename}' is {len(stripped):,} chars — "
             f"will be truncated to 195,000 by the analysis engine"
         )
-        # Don't reject — the ingest_v7.py engine truncates gracefully
+        # Don't reject — the ingest_v9.py engine truncates gracefully
 
     has_structure = any(
         marker in stripped.upper()
@@ -446,10 +446,10 @@ def check_tmdb_for_job(title_hint: str) -> tuple[bool, str, dict | None]:
         ingest_dir = Path(__file__).parent / "execution"
         sys.path.insert(0, str(ingest_dir))
         import importlib
-        if "ingest_v7" not in sys.modules:
-            import ingest_v7  # noqa: F401
-        ingest_v7 = sys.modules["ingest_v7"]
-        is_produced, detail = ingest_v7.check_tmdb(title_hint)
+        if "ingest_v9" not in sys.modules:
+            import ingest_v9  # noqa: F401
+        ingest_v9 = sys.modules["ingest_v9"]
+        is_produced, detail = ingest_v9.check_tmdb(title_hint)
         if is_produced:
             return True, "tmdb_already_produced", {
                 "is_produced": True,
@@ -532,7 +532,7 @@ def process_job(job: dict) -> None:
     Full lifecycle for a single ingest job. Called in a thread pool.
     - Downloads PDF to isolated workdir
     - Validates content
-    - Runs ingest_v7.py analysis
+    - Runs ingest_v9.py V9 Archaeology Engine analysis
     - Writes to Firestore
     - Updates job doc with telemetry
     """
@@ -571,21 +571,21 @@ def process_job(job: dict) -> None:
             log.info(f"[job] {job_id} → Skipped (duplicate content hash: {content_hash[:8]}…)")
             return
 
-        # ── 3. Run analysis via existing ingest_v7.py ─────────────────────
-        # Import the existing engine (runs in the same Python process)
+        # ── 3. Run analysis via V9 Archaeology Engine ──────────────────────
+        # Import the V9 engine (runs in the same Python process)
         ingest_dir = Path(__file__).parent / "execution"
         sys.path.insert(0, str(ingest_dir))
 
         import importlib
-        if "ingest_v7" not in sys.modules:
-            import ingest_v7  # noqa: F401
-        ingest_v7 = sys.modules["ingest_v7"]
+        if "ingest_v9" not in sys.modules:
+            import ingest_v9  # noqa: F401
+        ingest_v9 = sys.modules["ingest_v9"]
 
-        # Init Firebase in the ingest_v7 module context (shares _db from admin SDK)
-        ingest_v7.init_firebase()
+        # Init Firebase in the ingest_v9 module context (shares _db from admin SDK)
+        ingest_v9.init_firebase()
 
         # Parse PDF
-        parsed = ingest_v7.parse_pdf(local_pdf)
+        parsed = ingest_v9.parse_pdf(local_pdf)
         if parsed is None:
             mark_skipped(
                 job_id, "pdf_parse_failed",
@@ -643,12 +643,12 @@ def process_job(job: dict) -> None:
 
         title = Path(filename).stem.replace("_", " ").replace("-", " ")
 
-        # ── 7. Run V7 analysis ────────────────────────────────────────────
+        # ── 7. Run V9 Archaeology Engine analysis ─────────────────────────
         proxy_url = os.getenv("LLM_PROXY_URL")  # None = call Anthropic directly
 
         if model_key == "hybrid":
-            log.info(f"[analyze] Running V7 HYBRID analysis: '{title}' (Sonnet → maybe Opus)")
-            analysis, usage = ingest_v7.run_v7_hybrid(
+            log.info(f"[analyze] Running V9 HYBRID analysis: '{title}' (Sonnet → maybe Opus)")
+            analysis, usage = ingest_v9.run_v9_hybrid(
                 text=text,
                 title=title,
                 page_count=page_count,
@@ -656,8 +656,8 @@ def process_job(job: dict) -> None:
                 proxy_url=proxy_url,
             )
         else:
-            log.info(f"[analyze] Running V7 full analysis: '{title}' (model: {model_key})")
-            analysis, usage = ingest_v7.run_v7_full(
+            log.info(f"[analyze] Running V9 full analysis: '{title}' (model: {model_key})")
+            analysis, usage = ingest_v9.run_v9_full(
                 text=text,
                 title=title,
                 page_count=page_count,
@@ -678,12 +678,17 @@ def process_job(job: dict) -> None:
         raw_doc = {
             "source_file": filename,
             "analysis_model": f"claude-{model_key}",
-            # V8 hard versioning — distinguishes the new rigorous engine
+            # V9 hard versioning — distinguishes the current rigorous engine
             # (tool_use + caching + thinking + traps + Story-vs-Situation gate)
             # from the legacy v7 simple-prompt path. The frontend normalizer
-            # accepts both v8_archaeology and v7_archaeology.
-            "analysis_version": "v8_archaeology",
+            # accepts both v9_archaeology and v7_archaeology.
+            "analysis_version": "v9_archaeology",
             "collection_id": collection_id,
+            "collection": collection_id,     # Normalizer reads this field name
+            # TMDB pre-screen result — written here so the frontend hideProduced
+            # filter works even when the film passed the pre-screen (is_produced=False).
+            # None when the TMDB check failed (treated as unknown by the frontend).
+            "tmdb_status": tmdb_status,
             "metadata": {
                 "filename": filename,
                 "page_count": page_count,
@@ -695,12 +700,12 @@ def process_job(job: dict) -> None:
             "_worker_id": WORKER_ID,
         }
 
-        success = ingest_v7.write_to_firestore(raw_doc)
+        success = ingest_v9.write_to_firestore(raw_doc)
         if not success:
             raise RuntimeError("Firestore write failed — will retry")
 
         # Derive the doc ID the way write_to_firestore does
-        screenplay_doc_id = ingest_v7.to_doc_id(filename)
+        screenplay_doc_id = ingest_v9.to_doc_id(filename)
 
         # ── 10. Mark complete with telemetry ──────────────────────────────
         duration = round(time.time() - start_time)
@@ -726,10 +731,10 @@ def process_job(job: dict) -> None:
             "duration_seconds": duration,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
-            "anthropic_model": ingest_v7.MODEL_IDS.get(final_model_key, final_model_key),
+            "anthropic_model": ingest_v9.MODEL_IDS.get(final_model_key, final_model_key),
             "anthropic_finish_reason": finish_reason,
             "estimated_cost_usd": round(estimated_cost, 4),
-            "prompt_version": None,   # TODO: pipe through from ingest_v7
+            "prompt_version": None,   # TODO: pipe through from ingest_v9
         })
 
         log.info(

@@ -371,11 +371,11 @@ export function normalizeScreenplays(
 }
 
 // ============================================
-// V7 TYPES
+// ARCHAEOLOGY ENGINE TYPES (V9)
 // ============================================
 
 /**
- * V7 pillar score (from Archaeology Engine)
+ * Pillar score (from Archaeology Engine)
  */
 export interface V7PillarScore {
   name: string;
@@ -384,7 +384,7 @@ export interface V7PillarScore {
 }
 
 /**
- * V7 goosebumps moment
+ * Goosebumps moment
  */
 export interface V7GoosebumpsMoment {
   page: number;
@@ -393,10 +393,10 @@ export interface V7GoosebumpsMoment {
 }
 
 /**
- * Extended Screenplay type with V7-specific fields
+ * Extended Screenplay type with Archaeology Engine fields
  */
 export interface ScreenplayWithV7 extends Screenplay {
-  // V7 Archaeology Engine fields
+  // Archaeology Engine fields
   v7PillarScores?: V7PillarScore[];
   v7GoosebumpsMoments?: V7GoosebumpsMoment[];
   v7ReaderDisagreements?: string[];
@@ -416,7 +416,7 @@ export function isV6RawAnalysis(_raw: unknown): boolean {
 /** @deprecated V6 analysis removed. Throws if called. */
 
 export function normalizeV6Screenplay(_raw: Record<string, unknown>, _collection: Collection): never {
-  throw new Error('V6 analysis has been removed. All screenplays use V7.');
+  throw new Error('V6 analysis has been removed. All screenplays use the Archaeology Engine.');
 }
 
 // ============================================
@@ -425,7 +425,7 @@ export function normalizeV6Screenplay(_raw: Record<string, unknown>, _collection
 
 /**
  * Detect lemon-ingest V6_unified format.
- * These are produced by lemon-ingest.mjs and have a different schema to V7.
+ * These are produced by lemon-ingest.mjs and have a different schema to the Archaeology Engine.
  */
 export function isV6UnifiedAnalysis(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object') return false;
@@ -625,21 +625,24 @@ export function normalizeV6UnifiedScreenplay(
 
 
 // ============================================
-// V7 NORMALIZATION
+// ARCHAEOLOGY ENGINE NORMALIZATION (V9)
 // ============================================
 
 /**
- * Check if raw data is V7 format (Archaeology Engine)
+ * Check if raw data is Archaeology Engine format (V7/V8/V9 variants)
  */
 export function isV7RawAnalysis(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object') return false;
   const r = raw as Record<string, unknown>;
   const v = r.analysis_version;
-  // Accept all V7/V8 variants — the 5-pillar shape is the same regardless.
-  // 'v7' = browser inline path (analyzeScreenplay.ts)
-  // 'v7_archaeology' / 'v7_triage' = old daemon naming
-  // 'v8_archaeology' / 'v8_triage' = new daemon naming (ingest-queue workflow)
+  // Accept all V7/V8/V9 variants — the 5-pillar shape is the same regardless.
+  // 'v7_archaeology' / 'v7_triage' = legacy daemon output (backward compat)
+  // 'v8_archaeology' / 'v8_triage' = intermediate test documents (backward compat)
+  // 'v9_archaeology' / 'v9_triage' = current engine (source of truth)
+  // 'v7' = old browser inline path (backward compat)
   return (
+    v === 'v9_archaeology' ||
+    v === 'v9_triage' ||
     v === 'v8_archaeology' ||
     v === 'v8_triage' ||
     v === 'v7_archaeology' ||
@@ -649,9 +652,9 @@ export function isV7RawAnalysis(raw: unknown): boolean {
 }
 
 /**
- * Normalize V7 Archaeology Engine output to extended Screenplay object.
+ * Normalize Archaeology Engine output to extended Screenplay object.
  * Maps 5 pillars → legacy 7-dimension format for backward compatibility.
- * Preserves V7-specific data (pillar scores, goosebumps, disagreements).
+ * Preserves pillar-specific data (scores, goosebumps, disagreements).
  */
 export function normalizeV7Screenplay(
   raw: Record<string, unknown>,
@@ -668,7 +671,7 @@ export function normalizeV7Screenplay(
   const emotionScore = pillarScores?.emotional_resonance?.score ?? 0;
   const weightedScore = typeof analysis.weighted_score === 'number' ? analysis.weighted_score : 0;
 
-  // Map V7 5-pillar → legacy 7-dimension (best-effort mapping)
+  // Map 5-pillar → legacy 7-dimension (best-effort mapping)
   const dimensionScores: DimensionScores = {
     concept: conceptScore,
     structure: structureScore,
@@ -681,13 +684,13 @@ export function normalizeV7Screenplay(
   };
 
   const dimensionJustifications: DimensionJustifications = {
-    concept: 'See V7 Concept Reader report',
-    structure: 'See V7 Structure Reader report',
-    protagonist: 'See V7 Character Reader report',
-    supportingCast: 'See V7 Character Reader report',
-    dialogue: 'See V7 Craft & Scene Reader report',
-    genreExecution: 'See V7 Concept Reader report',
-    originality: 'See V7 Emotional Resonance Reader report',
+    concept: 'See Concept Reader report',
+    structure: 'See Structure Reader report',
+    protagonist: 'See Character Reader report',
+    supportingCast: 'See Character Reader report',
+    dialogue: 'See Craft & Scene Reader report',
+    genreExecution: 'See Concept Reader report',
+    originality: 'See Emotional Resonance Reader report',
   };
 
   // Verdict / recommendation
@@ -750,7 +753,7 @@ export function normalizeV7Screenplay(
     };
   }
 
-  // V7 pillar array for native display
+  // Pillar array for native display
   const v7PillarArray: V7PillarScore[] = pillarScores
     ? Object.entries(pillarScores).map(([name, ps]) => ({ name, score: ps.score, weight: ps.weight }))
     : [];
@@ -760,7 +763,7 @@ export function normalizeV7Screenplay(
 
   // Metadata
   const metadata = raw.metadata as Record<string, unknown> | undefined;
-  const sourceFile = String(raw.source_file || analysis.title || `v7_${Date.now()}`);
+  const sourceFile = String(raw.source_file || analysis.title || `v9_${Date.now()}`);
 
   return {
     id: generateId(sourceFile),
@@ -771,10 +774,10 @@ export function normalizeV7Screenplay(
       return /not found|unknown/i.test(raw) ? '' : raw;
     })(),
     collection,
-    category: collectionToCategoryId(String(raw.collection || ''), String(raw.collection || '')),
+    category: collectionToCategoryId(String((raw as Record<string, unknown>).collection_id || raw.collection || ''), String((raw as Record<string, unknown>).collection_id || raw.collection || '')),
     sourceFile,
     analysisModel: String(raw.analysis_model || 'claude-sonnet'),
-    analysisVersion: String(raw.analysis_version || 'v7_archaeology'),
+    analysisVersion: String(raw.analysis_version || 'v9_archaeology'),
     weightedScore,
     cvsTotal: commercialViability.cvsTotal,
     genre: String(analysis.genre || ''),
@@ -808,14 +811,14 @@ export function normalizeV7Screenplay(
             failure: typeof cf === 'string' ? cf : String(cf.failure || ''),
             severity: 'major' as const,
             penalty: -0.5,
-            evidence: typeof cf === 'string' ? 'See V7 reader reports' : String(cf.why_structural || 'See V7 reader reports'),
+            evidence: typeof cf === 'string' ? 'See reader reports' : String(cf.why_structural || 'See reader reports'),
           })
         )
       : (redFlags || []).map((f) => ({
           failure: f,
           severity: 'major' as const,
           penalty: -0.5,
-          evidence: 'See V7 reader reports',
+          evidence: 'See reader reports',
         })),
     criticalFailureTotalPenalty: 0,
     majorWeaknesses: (analysis.weaknesses as string[]) || redFlags || [],
@@ -853,9 +856,9 @@ export function normalizeV7Screenplay(
       wordCount: typeof metadata?.word_count === 'number' ? metadata.word_count : 0,
     },
     producerMetrics: createProducerMetrics(),
-    tmdbStatus: null,
+    tmdbStatus: normalizeTmdbStatus((raw as Record<string, unknown>).tmdb_status as RawTmdbStatus | undefined),
     hasPdf: (raw as Record<string, unknown>).hasPdf === true,
-    // V7-specific fields
+    // Archaeology Engine fields
     v7PillarScores: v7PillarArray,
     v7GoosebumpsMoments: goosebumpsMoments,
     v7ReaderDisagreements: (analysis.reader_disagreements as string[]) || [],
