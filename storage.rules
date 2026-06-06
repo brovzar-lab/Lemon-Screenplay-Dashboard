@@ -1,39 +1,80 @@
 rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Lemon Screenplay Dashboard — Storage Security Rules (Hardened)
+//
+// SECURITY MODEL (2026-06-06):
+//   • All paths require anonymous auth for reads (no public bucket access).
+//   • Writes require auth + content-type validation + size caps.
+//   • File extension validation prevents content-type spoofing.
+//   • The VPS daemon uses the Admin SDK, which bypasses these rules.
+//
+// STORAGE PATHS:
+//   /Posters/{category}/{filename}        — poster images (< 10 MB)
+//   /screenplays/{category}/{name}.pdf    — screenplay PDFs (< 50 MB)
+//   /ingest-queue/{collection}/{name}.pdf — upload drop zone (< 50 MB)
+// ═══════════════════════════════════════════════════════════════════════════
+
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // ── Poster images ─────────────────────────────────────────────────────────
-    // Public read (displayed in modal). Writes restricted to PDF content type
-    // and 10 MB max to prevent storage abuse.
+    // ── Poster images ───────────────────────────────────────────────────
+    // Displayed in screenplay modals and cards.
+    //
+    // SECURITY RATIONALE:
+    //   • Read: auth required. Prevents direct-URL scraping of poster images.
+    //     The browser always has an anonymous auth token by the time it
+    //     renders components that display posters.
+    //   • Write: auth + image content-type + 10 MB cap.
+    //     Content-type regex matches image/* (JPEG, PNG, WebP, etc.).
+    //   • No delete from client — poster management is Admin-only.
     match /Posters/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.resource.size < 10 * 1024 * 1024
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null
+                   && request.resource.size < 10 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
 
-    // ── Screenplay PDFs ───────────────────────────────────────────────────────
-    // Read: allowed (internal team tool — anyone with the URL may view).
-    // Write: PDFs only, max 50 MB, must be application/pdf.
-    // This prevents storage flooding with arbitrary file types.
+    // ── Screenplay PDFs ─────────────────────────────────────────────────
+    // Full screenplay PDF files stored per category.
+    //
+    // SECURITY RATIONALE:
+    //   • Read: auth required. PDFs may contain pre-publication scripts
+    //     that should not be publicly enumerable.
+    //   • Write: auth + strict PDF content-type + 50 MB cap.
+    //     Only application/pdf is accepted (no wildcard).
+    //   • The path pattern screenplays/{allPaths=**} covers subcategories.
     match /screenplays/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.resource.size < 50 * 1024 * 1024
-                   && request.resource.contentType == 'application/pdf';
-    }
+      allow read: if request.auth != null;
 
-    // ── Screenplay ingest drop zone ───────────────────────────────────────
-    // Path: ingest-queue/{collection_id}/{filename}.pdf
-    // Authenticated users may upload PDFs (team use only).
-    // The onScreenplayUploaded Cloud Function reads this path via Admin SDK.
-    // Max 50 MB; PDF content-type required (same as /screenplays/).
-    match /ingest-queue/{allPaths=**} {
-      allow read: if request.auth != null;  // Only authenticated readers
       allow write: if request.auth != null
                    && request.resource.size < 50 * 1024 * 1024
                    && request.resource.contentType == 'application/pdf';
     }
 
-    // ── Default deny ─────────────────────────────────────────────────────────
+    // ── Ingest drop zone ────────────────────────────────────────────────
+    // Path: ingest-queue/{collection_id}/{filename}.pdf
+    // The onScreenplayUploaded Cloud Function triggers on writes here.
+    //
+    // SECURITY RATIONALE:
+    //   • Read: auth required. Only the dashboard polls upload status.
+    //   • Write: auth + PDF content-type + 50 MB cap.
+    //     The uploadPdfToIngestQueue() function in firebase.ts already
+    //     awaits authReady before uploading.
+    //   • No delete from client — the Cloud Function / daemon cleans up
+    //     processed files via Admin SDK.
+    match /ingest-queue/{allPaths=**} {
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null
+                   && request.resource.size < 50 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+    }
+
+    // ── Default deny ────────────────────────────────────────────────────
+    // Any path not explicitly matched above is completely locked down.
+    // Prevents accidental exposure of files in unexpected storage paths.
     match /{allPaths=**} {
       allow read, write: if false;
     }

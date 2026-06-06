@@ -320,10 +320,14 @@ export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
         return localData;
     }
 
-    // Cold start path: localStorage is empty — load directly from Firestore
-    // Reads are public (allow read: if true in firestore.rules) — no auth needed.
+    // Cold start path: localStorage is empty — load directly from Firestore.
+    // Auth is required by firestore.rules — wait for anonymous session.
+    // Firebase v10+ caches the token via browserLocalPersistence, so this
+    // resolves in ~50ms on repeat visits. On a genuine first visit there's
+    // no Firestore data to load anyway, so the brief auth delay is invisible.
     console.log('[Lemon] localStorage empty — loading directly from Firestore...');
     try {
+      await authReady;
         const q = query(collection(db, FIRESTORE_COLLECTION));
         const snapshot = await getDocs(q);
 

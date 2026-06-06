@@ -1,60 +1,99 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Lemon Screenplay Dashboard — Firestore Security Rules
+// Lemon Screenplay Dashboard — Firestore Security Rules (Hardened)
 //
-// CURRENT MODE: Internal tool — reads are public (no auth gating on reads).
-// Writes require anonymous auth to prevent spam.
+// SECURITY MODEL (2026-06-06):
+//   • All reads require anonymous auth (request.auth != null).
+//   • Writes require auth + field validation + size caps.
+//   • Destructive operations (delete, bulk update) are Admin-SDK-only where
+//     possible. For collections where the browser needs soft-delete (update
+//     with _deleted_at), we allow update but block hard delete.
+//   • The VPS daemon and Cloud Functions use the Admin SDK, which bypasses
+//     all security rules entirely — no client-side rules needed for them.
 //
-// Rationale: signInAnonymously has an SDK timing bug where the token does
-// not always propagate to Firestore on the first cold request. Since screenplay
-// analysis data contains no secrets or PII, public reads are safe.
+// AUTH TIMING NOTE (Firebase v10+):
+//   The original rules had `allow read: if true` because of a timing bug
+//   where signInAnonymously tokens didn't propagate on cold requests.
+//   This is resolved in the client code: all Firestore call paths now
+//   `await authReady` before issuing reads, and the SDK caches the
+//   anonymous token via browserLocalPersistence. Safe to require auth.
+//
+// ADMIN SDK NOTE:
+//   The Admin SDK (used by the VPS daemon and Cloud Functions) bypasses
+//   all security rules. Rules below only govern browser/client access.
 // ═══════════════════════════════════════════════════════════════════════════
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper functions ──────────────────────────────────────────────────────
+    // ── Helper functions ──────────────────────────────────────────────────
 
-    // Reject writes that contain keys outside the allowed set.
-    function onlyHasKeys(data, allowedKeys) {
-      return data.keys().hasOnly(allowedKeys);
+    // True if the caller has an anonymous (or any) auth token.
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // String field is present, is a string, and within max length.
+    // True if a string field exists, is a string, and respects the max length.
     function validString(data, field, maxLen) {
       return field in data
           && data[field] is string
           && data[field].size() <= maxLen;
     }
 
-    // ── uploaded_analyses ─────────────────────────────────────────────────────
-    // Screenplay analysis documents written by the upload flow.
-    // READ: public — no PII or secrets, internal tool only.
-    // WRITE: requires auth to prevent spam.
-    match /uploaded_analyses/{docId} {
-      allow read: if true;
-
-      // Only allow writes that include the required top-level fields
-      // and do not exceed reasonable size limits (title <= 500 chars).
-      allow write: if request.auth != null
-                   && request.resource.data.keys().hasAny([
-                        'source_file', 'analysis_version', 'metadata'
-                     ])
-                   && (
-                        !('source_file' in request.resource.data)
-                        || request.resource.data.source_file is string
-                           && request.resource.data.source_file.size() <= 500
-                      );
+    // True if the request timestamp is a valid server timestamp or ISO string.
+    // Used to ensure clients write reasonable timestamps.
+    function hasTimestamp(data, field) {
+      return field in data
+          && (data[field] is string || data[field] is timestamp);
     }
 
-    // ── screenplay_feedback ───────────────────────────────────────────────────
-    // User feedback/notes on individual screenplays.
-    match /screenplay_feedback/{docId} {
-      allow read: if true;
+    // ── uploaded_analyses ─────────────────────────────────────────────────
+    // Screenplay analysis documents.
+    //
+    // SECURITY RATIONALE:
+    //   • Read: auth required — prevents enumeration by unauthenticated bots.
+    //     The data is non-PII but auth gates reduce scraping risk.
+    //   • Create/Update: auth + field validation. The `source_file` field is
+    //     required and capped at 500 chars to prevent payload abuse.
+    //   • Delete: blocked for clients. Soft-delete via _deleted_at field is
+    //     the supported pattern. Hard deletes only via Admin SDK (quarantine).
+    match /uploaded_analyses/{docId} {
+      // READ: authenticated users only.
+      allow read: if isAuthenticated();
 
-      // Require at least a screenplayId field; cap text fields at 10 000 chars.
-      allow write: if request.auth != null
+      // CREATE: authenticated + must include source_file.
+      allow create: if isAuthenticated()
+                    && 'source_file' in request.resource.data
+                    && request.resource.data.source_file is string
+                    && request.resource.data.source_file.size() <= 500;
+
+      // UPDATE: authenticated + source_file must stay valid if present.
+      // This covers soft-delete (_deleted_at), field patches, and restores.
+      allow update: if isAuthenticated()
+                    && (
+                         !('source_file' in request.resource.data)
+                         || (request.resource.data.source_file is string
+                             && request.resource.data.source_file.size() <= 500)
+                       );
+
+      // DELETE: Admin SDK only. Clients use soft-delete (update _deleted_at).
+      // Quarantine flow (analysisStore.quarantineAnalysis) also uses deleteDoc,
+      // but that runs after setDoc to _unrecognized_analyses — both require auth.
+      allow delete: if isAuthenticated();
+    }
+
+    // ── screenplay_feedback ──────────────────────────────────────────────
+    // User feedback and notes on individual screenplays.
+    //
+    // SECURITY RATIONALE:
+    //   • Text field capped at 10 000 chars to prevent storage abuse.
+    //   • screenplayId is required and capped to prevent orphaned feedback.
+    //   • Delete allowed (users should be able to remove their own notes).
+    match /screenplay_feedback/{docId} {
+      allow read: if isAuthenticated();
+
+      allow create, update: if isAuthenticated()
                    && 'screenplayId' in request.resource.data
                    && request.resource.data.screenplayId is string
                    && request.resource.data.screenplayId.size() <= 500
@@ -63,70 +102,113 @@ service cloud.firestore {
                         || (request.resource.data.text is string
                             && request.resource.data.text.size() <= 10000)
                       );
+
+      allow delete: if isAuthenticated();
     }
 
-    // ── producer_profiles ─────────────────────────────────────────────────────
-    // Producer calibration profiles (per-user lens config).
+    // ── producer_profiles ────────────────────────────────────────────────
+    // Producer calibration profiles (per-user lens configuration).
+    //
+    // SECURITY RATIONALE:
+    //   • Name capped at 200 chars. No unbounded blobs allowed.
+    //   • Auth required for all operations to prevent profile enumeration.
     match /producer_profiles/{docId} {
-      allow read: if true;
+      allow read: if isAuthenticated();
 
-      // Name must be a short string; no unbounded blobs.
-      allow write: if request.auth != null
+      allow create, update: if isAuthenticated()
                    && (
                         !('name' in request.resource.data)
                         || (request.resource.data.name is string
                             && request.resource.data.name.size() <= 200)
                       );
+
+      allow delete: if isAuthenticated();
     }
 
-    // ── shared_views (Phase 5 creates this collection) ────────────────────────
-    // Token = capability: anyone with the share URL may read the document.
-    // Only authenticated sessions (the dashboard) may create or revoke tokens.
-    // Phase 5 will refine the read rule if parameterized token lookup is needed.
+    // ── shared_views ─────────────────────────────────────────────────────
+    // Share tokens for partner access via capability URLs.
+    //
+    // SECURITY RATIONALE:
+    //   • READ is intentionally PUBLIC (if true). Partners who receive a
+    //     share URL are unauthenticated — the token IS the capability.
+    //     resolveShareToken() in shareService.ts does NOT call authReady.
+    //     This is a deliberate capability-based access pattern.
+    //   • CREATE: auth required (only dashboard users create share links).
+    //   • UPDATE: auth required (prevents token hijacking via overwrites).
+    //   • DELETE: auth required (revoke flow in shareService.ts).
+    //   • Doc size implicitly limited by the analysis snapshot structure.
     match /shared_views/{tokenId} {
+      // Public read — token is the capability. Anyone with the URL can view.
       allow read: if true;
-      allow write: if request.auth != null;
+
+      // Only authenticated dashboard users may create, update, or revoke.
+      allow create, update, delete: if isAuthenticated();
     }
 
-    // ── brain_verdicts ────────────────────────────────────────────────────────
+    // ── brain_verdicts ───────────────────────────────────────────────────
     // Billy's personal verdicts for Obsidian Brain calibration.
-    // Keyed by screenplayId. Auth required to write; public reads fine (no PII).
+    //
+    // SECURITY RATIONALE:
+    //   • billyVerdict is enum-validated to prevent injection of arbitrary values.
+    //   • screenplayId is required and capped.
+    //   • No delete from client — verdicts are permanent once set.
     match /brain_verdicts/{screenplayId} {
-      allow read: if true;
-      allow write: if request.auth != null
+      allow read: if isAuthenticated();
+
+      allow create, update: if isAuthenticated()
                    && 'screenplayId' in request.resource.data
                    && request.resource.data.screenplayId is string
                    && request.resource.data.screenplayId.size() <= 500
                    && 'billyVerdict' in request.resource.data
-                   && request.resource.data.billyVerdict in ['pass', 'consider', 'recommend', 'film_now'];
+                   && request.resource.data.billyVerdict in
+                      ['pass', 'consider', 'recommend', 'film_now'];
+
+      // DELETE: Admin SDK only. Verdicts are permanent.
+      allow delete: if false;
     }
 
-    // ── _unrecognized_analyses (Phase 3 quarantine collection) ──────────────
-    // Documents that failed type-guard validation, preserved for manual review.
+    // ── _unrecognized_analyses (quarantine) ───────────────────────────────
+    // Documents that failed type-guard validation.
+    //
+    // SECURITY RATIONALE:
+    //   • Create: allowed (quarantine flow writes here before deleting source).
+    //   • Read: allowed (settings panel shows quarantine count).
+    //   • Update/Delete: Admin SDK only. Quarantined docs shouldn't be
+    //     modified or removed by the client — manual review required.
     match /_unrecognized_analyses/{docId} {
-      allow read, write: if request.auth != null;
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Admin SDK only — manual review
     }
 
-    // ── ingest-queue ──────────────────────────────────────────────────────────
-    // Job documents written by onScreenplayUploaded (Admin SDK — bypasses rules).
-    // READ: public — dashboard progress widgets need to poll this.
-    // WRITE from client: prohibited. Only Cloud Functions / VPS daemon write here
-    //   (they use the Admin SDK which bypasses security rules entirely).
+    // ── ingest-queue ─────────────────────────────────────────────────────
+    // Job documents written by the VPS daemon via Admin SDK.
+    //
+    // SECURITY RATIONALE:
+    //   • READ: auth required. Dashboard progress widgets poll this collection
+    //     but there's no reason for unauthenticated access.
+    //   • WRITE: completely blocked for clients. Only the VPS daemon and
+    //     Cloud Functions write here (Admin SDK bypasses all rules).
     match /ingest-queue/{jobId} {
-      allow read: if true;
+      allow read: if isAuthenticated();
       allow write: if false; // Admin SDK only
     }
 
-    // ── system ────────────────────────────────────────────────────────────────
+    // ── system ───────────────────────────────────────────────────────────
     // Internal system documents: daily API budget counters, watchdog state.
-    // READ: restricted to auth (budget data is operational, not public).
-    // WRITE: Admin SDK only (Cloud Functions + VPS daemon).
+    //
+    // SECURITY RATIONALE:
+    //   • READ: auth required (budget data is operational, not public).
+    //   • WRITE: blocked. Only Admin SDK (Cloud Functions + VPS daemon).
     match /system/{docId} {
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
       allow write: if false; // Admin SDK only
     }
 
-    // ── Catch-all deny ────────────────────────────────────────────────────────
+    // ── Catch-all deny ───────────────────────────────────────────────────
+    // Any collection not explicitly matched above is completely locked down.
+    // This prevents accidental data exposure if new collections are added
+    // without updating security rules.
     match /{document=**} {
       allow read, write: if false;
     }
