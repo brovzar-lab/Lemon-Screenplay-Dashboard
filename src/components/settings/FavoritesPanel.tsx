@@ -1,17 +1,25 @@
 /**
  * Favorites Panel
- * Manage favorite lists and quick favorites
+ * Manage favorite lists and quick favorites with expandable screenplay titles
  */
 
 import { useState } from 'react';
 import { useFavoritesStore, type FavoriteList } from '@/stores/favoritesStore';
+import { useScreenplays } from '@/hooks/useScreenplays';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 export function FavoritesPanel() {
   const { lists, quickFavorites, createList, deleteList, renameList } = useFavoritesStore();
+  const { data: screenplays = [] } = useScreenplays();
   const [isCreating, setIsCreating] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<FavoriteList | null>(null);
+
+  // Build ID → title lookup
+  const titleMap = new Map(screenplays.map(s => [s.id, s.title]));
 
   const handleCreateList = () => {
     if (newListName.trim()) {
@@ -34,6 +42,14 @@ export function FavoritesPanel() {
     setEditName('');
   };
 
+  const handleConfirmDelete = () => {
+    if (deleteTarget) {
+      deleteList(deleteTarget.id);
+      if (expandedId === deleteTarget.id) setExpandedId(null);
+      setDeleteTarget(null);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -54,7 +70,19 @@ export function FavoritesPanel() {
         <p className="text-sm text-black-400 mb-2">
           {quickFavorites.length} screenplays saved as quick favorites
         </p>
-        <p className="text-xs text-black-500">
+        {quickFavorites.length > 0 && (
+          <div className="mt-3 space-y-1">
+            {quickFavorites.slice(0, 10).map(id => (
+              <p key={id} className="text-xs text-gold-200/70 truncate pl-2 border-l-2 border-gold-500/20">
+                {titleMap.get(id) || <span className="text-black-500 italic">Unknown screenplay</span>}
+              </p>
+            ))}
+            {quickFavorites.length > 10 && (
+              <p className="text-xs text-black-500 pl-2">+{quickFavorites.length - 10} more</p>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-black-500 mt-2">
           Click the star icon on any screenplay card to add it here.
         </p>
       </div>
@@ -112,64 +140,86 @@ export function FavoritesPanel() {
         ) : (
           <div className="space-y-2">
             {lists.map((list) => (
-              <div
-                key={list.id}
-                className="flex items-center gap-4 p-4 rounded-lg bg-black-800/50 border border-black-700 hover:border-gold-500/30 transition-colors"
-              >
-                {/* List Icon */}
-                <div className="w-10 h-10 rounded-lg bg-gold-500/20 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                  </svg>
-                </div>
+              <div key={list.id}>
+                <div
+                  className="flex items-center gap-4 p-4 rounded-lg bg-black-800/50 border border-black-700 hover:border-gold-500/30 transition-colors cursor-pointer"
+                  onClick={() => setExpandedId(expandedId === list.id ? null : list.id)}
+                >
+                  {/* List Icon + Expand indicator */}
+                  <div className="w-10 h-10 rounded-lg bg-gold-500/20 flex items-center justify-center shrink-0">
+                    <svg
+                      className={`w-4 h-4 text-gold-400 transition-transform duration-200 ${expandedId === list.id ? 'rotate-90' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
 
-                {/* List Info */}
-                <div className="flex-1 min-w-0">
-                  {editingId === list.id ? (
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="input w-full text-sm"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSaveEdit(list.id);
-                        if (e.key === 'Escape') setEditingId(null);
-                      }}
-                      onBlur={() => handleSaveEdit(list.id)}
-                    />
-                  ) : (
-                    <>
-                      <p className="font-medium text-gold-200 truncate">{list.name}</p>
-                      <p className="text-xs text-black-500">
-                        {list.screenplayIds.length} screenplays · Updated {new Date(list.updatedAt).toLocaleDateString()}
-                      </p>
-                    </>
+                  {/* List Info */}
+                  <div className="flex-1 min-w-0">
+                    {editingId === list.id ? (
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="input w-full text-sm"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveEdit(list.id);
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        onBlur={() => handleSaveEdit(list.id)}
+                      />
+                    ) : (
+                      <>
+                        <p className="font-medium text-gold-200 truncate">{list.name}</p>
+                        <p className="text-xs text-black-500">
+                          {list.screenplayIds.length} screenplays · Updated {new Date(list.updatedAt).toLocaleDateString()}
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  {editingId !== list.id && (
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => handleStartEdit(list)}
+                        className="p-2 text-black-400 hover:text-gold-400 transition-colors"
+                        title="Rename list"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(list)}
+                        className="p-2 text-black-400 hover:text-red-400 transition-colors"
+                        title="Delete list"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   )}
                 </div>
 
-                {/* Actions */}
-                {editingId !== list.id && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleStartEdit(list)}
-                      className="p-2 text-black-400 hover:text-gold-400 transition-colors"
-                      title="Rename list"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => deleteList(list.id)}
-                      className="p-2 text-black-400 hover:text-red-400 transition-colors"
-                      title="Delete list"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                {/* Expanded: show screenplay titles */}
+                {expandedId === list.id && list.screenplayIds.length > 0 && (
+                  <div className="ml-14 mt-1 mb-2 pl-3 border-l-2 border-gold-500/15 space-y-1">
+                    {list.screenplayIds.map(id => (
+                      <p key={id} className="text-xs text-gold-200/60 truncate">
+                        {titleMap.get(id) || <span className="text-black-500 italic">Unknown</span>}
+                      </p>
+                    ))}
                   </div>
+                )}
+                {expandedId === list.id && list.screenplayIds.length === 0 && (
+                  <p className="ml-14 mt-1 mb-2 text-xs text-black-500 italic">Empty list</p>
                 )}
               </div>
             ))}
@@ -186,6 +236,17 @@ export function FavoritesPanel() {
           <li>• Export lists as CSV or JSON for external use</li>
         </ul>
       </div>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        title={`Delete "${deleteTarget?.name}"?`}
+        message={`This will permanently remove this list${deleteTarget && deleteTarget.screenplayIds.length > 0 ? ` and unlink ${deleteTarget.screenplayIds.length} screenplays from it` : ''}. The screenplays themselves will not be deleted.`}
+        confirmLabel="Delete List"
+        variant="danger"
+      />
     </div>
   );
 }

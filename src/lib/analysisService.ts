@@ -281,64 +281,92 @@ export async function generatePoster(
 
   // ── Step 2: Generate via Gemini ──
   const prompt = buildPosterPrompt(title, logline, genre);
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${googleApiKey}`;
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseModalities: ['IMAGE', 'TEXT'],
-        imageConfig: {
-          aspectRatio: '2:3',  // Standard theatrical one-sheet portrait
-        },
-      },
-    }),
-  });
+  // Models to try in order (primary → fallback)
+  const POSTER_MODELS = [
+    'gemini-2.5-flash-image',
+    'gemini-3.1-flash-image',
+    'gemini-3-pro-image',
+  ];
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error('[Poster] Gemini API error:', response.status, errorBody);
-    throw new Error(`Gemini API error ${response.status}: ${errorBody}`);
-  }
+  let lastError: Error | null = null;
 
-  const data = await response.json();
+  for (const model of POSTER_MODELS) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${googleApiKey}`;
 
-  // Extract base64 image from response
-  const parts = data.candidates?.[0]?.content?.parts || [];
-  let base64Data: string | null = null;
-  let mimeType = 'image/png';
-
-  for (const part of parts) {
-    if (part.inlineData && part.inlineData.mimeType?.startsWith('image/')) {
-      base64Data = part.inlineData.data;
-      mimeType = part.inlineData.mimeType;
-      break;
-    }
-  }
-
-  if (!base64Data) {
-    console.error('[Poster] No image data in Gemini response:', JSON.stringify(data).slice(0, 500));
-    throw new Error('No image generated — Gemini returned no inlineData');
-  }
-
-  // ── Step 3: Upload to Firebase Storage ──
-  if (screenplayId) {
     try {
-      const storageUrl = await uploadPosterToStorage(screenplayId, base64Data, mimeType);
-      console.log('[Poster] Uploaded poster to Storage for', title, '→', storageUrl);
-      return storageUrl;
-    } catch (uploadError) {
-      console.warn('[Poster] Storage upload failed, falling back to data URL:', uploadError);
-      // Fall through to data URL if upload fails
+      console.log(`[Poster] Trying model: ${model}`);
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseModalities: ['TEXT', 'IMAGE'],
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.warn(`[Poster] ${model} returned ${response.status}:`, errorBody.slice(0, 300));
+        // If 404 (model not found), try next model
+        if (response.status === 404) continue;
+        // If 400/403, parse for a useful message
+        try {
+          const errJson = JSON.parse(errorBody);
+          const msg = errJson?.error?.message || errorBody.slice(0, 200);
+          lastError = new Error(`${model}: ${msg}`);
+        } catch {
+          lastError = new Error(`${model}: HTTP ${response.status}`);
+        }
+        continue;
+      }
+
+      const data = await response.json();
+
+      // Extract base64 image from response
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      let base64Data: string | null = null;
+      let mimeType = 'image/png';
+
+      for (const part of parts) {
+        if (part.inlineData && part.inlineData.mimeType?.startsWith('image/')) {
+          base64Data = part.inlineData.data;
+          mimeType = part.inlineData.mimeType;
+          break;
+        }
+      }
+
+      if (!base64Data) {
+        console.warn(`[Poster] ${model} returned no image data, trying next...`);
+        lastError = new Error(`${model}: No image in response`);
+        continue;
+      }
+
+      console.log(`[Poster] ✓ Generated with ${model} for "${title}"`);
+
+      // ── Step 3: Upload to Firebase Storage ──
+      if (screenplayId) {
+        try {
+          const storageUrl = await uploadPosterToStorage(screenplayId, base64Data, mimeType);
+          console.log('[Poster] Uploaded to Storage →', storageUrl);
+          return storageUrl;
+        } catch (uploadError) {
+          console.warn('[Poster] Storage upload failed, using data URL:', uploadError);
+        }
+      }
+
+      return `data:${mimeType};base64,${base64Data}`;
+    } catch (fetchError) {
+      console.warn(`[Poster] ${model} fetch failed:`, fetchError);
+      lastError = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
+      continue;
     }
   }
 
-  // Fallback: return as data URL if no screenplayId or upload failed
-  const dataUrl = `data:${mimeType};base64,${base64Data}`;
-  console.log('[Poster] Generated poster for', title, '— size:', base64Data.length, 'chars');
-  return dataUrl;
+  // All models failed
+  throw lastError || new Error('All poster generation models failed');
 }
 
 // ─── Re-analyze from Firebase Storage ────────────────────────────────────────

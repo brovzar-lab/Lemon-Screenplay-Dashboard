@@ -11,6 +11,7 @@ interface PosterSectionProps {
 export function PosterSection({ screenplay }: PosterSectionProps) {
     const { posters, setPosterStatus } = usePosterStore();
     const [errorType, setErrorType] = useState<'key_missing' | 'generic' | null>(null);
+    const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
     // Merge prop state with store state
     const storedPoster = posters[screenplay.id];
@@ -26,12 +27,15 @@ export function PosterSection({ screenplay }: PosterSectionProps) {
                     const url = await generatePoster(screenplay.title, screenplay.logline, screenplay.genre, screenplay.id);
                     setPosterStatus(screenplay.id, 'ready', url);
                     setErrorType(null);
+                    setErrorDetail(null);
                 } catch (error) {
                     console.error('Poster generation failed', error);
-                    if (!(error instanceof Error && error.message === 'GOOGLE_API_KEY_MISSING')) {
+                    const msg = error instanceof Error ? error.message : String(error);
+                    if (msg !== 'GOOGLE_API_KEY_MISSING') {
                         useToastStore.getState().addToast('Poster generation failed', 'warning');
                     }
-                    setErrorType(error instanceof Error && error.message === 'GOOGLE_API_KEY_MISSING' ? 'key_missing' : 'generic');
+                    setErrorType(msg === 'GOOGLE_API_KEY_MISSING' ? 'key_missing' : 'generic');
+                    setErrorDetail(msg === 'GOOGLE_API_KEY_MISSING' ? null : msg);
                     setPosterStatus(screenplay.id, 'error');
                 }
             };
@@ -41,13 +45,17 @@ export function PosterSection({ screenplay }: PosterSectionProps) {
 
     const handleRegenerate = async (e: React.MouseEvent) => {
         e.stopPropagation();
+        setErrorDetail(null);
         setPosterStatus(screenplay.id, 'generating');
         try {
             const url = await generatePoster(screenplay.title, screenplay.logline, screenplay.genre, screenplay.id);
             setPosterStatus(screenplay.id, 'ready', url);
             setErrorType(null);
+            setErrorDetail(null);
         } catch (error) {
-            setErrorType(error instanceof Error && error.message === 'GOOGLE_API_KEY_MISSING' ? 'key_missing' : 'generic');
+            const msg = error instanceof Error ? error.message : String(error);
+            setErrorType(msg === 'GOOGLE_API_KEY_MISSING' ? 'key_missing' : 'generic');
+            setErrorDetail(msg === 'GOOGLE_API_KEY_MISSING' ? null : msg);
             setPosterStatus(screenplay.id, 'error');
         }
     };
@@ -88,13 +96,23 @@ export function PosterSection({ screenplay }: PosterSectionProps) {
                 </div>
             )}
 
-            {/* Error State — Generic */}
+            {/* Error State — Generic with detail */}
             {posterStatus === 'error' && errorType !== 'key_missing' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-black-900/50">
-                    <p className="text-red-400 mb-2">Poster Generation Failed</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-black-900/50 px-8">
+                    <div className="w-12 h-12 rounded-full bg-red-500/15 flex items-center justify-center mb-3">
+                        <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                    </div>
+                    <p className="text-red-400 font-medium text-sm mb-1">Poster Generation Failed</p>
+                    {errorDetail && (
+                        <p className="text-black-500 text-[10px] font-mono text-center max-w-sm mb-3 line-clamp-3 break-all">
+                            {errorDetail.slice(0, 200)}
+                        </p>
+                    )}
                     <button
                         onClick={handleRegenerate}
-                        className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded text-sm text-white"
+                        className="px-5 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm text-white transition-colors border border-white/10"
                     >
                         Try Again
                     </button>
@@ -104,7 +122,7 @@ export function PosterSection({ screenplay }: PosterSectionProps) {
             {/* Display State */}
             {(posterStatus === 'ready' || posterUrl) && (
                 <>
-                    {/* Ambient Backgroumd */}
+                    {/* Ambient Background */}
                     <div className="absolute inset-0">
                         <img
                             src={posterUrl}

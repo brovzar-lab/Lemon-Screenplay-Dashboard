@@ -10,6 +10,7 @@ import { useFavoritesStore } from '@/stores/favoritesStore';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { softDeleteAllAnalyses, resetMigrationFlag, getQuarantineCount } from '@/lib/analysisStore';
 import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToastStore } from '@/stores/toastStore';
 
@@ -24,6 +25,8 @@ export function DataManagement() {
 
   const [exportStatus, setExportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [showClearCacheConfirm, setShowClearCacheConfirm] = useState(false);
+  const [showResetAllConfirm, setShowResetAllConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeletedList, setShowDeletedList] = useState(false);
   const [quarantineCount, setQuarantineCount] = useState<number>(0);
@@ -123,16 +126,23 @@ export function DataManagement() {
   };
 
   const handleClearCache = () => {
-    if (confirm('Clear all cached data? This will reset filters and reload screenplay data.')) {
-      window.location.reload();
-    }
+    queryClient.invalidateQueries();
+    resetFilters();
+    useToastStore.getState().addToast('Cache cleared — data will refresh');
+    setShowClearCacheConfirm(false);
   };
 
   const handleResetAll = () => {
-    if (confirm('Reset ALL settings? This will clear favorites, lists, filters, and preferences.')) {
-      localStorage.clear();
-      window.location.reload();
+    // Only clear lemon-* keys, not everything
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('lemon-')) keysToRemove.push(key);
     }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+    useToastStore.getState().addToast(`Cleared ${keysToRemove.length} settings keys`);
+    setShowResetAllConfirm(false);
+    window.location.reload();
   };
 
   const handleDeleteAllScreenplays = async () => {
@@ -243,7 +253,7 @@ export function DataManagement() {
           </button>
 
           <button
-            onClick={handleClearCache}
+            onClick={() => setShowClearCacheConfirm(true)}
             className="w-full p-4 rounded-lg bg-black-800/50 border border-black-700 hover:border-gold-500/30 transition-colors text-left flex items-center justify-between"
           >
             <div>
@@ -366,7 +376,7 @@ export function DataManagement() {
           </button>
 
           <button
-            onClick={handleResetAll}
+            onClick={() => setShowResetAllConfirm(true)}
             className="w-full p-4 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors text-left flex items-center justify-between"
           >
             <div>
@@ -389,6 +399,28 @@ export function DataManagement() {
         message="This will remove all screenplays from the dashboard. They can be recovered from the Recently Deleted section within 30 days."
         count={screenplays.length}
         isPending={isDeleting}
+      />
+
+      {/* Clear Cache Confirmation */}
+      <ConfirmDialog
+        isOpen={showClearCacheConfirm}
+        onConfirm={handleClearCache}
+        onCancel={() => setShowClearCacheConfirm(false)}
+        title="Clear cached data?"
+        message="This will reset all filters and refresh screenplay data from the server. Your screenplays and settings will not be deleted."
+        confirmLabel="Clear Cache"
+        variant="warning"
+      />
+
+      {/* Reset All Confirmation */}
+      <ConfirmDialog
+        isOpen={showResetAllConfirm}
+        onConfirm={handleResetAll}
+        onCancel={() => setShowResetAllConfirm(false)}
+        title="Reset all settings?"
+        message="This will clear all favorites, custom lists, filter preferences, and locally stored settings. Your screenplays in Firebase will NOT be deleted. The page will reload."
+        confirmLabel="Reset Everything"
+        variant="danger"
       />
     </div>
   );

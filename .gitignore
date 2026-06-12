@@ -49,3 +49,6 @@ playwright-report/
 service-account.json
 lemon-screenplay-dashboard-firebase-adminsdk-fbsvc-2037a834e2.json
 *-adminsdk-*.json
+
+# Graphify knowledge graph
+graphify-out/
