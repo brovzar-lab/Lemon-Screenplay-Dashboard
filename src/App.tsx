@@ -7,6 +7,7 @@ import { PageSkeleton } from './components/Skeleton'
 
 const LoginPage            = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })))
 const OverviewPage         = lazy(() => import('./pages/OverviewPage').then(m => ({ default: m.OverviewPage })))
+const StudioPulsePage      = lazy(() => import('./pages/StudioPulsePage').then(m => ({ default: m.StudioPulsePage })))
 const ActiveSlatePage      = lazy(() => import('./pages/ActiveSlatePage').then(m => ({ default: m.ActiveSlatePage })))
 const FilmDevelopmentPage  = lazy(() => import('./pages/FilmDevelopmentPage').then(m => ({ default: m.FilmDevelopmentPage })))
 const TVDevelopmentPage    = lazy(() => import('./pages/TVDevelopmentPage').then(m => ({ default: m.TVDevelopmentPage })))
@@ -44,6 +45,7 @@ export default function App() {
             }
           >
             <Route index element={<OverviewPage />} />
+            <Route path="pulse"      element={<StudioPulsePage />} />
             <Route path="slate"      element={<ActiveSlatePage />} />
             <Route path="film-dev"   element={<FilmDevelopmentPage />} />
             <Route path="tv-dev"     element={<TVDevelopmentPage />} />
