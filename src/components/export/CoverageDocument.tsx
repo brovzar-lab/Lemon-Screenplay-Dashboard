@@ -21,9 +21,6 @@ import { ScoresPage } from './coverage/ScoresPage';
 import { AnalysisPage } from './coverage/AnalysisPage';
 import { AppendixPage } from './coverage/AppendixPage';
 
-// Re-export test-visible constants and styles from sub-modules
-export { __coverageDocStyles, __scoreGapStyle } from './coverage';
-
 // ─────────────────────────────────────────────
 // PROPS
 // ─────────────────────────────────────────────

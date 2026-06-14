@@ -34,7 +34,8 @@ vi.mock('@/lib/dimensionDisplay', () => ({
 }));
 
 import { render } from '@testing-library/react';
-import { CoverageDocument, __coverageDocStyles, __scoreGapStyle } from './CoverageDocument';
+import { CoverageDocument } from './CoverageDocument';
+import { __coverageDocStyles, __scoreGapStyle } from './coverage';
 import type { Screenplay } from '@/types';
 import type { Note } from '@/types/filters';
 
