@@ -1,6 +1,6 @@
 "use strict";
 /**
- * LLM Proxy Cloud Function — V8
+ * LLM Proxy Cloud Function — V9
  *
  * Pass-through to Anthropic with full feature surface:
  *   • Structured content blocks (caching, citations, images, PDFs)

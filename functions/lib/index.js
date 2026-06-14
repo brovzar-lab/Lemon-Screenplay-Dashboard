@@ -1,11 +1,13 @@
 "use strict";
 /**
- * Firebase Cloud Functions — Lemon Screenplay Dashboard
+ * Firebase Cloud Functions — Lemon Screenplay Dashboard (V9)
+ *
+ * Active functions:
+ *   - llmProxy: Routes all LLM calls server-side (Anthropic/Google)
+ *   - onScreenplayUploaded: Triggers VPS daemon on new PDF upload
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onScreenplayUploaded = exports.llmProxy = exports.analyzeScreenplay = void 0;
-var analyzeScreenplay_1 = require("./analyzeScreenplay");
-Object.defineProperty(exports, "analyzeScreenplay", { enumerable: true, get: function () { return analyzeScreenplay_1.analyzeScreenplay; } });
+exports.onScreenplayUploaded = exports.llmProxy = void 0;
 var llmProxy_1 = require("./llmProxy");
 Object.defineProperty(exports, "llmProxy", { enumerable: true, get: function () { return llmProxy_1.llmProxy; } });
 var onScreenplayUploaded_1 = require("./onScreenplayUploaded");

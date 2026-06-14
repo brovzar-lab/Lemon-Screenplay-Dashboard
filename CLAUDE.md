@@ -1,9 +1,9 @@
 # CLAUDE.md — Lemon Screenplay Dashboard
 
 ## Project
-Internal screenplay analysis dashboard for Lemon Studios. Ingests AI-generated screenplay coverage JSONs (V7 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
+Internal screenplay analysis dashboard for Lemon Studios. Ingests AI-generated screenplay coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
 
-**Analysis engine**: V7 Archaeology Engine only — 5 parallel readers (Structure, Character, Craft, Concept, Emotion) + synthesis roundtable. V6 has been removed. All LLM calls route server-side through the `llmProxy` Cloud Function; API keys never touch the browser.
+**Analysis engine**: V9 Archaeology Engine — 5 parallel readers (Structure, Character, Craft, Concept, Emotion) + synthesis roundtable. All prior engines (V3–V8) have been removed. All LLM calls route server-side through the `llmProxy` Cloud Function; API keys never touch the browser.
 
 ## Stack
 - React 19 + TypeScript (strict) + Vite 7
@@ -109,7 +109,7 @@ Data migration: static JSON files → Firestore (handled by `lib/analysisStore.t
 - **Lazy loading**: AnalyticsDashboard and ComparisonModal are lazy-loaded (Recharts is heavy). SettingsPage and SharedViewPage are lazy route components.
 - **Chunk splitting**: Separate vendor chunks for react, recharts, react-pdf, zustand+react-query, firebase, pdfjs
 - **LLM proxy**: All AI calls go through `llmProxy` Cloud Function (`/api/llm` in prod, emulator in dev). `proxyClient.ts` is the browser-side client. API keys never touch the browser.
-- **V7 pipeline**: `multiPassAnalysis.ts` → `promptClient.v7.ts` → proxy. Five readers run in parallel via `Promise.allSettled()`, then a synthesis pass.
+- **V9 pipeline**: `multiPassAnalysis.ts` → `promptClient.v7.ts` → proxy. Five readers run in parallel via `Promise.allSettled()`, then a synthesis pass. The VPS daemon (`daemon.py`) calls `execution/ingest_v9.py` for server-side analysis.
 - **Auth**: Anonymous Firebase auth. Reads are public, writes require auth token.
 - **DevExec**: AI chat overlay powered by Google Gemini, wrapped in DevExecContext/Provider
 
@@ -145,4 +145,4 @@ Data migration: static JSON files → Firestore (handled by `lib/analysisStore.t
 - Skip the TypeScript build check before committing
 
 ## Deployment
-Firebase Hosting via `npm run deploy` (builds then deploys hosting only). Cloud Functions deployed separately via `cd functions && npm run deploy`. Config in `.firebaserc` (project: `lemon-screenplay-dashboard`).
+Firebase Hosting via `npm run deploy` (builds then deploys hosting only). Cloud Functions (`llmProxy`, `onScreenplayUploaded`) deployed separately via `cd functions && npm run deploy`. Config in `.firebaserc` (project: `lemon-screenplay-dashboard`).

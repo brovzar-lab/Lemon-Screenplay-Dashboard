@@ -1,6 +1,10 @@
 /**
- * Archaeology Engine Normalization (V7/V8/V9)
- * Normalizes 5-pillar analysis output to the extended ScreenplayWithV7 type.
+ * Archaeology Engine Normalization (V9)
+ *
+ * Normalizes 5-pillar analysis output from the V9 Archaeology Engine
+ * (and backward-compatible V7/V8 documents) to the ScreenplayWithV7 type.
+ * Type names retain the V7 prefix because they describe the stored Firestore
+ * document shape, which hasn't changed across engine versions.
  */
 
 import type {

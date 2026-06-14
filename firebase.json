@@ -39,10 +39,6 @@
     ],
     "rewrites": [
       {
-        "source": "/api/analyze",
-        "function": "analyzeScreenplay"
-      },
-      {
         "source": "/api/llm",
         "function": "llmProxy"
       },

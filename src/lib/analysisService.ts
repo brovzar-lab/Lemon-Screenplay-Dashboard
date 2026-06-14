@@ -17,8 +17,8 @@ import type { Screenplay } from '@/types';
 import {
   runMultiReaderAnalysis,
   runTriage,
-  type V7AnalysisOptions,
-  type V7AnalysisProgress,
+  type AnalysisOptions as MultiPassOptions,
+  type AnalysisProgress as MultiPassProgress,
 } from './multiPassAnalysis';
 import { loadCalibrationProfile } from './feedbackStore';
 
@@ -131,14 +131,14 @@ async function analyzeV9Path(
   }
 
   // Full 5-reader + synthesis
-  const v9Options: V7AnalysisOptions = {
+  const v9Options: MultiPassOptions = {
     mode: 'full',
     model,
     lenses: options.lenses ?? ['commercial'],
     calibrationPrompt,
   };
 
-  const v9Result = await runMultiReaderAnalysis(parsed, v9Options, (p: V7AnalysisProgress) => {
+  const v9Result = await runMultiReaderAnalysis(parsed, v9Options, (p: MultiPassProgress) => {
     onProgress?.({
       stage: p.stage === 'complete' ? 'complete' : 'analyzing',
       percent: p.percent,
@@ -169,7 +169,7 @@ async function analyzeV9Path(
     },
   };
 
-  onProgress?.({ stage: 'complete', percent: 100, message: 'V7 analysis complete!' });
+  onProgress?.({ stage: 'complete', percent: 100, message: 'V9 analysis complete!' });
 
   // Upload PDF to Firebase Storage (non-blocking)
   try {

@@ -1,6 +1,6 @@
 /**
  * Shared normalization helpers
- * Internal utilities used by the V5, V6, and V7 normalizers.
+ * Internal utilities used by the V9 normalizer (and backward-compat V6/V7/V8 paths).
  */
 
 import type {

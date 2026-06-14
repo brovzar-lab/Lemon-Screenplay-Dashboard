@@ -23,16 +23,16 @@ import { callLLM } from './proxyClient';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type V7AnalysisMode = 'full' | 'triage';
+export type AnalysisMode = 'full' | 'triage';
 
-export interface V7AnalysisOptions {
-  mode: V7AnalysisMode;
+export interface AnalysisOptions {
+  mode: AnalysisMode;
   model?: 'sonnet' | 'opus';
   lenses?: LensName[];
   calibrationPrompt?: string;
 }
 
-export interface V7AnalysisProgress {
+export interface AnalysisProgress {
   stage: 'triage' | 'readers' | 'synthesis' | 'complete' | 'error';
   percent: number;
   message: string;
@@ -40,27 +40,27 @@ export interface V7AnalysisProgress {
   readersComplete?: ReaderName[];
 }
 
-export interface V7ReaderResult {
+export interface ReaderResult {
   reader: ReaderName;
   report: Record<string, unknown>;
   usage: { input_tokens: number; output_tokens: number };
   durationMs: number;
 }
 
-export interface V7AnalysisResult {
+export interface AnalysisResult {
   /** The synthesized V9 analysis output */
   analysis: Record<string, unknown>;
   /** Individual reader reports for inspection */
-  readerResults: V7ReaderResult[];
+  readerResults: ReaderResult[];
   /** Total token usage across all calls */
   totalUsage: { input_tokens: number; output_tokens: number };
   /** Total wall-clock duration */
   totalDurationMs: number;
   /** Analysis mode used */
-  mode: V7AnalysisMode;
+  mode: AnalysisMode;
 }
 
-export interface V7TriageResult {
+export interface TriageResult {
   triage_score: number;
   verdict: string;
   genre: string;
@@ -238,7 +238,7 @@ function parseClaudeJSON(text: string): Record<string, unknown> {
  */
 export async function runTriage(
   parsed: ParsedPDF,
-): Promise<V7TriageResult> {
+): Promise<TriageResult> {
   const prompt = buildTriagePrompt(parsed.text, {
     title: parsed.title,
     pageCount: parsed.pageCount,
@@ -278,10 +278,10 @@ export async function runTriage(
  */
 export async function runMultiReaderAnalysis(
   parsed: ParsedPDF,
-  options: V7AnalysisOptions,
-  onProgress?: (p: V7AnalysisProgress) => void,
+  options: AnalysisOptions,
+  onProgress?: (p: AnalysisProgress) => void,
   triageImpression?: { triage_score: number; verdict: string; genre: string; logline: string },
-): Promise<V7AnalysisResult> {
+): Promise<AnalysisResult> {
   const startTime = Date.now();
   const model = options.model ?? 'sonnet';
   const lenses = options.lenses ?? ['commercial'];
@@ -343,13 +343,13 @@ export async function runMultiReaderAnalysis(
       report,
       usage,
       durationMs,
-    } as V7ReaderResult;
+    } as ReaderResult;
   });
 
   const readerSettled = await Promise.allSettled(readerPromises);
 
   // Collect results, note failures
-  const readerResults: V7ReaderResult[] = [];
+  const readerResults: ReaderResult[] = [];
   const failedReaders: string[] = [];
 
   for (const result of readerSettled) {
@@ -475,9 +475,9 @@ export async function runMultiReaderAnalysis(
  */
 export async function analyzeV9(
   parsed: ParsedPDF,
-  options: V7AnalysisOptions,
-  onProgress?: (p: V7AnalysisProgress) => void,
-): Promise<V7AnalysisResult | V7TriageResult> {
+  options: AnalysisOptions,
+  onProgress?: (p: AnalysisProgress) => void,
+): Promise<AnalysisResult | TriageResult> {
   if (options.mode === 'triage') {
     return runTriage(parsed);
   }

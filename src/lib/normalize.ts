@@ -28,7 +28,7 @@ export {
   normalizeV6Screenplay,
 } from './normalizers/normalizeV6';
 
-// ── V7/V8/V9 (Archaeology Engine) ──────────────────────────
+// ── V9 Archaeology Engine (with V7/V8 backward compat) ────
 export {
   isV7RawAnalysis,
   normalizeV7Screenplay,
