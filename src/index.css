@@ -1,32 +1,31 @@
 @import "tailwindcss";
-@import './styles/soft-print.css';
+@import './styles/halation.css';
 
 /* ============================================================================
-   LEMON SCREENPLAY DASHBOARD — Soft Print
-   Warm paper. Light primary, warm-charcoal dark counterpart.
-   Single rose brand. Sage / sand / clay status — never overlapping with brand.
-   The legacy --color-* palette is remapped to Soft Print tokens so existing
+   LEMON SCREENPLAY DASHBOARD — Halation
+   Violet-tinged calm system. Deep violet-black dark, lavender-grey light.
+   Single violet accent. Four verdict hues. Genre-keyed chart colors.
+   The legacy --color-* palette is remapped to Halation tokens so existing
    Tailwind utility classes (`bg-black-800`, `text-gold-400`, `text-emerald-500`,
    ...) inherit the new system without JSX changes.
    ============================================================================ */
 
 @theme {
-  /* ===== Brand (gold legacy → rose). Brand & CTA only — NEVER status. =====
-     gold-50..200 were historically used as TEXT (cream-on-dark titles, headings)
-     so they remap to text tokens — not to rose tint, which is a fill color and
-     would render unreadable on surfaces. gold-400+ are the true brand accents. */
-  --color-gold-50:  var(--sp-rose-tint);
+  /* ===== Brand (gold legacy → accent violet). Gold-50..200 historically used
+     as TEXT so they remap to text tokens, not to accent fill. gold-400+ are
+     the true brand accents. ===== */
+  --color-gold-50:  var(--sp-accent-soft);
   --color-gold-100: var(--sp-text);
   --color-gold-200: var(--sp-text);
   --color-gold-300: var(--sp-text-2);
-  --color-gold-400: var(--sp-rose);
-  --color-gold-500: var(--sp-rose);
-  --color-gold-600: var(--sp-rose-strong);
-  --color-gold-700: var(--sp-rose-strong);
-  --color-gold-800: var(--sp-rose-strong);
-  --color-gold-900: var(--sp-rose-strong);
+  --color-gold-400: var(--sp-accent);
+  --color-gold-500: var(--sp-accent);
+  --color-gold-600: var(--sp-accent-strong);
+  --color-gold-700: var(--sp-accent-strong);
+  --color-gold-800: var(--sp-accent-strong);
+  --color-gold-900: var(--sp-accent-strong);
 
-  /* ===== Neutrals (black legacy → warm paper / warm charcoal). Auto-flip. ===== */
+  /* ===== Neutrals (black legacy → halation surfaces). Auto-flip via tokens. ===== */
   --color-black-50:  var(--sp-text);
   --color-black-100: var(--sp-text);
   --color-black-200: var(--sp-text-2);
@@ -34,45 +33,45 @@
   --color-black-400: var(--sp-text-3);
   --color-black-500: var(--sp-text-3);
   --color-black-600: var(--sp-border-strong);
-  --color-black-700: var(--sp-surface);
+  --color-black-700: var(--sp-border);
   --color-black-800: var(--sp-surface-2);
-  --color-black-900: var(--sp-bg);
-  --color-black-950: var(--sp-sunken);
+  --color-black-900: var(--sp-surface);
+  --color-black-950: var(--sp-bg);
 
-  /* ===== Status (semantic only; the single job of each hue) ===== */
-  --color-emerald-300: var(--sp-sage);
-  --color-emerald-400: var(--sp-sage);
-  --color-emerald-500: var(--sp-sage);
-  --color-emerald-600: var(--sp-sage);
+  /* ===== Status (semantic only) ===== */
+  --color-emerald-300: var(--sp-recommend);
+  --color-emerald-400: var(--sp-recommend);
+  --color-emerald-500: var(--sp-recommend);
+  --color-emerald-600: var(--sp-recommend);
 
-  --color-amber-300: var(--sp-sand);
-  --color-amber-400: var(--sp-sand);
-  --color-amber-500: var(--sp-sand);
-  --color-amber-600: var(--sp-sand);
-  --color-amber-700: var(--sp-sand);
+  --color-amber-300: var(--sp-consider);
+  --color-amber-400: var(--sp-consider);
+  --color-amber-500: var(--sp-consider);
+  --color-amber-600: var(--sp-consider);
+  --color-amber-700: var(--sp-consider);
 
-  --color-red-300: var(--sp-clay);
-  --color-red-400: var(--sp-clay);
-  --color-red-500: var(--sp-clay);
-  --color-red-600: var(--sp-clay);
+  --color-red-300: var(--sp-pass);
+  --color-red-400: var(--sp-pass);
+  --color-red-500: var(--sp-pass);
+  --color-red-600: var(--sp-pass);
 
-  /* ===== Retired decorative families ===== */
-  --color-violet-400: var(--sp-text-2);
-  --color-violet-500: var(--sp-text-2);
-  --color-burgundy-400: var(--sp-rose);
-  --color-burgundy-500: var(--sp-rose);
-  --color-burgundy-600: var(--sp-rose-strong);
-  --color-teal-400: var(--sp-text-2);
-  --color-teal-500: var(--sp-text-2);
+  /* ===== Retired decorative families — collapse to muted/accent ===== */
+  --color-violet-400: var(--sp-accent);
+  --color-violet-500: var(--sp-accent);
+  --color-burgundy-400: var(--sp-accent);
+  --color-burgundy-500: var(--sp-accent);
+  --color-burgundy-600: var(--sp-accent-strong);
+  --color-teal-400: var(--sp-secondary);
+  --color-teal-500: var(--sp-secondary);
   --color-ivory: var(--sp-surface);
 
-  /* ===== Typography — single humanist grotesk + mono. No display serif. ===== */
-  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  /* ===== Typography ===== */
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-body:    "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono:    "Spline Sans Mono", ui-monospace, monospace;
+  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
 
-  /* ===== Spacing (4px scale — matches SP) ===== */
+  /* ===== Spacing (4px scale) ===== */
   --spacing-1: 0.25rem;
   --spacing-2: 0.5rem;
   --spacing-3: 0.75rem;
@@ -84,18 +83,18 @@
   --spacing-12: 3rem;
   --spacing-16: 4rem;
 
-  /* ===== Radii (mapped to SP scale; 18px default card) ===== */
+  /* ===== Radii (16px card, 10px inputs, full pills) ===== */
   --radius-sm:  6px;
   --radius-md:  10px;
   --radius-lg:  14px;
-  --radius-xl:  18px;
+  --radius-xl:  16px;
   --radius-2xl: 24px;
 
-  /* ===== Shadows — warm, low, diffuse ===== */
-  --shadow-sm: 0 1px 2px rgba(47,43,37,.05);
-  --shadow-md: 0 2px 4px rgba(47,43,37,.04), 0 8px 20px -10px rgba(47,43,37,.12);
-  --shadow-lg: 0 4px 10px rgba(47,43,37,.05), 0 22px 44px -18px rgba(47,43,37,.18);
-  --shadow-xl: 0 4px 10px rgba(47,43,37,.05), 0 22px 44px -18px rgba(47,43,37,.18);
+  /* ===== Shadows — cool violet-tinted ===== */
+  --shadow-sm: var(--sp-shadow-sm);
+  --shadow-md: var(--sp-shadow-md);
+  --shadow-lg: var(--sp-shadow-lg);
+  --shadow-xl: var(--sp-shadow-lg);
   --shadow-gold:    var(--sp-shadow-md);
   --shadow-gold-lg: var(--sp-shadow-lg);
 
@@ -131,36 +130,47 @@
     font-size: var(--sp-text-base);
     line-height: 1.55;
     font-weight: 400;
+    position: relative;
   }
 
-  #root { min-height: 100vh; }
+  /* Halation page glow — atmospheric gradient overlay */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: var(--sp-glow);
+  }
+  #root { min-height: 100vh; position: relative; z-index: 1; }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--sp-font);
+    font-family: var(--sp-display);
     color: var(--sp-text);
-    font-weight: 600;
+    font-weight: 700;
     margin: 0;
     line-height: 1.2;
+    letter-spacing: -0.02em;
   }
-  h1 { font-size: var(--sp-text-3xl); line-height: 1.06; letter-spacing: -0.022em; }
-  h2 { font-size: var(--sp-text-2xl); line-height: 1.12; letter-spacing: -0.018em; }
-  h3 { font-size: var(--sp-text-xl);  line-height: 1.20; letter-spacing: -0.012em; }
-  h4 { font-size: var(--sp-text-lg);  line-height: 1.30; letter-spacing: -0.006em; }
+  h1 { font-size: var(--sp-text-3xl); line-height: 1.06; }
+  h2 { font-size: var(--sp-text-2xl); line-height: 1.12; }
+  h3 { font-size: var(--sp-text-xl);  line-height: 1.20; }
+  h4 { font-size: var(--sp-text-lg);  line-height: 1.30; }
   h5, h6 { font-size: var(--sp-text-md); }
 
   a {
-    color: var(--sp-rose-strong);
+    color: var(--sp-accent-strong);
     text-decoration: none;
     transition: color var(--duration-fast) var(--sp-ease);
   }
-  a:hover { color: var(--sp-rose); }
+  a:hover { color: var(--sp-accent); }
 
   ::selection {
-    background: var(--sp-rose-tint);
+    background: var(--sp-accent-soft);
     color: var(--sp-text);
   }
 
-  /* Scrollbars — calm + warm */
+  /* Scrollbars — thin, calm */
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
@@ -179,13 +189,13 @@
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
 
-  /* All font utilities collapse to the single grotesk (system is single-grotesk). */
-  .font-heading,
-  .font-display,
+  /* Display font for logos and big headings */
+  .font-display { font-family: var(--sp-display); font-weight: 700; letter-spacing: -0.02em; }
+  .font-heading { font-family: var(--sp-display); font-weight: 700; letter-spacing: -0.02em; }
   .font-body { font-family: var(--sp-font); }
   .font-mono { font-family: var(--sp-mono); font-feature-settings: "tnum"; }
 
-  /* Glass utilities — reskinned to calm surface tokens (no blur, no glow). */
+  /* Glass utilities — collapsed to surface tokens. */
   .glass,
   .glass-dark,
   .glass-card,
@@ -200,45 +210,45 @@
     backdrop-filter: blur(3px);
   }
 
-  /* Legacy FILM NOW glow → softened to a calm shadow. */
-  .film-now-glow { box-shadow: var(--sp-shadow-md); border-color: var(--sp-rose); }
+  /* FILM NOW accent glow */
+  .film-now-glow { box-shadow: var(--sp-shadow-md); border-color: var(--sp-film-now); }
 
-  /* Gradient text — banned by impeccable; collapses to a solid rose. */
+  /* Gradient text — collapses to accent solid. */
   .text-gradient-gold {
     background: none;
     -webkit-text-fill-color: initial;
     -webkit-background-clip: initial;
     background-clip: initial;
-    color: var(--sp-rose-strong);
+    color: var(--sp-accent);
   }
 
-  /* Score tier colors — brand stays out of tiering. */
-  .score-excellent { color: var(--sp-sage); }
-  .score-good      { color: var(--sp-sand); }
-  .score-poor      { color: var(--sp-clay); }
+  /* Score tier colors */
+  .score-excellent { color: var(--sp-recommend); }
+  .score-good      { color: var(--sp-consider); }
+  .score-poor      { color: var(--sp-pass); }
 
-  /* Status badges — tint background + semantic text + leading dot in markup. */
+  /* Status badges */
   .badge-recommend {
-    background: var(--sp-sage-tint);
-    color: var(--sp-sage);
+    background: var(--sp-recommend-tint);
+    color: var(--sp-recommend);
   }
   .badge-consider {
-    background: var(--sp-sand-tint);
-    color: var(--sp-sand);
+    background: var(--sp-consider-tint);
+    color: var(--sp-consider);
   }
   .badge-pass {
-    background: var(--sp-clay-tint);
-    color: var(--sp-clay);
+    background: var(--sp-pass-tint);
+    color: var(--sp-pass);
   }
   .badge-film-now {
-    background: var(--sp-rose);
-    color: var(--sp-on-rose);
+    background: var(--sp-film-now);
+    color: var(--sp-accent-text);
     font-weight: 700;
   }
 }
 
 /* ============================================================================
-   ANIMATIONS — calm entrances only. No bounce, no glow pulses.
+   ANIMATIONS
    ============================================================================ */
 @layer utilities {
   @keyframes fade-in       { from { opacity: 0; } to { opacity: 1; } }
@@ -253,16 +263,16 @@
   .animate-slide-in-right { animation: slide-in-right var(--duration-slow) var(--sp-ease); }
   .animate-slide-in-left  { animation: slide-in-left  var(--duration-slow) var(--sp-ease); }
 
-  /* Retired loud motion — keep class names so JSX doesn't break, but neuter behaviour. */
+  /* Retired loud motion — keep class names, neuter behaviour. */
   .animate-pulse-glow,
   .animate-shimmer { animation: none; }
 
-  /* Drag interactions — calm, no rotation, no gold glow. */
+  /* Drag interactions */
   .card-dragging { box-shadow: var(--sp-shadow-lg); z-index: 50; cursor: grabbing; }
   .card-drag-ghost { opacity: 0.4; }
   .card-drop-zone {
-    border: 1px dashed var(--sp-rose);
-    background: var(--sp-rose-tint);
+    border: 1px dashed var(--sp-accent);
+    background: var(--sp-accent-soft);
   }
   .card-drop-bounce { animation: scale-in 200ms var(--sp-ease); }
 }
@@ -271,14 +281,13 @@
    COMPONENT STYLES
    ============================================================================ */
 @layer components {
-  /* Card — surface + hairline + sm shadow; lifts to md on hover. */
+  /* Card — surface + hairline + shadow; lifts on hover. */
   .card {
-    background: var(--sp-surface);
+    background: var(--sp-surface-2);
     border: 1px solid var(--sp-border);
     border-radius: var(--sp-r-lg);
     box-shadow: var(--sp-shadow-sm);
     padding: var(--sp-5);
-    /* Skip rendering for off-screen cards — saves paint/layout for large grids */
     content-visibility: auto;
     contain-intrinsic-size: auto 280px;
     transition:
@@ -292,20 +301,18 @@
     border-color: var(--sp-border-strong);
   }
 
-  /* FILM NOW — rose-tint fill + rose hairline. No glow, no gradient. */
+  /* FILM NOW — verdict accent tint + border */
   .card-film-now {
-    background: var(--sp-rose-tint);
-    border-color: var(--sp-rose);
+    background: var(--sp-film-now-tint);
+    border-color: var(--sp-film-now);
   }
   .card-film-now:hover {
-    border-color: var(--sp-rose-strong);
+    border-color: var(--sp-film-now);
   }
 
-  /* Recommend — no card-level side-stripe (impeccable absolute ban).
-     Recommend is signalled by the badge only. */
-  .card-recommend { /* intentionally empty */ }
+  .card-recommend { /* signalled by badge only */ }
 
-  /* Pass — gently dim; lifts on hover. */
+  /* Pass — gently dim */
   .card-pass { opacity: 0.7; transition: opacity .25s var(--sp-ease); }
   .card-pass:hover { opacity: 1; transform: none; }
 
@@ -331,10 +338,10 @@
   .btn:focus-visible { outline: none; box-shadow: var(--sp-ring); }
 
   .btn-primary {
-    background: var(--sp-rose);
-    color: var(--sp-on-rose);
+    background: var(--sp-accent);
+    color: var(--sp-accent-text);
   }
-  .btn-primary:hover { background: var(--sp-rose-strong); }
+  .btn-primary:hover { background: var(--sp-accent-strong); }
 
   .btn-secondary {
     background: var(--sp-surface);
@@ -352,7 +359,7 @@
     color: var(--sp-text);
   }
 
-  /* Chip / tag — full pill, calm. */
+  /* Chip / tag — full pill */
   .chip {
     display: inline-flex; align-items: center;
     padding: 4px 10px;
@@ -364,11 +371,10 @@
     border: 1px solid var(--sp-border);
   }
   .chip-active {
-    background: var(--sp-rose-tint);
-    color: var(--sp-rose-strong);
-    border-color: var(--sp-rose);
+    background: var(--sp-accent-soft);
+    color: var(--sp-accent);
+    border-color: var(--sp-accent);
   }
-  /* Genre / budget chips: stay neutral — they're metadata, not status, not brand. */
   .chip-genre,
   .chip-budget {
     background: var(--sp-surface-2);
@@ -391,12 +397,12 @@
   .input:focus {
     outline: none;
     background: var(--sp-surface);
-    border-color: var(--sp-rose);
+    border-color: var(--sp-accent);
     box-shadow: var(--sp-ring);
   }
   .input::placeholder { color: var(--sp-text-3); }
 
-  /* Score bar — track + semantic fill. */
+  /* Score bar */
   .score-bar {
     height: 5px;
     background: var(--sp-sunken);
@@ -408,9 +414,9 @@
     border-radius: var(--sp-r-full);
     transition: width var(--duration-slow) var(--sp-ease);
   }
-  .score-bar-fill-excellent { background: var(--sp-sage); }
-  .score-bar-fill-good      { background: var(--sp-sand); }
-  .score-bar-fill-poor      { background: var(--sp-clay); }
+  .score-bar-fill-excellent { background: var(--sp-recommend); }
+  .score-bar-fill-good      { background: var(--sp-consider); }
+  .score-bar-fill-poor      { background: var(--sp-pass); }
 }
 
 /* ============================================================================
@@ -441,7 +447,7 @@
 }
 
 /* ============================================================================
-   MODAL — semantic classes
+   MODAL
    ============================================================================ */
 .modal-header {
   background: var(--sp-surface);
@@ -450,13 +456,13 @@
 
 .modal-delete-btn {
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--sp-clay) 35%, transparent);
-  color: var(--sp-clay);
+  border: 1px solid color-mix(in srgb, var(--sp-pass) 35%, transparent);
+  color: var(--sp-pass);
   transition: background .18s var(--sp-ease), border-color .18s var(--sp-ease), color .18s var(--sp-ease);
 }
 .modal-delete-btn:hover {
-  background: var(--sp-clay-tint);
-  border-color: var(--sp-clay);
+  background: var(--sp-pass-tint);
+  border-color: var(--sp-pass);
 }
 
 .modal-close-btn {
