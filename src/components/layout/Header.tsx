@@ -3,10 +3,12 @@
  * Main header with logo, stats, and global actions
  */
 
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useScreenplayStats } from '@/hooks/useScreenplays';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
-import { useThemeStore } from '@/stores/themeStore';
+import { useThemeStore, THEME_OPTIONS } from '@/stores/themeStore';
+import type { ThemeId } from '@/stores/themeStore';
 import { DevExecToggle } from '@/components/devexec';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
 
@@ -34,14 +36,43 @@ function StatPill({ label, value, highlight = false }: StatPillProps) {
   );
 }
 
+/** Small color swatch for the theme picker */
+function ThemeSwatch({ themeId }: { themeId: ThemeId }) {
+  const swatchColors: Record<ThemeId, { bg: string; accent: string }> = {
+    dark:       { bg: '#0B0A12', accent: '#7C6AF6' },
+    light:      { bg: '#F1F0F7', accent: '#6655E6' },
+    's2s':      { bg: '#F5F1E8', accent: '#C49B4B' },
+    's2s-dark': { bg: '#141210', accent: '#D4A94F' },
+  };
+  const { bg, accent } = swatchColors[themeId];
+  return (
+    <span
+      className="inline-block w-4 h-4 rounded-full border border-current/20 flex-shrink-0"
+      style={{
+        background: `linear-gradient(135deg, ${bg} 50%, ${accent} 50%)`,
+      }}
+    />
+  );
+}
+
 export function Header() {
   const { data: stats, isLoading } = useScreenplayStats();
   const { filteredCount, totalCount } = useFilteredScreenplays();
-  const { resolvedTheme, setTheme } = useThemeStore();
+  const { resolvedTheme, isDark, setTheme } = useThemeStore();
+  const [isThemeOpen, setIsThemeOpen] = useState(false);
+  const themeRef = useRef<HTMLDivElement>(null);
 
-  const toggleTheme = () => {
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
-  };
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!isThemeOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
+        setIsThemeOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isThemeOpen]);
 
   return (
     <header className="sticky top-0 z-50 glass-dark border-b border-gold-500/10" role="banner">
@@ -49,7 +80,7 @@ export function Header() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-4">
-            <img src={resolvedTheme === 'dark' ? '/lemon-logo-white.png' : '/lemon-logo-black.png'} alt="Lemon Studios" className="h-9 w-9" />
+            <img src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-black.png'} alt="Lemon Studios" className="h-9 w-9" />
             <h1 className="text-2xl font-display m-0">
               <span className="text-gradient-gold font-bold tracking-tight">LEMON</span>
               <span className="text-black-200 font-light ml-2">Screenplay Dashboard</span>
@@ -94,23 +125,68 @@ export function Header() {
             {/* Dev Exec AI */}
             <DevExecToggle />
 
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg text-black-400 hover:text-gold-400 hover:bg-black-800/50 transition-colors"
-              title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
-              aria-label="Toggle theme"
-            >
-              {resolvedTheme === 'dark' ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            {/* Theme Picker */}
+            <div className="relative" ref={themeRef}>
+              <button
+                onClick={() => setIsThemeOpen(!isThemeOpen)}
+                className="flex items-center gap-2 p-2 rounded-lg text-black-400 hover:text-gold-400 hover:bg-black-800/50 transition-colors"
+                title="Change theme"
+                aria-label="Change theme"
+                aria-expanded={isThemeOpen}
+                aria-haspopup="true"
+              >
+                <ThemeSwatch themeId={resolvedTheme} />
+                <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 12 12" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5l3 3 3-3" />
                 </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
+              </button>
+
+              {isThemeOpen && (
+                <div
+                  className="absolute right-0 top-full mt-2 w-52 rounded-xl border overflow-hidden z-50"
+                  style={{
+                    background: 'var(--sp-surface)',
+                    borderColor: 'var(--sp-border-strong)',
+                    boxShadow: 'var(--sp-shadow-lg)',
+                  }}
+                  role="menu"
+                >
+                  <div className="p-1.5">
+                    {THEME_OPTIONS.map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={() => {
+                          setTheme(option.id);
+                          setIsThemeOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
+                        style={{
+                          background: resolvedTheme === option.id ? 'var(--sp-accent-soft)' : 'transparent',
+                          color: resolvedTheme === option.id ? 'var(--sp-accent)' : 'var(--sp-text-2)',
+                        }}
+                        role="menuitem"
+                      >
+                        <ThemeSwatch themeId={option.id} />
+                        <span
+                          className="text-sm"
+                          style={{
+                            fontWeight: resolvedTheme === option.id ? 600 : 400,
+                            fontFamily: option.family === 's2s' ? '"Playfair Display", Georgia, serif' : 'inherit',
+                          }}
+                        >
+                          {option.label}
+                        </span>
+                        {resolvedTheme === option.id && (
+                          <svg className="w-4 h-4 ml-auto" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
 
             {/* Settings Link */}
             <Link

@@ -21,9 +21,16 @@ vi.mock('@/hooks/useFilteredScreenplays', () => ({
 
 vi.mock('@/stores/themeStore', () => ({
   useThemeStore: () => ({
-    resolvedTheme: 'dark',
+    resolvedTheme: 'dark' as const,
+    isDark: true,
     setTheme: vi.fn(),
   }),
+  THEME_OPTIONS: [
+    { id: 'dark', label: 'Halation Dark', family: 'halation', mode: 'dark' },
+    { id: 'light', label: 'Halation Light', family: 'halation', mode: 'light' },
+    { id: 's2s', label: 'Story to Screen', family: 's2s', mode: 'light' },
+    { id: 's2s-dark', label: 'Story to Screen Dark', family: 's2s', mode: 'dark' },
+  ],
 }));
 
 // DevExecToggle needs its own store — mock it as a no-op
@@ -69,13 +76,13 @@ describe('Header', () => {
     expect(screen.getByTitle('Settings')).toBeInTheDocument();
   });
 
-  it('renders the theme toggle button', () => {
+  it('renders the theme picker button', () => {
     render(
       <MemoryRouter>
         <Header />
       </MemoryRouter>
     );
 
-    expect(screen.getByLabelText('Toggle theme')).toBeInTheDocument();
+    expect(screen.getByLabelText('Change theme')).toBeInTheDocument();
   });
 });
