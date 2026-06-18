@@ -39,10 +39,18 @@ function StatPill({ label, value, highlight = false }: StatPillProps) {
 /** Small color swatch for the theme picker */
 function ThemeSwatch({ themeId }: { themeId: ThemeId }) {
   const swatchColors: Record<ThemeId, { bg: string; accent: string }> = {
-    dark:       { bg: '#0B0A12', accent: '#7C6AF6' },
-    light:      { bg: '#F1F0F7', accent: '#6655E6' },
-    's2s':      { bg: '#F5F1E8', accent: '#C49B4B' },
-    's2s-dark': { bg: '#141210', accent: '#D4A94F' },
+    dark:             { bg: '#0B0A12', accent: '#7C6AF6' },
+    light:            { bg: '#F1F0F7', accent: '#6655E6' },
+    's2s':            { bg: '#F5F1E8', accent: '#C49B4B' },
+    's2s-dark':       { bg: '#141210', accent: '#D4A94F' },
+    'noir':           { bg: '#F2F0ED', accent: '#B03030' },
+    'noir-dark':      { bg: '#121110', accent: '#D44040' },
+    'sundance':       { bg: '#FAF5ED', accent: '#C75B39' },
+    'sundance-dark':  { bg: '#1A1510', accent: '#E07048' },
+    'neon':           { bg: '#F0F4F4', accent: '#008A80' },
+    'neon-dark':      { bg: '#050A0A', accent: '#00E5CC' },
+    'arctic':         { bg: '#F8FAFC', accent: '#3B82F6' },
+    'arctic-dark':    { bg: '#0B1120', accent: '#60A5FA' },
   };
   const { bg, accent } = swatchColors[themeId];
   return (
@@ -143,11 +151,13 @@ export function Header() {
 
               {isThemeOpen && (
                 <div
-                  className="absolute right-0 top-full mt-2 w-52 rounded-xl border overflow-hidden z-50"
+                  className="absolute right-0 top-full mt-2 w-56 rounded-xl border overflow-hidden z-50"
                   style={{
                     background: 'var(--sp-surface)',
                     borderColor: 'var(--sp-border-strong)',
                     boxShadow: 'var(--sp-shadow-lg)',
+                    maxHeight: '420px',
+                    overflowY: 'auto',
                   }}
                   role="menu"
                 >
@@ -171,7 +181,13 @@ export function Header() {
                           className="text-sm"
                           style={{
                             fontWeight: resolvedTheme === option.id ? 600 : 400,
-                            fontFamily: option.family === 's2s' ? '"Playfair Display", Georgia, serif' : 'inherit',
+                            fontFamily:
+                              option.family === 's2s' ? '"Playfair Display", Georgia, serif' :
+                              option.family === 'noir' ? '"Crimson Pro", Georgia, serif' :
+                              option.family === 'sundance' ? '"DM Sans", sans-serif' :
+                              option.family === 'neon' ? '"Space Mono", monospace' :
+                              option.family === 'arctic' ? '"Outfit", sans-serif' :
+                              'inherit',
                           }}
                         >
                           {option.label}

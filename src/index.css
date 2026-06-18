@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import './styles/halation.css';
 @import './styles/story-to-screen.css';
+@import './styles/noir-cinema.css';
+@import './styles/sundance.css';
+@import './styles/neon-terminal.css';
+@import './styles/arctic-studio.css';
 
 /* ============================================================================
    LEMON SCREENPLAY DASHBOARD — Halation
