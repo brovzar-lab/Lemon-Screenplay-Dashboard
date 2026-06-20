@@ -1,0 +1,241 @@
+/* ============================================================================
+   INSTRUMENT — Design System
+   Lemon's house design language. Light by default, Midnight navy dark twin.
+   One cobalt accent. Playfair Display for titles (24px+). Schibsted Grotesk
+   for everything else with tabular figures. Structure from fill + real shadows,
+   never from hairline borders. Depth on cards and primary button only.
+   ============================================================================ */
+
+/* Fonts loaded via <link> in index.html: Playfair Display + Schibsted Grotesk */
+
+/* ============================================================================
+   LIGHT (default) — Cool grey paper, white cards, cobalt accent
+   ============================================================================ */
+:root {
+  /* surfaces */
+  --bg: #EAECF1;
+  --surface: #FFFFFF;
+  --sunken: #EEF0F3;
+  --line: #E6E8EC;
+
+  /* text */
+  --ink: #0B0D12;
+  --ink-2: #585F6B;
+  --ink-3: #9298A4;
+
+  /* accent — one job: primary action + active state */
+  --accent: #2B54F0;
+  --accent-press: #2042C2;
+  --accent-soft: #EAEEFE;
+  --on-soft: #2042C2;
+
+  /* data — charts and status only */
+  --data-blue: #2B54F0;
+  --data-violet: #6E4BF0;
+  --data-teal: #119C8B;
+  --data-coral: #FF6B5C;
+
+  /* semantic — full strength for icons/borders only */
+  --success: #12A66B;
+  --warning: #F5A524;
+  --error: #FF5247;
+
+  /* semantic soft pairs — badges, tags, inline alert text */
+  --success-soft: #E2F4EC; --on-success: #0C7A4E;
+  --warning-soft: #FBEDD6; --on-warning: #9A6406;
+  --error-soft: #FCE7E7;   --on-error: #C42B2B;
+
+  /* typography */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Schibsted Grotesk', system-ui, sans-serif;
+
+  /* shape */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* spacing */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px;
+  --space-4: 16px; --space-6: 24px; --space-8: 32px;
+
+  /* depth — light mode. Two-layer: tight contact + wide ambient */
+  --shadow-card: 0 1px 2px rgba(16,20,30,.10), 0 2px 4px rgba(16,20,30,.06), 0 12px 30px rgba(16,20,30,.11);
+  --highlight-top: inset 0 1px 0 rgba(255,255,255,.9);
+  --shadow-pop: 0 2px 4px rgba(16,20,30,.12), 0 4px 8px rgba(16,20,30,.08), 0 20px 44px rgba(16,20,30,.14);
+  --shadow-hover: 0 2px 4px rgba(16,20,30,.12), 0 6px 12px rgba(16,20,30,.10), 0 24px 50px rgba(16,20,30,.16);
+  --shadow-btn: inset 0 1px 0 rgba(255,255,255,.22), 0 1px 2px rgba(11,13,18,.12), 0 6px 16px rgba(43,84,240,.26);
+  --inset-input: inset 0 1px 2px rgba(11,13,18,.06);
+
+  /* motion */
+  --ease-press: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ===== Bridge to --sp-* token system (backward compat) ===== */
+  --sp-bg: var(--bg);
+  --sp-surface: var(--surface);
+  --sp-surface-2: var(--sunken);
+  --sp-sunken: var(--sunken);
+  --sp-border: var(--line);
+  --sp-border-strong: #D0D4DA;
+
+  --sp-text: var(--ink);
+  --sp-text-2: var(--ink-2);
+  --sp-text-3: var(--ink-3);
+
+  --sp-accent: var(--accent);
+  --sp-accent-strong: var(--accent-press);
+  --sp-accent-soft: var(--accent-soft);
+  --sp-accent-text: #FFFFFF;
+
+  --sp-secondary: var(--data-teal);
+
+  /* Verdict mapping → semantic colors (no warm golds) */
+  --sp-film-now: var(--accent);
+  --sp-recommend: var(--success);
+  --sp-consider: var(--warning);
+  --sp-pass: var(--error);
+
+  --sp-film-now-tint: var(--accent-soft);
+  --sp-recommend-tint: var(--success-soft);
+  --sp-consider-tint: var(--warning-soft);
+  --sp-pass-tint: var(--error-soft);
+
+  --sp-sage: var(--success); --sp-sage-tint: var(--success-soft);
+  --sp-sand: var(--warning); --sp-sand-tint: var(--warning-soft);
+  --sp-clay: var(--error);   --sp-clay-tint: var(--error-soft);
+
+  /* Genre colors → data set only */
+  --sp-genre-drama: var(--data-teal);
+  --sp-genre-horror: var(--data-coral);
+  --sp-genre-thriller: var(--data-blue);
+  --sp-genre-crime: var(--data-violet);
+  --sp-genre-action: var(--data-coral);
+  --sp-genre-scifi: var(--data-teal);
+  --sp-genre-fantasy: var(--data-violet);
+  --sp-genre-comedy: var(--data-coral);
+  --sp-genre-western: var(--data-teal);
+  --sp-genre-romance: var(--data-coral);
+
+  --sp-rose: var(--accent); --sp-rose-strong: var(--accent-press);
+  --sp-rose-tint: var(--accent-soft); --sp-on-rose: #FFFFFF;
+
+  /* Shape bridge */
+  --sp-r-xs: 4px;
+  --sp-r-sm: var(--radius-sm);
+  --sp-r-md: var(--radius-md);
+  --sp-r-lg: var(--radius-lg);
+  --sp-r-xl: 20px;
+  --sp-r-full: 999px;
+
+  --sp-1: var(--space-1); --sp-2: var(--space-2); --sp-3: var(--space-3);
+  --sp-4: var(--space-4); --sp-5: 20px; --sp-6: var(--space-6);
+  --sp-8: var(--space-8); --sp-10: 40px; --sp-12: 48px; --sp-16: 64px;
+
+  --sp-shadow-sm: var(--shadow-card);
+  --sp-shadow-md: var(--shadow-hover);
+  --sp-shadow-lg: var(--shadow-pop);
+  --sp-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+
+  --sp-glow: none; /* Instrument: no page glow */
+
+  --sp-display: var(--font-display);
+  --sp-font: var(--font-body);
+  --sp-mono: var(--font-body); /* Mono retired: numbers use body font */
+
+  --sp-text-xs: 11px; --sp-text-sm: 13px; --sp-text-base: 15px;
+  --sp-text-md: 17px; --sp-text-lg: 20px; --sp-text-xl: 24px;
+  --sp-text-2xl: 32px; --sp-text-3xl: 42px;
+
+  --sp-ease: var(--ease-press);
+}
+
+/* ============================================================================
+   DARK — Midnight navy, never pure black
+   ============================================================================ */
+[data-theme="instrument-dark"] {
+  --bg: #0E1426;
+  --surface: #16203A;
+  --sunken: #101A30;
+  --line: #233152;
+
+  --ink: #EDF1F9;
+  --ink-2: #94A2BE;
+  --ink-3: #73819E;
+
+  --accent: #6E8BFF;
+  --accent-press: #5E80FF;
+  --accent-soft: #1B2747;
+  --on-soft: #A9BEFF;
+
+  --data-blue: #6E8BFF;
+  --data-violet: #9F86FF;
+  --data-teal: #2FC9B0;
+  --data-coral: #FF8A78;
+
+  --success: #34C98C;
+  --warning: #FFBE57;
+  --error: #FF7A72;
+
+  --success-soft: #10301F; --on-success: #6FE0A8;
+  --warning-soft: #33260F; --on-warning: #FFD37A;
+  --error-soft: #3A1A1C;   --on-error: #FF9E96;
+
+  --shadow-card: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.40);
+  --highlight-top: inset 0 1px 0 rgba(255,255,255,.05);
+  --shadow-btn: inset 0 1px 0 rgba(255,255,255,.25), 0 1px 2px rgba(0,0,0,.40), 0 6px 18px rgba(110,139,255,.45);
+  --shadow-pop: 0 2px 8px rgba(0,0,0,.50), 0 24px 48px rgba(0,0,0,.55);
+  --shadow-hover: 0 2px 4px rgba(0,0,0,.40), 0 12px 28px rgba(0,0,0,.48);
+  --inset-input: inset 0 1px 3px rgba(0,0,0,.20);
+
+  /* Bridge */
+  --sp-bg: var(--bg);
+  --sp-surface: var(--surface);
+  --sp-surface-2: var(--sunken);
+  --sp-sunken: var(--sunken);
+  --sp-border: var(--line);
+  --sp-border-strong: #304060;
+
+  --sp-text: var(--ink);
+  --sp-text-2: var(--ink-2);
+  --sp-text-3: var(--ink-3);
+
+  --sp-accent: var(--accent);
+  --sp-accent-strong: var(--accent-press);
+  --sp-accent-soft: var(--accent-soft);
+  --sp-accent-text: #0E1426;
+
+  --sp-secondary: var(--data-teal);
+
+  --sp-film-now: var(--accent);
+  --sp-recommend: var(--success);
+  --sp-consider: var(--warning);
+  --sp-pass: var(--error);
+
+  --sp-film-now-tint: var(--accent-soft);
+  --sp-recommend-tint: var(--success-soft);
+  --sp-consider-tint: var(--warning-soft);
+  --sp-pass-tint: var(--error-soft);
+
+  --sp-sage: var(--success); --sp-sage-tint: var(--success-soft);
+  --sp-sand: var(--warning); --sp-sand-tint: var(--warning-soft);
+  --sp-clay: var(--error);   --sp-clay-tint: var(--error-soft);
+
+  --sp-genre-drama: var(--data-teal);
+  --sp-genre-horror: var(--data-coral);
+  --sp-genre-thriller: var(--data-blue);
+  --sp-genre-crime: var(--data-violet);
+  --sp-genre-action: var(--data-coral);
+  --sp-genre-scifi: var(--data-teal);
+  --sp-genre-fantasy: var(--data-violet);
+  --sp-genre-comedy: var(--data-coral);
+  --sp-genre-western: var(--data-teal);
+  --sp-genre-romance: var(--data-coral);
+
+  --sp-rose: var(--accent); --sp-rose-strong: var(--accent-press);
+  --sp-rose-tint: var(--accent-soft); --sp-on-rose: #0E1426;
+
+  --sp-shadow-sm: var(--shadow-card);
+  --sp-shadow-md: var(--shadow-hover);
+  --sp-shadow-lg: var(--shadow-pop);
+  --sp-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  --sp-glow: none;
+}
