@@ -657,7 +657,7 @@ def process_job(job: dict) -> None:
             )
         else:
             log.info(f"[analyze] Running V9 full analysis: '{title}' (model: {model_key})")
-            analysis, usage = ingest_v9.run_v9_full(
+            analysis, usage = ingest_v9.run_v9_stable(
                 text=text,
                 title=title,
                 page_count=page_count,
