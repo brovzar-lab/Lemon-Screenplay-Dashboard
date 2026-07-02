@@ -24,7 +24,11 @@ const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const cors_1 = __importDefault(require("cors"));
+const proxyAuth_1 = require("./proxyAuth");
 const anthropicApiKey = (0, params_1.defineString)("ANTHROPIC_API_KEY");
+// Shared secret for the VPS daemon (server-side, no user session). Empty in
+// local dev disables service-key auth; browser ID-token auth still applies.
+const proxyServiceKey = (0, params_1.defineString)("PROXY_SERVICE_KEY");
 const corsMiddleware = (0, cors_1.default)({
     origin: [
         "https://lemon-screenplay-dashboard.web.app",
@@ -102,6 +106,16 @@ exports.llmProxy = (0, https_1.onRequest)({
     corsMiddleware(req, res, async () => {
         if (req.method !== "POST") {
             res.status(405).json({ error: "Method not allowed" });
+            return;
+        }
+        // ── Authenticate the caller before spending the Anthropic key ──
+        const authResult = await (0, proxyAuth_1.authenticateProxyRequest)(req, proxyServiceKey.value());
+        if (!authResult.ok) {
+            res.status(authResult.status).json({
+                error: authResult.message,
+                code: "UNAUTHORIZED",
+                isRetryable: false,
+            });
             return;
         }
         const body = req.body;

@@ -19,8 +19,12 @@ import { onRequest } from "firebase-functions/v2/https";
 import { defineString } from "firebase-functions/params";
 import Anthropic from "@anthropic-ai/sdk";
 import cors from "cors";
+import { authenticateProxyRequest } from "./proxyAuth";
 
 const anthropicApiKey = defineString("ANTHROPIC_API_KEY");
+// Shared secret for the VPS daemon (server-side, no user session). Empty in
+// local dev disables service-key auth; browser ID-token auth still applies.
+const proxyServiceKey = defineString("PROXY_SERVICE_KEY");
 
 const corsMiddleware = cors({
   origin: [
@@ -173,6 +177,17 @@ export const llmProxy = onRequest(
     corsMiddleware(req, res, async () => {
       if (req.method !== "POST") {
         res.status(405).json({ error: "Method not allowed" });
+        return;
+      }
+
+      // ── Authenticate the caller before spending the Anthropic key ──
+      const authResult = await authenticateProxyRequest(req, proxyServiceKey.value());
+      if (!authResult.ok) {
+        res.status(authResult.status).json({
+          error: authResult.message,
+          code: "UNAUTHORIZED",
+          isRetryable: false,
+        });
         return;
       }
 

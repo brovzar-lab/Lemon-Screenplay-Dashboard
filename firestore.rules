@@ -136,10 +136,16 @@ service cloud.firestore {
     //   • CREATE: auth required (only dashboard users create share links).
     //   • UPDATE: auth required (prevents token hijacking via overwrites).
     //   • DELETE: auth required (revoke flow in shareService.ts).
+    //   • EXPIRY: reads are denied server-side once expiresAt is in the past,
+    //     so a leaked/forwarded link stops resolving even if the client check
+    //     is bypassed. Legacy docs without expiresAt remain readable.
     //   • Doc size implicitly limited by the analysis snapshot structure.
     match /shared_views/{tokenId} {
-      // Public read — token is the capability. Anyone with the URL can view.
-      allow read: if true;
+      // Public read — token is the capability — but not past expiry.
+      // expiresAtMillis is epoch millis (a number) so it compares cleanly with
+      // request.time.toMillis(). Legacy docs without it remain readable.
+      allow read: if !('expiresAtMillis' in resource.data)
+                  || resource.data.expiresAtMillis > request.time.toMillis();
 
       // Only authenticated dashboard users may create, update, or revoke.
       allow create, update, delete: if isAuthenticated();
