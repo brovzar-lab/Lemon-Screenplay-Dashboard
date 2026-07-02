@@ -421,17 +421,31 @@ def call_llm(
         # Anthropic requires temperature=1 when extended thinking is enabled.
         payload["temperature"] = 1.0
 
+    # The proxy authenticates callers: the daemon presents a shared service
+    # key (browsers present a Firebase ID token). Set PROXY_SERVICE_KEY in the
+    # daemon's environment to match functions/.env. Absent → unauthenticated
+    # (will 401 once the proxy gate is deployed).
+    proxy_headers = {}
+    service_key = os.getenv("PROXY_SERVICE_KEY")
+    if service_key:
+        proxy_headers["X-Lemon-Service-Key"] = service_key
+
     last_err: Optional[Exception] = None
     for attempt in range(1, retries + 1):
         try:
-            resp = requests.post(url, json=payload, timeout=540)
+            resp = requests.post(url, json=payload, headers=proxy_headers, timeout=540)
             if resp.status_code == 429:
                 wait = 30 * attempt
                 log.warning(f"    Rate limited — waiting {wait}s (attempt {attempt}/{retries})")
                 time.sleep(wait)
                 continue
-            if resp.status_code == 401:
-                raise RuntimeError("Invalid Anthropic API key in proxy")
+            if resp.status_code in (401, 403):
+                # Either the daemon's PROXY_SERVICE_KEY is missing/wrong, or the
+                # upstream Anthropic key is invalid. Both are non-retryable.
+                raise RuntimeError(
+                    f"Proxy auth rejected ({resp.status_code}). Check PROXY_SERVICE_KEY "
+                    f"matches functions/.env. Body: {resp.text[:200]}"
+                )
             resp.raise_for_status()
             data = resp.json()
 
