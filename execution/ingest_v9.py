@@ -515,6 +515,112 @@ def _truncate(text: str, max_chars: int = MAX_CHARS) -> str:
     return text[:max_chars] + "\n\n[SCREENPLAY TRUNCATED AT CHARACTER LIMIT]"
 
 
+# ── Code-Side Verdict Derivation ─────────────────────────────────────────────
+# The synthesis prompt instructs the model to apply the critical-failure
+# penalty, the Story-vs-Situation cap, and the trap downgrades — but nothing
+# enforced them, and _compute_weighted_score's pure-sum override silently
+# discarded the model's penalty. The model proposes; this code disposes.
+
+VERDICT_TIERS = ["PASS", "CONSIDER", "RECOMMEND", "FILM_NOW"]
+
+# Must match the synthesis prompt (Step 5): MINOR -0.3, MODERATE -0.5,
+# MAJOR -0.8, CRITICAL -1.2, total capped at -3.0.
+FAILURE_PENALTIES = {"minor": 0.3, "moderate": 0.5, "major": 0.8, "critical": 1.2}
+MAX_FAILURE_PENALTY = 3.0
+
+def compute_failure_penalty(critical_failures: Any) -> float:
+    """Sum severity penalties from the structured critical_failures list."""
+    if not isinstance(critical_failures, list):
+        return 0.0
+    total = 0.0
+    for item in critical_failures:
+        if not isinstance(item, dict):
+            continue
+        severity = str(item.get("severity", "")).lower()
+        total += FAILURE_PENALTIES.get(severity, 0.0)
+    return round(min(total, MAX_FAILURE_PENALTY), 2)
+
+
+def _score_to_tier(score: float) -> str:
+    """Verdict thresholds (synthesis prompt Step 6)."""
+    if score >= 8.5:
+        return "FILM_NOW"
+    if score >= 7.5:
+        return "RECOMMEND"
+    if score >= 5.5:
+        return "CONSIDER"
+    return "PASS"
+
+
+def _cap_tier(tier: str, cap: str) -> str:
+    return cap if VERDICT_TIERS.index(tier) > VERDICT_TIERS.index(cap) else tier
+
+
+def derive_verdict(
+    weighted_score: float,
+    critical_failures: Any = None,
+    situation_verdict: str = "",
+    weighted_trap_score: float = 0.0,
+    truncated: bool = False,
+) -> Dict[str, Any]:
+    """Derive the final verdict in code from the synthesis's structured outputs.
+
+    Order of operations (mirrors the synthesis prompt Steps 4-6):
+      1. Subtract critical-failure penalty from the weighted score.
+      2. Map adjusted score to a tier.
+      3. Story-vs-Situation gate: "situation" caps at CONSIDER.
+      4. Trap gate: trap score >= 3.0 caps at CONSIDER; >= 2.0 downgrades one tier.
+      5. Truncation gate: never RECOMMEND/FILM_NOW a script whose ending
+         the readers did not see — cap at CONSIDER.
+
+    Returns dict with verdict, adjusted_score, penalty, and a human-readable
+    adjustments trail for the coverage document.
+    """
+    adjustments: List[str] = []
+
+    penalty = compute_failure_penalty(critical_failures)
+    adjusted = round(max(0.0, weighted_score - penalty), 2)
+    if penalty > 0:
+        adjustments.append(
+            f"critical_failure_penalty: -{penalty} ({weighted_score} → {adjusted})"
+        )
+
+    verdict = _score_to_tier(adjusted)
+    base_verdict = verdict
+
+    if str(situation_verdict).lower() == "situation":
+        capped = _cap_tier(verdict, "CONSIDER")
+        if capped != verdict:
+            adjustments.append(f"story_vs_situation gate: {verdict} → {capped}")
+        verdict = capped
+
+    if weighted_trap_score >= 3.0:
+        capped = _cap_tier(verdict, "CONSIDER")
+        if capped != verdict:
+            adjustments.append(f"trap score {weighted_trap_score} >= 3.0: {verdict} → {capped}")
+        verdict = capped
+    elif weighted_trap_score >= 2.0:
+        idx = VERDICT_TIERS.index(verdict)
+        if idx > 0:
+            downgraded = VERDICT_TIERS[idx - 1]
+            adjustments.append(f"trap score {weighted_trap_score} >= 2.0: {verdict} → {downgraded}")
+            verdict = downgraded
+
+    if truncated:
+        capped = _cap_tier(verdict, "CONSIDER")
+        if capped != verdict:
+            adjustments.append(f"truncated script (Act 3 unread): {verdict} → {capped}")
+        verdict = capped
+
+    return {
+        "verdict": verdict,
+        "verdict_before_gates": base_verdict,
+        "adjusted_score": adjusted,
+        "penalty": penalty,
+        "adjustments": adjustments,
+    }
+
+
 # V9: Rigorous reader prompts + tool schemas + few-shot anchors.
 # Methodology ported from agent/skills/screenplay-evaluator/references/
 # (the aspirational SKILL.md spec), aligned with src/lib/promptClient.v9.ts
@@ -1898,7 +2004,8 @@ def run_v9_full(
     Returns (analysis_dict, total_usage).
     """
     truncated = _truncate(text)
-    if len(text) > MAX_CHARS:
+    was_truncated = len(text) > MAX_CHARS
+    if was_truncated:
         log.warning(
             f"    ⚠ Truncated screenplay {len(text):,} → {MAX_CHARS:,} chars "
             f"(~{(len(text) - MAX_CHARS) // 250} pages lost). Score may be biased "
@@ -2058,6 +2165,37 @@ def run_v9_full(
                 f"(diff={abs(computed_ws - llm_ws):.2f}). Using code value."
             )
         analysis["weighted_score"] = computed_ws
+
+    # Derive the verdict in code from the structured synthesis outputs.
+    # This restores the critical-failure penalty (which the pure-sum override
+    # above was silently discarding) and enforces the situation/trap/truncation
+    # gates that were previously prompt-only honor system.
+    fp_check = analysis.get("false_positive_check") or {}
+    svs = analysis.get("story_vs_situation") or {}
+    derived = derive_verdict(
+        weighted_score=float(analysis.get("weighted_score", 0) or 0),
+        critical_failures=analysis.get("critical_failures"),
+        situation_verdict=str(svs.get("verdict", "")),
+        weighted_trap_score=float(fp_check.get("weighted_trap_score", 0) or 0),
+        truncated=was_truncated,
+    )
+    model_verdict = str(analysis.get("verdict", ""))
+    if model_verdict and model_verdict != derived["verdict"]:
+        log.warning(
+            f"    ⚠ verdict: LLM said {model_verdict}, code derived {derived['verdict']} "
+            f"(adjusted score {derived['adjusted_score']}, gates: {derived['adjustments'] or 'none'}). "
+            f"Using code value."
+        )
+    analysis["verdict_model"] = model_verdict
+    analysis["verdict"] = derived["verdict"]
+    analysis["weighted_score_adjusted"] = derived["adjusted_score"]
+    analysis["critical_failure_penalty_applied"] = derived["penalty"]
+    analysis["verdict_adjustments"] = derived["adjustments"]
+    analysis["_truncation"] = {
+        "truncated": was_truncated,
+        "chars_lost": max(0, len(text) - MAX_CHARS),
+        "approx_pages_lost": max(0, (len(text) - MAX_CHARS) // 250),
+    }
 
     # Embed reader reports and lock version string.
     analysis["reader_reports"] = reader_reports
