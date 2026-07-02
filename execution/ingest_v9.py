@@ -2204,6 +2204,130 @@ def run_v9_full(
     return analysis, total_usage
 
 
+# ── Boundary Re-Runs ─────────────────────────────────────────────────────────
+# Measured run-to-run spread at temp 0.1 is ~0.75-0.8 points (see
+# docs/audits/2026-07-02-variance-results.md) — a single-run verdict within
+# half a point of a tier boundary is close to a coin flip. When the adjusted
+# score lands near a boundary, run up to 2 more full passes and keep the
+# median-score run with the majority verdict. Prompt caching makes the extra
+# passes cheap when they run within the cache TTL.
+
+BOUNDARY_WINDOW = 0.5
+VERDICT_BOUNDARIES = (5.5, 7.5, 8.5)
+MAX_BOUNDARY_RUNS = 3
+
+
+def _near_boundary(score: float, window: float = BOUNDARY_WINDOW) -> bool:
+    return any(abs(score - b) < window for b in VERDICT_BOUNDARIES)
+
+
+def _adjusted_score(analysis: Dict[str, Any]) -> float:
+    val = analysis.get("weighted_score_adjusted")
+    if val is None:
+        val = analysis.get("weighted_score", 0)
+    return float(val or 0)
+
+
+def select_stable_result(
+    runs: List[Tuple[float, Dict[str, Any]]],
+) -> Dict[str, Any]:
+    """Pick the final analysis from boundary re-runs.
+
+    The median-score run becomes the coverage document (its reader reports
+    and prose are internally consistent). The verdict is the majority verdict
+    across runs; with no majority, the median run's own verdict stands.
+    """
+    ordered = sorted(runs, key=lambda r: r[0])
+    median_score, final = ordered[len(ordered) // 2]
+
+    verdicts = [str(a.get("verdict", "")) for _, a in runs]
+    counts: Dict[str, int] = {}
+    for v in verdicts:
+        counts[v] = counts.get(v, 0) + 1
+    top_verdict, top_count = max(counts.items(), key=lambda kv: kv[1])
+    final_verdict = top_verdict if top_count >= 2 else str(final.get("verdict", ""))
+
+    if str(final.get("verdict", "")) != final_verdict:
+        adjustments = final.setdefault("verdict_adjustments", [])
+        adjustments.append(
+            f"boundary re-run majority: {final.get('verdict')} → {final_verdict} "
+            f"(verdicts across runs: {verdicts})"
+        )
+        final["verdict"] = final_verdict
+
+    final["_boundary_reruns"] = {
+        "triggered": True,
+        "runs": [
+            {"adjusted_score": s, "verdict": str(a.get("verdict", "")),
+             "verdict_model": str(a.get("verdict_model", ""))}
+            for s, a in runs
+        ],
+        "median_adjusted_score": median_score,
+        "score_spread": round(ordered[-1][0] - ordered[0][0], 2),
+        "final_verdict": final_verdict,
+    }
+    return final
+
+
+def run_v9_stable(
+    text: str,
+    title: str,
+    page_count: int,
+    word_count: int,
+    model_key: str,
+    proxy_url: Optional[str],
+    triage_impression: Optional[Dict[str, Any]] = None,
+) -> Tuple[Dict[str, Any], Dict[str, int]]:
+    """run_v9_full with boundary re-runs. Drop-in replacement.
+
+    Set LEMON_BOUNDARY_RERUNS=0 to disable (single-pass, e.g. cost-capped
+    experiments).
+    """
+    analysis, usage = run_v9_full(
+        text=text, title=title, page_count=page_count, word_count=word_count,
+        model_key=model_key, proxy_url=proxy_url, triage_impression=triage_impression,
+    )
+    combined: Dict[str, Any] = dict(usage)
+
+    score = _adjusted_score(analysis)
+    if os.getenv("LEMON_BOUNDARY_RERUNS", "1") == "0" or not _near_boundary(score):
+        return analysis, combined
+
+    log.info(
+        f"    Boundary re-run: adjusted score {score} is within {BOUNDARY_WINDOW} "
+        f"of a verdict boundary — running {MAX_BOUNDARY_RUNS - 1} more passes…"
+    )
+    runs: List[Tuple[float, Dict[str, Any]]] = [(score, analysis)]
+    for i in range(MAX_BOUNDARY_RUNS - 1):
+        try:
+            extra, extra_usage = run_v9_full(
+                text=text, title=title, page_count=page_count, word_count=word_count,
+                model_key=model_key, proxy_url=proxy_url, triage_impression=triage_impression,
+            )
+        except Exception as e:
+            log.warning(f"    Boundary re-run {i + 2} failed (continuing with {len(runs)} run(s)): {e}")
+            continue
+        for k, v in extra_usage.items():
+            if isinstance(v, int) and isinstance(combined.get(k), int):
+                combined[k] = combined[k] + v
+            elif isinstance(v, int) and k not in combined:
+                combined[k] = v
+            else:
+                combined[k] = v
+        runs.append((_adjusted_score(extra), extra))
+
+    if len(runs) == 1:
+        return analysis, combined
+
+    final = select_stable_result(runs)
+    reruns = final["_boundary_reruns"]
+    log.info(
+        f"    Boundary re-run result: scores {[r['adjusted_score'] for r in reruns['runs']]} "
+        f"(spread {reruns['score_spread']}) → verdict {reruns['final_verdict']}"
+    )
+    return final, combined
+
+
 def run_v9_hybrid(
     text: str,
     title: str,
@@ -2225,7 +2349,7 @@ def run_v9_hybrid(
     and the Sonnet usage for cost accounting.
     """
     log.info("    Hybrid mode: running Sonnet first pass…")
-    sonnet_analysis, sonnet_usage = run_v9_full(
+    sonnet_analysis, sonnet_usage = run_v9_stable(
         text=text,
         title=title,
         page_count=page_count,
@@ -2256,7 +2380,7 @@ def run_v9_hybrid(
     log.info(
         f"    Sonnet verdict: {sonnet_verdict} — promoting to Opus for deeper analysis…"
     )
-    opus_analysis, opus_usage = run_v9_full(
+    opus_analysis, opus_usage = run_v9_stable(
         text=text,
         title=title,
         page_count=page_count,
@@ -2527,7 +2651,7 @@ def ingest_one(
             except Exception as e:
                 log.warning(f"    Triage pre-pass failed (continuing without): {e}")
                 triage_impression = None
-            analysis, usage = run_v9_full(
+            analysis, usage = run_v9_stable(
                 text, title, page_count, word_count, model_key, proxy_url,
                 triage_impression=triage_impression,
             )

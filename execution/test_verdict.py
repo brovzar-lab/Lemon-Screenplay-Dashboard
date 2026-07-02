@@ -9,7 +9,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from ingest_v9 import compute_failure_penalty, derive_verdict  # noqa: E402
+from ingest_v9 import (  # noqa: E402
+    _near_boundary,
+    compute_failure_penalty,
+    derive_verdict,
+    select_stable_result,
+)
 
 
 def failures(*severities):
@@ -133,6 +138,64 @@ class TestCombined(unittest.TestCase):
         self.assertEqual(result["verdict"], "CONSIDER")
         # Only the first applicable cap records a change; later caps are no-ops
         self.assertTrue(any("story_vs_situation" in a for a in result["adjustments"]))
+
+
+class TestNearBoundary(unittest.TestCase):
+    def test_near_each_boundary(self):
+        for b in (5.5, 7.5, 8.5):
+            self.assertTrue(_near_boundary(b))
+            self.assertTrue(_near_boundary(b - 0.49))
+            self.assertTrue(_near_boundary(b + 0.49))
+            self.assertFalse(_near_boundary(b - 0.5))
+            self.assertFalse(_near_boundary(b + 0.5))
+
+    def test_far_from_boundaries(self):
+        for score in (0.0, 3.0, 6.5, 9.5, 10.0):
+            self.assertFalse(_near_boundary(score))
+
+
+def run(score, verdict, model="RECOMMEND"):
+    return (score, {"verdict": verdict, "verdict_model": model, "verdict_adjustments": []})
+
+
+class TestSelectStableResult(unittest.TestCase):
+    def test_majority_verdict_and_median_run(self):
+        runs = [run(7.3, "CONSIDER"), run(7.6, "RECOMMEND"), run(7.4, "CONSIDER")]
+        final = select_stable_result(runs)
+        # Median score is 7.4 → its run is the document; majority CONSIDER
+        self.assertEqual(final["verdict"], "CONSIDER")
+        self.assertEqual(final["_boundary_reruns"]["median_adjusted_score"], 7.4)
+        self.assertEqual(final["_boundary_reruns"]["score_spread"], 0.3)
+
+    def test_majority_overrides_median_runs_verdict(self):
+        # Median-score run said RECOMMEND but 2 of 3 said CONSIDER
+        runs = [run(7.2, "CONSIDER"), run(7.5, "RECOMMEND"), run(7.1, "CONSIDER")]
+        final = select_stable_result(runs)
+        self.assertEqual(final["_boundary_reruns"]["median_adjusted_score"], 7.2)
+        self.assertEqual(final["verdict"], "CONSIDER")
+
+    def test_majority_override_is_recorded(self):
+        runs = [run(7.6, "RECOMMEND"), run(7.4, "CONSIDER"), run(7.8, "RECOMMEND")]
+        final = select_stable_result(runs)
+        # Median 7.6 = RECOMMEND, majority RECOMMEND — no override note
+        self.assertEqual(final["verdict"], "RECOMMEND")
+        runs2 = [run(5.6, "CONSIDER"), run(5.4, "PASS"), run(5.3, "PASS")]
+        final2 = select_stable_result(runs2)
+        self.assertEqual(final2["verdict"], "PASS")
+
+    def test_no_majority_keeps_median_verdict(self):
+        runs = [run(8.4, "RECOMMEND"), run(8.6, "FILM_NOW"), run(7.4, "CONSIDER")]
+        final = select_stable_result(runs)
+        # All three differ; median score 8.4 → RECOMMEND stands
+        self.assertEqual(final["verdict"], "RECOMMEND")
+
+    def test_metadata_captures_all_runs(self):
+        runs = [run(7.3, "CONSIDER"), run(7.6, "RECOMMEND"), run(7.4, "CONSIDER")]
+        final = select_stable_result(runs)
+        meta = final["_boundary_reruns"]
+        self.assertTrue(meta["triggered"])
+        self.assertEqual(len(meta["runs"]), 3)
+        self.assertEqual(meta["final_verdict"], final["verdict"])
 
 
 if __name__ == "__main__":
