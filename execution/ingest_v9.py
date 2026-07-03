@@ -91,6 +91,14 @@ except ImportError:
     print("⚠ firebase-admin not installed — Firestore writes disabled.")
     print("  Install: pip install firebase-admin")
 
+# Story Grid genre engine (lives next to this file).
+sys.path.insert(0, str(Path(__file__).parent))
+from story_grid import (  # noqa: E402
+    build_genre_detection_prompt,
+    parse_detection,
+    build_genre_card,
+)
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 
 LOG_DIR = Path(".tmp")
@@ -1144,12 +1152,12 @@ PREMISE POWER:
 3. freshness — "Same but different"? Fresh take or retread?
 
 GENRE (Story Grid):
-4. genre_execution — Are the genre's obligatory scenes PRESENT? List them.
-   (Action: Hero at Mercy of Villain. Horror: Victim at Mercy of Monster.
-   Crime: J'accuse. Thriller: Hero at Mercy + Damnation stakes.
-   Love/Comedy: Proof of Love. Status: Big Event.)
+4. genre_execution — Use the "STORY GRID — GENRE OBLIGATIONS FOR THIS SCRIPT"
+   block above. Name which obligatory scenes are PRESENT (cite page) and which
+   are MISSING. A missing Core Event is a red flag. For a comedy, BOTH the
+   comedy set pieces AND the paired genre's obligatory scenes must be present.
 5. genre_promise_delivery — Does the script deliver the emotional experience
-   the genre promises?
+   the genre promises (for comedy: the laughs AND the paired genre's payoff)?
 
 THEME (Story Grid):
 6. controlling_idea — State the argument about life in ONE sentence.
@@ -1371,23 +1379,68 @@ def _reader_system_blocks(reader: str) -> List[Dict[str, Any]]:
     ]
 
 
+# Readers that benefit from the genre card. Concept owns obligatory-scene
+# scoring; Structure checks their act placement; Craft/Emotion apply comedy
+# craft rules (set pieces, escalation, laughter-as-payload) when relevant.
+_GENRE_AWARE_READERS = {"structure", "concept", "craft_scene", "emotional_resonance"}
+
+
 def _reader_user_blocks(
     reader: str,
     screenplay_block: Dict[str, Any],
     title: str,
     page_count: int,
+    genre_card: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Build user content blocks: cached screenplay + reader-specific instruction."""
-    return [
-        screenplay_block,  # cached, shared across all readers + synthesis
-        {
+    """Build user content blocks: cached screenplay + optional genre card +
+    reader-specific instruction."""
+    blocks: List[Dict[str, Any]] = [screenplay_block]  # cached, shared
+
+    if genre_card and reader in _GENRE_AWARE_READERS:
+        # Cached so it's written once and read cheaply by every genre-aware
+        # reader within the cache TTL.
+        blocks.append({
             "type": "text",
-            "text": (
-                f"# METADATA\nTitle: {title}\nPages: {page_count}\n\n"
-                f"# YOUR TASK\n{READER_USER_INSTRUCTIONS[reader]}"
-            ),
-        },
-    ]
+            "text": genre_card,
+            "cache_control": {"type": "ephemeral"},
+        })
+
+    blocks.append({
+        "type": "text",
+        "text": (
+            f"# METADATA\nTitle: {title}\nPages: {page_count}\n\n"
+            f"# YOUR TASK\n{READER_USER_INSTRUCTIONS[reader]}"
+        ),
+    })
+    return blocks
+
+
+def run_genre_detection(
+    screenplay_block: Dict[str, Any],
+    proxy_url: Optional[str],
+) -> Dict[str, Any]:
+    """Cheap Haiku pass that classifies the script into the Five-Leaf Clover.
+    Returns a normalised detection dict (never raises — falls back to a
+    low-confidence Society/drama read so the pipeline always proceeds)."""
+    try:
+        _tool_input, text, _usage = call_llm(
+            system_blocks=[{
+                "type": "text",
+                "text": "You are a Story Grid genre analyst. Classify precisely.",
+            }],
+            user_blocks=[
+                screenplay_block,
+                {"type": "text", "text": build_genre_detection_prompt()},
+            ],
+            model_key="haiku",
+            max_tokens=400,
+            proxy_url=proxy_url,
+        )
+        raw = extract_json(text)
+        return parse_detection(raw)
+    except Exception as e:
+        log.warning(f"    Genre detection failed ({e}); defaulting to Society/drama.")
+        return parse_detection({"external_genre": "Society", "confidence": "low"})
 
 
 # ─── SYNTHESIS ───────────────────────────────────────────────────────────────
@@ -1719,14 +1772,35 @@ def _synthesis_user_blocks(
     title: str,
     reader_reports: Dict[str, Any],
     triage_impression: Optional[Dict[str, Any]] = None,
+    genre_detection: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Synthesis user blocks. Reader reports change per script — NOT cached.
 
     triage_impression, when provided, is injected as a Haiku cold-read data
     point before the 5 reader reports (mirrors TypeScript triageBlock logic
     in promptClient.v9.ts buildSynthesisPrompt).
+
+    genre_detection, when provided, tells synthesis the Story Grid genre the
+    readers evaluated against — so the output's genre/subgenres fields are
+    consistent with the obligatory-scene analysis rather than re-guessed.
     """
     reports_json = json.dumps(reader_reports, indent=2)
+
+    genre_block = ""
+    if genre_detection:
+        gd = genre_detection
+        label = gd.get("external_genre", "?")
+        if gd.get("is_comedy"):
+            label = f"Comedy + {gd.get('comedy_paired_genre')}"
+            if gd.get("comedy_subgenre"):
+                label += f" ({gd['comedy_subgenre']})"
+        genre_block = (
+            f"# STORY GRID GENRE (readers evaluated obligatory scenes against this)\n"
+            f"External: {label} | Internal: {gd.get('internal_genre') or '?'} "
+            f"(confidence {gd.get('confidence')})\n"
+            f"Use this for the genre/subgenres fields. If a reader's evidence "
+            f"strongly contradicts it, note it in reader_disagreements.\n\n"
+        )
 
     triage_block = ""
     if triage_impression:
@@ -1748,6 +1822,7 @@ def _synthesis_user_blocks(
             "type": "text",
             "text": (
                 f"# TITLE\n{title}\n\n"
+                f"{genre_block}"
                 f"{triage_block}"
                 f"# READER REPORTS\n```json\n{reports_json}\n```\n\n"
                 f"# YOUR TASK\nSynthesise these reports into a final verdict.\n"
@@ -2030,23 +2105,36 @@ def run_v9_full(
     # First reader call writes the cache; subsequent calls read at 10% input cost.
     screenplay_block = _screenplay_user_block(truncated, cached=True)
 
-    log.info(f"    Running 5 readers in parallel (model: {model_key}, tool_use + caching + thinking)…")
-    reader_reports: Dict[str, Any] = {}
     total_usage: Dict[str, int] = {
         "input_tokens": 0,
         "output_tokens": 0,
         "cache_creation_input_tokens": 0,
         "cache_read_input_tokens": 0,
     }
-    reader_start = time.time()
 
     def _accumulate(usage: Dict[str, int]) -> None:
         for k in total_usage:
             total_usage[k] += usage.get(k, 0)
 
+    # ── Genre detection (cheap Haiku pass) → the genre card the readers use ──
+    genre_detection = run_genre_detection(screenplay_block, proxy_url)
+    genre_card = build_genre_card(genre_detection)
+    _gd = genre_detection
+    _label = _gd["external_genre"]
+    if _gd["is_comedy"]:
+        _label = f"Comedy+{_gd.get('comedy_paired_genre')}"
+        if _gd.get("comedy_subgenre"):
+            _label += f" ({_gd['comedy_subgenre']})"
+    log.info(f"    Genre: {_label} | internal: {_gd.get('internal_genre') or '?'} "
+             f"(confidence {_gd.get('confidence')})")
+
+    log.info(f"    Running 5 readers in parallel (model: {model_key}, tool_use + caching + thinking)…")
+    reader_reports: Dict[str, Any] = {}
+    reader_start = time.time()
+
     def run_reader(reader: str) -> Tuple[str, Any, Dict[str, int]]:
         system_blocks = _reader_system_blocks(reader)
-        user_blocks = _reader_user_blocks(reader, screenplay_block, title, page_count)
+        user_blocks = _reader_user_blocks(reader, screenplay_block, title, page_count, genre_card)
         tool = READER_TOOLS[reader]
         try:
             tool_input, _text, usage = call_llm(
@@ -2095,7 +2183,7 @@ def run_v9_full(
 
     # ── Synthesis (with retry) ──────────────────────────────────────────────
     syn_system_blocks = _synthesis_system_blocks()
-    syn_user_blocks = _synthesis_user_blocks(title, reader_reports, triage_impression)
+    syn_user_blocks = _synthesis_user_blocks(title, reader_reports, triage_impression, genre_detection)
 
     analysis: Optional[Dict[str, Any]] = None
     last_err: Optional[BaseException] = None
@@ -2211,8 +2299,9 @@ def run_v9_full(
         "approx_pages_lost": max(0, (len(text) - MAX_CHARS) // 250),
     }
 
-    # Embed reader reports and lock version string.
+    # Embed reader reports, genre detection, and lock version string.
     analysis["reader_reports"] = reader_reports
+    analysis["genre_detection"] = genre_detection
     analysis["_total_usage"] = total_usage
     analysis["analysis_version"] = "v9_archaeology"  # Always override — source of truth.
     return analysis, total_usage
