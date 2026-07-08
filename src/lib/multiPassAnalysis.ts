@@ -128,6 +128,103 @@ function computeWeightedScoreFromSynthesis(
   return Math.round(total * 100) / 100;
 }
 
+// ─── Code-Side Verdict Derivation ────────────────────────────────────────────
+// Mirrors derive_verdict() in execution/ingest_v9.py. The synthesis prompt
+// instructs the model to apply the critical-failure penalty and the
+// situation/trap gates, but nothing enforced them — and the weighted-score
+// override above silently discarded the penalty. The model proposes; this
+// code disposes.
+
+const VERDICT_TIERS = ['PASS', 'CONSIDER', 'RECOMMEND', 'FILM_NOW'] as const;
+export type VerdictTier = (typeof VERDICT_TIERS)[number];
+
+// Must match the synthesis prompt: MINOR -0.3, MODERATE -0.5, MAJOR -0.8,
+// CRITICAL -1.2, total capped at -3.0.
+const FAILURE_PENALTIES: Record<string, number> = {
+  minor: 0.3,
+  moderate: 0.5,
+  major: 0.8,
+  critical: 1.2,
+};
+const MAX_FAILURE_PENALTY = 3.0;
+
+export function computeFailurePenalty(criticalFailures: unknown): number {
+  if (!Array.isArray(criticalFailures)) return 0;
+  let total = 0;
+  for (const item of criticalFailures) {
+    if (!item || typeof item !== 'object') continue;
+    const severity = String((item as Record<string, unknown>).severity ?? '').toLowerCase();
+    total += FAILURE_PENALTIES[severity] ?? 0;
+  }
+  return Math.round(Math.min(total, MAX_FAILURE_PENALTY) * 100) / 100;
+}
+
+function scoreToTier(score: number): VerdictTier {
+  if (score >= 8.5) return 'FILM_NOW';
+  if (score >= 7.5) return 'RECOMMEND';
+  if (score >= 5.5) return 'CONSIDER';
+  return 'PASS';
+}
+
+function capTier(tier: VerdictTier, cap: VerdictTier): VerdictTier {
+  return VERDICT_TIERS.indexOf(tier) > VERDICT_TIERS.indexOf(cap) ? cap : tier;
+}
+
+export interface DerivedVerdict {
+  verdict: VerdictTier;
+  verdictBeforeGates: VerdictTier;
+  adjustedScore: number;
+  penalty: number;
+  adjustments: string[];
+}
+
+export function deriveVerdict(params: {
+  weightedScore: number;
+  criticalFailures?: unknown;
+  situationVerdict?: string;
+  weightedTrapScore?: number;
+  truncated?: boolean;
+}): DerivedVerdict {
+  const { weightedScore, criticalFailures, situationVerdict = '', weightedTrapScore = 0, truncated = false } = params;
+  const adjustments: string[] = [];
+
+  const penalty = computeFailurePenalty(criticalFailures);
+  const adjusted = Math.round(Math.max(0, weightedScore - penalty) * 100) / 100;
+  if (penalty > 0) {
+    adjustments.push(`critical_failure_penalty: -${penalty} (${weightedScore} → ${adjusted})`);
+  }
+
+  let verdict = scoreToTier(adjusted);
+  const verdictBeforeGates = verdict;
+
+  if (situationVerdict.toLowerCase() === 'situation') {
+    const capped = capTier(verdict, 'CONSIDER');
+    if (capped !== verdict) adjustments.push(`story_vs_situation gate: ${verdict} → ${capped}`);
+    verdict = capped;
+  }
+
+  if (weightedTrapScore >= 3.0) {
+    const capped = capTier(verdict, 'CONSIDER');
+    if (capped !== verdict) adjustments.push(`trap score ${weightedTrapScore} >= 3.0: ${verdict} → ${capped}`);
+    verdict = capped;
+  } else if (weightedTrapScore >= 2.0) {
+    const idx = VERDICT_TIERS.indexOf(verdict);
+    if (idx > 0) {
+      const downgraded = VERDICT_TIERS[idx - 1];
+      adjustments.push(`trap score ${weightedTrapScore} >= 2.0: ${verdict} → ${downgraded}`);
+      verdict = downgraded;
+    }
+  }
+
+  if (truncated) {
+    const capped = capTier(verdict, 'CONSIDER');
+    if (capped !== verdict) adjustments.push(`truncated script (Act 3 unread): ${verdict} → ${capped}`);
+    verdict = capped;
+  }
+
+  return { verdict, verdictBeforeGates, adjustedScore: adjusted, penalty, adjustments };
+}
+
 // ─── Anthropic API Call (with retry for network errors) ──────────────────────
 
 async function callClaude(
@@ -411,7 +508,6 @@ export async function runMultiReaderAnalysis(
   // This prevents synthesis arithmetic errors from affecting the final verdict.
   const computedWeightedScore = computeWeightedScoreFromSynthesis(synthesis);
   if (computedWeightedScore > 0) {
-    (synthesis as Record<string, unknown>).weighted_score = computedWeightedScore;
     // Log if AI and code disagree by more than 0.1
     const aiScore = synthesis.weighted_score as number | undefined;
     if (aiScore !== undefined && Math.abs(aiScore - computedWeightedScore) > 0.1) {
@@ -419,7 +515,37 @@ export async function runMultiReaderAnalysis(
         `[V9] Synthesis weighted_score mismatch: AI said ${aiScore}, computed ${computedWeightedScore}. Using computed.`
       );
     }
+    (synthesis as Record<string, unknown>).weighted_score = computedWeightedScore;
   }
+
+  // Derive the verdict in code from the structured synthesis outputs —
+  // restores the critical-failure penalty and enforces the situation/trap/
+  // truncation gates that were previously prompt-only.
+  const fpCheck = (synthesis.false_positive_check ?? {}) as Record<string, unknown>;
+  const svs = (synthesis.story_vs_situation ?? {}) as Record<string, unknown>;
+  const derived = deriveVerdict({
+    weightedScore: (synthesis.weighted_score as number) ?? 0,
+    criticalFailures: synthesis.critical_failures,
+    situationVerdict: String(svs.verdict ?? ''),
+    weightedTrapScore: Number(fpCheck.weighted_trap_score ?? 0),
+    truncated: parsed.truncated,
+  });
+  const modelVerdict = String(synthesis.verdict ?? '');
+  if (modelVerdict && modelVerdict !== derived.verdict) {
+    console.warn(
+      `[V9] Verdict mismatch: AI said ${modelVerdict}, code derived ${derived.verdict} ` +
+      `(adjusted ${derived.adjustedScore}; ${derived.adjustments.join('; ') || 'no gates'}). Using code value.`
+    );
+  }
+  (synthesis as Record<string, unknown>).verdict_model = modelVerdict;
+  (synthesis as Record<string, unknown>).verdict = derived.verdict;
+  (synthesis as Record<string, unknown>).weighted_score_adjusted = derived.adjustedScore;
+  (synthesis as Record<string, unknown>).critical_failure_penalty_applied = derived.penalty;
+  (synthesis as Record<string, unknown>).verdict_adjustments = derived.adjustments;
+  (synthesis as Record<string, unknown>)._truncation = {
+    truncated: parsed.truncated,
+    chars_lost: parsed.truncated ? Math.max(0, parsed.text.length - 195_000) : 0,
+  };
 
   // Attach full reader reports to synthesis output for transparency
   (synthesis as Record<string, unknown>).reader_reports = readerReports;

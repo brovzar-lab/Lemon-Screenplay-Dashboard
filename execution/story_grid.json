@@ -1,0 +1,194 @@
+{
+  "_source": "docs/methodology/story-grid-for-screen.md — Shawn Coyne's Story Grid adapted for screen, with Comedy as a full genre. Feature altitude only (TV/series layer intentionally omitted).",
+  "structural_spine": {
+    "acts": [
+      {"act": "Beginning Hook", "share": "first 25%", "function": "Ordinary world → Inciting Incident disrupts balance → hero commits and crosses the threshold"},
+      {"act": "Middle Build", "share": "middle 50%", "function": "Progressive complications escalate; first plan fails; midpoint reversal; ends (~75%) at the All Is Lost / Mid-Act Climax with the Crisis question at maximum heat"},
+      {"act": "Ending Payoff", "share": "final 25%", "function": "Crisis decision, climactic action, new equilibrium; the theme lands; all setups pay off"}
+    ],
+    "five_commandments": ["Inciting Incident", "Progressive Complications", "Crisis (a QUESTION: Best Bad Choice or Irreconcilable Goods)", "Climax (the ANSWER)", "Resolution"],
+    "strategy_failure_precondition": "The protagonist's initial strategy must visibly, irreversibly FAIL before the Crisis question can be posed. If the plan is still intact, it is a Progressive Complication, not a Crisis.",
+    "every_scene_must_turn": "Each scene's core value must change charge (e.g. Safe+ → Threatened−). Flat scenes get cut."
+  },
+  "external_genres": {
+    "Action": {
+      "value_spectrum": "Life / Death",
+      "value_progression": "Life/Victory → Wounded/Compromised → Death/Defeat → Damnation/Fate Worse Than Death",
+      "core_event": "Hero at the Mercy of the Villain",
+      "conventions": ["MacGuffin", "clearly defined villain", "speech in praise of the villain", "hero sidekick or mentor", "hero outmatched with a personal stake", "escalating physical danger", "All is Lost moment", "hero at the mercy of the villain"],
+      "obligatory_scenes": [
+        {"scene": "Hero at the Mercy of the Villain", "placement": "End of Middle Build (All is Lost)"},
+        {"scene": "Speech in Praise of the Villain", "placement": "Early Middle Build"},
+        {"scene": "Hero Sidekick Helps", "placement": "Middle Build or Climax"},
+        {"scene": "MacGuffin Revelation", "placement": "Middle Build"},
+        {"scene": "Hero Gains Object of Desire", "placement": "Ending Payoff (Climax)"}
+      ],
+      "subgenres": ["Adventure", "Duel", "Epic", "Clock"]
+    },
+    "Horror": {
+      "value_spectrum": "Life / Damnation",
+      "value_progression": "Life/Safety → Threatened/Unconscious → Death → Damnation/Undead/Eternal Torment",
+      "core_event": "Victim at the Mercy of the Monster",
+      "conventions": ["supernatural or threatening monster/force", "enclosed or isolated setting", "mood of dread and suspense", "protagonist with a fatal flaw or weakness", "the threat is incomprehensible", "victims picked off one by one", "false ending or deceptive safety", "the monster is vanquished (but may return)"],
+      "obligatory_scenes": [
+        {"scene": "The Monster Attack", "placement": "Beginning Hook (Inciting Incident)"},
+        {"scene": "Hero Denies Threat", "placement": "Beginning Hook to Early Middle Build"},
+        {"scene": "Victims Picked Off", "placement": "Throughout Middle Build"},
+        {"scene": "False Ending", "placement": "Late Middle Build"},
+        {"scene": "Final Confrontation", "placement": "Ending Payoff (Climax)"}
+      ]
+    },
+    "Crime": {
+      "value_spectrum": "Justice / Injustice",
+      "value_progression": "Justice/Order → Uncertainty/Gray Area → Injustice/Chaos → Tyranny/Lawlessness",
+      "core_event": "Exposure of the Criminal (J'accuse)",
+      "conventions": ["MacGuffin (evidence, case, justice)", "investigator protagonist", "criminal antagonist with compelling motive", "red herrings and false leads", "clues revealed progressively", "investigation methods", "betrayal or inside threat", "justice/legal framework"],
+      "obligatory_scenes": [
+        {"scene": "Discovery of the Crime", "placement": "Beginning Hook (Inciting Incident)"},
+        {"scene": "Initial Investigation", "placement": "Beginning Hook to Early Middle Build"},
+        {"scene": "Red Herring Reveal", "placement": "Middle Build"},
+        {"scene": "Reversal — New Evidence", "placement": "Late Middle Build"},
+        {"scene": "Criminal Exposed", "placement": "Ending Payoff (Climax)"},
+        {"scene": "Justice Served", "placement": "Ending Payoff (Resolution)"}
+      ]
+    },
+    "Thriller": {
+      "value_spectrum": "Life/Damnation + Justice",
+      "value_progression": "Life/Freedom → Uncertainty/Paranoia → Death/Imprisonment → Damnation/Total Control",
+      "core_event": "Race Against Time to stop the threat",
+      "conventions": ["ticking clock or deadline", "life-and-death stakes", "conspiracy or hidden threat", "paranoia and distrust", "information asymmetry (hero knows less than villain)", "pursuit and evasion", "impossible odds", "hero isolated or acting alone"],
+      "obligatory_scenes": [
+        {"scene": "Inciting Threat", "placement": "Beginning Hook (Inciting Incident)"},
+        {"scene": "Clock Starts Ticking", "placement": "Beginning Hook"},
+        {"scene": "False Ally Betrayal", "placement": "Middle Build"},
+        {"scene": "Hero Isolated", "placement": "Late Middle Build"},
+        {"scene": "Race Against Time", "placement": "Ending Payoff (Climax)"}
+      ]
+    },
+    "Western": {
+      "value_spectrum": "Individual / Society",
+      "value_progression": "Civilization/Order → Moral Ambiguity → Lawlessness/Chaos → Savagery/Anarchy",
+      "core_event": "The Showdown",
+      "conventions": ["frontier or lawless setting", "code of honor or personal justice", "individual vs. corrupt society", "violence to restore order", "outsider/stranger arrives", "community in need of protection", "moral ambiguity of violence", "lone hero who must leave or integrate"],
+      "obligatory_scenes": [
+        {"scene": "Stranger Arrives", "placement": "Beginning Hook"},
+        {"scene": "Community Under Threat", "placement": "Beginning Hook to Early Middle Build"},
+        {"scene": "Hero Refuses the Call", "placement": "Early Middle Build"},
+        {"scene": "Personal Stake Established", "placement": "Middle Build"},
+        {"scene": "The Showdown", "placement": "Ending Payoff (Climax)"},
+        {"scene": "Hero Departs or Integrates", "placement": "Ending Payoff (Resolution)"}
+      ]
+    },
+    "Eastern": {
+      "value_spectrum": "Honor / Dishonor",
+      "value_progression": "Honor/Mastery → Compromised Honor → Dishonor/Disgrace → Damnation of the Name",
+      "core_event": "The Duel",
+      "conventions": ["honor-bound warrior code (bushido, wuxia, frontier-bandit)", "master/disciple or sworn-brotherhood bond", "weapon as extension of self", "sworn debt or unfinished obligation", "stylized duel as moral test", "corrupt authority vs. righteous outlaw", "discipline/mastery through ordeal", "hero accepts personal cost for the code"],
+      "obligatory_scenes": [
+        {"scene": "The Code Established", "placement": "Beginning Hook"},
+        {"scene": "The Unforgivable Insult", "placement": "Beginning Hook (Inciting Incident)"},
+        {"scene": "Training / Mastery", "placement": "Middle Build"},
+        {"scene": "Hero at the Mercy of a Greater Master", "placement": "Late Middle Build (All Is Lost)"},
+        {"scene": "The Duel", "placement": "Ending Payoff (Climax)"},
+        {"scene": "Honor Restored or Forfeit", "placement": "Ending Payoff (Resolution)"}
+      ]
+    },
+    "War": {
+      "value_spectrum": "Victory / Defeat",
+      "value_progression": "Victory/Freedom → Stalemate/Pyrrhic Victory → Defeat/Occupation → Annihilation/Genocide",
+      "core_event": "The Final Battle",
+      "conventions": ["military organization/unit", "clear enemy or opposing force", "mission or strategic objective", "camaraderie and brotherhood", "sacrifice for greater good", "hierarchy and chain of command", "survivor's guilt or PTSD", "futility/cost-of-war theme"],
+      "obligatory_scenes": [
+        {"scene": "Call to Service", "placement": "Beginning Hook"},
+        {"scene": "Unit Formation", "placement": "Beginning Hook to Early Middle Build"},
+        {"scene": "First Combat", "placement": "Early to Mid Middle Build"},
+        {"scene": "Casualty or Loss", "placement": "Middle Build"},
+        {"scene": "Mission Impossible", "placement": "Late Middle Build"},
+        {"scene": "Final Battle", "placement": "Ending Payoff (Climax)"}
+      ]
+    },
+    "Society": {
+      "value_spectrum": "Power / Tyranny",
+      "value_progression": "Power (agency, voice) → Subordination (surviving inside the order) → Impotence (crushed) → Tyranny (revolution becomes new oppression)",
+      "core_event": "The Revolution",
+      "conventions": ["clearly drawn power structure", "ruling figure/class vs. the powerless", "protagonist begins in impotence and is forced to act", "subordination rituals", "tipping-point where the powerless seize agency", "speech/manifesto naming the injustice", "threat of tyranny if power is uncontested", "a Revolution (or its suppression)"],
+      "obligatory_scenes": [
+        {"scene": "The Power Structure Established", "placement": "Beginning Hook"},
+        {"scene": "The Unbearable Subordination", "placement": "Beginning Hook (Inciting Incident)"},
+        {"scene": "First Act of Defiance", "placement": "Early Middle Build"},
+        {"scene": "The Speech / Manifesto", "placement": "Middle Build"},
+        {"scene": "Power Tasted, Tyranny Risked", "placement": "Late Middle Build (All Is Lost)"},
+        {"scene": "The Revolution (Core Event)", "placement": "Ending Payoff (Climax)"},
+        {"scene": "New Order or Restored Tyranny", "placement": "Ending Payoff (Resolution)"}
+      ]
+    },
+    "Love": {
+      "value_spectrum": "Love / Hate",
+      "value_progression": "Love/Connection → Like/Attraction → Indifference/Separation → Hate/Betrayal",
+      "core_event": "Proof of Love",
+      "conventions": ["two protagonists (lovers)", "meet-cute / initial attraction", "external obstacle to relationship", "internal flaw preventing connection", "the wrong partner or love triangle", "sacrifice for love", "public declaration of love", "commitment/partnership formation"],
+      "obligatory_scenes": [
+        {"scene": "Meet Cute", "placement": "Beginning Hook (Inciting Incident)"},
+        {"scene": "First Attraction", "placement": "Beginning Hook"},
+        {"scene": "First Kiss or Intimacy", "placement": "Early to Mid Middle Build"},
+        {"scene": "The Break-Up or Separation", "placement": "Late Middle Build (All is Lost)"},
+        {"scene": "Lovers Sacrifice", "placement": "Late Middle Build to Climax"},
+        {"scene": "Proof of Love", "placement": "Ending Payoff (Climax)"},
+        {"scene": "Lovers Unite", "placement": "Ending Payoff (Resolution)"}
+      ]
+    },
+    "Performance": {
+      "value_spectrum": "Respect / Shame",
+      "value_progression": "Respect/Mastery → Recognition/Competence → Shame/Incompetence → Humiliation/Complete Failure",
+      "core_event": "The Big Performance",
+      "conventions": ["public arena or stage", "audience or judges", "rivals or competitors", "mentor or coach", "skill progression / training", "performance anxiety", "personal vs. public identity", "the big performance/competition"],
+      "obligatory_scenes": [
+        {"scene": "Discovery of Talent", "placement": "Beginning Hook"},
+        {"scene": "Meeting the Mentor", "placement": "Beginning Hook to Early Middle Build"},
+        {"scene": "Training Montage", "placement": "Early to Mid Middle Build"},
+        {"scene": "First Public Performance", "placement": "Middle Build"},
+        {"scene": "Performance Disaster", "placement": "Late Middle Build (All is Lost)"},
+        {"scene": "The Big Performance", "placement": "Ending Payoff (Climax)"},
+        {"scene": "Recognition or Award", "placement": "Ending Payoff (Resolution)"}
+      ]
+    },
+    "Comedy": {
+      "value_spectrum": "Laughter / Humiliation",
+      "value_progression": "Laughter/Joy/Connection → Amusement/Mild Chuckle → Boredom/Discomfort/Alienation → Humiliation/Despair",
+      "core_event": "The Big Sequence (Comic Set Piece #2)",
+      "pairing_rule": "Comedy ALWAYS pairs with a second external genre. Comedy carries the tone; the paired genre carries the external stakes (value spine). A comedy must deliver BOTH sets of obligatory scenes — Comedy's and the paired genre's.",
+      "conventions": ["the Comic Flaw (specific visible flaw generating humor)", "the Straight Man", "escalation engine (situations get progressively worse)", "2–3 comic set pieces (trailer moments)", "the Ticking Embarrassment (social deadline/revelation to avoid)", "mistaken identity / deception", "the Confidant who knows the truth", "the Authority Figure the comedy subverts"],
+      "obligatory_scenes": [
+        {"scene": "Comic Premise Established", "placement": "Beginning Hook (Inciting Incident)"},
+        {"scene": "First Big Laugh (Comic Set Piece #1)", "placement": "Late Beginning Hook"},
+        {"scene": "The Lie Deepens / Complication Escalation", "placement": "Early to Mid Middle Build"},
+        {"scene": "The Serious Moment (Comedy Drops Away)", "placement": "Mid to Late Middle Build"},
+        {"scene": "Public Exposure / The Jig Is Up", "placement": "Late Middle Build (All Is Lost)"},
+        {"scene": "The Big Sequence (Comic Set Piece #2)", "placement": "Late Middle Build to Early Ending Payoff"},
+        {"scene": "Growth Through Humor", "placement": "Ending Payoff (Climax)"},
+        {"scene": "The New Normal (with a Laugh)", "placement": "Ending Payoff (Resolution)"}
+      ],
+      "subgenres": ["Rom-Com", "Buddy Comedy", "Fish Out of Water", "Satire / Dark Comedy", "Farce / Slapstick", "Coming-of-Age Comedy"],
+      "craft_rules": [
+        "ACT 2 IS ESCALATION — a plan that keeps getting worse; each fix creates a bigger mess. Score the escalation MECHANISM, not just the obstacle.",
+        "THE SET PIECE IS THE TRAILER SCENE — the funniest moment, not the emotional climax. Is there a scene you'd actually put in the trailer?",
+        "EVERY CHOICE SHOULD IMPLY A FUNNY SCENE — the reader should SEE the comedy from the choice alone.",
+        "RELATIONSHIP COMEDY > PLOT COMEDY — the funniest films are about a dynamic between people, not events happening TO one person.",
+        "THE UNCOMFORTABLE CHOICE IS THE FUNNIEST — push toward maximum embarrassment/cringe, not maximum drama or darkness."
+      ]
+    }
+  },
+  "comedy_subgenres": {
+    "Rom-Com": {"typical_pairing": "Love", "core_tension": "Can these two get past their own neuroses to be together?", "obligatory_scenes": [{"scene": "The Meet-Cute", "placement": "Beginning Hook"}, {"scene": "The Almost-Kiss / Chemistry Proof", "placement": "Early Middle Build"}, {"scene": "The Misunderstanding Breakup", "placement": "Late Middle Build (All Is Lost)"}, {"scene": "The Grand Gesture", "placement": "Ending Payoff (Climax)"}]},
+    "Buddy Comedy": {"typical_pairing": "Love (platonic) / Admiration / Action", "core_tension": "Can these mismatched people learn to work together?", "obligatory_scenes": [{"scene": "The Forced Pairing", "placement": "Beginning Hook"}, {"scene": "The 'I Can't Work With This Person' Blow-Up", "placement": "Early Middle Build"}, {"scene": "The Reluctant Respect Moment", "placement": "Mid Middle Build"}, {"scene": "The Separation / Betrayal", "placement": "Late Middle Build (All Is Lost)"}, {"scene": "The Reunion Under Fire", "placement": "Ending Payoff (Climax)"}]},
+    "Fish Out of Water": {"typical_pairing": "Performance / Society", "core_tension": "Can this person thrive where none of their rules apply?", "obligatory_scenes": [{"scene": "The Arrival / First Encounter", "placement": "Beginning Hook"}, {"scene": "The Embarrassing Misunderstanding", "placement": "Early Middle Build"}, {"scene": "The Adaptation Montage", "placement": "Mid Middle Build"}, {"scene": "The Moment They Almost Belong", "placement": "Late Middle Build (All Is Lost)"}, {"scene": "The Outsider's Gift", "placement": "Ending Payoff (Climax)"}]},
+    "Satire / Dark Comedy": {"typical_pairing": "Society / Crime", "core_tension": "Can the absurdity of the system be exposed without destroying the protagonist?", "obligatory_scenes": [{"scene": "The System Revealed", "placement": "Beginning Hook"}, {"scene": "The Protagonist Plays Along", "placement": "Early Middle Build"}, {"scene": "The Line They Won't Cross", "placement": "Mid to Late Middle Build"}, {"scene": "The Public Unmasking", "placement": "Ending Payoff (Climax)"}]},
+    "Farce / Slapstick": {"typical_pairing": "Love / Performance", "core_tension": "Can the protagonist maintain control as everything falls apart?", "obligatory_scenes": [{"scene": "The Setup of Spinning Plates", "placement": "Beginning Hook"}, {"scene": "The Near-Miss", "placement": "Early to Mid Middle Build"}, {"scene": "The Collision of All Lies", "placement": "Late Middle Build (All Is Lost)"}, {"scene": "The Total Chaos Sequence", "placement": "Ending Payoff (Climax)"}]},
+    "Coming-of-Age Comedy": {"typical_pairing": "Love / Performance", "core_tension": "Can the protagonist survive the humiliation of growing up and emerge as a real person?", "obligatory_scenes": [{"scene": "The Plan to Be Cool", "placement": "Beginning Hook"}, {"scene": "The Party Disaster", "placement": "Middle Build"}, {"scene": "The Adult Moment", "placement": "Late Middle Build (All Is Lost)"}, {"scene": "The Reconciliation", "placement": "Ending Payoff (Resolution)"}]}
+  },
+  "internal_genres": {
+    "Worldview": {"Education": "Naiveté → Sophistication", "Maturation": "Immaturity → Maturity", "Revelation": "Blindness → Sight", "Disillusionment": "Idealism → Cynicism"},
+    "Morality": {"Punitive": "Immorality → Punishment", "Redemption": "Sin → Redemption", "Testing": "Integrity → Compromise or Integrity Maintained"},
+    "Status": {"Pathetic": "Powerlessness → Greater Powerlessness", "Sentimental": "Low Status → High Status (Unearned)", "Tragic": "High Status → Low Status (Deserved)", "Admiration": "Low Status → High Status (Earned)"}
+  }
+}

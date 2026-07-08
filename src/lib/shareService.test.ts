@@ -341,6 +341,40 @@ describe('shareService', () => {
             expect(result).toBeNull();
         });
 
+        it('returns null for an expired token', async () => {
+            const past = new Date(Date.now() - 60_000).toISOString();
+            mockGetDoc.mockResolvedValueOnce({
+                exists: () => true,
+                data: () => ({ token: 'old', expiresAt: past, expiresAtMillis: Date.parse(past) }),
+            });
+
+            const result = await resolveShareToken('old');
+            expect(result).toBeNull();
+        });
+
+        it('returns the doc for a not-yet-expired token', async () => {
+            const future = new Date(Date.now() + 60_000).toISOString();
+            const data = { token: 'fresh', expiresAt: future, expiresAtMillis: Date.parse(future) };
+            mockGetDoc.mockResolvedValueOnce({
+                exists: () => true,
+                data: () => data,
+            });
+
+            const result = await resolveShareToken('fresh');
+            expect(result).toEqual(data);
+        });
+
+        it('grandfathers legacy tokens with no expiry', async () => {
+            const data = { token: 'legacy', createdAt: '2025-01-01T00:00:00Z' };
+            mockGetDoc.mockResolvedValueOnce({
+                exists: () => true,
+                data: () => data,
+            });
+
+            const result = await resolveShareToken('legacy');
+            expect(result).toEqual(data);
+        });
+
         it('does NOT reference authReady (public read)', async () => {
             // We verify this structurally: resolveShareToken should work
             // even without auth by not awaiting authReady.

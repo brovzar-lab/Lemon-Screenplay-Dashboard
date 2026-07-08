@@ -91,6 +91,14 @@ except ImportError:
     print("⚠ firebase-admin not installed — Firestore writes disabled.")
     print("  Install: pip install firebase-admin")
 
+# Story Grid genre engine (lives next to this file).
+sys.path.insert(0, str(Path(__file__).parent))
+from story_grid import (  # noqa: E402
+    build_genre_detection_prompt,
+    parse_detection,
+    build_genre_card,
+)
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 
 LOG_DIR = Path(".tmp")
@@ -421,17 +429,31 @@ def call_llm(
         # Anthropic requires temperature=1 when extended thinking is enabled.
         payload["temperature"] = 1.0
 
+    # The proxy authenticates callers: the daemon presents a shared service
+    # key (browsers present a Firebase ID token). Set PROXY_SERVICE_KEY in the
+    # daemon's environment to match functions/.env. Absent → unauthenticated
+    # (will 401 once the proxy gate is deployed).
+    proxy_headers = {}
+    service_key = os.getenv("PROXY_SERVICE_KEY")
+    if service_key:
+        proxy_headers["X-Lemon-Service-Key"] = service_key
+
     last_err: Optional[Exception] = None
     for attempt in range(1, retries + 1):
         try:
-            resp = requests.post(url, json=payload, timeout=540)
+            resp = requests.post(url, json=payload, headers=proxy_headers, timeout=540)
             if resp.status_code == 429:
                 wait = 30 * attempt
                 log.warning(f"    Rate limited — waiting {wait}s (attempt {attempt}/{retries})")
                 time.sleep(wait)
                 continue
-            if resp.status_code == 401:
-                raise RuntimeError("Invalid Anthropic API key in proxy")
+            if resp.status_code in (401, 403):
+                # Either the daemon's PROXY_SERVICE_KEY is missing/wrong, or the
+                # upstream Anthropic key is invalid. Both are non-retryable.
+                raise RuntimeError(
+                    f"Proxy auth rejected ({resp.status_code}). Check PROXY_SERVICE_KEY "
+                    f"matches functions/.env. Body: {resp.text[:200]}"
+                )
             resp.raise_for_status()
             data = resp.json()
 
@@ -513,6 +535,112 @@ def _truncate(text: str, max_chars: int = MAX_CHARS) -> str:
     if len(text) <= max_chars:
         return text
     return text[:max_chars] + "\n\n[SCREENPLAY TRUNCATED AT CHARACTER LIMIT]"
+
+
+# ── Code-Side Verdict Derivation ─────────────────────────────────────────────
+# The synthesis prompt instructs the model to apply the critical-failure
+# penalty, the Story-vs-Situation cap, and the trap downgrades — but nothing
+# enforced them, and _compute_weighted_score's pure-sum override silently
+# discarded the model's penalty. The model proposes; this code disposes.
+
+VERDICT_TIERS = ["PASS", "CONSIDER", "RECOMMEND", "FILM_NOW"]
+
+# Must match the synthesis prompt (Step 5): MINOR -0.3, MODERATE -0.5,
+# MAJOR -0.8, CRITICAL -1.2, total capped at -3.0.
+FAILURE_PENALTIES = {"minor": 0.3, "moderate": 0.5, "major": 0.8, "critical": 1.2}
+MAX_FAILURE_PENALTY = 3.0
+
+def compute_failure_penalty(critical_failures: Any) -> float:
+    """Sum severity penalties from the structured critical_failures list."""
+    if not isinstance(critical_failures, list):
+        return 0.0
+    total = 0.0
+    for item in critical_failures:
+        if not isinstance(item, dict):
+            continue
+        severity = str(item.get("severity", "")).lower()
+        total += FAILURE_PENALTIES.get(severity, 0.0)
+    return round(min(total, MAX_FAILURE_PENALTY), 2)
+
+
+def _score_to_tier(score: float) -> str:
+    """Verdict thresholds (synthesis prompt Step 6)."""
+    if score >= 8.5:
+        return "FILM_NOW"
+    if score >= 7.5:
+        return "RECOMMEND"
+    if score >= 5.5:
+        return "CONSIDER"
+    return "PASS"
+
+
+def _cap_tier(tier: str, cap: str) -> str:
+    return cap if VERDICT_TIERS.index(tier) > VERDICT_TIERS.index(cap) else tier
+
+
+def derive_verdict(
+    weighted_score: float,
+    critical_failures: Any = None,
+    situation_verdict: str = "",
+    weighted_trap_score: float = 0.0,
+    truncated: bool = False,
+) -> Dict[str, Any]:
+    """Derive the final verdict in code from the synthesis's structured outputs.
+
+    Order of operations (mirrors the synthesis prompt Steps 4-6):
+      1. Subtract critical-failure penalty from the weighted score.
+      2. Map adjusted score to a tier.
+      3. Story-vs-Situation gate: "situation" caps at CONSIDER.
+      4. Trap gate: trap score >= 3.0 caps at CONSIDER; >= 2.0 downgrades one tier.
+      5. Truncation gate: never RECOMMEND/FILM_NOW a script whose ending
+         the readers did not see — cap at CONSIDER.
+
+    Returns dict with verdict, adjusted_score, penalty, and a human-readable
+    adjustments trail for the coverage document.
+    """
+    adjustments: List[str] = []
+
+    penalty = compute_failure_penalty(critical_failures)
+    adjusted = round(max(0.0, weighted_score - penalty), 2)
+    if penalty > 0:
+        adjustments.append(
+            f"critical_failure_penalty: -{penalty} ({weighted_score} → {adjusted})"
+        )
+
+    verdict = _score_to_tier(adjusted)
+    base_verdict = verdict
+
+    if str(situation_verdict).lower() == "situation":
+        capped = _cap_tier(verdict, "CONSIDER")
+        if capped != verdict:
+            adjustments.append(f"story_vs_situation gate: {verdict} → {capped}")
+        verdict = capped
+
+    if weighted_trap_score >= 3.0:
+        capped = _cap_tier(verdict, "CONSIDER")
+        if capped != verdict:
+            adjustments.append(f"trap score {weighted_trap_score} >= 3.0: {verdict} → {capped}")
+        verdict = capped
+    elif weighted_trap_score >= 2.0:
+        idx = VERDICT_TIERS.index(verdict)
+        if idx > 0:
+            downgraded = VERDICT_TIERS[idx - 1]
+            adjustments.append(f"trap score {weighted_trap_score} >= 2.0: {verdict} → {downgraded}")
+            verdict = downgraded
+
+    if truncated:
+        capped = _cap_tier(verdict, "CONSIDER")
+        if capped != verdict:
+            adjustments.append(f"truncated script (Act 3 unread): {verdict} → {capped}")
+        verdict = capped
+
+    return {
+        "verdict": verdict,
+        "verdict_before_gates": base_verdict,
+        "adjusted_score": adjusted,
+        "penalty": penalty,
+        "adjustments": adjustments,
+    }
 
 
 # V9: Rigorous reader prompts + tool schemas + few-shot anchors.
@@ -1024,12 +1152,12 @@ PREMISE POWER:
 3. freshness — "Same but different"? Fresh take or retread?
 
 GENRE (Story Grid):
-4. genre_execution — Are the genre's obligatory scenes PRESENT? List them.
-   (Action: Hero at Mercy of Villain. Horror: Victim at Mercy of Monster.
-   Crime: J'accuse. Thriller: Hero at Mercy + Damnation stakes.
-   Love/Comedy: Proof of Love. Status: Big Event.)
+4. genre_execution — Use the "STORY GRID — GENRE OBLIGATIONS FOR THIS SCRIPT"
+   block above. Name which obligatory scenes are PRESENT (cite page) and which
+   are MISSING. A missing Core Event is a red flag. For a comedy, BOTH the
+   comedy set pieces AND the paired genre's obligatory scenes must be present.
 5. genre_promise_delivery — Does the script deliver the emotional experience
-   the genre promises?
+   the genre promises (for comedy: the laughs AND the paired genre's payoff)?
 
 THEME (Story Grid):
 6. controlling_idea — State the argument about life in ONE sentence.
@@ -1251,23 +1379,68 @@ def _reader_system_blocks(reader: str) -> List[Dict[str, Any]]:
     ]
 
 
+# Readers that benefit from the genre card. Concept owns obligatory-scene
+# scoring; Structure checks their act placement; Craft/Emotion apply comedy
+# craft rules (set pieces, escalation, laughter-as-payload) when relevant.
+_GENRE_AWARE_READERS = {"structure", "concept", "craft_scene", "emotional_resonance"}
+
+
 def _reader_user_blocks(
     reader: str,
     screenplay_block: Dict[str, Any],
     title: str,
     page_count: int,
+    genre_card: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Build user content blocks: cached screenplay + reader-specific instruction."""
-    return [
-        screenplay_block,  # cached, shared across all readers + synthesis
-        {
+    """Build user content blocks: cached screenplay + optional genre card +
+    reader-specific instruction."""
+    blocks: List[Dict[str, Any]] = [screenplay_block]  # cached, shared
+
+    if genre_card and reader in _GENRE_AWARE_READERS:
+        # Cached so it's written once and read cheaply by every genre-aware
+        # reader within the cache TTL.
+        blocks.append({
             "type": "text",
-            "text": (
-                f"# METADATA\nTitle: {title}\nPages: {page_count}\n\n"
-                f"# YOUR TASK\n{READER_USER_INSTRUCTIONS[reader]}"
-            ),
-        },
-    ]
+            "text": genre_card,
+            "cache_control": {"type": "ephemeral"},
+        })
+
+    blocks.append({
+        "type": "text",
+        "text": (
+            f"# METADATA\nTitle: {title}\nPages: {page_count}\n\n"
+            f"# YOUR TASK\n{READER_USER_INSTRUCTIONS[reader]}"
+        ),
+    })
+    return blocks
+
+
+def run_genre_detection(
+    screenplay_block: Dict[str, Any],
+    proxy_url: Optional[str],
+) -> Dict[str, Any]:
+    """Cheap Haiku pass that classifies the script into the Five-Leaf Clover.
+    Returns a normalised detection dict (never raises — falls back to a
+    low-confidence Society/drama read so the pipeline always proceeds)."""
+    try:
+        _tool_input, text, _usage = call_llm(
+            system_blocks=[{
+                "type": "text",
+                "text": "You are a Story Grid genre analyst. Classify precisely.",
+            }],
+            user_blocks=[
+                screenplay_block,
+                {"type": "text", "text": build_genre_detection_prompt()},
+            ],
+            model_key="haiku",
+            max_tokens=400,
+            proxy_url=proxy_url,
+        )
+        raw = extract_json(text)
+        return parse_detection(raw)
+    except Exception as e:
+        log.warning(f"    Genre detection failed ({e}); defaulting to Society/drama.")
+        return parse_detection({"external_genre": "Society", "confidence": "low"})
 
 
 # ─── SYNTHESIS ───────────────────────────────────────────────────────────────
@@ -1599,14 +1772,35 @@ def _synthesis_user_blocks(
     title: str,
     reader_reports: Dict[str, Any],
     triage_impression: Optional[Dict[str, Any]] = None,
+    genre_detection: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Synthesis user blocks. Reader reports change per script — NOT cached.
 
     triage_impression, when provided, is injected as a Haiku cold-read data
     point before the 5 reader reports (mirrors TypeScript triageBlock logic
     in promptClient.v9.ts buildSynthesisPrompt).
+
+    genre_detection, when provided, tells synthesis the Story Grid genre the
+    readers evaluated against — so the output's genre/subgenres fields are
+    consistent with the obligatory-scene analysis rather than re-guessed.
     """
     reports_json = json.dumps(reader_reports, indent=2)
+
+    genre_block = ""
+    if genre_detection:
+        gd = genre_detection
+        label = gd.get("external_genre", "?")
+        if gd.get("is_comedy"):
+            label = f"Comedy + {gd.get('comedy_paired_genre')}"
+            if gd.get("comedy_subgenre"):
+                label += f" ({gd['comedy_subgenre']})"
+        genre_block = (
+            f"# STORY GRID GENRE (readers evaluated obligatory scenes against this)\n"
+            f"External: {label} | Internal: {gd.get('internal_genre') or '?'} "
+            f"(confidence {gd.get('confidence')})\n"
+            f"Use this for the genre/subgenres fields. If a reader's evidence "
+            f"strongly contradicts it, note it in reader_disagreements.\n\n"
+        )
 
     triage_block = ""
     if triage_impression:
@@ -1628,6 +1822,7 @@ def _synthesis_user_blocks(
             "type": "text",
             "text": (
                 f"# TITLE\n{title}\n\n"
+                f"{genre_block}"
                 f"{triage_block}"
                 f"# READER REPORTS\n```json\n{reports_json}\n```\n\n"
                 f"# YOUR TASK\nSynthesise these reports into a final verdict.\n"
@@ -1898,7 +2093,8 @@ def run_v9_full(
     Returns (analysis_dict, total_usage).
     """
     truncated = _truncate(text)
-    if len(text) > MAX_CHARS:
+    was_truncated = len(text) > MAX_CHARS
+    if was_truncated:
         log.warning(
             f"    ⚠ Truncated screenplay {len(text):,} → {MAX_CHARS:,} chars "
             f"(~{(len(text) - MAX_CHARS) // 250} pages lost). Score may be biased "
@@ -1909,23 +2105,36 @@ def run_v9_full(
     # First reader call writes the cache; subsequent calls read at 10% input cost.
     screenplay_block = _screenplay_user_block(truncated, cached=True)
 
-    log.info(f"    Running 5 readers in parallel (model: {model_key}, tool_use + caching + thinking)…")
-    reader_reports: Dict[str, Any] = {}
     total_usage: Dict[str, int] = {
         "input_tokens": 0,
         "output_tokens": 0,
         "cache_creation_input_tokens": 0,
         "cache_read_input_tokens": 0,
     }
-    reader_start = time.time()
 
     def _accumulate(usage: Dict[str, int]) -> None:
         for k in total_usage:
             total_usage[k] += usage.get(k, 0)
 
+    # ── Genre detection (cheap Haiku pass) → the genre card the readers use ──
+    genre_detection = run_genre_detection(screenplay_block, proxy_url)
+    genre_card = build_genre_card(genre_detection)
+    _gd = genre_detection
+    _label = _gd["external_genre"]
+    if _gd["is_comedy"]:
+        _label = f"Comedy+{_gd.get('comedy_paired_genre')}"
+        if _gd.get("comedy_subgenre"):
+            _label += f" ({_gd['comedy_subgenre']})"
+    log.info(f"    Genre: {_label} | internal: {_gd.get('internal_genre') or '?'} "
+             f"(confidence {_gd.get('confidence')})")
+
+    log.info(f"    Running 5 readers in parallel (model: {model_key}, tool_use + caching + thinking)…")
+    reader_reports: Dict[str, Any] = {}
+    reader_start = time.time()
+
     def run_reader(reader: str) -> Tuple[str, Any, Dict[str, int]]:
         system_blocks = _reader_system_blocks(reader)
-        user_blocks = _reader_user_blocks(reader, screenplay_block, title, page_count)
+        user_blocks = _reader_user_blocks(reader, screenplay_block, title, page_count, genre_card)
         tool = READER_TOOLS[reader]
         try:
             tool_input, _text, usage = call_llm(
@@ -1974,7 +2183,7 @@ def run_v9_full(
 
     # ── Synthesis (with retry) ──────────────────────────────────────────────
     syn_system_blocks = _synthesis_system_blocks()
-    syn_user_blocks = _synthesis_user_blocks(title, reader_reports, triage_impression)
+    syn_user_blocks = _synthesis_user_blocks(title, reader_reports, triage_impression, genre_detection)
 
     analysis: Optional[Dict[str, Any]] = None
     last_err: Optional[BaseException] = None
@@ -2059,11 +2268,167 @@ def run_v9_full(
             )
         analysis["weighted_score"] = computed_ws
 
-    # Embed reader reports and lock version string.
+    # Derive the verdict in code from the structured synthesis outputs.
+    # This restores the critical-failure penalty (which the pure-sum override
+    # above was silently discarding) and enforces the situation/trap/truncation
+    # gates that were previously prompt-only honor system.
+    fp_check = analysis.get("false_positive_check") or {}
+    svs = analysis.get("story_vs_situation") or {}
+    derived = derive_verdict(
+        weighted_score=float(analysis.get("weighted_score", 0) or 0),
+        critical_failures=analysis.get("critical_failures"),
+        situation_verdict=str(svs.get("verdict", "")),
+        weighted_trap_score=float(fp_check.get("weighted_trap_score", 0) or 0),
+        truncated=was_truncated,
+    )
+    model_verdict = str(analysis.get("verdict", ""))
+    if model_verdict and model_verdict != derived["verdict"]:
+        log.warning(
+            f"    ⚠ verdict: LLM said {model_verdict}, code derived {derived['verdict']} "
+            f"(adjusted score {derived['adjusted_score']}, gates: {derived['adjustments'] or 'none'}). "
+            f"Using code value."
+        )
+    analysis["verdict_model"] = model_verdict
+    analysis["verdict"] = derived["verdict"]
+    analysis["weighted_score_adjusted"] = derived["adjusted_score"]
+    analysis["critical_failure_penalty_applied"] = derived["penalty"]
+    analysis["verdict_adjustments"] = derived["adjustments"]
+    analysis["_truncation"] = {
+        "truncated": was_truncated,
+        "chars_lost": max(0, len(text) - MAX_CHARS),
+        "approx_pages_lost": max(0, (len(text) - MAX_CHARS) // 250),
+    }
+
+    # Embed reader reports, genre detection, and lock version string.
     analysis["reader_reports"] = reader_reports
+    analysis["genre_detection"] = genre_detection
     analysis["_total_usage"] = total_usage
     analysis["analysis_version"] = "v9_archaeology"  # Always override — source of truth.
     return analysis, total_usage
+
+
+# ── Boundary Re-Runs ─────────────────────────────────────────────────────────
+# Measured run-to-run spread at temp 0.1 is ~0.75-0.8 points (see
+# docs/audits/2026-07-02-variance-results.md) — a single-run verdict within
+# half a point of a tier boundary is close to a coin flip. When the adjusted
+# score lands near a boundary, run up to 2 more full passes and keep the
+# median-score run with the majority verdict. Prompt caching makes the extra
+# passes cheap when they run within the cache TTL.
+
+BOUNDARY_WINDOW = 0.5
+VERDICT_BOUNDARIES = (5.5, 7.5, 8.5)
+MAX_BOUNDARY_RUNS = 3
+
+
+def _near_boundary(score: float, window: float = BOUNDARY_WINDOW) -> bool:
+    return any(abs(score - b) < window for b in VERDICT_BOUNDARIES)
+
+
+def _adjusted_score(analysis: Dict[str, Any]) -> float:
+    val = analysis.get("weighted_score_adjusted")
+    if val is None:
+        val = analysis.get("weighted_score", 0)
+    return float(val or 0)
+
+
+def select_stable_result(
+    runs: List[Tuple[float, Dict[str, Any]]],
+) -> Dict[str, Any]:
+    """Pick the final analysis from boundary re-runs.
+
+    The median-score run becomes the coverage document (its reader reports
+    and prose are internally consistent). The verdict is the majority verdict
+    across runs; with no majority, the median run's own verdict stands.
+    """
+    ordered = sorted(runs, key=lambda r: r[0])
+    median_score, final = ordered[len(ordered) // 2]
+
+    verdicts = [str(a.get("verdict", "")) for _, a in runs]
+    counts: Dict[str, int] = {}
+    for v in verdicts:
+        counts[v] = counts.get(v, 0) + 1
+    top_verdict, top_count = max(counts.items(), key=lambda kv: kv[1])
+    final_verdict = top_verdict if top_count >= 2 else str(final.get("verdict", ""))
+
+    if str(final.get("verdict", "")) != final_verdict:
+        adjustments = final.setdefault("verdict_adjustments", [])
+        adjustments.append(
+            f"boundary re-run majority: {final.get('verdict')} → {final_verdict} "
+            f"(verdicts across runs: {verdicts})"
+        )
+        final["verdict"] = final_verdict
+
+    final["_boundary_reruns"] = {
+        "triggered": True,
+        "runs": [
+            {"adjusted_score": s, "verdict": str(a.get("verdict", "")),
+             "verdict_model": str(a.get("verdict_model", ""))}
+            for s, a in runs
+        ],
+        "median_adjusted_score": median_score,
+        "score_spread": round(ordered[-1][0] - ordered[0][0], 2),
+        "final_verdict": final_verdict,
+    }
+    return final
+
+
+def run_v9_stable(
+    text: str,
+    title: str,
+    page_count: int,
+    word_count: int,
+    model_key: str,
+    proxy_url: Optional[str],
+    triage_impression: Optional[Dict[str, Any]] = None,
+) -> Tuple[Dict[str, Any], Dict[str, int]]:
+    """run_v9_full with boundary re-runs. Drop-in replacement.
+
+    Set LEMON_BOUNDARY_RERUNS=0 to disable (single-pass, e.g. cost-capped
+    experiments).
+    """
+    analysis, usage = run_v9_full(
+        text=text, title=title, page_count=page_count, word_count=word_count,
+        model_key=model_key, proxy_url=proxy_url, triage_impression=triage_impression,
+    )
+    combined: Dict[str, Any] = dict(usage)
+
+    score = _adjusted_score(analysis)
+    if os.getenv("LEMON_BOUNDARY_RERUNS", "1") == "0" or not _near_boundary(score):
+        return analysis, combined
+
+    log.info(
+        f"    Boundary re-run: adjusted score {score} is within {BOUNDARY_WINDOW} "
+        f"of a verdict boundary — running {MAX_BOUNDARY_RUNS - 1} more passes…"
+    )
+    runs: List[Tuple[float, Dict[str, Any]]] = [(score, analysis)]
+    for i in range(MAX_BOUNDARY_RUNS - 1):
+        try:
+            extra, extra_usage = run_v9_full(
+                text=text, title=title, page_count=page_count, word_count=word_count,
+                model_key=model_key, proxy_url=proxy_url, triage_impression=triage_impression,
+            )
+        except Exception as e:
+            log.warning(f"    Boundary re-run {i + 2} failed (continuing with {len(runs)} run(s)): {e}")
+            continue
+        for k, v in extra_usage.items():
+            if isinstance(v, int) and isinstance(combined.get(k), int):
+                combined[k] = combined[k] + v
+            elif isinstance(v, int) and k not in combined:
+                combined[k] = v
+            else:
+                combined[k] = v
+        runs.append((_adjusted_score(extra), extra))
+
+    if len(runs) == 1:
+        return analysis, combined
+
+    final = select_stable_result(runs)
+    reruns = final["_boundary_reruns"]
+    log.info(
+        f"    Boundary re-run result: scores {[r['adjusted_score'] for r in reruns['runs']]} "
+        f"(spread {reruns['score_spread']}) → verdict {reruns['final_verdict']}"
+    )
+    return final, combined
 
 
 def run_v9_hybrid(
@@ -2087,7 +2452,7 @@ def run_v9_hybrid(
     and the Sonnet usage for cost accounting.
     """
     log.info("    Hybrid mode: running Sonnet first pass…")
-    sonnet_analysis, sonnet_usage = run_v9_full(
+    sonnet_analysis, sonnet_usage = run_v9_stable(
         text=text,
         title=title,
         page_count=page_count,
@@ -2118,7 +2483,7 @@ def run_v9_hybrid(
     log.info(
         f"    Sonnet verdict: {sonnet_verdict} — promoting to Opus for deeper analysis…"
     )
-    opus_analysis, opus_usage = run_v9_full(
+    opus_analysis, opus_usage = run_v9_stable(
         text=text,
         title=title,
         page_count=page_count,
@@ -2389,7 +2754,7 @@ def ingest_one(
             except Exception as e:
                 log.warning(f"    Triage pre-pass failed (continuing without): {e}")
                 triage_impression = None
-            analysis, usage = run_v9_full(
+            analysis, usage = run_v9_stable(
                 text, title, page_count, word_count, model_key, proxy_url,
                 triage_impression=triage_impression,
             )

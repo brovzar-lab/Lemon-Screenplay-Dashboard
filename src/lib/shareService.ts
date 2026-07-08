@@ -47,6 +47,8 @@ export interface SharedView {
     screenplayTitle: string;
     includeNotes: boolean;
     createdAt: string;
+    /** ISO timestamp after which the link no longer resolves. */
+    expiresAt?: string;
 }
 
 export interface SharedViewDocument {
@@ -55,6 +57,10 @@ export interface SharedViewDocument {
     screenplayTitle: string;
     includeNotes: boolean;
     createdAt: string;
+    /** ISO timestamp after which the link no longer resolves (for display). */
+    expiresAt?: string;
+    /** Same instant as epoch millis — the Firestore rule compares this. */
+    expiresAtMillis?: number;
     pdfUrl: string | null;
     posterUrl: string | null;
     analysis: {
@@ -92,8 +98,21 @@ export interface SharedViewDocument {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const SHARED_VIEWS_COLLECTION = 'shared_views';
+
+/** Default share-link lifetime. Confidential coverage should not live at a
+ *  public URL forever; a forwarded link goes stale on its own. */
+export const DEFAULT_SHARE_TTL_DAYS = 30;
+
 function getShareBaseUrl(): string {
     return `${window.location.origin}/share`;
+}
+
+/** True when a share doc carries an expiry that is now in the past. Docs with
+ *  no expiresAt (created before this feature) never expire — grandfathered. */
+function isExpired(doc: { expiresAt?: string }): boolean {
+    if (!doc.expiresAt) return false;
+    const expiry = Date.parse(doc.expiresAt);
+    return Number.isFinite(expiry) && expiry < Date.now();
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -159,10 +178,14 @@ export async function createShareToken(
     screenplay: Screenplay,
     includeNotes: boolean,
     notes?: Note[],
-): Promise<{ token: string; url: string }> {
+    ttlDays: number = DEFAULT_SHARE_TTL_DAYS,
+): Promise<{ token: string; url: string; expiresAt: string }> {
     await authReady;
 
     const token = crypto.randomUUID();
+    const now = new Date();
+    const expiresAtMillis = now.getTime() + ttlDays * 24 * 60 * 60 * 1000;
+    const expiresAt = new Date(expiresAtMillis).toISOString();
 
     // Resolve pdfUrl at creation time
     let pdfUrl: string | null = null;
@@ -180,7 +203,9 @@ export async function createShareToken(
         screenplayId,
         screenplayTitle: screenplay.title,
         includeNotes,
-        createdAt: new Date().toISOString(),
+        createdAt: now.toISOString(),
+        expiresAt,
+        expiresAtMillis,
         pdfUrl,
         posterUrl: screenplay.posterUrl || null,
         analysis: buildAnalysisSnapshot(screenplay),
@@ -200,6 +225,7 @@ export async function createShareToken(
     return {
         token,
         url: `${getShareBaseUrl()}/${token}`,
+        expiresAt,
     };
 }
 
@@ -217,7 +243,15 @@ export async function resolveShareToken(
         return null;
     }
 
-    return snapshot.data() as SharedViewDocument;
+    const data = snapshot.data() as SharedViewDocument;
+
+    // Expired links resolve to null — the SharedViewPage renders ExpiredLinkPage,
+    // exactly as it does for a missing/revoked token.
+    if (isExpired(data)) {
+        return null;
+    }
+
+    return data;
 }
 
 /**
@@ -254,7 +288,12 @@ export async function getExistingShareToken(
         return null;
     }
 
-    return snapshot.docs[0].data() as SharedView;
+    // Ignore expired tokens so the UI offers a fresh link instead of a dead one.
+    const live = snapshot.docs
+        .map((d) => d.data() as SharedView)
+        .find((v) => !isExpired(v));
+
+    return live ?? null;
 }
 
 /**

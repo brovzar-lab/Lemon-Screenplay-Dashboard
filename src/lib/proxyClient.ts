@@ -9,10 +9,23 @@
  * In prod: uses Firebase Hosting rewrite (/api/llm → llmProxy function)
  */
 
+import { authReady, auth } from './firebase';
+
 // Resolve proxy URL — emulator in dev, hosting rewrite in prod
 const PROXY_URL = import.meta.env.DEV
   ? 'http://127.0.0.1:5001/lemon-screenplay-dashboard/us-central1/llmProxy'
   : '/api/llm';
+
+/**
+ * Build the Authorization header from the current Firebase session. The proxy
+ * requires a valid ID token (or the daemon's service key) — without this every
+ * browser call would 401.
+ */
+async function authHeaders(): Promise<Record<string, string>> {
+  await authReady;
+  const token = await auth.currentUser?.getIdToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export interface CallLLMOptions {
   model: string;
@@ -75,12 +88,12 @@ export async function callLLM(options: CallLLMOptions): Promise<CallLLMResult> {
     ...(options.maxTokens !== undefined ? { max_tokens: options.maxTokens } : {}),
   };
 
-  // Send to proxy
+  // Send to proxy (with the Firebase ID token so the proxy authorizes us)
   let response: Response;
   try {
     response = await fetch(PROXY_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify(body),
     });
   } catch {
