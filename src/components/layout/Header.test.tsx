@@ -1,5 +1,5 @@
 /**
- * Component Tests for Header
+ * Component Tests for Header — Instrument Design System
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -21,15 +21,19 @@ vi.mock('@/hooks/useFilteredScreenplays', () => ({
 
 vi.mock('@/stores/themeStore', () => ({
   useThemeStore: () => ({
-    resolvedTheme: 'dark' as const,
-    isDark: true,
+    resolvedTheme: 'light' as const,
+    isDark: false,
     setTheme: vi.fn(),
+    setDesignSystem: vi.fn(),
+    theme: 'system',
+    designSystem: 'instrument',
   }),
   THEME_OPTIONS: [
-    { id: 'dark', label: 'Halation Dark', family: 'halation', mode: 'dark' },
-    { id: 'light', label: 'Halation Light', family: 'halation', mode: 'light' },
-    { id: 's2s', label: 'Story to Screen', family: 's2s', mode: 'light' },
-    { id: 's2s-dark', label: 'Story to Screen Dark', family: 's2s', mode: 'dark' },
+    { id: 'light', label: 'Light', family: 'instrument', mode: 'light' },
+    { id: 'dark', label: 'Dark', family: 'instrument', mode: 'dark' },
+  ],
+  DESIGN_SYSTEMS: [
+    { id: 'instrument', label: 'Instrument', description: 'Cool cobalt', lightThemeId: 'light', darkThemeId: 'dark', accentLight: '#2B54F0', accentDark: '#6E8BFF', fontHint: 'Playfair Display' },
   ],
 }));
 
@@ -42,6 +46,11 @@ vi.mock('@/components/devexec', () => ({
 // SyncStatusIndicator has its own store deps — mock as no-op
 vi.mock('./SyncStatusIndicator', () => ({
   SyncStatusIndicator: () => null,
+}));
+
+// ThemeSwitcher — mock as simple render since it uses the same theme store
+vi.mock('@/components/ui/ThemeSwitcher', () => ({
+  ThemeSwitcher: () => <button aria-label="Switch design system">Instrument</button>,
 }));
 
 describe('Header', () => {
@@ -76,13 +85,13 @@ describe('Header', () => {
     expect(screen.getByTitle('Settings')).toBeInTheDocument();
   });
 
-  it('renders the theme picker button', () => {
+  it('renders the theme toggle button', () => {
     render(
       <MemoryRouter>
         <Header />
       </MemoryRouter>
     );
 
-    expect(screen.getByLabelText('Change theme')).toBeInTheDocument();
+    expect(screen.getByLabelText('Toggle theme')).toBeInTheDocument();
   });
 });

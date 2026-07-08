@@ -1,60 +1,46 @@
 /* ============================================================================
-   HALATION — Design System
-   A calm violet-tinged system. Dark is primary; light is warm lavender-grey.
-   One accent hue (violet) kept SEPARATE from the four verdict hues
-   (film-now / recommend / consider / pass) so status and brand never collide.
-   Drop this file in, set data-theme on <html>, use the .sp-* classes.
+   INSTRUMENT — Design System (replaces Halation)
+   Cool grey-white light, midnight-navy dark, cobalt accent, Playfair + Schibsted.
+   Emits --sp-* variables for backward compatibility with existing components.
    ============================================================================ */
-
-/* Fonts: Space Grotesk (display), Hanken Grotesk (body), JetBrains Mono (data/labels).
-   --sp-display is new; --sp-font and --sp-mono carry over from the old API. */
 
 /* ============================================================================
-   LIGHT — "Halation Light"
-   Warm off-white with faint violet tint. Never pure white.
+   LIGHT (default)
    ============================================================================ */
 :root {
-  /* ---- Surfaces (lavender-grey paper, low glare) ---- */
-  --sp-bg:            #F1F0F7;   /* app background */
-  --sp-surface:       #FAFAFE;   /* raised cards / panels */
-  --sp-surface-2:     #F4F3FA;   /* nested / secondary surface */
-  --sp-sunken:        #ECEBF4;   /* wells, input rest, bar tracks */
-  --sp-border:        rgba(20,18,45,0.10);
-  --sp-border-strong: rgba(20,18,45,0.16);
+  --sp-bg:            #E4E7EE;
+  --sp-surface:       #FFFFFF;
+  --sp-surface-2:     #EEF0F3;
+  --sp-sunken:        #EEF0F3;
+  --sp-border:        #E6E8EC;
+  --sp-border-strong: #D0D4DA;
 
-  /* ---- Text (deep violet-ink, never pure #000) ---- */
-  --sp-text:   #161427;          /* primary */
-  --sp-text-2: #56536E;          /* secondary / dim */
-  --sp-text-3: #918EA8;          /* muted — labels, captions, placeholders */
+  --sp-text:   #0B0D12;
+  --sp-text-2: #585F6B;
+  --sp-text-3: #9298A4;
 
-  /* ---- Accent (violet) — identity, active states, key numbers ---- */
-  --sp-accent:        #6655E6;
-  --sp-accent-strong: #5544CC;
-  --sp-accent-soft:   rgba(102,85,230,0.10);
-  --sp-accent-text:   #FFFFFF;   /* text on solid accent fill */
+  --sp-accent:        #2B54F0;
+  --sp-accent-strong: #2042C2;
+  --sp-accent-soft:   #EAEEFE;
+  --sp-accent-text:   #FFFFFF;
 
-  /* ---- Brand aliases (rose→accent for backward compat) ---- */
   --sp-rose:        var(--sp-accent);
   --sp-rose-strong: var(--sp-accent-strong);
   --sp-rose-tint:   var(--sp-accent-soft);
   --sp-on-rose:     var(--sp-accent-text);
 
-  /* ---- Secondary (teal-cyan) ---- */
-  --sp-secondary: #149E8E;
+  --sp-secondary: #119C8B;
 
-  /* ---- Verdict (darkened for ≥4.5:1 contrast on light) ---- */
-  --sp-film-now:   #B07A0E;
-  --sp-recommend:  #15A05E;
-  --sp-consider:   #C77E1C;
-  --sp-pass:       #E0455A;
+  --sp-film-now:   #2B54F0;
+  --sp-recommend:  #12A66B;
+  --sp-consider:   #F5A524;
+  --sp-pass:       #FF5247;
 
-  /* ---- Verdict tints ---- */
-  --sp-film-now-tint:   rgba(201,138,18,0.10);
-  --sp-recommend-tint:  rgba(21,160,94,0.10);
-  --sp-consider-tint:   rgba(199,126,28,0.10);
-  --sp-pass-tint:       rgba(224,69,90,0.10);
+  --sp-film-now-tint:   #EAEEFE;
+  --sp-recommend-tint:  #E2F4EC;
+  --sp-consider-tint:   #FBEDD6;
+  --sp-pass-tint:       #FCE7E7;
 
-  /* Semantic aliases (backward compat — badge-recommend etc) */
   --sp-sage:      var(--sp-recommend);
   --sp-sage-tint: var(--sp-recommend-tint);
   --sp-sand:      var(--sp-consider);
@@ -62,95 +48,90 @@
   --sp-clay:      var(--sp-pass);
   --sp-clay-tint: var(--sp-pass-tint);
 
-  /* ---- Genre colors (shifted darker for light BG contrast) ---- */
-  --sp-genre-drama:    #36B085;
-  --sp-genre-horror:   #E85555;
-  --sp-genre-thriller: #5A78EE;
-  --sp-genre-crime:    #B27FEE;
-  --sp-genre-action:   #E88F20;
-  --sp-genre-scifi:    #2EB0C8;
-  --sp-genre-fantasy:  #8A7ADE;
-  --sp-genre-comedy:   #E8669F;
-  --sp-genre-western:  #C08642;
-  --sp-genre-romance:  #E87590;
+  --sp-genre-drama:    #119C8B;
+  --sp-genre-horror:   #FF6B5C;
+  --sp-genre-thriller: #2B54F0;
+  --sp-genre-crime:    #6E4BF0;
+  --sp-genre-action:   #FF6B5C;
+  --sp-genre-scifi:    #119C8B;
+  --sp-genre-fantasy:  #6E4BF0;
+  --sp-genre-comedy:   #FF6B5C;
+  --sp-genre-western:  #119C8B;
+  --sp-genre-romance:  #FF6B5C;
 
-  /* ---- Shape ---- */
-  --sp-r-xs: 6px;
-  --sp-r-sm: 10px;
-  --sp-r-md: 14px;
-  --sp-r-lg: 16px;   /* card radius */
-  --sp-r-xl: 24px;
+  --sp-r-xs: 4px;
+  --sp-r-sm: 8px;
+  --sp-r-md: 12px;
+  --sp-r-lg: 16px;
+  --sp-r-xl: 20px;
   --sp-r-full: 999px;
 
-  /* ---- Spacing (4px base) ---- */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
   --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
   --sp-12: 48px; --sp-16: 64px;
 
-  /* ---- Shadows (cool violet-tinted) ---- */
-  --sp-shadow-sm: 0 1px 3px rgba(40,40,80,0.06);
-  --sp-shadow-md: 0 4px 12px -4px rgba(40,40,80,0.12);
-  --sp-shadow-lg: 0 14px 34px -20px rgba(40,40,80,0.22);
-  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
+  --sp-shadow-sm: 0 1px 2px rgba(16,20,30,.10), 0 2px 4px rgba(16,20,30,.06), 0 12px 30px rgba(16,20,30,.11);
+  --sp-shadow-md: 0 2px 4px rgba(16,20,30,.12), 0 6px 12px rgba(16,20,30,.10), 0 24px 50px rgba(16,20,30,.16);
+  --sp-shadow-lg: 0 2px 4px rgba(16,20,30,.12), 0 4px 8px rgba(16,20,30,.08), 0 20px 44px rgba(16,20,30,.14);
+  --sp-shadow-btn: inset 0 1px 0 rgba(255,255,255,.22), 0 1px 2px rgba(11,13,18,.12), 0 6px 16px rgba(43,84,240,.26);
+  --sp-highlight-top: inset 0 1px 0 rgba(255,255,255,.9);
+  --sp-inset-input: inset 0 1px 2px rgba(11,13,18,.06);
+  --sp-ring: 0 0 0 2px #EAECF1, 0 0 0 4px #2B54F0;
 
-  /* ---- Page glow ---- */
-  --sp-glow: radial-gradient(60% 50% at 15% 0%, rgba(124,106,246,0.10), transparent 60%);
+  --sp-glow: none;
 
-  /* ---- Typography ---- */
-  --sp-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --sp-font: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --sp-mono: "JetBrains Mono", ui-monospace, monospace;
+  --sp-display: 'Playfair Display', Georgia, serif;
+  --sp-font: 'Schibsted Grotesk', system-ui, sans-serif;
+  --sp-mono: 'Schibsted Grotesk', system-ui, sans-serif;
 
-  --sp-text-xs:  12px;
+  --sp-text-xs:  11px;
   --sp-text-sm:  13px;
   --sp-text-base:15px;
   --sp-text-md:  17px;
   --sp-text-lg:  20px;
-  --sp-text-xl:  26px;
-  --sp-text-2xl: 33px;
+  --sp-text-xl:  24px;
+  --sp-text-2xl: 32px;
   --sp-text-3xl: 42px;
 
-  --sp-ease: cubic-bezier(.4, 0, .15, 1);
+  --sp-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ============================================================================
-   DARK — "Halation Dark"
-   Deep violet-black with atmospheric glow. Accent lifts in chroma.
+   DARK — Midnight navy, never pure black
    ============================================================================ */
 [data-theme="dark"] {
-  --sp-bg:            #0B0A12;
-  --sp-surface:       #15131F;
-  --sp-surface-2:     #1A1726;
-  --sp-sunken:        #100E18;
-  --sp-border:        rgba(255,255,255,0.08);
-  --sp-border-strong: rgba(255,255,255,0.14);
+  --sp-bg:            #0A1020;
+  --sp-surface:       #16203A;
+  --sp-surface-2:     #101A30;
+  --sp-sunken:        #101A30;
+  --sp-border:        #233152;
+  --sp-border-strong: #304060;
 
-  --sp-text:   #F4F2FF;
-  --sp-text-2: #A9A4C4;
-  --sp-text-3: #6F6A8C;
+  --sp-text:   #EDF1F9;
+  --sp-text-2: #94A2BE;
+  --sp-text-3: #73819E;
 
-  --sp-accent:        #7C6AF6;
-  --sp-accent-strong: #9484FF;
-  --sp-accent-soft:   rgba(124,106,246,0.16);
-  --sp-accent-text:   #0B0A12;
+  --sp-accent:        #6E8BFF;
+  --sp-accent-strong: #5E80FF;
+  --sp-accent-soft:   #1B2747;
+  --sp-accent-text:   #0E1426;
 
   --sp-rose:        var(--sp-accent);
   --sp-rose-strong: var(--sp-accent-strong);
   --sp-rose-tint:   var(--sp-accent-soft);
   --sp-on-rose:     var(--sp-accent-text);
 
-  --sp-secondary: #46E5FF;
+  --sp-secondary: #2FC9B0;
 
-  /* Verdict (brighter for dark BG) */
-  --sp-film-now:   #F5B651;
-  --sp-recommend:  #4CDE9B;
-  --sp-consider:   #F1A93C;
-  --sp-pass:       #F76E7C;
+  --sp-film-now:   #6E8BFF;
+  --sp-recommend:  #34C98C;
+  --sp-consider:   #FFBE57;
+  --sp-pass:       #FF7A72;
 
-  --sp-film-now-tint:   rgba(245,182,81,0.14);
-  --sp-recommend-tint:  rgba(76,222,155,0.14);
-  --sp-consider-tint:   rgba(241,169,60,0.14);
-  --sp-pass-tint:       rgba(247,110,124,0.14);
+  --sp-film-now-tint:   #1B2747;
+  --sp-recommend-tint:  #10301F;
+  --sp-consider-tint:   #33260F;
+  --sp-pass-tint:       #3A1A1C;
 
   --sp-sage:      var(--sp-recommend);
   --sp-sage-tint: var(--sp-recommend-tint);
@@ -159,288 +140,24 @@
   --sp-clay:      var(--sp-pass);
   --sp-clay-tint: var(--sp-pass-tint);
 
-  /* Genre colors (full brightness for dark BG) */
-  --sp-genre-drama:    #46C99A;
-  --sp-genre-horror:   #FF6B6B;
-  --sp-genre-thriller: #6C8BFF;
-  --sp-genre-crime:    #C792FF;
-  --sp-genre-action:   #FFA336;
-  --sp-genre-scifi:    #3FC8E6;
-  --sp-genre-fantasy:  #9D8DF1;
-  --sp-genre-comedy:   #FF7AB6;
-  --sp-genre-western:  #D69A56;
-  --sp-genre-romance:  #FF8FA3;
+  --sp-genre-drama:    #2FC9B0;
+  --sp-genre-horror:   #FF8A78;
+  --sp-genre-thriller: #6E8BFF;
+  --sp-genre-crime:    #9F86FF;
+  --sp-genre-action:   #FF8A78;
+  --sp-genre-scifi:    #2FC9B0;
+  --sp-genre-fantasy:  #9F86FF;
+  --sp-genre-comedy:   #FF8A78;
+  --sp-genre-western:  #2FC9B0;
+  --sp-genre-romance:  #FF8A78;
 
-  --sp-shadow-sm: 0 1px 3px rgba(0,0,0,0.40);
-  --sp-shadow-md: 0 6px 18px -6px rgba(0,0,0,0.50);
-  --sp-shadow-lg: 0 18px 44px -22px rgba(0,0,0,0.70);
-  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
+  --sp-shadow-sm: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.40);
+  --sp-shadow-md: 0 2px 4px rgba(0,0,0,.40), 0 12px 28px rgba(0,0,0,.48);
+  --sp-shadow-lg: 0 2px 8px rgba(0,0,0,.50), 0 24px 48px rgba(0,0,0,.55);
+  --sp-shadow-btn: inset 0 1px 0 rgba(255,255,255,.25), 0 1px 2px rgba(0,0,0,.40), 0 6px 18px rgba(110,139,255,.45);
+  --sp-highlight-top: inset 0 1px 0 rgba(255,255,255,.05);
+  --sp-inset-input: inset 0 1px 3px rgba(0,0,0,.20);
+  --sp-ring: 0 0 0 2px #0E1426, 0 0 0 4px #6E8BFF;
 
-  --sp-glow: radial-gradient(60% 50% at 15% 0%, rgba(124,106,246,0.18), transparent 60%);
+  --sp-glow: none;
 }
-
-/* ============================================================================
-   BASE
-   ============================================================================ */
-.sp-root, .sp-scope {
-  background: var(--sp-bg);
-  color: var(--sp-text);
-  font-family: var(--sp-font);
-  font-size: var(--sp-text-base);
-  line-height: 1.55;
-  font-weight: 400;
-  -webkit-font-smoothing: antialiased;
-}
-.sp-mono { font-family: var(--sp-mono); font-feature-settings: "tnum"; }
-
-/* ---- Headings (Space Grotesk display) ---- */
-.sp-h1 { font-family: var(--sp-display); font-size: var(--sp-text-3xl); line-height: 1.06; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
-.sp-h2 { font-family: var(--sp-display); font-size: var(--sp-text-2xl); line-height: 1.12; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
-.sp-h3 { font-family: var(--sp-display); font-size: var(--sp-text-xl);  line-height: 1.2;  font-weight: 700; letter-spacing: -0.02em; margin: 0; }
-.sp-h4 { font-family: var(--sp-display); font-size: var(--sp-text-lg);  line-height: 1.3;  font-weight: 700; letter-spacing: -0.02em; margin: 0; }
-.sp-eyebrow {
-  font-family: var(--sp-mono); font-size: var(--sp-text-xs); font-weight: 500;
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--sp-text-3); margin: 0;
-}
-.sp-body   { font-size: var(--sp-text-base); color: var(--sp-text-2); }
-.sp-caption{ font-size: var(--sp-text-sm); color: var(--sp-text-3); }
-
-/* ============================================================================
-   BUTTONS
-   ============================================================================ */
-.sp-btn {
-  display: inline-flex; align-items: center; gap: var(--sp-2);
-  font-family: var(--sp-font); font-size: var(--sp-text-sm); font-weight: 500;
-  padding: 9px 15px; border-radius: var(--sp-r-sm);
-  border: 1px solid transparent; cursor: pointer;
-  transition: background .18s var(--sp-ease), border-color .18s var(--sp-ease), transform .1s var(--sp-ease);
-  color: var(--sp-text);
-}
-.sp-btn:active { transform: translateY(1px); }
-.sp-btn:focus-visible { outline: none; box-shadow: var(--sp-ring); }
-
-.sp-btn--primary { background: var(--sp-accent); color: var(--sp-accent-text); }
-.sp-btn--primary:hover { background: var(--sp-accent-strong); }
-
-.sp-btn--secondary { background: var(--sp-surface); border-color: var(--sp-border-strong); color: var(--sp-text); }
-.sp-btn--secondary:hover { background: var(--sp-surface-2); }
-
-.sp-btn--ghost { background: transparent; color: var(--sp-text-2); }
-.sp-btn--ghost:hover { background: var(--sp-surface-2); color: var(--sp-text); }
-
-.sp-btn--sm { padding: 6px 11px; font-size: var(--sp-text-xs); border-radius: var(--sp-r-xs); }
-
-/* ============================================================================
-   BADGES / VERDICT PILLS  (status = semantic hue, never accent)
-   ============================================================================ */
-.sp-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--sp-mono); font-size: 11px; font-weight: 600;
-  letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 4px 10px 4px 8px; border-radius: var(--sp-r-full);
-  border: 1px solid transparent;
-}
-.sp-badge::before { content: ""; width: 6px; height: 6px; border-radius: var(--sp-r-full); background: currentColor; }
-.sp-badge--recommend { color: var(--sp-recommend); background: var(--sp-recommend-tint); }
-.sp-badge--consider  { color: var(--sp-consider);  background: var(--sp-consider-tint); }
-.sp-badge--pass      { color: var(--sp-pass);      background: var(--sp-pass-tint); }
-.sp-badge--film-now  { color: var(--sp-film-now);  background: var(--sp-film-now-tint); }
-.sp-badge--neutral   { color: var(--sp-text-2); background: var(--sp-surface-2); }
-.sp-badge--neutral::before { display: none; }
-
-/* ============================================================================
-   INPUT / SEARCH
-   ============================================================================ */
-.sp-input {
-  display: flex; align-items: center; gap: var(--sp-2);
-  background: var(--sp-sunken); border: 1px solid var(--sp-border);
-  border-radius: var(--sp-r-sm); padding: 10px 13px;
-  color: var(--sp-text-2); font-size: var(--sp-text-sm);
-  transition: border-color .18s var(--sp-ease), background .18s var(--sp-ease);
-}
-.sp-input:focus-within { background: var(--sp-surface); border-color: var(--sp-accent); box-shadow: var(--sp-ring); }
-.sp-input input { all: unset; flex: 1; color: var(--sp-text); font-family: var(--sp-font); }
-.sp-input .sp-kbd { margin-left: auto; }
-.sp-kbd {
-  font-family: var(--sp-mono); font-size: 11px; color: var(--sp-text-3);
-  background: var(--sp-surface); border: 1px solid var(--sp-border); border-radius: var(--sp-r-xs);
-  padding: 1px 6px;
-}
-
-/* ============================================================================
-   TABS / SEGMENTED
-   ============================================================================ */
-.sp-tabs { display: inline-flex; gap: 2px; background: var(--sp-sunken); border-radius: var(--sp-r-sm); padding: 3px; }
-.sp-tab {
-  border: 0; background: transparent; cursor: pointer; color: var(--sp-text-3);
-  font-family: var(--sp-font); font-size: var(--sp-text-sm); font-weight: 500;
-  padding: 6px 13px; border-radius: var(--sp-r-xs);
-  transition: background .18s var(--sp-ease), color .18s var(--sp-ease);
-}
-.sp-tab:hover { color: var(--sp-text); }
-.sp-tab[aria-selected="true"] {
-  background: var(--sp-accent);
-  color: var(--sp-accent-text);
-  box-shadow: var(--sp-shadow-sm);
-}
-
-/* ============================================================================
-   CARD
-   ============================================================================ */
-.sp-card {
-  background: var(--sp-surface-2); border: 1px solid var(--sp-border);
-  border-radius: var(--sp-r-lg); box-shadow: var(--sp-shadow-sm);
-  padding: var(--sp-5);
-  transition: box-shadow .2s var(--sp-ease), transform .15s var(--sp-ease), border-color .2s var(--sp-ease);
-}
-.sp-card--interactive { cursor: pointer; }
-.sp-card--interactive:hover { box-shadow: var(--sp-shadow-md); transform: translateY(-2px); border-color: var(--sp-border-strong); }
-
-/* ============================================================================
-   SCORE BAR (track + semantic fill)
-   ============================================================================ */
-.sp-bar { height: 5px; border-radius: var(--sp-r-full); background: var(--sp-sunken); overflow: hidden; }
-.sp-bar > i { display: block; height: 100%; border-radius: var(--sp-r-full); }
-.sp-bar--recommend > i { background: var(--sp-recommend); }
-.sp-bar--consider  > i { background: var(--sp-consider); }
-.sp-bar--pass      > i { background: var(--sp-pass); }
-
-/* ============================================================================
-   LIST ROW
-   ============================================================================ */
-.sp-row {
-  display: grid; align-items: center; gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-4); border-radius: var(--sp-r-md);
-  border: 1px solid transparent; transition: background .15s var(--sp-ease);
-}
-.sp-row:hover { background: var(--sp-surface-2); }
-.sp-divider { height: 1px; background: var(--sp-border); border: 0; margin: 0; }
-
-/* ============================================================================
-   SELECT
-   ============================================================================ */
-.sp-select {
-  appearance: none; -webkit-appearance: none;
-  font-family: var(--sp-font); font-size: var(--sp-text-sm); color: var(--sp-text);
-  background: var(--sp-sunken); border: 1px solid var(--sp-border); border-radius: var(--sp-r-sm);
-  padding: 9px 34px 9px 13px; cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236F6A8C' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 11px center;
-  transition: border-color .18s var(--sp-ease), background-color .18s var(--sp-ease);
-}
-.sp-select:focus-visible { outline: none; background-color: var(--sp-surface); border-color: var(--sp-accent); box-shadow: var(--sp-ring); }
-
-/* ============================================================================
-   CHECKBOX · RADIO
-   ============================================================================ */
-.sp-check, .sp-radio {
-  appearance: none; -webkit-appearance: none; cursor: pointer; flex: 0 0 auto;
-  width: 18px; height: 18px; border: 1.5px solid var(--sp-border-strong);
-  background: var(--sp-surface); transition: background .15s var(--sp-ease), border-color .15s var(--sp-ease);
-  display: inline-grid; place-content: center;
-}
-.sp-check { border-radius: var(--sp-r-xs); }
-.sp-radio { border-radius: var(--sp-r-full); }
-.sp-check::after {
-  content: ""; width: 11px; height: 11px; transform: scale(0); transition: transform .15s var(--sp-ease);
-  background: var(--sp-accent-text);
-  clip-path: polygon(41% 67%, 84% 22%, 94% 33%, 41% 88%, 8% 53%, 19% 42%);
-}
-.sp-radio::after { content: ""; width: 8px; height: 8px; border-radius: var(--sp-r-full); background: var(--sp-accent-text); transform: scale(0); transition: transform .15s var(--sp-ease); }
-.sp-check:checked, .sp-radio:checked { background: var(--sp-accent); border-color: var(--sp-accent); }
-.sp-check:checked::after, .sp-radio:checked::after { transform: scale(1); }
-.sp-check:focus-visible, .sp-radio:focus-visible { outline: none; box-shadow: var(--sp-ring); }
-
-/* ============================================================================
-   SWITCH
-   ============================================================================ */
-.sp-switch { appearance: none; -webkit-appearance: none; cursor: pointer; position: relative;
-  width: 38px; height: 22px; border-radius: var(--sp-r-full); background: var(--sp-sunken);
-  border: 1px solid var(--sp-border-strong); transition: background .2s var(--sp-ease), border-color .2s var(--sp-ease); }
-.sp-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
-  border-radius: var(--sp-r-full); background: var(--sp-surface); box-shadow: var(--sp-shadow-sm); transition: transform .2s var(--sp-ease); }
-.sp-switch:checked { background: var(--sp-accent); border-color: var(--sp-accent); }
-.sp-switch:checked::after { transform: translateX(16px); }
-.sp-switch:focus-visible { outline: none; box-shadow: var(--sp-ring); }
-
-/* ============================================================================
-   REMOVABLE CHIP / TAG
-   ============================================================================ */
-.sp-chip {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: var(--sp-text-sm); color: var(--sp-text-2);
-  background: var(--sp-surface-2); border: 1px solid var(--sp-border);
-  border-radius: var(--sp-r-full); padding: 5px 7px 5px 12px;
-}
-.sp-chip button { all: unset; cursor: pointer; width: 18px; height: 18px; border-radius: var(--sp-r-full);
-  display: grid; place-items: center; color: var(--sp-text-3); }
-.sp-chip button:hover { background: var(--sp-sunken); color: var(--sp-text); }
-
-/* ============================================================================
-   DIALOG / MODAL
-   ============================================================================ */
-.sp-scrim { position: fixed; inset: 0; z-index: 100; background: color-mix(in srgb, var(--sp-text) 38%, transparent);
-  backdrop-filter: blur(3px); display: grid; place-items: center; padding: var(--sp-6); }
-.sp-dialog {
-  width: 100%; max-width: 480px; background: var(--sp-surface);
-  border: 1px solid var(--sp-border); border-radius: var(--sp-r-xl);
-  box-shadow: var(--sp-shadow-lg); overflow: hidden;
-}
-.sp-dialog__head { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-5) var(--sp-5) var(--sp-3); }
-.sp-dialog__title { font-family: var(--sp-display); font-size: var(--sp-text-lg); font-weight: 700; letter-spacing: -0.02em; margin: 0; }
-.sp-dialog__body { padding: 0 var(--sp-5) var(--sp-4); color: var(--sp-text-2); font-size: var(--sp-text-sm); }
-.sp-dialog__foot { display: flex; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5);
-  background: var(--sp-surface-2); border-top: 1px solid var(--sp-border); }
-.sp-dialog--sm { max-width: 380px; }
-.sp-dialog--lg { max-width: 720px; }
-
-/* ============================================================================
-   TOOLTIP
-   ============================================================================ */
-[data-sp-tip] { position: relative; }
-[data-sp-tip]::after {
-  content: attr(data-sp-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(4px);
-  background: var(--sp-text); color: var(--sp-bg); font-family: var(--sp-font); font-size: 12px; font-weight: 500;
-  padding: 6px 9px; border-radius: var(--sp-r-xs); white-space: nowrap; pointer-events: none;
-  opacity: 0; transition: opacity .15s var(--sp-ease), transform .15s var(--sp-ease); box-shadow: var(--sp-shadow-md);
-}
-[data-sp-tip]:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-/* ============================================================================
-   MENU / DROPDOWN
-   ============================================================================ */
-.sp-menu { min-width: 180px; background: var(--sp-surface); border: 1px solid var(--sp-border);
-  border-radius: var(--sp-r-md); box-shadow: var(--sp-shadow-lg); padding: var(--sp-2); }
-.sp-menu__item { display: flex; align-items: center; gap: var(--sp-2); width: 100%; text-align: left;
-  border: 0; background: transparent; cursor: pointer; color: var(--sp-text);
-  font-family: var(--sp-font); font-size: var(--sp-text-sm); padding: 8px 10px; border-radius: var(--sp-r-xs); }
-.sp-menu__item:hover { background: var(--sp-surface-2); }
-.sp-menu__item--danger { color: var(--sp-pass); }
-.sp-menu__sep { height: 1px; background: var(--sp-border); margin: var(--sp-2) 0; border: 0; }
-
-/* ============================================================================
-   TABLE
-   ============================================================================ */
-.sp-table { width: 100%; border-collapse: collapse; font-size: var(--sp-text-sm); }
-.sp-table th { text-align: left; font-family: var(--sp-mono); font-size: 11px; font-weight: 500;
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--sp-text-3);
-  padding: 10px 12px; border-bottom: 1px solid var(--sp-border-strong); }
-.sp-table td { padding: 13px 12px; border-bottom: 1px solid var(--sp-border); color: var(--sp-text-2); }
-.sp-table tbody tr { transition: background .15s var(--sp-ease); }
-.sp-table tbody tr:hover { background: var(--sp-surface-2); }
-
-/* ============================================================================
-   EMPTY STATE
-   ============================================================================ */
-.sp-empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
-  text-align: center; padding: var(--sp-12) var(--sp-6); color: var(--sp-text-3); }
-.sp-empty__icon { width: 48px; height: 48px; border-radius: var(--sp-r-md); display: grid; place-items: center;
-  background: var(--sp-accent-soft); color: var(--sp-accent); }
-.sp-empty__title { font-family: var(--sp-display); font-size: var(--sp-text-md); font-weight: 700; color: var(--sp-text); }
-
-/* ============================================================================
-   SKELETON
-   ============================================================================ */
-.sp-skeleton { background: linear-gradient(90deg, var(--sp-sunken) 25%, var(--sp-surface-2) 37%, var(--sp-sunken) 63%);
-  background-size: 400% 100%; border-radius: var(--sp-r-xs); animation: sp-shimmer 1.4s ease infinite; }
-@keyframes sp-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }

@@ -198,7 +198,7 @@ describe('ScreenplayCard', () => {
 
     const cardButton = screen.getByRole('button', { name: /view details/i });
     expect(cardButton.className).toContain('ring-2');
-    expect(cardButton.className).toContain('ring-gold-500/50');
+    expect(cardButton.className).toContain('ring-blue-500/50');
     mockUseIsSelected.mockReturnValue(false);
   });
 

@@ -62,7 +62,7 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
       <div className="glass p-3 rounded-lg border border-black-700 text-sm">
         <p className="text-gold-400 font-medium mb-1">Score: {item.label}</p>
         <p className="text-white">
-          <span className="font-mono font-bold">{item.count}</span> screenplays
+          <span className="font-bold">{item.count}</span> screenplays
         </p>
         <p className="text-black-400 text-xs">{item.percentage}% of total</p>
       </div>
@@ -98,12 +98,12 @@ export function ScoreDistribution({ screenplays, onBarClick }: ScoreDistribution
             dataKey="label"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#9CA3AF', fontSize: 11 }}
+            tick={{ fill: '#94A2BE', fontSize: 11 }}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#9CA3AF', fontSize: 11 }}
+            tick={{ fill: '#94A2BE', fontSize: 11 }}
             allowDecimals={false}
           />
           <Tooltip content={(props) => <CustomTooltip {...props} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />

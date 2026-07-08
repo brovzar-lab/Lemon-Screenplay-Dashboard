@@ -40,13 +40,13 @@ function CustomTooltip({ active, payload, label, screenplays }: RadarCustomToolt
   if (active && payload && payload.length) {
     return (
       <div className="glass p-3 rounded-lg border border-black-700 min-w-[150px]">
-        <p className="text-xs text-gold-400 font-medium mb-2">{label}</p>
+        <p className="text-xs font-medium mb-2" style={{ color: 'var(--sp-accent)' }}>{label}</p>
         {payload.map((entry) => {
           const sp = screenplays.find((s) => s.id === entry.dataKey);
           return (
             <div key={entry.dataKey} className="flex items-center justify-between gap-4 text-xs">
               <span style={{ color: entry.stroke }}>{sp?.title || entry.dataKey}</span>
-              <span className="font-mono font-bold" style={{ color: entry.stroke }}>
+              <span className="font-bold" style={{ color: entry.stroke }}>
                 {entry.value?.toFixed(1)}
               </span>
             </div>
@@ -152,21 +152,21 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
             className="p-4 rounded-lg border border-black-700 bg-black-800/50"
             style={{ borderLeftColor: COLORS[index]?.stroke, borderLeftWidth: 3 }}
           >
-            <h4 className="font-display text-lg text-gold-200 mb-2">{sp.title}</h4>
+            <h4 className="font-display text-lg mb-2" style={{ color: 'var(--sp-text)' }}>{sp.title}</h4>
             <p className="text-xs text-black-400 mb-3">{sp.author}</p>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-black-400">Weighted:</span>
-                <span className="font-mono font-bold text-gold-400">{sp.weightedScore.toFixed(1)}</span>
+                <span className="font-bold" style={{ color: 'var(--sp-text)' }}>{sp.weightedScore.toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-black-400">CVS:</span>
-                <span className="font-mono font-bold text-gold-400">{sp.cvsTotal}</span>
+                <span className="font-bold" style={{ color: 'var(--sp-text)' }}>{sp.cvsTotal}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-black-400">Market:</span>
-                <span className="font-mono font-bold text-gold-400">{sp.producerMetrics.marketPotential ?? 'N/A'}</span>
+                <span className="font-bold" style={{ color: 'var(--sp-text)' }}>{sp.producerMetrics.marketPotential ?? 'N/A'}</span>
               </div>
             </div>
 
@@ -174,7 +174,7 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
             <div className="mt-3 pt-3 border-t border-black-700">
               <div className="text-xs text-black-500">
                 Avg Dimension Score:{' '}
-                <span className="font-mono text-gold-400">
+                <span style={{ color: 'var(--sp-text)' }}>
                   {(Object.values(sp.dimensionScores).reduce((a, b) => a + b, 0) / 7).toFixed(1)}
                 </span>
               </div>
@@ -210,7 +210,7 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
                   {scores.map((score, index) => (
                     <td
                       key={screenplays[index].id}
-                      className={`px-4 py-3 text-center font-mono font-bold ${score === maxScore ? 'text-emerald-400' : 'text-black-300'
+                      className={`px-4 py-3 text-center font-bold ${score === maxScore ? 'text-emerald-400' : 'text-black-300'
                         }`}
                     >
                       {score.toFixed(1)}

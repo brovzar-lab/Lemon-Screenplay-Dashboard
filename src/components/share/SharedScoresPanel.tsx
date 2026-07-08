@@ -29,7 +29,7 @@ export function SharedScoresPanel({ analysis }: SharedScoresPanelProps) {
           Overall Score
         </h3>
         <div className="flex items-end gap-3 mb-4">
-          <span className={`text-5xl font-bold font-mono ${getScoreColorClass(weightedScore)}`}>
+          <span className={`text-5xl font-bold ${getScoreColorClass(weightedScore)}`}>
             {weightedScore.toFixed(1)}
           </span>
           <span className="text-black-400 text-lg mb-1">/10</span>
@@ -70,7 +70,7 @@ export function SharedScoresPanel({ analysis }: SharedScoresPanelProps) {
           Commercial Viability
         </h3>
         <div className="flex items-end gap-3 mb-4">
-          <span className={`text-3xl font-bold font-mono ${getScoreColorClass(cvsTotal, 18)}`}>
+          <span className={`text-3xl font-bold ${getScoreColorClass(cvsTotal, 18)}`}>
             {cvsTotal.toFixed(0)}
           </span>
           <span className="text-black-400 text-sm mb-0.5">/18</span>

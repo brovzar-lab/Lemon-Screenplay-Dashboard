@@ -71,10 +71,10 @@
   --color-ivory: var(--sp-surface);
 
   /* ===== Typography ===== */
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-body:    "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-heading: 'Schibsted Grotesk', system-ui, sans-serif;
+  --font-body:    'Schibsted Grotesk', system-ui, sans-serif;
+  --font-mono:    'Schibsted Grotesk', system-ui, sans-serif;
 
   /* ===== Spacing (4px scale) ===== */
   --spacing-1: 0.25rem;
@@ -88,11 +88,11 @@
   --spacing-12: 3rem;
   --spacing-16: 4rem;
 
-  /* ===== Radii (16px card, 10px inputs, full pills) ===== */
-  --radius-sm:  6px;
-  --radius-md:  10px;
-  --radius-lg:  14px;
-  --radius-xl:  16px;
+  /* ===== Radii ===== */
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
   --radius-2xl: 24px;
 
   /* ===== Shadows — cool violet-tinted ===== */
@@ -104,11 +104,11 @@
   --shadow-gold-lg: var(--sp-shadow-lg);
 
   /* ===== Motion ===== */
-  --duration-fast: 150ms;
-  --duration-base: 250ms;
-  --duration-slow: 350ms;
-  --ease-out:    cubic-bezier(.4, 0, .15, 1);
-  --ease-spring: cubic-bezier(.4, 0, .15, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ============================================================================
@@ -135,33 +135,35 @@
     font-size: var(--sp-text-base);
     line-height: 1.55;
     font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
     position: relative;
   }
 
-  /* Halation page glow — atmospheric gradient overlay */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background: var(--sp-glow);
-  }
+  /* Instrument: no page glow — calm shell */
+  body::before { display: none; }
   #root { min-height: 100vh; position: relative; z-index: 1; }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1, h2, h3 {
     font-family: var(--sp-display);
     color: var(--sp-text);
-    font-weight: 700;
+    font-weight: 600;
     margin: 0;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
   }
-  h1 { font-size: var(--sp-text-3xl); line-height: 1.06; }
-  h2 { font-size: var(--sp-text-2xl); line-height: 1.12; }
-  h3 { font-size: var(--sp-text-xl);  line-height: 1.20; }
-  h4 { font-size: var(--sp-text-lg);  line-height: 1.30; }
-  h5, h6 { font-size: var(--sp-text-md); }
+  h1 { font-size: 42px; line-height: 1.06; }
+  h2 { font-size: 32px; line-height: 1.12; }
+  h3 { font-size: 24px; line-height: 1.20; }
+  h4, h5, h6 {
+    font-family: var(--sp-font);
+    color: var(--sp-text);
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.30;
+  }
+  h4 { font-size: 20px; }
+  h5, h6 { font-size: 17px; }
 
   a {
     color: var(--sp-accent-strong);
@@ -194,20 +196,14 @@
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
 
-  /* Display font for logos and big headings */
-  .font-display { font-family: var(--sp-display); font-weight: 700; letter-spacing: -0.02em; }
-  .font-heading { font-family: var(--sp-display); font-weight: 700; letter-spacing: -0.02em; }
+  .font-display { font-family: var(--sp-display); font-weight: 600; letter-spacing: -0.01em; }
+  .font-heading { font-family: var(--sp-font); font-weight: 600; }
   .font-body { font-family: var(--sp-font); }
-  .font-mono { font-family: var(--sp-mono); font-feature-settings: "tnum"; }
+  .font-mono { font-family: var(--sp-font); font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
-  /* Glass utilities — collapsed to surface tokens. */
-  .glass,
-  .glass-dark,
-  .glass-card,
-  .glass-panel,
-  .glass-nav {
+  .glass, .glass-dark, .glass-card, .glass-panel, .glass-nav {
     background: var(--sp-surface);
-    border: 1px solid var(--sp-border);
+    border: none;
     backdrop-filter: none;
   }
   .glass-overlay {
@@ -218,19 +214,19 @@
   /* FILM NOW accent glow */
   .film-now-glow { box-shadow: var(--sp-shadow-md); border-color: var(--sp-film-now); }
 
-  /* Gradient text — collapses to accent solid. */
+  /* Gradient text — collapses to ink. Titles are never accent-colored. */
   .text-gradient-gold {
     background: none;
     -webkit-text-fill-color: initial;
     -webkit-background-clip: initial;
     background-clip: initial;
-    color: var(--sp-accent);
+    color: var(--sp-text);
   }
 
-  /* Score tier colors */
-  .score-excellent { color: var(--sp-recommend); }
-  .score-good      { color: var(--sp-consider); }
-  .score-poor      { color: var(--sp-pass); }
+  /* Score tier colors — numbers are ink, not colored per DESIGN.md */
+  .score-excellent { color: var(--sp-text); }
+  .score-good      { color: var(--sp-text); }
+  .score-poor      { color: var(--sp-text); }
 
   /* Status badges */
   .badge-recommend {
@@ -286,24 +282,24 @@
    COMPONENT STYLES
    ============================================================================ */
 @layer components {
-  /* Card — surface + hairline + shadow; lifts on hover. */
   .card {
-    background: var(--sp-surface-2);
-    border: 1px solid var(--sp-border);
+    background: var(--sp-surface);
+    border: none;
     border-radius: var(--sp-r-lg);
-    box-shadow: var(--sp-shadow-sm);
+    box-shadow: var(--sp-shadow-sm), var(--sp-highlight-top);
     padding: var(--sp-5);
     content-visibility: auto;
     contain-intrinsic-size: auto 280px;
     transition:
-      box-shadow .2s var(--sp-ease),
-      transform .15s var(--sp-ease),
-      border-color .2s var(--sp-ease),
-      background .2s var(--sp-ease);
+      box-shadow 150ms var(--sp-ease),
+      transform 150ms var(--sp-ease);
   }
   .card:hover {
-    box-shadow: var(--sp-shadow-md);
-    border-color: var(--sp-border-strong);
+    box-shadow: var(--sp-shadow-md), var(--sp-highlight-top);
+  }
+  /* Solidity: no borders on cards, ever. Separation comes from shadow + fill. */
+  .dark .card {
+    border: none;
   }
 
   /* FILM NOW — verdict accent tint + border */
@@ -327,26 +323,30 @@
     gap: var(--sp-2);
     font-family: var(--sp-font);
     font-size: var(--sp-text-sm);
-    font-weight: 500;
-    padding: 9px 15px;
-    border-radius: var(--sp-r-sm);
-    border: 1px solid transparent;
+    font-weight: 600;
+    padding: 10px 16px;
+    border-radius: var(--sp-r-md);
+    border: none;
     cursor: pointer;
     transition:
-      background .18s var(--sp-ease),
-      border-color .18s var(--sp-ease),
-      transform .1s var(--sp-ease),
-      color .18s var(--sp-ease);
+      background 120ms var(--sp-ease),
+      transform 100ms var(--sp-ease),
+      box-shadow 120ms var(--sp-ease);
     color: var(--sp-text);
   }
-  .btn:active { transform: translateY(1px); }
+  .btn:active { transform: scale(0.97); }
   .btn:focus-visible { outline: none; box-shadow: var(--sp-ring); }
 
   .btn-primary {
     background: var(--sp-accent);
     color: var(--sp-accent-text);
+    box-shadow: var(--sp-shadow-btn);
   }
   .btn-primary:hover { background: var(--sp-accent-strong); }
+  .btn-primary:active {
+    transform: scale(0.97);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 1px 2px rgba(11,13,18,.12);
+  }
 
   .btn-secondary {
     background: var(--sp-surface);
@@ -354,6 +354,7 @@
     color: var(--sp-text);
   }
   .btn-secondary:hover { background: var(--sp-surface-2); }
+  .btn-secondary:active { transform: scale(0.98); }
 
   .btn-ghost {
     background: transparent;
@@ -364,7 +365,7 @@
     color: var(--sp-text);
   }
 
-  /* Chip / tag — full pill */
+  /* Chip / tag — solid soft fill, no outline per DESIGN.md */
   .chip {
     display: inline-flex; align-items: center;
     padding: 4px 10px;
@@ -373,18 +374,19 @@
     font-weight: 500;
     background: var(--sp-surface-2);
     color: var(--sp-text-2);
-    border: 1px solid var(--sp-border);
+    border: none;
   }
   .chip-active {
     background: var(--sp-accent-soft);
     color: var(--sp-accent);
-    border-color: var(--sp-accent);
+    font-weight: 600;
+    border: none;
   }
   .chip-genre,
   .chip-budget {
     background: var(--sp-surface-2);
     color: var(--sp-text-2);
-    border-color: var(--sp-border);
+    border: none;
   }
 
   /* Input */
@@ -394,16 +396,17 @@
     background: var(--sp-sunken);
     border: 1px solid var(--sp-border);
     border-radius: var(--sp-r-sm);
+    box-shadow: var(--sp-inset-input);
     color: var(--sp-text);
     font-family: var(--sp-font);
     font-size: var(--sp-text-sm);
-    transition: border-color .18s var(--sp-ease), background .18s var(--sp-ease), box-shadow .18s var(--sp-ease);
+    transition: border-color 120ms var(--sp-ease), box-shadow 120ms var(--sp-ease);
   }
   .input:focus {
     outline: none;
     background: var(--sp-surface);
     border-color: var(--sp-accent);
-    box-shadow: var(--sp-ring);
+    box-shadow: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
   }
   .input::placeholder { color: var(--sp-text-3); }
 
@@ -460,14 +463,14 @@
 }
 
 .modal-delete-btn {
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--sp-pass) 35%, transparent);
+  background: var(--sp-pass-tint);
+  border: none;
   color: var(--sp-pass);
-  transition: background .18s var(--sp-ease), border-color .18s var(--sp-ease), color .18s var(--sp-ease);
+  transition: background 120ms var(--sp-ease);
 }
 .modal-delete-btn:hover {
-  background: var(--sp-pass-tint);
-  border-color: var(--sp-pass);
+  background: var(--sp-pass);
+  color: #FFFFFF;
 }
 
 .modal-close-btn {

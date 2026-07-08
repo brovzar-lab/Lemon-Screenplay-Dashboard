@@ -185,7 +185,7 @@ export function CalibrationPanel() {
                     </span>
                 </label>
                 <textarea
-                    className="input w-full font-mono text-sm resize-y"
+                    className="input w-full text-sm resize-y"
                     rows={16}
                     placeholder="No calibration data yet. Give feedback on screenplay analyses to generate calibration instructions..."
                     value={promptText}

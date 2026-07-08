@@ -36,7 +36,7 @@ export function ScoresPanel({ screenplay }: ScoresPanelProps) {
                         <div className="flex justify-between items-center">
                             <span className="text-lg font-medium text-gold-200">Weighted Score</span>
                             <span className={clsx(
-                                'text-2xl font-mono font-bold',
+                                'text-2xl font-bold',
                                 getScoreColorClass(toNumber(screenplay.weightedScore))
                             )}>
                                 {toNumber(screenplay.weightedScore).toFixed(2)}
@@ -69,7 +69,7 @@ export function ScoresPanel({ screenplay }: ScoresPanelProps) {
                             <div className="flex justify-between items-center">
                                 <span className="text-lg font-medium text-gold-200">CVS Total</span>
                                 <span className={clsx(
-                                    'text-2xl font-mono font-bold',
+                                    'text-2xl font-bold',
                                     getScoreColorClass(toNumber(screenplay.cvsTotal), 18)
                                 )}>
                                     {toNumber(screenplay.cvsTotal)}/18

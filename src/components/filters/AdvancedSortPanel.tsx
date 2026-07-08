@@ -87,14 +87,14 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
       <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
       {/* Panel */}
-      <div className="relative w-full max-w-md glass border border-gold-500/20 rounded-xl overflow-hidden animate-scale-in">
+      <div className="relative w-full max-w-md glass border border-black-700 rounded-xl overflow-hidden animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-black-700">
-          <h3 className="text-lg font-display text-gold-200">Advanced Sorting</h3>
+          <h3 className="text-lg font-display" style={{ color: 'var(--sp-text)' }}>Advanced Sorting</h3>
           <button
             onClick={onClose}
             aria-label="Close sorting panel"
-            className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400"
+            className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-black-200"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -110,10 +110,10 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
               type="checkbox"
               checked={prioritizeFilmNow}
               onChange={(e) => setPrioritizeFilmNow(e.target.checked)}
-              className="w-4 h-4 rounded border-black-600 bg-black-800 text-gold-500 focus:ring-gold-500"
+              className="w-4 h-4 rounded border-black-600 bg-black-800"
             />
             <div>
-              <span className="text-sm font-medium text-gold-300">FILM NOW First</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--sp-text)' }}>FILM NOW First</span>
               <p className="text-xs text-black-500">Always show FILM NOW screenplays at the top</p>
             </div>
           </label>

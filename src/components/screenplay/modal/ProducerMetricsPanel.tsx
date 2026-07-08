@@ -33,7 +33,7 @@ export function ProducerMetricsPanel({ screenplay }: ProducerMetricsPanelProps) 
                     <MetricCard label="Market Potential">
                         {producerMetrics.marketPotential !== null ? (
                             <>
-                                <span className={clsx('text-2xl font-mono font-bold', getScoreColorClass(producerMetrics.marketPotential))}>
+                                <span className={clsx('text-2xl font-bold', getScoreColorClass(producerMetrics.marketPotential))}>
                                     {producerMetrics.marketPotential}/10
                                 </span>
                                 {producerMetrics.marketPotentialRationale && (

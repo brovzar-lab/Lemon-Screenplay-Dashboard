@@ -1,16 +1,16 @@
 /**
- * Header Component
- * Main header with logo, stats, and global actions
+ * Header Component — Instrument Design System
+ * Solid surface, cobalt accent, sun/moon toggle, Schibsted body font.
+ * Calm shell: the frame is quiet, the data is the loudest thing on screen.
  */
 
-import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useScreenplayStats } from '@/hooks/useScreenplays';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
-import { useThemeStore, THEME_OPTIONS } from '@/stores/themeStore';
-import type { ThemeId } from '@/stores/themeStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { DevExecToggle } from '@/components/devexec';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
+import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
 
 interface StatPillProps {
   label: string;
@@ -18,94 +18,112 @@ interface StatPillProps {
   highlight?: boolean;
 }
 
+/** Stat pill — a card with shadow (Solidity: numbers have presence) */
 function StatPill({ label, value, highlight = false }: StatPillProps) {
   return (
     <div
-      className={`
-        flex items-center gap-2 px-4 py-2 rounded-lg
-        ${highlight ? 'bg-gradient-to-r from-gold-500 to-gold-600 text-black-950' : 'glass'}
-      `}
+      className="flex items-center gap-2 px-4 py-2 rounded-xl"
+      style={{
+        background: highlight ? 'var(--sp-accent)' : 'var(--sp-surface)',
+        boxShadow: highlight ? 'var(--sp-shadow-btn)' : 'var(--sp-shadow-sm)',
+        color: highlight ? 'var(--sp-accent-text)' : 'var(--sp-text)',
+      }}
     >
-      <span className={`text-sm ${highlight ? 'text-black-800' : 'text-black-400'}`}>
+      <span
+        className="text-sm font-medium"
+        style={{ color: highlight ? 'var(--sp-accent-text)' : 'var(--sp-text-3)' }}
+      >
         {label}
       </span>
-      <span className={`font-mono font-bold ${highlight ? 'text-black-950' : 'text-gold-400'}`}>
+      <span
+        className="font-bold"
+        style={{
+          color: highlight ? 'var(--sp-accent-text)' : 'var(--sp-text)',
+          fontVariantNumeric: 'tabular-nums',
+          letterSpacing: '-0.02em',
+          fontWeight: 600,
+        }}
+      >
         {value}
       </span>
     </div>
   );
 }
 
-/** Small color swatch for the theme picker */
-function ThemeSwatch({ themeId }: { themeId: ThemeId }) {
-  const swatchColors: Record<ThemeId, { bg: string; accent: string }> = {
-    dark:             { bg: '#0B0A12', accent: '#7C6AF6' },
-    light:            { bg: '#F1F0F7', accent: '#6655E6' },
-    's2s':            { bg: '#F5F1E8', accent: '#C49B4B' },
-    's2s-dark':       { bg: '#141210', accent: '#D4A94F' },
-    'noir':           { bg: '#F2F0ED', accent: '#B03030' },
-    'noir-dark':      { bg: '#121110', accent: '#D44040' },
-    'sundance':       { bg: '#FAF5ED', accent: '#C75B39' },
-    'sundance-dark':  { bg: '#1A1510', accent: '#E07048' },
-    'neon':           { bg: '#F0F4F4', accent: '#008A80' },
-    'neon-dark':      { bg: '#050A0A', accent: '#00E5CC' },
-    'arctic':         { bg: '#F8FAFC', accent: '#3B82F6' },
-    'arctic-dark':    { bg: '#0B1120', accent: '#60A5FA' },
-  };
-  const { bg, accent } = swatchColors[themeId];
-  return (
-    <span
-      className="inline-block w-4 h-4 rounded-full border border-current/20 flex-shrink-0"
-      style={{
-        background: `linear-gradient(135deg, ${bg} 50%, ${accent} 50%)`,
-      }}
-    />
-  );
-}
-
 export function Header() {
   const { data: stats, isLoading } = useScreenplayStats();
   const { filteredCount, totalCount } = useFilteredScreenplays();
-  const { resolvedTheme, isDark, setTheme } = useThemeStore();
-  const [isThemeOpen, setIsThemeOpen] = useState(false);
-  const themeRef = useRef<HTMLDivElement>(null);
+  const { isDark, setTheme } = useThemeStore();
 
-  // Close dropdown on click outside
-  useEffect(() => {
-    if (!isThemeOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
-        setIsThemeOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [isThemeOpen]);
+  const toggleTheme = () => {
+    setTheme(isDark ? 'light' : 'dark');
+  };
 
   return (
-    <header className="sticky top-0 z-50 glass-dark border-b border-gold-500/10" role="banner">
+    <header
+      className="sticky top-0 z-50"
+      style={{
+        background: 'var(--sp-surface)',
+        borderBottom: '1px solid var(--sp-border)',
+      }}
+      role="banner"
+    >
       <div className="max-w-[1800px] mx-auto px-6 py-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          {/* Logo & Title */}
+          {/* Logo & Title — Playfair for the brand name only */}
           <div className="flex items-center gap-4">
-            <img src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-black.png'} alt="Lemon Studios" className="h-9 w-9" />
-            <h1 className="text-2xl font-display m-0">
-              <span className="text-gradient-gold font-bold tracking-tight">LEMON</span>
-              <span className="text-black-200 font-light ml-2">Screenplay Dashboard</span>
+            <img
+              src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-black.png'}
+              alt="Lemon Studios"
+              className="h-9 w-9"
+            />
+            <h1 className="text-2xl m-0" style={{ fontSize: '28px' }}>
+              <span
+                className="font-display"
+                style={{ color: 'var(--sp-accent)', fontWeight: 700 }}
+              >
+                LEMON
+              </span>
+              <span
+                style={{
+                  color: 'var(--sp-text-2)',
+                  fontWeight: 400,
+                  marginLeft: '8px',
+                  fontFamily: 'var(--sp-font)',
+                  fontSize: '20px',
+                }}
+              >
+                Screenplay Dashboard
+              </span>
             </h1>
-            {/* Engine + version badge */}
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono tracking-wide select-none">
-              V9 &middot; 6.9
+            {/* Version badge — accent-soft tint */}
+            <span
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium select-none"
+              style={{
+                background: 'var(--sp-accent-soft)',
+                color: 'var(--sp-accent)',
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase' as const,
+                fontWeight: 500,
+                fontSize: '11px',
+              }}
+            >
+              V9 · 6.9
             </span>
           </div>
 
-          {/* Stats Pills */}
+          {/* Stats & Actions */}
           <nav className="flex flex-wrap items-center gap-3" aria-label="Dashboard controls">
             {isLoading ? (
               <div className="flex gap-3">
-                <div className="h-10 w-32 rounded-lg bg-black-800 animate-pulse" />
-                <div className="h-10 w-28 rounded-lg bg-black-800 animate-pulse" />
-                <div className="h-10 w-24 rounded-lg bg-black-800 animate-pulse" />
+                {[32, 28, 24].map((w) => (
+                  <div
+                    key={w}
+                    className="h-10 rounded-xl animate-pulse"
+                    style={{ width: `${w * 4}px`, background: 'var(--sp-sunken)' }}
+                  />
+                ))}
               </div>
             ) : (
               <>
@@ -127,93 +145,53 @@ export function Header() {
               </>
             )}
 
-            {/* Sync Status */}
             <SyncStatusIndicator />
-
-            {/* Dev Exec AI */}
             <DevExecToggle />
 
-            {/* Theme Picker */}
-            <div className="relative" ref={themeRef}>
-              <button
-                onClick={() => setIsThemeOpen(!isThemeOpen)}
-                className="flex items-center gap-2 p-2 rounded-lg text-black-400 hover:text-gold-400 hover:bg-black-800/50 transition-colors"
-                title="Change theme"
-                aria-label="Change theme"
-                aria-expanded={isThemeOpen}
-                aria-haspopup="true"
-              >
-                <ThemeSwatch themeId={resolvedTheme} />
-                <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 12 12" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5l3 3 3-3" />
-                </svg>
-              </button>
+            {/* Design System Switcher — dropdown with all available themes */}
+            <ThemeSwitcher />
 
-              {isThemeOpen && (
-                <div
-                  className="absolute right-0 top-full mt-2 w-56 rounded-xl border overflow-hidden z-50"
-                  style={{
-                    background: 'var(--sp-surface)',
-                    borderColor: 'var(--sp-border-strong)',
-                    boxShadow: 'var(--sp-shadow-lg)',
-                    maxHeight: '420px',
-                    overflowY: 'auto',
-                  }}
-                  role="menu"
-                >
-                  <div className="p-1.5">
-                    {THEME_OPTIONS.map((option) => (
-                      <button
-                        key={option.id}
-                        onClick={() => {
-                          setTheme(option.id);
-                          setIsThemeOpen(false);
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
-                        style={{
-                          background: resolvedTheme === option.id ? 'var(--sp-accent-soft)' : 'transparent',
-                          color: resolvedTheme === option.id ? 'var(--sp-accent)' : 'var(--sp-text-2)',
-                        }}
-                        role="menuitem"
-                      >
-                        <ThemeSwatch themeId={option.id} />
-                        <span
-                          className="text-sm"
-                          style={{
-                            fontWeight: resolvedTheme === option.id ? 600 : 400,
-                            fontFamily:
-                              option.family === 's2s' ? '"Playfair Display", Georgia, serif' :
-                              option.family === 'noir' ? '"Crimson Pro", Georgia, serif' :
-                              option.family === 'sundance' ? '"DM Sans", sans-serif' :
-                              option.family === 'neon' ? '"Space Mono", monospace' :
-                              option.family === 'arctic' ? '"Outfit", sans-serif' :
-                              'inherit',
-                          }}
-                        >
-                          {option.label}
-                        </span>
-                        {resolvedTheme === option.id && (
-                          <svg className="w-4 h-4 ml-auto" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            {/* Theme Toggle — small sun/moon icon per DESIGN.md §6 */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg"
+              style={{ color: 'var(--sp-text-3)', transition: 'color 120ms, background 120ms' }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget;
+                el.style.color = 'var(--sp-accent)';
+                el.style.background = 'var(--sp-sunken)';
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget;
+                el.style.color = 'var(--sp-text-3)';
+                el.style.background = 'transparent';
+              }}
+              title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+              aria-label="Toggle theme"
+            >
+              {isDark ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2m0 16v2m10-10h-2M4 12H2m15.07-7.07-1.42 1.42M8.35 15.65l-1.42 1.42m12.14 0-1.42-1.42M8.35 8.35 6.93 6.93" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
               )}
-            </div>
+            </button>
 
             {/* Settings Link */}
             <Link
               to="/settings"
-              className="p-2 rounded-lg text-black-400 hover:text-gold-400 hover:bg-black-800/50 transition-colors"
+              className="p-2 rounded-lg"
+              style={{ color: 'var(--sp-text-3)', transition: 'color 120ms, background 120ms' }}
               title="Settings"
               aria-label="Settings"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <circle cx="12" cy="12" r="3" />
               </svg>
             </Link>
           </nav>

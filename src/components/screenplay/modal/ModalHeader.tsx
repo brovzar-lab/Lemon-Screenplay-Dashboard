@@ -128,7 +128,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
             <div className={clsx(
                 'modal-header relative p-6 border-b',
                 screenplay.isFilmNow
-                    ? 'bg-gradient-to-r from-gold-900/30 to-gold-800/20 border-gold-500/30'
+                    ? 'bg-gradient-to-r from-black-900/30 to-black-800/20 border-black-700'
                     : 'bg-black-900/80 border-black-700'
             )}>
                 {/* Tier 1: Verdict Badge (top-left) + Close (top-right) */}
@@ -152,7 +152,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                         id="modal-title"
                         className={clsx(
                             'text-2xl font-display mb-1',
-                            screenplay.isFilmNow ? 'text-gradient-gold' : 'text-gold-100'
+                            screenplay.isFilmNow ? 'text-gradient-gold' : ''
                         )}
                     >
                         {screenplay.title}

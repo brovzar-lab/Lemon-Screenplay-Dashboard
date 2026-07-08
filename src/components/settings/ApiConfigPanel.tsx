@@ -184,7 +184,7 @@ export function ApiConfigPanel() {
               value={googleApiKey}
               onChange={(e) => setGoogleApiKey(e.target.value)}
               placeholder="AIzaSy..."
-              className="input w-full pr-10 font-mono text-sm"
+              className="input w-full pr-10 text-sm"
             />
             <button
               type="button"
@@ -264,7 +264,7 @@ export function ApiConfigPanel() {
           </label>
           <p className="text-xs text-black-500 -mt-1">
             <span className="text-black-400">API Key (v3)</span> — short hex string &nbsp;·&nbsp;
-            <span className="text-black-400">Read Access Token</span> — long JWT starting with <code className="font-mono">eyJ</code>
+            <span className="text-black-400">Read Access Token</span> — long JWT starting with <code>eyJ</code>
           </p>
           <div className="relative">
             <input
@@ -273,7 +273,7 @@ export function ApiConfigPanel() {
               value={tmdbApiKey}
               onChange={(e) => setTmdbApiKey(e.target.value)}
               placeholder="Paste API Key or Read Access Token…"
-              className="input w-full pr-10 font-mono text-sm"
+              className="input w-full pr-10 text-sm"
               autoComplete="off"
             />
 
@@ -370,7 +370,7 @@ export function ApiConfigPanel() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-black-300">Monthly Spend</span>
-              <span className="text-sm font-mono text-gold-400">
+              <span className="text-sm text-gold-400">
                 ${currentMonthSpend.toFixed(2)} / ${monthlyBudgetLimit.toFixed(2)}
               </span>
             </div>
@@ -391,7 +391,7 @@ export function ApiConfigPanel() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-black-300">Daily Requests</span>
-              <span className="text-sm font-mono text-gold-400">
+              <span className="text-sm text-gold-400">
                 {currentDayRequests} / {dailyRequestLimit}
               </span>
             </div>

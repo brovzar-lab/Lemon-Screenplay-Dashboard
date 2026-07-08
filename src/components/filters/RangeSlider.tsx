@@ -61,7 +61,7 @@ export function RangeSlider({
             {label}
           </span>
         </label>
-        <span className={clsx('text-xs font-mono', enabled ? 'text-gold-400' : 'text-black-500')}>
+        <span className={clsx('text-xs', enabled ? 'text-gold-400' : 'text-black-500')}>
           {formatValue(localValue[0])} - {formatValue(localValue[1])}
         </span>
       </div>

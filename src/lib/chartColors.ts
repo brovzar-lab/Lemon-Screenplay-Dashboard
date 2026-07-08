@@ -1,57 +1,63 @@
 /**
- * Chart colors — Halation tokens as literal hex.
+ * Chart colors — Instrument design system tokens as literal hex.
  * Recharts and @react-pdf/renderer cannot read CSS variables at runtime, so
- * the design tokens are mirrored here as concrete values. Dark-mode values
- * are used (brighter) since charts typically sit on dark surfaces; for light
- * mode the slight brightness boost still reads well.
+ * the design tokens are mirrored here as concrete values.
  *
- * Accent (violet) is for brand/CTA. Verdicts use their own hues.
+ * Data colors (blue, violet, teal, coral) live in charts and status only.
+ * They never touch the chrome or an action.
+ * Cobalt accent is for brand/CTA only. Verdicts use semantic colors.
+ *
+ * No warm, brown, cream, amber/gold per DESIGN.md.
  */
 export const CHART_COLORS = {
-  // Accent / brand
-  accent: '#7C6AF6',
+  // Accent / brand (cobalt)
+  accent: '#2B54F0',
 
-  // Verdicts
-  filmNow: '#F5B651',
-  recommend: '#4CDE9B',
-  consider: '#F1A93C',
-  pass: '#F76E7C',
+  // Verdicts (semantic)
+  filmNow: '#2B54F0',     // cobalt accent, not gold
+  recommend: '#12A66B',   // success green
+  consider: '#F5A524',    // warning (charts only, not chrome)
+  pass: '#FF5247',        // error red
 
   // Neutral
-  ink: '#F4F2FF',    // text on dark charts
-  mute: '#A9A4C4',   // dim axis text
+  ink: '#EDF1F9',         // text on dark charts
+  mute: '#94A2BE',        // dim axis text
   hairline: 'rgba(255,255,255,0.08)',
 
-  // Secondary
-  cyan: '#46E5FF',
+  // Data palette (blue, violet, teal, coral)
+  dataBlue: '#6E8BFF',
+  dataViolet: '#9F86FF',
+  dataTeal: '#2FC9B0',
+  dataCoral: '#FF8A78',
 
-  // Genre palette
-  drama:    '#46C99A',
-  horror:   '#FF6B6B',
-  thriller: '#6C8BFF',
-  crime:    '#C792FF',
-  action:   '#FFA336',
-  scifi:    '#3FC8E6',
-  fantasy:  '#9D8DF1',
-  comedy:   '#FF7AB6',
-  western:  '#D69A56',
-  romance:  '#FF8FA3',
+  // Genre palette — data hues only, no warm/gold/amber
+  drama:    '#2FC9B0',   // teal
+  horror:   '#FF8A78',   // coral
+  thriller: '#6E8BFF',   // blue
+  crime:    '#9F86FF',   // violet
+  action:   '#FF6B5C',   // coral variant
+  scifi:    '#2FC9B0',   // teal
+  fantasy:  '#9F86FF',   // violet
+  comedy:   '#FF8A78',   // coral
+  western:  '#119C8B',   // deep teal
+  romance:  '#FF6B5C',   // coral
 
-  // Backwards-compat aliases (old names → new tokens)
-  rose: '#7C6AF6',     // accent
-  emerald: '#4CDE9B',  // recommend
-  sage: '#4CDE9B',     // recommend
-  sand: '#F1A93C',     // consider
-  amber: '#F1A93C',    // consider
-  clay: '#F76E7C',     // pass
-  red: '#F76E7C',      // pass
-  gold: '#F5B651',     // film now
-  violet: '#9D8DF1',   // fantasy genre
-  teal: '#3FC8E6',     // sci-fi
-  pink: '#FF7AB6',     // comedy
-  orange: '#FFA336',   // action
-  indigo: '#6C8BFF',   // thriller
-  gray: '#6F6A8C',     // muted
+  // Backwards-compat aliases
+  rose: '#2B54F0',       // accent
+  emerald: '#12A66B',    // success
+  sage: '#12A66B',       // success
+  sand: '#F5A524',       // warning
+  amber: '#F5A524',      // warning
+  clay: '#FF5247',       // error
+  red: '#FF5247',        // error
+  gold: '#2B54F0',       // accent (no gold)
+  violet: '#9F86FF',     // data violet
+  teal: '#2FC9B0',       // data teal
+  pink: '#FF8A78',       // data coral
+  orange: '#FF6B5C',     // data coral variant
+  indigo: '#6E8BFF',     // data blue
+  gray: '#73819E',       // muted
+  cyan: '#2FC9B0',       // data teal
 } as const;
 
 export const SCORE_COLORS = {
