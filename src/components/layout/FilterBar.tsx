@@ -32,11 +32,11 @@ const SEARCH_INPUT_ID = 'screenplay-search';
 type FilterType = 'all' | 'pass' | 'consider' | 'recommend' | 'film_now';
 
 const FILTER_CHIPS: { id: FilterType; label: string; activeClass: string; inactiveClass?: string }[] = [
-  { id: 'all', label: 'All', activeClass: 'bg-gold-500 border-gold-500 !text-black-950 font-semibold' },
-  { id: 'pass', label: 'Pass', activeClass: 'bg-red-500 border-red-500 !text-white font-semibold' },
-  { id: 'consider', label: 'Consider', activeClass: 'bg-amber-500 border-amber-500 !text-black-950 font-semibold' },
-  { id: 'recommend', label: 'Recommend', activeClass: 'bg-emerald-500 border-emerald-500 !text-black-950 font-semibold' },
-  { id: 'film_now', label: 'FILM NOW', activeClass: 'bg-gold-500 border-gold-400 !text-black-950 font-semibold animate-pulse-glow' },
+  { id: 'all', label: 'All', activeClass: 'font-semibold', inactiveClass: '' },
+  { id: 'pass', label: 'Pass', activeClass: 'font-semibold', inactiveClass: '' },
+  { id: 'consider', label: 'Consider', activeClass: 'font-semibold', inactiveClass: '' },
+  { id: 'recommend', label: 'Recommend', activeClass: 'font-semibold', inactiveClass: '' },
+  { id: 'film_now', label: 'FILM NOW', activeClass: 'font-semibold', inactiveClass: '' },
 ];
 
 interface FilterBarProps {
@@ -366,8 +366,9 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
         <div ref={chipsContainerRef} className="relative flex flex-nowrap sm:flex-wrap gap-2 pb-1 min-w-max sm:min-w-0">
           {/* Sliding active indicator */}
           <div
-            className="absolute bottom-0 h-[3px] rounded-full bg-gold-500 transition-all duration-250"
+            className="absolute bottom-0 h-[3px] rounded-full transition-all duration-250"
             style={{
+              background: 'var(--sp-accent)',
               left: indicatorStyle.left,
               width: indicatorStyle.width,
               transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -381,8 +382,9 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               onClick={() => handleFilterClick(chip.id)}
               className={`chip cursor-pointer transition-all ${activeFilter === chip.id
                 ? chip.activeClass
-                : 'hover:border-gold-500'
+                : ''
                 }`}
+              style={activeFilter === chip.id ? { background: 'var(--sp-accent-soft)', color: 'var(--sp-accent)', fontWeight: 600 } : undefined}
             >
               {chip.label}
             </button>
@@ -396,13 +398,14 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               className={clsx(
                 'chip cursor-pointer transition-all',
                 missingPdfOnly
-                  ? 'bg-amber-500 border-amber-500 !text-black-950 font-semibold'
-                  : 'hover:border-amber-500'
+                  ? 'font-semibold'
+                  : ''
               )}
+              style={missingPdfOnly ? { background: 'var(--sp-consider-tint)', color: 'var(--sp-consider)', fontWeight: 600 } : undefined}
             >
               Missing PDF
               {missingPdfCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-black-800 text-amber-300 text-xs font-bold">
+                <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--sp-consider-tint)', color: 'var(--sp-consider)' }}>
                   {missingPdfCount}
                 </span>
               )}
@@ -416,13 +419,14 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
             className={clsx(
               'chip cursor-pointer transition-all',
               hasPdfOnly
-                ? 'bg-green-500 border-green-500 !text-black-950 font-semibold'
-                : 'hover:border-green-500'
+                ? 'font-semibold'
+                : ''
             )}
+            style={hasPdfOnly ? { background: 'var(--sp-recommend-tint)', color: 'var(--sp-recommend)', fontWeight: 600 } : undefined}
           >
             Has PDF
             {hasPdfCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-black-800 text-green-300 text-xs font-bold">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--sp-recommend-tint)', color: 'var(--sp-recommend)' }}>
                 {hasPdfCount}
               </span>
             )}
@@ -434,7 +438,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
           <button
             onClick={() => setBadFormatOpen(true)}
             className="chip cursor-pointer transition-all"
-            style={{ borderColor: 'var(--sp-clay)', color: 'var(--sp-clay)' }}
+            style={{ color: 'var(--sp-pass)' }}
           >
             Bad Format
             {skippedJobCount > 0 && (
@@ -457,7 +461,8 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="chip cursor-pointer text-red-400 border-red-400/50 hover:bg-red-400/10 min-h-[44px]"
+              className="chip cursor-pointer min-h-[44px]"
+              style={{ color: 'var(--sp-pass)' }}
             >
               Clear All ✕
             </button>

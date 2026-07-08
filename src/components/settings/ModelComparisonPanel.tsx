@@ -767,7 +767,7 @@ export function ModelComparisonPanel() {
                               style={{ width: `${d.score * 10}%` }}
                             />
                           </div>
-                          <span className={clsx('text-xs font-mono w-6 text-right', scoreColor(d.score))}>
+                          <span className={clsx('text-xs w-6 text-right', scoreColor(d.score))}>
                             {d.score.toFixed(1)}
                           </span>
                         </div>
@@ -799,15 +799,15 @@ export function ModelComparisonPanel() {
                       <div className="pt-3 border-t border-black-700 grid grid-cols-3 gap-2 text-center">
                         <div>
                           <p className="text-xs text-black-500">Cost</p>
-                          <p className="text-sm text-gold-300 font-mono">{formatCost(r.usage, model.id)}</p>
+                          <p className="text-sm text-gold-300">{formatCost(r.usage, model.id)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-black-500">Tokens</p>
-                          <p className="text-sm text-black-300 font-mono">{formatTokens(r.usage)}</p>
+                          <p className="text-sm text-black-300">{formatTokens(r.usage)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-black-500">Time</p>
-                          <p className="text-sm text-black-300 font-mono">
+                          <p className="text-sm text-black-300">
                             {r.elapsedMs ? `${(r.elapsedMs / 1000).toFixed(1)}s` : '—'}
                           </p>
                         </div>

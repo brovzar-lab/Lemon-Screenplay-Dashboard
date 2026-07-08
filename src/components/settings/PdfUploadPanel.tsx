@@ -364,17 +364,17 @@ export function PdfUploadPanel() {
             {/* Stats bar */}
             <div className="grid grid-cols-3 gap-4">
                 <div className="p-4 rounded-xl bg-black-800/60 border border-black-700 text-center">
-                    <p className="text-2xl font-mono font-bold text-gold-300">{totalCount}</p>
+                    <p className="text-2xl font-bold text-gold-300">{totalCount}</p>
                     <p className="text-xs text-black-500 mt-1">Total</p>
                 </div>
                 <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-                    <p className="text-2xl font-mono font-bold text-emerald-400">
+                    <p className="text-2xl font-bold text-emerald-400">
                         {checkingCount > 0 ? <span className="text-lg">…{foundCount}</span> : foundCount}
                     </p>
                     <p className="text-xs text-black-500 mt-1">PDF Found ✓</p>
                 </div>
                 <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
-                    <p className="text-2xl font-mono font-bold text-red-400">
+                    <p className="text-2xl font-bold text-red-400">
                         {checkingCount > 0 ? <span className="text-lg">…{missingCount}</span> : missingCount}
                     </p>
                     <p className="text-xs text-black-500 mt-1">Missing PDF ✗</p>
@@ -439,7 +439,7 @@ export function PdfUploadPanel() {
                             ))}
                         </select>
                         {manualPickId && (
-                            <p className="text-xs text-black-500 mt-1 font-mono">
+                            <p className="text-xs text-black-500 mt-1">
                                 → {buildStoragePath(screenplays.find(s => s.id === manualPickId) ?? screenplays[0])}
                             </p>
                         )}
@@ -591,7 +591,7 @@ export function PdfUploadPanel() {
                             {/* Info */}
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-gold-200 truncate">{screenplay.title}</p>
-                                <p className="text-xs text-black-500 truncate font-mono">{storagePath}</p>
+                                <p className="text-xs text-black-500 truncate">{storagePath}</p>
                                 {uploadEntry?.error && (
                                     <p className="text-xs text-red-400 mt-0.5 truncate">{uploadEntry.error}</p>
                                 )}

@@ -143,19 +143,19 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
       <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
       {/* Panel - Slide from right */}
-      <div className="relative ml-auto w-full max-w-md h-full glass border-l border-gold-500/20 overflow-hidden animate-slide-in-right flex flex-col">
+      <div className="relative ml-auto w-full max-w-md h-full glass border-l border-black-700 overflow-hidden animate-slide-in-right flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-black-700">
           <div>
-            <h3 className="text-lg font-display text-gold-200">Advanced Filters</h3>
+            <h3 className="text-lg font-display" style={{ color: 'var(--sp-text)' }}>Advanced Filters</h3>
             {activeFilterCount > 0 && (
-              <p className="text-xs text-gold-500">{activeFilterCount} filters active</p>
+              <p className="text-xs" style={{ color: 'var(--sp-accent)' }}>{activeFilterCount} filters active</p>
             )}
           </div>
           <button
             onClick={onClose}
             aria-label="Close filters"
-            className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400"
+            className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-black-200"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -180,11 +180,11 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                     onChange={(e) => setHideProduced(e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-10 h-5 bg-black-700 rounded-full peer peer-checked:bg-gold-500/50 transition-colors" />
-                  <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-black-400 rounded-full transition-all peer-checked:translate-x-5 peer-checked:bg-gold-400" />
+                  <div className="w-10 h-5 bg-black-700 rounded-full peer transition-colors" style={{ '--tw-peer-checked-bg': 'var(--sp-accent-soft)' } as React.CSSProperties} />
+                  <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-black-400 rounded-full transition-all peer-checked:translate-x-5" style={{ '--tw-peer-checked-bg': 'var(--sp-accent)' } as React.CSSProperties} />
                 </div>
                 <div>
-                  <span className="text-sm text-gold-200 group-hover:text-gold-100">
+                  <span className="text-sm" style={{ color: 'var(--sp-text)' }}>
                     Hide produced films
                   </span>
                   <p className="text-xs text-black-500">
@@ -206,7 +206,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-black-400 rounded-full transition-all peer-checked:translate-x-5 peer-checked:bg-amber-400" />
                 </div>
                 <div>
-                  <span className="text-sm text-gold-200 group-hover:text-gold-100">
+                  <span className="text-sm" style={{ color: 'var(--sp-text)' }}>
                     No PDF linked
                   </span>
                   <p className="text-xs text-black-500">
@@ -472,9 +472,9 @@ function Section({ title, isOpen, onToggle, badge, children }: SectionProps) {
         className="w-full flex items-center justify-between p-3 hover:bg-black-800/50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gold-200">{title}</span>
+          <span className="text-sm font-medium" style={{ color: 'var(--sp-text)' }}>{title}</span>
           {badge && (
-            <span className="px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold">
+            <span className="px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--sp-accent-soft)', color: 'var(--sp-accent)' }}>
               {badge}
             </span>
           )}

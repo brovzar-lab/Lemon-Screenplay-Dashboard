@@ -106,7 +106,7 @@ export function PosterSection({ screenplay }: PosterSectionProps) {
                     </div>
                     <p className="text-red-400 font-medium text-sm mb-1">Poster Generation Failed</p>
                     {errorDetail && (
-                        <p className="text-black-500 text-[10px] font-mono text-center max-w-sm mb-3 line-clamp-3 break-all">
+                        <p className="text-black-500 text-[10px] text-center max-w-sm mb-3 line-clamp-3 break-all">
                             {errorDetail.slice(0, 200)}
                         </p>
                     )}

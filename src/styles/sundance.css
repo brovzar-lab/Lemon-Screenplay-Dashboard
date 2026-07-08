@@ -1,0 +1,131 @@
+/* ============================================================================
+   SUNDANCE — Design System
+   Warm desert/indie film festival. Sand, terracotta, earth tones.
+   Friendly rounded typography. Organic warmth.
+   ============================================================================ */
+
+[data-theme="sundance"] {
+  --sp-bg:            #FAF5ED;
+  --sp-surface:       #F0E8DA;
+  --sp-surface-2:     #F5EFDF;
+  --sp-sunken:        #E5DBC8;
+  --sp-border:        rgba(80,50,30,0.12);
+  --sp-border-strong: rgba(80,50,30,0.20);
+
+  --sp-text:   #2A2018;
+  --sp-text-2: #4A3E32;
+  --sp-text-3: #8A7E70;
+
+  --sp-accent:        #C75B39;
+  --sp-accent-strong: #A84828;
+  --sp-accent-soft:   rgba(199,91,57,0.10);
+  --sp-accent-text:   #FFFAF5;
+
+  --sp-rose:        var(--sp-accent);
+  --sp-rose-strong: var(--sp-accent-strong);
+  --sp-rose-tint:   var(--sp-accent-soft);
+  --sp-on-rose:     var(--sp-accent-text);
+
+  --sp-secondary: #5A8A6A;
+
+  --sp-film-now:   #B08820;
+  --sp-recommend:  #4A7A3A;
+  --sp-consider:   #C07A28;
+  --sp-pass:       #C04040;
+
+  --sp-film-now-tint:   rgba(176,136,32,0.10);
+  --sp-recommend-tint:  rgba(74,122,58,0.10);
+  --sp-consider-tint:   rgba(192,122,40,0.10);
+  --sp-pass-tint:       rgba(192,64,64,0.10);
+
+  --sp-sage: var(--sp-recommend); --sp-sage-tint: var(--sp-recommend-tint);
+  --sp-sand: var(--sp-consider);  --sp-sand-tint: var(--sp-consider-tint);
+  --sp-clay: var(--sp-pass);      --sp-clay-tint: var(--sp-pass-tint);
+
+  --sp-shadow-sm: 0 1px 3px rgba(60,40,20,0.08);
+  --sp-shadow-md: 0 8px 24px -8px rgba(60,40,20,0.16);
+  --sp-shadow-lg: 0 24px 60px -20px rgba(60,40,20,0.22);
+  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
+
+  --sp-glow: radial-gradient(60% 50% at 20% 0%, rgba(199,91,57,0.06), transparent 60%);
+
+  --sp-display: "DM Sans", "Nunito", ui-sans-serif, sans-serif;
+  --sp-font: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --sp-mono: "DM Mono", "Courier New", monospace;
+
+  --sp-text-xs: 12px; --sp-text-sm: 13px; --sp-text-base: 15px;
+  --sp-text-md: 17px; --sp-text-lg: 20px; --sp-text-xl: 26px;
+  --sp-text-2xl: 33px; --sp-text-3xl: 42px;
+
+  --sp-r-xs: 8px; --sp-r-sm: 12px; --sp-r-md: 16px;
+  --sp-r-lg: 20px; --sp-r-xl: 28px; --sp-r-full: 999px;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  --sp-ease: cubic-bezier(.4, 0, .2, 1);
+}
+
+[data-theme="sundance-dark"] {
+  --sp-bg:            #1A1510;
+  --sp-surface:       #241E18;
+  --sp-surface-2:     #2A2420;
+  --sp-sunken:        #14100C;
+  --sp-border:        rgba(255,255,255,0.08);
+  --sp-border-strong: rgba(255,255,255,0.14);
+
+  --sp-text:   #F0E8DA;
+  --sp-text-2: #BEB0A0;
+  --sp-text-3: #7A7068;
+
+  --sp-accent:        #E07048;
+  --sp-accent-strong: #F08060;
+  --sp-accent-soft:   rgba(224,112,72,0.14);
+  --sp-accent-text:   #1A1510;
+
+  --sp-rose:        var(--sp-accent);
+  --sp-rose-strong: var(--sp-accent-strong);
+  --sp-rose-tint:   var(--sp-accent-soft);
+  --sp-on-rose:     var(--sp-accent-text);
+
+  --sp-secondary: #6AB080;
+
+  --sp-film-now:   #E0C050;
+  --sp-recommend:  #60BB50;
+  --sp-consider:   #E09830;
+  --sp-pass:       #E05858;
+
+  --sp-film-now-tint:   rgba(224,192,80,0.14);
+  --sp-recommend-tint:  rgba(96,187,80,0.14);
+  --sp-consider-tint:   rgba(224,152,48,0.14);
+  --sp-pass-tint:       rgba(224,88,88,0.14);
+
+  --sp-sage: var(--sp-recommend); --sp-sage-tint: var(--sp-recommend-tint);
+  --sp-sand: var(--sp-consider);  --sp-sand-tint: var(--sp-consider-tint);
+  --sp-clay: var(--sp-pass);      --sp-clay-tint: var(--sp-pass-tint);
+
+  --sp-shadow-sm: 0 2px 4px rgba(0,0,0,0.45);
+  --sp-shadow-md: 0 8px 24px -8px rgba(0,0,0,0.55);
+  --sp-shadow-lg: 0 24px 60px -20px rgba(0,0,0,0.70);
+  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
+
+  --sp-glow: radial-gradient(60% 50% at 20% 0%, rgba(224,112,72,0.10), transparent 60%);
+
+  --sp-display: "DM Sans", "Nunito", ui-sans-serif, sans-serif;
+  --sp-font: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --sp-mono: "DM Mono", "Courier New", monospace;
+
+  --sp-text-xs: 12px; --sp-text-sm: 13px; --sp-text-base: 15px;
+  --sp-text-md: 17px; --sp-text-lg: 20px; --sp-text-xl: 26px;
+  --sp-text-2xl: 33px; --sp-text-3xl: 42px;
+
+  --sp-r-xs: 8px; --sp-r-sm: 12px; --sp-r-md: 16px;
+  --sp-r-lg: 20px; --sp-r-xl: 28px; --sp-r-full: 999px;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  --sp-ease: cubic-bezier(.4, 0, .2, 1);
+}

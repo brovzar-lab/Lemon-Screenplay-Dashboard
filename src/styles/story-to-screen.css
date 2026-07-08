@@ -1,0 +1,203 @@
+/* ============================================================================
+   STORY TO SCREEN — Design System
+   Warm editorial aesthetic inspired by storytoscreenstudio.com.
+   Cream paper, burnished gold accent, serif display headings.
+   Two modes: s2s (light editorial) and s2s-dark (warm charcoal).
+   ============================================================================ */
+
+/* ============================================================================
+   S2S LIGHT — "Editorial Cream"
+   Warm paper with gold accents. Elegant serif headings.
+   ============================================================================ */
+[data-theme="s2s"] {
+  /* ---- Surfaces (warm cream paper) ---- */
+  --sp-bg:            #F5F1E8;
+  --sp-surface:       #EDE8DB;
+  --sp-surface-2:     #F0EBDF;
+  --sp-sunken:        #E5DFD0;
+  --sp-border:        rgba(26,24,21,0.12);
+  --sp-border-strong: rgba(26,24,21,0.20);
+
+  /* ---- Text (warm ink, never pure black) ---- */
+  --sp-text:   #1A1815;
+  --sp-text-2: #3A3630;
+  --sp-text-3: #6B6358;
+
+  /* ---- Accent (burnished gold) ---- */
+  --sp-accent:        #C49B4B;
+  --sp-accent-strong: #A88234;
+  --sp-accent-soft:   rgba(196,155,75,0.12);
+  --sp-accent-text:   #FFFBF3;
+
+  /* ---- Brand aliases ---- */
+  --sp-rose:        var(--sp-accent);
+  --sp-rose-strong: var(--sp-accent-strong);
+  --sp-rose-tint:   var(--sp-accent-soft);
+  --sp-on-rose:     var(--sp-accent-text);
+
+  /* ---- Secondary (warm teal) ---- */
+  --sp-secondary: #3D8B7A;
+
+  /* ---- Verdict (warm-shifted for cream background) ---- */
+  --sp-film-now:   #B8922A;
+  --sp-recommend:  #3D7A4A;
+  --sp-consider:   #B07A1E;
+  --sp-pass:       #B54040;
+
+  /* ---- Verdict tints ---- */
+  --sp-film-now-tint:   rgba(184,146,42,0.10);
+  --sp-recommend-tint:  rgba(61,122,74,0.10);
+  --sp-consider-tint:   rgba(176,122,30,0.10);
+  --sp-pass-tint:       rgba(181,64,64,0.10);
+
+  /* Semantic aliases */
+  --sp-sage:      var(--sp-recommend);
+  --sp-sage-tint: var(--sp-recommend-tint);
+  --sp-sand:      var(--sp-consider);
+  --sp-sand-tint: var(--sp-consider-tint);
+  --sp-clay:      var(--sp-pass);
+  --sp-clay-tint: var(--sp-pass-tint);
+
+  /* ---- Genre colors (muted editorial palette) ---- */
+  --sp-genre-drama:    #3D7A4A;
+  --sp-genre-horror:   #B54040;
+  --sp-genre-thriller: #4A6A9A;
+  --sp-genre-crime:    #7A5AA0;
+  --sp-genre-action:   #C47830;
+  --sp-genre-scifi:    #3A8090;
+  --sp-genre-fantasy:  #6A5AAA;
+  --sp-genre-comedy:   #C45A7A;
+  --sp-genre-western:  #9A7A3A;
+  --sp-genre-romance:  #C46A7A;
+
+  /* ---- Shape ---- */
+  --sp-r-xs: 6px;
+  --sp-r-sm: 10px;
+  --sp-r-md: 14px;
+  --sp-r-lg: 16px;
+  --sp-r-xl: 24px;
+  --sp-r-full: 999px;
+
+  /* ---- Spacing (4px base) ---- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  /* ---- Shadows (warm sepia-tinted) ---- */
+  --sp-shadow-sm: 0 1px 3px rgba(40,35,25,0.06);
+  --sp-shadow-md: 0 10px 30px -15px rgba(40,35,25,0.18);
+  --sp-shadow-lg: 0 30px 80px -30px rgba(40,35,25,0.25);
+  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
+
+  /* ---- Page glow (warm gold) ---- */
+  --sp-glow: radial-gradient(60% 50% at 15% 0%, rgba(196,155,75,0.08), transparent 60%);
+
+  /* ---- Typography ---- */
+  --sp-display: "Playfair Display", Georgia, serif;
+  --sp-font: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --sp-mono: "Courier Prime", "Courier New", monospace;
+
+  --sp-text-xs:  12px;
+  --sp-text-sm:  13px;
+  --sp-text-base:15px;
+  --sp-text-md:  17px;
+  --sp-text-lg:  20px;
+  --sp-text-xl:  26px;
+  --sp-text-2xl: 33px;
+  --sp-text-3xl: 42px;
+
+  --sp-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* ============================================================================
+   S2S DARK — "Warm Charcoal"
+   Deep warm black with gold accents. Same serif personality.
+   ============================================================================ */
+[data-theme="s2s-dark"] {
+  --sp-bg:            #141210;
+  --sp-surface:       #1E1B17;
+  --sp-surface-2:     #252219;
+  --sp-sunken:        #110F0C;
+  --sp-border:        rgba(255,255,255,0.09);
+  --sp-border-strong: rgba(255,255,255,0.16);
+
+  --sp-text:   #F0EBDF;
+  --sp-text-2: #B0A897;
+  --sp-text-3: #7A7264;
+
+  --sp-accent:        #D4A94F;
+  --sp-accent-strong: #E5BC62;
+  --sp-accent-soft:   rgba(212,169,79,0.14);
+  --sp-accent-text:   #141210;
+
+  --sp-rose:        var(--sp-accent);
+  --sp-rose-strong: var(--sp-accent-strong);
+  --sp-rose-tint:   var(--sp-accent-soft);
+  --sp-on-rose:     var(--sp-accent-text);
+
+  --sp-secondary: #5AB5A0;
+
+  /* Verdict (brighter for dark BG) */
+  --sp-film-now:   #E8C050;
+  --sp-recommend:  #5ABB6E;
+  --sp-consider:   #E0A83A;
+  --sp-pass:       #E06060;
+
+  --sp-film-now-tint:   rgba(232,192,80,0.14);
+  --sp-recommend-tint:  rgba(90,187,110,0.14);
+  --sp-consider-tint:   rgba(224,168,58,0.14);
+  --sp-pass-tint:       rgba(224,96,96,0.14);
+
+  --sp-sage:      var(--sp-recommend);
+  --sp-sage-tint: var(--sp-recommend-tint);
+  --sp-sand:      var(--sp-consider);
+  --sp-sand-tint: var(--sp-consider-tint);
+  --sp-clay:      var(--sp-pass);
+  --sp-clay-tint: var(--sp-pass-tint);
+
+  /* Genre colors (bright for dark BG) */
+  --sp-genre-drama:    #5ABB6E;
+  --sp-genre-horror:   #E06060;
+  --sp-genre-thriller: #6A8ADA;
+  --sp-genre-crime:    #A07ACC;
+  --sp-genre-action:   #E09040;
+  --sp-genre-scifi:    #50A8C0;
+  --sp-genre-fantasy:  #8A7ACC;
+  --sp-genre-comedy:   #E07AAA;
+  --sp-genre-western:  #C0A050;
+  --sp-genre-romance:  #E08A9A;
+
+  --sp-shadow-sm: 0 1px 3px rgba(0,0,0,0.40);
+  --sp-shadow-md: 0 10px 30px -15px rgba(0,0,0,0.50);
+  --sp-shadow-lg: 0 30px 80px -30px rgba(0,0,0,0.65);
+  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
+
+  --sp-glow: radial-gradient(60% 50% at 15% 0%, rgba(212,169,79,0.12), transparent 60%);
+
+  /* Same fonts */
+  --sp-display: "Playfair Display", Georgia, serif;
+  --sp-font: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --sp-mono: "Courier Prime", "Courier New", monospace;
+
+  --sp-text-xs:  12px;
+  --sp-text-sm:  13px;
+  --sp-text-base:15px;
+  --sp-text-md:  17px;
+  --sp-text-lg:  20px;
+  --sp-text-xl:  26px;
+  --sp-text-2xl: 33px;
+  --sp-text-3xl: 42px;
+
+  --sp-r-xs: 6px;
+  --sp-r-sm: 10px;
+  --sp-r-md: 14px;
+  --sp-r-lg: 16px;
+  --sp-r-xl: 24px;
+  --sp-r-full: 999px;
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  --sp-ease: cubic-bezier(.22, 1, .36, 1);
+}

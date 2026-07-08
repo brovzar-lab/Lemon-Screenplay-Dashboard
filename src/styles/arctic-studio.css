@@ -1,0 +1,131 @@
+/* ============================================================================
+   ARCTIC STUDIO — Design System
+   Scandinavian minimalism. Ultra-clean whites, steel blue accent.
+   Geometric sans-serif. Apple-like precision.
+   ============================================================================ */
+
+[data-theme="arctic"] {
+  --sp-bg:            #F8FAFC;
+  --sp-surface:       #FFFFFF;
+  --sp-surface-2:     #F1F5F9;
+  --sp-sunken:        #E2E8F0;
+  --sp-border:        rgba(15,23,42,0.08);
+  --sp-border-strong: rgba(15,23,42,0.14);
+
+  --sp-text:   #0F172A;
+  --sp-text-2: #334155;
+  --sp-text-3: #94A3B8;
+
+  --sp-accent:        #3B82F6;
+  --sp-accent-strong: #2563EB;
+  --sp-accent-soft:   rgba(59,130,246,0.08);
+  --sp-accent-text:   #FFFFFF;
+
+  --sp-rose:        var(--sp-accent);
+  --sp-rose-strong: var(--sp-accent-strong);
+  --sp-rose-tint:   var(--sp-accent-soft);
+  --sp-on-rose:     var(--sp-accent-text);
+
+  --sp-secondary: #8B5CF6;
+
+  --sp-film-now:   #B45309;
+  --sp-recommend:  #15803D;
+  --sp-consider:   #C2710C;
+  --sp-pass:       #DC2626;
+
+  --sp-film-now-tint:   rgba(180,83,9,0.08);
+  --sp-recommend-tint:  rgba(21,128,61,0.08);
+  --sp-consider-tint:   rgba(194,113,12,0.08);
+  --sp-pass-tint:       rgba(220,38,38,0.08);
+
+  --sp-sage: var(--sp-recommend); --sp-sage-tint: var(--sp-recommend-tint);
+  --sp-sand: var(--sp-consider);  --sp-sand-tint: var(--sp-consider-tint);
+  --sp-clay: var(--sp-pass);      --sp-clay-tint: var(--sp-pass-tint);
+
+  --sp-shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --sp-shadow-md: 0 4px 12px -2px rgba(0,0,0,0.08);
+  --sp-shadow-lg: 0 20px 50px -16px rgba(0,0,0,0.12);
+  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
+
+  --sp-glow: none;
+
+  --sp-display: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --sp-font: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --sp-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --sp-text-xs: 12px; --sp-text-sm: 13px; --sp-text-base: 15px;
+  --sp-text-md: 17px; --sp-text-lg: 20px; --sp-text-xl: 26px;
+  --sp-text-2xl: 32px; --sp-text-3xl: 40px;
+
+  --sp-r-xs: 6px; --sp-r-sm: 8px; --sp-r-md: 12px;
+  --sp-r-lg: 16px; --sp-r-xl: 24px; --sp-r-full: 999px;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  --sp-ease: cubic-bezier(.2, 0, 0, 1);
+}
+
+[data-theme="arctic-dark"] {
+  --sp-bg:            #0B1120;
+  --sp-surface:       #111827;
+  --sp-surface-2:     #1E293B;
+  --sp-sunken:        #060C18;
+  --sp-border:        rgba(148,163,184,0.10);
+  --sp-border-strong: rgba(148,163,184,0.18);
+
+  --sp-text:   #F1F5F9;
+  --sp-text-2: #94A3B8;
+  --sp-text-3: #64748B;
+
+  --sp-accent:        #60A5FA;
+  --sp-accent-strong: #93C5FD;
+  --sp-accent-soft:   rgba(96,165,250,0.12);
+  --sp-accent-text:   #0B1120;
+
+  --sp-rose:        var(--sp-accent);
+  --sp-rose-strong: var(--sp-accent-strong);
+  --sp-rose-tint:   var(--sp-accent-soft);
+  --sp-on-rose:     var(--sp-accent-text);
+
+  --sp-secondary: #A78BFA;
+
+  --sp-film-now:   #F59E0B;
+  --sp-recommend:  #34D399;
+  --sp-consider:   #FBBF24;
+  --sp-pass:       #F87171;
+
+  --sp-film-now-tint:   rgba(245,158,11,0.12);
+  --sp-recommend-tint:  rgba(52,211,153,0.12);
+  --sp-consider-tint:   rgba(251,191,36,0.12);
+  --sp-pass-tint:       rgba(248,113,113,0.12);
+
+  --sp-sage: var(--sp-recommend); --sp-sage-tint: var(--sp-recommend-tint);
+  --sp-sand: var(--sp-consider);  --sp-sand-tint: var(--sp-consider-tint);
+  --sp-clay: var(--sp-pass);      --sp-clay-tint: var(--sp-pass-tint);
+
+  --sp-shadow-sm: 0 1px 3px rgba(0,0,0,0.40);
+  --sp-shadow-md: 0 4px 16px -4px rgba(0,0,0,0.50);
+  --sp-shadow-lg: 0 20px 50px -16px rgba(0,0,0,0.65);
+  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
+
+  --sp-glow: radial-gradient(50% 40% at 50% 0%, rgba(96,165,250,0.08), transparent 60%);
+
+  --sp-display: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --sp-font: "Outfit", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --sp-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --sp-text-xs: 12px; --sp-text-sm: 13px; --sp-text-base: 15px;
+  --sp-text-md: 17px; --sp-text-lg: 20px; --sp-text-xl: 26px;
+  --sp-text-2xl: 32px; --sp-text-3xl: 40px;
+
+  --sp-r-xs: 6px; --sp-r-sm: 8px; --sp-r-md: 12px;
+  --sp-r-lg: 16px; --sp-r-xl: 24px; --sp-r-full: 999px;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  --sp-ease: cubic-bezier(.2, 0, 0, 1);
+}

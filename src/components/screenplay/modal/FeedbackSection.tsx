@@ -228,7 +228,7 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                                             className="flex-1 accent-gold-500"
                                         />
                                         <span className={clsx(
-                                            'text-sm font-mono w-8 text-right',
+                                            'text-sm w-8 text-right',
                                             override.userScore >= 8 ? 'text-gold-400' :
                                                 override.userScore >= 6 ? 'text-emerald-400' : 'text-black-300',
                                         )}>

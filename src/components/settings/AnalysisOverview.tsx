@@ -110,7 +110,7 @@ export function AnalysisOverview() {
             </div>
             <div>
               <h2 className="text-2xl font-display text-gold-100 tracking-tight">V9 Archaeology Engine</h2>
-              <p className="text-xs text-gold-400/60 font-mono tracking-wider">MULTI-READER ANALYSIS PIPELINE</p>
+              <p className="text-xs text-gold-400/60 tracking-wider">MULTI-READER ANALYSIS PIPELINE</p>
             </div>
           </div>
           <p className="text-sm text-black-300 leading-relaxed max-w-lg mt-4">
@@ -154,8 +154,8 @@ export function AnalysisOverview() {
           </div>
           <div className="flex-1 -mt-1">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-mono text-gold-500/60">STEP 3</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gold-500/10 text-gold-400">30–60s</span>
+              <span className="text-xs text-gold-500/60">STEP 3</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gold-500/10 text-gold-400">30–60s</span>
             </div>
             <h3 className="font-display text-gold-100 text-lg mb-1">5 Expert Readers — Parallel Analysis</h3>
             <p className="text-xs text-black-400 mb-5">Each reader works independently. No groupthink. Maximum coverage.</p>
@@ -213,7 +213,7 @@ export function AnalysisOverview() {
                     <span
                       key={tag}
                       className={clsx(
-                        'text-[10px] font-mono px-2 py-1 rounded-full border',
+                        'text-[10px] px-2 py-1 rounded-full border',
                         READERS[activeReader].bg,
                         READERS[activeReader].border,
                         'text-white/70',
@@ -264,7 +264,7 @@ export function AnalysisOverview() {
           ].map((item) => (
             <div key={item.label} className="p-5 text-center group hover:bg-gold-500/3 transition-colors">
               <span className="text-2xl block mb-2 group-hover:scale-110 transition-transform">{item.icon}</span>
-              <p className="text-lg font-mono font-bold text-gold-300">{item.value}</p>
+              <p className="text-lg font-bold text-gold-300">{item.value}</p>
               <p className="text-xs font-medium text-gold-200 mt-1">{item.label}</p>
               <p className="text-[10px] text-black-500 mt-0.5">{item.sub}</p>
             </div>
@@ -289,22 +289,22 @@ export function AnalysisOverview() {
       {/* ── Live Stats ──────────────────────────────────────────────── */}
       {stats && (
         <div className="rounded-2xl bg-gradient-to-r from-gold-500/8 via-transparent to-gold-500/8 border border-gold-500/10 p-5">
-          <p className="text-[10px] text-gold-500/60 font-mono uppercase tracking-widest mb-3 text-center">Your Dashboard Stats</p>
+          <p className="text-[10px] text-gold-500/60 uppercase tracking-widest mb-3 text-center">Your Dashboard Stats</p>
           <div className="grid grid-cols-4 gap-4">
             <div className="text-center">
-              <p className="text-2xl font-mono font-bold text-gold-300">{stats.total}</p>
+              <p className="text-2xl font-bold text-gold-300">{stats.total}</p>
               <p className="text-[10px] text-black-500 uppercase tracking-wider mt-1">analyzed</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-mono font-bold text-gold-300">{stats.topGenre}</p>
+              <p className="text-2xl font-bold text-gold-300">{stats.topGenre}</p>
               <p className="text-[10px] text-black-500 uppercase tracking-wider mt-1">top genre</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-mono font-bold text-gold-300">{stats.avgScore}</p>
+              <p className="text-2xl font-bold text-gold-300">{stats.avgScore}</p>
               <p className="text-[10px] text-black-500 uppercase tracking-wider mt-1">avg score</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-mono font-bold text-emerald-400">{stats.passRate}%</p>
+              <p className="text-2xl font-bold text-emerald-400">{stats.passRate}%</p>
               <p className="text-[10px] text-black-500 uppercase tracking-wider mt-1">pass rate</p>
             </div>
           </div>
@@ -320,7 +320,7 @@ export function AnalysisOverview() {
           { n: '0', l: 'human bias' },
         ].map((s) => (
           <div key={s.l} className="text-center">
-            <p className="text-xl font-mono font-bold text-gold-400">{s.n}</p>
+            <p className="text-xl font-bold text-gold-400">{s.n}</p>
             <p className="text-[10px] text-black-500 uppercase tracking-wider">{s.l}</p>
           </div>
         ))}
@@ -358,8 +358,8 @@ function PipelineNode({
       {/* Content */}
       <div className="flex-1 -mt-0.5">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-xs font-mono text-gold-500/60">STEP {step}</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black-800/60 text-black-400">{time}</span>
+          <span className="text-xs text-gold-500/60">STEP {step}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-black-800/60 text-black-400">{time}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-base">{icon}</span>

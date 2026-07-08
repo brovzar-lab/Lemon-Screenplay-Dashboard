@@ -59,7 +59,7 @@ export function ModelSelector({ selectedModel, onSelectModel, pendingCount, batc
               <div className="text-center">
                 <p className="text-xs text-black-500 mb-0.5">Cost</p>
                 <p className={clsx(
-                  'text-sm font-mono font-bold',
+                  'text-sm font-bold',
                   model.id === 'haiku' ? 'text-emerald-400' :
                     model.id === 'sonnet' ? 'text-gold-400' : 'text-purple-400'
                 )}>
@@ -68,11 +68,11 @@ export function ModelSelector({ selectedModel, onSelectModel, pendingCount, batc
               </div>
               <div className="text-center">
                 <p className="text-xs text-black-500 mb-0.5">Speed</p>
-                <p className="text-sm font-mono text-black-300">{model.speed}</p>
+                <p className="text-sm text-black-300">{model.speed}</p>
               </div>
               <div className="text-center">
                 <p className="text-xs text-black-500 mb-0.5">Quality</p>
-                <p className="text-sm font-mono text-black-300">{model.quality}</p>
+                <p className="text-sm text-black-300">{model.quality}</p>
               </div>
             </div>
 
@@ -103,7 +103,7 @@ export function ModelSelector({ selectedModel, onSelectModel, pendingCount, batc
           </svg>
           <span className="text-black-400">
             Estimated batch cost for {pendingCount} files with {MODEL_OPTIONS.find(m => m.id === selectedModel)!.name}: {' '}
-            <span className="font-mono text-gold-300">{batchCostEstimate}</span>
+            <span style={{ color: 'var(--sp-accent)', fontVariantNumeric: 'tabular-nums' }}>{batchCostEstimate}</span>
           </span>
         </div>
       )}

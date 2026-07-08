@@ -53,26 +53,18 @@ export function CollectionTabs({ screenplays }: CollectionTabsProps) {
   };
 
   return (
-    <div className="flex items-center gap-1 p-1 rounded-lg bg-black-800/50 border border-black-700 overflow-x-auto">
+    <div className="flex items-center gap-1 p-1 rounded-lg overflow-x-auto" style={{ background: 'var(--sp-surface)', boxShadow: 'var(--sp-shadow-sm)' }}>
       {/* All tab */}
       <button
         onClick={() => handleTabClick('all')}
-        className={`
-          px-3 py-1.5 rounded-md text-sm font-medium transition-all
-          flex items-center gap-2 whitespace-nowrap
-          ${activeCategory === 'all'
-            ? 'bg-gold-500/20 text-gold-400 border border-gold-500/30'
-            : 'text-black-400 hover:text-white hover:bg-black-700/50'
-          }
-        `}
+        className="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap"
+        style={activeCategory === 'all' ? { background: 'var(--sp-accent-soft)', color: 'var(--sp-accent)', fontWeight: 600 } : { color: 'var(--sp-text-3)' }}
         title="All Categories"
       >
         <span>All</span>
         <span
-          className={`
-            text-xs px-1.5 py-0.5 rounded-full font-mono
-            ${activeCategory === 'all' ? 'bg-gold-500/30 text-gold-300' : 'bg-black-700 text-black-300'}
-          `}
+          className="text-xs px-1.5 py-0.5 rounded-full"
+          style={activeCategory === 'all' ? { background: 'var(--sp-accent-soft)', color: 'var(--sp-accent)', fontVariantNumeric: 'tabular-nums' } : { background: 'var(--sp-surface-2)', color: 'var(--sp-text-3)', fontVariantNumeric: 'tabular-nums' }}
         >
           {screenplays.length}
         </span>
@@ -86,22 +78,14 @@ export function CollectionTabs({ screenplays }: CollectionTabsProps) {
           <button
             key={catId}
             onClick={() => handleTabClick(catId)}
-            className={`
-              px-3 py-1.5 rounded-md text-sm font-medium transition-all
-              flex items-center gap-2 whitespace-nowrap
-              ${isActive
-                ? 'bg-gold-500/20 text-gold-400 border border-gold-500/30'
-                : 'text-black-400 hover:text-white hover:bg-black-700/50'
-              }
-            `}
+            className="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap"
+            style={isActive ? { background: 'var(--sp-accent-soft)', color: 'var(--sp-accent)', fontWeight: 600 } : { color: 'var(--sp-text-3)' }}
             title={getCategoryName(catId)}
           >
             <span>{getCategoryName(catId)}</span>
             <span
-              className={`
-                text-xs px-1.5 py-0.5 rounded-full font-mono
-                ${isActive ? 'bg-gold-500/30 text-gold-300' : 'bg-black-700 text-black-300'}
-              `}
+              className="text-xs px-1.5 py-0.5 rounded-full"
+              style={isActive ? { background: 'var(--sp-accent-soft)', color: 'var(--sp-accent)', fontVariantNumeric: 'tabular-nums' } : { background: 'var(--sp-surface-2)', color: 'var(--sp-text-3)', fontVariantNumeric: 'tabular-nums' }}
             >
               {count}
             </span>

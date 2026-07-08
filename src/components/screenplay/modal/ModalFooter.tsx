@@ -17,9 +17,9 @@ export function ModalFooter({ screenplay }: ModalFooterProps) {
                 <span>Source: {screenplay.sourceFile || 'N/A'}</span>
             </div>
             <div className="text-xs text-black-400 pt-2 border-t border-black-800">
-                Analyzed with <span className="font-mono font-medium text-black-300">{screenplay.analysisVersion || 'Unknown'}</span>
+                Analyzed with <span className="font-medium text-black-300">{screenplay.analysisVersion || 'Unknown'}</span>
                 {screenplay.analysisModel && (
-                    <span> • Model: <span className="font-mono text-black-300">{screenplay.analysisModel}</span></span>
+                    <span> • Model: <span className="text-black-300">{screenplay.analysisModel}</span></span>
                 )}
             </div>
         </div>

@@ -13,7 +13,6 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
-import { getScoreColorClass } from '@/lib/calculations';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { useIsSelected, useSelectionStore } from '@/stores/selectionStore';
 import { useDeleteSelectionStore, useIsSelectedForDelete } from '@/stores/deleteSelectionStore';
@@ -114,10 +113,10 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
           'transition-transform duration-200 ease-out',
           tierClass,
           isDeleteMode && isDeleteSelected && 'ring-2 ring-red-500/50',
-          !isDeleteMode && isBulkSelected && 'ring-2 ring-gold-500/50',
+          !isDeleteMode && isBulkSelected && 'ring-2 ring-blue-500/50',
           // Subtle lift on hover — no layout shift
-          'hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black-950/40',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500/60',
+          'hover:-translate-y-0.5',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60',
         )}
       >
         {/* ── Bulk select checkbox ────────────────────────────────────────── */}
@@ -128,8 +127,8 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
               'absolute top-3 left-3 w-5 h-5 rounded border-2 flex items-center justify-center',
               'transition-all duration-150 z-10',
               isBulkSelected
-                ? 'bg-gold-500 border-gold-400 text-black-950'
-                : 'border-black-500 bg-black-800/50 hover:border-gold-500/50',
+                ? 'bg-blue-500 border-blue-400 text-white'
+                : 'border-black-500 bg-black-800/50 hover:border-blue-500/50',
             )}
             aria-label={isBulkSelected ? 'Deselect screenplay' : 'Select screenplay'}
           >
@@ -184,7 +183,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
             <RecommendationBadge tier={screenplay.recommendation} />
           </div>
           {/* Title: always 1 line, truncated */}
-          <h3 className="text-base font-display text-gold-100 leading-tight truncate">
+          <h3 className="text-base font-display leading-tight truncate" style={{ color: 'var(--sp-text)' }}>
             {screenplay.title}
           </h3>
         </div>
@@ -222,10 +221,8 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
             {top3Dims.map((dim) => (
               <span
                 key={dim.key}
-                className={clsx(
-                  'text-[10px] font-mono px-2 py-0.5 rounded-full bg-black-800 border border-black-700',
-                  getScoreColorClass(dim.score),
-                )}
+                className="text-[10px] px-2 py-0.5 rounded-full"
+                style={{ background: 'var(--sp-surface-2)', color: 'var(--sp-text-2)', fontVariantNumeric: 'tabular-nums' }}
               >
                 {dim.label}: {dim.score.toFixed(1)}
               </span>
@@ -237,20 +234,19 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
         <div className="flex-1 min-h-0" />
 
         {/* ── SCORE FOOTER ────────────────────────────────────────────────── */}
-        <div className="flex-shrink-0 border-t border-black-700 px-4 pt-2.5 pb-3">
+        <div className="flex-shrink-0 px-4 pt-2.5 pb-3">
           {/* Score row */}
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-baseline gap-3">
               {/* Weighted score — the primary number */}
               <div>
-                <span className="text-[9px] font-semibold tracking-widest uppercase text-black-500 block leading-none mb-0.5">
+                <span className="text-[9px] font-medium tracking-widest uppercase block leading-none mb-0.5" style={{ color: 'var(--sp-text-3)' }}>
                   Score
                 </span>
-                <span className={clsx(
-                  isPass ? 'text-lg' : 'text-2xl',
-                  'font-mono font-bold leading-none',
-                  getScoreColorClass(Number(screenplay.weightedScore) || 0),
-                )}>
+                <span
+                  className={clsx(isPass ? 'text-lg' : 'text-2xl', 'font-bold leading-none')}
+                  style={{ color: 'var(--sp-text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em', fontWeight: 600 }}
+                >
                   {weightedScore}
                 </span>
               </div>
@@ -258,13 +254,13 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
               {/* CVS — secondary, smaller */}
               {cvsAssessed && (
                 <div>
-                  <span className="text-[9px] font-semibold tracking-widest uppercase text-black-500 block leading-none mb-0.5">
+                  <span className="text-[9px] font-medium tracking-widest uppercase block leading-none mb-0.5" style={{ color: 'var(--sp-text-3)' }}>
                     CVS
                   </span>
-                  <span className={clsx(
-                    'text-sm font-mono font-bold leading-none',
-                    getScoreColorClass(cvsTotal, 18),
-                  )}>
+                  <span
+                    className="text-sm font-bold leading-none"
+                    style={{ color: 'var(--sp-text)', fontVariantNumeric: 'tabular-nums' }}
+                  >
                     {cvsTotal}/18
                   </span>
                 </div>
@@ -277,7 +273,8 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
             {top3Dims.map((dim) => (
               <span
                 key={dim.key}
-                className="text-[9px] font-mono text-black-400 bg-black-800/60 px-1.5 py-0.5 rounded"
+                className="text-[9px] px-1.5 py-0.5 rounded"
+                style={{ background: 'var(--sp-surface-2)', color: 'var(--sp-text-3)', fontVariantNumeric: 'tabular-nums' }}
               >
                 {dim.label.split(' ')[0]} {dim.score.toFixed(1)}
               </span>

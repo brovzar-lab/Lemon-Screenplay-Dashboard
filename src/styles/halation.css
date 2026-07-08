@@ -1,0 +1,163 @@
+/* ============================================================================
+   INSTRUMENT — Design System (replaces Halation)
+   Cool grey-white light, midnight-navy dark, cobalt accent, Playfair + Schibsted.
+   Emits --sp-* variables for backward compatibility with existing components.
+   ============================================================================ */
+
+/* ============================================================================
+   LIGHT (default)
+   ============================================================================ */
+:root {
+  --sp-bg:            #E4E7EE;
+  --sp-surface:       #FFFFFF;
+  --sp-surface-2:     #EEF0F3;
+  --sp-sunken:        #EEF0F3;
+  --sp-border:        #E6E8EC;
+  --sp-border-strong: #D0D4DA;
+
+  --sp-text:   #0B0D12;
+  --sp-text-2: #585F6B;
+  --sp-text-3: #9298A4;
+
+  --sp-accent:        #2B54F0;
+  --sp-accent-strong: #2042C2;
+  --sp-accent-soft:   #EAEEFE;
+  --sp-accent-text:   #FFFFFF;
+
+  --sp-rose:        var(--sp-accent);
+  --sp-rose-strong: var(--sp-accent-strong);
+  --sp-rose-tint:   var(--sp-accent-soft);
+  --sp-on-rose:     var(--sp-accent-text);
+
+  --sp-secondary: #119C8B;
+
+  --sp-film-now:   #2B54F0;
+  --sp-recommend:  #12A66B;
+  --sp-consider:   #F5A524;
+  --sp-pass:       #FF5247;
+
+  --sp-film-now-tint:   #EAEEFE;
+  --sp-recommend-tint:  #E2F4EC;
+  --sp-consider-tint:   #FBEDD6;
+  --sp-pass-tint:       #FCE7E7;
+
+  --sp-sage:      var(--sp-recommend);
+  --sp-sage-tint: var(--sp-recommend-tint);
+  --sp-sand:      var(--sp-consider);
+  --sp-sand-tint: var(--sp-consider-tint);
+  --sp-clay:      var(--sp-pass);
+  --sp-clay-tint: var(--sp-pass-tint);
+
+  --sp-genre-drama:    #119C8B;
+  --sp-genre-horror:   #FF6B5C;
+  --sp-genre-thriller: #2B54F0;
+  --sp-genre-crime:    #6E4BF0;
+  --sp-genre-action:   #FF6B5C;
+  --sp-genre-scifi:    #119C8B;
+  --sp-genre-fantasy:  #6E4BF0;
+  --sp-genre-comedy:   #FF6B5C;
+  --sp-genre-western:  #119C8B;
+  --sp-genre-romance:  #FF6B5C;
+
+  --sp-r-xs: 4px;
+  --sp-r-sm: 8px;
+  --sp-r-md: 12px;
+  --sp-r-lg: 16px;
+  --sp-r-xl: 20px;
+  --sp-r-full: 999px;
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  --sp-shadow-sm: 0 1px 2px rgba(16,20,30,.10), 0 2px 4px rgba(16,20,30,.06), 0 12px 30px rgba(16,20,30,.11);
+  --sp-shadow-md: 0 2px 4px rgba(16,20,30,.12), 0 6px 12px rgba(16,20,30,.10), 0 24px 50px rgba(16,20,30,.16);
+  --sp-shadow-lg: 0 2px 4px rgba(16,20,30,.12), 0 4px 8px rgba(16,20,30,.08), 0 20px 44px rgba(16,20,30,.14);
+  --sp-shadow-btn: inset 0 1px 0 rgba(255,255,255,.22), 0 1px 2px rgba(11,13,18,.12), 0 6px 16px rgba(43,84,240,.26);
+  --sp-highlight-top: inset 0 1px 0 rgba(255,255,255,.9);
+  --sp-inset-input: inset 0 1px 2px rgba(11,13,18,.06);
+  --sp-ring: 0 0 0 2px #EAECF1, 0 0 0 4px #2B54F0;
+
+  --sp-glow: none;
+
+  --sp-display: 'Playfair Display', Georgia, serif;
+  --sp-font: 'Schibsted Grotesk', system-ui, sans-serif;
+  --sp-mono: 'Schibsted Grotesk', system-ui, sans-serif;
+
+  --sp-text-xs:  11px;
+  --sp-text-sm:  13px;
+  --sp-text-base:15px;
+  --sp-text-md:  17px;
+  --sp-text-lg:  20px;
+  --sp-text-xl:  24px;
+  --sp-text-2xl: 32px;
+  --sp-text-3xl: 42px;
+
+  --sp-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================================================
+   DARK — Midnight navy, never pure black
+   ============================================================================ */
+[data-theme="dark"] {
+  --sp-bg:            #0A1020;
+  --sp-surface:       #16203A;
+  --sp-surface-2:     #101A30;
+  --sp-sunken:        #101A30;
+  --sp-border:        #233152;
+  --sp-border-strong: #304060;
+
+  --sp-text:   #EDF1F9;
+  --sp-text-2: #94A2BE;
+  --sp-text-3: #73819E;
+
+  --sp-accent:        #6E8BFF;
+  --sp-accent-strong: #5E80FF;
+  --sp-accent-soft:   #1B2747;
+  --sp-accent-text:   #0E1426;
+
+  --sp-rose:        var(--sp-accent);
+  --sp-rose-strong: var(--sp-accent-strong);
+  --sp-rose-tint:   var(--sp-accent-soft);
+  --sp-on-rose:     var(--sp-accent-text);
+
+  --sp-secondary: #2FC9B0;
+
+  --sp-film-now:   #6E8BFF;
+  --sp-recommend:  #34C98C;
+  --sp-consider:   #FFBE57;
+  --sp-pass:       #FF7A72;
+
+  --sp-film-now-tint:   #1B2747;
+  --sp-recommend-tint:  #10301F;
+  --sp-consider-tint:   #33260F;
+  --sp-pass-tint:       #3A1A1C;
+
+  --sp-sage:      var(--sp-recommend);
+  --sp-sage-tint: var(--sp-recommend-tint);
+  --sp-sand:      var(--sp-consider);
+  --sp-sand-tint: var(--sp-consider-tint);
+  --sp-clay:      var(--sp-pass);
+  --sp-clay-tint: var(--sp-pass-tint);
+
+  --sp-genre-drama:    #2FC9B0;
+  --sp-genre-horror:   #FF8A78;
+  --sp-genre-thriller: #6E8BFF;
+  --sp-genre-crime:    #9F86FF;
+  --sp-genre-action:   #FF8A78;
+  --sp-genre-scifi:    #2FC9B0;
+  --sp-genre-fantasy:  #9F86FF;
+  --sp-genre-comedy:   #FF8A78;
+  --sp-genre-western:  #2FC9B0;
+  --sp-genre-romance:  #FF8A78;
+
+  --sp-shadow-sm: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.40);
+  --sp-shadow-md: 0 2px 4px rgba(0,0,0,.40), 0 12px 28px rgba(0,0,0,.48);
+  --sp-shadow-lg: 0 2px 8px rgba(0,0,0,.50), 0 24px 48px rgba(0,0,0,.55);
+  --sp-shadow-btn: inset 0 1px 0 rgba(255,255,255,.25), 0 1px 2px rgba(0,0,0,.40), 0 6px 18px rgba(110,139,255,.45);
+  --sp-highlight-top: inset 0 1px 0 rgba(255,255,255,.05);
+  --sp-inset-input: inset 0 1px 3px rgba(0,0,0,.20);
+  --sp-ring: 0 0 0 2px #0E1426, 0 0 0 4px #6E8BFF;
+
+  --sp-glow: none;
+}

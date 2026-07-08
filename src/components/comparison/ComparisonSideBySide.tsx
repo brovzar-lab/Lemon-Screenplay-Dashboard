@@ -57,7 +57,7 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
           {screenplays.map((sp) => (
             <div key={sp.id} className={clsx(
               'p-4 rounded-lg border transition-all',
-              sp.isFilmNow ? 'border-gold-500 bg-gold-500/10' : 'border-black-700 bg-black-800/50'
+              sp.isFilmNow ? 'border-black-600 bg-black-800/50' : 'border-black-700 bg-black-800/50'
             )}>
               <div className="flex items-start justify-between mb-2">
                 <span className={clsx('px-2 py-0.5 rounded text-xs font-bold', getTierBadge(sp))}>
@@ -72,7 +72,7 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
                   </svg>
                 </button>
               </div>
-              <h4 className="font-display text-lg text-gold-200 leading-tight mb-1">{sp.title}</h4>
+              <h4 className="font-display text-lg leading-tight mb-1" style={{ color: 'var(--sp-text)' }}>{sp.title}</h4>
               <p className="text-xs text-black-400">{sp.author}</p>
               <p className="text-xs text-black-500 mt-1">{sp.genre}</p>
             </div>
@@ -81,7 +81,7 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
 
         {/* Core Scores Section */}
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-gold-400 mb-3">Core Scores</h4>
+          <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--sp-accent)' }}>Core Scores</h4>
 
           {/* Weighted Score Row */}
           <MetricRow
@@ -103,7 +103,7 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
 
         {/* Dimension Scores Section — uses version-appropriate labels */}
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-gold-400 mb-3">Dimension Scores</h4>
+          <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--sp-accent)' }}>Dimension Scores</h4>
 
           {getDimensionDisplay(screenplays[0]).map((dim, idx) => (
             <MetricRow
@@ -118,7 +118,7 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
 
         {/* AI Market Analysis Section */}
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-gold-400 mb-3">AI Market Analysis</h4>
+          <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--sp-accent)' }}>AI Market Analysis</h4>
 
           <MetricRow
             label="Market Potential"
@@ -136,7 +136,7 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
               <div key={sp.id} className="text-sm font-medium">
                 <span className={clsx(
                   sp.producerMetrics.uspStrength === 'Strong' && 'text-emerald-400',
-                  sp.producerMetrics.uspStrength === 'Moderate' && 'text-gold-400',
+                  sp.producerMetrics.uspStrength === 'Moderate' && 'text-amber-400',
                   sp.producerMetrics.uspStrength === 'Weak' && 'text-red-400'
                 )}>
                   {sp.producerMetrics.uspStrength ?? 'N/A'}
@@ -148,7 +148,7 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
 
         {/* Budget & Comparable Films */}
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-gold-400 mb-3">Production</h4>
+          <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--sp-accent)' }}>Production</h4>
 
           <div className={`grid gap-4`} style={{ gridTemplateColumns: `200px repeat(${screenplays.length}, 1fr)` }}>
             {/* Budget Row */}
@@ -179,7 +179,7 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
 
         {/* Key Strengths & Weaknesses */}
         <div className="mb-6">
-          <h4 className="text-sm font-medium text-gold-400 mb-3">Analysis</h4>
+          <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--sp-accent)' }}>Analysis</h4>
 
           <div className={`grid gap-4`} style={{ gridTemplateColumns: `200px repeat(${screenplays.length}, 1fr)` }}>
             {/* Strengths Row */}
@@ -249,12 +249,12 @@ function MetricRow({ label, values, max, screenplays, formatValue = (v) => v.toF
       {values.map((value, index) => {
         const pct = (value / max) * 100;
         const isBest = index === bestIndex;
-        const scoreClass = pct >= 80 ? 'text-emerald-400' : pct >= 60 ? 'text-gold-400' : 'text-red-400';
+        const scoreClass = pct >= 80 ? 'text-emerald-400' : pct >= 60 ? 'text-amber-400' : 'text-red-400';
 
         return (
           <div key={screenplays[index].id} className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className={clsx('font-mono text-sm font-bold', scoreClass)}>
+              <span className={clsx('text-sm font-bold', scoreClass)}>
                 {formatValue(value)}
               </span>
               {isBest && (
@@ -265,7 +265,7 @@ function MetricRow({ label, values, max, screenplays, formatValue = (v) => v.toF
               <div
                 className={clsx(
                   'h-full rounded-full transition-all',
-                  pct >= 80 ? 'bg-emerald-500' : pct >= 60 ? 'bg-gold-500' : 'bg-red-500'
+                  pct >= 80 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500'
                 )}
                 style={{ width: `${pct}%` }}
               />

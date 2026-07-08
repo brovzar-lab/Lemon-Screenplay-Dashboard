@@ -110,13 +110,13 @@ export function AnalyticsDashboard({
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
               />
             </svg>
-            <span className="font-semibold text-white">Analytics Dashboard</span>
+            <span className="font-semibold text-black-50">Analytics Dashboard</span>
           </div>
 
           {/* Quick stats — count-up when expanded, static when collapsed */}
           <div className="flex items-center gap-4 text-sm">
             <span className="text-black-400">
-              <span className="font-mono text-gold-400">
+              <span className="text-gold-400">
                 {isExpanded ? animatedTotal.toFixed(0) : screenplays.length}
               </span>
               {isFiltered ? ` of ${totalScreenplays.length}` : ''} screenplays
@@ -125,20 +125,20 @@ export function AnalyticsDashboard({
             <span className="text-black-400">|</span>
             <span className="text-black-400">
               Avg Score:{' '}
-              <span className="font-mono text-emerald-400">
+              <span className="text-emerald-400">
                 {isExpanded ? animatedAvg.toFixed(1) : avgScoreRaw.toFixed(1)}
               </span>
             </span>
             <span className="text-black-400">|</span>
             <span className="text-black-400">
-              <span className="font-mono text-gold-400">
+              <span className="text-gold-400">
                 {isExpanded ? animatedFilmNow.toFixed(0) : filmNowCount}
               </span>{' '}
               FILM NOW
             </span>
             <span className="text-black-400">|</span>
             <span className="text-black-400">
-              <span className="font-mono text-emerald-400">
+              <span className="text-emerald-400">
                 {isExpanded ? animatedRecommend.toFixed(0) : recommendCount}
               </span>{' '}
               Recommend

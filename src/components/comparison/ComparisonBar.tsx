@@ -49,7 +49,7 @@ export function ComparisonBar() {
                     <span className="text-sm text-black-200 max-w-[150px] truncate">
                       {sp.title}
                     </span>
-                    <span className="text-xs font-mono text-gold-400">
+                    <span className="text-xs text-gold-400">
                       {sp.weightedScore.toFixed(1)}
                     </span>
                     <button

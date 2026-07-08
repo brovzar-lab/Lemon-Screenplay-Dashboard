@@ -49,7 +49,7 @@ function ScoreBarInner({
       <div className="flex flex-col gap-1">
         <div className="flex justify-between items-center">
           <span className="text-xs text-black-400">{label}</span>
-          <span className={clsx('text-xs font-mono font-bold', getScoreColorClass(safeScore, max))}>
+          <span className={clsx('text-xs font-bold', getScoreColorClass(safeScore, max))}>
             {safeScore.toFixed(1)}
           </span>
         </div>
@@ -67,7 +67,7 @@ function ScoreBarInner({
     <div className="space-y-1">
       <div className="flex justify-between items-center">
         <span className="text-sm text-black-300">{label}</span>
-        <span className={clsx('text-sm font-mono font-bold', getScoreColorClass(safeScore, max))}>
+        <span className={clsx('text-sm font-bold', getScoreColorClass(safeScore, max))}>
           {safeScore.toFixed(1)}/{max}
         </span>
       </div>

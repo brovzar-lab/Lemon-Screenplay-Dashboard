@@ -55,8 +55,8 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
         <p className="font-medium mb-1" style={{ color: item.color }}>
           {item.label} <span className="text-black-400">({item.range})</span>
         </p>
-        <p className="text-white">
-          <span className="font-mono font-bold">{item.count}</span> screenplays
+        <p className="text-black-50">
+          <span className="font-bold">{item.count}</span> screenplays
         </p>
         <p className="text-black-400 text-xs">{item.percentage}% of total</p>
       </div>
@@ -130,7 +130,7 @@ export function BudgetChart({ screenplays, onBudgetClick }: BudgetChartProps) {
             type="number"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#9CA3AF', fontSize: 11 }}
+            tick={{ fill: '#94A2BE', fontSize: 11 }}
             allowDecimals={false}
           />
           <YAxis
@@ -138,7 +138,7 @@ export function BudgetChart({ screenplays, onBudgetClick }: BudgetChartProps) {
             dataKey="label"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#9CA3AF', fontSize: 11 }}
+            tick={{ fill: '#94A2BE', fontSize: 11 }}
             width={60}
           />
           <Tooltip content={(props) => <CustomTooltip {...props} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />

@@ -1,5 +1,5 @@
 /**
- * Component Tests for Header
+ * Component Tests for Header — Instrument Design System
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -21,9 +21,20 @@ vi.mock('@/hooks/useFilteredScreenplays', () => ({
 
 vi.mock('@/stores/themeStore', () => ({
   useThemeStore: () => ({
-    resolvedTheme: 'dark',
+    resolvedTheme: 'light' as const,
+    isDark: false,
     setTheme: vi.fn(),
+    setDesignSystem: vi.fn(),
+    theme: 'system',
+    designSystem: 'instrument',
   }),
+  THEME_OPTIONS: [
+    { id: 'light', label: 'Light', family: 'instrument', mode: 'light' },
+    { id: 'dark', label: 'Dark', family: 'instrument', mode: 'dark' },
+  ],
+  DESIGN_SYSTEMS: [
+    { id: 'instrument', label: 'Instrument', description: 'Cool cobalt', lightThemeId: 'light', darkThemeId: 'dark', accentLight: '#2B54F0', accentDark: '#6E8BFF', fontHint: 'Playfair Display' },
+  ],
 }));
 
 // DevExecToggle needs its own store — mock it as a no-op
@@ -35,6 +46,11 @@ vi.mock('@/components/devexec', () => ({
 // SyncStatusIndicator has its own store deps — mock as no-op
 vi.mock('./SyncStatusIndicator', () => ({
   SyncStatusIndicator: () => null,
+}));
+
+// ThemeSwitcher — mock as simple render since it uses the same theme store
+vi.mock('@/components/ui/ThemeSwitcher', () => ({
+  ThemeSwitcher: () => <button aria-label="Switch design system">Instrument</button>,
 }));
 
 describe('Header', () => {

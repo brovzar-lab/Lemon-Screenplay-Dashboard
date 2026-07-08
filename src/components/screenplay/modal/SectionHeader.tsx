@@ -11,7 +11,7 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ children, icon }: SectionHeaderProps) {
     return (
-        <h3 className="text-lg font-display text-gold-200 mb-4 flex items-center gap-2">
+        <h3 className="text-lg font-display mb-4 flex items-center gap-2" style={{ color: 'var(--sp-text)' }}>
             {icon && <span>{icon}</span>}
             {children}
         </h3>

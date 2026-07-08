@@ -1,0 +1,131 @@
+/* ============================================================================
+   NOIR CINEMA — Design System
+   Classic film noir aesthetic. Deep charcoal, crimson accents, silver text.
+   Dramatic shadows. Serif display headings.
+   ============================================================================ */
+
+[data-theme="noir"] {
+  --sp-bg:            #F2F0ED;
+  --sp-surface:       #E8E5E0;
+  --sp-surface-2:     #EDEBE7;
+  --sp-sunken:        #DDD9D3;
+  --sp-border:        rgba(30,28,26,0.12);
+  --sp-border-strong: rgba(30,28,26,0.22);
+
+  --sp-text:   #1A1816;
+  --sp-text-2: #3D3835;
+  --sp-text-3: #7A7470;
+
+  --sp-accent:        #B03030;
+  --sp-accent-strong: #8C2424;
+  --sp-accent-soft:   rgba(176,48,48,0.10);
+  --sp-accent-text:   #FFFFFF;
+
+  --sp-rose:        var(--sp-accent);
+  --sp-rose-strong: var(--sp-accent-strong);
+  --sp-rose-tint:   var(--sp-accent-soft);
+  --sp-on-rose:     var(--sp-accent-text);
+
+  --sp-secondary: #5A7A8A;
+
+  --sp-film-now:   #B08C20;
+  --sp-recommend:  #3A7A4A;
+  --sp-consider:   #B07A1E;
+  --sp-pass:       #B03030;
+
+  --sp-film-now-tint:   rgba(176,140,32,0.10);
+  --sp-recommend-tint:  rgba(58,122,74,0.10);
+  --sp-consider-tint:   rgba(176,122,30,0.10);
+  --sp-pass-tint:       rgba(176,48,48,0.10);
+
+  --sp-sage: var(--sp-recommend); --sp-sage-tint: var(--sp-recommend-tint);
+  --sp-sand: var(--sp-consider);  --sp-sand-tint: var(--sp-consider-tint);
+  --sp-clay: var(--sp-pass);      --sp-clay-tint: var(--sp-pass-tint);
+
+  --sp-shadow-sm: 0 2px 4px rgba(0,0,0,0.08);
+  --sp-shadow-md: 0 8px 24px -8px rgba(0,0,0,0.20);
+  --sp-shadow-lg: 0 24px 64px -24px rgba(0,0,0,0.30);
+  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
+
+  --sp-glow: radial-gradient(50% 40% at 50% 0%, rgba(176,48,48,0.06), transparent 60%);
+
+  --sp-display: "Crimson Pro", "Crimson Text", Georgia, serif;
+  --sp-font: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --sp-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --sp-text-xs: 12px; --sp-text-sm: 13px; --sp-text-base: 15px;
+  --sp-text-md: 17px; --sp-text-lg: 20px; --sp-text-xl: 26px;
+  --sp-text-2xl: 33px; --sp-text-3xl: 42px;
+
+  --sp-r-xs: 4px; --sp-r-sm: 8px; --sp-r-md: 12px;
+  --sp-r-lg: 14px; --sp-r-xl: 20px; --sp-r-full: 999px;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  --sp-ease: cubic-bezier(.25, .8, .25, 1);
+}
+
+[data-theme="noir-dark"] {
+  --sp-bg:            #121110;
+  --sp-surface:       #1C1A18;
+  --sp-surface-2:     #232120;
+  --sp-sunken:        #0C0B0A;
+  --sp-border:        rgba(255,255,255,0.08);
+  --sp-border-strong: rgba(255,255,255,0.14);
+
+  --sp-text:   #E8E4E0;
+  --sp-text-2: #A8A4A0;
+  --sp-text-3: #6A6662;
+
+  --sp-accent:        #D44040;
+  --sp-accent-strong: #E85555;
+  --sp-accent-soft:   rgba(212,64,64,0.14);
+  --sp-accent-text:   #121110;
+
+  --sp-rose:        var(--sp-accent);
+  --sp-rose-strong: var(--sp-accent-strong);
+  --sp-rose-tint:   var(--sp-accent-soft);
+  --sp-on-rose:     var(--sp-accent-text);
+
+  --sp-secondary: #6AA0B8;
+
+  --sp-film-now:   #E0C050;
+  --sp-recommend:  #50BB60;
+  --sp-consider:   #E0A030;
+  --sp-pass:       #E05050;
+
+  --sp-film-now-tint:   rgba(224,192,80,0.14);
+  --sp-recommend-tint:  rgba(80,187,96,0.14);
+  --sp-consider-tint:   rgba(224,160,48,0.14);
+  --sp-pass-tint:       rgba(224,80,80,0.14);
+
+  --sp-sage: var(--sp-recommend); --sp-sage-tint: var(--sp-recommend-tint);
+  --sp-sand: var(--sp-consider);  --sp-sand-tint: var(--sp-consider-tint);
+  --sp-clay: var(--sp-pass);      --sp-clay-tint: var(--sp-pass-tint);
+
+  --sp-shadow-sm: 0 2px 4px rgba(0,0,0,0.50);
+  --sp-shadow-md: 0 8px 24px -8px rgba(0,0,0,0.60);
+  --sp-shadow-lg: 0 24px 64px -24px rgba(0,0,0,0.75);
+  --sp-ring: 0 0 0 2px var(--sp-bg), 0 0 0 4px var(--sp-accent);
+
+  --sp-glow: radial-gradient(50% 40% at 50% 0%, rgba(212,64,64,0.10), transparent 60%);
+
+  --sp-display: "Crimson Pro", "Crimson Text", Georgia, serif;
+  --sp-font: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --sp-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --sp-text-xs: 12px; --sp-text-sm: 13px; --sp-text-base: 15px;
+  --sp-text-md: 17px; --sp-text-lg: 20px; --sp-text-xl: 26px;
+  --sp-text-2xl: 33px; --sp-text-3xl: 42px;
+
+  --sp-r-xs: 4px; --sp-r-sm: 8px; --sp-r-md: 12px;
+  --sp-r-lg: 14px; --sp-r-xl: 20px; --sp-r-full: 999px;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px;
+
+  --sp-ease: cubic-bezier(.25, .8, .25, 1);
+}
