@@ -55,7 +55,7 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
         <p className="font-medium mb-1" style={{ color: item.color }}>
           {item.label} <span className="text-black-400">({item.range})</span>
         </p>
-        <p className="text-white">
+        <p className="text-black-50">
           <span className="font-bold">{item.count}</span> screenplays
         </p>
         <p className="text-black-400 text-xs">{item.percentage}% of total</p>

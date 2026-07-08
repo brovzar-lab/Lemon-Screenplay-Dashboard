@@ -61,7 +61,7 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
         <p className="font-medium mb-1" style={{ color: item.color }}>
           {item.name}
         </p>
-        <p className="text-white">
+        <p className="text-black-50">
           <span className="font-bold">{item.value}</span> screenplays
         </p>
         <p className="text-black-400 text-xs">{item.percentage}% of total</p>
@@ -154,7 +154,7 @@ export function TierBreakdown({ screenplays, onTierClick }: TierBreakdownProps) 
 
       {/* Center total label */}
       <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-        <p className="text-2xl font-bold text-white">{total}</p>
+        <p className="text-2xl font-bold text-black-50">{total}</p>
         <p className="text-xs text-black-400">Total</p>
       </div>
     </div>

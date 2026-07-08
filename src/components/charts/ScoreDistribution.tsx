@@ -61,7 +61,7 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
     return (
       <div className="glass p-3 rounded-lg border border-black-700 text-sm">
         <p className="text-gold-400 font-medium mb-1">Score: {item.label}</p>
-        <p className="text-white">
+        <p className="text-black-50">
           <span className="font-bold">{item.count}</span> screenplays
         </p>
         <p className="text-black-400 text-xs">{item.percentage}% of total</p>
