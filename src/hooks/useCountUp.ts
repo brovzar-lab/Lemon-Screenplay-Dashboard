@@ -27,32 +27,40 @@ export function useCountUp(
 ): number {
   // Initialize to target immediately for reduced-motion users — no effect needed.
   const [value, setValue] = useState(() => (prefersReducedMotion ? target : 0));
-  const startTimeRef = useRef<number | null>(null);
+  // Latest displayed value, so a new animation continues from where the last
+  // one left off instead of restarting at 0.
+  const valueRef = useRef(value);
   const rafRef = useRef<number | undefined>(undefined);
-  const hasAnimated = useRef(false);
 
   useEffect(() => {
-    // Reduced-motion users skip the animation — their value is already initialized
-    // to `target` in useState(), so there's nothing to do in the effect for that case.
-    if (prefersReducedMotion) return;
+    if (!trigger) return;
 
-    if (!trigger || hasAnimated.current || target === 0) return;
+    // Reduced-motion users get the live value with no animation.
+    if (prefersReducedMotion) {
+      valueRef.current = target;
+      setValue(target);
+      return;
+    }
 
-    hasAnimated.current = true;
+    const from = valueRef.current;
+    if (from === target) return;
+
+    // Local start time: StrictMode's setup→cleanup→setup cancels the first
+    // frame; each effect run must restart its own clock from the current value.
+    let startTime: number | null = null;
 
     const animate = (timestamp: number) => {
-      if (!startTimeRef.current) startTimeRef.current = timestamp;
-      const elapsed = timestamp - startTimeRef.current;
-      const progress = Math.min(elapsed / duration, 1);
+      if (startTime === null) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
 
       // ease-out cubic
       const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(eased * target);
+      const next = from + (target - from) * eased;
+      valueRef.current = next;
+      setValue(next);
 
       if (progress < 1) {
         rafRef.current = requestAnimationFrame(animate);
-      } else {
-        setValue(target);
       }
     };
 
