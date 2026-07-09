@@ -3,27 +3,32 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-07-07
+**Last session:** 2026-07-08
 
-**Done (landed on `main` @ `2e5fe7e`, deployed to prod + VPS daemon):**
-- Pipeline truth-fixes: verdict now computed in code (not the model's honor system); fixed the critical-failure-penalty bug; boundary re-runs (median-of-3) for scores within 0.5 of a verdict line.
-- Security: LLM proxy locked (Firebase ID token for browsers, `PROXY_SERVICE_KEY` header for the daemon — verified 401/403/200 live); share links expire after 30 days (client + firestore.rules).
-- Genre brain: Story Grid genre-aware reading — `execution/story_grid.json` + `story_grid.py`, all 11 genres, comedy-pairing rule, injected into readers. Validated on real scripts, deployed to daemon.
-- VPS parser rescued into git (`execution/parse_screenplay_pdf_v2.py`); reskin-branch build error fixed.
+**Done (landed on `main` @ `a570d61`, deployed to prod):**
+- Branch sync + rescue: the Instrument reskin was uncommitted and only on this Mac (same setup that lost the team tool). Committed it, pushed `instrument-reskin`, merged `main` in, merged to `main`, deployed hosting. Deleted merged branches `new-style`, `story-to-screen`, `instrument-reskin` (all folded into `main`); dropped an obsolete stash.
+- Fixed light-mode bug: chart text used hardcoded `text-white` (invisible on light surfaces) in 6 spots → `text-black-50` (theme-mapped). Verified in browser, both modes.
+- Fixed analytics strip stuck at 0: `useCountUp` had a one-shot `hasAnimated` latch that froze the count-up after the first run — broke under StrictMode double-mount (froze at 0), on filter changes (froze at first value), and for reduced-motion users. Rewrote to animate current→target on every target change. Added deterministic rAF tests (`src/hooks/useCountUp.test.ts`). Build clean, **536 tests pass**.
+- Added `.claude/launch.json` (preview server, port 3000).
 
-**In progress:** Team tool (Google sign-in + roles). **The code was LOST** — it lived in an ephemeral `/private/tmp` worktree that was wiped over a multi-day gap, and was never committed (`team-tool` branch had 0 commits, now deleted). **No design decisions lost — must rebuild.** Settled design: Google sign-in restricted to **@lemonfilms.com**; roles **admin** (upload/delete/manage) + **reader** (read/note/share); `ADMIN_EMAILS = ['billy@lemonfilms.com']` bootstraps admins; login gate wraps `/` and `/settings` but leaves `/share/:token` public; firestore.rules `isLemon()` + `isAdmin()` with a self-promotion guard on `users/{uid}`; close the public-read hole on `uploaded_analyses` (Lemon-read-only). Files to (re)create: `src/lib/firebase.ts` (swap anonymous→Google), `src/stores/authStore.ts`, `src/components/auth/{AuthGate,LoginScreen}.tsx`, `firestore.rules`, `src/test/setup.ts` mock. Deploy needs a Firebase console step (enable Google provider, disable anonymous, add authorized domain) — flag for Billy. **Work in a committed worktree from the start.**
+**Also this session — analysis only, NOTHING changed in code:**
+- Full principal-engineer audit. Criticals, all pre-existing: (1) live Gemini + TMDB keys ship in the browser bundle, and a previously-leaked Google key is hardcoded at `apiConfigStore.ts:131` and present in the deployed bundle → needs rotation; (2) `shared_views` is publicly *listable* (`firestore.rules:147`) — anyone can enumerate every share doc + notes with no token — fix: split `allow read` into `allow get` (public) / `allow list` (auth); (3) `uploaded_analyses` `allow delete: if isAuthenticated()` (`firestore.rules:83`) = any anon visitor can hard-delete the whole slate; (4) three uncapped Anthropic-spend paths — `BulkReanalyzeModal` auto-fires on open with no budget gate (`BulkReanalyzeModal.tsx:98`), proxy forwards any model/`max_tokens` (`llmProxy.ts:212`), storage rules let anyone upload to `ingest-queue`; (5) partial reader failures zero-fill pillars → silently deflated scores; `failed_readers` is written (`multiPassAnalysis.ts:570`) but no UI reads it, and the daemon has no min-reader gate.
+- Killer-features shortlist (8): **Reading Room** (full-screen `R` triage — build-this-weekend pick), **Taste Match** (AI-vs-Billy verdict scoreboard from dormant `brain_verdicts` — the moat), **Lenses** (named saved views on existing URL-state), **Field Position** (wire up the orphaned percentile system — `percentileRanking.ts`/`usePercentiles.ts`/`PercentileBadge.tsx`, S-effort free win), **Twins** (similar-script/resubmission detection), **Ask the Readers** (Q&A over stored reader reports), **War Room** (DevExec→slate strategist), **The Board** (dnd-kit pipeline stages).
+
+**In progress:** Team tool (Google sign-in + roles) — still not rebuilt. Now the **#1 structural item**: it's the root fix for security items 2/3/4 (anonymous auth means "authenticated" = anyone on the internet). Settled design unchanged: Google sign-in restricted to **@lemonfilms.com**; roles **admin** (upload/delete/manage) + **reader** (read/note/share); `ADMIN_EMAILS = ['billy@lemonfilms.com']`; login gate wraps `/` + `/settings`, `/share/:token` stays public; `firestore.rules` `isLemon()` + `isAdmin()` with self-promotion guard on `users/{uid}`. Files to (re)create: `src/lib/firebase.ts` (anonymous→Google), `src/stores/authStore.ts`, `src/components/auth/{AuthGate,LoginScreen}.tsx`, `firestore.rules`, `src/test/setup.ts` mock. **Commit from the start.**
 
 **Next up (priority order):**
-1. Rebuild the team tool (above), committing after each working piece.
-2. Email ingest — a drop-address the daemon watches; PDF attachments → ingest queue.
-3. Shared notes/favorites → Firestore (currently localStorage-only; the "we all have the info" gap).
-4. C2 security: rotate the still-bundled Google/TMDB keys + proxy poster generation server-side.
+1. Quick-win security + hygiene batch (~75 min, no console needed): split the share-link read rule (`allow get`/`allow list`), lock `uploaded_analyses` delete to `if false` + convert `quarantineAnalysis` to a soft-flag update, purge 3 zero-import dead deps (`html2pdf.js` — it drags the critical jspdf CVE, `date-fns`, `@tanstack/react-virtual`), bump react-router 7.13→≥7.15.1 (3 HIGH advisories), `npm audit fix`.
+2. Rotate the bundled Google + TMDB keys (Billy in consoles), delete the hardcoded key literal at `apiConfigStore.ts:131`.
+3. Rebuild the team tool (Google auth + roles).
+4. Route Gemini (poster gen + DevExec Live) server-side through a `googleProxy` so keys leave the client.
+5. Data layer before the backfill: make the live `onSnapshot` the single source of truth (feed React Query via `setQueryData`, kill the double full-collection read in `analysisStore.ts`); re-enable virtualization or the index-doc split.
 
 **Open questions / blockers:**
-- C2 key rotation needs Billy in the Google Cloud / TMDB consoles (Claude can't).
-- Enabling Google auth needs the Firebase console toggle before the team-tool cutover works.
-- Detector may slightly under-call comedy on dramedies (e.g. The Bucket List → Love/Redemption) — a dial to watch once it runs on more of the real slate.
-- Backfill (~1,000 scripts, ~$300) is unblocked (genre brain replaced the anchor-weekend gate) but not yet run.
+- Key rotation needs Billy in the Google Cloud / TMDB consoles (Claude can't).
+- Enabling Google auth needs the Firebase console toggle (enable Google, disable anonymous, add authorized domain).
+- Detector may under-call comedy on dramedies (e.g. The Bucket List → Love/Redemption) — Taste Match would quantify this from real verdict data.
+- Backfill (~1,000 scripts, ~$300) unblocked but not run — it amplifies the double-fetch cost and the 500-card DOM, so do Next-up #5 first/with it.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
