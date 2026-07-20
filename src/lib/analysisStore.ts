@@ -133,14 +133,75 @@ function readFromLocal(): Record<string, unknown>[] {
 /** Track failed Firestore writes for retry. */
 const PENDING_QUEUE_KEY = 'lemon-pending-writes';
 
-function queueForRetry(raw: Record<string, unknown>): void {
+type PendingWrite =
+    | { kind: 'set'; sourceFile: string; data: Record<string, unknown> }
+    | { kind: 'patch'; sourceFile: string; fields: Record<string, unknown> }
+    | { kind: 'restore'; sourceFile: string };
+
+function readPendingWrites(): PendingWrite[] {
     try {
-        const queue = JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY) || '[]');
-        queue.push(raw);
+        const parsed = JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY) || '[]');
+        if (!Array.isArray(parsed)) return [];
+        return parsed.flatMap((item): PendingWrite[] => {
+            if (!item || typeof item !== 'object') return [];
+            if (item.kind === 'set' || item.kind === 'patch' || item.kind === 'restore') {
+                return [item as PendingWrite];
+            }
+            const legacy = item as Record<string, unknown>;
+            const sourceFile = legacy.source_file;
+            return typeof sourceFile === 'string'
+                ? [{ kind: 'set', sourceFile, data: legacy }]
+                : [];
+        });
+    } catch {
+        return [];
+    }
+}
+
+function queueForRetry(write: PendingWrite): void {
+    try {
+        const queue = readPendingWrites();
+        queue.push(write);
         localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(queue));
     } catch {
-        // last resort — at least localStorage has the data
+        // Local screenplay cache still preserves the user's visible change.
     }
+}
+
+async function applyPendingWrite(write: PendingWrite): Promise<void> {
+    const docId = toDocId(write.sourceFile);
+    const docRef = doc(db, FIRESTORE_COLLECTION, docId);
+    if (write.kind === 'set') {
+        await setDoc(docRef, {
+            ...write.data,
+            _savedAt: new Date().toISOString(),
+            _docId: docId,
+        });
+    } else if (write.kind === 'patch') {
+        await updateDoc(docRef, write.fields);
+    } else {
+        await updateDoc(docRef, { _deleted_at: deleteField() });
+    }
+}
+
+function applyPendingWritesToRecords(
+    records: Record<string, unknown>[],
+): Record<string, unknown>[] {
+    const bySourceFile = new Map(
+        records.map((record) => [String(record.source_file ?? ''), { ...record }]),
+    );
+    for (const write of readPendingWrites()) {
+        const current = bySourceFile.get(write.sourceFile) ?? { source_file: write.sourceFile };
+        if (write.kind === 'set') {
+            bySourceFile.set(write.sourceFile, { ...write.data });
+        } else if (write.kind === 'patch') {
+            bySourceFile.set(write.sourceFile, { ...current, ...write.fields });
+        } else {
+            const { _deleted_at: _discarded, ...rest } = current;
+            bySourceFile.set(write.sourceFile, rest);
+        }
+    }
+    return Array.from(bySourceFile.values());
 }
 
 /** Flush any pending Firestore writes that failed previously. Non-blocking. */
@@ -148,43 +209,24 @@ export async function flushPendingWrites(): Promise<void> {
     try {
         const raw = localStorage.getItem(PENDING_QUEUE_KEY);
         if (!raw) return;
-        const queue = JSON.parse(raw) as Record<string, unknown>[];
+        const queue = readPendingWrites();
         if (queue.length === 0) return;
 
         await authReady;
 
         console.log(`[Lemon] Retrying ${queue.length} pending Firestore writes...`);
-        const succeeded: number[] = [];
-
-        // Process in parallel for speed (max 5 concurrent)
-        const batchSize = 5;
-        for (let i = 0; i < queue.length; i += batchSize) {
-            const batch = queue.slice(i, i + batchSize);
-            const results = await Promise.allSettled(
-                batch.map(async (item, idx) => {
-                    const sourceFile = (item.source_file as string) || `unknown_${Date.now()}`;
-                    const docId = toDocId(sourceFile);
-                    const docRef = doc(db, FIRESTORE_COLLECTION, docId);
-                    await setDoc(docRef, {
-                        ...item,
-                        _savedAt: new Date().toISOString(),
-                        _docId: docId,
-                    });
-                    return i + idx;
-                }),
-            );
-            for (const r of results) {
-                if (r.status === 'fulfilled') succeeded.push(r.value);
+        const remaining: PendingWrite[] = [];
+        for (const write of queue) {
+            try {
+                await applyPendingWrite(write);
+            } catch {
+                remaining.push(write);
             }
         }
-
-        if (succeeded.length > 0) {
-            const remaining = queue.filter((_, i) => !succeeded.includes(i));
-            localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(remaining));
-            console.log(
-                `[Lemon] Flushed ${succeeded.length} pending writes, ${remaining.length} remaining`,
-            );
-        }
+        localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(remaining));
+        console.log(
+            `[Lemon] Flushed ${queue.length - remaining.length} pending writes, ${remaining.length} remaining`,
+        );
     } catch {
         // Non-critical
     }
@@ -198,8 +240,7 @@ export function getPendingWriteCount(): number {
     try {
         const raw = localStorage.getItem(PENDING_QUEUE_KEY);
         if (!raw) return 0;
-        const queue = JSON.parse(raw);
-        return Array.isArray(queue) ? queue.length : 0;
+        return readPendingWrites().length;
     } catch {
         return 0;
     }
@@ -238,7 +279,7 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
         useToastStore
             .getState()
             .addToast('Failed to sync screenplay to cloud — will retry automatically', 'warning');
-        queueForRetry(raw);
+        queueForRetry({ kind: 'set', sourceFile, data: raw });
         // Do NOT re-throw — the analysis is safely in localStorage.
     }
 }
@@ -291,10 +332,11 @@ export function subscribeToAnalyses(
     return onSnapshot(
         q,
         (snapshot: QuerySnapshot<DocumentData>) => {
-            const next = snapshot.docs
+            const cloudRecords = snapshot.docs
                 .map((d) => d.data() as Record<string, unknown>)
                 .filter((data) => !isQuarantined(data))
-                .map((data) => stripInternals(data))
+                .map((data) => stripInternals(data));
+            const next = applyPendingWritesToRecords(cloudRecords)
                 .filter((d) => !d._deleted_at);
 
             // Mirror to localStorage so the next cold-load is fast.
@@ -332,7 +374,8 @@ export async function softDeleteAnalysis(sourceFile: string): Promise<void> {
         console.log(`[Lemon] Soft-deleted in Firestore: ${docId}`);
     } catch (err) {
         console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
-        useToastStore.getState().addToast('Failed to delete screenplay — please try again');
+        queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
+        useToastStore.getState().addToast('Delete saved locally — cloud sync will retry', 'warning');
     }
 }
 
@@ -365,6 +408,8 @@ export async function patchAnalysisField(
         await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { [field]: value });
     } catch (err) {
         console.warn(`[Lemon] Firestore patch failed for ${docId}.${field}:`, err);
+        queueForRetry({ kind: 'patch', sourceFile, fields: { [field]: value } });
+        useToastStore.getState().addToast('Change saved locally — cloud sync will retry', 'warning');
     }
 }
 
@@ -379,13 +424,6 @@ export async function softDeleteAllAnalyses(): Promise<void> {
     const updated = existing.map((a) => ({ ...a, _deleted_at: deletedAt }));
     writeToLocal(updated);
 
-    // Clear the pending write queue
-    try {
-        localStorage.removeItem(PENDING_QUEUE_KEY);
-    } catch {
-        // ignore
-    }
-
     // Set _deleted_at on all Firestore docs — never throw, localStorage is the success path
     try {
         await authReady;
@@ -395,7 +433,13 @@ export async function softDeleteAllAnalyses(): Promise<void> {
         console.log(`[Lemon] Soft-deleted ${snapshot.size} analyses in Firestore`);
     } catch (err) {
         console.warn('[Lemon] Firestore soft-delete-all failed:', err);
-        useToastStore.getState().addToast('Failed to delete screenplays — please try again');
+        for (const item of existing) {
+            const sourceFile = item.source_file;
+            if (typeof sourceFile === 'string') {
+                queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
+            }
+        }
+        useToastStore.getState().addToast('Deletes saved locally — cloud sync will retry', 'warning');
     }
 }
 
@@ -428,7 +472,8 @@ export async function restoreAnalysis(sourceFile: string): Promise<void> {
         console.log(`[Lemon] Restored in Firestore: ${docId}`);
     } catch (err) {
         console.warn(`[Lemon] Firestore restore failed for ${docId}:`, err);
-        useToastStore.getState().addToast('Failed to restore screenplay — please try again');
+        queueForRetry({ kind: 'restore', sourceFile });
+        useToastStore.getState().addToast('Restore saved locally — cloud sync will retry', 'warning');
     }
 }
 
@@ -538,7 +583,10 @@ export async function softDeleteMultipleAnalyses(sourceFiles: string[]): Promise
     try {
         await authReady;
     } catch {
-        console.warn('[Lemon] Firestore auth not ready, skipping Firestore batch soft-delete');
+        for (const sourceFile of sourceFiles) {
+            queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
+        }
+        useToastStore.getState().addToast('Deletes saved locally — cloud sync will retry', 'warning');
         return;
     }
     for (let i = 0; i < sourceFiles.length; i += batchSize) {
@@ -552,6 +600,7 @@ export async function softDeleteMultipleAnalyses(sourceFiles: string[]): Promise
                     });
                 } catch (err) {
                     console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
+                    queueForRetry({ kind: 'patch', sourceFile: sf, fields: { _deleted_at: deletedAt } });
                 }
             }),
         );

@@ -252,6 +252,8 @@ describe('flushPendingWrites export', () => {
     beforeEach(() => {
         callOrder.length = 0;
         mockSetDoc.mockClear();
+        mockUpdateDoc.mockClear();
+        mockDeleteField.mockClear();
         Object.keys(localStore).forEach((k) => delete localStore[k]);
         resetAuthReady();
         vi.resetModules();
@@ -277,6 +279,58 @@ describe('flushPendingWrites export', () => {
             callOrder.indexOf('authReady:resolved'),
         );
         expect(JSON.parse(localStore['lemon-pending-writes'])).toEqual([]);
+    });
+
+    it('replays queued patches and restores in their original order', async () => {
+        localStore['lemon-pending-writes'] = JSON.stringify([
+            {
+                kind: 'patch',
+                sourceFile: 'queued.pdf',
+                fields: { category: 'LEMON' },
+            },
+            { kind: 'restore', sourceFile: 'queued.pdf' },
+        ]);
+        const { flushPendingWrites } = await import('./analysisStore');
+
+        resolveAuthReady();
+        await flushPendingWrites();
+
+        expect(mockUpdateDoc).toHaveBeenNthCalledWith(1, 'mock-doc-ref', {
+            category: 'LEMON',
+        });
+        expect(mockUpdateDoc).toHaveBeenNthCalledWith(2, 'mock-doc-ref', {
+            _deleted_at: mockDeleteFieldSentinel,
+        });
+        expect(JSON.parse(localStore['lemon-pending-writes'])).toEqual([]);
+    });
+});
+
+describe('patchAnalysisField', () => {
+    beforeEach(() => {
+        mockUpdateDoc.mockClear();
+        Object.keys(localStore).forEach((k) => delete localStore[k]);
+        resetAuthReady();
+        vi.resetModules();
+    });
+
+    it('keeps the local edit and queues it when Firestore is unavailable', async () => {
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'test.pdf', category: 'OTHER' },
+        ]);
+        mockUpdateDoc.mockRejectedValueOnce(new Error('offline'));
+        const { patchAnalysisField } = await import('./analysisStore');
+
+        resolveAuthReady();
+        await patchAnalysisField('test.pdf', 'category', 'LEMON');
+
+        expect(JSON.parse(localStore['lemon-local-analyses'])[0].category).toBe('LEMON');
+        expect(JSON.parse(localStore['lemon-pending-writes'])).toEqual([
+            {
+                kind: 'patch',
+                sourceFile: 'test.pdf',
+                fields: { category: 'LEMON' },
+            },
+        ]);
     });
 });
 
@@ -500,6 +554,40 @@ describe('subscribeToAnalyses', () => {
 
         unsubscribe();
         expect(mockUnsubscribe).toHaveBeenCalledOnce();
+    });
+
+    it('preserves queued edits and deletes over a stale Firestore snapshot', async () => {
+        localStore['lemon-pending-writes'] = JSON.stringify([
+            {
+                kind: 'patch',
+                sourceFile: 'edited.pdf',
+                fields: { category: 'LEMON' },
+            },
+            {
+                kind: 'patch',
+                sourceFile: 'deleted.pdf',
+                fields: { _deleted_at: 'pending-delete' },
+            },
+        ]);
+        const onChange = vi.fn();
+        const { subscribeToAnalyses } = await import('./analysisStore');
+        subscribeToAnalyses(onChange);
+
+        snapshotSuccess?.({
+            docs: [
+                {
+                    data: () => ({
+                        source_file: 'edited.pdf',
+                        category: 'OTHER',
+                    }),
+                },
+                { data: () => ({ source_file: 'deleted.pdf', title: 'Stale' }) },
+            ],
+        });
+
+        expect(onChange).toHaveBeenCalledWith([
+            { source_file: 'edited.pdf', category: 'LEMON' },
+        ]);
     });
 
     it('forwards listener failures to the reconnect layer', async () => {

@@ -9,8 +9,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock analysisStore's getPendingWriteCount
 const mockGetPendingWriteCount = vi.fn(() => 0);
+const mockFlushPendingWrites = vi.fn(() => Promise.resolve());
 vi.mock('@/lib/analysisStore', () => ({
     getPendingWriteCount: () => mockGetPendingWriteCount(),
+    flushPendingWrites: () => mockFlushPendingWrites(),
 }));
 
 import { useSyncStatusStore, startSyncStatusPolling } from './syncStatusStore';
@@ -22,8 +24,10 @@ describe('syncStatusStore', () => {
             pendingCount: 0,
             isRetrying: false,
             lastRetryError: null,
+            isLiveConnected: true,
         });
         mockGetPendingWriteCount.mockReturnValue(0);
+        mockFlushPendingWrites.mockClear();
     });
 
     describe('initial state', () => {
@@ -37,6 +41,10 @@ describe('syncStatusStore', () => {
 
         it('lastRetryError initializes to null', () => {
             expect(useSyncStatusStore.getState().lastRetryError).toBe(null);
+        });
+
+        it('isLiveConnected initializes to true', () => {
+            expect(useSyncStatusStore.getState().isLiveConnected).toBe(true);
         });
     });
 
@@ -54,6 +62,11 @@ describe('syncStatusStore', () => {
         it('setLastRetryError updates lastRetryError', () => {
             useSyncStatusStore.getState().setLastRetryError('Network error');
             expect(useSyncStatusStore.getState().lastRetryError).toBe('Network error');
+        });
+
+        it('setLiveConnected updates the listener connection state', () => {
+            useSyncStatusStore.getState().setLiveConnected(false);
+            expect(useSyncStatusStore.getState().isLiveConnected).toBe(false);
         });
     });
 
@@ -106,6 +119,27 @@ describe('syncStatusStore', () => {
             mockGetPendingWriteCount.mockReturnValue(5);
             vi.advanceTimersByTime(4000);
             expect(useSyncStatusStore.getState().pendingCount).toBe(1);
+        });
+
+        it('automatically retries pending writes every 30 seconds', async () => {
+            mockGetPendingWriteCount.mockReturnValue(2);
+            const cleanup = startSyncStatusPolling();
+
+            await vi.advanceTimersByTimeAsync(30_000);
+
+            expect(mockFlushPendingWrites).toHaveBeenCalledOnce();
+            cleanup();
+        });
+
+        it('retries immediately when the browser comes back online', async () => {
+            mockGetPendingWriteCount.mockReturnValue(1);
+            const cleanup = startSyncStatusPolling();
+
+            window.dispatchEvent(new Event('online'));
+            await Promise.resolve();
+
+            expect(mockFlushPendingWrites).toHaveBeenCalledOnce();
+            cleanup();
         });
 
         it('handles corrupt localStorage gracefully (sets count to 0)', () => {

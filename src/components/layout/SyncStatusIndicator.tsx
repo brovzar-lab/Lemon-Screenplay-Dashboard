@@ -14,6 +14,7 @@ export function SyncStatusIndicator() {
     const pendingCount = useSyncStatusStore((s) => s.pendingCount);
     const isRetrying = useSyncStatusStore((s) => s.isRetrying);
     const lastRetryError = useSyncStatusStore((s) => s.lastRetryError);
+    const isLiveConnected = useSyncStatusStore((s) => s.isLiveConnected);
     const { retryAll } = useSyncRetry();
 
     // Start polling on mount, clean up on unmount
@@ -23,15 +24,15 @@ export function SyncStatusIndicator() {
     }, []);
 
     // Invisible when fully synced
-    if (pendingCount === 0 && !isRetrying && !lastRetryError) {
+    if (pendingCount === 0 && !isRetrying && !lastRetryError && isLiveConnected) {
         return null;
     }
 
     return (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isLiveConnected ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
             {/* Sync icon */}
             <svg
-                className={`w-4 h-4 text-amber-400 ${isRetrying ? 'animate-spin' : ''}`}
+                className={`w-4 h-4 ${isLiveConnected ? 'text-amber-400' : 'text-red-400'} ${isRetrying ? 'animate-spin' : ''}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -45,8 +46,12 @@ export function SyncStatusIndicator() {
             </svg>
 
             {/* Status text */}
-            <span className="text-sm text-amber-400">
-                {isRetrying ? 'Syncing...' : `${pendingCount} pending`}
+            <span className={`text-sm ${isLiveConnected ? 'text-amber-400' : 'text-red-400'}`}>
+                {!isLiveConnected
+                    ? 'Live sync disconnected'
+                    : isRetrying
+                      ? 'Syncing...'
+                      : `${pendingCount} pending`}
             </span>
 
             {/* Retry button */}
