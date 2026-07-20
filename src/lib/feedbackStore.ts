@@ -70,6 +70,16 @@ export async function loadBrainVerdict(screenplayId: string): Promise<BrainVerdi
     }
 }
 
+export async function loadAllBrainVerdicts(): Promise<BrainVerdict[]> {
+    try {
+        const snapshot = await getDocs(query(collection(db, BRAIN_VERDICTS_COLLECTION)));
+        return snapshot.docs.map((item) => item.data() as BrainVerdict);
+    } catch (err) {
+        console.warn('[Brain] Failed to load verdict history:', err);
+        return [];
+    }
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface DimensionOverride {
@@ -325,4 +335,3 @@ export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]):
 
     return lines.join('\n');
 }
-

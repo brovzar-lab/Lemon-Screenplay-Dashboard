@@ -8,8 +8,10 @@ import { ScoreDistribution } from './ScoreDistribution';
 import { TierBreakdown } from './TierBreakdown';
 import { GenreChart } from './GenreChart';
 import { BudgetChart } from './BudgetChart';
+import { TasteMatch } from './TasteMatch';
 import { useCountUp } from '../../hooks/useCountUp';
 import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
+import { useIsAdmin } from '@/stores/authStore';
 
 interface AnalyticsDashboardProps {
   screenplays: Screenplay[];
@@ -28,6 +30,7 @@ export function AnalyticsDashboard({
   onFilterByGenre,
   onFilterByBudget,
 }: AnalyticsDashboardProps) {
+  const isAdmin = useIsAdmin();
   const [isExpanded, setIsExpanded] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState(2000);
@@ -194,6 +197,7 @@ export function AnalyticsDashboard({
             </div>
           ))}
         </div>
+        {isAdmin && <TasteMatch />}
       </div>
     </div>
   );
