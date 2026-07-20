@@ -4,19 +4,19 @@
 
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { loadAllScreenplaysVite, getScreenplayStats } from '@/lib/api';
+import { loadAllScreenplaysVite, getScreenplayStats, normalizeAnalyses } from '@/lib/api';
 import {
   removeAnalysis,
   removeMultipleAnalyses,
   getDeletedAnalyses,
   restoreAnalysis,
   subscribeToAnalyses,
+  flushPendingWrites,
 } from '@/lib/analysisStore';
 import { getExistingShareToken, revokeShareToken } from '@/lib/shareService';
 import { useShareStore } from '@/stores/shareStore';
 import { canonicalizeGenre } from '@/lib/calculations';
-
-
+import { useToastStore } from '@/stores/toastStore';
 
 /**
  * Query key for screenplays
@@ -51,25 +51,65 @@ export function useScreenplays() {
 }
 
 /**
- * Live sync — subscribes to Firestore changes on uploaded_analyses and
- * invalidates the screenplays cache whenever the daemon (or another tab)
- * writes a new analysis. Mount this once at app level, in <App />.
- *
- * Without this, new daemon writes only appear after a manual page reload.
- * With this, they appear within ~1 second of the daemon completing.
+ * Live sync is the sole authoritative Firestore read. Each snapshot is
+ * normalized once and written directly into React Query; no second getDocs or
+ * query invalidation is needed. Mount once at app level, in <App />.
  */
 export function useLiveScreenplaySync(): void {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const unsubscribe = subscribeToAnalyses(() => {
-      // The subscriber already updated localStorage. Invalidate the query so
-      // React Query re-runs loadAllScreenplaysVite (which reads the now-fresh
-      // localStorage) and the UI refreshes.
-      queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
-    });
+    let active = true;
+    let unsubscribe = () => {};
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let snapshotVersion = 0;
+    let hasReportedError = false;
+
+    const connect = () => {
+      unsubscribe();
+      unsubscribe = subscribeToAnalyses(
+        (rawAnalyses) => {
+          const version = ++snapshotVersion;
+          void normalizeAnalyses(rawAnalyses)
+            .then((screenplays) => {
+              if (active && version === snapshotVersion) {
+                queryClient.setQueryData(SCREENPLAYS_QUERY_KEY, screenplays);
+                hasReportedError = false;
+              }
+            })
+            .catch((error: unknown) => {
+              console.error('[Lemon] Failed to process live screenplay snapshot:', error);
+              if (active && !hasReportedError) {
+                useToastStore
+                  .getState()
+                  .addToast(
+                    'Live screenplay update failed — keeping the last good data',
+                    'warning',
+                  );
+                hasReportedError = true;
+              }
+            });
+        },
+        () => {
+          if (!active) return;
+          if (retryTimer) clearTimeout(retryTimer);
+          if (!hasReportedError) {
+            useToastStore
+              .getState()
+              .addToast('Live sync disconnected — reconnecting automatically', 'warning');
+            hasReportedError = true;
+          }
+          retryTimer = setTimeout(connect, 5_000);
+        },
+      );
+    };
+
+    void flushPendingWrites();
+    connect();
 
     return () => {
+      active = false;
+      if (retryTimer) clearTimeout(retryTimer);
       unsubscribe();
     };
   }, [queryClient]);
@@ -220,10 +260,12 @@ export function useRestoreScreenplay() {
     onMutate: async (sourceFile: string) => {
       // Optimistic update: remove from deleted list immediately
       await queryClient.cancelQueries({ queryKey: DELETED_SCREENPLAYS_QUERY_KEY });
-      const previous = queryClient.getQueryData<DeletedScreenplayEntry[]>(DELETED_SCREENPLAYS_QUERY_KEY);
+      const previous = queryClient.getQueryData<DeletedScreenplayEntry[]>(
+        DELETED_SCREENPLAYS_QUERY_KEY,
+      );
       queryClient.setQueryData<DeletedScreenplayEntry[]>(
         DELETED_SCREENPLAYS_QUERY_KEY,
-        (old) => old?.filter((item) => item.sourceFile !== sourceFile) ?? []
+        (old) => old?.filter((item) => item.sourceFile !== sourceFile) ?? [],
       );
       return { previous };
     },
@@ -239,4 +281,3 @@ export function useRestoreScreenplay() {
     },
   });
 }
-

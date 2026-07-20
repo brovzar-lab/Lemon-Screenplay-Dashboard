@@ -53,6 +53,22 @@ const mockUpdateDoc = vi.fn().mockImplementation(() => {
 });
 const mockDeleteFieldSentinel = Symbol('deleteField');
 const mockDeleteField = vi.fn(() => mockDeleteFieldSentinel);
+let snapshotSuccess:
+    | ((snapshot: { docs: Array<{ data: () => Record<string, unknown> }> }) => void)
+    | undefined;
+let snapshotError: ((error: Error) => void) | undefined;
+const mockUnsubscribe = vi.fn();
+const mockOnSnapshot = vi.fn(
+    (
+        _query: unknown,
+        onSuccess: (snapshot: { docs: Array<{ data: () => Record<string, unknown> }> }) => void,
+        onError: (error: Error) => void,
+    ) => {
+        snapshotSuccess = onSuccess;
+        snapshotError = onError;
+        return mockUnsubscribe;
+    },
+);
 
 vi.mock('firebase/firestore', () => ({
     collection: vi.fn(() => 'mock-collection-ref'),
@@ -64,14 +80,19 @@ vi.mock('firebase/firestore', () => ({
     getCountFromServer: (...args: unknown[]) => mockGetCountFromServer(...args),
     updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
     deleteField: () => mockDeleteField(),
+    onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
 }));
 
 // Mock localStorage
 const localStore: Record<string, string> = {};
 const mockLocalStorage = {
     getItem: vi.fn((key: string) => localStore[key] ?? null),
-    setItem: vi.fn((key: string, val: string) => { localStore[key] = val; }),
-    removeItem: vi.fn((key: string) => { delete localStore[key]; }),
+    setItem: vi.fn((key: string, val: string) => {
+        localStore[key] = val;
+    }),
+    removeItem: vi.fn((key: string) => {
+        delete localStore[key];
+    }),
 };
 Object.defineProperty(globalThis, 'localStorage', { value: mockLocalStorage, writable: true });
 
@@ -91,44 +112,20 @@ describe('analysisStore authReady gates', () => {
         Object.keys(localStore).forEach((k) => delete localStore[k]);
         resetAuthReady();
 
-        // Reset the module-level _bgSyncDone flag by re-importing
         vi.resetModules();
     });
 
-    it('backgroundFirestoreSync awaits authReady before calling getDocs', async () => {
-        // Seed localStorage so loadAllAnalyses takes the fast path and schedules backgroundFirestoreSync
-        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'seed.pdf', title: 'Seed' }]);
-
-        // Must re-import after vi.resetModules to get fresh module state
+    it('loadAllAnalyses reads only the startup cache and never calls Firestore', async () => {
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'seed.pdf', title: 'Seed' },
+        ]);
         const { loadAllAnalyses } = await import('./analysisStore');
 
-        // Seed localStorage so loadAllAnalyses takes the fast path (triggers backgroundFirestoreSync
-        // via setTimeout) instead of the cold-start path (calls getDocs directly without auth gate).
-        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'seed.pdf' }]);
-
-        // loadAllAnalyses triggers backgroundFirestoreSync via setTimeout
-        vi.useFakeTimers();
-        await loadAllAnalyses();
-
-        // Advance timer to trigger background sync
-        vi.advanceTimersByTime(3000);
-        vi.useRealTimers();
-
-        // At this point, authReady hasn't resolved — getDocs should NOT have been called
-        await new Promise((r) => setTimeout(r, 50));
+        await expect(loadAllAnalyses()).resolves.toEqual([
+            { source_file: 'seed.pdf', title: 'Seed' },
+        ]);
+        expect(mockGetDocs).not.toHaveBeenCalled();
         expect(callOrder).not.toContain('getDocs');
-
-        // Now resolve authReady
-        resolveAuthReady();
-        await authReadyPromise;
-        // Let microtasks flush
-        await new Promise((r) => setTimeout(r, 50));
-
-        // getDocs should now have been called, and authReady resolved first
-        const authIdx = callOrder.indexOf('authReady:resolved');
-        const getDocsIdx = callOrder.indexOf('getDocs');
-        expect(authIdx).toBeGreaterThanOrEqual(0);
-        expect(getDocsIdx).toBeGreaterThan(authIdx);
     });
 
     it('saveAnalysis awaits authReady before calling setDoc', async () => {
@@ -253,12 +250,33 @@ describe('getPendingWriteCount', () => {
 
 describe('flushPendingWrites export', () => {
     beforeEach(() => {
+        callOrder.length = 0;
+        mockSetDoc.mockClear();
+        Object.keys(localStore).forEach((k) => delete localStore[k]);
+        resetAuthReady();
         vi.resetModules();
     });
 
     it('is exported and callable externally', async () => {
         const { flushPendingWrites } = await import('./analysisStore');
         expect(typeof flushPendingWrites).toBe('function');
+    });
+
+    it('awaits authReady before retrying queued Firestore writes', async () => {
+        localStore['lemon-pending-writes'] = JSON.stringify([{ source_file: 'queued.pdf' }]);
+        const { flushPendingWrites } = await import('./analysisStore');
+
+        const flushPromise = flushPendingWrites();
+        await Promise.resolve();
+        expect(mockSetDoc).not.toHaveBeenCalled();
+
+        resolveAuthReady();
+        await flushPromise;
+
+        expect(callOrder.indexOf('setDoc')).toBeGreaterThan(
+            callOrder.indexOf('authReady:resolved'),
+        );
+        expect(JSON.parse(localStore['lemon-pending-writes'])).toEqual([]);
     });
 });
 
@@ -285,7 +303,9 @@ describe('softDeleteAnalysis', () => {
         await softDeleteAnalysis('delete-me.pdf');
 
         const stored = JSON.parse(localStore['lemon-local-analyses']);
-        const deleted = stored.find((a: Record<string, unknown>) => a.source_file === 'delete-me.pdf');
+        const deleted = stored.find(
+            (a: Record<string, unknown>) => a.source_file === 'delete-me.pdf',
+        );
         const kept = stored.find((a: Record<string, unknown>) => a.source_file === 'keep.pdf');
         expect(deleted._deleted_at).toBeDefined();
         expect(typeof deleted._deleted_at).toBe('string');
@@ -293,9 +313,7 @@ describe('softDeleteAnalysis', () => {
     });
 
     it('calls updateDoc on Firestore with _deleted_at', async () => {
-        localStore['lemon-local-analyses'] = JSON.stringify([
-            { source_file: 'test.pdf' },
-        ]);
+        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'test.pdf' }]);
 
         const { softDeleteAnalysis } = await import('./analysisStore');
         resolveAuthReady();
@@ -341,7 +359,11 @@ describe('restoreAnalysis', () => {
 
     it('removes _deleted_at from localStorage and calls updateDoc with deleteField()', async () => {
         localStore['lemon-local-analyses'] = JSON.stringify([
-            { source_file: 'restore-me.pdf', title: 'Restore', _deleted_at: '2026-03-10T00:00:00Z' },
+            {
+                source_file: 'restore-me.pdf',
+                title: 'Restore',
+                _deleted_at: '2026-03-10T00:00:00Z',
+            },
         ]);
 
         const { restoreAnalysis } = await import('./analysisStore');
@@ -349,7 +371,9 @@ describe('restoreAnalysis', () => {
         await restoreAnalysis('restore-me.pdf');
 
         const stored = JSON.parse(localStore['lemon-local-analyses']);
-        const restored = stored.find((a: Record<string, unknown>) => a.source_file === 'restore-me.pdf');
+        const restored = stored.find(
+            (a: Record<string, unknown>) => a.source_file === 'restore-me.pdf',
+        );
         expect(restored._deleted_at).toBeUndefined();
         expect(mockUpdateDoc).toHaveBeenCalled();
     });
@@ -418,7 +442,9 @@ describe('quarantineAnalysis', () => {
 
         // Should also remove from localStorage
         const stored = JSON.parse(localStore['lemon-local-analyses']);
-        expect(stored.find((a: Record<string, unknown>) => a.source_file === 'bad.pdf')).toBeUndefined();
+        expect(
+            stored.find((a: Record<string, unknown>) => a.source_file === 'bad.pdf'),
+        ).toBeUndefined();
     });
 
     it('does not return a quarantined record from the local cache', async () => {
@@ -438,63 +464,52 @@ describe('quarantineAnalysis', () => {
     });
 });
 
-describe('backgroundFirestoreSync preserves _deleted_at', () => {
+describe('subscribeToAnalyses', () => {
     beforeEach(() => {
-        callOrder.length = 0;
-        mockGetDocs.mockClear();
+        mockOnSnapshot.mockClear();
+        mockUnsubscribe.mockClear();
+        snapshotSuccess = undefined;
+        snapshotError = undefined;
         Object.keys(localStore).forEach((k) => delete localStore[k]);
-        resetAuthReady();
         vi.resetModules();
     });
 
-    it('preserves _deleted_at field in synced data (does not strip it)', async () => {
-        const deletedAt = '2026-03-10T00:00:00Z';
+    it('publishes and caches only visible records without Firestore internals', async () => {
+        const onChange = vi.fn();
+        const { subscribeToAnalyses } = await import('./analysisStore');
+        const unsubscribe = subscribeToAnalyses(onChange);
 
-        // Seed localStorage so loadAllAnalyses takes the fast path and schedules backgroundFirestoreSync
-        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'other.pdf', title: 'Other' }]);
-
-        // Mock Firestore to return a doc with _deleted_at, _savedAt, and _docId
-        mockGetDocs.mockImplementationOnce(() => {
-            callOrder.push('getDocs');
-            return Promise.resolve({
-                docs: [
-                    {
-                        data: () => ({
-                            source_file: 'soft-del.pdf',
-                            title: 'Soft Deleted',
-                            _deleted_at: deletedAt,
-                            _savedAt: '2026-03-09T00:00:00Z',
-                            _docId: 'soft-del_pdf',
-                        }),
-                    },
-                ],
-                size: 1,
-            });
+        snapshotSuccess?.({
+            docs: [
+                {
+                    data: () => ({
+                        source_file: 'visible.pdf',
+                        title: 'Visible',
+                        _savedAt: 'now',
+                        _docId: 'visible',
+                    }),
+                },
+                { data: () => ({ source_file: 'deleted.pdf', _deleted_at: 'yesterday' }) },
+                { data: () => ({ source_file: 'bad.pdf', _quarantined_at: 'today' }) },
+            ],
         });
 
-        const { loadAllAnalyses } = await import('./analysisStore');
+        const expected = [{ source_file: 'visible.pdf', title: 'Visible' }];
+        expect(onChange).toHaveBeenCalledWith(expected);
+        expect(JSON.parse(localStore['lemon-local-analyses'])).toEqual(expected);
 
-        // Seed localStorage so loadAllAnalyses takes the fast path (triggers backgroundFirestoreSync
-        // via setTimeout) instead of the cold-start path which skips auth gating.
-        localStore['lemon-local-analyses'] = JSON.stringify([{ source_file: 'seed.pdf' }]);
+        unsubscribe();
+        expect(mockUnsubscribe).toHaveBeenCalledOnce();
+    });
 
-        resolveAuthReady();
-        vi.useFakeTimers();
-        await loadAllAnalyses();
+    it('forwards listener failures to the reconnect layer', async () => {
+        const onError = vi.fn();
+        const { subscribeToAnalyses } = await import('./analysisStore');
+        subscribeToAnalyses(vi.fn(), onError);
 
-        // Advance timer to trigger background sync
-        vi.advanceTimersByTime(3000);
-        vi.useRealTimers();
+        const error = new Error('permission denied');
+        snapshotError?.(error);
 
-        // Wait for sync to complete
-        await new Promise((r) => setTimeout(r, 200));
-
-        // Check localStorage — _deleted_at should be preserved, _savedAt/_docId stripped
-        const stored = JSON.parse(localStore['lemon-local-analyses']);
-        const entry = stored.find((a: Record<string, unknown>) => a.source_file === 'soft-del.pdf');
-        expect(entry).toBeDefined();
-        expect(entry._deleted_at).toBe(deletedAt);
-        expect(entry._savedAt).toBeUndefined();
-        expect(entry._docId).toBeUndefined();
+        expect(onError).toHaveBeenCalledWith(error);
     });
 });

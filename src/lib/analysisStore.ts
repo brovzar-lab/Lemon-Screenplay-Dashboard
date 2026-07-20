@@ -2,11 +2,11 @@
  * Analysis Store
  *
  * Persists user-analyzed screenplay results with **dual-write guarantee**:
- *   1. localStorage (primary for reads — instant, never blocks UI)
- *   2. Firestore (primary for persistence — syncs in background)
+ *   1. localStorage (startup cache — instant, never blocks UI)
+ *   2. Firestore (authoritative persistence — delivered by one live listener)
  *
- * PERFORMANCE: loadAllAnalyses returns localStorage data INSTANTLY.
- * Firestore sync happens in the background without blocking the UI.
+ * PERFORMANCE: loadAllAnalyses returns localStorage data without a network
+ * read. subscribeToAnalyses owns the single authoritative Firestore stream.
  */
 
 import {
@@ -41,12 +41,14 @@ function isQuarantined(record: Record<string, unknown>): boolean {
 
 /** Sanitize source_file into a Firestore-safe document ID. */
 export function toDocId(sourceFile: string): string {
-    return sourceFile
-        .replace(/[/\\]/g, '_')
-        .replace(/[^a-zA-Z0-9_\-. ]/g, '')
-        .trim()
-        .replace(/\s+/g, '_')
-        .slice(0, 200) || `doc_${Date.now()}`;
+    return (
+        sourceFile
+            .replace(/[/\\]/g, '_')
+            .replace(/[^a-zA-Z0-9_\-. ]/g, '')
+            .trim()
+            .replace(/\s+/g, '_')
+            .slice(0, 200) || `doc_${Date.now()}`
+    );
 }
 
 /**
@@ -77,11 +79,15 @@ function writeToLocal(analyses: Record<string, unknown>[], silent = false): void
         localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(analyses));
         return;
     } catch (err) {
-        const isQuota = err instanceof DOMException &&
+        const isQuota =
+            err instanceof DOMException &&
             (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED');
         if (!isQuota) {
             console.error('[Lemon] localStorage write failed (non-quota):', err);
-            if (!silent) useToastStore.getState().addToast('Failed to save screenplay locally — storage may be full');
+            if (!silent)
+                useToastStore
+                    .getState()
+                    .addToast('Failed to save screenplay locally — storage may be full');
             return;
         }
         console.warn('[Lemon] localStorage quota exceeded — retrying with slim records...');
@@ -94,7 +100,9 @@ function writeToLocal(analyses: Record<string, unknown>[], silent = false): void
         console.log('[Lemon] Slim write succeeded — heavy fields stripped to fit quota');
         return;
     } catch {
-        console.warn('[Lemon] localStorage slim write also failed — clearing key, using Firestore as source of truth');
+        console.warn(
+            '[Lemon] localStorage slim write also failed — clearing key, using Firestore as source of truth',
+        );
     }
 
     // Level 3 — clear so next load uses cold Firestore path
@@ -103,7 +111,10 @@ function writeToLocal(analyses: Record<string, unknown>[], silent = false): void
     } catch {
         // Nothing more we can do
     }
-    if (!silent) useToastStore.getState().addToast('Failed to save screenplay locally — storage may be full');
+    if (!silent)
+        useToastStore
+            .getState()
+            .addToast('Failed to save screenplay locally — storage may be full');
 }
 
 /** Read from localStorage. */
@@ -140,6 +151,8 @@ export async function flushPendingWrites(): Promise<void> {
         const queue = JSON.parse(raw) as Record<string, unknown>[];
         if (queue.length === 0) return;
 
+        await authReady;
+
         console.log(`[Lemon] Retrying ${queue.length} pending Firestore writes...`);
         const succeeded: number[] = [];
 
@@ -158,7 +171,7 @@ export async function flushPendingWrites(): Promise<void> {
                         _docId: docId,
                     });
                     return i + idx;
-                })
+                }),
             );
             for (const r of results) {
                 if (r.status === 'fulfilled') succeeded.push(r.value);
@@ -168,7 +181,9 @@ export async function flushPendingWrites(): Promise<void> {
         if (succeeded.length > 0) {
             const remaining = queue.filter((_, i) => !succeeded.includes(i));
             localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(remaining));
-            console.log(`[Lemon] Flushed ${succeeded.length} pending writes, ${remaining.length} remaining`);
+            console.log(
+                `[Lemon] Flushed ${succeeded.length} pending writes, ${remaining.length} remaining`,
+            );
         }
     } catch {
         // Non-critical
@@ -187,87 +202,6 @@ export function getPendingWriteCount(): number {
         return Array.isArray(queue) ? queue.length : 0;
     } catch {
         return 0;
-    }
-}
-
-// Track if background sync has already run this session
-let _bgSyncDone = false;
-
-/**
- * Background Firestore sync — runs AFTER the UI has loaded.
- *
- * STRATEGY: Firestore is authoritative.
- * localStorage is REPLACED with Firestore data, not merged.
- * This ensures that items deleted from Firestore also disappear
- * from localStorage on the next session load.
- */
-async function backgroundFirestoreSync(): Promise<void> {
-    if (_bgSyncDone) return;
-    _bgSyncDone = true;
-
-    try {
-        // Gate: wait for anonymous auth before any Firestore calls
-        await authReady;
-
-        // Flush pending writes — isolated so failures don't abort the read sync
-        flushPendingWrites().catch((err) => {
-            console.warn('[Lemon] flushPendingWrites failed (non-critical):', err);
-        });
-
-        // Load authoritative data from Firestore
-        const q = query(collection(db, FIRESTORE_COLLECTION));
-        const snapshot = await getDocs(q);
-        const firestoreKeys = new Set(
-            snapshot.docs.map((d) => (d.data() as Record<string, unknown>).source_file as string),
-        );
-
-        const firestoreData = snapshot.docs
-            .map((d) => d.data() as Record<string, unknown>)
-            .filter((data) => !isQuarantined(data))
-            .map((data) => Object.fromEntries(
-                Object.entries(data).filter(([k]) => k !== '_savedAt' && k !== '_docId')
-            ) as Record<string, unknown>);
-
-        if (firestoreData.length === 0) {
-            // Firestore is empty — wipe localStorage to match
-            writeToLocal([], true);
-            console.log('[Lemon] Firestore empty → localStorage cleared');
-            return;
-        }
-
-        // REPLACE: Firestore is the ground truth.
-        // Push any localStorage-only items that Firestore doesn't have yet
-        // (e.g. items written while offline / App Check was broken).
-        const localData = readFromLocal();
-        const localOnlyItems = localData.filter(
-            (l) =>
-                l.source_file &&
-                !isQuarantined(l) &&
-                !firestoreKeys.has(l.source_file as string),
-        );
-
-        if (localOnlyItems.length > 0) {
-            console.log(`[Lemon] Background syncing ${localOnlyItems.length} local-only entries to Firestore...`);
-            await Promise.allSettled(
-                localOnlyItems.map(async (item) => {
-                    const sf = (item.source_file as string) || `unknown_${Date.now()}`;
-                    const docId = toDocId(sf);
-                    await setDoc(doc(db, FIRESTORE_COLLECTION, docId), {
-                        ...item,
-                        _savedAt: new Date().toISOString(),
-                        _docId: docId,
-                    });
-                })
-            );
-            // Include those items in the final set
-            firestoreData.push(...localOnlyItems);
-        }
-
-        // Overwrite localStorage with the authoritative Firestore set
-        writeToLocal(firestoreData, true); // silent — background sync
-        console.log(`[Lemon] Sync complete: localStorage replaced with ${firestoreData.length} Firestore entries`);
-    } catch (err) {
-        console.warn('[Lemon] Background Firestore sync failed:', err);
     }
 }
 
@@ -301,7 +235,9 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
         console.log(`[Lemon] Analysis saved to Firestore: ${docId}`);
     } catch (err) {
         console.warn(`[Lemon] Firestore write failed for ${docId} (queued for retry):`, err);
-        useToastStore.getState().addToast('Failed to sync screenplay to cloud — will retry automatically', 'warning');
+        useToastStore
+            .getState()
+            .addToast('Failed to sync screenplay to cloud — will retry automatically', 'warning');
         queueForRetry(raw);
         // Do NOT re-throw — the analysis is safely in localStorage.
     }
@@ -310,57 +246,13 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
 /**
  * Load all uploaded analyses.
  *
- * FAST PATH: if localStorage has data, return it instantly and sync in background.
- * COLD START: if localStorage is empty (fresh browser / cleared site data),
- *             load DIRECTLY from Firestore so the UI shows real data on first load.
+ * Returns the startup cache only. The live listener is the sole Firestore read
+ * path and replaces this cache as soon as its initial snapshot arrives.
  */
 export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
     const localData = readFromLocal().filter((a) => !a._deleted_at && !isQuarantined(a));
-
-    if (localData.length > 0) {
-        // Fast path: localStorage has data — return instantly, sync in background
-        console.log(`[Lemon] Loaded ${localData.length} analyses from localStorage (instant)`);
-        setTimeout(() => {
-            backgroundFirestoreSync().catch(() => {
-                // Silent — localStorage data is already serving the UI
-            });
-        }, 2000);
-        return localData;
-    }
-
-    // Cold start path: localStorage is empty — load directly from Firestore.
-    // Auth is required by firestore.rules — wait for anonymous session.
-    // Firebase v10+ caches the token via browserLocalPersistence, so this
-    // resolves in ~50ms on repeat visits. On a genuine first visit there's
-    // no Firestore data to load anyway, so the brief auth delay is invisible.
-    console.log('[Lemon] localStorage empty — loading directly from Firestore...');
-    try {
-      await authReady;
-        const q = query(collection(db, FIRESTORE_COLLECTION));
-        const snapshot = await getDocs(q);
-
-        const firestoreData = snapshot.docs
-            .map((d) => d.data() as Record<string, unknown>)
-            .filter((data) => !isQuarantined(data))
-            .map((data) => Object.fromEntries(
-                Object.entries(data).filter(([k]) => k !== '_savedAt' && k !== '_docId')
-            ) as Record<string, unknown>)
-            .filter((d) => !d._deleted_at);
-
-        if (firestoreData.length > 0) {
-            writeToLocal(firestoreData, true); // silent — cold Firestore load
-            console.log(`[Lemon] Cold-loaded ${firestoreData.length} analyses from Firestore`);
-        } else {
-            console.log('[Lemon] Firestore is also empty — no analyses available');
-        }
-
-        // Mark bg sync as done since we just did a full load
-        _bgSyncDone = true;
-        return firestoreData;
-    } catch (err) {
-        console.warn('[Lemon] Firestore cold load failed:', err);
-        return [];
-    }
+    console.log(`[Lemon] Loaded ${localData.length} analyses from startup cache`);
+    return localData;
 }
 
 /**
@@ -380,6 +272,7 @@ export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
  */
 export function subscribeToAnalyses(
     onChange: (analyses: Record<string, unknown>[]) => void,
+    onError?: (error: Error) => void,
 ): Unsubscribe {
     const stripInternals = (data: Record<string, unknown>): Record<string, unknown> =>
         Object.fromEntries(
@@ -411,6 +304,7 @@ export function subscribeToAnalyses(
         },
         (err) => {
             console.warn('[Lemon] Live sync subscription error:', err);
+            onError?.(err);
         },
     );
 }
@@ -425,7 +319,7 @@ export async function softDeleteAnalysis(sourceFile: string): Promise<void> {
     // Set _deleted_at in localStorage immediately
     const existing = readFromLocal();
     const updated = existing.map((a) =>
-        a.source_file === sourceFile ? { ...a, _deleted_at: deletedAt } : a
+        a.source_file === sourceFile ? { ...a, _deleted_at: deletedAt } : a,
     );
     writeToLocal(updated);
     console.log(`[Lemon] Soft-deleted from localStorage: ${sourceFile}`);
@@ -455,12 +349,12 @@ export const removeAnalysis = softDeleteAnalysis;
 export async function patchAnalysisField(
     sourceFile: string,
     field: string,
-    value: unknown
+    value: unknown,
 ): Promise<void> {
     // Step 1: Patch in localStorage immediately
     const existing = readFromLocal();
     const updated = existing.map((a) =>
-        a.source_file === sourceFile ? { ...a, [field]: value } : a
+        a.source_file === sourceFile ? { ...a, [field]: value } : a,
     );
     writeToLocal(updated);
 
@@ -497,11 +391,7 @@ export async function softDeleteAllAnalyses(): Promise<void> {
         await authReady;
         const q = query(collection(db, FIRESTORE_COLLECTION));
         const snapshot = await getDocs(q);
-        await Promise.all(
-            snapshot.docs.map((d) =>
-                updateDoc(d.ref, { _deleted_at: deletedAt })
-            )
-        );
+        await Promise.all(snapshot.docs.map((d) => updateDoc(d.ref, { _deleted_at: deletedAt })));
         console.log(`[Lemon] Soft-deleted ${snapshot.size} analyses in Firestore`);
     } catch (err) {
         console.warn('[Lemon] Firestore soft-delete-all failed:', err);
@@ -522,7 +412,6 @@ export async function restoreAnalysis(sourceFile: string): Promise<void> {
     const existing = readFromLocal();
     const updated = existing.map((a) => {
         if (a.source_file === sourceFile) {
-             
             const { _deleted_at: _discarded, ...rest } = a;
             return rest;
         }
@@ -562,7 +451,7 @@ export function getDeletedAnalyses(): Record<string, unknown>[] {
  */
 export async function quarantineAnalysis(
     raw: Record<string, unknown>,
-    reason: string
+    reason: string,
 ): Promise<void> {
     const sourceFile = raw.source_file as string | undefined;
     if (!sourceFile) return;
@@ -639,7 +528,7 @@ export async function softDeleteMultipleAnalyses(sourceFiles: string[]): Promise
     const existing = readFromLocal();
     const sourceFileSet = new Set(sourceFiles);
     const updated = existing.map((a) =>
-        sourceFileSet.has(a.source_file as string) ? { ...a, _deleted_at: deletedAt } : a
+        sourceFileSet.has(a.source_file as string) ? { ...a, _deleted_at: deletedAt } : a,
     );
     writeToLocal(updated);
     console.log(`[Lemon] Soft-deleted ${sourceFiles.length} analyses in localStorage`);
@@ -658,11 +547,13 @@ export async function softDeleteMultipleAnalyses(sourceFiles: string[]): Promise
             batch.map(async (sf) => {
                 const docId = toDocId(sf);
                 try {
-                    await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { _deleted_at: deletedAt });
+                    await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), {
+                        _deleted_at: deletedAt,
+                    });
                 } catch (err) {
                     console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
                 }
-            })
+            }),
         );
     }
     console.log(`[Lemon] Soft-deleted ${sourceFiles.length} analyses in Firestore`);
