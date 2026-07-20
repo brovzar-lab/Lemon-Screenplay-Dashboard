@@ -9,3 +9,4 @@ export { AdvancedSortPanel } from './AdvancedSortPanel';
 export { FilterPanel } from './FilterPanel';
 export { CollectionTabs } from './CollectionTabs';
 export { ActionsDropdown } from './ActionsDropdown';
+export { LensMenu } from './LensMenu';
