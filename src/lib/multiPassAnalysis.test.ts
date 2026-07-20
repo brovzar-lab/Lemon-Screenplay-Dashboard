@@ -4,7 +4,33 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeFailurePenalty, deriveVerdict } from './multiPassAnalysis';
+import {
+  computeFailurePenalty,
+  computeWeightedScoreFromSynthesis,
+  deriveVerdict,
+} from './multiPassAnalysis';
+
+describe('partial-reader score integrity', () => {
+  it('reweights across completed readers instead of scoring missing readers as zero', () => {
+    const synthesis = {
+      pillar_scores: {
+        structure: { score: 8 },
+        character: { score: 6 },
+        craft_scene: { score: 7 },
+        concept: { score: 0 },
+        emotional_resonance: { score: 0 },
+      },
+    };
+
+    expect(
+      computeWeightedScoreFromSynthesis(synthesis, ['structure', 'character', 'craft_scene']),
+    ).toBe(7);
+  });
+
+  it('returns zero when no completed reader has a valid score', () => {
+    expect(computeWeightedScoreFromSynthesis({ pillar_scores: {} }, [])).toBe(0);
+  });
+});
 
 function failures(...severities: string[]) {
   return severities.map((s) => ({ description: 'x', severity: s, penalty: 0 }));

@@ -2181,6 +2181,29 @@ def run_v9_full(
         f"Cache hit ratio: {cache_hit_ratio:.0%}. Running synthesis…"
     )
 
+    failed_readers = [
+        name for name, report in reader_reports.items()
+        if report.get("call_error") or report.get("parse_error") or report.get("error")
+    ]
+    reader_errors = {
+        name: str(reader_reports[name].get("error", "unknown reader failure"))
+        for name in failed_readers
+    }
+    reader_reports = {
+        name: report for name, report in reader_reports.items()
+        if name not in failed_readers
+    }
+    if len(reader_reports) < 3:
+        raise RuntimeError(
+            f"Insufficient reader results: {len(reader_reports)}/5 completed; "
+            f"failed: {', '.join(failed_readers)}"
+        )
+    if failed_readers:
+        log.warning(
+            f"    Partial analysis: {len(reader_reports)}/5 readers completed; "
+            f"missing {', '.join(failed_readers)}. Scores will be reweighted."
+        )
+
     # ── Synthesis (with retry) ──────────────────────────────────────────────
     syn_system_blocks = _synthesis_system_blocks()
     syn_user_blocks = _synthesis_user_blocks(title, reader_reports, triage_impression, genre_detection)
@@ -2231,13 +2254,19 @@ def run_v9_full(
         return round(sum(values) / len(values), 2) if values else None
 
     def _compute_weighted_score(pillar_scores: Dict[str, Any]) -> float:
-        """Weighted sum using READER_WEIGHTS. Mirrors computeWeightedScoreFromSynthesis."""
+        """Reweighted average across completed readers only."""
         total = 0.0
+        completed_weight = 0.0
         for reader_name, weight in READER_WEIGHTS.items():
+            if reader_name not in reader_reports:
+                continue
             ps = pillar_scores.get(reader_name, {})
-            score = ps.get("score", 0) if isinstance(ps, dict) else 0
+            score = ps.get("score") if isinstance(ps, dict) else None
+            if not isinstance(score, (int, float)):
+                continue
             total += score * weight
-        return round(total, 2)
+            completed_weight += weight
+        return round(total / completed_weight, 2) if completed_weight else 0.0
 
     # Override reader pillar_scores with code-computed values.
     for reader_name, report in reader_reports.items():
@@ -2301,6 +2330,15 @@ def run_v9_full(
 
     # Embed reader reports, genre detection, and lock version string.
     analysis["reader_reports"] = reader_reports
+    analysis["analysis_quality"] = {
+        "status": "partial" if failed_readers else "complete",
+        "completed_readers": len(reader_reports),
+        "expected_readers": len(READER_WEIGHTS),
+        "failed_readers": failed_readers,
+    }
+    if failed_readers:
+        analysis["failed_readers"] = failed_readers
+        analysis["failed_reader_errors"] = reader_errors
     analysis["genre_detection"] = genre_detection
     analysis["_total_usage"] = total_usage
     analysis["analysis_version"] = "v9_archaeology"  # Always override — source of truth.

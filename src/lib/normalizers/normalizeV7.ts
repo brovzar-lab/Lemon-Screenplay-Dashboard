@@ -91,6 +91,19 @@ export function normalizeV7Screenplay(
   collection: Collection,
 ): ScreenplayWithV7 {
   const analysis = raw.analysis as Record<string, unknown> || {};
+  const rawQuality = analysis.analysis_quality as Record<string, unknown> | undefined;
+  const legacyFailedReaders = Array.isArray(analysis.failed_readers)
+    ? analysis.failed_readers.map(String)
+    : [];
+  const failedReaders = Array.isArray(rawQuality?.failed_readers)
+    ? rawQuality.failed_readers.map(String)
+    : legacyFailedReaders;
+  const expectedReaders = typeof rawQuality?.expected_readers === 'number'
+    ? rawQuality.expected_readers
+    : 5;
+  const completedReaders = typeof rawQuality?.completed_readers === 'number'
+    ? rawQuality.completed_readers
+    : Math.max(0, expectedReaders - failedReaders.length);
 
   // Extract pillar scores
   const pillarScores = analysis.pillar_scores as Record<string, { score: number; weight: number }> | undefined;
@@ -208,6 +221,12 @@ export function normalizeV7Screenplay(
     sourceFile,
     analysisModel: String(raw.analysis_model || 'claude-sonnet'),
     analysisVersion: String(raw.analysis_version || 'v9_archaeology'),
+    analysisQuality: {
+      status: failedReaders.length > 0 || rawQuality?.status === 'partial' ? 'partial' : 'complete',
+      completedReaders,
+      expectedReaders,
+      failedReaders,
+    },
     weightedScore,
     cvsTotal: commercialViability.cvsTotal,
     genre: String(analysis.genre || ''),

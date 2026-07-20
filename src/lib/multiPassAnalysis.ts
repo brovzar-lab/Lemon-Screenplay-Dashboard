@@ -103,8 +103,9 @@ function computePillarScoreFromReport(report: Record<string, unknown>): number |
  * Compute the final weighted score from synthesis pillar scores.
  * Overrides the AI-computed weighted_score with verified arithmetic.
  */
-function computeWeightedScoreFromSynthesis(
+export function computeWeightedScoreFromSynthesis(
   synthesis: Record<string, unknown>,
+  completedReaders: ReaderName[],
 ): number {
   const pillarScores = synthesis.pillar_scores as
     | Record<string, { score?: number; weight?: number }>
@@ -121,11 +122,16 @@ function computeWeightedScoreFromSynthesis(
   };
 
   let total = 0;
+  let completedWeight = 0;
   for (const [reader, weight] of Object.entries(WEIGHTS)) {
-    const score = pillarScores[reader]?.score ?? 0;
+    if (!completedReaders.includes(reader as ReaderName)) continue;
+    const score = pillarScores[reader]?.score;
+    if (typeof score !== 'number') continue;
     total += score * weight;
+    completedWeight += weight;
   }
-  return Math.round(total * 100) / 100;
+  if (completedWeight === 0) return 0;
+  return Math.round((total / completedWeight) * 100) / 100;
 }
 
 // ─── Code-Side Verdict Derivation ────────────────────────────────────────────
@@ -447,15 +453,18 @@ export async function runMultiReaderAnalysis(
 
   // Collect results, note failures
   const readerResults: ReaderResult[] = [];
-  const failedReaders: string[] = [];
+  const failedReaders: ReaderName[] = [];
+  const failedReaderErrors: Record<string, string> = {};
 
-  for (const result of readerSettled) {
+  for (const [index, result] of readerSettled.entries()) {
     if (result.status === 'fulfilled') {
       readerResults.push(result.value);
     } else {
       const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
-      failedReaders.push(reason);
-      console.error('[V9] Reader failed:', reason);
+      const reader = readerPrompts[index].reader;
+      failedReaders.push(reader);
+      failedReaderErrors[reader] = reason;
+      console.error(`[V9] ${reader} reader failed:`, reason);
     }
   }
 
@@ -506,7 +515,8 @@ export async function runMultiReaderAnalysis(
 
   // Override AI-computed weighted_score with verified arithmetic from code.
   // This prevents synthesis arithmetic errors from affecting the final verdict.
-  const computedWeightedScore = computeWeightedScoreFromSynthesis(synthesis);
+  const completedReaderNames = readerResults.map((result) => result.reader);
+  const computedWeightedScore = computeWeightedScoreFromSynthesis(synthesis, completedReaderNames);
   if (computedWeightedScore > 0) {
     // Log if AI and code disagree by more than 0.1
     const aiScore = synthesis.weighted_score as number | undefined;
@@ -546,6 +556,12 @@ export async function runMultiReaderAnalysis(
     truncated: parsed.truncated,
     chars_lost: parsed.truncated ? Math.max(0, parsed.text.length - 195_000) : 0,
   };
+  (synthesis as Record<string, unknown>).analysis_quality = {
+    status: failedReaders.length > 0 ? 'partial' : 'complete',
+    completed_readers: readerResults.length,
+    expected_readers: readerPrompts.length,
+    failed_readers: failedReaders,
+  };
 
   // Attach full reader reports to synthesis output for transparency
   (synthesis as Record<string, unknown>).reader_reports = readerReports;
@@ -569,6 +585,7 @@ export async function runMultiReaderAnalysis(
 
   if (failedReaders.length > 0) {
     (synthesis as Record<string, unknown>).failed_readers = failedReaders;
+    (synthesis as Record<string, unknown>).failed_reader_errors = failedReaderErrors;
   }
 
   onProgress?.({

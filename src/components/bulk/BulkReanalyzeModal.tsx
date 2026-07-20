@@ -1,7 +1,7 @@
 /**
  * BulkReanalyzeModal — BULK-02
  * Re-analysis progress queue modal for eligible screenplays (hasPdf=true).
- * Sequential loop with cancel signal, auto-retry once, and batch cache invalidation on close.
+ * Explicit confirmation, budget preflight, sequential processing, and cancellation.
  */
 
 import { useRef, useState, useEffect } from 'react';
@@ -12,6 +12,9 @@ import { reanalyzeFromStorage } from '@/lib/analysisService';
 import { useExportSelectionStore } from '@/stores/exportSelectionStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
+import { useApiConfigStore } from '@/stores/apiConfigStore';
+
+const ESTIMATED_COST_PER_SCREENPLAY = 1;
 
 type ReanalyzeItemStatus = 'queued' | 'analyzing' | 'done' | 'failed';
 
@@ -35,6 +38,8 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
   const queryClient = useQueryClient();
   const pdfStatuses = usePdfStatusStore((s) => s.statuses);
   const hasScanResult = usePdfStatusStore((s) => s.hasScanResult);
+  const budgetRemaining = useApiConfigStore((s) => s.getBudgetRemaining());
+  const requestsRemaining = useApiConfigStore((s) => s.getDailyRequestsRemaining());
 
   // Derived — not stored in state
   // Use live Storage scan results when available; fall back to Firestore hasPdf field.
@@ -42,12 +47,24 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
     hasScanResult ? pdfStatuses[sp.id] === 'found' : sp.hasPdf === true
   );
   const ineligibleCount = screenplays.length - eligible.length;
+  const estimatedCost = eligible.length * ESTIMATED_COST_PER_SCREENPLAY;
+  const canAffordBatch = eligible.length <= requestsRemaining && estimatedCost <= budgetRemaining;
 
   function setItemStatus(id: string, status: ReanalyzeItemStatus) {
     setItems((prev) => ({ ...prev, [id]: { status } }));
   }
 
   async function runBulkReanalyze() {
+    const apiConfig = useApiConfigStore.getState();
+    apiConfig.checkAndResetIfNeeded();
+    if (
+      eligible.length > apiConfig.getDailyRequestsRemaining() ||
+      estimatedCost > apiConfig.getBudgetRemaining()
+    ) {
+      setSummary('This batch exceeds the current daily request or monthly budget limit.');
+      return;
+    }
+
     cancelledRef.current = false;
     setIsProcessing(true);
     let completed = 0;
@@ -61,15 +78,13 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
 
       setItemStatus(sp.id, 'analyzing');
       let success = false;
-
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          await reanalyzeFromStorage(sp, 'sonnet');
-          success = true;
-          break;
-        } catch {
-          if (attempt === 1) break;
-        }
+      try {
+        await reanalyzeFromStorage(sp, 'sonnet');
+        success = true;
+      } catch {
+        success = false;
+      } finally {
+        useApiConfigStore.getState().incrementUsage(ESTIMATED_COST_PER_SCREENPLAY);
       }
 
       if (success) {
@@ -94,9 +109,10 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
     setIsDone(true);
   }
 
-  // Start loop when modal opens with eligible items
+  // Initialize the review screen when the modal opens. Paid work starts only
+  // after explicit confirmation.
   useEffect(() => {
-    if (!isOpen || eligible.length === 0) return;
+    if (!isOpen) return;
 
     // Initialize all items as queued
     const initial: Record<string, ReanalyzeItem> = {};
@@ -109,7 +125,6 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
     setSummary('');
     cancelledRef.current = false;
 
-    runBulkReanalyze();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -123,7 +138,9 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
 
   // Header text — only shown in sub-header, summary shown separately once done
   const headerText =
-    ineligibleCount > 0
+    !isProcessing && !isDone
+      ? `${eligible.length} eligible screenplay${eligible.length === 1 ? '' : 's'} ready for review`
+      : ineligibleCount > 0
       ? `${eligible.length} of ${screenplays.length} selected are eligible. Processing ${eligible.length}...`
       : `Re-analyzing ${completedCount} of ${eligible.length}...`;
 
@@ -194,6 +211,19 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
         {/* Sub-header: status/eligibility text */}
         <div className="px-4 pt-3 pb-1">
           {!isDone && <p className="text-sm text-black-400">{headerText}</p>}
+          {!isProcessing && !isDone && eligible.length > 0 && (
+            <div className="mt-3 space-y-1 text-sm">
+              <p className="text-black-300">
+                Estimated maximum cost: ${estimatedCost.toFixed(2)}
+              </p>
+              <p className="text-black-400">
+                Remaining: ${budgetRemaining.toFixed(2)} monthly budget and {requestsRemaining} daily jobs
+              </p>
+              {!canAffordBatch && (
+                <p className="text-red-400">This batch exceeds your current budget or daily job limit.</p>
+              )}
+            </div>
+          )}
           {isDone && summary && (
             <p className="text-sm text-black-400">{summary}</p>
           )}
@@ -235,14 +265,20 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
             </button>
           )}
           {!isProcessing && (
-            <button
-              onClick={handleClose}
-              disabled={isProcessing}
-              className="btn btn-primary text-sm"
-              aria-label="Close"
-            >
-              Close
-            </button>
+            <>
+              <button onClick={handleClose} className="btn btn-ghost text-sm" aria-label="Close">
+                Close
+              </button>
+              {!isDone && eligible.length > 0 && (
+                <button
+                  onClick={runBulkReanalyze}
+                  disabled={!canAffordBatch}
+                  className="btn btn-primary text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Start Reanalysis
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -304,6 +304,12 @@ export interface Screenplay {
   // Analysis Metadata
   analysisModel: string;
   analysisVersion: string;
+  analysisQuality?: {
+    status: 'complete' | 'partial';
+    completedReaders: number;
+    expectedReaders: number;
+    failedReaders: string[];
+  };
 
   // Poster Generation
   posterUrl?: string; // URL to the generated poster in Firebase Storage
@@ -462,5 +468,4 @@ export const COLLECTION_CONFIG: Record<Collection, {
 }> = {
   'Analysis': { folder: 'analysis', displayName: 'Screenplay Analysis' },
 };
-
 

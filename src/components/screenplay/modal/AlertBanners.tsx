@@ -17,6 +17,16 @@ interface AlertBannersProps {
 export function AlertBanners({ screenplay }: AlertBannersProps) {
     return (
         <>
+            {screenplay.analysisQuality?.status === 'partial' && (
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                    <h4 className="text-amber-400 font-semibold text-sm">Partial analysis</h4>
+                    <p className="mt-1 text-amber-200/70 text-sm">
+                        {screenplay.analysisQuality.completedReaders} of {screenplay.analysisQuality.expectedReaders} readers completed. The score was reweighted using only completed readers.
+                        {screenplay.analysisQuality.failedReaders.length > 0 && ` Missing: ${screenplay.analysisQuality.failedReaders.map((reader) => reader.replaceAll('_', ' ')).join(', ')}.`}
+                    </p>
+                </div>
+            )}
+
             {/* Verdict Statement */}
             <div className={clsx(
                 'p-4 rounded-xl',

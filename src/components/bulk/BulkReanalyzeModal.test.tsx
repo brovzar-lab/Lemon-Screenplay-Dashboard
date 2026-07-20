@@ -4,6 +4,19 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // Shared mock functions for assertions across tests
 const mockDeselectAll = vi.fn();
 const mockInvalidateQueries = vi.fn();
+const { mockApiConfig, mockUseApiConfigStore } = vi.hoisted(() => {
+  const state = {
+    getBudgetRemaining: vi.fn(() => 50),
+    getDailyRequestsRemaining: vi.fn(() => 100),
+    incrementUsage: vi.fn(),
+    checkAndResetIfNeeded: vi.fn(),
+  };
+  const useStore = Object.assign(
+    (selector: (value: typeof state) => unknown) => selector(state),
+    { getState: () => state },
+  );
+  return { mockApiConfig: state, mockUseApiConfigStore: useStore };
+});
 
 vi.mock('@/lib/analysisService', () => ({
   reanalyzeFromStorage: vi.fn(),
@@ -12,7 +25,7 @@ vi.mock('@/stores/exportSelectionStore', () => ({
   useExportSelectionStore: { getState: () => ({ deselectAll: mockDeselectAll }) },
 }));
 vi.mock('@/stores/apiConfigStore', () => ({
-  useApiConfigStore: { getState: () => ({}) },
+  useApiConfigStore: mockUseApiConfigStore,
 }));
 
 // QueryClient mock
@@ -28,10 +41,12 @@ const spWithoutPdf = { id: 'sp-nopdf', title: 'Ineligible Screenplay', hasPdf: f
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockApiConfig.getBudgetRemaining.mockReturnValue(50);
+  mockApiConfig.getDailyRequestsRemaining.mockReturnValue(100);
 });
 
 describe('BulkReanalyzeModal — BULK-02', () => {
-  it('excludes ineligible items (hasPdf=false) and header notes eligible count', () => {
+  it('excludes ineligible items and shows the eligible count before starting', () => {
     render(
       <BulkReanalyzeModal
         isOpen
@@ -40,9 +55,20 @@ describe('BulkReanalyzeModal — BULK-02', () => {
       />
     );
 
-    expect(screen.getByText(/1 of 2 selected are eligible/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 eligible screenplay ready for review/i)).toBeInTheDocument();
     expect(screen.getByText(spWithPdf.title)).toBeInTheDocument();
     expect(screen.queryByText(spWithoutPdf.title)).not.toBeInTheDocument();
+    expect(reanalyzeFromStorage).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /start reanalysis/i })).toBeInTheDocument();
+  });
+
+  it('does not start paid work until the user confirms', () => {
+    render(
+      <BulkReanalyzeModal isOpen onClose={vi.fn()} screenplays={[spWithPdf] as any[]} />
+    );
+
+    expect(reanalyzeFromStorage).not.toHaveBeenCalled();
+    expect(screen.getByText(/estimated maximum cost: \$1.00/i)).toBeInTheDocument();
   });
 
   it('cancel flag stops loop after current in-flight item', async () => {
@@ -65,6 +91,8 @@ describe('BulkReanalyzeModal — BULK-02', () => {
       />
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /start reanalysis/i }));
+
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
 
     // Resolve the first promise to unblock
@@ -76,7 +104,7 @@ describe('BulkReanalyzeModal — BULK-02', () => {
     });
   });
 
-  it('auto-retries once on failure; marks failed after second failure', async () => {
+  it('does not automatically retry a failed paid analysis', async () => {
     (reanalyzeFromStorage as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('API error'));
 
     render(
@@ -87,12 +115,26 @@ describe('BulkReanalyzeModal — BULK-02', () => {
       />
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /start reanalysis/i }));
+
     await waitFor(() => {
-      // Called twice: original attempt + 1 retry
-      expect(reanalyzeFromStorage).toHaveBeenCalledTimes(2);
+      expect(reanalyzeFromStorage).toHaveBeenCalledTimes(1);
     });
 
     expect(screen.getByText(/failed/i)).toBeInTheDocument();
+    expect(mockApiConfig.incrementUsage).toHaveBeenCalledWith(1);
+  });
+
+  it('blocks a batch that exceeds the configured budget', () => {
+    mockApiConfig.getBudgetRemaining.mockReturnValue(0);
+
+    render(
+      <BulkReanalyzeModal isOpen onClose={vi.fn()} screenplays={[spWithPdf] as any[]} />
+    );
+
+    expect(screen.getByRole('button', { name: /start reanalysis/i })).toBeDisabled();
+    expect(screen.getByText(/exceeds your current budget/i)).toBeInTheDocument();
+    expect(reanalyzeFromStorage).not.toHaveBeenCalled();
   });
 
   it('React Query invalidated when modal closes after completion', async () => {
@@ -105,6 +147,8 @@ describe('BulkReanalyzeModal — BULK-02', () => {
         screenplays={[spWithPdf] as any[]}
       />
     );
+
+    fireEvent.click(screen.getByRole('button', { name: /start reanalysis/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
@@ -127,6 +171,8 @@ describe('BulkReanalyzeModal — BULK-02', () => {
         screenplays={[spWithPdf] as any[]}
       />
     );
+
+    fireEvent.click(screen.getByRole('button', { name: /start reanalysis/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
