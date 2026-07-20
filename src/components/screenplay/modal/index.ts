@@ -11,6 +11,7 @@ export { AlertBanners } from './AlertBanners';
 export { FilmNowSection } from './FilmNowSection';
 export { ScoresPanel } from './ScoresPanel';
 export { FieldPositionPanel } from './FieldPositionPanel';
+export { SimilarProjects } from './SimilarProjects';
 export { ProducerMetricsPanel } from './ProducerMetricsPanel';
 export { ContentDetails } from './ContentDetails';
 export { ModalFooter } from './ModalFooter';

@@ -22,6 +22,7 @@ import {
   ModalFooter,
   PosterSection,
   FieldPositionPanel,
+  SimilarProjects,
 } from './modal';
 import { useIsAdmin } from '@/stores/authStore';
 import type { PercentileRank } from '@/lib/percentileRanking';
@@ -31,9 +32,18 @@ interface ScreenplayModalProps {
   isOpen: boolean;
   onClose: () => void;
   percentileRank?: PercentileRank;
+  allScreenplays?: Screenplay[];
+  onSelectScreenplay?: (screenplay: Screenplay) => void;
 }
 
-export function ScreenplayModal({ screenplay, isOpen, onClose, percentileRank }: ScreenplayModalProps) {
+export function ScreenplayModal({
+  screenplay,
+  isOpen,
+  onClose,
+  percentileRank,
+  allScreenplays = [],
+  onSelectScreenplay,
+}: ScreenplayModalProps) {
   const isAdmin = useIsAdmin();
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -157,6 +167,13 @@ export function ScreenplayModal({ screenplay, isOpen, onClose, percentileRank }:
             <ScoresPanel screenplay={screenplay} />
             <ProducerMetricsPanel screenplay={screenplay} />
             <ContentDetails screenplay={screenplay} />
+            {onSelectScreenplay && (
+              <SimilarProjects
+                screenplay={screenplay}
+                allScreenplays={allScreenplays}
+                onSelect={onSelectScreenplay}
+              />
+            )}
             <NotesSection screenplayId={screenplay.id} />
             <FeedbackSection screenplay={screenplay} />
             <ModalFooter screenplay={screenplay} />
