@@ -11,7 +11,8 @@
  */
 
 import { parsePDF, type ParsedPDF } from './pdfParser';
-import { uploadScreenplayPdf } from './firebase';
+import { storage, uploadScreenplayPdf } from './firebase';
+import { ref, getBlob } from 'firebase/storage';
 import { saveAnalysis } from './analysisStore';
 import type { Screenplay } from '@/types';
 import {
@@ -21,7 +22,6 @@ import {
   type AnalysisProgress as MultiPassProgress,
 } from './multiPassAnalysis';
 import { loadCalibrationProfile } from './feedbackStore';
-import { generatePosterImage } from './googleProxyClient';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -188,107 +188,6 @@ async function analyzeV9Path(
 }
 
 
-
-// ─── Poster Generation (Gemini 2.5 Flash Image) ─────────────────────────────
-
-import { storage, authReady } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL, getBlob } from 'firebase/storage';
-
-// Poster prompt engine — genre-aware visual DNA + composition archetypes
-import { buildSimplePosterPrompt as buildPosterPrompt } from './Prompt Enhancements/posterPrompt';
-
-/**
- * Check if a poster already exists in Firebase Storage.
- * Returns the download URL if found, null otherwise.
- */
-async function getExistingPoster(screenplayId: string): Promise<string | null> {
-  try {
-    await authReady; // ensure anonymous session before Storage read
-    const posterRef = ref(storage, `Posters/${screenplayId}.png`);
-    const url = await getDownloadURL(posterRef);
-    return url;
-  } catch {
-    // File doesn't exist — that's expected
-    return null;
-  }
-}
-
-/**
- * Upload a generated poster to Firebase Storage.
- * Path: Posters/{screenplayId}.png
- */
-async function uploadPosterToStorage(
-  screenplayId: string,
-  base64Data: string,
-  mimeType: string,
-): Promise<string> {
-  await authReady; // ensure anonymous session before Storage write
-
-  // Convert base64 to Uint8Array for upload
-  const byteCharacters = atob(base64Data);
-  const byteArray = new Uint8Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteArray[i] = byteCharacters.charCodeAt(i);
-  }
-
-  const posterRef = ref(storage, `Posters/${screenplayId}.png`);
-  await uploadBytes(posterRef, byteArray, {
-    contentType: mimeType,
-    customMetadata: {
-      generatedAt: new Date().toISOString(),
-      screenplayId,
-    },
-  });
-
-  return getDownloadURL(posterRef);
-}
-
-/**
- * Generates a cinematic movie poster using Gemini 2.0 Flash Image Generation.
- *
- * Model: gemini-2.0-flash-exp-image-generation
- * - Native image generation via generateContent (responseModalities: IMAGE)
- * - 2:3 aspect ratio for theatrical one-sheet format
- *
- * Flow:
- * 1. Check Firebase Storage for existing poster → return if found
- * 2. Generate via Gemini API
- * 3. Upload to Firebase Storage (Posters/{id}.png)
- * 4. Return permanent download URL
- */
-export async function generatePoster(
-  title: string,
-  logline: string,
-  genre: string,
-  screenplayId?: string,
-): Promise<string> {
-  // ── Step 1: Check Firebase Storage for cached poster ──
-  if (screenplayId) {
-    const existingUrl = await getExistingPoster(screenplayId);
-    if (existingUrl) {
-      console.log('[Poster] Found cached poster in Storage for', title);
-      return existingUrl;
-    }
-  }
-
-  // ── Step 2: Generate via Gemini ──
-  const prompt = buildPosterPrompt(title, logline, genre);
-  const { data: base64Data, mimeType, model } = await generatePosterImage(prompt);
-  console.log(`[Poster] Generated with ${model} for "${title}"`);
-
-  // ── Step 3: Upload to Firebase Storage ──
-  if (screenplayId) {
-    try {
-      const storageUrl = await uploadPosterToStorage(screenplayId, base64Data, mimeType);
-      console.log('[Poster] Uploaded to Storage →', storageUrl);
-      return storageUrl;
-    } catch (uploadError) {
-      console.warn('[Poster] Storage upload failed, using data URL:', uploadError);
-    }
-  }
-
-  return `data:${mimeType};base64,${base64Data}`;
-}
 
 // ─── Re-analyze from Firebase Storage ────────────────────────────────────────
 

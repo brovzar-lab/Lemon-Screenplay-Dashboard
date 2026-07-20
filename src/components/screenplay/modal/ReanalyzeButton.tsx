@@ -13,7 +13,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
-import { reanalyzeFromStorage, type AnalysisProgress } from '@/lib/analysisService';
+import type { AnalysisProgress } from '@/lib/analysisService';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToastStore } from '@/stores/toastStore';
@@ -78,6 +78,7 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
             // Map hybrid → haiku model with v9 triage
             const model: 'sonnet' | 'opus' | 'haiku' = modelId === 'hybrid' ? 'haiku' : modelId;
             const v9Mode = modelId === 'hybrid' ? 'triage' as const : 'full' as const;
+            const { reanalyzeFromStorage } = await import('@/lib/analysisService');
 
             await reanalyzeFromStorage(
                 screenplay,

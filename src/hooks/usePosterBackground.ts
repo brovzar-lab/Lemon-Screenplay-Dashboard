@@ -9,7 +9,7 @@
 import { useEffect, useRef } from 'react';
 import type { Screenplay } from '@/types';
 import { usePosterStore } from '@/stores/posterStore';
-import { generatePoster } from '@/lib/analysisService';
+import { generatePoster } from '@/lib/posterService';
 
 export function usePosterBackground(screenplays: Screenplay[]) {
     const { posters, setPosterStatus } = usePosterStore();

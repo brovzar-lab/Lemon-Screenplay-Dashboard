@@ -11,7 +11,10 @@ import { FilterPanel, AdvancedSortPanel, ActionsDropdown } from '@/components/fi
 // until the user actually clicks the Export button.
 const ExportModal = lazy(() => import('@/components/export/ExportModal').then(m => ({ default: m.ExportModal })));
 import { ShareModal } from '@/components/share';
-import { BulkShareModal, BulkReanalyzeModal } from '@/components/bulk';
+import { BulkShareModal } from '@/components/bulk/BulkShareModal';
+const BulkReanalyzeModal = lazy(() =>
+  import('@/components/bulk/BulkReanalyzeModal').then((module) => ({ default: module.BulkReanalyzeModal })),
+);
 import { BadFormatModal } from '@/components/badFormat/BadFormatModal';
 import { subscribeToSkippedJobs } from '@/lib/badFormatStore';
 import { useFilterStore } from '@/stores/filterStore';
@@ -505,11 +508,15 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
         onClose={() => setIsBulkShareOpen(false)}
         screenplays={selectedScreenplays}
       />
-      {isAdmin && <BulkReanalyzeModal
-        isOpen={isBulkReanalyzeOpen}
-        onClose={() => setIsBulkReanalyzeOpen(false)}
-        screenplays={selectedScreenplays}
-      />}
+      {isAdmin && isBulkReanalyzeOpen && (
+        <Suspense fallback={null}>
+          <BulkReanalyzeModal
+            isOpen
+            onClose={() => setIsBulkReanalyzeOpen(false)}
+            screenplays={selectedScreenplays}
+          />
+        </Suspense>
+      )}
       {isAdmin && <BadFormatModal
         open={isBadFormatOpen}
         onClose={() => setBadFormatOpen(false)}

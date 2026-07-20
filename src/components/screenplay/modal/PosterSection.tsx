@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Screenplay } from '@/types';
 import { usePosterStore } from '@/stores/posterStore';
-import { generatePoster } from '@/lib/analysisService';
+import { generatePoster } from '@/lib/posterService';
 import { useToastStore } from '@/stores/toastStore';
 import { useIsAdmin } from '@/stores/authStore';
 
