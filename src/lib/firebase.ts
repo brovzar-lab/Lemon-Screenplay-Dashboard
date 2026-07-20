@@ -1,16 +1,24 @@
 /**
  * Firebase Configuration
- * Initializes Firebase app, Storage, Firestore, and Anonymous Auth.
+ * Initializes Firebase app, Storage, Firestore, and Google Auth.
  *
- * Anonymous auth is used to gate Firestore access via security rules.
+ * Dashboard access is restricted to verified @lemonfilms.com accounts.
  * App Check is intentionally skipped (prior provider mismatch caused 400 errors).
  */
 
 import { initializeApp } from 'firebase/app';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth, signInAnonymously, browserLocalPersistence, setPersistence } from 'firebase/auth';
-import type { User } from 'firebase/auth';
+import {
+    GoogleAuthProvider,
+    browserLocalPersistence,
+    getAuth,
+    onAuthStateChanged,
+    setPersistence,
+    signInWithPopup,
+    signOut,
+} from 'firebase/auth';
+import type { Unsubscribe, User } from 'firebase/auth';
 
 const firebaseConfig = {
     apiKey: "AIzaSyBN_JWOlHSeu5nbcqY47fkY-9NDd2lIA00",
@@ -30,16 +38,50 @@ export const storage = getStorage(app);
 // Firebase Firestore
 export const db = getFirestore(app);
 
-// Firebase Auth (anonymous)
+// Firebase Auth (Google Workspace)
 export const auth = getAuth(app);
 
-// Resolves once the anonymous session is established.
-// Await this in any module before making Firestore calls.
-export const authReady: Promise<User> = (async () => {
+// Resolves after Firebase restores any persisted session. Protected routes do
+// not mount data consumers until this resolves with a signed-in user.
+export const authReady: Promise<User | null> = (async () => {
     await setPersistence(auth, browserLocalPersistence);
-    const credential = await signInAnonymously(auth);
-    return credential.user;
+    return new Promise<User | null>((resolve, reject) => {
+        let unsubscribe: Unsubscribe = () => {};
+        unsubscribe = onAuthStateChanged(
+            auth,
+            (user) => {
+                unsubscribe();
+                resolve(user);
+            },
+            reject,
+        );
+    });
 })();
+
+export const LEMON_EMAIL_DOMAIN = 'lemonfilms.com';
+
+export function isLemonEmail(email: string | null | undefined): boolean {
+    return email?.toLowerCase().endsWith(`@${LEMON_EMAIL_DOMAIN}`) ?? false;
+}
+
+export async function signInWithGoogle(): Promise<User> {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+        hd: LEMON_EMAIL_DOMAIN,
+        prompt: 'select_account',
+    });
+
+    const credential = await signInWithPopup(auth, provider);
+    if (!credential.user.emailVerified || !isLemonEmail(credential.user.email)) {
+        await signOut(auth);
+        throw new Error(`Use your @${LEMON_EMAIL_DOMAIN} Google account.`);
+    }
+    return credential.user;
+}
+
+export function signOutUser(): Promise<void> {
+    return signOut(auth);
+}
 
 /**
  * Sanitize a screenplay name for use as a Storage path component.
@@ -100,7 +142,7 @@ export async function uploadPdfToIngestQueue(
     collectionId: string,
     options?: { requestedModel?: string; priority?: number },
 ): Promise<{ storagePath: string; objectName: string }> {
-    // ingest-queue/ Storage rule requires auth; ensure anonymous session is live
+    // ingest-queue/ Storage rule requires an admin session.
     await authReady;
 
     const safeName = sanitizeForStoragePath(file.name);

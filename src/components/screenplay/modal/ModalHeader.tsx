@@ -16,6 +16,7 @@ import { storage, uploadScreenplayPdf } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
 // downloadCoveragePdf is dynamically imported below to defer @react-pdf/renderer
 import { useToastStore } from '@/stores/toastStore';
+import { useIsAdmin } from '@/stores/authStore';
 import type { RefObject } from 'react';
 
 interface ModalHeaderProps {
@@ -26,6 +27,7 @@ interface ModalHeaderProps {
 }
 
 export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeComplete }: ModalHeaderProps) {
+    const isAdmin = useIsAdmin();
     const budgetInfo = BUDGET_TIERS[screenplay.budgetCategory];
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const deleteMutation = useDeleteScreenplays();
@@ -210,11 +212,11 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                             )}
                             {coverageState === 'error' ? 'Failed' : 'Coverage'}
                         </button>
-                        <ReanalyzeButton screenplay={screenplay} onComplete={onReanalyzeComplete} />
+                        {isAdmin && <ReanalyzeButton screenplay={screenplay} onComplete={onReanalyzeComplete} />}
                         <div className="relative">
                             <button
-                                onClick={pdfState === 'error' ? () => pdfReuploadRef.current?.click() : handleDownloadPdf}
-                                disabled={pdfState === 'loading' || pdfState === 'uploading'}
+                                onClick={pdfState === 'error' && isAdmin ? () => pdfReuploadRef.current?.click() : handleDownloadPdf}
+                                disabled={pdfState === 'loading' || pdfState === 'uploading' || (pdfState === 'error' && !isAdmin)}
                                 className={clsx(
                                     'btn text-xs flex items-center gap-1.5 py-1.5 px-3 transition-all',
                                     pdfState === 'error'
@@ -247,15 +249,15 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                                 {pdfState === 'error' ? 'Re-Upload PDF' : pdfState === 'uploading' ? 'Uploading...' : 'PDF'}
                             </button>
                             {/* Hidden file input for re-upload */}
-                            <input
+                            {isAdmin && <input
                                 ref={pdfReuploadRef}
                                 type="file"
                                 accept=".pdf"
                                 className="hidden"
                                 onChange={handlePdfReupload}
-                            />
+                            />}
                         </div>
-                        <button
+                        {isAdmin && <button
                             onClick={() => setShowDeleteConfirm(true)}
                             className="modal-delete-btn text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border"
                             title="Delete this screenplay"
@@ -265,21 +267,20 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                             Delete
-                        </button>
+                        </button>}
                     </div>
                 </div>
             </div>
 
             {/* Delete Confirmation Dialog */}
-            <DeleteConfirmDialog
+            {isAdmin && <DeleteConfirmDialog
                 isOpen={showDeleteConfirm}
                 onConfirm={handleDelete}
                 onCancel={() => setShowDeleteConfirm(false)}
                 title={`Delete "${screenplay.title}"?`}
                 message={`This will permanently remove the analysis for "${screenplay.title}" from your database.`}
                 isPending={deleteMutation.isPending}
-            />
+            />}
         </>
     );
 }
-

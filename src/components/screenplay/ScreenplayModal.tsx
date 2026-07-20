@@ -22,6 +22,7 @@ import {
   ModalFooter,
   PosterSection,
 } from './modal';
+import { useIsAdmin } from '@/stores/authStore';
 
 interface ScreenplayModalProps {
   screenplay: Screenplay | null;
@@ -30,6 +31,7 @@ interface ScreenplayModalProps {
 }
 
 export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModalProps) {
+  const isAdmin = useIsAdmin();
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -138,7 +140,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
           <div className="modal-body p-6 space-y-8 bg-black-950/50">
             <AlertBanners screenplay={screenplay} />
             <FilmNowSection screenplay={screenplay} />
-            <BillysTake screenplay={screenplay} />
+            {isAdmin && <BillysTake screenplay={screenplay} />}
 
             {/* Logline */}
             <div>

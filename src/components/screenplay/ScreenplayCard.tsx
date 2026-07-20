@@ -20,6 +20,7 @@ import { useDeleteScreenplays } from '@/hooks/useScreenplays';
 import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { ProductionBadge } from './ProductionBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
+import { useIsAdmin } from '@/stores/authStore';
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
@@ -27,6 +28,7 @@ interface ScreenplayCardProps {
 }
 
 export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
+  const isAdmin = useIsAdmin();
   const isBulkSelected = useIsSelected(screenplay.id);
   const toggleBulkSelection = useSelectionStore((s) => s.toggle);
   const isDeleteMode = useDeleteSelectionStore((s) => s.isDeleteMode);
@@ -141,7 +143,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
         )}
 
         {/* ── Delete mode checkbox ────────────────────────────────────────── */}
-        {isDeleteMode && (
+        {isAdmin && isDeleteMode && (
           <button
             onClick={handleDeleteSelectClick}
             className={clsx(
@@ -158,7 +160,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
         )}
 
         {/* ── Trash icon ──────────────────────────────────────────────────── */}
-        {!isDeleteMode && (
+        {isAdmin && !isDeleteMode && (
           <button
             onClick={handleTrashClick}
             className={clsx(
@@ -283,14 +285,14 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
         </div>
       </article>
 
-      <DeleteConfirmDialog
+      {isAdmin && <DeleteConfirmDialog
         isOpen={showDeleteConfirm}
         onConfirm={handleConfirmDelete}
         onCancel={() => setShowDeleteConfirm(false)}
         title={`Delete "${screenplay.title}"?`}
         message={`Remove "${screenplay.title}" from the dashboard? You can restore it from Settings > Data.`}
         isPending={deleteMutation.isPending}
-      />
+      />}
     </>
   );
 });

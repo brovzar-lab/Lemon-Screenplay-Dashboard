@@ -15,6 +15,7 @@ interface ActionsDropdownProps {
   reanalyzeEligibleCount: number;
   /** Total selected count (for button badge) */
   selectionCount: number;
+  showReanalyze?: boolean;
 }
 
 export function ActionsDropdown({
@@ -22,6 +23,7 @@ export function ActionsDropdown({
   onReanalyze,
   reanalyzeEligibleCount,
   selectionCount,
+  showReanalyze = true,
 }: ActionsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -143,7 +145,7 @@ export function ActionsDropdown({
           </button>
 
           {/* Re-analyze Selected */}
-          <button
+          {showReanalyze && <button
             role="menuitem"
             tabIndex={0}
             onClick={handleReanalyze}
@@ -165,7 +167,7 @@ export function ActionsDropdown({
               />
             </svg>
             Re-analyze Selected
-          </button>
+          </button>}
         </div>
       )}
     </div>

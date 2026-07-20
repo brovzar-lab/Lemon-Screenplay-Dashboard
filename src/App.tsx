@@ -18,12 +18,14 @@ import { usePosterBackground } from '@/hooks/usePosterBackground';
 import { useFilterStore } from '@/stores/filterStore';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
+import { useIsAdmin } from '@/stores/authStore';
 
 // Lazy-loaded heavy features (recharts-dependent)
 const AnalyticsDashboard = lazy(() => import('@/components/charts/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })));
 const ComparisonModal = lazy(() => import('@/components/comparison/ComparisonModal').then(m => ({ default: m.ComparisonModal })));
 
 function App() {
+  const isAdmin = useIsAdmin();
   const { screenplays, isLoading, filteredCount, totalCount } = useFilteredScreenplays();
   const { data: allScreenplays = [] } = useScreenplays();
 
@@ -35,7 +37,7 @@ function App() {
   useUrlState();
 
   // Background poster generation — start generating when screenplays load
-  usePosterBackground(screenplays);
+  usePosterBackground(isAdmin ? screenplays : []);
 
   // Filter store actions for chart click handlers
   const resetFilters = useFilterStore((s) => s.resetFilters);

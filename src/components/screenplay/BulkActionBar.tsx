@@ -14,8 +14,10 @@ import type { BulkPdfProgress } from '@/components/export/bulkPdfExport';
 import { useComparisonStore } from '@/stores/comparisonStore';
 import { useToastStore } from '@/stores/toastStore';
 import { SetCategoryModal, AddToFavoritesModal, BulkPdfUploadModal } from '@/components/bulk';
+import { useIsAdmin } from '@/stores/authStore';
 
 export function BulkActionBar() {
+  const isAdmin = useIsAdmin();
   const count = useSelectionCount();
   const [pdfProgress, setPdfProgress] = useState<BulkPdfProgress | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -146,12 +148,12 @@ export function BulkActionBar() {
               >
                 Compare
               </button>
-              <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost text-sm">
+              {isAdmin && <button onClick={() => setShowUploadModal(true)} className="btn btn-ghost text-sm">
                 Upload PDFs
-              </button>
-              <button onClick={() => setShowCategoryModal(true)} className="btn btn-ghost text-sm">
+              </button>}
+              {isAdmin && <button onClick={() => setShowCategoryModal(true)} className="btn btn-ghost text-sm">
                 Set Category
-              </button>
+              </button>}
               <button onClick={() => setShowFavoritesModal(true)} className="btn btn-ghost text-sm">
                 Favorites
               </button>
@@ -159,18 +161,18 @@ export function BulkActionBar() {
           </div>
         </div>
       </div>
-      <SetCategoryModal
+      {isAdmin && <SetCategoryModal
         isOpen={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}
-      />
+      />}
       <AddToFavoritesModal
         isOpen={showFavoritesModal}
         onClose={() => setShowFavoritesModal(false)}
       />
-      <BulkPdfUploadModal
+      {isAdmin && <BulkPdfUploadModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
-      />
+      />}
     </div>
   );
 }

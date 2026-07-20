@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/firestore.rules.test.ts'],
+    include: ['tests/*.rules.test.ts'],
     fileParallelism: false,
   },
 });

@@ -7,6 +7,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BulkActionBar } from './BulkActionBar';
 
+vi.mock('@/stores/authStore', () => ({
+  useIsAdmin: () => true,
+}));
+
 // Mock the selection store
 const mockDeselectAll = vi.fn();
 const mockSelectAll = vi.fn();

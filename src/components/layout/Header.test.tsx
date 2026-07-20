@@ -43,6 +43,15 @@ vi.mock('@/components/devexec', () => ({
   DevExecChat: () => null,
 }));
 
+vi.mock('@/stores/authStore', () => ({
+  useIsAdmin: () => true,
+  useAuthStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({
+      profile: { displayName: 'Billy Rovzar', email: 'billy@lemonfilms.com' },
+      signOut: vi.fn(),
+    }),
+}));
+
 // SyncStatusIndicator has its own store deps — mock as no-op
 vi.mock('./SyncStatusIndicator', () => ({
   SyncStatusIndicator: () => null,

@@ -25,6 +25,7 @@ import { buildShareableUrl } from '@/hooks/useUrlState';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { ShortcutHint } from '@/components/ui/ShortcutHint';
 import type { Screenplay, SortField } from '@/types';
+import { useIsAdmin } from '@/stores/authStore';
 
 const SEARCH_INPUT_ID = 'screenplay-search';
 
@@ -48,6 +49,7 @@ interface FilterBarProps {
 
 export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }: FilterBarProps) {
   const hasActiveFilters = useHasActiveFilters();
+  const isAdmin = useIsAdmin();
 
   // Filter store
   const searchQuery = useFilterStore((s) => s.searchQuery);
@@ -123,9 +125,10 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   // Live count of daemon-skipped jobs (bad format / TMDB / duplicate) so the
   // FilterBar chip always shows the current number. Subscribes on mount.
   useEffect(() => {
+    if (!isAdmin) return;
     const unsub = subscribeToSkippedJobs((jobs) => setSkippedJobCount(jobs.length));
     return () => { unsub(); };
-  }, []);
+  }, [isAdmin]);
 
   // Export selection
   const exportSelectedIds = useExportSelectionStore((s) => s.selectedIds);
@@ -357,6 +360,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
               onReanalyze={() => setIsBulkReanalyzeOpen(true)}
               reanalyzeEligibleCount={reanalyzeEligibleCount}
               selectionCount={exportSelectionCount}
+              showReanalyze={isAdmin}
             />
           </div>
         </div>
@@ -435,7 +439,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
           {/* Bad Format — opens modal listing daemon-skipped files (bad PDFs,
               TMDB matches, content duplicates). Visible at all times so the
               producer can spot rejects during a bulk ingest. */}
-          <button
+          {isAdmin && <button
             onClick={() => setBadFormatOpen(true)}
             className="chip cursor-pointer transition-all"
             style={{ color: 'var(--sp-pass)' }}
@@ -456,7 +460,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
                 {skippedJobCount}
               </span>
             )}
-          </button>
+          </button>}
 
           {hasActiveFilters && (
             <button
@@ -501,15 +505,15 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
         onClose={() => setIsBulkShareOpen(false)}
         screenplays={selectedScreenplays}
       />
-      <BulkReanalyzeModal
+      {isAdmin && <BulkReanalyzeModal
         isOpen={isBulkReanalyzeOpen}
         onClose={() => setIsBulkReanalyzeOpen(false)}
         screenplays={selectedScreenplays}
-      />
-      <BadFormatModal
+      />}
+      {isAdmin && <BadFormatModal
         open={isBadFormatOpen}
         onClose={() => setBadFormatOpen(false)}
-      />
+      />}
     </>
   );
 }

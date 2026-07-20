@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary, LoadingFallback } from '@/components/ui';
+import { AuthGate } from '@/components/auth';
 import './index.css';
 import App from './App';
 
@@ -29,8 +30,8 @@ createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
-              <Route path="/" element={<App />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/" element={<AuthGate><App /></AuthGate>} />
+              <Route path="/settings" element={<AuthGate requireAdmin><SettingsPage /></AuthGate>} />
               <Route path="/share/:token" element={<SharedViewPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

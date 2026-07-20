@@ -8,29 +8,36 @@ import '@testing-library/jest-dom';
 
 vi.mock('firebase/auth', async (importOriginal) => {
   const actual = await importOriginal<typeof import('firebase/auth')>();
+  const user = {
+    uid: 'test-user',
+    email: 'billy@lemonfilms.com',
+    emailVerified: true,
+    isAnonymous: false,
+    displayName: 'Billy Rovzar',
+    phoneNumber: null,
+    photoURL: null,
+    providerId: 'firebase',
+    metadata: {},
+    providerData: [],
+    refreshToken: '',
+    tenantId: null,
+    delete: vi.fn(),
+    getIdToken: vi.fn().mockResolvedValue('mock-token'),
+    getIdTokenResult: vi.fn(),
+    reload: vi.fn(),
+    toJSON: vi.fn(),
+  };
   return {
     ...actual,
-    signInAnonymously: vi.fn().mockResolvedValue({
-      user: {
-        uid: 'test-user',
-        email: null,
-        emailVerified: false,
-        isAnonymous: true,
-        metadata: {},
-        providerData: [],
-        refreshToken: '',
-        tenantId: null,
-        delete: vi.fn(),
-        getIdToken: vi.fn().mockResolvedValue('mock-token'),
-        getIdTokenResult: vi.fn(),
-        reload: vi.fn(),
-        toJSON: vi.fn(),
-        displayName: null,
-        phoneNumber: null,
-        photoURL: null,
-        providerId: 'firebase',
-      },
+    GoogleAuthProvider: class GoogleAuthProvider {
+      setCustomParameters = vi.fn();
+    },
+    onAuthStateChanged: vi.fn((_auth, callback) => {
+      callback(user);
+      return vi.fn();
     }),
+    signInWithPopup: vi.fn().mockResolvedValue({ user }),
+    signOut: vi.fn().mockResolvedValue(undefined),
     setPersistence: vi.fn().mockResolvedValue(undefined),
   };
 });

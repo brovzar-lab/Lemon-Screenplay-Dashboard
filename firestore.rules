@@ -3,21 +3,14 @@ rules_version = '2';
 // ═══════════════════════════════════════════════════════════════════════════
 // Lemon Screenplay Dashboard — Firestore Security Rules (Hardened)
 //
-// SECURITY MODEL (2026-06-06):
-//   • All reads require anonymous auth (request.auth != null).
-//   • Writes require auth + field validation + size caps.
+// SECURITY MODEL (2026-07-20):
+//   • Dashboard access requires verified @lemonfilms.com Google identity.
+//   • Roles live in users/{uid}: admins manage data; readers review/share.
 //   • Destructive operations (delete, bulk update) are Admin-SDK-only where
 //     possible. For collections where the browser needs soft-delete (update
 //     with _deleted_at), we allow update but block hard delete.
 //   • The VPS daemon and Cloud Functions use the Admin SDK, which bypasses
 //     all security rules entirely — no client-side rules needed for them.
-//
-// AUTH TIMING NOTE (Firebase v10+):
-//   The original rules had `allow read: if true` because of a timing bug
-//   where signInAnonymously tokens didn't propagate on cold requests.
-//   This is resolved in the client code: all Firestore call paths now
-//   `await authReady` before issuing reads, and the SDK caches the
-//   anonymous token via browserLocalPersistence. Safe to require auth.
 //
 // ADMIN SDK NOTE:
 //   The Admin SDK (used by the VPS daemon and Cloud Functions) bypasses
@@ -29,9 +22,53 @@ service cloud.firestore {
 
     // ── Helper functions ──────────────────────────────────────────────────
 
-    // True if the caller has an anonymous (or any) auth token.
-    function isAuthenticated() {
-      return request.auth != null;
+    function isLemonIdentity() {
+      return request.auth != null
+          && request.auth.token.email is string
+          && request.auth.token.email_verified == true
+          && request.auth.token.email.matches('.*@lemonfilms[.]com$');
+    }
+
+    function isBootstrapAdmin() {
+      return isLemonIdentity()
+          && request.auth.token.email == 'billy@lemonfilms.com';
+    }
+
+    function hasUserProfile() {
+      return isLemonIdentity()
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isTeamMember() {
+      return isLemonIdentity()
+          && (isBootstrapAdmin()
+              || (hasUserProfile()
+                  && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+                     in ['admin', 'reader']));
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin()
+          || (hasUserProfile()
+              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+                 == 'admin');
+    }
+
+    function validUserProfile(data, uid) {
+      return data.keys().hasOnly([
+               'uid', 'email', 'displayName', 'photoURL', 'role',
+               'createdAt', 'lastLoginAt'
+             ])
+          && data.uid == uid
+          && data.email is string
+          && data.email == request.auth.token.email
+          && data.displayName is string
+          && data.displayName.size() <= 200
+          && (data.photoURL == null
+              || (data.photoURL is string && data.photoURL.size() <= 2000))
+          && data.role in ['admin', 'reader']
+          && data.createdAt is string
+          && data.lastLoginAt is string;
     }
 
     // True if a string field exists, is a string, and respects the max length.
@@ -60,17 +97,17 @@ service cloud.firestore {
     //     the supported pattern. Hard deletes only via Admin SDK (quarantine).
     match /uploaded_analyses/{docId} {
       // READ: authenticated users only.
-      allow read: if isAuthenticated();
+      allow read: if isTeamMember();
 
       // CREATE: authenticated + must include source_file.
-      allow create: if isAuthenticated()
+      allow create: if isAdmin()
                     && 'source_file' in request.resource.data
                     && request.resource.data.source_file is string
                     && request.resource.data.source_file.size() <= 500;
 
       // UPDATE: authenticated + source_file must stay valid if present.
       // This covers soft-delete (_deleted_at), field patches, and restores.
-      allow update: if isAuthenticated()
+      allow update: if isAdmin()
                     && (
                          !('source_file' in request.resource.data)
                          || (request.resource.data.source_file is string
@@ -89,9 +126,9 @@ service cloud.firestore {
     //   • screenplayId is required and capped to prevent orphaned feedback.
     //   • Delete allowed (users should be able to remove their own notes).
     match /screenplay_feedback/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if isTeamMember();
 
-      allow create, update: if isAuthenticated()
+      allow create, update: if isTeamMember()
                    && 'screenplayId' in request.resource.data
                    && request.resource.data.screenplayId is string
                    && request.resource.data.screenplayId.size() <= 500
@@ -101,7 +138,7 @@ service cloud.firestore {
                             && request.resource.data.text.size() <= 10000)
                       );
 
-      allow delete: if isAuthenticated();
+      allow delete: if isTeamMember();
     }
 
     // ── producer_profiles ────────────────────────────────────────────────
@@ -111,16 +148,16 @@ service cloud.firestore {
     //   • Name capped at 200 chars. No unbounded blobs allowed.
     //   • Auth required for all operations to prevent profile enumeration.
     match /producer_profiles/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if isAdmin();
 
-      allow create, update: if isAuthenticated()
+      allow create, update: if isAdmin()
                    && (
                         !('name' in request.resource.data)
                         || (request.resource.data.name is string
                             && request.resource.data.name.size() <= 200)
                       );
 
-      allow delete: if isAuthenticated();
+      allow delete: if isAdmin();
     }
 
     // ── shared_views ─────────────────────────────────────────────────────
@@ -147,10 +184,10 @@ service cloud.firestore {
 
       // Collection enumeration is restricted to dashboard users. Public partner
       // links resolve by token ID and never need list access.
-      allow list: if isAuthenticated();
+      allow list: if isTeamMember();
 
       // Only authenticated dashboard users may create, update, or revoke.
-      allow create, update, delete: if isAuthenticated();
+      allow create, update, delete: if isTeamMember();
     }
 
     // ── brain_verdicts ───────────────────────────────────────────────────
@@ -161,9 +198,9 @@ service cloud.firestore {
     //   • screenplayId is required and capped.
     //   • No delete from client — verdicts are permanent once set.
     match /brain_verdicts/{screenplayId} {
-      allow read: if isAuthenticated();
+      allow read: if isAdmin();
 
-      allow create, update: if isAuthenticated()
+      allow create, update: if isAdmin()
                    && 'screenplayId' in request.resource.data
                    && request.resource.data.screenplayId is string
                    && request.resource.data.screenplayId.size() <= 500
@@ -184,8 +221,8 @@ service cloud.firestore {
     //   • Update/Delete: Admin SDK only. Legacy quarantined docs shouldn't be
     //     modified or removed by the client — manual review required.
     match /_unrecognized_analyses/{docId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow read: if isAdmin();
+      allow create: if false;
       allow update, delete: if false; // Admin SDK only — manual review
     }
 
@@ -198,7 +235,7 @@ service cloud.firestore {
     //   • WRITE: completely blocked for clients. Only the VPS daemon and
     //     Cloud Functions write here (Admin SDK bypasses all rules).
     match /ingest-queue/{jobId} {
-      allow read: if isAuthenticated();
+      allow read: if isAdmin();
       allow write: if false; // Admin SDK only
     }
 
@@ -209,8 +246,43 @@ service cloud.firestore {
     //   • READ: auth required (budget data is operational, not public).
     //   • WRITE: blocked. Only Admin SDK (Cloud Functions + VPS daemon).
     match /system/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if isAdmin();
       allow write: if false; // Admin SDK only
+    }
+
+    // ── users ────────────────────────────────────────────────────────────
+    // Google-authenticated team profiles and application roles.
+    match /users/{uid} {
+      // A Lemon user can read their own profile before it exists; admins can
+      // inspect all profiles for role management.
+      allow get: if isLemonIdentity()
+                 && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+
+      // First login creates exactly one safe role: Billy bootstraps as admin,
+      // every other verified Lemon account starts as reader.
+      allow create: if isLemonIdentity()
+                    && request.auth.uid == uid
+                    && validUserProfile(request.resource.data, uid)
+                    && (
+                         (isBootstrapAdmin() && request.resource.data.role == 'admin')
+                         || (!isBootstrapAdmin() && request.resource.data.role == 'reader')
+                       );
+
+      // Admins may manage roles. Users may refresh their own display metadata
+      // but cannot change uid, email, role, or creation time.
+      allow update: if validUserProfile(request.resource.data, uid)
+                    && (
+                         isAdmin()
+                         || (isTeamMember()
+                             && request.auth.uid == uid
+                             && request.resource.data.uid == resource.data.uid
+                             && request.resource.data.email == resource.data.email
+                             && request.resource.data.role == resource.data.role
+                             && request.resource.data.createdAt == resource.data.createdAt)
+                       );
+
+      allow delete: if isAdmin() && request.auth.uid != uid;
     }
 
     // ── Catch-all deny ───────────────────────────────────────────────────
