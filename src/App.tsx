@@ -18,6 +18,7 @@ import { usePosterBackground } from '@/hooks/usePosterBackground';
 import { useFilterStore } from '@/stores/filterStore';
 import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
 import { useIsAdmin } from '@/stores/authStore';
+import { usePercentiles } from '@/hooks/usePercentiles';
 
 // Lazy-loaded heavy features (recharts-dependent)
 const AnalyticsDashboard = lazy(() => import('@/components/charts/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })));
@@ -27,6 +28,7 @@ function App() {
   const isAdmin = useIsAdmin();
   const { screenplays, isLoading, filteredCount, totalCount } = useFilteredScreenplays();
   const { data: allScreenplays = [] } = useScreenplays();
+  const percentileRanks = usePercentiles(allScreenplays);
 
   // Live Firestore sync — new daemon-written analyses appear automatically,
   // no page refresh needed.
@@ -137,6 +139,7 @@ function App() {
                 screenplays={screenplays}
                 isLoading={isLoading}
                 onCardClick={handleCardClick}
+                percentileRanks={percentileRanks}
               />
             </ErrorBoundary>
           </div>
@@ -155,6 +158,7 @@ function App() {
             screenplay={selectedScreenplay}
             isOpen={isModalOpen}
             onClose={handleCloseModal}
+            percentileRank={selectedScreenplay ? percentileRanks.get(selectedScreenplay.id) : undefined}
           />
         </ErrorBoundary>
 

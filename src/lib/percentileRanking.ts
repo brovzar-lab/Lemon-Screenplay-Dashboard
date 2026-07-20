@@ -10,6 +10,7 @@
  */
 
 import type { Screenplay } from '@/types';
+import { canonicalizeGenre } from './calculations';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,14 @@ export interface PercentileRank {
   corpusSize: number;
   /** How many screenplays in the category */
   categorySize: number;
+  /** Exact position across the full slate, where 1 is best */
+  overallPosition: number;
+  /** Exact position among screenplays in the same genre */
+  genrePosition: number;
+  /** How many screenplays share this genre */
+  genreSize: number;
+  /** Genre used for the position comparison */
+  genre: string;
 }
 
 // ─── Core Computation ────────────────────────────────────────────────────────
@@ -39,8 +48,28 @@ export interface PercentileRank {
  */
 function computePercentile(score: number, allScores: number[]): number {
   if (allScores.length <= 1) return 100;
-  const below = allScores.filter((s) => s < score).length;
+  let low = 0;
+  let high = allScores.length;
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (allScores[mid] < score) low = mid + 1;
+    else high = mid;
+  }
+  const below = low;
   return Math.round((below / (allScores.length - 1)) * 100);
+}
+
+function normalizeScore(score: number): number {
+  return Number.isFinite(score) ? score : 0;
+}
+
+function scorePositions(scores: number[]): Map<number, number> {
+  const sorted = [...scores].sort((a, b) => b - a);
+  const positions = new Map<number, number>();
+  sorted.forEach((score, index) => {
+    if (!positions.has(score)) positions.set(score, index + 1);
+  });
+  return positions;
 }
 
 /**
@@ -57,14 +86,19 @@ function toTier(percentile: number): PercentileRank['tier'] {
  * Generate a human-readable label like "Top 3%", "Top 50%".
  */
 function toLabel(percentile: number): string {
-  const topPct = 100 - percentile;
-  if (topPct <= 1) return 'Top 1%';
-  if (topPct <= 5) return 'Top 5%';
-  if (topPct <= 10) return 'Top 10%';
-  if (topPct <= 15) return 'Top 15%';
-  if (topPct <= 25) return 'Top 25%';
-  if (topPct <= 50) return 'Top 50%';
-  return `Bottom ${Math.round(topPct)}%`;
+  if (percentile >= 99) return 'Top 1%';
+  if (percentile >= 95) return 'Top 5%';
+  if (percentile >= 90) return 'Top 10%';
+  if (percentile >= 85) return 'Top 15%';
+  if (percentile >= 75) return 'Top 25%';
+  if (percentile >= 50) return 'Top 50%';
+  if (percentile >= 25) return 'Bottom 50%';
+  if (percentile >= 10) return 'Bottom 25%';
+  return 'Bottom 10%';
+}
+
+function genreKey(screenplay: Screenplay): string {
+  return canonicalizeGenre(screenplay.genre) || 'unknown genre';
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -81,15 +115,26 @@ export function computeAllPercentiles(
   if (screenplays.length === 0) return new Map();
 
   // Collect all scores
-  const allScores = screenplays.map((s) => s.weightedScore);
+  const allScores = screenplays.map((s) => normalizeScore(s.weightedScore)).sort((a, b) => a - b);
+  const overallPositions = scorePositions(allScores);
 
   // Group by category
   const byCategory = new Map<string, number[]>();
+  const byGenre = new Map<string, number[]>();
   for (const sp of screenplays) {
     const cat = sp.category ?? 'OTHER';
     if (!byCategory.has(cat)) byCategory.set(cat, []);
-    byCategory.get(cat)!.push(sp.weightedScore);
+    byCategory.get(cat)!.push(normalizeScore(sp.weightedScore));
+
+    const genre = genreKey(sp);
+    if (!byGenre.has(genre)) byGenre.set(genre, []);
+    byGenre.get(genre)!.push(normalizeScore(sp.weightedScore));
   }
+  byCategory.forEach((scores) => scores.sort((a, b) => a - b));
+  byGenre.forEach((scores) => scores.sort((a, b) => a - b));
+  const genrePositions = new Map(
+    Array.from(byGenre, ([genre, scores]) => [genre, scorePositions(scores)]),
+  );
 
   // Compute percentiles
   const result = new Map<string, PercentileRank>();
@@ -97,9 +142,12 @@ export function computeAllPercentiles(
   for (const sp of screenplays) {
     const cat = sp.category ?? 'OTHER';
     const catScores = byCategory.get(cat) ?? [];
+    const genre = genreKey(sp);
+    const genreScores = byGenre.get(genre) ?? [];
+    const score = normalizeScore(sp.weightedScore);
 
-    const overallPct = computePercentile(sp.weightedScore, allScores);
-    const categoryPct = computePercentile(sp.weightedScore, catScores);
+    const overallPct = computePercentile(score, allScores);
+    const categoryPct = computePercentile(score, catScores);
 
     result.set(sp.id, {
       overall: overallPct,
@@ -108,6 +156,10 @@ export function computeAllPercentiles(
       tier: toTier(overallPct),
       corpusSize: allScores.length,
       categorySize: catScores.length,
+      overallPosition: overallPositions.get(score) ?? allScores.length,
+      genrePosition: genrePositions.get(genre)?.get(score) ?? genreScores.length,
+      genreSize: genreScores.length,
+      genre: sp.genre.trim() || 'Unknown Genre',
     });
   }
 
@@ -122,14 +174,21 @@ export function computeSinglePercentile(
   screenplay: Screenplay,
   allScreenplays: Screenplay[],
 ): PercentileRank {
-  const allScores = allScreenplays.map((s) => s.weightedScore);
+  const allScores = allScreenplays.map((s) => normalizeScore(s.weightedScore)).sort((a, b) => a - b);
   const cat = screenplay.category ?? 'OTHER';
   const catScores = allScreenplays
     .filter((s) => (s.category ?? 'OTHER') === cat)
-    .map((s) => s.weightedScore);
+    .map((s) => normalizeScore(s.weightedScore))
+    .sort((a, b) => a - b);
+  const genre = genreKey(screenplay);
+  const genreScores = allScreenplays
+    .filter((s) => genreKey(s) === genre)
+    .map((s) => normalizeScore(s.weightedScore))
+    .sort((a, b) => a - b);
+  const score = normalizeScore(screenplay.weightedScore);
 
-  const overallPct = computePercentile(screenplay.weightedScore, allScores);
-  const categoryPct = computePercentile(screenplay.weightedScore, catScores);
+  const overallPct = computePercentile(score, allScores);
+  const categoryPct = computePercentile(score, catScores);
 
   return {
     overall: overallPct,
@@ -138,5 +197,9 @@ export function computeSinglePercentile(
     tier: toTier(overallPct),
     corpusSize: allScores.length,
     categorySize: catScores.length,
+    overallPosition: scorePositions(allScores).get(score) ?? allScores.length,
+    genrePosition: scorePositions(genreScores).get(score) ?? genreScores.length,
+    genreSize: genreScores.length,
+    genre: screenplay.genre.trim() || 'Unknown Genre',
   };
 }

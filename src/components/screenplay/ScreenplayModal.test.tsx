@@ -90,6 +90,35 @@ describe('ScreenplayModal', () => {
             expect(screen.getByRole('dialog')).toBeInTheDocument();
             expect(screen.getByText('Visible Movie')).toBeInTheDocument();
         });
+
+        it('shows exact overall and genre field position', () => {
+            const screenplay = createTestScreenplay({ title: 'Ranked Movie', genre: 'Comedy' });
+            const { container } = renderWithClient(
+                <ScreenplayModal
+                    screenplay={screenplay}
+                    isOpen={true}
+                    onClose={mockOnClose}
+                    percentileRank={{
+                        overall: 94,
+                        category: 90,
+                        label: 'Top 10%',
+                        tier: 'elite',
+                        corpusSize: 500,
+                        categorySize: 100,
+                        overallPosition: 22,
+                        genrePosition: 3,
+                        genreSize: 64,
+                        genre: 'Comedy',
+                    }}
+                />
+            );
+
+            expect(screen.getByText('Field Position')).toBeInTheDocument();
+            const section = container.querySelector('[aria-labelledby="field-position-title"]');
+            expect(section).toHaveTextContent('#22 of 500');
+            expect(section).toHaveTextContent('Comedy');
+            expect(section).toHaveTextContent('#3 of 64');
+        });
     });
 
     // ────────────────────────────────────────────

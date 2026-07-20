@@ -25,11 +25,13 @@ import {
 import { useFilterStore } from '@/stores/filterStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import type { Screenplay } from '@/types';
+import type { PercentileRank } from '@/lib/percentileRanking';
 
 interface ScreenplayGridProps {
   screenplays: Screenplay[];
   isLoading: boolean;
   onCardClick?: (screenplay: Screenplay) => void;
+  percentileRanks?: ReadonlyMap<string, PercentileRank>;
 }
 
 /** Module-level flag: stagger animation fires once per page load (D-02) */
@@ -157,7 +159,7 @@ function GridEmptyState() {
   );
 }
 
-export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: ScreenplayGridProps) {
+export function ScreenplayGrid({ screenplays, isLoading, onCardClick, percentileRanks }: ScreenplayGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [isInitialRender, setIsInitialRender] = useState(true);
@@ -266,7 +268,11 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
                   </div>
                 }
               >
-                <ScreenplayCard screenplay={sp} onClick={() => onCardClick?.(sp)} />
+                <ScreenplayCard
+                  screenplay={sp}
+                  percentileRank={percentileRanks?.get(sp.id)}
+                  onClick={() => onCardClick?.(sp)}
+                />
               </ErrorBoundary>
             </div>
           ))}

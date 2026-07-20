@@ -237,4 +237,28 @@ describe('ScreenplayCard', () => {
     const logline = screen.getByText('A prestigious screenplay with a very long logline that should be clamped.');
     expect(logline).toHaveClass('line-clamp-2');
   });
+
+  it('shows the screenplay position against the full slate', () => {
+    const screenplay = createTestScreenplay();
+    render(
+      <ScreenplayCard
+        screenplay={screenplay}
+        percentileRank={{
+          overall: 92,
+          category: 90,
+          label: 'Top 10%',
+          tier: 'elite',
+          corpusSize: 500,
+          categorySize: 120,
+          overallPosition: 38,
+          genrePosition: 4,
+          genreSize: 70,
+          genre: 'Drama',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Top 10%')).toBeInTheDocument();
+    expect(screen.getByTitle('#38 of 500 overall')).toBeInTheDocument();
+  });
 });

@@ -21,13 +21,16 @@ import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { ProductionBadge } from './ProductionBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { useIsAdmin } from '@/stores/authStore';
+import { PercentileBadge } from '@/components/ui/PercentileBadge';
+import type { PercentileRank } from '@/lib/percentileRanking';
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
   onClick?: () => void;
+  percentileRank?: PercentileRank;
 }
 
-export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick }: ScreenplayCardProps) {
+export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick, percentileRank }: ScreenplayCardProps) {
   const isAdmin = useIsAdmin();
   const isBulkSelected = useIsSelected(screenplay.id);
   const toggleBulkSelection = useSelectionStore((s) => s.toggle);
@@ -181,8 +184,9 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
 
         {/* ── HEADER: badge + title ───────────────────────────────────────── */}
         <div className="pl-8 pr-8 mb-2 flex-shrink-0">
-          <div className="mb-2">
+          <div className="mb-2 flex items-center gap-2 min-w-0">
             <RecommendationBadge tier={screenplay.recommendation} />
+            <PercentileBadge rank={percentileRank} showAll />
           </div>
           {/* Title: always 1 line, truncated */}
           <h3 className="text-base font-display leading-tight truncate" style={{ color: 'var(--sp-text)' }}>
