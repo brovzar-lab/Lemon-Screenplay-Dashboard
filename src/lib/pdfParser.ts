@@ -6,6 +6,7 @@
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
+import { getPdfFileError, getScreenplayTextError } from './pdfValidation';
 
 // Use the bundled worker from pdfjs-dist
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -38,6 +39,9 @@ export async function parsePDF(
   file: File,
   onProgress?: (pct: number) => void,
 ): Promise<ParsedPDF> {
+  const fileError = getPdfFileError(file);
+  if (fileError) throw new Error(fileError);
+
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
@@ -64,6 +68,9 @@ export async function parsePDF(
   }
 
   const wordCount = text.split(/\s+/).filter(Boolean).length;
+
+  const textError = getScreenplayTextError(text);
+  if (textError) throw new Error(textError);
 
   // Infer title from filename (strip extension)
   const title = file.name.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ');

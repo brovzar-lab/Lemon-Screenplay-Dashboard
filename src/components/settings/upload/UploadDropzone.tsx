@@ -60,7 +60,7 @@ export function UploadDropzone({ onFilesSelected }: UploadDropzoneProps) {
             Drop PDF files here or click to browse
           </p>
           <p className="text-sm text-black-400 mt-1">
-            Supports multiple PDF screenplays
+            Supports multiple PDF screenplays, up to 50 MB each
           </p>
         </div>
       </div>
