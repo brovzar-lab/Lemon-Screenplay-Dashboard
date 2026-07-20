@@ -17,6 +17,7 @@ import { getExistingShareToken, revokeShareToken } from '@/lib/shareService';
 import { useShareStore } from '@/stores/shareStore';
 import { canonicalizeGenre } from '@/lib/calculations';
 import { useToastStore } from '@/stores/toastStore';
+import { useSyncStatusStore } from '@/stores/syncStatusStore';
 
 /**
  * Query key for screenplays
@@ -74,6 +75,7 @@ export function useLiveScreenplaySync(): void {
             .then((screenplays) => {
               if (active && version === snapshotVersion) {
                 queryClient.setQueryData(SCREENPLAYS_QUERY_KEY, screenplays);
+                useSyncStatusStore.getState().setLiveConnected(true);
                 hasReportedError = false;
               }
             })
@@ -92,6 +94,7 @@ export function useLiveScreenplaySync(): void {
         },
         () => {
           if (!active) return;
+          useSyncStatusStore.getState().setLiveConnected(false);
           if (retryTimer) clearTimeout(retryTimer);
           if (!hasReportedError) {
             useToastStore

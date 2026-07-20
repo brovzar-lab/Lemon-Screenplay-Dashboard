@@ -16,6 +16,7 @@ let mockStoreState = {
     pendingCount: 0,
     isRetrying: false,
     lastRetryError: null as string | null,
+    isLiveConnected: true,
 };
 
 vi.mock('@/stores/syncStatusStore', () => ({
@@ -37,6 +38,7 @@ describe('SyncStatusIndicator', () => {
             pendingCount: 0,
             isRetrying: false,
             lastRetryError: null,
+            isLiveConnected: true,
         };
     });
 
@@ -83,6 +85,12 @@ describe('SyncStatusIndicator', () => {
         mockStoreState.lastRetryError = 'Network error';
         render(<SyncStatusIndicator />);
         expect(screen.getByText('Network error')).toBeDefined();
+    });
+
+    it('keeps a visible warning while live sync is disconnected', () => {
+        mockStoreState.isLiveConnected = false;
+        render(<SyncStatusIndicator />);
+        expect(screen.getByText('Live sync disconnected')).toBeDefined();
     });
 
     it('calls startSyncStatusPolling on mount', () => {
