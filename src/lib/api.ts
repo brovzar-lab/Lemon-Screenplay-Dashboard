@@ -6,6 +6,9 @@ import {
     normalizeV6UnifiedScreenplay,
 } from './normalize';
 import { loadAllAnalyses, quarantineAnalysis } from './analysisStore';
+import { useToastStore } from '@/stores/toastStore';
+
+const reportedQuarantineSources = new Set<string>();
 
 /** Normalize raw cached or live Firestore analyses into the UI screenplay shape. */
 export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Promise<Screenplay[]> {
@@ -13,6 +16,7 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
     const t0 = performance.now();
 
     let loadedCount = 0;
+    let newlyQuarantinedCount = 0;
     for (const raw of rawList) {
         try {
             if (isV7RawAnalysis(raw)) {
@@ -28,6 +32,11 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
             } else {
                 const sourceFile = raw.source_file as string | undefined;
                 console.warn('[Lemon] Quarantining unknown format analysis:', sourceFile);
+                const quarantineKey = sourceFile || 'unknown-document';
+                if (!reportedQuarantineSources.has(quarantineKey)) {
+                    reportedQuarantineSources.add(quarantineKey);
+                    newlyQuarantinedCount++;
+                }
                 try {
                     await quarantineAnalysis(raw, 'failed isV6RawAnalysis type guard');
                 } catch {
@@ -40,6 +49,11 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
                 `[Lemon] Failed to normalize uploaded analysis "${sourceFile || 'unknown'}", quarantining corrupted entry:`,
                 err,
             );
+            const quarantineKey = sourceFile || 'unknown-document';
+            if (!reportedQuarantineSources.has(quarantineKey)) {
+                reportedQuarantineSources.add(quarantineKey);
+                newlyQuarantinedCount++;
+            }
             try {
                 await quarantineAnalysis(
                     raw,
@@ -52,6 +66,15 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
     }
     if (rawList.length > 0) {
         console.log(`[Lemon] Normalized ${loadedCount}/${rawList.length} analyses`);
+    }
+    if (newlyQuarantinedCount > 0) {
+        const label = newlyQuarantinedCount === 1 ? 'analysis was' : 'analyses were';
+        useToastStore
+            .getState()
+            .addToast(
+                `${newlyQuarantinedCount} malformed ${label} quarantined. Review Settings > Data.`,
+                'warning',
+            );
     }
 
     const seen = new Map<string, Screenplay>();
