@@ -2,7 +2,7 @@
  * Component Tests for AnalyticsDashboard
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { createTestScreenplay } from '@/test/factories';
@@ -29,6 +29,18 @@ const mockScreenplays = [
   createTestScreenplay({ id: 'sp-2', recommendation: 'film_now', weightedScore: 9.5 }),
   createTestScreenplay({ id: 'sp-3', recommendation: 'pass', weightedScore: 4 }),
 ];
+
+const observe = vi.fn();
+const disconnect = vi.fn();
+
+beforeEach(() => {
+  observe.mockClear();
+  disconnect.mockClear();
+  vi.stubGlobal('ResizeObserver', class {
+    observe = observe;
+    disconnect = disconnect;
+  });
+});
 
 describe('AnalyticsDashboard', () => {
   it('renders the Analytics Dashboard heading', () => {
@@ -59,6 +71,14 @@ describe('AnalyticsDashboard', () => {
     expect(screen.getByTestId('tier-breakdown')).toBeInTheDocument();
     expect(screen.getByTestId('genre-chart')).toBeInTheDocument();
     expect(screen.getByTestId('budget-chart')).toBeInTheDocument();
+  });
+
+  it('remeasures when asynchronous analytics content changes size', () => {
+    const { unmount } = render(<AnalyticsDashboard screenplays={mockScreenplays} />);
+
+    expect(observe).toHaveBeenCalledOnce();
+    unmount();
+    expect(disconnect).toHaveBeenCalledOnce();
   });
 
   it('renders correctly with an empty screenplays array', () => {
