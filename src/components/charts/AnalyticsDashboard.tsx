@@ -38,9 +38,16 @@ export function AnalyticsDashboard({
   // Measure content height after each expansion so the style reads from state,
   // not from ref.current directly during render (avoids react-hooks/refs error).
   useLayoutEffect(() => {
-    if (isExpanded && contentRef.current) {
-      setContentHeight(contentRef.current.scrollHeight);
-    }
+    const content = contentRef.current;
+    if (!isExpanded || !content) return;
+
+    const measure = () => setContentHeight(content.scrollHeight);
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+    return () => observer.disconnect();
   }, [isExpanded]);
 
   const isFiltered = totalScreenplays && totalScreenplays.length !== screenplays.length;
