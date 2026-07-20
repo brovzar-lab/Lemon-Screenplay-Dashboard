@@ -10,6 +10,7 @@ export { ShareButton } from './ShareButton';
 export { AlertBanners } from './AlertBanners';
 export { FilmNowSection } from './FilmNowSection';
 export { ScoresPanel } from './ScoresPanel';
+export { FieldPositionPanel } from './FieldPositionPanel';
 export { ProducerMetricsPanel } from './ProducerMetricsPanel';
 export { ContentDetails } from './ContentDetails';
 export { ModalFooter } from './ModalFooter';

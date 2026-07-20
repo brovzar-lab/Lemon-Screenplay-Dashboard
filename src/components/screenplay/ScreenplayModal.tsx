@@ -21,16 +21,19 @@ import {
   BillysTake,
   ModalFooter,
   PosterSection,
+  FieldPositionPanel,
 } from './modal';
 import { useIsAdmin } from '@/stores/authStore';
+import type { PercentileRank } from '@/lib/percentileRanking';
 
 interface ScreenplayModalProps {
   screenplay: Screenplay | null;
   isOpen: boolean;
   onClose: () => void;
+  percentileRank?: PercentileRank;
 }
 
-export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModalProps) {
+export function ScreenplayModal({ screenplay, isOpen, onClose, percentileRank }: ScreenplayModalProps) {
   const isAdmin = useIsAdmin();
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -139,6 +142,7 @@ export function ScreenplayModal({ screenplay, isOpen, onClose }: ScreenplayModal
           <div className="pointer-events-none sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black-950/80 to-transparent z-30 rounded-b-2xl" aria-hidden="true" />
           <div className="modal-body p-6 space-y-8 bg-black-950/50">
             <AlertBanners screenplay={screenplay} />
+            <FieldPositionPanel rank={percentileRank} />
             <FilmNowSection screenplay={screenplay} />
             {isAdmin && <BillysTake screenplay={screenplay} />}
 
