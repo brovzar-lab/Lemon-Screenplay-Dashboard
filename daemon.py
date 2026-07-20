@@ -119,6 +119,7 @@ WORK_DIR          = Path(os.getenv("DAEMON_WORK_DIR", "/tmp/lemon"))
 DAILY_BUDGET      = int(os.getenv("DAILY_BUDGET_LIMIT", "200"))
 WORKER_ID         = f"hostinger-vps-{os.getenv('HOSTNAME', 'unknown')}"
 HEARTBEAT_SECS    = 60
+ORPHAN_SWEEP_SECS = int(os.getenv("DAEMON_ORPHAN_SWEEP_INTERVAL", "300"))
 MAX_ATTEMPTS      = 3
 
 # Firestore collection names (must match ingestQueue.ts)
@@ -175,7 +176,9 @@ def sweep_orphaned_jobs() -> None:
         reset_count = 0
         for doc in stuck_jobs:
             data = doc.to_dict()
-            attempts = data.get("attempt_count", 0) + 1
+            # Claiming the job already counted this attempt. The sweep only
+            # decides whether that interrupted attempt exhausted the limit.
+            attempts = data.get("attempt_count", 0)
             if attempts >= MAX_ATTEMPTS:
                 doc.reference.update({
                     "status": "failed",
@@ -198,6 +201,14 @@ def sweep_orphaned_jobs() -> None:
             log.info(f"[sweep] Reset {reset_count} orphaned job(s)")
     except Exception as e:
         log.error(f"[sweep] Orphan sweep failed: {e}")
+
+
+def run_orphan_watchdog(stop_event: "threading.Event") -> None:
+    """Periodically recover stale processing jobs while the daemon is alive."""
+    log.info(f"[watchdog] Started — orphan sweep every {ORPHAN_SWEEP_SECS}s")
+    while not stop_event.wait(timeout=ORPHAN_SWEEP_SECS):
+        sweep_orphaned_jobs()
+    log.info("[watchdog] Stopped")
 
 # ── Budget counter (mirrors budgetCounter.ts) ─────────────────────────────────
 
@@ -263,6 +274,7 @@ def claim_pending_job() -> Optional[dict]:
             fresh = ref.get(transaction=transaction)
             if not fresh.exists or fresh.get("status") != "pending":
                 return None   # Already claimed by another worker
+            current_attempts = fresh.get("attempt_count") or 0
             transaction.update(ref, {
                 "status": "processing",
                 "worker_id": WORKER_ID,
@@ -270,7 +282,10 @@ def claim_pending_job() -> Optional[dict]:
                 "last_heartbeat_at": fb_firestore.SERVER_TIMESTAMP,
                 "attempt_count": fb_firestore.Increment(1),
             })
-            return fresh.to_dict() | {"id": fresh.id}
+            return fresh.to_dict() | {
+                "id": fresh.id,
+                "attempt_count": current_attempts + 1,
+            }
 
         try:
             job = try_claim(_db.transaction(), ref)
@@ -788,6 +803,7 @@ def main() -> None:
     log.info(f"    Worker ID   : {WORKER_ID}")
     log.info(f"    Concurrency : {CONCURRENCY} workers")
     log.info(f"    Poll interval: {POLL_INTERVAL}s")
+    log.info(f"    Orphan sweep : every {ORPHAN_SWEEP_SECS}s")
     log.info(f"    Work dir    : {WORK_DIR}")
     log.info(f"    Daily budget: {DAILY_BUDGET} API calls")
     log.info("═" * 70)
@@ -829,6 +845,14 @@ def main() -> None:
         workers.append(t)
         time.sleep(0.5)  # Stagger starts to reduce initial Firestore contention
 
+    watchdog = threading.Thread(
+        target=run_orphan_watchdog,
+        args=(stop_event,),
+        name="lemon-orphan-watchdog",
+        daemon=True,
+    )
+    watchdog.start()
+
     log.info(f"[daemon] {CONCURRENCY} worker(s) running — waiting for jobs in '{QUEUE_COLLECTION}'")
 
     # Main thread waits for shutdown signal
@@ -838,6 +862,7 @@ def main() -> None:
     log.info("[daemon] Waiting for in-flight jobs to complete (max 10 min)...")
     for t in workers:
         t.join(timeout=600)
+    watchdog.join(timeout=5)
 
     log.info("🍋  LEMON INGEST DAEMON — Stopped cleanly")
 

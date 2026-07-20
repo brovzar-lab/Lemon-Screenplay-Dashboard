@@ -16,7 +16,7 @@ const BulkReanalyzeModal = lazy(() =>
   import('@/components/bulk/BulkReanalyzeModal').then((module) => ({ default: module.BulkReanalyzeModal })),
 );
 import { BadFormatModal } from '@/components/badFormat/BadFormatModal';
-import { subscribeToSkippedJobs } from '@/lib/badFormatStore';
+import { subscribeToUploadIssues } from '@/lib/badFormatStore';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import { useExportSelectionStore, useExportSelectionCount } from '@/stores/exportSelectionStore';
@@ -123,13 +123,13 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
   const [isBulkShareOpen, setIsBulkShareOpen] = useState(false);
   const [isBulkReanalyzeOpen, setIsBulkReanalyzeOpen] = useState(false);
   const [isBadFormatOpen, setBadFormatOpen] = useState(false);
-  const [skippedJobCount, setSkippedJobCount] = useState(0);
+  const [uploadIssueCount, setUploadIssueCount] = useState(0);
 
   // Live count of daemon-skipped jobs (bad format / TMDB / duplicate) so the
   // FilterBar chip always shows the current number. Subscribes on mount.
   useEffect(() => {
     if (!isAdmin) return;
-    const unsub = subscribeToSkippedJobs((jobs) => setSkippedJobCount(jobs.length));
+    const unsub = subscribeToUploadIssues((jobs) => setUploadIssueCount(jobs.length));
     return () => { unsub(); };
   }, [isAdmin]);
 
@@ -447,8 +447,8 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
             className="chip cursor-pointer transition-all"
             style={{ color: 'var(--sp-pass)' }}
           >
-            Bad Format
-            {skippedJobCount > 0 && (
+            Upload Issues
+            {uploadIssueCount > 0 && (
               <span
                 style={{
                   marginLeft: 4,
@@ -460,7 +460,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
                   fontWeight: 700,
                 }}
               >
-                {skippedJobCount}
+                {uploadIssueCount}
               </span>
             )}
           </button>}

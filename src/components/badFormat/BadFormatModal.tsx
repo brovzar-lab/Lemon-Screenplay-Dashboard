@@ -9,7 +9,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import {
-  subscribeToSkippedJobs,
+  subscribeToUploadIssues,
   SKIP_REASON_LABELS,
   BAD_FORMAT_REASONS,
   type BadFormatJob,
@@ -34,16 +34,17 @@ function reasonTint(reason: SkipReason): 'sand' | 'clay' | 'sage' | 'neutral' {
 
 export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
   const [jobs, setJobs] = useState<BadFormatJob[]>([]);
-  const [filter, setFilter] = useState<'all' | 'bad' | 'tmdb' | 'dup'>('bad');
+  const [filter, setFilter] = useState<'all' | 'failed' | 'bad' | 'tmdb' | 'dup'>('all');
 
   useEffect(() => {
     if (!open) return;
-    const unsub = subscribeToSkippedJobs(setJobs);
+    const unsub = subscribeToUploadIssues(setJobs);
     return () => { unsub(); };
   }, [open]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return jobs;
+    if (filter === 'failed') return jobs.filter((j) => j.status === 'failed');
     if (filter === 'bad') return jobs.filter((j) => BAD_FORMAT_REASONS.includes(j.skip_reason));
     if (filter === 'tmdb') return jobs.filter((j) => j.skip_reason === 'tmdb_already_produced');
     if (filter === 'dup') return jobs.filter((j) => j.skip_reason === 'already_complete');
@@ -53,6 +54,7 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
   const counts = useMemo(
     () => ({
       bad: jobs.filter((j) => BAD_FORMAT_REASONS.includes(j.skip_reason)).length,
+      failed: jobs.filter((j) => j.status === 'failed').length,
       tmdb: jobs.filter((j) => j.skip_reason === 'tmdb_already_produced').length,
       dup: jobs.filter((j) => j.skip_reason === 'already_complete').length,
       all: jobs.length,
@@ -66,7 +68,7 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Bad format and skipped files"
+      aria-label="Upload issues"
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
       style={{ background: 'color-mix(in srgb, var(--sp-text) 38%, transparent)', backdropFilter: 'blur(3px)' }}
       onClick={onClose}
@@ -85,10 +87,10 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
         <div className="flex items-start justify-between p-5 pb-3" style={{ borderBottom: '1px solid var(--sp-border)' }}>
           <div>
             <h2 className="text-lg font-semibold" style={{ color: 'var(--sp-text)', margin: 0 }}>
-              Skipped Files
+              Upload Issues
             </h2>
             <p className="text-sm mt-1" style={{ color: 'var(--sp-text-2)' }}>
-              Files the daemon did not analyze, with the reason.
+              Uploads that failed or were skipped, with the reason.
             </p>
           </div>
           <button
@@ -104,6 +106,7 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
         {/* Filter row */}
         <div className="flex gap-2 px-5 py-3 flex-wrap" style={{ borderBottom: '1px solid var(--sp-border)' }}>
           {([
+            { id: 'failed', label: 'Failed', count: counts.failed },
             { id: 'bad', label: 'Bad Format', count: counts.bad },
             { id: 'tmdb', label: 'TMDB Match', count: counts.tmdb },
             { id: 'dup', label: 'Duplicates', count: counts.dup },
@@ -136,13 +139,13 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
           {filtered.length === 0 ? (
             <div className="text-center py-12" style={{ color: 'var(--sp-text-3)' }}>
               {jobs.length === 0
-                ? 'No skipped files. Once the daemon starts processing uploads, anything it rejects will appear here.'
+                ? 'No upload issues. Failed or skipped jobs will appear here automatically.'
                 : 'No files match this filter.'}
             </div>
           ) : (
             <ul className="space-y-2" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {filtered.map((job) => {
-                const tint = reasonTint(job.skip_reason);
+                const tint = job.status === 'failed' ? 'clay' : reasonTint(job.skip_reason);
                 const tintMap: Record<string, { bg: string; color: string }> = {
                   clay: { bg: 'var(--sp-clay-tint)', color: 'var(--sp-clay)' },
                   sand: { bg: 'var(--sp-sand-tint)', color: 'var(--sp-sand)' },
@@ -171,7 +174,13 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
                       <div style={{ color: 'var(--sp-text-3)', fontSize: 11, marginTop: 2, fontFamily: 'var(--sp-mono)' }}>
                         {job.collection_id}
                         {job.tmdb_status?.detail ? ` · ${job.tmdb_status.detail}` : ''}
+                        {job.status === 'failed' && job.attempt_count ? ` · ${job.attempt_count} attempts` : ''}
                       </div>
+                      {job.status === 'failed' && job.last_error && (
+                        <div className="mt-1 text-xs" style={{ color: 'var(--sp-clay)' }}>
+                          {job.last_error}
+                        </div>
+                      )}
                     </div>
                     <span
                       style={{
@@ -184,7 +193,7 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {reasonLabel(job.skip_reason)}
+                      {job.status === 'failed' ? 'Analysis failed' : reasonLabel(job.skip_reason)}
                     </span>
                   </li>
                 );
@@ -195,7 +204,7 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
 
         {/* Footer */}
         <div className="px-5 py-3 text-xs" style={{ borderTop: '1px solid var(--sp-border)', color: 'var(--sp-text-3)' }}>
-          Bad-format PDFs are quarantined in <code style={{ fontFamily: 'var(--sp-mono)' }}>bad-formats/&#123;collection&#125;/</code> on Storage. To rescue one, fix the PDF locally and re-upload — the duplicate-detection will route it back through analysis.
+          Failed jobs remain in the ingest queue for investigation. Bad-format PDFs are quarantined in <code style={{ fontFamily: 'var(--sp-mono)' }}>bad-formats/&#123;collection&#125;/</code>. Fix the source PDF and re-upload it to retry.
         </div>
       </div>
     </div>

@@ -34,6 +34,9 @@ export interface BadFormatJob {
   collection_id: string;
   storage_path: string;
   skip_reason: SkipReason;
+  status: 'skipped' | 'failed';
+  last_error?: string;
+  attempt_count?: number;
   queued_at?: { seconds: number } | string | null;
   processing_completed_at?: { seconds: number } | string | null;
   quarantined?: boolean;
@@ -72,12 +75,12 @@ export const BAD_FORMAT_REASONS: SkipReason[] = [
  * Subscribe to all skipped jobs in the ingest-queue.
  * Returns an Unsubscribe; call it on cleanup.
  */
-export function subscribeToSkippedJobs(
+export function subscribeToUploadIssues(
   onChange: (jobs: BadFormatJob[]) => void,
 ): Unsubscribe {
   const q = query(
     collection(db, INGEST_QUEUE_COLLECTION),
-    where('status', '==', 'skipped'),
+    where('status', 'in', ['skipped', 'failed']),
   );
 
   return onSnapshot(
@@ -91,6 +94,9 @@ export function subscribeToSkippedJobs(
           collection_id: String(data.collection_id ?? ''),
           storage_path: String(data.storage_path ?? ''),
           skip_reason: String(data.skip_reason ?? '') as SkipReason,
+          status: data.status === 'failed' ? 'failed' : 'skipped',
+          last_error: typeof data.last_error === 'string' ? data.last_error : undefined,
+          attempt_count: typeof data.attempt_count === 'number' ? data.attempt_count : undefined,
           queued_at: data.queued_at as BadFormatJob['queued_at'],
           processing_completed_at: data.processing_completed_at as BadFormatJob['processing_completed_at'],
           quarantined: Boolean(data.quarantined),
@@ -104,3 +110,6 @@ export function subscribeToSkippedJobs(
     },
   );
 }
+
+/** Backward-compatible name for existing consumers. */
+export const subscribeToSkippedJobs = subscribeToUploadIssues;
