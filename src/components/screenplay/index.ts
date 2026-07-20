@@ -8,3 +8,4 @@ export { ScreenplayModal } from './ScreenplayModal';
 export { ProductionBadge } from './ProductionBadge';
 export { BackToTopButton } from './BackToTopButton';
 export { BulkActionBar } from './BulkActionBar';
+export { ReadingRoom } from './ReadingRoom';
