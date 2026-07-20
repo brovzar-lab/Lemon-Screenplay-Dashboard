@@ -5,7 +5,7 @@
 
 import { useState, lazy, Suspense } from 'react';
 import { Header, FilterBar } from '@/components/layout';
-import { ScreenplayGrid, ScreenplayModal } from '@/components/screenplay';
+import { ReadingRoom, ScreenplayGrid, ScreenplayModal } from '@/components/screenplay';
 import { CollectionTabs } from '@/components/filters';
 import { ComparisonBar } from '@/components/comparison';
 import { ErrorBoundary, LoadingFallback, ScrollProgress } from '@/components/ui';
@@ -50,6 +50,7 @@ function App() {
   // Screenplay detail modal
   const [selectedScreenplay, setSelectedScreenplay] = useState<Screenplay | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isReadingRoomOpen, setIsReadingRoomOpen] = useState(false);
 
   const handleCardClick = (screenplay: Screenplay) => {
     setSelectedScreenplay(screenplay);
@@ -59,6 +60,12 @@ function App() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setTimeout(() => setSelectedScreenplay(null), 300);
+  };
+
+  const handleOpenReadingRoom = () => {
+    setIsModalOpen(false);
+    setSelectedScreenplay(null);
+    setIsReadingRoomOpen(true);
   };
 
   // Chart click handlers — cross-component filtering
@@ -110,6 +117,7 @@ function App() {
                 isLoading={isLoading}
                 filteredCount={filteredCount}
                 totalCount={totalCount}
+                onOpenReadingRoom={handleOpenReadingRoom}
               />
             </div>
           </ErrorBoundary>
@@ -174,6 +182,16 @@ function App() {
         <ErrorBoundary areaName="AI assistant">
           <DevExecChat />
         </ErrorBoundary>
+
+        {isReadingRoomOpen && (
+          <ErrorBoundary areaName="Reading Room">
+            <ReadingRoom
+              screenplays={screenplays}
+              percentileRanks={percentileRanks}
+              onClose={() => setIsReadingRoomOpen(false)}
+            />
+          </ErrorBoundary>
+        )}
       </div>
     </DevExecProvider>
   );

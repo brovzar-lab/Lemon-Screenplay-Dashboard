@@ -128,6 +128,7 @@ function renderFilterBar(
     screenplays = [createTestScreenplay()],
     filteredCount = 1,
     totalCount = 1,
+    onOpenReadingRoom?: () => void,
 ) {
     return render(
         <FilterBar
@@ -135,6 +136,7 @@ function renderFilterBar(
             isLoading={false}
             filteredCount={filteredCount}
             totalCount={totalCount}
+            onOpenReadingRoom={onOpenReadingRoom}
         />,
     );
 }
@@ -147,6 +149,23 @@ describe('FilterBar', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockFilterState = makeDefaultFilterState();
+    });
+
+    describe('Reading Room', () => {
+        it('opens from the toolbar', () => {
+            const onOpenReadingRoom = vi.fn();
+            renderFilterBar([createTestScreenplay()], 1, 1, onOpenReadingRoom);
+
+            fireEvent.click(screen.getByTitle('Open Reading Room'));
+
+            expect(onOpenReadingRoom).toHaveBeenCalledOnce();
+        });
+
+        it('is disabled when the filtered slate is empty', () => {
+            renderFilterBar([], 0, 1, vi.fn());
+
+            expect(screen.getByTitle('Open Reading Room')).toBeDisabled();
+        });
     });
 
     // ────────────────────────────────────────────

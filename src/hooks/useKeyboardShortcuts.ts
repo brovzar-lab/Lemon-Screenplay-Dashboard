@@ -12,9 +12,10 @@ import { useEffect, useCallback } from 'react';
 interface KeyboardShortcutOptions {
     onFocusSearch: () => void;
     onToggleFilters: () => void;
+    onOpenReadingRoom?: () => void;
 }
 
-export function useKeyboardShortcuts({ onFocusSearch, onToggleFilters }: KeyboardShortcutOptions) {
+export function useKeyboardShortcuts({ onFocusSearch, onToggleFilters, onOpenReadingRoom }: KeyboardShortcutOptions) {
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         // Don't trigger shortcuts when user is typing in an input
         const target = e.target as HTMLElement;
@@ -47,8 +48,11 @@ export function useKeyboardShortcuts({ onFocusSearch, onToggleFilters }: Keyboar
         if (e.key === '/' || e.key === 's') {
             e.preventDefault();
             onFocusSearch();
+        } else if (e.key.toLowerCase() === 'r' && onOpenReadingRoom) {
+            e.preventDefault();
+            onOpenReadingRoom();
         }
-    }, [onFocusSearch, onToggleFilters]);
+    }, [onFocusSearch, onToggleFilters, onOpenReadingRoom]);
 
     useEffect(() => {
         document.addEventListener('keydown', handleKeyDown);

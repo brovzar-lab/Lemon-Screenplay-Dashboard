@@ -48,9 +48,10 @@ interface FilterBarProps {
   isLoading: boolean;
   filteredCount: number;
   totalCount: number;
+  onOpenReadingRoom?: () => void;
 }
 
-export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }: FilterBarProps) {
+export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, onOpenReadingRoom }: FilterBarProps) {
   const hasActiveFilters = useHasActiveFilters();
   const isAdmin = useIsAdmin();
 
@@ -164,7 +165,11 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
     setIsFilterPanelOpen((prev) => !prev);
   }, []);
 
-  useKeyboardShortcuts({ onFocusSearch: focusSearch, onToggleFilters: toggleFilters });
+  useKeyboardShortcuts({
+    onFocusSearch: focusSearch,
+    onToggleFilters: toggleFilters,
+    onOpenReadingRoom: screenplays.length > 0 ? onOpenReadingRoom : undefined,
+  });
 
   // Determine which quick-filter chip is active
   const getActiveFilter = (): FilterType => {
@@ -319,6 +324,16 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount }:
                     {advancedFilterCount}
                   </span>
                 )}
+              </button>
+
+              {/* Reading Room Button */}
+              <button
+                onClick={onOpenReadingRoom}
+                className="btn btn-secondary text-sm shrink-0 min-h-[44px]"
+                title="Open Reading Room"
+                disabled={screenplays.length === 0 || !onOpenReadingRoom}
+              >
+                Reading Room
               </button>
 
               {/* Share Button */}
