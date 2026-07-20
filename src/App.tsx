@@ -167,6 +167,8 @@ function App() {
             isOpen={isModalOpen}
             onClose={handleCloseModal}
             percentileRank={selectedScreenplay ? percentileRanks.get(selectedScreenplay.id) : undefined}
+            allScreenplays={allScreenplays}
+            onSelectScreenplay={handleCardClick}
           />
         </ErrorBoundary>
 
