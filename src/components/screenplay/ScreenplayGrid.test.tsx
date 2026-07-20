@@ -40,7 +40,6 @@ vi.mock('@/stores/selectionStore', () => ({
   useHasSelection: () => false,
 }));
 
-
 describe('ScreenplayGrid', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -97,6 +96,28 @@ describe('ScreenplayGrid', () => {
     expect(listItems.length).toBe(2);
   });
 
+  it('bounds the initial card mount and appends the next batch near the bottom', () => {
+    const screenplays = Array.from({ length: 60 }, (_, index) =>
+      createTestScreenplay({ id: String(index), title: `Movie ${index}` }),
+    );
+
+    render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />);
+
+    const grid = screen.getByRole('list');
+    expect(screen.getAllByRole('listitem')).toHaveLength(48);
+    expect(screen.queryByText('Movie 59')).not.toBeInTheDocument();
+
+    Object.defineProperties(grid, {
+      scrollHeight: { configurable: true, value: 5_000 },
+      clientHeight: { configurable: true, value: 1_000 },
+      scrollTop: { configurable: true, value: 3_500 },
+    });
+    fireEvent.scroll(grid);
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(60);
+    expect(screen.getByText('Movie 59')).toBeInTheDocument();
+  });
+
   it('renders correct number of skeleton cards while loading', () => {
     render(<ScreenplayGrid screenplays={[]} isLoading={true} />);
 
@@ -112,7 +133,7 @@ describe('ScreenplayGrid', () => {
 
     // Should not throw
     expect(() =>
-      render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />)
+      render(<ScreenplayGrid screenplays={screenplays} isLoading={false} />),
     ).not.toThrow();
   });
 
@@ -127,11 +148,7 @@ describe('ScreenplayGrid', () => {
     const screenplays = [createTestScreenplay({ id: '1', title: 'Clickable Movie' })];
 
     render(
-      <ScreenplayGrid
-        screenplays={screenplays}
-        isLoading={false}
-        onCardClick={handleClick}
-      />
+      <ScreenplayGrid screenplays={screenplays} isLoading={false} onCardClick={handleClick} />,
     );
 
     // Click the card article element

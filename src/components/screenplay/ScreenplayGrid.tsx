@@ -1,11 +1,11 @@
 /**
  * ScreenplayGrid Component
- * Plain CSS Grid of screenplay cards — no virtualization.
+ * Incrementally rendered CSS Grid of screenplay cards.
  *
- * Virtualization was removed because the dataset (~50–200 cards) is too small
- * to benefit from it, and the fixed row-height requirement caused cards to
- * overlap when content exceeded the estimated height (PERF-01 no longer applies
- * at this scale; layout correctness takes priority).
+ * Cards have variable heights, so fixed-row virtualization can overlap content.
+ * Rendering in batches keeps the initial DOM bounded while preserving the
+ * browser's native grid layout and appending more before the user reaches the
+ * bottom.
  *
  * Responsive columns: 1 → 2 → 3 → 4 via Tailwind grid classes.
  * Back-to-top and stagger animation are preserved.
@@ -16,7 +16,12 @@ import { ScreenplayCard } from './ScreenplayCard';
 import { BackToTopButton } from './BackToTopButton';
 import { BulkActionBar } from './BulkActionBar';
 import { ErrorBoundary } from '@/components/ui';
-import { EmptyState, SpotlightIcon, DimmedStarIcon, SearchEmptyIcon } from '@/components/ui/EmptyState';
+import {
+  EmptyState,
+  SpotlightIcon,
+  DimmedStarIcon,
+  SearchEmptyIcon,
+} from '@/components/ui/EmptyState';
 import { useFilterStore } from '@/stores/filterStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import type { Screenplay } from '@/types';
@@ -29,6 +34,12 @@ interface ScreenplayGridProps {
 
 /** Module-level flag: stagger animation fires once per page load (D-02) */
 let hasCompletedInitialReveal = false;
+const CARD_BATCH_SIZE = 48;
+
+interface VisibleWindow {
+  source: Screenplay[];
+  count: number;
+}
 
 /**
  * Loading skeleton card
@@ -90,8 +101,7 @@ function GridEmptyState() {
   const recommendationTiers = useFilterStore((s) => s.recommendationTiers);
   const hasFilters = useHasActiveFilters();
 
-  const isFilmNowOnly =
-    recommendationTiers.length === 1 && recommendationTiers[0] === 'film_now';
+  const isFilmNowOnly = recommendationTiers.length === 1 && recommendationTiers[0] === 'film_now';
 
   if (searchQuery) {
     return (
@@ -151,11 +161,36 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
   const parentRef = useRef<HTMLDivElement>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [isInitialRender, setIsInitialRender] = useState(true);
+  const [visibleWindow, setVisibleWindow] = useState<VisibleWindow>({
+    source: screenplays,
+    count: CARD_BATCH_SIZE,
+  });
+  if (visibleWindow.source !== screenplays) {
+    setVisibleWindow({ source: screenplays, count: CARD_BATCH_SIZE });
+  }
+  const visibleCount = visibleWindow.source === screenplays ? visibleWindow.count : CARD_BATCH_SIZE;
+  const hasMore = visibleCount < screenplays.length;
 
-  // Scroll detection for back-to-top button (D-06)
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    setShowBackToTop(e.currentTarget.scrollTop > 800);
-  }, []);
+  // Scroll detection for back-to-top and incremental card rendering.
+  const handleScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>) => {
+      const container = e.currentTarget;
+      setShowBackToTop(container.scrollTop > 800);
+
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (hasMore && distanceFromBottom < 1_000) {
+        setVisibleWindow((current) => ({
+          source: screenplays,
+          count: Math.min(
+            (current.source === screenplays ? current.count : CARD_BATCH_SIZE) + CARD_BATCH_SIZE,
+            screenplays.length,
+          ),
+        }));
+      }
+    },
+    [hasMore, screenplays],
+  );
 
   // Jump to top when the screenplays list changes (filter/sort) — D-05
   useEffect(() => {
@@ -181,6 +216,7 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
 
   // Only animate on the very first load; skip on filter changes
   const shouldStagger = isInitialRender && !hasCompletedInitialReveal;
+  const visibleScreenplays = screenplays.slice(0, visibleCount);
 
   // ── Loading state ────────────────────────────────────────────────────────
   if (isLoading) {
@@ -210,7 +246,7 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
         aria-label="Screenplay results"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6 pb-8">
-          {screenplays.map((sp, index) => (
+          {visibleScreenplays.map((sp, index) => (
             <div
               key={sp.id}
               role="listitem"
@@ -226,20 +262,18 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick }: Screenpl
               <ErrorBoundary
                 fallback={
                   <div className="card bg-red-500/10 border-red-500/30">
-                    <p className="text-red-400 text-sm">
-                      Error rendering: {sp.title || 'Unknown'}
-                    </p>
+                    <p className="text-red-400 text-sm">Error rendering: {sp.title || 'Unknown'}</p>
                   </div>
                 }
               >
-                <ScreenplayCard
-                  screenplay={sp}
-                  onClick={() => onCardClick?.(sp)}
-                />
+                <ScreenplayCard screenplay={sp} onClick={() => onCardClick?.(sp)} />
               </ErrorBoundary>
             </div>
           ))}
         </div>
+        <span className="sr-only" aria-live="polite">
+          Showing {visibleScreenplays.length} of {screenplays.length} screenplays
+        </span>
       </div>
 
       <BackToTopButton visible={showBackToTop} onClick={scrollToTop} />
