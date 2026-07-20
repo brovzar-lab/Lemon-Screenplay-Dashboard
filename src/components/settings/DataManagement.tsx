@@ -346,13 +346,23 @@ export function DataManagement() {
 
       {/* Quarantine Info */}
       {quarantineCount > 0 && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-black-800/30 border border-black-700/50">
-          <svg className="w-4 h-4 text-zinc-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+          <svg
+            className="w-5 h-5 text-amber-400 mt-0.5 shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-sm text-zinc-500">
-            {quarantineCount} quarantined {quarantineCount === 1 ? 'document' : 'documents'} with unrecognized formats have been preserved in Firestore for safety and can be reviewed manually.
-          </p>
+          <div>
+            <p className="text-sm font-medium text-amber-300">Analysis quarantine needs review</p>
+            <p className="text-sm text-black-300 mt-1">
+              {quarantineCount} {quarantineCount === 1 ? 'document has' : 'documents have'} an
+              unrecognized or malformed analysis format. They are preserved in Firebase and
+              excluded from dashboard scores.
+            </p>
+          </div>
         </div>
       )}
 

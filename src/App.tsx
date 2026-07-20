@@ -8,7 +8,7 @@ import { Header, FilterBar } from '@/components/layout';
 import { ScreenplayGrid, ScreenplayModal } from '@/components/screenplay';
 import { CollectionTabs } from '@/components/filters';
 import { ComparisonBar } from '@/components/comparison';
-import { ErrorBoundary, LoadingFallback, ToastContainer, ScrollProgress } from '@/components/ui';
+import { ErrorBoundary, LoadingFallback, ScrollProgress } from '@/components/ui';
 import { DevExecChat } from '@/components/devexec';
 import { DevExecProvider } from '@/contexts/DevExecContext';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
@@ -86,27 +86,31 @@ function App() {
       <div className="min-h-screen flex flex-col">
         <div className="bokeh-atmosphere" aria-hidden="true" />
         <div className="page-enter-header">
-          <Header />
+          <ErrorBoundary areaName="Header">
+            <Header />
+          </ErrorBoundary>
         </div>
 
         <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-8">
           {/* Collection Tabs + Filter Bar — animate as one unit */}
-          <div className="page-enter-filters">
-            {/* Collection Tabs */}
-            {!isLoading && allScreenplays.length > 0 && (
-              <div className="mb-6">
-                <CollectionTabs screenplays={allScreenplays} />
-              </div>
-            )}
+          <ErrorBoundary areaName="Filters">
+            <div className="page-enter-filters">
+              {/* Collection Tabs */}
+              {!isLoading && allScreenplays.length > 0 && (
+                <div className="mb-6">
+                  <CollectionTabs screenplays={allScreenplays} />
+                </div>
+              )}
 
-            {/* Search, Filters, Sort, Export, Share */}
-            <FilterBar
-              screenplays={screenplays}
-              isLoading={isLoading}
-              filteredCount={filteredCount}
-              totalCount={totalCount}
-            />
-          </div>
+              {/* Search, Filters, Sort, Export, Share */}
+              <FilterBar
+                screenplays={screenplays}
+                isLoading={isLoading}
+                filteredCount={filteredCount}
+                totalCount={totalCount}
+              />
+            </div>
+          </ErrorBoundary>
 
           {/* Analytics Dashboard + Screenplay Grid — animate as one unit */}
           <div className="page-enter-content">
@@ -128,11 +132,13 @@ function App() {
             )}
 
             {/* Screenplay Grid */}
-            <ScreenplayGrid
-              screenplays={screenplays}
-              isLoading={isLoading}
-              onCardClick={handleCardClick}
-            />
+            <ErrorBoundary areaName="Screenplay library">
+              <ScreenplayGrid
+                screenplays={screenplays}
+                isLoading={isLoading}
+                onCardClick={handleCardClick}
+              />
+            </ErrorBoundary>
           </div>
         </main>
 
@@ -144,11 +150,13 @@ function App() {
         </footer>
 
         {/* Detail Modal */}
-        <ScreenplayModal
-          screenplay={selectedScreenplay}
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-        />
+        <ErrorBoundary areaName="Screenplay details">
+          <ScreenplayModal
+            screenplay={selectedScreenplay}
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
+          />
+        </ErrorBoundary>
 
         {/* Comparison Bar (sticky at bottom) */}
         <ErrorBoundary>
@@ -159,10 +167,9 @@ function App() {
         </ErrorBoundary>
 
         {/* Dev Exec AI Chat */}
-        <DevExecChat />
-
-        {/* Toast Notifications (outside ErrorBoundary — always visible) */}
-        <ToastContainer />
+        <ErrorBoundary areaName="AI assistant">
+          <DevExecChat />
+        </ErrorBoundary>
       </div>
     </DevExecProvider>
   );

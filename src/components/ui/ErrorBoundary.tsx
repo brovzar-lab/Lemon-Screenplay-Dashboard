@@ -8,6 +8,9 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  fullPage?: boolean;
+  areaName?: string;
+  onReload?: () => void;
 }
 
 interface State {
@@ -36,34 +39,50 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ errorInfo });
   }
 
+  private reset = () => {
+    this.setState({ hasError: false, error: null, errorInfo: null });
+  };
+
+  private reload = () => {
+    if (this.props.onReload) {
+      this.props.onReload();
+      return;
+    }
+    window.location.reload();
+  };
+
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
       }
 
-      return (
-        <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400">
-          <h3 className="font-bold mb-2">Something went wrong</h3>
-          <p className="text-sm opacity-80 mb-2">
-            {this.state.error?.message || 'Unknown error'}
+      const content = (
+        <div
+          role="alert"
+          className="p-5 bg-red-500/10 border border-red-500/40 rounded-lg text-red-400 max-w-xl"
+        >
+          <h3 className="font-bold mb-2">
+            {this.props.areaName ? `${this.props.areaName} could not load` : 'Something went wrong'}
+          </h3>
+          <p className="text-sm text-black-300 mb-4">
+            Your screenplay data is safe. Retry this section or reload the app to recover.
           </p>
-          {this.state.errorInfo && (
-            <details className="text-xs">
-              <summary className="cursor-pointer">Component Stack</summary>
-              <pre className="mt-2 p-2 bg-black-900 rounded overflow-auto max-h-40">
-                {this.state.errorInfo.componentStack}
-              </pre>
-            </details>
-          )}
-          <button
-            onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
-            className="mt-3 btn btn-secondary text-sm"
-          >
-            Try Again
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={this.reset} className="btn btn-secondary text-sm">
+              Retry Section
+            </button>
+            <button onClick={this.reload} className="btn btn-primary text-sm">
+              Reload App
+            </button>
+          </div>
         </div>
       );
+
+      if (this.props.fullPage) {
+        return <div className="min-h-screen flex items-center justify-center p-6">{content}</div>;
+      }
+      return content;
     }
 
     return this.props.children;

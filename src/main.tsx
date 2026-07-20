@@ -2,7 +2,7 @@ import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ErrorBoundary, LoadingFallback } from '@/components/ui';
+import { ErrorBoundary, LoadingFallback, ToastContainer } from '@/components/ui';
 import { AuthGate } from '@/components/auth';
 import './index.css';
 import App from './App';
@@ -25,16 +25,38 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ErrorBoundary>
+    <ErrorBoundary fullPage areaName="Application">
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
-              <Route path="/" element={<AuthGate><App /></AuthGate>} />
-              <Route path="/settings" element={<AuthGate requireAdmin><SettingsPage /></AuthGate>} />
-              <Route path="/share/:token" element={<SharedViewPage />} />
+              <Route
+                path="/"
+                element={
+                  <ErrorBoundary fullPage areaName="Dashboard">
+                    <AuthGate><App /></AuthGate>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ErrorBoundary fullPage areaName="Settings">
+                    <AuthGate requireAdmin><SettingsPage /></AuthGate>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/share/:token"
+                element={
+                  <ErrorBoundary fullPage areaName="Shared screenplay">
+                    <SharedViewPage />
+                  </ErrorBoundary>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <ToastContainer />
           </Suspense>
         </BrowserRouter>
       </QueryClientProvider>
