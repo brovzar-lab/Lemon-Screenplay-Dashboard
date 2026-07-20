@@ -93,6 +93,7 @@ vi.mock('@/components/filters', () => ({
     FilterPanel: () => null,
     AdvancedSortPanel: () => null,
     ActionsDropdown: () => null,
+    LensMenu: () => null,
 }));
 
 vi.mock('@/components/export', () => ({

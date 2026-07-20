@@ -6,7 +6,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { clsx } from 'clsx';
-import { FilterPanel, AdvancedSortPanel, ActionsDropdown } from '@/components/filters';
+import { FilterPanel, AdvancedSortPanel, ActionsDropdown, LensMenu } from '@/components/filters';
 // Lazy-load ExportModal — defers the 1.5MB @react-pdf/renderer vendor chunk
 // until the user actually clicks the Export button.
 const ExportModal = lazy(() => import('@/components/export/ExportModal').then(m => ({ default: m.ExportModal })));
@@ -292,6 +292,8 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
 
                 <option value="title">Sort: Title A-Z</option>
               </select>
+
+              <LensMenu />
 
               {/* Advanced Sort Button */}
               <button
