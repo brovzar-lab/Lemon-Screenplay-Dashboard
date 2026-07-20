@@ -16,7 +16,6 @@ import { useScreenplays, useLiveScreenplaySync } from '@/hooks/useScreenplays';
 import { useUrlState } from '@/hooks/useUrlState';
 import { usePosterBackground } from '@/hooks/usePosterBackground';
 import { useFilterStore } from '@/stores/filterStore';
-import { useApiConfigStore } from '@/stores/apiConfigStore';
 import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
 import { useIsAdmin } from '@/stores/authStore';
 
@@ -81,10 +80,8 @@ function App() {
     setBudgetCategories([budget]);
   };
 
-  const googleApiKey = useApiConfigStore((s) => s.googleApiKey);
-
   return (
-    <DevExecProvider screenplays={allScreenplays} apiKey={googleApiKey}>
+    <DevExecProvider screenplays={allScreenplays}>
       <ScrollProgress />
       <div className="min-h-screen flex flex-col">
         <div className="bokeh-atmosphere" aria-hidden="true" />

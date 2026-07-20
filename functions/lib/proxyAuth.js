@@ -7,8 +7,7 @@
  * accepts exactly two kinds of caller:
  *
  *   1. Browser users — a valid Firebase ID token in `Authorization: Bearer`.
- *      Verified with the Admin SDK. Works for anonymous auth today and for
- *      Google Workspace sign-in later, with no proxy change.
+ *      Callers enforce a verified Lemon Workspace identity before spending.
  *
  *   2. The VPS daemon — a shared service key in `X-Lemon-Service-Key`. The
  *      daemon is server-side Python and has no user session, so it can't hold
@@ -56,7 +55,13 @@ async function authenticateProxyRequest(req, serviceKey) {
     }
     try {
         const decoded = await (0, auth_1.getAuth)().verifyIdToken(match[1]);
-        return { ok: true, kind: "user", uid: decoded.uid };
+        return {
+            ok: true,
+            kind: "user",
+            uid: decoded.uid,
+            email: decoded.email ?? "",
+            emailVerified: decoded.email_verified === true,
+        };
     }
     catch {
         return { ok: false, status: 401, message: "Invalid or expired ID token." };

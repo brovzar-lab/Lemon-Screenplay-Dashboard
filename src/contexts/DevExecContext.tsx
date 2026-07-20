@@ -26,7 +26,6 @@ interface DevExecContextType {
     unreadCount: number;
     markAsRead: () => void;
     screenplays: Screenplay[];
-    apiKey: string;
 }
 
 const DevExecContext = createContext<DevExecContextType | undefined>(undefined);
@@ -34,10 +33,9 @@ const DevExecContext = createContext<DevExecContextType | undefined>(undefined);
 interface DevExecProviderProps {
     children: ReactNode;
     screenplays: Screenplay[];
-    apiKey: string;
 }
 
-export function DevExecProvider({ children, screenplays, apiKey }: DevExecProviderProps) {
+export function DevExecProvider({ children, screenplays }: DevExecProviderProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -140,7 +138,7 @@ export function DevExecProvider({ children, screenplays, apiKey }: DevExecProvid
             isOpen, isMinimized, messages, isLoading,
             toggleChat, minimizeChat, restoreChat,
             sendMessage, clearChat, unreadCount, markAsRead,
-            screenplays, apiKey,
+            screenplays,
         }}>
             {children}
         </DevExecContext.Provider>

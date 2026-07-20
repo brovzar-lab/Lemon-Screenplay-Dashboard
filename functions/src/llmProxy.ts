@@ -25,6 +25,13 @@ const anthropicApiKey = defineString("ANTHROPIC_API_KEY");
 // Shared secret for the VPS daemon (server-side, no user session). Empty in
 // local dev disables service-key auth; browser ID-token auth still applies.
 const proxyServiceKey = defineString("PROXY_SERVICE_KEY");
+const ALLOWED_MODELS = new Set([
+  "claude-haiku-4-5-20251001",
+  "claude-sonnet-4-6",
+  "claude-opus-4-7",
+]);
+const MAX_OUTPUT_TOKENS = 24_000;
+const MAX_THINKING_TOKENS = 16_000;
 
 const corsMiddleware = cors({
   origin: [
@@ -190,12 +197,53 @@ export const llmProxy = onRequest(
         });
         return;
       }
+      if (authResult.kind === "user"
+          && (!authResult.emailVerified || !authResult.email.endsWith("@lemonfilms.com"))) {
+        res.status(403).json({
+          error: "A verified Lemon Studios account is required.",
+          code: "FORBIDDEN",
+          isRetryable: false,
+        });
+        return;
+      }
 
       const body = req.body as ProxyRequestBody;
 
       if (!body.model || !body.messages || !Array.isArray(body.messages)) {
         res.status(400).json({
           error: "Missing required fields: model, messages",
+          code: "INVALID_INPUT",
+        });
+        return;
+      }
+      if (!ALLOWED_MODELS.has(body.model)) {
+        res.status(400).json({ error: "Model is not approved.", code: "INVALID_MODEL" });
+        return;
+      }
+      const maxTokens = body.max_tokens ?? 8_096;
+      if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > MAX_OUTPUT_TOKENS) {
+        res.status(400).json({
+          error: `max_tokens must be an integer between 1 and ${MAX_OUTPUT_TOKENS}.`,
+          code: "INVALID_INPUT",
+        });
+        return;
+      }
+      if (body.thinking
+          && (!Number.isInteger(body.thinking.budget_tokens)
+              || body.thinking.budget_tokens < 1
+              || body.thinking.budget_tokens > MAX_THINKING_TOKENS)) {
+        res.status(400).json({
+          error: `thinking.budget_tokens must be between 1 and ${MAX_THINKING_TOKENS}.`,
+          code: "INVALID_INPUT",
+        });
+        return;
+      }
+      if (body.temperature !== undefined
+          && (!Number.isFinite(body.temperature)
+              || body.temperature < 0
+              || body.temperature > 1)) {
+        res.status(400).json({
+          error: "temperature must be between 0 and 1.",
           code: "INVALID_INPUT",
         });
         return;
@@ -210,7 +258,7 @@ export const llmProxy = onRequest(
         // Build the request payload with all optional fields forwarded.
         const payload: Record<string, unknown> = {
           model: body.model,
-          max_tokens: body.max_tokens ?? 8096,
+          max_tokens: maxTokens,
           messages,
         };
         if (system !== undefined) payload.system = system;

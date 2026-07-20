@@ -54,6 +54,10 @@
         "function": "llmProxy"
       },
       {
+        "source": "/api/google",
+        "function": "googleProxy"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

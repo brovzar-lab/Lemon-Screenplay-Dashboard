@@ -12,12 +12,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPcmBlob, decode, decodeAudioData } from '@/utils/audioUtils';
 import type { Screenplay } from '@/types';
+import { createLiveToken } from '@/lib/googleProxyClient';
 
 export type LiveVoiceName = 'Kore' | 'Puck' | 'Charon' | 'Aoede' | 'Fenrir' | 'Zephyr';
 
 // WebSocket endpoint and model — verified against SDK source
-const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
-const MODEL = 'models/gemini-2.5-flash-native-audio-preview-12-2025';
+const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained';
 
 // ─── System Instruction ──────────────────────────────────────────────────────
 
@@ -131,14 +131,13 @@ export function useLiveDevExec() {
     const connect = useCallback(async (
         voiceName: LiveVoiceName,
         screenplays: Screenplay[],
-        apiKey: string,
     ) => {
         if (isConnecting || isConnected) return;
         setIsConnecting(true);
         setError(null);
 
         try {
-            if (!apiKey) throw new Error('No API key. Go to Settings → API Configuration.');
+            const { token, model } = await createLiveToken();
 
             // Get microphone
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -160,7 +159,7 @@ export function useLiveDevExec() {
 
             // ─── CONNECT VIA RAW WEBSOCKET ───
             // Format verified against @google/genai SDK v1.41.0 source code
-            const ws = new WebSocket(`${WS_URL}?key=${apiKey}`);
+            const ws = new WebSocket(`${WS_URL}?access_token=${encodeURIComponent(token)}`);
             wsRef.current = ws;
 
             ws.onopen = () => {
@@ -168,7 +167,7 @@ export function useLiveDevExec() {
                 // and liveConnectConfigToMldev()
                 const setupMessage = {
                     setup: {
-                        model: MODEL,
+                        model: `models/${model}`,
                         generationConfig: {
                             responseModalities: ['AUDIO'],
                             speechConfig: {
@@ -296,7 +295,7 @@ export function useLiveDevExec() {
 
             ws.onerror = () => {
                 console.error('[LiveDevExec] WebSocket error');
-                setError('Connection error — check your API key');
+                setError('Voice connection failed. Please try again.');
                 cleanup();
             };
 

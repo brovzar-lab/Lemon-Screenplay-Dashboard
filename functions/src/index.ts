@@ -7,4 +7,5 @@
  */
 
 export { llmProxy } from './llmProxy';
+export { googleProxy } from './googleProxy';
 export { onScreenplayUploaded } from './onScreenplayUploaded';

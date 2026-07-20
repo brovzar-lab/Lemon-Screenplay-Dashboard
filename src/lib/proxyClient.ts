@@ -21,7 +21,7 @@ const PROXY_URL = import.meta.env.DEV
  * requires a valid ID token (or the daemon's service key) — without this every
  * browser call would 401.
  */
-async function authHeaders(): Promise<Record<string, string>> {
+export async function getProxyAuthHeaders(): Promise<Record<string, string>> {
   await authReady;
   const token = await auth.currentUser?.getIdToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -93,7 +93,7 @@ export async function callLLM(options: CallLLMOptions): Promise<CallLLMResult> {
   try {
     response = await fetch(PROXY_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      headers: { 'Content-Type': 'application/json', ...(await getProxyAuthHeaders()) },
       body: JSON.stringify(body),
     });
   } catch {

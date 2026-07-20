@@ -17,7 +17,7 @@ export function DevExecChat() {
     const {
         isOpen, isMinimized, messages, isLoading,
         minimizeChat, restoreChat, toggleChat, sendMessage, clearChat,
-        screenplays, apiKey,
+        screenplays,
     } = useDevExec();
 
     const {
@@ -60,9 +60,9 @@ export function DevExecChat() {
         if (isConnected) {
             disconnect();
         } else {
-            connect('Charon' as LiveVoiceName, screenplays, apiKey);
+            connect('Charon' as LiveVoiceName, screenplays);
         }
-    }, [isConnected, connect, disconnect, screenplays, apiKey]);
+    }, [isConnected, connect, disconnect, screenplays]);
 
     if (!isOpen) return null;
 
