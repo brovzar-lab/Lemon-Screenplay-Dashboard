@@ -90,4 +90,20 @@ describe('useCountUp', () => {
     flushFrames([1000, 1700]);
     expect(result.current).toBe(17);
   });
+
+  it('returns target changes immediately when reduced motion is preferred', async () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }));
+    vi.resetModules();
+    const { useCountUp: useReducedMotionCountUp } = await import('./useCountUp');
+
+    const { result, rerender } = renderHook(
+      ({ t }) => useReducedMotionCountUp(t, 600, true),
+      { initialProps: { t: 4 } },
+    );
+    expect(result.current).toBe(4);
+
+    rerender({ t: 9 });
+    expect(result.current).toBe(9);
+    expect(rafCallbacks.size).toBe(0);
+  });
 });

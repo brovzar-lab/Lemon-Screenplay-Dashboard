@@ -43,10 +43,6 @@ const mockSetDoc = vi.fn().mockImplementation(() => {
     callOrder.push('setDoc');
     return Promise.resolve();
 });
-const mockDeleteDoc = vi.fn().mockImplementation(() => {
-    callOrder.push('deleteDoc');
-    return Promise.resolve();
-});
 const mockGetCountFromServer = vi.fn().mockImplementation(() => {
     callOrder.push('getCountFromServer');
     return Promise.resolve({ data: () => ({ count: 5 }) });
@@ -62,9 +58,9 @@ vi.mock('firebase/firestore', () => ({
     collection: vi.fn(() => 'mock-collection-ref'),
     doc: vi.fn(() => 'mock-doc-ref'),
     query: vi.fn((ref: unknown) => ref),
+    where: vi.fn(() => 'mock-where-constraint'),
     getDocs: (...args: unknown[]) => mockGetDocs(...args),
     setDoc: (...args: unknown[]) => mockSetDoc(...args),
-    deleteDoc: (...args: unknown[]) => mockDeleteDoc(...args),
     getCountFromServer: (...args: unknown[]) => mockGetCountFromServer(...args),
     updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
     deleteField: () => mockDeleteField(),
@@ -86,7 +82,6 @@ describe('analysisStore authReady gates', () => {
         callOrder.length = 0;
         mockGetDocs.mockClear();
         mockSetDoc.mockClear();
-        mockDeleteDoc.mockClear();
         mockUpdateDoc.mockClear();
         mockDeleteField.mockClear();
         mockGetCountFromServer.mockClear();
@@ -397,13 +392,13 @@ describe('quarantineAnalysis', () => {
     beforeEach(() => {
         callOrder.length = 0;
         mockSetDoc.mockClear();
-        mockDeleteDoc.mockClear();
+        mockUpdateDoc.mockClear();
         Object.keys(localStore).forEach((k) => delete localStore[k]);
         resetAuthReady();
         vi.resetModules();
     });
 
-    it('calls setDoc on _unrecognized_analyses and deleteDoc on source collection', async () => {
+    it('marks the source document as quarantined without deleting it', async () => {
         localStore['lemon-local-analyses'] = JSON.stringify([
             { source_file: 'bad.pdf', title: 'Bad' },
         ]);
@@ -412,12 +407,34 @@ describe('quarantineAnalysis', () => {
         resolveAuthReady();
         await quarantineAnalysis({ source_file: 'bad.pdf', title: 'Bad' }, 'failed type guard');
 
-        expect(mockSetDoc).toHaveBeenCalled();
-        expect(mockDeleteDoc).toHaveBeenCalled();
+        expect(mockUpdateDoc).toHaveBeenCalledWith(
+            'mock-doc-ref',
+            expect.objectContaining({
+                _quarantine_reason: 'failed type guard',
+                _original_collection: 'uploaded_analyses',
+            }),
+        );
+        expect(mockSetDoc).not.toHaveBeenCalled();
 
         // Should also remove from localStorage
         const stored = JSON.parse(localStore['lemon-local-analyses']);
         expect(stored.find((a: Record<string, unknown>) => a.source_file === 'bad.pdf')).toBeUndefined();
+    });
+
+    it('does not return a quarantined record from the local cache', async () => {
+        localStore['lemon-local-analyses'] = JSON.stringify([
+            { source_file: 'good.pdf', title: 'Good' },
+            {
+                source_file: 'bad.pdf',
+                title: 'Bad',
+                _quarantined_at: '2026-07-19T00:00:00.000Z',
+            },
+        ]);
+
+        const { loadAllAnalyses } = await import('./analysisStore');
+        const result = await loadAllAnalyses();
+
+        expect(result).toEqual([{ source_file: 'good.pdf', title: 'Good' }]);
     });
 });
 

@@ -26,6 +26,14 @@ vi.mock('@/stores/notesStore', () => ({
     useScreenplayNotes: () => [],
 }));
 
+// Keep modal-shell tests isolated from asynchronous Firestore feedback reads.
+vi.mock('@/lib/feedbackStore', () => ({
+    loadBrainVerdict: vi.fn().mockResolvedValue(null),
+    saveBrainVerdict: vi.fn().mockResolvedValue(undefined),
+    loadFeedback: vi.fn().mockResolvedValue(null),
+    saveFeedback: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Wrapper with QueryClientProvider for components that use useQueryClient
 function createWrapper() {
     const queryClient = new QueryClient({

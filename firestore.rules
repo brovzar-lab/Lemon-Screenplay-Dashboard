@@ -77,10 +77,8 @@ service cloud.firestore {
                              && request.resource.data.source_file.size() <= 500)
                        );
 
-      // DELETE: Admin SDK only. Clients use soft-delete (update _deleted_at).
-      // Quarantine flow (analysisStore.quarantineAnalysis) also uses deleteDoc,
-      // but that runs after setDoc to _unrecognized_analyses — both require auth.
-      allow delete: if isAuthenticated();
+      // DELETE: Admin SDK only. Clients use soft-delete or quarantine flags.
+      allow delete: if false;
     }
 
     // ── screenplay_feedback ──────────────────────────────────────────────
@@ -129,10 +127,10 @@ service cloud.firestore {
     // Share tokens for partner access via capability URLs.
     //
     // SECURITY RATIONALE:
-    //   • READ is intentionally PUBLIC (if true). Partners who receive a
-    //     share URL are unauthenticated — the token IS the capability.
-    //     resolveShareToken() in shareService.ts does NOT call authReady.
-    //     This is a deliberate capability-based access pattern.
+    //   • GET is intentionally public. Partners who receive a share URL are
+    //     unauthenticated — the token IS the capability.
+    //   • LIST requires dashboard authentication so public callers cannot
+    //     enumerate live capability tokens.
     //   • CREATE: auth required (only dashboard users create share links).
     //   • UPDATE: auth required (prevents token hijacking via overwrites).
     //   • DELETE: auth required (revoke flow in shareService.ts).
@@ -141,11 +139,15 @@ service cloud.firestore {
     //     is bypassed. Legacy docs without expiresAt remain readable.
     //   • Doc size implicitly limited by the analysis snapshot structure.
     match /shared_views/{tokenId} {
-      // Public read — token is the capability — but not past expiry.
+      // Public single-document fetch — token is the capability — but not past expiry.
       // expiresAtMillis is epoch millis (a number) so it compares cleanly with
       // request.time.toMillis(). Legacy docs without it remain readable.
-      allow read: if !('expiresAtMillis' in resource.data)
-                  || resource.data.expiresAtMillis > request.time.toMillis();
+      allow get: if !('expiresAtMillis' in resource.data)
+                 || resource.data.expiresAtMillis > request.time.toMillis();
+
+      // Collection enumeration is restricted to dashboard users. Public partner
+      // links resolve by token ID and never need list access.
+      allow list: if isAuthenticated();
 
       // Only authenticated dashboard users may create, update, or revoke.
       allow create, update, delete: if isAuthenticated();
@@ -179,7 +181,7 @@ service cloud.firestore {
     // SECURITY RATIONALE:
     //   • Create: allowed (quarantine flow writes here before deleting source).
     //   • Read: allowed (settings panel shows quarantine count).
-    //   • Update/Delete: Admin SDK only. Quarantined docs shouldn't be
+    //   • Update/Delete: Admin SDK only. Legacy quarantined docs shouldn't be
     //     modified or removed by the client — manual review required.
     match /_unrecognized_analyses/{docId} {
       allow read: if isAuthenticated();

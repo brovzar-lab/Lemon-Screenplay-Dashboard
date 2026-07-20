@@ -16,11 +16,7 @@ export default defineConfig({
       include: ['src/lib/**/*.ts'],
     },
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        execArgv: ['--require', './src/test/fix-eperm.cjs'],
-      },
-    },
+    execArgv: ['--require', './src/test/fix-eperm.cjs'],
   },
   resolve: {
     alias: {

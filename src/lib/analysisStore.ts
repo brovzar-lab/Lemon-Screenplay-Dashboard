@@ -14,10 +14,10 @@ import {
     doc,
     setDoc,
     getDocs,
-    deleteDoc,
     updateDoc,
     deleteField,
     query,
+    where,
     getCountFromServer,
     onSnapshot,
     type QuerySnapshot,
@@ -32,6 +32,10 @@ const _QUARANTINE_COLLECTION = '_unrecognized_analyses';
 const LOCAL_CACHE_KEY = 'lemon-local-analyses';
 const MIGRATION_KEY = 'lemon-migration-v6-done';
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+function isQuarantined(record: Record<string, unknown>): boolean {
+    return Boolean(record._quarantined_at);
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -213,13 +217,16 @@ async function backgroundFirestoreSync(): Promise<void> {
         // Load authoritative data from Firestore
         const q = query(collection(db, FIRESTORE_COLLECTION));
         const snapshot = await getDocs(q);
+        const firestoreKeys = new Set(
+            snapshot.docs.map((d) => (d.data() as Record<string, unknown>).source_file as string),
+        );
 
-        const firestoreData = snapshot.docs.map((d) => {
-            const data = d.data() as Record<string, unknown>;
-            return Object.fromEntries(
-                Object.entries(data).filter(([k]) => k !== '_savedAt' && k !== '_docId' && k !== '_quarantined_at' && k !== '_quarantine_reason' && k !== '_original_collection')
-            ) as Record<string, unknown>;
-        });
+        const firestoreData = snapshot.docs
+            .map((d) => d.data() as Record<string, unknown>)
+            .filter((data) => !isQuarantined(data))
+            .map((data) => Object.fromEntries(
+                Object.entries(data).filter(([k]) => k !== '_savedAt' && k !== '_docId')
+            ) as Record<string, unknown>);
 
         if (firestoreData.length === 0) {
             // Firestore is empty — wipe localStorage to match
@@ -232,10 +239,11 @@ async function backgroundFirestoreSync(): Promise<void> {
         // Push any localStorage-only items that Firestore doesn't have yet
         // (e.g. items written while offline / App Check was broken).
         const localData = readFromLocal();
-        const firestoreKeys = new Set(firestoreData.map((f) => f.source_file as string));
-
         const localOnlyItems = localData.filter(
-            (l) => l.source_file && !firestoreKeys.has(l.source_file as string)
+            (l) =>
+                l.source_file &&
+                !isQuarantined(l) &&
+                !firestoreKeys.has(l.source_file as string),
         );
 
         if (localOnlyItems.length > 0) {
@@ -307,7 +315,7 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
  *             load DIRECTLY from Firestore so the UI shows real data on first load.
  */
 export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
-    const localData = readFromLocal().filter((a) => !a._deleted_at);
+    const localData = readFromLocal().filter((a) => !a._deleted_at && !isQuarantined(a));
 
     if (localData.length > 0) {
         // Fast path: localStorage has data — return instantly, sync in background
@@ -332,14 +340,11 @@ export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
         const snapshot = await getDocs(q);
 
         const firestoreData = snapshot.docs
-            .map((d) => {
-                const data = d.data() as Record<string, unknown>;
-                return Object.fromEntries(
-                    Object.entries(data).filter(
-                        ([k]) => k !== '_savedAt' && k !== '_docId' && k !== '_quarantined_at' && k !== '_quarantine_reason' && k !== '_original_collection'
-                    )
-                ) as Record<string, unknown>;
-            })
+            .map((d) => d.data() as Record<string, unknown>)
+            .filter((data) => !isQuarantined(data))
+            .map((data) => Object.fromEntries(
+                Object.entries(data).filter(([k]) => k !== '_savedAt' && k !== '_docId')
+            ) as Record<string, unknown>)
             .filter((d) => !d._deleted_at);
 
         if (firestoreData.length > 0) {
@@ -394,7 +399,9 @@ export function subscribeToAnalyses(
         q,
         (snapshot: QuerySnapshot<DocumentData>) => {
             const next = snapshot.docs
-                .map((d) => stripInternals(d.data() as Record<string, unknown>))
+                .map((d) => d.data() as Record<string, unknown>)
+                .filter((data) => !isQuarantined(data))
+                .map((data) => stripInternals(data))
                 .filter((d) => !d._deleted_at);
 
             // Mirror to localStorage so the next cold-load is fast.
@@ -550,8 +557,8 @@ export function getDeletedAnalyses(): Record<string, unknown>[] {
 
 /**
  * Quarantine a document that failed type-guard validation.
- * Copies the document to _unrecognized_analyses with metadata,
- * then removes it from the source collection and localStorage.
+ * Marks the source document as quarantined and removes it from localStorage.
+ * The source remains intact for Admin SDK/manual recovery and audit purposes.
  */
 export async function quarantineAnalysis(
     raw: Record<string, unknown>,
@@ -564,38 +571,39 @@ export async function quarantineAnalysis(
     const docId = toDocId(sourceFile);
 
     try {
-        // Copy to quarantine collection with metadata
-        await setDoc(doc(db, _QUARANTINE_COLLECTION, docId), {
-            ...raw,
+        await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), {
             _quarantined_at: new Date().toISOString(),
             _quarantine_reason: reason,
             _original_collection: FIRESTORE_COLLECTION,
         });
-
-        // Remove from source collection
-        await deleteDoc(doc(db, FIRESTORE_COLLECTION, docId));
 
         // Remove from localStorage
         const existing = readFromLocal();
         const filtered = existing.filter((a) => a.source_file !== sourceFile);
         writeToLocal(filtered);
 
-        console.log(`[Lemon] Quarantined "${sourceFile}" to ${_QUARANTINE_COLLECTION}: ${reason}`);
+        console.log(`[Lemon] Soft-quarantined "${sourceFile}": ${reason}`);
     } catch (err) {
         console.warn(`[Lemon] Quarantine failed for "${sourceFile}":`, err);
     }
 }
 
 /**
- * Get count of quarantined documents in the _unrecognized_analyses collection.
+ * Get count of soft-quarantined and legacy quarantine documents.
  * Returns 0 if the collection is empty or on error.
  */
 export async function getQuarantineCount(): Promise<number> {
     try {
         await authReady;
-        const coll = collection(db, _QUARANTINE_COLLECTION);
-        const snapshot = await getCountFromServer(coll);
-        return snapshot.data().count;
+        const softQuarantineQuery = query(
+            collection(db, FIRESTORE_COLLECTION),
+            where('_quarantined_at', '>', ''),
+        );
+        const [softSnapshot, legacySnapshot] = await Promise.all([
+            getCountFromServer(softQuarantineQuery),
+            getCountFromServer(collection(db, _QUARANTINE_COLLECTION)),
+        ]);
+        return softSnapshot.data().count + legacySnapshot.data().count;
     } catch {
         return 0;
     }

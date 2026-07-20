@@ -35,12 +35,8 @@ export function useCountUp(
   useEffect(() => {
     if (!trigger) return;
 
-    // Reduced-motion users get the live value with no animation.
-    if (prefersReducedMotion) {
-      valueRef.current = target;
-      setValue(target);
-      return;
-    }
+    // Reduced-motion users receive the live target directly below.
+    if (prefersReducedMotion) return;
 
     const from = valueRef.current;
     if (from === target) return;
@@ -71,5 +67,6 @@ export function useCountUp(
     };
   }, [target, duration, trigger]);
 
-  return trigger ? value : 0;
+  if (!trigger) return 0;
+  return prefersReducedMotion ? target : value;
 }
