@@ -68,7 +68,7 @@ export function isV7RawAnalysis(raw: unknown): boolean {
   // 'v8_archaeology' / 'v8_triage' = intermediate test documents (backward compat)
   // 'v9_archaeology' / 'v9_triage' = current engine (source of truth)
   // 'v7' = old browser inline path (backward compat)
-  return (
+  const isRecognizedVersion = (
     v === 'v9_archaeology' ||
     v === 'v9_triage' ||
     v === 'v8_archaeology' ||
@@ -76,6 +76,32 @@ export function isV7RawAnalysis(raw: unknown): boolean {
     v === 'v7_archaeology' ||
     v === 'v7_triage' ||
     v === 'v7'
+  );
+  if (!isRecognizedVersion || !r.analysis || typeof r.analysis !== 'object') return false;
+
+  const analysis = r.analysis as Record<string, unknown>;
+  if (typeof analysis.title !== 'string' || analysis.title.trim().length === 0) return false;
+  if (typeof analysis.verdict !== 'string' || analysis.verdict.trim().length === 0) return false;
+
+  const isFiniteScore = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10;
+
+  if (String(v).endsWith('_triage')) {
+    return isFiniteScore(analysis.triage_score);
+  }
+
+  if (!isFiniteScore(analysis.weighted_score)) return false;
+  if (!analysis.pillar_scores || typeof analysis.pillar_scores !== 'object') return false;
+  const pillars = analysis.pillar_scores as Record<string, unknown>;
+  return ['structure', 'character', 'craft_scene', 'concept', 'emotional_resonance'].every(
+    (name) => {
+      const pillar = pillars[name];
+      return Boolean(
+        pillar &&
+        typeof pillar === 'object' &&
+        isFiniteScore((pillar as Record<string, unknown>).score),
+      );
+    },
   );
 }
 
@@ -112,7 +138,11 @@ export function normalizeV7Screenplay(
   const craftScore = pillarScores?.craft_scene?.score ?? 0;
   const conceptScore = pillarScores?.concept?.score ?? 0;
   const emotionScore = pillarScores?.emotional_resonance?.score ?? 0;
-  const weightedScore = typeof analysis.weighted_score === 'number' ? analysis.weighted_score : 0;
+  const weightedScore = typeof analysis.weighted_score === 'number'
+    ? analysis.weighted_score
+    : typeof analysis.triage_score === 'number'
+      ? analysis.triage_score
+      : 0;
 
   // Map 5-pillar → legacy 7-dimension (best-effort mapping)
   const dimensionScores: DimensionScores = {

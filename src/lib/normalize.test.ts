@@ -174,6 +174,18 @@ function createMockV9Raw(overrides: Record<string, unknown> = {}): Record<string
     };
 }
 
+function createMockTriageRaw(analysisVersion: string): Record<string, unknown> {
+    return {
+        source_file: 'Triage_Test.pdf',
+        analysis_version: analysisVersion,
+        analysis: {
+            title: 'Triage Test',
+            verdict: 'CONSIDER',
+            triage_score: 6.5,
+        },
+    };
+}
+
 // ─── normalizeScreenplay ────────────────────────────────────
 
 describe('normalizeScreenplay', () => {
@@ -511,31 +523,52 @@ describe('normalizeTmdbStatus', () => {
 
 describe('isV7RawAnalysis', () => {
     it('returns true for v7_archaeology', () => {
-        expect(isV7RawAnalysis({ analysis_version: 'v7_archaeology' })).toBe(true);
+        expect(isV7RawAnalysis(createMockV9Raw({ analysis_version: 'v7_archaeology' }))).toBe(true);
     });
 
     it('returns true for v8_archaeology', () => {
-        expect(isV7RawAnalysis({ analysis_version: 'v8_archaeology' })).toBe(true);
+        expect(isV7RawAnalysis(createMockV9Raw({ analysis_version: 'v8_archaeology' }))).toBe(true);
     });
 
     it('returns true for v9_archaeology', () => {
-        expect(isV7RawAnalysis({ analysis_version: 'v9_archaeology' })).toBe(true);
+        expect(isV7RawAnalysis(createMockV9Raw())).toBe(true);
     });
 
     it('returns true for v7_triage', () => {
-        expect(isV7RawAnalysis({ analysis_version: 'v7_triage' })).toBe(true);
+        expect(isV7RawAnalysis(createMockTriageRaw('v7_triage'))).toBe(true);
     });
 
     it('returns true for v8_triage', () => {
-        expect(isV7RawAnalysis({ analysis_version: 'v8_triage' })).toBe(true);
+        expect(isV7RawAnalysis(createMockTriageRaw('v8_triage'))).toBe(true);
     });
 
     it('returns true for v9_triage', () => {
-        expect(isV7RawAnalysis({ analysis_version: 'v9_triage' })).toBe(true);
+        expect(isV7RawAnalysis(createMockTriageRaw('v9_triage'))).toBe(true);
     });
 
     it('returns true for plain v7 (legacy browser path)', () => {
-        expect(isV7RawAnalysis({ analysis_version: 'v7' })).toBe(true);
+        expect(isV7RawAnalysis(createMockV9Raw({ analysis_version: 'v7' }))).toBe(true);
+    });
+
+    it('rejects a version-only document that would become a blank zero-score card', () => {
+        expect(isV7RawAnalysis({ analysis_version: 'v9_archaeology' })).toBe(false);
+    });
+
+    it('rejects archaeology output with a missing pillar score', () => {
+        const raw = createMockV9Raw();
+        const analysis = raw.analysis as Record<string, unknown>;
+        const pillars = analysis.pillar_scores as Record<string, unknown>;
+        delete pillars.structure;
+        expect(isV7RawAnalysis(raw)).toBe(false);
+    });
+
+    it('accepts a genuine zero score when all required values are present', () => {
+        const raw = createMockV9Raw();
+        const analysis = raw.analysis as Record<string, unknown>;
+        analysis.weighted_score = 0;
+        const pillars = analysis.pillar_scores as Record<string, { score: number }>;
+        Object.values(pillars).forEach((pillar) => { pillar.score = 0; });
+        expect(isV7RawAnalysis(raw)).toBe(true);
     });
 
     it('returns false for v6_unified', () => {

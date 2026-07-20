@@ -24,6 +24,7 @@ import { uploadPdfToIngestQueue } from '@/lib/firebase';
 import { subscribeToIngestJob } from '@/lib/ingestQueueClient';
 import useCategories from '@/hooks/useCategories';
 import { useToastStore } from '@/stores/toastStore';
+import { getPdfFileError } from '@/lib/pdfValidation';
 
 import { ApiConfigToggle } from './upload/ApiConfigToggle';
 import { ModelSelector } from './upload/ModelSelector';
@@ -104,7 +105,11 @@ export function UploadPanel() {
     // Process all files in parallel — hashing is async but local-only.
     await Promise.all(
       Array.from(files).map(async (file) => {
-        if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) return;
+        const fileError = getPdfFileError(file);
+        if (fileError) {
+          useToastStore.getState().addToast(fileError, 'warning');
+          return;
+        }
         const jobId = addJob(file.name, selectedCategory, file);
 
         // Layer 1 (fast): title-match against already-loaded screenplays.
