@@ -6,10 +6,11 @@ import { ErrorBoundary, LoadingFallback, ToastContainer } from '@/components/ui'
 import { AuthGate } from '@/components/auth';
 import './index.css';
 import App from './App';
+import { importWithReload } from '@/lib/lazyWithReload';
 
 // Lazy-loaded routes — loaded on demand for code splitting
-const SettingsPage = lazy(() => import('./pages/SettingsPage'));
-const SharedViewPage = lazy(() => import('./pages/SharedViewPage'));
+const SettingsPage = lazy(() => importWithReload('settings', () => import('./pages/SettingsPage')));
+const SharedViewPage = lazy(() => importWithReload('shared-view', () => import('./pages/SharedViewPage')));
 
 // Create React Query client
 const queryClient = new QueryClient({

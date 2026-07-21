@@ -454,6 +454,10 @@ def call_llm(
                     f"Proxy auth rejected ({resp.status_code}). Check PROXY_SERVICE_KEY "
                     f"matches functions/.env. Body: {resp.text[:200]}"
                 )
+            if resp.status_code == 400:
+                raise RuntimeError(
+                    f"Proxy rejected the request (400). Body: {resp.text[:500]}"
+                )
             resp.raise_for_status()
             data = resp.json()
 
