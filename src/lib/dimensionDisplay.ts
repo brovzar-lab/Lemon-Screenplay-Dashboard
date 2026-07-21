@@ -2,13 +2,10 @@
  * Dimension Display Adapter
  * Returns version-appropriate dimension labels and scores.
  *
- * V5 screenplays have 7 flat dimensions.
- * V6 screenplays have 4 weighted pillars (Execution Craft, Character System,
- * Conceptual Strength, Voice & Tone) that are semantically different from V5.
  * V9 screenplays have 5 weighted pillars from the Archaeology Engine (Structure,
- * Character, Craft & Scene, Concept, Emotional Resonance).
- *
- * Without this adapter, V6/V9 screenplays show mislabeled V5 labels.
+ * Character, Craft & Scene, Concept, Emotional Resonance). Documents without
+ * pillar scores (e.g. triage-only stubs) fall back to the flat 7-dimension
+ * display defined in DIMENSION_CONFIG.
  */
 
 import type { Screenplay } from '@/types';
@@ -77,6 +74,6 @@ export function getDimensionDisplay(screenplay: Screenplay): DimensionDisplayIte
  */
 export function getAnalysisVersionLabel(screenplay: Screenplay): string {
   if (hasPillarScores(screenplay)) return 'V9 (5-Reader Archaeology)';
-  return 'V5 (7-Dimension)';
+  return 'Legacy (no pillar scores)';
 }
 

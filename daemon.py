@@ -697,8 +697,8 @@ def process_job(job: dict) -> None:
             "analysis_model": f"claude-{model_key}",
             # V9 hard versioning — distinguishes the current rigorous engine
             # (tool_use + caching + thinking + traps + Story-vs-Situation gate)
-            # from the legacy v7 simple-prompt path. The frontend normalizer
-            # accepts both v9_archaeology and v7_archaeology.
+            # from earlier engine iterations. The frontend normalizer
+            # accepts v9_archaeology plus legacy v8/v7 labels.
             "analysis_version": "v9_archaeology",
             "collection_id": collection_id,
             "collection": collection_id,     # Normalizer reads this field name

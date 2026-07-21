@@ -9,7 +9,7 @@
 const STORAGE_KEY = 'lemon-local-analyses';
 
 /**
- * Save a raw V6 analysis result to localStorage.
+ * Save a raw analysis result to localStorage.
  */
 export function saveLocalAnalysis(raw: Record<string, unknown>): void {
   const existing = loadLocalAnalyses();

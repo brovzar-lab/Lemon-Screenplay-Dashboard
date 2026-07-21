@@ -26,7 +26,7 @@ export type USPStrength = 'Weak' | 'Moderate' | 'Strong';
 
 export type CriticalFailureSeverity = 'minor' | 'moderate' | 'major' | 'critical';
 
-// V6 detailed critical failure with penalty
+// Detailed critical failure with penalty (V9 engine output)
 export interface CriticalFailureDetail {
   failure: string;
   severity: CriticalFailureSeverity;
@@ -212,7 +212,7 @@ export interface CommercialViability {
   budgetReturnRatio: CVSFactor;
   comparableSuccess: CVSFactor;
   cvsTotal: number;
-  /** False when V6 commercial lens was disabled — scores are placeholder zeros */
+  /** False when the commercial lens was disabled — scores are placeholder zeros */
   cvsAssessed: boolean;
 }
 
@@ -345,7 +345,7 @@ export interface Screenplay {
 
   // Critical Assessment
   criticalFailures: string[]; // Display-friendly list (flattened from detail objects)
-  criticalFailureDetails: CriticalFailureDetail[]; // V6+ detailed failures with severity/penalty
+  criticalFailureDetails: CriticalFailureDetail[]; // Detailed failures with severity/penalty
   criticalFailureTotalPenalty: number; // Sum of penalties (max -3.0)
   majorWeaknesses: string[];
   strengths: string[];

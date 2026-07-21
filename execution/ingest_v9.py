@@ -7,7 +7,9 @@
 Rewrites ingest_screenplays.py for the current production stack:
   • V9 Archaeology Engine  (5-reader parallel → synthesis)
   • Firebase Firestore     (collection: uploaded_analyses)
-  • Firebase Storage       (path: screenplays/{category}/{title}.pdf)
+  • Firebase Storage       (NOTE: docs get a _storagePath pointer to
+    screenplays/{category}/{title}.pdf but no code uploads the PDF there —
+    known gap, slated for the pipeline-safety work)
   • Live LLM Proxy         (Firebase Cloud Function → Anthropic)
   • TMDB pre-screening     (skip already-produced films)
 
@@ -232,7 +234,7 @@ def to_doc_id(source_file: str) -> str:
 
 
 def write_to_firestore(raw: Dict[str, Any]) -> bool:
-    """Write raw V7 analysis document to Firestore.
+    """Write raw V9 analysis document to Firestore.
     Matches the format expected by saveAnalysis() in analysisStore.ts.
     """
     if _db is None:
@@ -282,7 +284,7 @@ def parse_pdf(pdf_path: Path) -> Optional[Dict[str, Any]]:
         return None
 
     import subprocess
-    output_dir = LOG_DIR / "parsed_v7"
+    output_dir = LOG_DIR / "parsed_v9"
     output_dir.mkdir(exist_ok=True)
     output_path = output_dir / (pdf_path.stem + ".json")
 
@@ -532,7 +534,7 @@ def extract_json(text: str) -> Dict[str, Any]:
     raise ValueError(f"No valid JSON found in LLM response (first 200 chars): {text[:200]}")
 
 
-# ── V7 Reader Prompts ─────────────────────────────────────────────────────────
+# ── V9 Reader Prompts ─────────────────────────────────────────────────────────
 
 def _truncate(text: str, max_chars: int = MAX_CHARS) -> str:
     """Truncate screenplay text to the character limit with a clear marker."""
@@ -2643,7 +2645,7 @@ def run_v9_triage(
     return analysis, usage
 
 
-# ── Raw V7 Document Builder ───────────────────────────────────────────────────
+# ── Raw V9 Document Builder ───────────────────────────────────────────────────
 
 def build_raw_document(
     pdf_path: Path,
@@ -2914,7 +2916,7 @@ def run_batch(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Lemon Studios — V7 Screenplay Ingestion Pipeline",
+        description="Lemon Studios — V9 Screenplay Ingestion Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

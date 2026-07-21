@@ -251,7 +251,7 @@ export function getPendingWriteCount(): number {
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Save a raw V6 analysis result.
+ * Save a raw V9 analysis result.
  * ALWAYS writes to localStorage immediately, then attempts Firestore.
  * If Firestore fails, queues for retry on next load.
  */

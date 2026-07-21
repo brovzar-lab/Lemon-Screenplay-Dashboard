@@ -2,7 +2,7 @@
  * Producer Metrics & Score Utilities
  *
  * Market Potential and USP Strength are now AI-analyzed (returned from the
- * V6 prompt). This module provides:
+ * V9 engine). This module provides:
  * - `createProducerMetrics` — builds a ProducerMetrics from AI data or null
  * - Genre canonical map for consistent matching across the app
  * - Score color/class utilities
