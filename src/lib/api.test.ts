@@ -30,4 +30,36 @@ describe('normalizeAnalyses quarantine visibility', () => {
       }),
     );
   });
+
+  it('keeps same-title screenplays visible when they belong to different projects', async () => {
+    const archaeologyDoc = (projectId: string, sourceFile: string) => ({
+      project_id: projectId,
+      source_file: sourceFile,
+      analysis_version: 'v9_archaeology',
+      collection: 'LEMON',
+      analysis: {
+        title: 'Shared Title',
+        verdict: 'CONSIDER',
+        weighted_score: 7,
+        pillar_scores: {
+          structure: { score: 7, evidence: 'evidence' },
+          character: { score: 7, evidence: 'evidence' },
+          craft_scene: { score: 7, evidence: 'evidence' },
+          concept: { score: 7, evidence: 'evidence' },
+          emotional_resonance: { score: 7, evidence: 'evidence' },
+        },
+      },
+    });
+
+    const result = await normalizeAnalyses([
+      archaeologyDoc('shared-title-original', 'Shared Title.pdf'),
+      archaeologyDoc('shared-title-separate', 'Shared Title (Separate).pdf'),
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result.map((screenplay) => screenplay.projectId)).toEqual([
+      'shared-title-original',
+      'shared-title-separate',
+    ]);
+  });
 });

@@ -8,7 +8,7 @@
  *   - Watchdog              (Cloud Function — resets stuck docs)
  *   - Dashboard             (React — reads progress)
  *
- * SCHEMA VERSION: 1
+ * SCHEMA VERSION: 3
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DAILY_BUDGET_LIMIT = exports.SYSTEM_COLLECTION = exports.INGEST_QUEUE_COLLECTION = exports.VALID_COLLECTIONS = void 0;
@@ -23,6 +23,10 @@ function buildPendingJob(params) {
         collection_id: params.collection_id,
         filename: params.filename,
         storage_path: params.storage_path,
+        storage_generation: params.storage_generation,
+        upload_id: params.upload_id ?? null,
+        target_project_id: params.target_project_id ?? null,
+        separate_project: params.separate_project ?? false,
         content_hash: params.content_hash,
         status: 'pending',
         attempt_count: 0,

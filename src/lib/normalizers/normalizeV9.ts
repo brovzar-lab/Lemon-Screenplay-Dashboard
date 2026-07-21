@@ -238,6 +238,10 @@ export function normalizeV9Screenplay(
 
   return {
     id: generateId(sourceFile),
+    projectId:
+      typeof raw.project_id === 'string' && raw.project_id.trim()
+        ? raw.project_id
+        : undefined,
     title: String(analysis.title || ''),
     author: (() => {
       const rawAuthor = String(analysis.author || '');

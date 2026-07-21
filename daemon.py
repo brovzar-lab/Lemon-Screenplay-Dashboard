@@ -45,6 +45,7 @@ REQUIRED ENV VARS
 
 OPTIONAL ENV VARS
 ──────────────────
+  FIREBASE_STORAGE_BUCKET — explicit bucket name (defaults to production bucket)
   TMDB_API_KEY          — for produced-film pre-screening
   DAEMON_CONCURRENCY    — parallel workers (default: 2; stay at 2 for Tier 1)
   DAEMON_POLL_INTERVAL  — seconds between Firestore polls (default: 10)
@@ -54,7 +55,6 @@ OPTIONAL ENV VARS
 """
 
 import asyncio
-import hashlib
 import json
 import logging
 import logging.handlers
@@ -69,6 +69,14 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+from execution.content_identity import (
+    build_separate_project_id,
+    compute_content_hash,
+    queued_at_millis,
+    verified_identity_fields,
+)
+from execution.firebase_config import resolve_storage_bucket
 
 # ── Dependency guard ──────────────────────────────────────────────────────────
 
@@ -109,10 +117,9 @@ log = logging.getLogger("lemon.daemon")
 
 # ── Config from env ───────────────────────────────────────────────────────────
 
-PROJECT_ID        = os.getenv("FIREBASE_PROJECT_ID", "lemon-screenplay-dashboard")
 # Newer Firebase projects use {project}.firebasestorage.app; legacy ones use
 # {project}.appspot.com. Default to the new domain; override via env if needed.
-STORAGE_BUCKET    = os.getenv("FIREBASE_STORAGE_BUCKET", f"{PROJECT_ID}.firebasestorage.app")
+STORAGE_BUCKET    = resolve_storage_bucket()
 CONCURRENCY       = int(os.getenv("DAEMON_CONCURRENCY", "2"))
 POLL_INTERVAL     = int(os.getenv("DAEMON_POLL_INTERVAL", "10"))
 WORK_DIR          = Path(os.getenv("DAEMON_WORK_DIR", "/tmp/lemon"))
@@ -150,8 +157,8 @@ def init_firebase() -> None:
 
     _db = fb_firestore.client()
     try:
-        _bucket = fb_storage.bucket()
-        log.info("Firebase Storage connected")
+        _bucket = fb_storage.bucket(STORAGE_BUCKET)
+        log.info(f"Firebase Storage connected: {STORAGE_BUCKET}")
     except Exception as e:
         log.warning(f"Storage init failed (PDF downloads disabled): {e}")
 
@@ -356,16 +363,6 @@ def download_pdf(storage_path: str, workdir: Path) -> Path:
     log.info(f"[download] ✓ {filename} ({local_path.stat().st_size / 1024:.1f} KB)")
     return local_path
 
-# ── Content hash ──────────────────────────────────────────────────────────────
-
-def compute_content_hash(pdf_path: Path) -> str:
-    """SHA-256 of the raw PDF bytes — the idempotency key."""
-    sha256 = hashlib.sha256()
-    with open(pdf_path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
-
 def is_already_complete(content_hash: str) -> bool:
     """Return True if a job with this hash already completed successfully."""
     existing = (
@@ -376,6 +373,48 @@ def is_already_complete(content_hash: str) -> bool:
         .stream()
     )
     return any(True for _ in existing)
+
+
+def resolve_target_project_id(value: object) -> Optional[str]:
+    """Validate that an explicitly targeted revision parent already exists."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("target_project_id must be a Firestore document ID")
+
+    target_project_id = value.strip()
+    if (
+        not target_project_id
+        or len(target_project_id) > 200
+        or "/" in target_project_id
+    ):
+        raise ValueError("target_project_id must be a Firestore document ID")
+
+    parent = _db.collection(OUTPUT_COLLECTION).document(target_project_id).get()
+    if not parent.exists:
+        raise ValueError(
+            f"target_project_id does not exist: {target_project_id}"
+        )
+    return target_project_id
+
+
+def choose_output_project_id(
+    *,
+    filename_project_id: str,
+    target_project_id: Optional[str],
+    separate_project: object,
+    upload_id: object,
+) -> Optional[str]:
+    """Resolve an explicit revision/separate choice before parsing or AI spend."""
+    if not isinstance(separate_project, bool):
+        raise ValueError("separate_project must be a boolean")
+    if target_project_id and separate_project:
+        raise ValueError("A job cannot be both a revision and a separate project")
+    if target_project_id:
+        return target_project_id
+    if separate_project:
+        return build_separate_project_id(filename_project_id, upload_id)
+    return None
 
 # ── PDF validation (pre-flight before calling Anthropic) ─────────────────────
 
@@ -540,6 +579,54 @@ def backoff_sleep(attempt: int, base: float = 2.0, cap: float = 60.0) -> None:
     log.info(f"[backoff] Sleeping {actual:.1f}s (attempt {attempt})")
     time.sleep(actual)
 
+# ── Raw analysis document ─────────────────────────────────────────────────────
+
+def build_raw_document(
+    *,
+    filename: str,
+    model_key: str,
+    collection_id: str,
+    page_count: int,
+    word_count: int,
+    analysis: dict,
+    usage: dict,
+    job_id: str,
+    content_hash: str,
+    queued_at_ms: int,
+    tmdb_status: Optional[dict],
+    target_project_id: Optional[str] = None,
+    storage_path: Optional[str] = None,
+    storage_generation: Optional[str] = None,
+) -> dict:
+    """Build the daemon's V9 parent document using the shared identity contract."""
+    raw_doc = {
+        "source_file": filename,
+        "analysis_model": f"claude-{model_key}",
+        "analysis_version": "v9_archaeology",
+        "collection_id": collection_id,
+        "collection": collection_id,
+        "tmdb_status": tmdb_status,
+        "metadata": {
+            "filename": filename,
+            "page_count": page_count,
+            "word_count": word_count,
+        },
+        "analysis": analysis,
+        "usage": usage,
+        "_ingest_job_id": job_id,
+        "_worker_id": WORKER_ID,
+        "queued_at_ms": queued_at_millis(queued_at_ms),
+        **verified_identity_fields(content_hash),
+    }
+    if target_project_id:
+        raw_doc["project_id"] = target_project_id
+    if storage_path:
+        raw_doc["storage_path"] = storage_path
+        raw_doc["_storagePath"] = storage_path
+    if storage_generation:
+        raw_doc["storage_generation"] = storage_generation
+    return raw_doc
+
 # ── Core job processor ────────────────────────────────────────────────────────
 
 def process_job(job: dict) -> None:
@@ -557,6 +644,7 @@ def process_job(job: dict) -> None:
     storage_path  = job.get("storage_path", "")
     requested_model = job.get("requested_model", "auto")
     attempt_count = job.get("attempt_count", 1)
+    storage_generation = job.get("storage_generation")
 
     log.info(f"━━━ Processing: {filename} [{collection_id}] (attempt {attempt_count}) ━━━")
     start_time = time.time()
@@ -570,6 +658,8 @@ def process_job(job: dict) -> None:
     workdir.mkdir(parents=True, exist_ok=True)
 
     try:
+        queued_at_ms = queued_at_millis(job.get("queued_at"))
+
         # ── 1. Download PDF ────────────────────────────────────────────────
         if not _bucket:
             raise RuntimeError("Firebase Storage not connected — cannot download PDF")
@@ -586,6 +676,9 @@ def process_job(job: dict) -> None:
             log.info(f"[job] {job_id} → Skipped (duplicate content hash: {content_hash[:8]}…)")
             return
 
+        # A renamed revision may only attach to a real existing project.
+        target_project_id = resolve_target_project_id(job.get("target_project_id"))
+
         # ── 3. Run analysis via V9 Archaeology Engine ──────────────────────
         # Import the V9 engine (runs in the same Python process)
         ingest_dir = Path(__file__).parent / "execution"
@@ -599,8 +692,20 @@ def process_job(job: dict) -> None:
         # Init Firebase in the ingest_v9 module context (shares _db from admin SDK)
         ingest_v9.init_firebase()
 
+        # An explicit title collision gets a unique, retry-stable parent. Resolve
+        # this before parsing or AI spend so malformed queue identity fails free.
+        separate_project = job.get("separate_project", False)
+        project_id = choose_output_project_id(
+            filename_project_id=(
+                ingest_v9.to_doc_id(filename) if separate_project is True else ""
+            ),
+            target_project_id=target_project_id,
+            separate_project=separate_project,
+            upload_id=job.get("upload_id"),
+        )
+
         # Parse PDF
-        parsed = ingest_v9.parse_pdf(local_pdf)
+        parsed = ingest_v9.parse_pdf(local_pdf, content_hash=content_hash)
         if parsed is None:
             mark_skipped(
                 job_id, "pdf_parse_failed",
@@ -692,37 +797,31 @@ def process_job(job: dict) -> None:
             )
 
         # ── 9. Build full document and write to Firestore ─────────────────
-        raw_doc = {
-            "source_file": filename,
-            "analysis_model": f"claude-{model_key}",
-            # V9 hard versioning — distinguishes the current rigorous engine
-            # (tool_use + caching + thinking + traps + Story-vs-Situation gate)
-            # from earlier engine iterations. The frontend normalizer
-            # accepts v9_archaeology plus legacy v8/v7 labels.
-            "analysis_version": "v9_archaeology",
-            "collection_id": collection_id,
-            "collection": collection_id,     # Normalizer reads this field name
-            # TMDB pre-screen result — written here so the frontend hideProduced
-            # filter works even when the film passed the pre-screen (is_produced=False).
-            # None when the TMDB check failed (treated as unknown by the frontend).
-            "tmdb_status": tmdb_status,
-            "metadata": {
-                "filename": filename,
-                "page_count": page_count,
-                "word_count": word_count,
-            },
-            "analysis": analysis,
-            "usage": usage,
-            "_ingest_job_id": job_id,
-            "_worker_id": WORKER_ID,
-        }
+        raw_doc = build_raw_document(
+            filename=filename,
+            model_key=model_key,
+            collection_id=collection_id,
+            page_count=page_count,
+            word_count=word_count,
+            analysis=analysis,
+            usage=usage,
+            job_id=job_id,
+            content_hash=content_hash,
+            queued_at_ms=queued_at_ms,
+            tmdb_status=tmdb_status,
+            target_project_id=project_id,
+            storage_path=storage_path,
+            storage_generation=(
+                str(storage_generation) if storage_generation is not None else None
+            ),
+        )
 
         success = ingest_v9.write_to_firestore(raw_doc)
         if not success:
             raise RuntimeError("Firestore write failed — will retry")
 
         # Derive the doc ID the way write_to_firestore does
-        screenplay_doc_id = ingest_v9.to_doc_id(filename)
+        screenplay_doc_id = project_id or ingest_v9.to_doc_id(filename)
 
         # ── 10. Mark complete with telemetry ──────────────────────────────
         duration = round(time.time() - start_time)

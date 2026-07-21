@@ -72,13 +72,15 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
 
     const seen = new Map<string, Screenplay>();
     for (const sp of screenplays) {
-        const key = (sp.title || '').toLowerCase().trim();
+        // Parent project identity determines whether records are revisions.
+        // Different projects are allowed to share the same title.
+        const key = sp.projectId || sp.id;
         seen.set(key, sp);
     }
     const deduplicated = Array.from(seen.values());
 
     console.log(
-        `[Lemon] Prepared ${deduplicated.length} unique screenplays in ${Math.round(performance.now() - t0)}ms`,
+        `[Lemon] Prepared ${deduplicated.length} unique projects in ${Math.round(performance.now() - t0)}ms`,
     );
     return deduplicated;
 }

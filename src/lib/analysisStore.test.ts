@@ -43,6 +43,51 @@ const mockSetDoc = vi.fn().mockImplementation(() => {
     callOrder.push('setDoc');
     return Promise.resolve();
 });
+const mockTransactionSet = vi.fn();
+let mockParentSnapshotData: Record<string, unknown> | undefined;
+let mockVersionSnapshotData: Record<string, unknown> | undefined;
+const mockTransactionGet = vi.fn(async (reference: unknown) => {
+    const data =
+        reference === 'mock-version-doc-ref' ? mockVersionSnapshotData : mockParentSnapshotData;
+    return {
+        exists: () => data !== undefined,
+        data: () => data,
+    };
+});
+const mockRunTransaction = vi.fn();
+
+class MockTimestamp {
+    readonly milliseconds: number;
+
+    private constructor(milliseconds: number) {
+        this.milliseconds = milliseconds;
+    }
+
+    static fromMillis(milliseconds: number): MockTimestamp {
+        return new MockTimestamp(milliseconds);
+    }
+
+    toMillis(): number {
+        return this.milliseconds;
+    }
+}
+
+function resetTransactionMock(): void {
+    mockParentSnapshotData = undefined;
+    mockVersionSnapshotData = undefined;
+    mockTransactionGet.mockClear();
+    mockTransactionSet.mockClear();
+    mockRunTransaction.mockReset();
+    mockRunTransaction.mockImplementation(
+        async (_db: unknown, update: (tx: unknown) => unknown) => {
+            callOrder.push('runTransaction');
+            return update({
+                get: mockTransactionGet,
+                set: mockTransactionSet,
+            });
+        },
+    );
+}
 const mockGetCountFromServer = vi.fn().mockImplementation(() => {
     callOrder.push('getCountFromServer');
     return Promise.resolve({ data: () => ({ count: 5 }) });
@@ -72,11 +117,15 @@ const mockOnSnapshot = vi.fn(
 
 vi.mock('firebase/firestore', () => ({
     collection: vi.fn(() => 'mock-collection-ref'),
-    doc: vi.fn(() => 'mock-doc-ref'),
+    doc: vi.fn((...args: unknown[]) =>
+        args.includes('versions') ? 'mock-version-doc-ref' : 'mock-doc-ref',
+    ),
     query: vi.fn((ref: unknown) => ref),
     where: vi.fn(() => 'mock-where-constraint'),
     getDocs: (...args: unknown[]) => mockGetDocs(...args),
     setDoc: (...args: unknown[]) => mockSetDoc(...args),
+    runTransaction: (...args: unknown[]) => mockRunTransaction(...args),
+    Timestamp: MockTimestamp,
     getCountFromServer: (...args: unknown[]) => mockGetCountFromServer(...args),
     updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
     deleteField: () => mockDeleteField(),
@@ -103,6 +152,7 @@ describe('analysisStore authReady gates', () => {
         callOrder.length = 0;
         mockGetDocs.mockClear();
         mockSetDoc.mockClear();
+        resetTransactionMock();
         mockUpdateDoc.mockClear();
         mockDeleteField.mockClear();
         mockGetCountFromServer.mockClear();
@@ -149,6 +199,103 @@ describe('analysisStore authReady gates', () => {
         const setDocIdx = callOrder.indexOf('setDoc');
         expect(authIdx).toBeGreaterThanOrEqual(0);
         expect(setDocIdx).toBeGreaterThan(authIdx);
+    });
+
+    it('atomically creates a typed immutable version and advances its parent', async () => {
+        const contentHash = 'ef'.repeat(32);
+        const queuedAtMs = 1_784_588_800_123;
+        const versionId = `${contentHash}_${queuedAtMs}`;
+        const { saveAnalysis } = await import('./analysisStore');
+
+        resolveAuthReady();
+        await saveAnalysis({
+            source_file: 'identified.pdf',
+            analysis_version: 'v9_archaeology',
+            content_hash: contentHash,
+            identity_status: 'verified',
+            queued_at_ms: queuedAtMs,
+        });
+
+        expect(mockRunTransaction).toHaveBeenCalledOnce();
+        expect(mockTransactionSet).toHaveBeenNthCalledWith(
+            1,
+            'mock-version-doc-ref',
+            expect.objectContaining({
+                content_hash: contentHash,
+                identity_status: 'verified',
+                version_id: versionId,
+                version_number: 1,
+                created_at: expect.any(MockTimestamp),
+            }),
+        );
+        expect(mockTransactionSet).toHaveBeenNthCalledWith(
+            2,
+            'mock-doc-ref',
+            expect.objectContaining({
+                latest_version_id: versionId,
+                version_count: 1,
+            }),
+        );
+        const versionDocument = mockTransactionSet.mock.calls[0][1] as Record<string, unknown>;
+        expect((versionDocument.created_at as MockTimestamp).toMillis()).toBe(queuedAtMs);
+        expect(Number.isInteger(versionDocument.version_number)).toBe(true);
+        expect(mockSetDoc).not.toHaveBeenCalled();
+    });
+
+    it('refuses to persist permanent V9 coverage without verified identity', async () => {
+        const { saveAnalysis } = await import('./analysisStore');
+
+        resolveAuthReady();
+        await expect(
+            saveAnalysis({
+                source_file: 'missing-identity.pdf',
+                analysis_version: 'v9_archaeology',
+            }),
+        ).rejects.toThrow(/verified content identity/i);
+        expect(mockSetDoc).not.toHaveBeenCalled();
+        expect(mockRunTransaction).not.toHaveBeenCalled();
+    });
+
+    it('queues and replays the same atomic version write after an offline failure', async () => {
+        const contentHash = 'fa'.repeat(32);
+        const queuedAtMs = 1_784_588_800_456;
+        const versionId = `${contentHash}_${queuedAtMs}`;
+        const { flushPendingWrites, saveAnalysis } = await import('./analysisStore');
+
+        mockRunTransaction.mockRejectedValueOnce(new Error('offline'));
+        resolveAuthReady();
+        await saveAnalysis({
+            source_file: 'offline.pdf',
+            analysis_version: 'v9_archaeology',
+            content_hash: contentHash,
+            identity_status: 'verified',
+            queued_at_ms: queuedAtMs,
+        });
+
+        expect(JSON.parse(localStore['lemon-pending-writes'])).toEqual([
+            expect.objectContaining({
+                kind: 'versioned-set',
+                sourceFile: 'offline.pdf',
+                projectId: 'offline.pdf',
+                versionId,
+                queuedAtMs,
+            }),
+        ]);
+
+        resetTransactionMock();
+        await flushPendingWrites();
+
+        expect(mockTransactionSet).toHaveBeenNthCalledWith(
+            1,
+            'mock-version-doc-ref',
+            expect.objectContaining({ version_id: versionId }),
+        );
+        expect(mockTransactionSet).toHaveBeenNthCalledWith(
+            2,
+            'mock-doc-ref',
+            expect.objectContaining({ latest_version_id: versionId }),
+        );
+        expect(JSON.parse(localStore['lemon-pending-writes'])).toEqual([]);
     });
 
     it('removeAnalysis (soft-delete) awaits authReady before calling updateDoc', async () => {
@@ -252,6 +399,7 @@ describe('flushPendingWrites export', () => {
     beforeEach(() => {
         callOrder.length = 0;
         mockSetDoc.mockClear();
+        resetTransactionMock();
         mockUpdateDoc.mockClear();
         mockDeleteField.mockClear();
         Object.keys(localStore).forEach((k) => delete localStore[k]);
@@ -585,9 +733,7 @@ describe('subscribeToAnalyses', () => {
             ],
         });
 
-        expect(onChange).toHaveBeenCalledWith([
-            { source_file: 'edited.pdf', category: 'LEMON' },
-        ]);
+        expect(onChange).toHaveBeenCalledWith([{ source_file: 'edited.pdf', category: 'LEMON' }]);
     });
 
     it('forwards listener failures to the reconnect layer', async () => {

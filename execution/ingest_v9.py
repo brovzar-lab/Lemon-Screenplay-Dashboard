@@ -53,6 +53,7 @@ Required env vars (in .env at project root, or functions/.env):
   GOOGLE_APPLICATION_CREDENTIALS — path to service account JSON (for Firestore writes)
 
 Optional env vars:
+  FIREBASE_STORAGE_BUCKET — explicit bucket name (defaults to production bucket)
   TMDB_API_KEY         — for TMDB pre-screening (skip with --skip-tmdb if absent)
   LLM_PROXY_URL        — override default Cloud Function URL
 """
@@ -62,6 +63,8 @@ import json
 import os
 import re
 import sys
+import tempfile
+import threading
 import time
 import uuid
 import logging
@@ -95,6 +98,14 @@ except ImportError:
 
 # Story Grid genre engine (lives next to this file).
 sys.path.insert(0, str(Path(__file__).parent))
+from firebase_config import resolve_storage_bucket  # noqa: E402
+from content_identity import (  # noqa: E402
+    build_version_id,
+    compute_content_hash,
+    queued_at_millis,
+    verified_identity_fields,
+    version_created_at,
+)
 from story_grid import (  # noqa: E402
     build_genre_detection_prompt,
     parse_detection,
@@ -141,6 +152,17 @@ MAX_CHARS = 195_000
 # Min words for a valid screenplay
 MIN_WORDS = 500
 
+# Parsed screenplay cache. The parser version is part of the key so extraction
+# changes cannot silently reuse output from an older parser implementation.
+PARSER_VERSION = "v2"
+PARSE_CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+PARSE_CACHE_MAX_BYTES = 512 * 1024 * 1024
+PARSE_CACHE_CLEANUP_INTERVAL_SECONDS = 60 * 60
+
+_parse_cache_last_cleanup_at: Optional[float] = None
+_parse_cache_size_bytes: Optional[int] = None
+_parse_cache_state_lock = threading.Lock()
+
 # Seconds between scripts in a batch (politeness buffer)
 INTER_SCRIPT_DELAY = 2
 
@@ -186,26 +208,32 @@ def init_firebase() -> bool:
 
     # Service account path
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    project_id = os.getenv("FIREBASE_PROJECT_ID", "lemon-screenplay-dashboard")
+    storage_bucket = resolve_storage_bucket()
 
     try:
         if not firebase_admin._apps:
             if cred_path and Path(cred_path).exists():
                 cred = credentials.Certificate(cred_path)
                 firebase_admin.initialize_app(cred, {
-                    "storageBucket": f"{project_id}.appspot.com",
+                    "storageBucket": storage_bucket,
                 })
-                log.info(f"Firebase initialised with service account: {cred_path}")
+                log.info(
+                    f"Firebase initialised with service account: {cred_path}, "
+                    f"bucket: {storage_bucket}"
+                )
             else:
                 # Try Application Default Credentials (gcloud auth)
                 firebase_admin.initialize_app(options={
-                    "storageBucket": f"{project_id}.appspot.com",
+                    "storageBucket": storage_bucket,
                 })
-                log.info("Firebase initialised with Application Default Credentials")
+                log.info(
+                    "Firebase initialised with Application Default Credentials, "
+                    f"bucket: {storage_bucket}"
+                )
 
         _db = firestore.client()
         try:
-            _bucket = fb_storage.bucket()
+            _bucket = fb_storage.bucket(storage_bucket)
         except Exception:
             _bucket = None  # Storage is optional
             log.warning("Firebase Storage not initialised (PDF uploads will be skipped)")
@@ -233,27 +261,148 @@ def to_doc_id(source_file: str) -> str:
     )
 
 
+def build_version_document(
+    raw: Dict[str, Any],
+    project_id: str,
+    version_id: str,
+    version_number: int,
+    queued_at_ms: int,
+) -> Dict[str, Any]:
+    """Build an immutable analysis snapshot with Firestore-native field types."""
+    identity = verified_identity_fields(str(raw.get("content_hash", "")))
+    if raw.get("identity_status") != "verified":
+        raise ValueError("Permanent V9 coverage requires verified identity")
+    if type(version_number) is not int or version_number <= 0:
+        raise ValueError("version_number must be a positive integer")
+
+    created_at = version_created_at(queued_at_ms)
+    return {
+        **raw,
+        **identity,
+        "source_file": str(raw.get("source_file", "")),
+        "project_id": project_id,
+        "version_id": version_id,
+        "version_number": version_number,
+        "queued_at_ms": queued_at_millis(queued_at_ms),
+        "created_at": created_at,
+    }
+
+
+def build_parent_document(
+    raw: Dict[str, Any],
+    project_id: str,
+    version_id: str,
+    version_number: int,
+    queued_at_ms: int,
+    existing_parent: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Build the backward-compatible latest projection for one immutable version."""
+    source_file = str(raw.get("source_file", ""))
+    existing_source = (existing_parent or {}).get("source_file")
+    canonical_source = existing_source if isinstance(existing_source, str) and existing_source else source_file
+    saved_at = version_created_at(queued_at_ms).isoformat().replace("+00:00", "Z")
+    return {
+        **raw,
+        "source_file": canonical_source,
+        "latest_source_file": source_file,
+        "project_id": project_id,
+        "latest_version_id": version_id,
+        "version_count": version_number,
+        "queued_at_ms": queued_at_millis(queued_at_ms),
+        "_savedAt": saved_at,
+        "_docId": project_id,
+    }
+
+
+def write_analysis_transaction(
+    transaction: Any,
+    parent_ref: Any,
+    version_ref: Any,
+    raw: Dict[str, Any],
+    project_id: str,
+    version_id: str,
+    queued_at_ms: int,
+) -> int:
+    """Create history and advance latest using one Firestore transaction."""
+    parent_snapshot = parent_ref.get(transaction=transaction)
+    version_snapshot = version_ref.get(transaction=transaction)
+
+    if version_snapshot.exists:
+        existing_version = version_snapshot.to_dict() or {}
+        version_number = existing_version.get("version_number")
+        if type(version_number) is not int or version_number <= 0:
+            raise ValueError("Existing immutable version has an invalid version_number")
+        return version_number
+
+    existing_parent = parent_snapshot.to_dict() if parent_snapshot.exists else {}
+    existing_version_count = (existing_parent or {}).get("version_count", 0)
+    if type(existing_version_count) is not int or existing_version_count < 0:
+        raise ValueError("Existing parent has an invalid version_count")
+    version_number = existing_version_count + 1
+    version_document = build_version_document(
+        raw, project_id, version_id, version_number, queued_at_ms
+    )
+    parent_document = build_parent_document(
+        raw,
+        project_id,
+        version_id,
+        version_number,
+        queued_at_ms,
+        existing_parent,
+    )
+
+    transaction.create(version_ref, version_document)
+    transaction.set(parent_ref, parent_document)
+    return version_number
+
+
 def write_to_firestore(raw: Dict[str, Any]) -> bool:
-    """Write raw V9 analysis document to Firestore.
-    Matches the format expected by saveAnalysis() in analysisStore.ts.
-    """
+    """Atomically create an immutable version and advance its latest parent."""
     if _db is None:
         return False
 
-    source_file = raw.get("source_file", f"unknown_{int(time.time())}")
-    doc_id = to_doc_id(str(source_file))
+    source_file = str(raw.get("source_file", ""))
+    project_id_value = raw.get("project_id")
+    project_id = (
+        project_id_value
+        if isinstance(project_id_value, str) and project_id_value.strip()
+        else to_doc_id(source_file)
+    )
 
     try:
-        doc_ref = _db.collection(FIRESTORE_COLLECTION).document(doc_id)
-        doc_ref.set({
-            **raw,
-            "_savedAt": datetime.utcnow().isoformat() + "Z",
-            "_docId": doc_id,
-        })
-        log.info(f"  ✓ Saved to Firestore: {doc_id}")
+        if not source_file:
+            raise ValueError("Permanent analysis requires source_file")
+        if "/" in project_id:
+            raise ValueError("project_id must be a Firestore document ID")
+        content_hash = verified_identity_fields(str(raw.get("content_hash", "")))["content_hash"]
+        if raw.get("identity_status") != "verified":
+            raise ValueError("Permanent V9 coverage requires verified identity")
+        queued_at_ms = queued_at_millis(raw.get("queued_at_ms"))
+        version_id = build_version_id(content_hash, queued_at_ms)
+
+        parent_ref = _db.collection(FIRESTORE_COLLECTION).document(project_id)
+        version_ref = parent_ref.collection("versions").document(version_id)
+
+        @firestore.transactional
+        def commit(transaction: Any) -> int:
+            return write_analysis_transaction(
+                transaction,
+                parent_ref,
+                version_ref,
+                raw,
+                project_id,
+                version_id,
+                queued_at_ms,
+            )
+
+        version_number = commit(_db.transaction())
+        log.info(
+            f"  ✓ Saved to Firestore: {project_id} "
+            f"(version {version_number}, {version_id[:16]}…)"
+        )
         return True
     except Exception as e:
-        log.error(f"  ✗ Firestore write failed for {doc_id}: {e}")
+        log.error(f"  ✗ Firestore write failed for {project_id}: {e}")
         return False
 
 
@@ -274,8 +423,111 @@ def check_already_in_firestore(source_file: str) -> bool:
 
 # ── PDF Parser ────────────────────────────────────────────────────────────────
 
-def parse_pdf(pdf_path: Path) -> Optional[Dict[str, Any]]:
+def _cleanup_parse_cache(
+    cache_dir: Path,
+    *,
+    now: Optional[float] = None,
+    max_age_seconds: int = PARSE_CACHE_MAX_AGE_SECONDS,
+    max_bytes: int = PARSE_CACHE_MAX_BYTES,
+) -> int:
+    """Remove expired parse entries, then oldest entries until under the cap."""
+    if not cache_dir.exists():
+        return 0
+
+    cutoff_time = (time.time() if now is None else now) - max(0, max_age_seconds)
+    entries: List[Tuple[Path, int, float]] = []
+    removed_count = 0
+    removed_bytes = 0
+
+    for path in cache_dir.rglob("*.json"):
+        is_content_addressed = re.fullmatch(r"[a-f0-9]{64}\.json", path.name) is not None
+        is_unsafe_legacy_entry = path.parent == cache_dir and not is_content_addressed
+        if not is_content_addressed and not is_unsafe_legacy_entry:
+            continue
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+
+        if is_unsafe_legacy_entry or stat.st_mtime < cutoff_time:
+            try:
+                path.unlink()
+                removed_count += 1
+                removed_bytes += stat.st_size
+            except OSError:
+                entries.append((path, stat.st_size, stat.st_mtime))
+        else:
+            entries.append((path, stat.st_size, stat.st_mtime))
+
+    total_bytes = sum(size for _, size, _ in entries)
+    if total_bytes > max(0, max_bytes):
+        for path, size, _ in sorted(entries, key=lambda entry: (entry[2], entry[0].name)):
+            if total_bytes <= max(0, max_bytes):
+                break
+            try:
+                path.unlink()
+                total_bytes -= size
+                removed_count += 1
+                removed_bytes += size
+            except OSError:
+                continue
+
+    if removed_count:
+        log.info(
+            f"  Parse cache cleanup: removed {removed_count} file(s), "
+            f"freed {removed_bytes / (1024 * 1024):.1f} MB"
+        )
+    return total_bytes
+
+
+def _maybe_cleanup_parse_cache(cache_dir: Path, *, force: bool = False) -> int:
+    """Run bounded cache cleanup at most hourly unless the size cap is crossed."""
+    global _parse_cache_last_cleanup_at, _parse_cache_size_bytes
+
+    monotonic_now = time.monotonic()
+    with _parse_cache_state_lock:
+        cleanup_due = (
+            force
+            or _parse_cache_last_cleanup_at is None
+            or monotonic_now - _parse_cache_last_cleanup_at >= PARSE_CACHE_CLEANUP_INTERVAL_SECONDS
+        )
+        if cleanup_due:
+            _parse_cache_size_bytes = _cleanup_parse_cache(cache_dir)
+            _parse_cache_last_cleanup_at = monotonic_now
+        return _parse_cache_size_bytes or 0
+
+
+def _record_parse_cache_write(cache_dir: Path, previous_size: int, new_size: int) -> None:
+    """Track a cache write and enforce the size cap when it is crossed."""
+    global _parse_cache_size_bytes
+
+    force_cleanup = False
+    with _parse_cache_state_lock:
+        if _parse_cache_size_bytes is None:
+            force_cleanup = True
+        else:
+            _parse_cache_size_bytes += new_size - previous_size
+            force_cleanup = _parse_cache_size_bytes > PARSE_CACHE_MAX_BYTES
+
+    if force_cleanup:
+        _maybe_cleanup_parse_cache(cache_dir, force=True)
+
+
+def _read_valid_parse(path: Path) -> Optional[Dict[str, Any]]:
+    try:
+        with open(path, encoding="utf-8") as parsed_file:
+            data = json.load(parsed_file)
+    except (OSError, ValueError, TypeError):
+        return None
+
+    if not isinstance(data, dict) or data.get("word_count", 0) < MIN_WORDS:
+        return None
+    return data
+
+
+def parse_pdf(pdf_path: Path, content_hash: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Parse a screenplay PDF using the existing parse_screenplay_pdf_v2.py.
+    Cache identity is raw-byte SHA-256 plus PARSER_VERSION, never the filename.
     Returns the parsed JSON dict or None on failure.
     """
     parse_script = Path(__file__).parent / "parse_screenplay_pdf_v2.py"
@@ -284,47 +536,60 @@ def parse_pdf(pdf_path: Path) -> Optional[Dict[str, Any]]:
         return None
 
     import subprocess
-    output_dir = LOG_DIR / "parsed_v9"
-    output_dir.mkdir(exist_ok=True)
-    output_path = output_dir / (pdf_path.stem + ".json")
+
+    if content_hash is None:
+        content_hash = compute_content_hash(pdf_path)
+    content_hash = content_hash.lower()
+    if not re.fullmatch(r"[a-f0-9]{64}", content_hash):
+        log.error(f"Invalid PDF content hash for {pdf_path.name}")
+        return None
+
+    cache_root = LOG_DIR / "parsed_v9"
+    cache_dir = cache_root / PARSER_VERSION
+    cache_root.mkdir(parents=True, exist_ok=True)
+    _maybe_cleanup_parse_cache(cache_root)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    output_path = cache_dir / f"{content_hash}.json"
 
     # Reuse cached parse result
     if output_path.exists():
+        cached = _read_valid_parse(output_path)
+        if cached is not None:
+            word_count = cached.get("word_count", 0)
+            log.info(f"  Reusing cached parse: {pdf_path.name} ({word_count:,} words)")
+            return cached
         try:
-            with open(output_path, encoding="utf-8") as f:
-                data = json.load(f)
-            word_count = data.get("word_count", 0)
-            if word_count >= MIN_WORDS:
-                log.info(f"  Reusing cached parse: {pdf_path.name} ({word_count:,} words)")
-                return data
-        except Exception:
+            output_path.unlink()
+        except OSError:
             pass
 
-    result = subprocess.run(
-        [sys.executable, str(parse_script),
-         "--input", str(pdf_path),
-         "--output", str(output_dir)],
-        capture_output=True, text=True, timeout=300,
-    )
+    with tempfile.TemporaryDirectory(prefix=".working-", dir=cache_root) as working_dir:
+        result = subprocess.run(
+            [sys.executable, str(parse_script),
+             "--input", str(pdf_path),
+             "--output", working_dir],
+            capture_output=True, text=True, timeout=300,
+        )
+        parser_output = Path(working_dir) / (pdf_path.stem + ".json")
 
-    if result.returncode != 0 or not output_path.exists():
-        log.error(f"  ✗ Parse failed: {pdf_path.name}")
-        if result.stderr:
-            log.debug(f"    stderr: {result.stderr[:300]}")
-        return None
-
-    try:
-        with open(output_path, encoding="utf-8") as f:
-            data = json.load(f)
-        word_count = data.get("word_count", 0)
-        if word_count < MIN_WORDS:
-            log.warning(f"  ✗ Insufficient text: {pdf_path.name} ({word_count} words, need {MIN_WORDS})")
+        if result.returncode != 0 or not parser_output.exists():
+            log.error(f"  ✗ Parse failed: {pdf_path.name}")
+            if result.stderr:
+                log.debug(f"    stderr: {result.stderr[:300]}")
             return None
-        log.info(f"  ✓ Parsed: {pdf_path.name} ({word_count:,} words, {data.get('page_count',0)} pages)")
-        return data
-    except Exception as e:
-        log.error(f"  ✗ Parse output invalid: {e}")
-        return None
+
+        data = _read_valid_parse(parser_output)
+        if data is None:
+            log.error(f"  ✗ Parse output invalid or insufficient: {pdf_path.name}")
+            return None
+
+        previous_size = output_path.stat().st_size if output_path.exists() else 0
+        os.replace(parser_output, output_path)
+        _record_parse_cache_write(cache_root, previous_size, output_path.stat().st_size)
+
+    word_count = data.get("word_count", 0)
+    log.info(f"  ✓ Parsed: {pdf_path.name} ({word_count:,} words, {data.get('page_count',0)} pages)")
+    return data
 
 
 # ── TMDB Pre-screening ────────────────────────────────────────────────────────
@@ -2656,6 +2921,8 @@ def build_raw_document(
     mode: str,
     total_usage: Dict[str, int],
     total_duration_ms: int,
+    content_hash: str,
+    queued_at_ms: int,
     tmdb_status: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build the raw document that saveAnalysis() writes to Firestore.
@@ -2688,6 +2955,8 @@ def build_raw_document(
             "ingested_at": datetime.utcnow().isoformat() + "Z",
             "ingested_by": "ingest_v9.py",
         },
+        "queued_at_ms": queued_at_millis(queued_at_ms),
+        **verified_identity_fields(content_hash),
     }
 
     if tmdb_status:
@@ -2723,6 +2992,7 @@ def ingest_one(
 ) -> str:
     """Ingest a single PDF. Returns status string: 'ok', 'skip', 'fail', 'exists'."""
     title = pdf_path.stem
+    queued_at_ms = int(time.time() * 1000)
 
     log.info(f"▶ {pdf_path.name}")
 
@@ -2732,8 +3002,9 @@ def ingest_one(
         log.info(f"  ↩ Already in Firestore — skipping (use --force to re-analyze)")
         return "exists"
 
-    # --- Parse PDF ---
-    parsed = parse_pdf(pdf_path)
+    # --- Content identity + parse PDF ---
+    content_hash = compute_content_hash(pdf_path)
+    parsed = parse_pdf(pdf_path, content_hash=content_hash)
     if not parsed:
         return "fail"
 
@@ -2811,8 +3082,17 @@ def ingest_one(
 
     # --- Build raw document ---
     raw = build_raw_document(
-        pdf_path, parsed, analysis, collection,
-        model_key, mode, usage, duration_ms, tmdb_status,
+        pdf_path=pdf_path,
+        parsed=parsed,
+        analysis=analysis,
+        collection=collection,
+        model_key=model_key,
+        mode=mode,
+        total_usage=usage,
+        total_duration_ms=duration_ms,
+        content_hash=content_hash,
+        queued_at_ms=queued_at_ms,
+        tmdb_status=tmdb_status,
     )
 
     # --- Write to Firestore ---

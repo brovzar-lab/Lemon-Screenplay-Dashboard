@@ -4,7 +4,7 @@
  * Orchestrates sub-components under ./upload/ while owning all upload business logic.
  *
  * Analysis runs on the VPS daemon (not in-browser):
- *   PDF -> Storage (ingest-queue/{collection}/{file}.pdf)
+ *   PDF -> Storage (ingest-queue/{collection}/{uploadId}/{file}.pdf)
  *        -> onScreenplayUploaded CF creates the Firestore queue doc
  *        -> daemon claims, runs V9 readers + synthesis, writes uploaded_analyses
  *        -> browser subscribes to the queue doc by storage_path and mirrors status
@@ -17,7 +17,7 @@
 
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useUploadStore } from '@/stores/uploadStore';
+import { isUploadJobReady, useUploadStore } from '@/stores/uploadStore';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { useScreenplays, SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
 import { uploadPdfToIngestQueue } from '@/lib/firebase';
@@ -25,6 +25,9 @@ import { subscribeToIngestJob } from '@/lib/ingestQueueClient';
 import useCategories from '@/hooks/useCategories';
 import { useToastStore } from '@/stores/toastStore';
 import { getPdfFileError } from '@/lib/pdfValidation';
+import { computeContentHash } from '@/lib/analysisIdentity';
+import { findAnalysisByContentHash } from '@/lib/analysisLookup';
+import { toDocId } from '@/lib/analysisStore';
 
 import { ApiConfigToggle } from './upload/ApiConfigToggle';
 import { ModelSelector } from './upload/ModelSelector';
@@ -56,7 +59,18 @@ export function UploadPanel() {
   const [showApiConfig, setShowApiConfig] = useState(false);
   const { categoryIds, addCategory: addCategoryToStore } = useCategories();
 
-  const { jobs, addJob, updateJob, removeJob, clearCompleted, isProcessing, setProcessing, getFile } = useUploadStore();
+  const {
+    jobs,
+    addJob,
+    updateJob,
+    removeJob,
+    clearCompleted,
+    chooseRevision,
+    chooseSeparateProject,
+    isProcessing,
+    setProcessing,
+    getFile,
+  } = useUploadStore();
   const { canMakeRequest } = useApiConfigStore();
   const { data: screenplays } = useScreenplays();
   // Proxy is always available (API keys are server-side)
@@ -64,41 +78,6 @@ export function UploadPanel() {
   const queryClient = useQueryClient();
 
   // ─── File selection + duplicate detection ──────────────────────────────────
-
-  /** SHA-256 of a File via Web Crypto. Returns lowercase hex. */
-  async function sha256Hex(file: File): Promise<string> {
-    const buf = await file.arrayBuffer();
-    const digest = await crypto.subtle.digest('SHA-256', buf);
-    return Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
-
-  /** Query Firestore for any uploaded_analyses doc with matching content_hash.
-   *  Returns the existing source_file/title if found. */
-  async function findByContentHash(hash: string): Promise<string | null> {
-    try {
-      const { getDocs, query, collection, where, limit } = await import('firebase/firestore');
-      const { db } = await import('@/lib/firebase');
-      const q = query(
-        collection(db, 'uploaded_analyses'),
-        where('content_hash', '==', hash),
-        limit(1),
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) return null;
-      const data = snap.docs[0].data() as Record<string, unknown>;
-      const analysis = (data.analysis as Record<string, unknown>) || {};
-      return (
-        (analysis.title as string) ||
-        (data.source_file as string) ||
-        snap.docs[0].id
-      );
-    } catch (err) {
-      console.warn('[upload] content-hash dedup check failed:', err);
-      return null;
-    }
-  }
 
   const handleFileSelect = async (files: FileList | null) => {
     if (!files) return;
@@ -112,28 +91,39 @@ export function UploadPanel() {
         }
         const jobId = addJob(file.name, selectedCategory, file);
 
-        // Layer 1 (fast): title-match against already-loaded screenplays.
+        // Layer 1 (fast): a title match identifies a likely revision target.
+        // It is not proof of duplicate bytes and must not block the upload.
         if (screenplays && screenplays.length > 0) {
           const inferred = inferTitleFromFilename(file.name).toLowerCase();
           const match = screenplays.find(
             (s) => s.title.toLowerCase().trim() === inferred,
           );
           if (match) {
-            updateJob(jobId, { isDuplicate: true, existingTitle: match.title });
-            return; // skip the hash check — title match is enough
+            updateJob(jobId, {
+              existingTitle: match.title,
+              possibleMatchProjectId: match.projectId ?? toDocId(match.sourceFile),
+            });
           }
         }
 
         // Layer 2 (true content dedup): SHA-256 of file bytes → Firestore lookup.
         // Catches re-uploads of the same PDF under a different filename.
         try {
-          const hash = await sha256Hex(file);
-          const existing = await findByContentHash(hash);
+          const hash = await computeContentHash(file);
+          const existing = await findAnalysisByContentHash(hash);
           if (existing) {
-            updateJob(jobId, { isDuplicate: true, existingTitle: existing });
+            updateJob(jobId, {
+              isDuplicate: true,
+              existingTitle: existing,
+              matchResolution: undefined,
+              targetProjectId: undefined,
+              separateProject: false,
+            });
           }
         } catch (err) {
           console.warn('[upload] hash compute failed (proceeding):', err);
+        } finally {
+          updateJob(jobId, { identityCheckComplete: true });
         }
       }),
     );
@@ -147,7 +137,7 @@ export function UploadPanel() {
 
   // ─── Process pending jobs via VPS daemon ──────────────────────────────────
   //
-  // Browser uploads PDF to ingest-queue/{collection}/{filename}.pdf in Storage.
+  // Browser uploads PDF to ingest-queue/{collection}/{uploadId}/{filename}.pdf in Storage.
   // The onScreenplayUploaded Cloud Function creates the Firestore queue doc.
   // The VPS daemon claims it, runs V9 analysis, writes uploaded_analyses.
   // Browser subscribes to the queue doc by storage_path and mirrors status.
@@ -160,10 +150,16 @@ export function UploadPanel() {
     }
     const job = useUploadStore.getState().jobs.find((j) => j.id === jobId);
     if (!job) return;
+    if (!isUploadJobReady(job)) return;
 
     try {
       updateJob(jobId, { status: 'parsing', progress: 5 });
-      const { storagePath } = await uploadPdfToIngestQueue(file, job.category, { requestedModel });
+      const { storagePath } = await uploadPdfToIngestQueue(file, job.category, {
+        requestedModel,
+        targetProjectId: job.targetProjectId,
+        separateProject: job.separateProject,
+        uploadId: job.uploadId,
+      });
       updateJob(jobId, { status: 'analyzing', progress: 15, ingestQueueStoragePath: storagePath });
 
       await new Promise<void>((resolve) => {
@@ -223,9 +219,7 @@ export function UploadPanel() {
     if (isProcessing) return;
     setProcessing(true);
 
-    const pending = useUploadStore.getState().jobs.filter(
-      (j) => j.status === 'pending' && !j.isDuplicate
-    );
+    const pending = useUploadStore.getState().jobs.filter(isUploadJobReady);
 
     // V9: daemon now supports `hybrid` directly via ingest_v9.run_v9_hybrid()
     // (Sonnet first pass; RECOMMEND/FILM_NOW results re-run on Opus).
@@ -244,7 +238,7 @@ export function UploadPanel() {
     setTimeout(() => { processJobs(); }, 100);
   }, [updateJob, processJobs]);
 
-  const pendingJobs = jobs.filter((j) => j.status === 'pending' && !j.isDuplicate);
+  const pendingJobs = jobs.filter(isUploadJobReady);
 
   // Calculate batch cost estimate (only actionable pending jobs)
   const batchCostEstimate = pendingJobs.length > 0
@@ -305,6 +299,8 @@ export function UploadPanel() {
         onClearCompleted={clearCompleted}
         onStartProcessing={handleStartProcessing}
         onSkipJob={handleSkipJob}
+        onChooseRevision={chooseRevision}
+        onChooseSeparate={chooseSeparateProject}
       />
 
       <UploadInstructions />

@@ -13,6 +13,8 @@ import {
     collection,
     doc,
     setDoc,
+    runTransaction,
+    Timestamp,
     getDocs,
     updateDoc,
     deleteField,
@@ -26,6 +28,7 @@ import {
 } from 'firebase/firestore';
 import { authReady, db } from './firebase';
 import { useToastStore } from '@/stores/toastStore';
+import { buildAnalysisVersionIdentity, requireVerifiedIdentity } from './analysisIdentity';
 
 const FIRESTORE_COLLECTION = 'uploaded_analyses';
 const _QUARANTINE_COLLECTION = '_unrecognized_analyses';
@@ -49,6 +52,76 @@ export function toDocId(sourceFile: string): string {
             .replace(/\s+/g, '_')
             .slice(0, 200) || `doc_${Date.now()}`
     );
+}
+
+function getProjectId(record: Record<string, unknown>, sourceFile: string): string {
+    return typeof record.project_id === 'string' && record.project_id.trim()
+        ? record.project_id
+        : toDocId(sourceFile);
+}
+
+function getVersionCount(record: Record<string, unknown>): number {
+    return typeof record.version_count === 'number' &&
+        Number.isInteger(record.version_count) &&
+        record.version_count >= 0
+        ? record.version_count
+        : 0;
+}
+
+/** Create one immutable version and advance the parent in the same transaction. */
+async function writeVersionedAnalysis(
+    record: Record<string, unknown>,
+    sourceFile: string,
+    projectId: string,
+    queuedAtMs: number,
+    expectedVersionId: string,
+): Promise<void> {
+    const identity = buildAnalysisVersionIdentity(record, queuedAtMs);
+    if (identity.version_id !== expectedVersionId) {
+        throw new Error('Queued analysis version identity does not match its payload.');
+    }
+
+    const parentRef = doc(db, FIRESTORE_COLLECTION, projectId);
+    const versionRef = doc(db, FIRESTORE_COLLECTION, projectId, 'versions', identity.version_id);
+
+    await runTransaction(db, async (transaction) => {
+        const parentSnapshot = await transaction.get(parentRef);
+        const versionSnapshot = await transaction.get(versionRef);
+
+        // A lost acknowledgement can retry after the first transaction committed.
+        // The deterministic version ID makes that retry a no-op.
+        if (versionSnapshot.exists()) return;
+
+        const parentData = parentSnapshot.exists()
+            ? (parentSnapshot.data() as Record<string, unknown>)
+            : {};
+        const versionNumber = getVersionCount(parentData) + 1;
+        const canonicalSourceFile =
+            typeof parentData.source_file === 'string' && parentData.source_file
+                ? parentData.source_file
+                : sourceFile;
+
+        transaction.set(versionRef, {
+            ...record,
+            source_file: sourceFile,
+            project_id: projectId,
+            version_id: identity.version_id,
+            version_number: versionNumber,
+            queued_at_ms: identity.queued_at_ms,
+            created_at: Timestamp.fromMillis(identity.queued_at_ms),
+        });
+        transaction.set(parentRef, {
+            ...record,
+            source_file: canonicalSourceFile,
+            latest_source_file: sourceFile,
+            project_id: projectId,
+            latest_version_id: identity.version_id,
+            version_count: versionNumber,
+            queued_at_ms: identity.queued_at_ms,
+            _savedAt: new Date(identity.queued_at_ms).toISOString(),
+            _docId: projectId,
+        });
+    });
 }
 
 /**
@@ -136,6 +209,14 @@ function readFromLocal(): Record<string, unknown>[] {
 const PENDING_QUEUE_KEY = 'lemon-pending-writes';
 
 type PendingWrite =
+    | {
+          kind: 'versioned-set';
+          sourceFile: string;
+          projectId: string;
+          versionId: string;
+          queuedAtMs: number;
+          data: Record<string, unknown>;
+      }
     | { kind: 'set'; sourceFile: string; data: Record<string, unknown> }
     | { kind: 'patch'; sourceFile: string; fields: Record<string, unknown> }
     | { kind: 'restore'; sourceFile: string };
@@ -146,6 +227,17 @@ function readPendingWrites(): PendingWrite[] {
         if (!Array.isArray(parsed)) return [];
         return parsed.flatMap((item): PendingWrite[] => {
             if (!item || typeof item !== 'object') return [];
+            if (
+                item.kind === 'versioned-set' &&
+                typeof item.sourceFile === 'string' &&
+                typeof item.projectId === 'string' &&
+                typeof item.versionId === 'string' &&
+                typeof item.queuedAtMs === 'number' &&
+                item.data &&
+                typeof item.data === 'object'
+            ) {
+                return [item as PendingWrite];
+            }
             if (item.kind === 'set' || item.kind === 'patch' || item.kind === 'restore') {
                 return [item as PendingWrite];
             }
@@ -171,6 +263,17 @@ function queueForRetry(write: PendingWrite): void {
 }
 
 async function applyPendingWrite(write: PendingWrite): Promise<void> {
+    if (write.kind === 'versioned-set') {
+        await writeVersionedAnalysis(
+            write.data,
+            write.sourceFile,
+            write.projectId,
+            write.queuedAtMs,
+            write.versionId,
+        );
+        return;
+    }
+
     const docId = toDocId(write.sourceFile);
     const docRef = doc(db, FIRESTORE_COLLECTION, docId);
     if (write.kind === 'set') {
@@ -194,7 +297,7 @@ function applyPendingWritesToRecords(
     );
     for (const write of readPendingWrites()) {
         const current = bySourceFile.get(write.sourceFile) ?? { source_file: write.sourceFile };
-        if (write.kind === 'set') {
+        if (write.kind === 'set' || write.kind === 'versioned-set') {
             bySourceFile.set(write.sourceFile, { ...write.data });
         } else if (write.kind === 'patch') {
             bySourceFile.set(write.sourceFile, { ...current, ...write.fields });
@@ -256,32 +359,65 @@ export function getPendingWriteCount(): number {
  * If Firestore fails, queues for retry on next load.
  */
 export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> {
-    const sourceFile = (raw.source_file as string) || `unknown_${Date.now()}`;
+    const verifiedRaw =
+        raw.analysis_version === 'v9_archaeology'
+            ? { ...raw, ...requireVerifiedIdentity(raw) }
+            : raw;
+    const versionIdentity =
+        verifiedRaw.analysis_version === 'v9_archaeology'
+            ? buildAnalysisVersionIdentity(verifiedRaw, Date.now())
+            : null;
+    const persistedRaw = versionIdentity
+        ? { ...verifiedRaw, queued_at_ms: versionIdentity.queued_at_ms }
+        : verifiedRaw;
+    const sourceFile = (persistedRaw.source_file as string) || `unknown_${Date.now()}`;
 
     // Step 1: ALWAYS save to localStorage immediately (instant, guaranteed)
     const existing = readFromLocal();
     const filtered = existing.filter((a) => a.source_file !== sourceFile);
-    filtered.push(raw);
+    filtered.push(persistedRaw);
     writeToLocal(filtered);
     console.log(`[Lemon] Analysis saved to localStorage: ${sourceFile}`);
 
     // Step 2: Save to Firestore (persistent, may fail). Never throw — localStorage is the success path.
     const docId = toDocId(sourceFile);
+    const projectId = getProjectId(persistedRaw, sourceFile);
     try {
         await authReady;
-        const docRef = doc(db, FIRESTORE_COLLECTION, docId);
-        await setDoc(docRef, {
-            ...raw,
-            _savedAt: new Date().toISOString(),
-            _docId: docId,
-        });
-        console.log(`[Lemon] Analysis saved to Firestore: ${docId}`);
+        if (versionIdentity) {
+            await writeVersionedAnalysis(
+                persistedRaw,
+                sourceFile,
+                projectId,
+                versionIdentity.queued_at_ms,
+                versionIdentity.version_id,
+            );
+        } else {
+            const docRef = doc(db, FIRESTORE_COLLECTION, docId);
+            await setDoc(docRef, {
+                ...persistedRaw,
+                _savedAt: new Date().toISOString(),
+                _docId: docId,
+            });
+        }
+        console.log(`[Lemon] Analysis saved to Firestore: ${projectId}`);
     } catch (err) {
-        console.warn(`[Lemon] Firestore write failed for ${docId} (queued for retry):`, err);
+        console.warn(`[Lemon] Firestore write failed for ${projectId} (queued for retry):`, err);
         useToastStore
             .getState()
             .addToast('Failed to sync screenplay to cloud — will retry automatically', 'warning');
-        queueForRetry({ kind: 'set', sourceFile, data: raw });
+        if (versionIdentity) {
+            queueForRetry({
+                kind: 'versioned-set',
+                sourceFile,
+                projectId,
+                versionId: versionIdentity.version_id,
+                queuedAtMs: versionIdentity.queued_at_ms,
+                data: persistedRaw,
+            });
+        } else {
+            queueForRetry({ kind: 'set', sourceFile, data: persistedRaw });
+        }
         // Do NOT re-throw — the analysis is safely in localStorage.
     }
 }
@@ -338,8 +474,7 @@ export function subscribeToAnalyses(
                 .map((d) => d.data() as Record<string, unknown>)
                 .filter((data) => !isQuarantined(data))
                 .map((data) => stripInternals(data));
-            const next = applyPendingWritesToRecords(cloudRecords)
-                .filter((d) => !d._deleted_at);
+            const next = applyPendingWritesToRecords(cloudRecords).filter((d) => !d._deleted_at);
 
             // Mirror to localStorage so the next cold-load is fast.
             writeToLocal(next, true);
@@ -377,7 +512,9 @@ export async function softDeleteAnalysis(sourceFile: string): Promise<void> {
     } catch (err) {
         console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
         queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
-        useToastStore.getState().addToast('Delete saved locally — cloud sync will retry', 'warning');
+        useToastStore
+            .getState()
+            .addToast('Delete saved locally — cloud sync will retry', 'warning');
     }
 }
 
@@ -411,7 +548,9 @@ export async function patchAnalysisField(
     } catch (err) {
         console.warn(`[Lemon] Firestore patch failed for ${docId}.${field}:`, err);
         queueForRetry({ kind: 'patch', sourceFile, fields: { [field]: value } });
-        useToastStore.getState().addToast('Change saved locally — cloud sync will retry', 'warning');
+        useToastStore
+            .getState()
+            .addToast('Change saved locally — cloud sync will retry', 'warning');
     }
 }
 
@@ -441,7 +580,9 @@ export async function softDeleteAllAnalyses(): Promise<void> {
                 queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
             }
         }
-        useToastStore.getState().addToast('Deletes saved locally — cloud sync will retry', 'warning');
+        useToastStore
+            .getState()
+            .addToast('Deletes saved locally — cloud sync will retry', 'warning');
     }
 }
 
@@ -475,7 +616,9 @@ export async function restoreAnalysis(sourceFile: string): Promise<void> {
     } catch (err) {
         console.warn(`[Lemon] Firestore restore failed for ${docId}:`, err);
         queueForRetry({ kind: 'restore', sourceFile });
-        useToastStore.getState().addToast('Restore saved locally — cloud sync will retry', 'warning');
+        useToastStore
+            .getState()
+            .addToast('Restore saved locally — cloud sync will retry', 'warning');
     }
 }
 
@@ -588,7 +731,9 @@ export async function softDeleteMultipleAnalyses(sourceFiles: string[]): Promise
         for (const sourceFile of sourceFiles) {
             queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
         }
-        useToastStore.getState().addToast('Deletes saved locally — cloud sync will retry', 'warning');
+        useToastStore
+            .getState()
+            .addToast('Deletes saved locally — cloud sync will retry', 'warning');
         return;
     }
     for (let i = 0; i < sourceFiles.length; i += batchSize) {
@@ -602,7 +747,11 @@ export async function softDeleteMultipleAnalyses(sourceFiles: string[]): Promise
                     });
                 } catch (err) {
                     console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
-                    queueForRetry({ kind: 'patch', sourceFile: sf, fields: { _deleted_at: deletedAt } });
+                    queueForRetry({
+                        kind: 'patch',
+                        sourceFile: sf,
+                        fields: { _deleted_at: deletedAt },
+                    });
                 }
             }),
         );

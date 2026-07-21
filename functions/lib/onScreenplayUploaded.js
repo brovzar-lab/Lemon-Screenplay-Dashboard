@@ -3,12 +3,12 @@
  * onScreenplayUploaded — Firebase Storage trigger
  *
  * Fires when a PDF is uploaded to:
- *   gs://{bucket}/ingest-queue/{collection_id}/{filename}.pdf
+ *   gs://{bucket}/ingest-queue/{collection_id}/{upload_id}/{filename}.pdf
  *
  * What it does:
  *   1. Validates the path structure (collection_id must be in VALID_COLLECTIONS)
- *   2. Idempotency check: if a complete job with the same storage path exists, skip
- *   3. Writes a pending IngestJob document to Firestore: ingest-queue/{auto-id}
+ *   2. Uses path + object generation for event idempotency
+ *   3. Writes a pending IngestJob document to Firestore
  *
  * What it does NOT do:
  *   - Parse the PDF (that's the worker's job)
@@ -29,31 +29,10 @@ const storage_1 = require("firebase-functions/v2/storage");
 const firestore_1 = require("firebase-admin/firestore");
 const app_1 = require("firebase-admin/app");
 const ingestQueue_1 = require("./ingestQueue");
+const ingestUploadIdentity_1 = require("./ingestUploadIdentity");
 // Init Firebase Admin once
 if (!(0, app_1.getApps)().length)
     (0, app_1.initializeApp)();
-// ── Path helpers ──────────────────────────────────────────────────────────────
-/**
- * Parses a Storage object path of the form:
- *   ingest-queue/{collection_id}/{filename}.pdf
- *
- * Returns null if the path doesn't match this structure.
- */
-function parseIngestPath(objectName) {
-    // Normalize: strip leading slash if present
-    const name = objectName.startsWith('/') ? objectName.slice(1) : objectName;
-    const parts = name.split('/');
-    // Must be exactly: ingest-queue / {collection_id} / {filename}
-    if (parts.length !== 3 || parts[0] !== 'ingest-queue')
-        return null;
-    const rawCollection = parts[1].toUpperCase();
-    const filename = parts[2];
-    if (!filename.toLowerCase().endsWith('.pdf'))
-        return null;
-    if (!ingestQueue_1.VALID_COLLECTIONS.includes(rawCollection))
-        return null;
-    return { collection_id: rawCollection, filename };
-}
 // ── Cloud Function ────────────────────────────────────────────────────────────
 exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
     /**
@@ -75,12 +54,12 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
     const sizeMb = Number(event.data.size ?? 0) / (1024 * 1024);
     console.log(`[onScreenplayUploaded] Object finalized: gs://${bucket}/${objectName}`);
     // ── Path guard ─────────────────────────────────────────────────────────
-    const parsed = parseIngestPath(objectName);
+    const parsed = (0, ingestUploadIdentity_1.parseIngestPath)(objectName);
     if (!parsed) {
         console.log(`[onScreenplayUploaded] Ignoring — not an ingest-queue PDF: ${objectName}`);
         return;
     }
-    const { collection_id, filename } = parsed;
+    const { collection_id, filename, upload_id } = parsed;
     // ── Content-type guard ─────────────────────────────────────────────────
     if (!contentType.includes('pdf')) {
         console.warn(`[onScreenplayUploaded] Ignoring non-PDF content type: ${contentType} (${objectName})`);
@@ -92,42 +71,49 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
             `Worker will validate token budget before calling Anthropic.`);
     }
     const storage_path = `gs://${bucket}/${objectName}`;
+    const storage_generation = String(event.data.generation ?? event.id);
     const db = (0, firestore_1.getFirestore)();
-    // ── Idempotency: check if a job for this path already exists ───────────
-    // Prevents duplicate pending docs if the file is re-uploaded.
-    const existing = await db
-        .collection(ingestQueue_1.INGEST_QUEUE_COLLECTION)
-        .where('storage_path', '==', storage_path)
-        .where('status', 'in', ['pending', 'processing', 'complete'])
-        .limit(1)
-        .get();
-    if (!existing.empty) {
-        const existingDoc = existing.docs[0];
-        const existingStatus = existingDoc.data().status;
-        console.log(`[onScreenplayUploaded] Skipping — job already exists ` +
-            `(id=${existingDoc.id}, status=${existingStatus}) for: ${objectName}`);
-        return;
-    }
     // ── Read model preference from Storage metadata (optional) ────────────
     // Upload with: gsutil -h "x-goog-meta-model:haiku" cp ...
     // Or set via Firebase Console / SDK custom metadata
     const customMeta = event.data.metadata ?? {};
     const requestedModel = customMeta['model'] ?? 'auto';
     const priority = customMeta['priority'] ? Number(customMeta['priority']) : 0;
+    const target_project_id = (0, ingestUploadIdentity_1.readTargetProjectId)(customMeta);
+    const separate_project = (0, ingestUploadIdentity_1.readSeparateProject)(customMeta);
+    if (target_project_id && separate_project) {
+        throw new Error('Upload metadata cannot target a revision and request a separate project.');
+    }
     // ── Write pending job to Firestore ─────────────────────────────────────
-    const docRef = db.collection(ingestQueue_1.INGEST_QUEUE_COLLECTION).doc(); // auto-id
+    const jobId = (0, ingestUploadIdentity_1.buildIngestJobId)(objectName, storage_generation);
+    const docRef = db.collection(ingestQueue_1.INGEST_QUEUE_COLLECTION).doc(jobId);
     const jobDoc = (0, ingestQueue_1.buildPendingJob)({
-        id: docRef.id,
+        id: jobId,
         collection_id,
         filename,
         storage_path,
+        storage_generation,
+        upload_id,
+        target_project_id,
+        separate_project,
         // content_hash computed by worker (avoids downloading PDF here)
         content_hash: 'pending', // placeholder; worker updates with real SHA-256
         requested_model: requestedModel,
         priority,
     });
-    await docRef.set(jobDoc);
-    console.log(`[onScreenplayUploaded] ✅ Pending job created: ${docRef.id} ` +
+    const created = await db.runTransaction(async (transaction) => {
+        const existing = await transaction.get(docRef);
+        if (existing.exists)
+            return false;
+        transaction.create(docRef, jobDoc);
+        return true;
+    });
+    if (!created) {
+        console.log(`[onScreenplayUploaded] Skipping duplicate event for ${objectName} ` +
+            `(generation=${storage_generation})`);
+        return;
+    }
+    console.log(`[onScreenplayUploaded] ✅ Pending job created: ${jobId} ` +
         `| collection=${collection_id} | file=${filename} | model=${requestedModel}`);
 });
 //# sourceMappingURL=onScreenplayUploaded.js.map

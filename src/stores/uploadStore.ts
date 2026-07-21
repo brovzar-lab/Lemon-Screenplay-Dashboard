@@ -15,6 +15,8 @@ export type UploadStatus =
   | 'error'
   | 'skipped';
 
+export type UploadMatchResolution = 'revision' | 'separate';
+
 export interface UploadJob {
   id: string;
   filename: string;
@@ -29,9 +31,20 @@ export interface UploadJob {
   };
   createdAt: string;
   completedAt?: string;
-  /** Duplicate detection — set when file title matches an existing screenplay */
+  /** Stable identity for this queued upload across browser retries. */
+  uploadId?: string;
+  /** False while title and SHA-256 archive checks are still running. */
+  identityCheckComplete?: boolean;
+  /** True only when SHA-256 proves these exact PDF bytes were already analyzed. */
   isDuplicate?: boolean;
   existingTitle?: string;
+  /** Suggested parent from a title match. The user must confirm it. */
+  possibleMatchProjectId?: string;
+  matchResolution?: UploadMatchResolution;
+  /** Stable uploaded_analyses parent for an explicitly identified revision. */
+  targetProjectId?: string;
+  /** Explicitly create a distinct parent even when title/filename collides. */
+  separateProject?: boolean;
   /** TMDB production status — populated after save, non-blocking */
   tmdbStatus?: {
     isProduced: boolean;
@@ -60,6 +73,8 @@ interface UploadState {
   updateJob: (jobId: string, update: Partial<UploadJob>) => void;
   removeJob: (jobId: string) => void;
   clearCompleted: () => void;
+  chooseRevision: (jobId: string) => void;
+  chooseSeparateProject: (jobId: string) => void;
 
   // Processing control
   setProcessing: (isProcessing: boolean) => void;
@@ -71,6 +86,17 @@ interface UploadState {
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
+
+/** Only resolved, non-duplicate jobs may enter the paid analysis queue. */
+export function isUploadJobReady(job: UploadJob): boolean {
+  if (job.status !== 'pending' || job.isDuplicate || job.identityCheckComplete === false)
+    return false;
+  if (!job.possibleMatchProjectId) return true;
+  if (job.matchResolution === 'revision') {
+    return job.targetProjectId === job.possibleMatchProjectId && !job.separateProject;
+  }
+  return job.matchResolution === 'separate' && job.separateProject === true && !job.targetProjectId;
+}
 
 export const useUploadStore = create<UploadState>()(
   persist(
@@ -91,6 +117,8 @@ export const useUploadStore = create<UploadState>()(
               status: 'pending' as const,
               progress: 0,
               createdAt: new Date().toISOString(),
+              uploadId: crypto.randomUUID(),
+              identityCheckComplete: false,
             },
           ],
         }));
@@ -117,6 +145,36 @@ export const useUploadStore = create<UploadState>()(
         completed.forEach((j) => fileMap.delete(j.id));
         set((state) => ({
           jobs: state.jobs.filter((j) => j.status !== 'complete' && j.status !== 'error'),
+        }));
+      },
+
+      chooseRevision: (jobId) => {
+        set((state) => ({
+          jobs: state.jobs.map((job) =>
+            job.id === jobId && job.possibleMatchProjectId
+              ? {
+                  ...job,
+                  matchResolution: 'revision' as const,
+                  targetProjectId: job.possibleMatchProjectId,
+                  separateProject: false,
+                }
+              : job,
+          ),
+        }));
+      },
+
+      chooseSeparateProject: (jobId) => {
+        set((state) => ({
+          jobs: state.jobs.map((job) =>
+            job.id === jobId && job.possibleMatchProjectId
+              ? {
+                  ...job,
+                  matchResolution: 'separate' as const,
+                  targetProjectId: undefined,
+                  separateProject: true,
+                }
+              : job,
+          ),
         }));
       },
 

@@ -118,6 +118,27 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── immutable analysis versions ─────────────────────────────────────
+    // Full snapshots written atomically with the top-level latest projection.
+    // Browser clients may create a version once, but can never edit or delete it.
+    match /uploaded_analyses/{docId}/versions/{versionId} {
+      allow read: if isTeamMember();
+
+      allow create: if isAdmin()
+                    && request.resource.data.project_id == docId
+                    && request.resource.data.version_id == versionId
+                    && request.resource.data.source_file is string
+                    && request.resource.data.source_file.size() <= 500
+                    && request.resource.data.version_number is int
+                    && request.resource.data.version_number > 0
+                    && request.resource.data.created_at is timestamp
+                    && request.resource.data.identity_status == 'verified'
+                    && request.resource.data.content_hash is string
+                    && request.resource.data.content_hash.matches('^[a-f0-9]{64}$');
+
+      allow update, delete: if false;
+    }
+
     // ── screenplay_feedback ──────────────────────────────────────────────
     // User feedback and notes on individual screenplays.
     //

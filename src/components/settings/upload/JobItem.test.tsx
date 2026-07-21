@@ -15,7 +15,7 @@ const duplicateJob: UploadJob = {
 };
 
 describe('JobItem duplicate safety', () => {
-  it('blocks unsafe reanalysis and allows the upload to be skipped', () => {
+  it('explains exact-byte deduplication and allows the upload to be skipped', () => {
     const onSkip = vi.fn();
 
     render(
@@ -24,13 +24,47 @@ describe('JobItem duplicate safety', () => {
         onRemove={vi.fn()}
         onRetry={vi.fn()}
         onSkip={onSkip}
+        onChooseRevision={vi.fn()}
+        onChooseSeparate={vi.fn()}
       />,
     );
 
-    expect(screen.getByText(/revision uploads are temporarily paused/i)).toBeInTheDocument();
+    expect(screen.getByText(/exactly the same bytes/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /re-analyze anyway/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /new revision of/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /separate project/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /skip upload/i }));
     expect(onSkip).toHaveBeenCalledWith(duplicateJob.id);
+  });
+
+  it('asks the user to classify a title match instead of deciding automatically', () => {
+    const onChooseRevision = vi.fn();
+    const onChooseSeparate = vi.fn();
+    const possibleMatch: UploadJob = {
+      ...duplicateJob,
+      id: 'possible-match',
+      isDuplicate: false,
+      possibleMatchProjectId: 'existing-project',
+      existingTitle: 'Revised Draft',
+    };
+
+    render(
+      <JobItem
+        job={possibleMatch}
+        onRemove={vi.fn()}
+        onRetry={vi.fn()}
+        onSkip={vi.fn()}
+        onChooseRevision={onChooseRevision}
+        onChooseSeparate={onChooseSeparate}
+      />,
+    );
+
+    expect(screen.getByText(/possible match/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /new revision of revised draft/i }));
+    expect(onChooseRevision).toHaveBeenCalledWith(possibleMatch.id);
+
+    fireEvent.click(screen.getByRole('button', { name: /separate project/i }));
+    expect(onChooseSeparate).toHaveBeenCalledWith(possibleMatch.id);
   });
 });

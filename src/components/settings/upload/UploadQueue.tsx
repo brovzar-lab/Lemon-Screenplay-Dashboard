@@ -6,7 +6,7 @@
  */
 
 import { clsx } from 'clsx';
-import type { UploadJob } from '@/stores/uploadStore';
+import { isUploadJobReady, type UploadJob } from '@/stores/uploadStore';
 import { MODEL_OPTIONS } from './upload.constants';
 import type { ModelOption } from './upload.types';
 import { JobItem } from './JobItem';
@@ -22,6 +22,8 @@ interface UploadQueueProps {
   onClearCompleted: () => void;
   onStartProcessing: () => void;
   onSkipJob: (id: string) => void;
+  onChooseRevision: (id: string) => void;
+  onChooseSeparate: (id: string) => void;
 }
 
 export function UploadQueue({
@@ -35,14 +37,18 @@ export function UploadQueue({
   onClearCompleted,
   onStartProcessing,
   onSkipJob,
+  onChooseRevision,
+  onChooseSeparate,
 }: UploadQueueProps) {
   const pendingJobs = jobs.filter((j) => j.status === 'pending');
-  // Actionable pending = not flagged as duplicate (those need user confirmation first)
-  const actionablePending = pendingJobs.filter((j) => !j.isDuplicate);
+  const actionablePending = pendingJobs.filter(isUploadJobReady);
   const activeJobs = jobs.filter((j) => j.status === 'parsing' || j.status === 'analyzing' || j.status === 'promoting');
   const completedJobs = jobs.filter((j) => j.status === 'complete' || j.status === 'error');
   const skippedJobs = jobs.filter((j) => j.status === 'skipped');
   const duplicateCount = pendingJobs.filter((j) => j.isDuplicate).length;
+  const decisionCount = pendingJobs.filter(
+    (j) => !j.isDuplicate && j.possibleMatchProjectId && !j.matchResolution,
+  ).length;
 
   if (jobs.length === 0) return null;
 
@@ -67,7 +73,15 @@ export function UploadQueue({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <p className="text-xs text-amber-300">
-            <span className="font-medium">{duplicateCount} duplicate{duplicateCount > 1 ? 's' : ''}</span> detected — review below before starting
+            <span className="font-medium">{duplicateCount} exact duplicate{duplicateCount > 1 ? 's' : ''}</span> blocked to prevent unnecessary AI spend
+          </p>
+        </div>
+      )}
+
+      {decisionCount > 0 && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/30">
+          <p className="text-sm text-blue-200">
+            <span className="font-medium">{decisionCount} possible match{decisionCount > 1 ? 'es' : ''}</span> need your decision before analysis
           </p>
         </div>
       )}
@@ -81,6 +95,8 @@ export function UploadQueue({
             onRemove={onRemoveJob}
             onRetry={onRetryJob}
             onSkip={onSkipJob}
+            onChooseRevision={onChooseRevision}
+            onChooseSeparate={onChooseSeparate}
           />
         ))}
 
@@ -92,6 +108,8 @@ export function UploadQueue({
             onRemove={onRemoveJob}
             onRetry={onRetryJob}
             onSkip={onSkipJob}
+            onChooseRevision={onChooseRevision}
+            onChooseSeparate={onChooseSeparate}
           />
         ))}
 
@@ -102,6 +120,8 @@ export function UploadQueue({
             job={job}
             onRemove={onRemoveJob}
             onRetry={onRetryJob}
+            onChooseRevision={onChooseRevision}
+            onChooseSeparate={onChooseSeparate}
           />
         ))}
 
@@ -112,6 +132,8 @@ export function UploadQueue({
             job={job}
             onRemove={onRemoveJob}
             onRetry={onRetryJob}
+            onChooseRevision={onChooseRevision}
+            onChooseSeparate={onChooseSeparate}
           />
         ))}
       </div>
@@ -142,7 +164,7 @@ export function UploadQueue({
           </button>
           {duplicateCount > 0 && actionablePending.length > 0 && (
             <p className="text-xs text-amber-400/70 text-center">
-              {duplicateCount} file{duplicateCount > 1 ? 's' : ''} pending your duplicate review above
+              Exact duplicates are excluded from this analysis run.
             </p>
           )}
           {!isConfigured && (

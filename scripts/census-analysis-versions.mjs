@@ -5,7 +5,8 @@
  * Streams every doc in `uploaded_analyses` and tallies:
  *   1. analysis_version values (including "MISSING" for docs without one)
  *   2. presence of v7_meta vs v9_meta fields
- *   3. soft-deleted (_deleted_at) and quarantined docs per version
+ *   3. content fingerprint and Storage-pointer availability
+ *   4. soft-deleted (_deleted_at) and quarantined docs per version
  *
  * Prints a summary table only — never document contents, never writes.
  *
@@ -56,6 +57,16 @@ const db = firestore.getFirestore();
 
 const versionCounts = new Map();
 const metaCounts = { v7_meta: 0, v9_meta: 0, both: 0, neither: 0 };
+const identityCounts = {
+  validSha256: 0,
+  nullHash: 0,
+  missingHash: 0,
+  invalidHash: 0,
+  storagePath: 0,
+  missingStoragePath: 0,
+  ingestJobId: 0,
+  missingIngestJobId: 0,
+};
 let total = 0;
 let deleted = 0;
 let quarantined = 0;
@@ -81,6 +92,28 @@ for (;;) {
     else if (has9) metaCounts.v9_meta += 1;
     else metaCounts.neither += 1;
 
+    if (!Object.hasOwn(d, 'content_hash')) {
+      identityCounts.missingHash += 1;
+    } else if (d.content_hash === null) {
+      identityCounts.nullHash += 1;
+    } else if (typeof d.content_hash === 'string' && /^[a-f0-9]{64}$/.test(d.content_hash)) {
+      identityCounts.validSha256 += 1;
+    } else {
+      identityCounts.invalidHash += 1;
+    }
+
+    if (typeof d._storagePath === 'string' && d._storagePath.length > 0) {
+      identityCounts.storagePath += 1;
+    } else {
+      identityCounts.missingStoragePath += 1;
+    }
+
+    if (typeof d._ingest_job_id === 'string' && d._ingest_job_id.length > 0) {
+      identityCounts.ingestJobId += 1;
+    } else {
+      identityCounts.missingIngestJobId += 1;
+    }
+
     if (d._deleted_at) deleted += 1;
     if (d._quarantined || d._quarantine_reason) quarantined += 1;
   }
@@ -100,4 +133,14 @@ console.log(`  v9_meta only:  ${metaCounts.v9_meta}`);
 console.log(`  v7_meta only:  ${metaCounts.v7_meta}`);
 console.log(`  both:          ${metaCounts.both}`);
 console.log(`  neither:       ${metaCounts.neither}`);
+console.log('\ncontent identity:');
+console.log(`  valid SHA-256:       ${identityCounts.validSha256}`);
+console.log(`  null:                ${identityCounts.nullHash}`);
+console.log(`  missing:             ${identityCounts.missingHash}`);
+console.log(`  invalid/other:       ${identityCounts.invalidHash}`);
+console.log('\nstorage provenance:');
+console.log(`  _storagePath set:    ${identityCounts.storagePath}`);
+console.log(`  _storagePath absent: ${identityCounts.missingStoragePath}`);
+console.log(`  _ingest_job_id set:  ${identityCounts.ingestJobId}`);
+console.log(`  _ingest_job_id absent: ${identityCounts.missingIngestJobId}`);
 console.log('───────────────────────────────────────────────────────────');

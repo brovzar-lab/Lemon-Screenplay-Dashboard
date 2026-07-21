@@ -7,7 +7,7 @@
  * Flow:
  *   1. Browser uploads PDF to ingest-queue/{collection}/{file}.pdf (Storage).
  *   2. onScreenplayUploaded Cloud Function (server) creates a pending IngestJob
- *      doc in the Firestore `ingest-queue` collection, keyed by `storage_path`.
+ *      doc in the Firestore `ingest-queue` collection, keyed by the unique upload path.
  *   3. VPS daemon claims the job (pending -> processing -> complete/failed).
  *   4. This client subscribes to the job doc by `storage_path` and emits
  *      status updates to the caller.

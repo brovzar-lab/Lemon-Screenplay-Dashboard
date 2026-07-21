@@ -13,9 +13,18 @@ interface JobItemProps {
   onRemove: (id: string) => void;
   onRetry: (id: string) => void;
   onSkip?: (id: string) => void;
+  onChooseRevision: (id: string) => void;
+  onChooseSeparate: (id: string) => void;
 }
 
-export function JobItem({ job, onRemove, onRetry, onSkip }: JobItemProps) {
+export function JobItem({
+  job,
+  onRemove,
+  onRetry,
+  onSkip,
+  onChooseRevision,
+  onChooseSeparate,
+}: JobItemProps) {
   const status = STATUS_LABELS[job.status];
   const isActive = job.status === 'parsing' || job.status === 'analyzing' || job.status === 'promoting';
   const isSkipped = job.status === 'skipped';
@@ -36,12 +45,12 @@ export function JobItem({ job, onRemove, onRetry, onSkip }: JobItemProps) {
             <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            <p className="text-xs text-amber-300 truncate">
-              Already analyzed
+            <p className="text-sm text-amber-200">
+              <span className="font-medium">Exact duplicate.</span> Already analyzed
               {job.existingTitle && job.existingTitle !== job.filename.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ') && (
                 <> as <span className="font-medium">"{job.existingTitle}"</span></>
               )}
-              . Revision uploads are temporarily paused until version-safe reanalysis is available.
+              . This PDF has exactly the same bytes, so the engine will not run or spend AI credits again.
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -53,6 +62,51 @@ export function JobItem({ job, onRemove, onRetry, onSkip }: JobItemProps) {
               Skip upload
             </button>
           </div>
+        </div>
+      )}
+
+      {!job.isDuplicate && job.possibleMatchProjectId && job.status === 'pending' && (
+        <div className="px-3 py-3 border-b border-blue-500/20 bg-blue-500/5">
+          <p className="text-sm text-blue-100">
+            <span className="font-medium">Possible match:</span> &quot;{job.existingTitle}&quot; already exists.
+            Is this a new draft of that project or a different screenplay with the same title?
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              aria-pressed={job.matchResolution === 'revision'}
+              onClick={() => onChooseRevision(job.id)}
+              className={clsx(
+                'px-3 py-1.5 text-sm border rounded-md transition-colors',
+                job.matchResolution === 'revision'
+                  ? 'bg-blue-500 text-white border-blue-400'
+                  : 'text-blue-200 border-blue-500/40 hover:bg-blue-500/10',
+              )}
+            >
+              New revision of {job.existingTitle}
+            </button>
+            <button
+              type="button"
+              aria-pressed={job.matchResolution === 'separate'}
+              onClick={() => onChooseSeparate(job.id)}
+              className={clsx(
+                'px-3 py-1.5 text-sm border rounded-md transition-colors',
+                job.matchResolution === 'separate'
+                  ? 'bg-blue-500 text-white border-blue-400'
+                  : 'text-blue-200 border-blue-500/40 hover:bg-blue-500/10',
+              )}
+            >
+              Separate project
+            </button>
+          </div>
+        </div>
+      )}
+
+      {job.status === 'pending' && job.identityCheckComplete === false && (
+        <div className="px-3 py-2 border-b border-black-700 bg-black-800/40">
+          <p className="text-sm text-black-300">
+            Checking the archive for revisions and exact duplicates...
+          </p>
         </div>
       )}
 
@@ -94,6 +148,17 @@ export function JobItem({ job, onRemove, onRetry, onSkip }: JobItemProps) {
               </>
             )}
           </div>
+
+          {job.matchResolution === 'revision' && job.status === 'pending' && (
+            <p className="mt-1 text-xs text-blue-300">
+              Will be added to {job.existingTitle || job.targetProjectId}
+            </p>
+          )}
+          {job.matchResolution === 'separate' && job.status === 'pending' && (
+            <p className="mt-1 text-xs text-blue-300">
+              Will create a separate project
+            </p>
+          )}
 
           {/* TMDB result badge — shown on completed jobs */}
           {job.status === 'complete' && (
