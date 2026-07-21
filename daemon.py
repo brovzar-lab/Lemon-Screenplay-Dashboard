@@ -70,6 +70,7 @@ from pathlib import Path
 from typing import Optional
 
 from execution.content_identity import (
+    build_separate_project_id,
     compute_content_hash,
     queued_at_millis,
     verified_identity_fields,
@@ -395,6 +396,25 @@ def resolve_target_project_id(value: object) -> Optional[str]:
         )
     return target_project_id
 
+
+def choose_output_project_id(
+    *,
+    filename_project_id: str,
+    target_project_id: Optional[str],
+    separate_project: object,
+    upload_id: object,
+) -> Optional[str]:
+    """Resolve an explicit revision/separate choice before parsing or AI spend."""
+    if not isinstance(separate_project, bool):
+        raise ValueError("separate_project must be a boolean")
+    if target_project_id and separate_project:
+        raise ValueError("A job cannot be both a revision and a separate project")
+    if target_project_id:
+        return target_project_id
+    if separate_project:
+        return build_separate_project_id(filename_project_id, upload_id)
+    return None
+
 # ── PDF validation (pre-flight before calling Anthropic) ─────────────────────
 
 def validate_screenplay_text(text: str, filename: str) -> tuple[bool, str]:
@@ -655,8 +675,7 @@ def process_job(job: dict) -> None:
             log.info(f"[job] {job_id} → Skipped (duplicate content hash: {content_hash[:8]}…)")
             return
 
-        # A renamed revision may only attach to a real existing project. Fail
-        # before parsing or AI spend if its target was lost or malformed.
+        # A renamed revision may only attach to a real existing project.
         target_project_id = resolve_target_project_id(job.get("target_project_id"))
 
         # ── 3. Run analysis via V9 Archaeology Engine ──────────────────────
@@ -671,6 +690,18 @@ def process_job(job: dict) -> None:
 
         # Init Firebase in the ingest_v9 module context (shares _db from admin SDK)
         ingest_v9.init_firebase()
+
+        # An explicit title collision gets a unique, retry-stable parent. Resolve
+        # this before parsing or AI spend so malformed queue identity fails free.
+        separate_project = job.get("separate_project", False)
+        project_id = choose_output_project_id(
+            filename_project_id=(
+                ingest_v9.to_doc_id(filename) if separate_project is True else ""
+            ),
+            target_project_id=target_project_id,
+            separate_project=separate_project,
+            upload_id=job.get("upload_id"),
+        )
 
         # Parse PDF
         parsed = ingest_v9.parse_pdf(local_pdf, content_hash=content_hash)
@@ -777,7 +808,7 @@ def process_job(job: dict) -> None:
             content_hash=content_hash,
             queued_at_ms=queued_at_ms,
             tmdb_status=tmdb_status,
-            target_project_id=target_project_id,
+            target_project_id=project_id,
             storage_path=storage_path,
             storage_generation=(
                 str(storage_generation) if storage_generation is not None else None
@@ -789,7 +820,7 @@ def process_job(job: dict) -> None:
             raise RuntimeError("Firestore write failed — will retry")
 
         # Derive the doc ID the way write_to_firestore does
-        screenplay_doc_id = target_project_id or ingest_v9.to_doc_id(filename)
+        screenplay_doc_id = project_id or ingest_v9.to_doc_id(filename)
 
         # ── 10. Mark complete with telemetry ──────────────────────────────
         duration = round(time.time() - start_time)

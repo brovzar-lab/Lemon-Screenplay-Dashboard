@@ -34,6 +34,7 @@ import {
 import {
   buildIngestJobId,
   parseIngestPath,
+  readSeparateProject,
   readTargetProjectId,
 } from './ingestUploadIdentity';
 
@@ -101,6 +102,10 @@ export const onScreenplayUploaded = onObjectFinalized(
     const requestedModel = (customMeta['model'] as IngestModel | undefined) ?? 'auto';
     const priority = customMeta['priority'] ? Number(customMeta['priority']) : 0;
     const target_project_id = readTargetProjectId(customMeta);
+    const separate_project = readSeparateProject(customMeta);
+    if (target_project_id && separate_project) {
+      throw new Error('Upload metadata cannot target a revision and request a separate project.');
+    }
 
     // ── Write pending job to Firestore ─────────────────────────────────────
     const jobId = buildIngestJobId(objectName, storage_generation);
@@ -113,6 +118,7 @@ export const onScreenplayUploaded = onObjectFinalized(
       storage_generation,
       upload_id,
       target_project_id,
+      separate_project,
       // content_hash computed by worker (avoids downloading PDF here)
       content_hash: 'pending', // placeholder; worker updates with real SHA-256
       requested_model: requestedModel,

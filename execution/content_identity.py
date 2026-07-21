@@ -54,6 +54,27 @@ def build_version_id(content_hash: str, queued_at: Any) -> str:
     return f"{content_hash}_{queued_at_millis(queued_at)}"
 
 
+def build_separate_project_id(base_project_id: str, upload_id: str) -> str:
+    """Build a stable parent ID for an explicit same-title separate project."""
+    if not isinstance(base_project_id, str) or not base_project_id.strip():
+        raise ValueError("base_project_id must be a Firestore document ID")
+    if "/" in base_project_id:
+        raise ValueError("base_project_id must be a Firestore document ID")
+    if not isinstance(upload_id, str) or not re.fullmatch(
+        r"[A-Za-z0-9_-]{8,128}", upload_id
+    ):
+        raise ValueError("separate project requires a valid upload_id")
+
+    suffix = f"__{upload_id}"
+    available = 200 - len(suffix)
+    if available <= 0:
+        raise ValueError("upload_id is too long for a Firestore document ID")
+    base = base_project_id.strip()[:available]
+    if not base:
+        raise ValueError("base_project_id is too short after normalization")
+    return f"{base}{suffix}"
+
+
 def version_created_at(queued_at: Any) -> datetime:
     """Return an aware datetime that the Admin SDK stores as a Firestore Timestamp."""
     queued_at_ms = queued_at_millis(queued_at)

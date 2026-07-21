@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 os.environ.setdefault("DAEMON_LOG_DIR", "/tmp/lemon-daemon-test")
 
 import daemon
+from execution.content_identity import build_separate_project_id
 from execution.ingest_v9 import write_analysis_transaction
 
 
@@ -46,6 +47,22 @@ class FakeTransaction:
 
 
 class TestDaemonDuplicateAndTargeting(unittest.TestCase):
+    def test_separate_project_gets_a_collision_safe_parent_id(self):
+        project_id = daemon.choose_output_project_id(
+            filename_project_id="Shared_Title.pdf",
+            target_project_id=None,
+            separate_project=True,
+            upload_id="separate-upload",
+        )
+
+        self.assertNotEqual(project_id, "Shared_Title.pdf")
+        self.assertTrue(project_id.endswith("__separate-upload"))
+        self.assertLessEqual(len(project_id), 200)
+        self.assertEqual(
+            project_id,
+            build_separate_project_id("Shared_Title.pdf", "separate-upload"),
+        )
+
     def test_target_project_must_exist_before_analysis(self):
         existing_snapshot = SimpleNamespace(exists=True)
         missing_snapshot = SimpleNamespace(exists=False)
@@ -67,6 +84,76 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                 daemon.resolve_target_project_id("Missing_Draft.pdf")
         finally:
             daemon._db = prior_db
+
+    def test_queue_separate_choice_reaches_project_identity_before_analysis(self):
+        heartbeat = MagicMock()
+        fake_engine = SimpleNamespace(
+            init_firebase=MagicMock(),
+            to_doc_id=MagicMock(return_value="Shared_Title.pdf"),
+            parse_pdf=MagicMock(return_value=None),
+        )
+        prior_engine = sys.modules.get("ingest_v9")
+        sys.modules["ingest_v9"] = fake_engine
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "Shared Title.pdf"
+            pdf_path.write_bytes(b"different screenplay bytes")
+            prior_work_dir = daemon.WORK_DIR
+            prior_bucket = daemon._bucket
+            prior_db = daemon._db
+            daemon.WORK_DIR = Path(temp_dir) / "work"
+            daemon._bucket = object()
+            daemon._db = MagicMock()
+            try:
+                with (
+                    patch.object(daemon, "HeartbeatTask", return_value=heartbeat),
+                    patch.object(daemon, "download_pdf", return_value=pdf_path),
+                    patch.object(daemon, "compute_content_hash", return_value=CONTENT_HASH),
+                    patch.object(daemon, "is_already_complete", return_value=False),
+                    patch.object(
+                        daemon,
+                        "choose_output_project_id",
+                        wraps=daemon.choose_output_project_id,
+                    ) as choose_project,
+                    patch.object(daemon, "mark_skipped"),
+                    patch.object(daemon, "mark_failed") as mark_failed,
+                ):
+                    daemon.process_job({
+                        "id": "separate-job",
+                        "filename": "Shared Title.pdf",
+                        "collection_id": "LEMON",
+                        "storage_path": (
+                            "gs://bucket/ingest-queue/LEMON/"
+                            "separate-upload/Shared_Title.pdf"
+                        ),
+                        "upload_id": "separate-upload",
+                        "separate_project": True,
+                        "queued_at": datetime.fromtimestamp(
+                            QUEUED_AT_MS / 1000,
+                            tz=timezone.utc,
+                        ),
+                        "attempt_count": 1,
+                    })
+
+                choose_project.assert_called_once_with(
+                    filename_project_id="Shared_Title.pdf",
+                    target_project_id=None,
+                    separate_project=True,
+                    upload_id="separate-upload",
+                )
+                mark_failed.assert_not_called()
+                fake_engine.parse_pdf.assert_called_once_with(
+                    pdf_path,
+                    content_hash=CONTENT_HASH,
+                )
+            finally:
+                daemon.WORK_DIR = prior_work_dir
+                daemon._bucket = prior_bucket
+                daemon._db = prior_db
+                if prior_engine is None:
+                    sys.modules.pop("ingest_v9", None)
+                else:
+                    sys.modules["ingest_v9"] = prior_engine
 
     def test_byte_identical_upload_stops_before_budget_or_ai(self):
         heartbeat = MagicMock()

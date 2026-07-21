@@ -7,7 +7,7 @@
  *   - Watchdog              (Cloud Function — resets stuck docs)
  *   - Dashboard             (React — reads progress)
  *
- * SCHEMA VERSION: 2
+ * SCHEMA VERSION: 3
  */
 
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
@@ -58,6 +58,8 @@ export interface IngestJob {
   upload_id: string | null;
   /** Existing uploaded_analyses parent when this upload is a revision. */
   target_project_id: string | null;
+  /** User explicitly chose a distinct project despite a title/filename match. */
+  separate_project: boolean;
   /**
    * SHA-256 of the PDF bytes — enables true idempotency.
    * If a job with this hash already has status=complete, skip re-processing.
@@ -138,6 +140,7 @@ export function buildPendingJob(params: {
   storage_generation: string;
   upload_id?: string | null;
   target_project_id?: string | null;
+  separate_project?: boolean;
   content_hash: string;
   requested_model?: IngestModel;
   priority?: number;
@@ -150,6 +153,7 @@ export function buildPendingJob(params: {
     storage_generation: params.storage_generation,
     upload_id: params.upload_id ?? null,
     target_project_id: params.target_project_id ?? null,
+    separate_project: params.separate_project ?? false,
     content_hash: params.content_hash,
     status: 'pending',
     attempt_count: 0,

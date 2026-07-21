@@ -110,4 +110,38 @@ describe('firebase module', () => {
       }),
     );
   });
+
+  it('marks a title collision as an explicitly separate project', async () => {
+    const file = new File(['different screenplay'], 'Shared Title.pdf', {
+      type: 'application/pdf',
+    });
+
+    await firebaseModule.uploadPdfToIngestQueue(file, 'LEMON', {
+      uploadId: 'separate-upload',
+      separateProject: true,
+    });
+
+    expect(mockUploadBytes).toHaveBeenCalledWith(
+      { path: 'ingest-queue/LEMON/separate-upload/Shared_Title.pdf' },
+      file,
+      expect.objectContaining({
+        customMetadata: expect.objectContaining({ separateProject: 'true' }),
+      }),
+    );
+  });
+
+  it('rejects contradictory revision and separate-project metadata', async () => {
+    const file = new File(['different screenplay'], 'Shared Title.pdf', {
+      type: 'application/pdf',
+    });
+
+    await expect(
+      firebaseModule.uploadPdfToIngestQueue(file, 'LEMON', {
+        uploadId: 'invalid-choice',
+        targetProjectId: 'Original_Draft.pdf',
+        separateProject: true,
+      }),
+    ).rejects.toThrow(/both a revision and a separate project/i);
+    expect(mockUploadBytes).not.toHaveBeenCalled();
+  });
 });

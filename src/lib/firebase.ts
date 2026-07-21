@@ -144,6 +144,8 @@ export async function uploadPdfToIngestQueue(
         requestedModel?: string;
         priority?: number;
         targetProjectId?: string;
+        /** Force a distinct project when the filename/title matches an existing one. */
+        separateProject?: boolean;
         /** Test/replay override. Normal uploads always receive a fresh UUID. */
         uploadId?: string;
     },
@@ -162,6 +164,9 @@ export async function uploadPdfToIngestQueue(
     ) {
         throw new Error('Target project ID must be a valid Firestore document ID.');
     }
+    if (options?.targetProjectId && options.separateProject) {
+        throw new Error('An upload cannot be both a revision and a separate project.');
+    }
 
     const objectName = `ingest-queue/${collectionId}/${uploadId}/${safeName}.pdf`;
     const storageRef = ref(storage, objectName);
@@ -175,6 +180,7 @@ export async function uploadPdfToIngestQueue(
     if (options?.requestedModel) customMetadata.model = options.requestedModel;
     if (options?.priority != null) customMetadata.priority = String(options.priority);
     if (options?.targetProjectId) customMetadata.targetProjectId = options.targetProjectId;
+    if (options?.separateProject) customMetadata.separateProject = 'true';
 
     await uploadBytes(storageRef, file, {
         contentType: 'application/pdf',

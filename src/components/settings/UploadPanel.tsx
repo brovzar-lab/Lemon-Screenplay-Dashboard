@@ -17,7 +17,7 @@
 
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useUploadStore } from '@/stores/uploadStore';
+import { isUploadJobReady, useUploadStore } from '@/stores/uploadStore';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { useScreenplays, SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
 import { uploadPdfToIngestQueue } from '@/lib/firebase';
@@ -59,7 +59,18 @@ export function UploadPanel() {
   const [showApiConfig, setShowApiConfig] = useState(false);
   const { categoryIds, addCategory: addCategoryToStore } = useCategories();
 
-  const { jobs, addJob, updateJob, removeJob, clearCompleted, isProcessing, setProcessing, getFile } = useUploadStore();
+  const {
+    jobs,
+    addJob,
+    updateJob,
+    removeJob,
+    clearCompleted,
+    chooseRevision,
+    chooseSeparateProject,
+    isProcessing,
+    setProcessing,
+    getFile,
+  } = useUploadStore();
   const { canMakeRequest } = useApiConfigStore();
   const { data: screenplays } = useScreenplays();
   // Proxy is always available (API keys are server-side)
@@ -90,7 +101,7 @@ export function UploadPanel() {
           if (match) {
             updateJob(jobId, {
               existingTitle: match.title,
-              targetProjectId: match.projectId ?? toDocId(match.sourceFile),
+              possibleMatchProjectId: match.projectId ?? toDocId(match.sourceFile),
             });
           }
         }
@@ -101,10 +112,18 @@ export function UploadPanel() {
           const hash = await computeContentHash(file);
           const existing = await findAnalysisByContentHash(hash);
           if (existing) {
-            updateJob(jobId, { isDuplicate: true, existingTitle: existing });
+            updateJob(jobId, {
+              isDuplicate: true,
+              existingTitle: existing,
+              matchResolution: undefined,
+              targetProjectId: undefined,
+              separateProject: false,
+            });
           }
         } catch (err) {
           console.warn('[upload] hash compute failed (proceeding):', err);
+        } finally {
+          updateJob(jobId, { identityCheckComplete: true });
         }
       }),
     );
@@ -118,7 +137,7 @@ export function UploadPanel() {
 
   // ─── Process pending jobs via VPS daemon ──────────────────────────────────
   //
-  // Browser uploads PDF to ingest-queue/{collection}/{filename}.pdf in Storage.
+  // Browser uploads PDF to ingest-queue/{collection}/{uploadId}/{filename}.pdf in Storage.
   // The onScreenplayUploaded Cloud Function creates the Firestore queue doc.
   // The VPS daemon claims it, runs V9 analysis, writes uploaded_analyses.
   // Browser subscribes to the queue doc by storage_path and mirrors status.
@@ -131,12 +150,15 @@ export function UploadPanel() {
     }
     const job = useUploadStore.getState().jobs.find((j) => j.id === jobId);
     if (!job) return;
+    if (!isUploadJobReady(job)) return;
 
     try {
       updateJob(jobId, { status: 'parsing', progress: 5 });
       const { storagePath } = await uploadPdfToIngestQueue(file, job.category, {
         requestedModel,
         targetProjectId: job.targetProjectId,
+        separateProject: job.separateProject,
+        uploadId: job.uploadId,
       });
       updateJob(jobId, { status: 'analyzing', progress: 15, ingestQueueStoragePath: storagePath });
 
@@ -197,9 +219,7 @@ export function UploadPanel() {
     if (isProcessing) return;
     setProcessing(true);
 
-    const pending = useUploadStore.getState().jobs.filter(
-      (j) => j.status === 'pending' && !j.isDuplicate
-    );
+    const pending = useUploadStore.getState().jobs.filter(isUploadJobReady);
 
     // V9: daemon now supports `hybrid` directly via ingest_v9.run_v9_hybrid()
     // (Sonnet first pass; RECOMMEND/FILM_NOW results re-run on Opus).
@@ -218,7 +238,7 @@ export function UploadPanel() {
     setTimeout(() => { processJobs(); }, 100);
   }, [updateJob, processJobs]);
 
-  const pendingJobs = jobs.filter((j) => j.status === 'pending' && !j.isDuplicate);
+  const pendingJobs = jobs.filter(isUploadJobReady);
 
   // Calculate batch cost estimate (only actionable pending jobs)
   const batchCostEstimate = pendingJobs.length > 0
@@ -279,6 +299,8 @@ export function UploadPanel() {
         onClearCompleted={clearCompleted}
         onStartProcessing={handleStartProcessing}
         onSkipJob={handleSkipJob}
+        onChooseRevision={chooseRevision}
+        onChooseSeparate={chooseSeparateProject}
       />
 
       <UploadInstructions />

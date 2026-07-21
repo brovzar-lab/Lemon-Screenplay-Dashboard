@@ -4,6 +4,7 @@ const test = require('node:test');
 const {
   buildIngestJobId,
   parseIngestPath,
+  readSeparateProject,
   readTargetProjectId,
 } = require('../lib/ingestUploadIdentity');
 const { buildPendingJob } = require('../lib/ingestQueue');
@@ -75,4 +76,25 @@ test('queue document preserves upload identity and renamed revision target', () 
   assert.equal(job.storage_generation, '1001');
   assert.equal(job.upload_id, 'upload-id');
   assert.equal(job.target_project_id, 'Original_Draft.pdf');
+});
+
+test('explicit separate-project choice reaches the queue without a target', () => {
+  assert.equal(readSeparateProject({ separateProject: 'true' }), true);
+  assert.equal(readSeparateProject({}), false);
+  assert.throws(() => readSeparateProject({ separateProject: 'yes' }), /must be true or false/);
+
+  const job = buildPendingJob({
+    id: 'separate-job',
+    collection_id: 'LEMON',
+    filename: 'Shared_Title.pdf',
+    storage_path: 'gs://bucket/ingest-queue/LEMON/separate-id/Shared_Title.pdf',
+    storage_generation: '1002',
+    upload_id: 'separate-id',
+    target_project_id: null,
+    separate_project: true,
+    content_hash: 'pending',
+  });
+
+  assert.equal(job.target_project_id, null);
+  assert.equal(job.separate_project, true);
 });

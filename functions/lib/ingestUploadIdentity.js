@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseIngestPath = parseIngestPath;
 exports.buildIngestJobId = buildIngestJobId;
 exports.readTargetProjectId = readTargetProjectId;
+exports.readSeparateProject = readSeparateProject;
 const node_crypto_1 = require("node:crypto");
 const ingestQueue_1 = require("./ingestQueue");
 /** Accept current upload-ID paths and legacy three-segment paths. */
@@ -52,5 +53,14 @@ function readTargetProjectId(metadata) {
         throw new Error('Storage metadata targetProjectId is not a valid Firestore document ID.');
     }
     return targetProjectId;
+}
+/** Read the user's explicit choice to keep a title collision separate. */
+function readSeparateProject(metadata) {
+    const raw = metadata.separateProject;
+    if (raw == null || raw === 'false')
+        return false;
+    if (raw === 'true')
+        return true;
+    throw new Error('Storage metadata separateProject must be true or false.');
 }
 //# sourceMappingURL=ingestUploadIdentity.js.map

@@ -61,3 +61,13 @@ export function readTargetProjectId(
   }
   return targetProjectId;
 }
+
+/** Read the user's explicit choice to keep a title collision separate. */
+export function readSeparateProject(
+  metadata: Record<string, string | undefined>,
+): boolean {
+  const raw = metadata.separateProject;
+  if (raw == null || raw === 'false') return false;
+  if (raw === 'true') return true;
+  throw new Error('Storage metadata separateProject must be true or false.');
+}
