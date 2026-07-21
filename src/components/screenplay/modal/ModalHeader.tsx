@@ -32,11 +32,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const deleteMutation = useDeleteScreenplays();
 
-    /**
-     * Open the PDF from Firebase Storage.
-     * The upload path in firebase.ts is: screenplays/{category}/{safeName}.pdf
-     * We reconstruct the same path here.
-     */
+    /** Open the immutable PDF archived with the latest analysis version. */
     const [pdfState, setPdfState] = useState<'idle' | 'loading' | 'error' | 'uploading'>('idle');
     const pdfReuploadRef = useRef<HTMLInputElement>(null);
 
@@ -63,6 +59,19 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
         if (pdfState === 'loading') return;
         setPdfState('loading');
 
+        if (screenplay.storagePath) {
+            try {
+                const archivedRef = ref(storage, screenplay.storagePath);
+                const url = await getDownloadURL(archivedRef);
+                window.open(url, '_blank');
+                setPdfState('idle');
+                return;
+            } catch (err) {
+                console.warn('[PDF Download] Immutable archive pointer failed:', err);
+            }
+        }
+
+        // Compatibility fallback for manually attached legacy PDFs.
         const category = screenplay.category || 'OTHER';
         const safeName = (screenplay.title || screenplay.sourceFile || 'untitled')
             .replace(/\.pdf$/i, '')

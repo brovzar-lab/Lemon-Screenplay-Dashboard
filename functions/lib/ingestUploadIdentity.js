@@ -4,6 +4,7 @@ exports.parseIngestPath = parseIngestPath;
 exports.buildIngestJobId = buildIngestJobId;
 exports.readTargetProjectId = readTargetProjectId;
 exports.readSeparateProject = readSeparateProject;
+exports.readBooleanMetadata = readBooleanMetadata;
 const node_crypto_1 = require("node:crypto");
 const ingestQueue_1 = require("./ingestQueue");
 /** Accept current upload-ID paths and legacy three-segment paths. */
@@ -62,5 +63,14 @@ function readSeparateProject(metadata) {
     if (raw === 'true')
         return true;
     throw new Error('Storage metadata separateProject must be true or false.');
+}
+/** Read a strict boolean flag from Storage custom metadata. */
+function readBooleanMetadata(metadata, field) {
+    const raw = metadata[field];
+    if (raw == null || raw === 'false')
+        return false;
+    if (raw === 'true')
+        return true;
+    throw new Error(`Storage metadata ${field} must be true or false.`);
 }
 //# sourceMappingURL=ingestUploadIdentity.js.map

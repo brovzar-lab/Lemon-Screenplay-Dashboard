@@ -64,4 +64,21 @@ describe('legacy analysis_version acceptance', () => {
         const withPillars = sp as typeof sp & { pillarScores?: unknown[] };
         expect(withPillars.pillarScores).toHaveLength(5);
     });
+
+    it('preserves the immutable PDF pointer needed for queue-only re-analysis', () => {
+        const doc = archaeologyDoc('v9_archaeology');
+        doc.project_id = 'GUARD_TEST.pdf';
+        doc.storage_path = 'gs://bucket/screenplays/GUARD_TEST.pdf/versions/hash_1000.pdf';
+        doc.storage_generation = '4321';
+        doc.latest_version_id = 'hash_1000';
+        doc.version_count = 2;
+
+        const sp = normalizeV9Screenplay(doc, 'LEMON');
+
+        expect(sp.hasPdf).toBe(true);
+        expect(sp.storagePath).toBe(doc.storage_path);
+        expect(sp.storageGeneration).toBe('4321');
+        expect(sp.latestVersionId).toBe('hash_1000');
+        expect(sp.versionCount).toBe(2);
+    });
 });

@@ -71,3 +71,14 @@ export function readSeparateProject(
   if (raw === 'true') return true;
   throw new Error('Storage metadata separateProject must be true or false.');
 }
+
+/** Read a strict boolean flag from Storage custom metadata. */
+export function readBooleanMetadata(
+  metadata: Record<string, string | undefined>,
+  field: string,
+): boolean {
+  const raw = metadata[field];
+  if (raw == null || raw === 'false') return false;
+  if (raw === 'true') return true;
+  throw new Error(`Storage metadata ${field} must be true or false.`);
+}

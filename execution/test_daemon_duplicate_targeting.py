@@ -293,6 +293,15 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                         return_value="Original_Draft.pdf",
                     ) as resolve_target,
                     patch.object(daemon, "check_tmdb_for_job", return_value=(False, "", None)),
+                    patch.object(
+                        daemon,
+                        "archive_pdf_version",
+                        return_value=(
+                            "gs://bucket/screenplays/Original_Draft.pdf/versions/"
+                            f"{CONTENT_HASH}_{QUEUED_AT_MS}.pdf",
+                            "2002",
+                        ),
+                    ) as archive_pdf,
                     patch.object(daemon, "check_and_increment_budget"),
                     patch.object(daemon, "mark_complete") as mark_complete,
                     patch.object(daemon, "mark_failed") as mark_failed,
@@ -317,7 +326,15 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                 self.assertEqual(len(written), 1)
                 self.assertEqual(written[0]["project_id"], "Original_Draft.pdf")
                 self.assertEqual(written[0]["source_file"], "Completely Renamed Draft.pdf")
-                self.assertEqual(written[0]["storage_generation"], "1001")
+                self.assertEqual(written[0]["storage_generation"], "2002")
+                self.assertIn("/versions/", written[0]["storage_path"])
+                archive_pdf.assert_called_once_with(
+                    storage_path="gs://bucket/ingest-queue/LEMON/upload/Renamed.pdf",
+                    storage_generation="1001",
+                    project_id="Original_Draft.pdf",
+                    version_id=f"{CONTENT_HASH}_{QUEUED_AT_MS}",
+                    content_hash=CONTENT_HASH,
+                )
                 mark_complete.assert_called_once()
                 self.assertEqual(mark_complete.call_args.args[1], "Original_Draft.pdf")
                 fake_engine.to_doc_id.assert_not_called()

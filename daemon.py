@@ -71,6 +71,7 @@ from pathlib import Path
 from typing import Optional
 
 from execution.content_identity import (
+    build_version_id,
     build_separate_project_id,
     compute_content_hash,
     queued_at_millis,
@@ -363,6 +364,83 @@ def download_pdf(storage_path: str, workdir: Path) -> Path:
     log.info(f"[download] ✓ {filename} ({local_path.stat().st_size / 1024:.1f} KB)")
     return local_path
 
+
+def parse_storage_path(storage_path: str) -> tuple[str, str]:
+    """Return the explicit bucket and object name for a gs:// Storage path."""
+    if not isinstance(storage_path, str) or not storage_path.startswith("gs://"):
+        raise ValueError("storage_path must be an explicit gs:// bucket/object path")
+    without_scheme = storage_path[5:]
+    bucket_name, separator, blob_path = without_scheme.partition("/")
+    if not separator or not bucket_name or not blob_path:
+        raise ValueError("storage_path must include both bucket and object name")
+    return bucket_name, blob_path
+
+
+def storage_bucket_for_path(storage_path: str):
+    """Resolve the bucket named by the job instead of trusting Admin init order."""
+    bucket_name, _ = parse_storage_path(storage_path)
+    if _bucket is not None and getattr(_bucket, "name", None) == bucket_name:
+        return _bucket
+    return fb_storage.bucket(bucket_name)
+
+
+def archive_pdf_version(
+    *,
+    storage_path: str,
+    storage_generation: object,
+    project_id: str,
+    version_id: str,
+    content_hash: str,
+) -> tuple[str, str]:
+    """Copy one verified source generation to its immutable project/version path."""
+    if not project_id or "/" in project_id:
+        raise ValueError("project_id must be a Firestore document ID")
+    if not version_id or "/" in version_id:
+        raise ValueError("version_id must be a safe Storage path component")
+    if len(content_hash) != 64 or any(c not in "0123456789abcdef" for c in content_hash):
+        raise ValueError("content_hash must be a lowercase SHA-256")
+    generation_text = str(storage_generation or "").strip()
+    if not generation_text.isdigit():
+        raise ValueError("storage_generation is required to archive the exact PDF bytes")
+
+    bucket_name, source_name = parse_storage_path(storage_path)
+    bucket = storage_bucket_for_path(storage_path)
+    destination_name = f"screenplays/{project_id}/versions/{version_id}.pdf"
+    destination = bucket.blob(destination_name)
+    metadata = {
+        "content_hash": content_hash,
+        "project_id": project_id,
+        "version_id": version_id,
+        "source_path": source_name,
+        "source_generation": generation_text,
+    }
+
+    if destination.exists():
+        destination.reload()
+        existing_metadata = destination.metadata or {}
+        existing_hash = existing_metadata.get("content_hash")
+        if existing_hash and existing_hash != content_hash:
+            raise RuntimeError("Existing immutable PDF archive has a conflicting content hash")
+        if any(existing_metadata.get(k) != v for k, v in metadata.items()):
+            destination.metadata = {**existing_metadata, **metadata}
+            destination.patch(if_generation_match=destination.generation)
+        return f"gs://{bucket_name}/{destination_name}", str(destination.generation)
+
+    generation = int(generation_text)
+    source = bucket.blob(source_name, generation=generation)
+    archived = bucket.copy_blob(
+        source,
+        bucket,
+        new_name=destination_name,
+        source_generation=generation,
+        if_generation_match=0,
+        if_source_generation_match=generation,
+    )
+    archived.metadata = {**(archived.metadata or {}), **metadata}
+    archived.patch(if_generation_match=archived.generation)
+    log.info(f"[archive] Preserved PDF: gs://{bucket_name}/{destination_name}")
+    return f"gs://{bucket_name}/{destination_name}", str(archived.generation)
+
 def is_already_complete(content_hash: str) -> bool:
     """Return True if a job with this hash already completed successfully."""
     existing = (
@@ -623,6 +701,7 @@ def build_raw_document(
     if storage_path:
         raw_doc["storage_path"] = storage_path
         raw_doc["_storagePath"] = storage_path
+        raw_doc["hasPdf"] = True
     if storage_generation:
         raw_doc["storage_generation"] = storage_generation
     return raw_doc
@@ -743,6 +822,16 @@ def process_job(job: dict) -> None:
             return
 
         # ── 5. Budget check (shared counter with Cloud Function) ──────────
+        screenplay_doc_id = project_id or ingest_v9.to_doc_id(filename)
+        version_id = build_version_id(content_hash, queued_at_ms)
+        archive_storage_path, archive_storage_generation = archive_pdf_version(
+            storage_path=storage_path,
+            storage_generation=storage_generation,
+            project_id=screenplay_doc_id,
+            version_id=version_id,
+            content_hash=content_hash,
+        )
+
         try:
             check_and_increment_budget()
         except BudgetExceededError as e:
@@ -809,11 +898,9 @@ def process_job(job: dict) -> None:
             content_hash=content_hash,
             queued_at_ms=queued_at_ms,
             tmdb_status=tmdb_status,
-            target_project_id=project_id,
-            storage_path=storage_path,
-            storage_generation=(
-                str(storage_generation) if storage_generation is not None else None
-            ),
+            target_project_id=screenplay_doc_id,
+            storage_path=archive_storage_path,
+            storage_generation=archive_storage_generation,
         )
 
         success = ingest_v9.write_to_firestore(raw_doc)
@@ -821,8 +908,6 @@ def process_job(job: dict) -> None:
             raise RuntimeError("Firestore write failed — will retry")
 
         # Derive the doc ID the way write_to_firestore does
-        screenplay_doc_id = project_id or ingest_v9.to_doc_id(filename)
-
         # ── 10. Mark complete with telemetry ──────────────────────────────
         duration = round(time.time() - start_time)
         input_tokens  = usage.get("input_tokens", 0)
@@ -851,6 +936,9 @@ def process_job(job: dict) -> None:
             "anthropic_finish_reason": finish_reason,
             "estimated_cost_usd": round(estimated_cost, 4),
             "prompt_version": None,   # TODO: pipe through from ingest_v9
+            "analysis_version": "v9_archaeology",
+            "archived_storage_path": archive_storage_path,
+            "archived_storage_generation": archive_storage_generation,
         })
 
         log.info(

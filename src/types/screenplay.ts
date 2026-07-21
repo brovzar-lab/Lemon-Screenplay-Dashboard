@@ -319,6 +319,10 @@ export interface Screenplay {
 
   // PDF Storage
   hasPdf?: boolean; // true when the source PDF has been uploaded to Firebase Storage
+  storagePath?: string; // immutable gs:// pointer for the latest analyzed PDF
+  storageGeneration?: string; // exact Firebase Storage generation for that PDF
+  latestVersionId?: string;
+  versionCount?: number;
 
   // Core Scores
   weightedScore: number;

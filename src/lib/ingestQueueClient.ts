@@ -41,6 +41,8 @@ export interface IngestJobUpdate {
   screenplayDocId?: string;
   /** Daemon's reported attempt count (useful for stuck-job UI) */
   attemptCount?: number;
+  /** Permanent analyses must be complete V9 coverage. */
+  analysisVersion?: string;
 }
 
 /**
@@ -73,6 +75,7 @@ export function subscribeToIngestJob(
         error: (data.last_error as string | undefined) ?? (data.skip_reason as string | undefined),
         screenplayDocId: data.screenplay_doc_id as string | undefined,
         attemptCount: data.attempt_count as number | undefined,
+        analysisVersion: data.analysis_version as string | undefined,
       });
     },
     (err) => {
