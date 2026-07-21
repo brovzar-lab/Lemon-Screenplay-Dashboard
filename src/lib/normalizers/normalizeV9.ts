@@ -52,9 +52,6 @@ export interface ScreenplayWithPillars extends Screenplay {
   executiveSummary?: string;
 }
 
-/** @deprecated Use ScreenplayWithPillars */
-export type ScreenplayWithV6 = ScreenplayWithPillars;
-
 // ─── Type Guard ─────────────────────────────────────────────
 
 /**

@@ -2,8 +2,6 @@ import type { Screenplay, Collection } from '@/types';
 import {
     isArchaeologyAnalysis,
     normalizeV9Screenplay,
-    isV6UnifiedAnalysis,
-    normalizeV6UnifiedScreenplay,
 } from './normalize';
 import { loadAllAnalyses, quarantineAnalysis } from './analysisStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -24,11 +22,6 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
                 const sp = normalizeV9Screenplay(raw, collection || 'Analysis');
                 screenplays.push(sp);
                 loadedCount++;
-            } else if (isV6UnifiedAnalysis(raw)) {
-                const collection = (raw.collection_id ?? raw.collection) as Collection | undefined;
-                const sp = normalizeV6UnifiedScreenplay(raw, collection || 'Analysis');
-                screenplays.push(sp);
-                loadedCount++;
             } else {
                 const sourceFile = raw.source_file as string | undefined;
                 console.warn('[Lemon] Quarantining unknown format analysis:', sourceFile);
@@ -38,7 +31,7 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
                     newlyQuarantinedCount++;
                 }
                 try {
-                    await quarantineAnalysis(raw, 'failed isV6RawAnalysis type guard');
+                    await quarantineAnalysis(raw, 'unrecognized analysis_version (not a V9/V8 archaeology document)');
                 } catch {
                     /* ignore */
                 }
