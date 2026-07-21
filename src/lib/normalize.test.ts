@@ -285,8 +285,8 @@ describe('isArchaeologyAnalysis', () => {
         expect(isArchaeologyAnalysis(raw)).toBe(true);
     });
 
-    it('returns false for v6_unified', () => {
-        expect(isArchaeologyAnalysis({ analysis_version: 'v6_unified' })).toBe(false);
+    it('returns false for non-archaeology version labels', () => {
+        expect(isArchaeologyAnalysis({ analysis_version: 'unified_legacy_format' })).toBe(false);
     });
 
     it('returns false for v5', () => {
