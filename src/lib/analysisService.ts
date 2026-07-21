@@ -207,6 +207,12 @@ export async function reanalyzeFromStorage(
   onProgress?: (p: AnalysisProgress) => void,
   engineOptions?: { v9Mode?: 'full' | 'triage' },
 ): Promise<AnalysisResult> {
+  if (engineOptions?.v9Mode === 'triage') {
+    throw new Error(
+      'Triage-only results cannot replace full V9 coverage. Run a full re-analysis instead.'
+    );
+  }
+
   onProgress?.({ stage: 'parsing', percent: 0, message: 'Fetching PDF from storage...' });
 
   // Reconstruct the Storage path (matches uploadScreenplayPdf in firebase.ts)
@@ -276,6 +282,12 @@ export async function reanalyzeFromStorage(
   }
 
   onProgress?.({ stage: 'analyzing', percent: 96, message: 'Saving new analysis...' });
+
+  if (result.raw.analysis_version !== 'v9_archaeology') {
+    throw new Error(
+      'Only complete V9 coverage can replace a permanent screenplay analysis.'
+    );
+  }
 
   // Save results (replaces old entry by source_file key)
   await saveAnalysis(result.raw);
