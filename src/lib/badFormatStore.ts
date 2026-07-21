@@ -15,6 +15,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { getProxyAuthHeaders } from './proxyClient';
 
 const INGEST_QUEUE_COLLECTION = 'ingest-queue';
 
@@ -45,6 +46,28 @@ export interface BadFormatJob {
     detail?: string;
     checked_title?: string;
   };
+  content_hash?: string;
+  resolution_dismissed?: boolean;
+}
+
+export type QueueResolutionAction = 'retry' | 'dismiss' | 'analyze_anyway';
+
+export async function resolveUploadIssues(
+  action: QueueResolutionAction,
+  jobIds: string[],
+  model = 'sonnet',
+): Promise<number> {
+  const url = import.meta.env.DEV
+    ? 'http://127.0.0.1:5001/lemon-screenplay-dashboard/us-central1/queueManager'
+    : '/api/queue';
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await getProxyAuthHeaders()) },
+    body: JSON.stringify({ action, jobIds, model }),
+  });
+  const result = await response.json().catch(() => ({})) as { updated?: number; error?: string };
+  if (!response.ok) throw new Error(result.error || 'The issue could not be updated.');
+  return result.updated ?? 0;
 }
 
 /**
@@ -86,7 +109,7 @@ export function subscribeToUploadIssues(
   return onSnapshot(
     q,
     (snapshot) => {
-      const jobs: BadFormatJob[] = snapshot.docs.map((d) => {
+      const jobs = snapshot.docs.map<BadFormatJob>((d) => {
         const data = d.data() as Record<string, unknown>;
         return {
           id: d.id,
@@ -101,8 +124,10 @@ export function subscribeToUploadIssues(
           processing_completed_at: data.processing_completed_at as BadFormatJob['processing_completed_at'],
           quarantined: Boolean(data.quarantined),
           tmdb_status: data.tmdb_status as BadFormatJob['tmdb_status'],
+          content_hash: typeof data.content_hash === 'string' ? data.content_hash : undefined,
+          resolution_dismissed: Boolean(data.resolution_dismissed),
         };
-      });
+      }).filter((job) => !job.resolution_dismissed);
       onChange(jobs);
     },
     (err) => {

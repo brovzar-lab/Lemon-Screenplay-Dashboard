@@ -58,6 +58,10 @@
         "function": "googleProxy"
       },
       {
+        "source": "/api/queue",
+        "function": "queueManager"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

@@ -581,7 +581,7 @@ def process_job(job: dict) -> None:
             "content_hash": content_hash,
         })
 
-        if is_already_complete(content_hash):
+        if is_already_complete(content_hash) and not job.get("bypass_duplicate", False):
             mark_skipped(job_id, "already_complete")
             log.info(f"[job] {job_id} → Skipped (duplicate content hash: {content_hash[:8]}…)")
             return
@@ -628,6 +628,8 @@ def process_job(job: dict) -> None:
         # PDF on hand. Storage stays put.
         title_hint = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
         should_skip_tmdb, tmdb_reason, tmdb_status = check_tmdb_for_job(title_hint)
+        if job.get("bypass_tmdb", False):
+            should_skip_tmdb = False
         if should_skip_tmdb:
             mark_skipped(
                 job_id, tmdb_reason,
