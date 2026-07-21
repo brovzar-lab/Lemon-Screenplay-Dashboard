@@ -601,3 +601,31 @@ describe('subscribeToAnalyses', () => {
         expect(onError).toHaveBeenCalledWith(error);
     });
 });
+
+describe('slimRecord (localStorage quota fallback)', () => {
+    it('strips the current engine v9_meta payload as well as legacy v7_meta', async () => {
+        const { slimRecord } = await import('./analysisStore');
+        const record = {
+            source_file: 'TERAPIA_V4.pdf',
+            analysis_version: 'v9_archaeology',
+            analysis: { title: 'Terapia', verdict: 'RECOMMEND' },
+            v9_meta: { reader_count: 5, total_tokens: { input_tokens: 100_000 } },
+            v7_meta: { legacy: true },
+            triage: { triage_score: 8 },
+            lenses_enabled: ['commercial'],
+        };
+
+        const slim = slimRecord(record);
+
+        expect(slim).not.toHaveProperty('analysis');
+        expect(slim).not.toHaveProperty('v9_meta');
+        expect(slim).not.toHaveProperty('v7_meta');
+        expect(slim).not.toHaveProperty('triage');
+        expect(slim).not.toHaveProperty('lenses_enabled');
+        // Light fields the UI needs must survive
+        expect(slim.source_file).toBe('TERAPIA_V4.pdf');
+        expect(slim.analysis_version).toBe('v9_archaeology');
+        // Original record must be untouched (slim is a copy)
+        expect(record).toHaveProperty('v9_meta');
+    });
+});

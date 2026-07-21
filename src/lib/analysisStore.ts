@@ -56,10 +56,12 @@ export function toDocId(sourceFile: string): string {
  * is full. These are the heavy LLM response payloads; the UI only needs the
  * normalized top-level fields that `normalize.ts` reads.
  */
-const HEAVY_FIELDS = ['analysis', 'v7_meta', 'triage', 'lenses_enabled'] as const;
+// 'v9_meta' is written by the current engine (analysisService.ts / ingest_v9.py);
+// 'v7_meta' may still exist on records cached by older builds.
+const HEAVY_FIELDS = ['analysis', 'v9_meta', 'v7_meta', 'triage', 'lenses_enabled'] as const;
 
-/** Return a slimmed copy with heavy fields removed. */
-function slimRecord(r: Record<string, unknown>): Record<string, unknown> {
+/** Return a slimmed copy with heavy fields removed. Exported for tests. */
+export function slimRecord(r: Record<string, unknown>): Record<string, unknown> {
     const slim = { ...r };
     for (const f of HEAVY_FIELDS) delete slim[f];
     return slim;
