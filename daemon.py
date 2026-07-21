@@ -54,7 +54,6 @@ OPTIONAL ENV VARS
 """
 
 import asyncio
-import hashlib
 import json
 import logging
 import logging.handlers
@@ -69,6 +68,8 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+from execution.content_identity import compute_content_hash
 
 # ── Dependency guard ──────────────────────────────────────────────────────────
 
@@ -356,16 +357,6 @@ def download_pdf(storage_path: str, workdir: Path) -> Path:
     log.info(f"[download] ✓ {filename} ({local_path.stat().st_size / 1024:.1f} KB)")
     return local_path
 
-# ── Content hash ──────────────────────────────────────────────────────────────
-
-def compute_content_hash(pdf_path: Path) -> str:
-    """SHA-256 of the raw PDF bytes — the idempotency key."""
-    sha256 = hashlib.sha256()
-    with open(pdf_path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            sha256.update(chunk)
-    return sha256.hexdigest()
-
 def is_already_complete(content_hash: str) -> bool:
     """Return True if a job with this hash already completed successfully."""
     existing = (
@@ -600,7 +591,7 @@ def process_job(job: dict) -> None:
         ingest_v9.init_firebase()
 
         # Parse PDF
-        parsed = ingest_v9.parse_pdf(local_pdf)
+        parsed = ingest_v9.parse_pdf(local_pdf, content_hash=content_hash)
         if parsed is None:
             mark_skipped(
                 job_id, "pdf_parse_failed",

@@ -62,6 +62,8 @@ import json
 import os
 import re
 import sys
+import tempfile
+import threading
 import time
 import uuid
 import logging
@@ -95,6 +97,7 @@ except ImportError:
 
 # Story Grid genre engine (lives next to this file).
 sys.path.insert(0, str(Path(__file__).parent))
+from content_identity import compute_content_hash  # noqa: E402
 from story_grid import (  # noqa: E402
     build_genre_detection_prompt,
     parse_detection,
@@ -140,6 +143,17 @@ MAX_CHARS = 195_000
 
 # Min words for a valid screenplay
 MIN_WORDS = 500
+
+# Parsed screenplay cache. The parser version is part of the key so extraction
+# changes cannot silently reuse output from an older parser implementation.
+PARSER_VERSION = "v2"
+PARSE_CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+PARSE_CACHE_MAX_BYTES = 512 * 1024 * 1024
+PARSE_CACHE_CLEANUP_INTERVAL_SECONDS = 60 * 60
+
+_parse_cache_last_cleanup_at: Optional[float] = None
+_parse_cache_size_bytes: Optional[int] = None
+_parse_cache_state_lock = threading.Lock()
 
 # Seconds between scripts in a batch (politeness buffer)
 INTER_SCRIPT_DELAY = 2
@@ -274,8 +288,111 @@ def check_already_in_firestore(source_file: str) -> bool:
 
 # ── PDF Parser ────────────────────────────────────────────────────────────────
 
-def parse_pdf(pdf_path: Path) -> Optional[Dict[str, Any]]:
+def _cleanup_parse_cache(
+    cache_dir: Path,
+    *,
+    now: Optional[float] = None,
+    max_age_seconds: int = PARSE_CACHE_MAX_AGE_SECONDS,
+    max_bytes: int = PARSE_CACHE_MAX_BYTES,
+) -> int:
+    """Remove expired parse entries, then oldest entries until under the cap."""
+    if not cache_dir.exists():
+        return 0
+
+    cutoff_time = (time.time() if now is None else now) - max(0, max_age_seconds)
+    entries: List[Tuple[Path, int, float]] = []
+    removed_count = 0
+    removed_bytes = 0
+
+    for path in cache_dir.rglob("*.json"):
+        is_content_addressed = re.fullmatch(r"[a-f0-9]{64}\.json", path.name) is not None
+        is_unsafe_legacy_entry = path.parent == cache_dir and not is_content_addressed
+        if not is_content_addressed and not is_unsafe_legacy_entry:
+            continue
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+
+        if is_unsafe_legacy_entry or stat.st_mtime < cutoff_time:
+            try:
+                path.unlink()
+                removed_count += 1
+                removed_bytes += stat.st_size
+            except OSError:
+                entries.append((path, stat.st_size, stat.st_mtime))
+        else:
+            entries.append((path, stat.st_size, stat.st_mtime))
+
+    total_bytes = sum(size for _, size, _ in entries)
+    if total_bytes > max(0, max_bytes):
+        for path, size, _ in sorted(entries, key=lambda entry: (entry[2], entry[0].name)):
+            if total_bytes <= max(0, max_bytes):
+                break
+            try:
+                path.unlink()
+                total_bytes -= size
+                removed_count += 1
+                removed_bytes += size
+            except OSError:
+                continue
+
+    if removed_count:
+        log.info(
+            f"  Parse cache cleanup: removed {removed_count} file(s), "
+            f"freed {removed_bytes / (1024 * 1024):.1f} MB"
+        )
+    return total_bytes
+
+
+def _maybe_cleanup_parse_cache(cache_dir: Path, *, force: bool = False) -> int:
+    """Run bounded cache cleanup at most hourly unless the size cap is crossed."""
+    global _parse_cache_last_cleanup_at, _parse_cache_size_bytes
+
+    monotonic_now = time.monotonic()
+    with _parse_cache_state_lock:
+        cleanup_due = (
+            force
+            or _parse_cache_last_cleanup_at is None
+            or monotonic_now - _parse_cache_last_cleanup_at >= PARSE_CACHE_CLEANUP_INTERVAL_SECONDS
+        )
+        if cleanup_due:
+            _parse_cache_size_bytes = _cleanup_parse_cache(cache_dir)
+            _parse_cache_last_cleanup_at = monotonic_now
+        return _parse_cache_size_bytes or 0
+
+
+def _record_parse_cache_write(cache_dir: Path, previous_size: int, new_size: int) -> None:
+    """Track a cache write and enforce the size cap when it is crossed."""
+    global _parse_cache_size_bytes
+
+    force_cleanup = False
+    with _parse_cache_state_lock:
+        if _parse_cache_size_bytes is None:
+            force_cleanup = True
+        else:
+            _parse_cache_size_bytes += new_size - previous_size
+            force_cleanup = _parse_cache_size_bytes > PARSE_CACHE_MAX_BYTES
+
+    if force_cleanup:
+        _maybe_cleanup_parse_cache(cache_dir, force=True)
+
+
+def _read_valid_parse(path: Path) -> Optional[Dict[str, Any]]:
+    try:
+        with open(path, encoding="utf-8") as parsed_file:
+            data = json.load(parsed_file)
+    except (OSError, ValueError, TypeError):
+        return None
+
+    if not isinstance(data, dict) or data.get("word_count", 0) < MIN_WORDS:
+        return None
+    return data
+
+
+def parse_pdf(pdf_path: Path, content_hash: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Parse a screenplay PDF using the existing parse_screenplay_pdf_v2.py.
+    Cache identity is raw-byte SHA-256 plus PARSER_VERSION, never the filename.
     Returns the parsed JSON dict or None on failure.
     """
     parse_script = Path(__file__).parent / "parse_screenplay_pdf_v2.py"
@@ -284,47 +401,60 @@ def parse_pdf(pdf_path: Path) -> Optional[Dict[str, Any]]:
         return None
 
     import subprocess
-    output_dir = LOG_DIR / "parsed_v9"
-    output_dir.mkdir(exist_ok=True)
-    output_path = output_dir / (pdf_path.stem + ".json")
+
+    if content_hash is None:
+        content_hash = compute_content_hash(pdf_path)
+    content_hash = content_hash.lower()
+    if not re.fullmatch(r"[a-f0-9]{64}", content_hash):
+        log.error(f"Invalid PDF content hash for {pdf_path.name}")
+        return None
+
+    cache_root = LOG_DIR / "parsed_v9"
+    cache_dir = cache_root / PARSER_VERSION
+    cache_root.mkdir(parents=True, exist_ok=True)
+    _maybe_cleanup_parse_cache(cache_root)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    output_path = cache_dir / f"{content_hash}.json"
 
     # Reuse cached parse result
     if output_path.exists():
+        cached = _read_valid_parse(output_path)
+        if cached is not None:
+            word_count = cached.get("word_count", 0)
+            log.info(f"  Reusing cached parse: {pdf_path.name} ({word_count:,} words)")
+            return cached
         try:
-            with open(output_path, encoding="utf-8") as f:
-                data = json.load(f)
-            word_count = data.get("word_count", 0)
-            if word_count >= MIN_WORDS:
-                log.info(f"  Reusing cached parse: {pdf_path.name} ({word_count:,} words)")
-                return data
-        except Exception:
+            output_path.unlink()
+        except OSError:
             pass
 
-    result = subprocess.run(
-        [sys.executable, str(parse_script),
-         "--input", str(pdf_path),
-         "--output", str(output_dir)],
-        capture_output=True, text=True, timeout=300,
-    )
+    with tempfile.TemporaryDirectory(prefix=".working-", dir=cache_root) as working_dir:
+        result = subprocess.run(
+            [sys.executable, str(parse_script),
+             "--input", str(pdf_path),
+             "--output", working_dir],
+            capture_output=True, text=True, timeout=300,
+        )
+        parser_output = Path(working_dir) / (pdf_path.stem + ".json")
 
-    if result.returncode != 0 or not output_path.exists():
-        log.error(f"  ✗ Parse failed: {pdf_path.name}")
-        if result.stderr:
-            log.debug(f"    stderr: {result.stderr[:300]}")
-        return None
-
-    try:
-        with open(output_path, encoding="utf-8") as f:
-            data = json.load(f)
-        word_count = data.get("word_count", 0)
-        if word_count < MIN_WORDS:
-            log.warning(f"  ✗ Insufficient text: {pdf_path.name} ({word_count} words, need {MIN_WORDS})")
+        if result.returncode != 0 or not parser_output.exists():
+            log.error(f"  ✗ Parse failed: {pdf_path.name}")
+            if result.stderr:
+                log.debug(f"    stderr: {result.stderr[:300]}")
             return None
-        log.info(f"  ✓ Parsed: {pdf_path.name} ({word_count:,} words, {data.get('page_count',0)} pages)")
-        return data
-    except Exception as e:
-        log.error(f"  ✗ Parse output invalid: {e}")
-        return None
+
+        data = _read_valid_parse(parser_output)
+        if data is None:
+            log.error(f"  ✗ Parse output invalid or insufficient: {pdf_path.name}")
+            return None
+
+        previous_size = output_path.stat().st_size if output_path.exists() else 0
+        os.replace(parser_output, output_path)
+        _record_parse_cache_write(cache_root, previous_size, output_path.stat().st_size)
+
+    word_count = data.get("word_count", 0)
+    log.info(f"  ✓ Parsed: {pdf_path.name} ({word_count:,} words, {data.get('page_count',0)} pages)")
+    return data
 
 
 # ── TMDB Pre-screening ────────────────────────────────────────────────────────
