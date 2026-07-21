@@ -8,7 +8,7 @@
  *   helpers.ts         — shared internal helpers (generateId, normalizeSeverity, etc.)
  *   normalizeV5.ts     — standard V5 normalizer
  *   normalizeV6.ts     — lemon-ingest V6_unified bridge
- *   normalizeV7.ts     — Archaeology Engine V7/V8/V9
+ *   normalizeV9.ts     — V9 Archaeology Engine (accepts legacy v7/v8 labels)
  *   smartNormalize.ts  — version-detecting entry point
  *
  * All consumers can continue to import from '@/lib/normalize'.
@@ -30,15 +30,15 @@ export {
 
 // ── V9 Archaeology Engine (with V7/V8 backward compat) ────
 export {
-  isV7RawAnalysis,
-  normalizeV7Screenplay,
-} from './normalizers/normalizeV7';
+  isArchaeologyAnalysis,
+  normalizeV9Screenplay,
+} from './normalizers/normalizeV9';
 export type {
-  V7PillarScore,
-  V7GoosebumpsMoment,
-  ScreenplayWithV7,
+  PillarScore,
+  GoosebumpsMoment,
+  ScreenplayWithPillars,
   ScreenplayWithV6,
-} from './normalizers/normalizeV7';
+} from './normalizers/normalizeV9';
 
 // ── Smart normalizer ────────────────────────────────────────
 export { smartNormalizeScreenplay } from './normalizers/smartNormalize';

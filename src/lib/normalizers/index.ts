@@ -10,13 +10,13 @@ export {
   normalizeV6Screenplay,
 } from './normalizeV6';
 export {
-  isV7RawAnalysis,
-  normalizeV7Screenplay,
-} from './normalizeV7';
+  isArchaeologyAnalysis,
+  normalizeV9Screenplay,
+} from './normalizeV9';
 export type {
-  V7PillarScore,
-  V7GoosebumpsMoment,
-  ScreenplayWithV7,
+  PillarScore,
+  GoosebumpsMoment,
+  ScreenplayWithPillars,
   ScreenplayWithV6,
-} from './normalizeV7';
+} from './normalizeV9';
 export { smartNormalizeScreenplay } from './smartNormalize';

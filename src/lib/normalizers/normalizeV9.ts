@@ -1,10 +1,11 @@
 /**
  * Archaeology Engine Normalization (V9)
  *
- * Normalizes 5-pillar analysis output from the V9 Archaeology Engine
- * (and backward-compatible V7/V8 documents) to the ScreenplayWithV7 type.
- * Type names retain the V7 prefix because they describe the stored Firestore
- * document shape, which hasn't changed across engine versions.
+ * Normalizes 5-pillar analysis output from the V9 Archaeology Engine to the
+ * ScreenplayWithPillars type. Also accepts legacy v7/v8 analysis_version
+ * labels: the 5-pillar document shape is identical across those engine
+ * versions, and production Firestore still holds v8_archaeology documents
+ * (16 of 23 as of the 2026-07-21 census — see scripts/census-analysis-versions.mjs).
  */
 
 import type {
@@ -29,37 +30,37 @@ import {
 // ─── Types ──────────────────────────────────────────────────
 
 /** Pillar score (from Archaeology Engine) */
-export interface V7PillarScore {
+export interface PillarScore {
   name: string;
   score: number;
   weight: number;
 }
 
 /** Goosebumps moment */
-export interface V7GoosebumpsMoment {
+export interface GoosebumpsMoment {
   page: number;
   description: string;
   why_it_works: string;
 }
 
 /** Extended Screenplay type with Archaeology Engine fields */
-export interface ScreenplayWithV7 extends Screenplay {
-  v7PillarScores?: V7PillarScore[];
-  v7GoosebumpsMoments?: V7GoosebumpsMoment[];
-  v7ReaderDisagreements?: string[];
-  v7StoryVsSituation?: { score: number; verdict: string; gate_applied: boolean };
-  v7ExecutiveSummary?: string;
+export interface ScreenplayWithPillars extends Screenplay {
+  pillarScores?: PillarScore[];
+  goosebumpsMomentDetails?: GoosebumpsMoment[];
+  readerDisagreements?: string[];
+  storyVsSituation?: { score: number; verdict: string; gate_applied: boolean };
+  executiveSummary?: string;
 }
 
-/** @deprecated Use ScreenplayWithV7 */
-export type ScreenplayWithV6 = ScreenplayWithV7;
+/** @deprecated Use ScreenplayWithPillars */
+export type ScreenplayWithV6 = ScreenplayWithPillars;
 
 // ─── Type Guard ─────────────────────────────────────────────
 
 /**
  * Check if raw data is Archaeology Engine format (V7/V8/V9 variants)
  */
-export function isV7RawAnalysis(raw: unknown): boolean {
+export function isArchaeologyAnalysis(raw: unknown): boolean {
   if (!raw || typeof raw !== 'object') return false;
   const r = raw as Record<string, unknown>;
   const v = r.analysis_version;
@@ -112,10 +113,10 @@ export function isV7RawAnalysis(raw: unknown): boolean {
  * Maps 5 pillars → legacy 7-dimension format for backward compatibility.
  * Preserves pillar-specific data (scores, goosebumps, disagreements).
  */
-export function normalizeV7Screenplay(
+export function normalizeV9Screenplay(
   raw: Record<string, unknown>,
   collection: Collection,
-): ScreenplayWithV7 {
+): ScreenplayWithPillars {
   const analysis = raw.analysis as Record<string, unknown> || {};
   const rawQuality = analysis.analysis_quality as Record<string, unknown> | undefined;
   const legacyFailedReaders = Array.isArray(analysis.failed_readers)
@@ -227,7 +228,7 @@ export function normalizeV7Screenplay(
   }
 
   // Pillar array for native display
-  const v7PillarArray: V7PillarScore[] = pillarScores
+  const v7PillarArray: PillarScore[] = pillarScores
     ? Object.entries(pillarScores).map(([name, ps]) => ({ name, score: ps.score, weight: ps.weight }))
     : [];
 
@@ -338,10 +339,10 @@ export function normalizeV7Screenplay(
     tmdbStatus: normalizeTmdbStatus((raw as Record<string, unknown>).tmdb_status as RawTmdbStatus | undefined),
     hasPdf: (raw as Record<string, unknown>).hasPdf === true,
     // Archaeology Engine fields
-    v7PillarScores: v7PillarArray,
-    v7GoosebumpsMoments: goosebumpsMoments,
-    v7ReaderDisagreements: (analysis.reader_disagreements as string[]) || [],
-    v7StoryVsSituation: storyVsSituation,
-    v7ExecutiveSummary: String(analysis.executive_summary || ''),
+    pillarScores: v7PillarArray,
+    goosebumpsMomentDetails: goosebumpsMoments,
+    readerDisagreements: (analysis.reader_disagreements as string[]) || [],
+    storyVsSituation: storyVsSituation,
+    executiveSummary: String(analysis.executive_summary || ''),
   };
 }

@@ -9,8 +9,8 @@ import {
     normalizeScreenplays,
     smartNormalizeScreenplay,
     collectionToCategoryId,
-    isV7RawAnalysis,
-    normalizeV7Screenplay,
+    isArchaeologyAnalysis,
+    normalizeV9Screenplay,
     isV6UnifiedAnalysis,
 } from './normalize';
 import type { RawScreenplayAnalysis, RawTmdbStatus } from '@/types';
@@ -350,7 +350,7 @@ describe('smartNormalizeScreenplay', () => {
         expect(result.recommendation).toBe('recommend');
     });
 
-    it('delegates to normalizeV7Screenplay for V9 data', () => {
+    it('delegates to normalizeV9Screenplay for V9 data', () => {
         const raw = createMockV9Raw();
         const result = smartNormalizeScreenplay(raw as unknown as RawScreenplayAnalysis, 'Analysis');
 
@@ -518,40 +518,40 @@ describe('normalizeTmdbStatus', () => {
 
 
 // ============================================
-// isV7RawAnalysis
+// isArchaeologyAnalysis
 // ============================================
 
-describe('isV7RawAnalysis', () => {
+describe('isArchaeologyAnalysis', () => {
     it('returns true for v7_archaeology', () => {
-        expect(isV7RawAnalysis(createMockV9Raw({ analysis_version: 'v7_archaeology' }))).toBe(true);
+        expect(isArchaeologyAnalysis(createMockV9Raw({ analysis_version: 'v7_archaeology' }))).toBe(true);
     });
 
     it('returns true for v8_archaeology', () => {
-        expect(isV7RawAnalysis(createMockV9Raw({ analysis_version: 'v8_archaeology' }))).toBe(true);
+        expect(isArchaeologyAnalysis(createMockV9Raw({ analysis_version: 'v8_archaeology' }))).toBe(true);
     });
 
     it('returns true for v9_archaeology', () => {
-        expect(isV7RawAnalysis(createMockV9Raw())).toBe(true);
+        expect(isArchaeologyAnalysis(createMockV9Raw())).toBe(true);
     });
 
     it('returns true for v7_triage', () => {
-        expect(isV7RawAnalysis(createMockTriageRaw('v7_triage'))).toBe(true);
+        expect(isArchaeologyAnalysis(createMockTriageRaw('v7_triage'))).toBe(true);
     });
 
     it('returns true for v8_triage', () => {
-        expect(isV7RawAnalysis(createMockTriageRaw('v8_triage'))).toBe(true);
+        expect(isArchaeologyAnalysis(createMockTriageRaw('v8_triage'))).toBe(true);
     });
 
     it('returns true for v9_triage', () => {
-        expect(isV7RawAnalysis(createMockTriageRaw('v9_triage'))).toBe(true);
+        expect(isArchaeologyAnalysis(createMockTriageRaw('v9_triage'))).toBe(true);
     });
 
     it('returns true for plain v7 (legacy browser path)', () => {
-        expect(isV7RawAnalysis(createMockV9Raw({ analysis_version: 'v7' }))).toBe(true);
+        expect(isArchaeologyAnalysis(createMockV9Raw({ analysis_version: 'v7' }))).toBe(true);
     });
 
     it('rejects a version-only document that would become a blank zero-score card', () => {
-        expect(isV7RawAnalysis({ analysis_version: 'v9_archaeology' })).toBe(false);
+        expect(isArchaeologyAnalysis({ analysis_version: 'v9_archaeology' })).toBe(false);
     });
 
     it('rejects archaeology output with a missing pillar score', () => {
@@ -559,7 +559,7 @@ describe('isV7RawAnalysis', () => {
         const analysis = raw.analysis as Record<string, unknown>;
         const pillars = analysis.pillar_scores as Record<string, unknown>;
         delete pillars.structure;
-        expect(isV7RawAnalysis(raw)).toBe(false);
+        expect(isArchaeologyAnalysis(raw)).toBe(false);
     });
 
     it('accepts a genuine zero score when all required values are present', () => {
@@ -568,32 +568,32 @@ describe('isV7RawAnalysis', () => {
         analysis.weighted_score = 0;
         const pillars = analysis.pillar_scores as Record<string, { score: number }>;
         Object.values(pillars).forEach((pillar) => { pillar.score = 0; });
-        expect(isV7RawAnalysis(raw)).toBe(true);
+        expect(isArchaeologyAnalysis(raw)).toBe(true);
     });
 
     it('returns false for v6_unified', () => {
-        expect(isV7RawAnalysis({ analysis_version: 'v6_unified' })).toBe(false);
+        expect(isArchaeologyAnalysis({ analysis_version: 'v6_unified' })).toBe(false);
     });
 
     it('returns false for v5', () => {
-        expect(isV7RawAnalysis({ analysis_version: 'v5' })).toBe(false);
+        expect(isArchaeologyAnalysis({ analysis_version: 'v5' })).toBe(false);
     });
 
     it('returns false for no analysis_version field', () => {
-        expect(isV7RawAnalysis({ title: 'Some doc' })).toBe(false);
+        expect(isArchaeologyAnalysis({ title: 'Some doc' })).toBe(false);
     });
 
     it('returns false for null', () => {
-        expect(isV7RawAnalysis(null)).toBe(false);
+        expect(isArchaeologyAnalysis(null)).toBe(false);
     });
 
     it('returns false for undefined', () => {
-        expect(isV7RawAnalysis(undefined)).toBe(false);
+        expect(isArchaeologyAnalysis(undefined)).toBe(false);
     });
 
     it('returns false for non-object values', () => {
-        expect(isV7RawAnalysis('v9_archaeology')).toBe(false);
-        expect(isV7RawAnalysis(42)).toBe(false);
+        expect(isArchaeologyAnalysis('v9_archaeology')).toBe(false);
+        expect(isArchaeologyAnalysis(42)).toBe(false);
     });
 });
 
@@ -614,13 +614,13 @@ describe('isV6UnifiedAnalysis', () => {
 
 
 // ============================================
-// normalizeV7Screenplay (Archaeology Engine V9)
+// normalizeV9Screenplay (Archaeology Engine V9)
 // ============================================
 
-describe('normalizeV7Screenplay', () => {
+describe('normalizeV9Screenplay', () => {
     it('normalizes a V9 archaeology fixture with all 5 pillar scores', () => {
         const raw = createMockV9Raw();
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
         // Basic fields
         expect(result.title).toBe('Moonrise Kingdom');
@@ -632,7 +632,7 @@ describe('normalizeV7Screenplay', () => {
 
     it('correctly maps 5-pillar scores to legacy 7-dimension format', () => {
         const raw = createMockV9Raw();
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
         // concept pillar → dimensionScores.concept
         expect(result.dimensionScores.concept).toBe(8.8);
@@ -654,13 +654,13 @@ describe('normalizeV7Screenplay', () => {
 
     it('preserves weighted score from analysis', () => {
         const raw = createMockV9Raw();
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
         expect(result.weightedScore).toBe(8.35);
     });
 
     it('maps recommendation from verdict field', () => {
         const raw = createMockV9Raw();
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
         expect(result.recommendation).toBe('recommend');
         expect(result.isFilmNow).toBe(false);
     });
@@ -668,7 +668,7 @@ describe('normalizeV7Screenplay', () => {
     it('sets isFilmNow true for FILM NOW verdict', () => {
         const raw = createMockV9Raw();
         (raw.analysis as Record<string, unknown>).verdict = 'FILM NOW';
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
         expect(result.recommendation).toBe('film_now');
         expect(result.isFilmNow).toBe(true);
@@ -678,7 +678,7 @@ describe('normalizeV7Screenplay', () => {
 
     it('sets category from collection_id (BLACK_LIST → BLACK_LIST pass-through)', () => {
         const raw = createMockV9Raw({ collection_id: 'BLACK_LIST' });
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
         // collectionToCategoryId is called with collection_id as both args,
         // so existingCategory = 'BLACK_LIST' and it returns immediately
         expect(result.category).toBe('BLACK_LIST');
@@ -696,7 +696,7 @@ describe('normalizeV7Screenplay', () => {
                 confidence: 'high',
             },
         });
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
         expect(result.tmdbStatus).not.toBeNull();
         expect(result.tmdbStatus!.isProduced).toBe(true);
         expect(result.tmdbStatus!.tmdbId).toBe(77777);
@@ -705,48 +705,48 @@ describe('normalizeV7Screenplay', () => {
     it('sets tmdbStatus to null when not present on V9 data', () => {
         const raw = createMockV9Raw();
         delete raw.tmdb_status;
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
         expect(result.tmdbStatus).toBeNull();
     });
 
-    it('preserves v7PillarScores array for native display', () => {
+    it('preserves pillarScores array for native display', () => {
         const raw = createMockV9Raw();
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
-        expect(result.v7PillarScores).toBeDefined();
-        expect(result.v7PillarScores).toHaveLength(5);
+        expect(result.pillarScores).toBeDefined();
+        expect(result.pillarScores).toHaveLength(5);
 
-        const pillarNames = result.v7PillarScores!.map((p) => p.name).sort();
+        const pillarNames = result.pillarScores!.map((p) => p.name).sort();
         expect(pillarNames).toEqual(['character', 'concept', 'craft_scene', 'emotional_resonance', 'structure']);
     });
 
-    it('preserves v7GoosebumpsMoments', () => {
+    it('preserves goosebumpsMomentDetails', () => {
         const raw = createMockV9Raw();
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
-        expect(result.v7GoosebumpsMoments).toHaveLength(2);
-        expect(result.v7GoosebumpsMoments![0].page).toBe(42);
-        expect(result.v7GoosebumpsMoments![0].description).toContain('cove dance');
+        expect(result.goosebumpsMomentDetails).toHaveLength(2);
+        expect(result.goosebumpsMomentDetails![0].page).toBe(42);
+        expect(result.goosebumpsMomentDetails![0].description).toContain('cove dance');
     });
 
-    it('preserves v7StoryVsSituation', () => {
+    it('preserves storyVsSituation', () => {
         const raw = createMockV9Raw();
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
-        expect(result.v7StoryVsSituation).toBeDefined();
-        expect(result.v7StoryVsSituation!.score).toBe(8);
-        expect(result.v7StoryVsSituation!.gate_applied).toBe(false);
+        expect(result.storyVsSituation).toBeDefined();
+        expect(result.storyVsSituation!.score).toBe(8);
+        expect(result.storyVsSituation!.gate_applied).toBe(false);
     });
 
-    it('preserves v7ExecutiveSummary', () => {
+    it('preserves executiveSummary', () => {
         const raw = createMockV9Raw();
-        const result = normalizeV7Screenplay(raw, 'Analysis');
-        expect(result.v7ExecutiveSummary).toContain('beautifully crafted');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
+        expect(result.executiveSummary).toContain('beautifully crafted');
     });
 
     it('maps comparable_films from object format to array', () => {
         const raw = createMockV9Raw();
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
         expect(result.comparableFilms).toHaveLength(2);
         expect(result.comparableFilms[0].title).toBe('The Royal Tenenbaums');
@@ -755,7 +755,7 @@ describe('normalizeV7Screenplay', () => {
 
     it('builds commercial viability from lenses block', () => {
         const raw = createMockV9Raw();
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
         expect(result.commercialViability.cvsAssessed).toBe(true);
         expect(result.commercialViability.targetAudience.score).toBe(2);
@@ -767,7 +767,7 @@ describe('normalizeV7Screenplay', () => {
     it('cleans up "unknown" author names from synthesis', () => {
         const raw = createMockV9Raw();
         (raw.analysis as Record<string, unknown>).author = 'Author not found';
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
         expect(result.author).toBe('');
     });
 });
@@ -783,7 +783,7 @@ describe('Edge cases — missing data', () => {
         // Remove pillar_scores and weighted_score entirely
         delete (raw.analysis as Record<string, unknown>).pillar_scores;
         delete (raw.analysis as Record<string, unknown>).weighted_score;
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
         // All pillar-derived scores should default to 0
         expect(result.dimensionScores.concept).toBe(0);
@@ -803,7 +803,7 @@ describe('Edge cases — missing data', () => {
             structure: { score: 7.0, weight: 0.20 },
             concept: { score: 8.0, weight: 0.20 },
         };
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
         expect(result.dimensionScores.structure).toBe(7.0);
         expect(result.dimensionScores.concept).toBe(8.0);
@@ -817,7 +817,7 @@ describe('Edge cases — missing data', () => {
         const raw = createMockV9Raw();
         delete raw.collection_id;
         delete raw.collection;
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
         // collectionToCategoryId('', '') → existingCategory = '' (falsy) → mapping logic → '' returns 'OTHER'
         expect(result.category).toBe('OTHER');
@@ -827,7 +827,7 @@ describe('Edge cases — missing data', () => {
         const raw = createMockV9Raw();
         delete raw.analysis;
         // Should not throw
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
         expect(result.title).toBe('');
         expect(result.weightedScore).toBe(0);
     });
@@ -835,7 +835,7 @@ describe('Edge cases — missing data', () => {
     it('handles missing metadata block gracefully', () => {
         const raw = createMockV9Raw();
         delete raw.metadata;
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
         expect(result.metadata.pageCount).toBe(0);
         expect(result.metadata.wordCount).toBe(0);
     });
@@ -843,21 +843,21 @@ describe('Edge cases — missing data', () => {
     it('handles missing goosebumps_moments gracefully', () => {
         const raw = createMockV9Raw();
         delete (raw.analysis as Record<string, unknown>).goosebumps_moments;
-        const result = normalizeV7Screenplay(raw, 'Analysis');
-        expect(result.v7GoosebumpsMoments).toEqual([]);
+        const result = normalizeV9Screenplay(raw, 'Analysis');
+        expect(result.goosebumpsMomentDetails).toEqual([]);
     });
 
     it('handles missing comparable_films gracefully', () => {
         const raw = createMockV9Raw();
         delete (raw.analysis as Record<string, unknown>).comparable_films;
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
         expect(result.comparableFilms).toEqual([]);
     });
 
     it('defaults to cvsAssessed: false when no lenses block present', () => {
         const raw = createMockV9Raw();
         delete (raw.analysis as Record<string, unknown>).lenses;
-        const result = normalizeV7Screenplay(raw, 'Analysis');
+        const result = normalizeV9Screenplay(raw, 'Analysis');
 
         expect(result.commercialViability.cvsAssessed).toBe(false);
         expect(result.commercialViability.cvsTotal).toBe(0);
