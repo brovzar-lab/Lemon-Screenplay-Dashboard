@@ -141,11 +141,6 @@ export function UploadPanel() {
 
   // ─── Duplicate action handlers ─────────────────────────────────────────────
 
-  const handleForceReanalyze = useCallback((jobId: string) => {
-    // Clear the duplicate flag so processJobs will include this job
-    updateJob(jobId, { isDuplicate: false, existingTitle: undefined });
-  }, [updateJob]);
-
   const handleSkipJob = useCallback((jobId: string) => {
     updateJob(jobId, { status: 'skipped' });
   }, [updateJob]);
@@ -309,7 +304,6 @@ export function UploadPanel() {
         onRetryJob={retryJob}
         onClearCompleted={clearCompleted}
         onStartProcessing={handleStartProcessing}
-        onForceReanalyze={handleForceReanalyze}
         onSkipJob={handleSkipJob}
       />
 

@@ -2,11 +2,8 @@
  * ReanalyzeButton — Model picker + re-analysis trigger (V9 Archaeology engine).
  *
  * Flow:
- *   1. Click "🔄 Re-analyze ▾" → dropdown with model options
- *      (Sonnet | Opus | Hybrid). NOTE: 'Hybrid' currently runs a single Haiku
- *      triage pass and SAVES that thin result over the full coverage — it is
- *      NOT the Sonnet→Opus hybrid the VPS engine runs. Known issue, slated
- *      for the pipeline-safety work.
+ *   1. Click "🔄 Re-analyze ▾" → dropdown with full-analysis model options
+ *      (Sonnet | Opus).
  *   2. Picks model → spinner + progress message
  *   3. Calls reanalyzeFromStorage → replaces data
  *   4. Invalidates React Query cache → modal/dashboard auto-updates
@@ -27,7 +24,7 @@ interface ReanalyzeButtonProps {
 }
 
 type ModelOption = {
-    id: 'sonnet' | 'opus' | 'hybrid';
+    id: 'sonnet' | 'opus';
     label: string;
     desc: string;
 };
@@ -35,7 +32,6 @@ type ModelOption = {
 const MODELS: ModelOption[] = [
     { id: 'sonnet', label: 'Sonnet', desc: 'Fast · ~$0.50' },
     { id: 'opus', label: 'Opus', desc: 'Deep · ~$2.00' },
-    { id: 'hybrid', label: 'Hybrid', desc: 'Triage → Full · ~$0.35' },
 ];
 
 export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps) {
@@ -64,7 +60,7 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
         }
     }, [isOpen]);
 
-    const handleReanalyze = async (modelId: 'sonnet' | 'opus' | 'hybrid') => {
+    const handleReanalyze = async (modelId: 'sonnet' | 'opus') => {
         setIsOpen(false);
         setIsAnalyzing(true);
         setProgress(null);
@@ -77,16 +73,12 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
                 throw new Error('Budget or request limit reached. Check Settings → API Configuration.');
             }
 
-            // Map hybrid → haiku model with v9 triage
-            const model: 'sonnet' | 'opus' | 'haiku' = modelId === 'hybrid' ? 'haiku' : modelId;
-            const v9Mode = modelId === 'hybrid' ? 'triage' as const : 'full' as const;
             const { reanalyzeFromStorage } = await import('@/lib/analysisService');
 
             await reanalyzeFromStorage(
                 screenplay,
-                model,
+                modelId,
                 (p) => setProgress(p),
-                { v9Mode },
             );
 
             // Invalidate React Query cache so data refreshes everywhere

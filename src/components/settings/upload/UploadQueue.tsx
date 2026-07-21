@@ -2,7 +2,7 @@
  * Upload Queue
  * Displays the job queue with active/pending/completed sections,
  * start button, and processing indicator.
- * Surfaces duplicate count banner and threads onForceReanalyze/onSkip callbacks.
+ * Surfaces duplicate count banner and keeps duplicates out of the active queue.
  */
 
 import { clsx } from 'clsx';
@@ -21,7 +21,6 @@ interface UploadQueueProps {
   onRetryJob: (id: string) => void;
   onClearCompleted: () => void;
   onStartProcessing: () => void;
-  onForceReanalyze: (id: string) => void;
   onSkipJob: (id: string) => void;
 }
 
@@ -35,7 +34,6 @@ export function UploadQueue({
   onRetryJob,
   onClearCompleted,
   onStartProcessing,
-  onForceReanalyze,
   onSkipJob,
 }: UploadQueueProps) {
   const pendingJobs = jobs.filter((j) => j.status === 'pending');
@@ -82,7 +80,6 @@ export function UploadQueue({
             job={job}
             onRemove={onRemoveJob}
             onRetry={onRetryJob}
-            onForceReanalyze={onForceReanalyze}
             onSkip={onSkipJob}
           />
         ))}
@@ -94,7 +91,6 @@ export function UploadQueue({
             job={job}
             onRemove={onRemoveJob}
             onRetry={onRetryJob}
-            onForceReanalyze={onForceReanalyze}
             onSkip={onSkipJob}
           />
         ))}

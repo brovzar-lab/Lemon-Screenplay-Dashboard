@@ -12,11 +12,10 @@ interface JobItemProps {
   job: UploadJob;
   onRemove: (id: string) => void;
   onRetry: (id: string) => void;
-  onForceReanalyze?: (id: string) => void;
   onSkip?: (id: string) => void;
 }
 
-export function JobItem({ job, onRemove, onRetry, onForceReanalyze, onSkip }: JobItemProps) {
+export function JobItem({ job, onRemove, onRetry, onSkip }: JobItemProps) {
   const status = STATUS_LABELS[job.status];
   const isActive = job.status === 'parsing' || job.status === 'analyzing' || job.status === 'promoting';
   const isSkipped = job.status === 'skipped';
@@ -42,23 +41,16 @@ export function JobItem({ job, onRemove, onRetry, onForceReanalyze, onSkip }: Jo
               {job.existingTitle && job.existingTitle !== job.filename.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ') && (
                 <> as <span className="font-medium">"{job.existingTitle}"</span></>
               )}
-              {' '}— re-analyzing will overwrite
+              . Revision uploads are temporarily paused until version-safe reanalysis is available.
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              id={`reanalyze-${job.id}`}
-              onClick={() => onForceReanalyze?.(job.id)}
-              className="px-2 py-0.5 text-xs font-medium text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded hover:bg-amber-500/20 hover:border-amber-500/50 transition-all whitespace-nowrap"
-            >
-              Re-analyze anyway
-            </button>
             <button
               id={`skip-${job.id}`}
               onClick={() => onSkip?.(job.id)}
               className="px-2 py-0.5 text-xs text-black-400 hover:text-red-400 border border-black-700 hover:border-red-500/30 rounded transition-all"
             >
-              Skip
+              Skip upload
             </button>
           </div>
         </div>
