@@ -37,7 +37,6 @@ function loadAdmin() {
       return {
         app: req('firebase-admin/app'),
         firestore: req('firebase-admin/firestore'),
-        storage: req('firebase-admin/storage'),
       };
     } catch {
       /* try next */
@@ -46,7 +45,7 @@ function loadAdmin() {
   throw new Error('firebase-admin not found in any node_modules candidate');
 }
 
-const { app, firestore, storage } = loadAdmin();
+const { app, firestore } = loadAdmin();
 
 const credPath =
   process.env.GOOGLE_APPLICATION_CREDENTIALS ||
@@ -55,14 +54,12 @@ process.env.GOOGLE_APPLICATION_CREDENTIALS = credPath;
 
 app.initializeApp({ projectId: 'lemon-screenplay-dashboard' });
 const db = firestore.getFirestore();
-const storageAdmin = storage.getStorage();
 
 const versionCounts = new Map();
 const metaCounts = { v7_meta: 0, v9_meta: 0, both: 0, neither: 0 };
 const identityCounts = {
   validSha256: 0,
   nullHash: 0,
-  unavailableLegacy: 0,
   missingHash: 0,
   invalidHash: 0,
   storagePath: 0,
@@ -70,19 +67,6 @@ const identityCounts = {
   ingestJobId: 0,
   missingIngestJobId: 0,
 };
-const linkedQueueCounts = {
-  found: 0,
-  missing: 0,
-  validSha256: 0,
-  missingOrInvalidHash: 0,
-  storagePath: 0,
-  missingStoragePath: 0,
-  storageObjectFound: 0,
-  storageObjectMissing: 0,
-  storageObjectCheckFailed: 0,
-};
-const linkedIngestJobIds = new Set();
-const linkedStorageLocations = [];
 let total = 0;
 let deleted = 0;
 let quarantined = 0;
@@ -112,8 +96,6 @@ for (;;) {
       identityCounts.missingHash += 1;
     } else if (d.content_hash === null) {
       identityCounts.nullHash += 1;
-    } else if (d.content_hash === 'unavailable_legacy') {
-      identityCounts.unavailableLegacy += 1;
     } else if (typeof d.content_hash === 'string' && /^[a-f0-9]{64}$/.test(d.content_hash)) {
       identityCounts.validSha256 += 1;
     } else {
@@ -128,7 +110,6 @@ for (;;) {
 
     if (typeof d._ingest_job_id === 'string' && d._ingest_job_id.length > 0) {
       identityCounts.ingestJobId += 1;
-      linkedIngestJobIds.add(d._ingest_job_id);
     } else {
       identityCounts.missingIngestJobId += 1;
     }
@@ -139,48 +120,6 @@ for (;;) {
 
   last = snap.docs[snap.docs.length - 1];
   if (snap.size < 300) break;
-}
-
-// Follow only explicit queue references already stored on analysis docs. This
-// remains read-only and reports aggregate recovery counts, never IDs or data.
-const linkedRefs = [...linkedIngestJobIds].map((id) => db.collection('ingest-queue').doc(id));
-for (let start = 0; start < linkedRefs.length; start += 300) {
-  const snapshots = await db.getAll(...linkedRefs.slice(start, start + 300));
-  for (const snapshot of snapshots) {
-    if (!snapshot.exists) {
-      linkedQueueCounts.missing += 1;
-      continue;
-    }
-
-    linkedQueueCounts.found += 1;
-    const d = snapshot.data() ?? {};
-    if (typeof d.content_hash === 'string' && /^[a-f0-9]{64}$/.test(d.content_hash)) {
-      linkedQueueCounts.validSha256 += 1;
-    } else {
-      linkedQueueCounts.missingOrInvalidHash += 1;
-    }
-    if (typeof d.storage_path === 'string' && d.storage_path.length > 0) {
-      linkedQueueCounts.storagePath += 1;
-      linkedStorageLocations.push(d.storage_path);
-    } else {
-      linkedQueueCounts.missingStoragePath += 1;
-    }
-  }
-}
-
-for (const storagePath of linkedStorageLocations) {
-  const match = /^gs:\/\/([^/]+)\/(.+)$/.exec(storagePath);
-  if (!match) {
-    linkedQueueCounts.storageObjectCheckFailed += 1;
-    continue;
-  }
-  try {
-    const [exists] = await storageAdmin.bucket(match[1]).file(match[2]).exists();
-    if (exists) linkedQueueCounts.storageObjectFound += 1;
-    else linkedQueueCounts.storageObjectMissing += 1;
-  } catch {
-    linkedQueueCounts.storageObjectCheckFailed += 1;
-  }
 }
 
 console.log('── uploaded_analyses census (read-only) ──────────────────');
@@ -197,7 +136,6 @@ console.log(`  neither:       ${metaCounts.neither}`);
 console.log('\ncontent identity:');
 console.log(`  valid SHA-256:       ${identityCounts.validSha256}`);
 console.log(`  null:                ${identityCounts.nullHash}`);
-console.log(`  unavailable_legacy:  ${identityCounts.unavailableLegacy}`);
 console.log(`  missing:             ${identityCounts.missingHash}`);
 console.log(`  invalid/other:       ${identityCounts.invalidHash}`);
 console.log('\nstorage provenance:');
@@ -205,14 +143,4 @@ console.log(`  _storagePath set:    ${identityCounts.storagePath}`);
 console.log(`  _storagePath absent: ${identityCounts.missingStoragePath}`);
 console.log(`  _ingest_job_id set:  ${identityCounts.ingestJobId}`);
 console.log(`  _ingest_job_id absent: ${identityCounts.missingIngestJobId}`);
-console.log('\nlinked ingest-queue recovery:');
-console.log(`  queue docs found:      ${linkedQueueCounts.found}`);
-console.log(`  queue docs missing:    ${linkedQueueCounts.missing}`);
-console.log(`  valid SHA-256:         ${linkedQueueCounts.validSha256}`);
-console.log(`  missing/invalid hash:  ${linkedQueueCounts.missingOrInvalidHash}`);
-console.log(`  storage_path set:      ${linkedQueueCounts.storagePath}`);
-console.log(`  storage_path absent:   ${linkedQueueCounts.missingStoragePath}`);
-console.log(`  Storage object found:  ${linkedQueueCounts.storageObjectFound}`);
-console.log(`  Storage object missing: ${linkedQueueCounts.storageObjectMissing}`);
-console.log(`  object check failed:   ${linkedQueueCounts.storageObjectCheckFailed}`);
 console.log('───────────────────────────────────────────────────────────');

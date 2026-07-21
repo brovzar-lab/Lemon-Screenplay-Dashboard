@@ -1,6 +1,6 @@
 # Chunk 2 Design: Script Identity and Revisions
 
-Status: Proposed. No feature implementation is authorized until Billy approves this document.
+Status: Approved on 2026-07-21, with the clean-slate scope change recorded below.
 
 Date: 2026-07-21
 
@@ -19,8 +19,8 @@ Stop four classes of silent data loss without re-keying the application:
 
 ## Safety Invariants
 
-- Existing V8 and V9 analyses must continue to render.
-- Existing public share links must continue to resolve without migration.
+- Existing V8 and V9 analyses must continue to render while the current production data remains in place.
+- Existing public share links must continue to resolve until the separately approved clean-slate step.
 - Existing share management keys, notes, favorites, feedback, and verdicts must not be re-keyed.
 - The parent `uploaded_analyses` document remains the backward-compatible latest projection.
 - Every permanent write creates an immutable version before advancing the latest projection.
@@ -28,9 +28,11 @@ Stop four classes of silent data loss without re-keying the application:
 - The Storage trigger does not download screenplay PDFs.
 - Chunk 1 remains intact: triage cannot be used for permanent reanalysis, and only
   `v9_archaeology` results can pass the browser reanalysis save guard.
-- Migration is read-only unless both `--commit` is supplied and Billy separately approves the write.
+- Chunk 2 does not migrate or backfill the 23 current production screenplays.
+- No wipe tool is built or run in Chunk 2. A clean slate requires a separate approval after Chunks 2 through 5
+  are built, deployed, and proven.
 
-## Measured Production State
+## Measured Production State (Diagnostic Only)
 
 The extended census was run read-only on 2026-07-21. It printed aggregate counts only.
 
@@ -50,34 +52,16 @@ meta fields:
 content identity:
   valid SHA-256:         0
   null:                  0
-  unavailable_legacy:    0
   missing:              23
   invalid/other:         0
-
-storage provenance:
-  _storagePath set:      0
-  _storagePath absent:  23
-  _ingest_job_id set:   23
-  _ingest_job_id absent: 0
-
-linked ingest-queue recovery:
-  queue docs found:     23
-  queue docs missing:    0
-  valid SHA-256:        23
-  missing/invalid hash:  0
-  storage_path set:     23
-  storage_path absent:   0
-  Storage object found: 23
-  Storage object missing: 0
-  object check failed:   0
 ```
 
 ### Census conclusion
 
-The analysis documents cannot identify their PDFs on their own, but all 23 have a valid
-`_ingest_job_id`. Every linked queue document contains the daemon-generated SHA-256 and a
-Storage path, and every referenced PDF still exists. Therefore the current 23 records can
-be migrated with verified identities. No hash will be fabricated or recomputed from analysis text.
+The current 23 records predate the identity contract and will not be migrated or used as an identity source.
+The census remains a read-only diagnostic that confirms the 16 V8 / 7 V9 / 0 unlabeled split while the old
+data is still present. No Chunk 2 behavior, test, or release gate depends on recovering identity from these
+records. Billy will separately approve a clean slate only after the replacement pipeline has been proven.
 
 ## Decision 1: Identity Model
 
@@ -92,8 +76,8 @@ Costs and risks:
 
 - Breaks every feature currently keyed by `screenplayId`, `source_file`, or the filename-derived
   Firestore ID, including share management, notes, favorites, feedback, verdicts, posters, and PDF status.
-- Requires migrating `shared_views.screenplayId` and changing share lookup and revoke behavior.
-- Creates a large, difficult-to-reverse migration before the redesign.
+- Requires rewriting `shared_views.screenplayId` and changing share lookup and revoke behavior.
+- Creates a large, difficult-to-reverse data rewrite before the redesign.
 
 ### Option B: Keep the filename-derived parent as the project/latest pointer
 
@@ -132,8 +116,8 @@ The parent keeps the complete latest analysis so all current readers continue to
 project_id              stable parent document ID
 source_file             stable canonical legacy/share key; never changed by a revision
 latest_source_file      actual filename of the latest version
-content_hash            SHA-256 of the latest PDF, or null only when truly unavailable
-identity_status         verified | legacy_unavailable
+content_hash            verified SHA-256 of the latest PDF
+identity_status         verified for every new permanent write
 latest_version_id       immutable version document ID
 version_count           integer
 _storagePath            verified Storage path for the latest PDF when available
@@ -161,8 +145,13 @@ analysis_version
 analysis_model
 analysis
 usage or v9_meta        preserved exactly as written by its engine
-created_at
+created_at              real Firestore Timestamp, never an ISO string
 ```
+
+`version_number` is always a Firestore integer greater than zero. New permanent writes fail closed when the
+authoritative hash is unavailable. The application read boundary still tolerates missing or null
+`content_hash` and a non-verified `identity_status` so malformed or transitional data produces a visible
+error instead of crashing or being mistaken for a duplicate. This defensive tolerance is not a backfill path.
 
 `versionId` is `{full SHA-256}_{fixed queued-at milliseconds}`. The queue timestamp is fixed, so a daemon
 retry addresses the same version rather than creating another. An explicitly requested new analysis of the
@@ -230,42 +219,18 @@ match /uploaded_analyses/{docId}/versions/{versionId} {
                 && request.resource.data.version_number is int
                 && request.resource.data.version_number > 0
                 && request.resource.data.created_at is timestamp
-                && (
-                     (request.resource.data.identity_status == 'verified'
-                      && request.resource.data.content_hash is string
-                      && request.resource.data.content_hash.matches('^[a-f0-9]{64}$'))
-                     ||
-                     (request.resource.data.identity_status == 'legacy_unavailable'
-                      && request.resource.data.content_hash == null)
-                   );
+                && request.resource.data.identity_status == 'verified'
+                && request.resource.data.content_hash is string
+                && request.resource.data.content_hash.matches('^[a-f0-9]{64}$');
 
   allow update, delete: if false;
 }
 ```
 
-Admin SDK migration and daemon writes bypass rules, but they must enforce the same invariants in code and tests.
+Admin SDK daemon and CLI writes bypass rules, but they must enforce the same Timestamp, integer, identity, and
+immutability invariants in code and tests.
 
-## Decision 4: Legacy Identity
-
-### String sentinel: `unavailable_legacy`
-
-Benefit: easy to see in a string-only export.
-
-Risk: code can accidentally treat the sentinel as a real fingerprint because both are strings.
-
-### Null plus explicit status
-
-Benefit: cannot be confused with a hash and makes missing identity explicit.
-
-Trade-off: queries must check both `content_hash == null` and `identity_status`.
-
-### Recommendation: `content_hash: null` plus `identity_status: legacy_unavailable`
-
-This is the fallback only when neither the parent, linked queue record, nor verified Storage PDF can provide
-identity. The measured 23 production documents do not need this fallback: all 23 have recoverable daemon hashes
-and live PDFs.
-
-## Decision 5: Grid and Version Presentation
+## Decision 4: Grid and Version Presentation
 
 The current title-based collapse must be removed. Two unrelated scripts can share a title, and a title is not an ID.
 
@@ -273,7 +238,7 @@ Recommendation:
 
 - Add `Screenplay.projectId` for the stable parent document ID while leaving the existing
   `Screenplay.id` and `sourceFile` behavior unchanged for notes, favorites, feedback, and shares.
-- Deduplicate top-level cards by `projectId`, falling back to the existing `id` only for unmigrated data.
+- Deduplicate top-level cards by `projectId`, falling back to the existing `id` for older records without that field.
   Never deduplicate by lowercase title.
 - Keep one card per screenplay project in the default grid, showing the latest analysis and a version-count badge.
 - Open a version list in the project detail panel. Selecting a version loads that immutable snapshot.
@@ -282,12 +247,12 @@ Recommendation:
 
 This matches the product requirement to group revised drafts without turning the discovery grid into duplicate cards.
 
-## Decision 6: Storage Bucket
+## Decision 5: Storage Bucket
 
 ### Recommendation: `lemon-screenplay-dashboard.firebasestorage.app`
 
-This is already the browser configuration, Storage-trigger bucket, daemon default, deployment example, and the
-bucket that contains all 23 verified legacy PDFs. Change CLI initialization to read `FIREBASE_STORAGE_BUCKET`
+This is already the browser configuration, Storage-trigger bucket, daemon default, and deployment example.
+Change CLI initialization to read `FIREBASE_STORAGE_BUCKET`
 and default to the same `firebasestorage.app` bucket. Do not rely on Firebase Admin singleton initialization order.
 
 Trade-off: any operator intentionally using the old `appspot.com` bucket must set an explicit environment override
@@ -306,9 +271,12 @@ during the transition. The production default becomes consistent and determinist
 ### Possible revision
 
 1. A title match is a suggestion, not a duplicate verdict.
-2. UI records `matchedProjectId` and asks whether this is a revision or a separate project.
-3. Different bytes queue normally as a new version under the selected parent.
-4. The parent's canonical `source_file` and share key do not change.
+2. UI records the selected parent as `target_project_id` and asks whether this is a revision or a separate project.
+3. `target_project_id` flows through the upload job, Storage metadata, queue document, daemon claim, and atomic
+   writer. The daemon validates that the target parent exists before attaching the revision.
+4. Different bytes queue normally as a new version under the selected parent, even when the uploaded revision
+   has a different filename or title.
+5. The parent's canonical `source_file` and share key do not change.
 
 ### Exact duplicate
 
@@ -327,33 +295,29 @@ Both Python raw-document builders and the browser path must emit the identity fi
 - Shared Python persistence: `execution/ingest_v9.py` `write_to_firestore` performs the atomic version and parent write.
 - Browser builder: `src/lib/analysisService.ts` includes the computed fingerprint and provenance.
 - Browser persistence: `src/lib/analysisStore.ts` writes the immutable version and parent atomically.
+- Browser offline retry: the retry item preserves the fixed version ID, Firestore Timestamp value,
+  integer `version_number`, target project, immutable version payload, and latest-parent payload. A retry replays
+  the same atomic parent-plus-version write rather than saving only the parent or creating another version.
 
 No writer may update the parent without also creating or confirming the immutable version.
 
-## Conservative Migration
+## Future Clean-Slate Step (Outside Chunk 2)
 
-New script: `scripts/migrate-analysis-versions.mjs`.
+The 23 current production screenplays will not be migrated or backfilled. Billy intends to delete the old data
+and start fresh only after the complete replacement pipeline is trusted.
 
-Default behavior is read-only and prints counts only:
+No wipe script is created in Chunk 2. The clean-slate operation runs last and only when all of these gates are met:
 
-- parent documents scanned
-- recoverable top-level hashes
-- recoverable linked-queue hashes
-- verified Storage objects
-- unavailable identities
-- version documents that would be created
-- parent documents that would be annotated
-- conflicts or records that would be skipped
+1. Chunks 2 through 5 are built, reviewed, merged, deployed, and proven with controlled uploads.
+2. A count-only dry run identifies the exact `uploaded_analyses`, completed ingest-queue jobs, related
+   `shared_views`, and analysis cache records in scope without printing screenplay contents.
+3. Billy gives a separate approval after seeing those counts.
+4. The destructive command requires an explicit commit flag and project confirmation; default execution is read-only.
+5. Pending or processing jobs are never deleted, and the tool aborts if active jobs exist.
+6. The dashboard cache version is advanced so browsers cannot repopulate the clean archive from stale local data.
 
-The write path requires `--commit` and a separate Billy approval after the dry-run report. It will:
-
-1. Preserve each document's exact `analysis_version` and analysis body.
-2. Copy the verified queue SHA-256 and Storage path for the measured 23 documents.
-3. Create one immutable initial version per parent.
-4. Add parent identity and latest-version fields without changing the parent document ID or canonical `source_file`.
-5. Perform no `shared_views` migration under Option B.
-
-Migration is idempotent: a second dry-run or commit must report existing version records rather than duplicating them.
+The exact cleanup inventory and tool belong to that future final step, not to this branch. Nothing in Chunk 2
+builds, runs, or quietly prepares a production wipe.
 
 ## Exact Files and Functions Planned
 
@@ -366,8 +330,8 @@ Migration is idempotent: a second dry-run or commit must report existing version
 
 - New `execution/content_identity.py`: the daemon's existing raw-byte SHA-256 moved into a shared helper unchanged.
 - `daemon.py`: import the shared `compute_content_hash`; pass hash into `parse_pdf`.
-- `execution/ingest_v9.py`: `parse_pdf`, new `PARSER_VERSION`, cache cleanup, `init_firebase` bucket configuration.
-- New `execution/test_content_identity.py`: SHA-256 and same-name/different-content cache regression tests.
+- `execution/ingest_v9.py`: `parse_pdf`, new `PARSER_VERSION`, and bounded cache cleanup.
+- New `execution/test_parse_cache.py`: SHA-256, parser-version, same-name/different-content, and cleanup tests.
 
 ### Writers and immutable versions
 
@@ -398,16 +362,19 @@ Migration is idempotent: a second dry-run or commit must report existing version
 - New `src/lib/versionService.ts`: read immutable versions for a selected project.
 - New version-history UI under `src/components/screenplay/modal/`, plus focused tests.
 
-### Rules and migration
+### Storage bucket reconciliation
+
+- `execution/ingest_v9.py`: make `init_firebase` read `FIREBASE_STORAGE_BUCKET` and use the approved default.
+- `daemon.py`: retain the same environment override and approved default explicitly.
+
+### Rules
 
 - `firestore.rules`: explicit immutable versions subcollection block.
 - `tests/firestore.rules.test.ts`: team read, admin create, malformed create rejection, update/delete rejection.
-- New `scripts/migrate-analysis-versions.mjs`: dry-run by default, `--commit` gated.
-- New migration helper tests using fixtures only, never production writes.
 
 ### Explicitly unchanged under the recommended model
 
-- `src/lib/shareService.ts`: no ID migration or behavior change.
+- `src/lib/shareService.ts`: no ID or behavior change.
 - Existing `shared_views` documents: no rewrite.
 - Public token resolution: unchanged and self-contained.
 - `storage.rules`: the existing recursive `ingest-queue/{allPaths=**}` rule already permits the unique nested path.
@@ -422,15 +389,16 @@ Tests must be green after each `chunk2:` commit:
 - New parser cache content-addressing and cleanup tests.
 - New trigger path and generation idempotency tests.
 - New writer parity tests covering daemon, CLI, and browser identity fields.
+- New renamed-revision test proving `target_project_id` attaches a differently named PDF to the selected parent.
 - New immutable version rule tests.
-- New migration idempotency and V8/V9 preservation fixtures.
+- New writer tests proving `created_at` is a Firestore Timestamp and `version_number` is an integer.
+- New browser offline-retry test proving the immutable version and parent projection replay atomically.
 - New grid same-title/different-project and grouped-revision tests.
 - Functions build, Python tests, lint, TypeScript build, and production Vite build.
 
-No migration write, merge, Function deployment, dashboard deployment, or VPS restart occurs without later approval.
+No clean-slate write, merge, Function deployment, dashboard deployment, or VPS restart occurs without later approval.
 
-## Approval Requested
+## Approved Implementation Sequence
 
-Approve the six recommendations above and the proposed parent-plus-immutable-versions schema. After approval,
-implementation proceeds in the requested commit order, beginning with the parser-cache fix. The migration remains
-read-only until its own later approval.
+Billy approved this design with the no-migration scope change. Implementation proceeds one tested commit at a time,
+beginning with the parser-cache fix. This branch is not merged or deployed during implementation.
