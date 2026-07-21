@@ -45,6 +45,7 @@ REQUIRED ENV VARS
 
 OPTIONAL ENV VARS
 ──────────────────
+  FIREBASE_STORAGE_BUCKET — explicit bucket name (defaults to production bucket)
   TMDB_API_KEY          — for produced-film pre-screening
   DAEMON_CONCURRENCY    — parallel workers (default: 2; stay at 2 for Tier 1)
   DAEMON_POLL_INTERVAL  — seconds between Firestore polls (default: 10)
@@ -75,6 +76,7 @@ from execution.content_identity import (
     queued_at_millis,
     verified_identity_fields,
 )
+from execution.firebase_config import resolve_storage_bucket
 
 # ── Dependency guard ──────────────────────────────────────────────────────────
 
@@ -115,10 +117,9 @@ log = logging.getLogger("lemon.daemon")
 
 # ── Config from env ───────────────────────────────────────────────────────────
 
-PROJECT_ID        = os.getenv("FIREBASE_PROJECT_ID", "lemon-screenplay-dashboard")
 # Newer Firebase projects use {project}.firebasestorage.app; legacy ones use
 # {project}.appspot.com. Default to the new domain; override via env if needed.
-STORAGE_BUCKET    = os.getenv("FIREBASE_STORAGE_BUCKET", f"{PROJECT_ID}.firebasestorage.app")
+STORAGE_BUCKET    = resolve_storage_bucket()
 CONCURRENCY       = int(os.getenv("DAEMON_CONCURRENCY", "2"))
 POLL_INTERVAL     = int(os.getenv("DAEMON_POLL_INTERVAL", "10"))
 WORK_DIR          = Path(os.getenv("DAEMON_WORK_DIR", "/tmp/lemon"))
@@ -156,8 +157,8 @@ def init_firebase() -> None:
 
     _db = fb_firestore.client()
     try:
-        _bucket = fb_storage.bucket()
-        log.info("Firebase Storage connected")
+        _bucket = fb_storage.bucket(STORAGE_BUCKET)
+        log.info(f"Firebase Storage connected: {STORAGE_BUCKET}")
     except Exception as e:
         log.warning(f"Storage init failed (PDF downloads disabled): {e}")
 

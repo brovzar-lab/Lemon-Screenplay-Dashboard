@@ -53,6 +53,7 @@ Required env vars (in .env at project root, or functions/.env):
   GOOGLE_APPLICATION_CREDENTIALS — path to service account JSON (for Firestore writes)
 
 Optional env vars:
+  FIREBASE_STORAGE_BUCKET — explicit bucket name (defaults to production bucket)
   TMDB_API_KEY         — for TMDB pre-screening (skip with --skip-tmdb if absent)
   LLM_PROXY_URL        — override default Cloud Function URL
 """
@@ -97,6 +98,7 @@ except ImportError:
 
 # Story Grid genre engine (lives next to this file).
 sys.path.insert(0, str(Path(__file__).parent))
+from firebase_config import resolve_storage_bucket  # noqa: E402
 from content_identity import (  # noqa: E402
     build_version_id,
     compute_content_hash,
@@ -206,26 +208,32 @@ def init_firebase() -> bool:
 
     # Service account path
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    project_id = os.getenv("FIREBASE_PROJECT_ID", "lemon-screenplay-dashboard")
+    storage_bucket = resolve_storage_bucket()
 
     try:
         if not firebase_admin._apps:
             if cred_path and Path(cred_path).exists():
                 cred = credentials.Certificate(cred_path)
                 firebase_admin.initialize_app(cred, {
-                    "storageBucket": f"{project_id}.appspot.com",
+                    "storageBucket": storage_bucket,
                 })
-                log.info(f"Firebase initialised with service account: {cred_path}")
+                log.info(
+                    f"Firebase initialised with service account: {cred_path}, "
+                    f"bucket: {storage_bucket}"
+                )
             else:
                 # Try Application Default Credentials (gcloud auth)
                 firebase_admin.initialize_app(options={
-                    "storageBucket": f"{project_id}.appspot.com",
+                    "storageBucket": storage_bucket,
                 })
-                log.info("Firebase initialised with Application Default Credentials")
+                log.info(
+                    "Firebase initialised with Application Default Credentials, "
+                    f"bucket: {storage_bucket}"
+                )
 
         _db = firestore.client()
         try:
-            _bucket = fb_storage.bucket()
+            _bucket = fb_storage.bucket(storage_bucket)
         except Exception:
             _bucket = None  # Storage is optional
             log.warning("Firebase Storage not initialised (PDF uploads will be skipped)")
