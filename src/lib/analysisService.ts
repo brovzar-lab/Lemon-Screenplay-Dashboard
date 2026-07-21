@@ -22,6 +22,7 @@ import {
   type AnalysisProgress as MultiPassProgress,
 } from './multiPassAnalysis';
 import { loadCalibrationProfile } from './feedbackStore';
+import { buildVerifiedIdentity, computeContentHash } from './analysisIdentity';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ export async function analyzeScreenplay(
   // Stage 1 — Parse PDF
   onProgress?.({ stage: 'parsing', percent: 0, message: 'Parsing PDF...' });
 
+  const contentHash = await computeContentHash(file);
   const parsed = await parsePDF(file, (pct) => {
     onProgress?.({ stage: 'parsing', percent: pct, message: `Parsing PDF... ${pct}%` });
   });
@@ -74,7 +76,7 @@ export async function analyzeScreenplay(
   onProgress?.({ stage: 'analyzing', percent: 0, message: 'Sending to AI for analysis...' });
 
   // All analysis goes through V9 Archaeology Engine
-  return analyzeV9Path(parsed, category, options, onProgress);
+  return analyzeV9Path(parsed, category, options, contentHash, onProgress);
 }
 
 // ─── V9 Multi-Reader Analysis Path ──────────────────────────────────────────
@@ -83,6 +85,7 @@ async function analyzeV9Path(
   parsed: ParsedPDF,
   category: string,
   options: AnalysisOptions,
+  contentHash: string,
   onProgress?: (p: AnalysisProgress) => void,
 ): Promise<AnalysisResult> {
   const v9Mode = options.v9Mode ?? 'full';
@@ -125,6 +128,7 @@ async function analyzeV9Path(
         logline: triageResult.logline,
         should_deep_analyze: triageResult.should_deep_analyze,
       },
+      ...buildVerifiedIdentity(contentHash),
     };
 
     onProgress?.({ stage: 'complete', percent: 100, message: `Triage complete: ${triageResult.triage_score}/10` });
@@ -168,6 +172,7 @@ async function analyzeV9Path(
         v9Result.readerResults.map((r) => [r.reader, r.durationMs]),
       ),
     },
+    ...buildVerifiedIdentity(contentHash),
   };
 
   onProgress?.({ stage: 'complete', percent: 100, message: 'V9 analysis complete!' });

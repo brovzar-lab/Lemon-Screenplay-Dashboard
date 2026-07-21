@@ -26,6 +26,7 @@ import {
 } from 'firebase/firestore';
 import { authReady, db } from './firebase';
 import { useToastStore } from '@/stores/toastStore';
+import { requireVerifiedIdentity } from './analysisIdentity';
 
 const FIRESTORE_COLLECTION = 'uploaded_analyses';
 const _QUARANTINE_COLLECTION = '_unrecognized_analyses';
@@ -256,12 +257,16 @@ export function getPendingWriteCount(): number {
  * If Firestore fails, queues for retry on next load.
  */
 export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> {
-    const sourceFile = (raw.source_file as string) || `unknown_${Date.now()}`;
+    const persistedRaw =
+        raw.analysis_version === 'v9_archaeology'
+            ? { ...raw, ...requireVerifiedIdentity(raw) }
+            : raw;
+    const sourceFile = (persistedRaw.source_file as string) || `unknown_${Date.now()}`;
 
     // Step 1: ALWAYS save to localStorage immediately (instant, guaranteed)
     const existing = readFromLocal();
     const filtered = existing.filter((a) => a.source_file !== sourceFile);
-    filtered.push(raw);
+    filtered.push(persistedRaw);
     writeToLocal(filtered);
     console.log(`[Lemon] Analysis saved to localStorage: ${sourceFile}`);
 
@@ -271,7 +276,7 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
         await authReady;
         const docRef = doc(db, FIRESTORE_COLLECTION, docId);
         await setDoc(docRef, {
-            ...raw,
+            ...persistedRaw,
             _savedAt: new Date().toISOString(),
             _docId: docId,
         });
@@ -281,7 +286,7 @@ export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> 
         useToastStore
             .getState()
             .addToast('Failed to sync screenplay to cloud — will retry automatically', 'warning');
-        queueForRetry({ kind: 'set', sourceFile, data: raw });
+        queueForRetry({ kind: 'set', sourceFile, data: persistedRaw });
         // Do NOT re-throw — the analysis is safely in localStorage.
     }
 }

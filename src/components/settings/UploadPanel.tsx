@@ -25,6 +25,8 @@ import { subscribeToIngestJob } from '@/lib/ingestQueueClient';
 import useCategories from '@/hooks/useCategories';
 import { useToastStore } from '@/stores/toastStore';
 import { getPdfFileError } from '@/lib/pdfValidation';
+import { computeContentHash } from '@/lib/analysisIdentity';
+import { findAnalysisByContentHash } from '@/lib/analysisLookup';
 
 import { ApiConfigToggle } from './upload/ApiConfigToggle';
 import { ModelSelector } from './upload/ModelSelector';
@@ -65,41 +67,6 @@ export function UploadPanel() {
 
   // ─── File selection + duplicate detection ──────────────────────────────────
 
-  /** SHA-256 of a File via Web Crypto. Returns lowercase hex. */
-  async function sha256Hex(file: File): Promise<string> {
-    const buf = await file.arrayBuffer();
-    const digest = await crypto.subtle.digest('SHA-256', buf);
-    return Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
-
-  /** Query Firestore for any uploaded_analyses doc with matching content_hash.
-   *  Returns the existing source_file/title if found. */
-  async function findByContentHash(hash: string): Promise<string | null> {
-    try {
-      const { getDocs, query, collection, where, limit } = await import('firebase/firestore');
-      const { db } = await import('@/lib/firebase');
-      const q = query(
-        collection(db, 'uploaded_analyses'),
-        where('content_hash', '==', hash),
-        limit(1),
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) return null;
-      const data = snap.docs[0].data() as Record<string, unknown>;
-      const analysis = (data.analysis as Record<string, unknown>) || {};
-      return (
-        (analysis.title as string) ||
-        (data.source_file as string) ||
-        snap.docs[0].id
-      );
-    } catch (err) {
-      console.warn('[upload] content-hash dedup check failed:', err);
-      return null;
-    }
-  }
-
   const handleFileSelect = async (files: FileList | null) => {
     if (!files) return;
     // Process all files in parallel — hashing is async but local-only.
@@ -127,8 +94,8 @@ export function UploadPanel() {
         // Layer 2 (true content dedup): SHA-256 of file bytes → Firestore lookup.
         // Catches re-uploads of the same PDF under a different filename.
         try {
-          const hash = await sha256Hex(file);
-          const existing = await findByContentHash(hash);
+          const hash = await computeContentHash(file);
+          const existing = await findAnalysisByContentHash(hash);
           if (existing) {
             updateJob(jobId, { isDuplicate: true, existingTitle: existing });
           }

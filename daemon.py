@@ -69,7 +69,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from execution.content_identity import compute_content_hash
+from execution.content_identity import compute_content_hash, verified_identity_fields
 
 # ── Dependency guard ──────────────────────────────────────────────────────────
 
@@ -531,6 +531,41 @@ def backoff_sleep(attempt: int, base: float = 2.0, cap: float = 60.0) -> None:
     log.info(f"[backoff] Sleeping {actual:.1f}s (attempt {attempt})")
     time.sleep(actual)
 
+# ── Raw analysis document ─────────────────────────────────────────────────────
+
+def build_raw_document(
+    *,
+    filename: str,
+    model_key: str,
+    collection_id: str,
+    page_count: int,
+    word_count: int,
+    analysis: dict,
+    usage: dict,
+    job_id: str,
+    content_hash: str,
+    tmdb_status: Optional[dict],
+) -> dict:
+    """Build the daemon's V9 parent document using the shared identity contract."""
+    return {
+        "source_file": filename,
+        "analysis_model": f"claude-{model_key}",
+        "analysis_version": "v9_archaeology",
+        "collection_id": collection_id,
+        "collection": collection_id,
+        "tmdb_status": tmdb_status,
+        "metadata": {
+            "filename": filename,
+            "page_count": page_count,
+            "word_count": word_count,
+        },
+        "analysis": analysis,
+        "usage": usage,
+        "_ingest_job_id": job_id,
+        "_worker_id": WORKER_ID,
+        **verified_identity_fields(content_hash),
+    }
+
 # ── Core job processor ────────────────────────────────────────────────────────
 
 def process_job(job: dict) -> None:
@@ -683,30 +718,18 @@ def process_job(job: dict) -> None:
             )
 
         # ── 9. Build full document and write to Firestore ─────────────────
-        raw_doc = {
-            "source_file": filename,
-            "analysis_model": f"claude-{model_key}",
-            # V9 hard versioning — distinguishes the current rigorous engine
-            # (tool_use + caching + thinking + traps + Story-vs-Situation gate)
-            # from earlier engine iterations. The frontend normalizer
-            # accepts v9_archaeology plus legacy v8/v7 labels.
-            "analysis_version": "v9_archaeology",
-            "collection_id": collection_id,
-            "collection": collection_id,     # Normalizer reads this field name
-            # TMDB pre-screen result — written here so the frontend hideProduced
-            # filter works even when the film passed the pre-screen (is_produced=False).
-            # None when the TMDB check failed (treated as unknown by the frontend).
-            "tmdb_status": tmdb_status,
-            "metadata": {
-                "filename": filename,
-                "page_count": page_count,
-                "word_count": word_count,
-            },
-            "analysis": analysis,
-            "usage": usage,
-            "_ingest_job_id": job_id,
-            "_worker_id": WORKER_ID,
-        }
+        raw_doc = build_raw_document(
+            filename=filename,
+            model_key=model_key,
+            collection_id=collection_id,
+            page_count=page_count,
+            word_count=word_count,
+            analysis=analysis,
+            usage=usage,
+            job_id=job_id,
+            content_hash=content_hash,
+            tmdb_status=tmdb_status,
+        )
 
         success = ingest_v9.write_to_firestore(raw_doc)
         if not success:

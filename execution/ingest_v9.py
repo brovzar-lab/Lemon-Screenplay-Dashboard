@@ -97,7 +97,7 @@ except ImportError:
 
 # Story Grid genre engine (lives next to this file).
 sys.path.insert(0, str(Path(__file__).parent))
-from content_identity import compute_content_hash  # noqa: E402
+from content_identity import compute_content_hash, verified_identity_fields  # noqa: E402
 from story_grid import (  # noqa: E402
     build_genre_detection_prompt,
     parse_detection,
@@ -2786,6 +2786,7 @@ def build_raw_document(
     mode: str,
     total_usage: Dict[str, int],
     total_duration_ms: int,
+    content_hash: str,
     tmdb_status: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build the raw document that saveAnalysis() writes to Firestore.
@@ -2818,6 +2819,7 @@ def build_raw_document(
             "ingested_at": datetime.utcnow().isoformat() + "Z",
             "ingested_by": "ingest_v9.py",
         },
+        **verified_identity_fields(content_hash),
     }
 
     if tmdb_status:
@@ -2862,8 +2864,9 @@ def ingest_one(
         log.info(f"  ↩ Already in Firestore — skipping (use --force to re-analyze)")
         return "exists"
 
-    # --- Parse PDF ---
-    parsed = parse_pdf(pdf_path)
+    # --- Content identity + parse PDF ---
+    content_hash = compute_content_hash(pdf_path)
+    parsed = parse_pdf(pdf_path, content_hash=content_hash)
     if not parsed:
         return "fail"
 
@@ -2941,8 +2944,16 @@ def ingest_one(
 
     # --- Build raw document ---
     raw = build_raw_document(
-        pdf_path, parsed, analysis, collection,
-        model_key, mode, usage, duration_ms, tmdb_status,
+        pdf_path=pdf_path,
+        parsed=parsed,
+        analysis=analysis,
+        collection=collection,
+        model_key=model_key,
+        mode=mode,
+        total_usage=usage,
+        total_duration_ms=duration_ms,
+        content_hash=content_hash,
+        tmdb_status=tmdb_status,
     )
 
     # --- Write to Firestore ---

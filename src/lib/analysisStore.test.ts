@@ -151,6 +151,40 @@ describe('analysisStore authReady gates', () => {
         expect(setDocIdx).toBeGreaterThan(authIdx);
     });
 
+    it('persists the verified browser identity on the Firestore document', async () => {
+        const contentHash = 'ef'.repeat(32);
+        const { saveAnalysis } = await import('./analysisStore');
+
+        resolveAuthReady();
+        await saveAnalysis({
+            source_file: 'identified.pdf',
+            analysis_version: 'v9_archaeology',
+            content_hash: contentHash,
+            identity_status: 'verified',
+        });
+
+        expect(mockSetDoc).toHaveBeenCalledWith(
+            'mock-doc-ref',
+            expect.objectContaining({
+                content_hash: contentHash,
+                identity_status: 'verified',
+            }),
+        );
+    });
+
+    it('refuses to persist permanent V9 coverage without verified identity', async () => {
+        const { saveAnalysis } = await import('./analysisStore');
+
+        resolveAuthReady();
+        await expect(
+            saveAnalysis({
+                source_file: 'missing-identity.pdf',
+                analysis_version: 'v9_archaeology',
+            }),
+        ).rejects.toThrow(/verified content identity/i);
+        expect(mockSetDoc).not.toHaveBeenCalled();
+    });
+
     it('removeAnalysis (soft-delete) awaits authReady before calling updateDoc', async () => {
         const { removeAnalysis } = await import('./analysisStore');
 
