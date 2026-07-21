@@ -4,7 +4,7 @@
  * Orchestrates sub-components under ./upload/ while owning all upload business logic.
  *
  * Analysis runs on the VPS daemon (not in-browser):
- *   PDF -> Storage (ingest-queue/{collection}/{file}.pdf)
+ *   PDF -> Storage (ingest-queue/{collection}/{uploadId}/{file}.pdf)
  *        -> onScreenplayUploaded CF creates the Firestore queue doc
  *        -> daemon claims, runs V9 readers + synthesis, writes uploaded_analyses
  *        -> browser subscribes to the queue doc by storage_path and mirrors status
@@ -27,6 +27,7 @@ import { useToastStore } from '@/stores/toastStore';
 import { getPdfFileError } from '@/lib/pdfValidation';
 import { computeContentHash } from '@/lib/analysisIdentity';
 import { findAnalysisByContentHash } from '@/lib/analysisLookup';
+import { toDocId } from '@/lib/analysisStore';
 
 import { ApiConfigToggle } from './upload/ApiConfigToggle';
 import { ModelSelector } from './upload/ModelSelector';
@@ -79,15 +80,18 @@ export function UploadPanel() {
         }
         const jobId = addJob(file.name, selectedCategory, file);
 
-        // Layer 1 (fast): title-match against already-loaded screenplays.
+        // Layer 1 (fast): a title match identifies a likely revision target.
+        // It is not proof of duplicate bytes and must not block the upload.
         if (screenplays && screenplays.length > 0) {
           const inferred = inferTitleFromFilename(file.name).toLowerCase();
           const match = screenplays.find(
             (s) => s.title.toLowerCase().trim() === inferred,
           );
           if (match) {
-            updateJob(jobId, { isDuplicate: true, existingTitle: match.title });
-            return; // skip the hash check — title match is enough
+            updateJob(jobId, {
+              existingTitle: match.title,
+              targetProjectId: match.projectId ?? toDocId(match.sourceFile),
+            });
           }
         }
 
@@ -130,7 +134,10 @@ export function UploadPanel() {
 
     try {
       updateJob(jobId, { status: 'parsing', progress: 5 });
-      const { storagePath } = await uploadPdfToIngestQueue(file, job.category, { requestedModel });
+      const { storagePath } = await uploadPdfToIngestQueue(file, job.category, {
+        requestedModel,
+        targetProjectId: job.targetProjectId,
+      });
       updateJob(jobId, { status: 'analyzing', progress: 15, ingestQueueStoragePath: storagePath });
 
       await new Promise<void>((resolve) => {

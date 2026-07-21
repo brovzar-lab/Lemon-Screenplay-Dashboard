@@ -29,9 +29,11 @@ export interface UploadJob {
   };
   createdAt: string;
   completedAt?: string;
-  /** Duplicate detection — set when file title matches an existing screenplay */
+  /** True only when SHA-256 proves these exact PDF bytes were already analyzed. */
   isDuplicate?: boolean;
   existingTitle?: string;
+  /** Stable uploaded_analyses parent for an explicitly identified revision. */
+  targetProjectId?: string;
   /** TMDB production status — populated after save, non-blocking */
   tmdbStatus?: {
     isProduced: boolean;

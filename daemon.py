@@ -372,6 +372,29 @@ def is_already_complete(content_hash: str) -> bool:
     )
     return any(True for _ in existing)
 
+
+def resolve_target_project_id(value: object) -> Optional[str]:
+    """Validate that an explicitly targeted revision parent already exists."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("target_project_id must be a Firestore document ID")
+
+    target_project_id = value.strip()
+    if (
+        not target_project_id
+        or len(target_project_id) > 200
+        or "/" in target_project_id
+    ):
+        raise ValueError("target_project_id must be a Firestore document ID")
+
+    parent = _db.collection(OUTPUT_COLLECTION).document(target_project_id).get()
+    if not parent.exists:
+        raise ValueError(
+            f"target_project_id does not exist: {target_project_id}"
+        )
+    return target_project_id
+
 # ── PDF validation (pre-flight before calling Anthropic) ─────────────────────
 
 def validate_screenplay_text(text: str, filename: str) -> tuple[bool, str]:
@@ -550,9 +573,12 @@ def build_raw_document(
     content_hash: str,
     queued_at_ms: int,
     tmdb_status: Optional[dict],
+    target_project_id: Optional[str] = None,
+    storage_path: Optional[str] = None,
+    storage_generation: Optional[str] = None,
 ) -> dict:
     """Build the daemon's V9 parent document using the shared identity contract."""
-    return {
+    raw_doc = {
         "source_file": filename,
         "analysis_model": f"claude-{model_key}",
         "analysis_version": "v9_archaeology",
@@ -571,6 +597,14 @@ def build_raw_document(
         "queued_at_ms": queued_at_millis(queued_at_ms),
         **verified_identity_fields(content_hash),
     }
+    if target_project_id:
+        raw_doc["project_id"] = target_project_id
+    if storage_path:
+        raw_doc["storage_path"] = storage_path
+        raw_doc["_storagePath"] = storage_path
+    if storage_generation:
+        raw_doc["storage_generation"] = storage_generation
+    return raw_doc
 
 # ── Core job processor ────────────────────────────────────────────────────────
 
@@ -589,6 +623,7 @@ def process_job(job: dict) -> None:
     storage_path  = job.get("storage_path", "")
     requested_model = job.get("requested_model", "auto")
     attempt_count = job.get("attempt_count", 1)
+    storage_generation = job.get("storage_generation")
 
     log.info(f"━━━ Processing: {filename} [{collection_id}] (attempt {attempt_count}) ━━━")
     start_time = time.time()
@@ -619,6 +654,10 @@ def process_job(job: dict) -> None:
             mark_skipped(job_id, "already_complete")
             log.info(f"[job] {job_id} → Skipped (duplicate content hash: {content_hash[:8]}…)")
             return
+
+        # A renamed revision may only attach to a real existing project. Fail
+        # before parsing or AI spend if its target was lost or malformed.
+        target_project_id = resolve_target_project_id(job.get("target_project_id"))
 
         # ── 3. Run analysis via V9 Archaeology Engine ──────────────────────
         # Import the V9 engine (runs in the same Python process)
@@ -738,6 +777,11 @@ def process_job(job: dict) -> None:
             content_hash=content_hash,
             queued_at_ms=queued_at_ms,
             tmdb_status=tmdb_status,
+            target_project_id=target_project_id,
+            storage_path=storage_path,
+            storage_generation=(
+                str(storage_generation) if storage_generation is not None else None
+            ),
         )
 
         success = ingest_v9.write_to_firestore(raw_doc)
@@ -745,7 +789,7 @@ def process_job(job: dict) -> None:
             raise RuntimeError("Firestore write failed — will retry")
 
         # Derive the doc ID the way write_to_firestore does
-        screenplay_doc_id = ingest_v9.to_doc_id(filename)
+        screenplay_doc_id = target_project_id or ingest_v9.to_doc_id(filename)
 
         # ── 10. Mark complete with telemetry ──────────────────────────────
         duration = round(time.time() - start_time)

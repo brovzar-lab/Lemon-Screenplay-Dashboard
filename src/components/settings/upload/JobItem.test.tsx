@@ -15,7 +15,7 @@ const duplicateJob: UploadJob = {
 };
 
 describe('JobItem duplicate safety', () => {
-  it('blocks unsafe reanalysis and allows the upload to be skipped', () => {
+  it('explains exact-byte deduplication and allows the upload to be skipped', () => {
     const onSkip = vi.fn();
 
     render(
@@ -27,7 +27,7 @@ describe('JobItem duplicate safety', () => {
       />,
     );
 
-    expect(screen.getByText(/revision uploads are temporarily paused/i)).toBeInTheDocument();
+    expect(screen.getByText(/exactly the same bytes/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /re-analyze anyway/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /skip upload/i }));

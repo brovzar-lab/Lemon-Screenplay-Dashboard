@@ -125,7 +125,7 @@ export async function uploadScreenplayPdf(
 
 /**
  * Upload a PDF to the ingest-queue drop zone.
- * Path: ingest-queue/{collection_id}/{sanitized_filename}.pdf
+ * Path: ingest-queue/{collection_id}/{upload_id}/{sanitized_filename}.pdf
  *
  * The `onScreenplayUploaded` Cloud Function (Storage trigger) watches this
  * path and writes a pending IngestJob doc to Firestore. The VPS daemon then
@@ -140,22 +140,41 @@ export async function uploadScreenplayPdf(
 export async function uploadPdfToIngestQueue(
     file: File,
     collectionId: string,
-    options?: { requestedModel?: string; priority?: number },
-): Promise<{ storagePath: string; objectName: string }> {
+    options?: {
+        requestedModel?: string;
+        priority?: number;
+        targetProjectId?: string;
+        /** Test/replay override. Normal uploads always receive a fresh UUID. */
+        uploadId?: string;
+    },
+): Promise<{ storagePath: string; objectName: string; uploadId: string }> {
     // ingest-queue/ Storage rule requires an admin session.
     await authReady;
 
     const safeName = sanitizeForStoragePath(file.name);
-    const objectName = `ingest-queue/${collectionId}/${safeName}.pdf`;
+    const uploadId = options?.uploadId ?? crypto.randomUUID();
+    if (!/^[a-zA-Z0-9_-]{8,128}$/.test(uploadId)) {
+        throw new Error('Upload ID must be a safe Storage path component.');
+    }
+    if (
+        options?.targetProjectId &&
+        (options.targetProjectId.length > 200 || options.targetProjectId.includes('/'))
+    ) {
+        throw new Error('Target project ID must be a valid Firestore document ID.');
+    }
+
+    const objectName = `ingest-queue/${collectionId}/${uploadId}/${safeName}.pdf`;
     const storageRef = ref(storage, objectName);
 
     const customMetadata: Record<string, string> = {
         originalFilename: file.name,
         category: collectionId,
         uploadedAt: new Date().toISOString(),
+        uploadId,
     };
     if (options?.requestedModel) customMetadata.model = options.requestedModel;
     if (options?.priority != null) customMetadata.priority = String(options.priority);
+    if (options?.targetProjectId) customMetadata.targetProjectId = options.targetProjectId;
 
     await uploadBytes(storageRef, file, {
         contentType: 'application/pdf',
@@ -166,6 +185,7 @@ export async function uploadPdfToIngestQueue(
     return {
         storagePath: `gs://${bucket}/${objectName}`,
         objectName,
+        uploadId,
     };
 }
 

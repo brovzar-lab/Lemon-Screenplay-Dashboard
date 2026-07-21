@@ -293,6 +293,8 @@ export interface ProducerMetrics {
 export interface Screenplay {
   // Unique identifier (generated from filename)
   id: string;
+  // Stable Firestore parent ID for revision-aware writes (new analyses only)
+  projectId?: string;
 
   // Basic Info
   title: string;
@@ -468,4 +470,3 @@ export const COLLECTION_CONFIG: Record<Collection, {
 }> = {
   'Analysis': { folder: 'analysis', displayName: 'Screenplay Analysis' },
 };
-

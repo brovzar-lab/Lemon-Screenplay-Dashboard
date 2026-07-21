@@ -41,7 +41,7 @@ export function JobItem({ job, onRemove, onRetry, onSkip }: JobItemProps) {
               {job.existingTitle && job.existingTitle !== job.filename.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ') && (
                 <> as <span className="font-medium">"{job.existingTitle}"</span></>
               )}
-              . Revision uploads are temporarily paused until version-safe reanalysis is available.
+              . This PDF has exactly the same bytes and will not be analyzed again.
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -94,6 +94,12 @@ export function JobItem({ job, onRemove, onRetry, onSkip }: JobItemProps) {
               </>
             )}
           </div>
+
+          {job.targetProjectId && !job.isDuplicate && job.status === 'pending' && (
+            <p className="mt-1 text-xs text-blue-300">
+              New revision of {job.existingTitle || job.targetProjectId}
+            </p>
+          )}
 
           {/* TMDB result badge — shown on completed jobs */}
           {job.status === 'complete' && (

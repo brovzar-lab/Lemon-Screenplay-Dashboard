@@ -7,7 +7,7 @@
  *   - Watchdog              (Cloud Function — resets stuck docs)
  *   - Dashboard             (React — reads progress)
  *
- * SCHEMA VERSION: 1
+ * SCHEMA VERSION: 2
  */
 
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
@@ -52,6 +52,12 @@ export interface IngestJob {
   filename: string;
   /** Full gs:// path in Firebase Storage */
   storage_path: string;
+  /** Firebase Storage generation used to make trigger retries idempotent. */
+  storage_generation: string;
+  /** Unique upload path component; null only for legacy three-segment paths. */
+  upload_id: string | null;
+  /** Existing uploaded_analyses parent when this upload is a revision. */
+  target_project_id: string | null;
   /**
    * SHA-256 of the PDF bytes — enables true idempotency.
    * If a job with this hash already has status=complete, skip re-processing.
@@ -129,6 +135,9 @@ export function buildPendingJob(params: {
   collection_id: CollectionId;
   filename: string;
   storage_path: string;
+  storage_generation: string;
+  upload_id?: string | null;
+  target_project_id?: string | null;
   content_hash: string;
   requested_model?: IngestModel;
   priority?: number;
@@ -138,6 +147,9 @@ export function buildPendingJob(params: {
     collection_id: params.collection_id,
     filename: params.filename,
     storage_path: params.storage_path,
+    storage_generation: params.storage_generation,
+    upload_id: params.upload_id ?? null,
+    target_project_id: params.target_project_id ?? null,
     content_hash: params.content_hash,
     status: 'pending',
     attempt_count: 0,

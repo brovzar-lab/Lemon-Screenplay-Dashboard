@@ -1,4 +1,9 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockRef, mockUploadBytes } = vi.hoisted(() => ({
+  mockRef: vi.fn((_storage: unknown, path: string) => ({ path })),
+  mockUploadBytes: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock('firebase/app', () => ({
   initializeApp: vi.fn(() => ({ name: '[DEFAULT]' })),
@@ -6,8 +11,8 @@ vi.mock('firebase/app', () => ({
 
 vi.mock('firebase/storage', () => ({
   getStorage: vi.fn(() => ({})),
-  ref: vi.fn(),
-  uploadBytes: vi.fn(),
+  ref: mockRef,
+  uploadBytes: mockUploadBytes,
   getDownloadURL: vi.fn(),
 }));
 
@@ -44,6 +49,10 @@ describe('firebase module', () => {
     firebaseModule = await import('./firebase');
   });
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('restores the persisted Google session', async () => {
     await expect(firebaseModule.authReady).resolves.toEqual(mockUser);
   });
@@ -61,5 +70,44 @@ describe('firebase module', () => {
 
   it('exposes the initialized auth singleton', () => {
     expect(firebaseModule.auth).toBeDefined();
+  });
+
+  it('gives same-filename revisions unique ingest paths', async () => {
+    const file = new File(['revised screenplay'], 'Same Draft.pdf', {
+      type: 'application/pdf',
+    });
+
+    const first = await firebaseModule.uploadPdfToIngestQueue(file, 'LEMON', {
+      uploadId: 'upload-one',
+    });
+    const second = await firebaseModule.uploadPdfToIngestQueue(file, 'LEMON', {
+      uploadId: 'upload-two',
+    });
+
+    expect(first.objectName).toBe('ingest-queue/LEMON/upload-one/Same_Draft.pdf');
+    expect(second.objectName).toBe('ingest-queue/LEMON/upload-two/Same_Draft.pdf');
+    expect(first.storagePath).not.toBe(second.storagePath);
+    expect(mockUploadBytes).toHaveBeenCalledTimes(2);
+  });
+
+  it('places the target project on Storage metadata for renamed revisions', async () => {
+    const file = new File(['new draft'], 'Completely New Filename.pdf', {
+      type: 'application/pdf',
+    });
+
+    await firebaseModule.uploadPdfToIngestQueue(file, 'LEMON', {
+      uploadId: 'revision-upload',
+      targetProjectId: 'Original_Draft.pdf',
+    });
+
+    expect(mockUploadBytes).toHaveBeenCalledWith(
+      { path: 'ingest-queue/LEMON/revision-upload/Completely_New_Filename.pdf' },
+      file,
+      expect.objectContaining({
+        customMetadata: expect.objectContaining({
+          targetProjectId: 'Original_Draft.pdf',
+        }),
+      }),
+    );
   });
 });
