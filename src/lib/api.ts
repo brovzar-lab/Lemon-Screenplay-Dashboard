@@ -1,9 +1,7 @@
 import type { Screenplay, Collection } from '@/types';
 import {
-    isV7RawAnalysis,
-    normalizeV7Screenplay,
-    isV6UnifiedAnalysis,
-    normalizeV6UnifiedScreenplay,
+    isArchaeologyAnalysis,
+    normalizeV9Screenplay,
 } from './normalize';
 import { loadAllAnalyses, quarantineAnalysis } from './analysisStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -19,14 +17,9 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
     let newlyQuarantinedCount = 0;
     for (const raw of rawList) {
         try {
-            if (isV7RawAnalysis(raw)) {
+            if (isArchaeologyAnalysis(raw)) {
                 const collection = (raw.collection_id ?? raw.collection) as Collection | undefined;
-                const sp = normalizeV7Screenplay(raw, collection || 'Analysis');
-                screenplays.push(sp);
-                loadedCount++;
-            } else if (isV6UnifiedAnalysis(raw)) {
-                const collection = (raw.collection_id ?? raw.collection) as Collection | undefined;
-                const sp = normalizeV6UnifiedScreenplay(raw, collection || 'Analysis');
+                const sp = normalizeV9Screenplay(raw, collection || 'Analysis');
                 screenplays.push(sp);
                 loadedCount++;
             } else {
@@ -38,7 +31,7 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
                     newlyQuarantinedCount++;
                 }
                 try {
-                    await quarantineAnalysis(raw, 'failed isV6RawAnalysis type guard');
+                    await quarantineAnalysis(raw, 'unrecognized analysis_version (not a V9/V8 archaeology document)');
                 } catch {
                     /* ignore */
                 }

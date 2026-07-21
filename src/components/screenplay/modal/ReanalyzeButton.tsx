@@ -1,11 +1,13 @@
 /**
- * ReanalyzeButton — Model picker + engine selector + re-analysis trigger.
+ * ReanalyzeButton — Model picker + re-analysis trigger (V9 Archaeology engine).
  *
  * Flow:
- *   1. Click "🔄 Re-analyze ▾" → dropdown with:
- *      - Engine: V6 (4-Pillar) | V9 Archaeology (5-Reader) — current version shown
- *      - Model: Sonnet | Opus | Hybrid (Haiku triage → Sonnet full)
- *   2. Picks combo → spinner + progress message
+ *   1. Click "🔄 Re-analyze ▾" → dropdown with model options
+ *      (Sonnet | Opus | Hybrid). NOTE: 'Hybrid' currently runs a single Haiku
+ *      triage pass and SAVES that thin result over the full coverage — it is
+ *      NOT the Sonnet→Opus hybrid the VPS engine runs. Known issue, slated
+ *      for the pipeline-safety work.
+ *   2. Picks model → spinner + progress message
  *   3. Calls reanalyzeFromStorage → replaces data
  *   4. Invalidates React Query cache → modal/dashboard auto-updates
  */

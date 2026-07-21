@@ -233,7 +233,7 @@ export function ModelComparisonPanel() {
     const storedAnalysis: Record<string, unknown> = {
       title: selectedScreenplay.title,
       logline: selectedScreenplay.logline,
-      executive_summary: (selectedScreenplay as unknown as Record<string, unknown>).executiveSummary ?? (selectedScreenplay as unknown as Record<string, unknown>).v7ExecutiveSummary ?? '',
+      executive_summary: (selectedScreenplay as unknown as Record<string, unknown>).executiveSummary ?? '',
       genre: selectedScreenplay.genre,
       core_quality: {
         weighted_score: Number(selectedScreenplay.weightedScore) || 0,

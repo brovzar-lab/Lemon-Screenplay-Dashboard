@@ -1,6 +1,6 @@
 /**
  * ScreenplayModal Component
- * Full detail view for a screenplay with all V3/V5/V6 analysis data.
+ * Full detail view for a screenplay with all V9 analysis data.
  *
  * Decomposed into sub-components under ./modal/ for maintainability.
  * Shell handles: open/close, focus trap, backdrop, ARIA.

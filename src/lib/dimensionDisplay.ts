@@ -2,18 +2,15 @@
  * Dimension Display Adapter
  * Returns version-appropriate dimension labels and scores.
  *
- * V5 screenplays have 7 flat dimensions.
- * V6 screenplays have 4 weighted pillars (Execution Craft, Character System,
- * Conceptual Strength, Voice & Tone) that are semantically different from V5.
  * V9 screenplays have 5 weighted pillars from the Archaeology Engine (Structure,
- * Character, Craft & Scene, Concept, Emotional Resonance).
- *
- * Without this adapter, V6/V9 screenplays show mislabeled V5 labels.
+ * Character, Craft & Scene, Concept, Emotional Resonance). Documents without
+ * pillar scores (e.g. triage-only stubs) fall back to the flat 7-dimension
+ * display defined in DIMENSION_CONFIG.
  */
 
 import type { Screenplay } from '@/types';
 import { DIMENSION_CONFIG } from '@/types/screenplay';
-import type { V7PillarScore } from '@/lib/normalize';
+import type { PillarScore } from '@/lib/normalize';
 
 export interface DimensionDisplayItem {
   key: string;
@@ -35,10 +32,10 @@ const V7_PILLAR_DISPLAY: Record<string, { label: string; emoji: string }> = {
 /**
  * Check if a screenplay has Archaeology Engine pillar data.
  */
-function hasV7PillarScores(screenplay: Screenplay): screenplay is Screenplay & { v7PillarScores: V7PillarScore[] } {
-  return 'v7PillarScores' in screenplay
-    && Array.isArray(screenplay.v7PillarScores)
-    && screenplay.v7PillarScores.length > 0;
+function hasPillarScores(screenplay: Screenplay): screenplay is Screenplay & { pillarScores: PillarScore[] } {
+  return 'pillarScores' in screenplay
+    && Array.isArray(screenplay.pillarScores)
+    && screenplay.pillarScores.length > 0;
 }
 
 /**
@@ -49,8 +46,8 @@ function hasV7PillarScores(screenplay: Screenplay): screenplay is Screenplay & {
  */
 export function getDimensionDisplay(screenplay: Screenplay): DimensionDisplayItem[] {
   // V9: 5 Archaeology Engine pillars
-  if (hasV7PillarScores(screenplay)) {
-    return screenplay.v7PillarScores.map((pillar) => {
+  if (hasPillarScores(screenplay)) {
+    return screenplay.pillarScores.map((pillar) => {
       const display = V7_PILLAR_DISPLAY[pillar.name] || { label: pillar.name, emoji: '📊' };
       return {
         key: pillar.name,
@@ -76,7 +73,7 @@ export function getDimensionDisplay(screenplay: Screenplay): DimensionDisplayIte
  * Returns a flat label for the analysis version type shown in the UI.
  */
 export function getAnalysisVersionLabel(screenplay: Screenplay): string {
-  if (hasV7PillarScores(screenplay)) return 'V9 (5-Reader Archaeology)';
-  return 'V5 (7-Dimension)';
+  if (hasPillarScores(screenplay)) return 'V9 (5-Reader Archaeology)';
+  return 'Legacy (no pillar scores)';
 }
 

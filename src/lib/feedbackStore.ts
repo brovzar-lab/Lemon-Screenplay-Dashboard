@@ -286,7 +286,7 @@ export function synthesizeCalibrationPrompt(feedbackList: ScreenplayFeedback[]):
         }
     }
 
-    // V6 dimension-level adjustments (fallback)
+    // Legacy dimension-level adjustments (pre-pillar feedback docs still in screenplay_feedback)
     const hasLegacyData = Object.keys(dimensionDeltas).some(k => !PILLAR_MAP[k]);
     if (hasLegacyData || !hasPillarData) {
         lines.push('');
