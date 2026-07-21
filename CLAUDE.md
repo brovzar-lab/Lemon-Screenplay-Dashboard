@@ -3,32 +3,31 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-07-08
+**Last session:** 2026-07-21
 
-**Done (landed on `main` @ `a570d61`, deployed to prod):**
-- Branch sync + rescue: the Instrument reskin was uncommitted and only on this Mac (same setup that lost the team tool). Committed it, pushed `instrument-reskin`, merged `main` in, merged to `main`, deployed hosting. Deleted merged branches `new-style`, `story-to-screen`, `instrument-reskin` (all folded into `main`); dropped an obsolete stash.
-- Fixed light-mode bug: chart text used hardcoded `text-white` (invisible on light surfaces) in 6 spots → `text-black-50` (theme-mapped). Verified in browser, both modes.
-- Fixed analytics strip stuck at 0: `useCountUp` had a one-shot `hasAnimated` latch that froze the count-up after the first run — broke under StrictMode double-mount (froze at 0), on filter changes (froze at first value), and for reduced-motion users. Rewrote to animate current→target on every target change. Added deterministic rAF tests (`src/hooks/useCountUp.test.ts`). Build clean, **536 tests pass**.
-- Added `.claude/launch.json` (preview server, port 3000).
+**Done (landed on `main` @ `a9a9a87` — merged, NOT redeployed yet):**
+- **Backend machinery audit (read-only):** independently confirmed all 8 Codex Sol ingestion/analysis findings and added 5 new ones — (A) Re-analyze is broken for every VPS-ingested screenplay: nothing ever uploads PDFs to `screenplays/{category}/…` and `ingest_v9.py` writes a phantom `_storagePath`; (B) `analysisService.ts:178` passes a string cast as a File, so the browser's post-analysis PDF upload silently fails always; (C) `llmProxy` has **no daily budget enforcement** — `functions/src/budgetCounter.ts` is imported by nothing, browser limits are localStorage-only; (D) budget exhaustion puts the daemon in a 10s claim/release churn loop that inflates `attempt_count`, so the next transient error permanently fails jobs; (E) UploadPanel's content-hash dedup queries `uploaded_analyses.content_hash`, a field only ever written to `ingest-queue` job docs — it never matches.
+- **Legacy version cleanup (merged: 6 commits `e0a89a9..2b2b250`):** fixed the `HEAVY_FIELDS` bug (quota fallback never stripped `v9_meta`); renamed `normalizeV7.ts`→`normalizeV9.ts` (`isV7RawAnalysis`→`isArchaeologyAnalysis`, `v7PillarScores`→`pillarScores`, etc.); deleted dead `normalizeV5.ts`/`normalizeV6.ts`/`smartNormalize.ts` + 7 orphaned helpers + the v6 branch in `api.ts`; `parsed_v7`→`parsed_v9` cache dir (intentional cold start — old cache had a stale-reuse bug); stale V5/V6/V7 comments fixed. Guards: `src/lib/normalizers/legacyLabels.test.ts` + `npm run lint:legacy`. **582 tests pass (56 files), lint + build clean.**
+- **Live Firestore census** (`scripts/census-analysis-versions.mjs`, read-only): prod `uploaded_analyses` = **23 docs total** — 16 `v8_archaeology`, 7 `v9_archaeology`, zero v7/v6/unlabeled. The v8 label MUST stay accepted (guard test enforces); the "500+ screenplays" figure is not in prod Firestore.
 
-**Also this session — analysis only, NOTHING changed in code:**
-- Full principal-engineer audit. Criticals, all pre-existing: (1) live Gemini + TMDB keys ship in the browser bundle, and a previously-leaked Google key is hardcoded at `apiConfigStore.ts:131` and present in the deployed bundle → needs rotation; (2) `shared_views` is publicly *listable* (`firestore.rules:147`) — anyone can enumerate every share doc + notes with no token — fix: split `allow read` into `allow get` (public) / `allow list` (auth); (3) `uploaded_analyses` `allow delete: if isAuthenticated()` (`firestore.rules:83`) = any anon visitor can hard-delete the whole slate; (4) three uncapped Anthropic-spend paths — `BulkReanalyzeModal` auto-fires on open with no budget gate (`BulkReanalyzeModal.tsx:98`), proxy forwards any model/`max_tokens` (`llmProxy.ts:212`), storage rules let anyone upload to `ingest-queue`; (5) partial reader failures zero-fill pillars → silently deflated scores; `failed_readers` is written (`multiPassAnalysis.ts:570`) but no UI reads it, and the daemon has no min-reader gate.
-- Killer-features shortlist (8): **Reading Room** (full-screen `R` triage — build-this-weekend pick), **Taste Match** (AI-vs-Billy verdict scoreboard from dormant `brain_verdicts` — the moat), **Lenses** (named saved views on existing URL-state), **Field Position** (wire up the orphaned percentile system — `percentileRanking.ts`/`usePercentiles.ts`/`PercentileBadge.tsx`, S-effort free win), **Twins** (similar-script/resubmission detection), **Ask the Readers** (Q&A over stored reader reports), **War Room** (DevExec→slate strategist), **The Board** (dnd-kit pipeline stages).
-
-**In progress:** Team tool (Google sign-in + roles) — still not rebuilt. Now the **#1 structural item**: it's the root fix for security items 2/3/4 (anonymous auth means "authenticated" = anyone on the internet). Settled design unchanged: Google sign-in restricted to **@lemonfilms.com**; roles **admin** (upload/delete/manage) + **reader** (read/note/share); `ADMIN_EMAILS = ['billy@lemonfilms.com']`; login gate wraps `/` + `/settings`, `/share/:token` stays public; `firestore.rules` `isLemon()` + `isAdmin()` with self-promotion guard on `users/{uid}`. Files to (re)create: `src/lib/firebase.ts` (anonymous→Google), `src/stores/authStore.ts`, `src/components/auth/{AuthGate,LoginScreen}.tsx`, `firestore.rules`, `src/test/setup.ts` mock. **Commit from the start.**
+**In progress:** Codex "Pipeline Safety" plan — approved, 5 chunks, Codex implements on its own branches, one review per chunk, production deploy needs separate Billy approval:
+1. **Stop data damage**: disable the dashboard Hybrid (it saves a Haiku triage stub OVER full coverage — `analysisService.ts:102`/`:281`) and the no-op "Force Re-analyze" (trigger skips same-path re-uploads; old complete job fakes a green checkmark).
+2. **Script identity & revisions**: content fingerprint + immutable versions grouped per project; parse cache keyed by fingerprint+parser version; write `content_hash` into analysis docs; fix `ingest_v9.py` legacy `appspot.com` bucket default.
+3. **VPS engine = sole authority**: reanalysis through the queue (also fixes finding A); archive PDFs at version locations; calibration profiles into the VPS engine; remove the dead string-cast upload.
+4. **Real budget**: server-side daily ceiling in `llmProxy`; count actual calls/tokens/dollars (daemon counts 1 per screenplay but a hybrid run can be ~36 API calls; hybrid cost uses wrong default rate at `daemon.py:733`); `waiting_for_budget` state without `attempt_count` inflation.
+5. **Parsing & reliability gate**: Python 3.11 pinned, OCR packages (currently commented out in `execution/requirements.txt:17`), golden tests, full-suite run.
 
 **Next up (priority order):**
-1. Quick-win security + hygiene batch (~75 min, no console needed): split the share-link read rule (`allow get`/`allow list`), lock `uploaded_analyses` delete to `if false` + convert `quarantineAnalysis` to a soft-flag update, purge 3 zero-import dead deps (`html2pdf.js` — it drags the critical jspdf CVE, `date-fns`, `@tanstack/react-virtual`), bump react-router 7.13→≥7.15.1 (3 HIGH advisories), `npm audit fix`.
-2. Rotate the bundled Google + TMDB keys (Billy in consoles), delete the hardcoded key literal at `apiConfigStore.ts:131`.
-3. Rebuild the team tool (Google auth + roles).
-4. Route Gemini (poster gen + DevExec Live) server-side through a `googleProxy` so keys leave the client.
-5. Data layer before the backfill: make the live `onSnapshot` the single source of truth (feed React Query via `setQueryData`, kill the double full-collection read in `analysisStore.ts`); re-enable virtualization or the index-doc split.
+1. Codex Chunk 1 → Billy review → merge. Then Chunks 2-5 in order.
+2. Deploy after chunks land: hosting + functions + **VPS pull** (Hermes still runs pre-cleanup code; delete stale `/opt/lemon-ingest/.tmp/parsed_v7/` when pulling).
+3. UI/UX redesign on `codex/discovery-engine-redesign` (parked, has PRODUCT.md product definition — do NOT merge until machinery is safe). `codex/item-14-design-pass` also parked for reference.
+4. Backfill (~1,000 scripts, ~$300) only AFTER Chunks 2+4 (identity + real budget), or costs/duplicates compound.
 
 **Open questions / blockers:**
-- Key rotation needs Billy in the Google Cloud / TMDB consoles (Claude can't).
-- Enabling Google auth needs the Firebase console toggle (enable Google, disable anonymous, add authorized domain).
-- Detector may under-call comedy on dramedies (e.g. The Bucket List → Love/Redemption) — Taste Match would quantify this from real verdict data.
-- Backfill (~1,000 scripts, ~$300) unblocked but not run — it amplifies the double-fetch cost and the 500-card DOM, so do Next-up #5 first/with it.
+- main is ahead of the deployed site: cleanup merged but hosting/functions not redeployed this session.
+- Key rotation status (Google/TMDB from the 07-08 audit) not re-verified this session — confirm before the next deploy.
+- e2e suite not run this session (unit + build + lint only).
+- `AGENTS.md` (untracked, Codex's guidance file) still carries the old 07-08 WWW — Codex should refresh it.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
@@ -40,14 +39,14 @@ Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated c
 - Tailwind CSS 4 (via `@tailwindcss/vite` plugin — no PostCSS config needed)
 - Zustand 5 (client state) + TanStack React Query 5 (server state)
 - React Router 7 (3 routes), Recharts 3, @react-pdf/renderer, pdfjs-dist, papaparse, @dnd-kit, TanStack React Virtual 3, html2pdf.js, jszip, date-fns
-- Firebase 12 (Firestore + Storage + anonymous Auth + Hosting + Cloud Functions, Node 22)
+- Firebase 12 (Firestore + Storage + Google Workspace Auth restricted to @lemonfilms.com with admin/reader roles + Hosting + Cloud Functions, Node 22)
 - Vitest 4 + Testing Library (unit) + Playwright (e2e)
 
 ## Commands
 | Task | Command | Notes |
 |------|---------|-------|
 | Install | `npm install` | Functions deps auto-install on first `dev:full` |
-| Dev (app only) | `npm run dev` | Vite on **port 3000** (fixed in vite.config.ts). Do NOT change — anonymous Firebase login + localStorage are tied to it |
+| Dev (app only) | `npm run dev` | Vite on **port 3000** (fixed in vite.config.ts). Do NOT change — Firebase auth (authorized domain) + localStorage are tied to it |
 | Dev (app + AI) | `npm run dev:full` | Runs Vite **and** the Firebase Functions emulator so `llmProxy` AI features work locally (`bash dev-full.sh`) |
 | Build | `npm run build` | `tsc -b` typecheck + Vite build. `prebuild` clears `dist/assets` |
 | Unit tests | `npm run test:run` | Vitest single run. Uses `TMPDIR=./.tmp` + `src/test/fix-eperm.cjs` (macOS EPERM workaround) |
@@ -98,7 +97,7 @@ test/             # setup.ts (mocks), factories.ts, fix-eperm.cjs
 ```
 
 ### lib/ (core, non-UI)
-- `firebase.ts` — app init, Firestore/Storage/anonymous-Auth handles. **Firebase web config is hardcoded here** (apiKey/projectId literals — public web values), not from env.
+- `firebase.ts` — app init, Firestore/Storage/Google-Auth handles (sign-in restricted to verified @lemonfilms.com). **Firebase web config is hardcoded here** (apiKey/projectId literals — public web values), not from env.
 - `api.ts`, `normalize.ts` (+ `normalizers/`), `calculations.ts` — data fetch, V9-JSON normalization, score math
 - `analysisStore.ts` — data migration (static JSON → Firestore); reads Firestore post-migration. Lives in `lib/`, NOT `stores/`
 - `multiPassAnalysis.ts` → `promptClient.v9.ts` → `proxyClient.ts` — client side of the V9 pipeline; 5 readers run via `Promise.allSettled()` then synthesis, all through the proxy
@@ -147,7 +146,7 @@ VPS daemon vars (set in the systemd unit, NOT this file): `ANTHROPIC_API_KEY`, `
 - **E2E runs against `preview` (4173)**, not the dev server.
 - **`analysisStore` is in `lib/`, not `stores/`**, and is not re-exported from `stores/index.ts`.
 - **Store/hook barrels are partial.** `stores/index.ts` and `hooks/index.ts` only re-export a subset; many stores/hooks are imported by direct path. Add a new store's export to `stores/index.ts` if you want it in the barrel, but don't assume everything is there.
-- **App Check is intentionally off** (a prior provider mismatch caused 400s — see comment in `firebase.ts`). Auth is anonymous: reads public, writes require the auth token (see `firestore.rules`).
+- **App Check is intentionally off** (a prior provider mismatch caused 400s — see comment in `firebase.ts`). Auth is Google Workspace: dashboard reads need a team sign-in, writes need the admin role, `/share/:token` stays public (see `firestore.rules`).
 
 ## Do Not
 - Modify anything in `agent/` (read-only Antigravity/Gemini kit).
