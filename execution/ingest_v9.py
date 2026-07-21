@@ -97,7 +97,13 @@ except ImportError:
 
 # Story Grid genre engine (lives next to this file).
 sys.path.insert(0, str(Path(__file__).parent))
-from content_identity import compute_content_hash, verified_identity_fields  # noqa: E402
+from content_identity import (  # noqa: E402
+    build_version_id,
+    compute_content_hash,
+    queued_at_millis,
+    verified_identity_fields,
+    version_created_at,
+)
 from story_grid import (  # noqa: E402
     build_genre_detection_prompt,
     parse_detection,
@@ -247,27 +253,148 @@ def to_doc_id(source_file: str) -> str:
     )
 
 
+def build_version_document(
+    raw: Dict[str, Any],
+    project_id: str,
+    version_id: str,
+    version_number: int,
+    queued_at_ms: int,
+) -> Dict[str, Any]:
+    """Build an immutable analysis snapshot with Firestore-native field types."""
+    identity = verified_identity_fields(str(raw.get("content_hash", "")))
+    if raw.get("identity_status") != "verified":
+        raise ValueError("Permanent V9 coverage requires verified identity")
+    if type(version_number) is not int or version_number <= 0:
+        raise ValueError("version_number must be a positive integer")
+
+    created_at = version_created_at(queued_at_ms)
+    return {
+        **raw,
+        **identity,
+        "source_file": str(raw.get("source_file", "")),
+        "project_id": project_id,
+        "version_id": version_id,
+        "version_number": version_number,
+        "queued_at_ms": queued_at_millis(queued_at_ms),
+        "created_at": created_at,
+    }
+
+
+def build_parent_document(
+    raw: Dict[str, Any],
+    project_id: str,
+    version_id: str,
+    version_number: int,
+    queued_at_ms: int,
+    existing_parent: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Build the backward-compatible latest projection for one immutable version."""
+    source_file = str(raw.get("source_file", ""))
+    existing_source = (existing_parent or {}).get("source_file")
+    canonical_source = existing_source if isinstance(existing_source, str) and existing_source else source_file
+    saved_at = version_created_at(queued_at_ms).isoformat().replace("+00:00", "Z")
+    return {
+        **raw,
+        "source_file": canonical_source,
+        "latest_source_file": source_file,
+        "project_id": project_id,
+        "latest_version_id": version_id,
+        "version_count": version_number,
+        "queued_at_ms": queued_at_millis(queued_at_ms),
+        "_savedAt": saved_at,
+        "_docId": project_id,
+    }
+
+
+def write_analysis_transaction(
+    transaction: Any,
+    parent_ref: Any,
+    version_ref: Any,
+    raw: Dict[str, Any],
+    project_id: str,
+    version_id: str,
+    queued_at_ms: int,
+) -> int:
+    """Create history and advance latest using one Firestore transaction."""
+    parent_snapshot = parent_ref.get(transaction=transaction)
+    version_snapshot = version_ref.get(transaction=transaction)
+
+    if version_snapshot.exists:
+        existing_version = version_snapshot.to_dict() or {}
+        version_number = existing_version.get("version_number")
+        if type(version_number) is not int or version_number <= 0:
+            raise ValueError("Existing immutable version has an invalid version_number")
+        return version_number
+
+    existing_parent = parent_snapshot.to_dict() if parent_snapshot.exists else {}
+    existing_version_count = (existing_parent or {}).get("version_count", 0)
+    if type(existing_version_count) is not int or existing_version_count < 0:
+        raise ValueError("Existing parent has an invalid version_count")
+    version_number = existing_version_count + 1
+    version_document = build_version_document(
+        raw, project_id, version_id, version_number, queued_at_ms
+    )
+    parent_document = build_parent_document(
+        raw,
+        project_id,
+        version_id,
+        version_number,
+        queued_at_ms,
+        existing_parent,
+    )
+
+    transaction.create(version_ref, version_document)
+    transaction.set(parent_ref, parent_document)
+    return version_number
+
+
 def write_to_firestore(raw: Dict[str, Any]) -> bool:
-    """Write raw V9 analysis document to Firestore.
-    Matches the format expected by saveAnalysis() in analysisStore.ts.
-    """
+    """Atomically create an immutable version and advance its latest parent."""
     if _db is None:
         return False
 
-    source_file = raw.get("source_file", f"unknown_{int(time.time())}")
-    doc_id = to_doc_id(str(source_file))
+    source_file = str(raw.get("source_file", ""))
+    project_id_value = raw.get("project_id")
+    project_id = (
+        project_id_value
+        if isinstance(project_id_value, str) and project_id_value.strip()
+        else to_doc_id(source_file)
+    )
 
     try:
-        doc_ref = _db.collection(FIRESTORE_COLLECTION).document(doc_id)
-        doc_ref.set({
-            **raw,
-            "_savedAt": datetime.utcnow().isoformat() + "Z",
-            "_docId": doc_id,
-        })
-        log.info(f"  ✓ Saved to Firestore: {doc_id}")
+        if not source_file:
+            raise ValueError("Permanent analysis requires source_file")
+        if "/" in project_id:
+            raise ValueError("project_id must be a Firestore document ID")
+        content_hash = verified_identity_fields(str(raw.get("content_hash", "")))["content_hash"]
+        if raw.get("identity_status") != "verified":
+            raise ValueError("Permanent V9 coverage requires verified identity")
+        queued_at_ms = queued_at_millis(raw.get("queued_at_ms"))
+        version_id = build_version_id(content_hash, queued_at_ms)
+
+        parent_ref = _db.collection(FIRESTORE_COLLECTION).document(project_id)
+        version_ref = parent_ref.collection("versions").document(version_id)
+
+        @firestore.transactional
+        def commit(transaction: Any) -> int:
+            return write_analysis_transaction(
+                transaction,
+                parent_ref,
+                version_ref,
+                raw,
+                project_id,
+                version_id,
+                queued_at_ms,
+            )
+
+        version_number = commit(_db.transaction())
+        log.info(
+            f"  ✓ Saved to Firestore: {project_id} "
+            f"(version {version_number}, {version_id[:16]}…)"
+        )
         return True
     except Exception as e:
-        log.error(f"  ✗ Firestore write failed for {doc_id}: {e}")
+        log.error(f"  ✗ Firestore write failed for {project_id}: {e}")
         return False
 
 
@@ -2787,6 +2914,7 @@ def build_raw_document(
     total_usage: Dict[str, int],
     total_duration_ms: int,
     content_hash: str,
+    queued_at_ms: int,
     tmdb_status: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build the raw document that saveAnalysis() writes to Firestore.
@@ -2819,6 +2947,7 @@ def build_raw_document(
             "ingested_at": datetime.utcnow().isoformat() + "Z",
             "ingested_by": "ingest_v9.py",
         },
+        "queued_at_ms": queued_at_millis(queued_at_ms),
         **verified_identity_fields(content_hash),
     }
 
@@ -2855,6 +2984,7 @@ def ingest_one(
 ) -> str:
     """Ingest a single PDF. Returns status string: 'ok', 'skip', 'fail', 'exists'."""
     title = pdf_path.stem
+    queued_at_ms = int(time.time() * 1000)
 
     log.info(f"▶ {pdf_path.name}")
 
@@ -2953,6 +3083,7 @@ def ingest_one(
         total_usage=usage,
         total_duration_ms=duration_ms,
         content_hash=content_hash,
+        queued_at_ms=queued_at_ms,
         tmdb_status=tmdb_status,
     )
 

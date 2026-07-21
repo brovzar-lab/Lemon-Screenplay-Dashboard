@@ -7,9 +7,11 @@ os.environ.setdefault("DAEMON_LOG_DIR", "/tmp/lemon-daemon-test")
 
 import daemon
 from execution import ingest_v9
+from execution.content_identity import build_version_id
 
 
 CONTENT_HASH = "ab" * 32
+QUEUED_AT_MS = 1_784_588_800_123
 EXPECTED_IDENTITY = {
     "content_hash": CONTENT_HASH,
     "identity_status": "verified",
@@ -28,6 +30,7 @@ class TestWriterIdentityParity(unittest.TestCase):
             usage={"input_tokens": 10, "output_tokens": 5},
             job_id="job-123",
             content_hash=CONTENT_HASH,
+            queued_at_ms=QUEUED_AT_MS,
             tmdb_status=None,
         )
 
@@ -44,6 +47,7 @@ class TestWriterIdentityParity(unittest.TestCase):
                 total_usage={"input_tokens": 10, "output_tokens": 5},
                 total_duration_ms=1_000,
                 content_hash=CONTENT_HASH,
+                queued_at_ms=QUEUED_AT_MS,
             )
 
         daemon_identity = {key: daemon_doc[key] for key in EXPECTED_IDENTITY}
@@ -51,6 +55,12 @@ class TestWriterIdentityParity(unittest.TestCase):
         self.assertEqual(daemon_identity, EXPECTED_IDENTITY)
         self.assertEqual(cli_identity, EXPECTED_IDENTITY)
         self.assertEqual(daemon_identity, cli_identity)
+        self.assertEqual(daemon_doc["queued_at_ms"], QUEUED_AT_MS)
+        self.assertEqual(cli_doc["queued_at_ms"], QUEUED_AT_MS)
+        self.assertEqual(
+            build_version_id(daemon_doc["content_hash"], daemon_doc["queued_at_ms"]),
+            build_version_id(cli_doc["content_hash"], cli_doc["queued_at_ms"]),
+        )
 
     def test_both_python_builders_reject_an_invalid_hash(self):
         with self.assertRaises(ValueError):
@@ -64,6 +74,7 @@ class TestWriterIdentityParity(unittest.TestCase):
                 usage={},
                 job_id="job-123",
                 content_hash="not-a-hash",
+                queued_at_ms=QUEUED_AT_MS,
                 tmdb_status=None,
             )
 
@@ -81,6 +92,7 @@ class TestWriterIdentityParity(unittest.TestCase):
                     total_usage={},
                     total_duration_ms=1,
                     content_hash="not-a-hash",
+                    queued_at_ms=QUEUED_AT_MS,
                 )
 
 

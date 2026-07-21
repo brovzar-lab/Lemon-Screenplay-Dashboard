@@ -12,6 +12,7 @@ import {
   getDoc,
   getDocs,
   setDoc,
+  Timestamp,
   updateDoc,
 } from 'firebase/firestore';
 
@@ -142,6 +143,51 @@ describe('uploaded_analyses lifecycle', () => {
 
   it('denies hard-delete even for admins', async () => {
     await assertFails(deleteDoc(doc(adminDb(), 'uploaded_analyses/script-one')));
+  });
+});
+
+describe('immutable analysis versions', () => {
+  const contentHash = 'ab'.repeat(32);
+  const queuedAtMs = 1_784_588_800_123;
+  const versionId = `${contentHash}_${queuedAtMs}`;
+  const versionPath = `uploaded_analyses/script-one/versions/${versionId}`;
+
+  function validVersion() {
+    return {
+      source_file: 'script-one.pdf',
+      analysis_version: 'v9_archaeology',
+      project_id: 'script-one',
+      version_id: versionId,
+      version_number: 1,
+      created_at: Timestamp.fromMillis(queuedAtMs),
+      content_hash: contentHash,
+      identity_status: 'verified',
+    };
+  }
+
+  it('allows an admin to create a valid version and a reader to view it', async () => {
+    await assertSucceeds(setDoc(doc(adminDb(), versionPath), validVersion()));
+    await assertSucceeds(getDoc(doc(readerDb(), versionPath)));
+  });
+
+  it('rejects an ISO string in place of a Firestore Timestamp', async () => {
+    await assertFails(setDoc(doc(adminDb(), versionPath), {
+      ...validVersion(),
+      created_at: new Date(queuedAtMs).toISOString(),
+    }));
+  });
+
+  it('rejects a non-integer version number', async () => {
+    await assertFails(setDoc(doc(adminDb(), versionPath), {
+      ...validVersion(),
+      version_number: 1.5,
+    }));
+  });
+
+  it('prevents version edits and deletes after creation', async () => {
+    await seed(versionPath, validVersion());
+    await assertFails(updateDoc(doc(adminDb(), versionPath), { version_number: 2 }));
+    await assertFails(deleteDoc(doc(adminDb(), versionPath)));
   });
 });
 

@@ -3,6 +3,11 @@ export interface VerifiedAnalysisIdentity {
   identity_status: 'verified';
 }
 
+export interface AnalysisVersionIdentity extends VerifiedAnalysisIdentity {
+  queued_at_ms: number;
+  version_id: string;
+}
+
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 
 export async function computeContentHash(file: Blob): Promise<string> {
@@ -23,9 +28,7 @@ export function buildVerifiedIdentity(contentHash: string): VerifiedAnalysisIden
   };
 }
 
-export function requireVerifiedIdentity(
-  record: Record<string, unknown>,
-): VerifiedAnalysisIdentity {
+export function requireVerifiedIdentity(record: Record<string, unknown>): VerifiedAnalysisIdentity {
   if (
     record.identity_status !== 'verified' ||
     typeof record.content_hash !== 'string' ||
@@ -34,4 +37,29 @@ export function requireVerifiedIdentity(
     throw new Error('Permanent V9 coverage requires a verified content identity.');
   }
   return buildVerifiedIdentity(record.content_hash);
+}
+
+export function requireQueuedAtMs(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+    throw new Error('queued_at_ms must be a positive safe integer.');
+  }
+  return value;
+}
+
+export function buildVersionId(contentHash: string, queuedAtMs: number): string {
+  const identity = buildVerifiedIdentity(contentHash);
+  return `${identity.content_hash}_${requireQueuedAtMs(queuedAtMs)}`;
+}
+
+export function buildAnalysisVersionIdentity(
+  record: Record<string, unknown>,
+  fallbackQueuedAtMs: number,
+): AnalysisVersionIdentity {
+  const identity = requireVerifiedIdentity(record);
+  const queuedAtMs = requireQueuedAtMs(record.queued_at_ms ?? fallbackQueuedAtMs);
+  return {
+    ...identity,
+    queued_at_ms: queuedAtMs,
+    version_id: buildVersionId(identity.content_hash, queuedAtMs),
+  };
 }

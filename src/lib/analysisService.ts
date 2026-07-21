@@ -68,6 +68,7 @@ export async function analyzeScreenplay(
   // Stage 1 — Parse PDF
   onProgress?.({ stage: 'parsing', percent: 0, message: 'Parsing PDF...' });
 
+  const queuedAtMs = Date.now();
   const contentHash = await computeContentHash(file);
   const parsed = await parsePDF(file, (pct) => {
     onProgress?.({ stage: 'parsing', percent: pct, message: `Parsing PDF... ${pct}%` });
@@ -76,7 +77,7 @@ export async function analyzeScreenplay(
   onProgress?.({ stage: 'analyzing', percent: 0, message: 'Sending to AI for analysis...' });
 
   // All analysis goes through V9 Archaeology Engine
-  return analyzeV9Path(parsed, category, options, contentHash, onProgress);
+  return analyzeV9Path(parsed, category, options, contentHash, queuedAtMs, onProgress);
 }
 
 // ─── V9 Multi-Reader Analysis Path ──────────────────────────────────────────
@@ -86,6 +87,7 @@ async function analyzeV9Path(
   category: string,
   options: AnalysisOptions,
   contentHash: string,
+  queuedAtMs: number,
   onProgress?: (p: AnalysisProgress) => void,
 ): Promise<AnalysisResult> {
   const v9Mode = options.v9Mode ?? 'full';
@@ -128,6 +130,7 @@ async function analyzeV9Path(
         logline: triageResult.logline,
         should_deep_analyze: triageResult.should_deep_analyze,
       },
+      queued_at_ms: queuedAtMs,
       ...buildVerifiedIdentity(contentHash),
     };
 
@@ -172,6 +175,7 @@ async function analyzeV9Path(
         v9Result.readerResults.map((r) => [r.reader, r.durationMs]),
       ),
     },
+    queued_at_ms: queuedAtMs,
     ...buildVerifiedIdentity(contentHash),
   };
 
@@ -203,7 +207,7 @@ async function analyzeV9Path(
  *   1. Reconstruct Storage path from screenplay metadata
  *   2. Fetch PDF → convert to File object
  *   3. Run full V9 Archaeology Engine analysis with chosen model
- *   4. Save to Firestore + localStorage (replaces old analysis)
+ *   4. Save an immutable version and advance the latest project view
  *   5. Return new analysis result
  */
 export async function reanalyzeFromStorage(
@@ -294,7 +298,7 @@ export async function reanalyzeFromStorage(
     );
   }
 
-  // Save results (replaces old entry by source_file key)
+  // Save immutable history and atomically advance the latest project view.
   await saveAnalysis(result.raw);
 
   onProgress?.({ stage: 'complete', percent: 100, message: 'Re-analysis complete!' });

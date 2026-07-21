@@ -52,6 +52,7 @@ vi.mock('./analysisIdentity', async (importOriginal) => {
 import { analyzeScreenplay, reanalyzeFromStorage } from './analysisService';
 
 const CONTENT_HASH = 'ef'.repeat(32);
+const QUEUED_AT_MS = 1_784_588_800_123;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -76,11 +77,13 @@ beforeEach(() => {
 
 describe('browser writer identity', () => {
   it('adds the verified content identity to a full V9 analysis', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(QUEUED_AT_MS);
     const file = new File([new Uint8Array([1, 2, 3])], 'Writer Parity.pdf', {
       type: 'application/pdf',
     });
 
     const result = await analyzeScreenplay(file, 'LEMON', { model: 'sonnet' });
+    now.mockRestore();
 
     expect(mockComputeContentHash).toHaveBeenCalledWith(file);
     expect(result.raw).toEqual(
@@ -88,6 +91,7 @@ describe('browser writer identity', () => {
         content_hash: CONTENT_HASH,
         identity_status: 'verified',
         analysis_version: 'v9_archaeology',
+        queued_at_ms: QUEUED_AT_MS,
       }),
     );
   });

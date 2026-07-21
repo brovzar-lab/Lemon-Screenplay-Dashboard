@@ -69,7 +69,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from execution.content_identity import compute_content_hash, verified_identity_fields
+from execution.content_identity import (
+    compute_content_hash,
+    queued_at_millis,
+    verified_identity_fields,
+)
 
 # ── Dependency guard ──────────────────────────────────────────────────────────
 
@@ -544,6 +548,7 @@ def build_raw_document(
     usage: dict,
     job_id: str,
     content_hash: str,
+    queued_at_ms: int,
     tmdb_status: Optional[dict],
 ) -> dict:
     """Build the daemon's V9 parent document using the shared identity contract."""
@@ -563,6 +568,7 @@ def build_raw_document(
         "usage": usage,
         "_ingest_job_id": job_id,
         "_worker_id": WORKER_ID,
+        "queued_at_ms": queued_at_millis(queued_at_ms),
         **verified_identity_fields(content_hash),
     }
 
@@ -596,6 +602,8 @@ def process_job(job: dict) -> None:
     workdir.mkdir(parents=True, exist_ok=True)
 
     try:
+        queued_at_ms = queued_at_millis(job.get("queued_at"))
+
         # ── 1. Download PDF ────────────────────────────────────────────────
         if not _bucket:
             raise RuntimeError("Firebase Storage not connected — cannot download PDF")
@@ -728,6 +736,7 @@ def process_job(job: dict) -> None:
             usage=usage,
             job_id=job_id,
             content_hash=content_hash,
+            queued_at_ms=queued_at_ms,
             tmdb_status=tmdb_status,
         )
 
