@@ -154,15 +154,31 @@ exports.llmProxy = (0, https_1.onRequest)({
             });
             return;
         }
-        if (body.thinking
-            && (!Number.isInteger(body.thinking.budget_tokens)
-                || body.thinking.budget_tokens < 1
-                || body.thinking.budget_tokens > MAX_THINKING_TOKENS)) {
-            res.status(400).json({
-                error: `thinking.budget_tokens must be between 1 and ${MAX_THINKING_TOKENS}.`,
-                code: "INVALID_INPUT",
-            });
-            return;
+        if (body.thinking) {
+            if (body.thinking.type !== "enabled" && body.thinking.type !== "adaptive") {
+                res.status(400).json({
+                    error: "Unsupported thinking mode.",
+                    code: "INVALID_INPUT",
+                });
+                return;
+            }
+            if (body.thinking.type === "enabled"
+                && (!Number.isInteger(body.thinking.budget_tokens)
+                    || body.thinking.budget_tokens < 1
+                    || body.thinking.budget_tokens > MAX_THINKING_TOKENS)) {
+                res.status(400).json({
+                    error: `thinking.budget_tokens must be between 1 and ${MAX_THINKING_TOKENS}.`,
+                    code: "INVALID_INPUT",
+                });
+                return;
+            }
+            if (body.thinking.type === "adaptive" && !body.model.includes("opus")) {
+                res.status(400).json({
+                    error: "Adaptive thinking is approved only for Opus models.",
+                    code: "INVALID_INPUT",
+                });
+                return;
+            }
         }
         if (body.temperature !== undefined
             && (!Number.isFinite(body.temperature)
