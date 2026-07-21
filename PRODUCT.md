@@ -6,7 +6,7 @@ product
 
 ## Product Definition
 
-Lemon is a screenplay intelligence and discovery engine for Lemon Studios. It is not a project-management, development-tracking, assignment, meeting, or follow-up system. It ingests and deeply analyzes thousands of screenplays so producers can retrieve the small number that fit a specific creative or commercial need.
+Lemon Screenplay Dashboard is a screenplay intelligence and discovery engine for Lemon Studios. It is not a project-management, development-tracking, assignment, meeting, or follow-up system. It ingests and deeply analyzes thousands of screenplays so producers can retrieve the small number that fit a specific creative or commercial need.
 
 The defining promise is simple: put 5,000 screenplays into Lemon and surface the one-in-a-million project that otherwise would remain buried.
 
