@@ -13,37 +13,40 @@
    ============================================================================ */
 :root {
   /* surfaces */
-  --bg: #EAECF1;
-  --surface: #FFFFFF;
-  --sunken: #EEF0F3;
-  --line: #E6E8EC;
+  --bg: #eaecf1;
+  --surface: #ffffff;
+  --sunken: #eef0f3;
+  --line: #e6e8ec;
 
   /* text */
-  --ink: #0B0D12;
-  --ink-2: #585F6B;
-  --ink-3: #9298A4;
+  --ink: #0b0d12;
+  --ink-2: #585f6b;
+  --ink-3: #9298a4;
 
   /* accent — one job: primary action + active state */
-  --accent: #2B54F0;
-  --accent-press: #2042C2;
-  --accent-soft: #EAEEFE;
-  --on-soft: #2042C2;
+  --accent: #2b54f0;
+  --accent-press: #2042c2;
+  --accent-soft: #eaeefe;
+  --on-soft: #2042c2;
 
   /* data — charts and status only */
-  --data-blue: #2B54F0;
-  --data-violet: #6E4BF0;
-  --data-teal: #119C8B;
-  --data-coral: #FF6B5C;
+  --data-blue: #2b54f0;
+  --data-violet: #6e4bf0;
+  --data-teal: #119c8b;
+  --data-coral: #ff6b5c;
 
   /* semantic — full strength for icons/borders only */
-  --success: #12A66B;
-  --warning: #F5A524;
-  --error: #FF5247;
+  --success: #12a66b;
+  --warning: #f5a524;
+  --error: #ff5247;
 
   /* semantic soft pairs — badges, tags, inline alert text */
-  --success-soft: #E2F4EC; --on-success: #0C7A4E;
-  --warning-soft: #FBEDD6; --on-warning: #9A6406;
-  --error-soft: #FCE7E7;   --on-error: #C42B2B;
+  --success-soft: #e2f4ec;
+  --on-success: #0c7a4e;
+  --warning-soft: #fbedd6;
+  --on-warning: #9a6406;
+  --error-soft: #fce7e7;
+  --on-error: #c42b2b;
 
   /* typography */
   --font-display: 'Playfair Display', Georgia, serif;
@@ -55,16 +58,28 @@
   --radius-lg: 16px;
 
   /* spacing */
-  --space-1: 4px; --space-2: 8px; --space-3: 12px;
-  --space-4: 16px; --space-6: 24px; --space-8: 32px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
 
   /* depth — light mode. Two-layer: tight contact + wide ambient */
-  --shadow-card: 0 1px 2px rgba(16,20,30,.10), 0 2px 4px rgba(16,20,30,.06), 0 12px 30px rgba(16,20,30,.11);
-  --highlight-top: inset 0 1px 0 rgba(255,255,255,.9);
-  --shadow-pop: 0 2px 4px rgba(16,20,30,.12), 0 4px 8px rgba(16,20,30,.08), 0 20px 44px rgba(16,20,30,.14);
-  --shadow-hover: 0 2px 4px rgba(16,20,30,.12), 0 6px 12px rgba(16,20,30,.10), 0 24px 50px rgba(16,20,30,.16);
-  --shadow-btn: inset 0 1px 0 rgba(255,255,255,.22), 0 1px 2px rgba(11,13,18,.12), 0 6px 16px rgba(43,84,240,.26);
-  --inset-input: inset 0 1px 2px rgba(11,13,18,.06);
+  --shadow-card:
+    0 1px 2px rgba(16, 20, 30, 0.1), 0 2px 4px rgba(16, 20, 30, 0.06),
+    0 12px 30px rgba(16, 20, 30, 0.11);
+  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --shadow-pop:
+    0 2px 4px rgba(16, 20, 30, 0.12), 0 4px 8px rgba(16, 20, 30, 0.08),
+    0 20px 44px rgba(16, 20, 30, 0.14);
+  --shadow-hover:
+    0 2px 4px rgba(16, 20, 30, 0.12), 0 6px 12px rgba(16, 20, 30, 0.1),
+    0 24px 50px rgba(16, 20, 30, 0.16);
+  --shadow-btn:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(11, 13, 18, 0.12),
+    0 6px 16px rgba(43, 84, 240, 0.26);
+  --inset-input: inset 0 1px 2px rgba(11, 13, 18, 0.06);
 
   /* motion */
   --ease-press: cubic-bezier(0.16, 1, 0.3, 1);
@@ -75,7 +90,7 @@
   --sp-surface-2: var(--sunken);
   --sp-sunken: var(--sunken);
   --sp-border: var(--line);
-  --sp-border-strong: #D0D4DA;
+  --sp-border-strong: #d0d4da;
 
   --sp-text: var(--ink);
   --sp-text-2: var(--ink-2);
@@ -84,7 +99,7 @@
   --sp-accent: var(--accent);
   --sp-accent-strong: var(--accent-press);
   --sp-accent-soft: var(--accent-soft);
-  --sp-accent-text: #FFFFFF;
+  --sp-accent-text: #ffffff;
 
   --sp-secondary: var(--data-teal);
 
@@ -99,9 +114,12 @@
   --sp-consider-tint: var(--warning-soft);
   --sp-pass-tint: var(--error-soft);
 
-  --sp-sage: var(--success); --sp-sage-tint: var(--success-soft);
-  --sp-sand: var(--warning); --sp-sand-tint: var(--warning-soft);
-  --sp-clay: var(--error);   --sp-clay-tint: var(--error-soft);
+  --sp-sage: var(--success);
+  --sp-sage-tint: var(--success-soft);
+  --sp-sand: var(--warning);
+  --sp-sand-tint: var(--warning-soft);
+  --sp-clay: var(--error);
+  --sp-clay-tint: var(--error-soft);
 
   /* Genre colors → data set only */
   --sp-genre-drama: var(--data-teal);
@@ -115,8 +133,10 @@
   --sp-genre-western: var(--data-teal);
   --sp-genre-romance: var(--data-coral);
 
-  --sp-rose: var(--accent); --sp-rose-strong: var(--accent-press);
-  --sp-rose-tint: var(--accent-soft); --sp-on-rose: #FFFFFF;
+  --sp-rose: var(--accent);
+  --sp-rose-strong: var(--accent-press);
+  --sp-rose-tint: var(--accent-soft);
+  --sp-on-rose: #ffffff;
 
   /* Shape bridge */
   --sp-r-xs: 4px;
@@ -126,9 +146,16 @@
   --sp-r-xl: 20px;
   --sp-r-full: 999px;
 
-  --sp-1: var(--space-1); --sp-2: var(--space-2); --sp-3: var(--space-3);
-  --sp-4: var(--space-4); --sp-5: 20px; --sp-6: var(--space-6);
-  --sp-8: var(--space-8); --sp-10: 40px; --sp-12: 48px; --sp-16: 64px;
+  --sp-1: var(--space-1);
+  --sp-2: var(--space-2);
+  --sp-3: var(--space-3);
+  --sp-4: var(--space-4);
+  --sp-5: 20px;
+  --sp-6: var(--space-6);
+  --sp-8: var(--space-8);
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
 
   --sp-shadow-sm: var(--shadow-card);
   --sp-shadow-md: var(--shadow-hover);
@@ -141,9 +168,14 @@
   --sp-font: var(--font-body);
   --sp-mono: var(--font-body); /* Mono retired: numbers use body font */
 
-  --sp-text-xs: 11px; --sp-text-sm: 13px; --sp-text-base: 15px;
-  --sp-text-md: 17px; --sp-text-lg: 20px; --sp-text-xl: 24px;
-  --sp-text-2xl: 32px; --sp-text-3xl: 42px;
+  --sp-text-xs: 11px;
+  --sp-text-sm: 13px;
+  --sp-text-base: 15px;
+  --sp-text-md: 17px;
+  --sp-text-lg: 20px;
+  --sp-text-xl: 24px;
+  --sp-text-2xl: 32px;
+  --sp-text-3xl: 42px;
 
   --sp-ease: var(--ease-press);
 }
@@ -151,40 +183,45 @@
 /* ============================================================================
    DARK — Midnight navy, never pure black
    ============================================================================ */
-[data-theme="instrument-dark"] {
-  --bg: #0E1426;
-  --surface: #16203A;
-  --sunken: #101A30;
+[data-theme='dark'] {
+  --bg: #0e1426;
+  --surface: #16203a;
+  --sunken: #101a30;
   --line: #233152;
 
-  --ink: #EDF1F9;
-  --ink-2: #94A2BE;
-  --ink-3: #73819E;
+  --ink: #edf1f9;
+  --ink-2: #94a2be;
+  --ink-3: #73819e;
 
-  --accent: #6E8BFF;
-  --accent-press: #5E80FF;
-  --accent-soft: #1B2747;
-  --on-soft: #A9BEFF;
+  --accent: #6e8bff;
+  --accent-press: #5e80ff;
+  --accent-soft: #1b2747;
+  --on-soft: #a9beff;
 
-  --data-blue: #6E8BFF;
-  --data-violet: #9F86FF;
-  --data-teal: #2FC9B0;
-  --data-coral: #FF8A78;
+  --data-blue: #6e8bff;
+  --data-violet: #9f86ff;
+  --data-teal: #2fc9b0;
+  --data-coral: #ff8a78;
 
-  --success: #34C98C;
-  --warning: #FFBE57;
-  --error: #FF7A72;
+  --success: #34c98c;
+  --warning: #ffbe57;
+  --error: #ff7a72;
 
-  --success-soft: #10301F; --on-success: #6FE0A8;
-  --warning-soft: #33260F; --on-warning: #FFD37A;
-  --error-soft: #3A1A1C;   --on-error: #FF9E96;
+  --success-soft: #10301f;
+  --on-success: #6fe0a8;
+  --warning-soft: #33260f;
+  --on-warning: #ffd37a;
+  --error-soft: #3a1a1c;
+  --on-error: #ff9e96;
 
-  --shadow-card: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.40);
-  --highlight-top: inset 0 1px 0 rgba(255,255,255,.05);
-  --shadow-btn: inset 0 1px 0 rgba(255,255,255,.25), 0 1px 2px rgba(0,0,0,.40), 0 6px 18px rgba(110,139,255,.45);
-  --shadow-pop: 0 2px 8px rgba(0,0,0,.50), 0 24px 48px rgba(0,0,0,.55);
-  --shadow-hover: 0 2px 4px rgba(0,0,0,.40), 0 12px 28px rgba(0,0,0,.48);
-  --inset-input: inset 0 1px 3px rgba(0,0,0,.20);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 22px rgba(0, 0, 0, 0.4);
+  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-btn:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 6px 18px rgba(110, 139, 255, 0.45);
+  --shadow-pop: 0 2px 8px rgba(0, 0, 0, 0.5), 0 24px 48px rgba(0, 0, 0, 0.55);
+  --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.48);
+  --inset-input: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 
   /* Bridge */
   --sp-bg: var(--bg);
@@ -201,7 +238,7 @@
   --sp-accent: var(--accent);
   --sp-accent-strong: var(--accent-press);
   --sp-accent-soft: var(--accent-soft);
-  --sp-accent-text: #0E1426;
+  --sp-accent-text: #0e1426;
 
   --sp-secondary: var(--data-teal);
 
@@ -215,9 +252,12 @@
   --sp-consider-tint: var(--warning-soft);
   --sp-pass-tint: var(--error-soft);
 
-  --sp-sage: var(--success); --sp-sage-tint: var(--success-soft);
-  --sp-sand: var(--warning); --sp-sand-tint: var(--warning-soft);
-  --sp-clay: var(--error);   --sp-clay-tint: var(--error-soft);
+  --sp-sage: var(--success);
+  --sp-sage-tint: var(--success-soft);
+  --sp-sand: var(--warning);
+  --sp-sand-tint: var(--warning-soft);
+  --sp-clay: var(--error);
+  --sp-clay-tint: var(--error-soft);
 
   --sp-genre-drama: var(--data-teal);
   --sp-genre-horror: var(--data-coral);
@@ -230,8 +270,10 @@
   --sp-genre-western: var(--data-teal);
   --sp-genre-romance: var(--data-coral);
 
-  --sp-rose: var(--accent); --sp-rose-strong: var(--accent-press);
-  --sp-rose-tint: var(--accent-soft); --sp-on-rose: #0E1426;
+  --sp-rose: var(--accent);
+  --sp-rose-strong: var(--accent-press);
+  --sp-rose-tint: var(--accent-soft);
+  --sp-on-rose: #0e1426;
 
   --sp-shadow-sm: var(--shadow-card);
   --sp-shadow-md: var(--shadow-hover);

@@ -3,16 +3,7 @@
  * Horizontal stacked bar showing budget tier distribution
  */
 
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Cell,
-  Legend,
-} from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, Legend } from 'recharts';
 
 import type { Screenplay, BudgetCategory } from '@/types';
 import { BUDGET_TIERS } from '@/types';
@@ -35,10 +26,10 @@ interface BudgetChartItem {
 // Budget colors - from low to high
 const BUDGET_COLORS: Record<BudgetCategory, string> = {
   micro: CHART_COLORS.emerald, // Emerald - low risk
-  low: CHART_COLORS.cyan,      // Cyan
-  medium: CHART_COLORS.gold,   // Gold
-  high: CHART_COLORS.red,      // Red - high risk
-  unknown: CHART_COLORS.gray,  // Gray
+  low: CHART_COLORS.cyan, // Cyan
+  medium: CHART_COLORS.gold, // Gold
+  high: CHART_COLORS.red, // Red - high risk
+  unknown: CHART_COLORS.gray, // Gray
 };
 
 interface ChartTooltipProps {
@@ -51,7 +42,7 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
   if (active && payload && payload.length) {
     const item = payload[0].payload as BudgetChartItem;
     return (
-      <div className="glass p-3 rounded-lg border border-black-700 text-sm">
+      <div className="chart-tooltip">
         <p className="font-medium mb-1" style={{ color: item.color }}>
           {item.label} <span className="text-black-400">({item.range})</span>
         </p>
@@ -77,12 +68,9 @@ function CustomLegend({ data, onBudgetClick }: CustomLegendProps) {
         <button
           key={item.budget}
           onClick={() => onBudgetClick?.(item.budget)}
-          className="flex items-center gap-1.5 text-xs hover:opacity-80 transition-opacity"
+          className="flex min-h-8 items-center gap-1.5 text-sm hover:opacity-80 transition-opacity"
         >
-          <span
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: item.color }}
-          />
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
           <span className="text-black-300">{item.label}</span>
           <span className="text-black-500">({item.count})</span>
         </button>
@@ -99,7 +87,7 @@ export function BudgetChart({ screenplays, onBudgetClick }: BudgetChartProps) {
       acc[budget] = (acc[budget] || 0) + 1;
       return acc;
     },
-    {} as Record<BudgetCategory, number>
+    {} as Record<BudgetCategory, number>,
   );
 
   // Create data for horizontal stacked bar
@@ -113,10 +101,19 @@ export function BudgetChart({ screenplays, onBudgetClick }: BudgetChartProps) {
       range: BUDGET_TIERS[budget].range,
       count: budgetCounts[budget] || 0,
       color: BUDGET_COLORS[budget],
-      percentage: screenplays.length > 0
-        ? ((budgetCounts[budget] || 0) / screenplays.length * 100).toFixed(0)
-        : 0,
+      percentage:
+        screenplays.length > 0
+          ? (((budgetCounts[budget] || 0) / screenplays.length) * 100).toFixed(0)
+          : 0,
     }));
+
+  if (data.length === 0) {
+    return (
+      <div className="chart-empty">
+        Budget information has not been assessed for this selection.
+      </div>
+    );
+  }
 
   return (
     <div className="h-full">
@@ -130,7 +127,7 @@ export function BudgetChart({ screenplays, onBudgetClick }: BudgetChartProps) {
             type="number"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94A2BE', fontSize: 11 }}
+            tick={{ fill: 'var(--sp-text-2)', fontSize: 13 }}
             allowDecimals={false}
           />
           <YAxis
@@ -138,10 +135,13 @@ export function BudgetChart({ screenplays, onBudgetClick }: BudgetChartProps) {
             dataKey="label"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94A2BE', fontSize: 11 }}
-            width={60}
+            tick={{ fill: 'var(--sp-text-2)', fontSize: 13 }}
+            width={90}
           />
-          <Tooltip content={(props) => <CustomTooltip {...props} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+          <Tooltip
+            content={(props) => <CustomTooltip {...props} />}
+            cursor={{ fill: 'var(--sp-surface-2)' }}
+          />
           <Legend content={() => <CustomLegend data={data} onBudgetClick={onBudgetClick} />} />
           <Bar
             dataKey="count"

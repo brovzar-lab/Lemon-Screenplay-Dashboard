@@ -21,8 +21,12 @@ import { useIsAdmin } from '@/stores/authStore';
 import { usePercentiles } from '@/hooks/usePercentiles';
 
 // Lazy-loaded heavy features (recharts-dependent)
-const AnalyticsDashboard = lazy(() => import('@/components/charts/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })));
-const ComparisonModal = lazy(() => import('@/components/comparison/ComparisonModal').then(m => ({ default: m.ComparisonModal })));
+const AnalyticsDashboard = lazy(() =>
+  import('@/components/charts/AnalyticsDashboard').then((m) => ({ default: m.AnalyticsDashboard })),
+);
+const ComparisonModal = lazy(() =>
+  import('@/components/comparison/ComparisonModal').then((m) => ({ default: m.ComparisonModal })),
+);
 
 function App() {
   const isAdmin = useIsAdmin();
@@ -93,14 +97,13 @@ function App() {
     <DevExecProvider screenplays={allScreenplays}>
       <ScrollProgress />
       <div className="min-h-screen flex flex-col">
-        <div className="bokeh-atmosphere" aria-hidden="true" />
         <div className="page-enter-header">
           <ErrorBoundary areaName="Header">
             <Header />
           </ErrorBoundary>
         </div>
 
-        <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-8">
+        <main className="flex-1 max-w-[1800px] mx-auto w-full px-4 py-5 md:px-6 md:py-8">
           {/* Collection Tabs + Filter Bar — animate as one unit */}
           <ErrorBoundary areaName="Filters">
             <div className="page-enter-filters">
@@ -129,7 +132,10 @@ function App() {
               <ErrorBoundary>
                 <Suspense fallback={<LoadingFallback />}>
                   <AnalyticsDashboard
-                    key={`analytics-${screenplays.length}-${screenplays.map(s => s.id).join(',').slice(0, 100)}`}
+                    key={`analytics-${screenplays.length}-${screenplays
+                      .map((s) => s.id)
+                      .join(',')
+                      .slice(0, 100)}`}
                     screenplays={screenplays}
                     totalScreenplays={allScreenplays}
                     onFilterByScoreRange={handleFilterByScoreRange}
@@ -166,7 +172,9 @@ function App() {
             screenplay={selectedScreenplay}
             isOpen={isModalOpen}
             onClose={handleCloseModal}
-            percentileRank={selectedScreenplay ? percentileRanks.get(selectedScreenplay.id) : undefined}
+            percentileRank={
+              selectedScreenplay ? percentileRanks.get(selectedScreenplay.id) : undefined
+            }
             allScreenplays={allScreenplays}
             onSelectScreenplay={handleCardClick}
           />

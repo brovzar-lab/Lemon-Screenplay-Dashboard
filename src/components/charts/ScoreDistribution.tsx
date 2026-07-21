@@ -3,15 +3,7 @@
  * Bar chart showing weighted score distribution across all screenplays
  */
 
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Cell,
-} from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
 import type { Screenplay } from '@/types';
 import { CHART_COLORS } from '@/lib/chartColors';
@@ -43,10 +35,10 @@ const SCORE_BINS = [
 
 // Color based on score quality
 function getBarColor(min: number): string {
-  if (min >= 8) return CHART_COLORS.gold;    // Gold - excellent
+  if (min >= 8) return CHART_COLORS.gold; // Gold - excellent
   if (min >= 7) return CHART_COLORS.emerald; // Emerald - good
-  if (min >= 5) return CHART_COLORS.gray;    // Gray - average
-  return CHART_COLORS.red;                   // Red - poor
+  if (min >= 5) return CHART_COLORS.gray; // Gray - average
+  return CHART_COLORS.red; // Red - poor
 }
 
 interface ChartTooltipProps {
@@ -59,8 +51,8 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
   if (active && payload && payload.length) {
     const item = payload[0].payload as ScoreBinItem;
     return (
-      <div className="glass p-3 rounded-lg border border-black-700 text-sm">
-        <p className="text-gold-400 font-medium mb-1">Score: {item.label}</p>
+      <div className="chart-tooltip">
+        <p className="font-medium mb-1">Score: {item.label}</p>
         <p className="text-black-50">
           <span className="font-bold">{item.count}</span> screenplays
         </p>
@@ -75,7 +67,7 @@ export function ScoreDistribution({ screenplays, onBarClick }: ScoreDistribution
   // Calculate distribution
   const data: ScoreBinItem[] = SCORE_BINS.map((bin) => {
     const count = screenplays.filter(
-      (sp) => sp.weightedScore >= bin.min && sp.weightedScore < bin.max
+      (sp) => sp.weightedScore >= bin.min && sp.weightedScore < bin.max,
     ).length;
     return {
       ...bin,
@@ -93,20 +85,23 @@ export function ScoreDistribution({ screenplays, onBarClick }: ScoreDistribution
   return (
     <div className="h-full">
       <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-        <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <BarChart data={data} margin={{ top: 12, right: 20, left: 0, bottom: 8 }}>
           <XAxis
             dataKey="label"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94A2BE', fontSize: 11 }}
+            tick={{ fill: 'var(--sp-text-2)', fontSize: 13 }}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94A2BE', fontSize: 11 }}
+            tick={{ fill: 'var(--sp-text-2)', fontSize: 13 }}
             allowDecimals={false}
           />
-          <Tooltip content={(props) => <CustomTooltip {...props} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+          <Tooltip
+            content={(props) => <CustomTooltip {...props} />}
+            cursor={{ fill: 'var(--sp-surface-2)' }}
+          />
           <Bar
             dataKey="count"
             radius={[4, 4, 0, 0]}

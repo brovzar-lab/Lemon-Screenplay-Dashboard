@@ -20,14 +20,14 @@ interface StatPillProps {
   highlight?: boolean;
 }
 
-/** Stat pill — a card with shadow (Solidity: numbers have presence) */
+/** Compact status readout. Header chrome stays flat so the slate carries depth. */
 function StatPill({ label, value, highlight = false }: StatPillProps) {
   return (
     <div
-      className="flex items-center gap-2 px-4 py-2 rounded-xl"
+      className="flex items-center gap-2 px-3 py-2 rounded-lg"
       style={{
-        background: highlight ? 'var(--sp-accent)' : 'var(--sp-surface)',
-        boxShadow: highlight ? 'var(--sp-shadow-btn)' : 'var(--sp-shadow-sm)',
+        background: highlight ? 'var(--sp-accent)' : 'var(--sp-surface-2)',
+        boxShadow: highlight ? 'var(--sp-shadow-btn)' : 'none',
         color: highlight ? 'var(--sp-accent-text)' : 'var(--sp-text)',
       }}
     >
@@ -71,20 +71,17 @@ export function Header() {
       }}
       role="banner"
     >
-      <div className="max-w-[1800px] mx-auto px-6 py-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="max-w-[1800px] mx-auto px-4 py-3 md:px-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           {/* Logo & Title — Playfair for the brand name only */}
           <div className="flex items-center gap-4">
             <img
               src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-black.png'}
               alt="Lemon Studios"
-              className="h-9 w-9"
+              className="h-8 w-8 md:h-9 md:w-9"
             />
-            <h1 className="text-2xl m-0" style={{ fontSize: '28px' }}>
-              <span
-                className="font-display"
-                style={{ color: 'var(--sp-accent)', fontWeight: 700 }}
-              >
+            <h1 className="m-0 flex items-baseline" style={{ fontSize: '28px' }}>
+              <span className="font-display" style={{ color: 'var(--sp-text)', fontWeight: 700 }}>
                 LEMON
               </span>
               <span
@@ -93,7 +90,7 @@ export function Header() {
                   fontWeight: 400,
                   marginLeft: '8px',
                   fontFamily: 'var(--sp-font)',
-                  fontSize: '20px',
+                  fontSize: '18px',
                 }}
               >
                 Screenplay Dashboard
@@ -117,7 +114,7 @@ export function Header() {
           </div>
 
           {/* Stats & Actions */}
-          <nav className="flex flex-wrap items-center gap-3" aria-label="Dashboard controls">
+          <nav className="flex flex-wrap items-center gap-2" aria-label="Dashboard controls">
             {isLoading ? (
               <div className="flex gap-3">
                 {[32, 28, 24].map((w) => (
@@ -130,20 +127,10 @@ export function Header() {
               </div>
             ) : (
               <>
-                <StatPill
-                  label="Showing"
-                  value={`${filteredCount} / ${totalCount}`}
-                />
-                <StatPill
-                  label="Avg Score"
-                  value={stats?.avgWeightedScore.toFixed(1) || '—'}
-                />
+                <StatPill label="Showing" value={`${filteredCount} / ${totalCount}`} />
+                <StatPill label="Avg Score" value={stats?.avgWeightedScore.toFixed(1) || '—'} />
                 {(stats?.filmNowCount ?? 0) > 0 && (
-                  <StatPill
-                    label="FILM NOW"
-                    value={stats!.filmNowCount}
-                    highlight={true}
-                  />
+                  <StatPill label="FILM NOW" value={stats!.filmNowCount} highlight={true} />
                 )}
               </>
             )}
@@ -173,30 +160,54 @@ export function Header() {
               aria-label="Toggle theme"
             >
               {isDark ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
                   <circle cx="12" cy="12" r="4" />
                   <path d="M12 2v2m0 16v2m10-10h-2M4 12H2m15.07-7.07-1.42 1.42M8.35 15.65l-1.42 1.42m12.14 0-1.42-1.42M8.35 8.35 6.93 6.93" />
                 </svg>
               ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
                   <path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                 </svg>
               )}
             </button>
 
             {/* Settings Link */}
-            {isAdmin && <Link
-              to="/settings"
-              className="p-2 rounded-lg"
-              style={{ color: 'var(--sp-text-3)', transition: 'color 120ms, background 120ms' }}
-              title="Settings"
-              aria-label="Settings"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </Link>}
+            {isAdmin && (
+              <Link
+                to="/settings"
+                className="p-2 rounded-lg"
+                style={{ color: 'var(--sp-text-3)', transition: 'color 120ms, background 120ms' }}
+                title="Settings"
+                aria-label="Settings"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                  />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </Link>
+            )}
 
             <UserMenu />
           </nav>

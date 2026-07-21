@@ -66,21 +66,16 @@ export function AnalyticsDashboard({
   const animatedFilmNow = useCountUp(filmNowCount, 600, isExpanded);
   const animatedRecommend = useCountUp(recommendCount, 600, isExpanded);
 
-  // Chart cards: each gets a stagger delay offset (100 ms apart)
   const chartCards = [
     {
       title: 'Score Distribution',
       hint: onFilterByScoreRange ? 'Click a bar to filter' : null,
-      content: (
-        <ScoreDistribution screenplays={screenplays} onBarClick={onFilterByScoreRange} />
-      ),
+      content: <ScoreDistribution screenplays={screenplays} onBarClick={onFilterByScoreRange} />,
     },
     {
       title: 'Recommendation Tiers',
       hint: onFilterByTier ? 'Click to filter by tier' : null,
-      content: (
-        <TierBreakdown screenplays={screenplays} onTierClick={onFilterByTier} />
-      ),
+      content: <TierBreakdown screenplays={screenplays} onTierClick={onFilterByTier} />,
     },
     {
       title: 'Top Genres',
@@ -92,9 +87,7 @@ export function AnalyticsDashboard({
     {
       title: 'Budget Tiers',
       hint: onFilterByBudget ? 'Click to filter by budget' : null,
-      content: (
-        <BudgetChart screenplays={screenplays} onBudgetClick={onFilterByBudget} />
-      ),
+      content: <BudgetChart screenplays={screenplays} onBudgetClick={onFilterByBudget} />,
     },
   ];
 
@@ -103,9 +96,9 @@ export function AnalyticsDashboard({
       {/* Header with toggle */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 rounded-lg glass border border-black-700 hover:border-gold-500/50 transition-colors"
+        className="w-full flex items-center justify-between gap-4 rounded-lg bg-black-900 px-4 py-4 text-left shadow-sm md:px-5"
       >
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
           <div className="flex items-center gap-2">
             <svg
               className="w-5 h-5 text-gold-400"
@@ -124,31 +117,28 @@ export function AnalyticsDashboard({
           </div>
 
           {/* Quick stats — count-up when expanded, static when collapsed */}
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-black-400">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            <span className="text-black-300">
               <span className="text-gold-400">
                 {isExpanded ? animatedTotal.toFixed(0) : screenplays.length}
               </span>
               {isFiltered ? ` of ${totalScreenplays.length}` : ''} screenplays
-              {isFiltered && <span className="ml-1 text-gold-500">(filtered)</span>}
+              {isFiltered && <span className="ml-1 text-black-400">(filtered)</span>}
             </span>
-            <span className="text-black-400">|</span>
-            <span className="text-black-400">
-              Avg Score:{' '}
-              <span className="text-emerald-400">
+            <span className="text-black-300">
+              Average{' '}
+              <span className="font-semibold text-black-50">
                 {isExpanded ? animatedAvg.toFixed(1) : avgScoreRaw.toFixed(1)}
               </span>
             </span>
-            <span className="text-black-400">|</span>
-            <span className="text-black-400">
-              <span className="text-gold-400">
+            <span className="text-black-300">
+              <span className="font-semibold text-black-50">
                 {isExpanded ? animatedFilmNow.toFixed(0) : filmNowCount}
               </span>{' '}
               FILM NOW
             </span>
-            <span className="text-black-400">|</span>
-            <span className="text-black-400">
-              <span className="text-emerald-400">
+            <span className="text-black-300">
+              <span className="font-semibold text-black-50">
                 {isExpanded ? animatedRecommend.toFixed(0) : recommendCount}
               </span>{' '}
               Recommend
@@ -174,31 +164,25 @@ export function AnalyticsDashboard({
         style={
           isExpanded
             ? {
-              maxHeight: contentHeight,
-              opacity: 1,
-            }
+                maxHeight: contentHeight,
+                opacity: 1,
+              }
             : {
-              maxHeight: 0,
-              opacity: 0,
-            }
+                maxHeight: 0,
+                opacity: 0,
+              }
         }
       >
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {chartCards.map((card, i) => (
-            <div
-              key={card.title}
-              className={isExpanded ? 'card-enter' : ''}
-              style={
-                isExpanded
-                  ? { animationDelay: `${i * 100}ms`, animationFillMode: 'both' }
-                  : undefined
-              }
-            >
-              <div className="glass rounded-lg border border-black-700 p-4 h-full">
-                <h2 className="text-sm font-medium text-black-300 mb-3">{card.title}</h2>
-                <div className="h-48">{card.content}</div>
+        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {chartCards.map((card) => (
+            <div key={card.title} className="analytics-card">
+              <div className="h-full">
+                <h2 className="mb-4 font-heading text-lg font-semibold text-black-50">
+                  {card.title}
+                </h2>
+                <div className="h-64 md:h-72">{card.content}</div>
                 {card.hint && (
-                  <p className="text-xs text-black-400 mt-2 text-center">{card.hint}</p>
+                  <p className="mt-3 text-center text-sm text-black-300">{card.hint}</p>
                 )}
               </div>
             </div>

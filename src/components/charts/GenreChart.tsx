@@ -3,15 +3,7 @@
  * Horizontal bar chart showing top genres
  */
 
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Cell,
-} from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
 import type { Screenplay } from '@/types';
 import { canonicalizeGenre } from '@/lib/calculations';
@@ -25,6 +17,7 @@ interface GenreChartProps {
 
 interface GenreChartItem {
   genre: string;
+  displayGenre: string;
   count: number;
   color: string;
   percentage: number | string;
@@ -52,8 +45,8 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
   if (active && payload && payload.length) {
     const item = payload[0].payload as GenreChartItem;
     return (
-      <div className="glass p-3 rounded-lg border border-black-700 text-sm">
-        <p className="text-gold-400 font-medium mb-1">{item.genre}</p>
+      <div className="chart-tooltip">
+        <p className="font-medium mb-1">{item.genre}</p>
         <p className="text-black-50">
           <span className="font-bold">{item.count}</span> screenplays
         </p>
@@ -82,6 +75,7 @@ export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreCh
     .slice(0, maxGenres)
     .map(([genre, count], index) => ({
       genre,
+      displayGenre: genre.length > 30 ? `${genre.slice(0, 28)}…` : genre,
       count,
       color: GENRE_COLORS[index % GENRE_COLORS.length],
       percentage: screenplays.length > 0 ? ((count / screenplays.length) * 100).toFixed(0) : 0,
@@ -90,27 +84,26 @@ export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreCh
   return (
     <div className="h-full">
       <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-        <BarChart
-          data={data}
-          layout="vertical"
-          margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
-        >
+        <BarChart data={data} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
           <XAxis
             type="number"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94A2BE', fontSize: 11 }}
+            tick={{ fill: 'var(--sp-text-2)', fontSize: 13 }}
             allowDecimals={false}
           />
           <YAxis
             type="category"
-            dataKey="genre"
+            dataKey="displayGenre"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94A2BE', fontSize: 11 }}
-            width={90}
+            tick={{ fill: 'var(--sp-text-2)', fontSize: 13 }}
+            width={190}
           />
-          <Tooltip content={(props) => <CustomTooltip {...props} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+          <Tooltip
+            content={(props) => <CustomTooltip {...props} />}
+            cursor={{ fill: 'var(--sp-surface-2)' }}
+          />
           <Bar
             dataKey="count"
             radius={[0, 4, 4, 0]}
