@@ -21,13 +21,14 @@ import { useToastStore } from '@/stores/toastStore';
 
 interface ShareButtonProps {
     screenplay: Screenplay;
+    waitForExistingLink?: boolean;
 }
 
 function getShareBaseUrl(): string {
     return `${window.location.origin}/share`;
 }
 
-export function ShareButton({ screenplay }: ShareButtonProps) {
+export function ShareButton({ screenplay, waitForExistingLink = false }: ShareButtonProps) {
     const screenplayId = screenplay.sourceFile;
 
     const [showPopover, setShowPopover] = useState(false);
@@ -42,6 +43,13 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
 
     // Derive includeNotes from cached token — initialized here to avoid sync setState in effect.
     const [includeNotes, setIncludeNotes] = useState(() => cachedToken?.includeNotes ?? false);
+    const [existingLookupComplete, setExistingLookupComplete] = useState(
+        () => !waitForExistingLink || Boolean(cachedToken),
+    );
+    const currentIncludeNotes =
+        waitForExistingLink && cachedToken ? cachedToken.includeNotes : includeNotes;
+    const existingLookupReady =
+        !waitForExistingLink || Boolean(cachedToken) || existingLookupComplete;
 
     // Check sync status on mount
     useEffect(() => {
@@ -65,11 +73,13 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
                 useShareStore.getState().setToken(screenplayId, view);
                 setIncludeNotes(view.includeNotes);
             }
+            if (!cancelled && waitForExistingLink) setExistingLookupComplete(true);
         }).catch(() => {
             // Silently ignore lookup failures
+            if (!cancelled && waitForExistingLink) setExistingLookupComplete(true);
         });
         return () => { cancelled = true; };
-    }, [screenplayId, cachedToken]);
+    }, [screenplayId, cachedToken, waitForExistingLink]);
 
     // Close popover on outside click
     useEffect(() => {
@@ -94,13 +104,18 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
     // Create token mutation
     const createMutation = useMutation({
         mutationFn: () =>
-            createShareToken(screenplayId, screenplay, includeNotes, useNotesStore.getState().notes[screenplayId]),
+            createShareToken(
+                screenplayId,
+                screenplay,
+                currentIncludeNotes,
+                useNotesStore.getState().notes[screenplayId],
+            ),
         onSuccess: (result) => {
             useShareStore.getState().setToken(screenplayId, {
                 token: result.token,
                 screenplayId,
                 screenplayTitle: screenplay.title,
-                includeNotes,
+                includeNotes: currentIncludeNotes,
                 createdAt: new Date().toISOString(),
             });
             setShowPopover(true);
@@ -160,7 +175,7 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
     }, [shareUrl]);
 
     const handleNotesToggle = useCallback(async () => {
-        const newValue = !includeNotes;
+        const newValue = !currentIncludeNotes;
         setIncludeNotes(newValue);
 
         if (cachedToken) {
@@ -180,10 +195,13 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
                 setIncludeNotes(!newValue); // Revert
             }
         }
-    }, [includeNotes, cachedToken, screenplayId]);
+    }, [currentIncludeNotes, cachedToken, screenplayId]);
 
     const isDisabled =
-        synced === false || createMutation.isPending || synced === null;
+        synced === false ||
+        createMutation.isPending ||
+        synced === null ||
+        !existingLookupReady;
 
     return (
         <div className="relative">
@@ -198,6 +216,8 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
                 title={
                     synced === false
                         ? 'Sync pending -- wait for Firestore sync before sharing'
+                        : !existingLookupReady
+                            ? 'Checking for an existing share link...'
                         : synced === null
                             ? 'Checking sync status...'
                             : 'Share this screenplay'
@@ -295,7 +315,7 @@ export function ShareButton({ screenplay }: ShareButtonProps) {
                     <label className="flex items-center gap-2 mb-3 cursor-pointer text-sm text-black-300 hover:text-black-200">
                         <input
                             type="checkbox"
-                            checked={includeNotes}
+                            checked={currentIncludeNotes}
                             onChange={handleNotesToggle}
                             className="w-3.5 h-3.5 rounded border-black-600 bg-black-900 text-gold-500 focus:ring-gold-500/30"
                         />

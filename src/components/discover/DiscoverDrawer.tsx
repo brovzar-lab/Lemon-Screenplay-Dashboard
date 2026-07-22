@@ -88,7 +88,11 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
             supplementalActions={
               <div className="flex items-center gap-3">
                 <DiscoveryShareStatus screenplay={screenplay} />
-                <ShareButton screenplay={screenplay} />
+                <ShareButton
+                  key={screenplay.sourceFile}
+                  screenplay={screenplay}
+                  waitForExistingLink
+                />
               </div>
             }
           />

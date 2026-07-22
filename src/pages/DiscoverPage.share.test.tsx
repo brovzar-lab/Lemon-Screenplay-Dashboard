@@ -190,6 +190,33 @@ describe('Discovery sharing', () => {
     expect(shareMocks.createShareToken).not.toHaveBeenCalled();
   });
 
+  it('waits for existing-link lookup before sharing and restores its notes setting', async () => {
+    const user = userEvent.setup();
+    const existing = { ...sharedView('share-delayed'), includeNotes: true };
+    let resolveLookup!: (view: SharedView | null) => void;
+    const lookup = new Promise<SharedView | null>((resolve) => {
+      resolveLookup = resolve;
+    });
+    shareMocks.getExistingShareToken.mockReturnValue(lookup);
+    renderRoutes();
+    const drawer = await openDrawer(user);
+    const shareButton = within(drawer).getByRole('button', { name: 'Share' });
+
+    await waitFor(() => expect(shareMocks.isScreenplaySynced).toHaveBeenCalled());
+    expect(shareButton).toBeDisabled();
+
+    await act(async () => {
+      resolveLookup(existing);
+      await lookup;
+    });
+    await waitFor(() => expect(shareButton).toBeEnabled());
+    await user.click(shareButton);
+
+    expect(shareMocks.createShareToken).not.toHaveBeenCalled();
+    expect(await within(drawer).findByText(/share-delayed/)).toBeInTheDocument();
+    expect(within(drawer).getByRole('checkbox', { name: 'Include notes' })).toBeChecked();
+  });
+
   it('revokes through the existing service and clears active status', async () => {
     const user = userEvent.setup();
     shareMocks.getExistingShareToken.mockResolvedValue(sharedView());
