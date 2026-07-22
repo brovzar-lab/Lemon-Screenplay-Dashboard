@@ -28,7 +28,7 @@ import {
 } from 'firebase/firestore';
 import { authReady, db } from './firebase';
 import { useToastStore } from '@/stores/toastStore';
-import { buildAnalysisVersionIdentity, requireVerifiedIdentity } from './analysisIdentity';
+import { buildAnalysisVersionIdentity } from './analysisIdentity';
 
 const FIRESTORE_COLLECTION = 'uploaded_analyses';
 const _QUARANTINE_COLLECTION = '_unrecognized_analyses';
@@ -52,12 +52,6 @@ export function toDocId(sourceFile: string): string {
             .replace(/\s+/g, '_')
             .slice(0, 200) || `doc_${Date.now()}`
     );
-}
-
-function getProjectId(record: Record<string, unknown>, sourceFile: string): string {
-    return typeof record.project_id === 'string' && record.project_id.trim()
-        ? record.project_id
-        : toDocId(sourceFile);
 }
 
 function getVersionCount(record: Record<string, unknown>): number {
@@ -354,75 +348,6 @@ export function getPendingWriteCount(): number {
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Save a raw V9 analysis result.
- * ALWAYS writes to localStorage immediately, then attempts Firestore.
- * If Firestore fails, queues for retry on next load.
- */
-export async function saveAnalysis(raw: Record<string, unknown>): Promise<void> {
-    const verifiedRaw =
-        raw.analysis_version === 'v9_archaeology'
-            ? { ...raw, ...requireVerifiedIdentity(raw) }
-            : raw;
-    const versionIdentity =
-        verifiedRaw.analysis_version === 'v9_archaeology'
-            ? buildAnalysisVersionIdentity(verifiedRaw, Date.now())
-            : null;
-    const persistedRaw = versionIdentity
-        ? { ...verifiedRaw, queued_at_ms: versionIdentity.queued_at_ms }
-        : verifiedRaw;
-    const sourceFile = (persistedRaw.source_file as string) || `unknown_${Date.now()}`;
-
-    // Step 1: ALWAYS save to localStorage immediately (instant, guaranteed)
-    const existing = readFromLocal();
-    const filtered = existing.filter((a) => a.source_file !== sourceFile);
-    filtered.push(persistedRaw);
-    writeToLocal(filtered);
-    console.log(`[Lemon] Analysis saved to localStorage: ${sourceFile}`);
-
-    // Step 2: Save to Firestore (persistent, may fail). Never throw — localStorage is the success path.
-    const docId = toDocId(sourceFile);
-    const projectId = getProjectId(persistedRaw, sourceFile);
-    try {
-        await authReady;
-        if (versionIdentity) {
-            await writeVersionedAnalysis(
-                persistedRaw,
-                sourceFile,
-                projectId,
-                versionIdentity.queued_at_ms,
-                versionIdentity.version_id,
-            );
-        } else {
-            const docRef = doc(db, FIRESTORE_COLLECTION, docId);
-            await setDoc(docRef, {
-                ...persistedRaw,
-                _savedAt: new Date().toISOString(),
-                _docId: docId,
-            });
-        }
-        console.log(`[Lemon] Analysis saved to Firestore: ${projectId}`);
-    } catch (err) {
-        console.warn(`[Lemon] Firestore write failed for ${projectId} (queued for retry):`, err);
-        useToastStore
-            .getState()
-            .addToast('Failed to sync screenplay to cloud — will retry automatically', 'warning');
-        if (versionIdentity) {
-            queueForRetry({
-                kind: 'versioned-set',
-                sourceFile,
-                projectId,
-                versionId: versionIdentity.version_id,
-                queuedAtMs: versionIdentity.queued_at_ms,
-                data: persistedRaw,
-            });
-        } else {
-            queueForRetry({ kind: 'set', sourceFile, data: persistedRaw });
-        }
-        // Do NOT re-throw — the analysis is safely in localStorage.
-    }
-}
-
-/**
  * Load all uploaded analyses.
  *
  * Returns the startup cache only. The live listener is the sole Firestore read
@@ -442,10 +367,9 @@ export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
  * loadAllAnalyses returns. Also keeps localStorage in sync so subsequent
  * page loads start hot.
  *
- * Use case: the daemon writes to Firestore from the VPS, completely outside
- * the browser's saveAnalysis() path. Without a listener, the dashboard only
- * learns about new analyses on next page load. With this listener, new
- * analyses appear instantly.
+ * The VPS daemon is the only permanent analysis writer. Without this listener,
+ * the dashboard would learn about new analyses only on the next page load.
+ * With it, completed analyses appear immediately.
  *
  * Returns an Unsubscribe function — call it on cleanup.
  */

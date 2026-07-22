@@ -7,8 +7,6 @@ const {
   mockParsePDF,
   mockRunMultiReaderAnalysis,
   mockRunTriage,
-  mockSaveAnalysis,
-  mockUploadScreenplayPdf,
   mockQueueScreenplayReanalysis,
   mockWaitForQueuedReanalysis,
 } = vi.hoisted(() => ({
@@ -17,14 +15,8 @@ const {
   mockParsePDF: vi.fn(),
   mockRunMultiReaderAnalysis: vi.fn(),
   mockRunTriage: vi.fn(),
-  mockSaveAnalysis: vi.fn(),
-  mockUploadScreenplayPdf: vi.fn(),
   mockQueueScreenplayReanalysis: vi.fn(),
   mockWaitForQueuedReanalysis: vi.fn(),
-}));
-
-vi.mock('./analysisStore', () => ({
-  saveAnalysis: mockSaveAnalysis,
 }));
 
 vi.mock('./pdfParser', () => ({ parsePDF: mockParsePDF }));
@@ -36,16 +28,6 @@ vi.mock('./multiPassAnalysis', () => ({
 
 vi.mock('./feedbackStore', () => ({
   loadCalibrationProfile: mockLoadCalibrationProfile,
-}));
-
-vi.mock('./firebase', () => ({
-  storage: {},
-  uploadScreenplayPdf: mockUploadScreenplayPdf,
-}));
-
-vi.mock('firebase/storage', () => ({
-  ref: vi.fn(),
-  getBlob: vi.fn(),
 }));
 
 vi.mock('./analysisIdentity', async (importOriginal) => {
@@ -81,7 +63,6 @@ beforeEach(() => {
     totalDurationMs: 1_000,
     mode: 'full',
   });
-  mockUploadScreenplayPdf.mockResolvedValue('screenplays/LEMON/Writer_Parity.pdf');
   mockQueueScreenplayReanalysis.mockResolvedValue({
     screenplayId: 'Writer_Parity.pdf',
     storagePath: 'gs://bucket/ingest-queue/LEMON/upload-id/Writer_Parity.pdf',
@@ -126,7 +107,6 @@ describe('reanalysis persistence safety', () => {
       ),
     ).rejects.toThrow(/triage-only results cannot replace full V9 coverage/i);
 
-    expect(mockSaveAnalysis).not.toHaveBeenCalled();
   });
 
   it('routes a permanent re-analysis through the VPS queue', async () => {
@@ -141,7 +121,6 @@ describe('reanalysis persistence safety', () => {
       { signal: undefined, timeoutMs: undefined },
     );
     expect(mockRunMultiReaderAnalysis).not.toHaveBeenCalled();
-    expect(mockSaveAnalysis).not.toHaveBeenCalled();
   });
 
   it('keeps the complete-V9 guard on the daemon result', async () => {

@@ -145,6 +145,43 @@ const mockLocalStorage = {
 };
 Object.defineProperty(globalThis, 'localStorage', { value: mockLocalStorage, writable: true });
 
+const PENDING_QUEUE_KEY = 'lemon-pending-writes';
+
+function seedVersionedPendingWrite({
+    sourceFile,
+    projectId,
+    contentHash,
+    queuedAtMs,
+    data = {},
+}: {
+    sourceFile: string;
+    projectId: string;
+    contentHash: string;
+    queuedAtMs: number;
+    data?: Record<string, unknown>;
+}): string {
+    const versionId = `${contentHash}_${queuedAtMs}`;
+    localStore[PENDING_QUEUE_KEY] = JSON.stringify([
+        {
+            kind: 'versioned-set',
+            sourceFile,
+            projectId,
+            versionId,
+            queuedAtMs,
+            data: {
+                source_file: sourceFile,
+                project_id: projectId,
+                analysis_version: 'v9_archaeology',
+                content_hash: contentHash,
+                identity_status: 'verified',
+                queued_at_ms: queuedAtMs,
+                ...data,
+            },
+        },
+    ]);
+    return versionId;
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 describe('analysisStore authReady gates', () => {
@@ -178,23 +215,19 @@ describe('analysisStore authReady gates', () => {
         expect(callOrder).not.toContain('getDocs');
     });
 
-    it('saveAnalysis awaits authReady before calling setDoc', async () => {
-        const { saveAnalysis } = await import('./analysisStore');
+    it('pending write recovery awaits authReady before calling Firestore', async () => {
+        localStore[PENDING_QUEUE_KEY] = JSON.stringify([
+            { kind: 'set', sourceFile: 'test.pdf', data: { title: 'Test' } },
+        ]);
+        const { flushPendingWrites } = await import('./analysisStore');
 
-        const savePromise = saveAnalysis({ source_file: 'test.pdf', title: 'Test' });
-
-        // localStorage write should have happened immediately
-        await new Promise((r) => setTimeout(r, 50));
-        expect(mockLocalStorage.setItem).toHaveBeenCalled();
-
-        // But setDoc should NOT have been called (authReady not resolved)
+        const flushPromise = flushPendingWrites();
+        await Promise.resolve();
         expect(callOrder).not.toContain('setDoc');
 
-        // Now resolve authReady
         resolveAuthReady();
-        await savePromise;
+        await flushPromise;
 
-        // setDoc should have been called after authReady
         const authIdx = callOrder.indexOf('authReady:resolved');
         const setDocIdx = callOrder.indexOf('setDoc');
         expect(authIdx).toBeGreaterThanOrEqual(0);
@@ -205,16 +238,16 @@ describe('analysisStore authReady gates', () => {
         const contentHash = 'ef'.repeat(32);
         const queuedAtMs = 1_784_588_800_123;
         const versionId = `${contentHash}_${queuedAtMs}`;
-        const { saveAnalysis } = await import('./analysisStore');
+        seedVersionedPendingWrite({
+            sourceFile: 'identified.pdf',
+            projectId: 'identified.pdf',
+            contentHash,
+            queuedAtMs,
+        });
+        const { flushPendingWrites } = await import('./analysisStore');
 
         resolveAuthReady();
-        await saveAnalysis({
-            source_file: 'identified.pdf',
-            analysis_version: 'v9_archaeology',
-            content_hash: contentHash,
-            identity_status: 'verified',
-            queued_at_ms: queuedAtMs,
-        });
+        await flushPendingWrites();
 
         expect(mockRunTransaction).toHaveBeenCalledOnce();
         expect(mockTransactionSet).toHaveBeenNthCalledWith(
@@ -249,17 +282,16 @@ describe('analysisStore authReady gates', () => {
             source_file: 'Original Draft.pdf',
             version_count: 1,
         };
-        const { saveAnalysis } = await import('./analysisStore');
+        seedVersionedPendingWrite({
+            sourceFile: 'Completely Renamed Draft.pdf',
+            projectId: 'Original_Draft.pdf',
+            contentHash,
+            queuedAtMs,
+        });
+        const { flushPendingWrites } = await import('./analysisStore');
 
         resolveAuthReady();
-        await saveAnalysis({
-            source_file: 'Completely Renamed Draft.pdf',
-            project_id: 'Original_Draft.pdf',
-            analysis_version: 'v9_archaeology',
-            content_hash: contentHash,
-            identity_status: 'verified',
-            queued_at_ms: queuedAtMs,
-        });
+        await flushPendingWrites();
 
         expect(mockTransactionSet).toHaveBeenNthCalledWith(
             1,
@@ -290,76 +322,46 @@ describe('analysisStore authReady gates', () => {
             version_id: `${contentHash}_${queuedAtMs}`,
             version_number: 2,
         };
-        const { saveAnalysis } = await import('./analysisStore');
+        seedVersionedPendingWrite({
+            sourceFile: 'Retry.pdf',
+            projectId: 'Original_Draft.pdf',
+            contentHash,
+            queuedAtMs,
+        });
+        const { flushPendingWrites } = await import('./analysisStore');
 
         resolveAuthReady();
-        await saveAnalysis({
-            source_file: 'Retry.pdf',
-            project_id: 'Original_Draft.pdf',
-            analysis_version: 'v9_archaeology',
-            content_hash: contentHash,
-            identity_status: 'verified',
-            queued_at_ms: queuedAtMs,
-        });
+        await flushPendingWrites();
 
         expect(mockRunTransaction).toHaveBeenCalledOnce();
         expect(mockTransactionSet).not.toHaveBeenCalled();
+        expect(JSON.parse(localStore[PENDING_QUEUE_KEY])).toEqual([]);
     });
 
-    it('refuses to persist permanent V9 coverage without verified identity', async () => {
-        const { saveAnalysis } = await import('./analysisStore');
-
-        resolveAuthReady();
-        await expect(
-            saveAnalysis({
-                source_file: 'missing-identity.pdf',
-                analysis_version: 'v9_archaeology',
-            }),
-        ).rejects.toThrow(/verified content identity/i);
-        expect(mockSetDoc).not.toHaveBeenCalled();
-        expect(mockRunTransaction).not.toHaveBeenCalled();
-    });
-
-    it('queues and replays the same atomic version write after an offline failure', async () => {
+    it('keeps an invalid version queued instead of persisting it', async () => {
         const contentHash = 'fa'.repeat(32);
         const queuedAtMs = 1_784_588_800_456;
-        const versionId = `${contentHash}_${queuedAtMs}`;
-        const { flushPendingWrites, saveAnalysis } = await import('./analysisStore');
-
-        mockRunTransaction.mockRejectedValueOnce(new Error('offline'));
-        resolveAuthReady();
-        await saveAnalysis({
-            source_file: 'offline.pdf',
-            analysis_version: 'v9_archaeology',
-            content_hash: contentHash,
-            identity_status: 'verified',
-            queued_at_ms: queuedAtMs,
+        seedVersionedPendingWrite({
+            sourceFile: 'missing-identity.pdf',
+            projectId: 'missing-identity.pdf',
+            contentHash,
+            queuedAtMs,
+            data: { identity_status: 'unverified' },
         });
+        const { flushPendingWrites } = await import('./analysisStore');
 
-        expect(JSON.parse(localStore['lemon-pending-writes'])).toEqual([
+        resolveAuthReady();
+        await flushPendingWrites();
+
+        expect(mockRunTransaction).not.toHaveBeenCalled();
+        expect(JSON.parse(localStore[PENDING_QUEUE_KEY])).toEqual([
             expect.objectContaining({
                 kind: 'versioned-set',
-                sourceFile: 'offline.pdf',
-                projectId: 'offline.pdf',
-                versionId,
+                sourceFile: 'missing-identity.pdf',
+                projectId: 'missing-identity.pdf',
                 queuedAtMs,
             }),
         ]);
-
-        resetTransactionMock();
-        await flushPendingWrites();
-
-        expect(mockTransactionSet).toHaveBeenNthCalledWith(
-            1,
-            'mock-version-doc-ref',
-            expect.objectContaining({ version_id: versionId }),
-        );
-        expect(mockTransactionSet).toHaveBeenNthCalledWith(
-            2,
-            'mock-doc-ref',
-            expect.objectContaining({ latest_version_id: versionId }),
-        );
-        expect(JSON.parse(localStore['lemon-pending-writes'])).toEqual([]);
     });
 
     it('removeAnalysis (soft-delete) awaits authReady before calling updateDoc', async () => {
