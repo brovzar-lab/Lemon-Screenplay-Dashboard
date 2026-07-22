@@ -3185,7 +3185,7 @@ def ingest_one(
             "checked": True,
             "is_produced": is_produced,
             "reason": reason,
-            "checked_at": datetime.utcnow().isoformat() + "Z",
+            "checked_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "confidence": "high" if is_produced else "medium",
         }
         if is_produced:
@@ -3198,7 +3198,7 @@ def ingest_one(
             "checked": False,
             "is_produced": None,
             "reason": "skipped via --skip-tmdb",
-            "checked_at": datetime.utcnow().isoformat() + "Z",
+            "checked_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
 
     if dry_run:
