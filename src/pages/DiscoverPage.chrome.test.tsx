@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,6 +36,14 @@ vi.mock('@/stores/authStore', () => ({
   useIsAdmin: () => true,
 }));
 
+vi.mock('@/lib/shareService', () => ({
+  getAllSharedViews: vi.fn().mockResolvedValue([]),
+  getExistingShareToken: vi.fn().mockResolvedValue(null),
+  isScreenplaySynced: vi.fn().mockResolvedValue(true),
+  createShareToken: vi.fn(),
+  revokeShareToken: vi.fn(),
+}));
+
 import DiscoverPage from '@/pages/DiscoverPage';
 
 function screenplay(id: string, title: string, weightedScore: number): Screenplay {
@@ -65,6 +74,16 @@ function makeRouter(initialEntries: string[], initialIndex?: number) {
   );
 }
 
+function renderRouter(router: ReturnType<typeof makeRouter>) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+}
+
 describe('Discovery app shell and route state', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -81,7 +100,7 @@ describe('Discovery app shell and route state', () => {
 
   it('opens the correct real screenplay from a direct project link', async () => {
     const router = makeRouter(['/discover/bravo']);
-    render(<RouterProvider router={router} />);
+    renderRouter(router);
 
     expect(await screen.findByRole('dialog', { name: 'Bravo Room' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/discover/bravo');
@@ -89,7 +108,7 @@ describe('Discovery app shell and route state', () => {
 
   it('browser back closes the drawer and leaves Discovery open', async () => {
     const router = makeRouter(['/discover', '/discover/bravo'], 1);
-    render(<RouterProvider router={router} />);
+    renderRouter(router);
     await screen.findByRole('dialog', { name: 'Bravo Room' });
 
     await act(async () => {
@@ -113,7 +132,7 @@ describe('Discovery app shell and route state', () => {
       hookState.screenplays = [...data];
       const router = makeRouter(['/discover']);
 
-      render(<RouterProvider router={router} />);
+      renderRouter(router);
 
       expect(await screen.findByRole('banner')).toBeInTheDocument();
       expect(screen.getByRole('navigation', { name: 'Discovery navigation' })).toBeInTheDocument();

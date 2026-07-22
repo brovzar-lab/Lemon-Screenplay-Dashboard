@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DiscoverShell } from '@/components/discover';
+import { useDiscoveryShareStatuses } from '@/components/discover/useDiscoveryShareStatuses';
 import {
   passesFilters,
   useFilteredScreenplays,
@@ -40,6 +41,7 @@ function DiscoverPage() {
   // Match the existing dashboard data spine: the query supplies normalized
   // startup data and the live listener replaces it with normalized snapshots.
   useLiveScreenplaySync();
+  useDiscoveryShareStatuses();
 
   // Discovery answers "best first" by weighted score unless the user already
   // chose a sort. This uses the existing shared sort machinery without changing

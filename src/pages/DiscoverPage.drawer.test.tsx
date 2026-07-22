@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -21,6 +22,14 @@ vi.mock('@/hooks/useScreenplays', () => ({
   }),
   useLiveScreenplaySync: vi.fn(),
   useDeleteScreenplays: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock('@/lib/shareService', () => ({
+  getAllSharedViews: vi.fn().mockResolvedValue([]),
+  getExistingShareToken: vi.fn().mockResolvedValue(null),
+  isScreenplaySynced: vi.fn().mockResolvedValue(true),
+  createShareToken: vi.fn(),
+  revokeShareToken: vi.fn(),
 }));
 
 import DiscoverPage from '@/pages/DiscoverPage';
@@ -65,12 +74,15 @@ function buildScreenplays(): Screenplay[] {
 }
 
 function renderPage() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={['/discover']}>
-      <Routes>
-        <Route path="/discover/:projectId?" element={<DiscoverPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/discover']}>
+        <Routes>
+          <Route path="/discover/:projectId?" element={<DiscoverPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -166,7 +178,7 @@ describe('Discovery detail drawer', () => {
     await user.tab({ shift: true });
     expect(within(drawer).getByRole('button', { name: '+ Add Note' })).toHaveFocus();
 
-    expect(within(drawer).queryByRole('button', { name: /share/i })).not.toBeInTheDocument();
+    expect(within(drawer).getByRole('button', { name: 'Share' })).toBeInTheDocument();
     expect(within(drawer).queryByText('Coverage')).not.toBeInTheDocument();
     expect(within(drawer).queryByText('PDF')).not.toBeInTheDocument();
     expect(within(drawer).queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();

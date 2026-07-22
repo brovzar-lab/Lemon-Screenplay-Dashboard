@@ -4,7 +4,9 @@ import {
   ModalHeader,
   NotesSection,
   ScoresPanel,
+  ShareButton,
 } from '@/components/screenplay/modal';
+import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import type { Screenplay } from '@/types';
 
 interface DiscoverDrawerProps {
@@ -83,6 +85,12 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
             showActions={false}
             titleId="discovery-drawer-title"
             closeLabel="Close details"
+            supplementalActions={
+              <div className="flex items-center gap-3">
+                <DiscoveryShareStatus screenplay={screenplay} />
+                <ShareButton screenplay={screenplay} />
+              </div>
+            }
           />
         </div>
 

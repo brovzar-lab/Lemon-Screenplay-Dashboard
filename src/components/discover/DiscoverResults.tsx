@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import type { RecommendationTier, Screenplay } from '@/types';
 
@@ -91,9 +92,12 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
           className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-4 focus-visible:ring-offset-black-950"
         >
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold-400/70 to-transparent" />
-          <p className="mb-5 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-gold-400">
-            Featured screenplay · #1
-          </p>
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-gold-400">
+              Featured screenplay · #1
+            </p>
+            <DiscoveryShareStatus screenplay={featured} />
+          </div>
           <div className="grid gap-7 sm:grid-cols-[11rem_minmax(0,1fr)]">
             <ScriptCover screenplay={featured} />
             <div className="flex min-w-0 flex-col">
@@ -155,8 +159,9 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
                     <p className="mt-2 text-[0.6rem] uppercase tracking-[0.12em] text-black-500">
                       {screenplay.genre}
                     </p>
-                    <div className="mt-auto pt-3">
+                    <div className="mt-auto flex items-center justify-between gap-2 pt-3">
                       <RecommendationBadge tier={screenplay.recommendation} />
+                      <DiscoveryShareStatus screenplay={screenplay} />
                     </div>
                   </div>
                 </button>
@@ -213,7 +218,10 @@ export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
               <Score screenplay={screenplay} />
             </div>
             <div className="mt-7">
-              <RecommendationBadge tier={screenplay.recommendation} />
+              <div className="flex items-center justify-between gap-3">
+                <RecommendationBadge tier={screenplay.recommendation} />
+                <DiscoveryShareStatus screenplay={screenplay} />
+              </div>
               <h3 className="mt-4 font-display text-3xl leading-tight text-black-50">
                 {screenplay.title}
               </h3>

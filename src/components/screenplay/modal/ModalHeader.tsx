@@ -17,7 +17,7 @@ import { ref, getDownloadURL } from 'firebase/storage';
 // downloadCoveragePdf is dynamically imported below to defer @react-pdf/renderer
 import { useToastStore } from '@/stores/toastStore';
 import { useIsAdmin } from '@/stores/authStore';
-import type { RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 interface ModalHeaderProps {
     screenplay: Screenplay;
@@ -27,6 +27,7 @@ interface ModalHeaderProps {
     showActions?: boolean;
     titleId?: string;
     closeLabel?: string;
+    supplementalActions?: ReactNode;
 }
 export function ModalHeader({
     screenplay,
@@ -36,6 +37,7 @@ export function ModalHeader({
     showActions = true,
     titleId = 'modal-title',
     closeLabel = 'Close modal',
+    supplementalActions,
 }: ModalHeaderProps) {
     const isAdmin = useIsAdmin();
     const budgetInfo = BUDGET_TIERS[screenplay.budgetCategory];
@@ -195,6 +197,8 @@ export function ModalHeader({
                             {screenplay.collection}
                         </span>
                     </div>
+
+                    {supplementalActions}
 
                     {/* Right: Share + Coverage + Re-analyze + PDF + Delete */}
                     {showActions && <div className="flex items-center gap-2">
