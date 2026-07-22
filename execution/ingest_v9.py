@@ -70,7 +70,7 @@ import uuid
 import logging
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -2976,7 +2976,7 @@ def build_raw_document(
             "total_tokens": total_usage,
             "total_duration_ms": total_duration_ms,
             "mode": mode,
-            "ingested_at": datetime.utcnow().isoformat() + "Z",
+            "ingested_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "ingested_by": "ingest_v9.py",
         },
         "queued_at_ms": queued_at_millis(queued_at_ms),

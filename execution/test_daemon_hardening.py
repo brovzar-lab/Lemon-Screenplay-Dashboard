@@ -55,6 +55,49 @@ class DownloadIdentityTests(unittest.TestCase):
                 )
 
 
+class InMemoryQueueQuery:
+    def __init__(self, documents):
+        self.documents = documents
+        self.filters = []
+
+    def where(self, field, operator, value):
+        self.filters.append((field, operator, value))
+        return self
+
+    def limit(self, _count):
+        return self
+
+    def stream(self):
+        return [
+            SimpleNamespace(to_dict=lambda data=data: data)
+            for data in self.documents
+            if all(operator == "==" and data.get(field) == value
+                   for field, operator, value in self.filters)
+        ]
+
+
+class DuplicateLookupTests(unittest.TestCase):
+    def test_real_duplicate_query_only_matches_completed_identical_content(self):
+        prior_db = daemon._db
+        try:
+            complete_query = InMemoryQueueQuery([
+                {"content_hash": CONTENT_HASH, "status": "pending"},
+                {"content_hash": "00" * 32, "status": "complete"},
+                {"content_hash": CONTENT_HASH, "status": "complete"},
+            ])
+            daemon._db = MagicMock()
+            daemon._db.collection.return_value = complete_query
+            self.assertTrue(daemon.is_already_complete(CONTENT_HASH))
+
+            pending_query = InMemoryQueueQuery([
+                {"content_hash": CONTENT_HASH, "status": "pending"},
+            ])
+            daemon._db.collection.return_value = pending_query
+            self.assertFalse(daemon.is_already_complete(CONTENT_HASH))
+        finally:
+            daemon._db = prior_db
+
+
 class TerminalFailureTests(unittest.TestCase):
     def test_missing_revision_target_fails_once_before_budget_or_ai(self):
         heartbeat = MagicMock()

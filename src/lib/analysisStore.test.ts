@@ -242,6 +242,70 @@ describe('analysisStore authReady gates', () => {
         expect(mockSetDoc).not.toHaveBeenCalled();
     });
 
+    it('advances an existing project to version two while preserving its original source name', async () => {
+        const contentHash = 'de'.repeat(32);
+        const queuedAtMs = 1_784_588_800_789;
+        mockParentSnapshotData = {
+            source_file: 'Original Draft.pdf',
+            version_count: 1,
+        };
+        const { saveAnalysis } = await import('./analysisStore');
+
+        resolveAuthReady();
+        await saveAnalysis({
+            source_file: 'Completely Renamed Draft.pdf',
+            project_id: 'Original_Draft.pdf',
+            analysis_version: 'v9_archaeology',
+            content_hash: contentHash,
+            identity_status: 'verified',
+            queued_at_ms: queuedAtMs,
+        });
+
+        expect(mockTransactionSet).toHaveBeenNthCalledWith(
+            1,
+            'mock-version-doc-ref',
+            expect.objectContaining({
+                source_file: 'Completely Renamed Draft.pdf',
+                project_id: 'Original_Draft.pdf',
+                version_number: 2,
+            }),
+        );
+        expect(mockTransactionSet).toHaveBeenNthCalledWith(
+            2,
+            'mock-doc-ref',
+            expect.objectContaining({
+                source_file: 'Original Draft.pdf',
+                latest_source_file: 'Completely Renamed Draft.pdf',
+                project_id: 'Original_Draft.pdf',
+                version_count: 2,
+            }),
+        );
+    });
+
+    it('does not advance the parent when the deterministic version already exists', async () => {
+        const contentHash = 'ad'.repeat(32);
+        const queuedAtMs = 1_784_588_800_999;
+        mockParentSnapshotData = { version_count: 1 };
+        mockVersionSnapshotData = {
+            version_id: `${contentHash}_${queuedAtMs}`,
+            version_number: 2,
+        };
+        const { saveAnalysis } = await import('./analysisStore');
+
+        resolveAuthReady();
+        await saveAnalysis({
+            source_file: 'Retry.pdf',
+            project_id: 'Original_Draft.pdf',
+            analysis_version: 'v9_archaeology',
+            content_hash: contentHash,
+            identity_status: 'verified',
+            queued_at_ms: queuedAtMs,
+        });
+
+        expect(mockRunTransaction).toHaveBeenCalledOnce();
+        expect(mockTransactionSet).not.toHaveBeenCalled();
+    });
+
     it('refuses to persist permanent V9 coverage without verified identity', async () => {
         const { saveAnalysis } = await import('./analysisStore');
 
