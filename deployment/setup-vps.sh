@@ -33,7 +33,8 @@ apt-get install -y -q \
     git curl wget \
     libmupdf-dev \
     poppler-utils \
-    tesseract-ocr          # Optional: OCR for scanned PDFs
+    tesseract-ocr \
+    tesseract-ocr-spa      # Spanish OCR language data
 
 PYTHON=$(command -v python3)
 PY_VERSION=$($PYTHON --version 2>&1 | awk '{print $2}')
