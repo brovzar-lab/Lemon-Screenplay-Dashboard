@@ -12,6 +12,15 @@ import type { ReactElement } from 'react';
 import { ScreenplayModal } from './ScreenplayModal';
 import { createTestScreenplay } from '@/test/factories';
 
+// Shell tests do not exercise admin-only writes or the feedback editor's async load.
+vi.mock('@/stores/authStore', () => ({
+    useIsAdmin: () => false,
+}));
+
+vi.mock('./modal/FeedbackSection', () => ({
+    FeedbackSection: () => null,
+}));
+
 // Mock the comparison store (used internally by ScreenplayCard rendered in modal)
 vi.mock('@/stores/comparisonStore', () => ({
     useComparisonStore: () => vi.fn(),
