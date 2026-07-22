@@ -50,7 +50,7 @@ OPTIONAL ENV VARS
   DAEMON_CONCURRENCY    — parallel workers (default: 2; stay at 2 for Tier 1)
   DAEMON_POLL_INTERVAL  — seconds between Firestore polls (default: 10)
   DAEMON_WORK_DIR       — temp directory for PDF downloads (default: /tmp/lemon)
-  DAILY_BUDGET_LIMIT    — max Anthropic calls/day (default: 200, shared with Cloud Fn)
+  DAILY_LLM_BUDGET_USD  — enforced by the llmProxy Cloud Function (default: $100/day)
   LLM_PROXY_URL         — override if you want to route through Cloud Function instead
 """
 
@@ -126,7 +126,6 @@ STORAGE_BUCKET    = resolve_storage_bucket()
 CONCURRENCY       = int(os.getenv("DAEMON_CONCURRENCY", "2"))
 POLL_INTERVAL     = int(os.getenv("DAEMON_POLL_INTERVAL", "10"))
 WORK_DIR          = Path(os.getenv("DAEMON_WORK_DIR", "/tmp/lemon"))
-DAILY_BUDGET      = int(os.getenv("DAILY_BUDGET_LIMIT", "200"))
 WORKER_ID         = f"hostinger-vps-{os.getenv('HOSTNAME', 'unknown')}-{os.getpid()}"
 HEARTBEAT_SECS    = 60
 ORPHAN_SWEEP_SECS = int(os.getenv("DAEMON_ORPHAN_SWEEP_INTERVAL", "300"))
@@ -338,39 +337,32 @@ def run_orphan_watchdog(stop_event: "threading.Event") -> None:
         sweep_orphaned_jobs()
     log.info("[watchdog] Stopped")
 
-# ── Budget counter (mirrors budgetCounter.ts) ─────────────────────────────────
+# ── Budget preflight (the Cloud Function remains the authority) ───────────────
 
 class BudgetExceededError(Exception):
     pass
 
-def check_and_increment_budget(limit: int = DAILY_BUDGET) -> int:
-    """
-    Transactional daily budget check. Mirrors the TypeScript budgetCounter.ts
-    so the VPS and Cloud Function share the same Firestore counter document.
-    Raises BudgetExceededError if the limit is reached.
-    """
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    doc_id = f"api-budget-{today}"
-    ref = _db.collection(SYSTEM_COLLECTION).document(doc_id)
+def check_daily_budget_available(now: Optional[datetime] = None) -> None:
+    """Avoid preparation when the authoritative server ledger is exhausted.
 
-    @fb_firestore.transactional
-    def update_in_transaction(transaction, ref):
-        snap = ref.get(transaction=transaction)
-        current = snap.get("count") if snap.exists else 0
-        if current >= limit:
-            raise BudgetExceededError(
-                f"Daily limit of {limit} Anthropic calls reached. Try again tomorrow."
-            )
-        transaction.set(ref, {
-            "count": fb_firestore.Increment(1),
-            "date": today,
-            "limit": limit,
-        }, merge=True)
-        return current + 1
-
-    new_count = update_in_transaction(_db.transaction(), ref)
-    log.info(f"[budget] Daily call count: {new_count}/{limit}")
-    return new_count
+    This is deliberately read-only. Every individual model call still makes a
+    transactional dollar reservation inside llmProxy, which is the hard gate.
+    """
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    doc_id = f"llm-budget-{current.strftime('%Y-%m-%d')}"
+    snapshot = _db.collection(SYSTEM_COLLECTION).document(doc_id).get()
+    if not snapshot.exists:
+        return
+    data = snapshot.to_dict() or {}
+    limit = data.get("limit_microusd", 0)
+    spent = data.get("spent_microusd", 0)
+    reserved = data.get("reserved_microusd", 0)
+    if not all(isinstance(value, int) and value >= 0 for value in (limit, spent, reserved)):
+        raise RuntimeError("Daily AI budget ledger is malformed; refusing unmetered work.")
+    if limit > 0 and spent + reserved >= limit:
+        raise BudgetExceededError(
+            f"Daily AI budget of ${limit / 1_000_000:.2f} is exhausted."
+        )
 
 # ── Job claiming (atomic Firestore transaction) ───────────────────────────────
 
@@ -640,12 +632,16 @@ def existing_version_completion_telemetry(
         "duration_seconds": 0,
         "input_tokens": usage.get("input_tokens", 0),
         "output_tokens": usage.get("output_tokens", 0),
-        "llm_call_count": usage.get("call_count", 0),
+        "analysis_llm_call_count": usage.get("call_count", 0),
         "anthropic_model": version.get("analysis_model"),
         "anthropic_finish_reason": usage.get("finish_reason", "end_turn"),
-        "estimated_cost_usd": version.get(
+        "analysis_actual_cost_usd": usage.get(
             "actual_cost_usd",
-            version.get("estimated_cost_usd"),
+            version.get("actual_cost_usd", version.get("estimated_cost_usd")),
+        ),
+        "estimated_cost_usd": usage.get(
+            "actual_cost_usd",
+            version.get("actual_cost_usd", version.get("estimated_cost_usd")),
         ),
         "prompt_version": version.get("prompt_version"),
         "analysis_version": version.get("analysis_version", "v9_archaeology"),
@@ -1055,6 +1051,8 @@ def build_raw_document(
         },
         "analysis": analysis,
         "usage": usage,
+        "actual_cost_microusd": usage.get("actual_cost_microusd", 0),
+        "actual_cost_usd": usage.get("actual_cost_usd", 0.0),
         "_ingest_job_id": job_id,
         "_worker_id": WORKER_ID,
         "queued_at_ms": queued_at_millis(queued_at_ms),
@@ -1206,9 +1204,12 @@ def process_job(job: dict) -> None:
             )
             return
 
-        # ── 5. Budget check (shared counter with Cloud Function) ──────────
+        # ── 5. Read-only budget preflight ─────────────────────────────────
+        # The strict dollar reservation still happens inside llmProxy for
+        # every model call. This read prevents known-exhausted jobs from doing
+        # archive/calibration preparation before they pause.
         try:
-            check_and_increment_budget()
+            check_daily_budget_available()
         except BudgetExceededError as e:
             mark_waiting_for_budget(job_id, e, attempt_count)
             log.warning(f"[budget] Pausing — {e}")
@@ -1240,31 +1241,45 @@ def process_job(job: dict) -> None:
         # ── 7. Run V9 Archaeology Engine analysis ─────────────────────────
         proxy_url = os.getenv("LLM_PROXY_URL")  # None = call Anthropic directly
 
-        if model_key == "hybrid":
-            log.info(f"[analyze] Running V9 HYBRID analysis: '{title}' (Sonnet → maybe Opus)")
-            analysis, usage = ingest_v9.run_v9_hybrid(
-                text=text,
-                title=title,
-                page_count=page_count,
-                word_count=word_count,
-                proxy_url=proxy_url,
-                calibration_prompt=(
-                    calibration_profile["prompt"] if calibration_profile else None
-                ),
+        try:
+            if model_key == "hybrid":
+                log.info(f"[analyze] Running V9 HYBRID analysis: '{title}' (Sonnet → maybe Opus)")
+                analysis, usage = ingest_v9.run_v9_hybrid(
+                    text=text,
+                    title=title,
+                    page_count=page_count,
+                    word_count=word_count,
+                    proxy_url=proxy_url,
+                    calibration_prompt=(
+                        calibration_profile["prompt"] if calibration_profile else None
+                    ),
+                    job_id=job_id,
+                )
+            else:
+                log.info(f"[analyze] Running V9 full analysis: '{title}' (model: {model_key})")
+                analysis, usage = ingest_v9.run_v9_stable(
+                    text=text,
+                    title=title,
+                    page_count=page_count,
+                    word_count=word_count,
+                    model_key=model_key,
+                    proxy_url=proxy_url,
+                    calibration_prompt=(
+                        calibration_profile["prompt"] if calibration_profile else None
+                    ),
+                    job_id=job_id,
+                )
+        except ingest_v9.DailyBudgetExceededError as e:
+            mark_waiting_for_budget(job_id, e, attempt_count)
+            log.warning(f"[budget] Pausing — {e}")
+            return
+        except ingest_v9.LlmAccountingError as e:
+            mark_terminal_failed(job_id, e)
+            log.error(
+                "[budget] Cost settlement failed after a possible paid call; "
+                "manual review required before retrying."
             )
-        else:
-            log.info(f"[analyze] Running V9 full analysis: '{title}' (model: {model_key})")
-            analysis, usage = ingest_v9.run_v9_stable(
-                text=text,
-                title=title,
-                page_count=page_count,
-                word_count=word_count,
-                model_key=model_key,
-                proxy_url=proxy_url,
-                calibration_prompt=(
-                    calibration_profile["prompt"] if calibration_profile else None
-                ),
-            )
+            return
 
         # ── 8. Check finish reason (don't save truncated JSON) ────────────
         finish_reason = usage.get("finish_reason", "end_turn")
@@ -1305,13 +1320,9 @@ def process_job(job: dict) -> None:
         input_tokens  = usage.get("input_tokens", 0)
         output_tokens = usage.get("output_tokens", 0)
 
-        # Rough cost estimate (Sonnet 4 pricing as of 2025)
-        cost_per_input_mtok  = {"haiku": 0.25, "sonnet": 3.0, "opus": 15.0}.get(model_key, 3.0)
-        cost_per_output_mtok = {"haiku": 1.25, "sonnet": 15.0, "opus": 75.0}.get(model_key, 15.0)
-        estimated_cost = (
-            (input_tokens / 1_000_000 * cost_per_input_mtok) +
-            (output_tokens / 1_000_000 * cost_per_output_mtok)
-        )
+        actual_cost_microusd = int(usage.get("actual_cost_microusd", 0))
+        actual_cost_usd = actual_cost_microusd / 1_000_000
+        analysis_call_count = int(usage.get("call_count", 0))
 
         # For hybrid runs, report the model that actually produced the final
         # result (sonnet for no-promotion, opus for promoted scripts).
@@ -1324,9 +1335,14 @@ def process_job(job: dict) -> None:
             "duration_seconds": duration,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
+            "analysis_llm_call_count": analysis_call_count,
+            "analysis_actual_cost_microusd": actual_cost_microusd,
+            "analysis_actual_cost_usd": actual_cost_usd,
             "anthropic_model": ingest_v9.MODEL_IDS.get(final_model_key, final_model_key),
             "anthropic_finish_reason": finish_reason,
-            "estimated_cost_usd": round(estimated_cost, 4),
+            # Compatibility field for existing dashboard readers. It now holds
+            # exact server-settled cost rather than a model-key estimate.
+            "estimated_cost_usd": actual_cost_usd,
             "prompt_version": None,   # TODO: pipe through from ingest_v9
             "analysis_version": "v9_archaeology",
             "archived_storage_path": archive_storage_path,
@@ -1335,7 +1351,8 @@ def process_job(job: dict) -> None:
 
         log.info(
             f"[job] ✅ {filename} → complete "
-            f"({duration}s | {input_tokens:,}+{output_tokens:,} tokens | ${estimated_cost:.3f})"
+            f"({duration}s | {analysis_call_count} calls | "
+            f"{input_tokens:,}+{output_tokens:,} tokens | ${actual_cost_usd:.4f})"
         )
 
     except TerminalJobError as e:
@@ -1391,7 +1408,7 @@ def main() -> None:
     log.info(f"    Poll interval: {POLL_INTERVAL}s")
     log.info(f"    Orphan sweep : every {ORPHAN_SWEEP_SECS}s")
     log.info(f"    Work dir    : {WORK_DIR}")
-    log.info(f"    Daily budget: {DAILY_BUDGET} API calls")
+    log.info("    Daily budget: enforced as dollars by the llmProxy Cloud Function")
     log.info("═" * 70)
 
     if not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("LLM_PROXY_URL"):

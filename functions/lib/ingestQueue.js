@@ -11,7 +11,7 @@
  * SCHEMA VERSION: 3
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DAILY_BUDGET_LIMIT = exports.SYSTEM_COLLECTION = exports.INGEST_QUEUE_COLLECTION = exports.VALID_COLLECTIONS = void 0;
+exports.SYSTEM_COLLECTION = exports.INGEST_QUEUE_COLLECTION = exports.VALID_COLLECTIONS = void 0;
 exports.buildPendingJob = buildPendingJob;
 const firestore_1 = require("firebase-admin/firestore");
 // ── Valid collection IDs ──────────────────────────────────────────────────────
@@ -47,6 +47,14 @@ function buildPendingJob(params) {
         screenplay_doc_id: null,
         input_tokens: null,
         output_tokens: null,
+        llm_call_count: 0,
+        llm_input_tokens: 0,
+        llm_output_tokens: 0,
+        llm_cache_creation_input_tokens: 0,
+        llm_cache_read_input_tokens: 0,
+        actual_cost_microusd: 0,
+        actual_cost_usd: 0,
+        llm_models: {},
         anthropic_model: null,
         anthropic_finish_reason: null,
         estimated_cost_usd: null,
@@ -55,5 +63,4 @@ function buildPendingJob(params) {
 }
 exports.INGEST_QUEUE_COLLECTION = 'ingest-queue';
 exports.SYSTEM_COLLECTION = 'system';
-exports.DAILY_BUDGET_LIMIT = 200;
 //# sourceMappingURL=ingestQueue.js.map

@@ -627,6 +627,68 @@ def check_tmdb(title: str, year_context: Optional[int] = None) -> Tuple[bool, st
 
 # ── LLM Proxy ─────────────────────────────────────────────────────────────────
 
+USAGE_COUNTER_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+    "call_count",
+    "actual_cost_microusd",
+)
+
+
+class DailyBudgetExceededError(RuntimeError):
+    """The server-side daily dollar ceiling rejected an AI call."""
+
+    def __init__(self, message: str, reset_at: Optional[str] = None):
+        super().__init__(message)
+        self.reset_at = reset_at
+
+
+class LlmAccountingError(RuntimeError):
+    """A model call may have completed but its server ledger did not settle."""
+
+
+def empty_usage() -> Dict[str, Any]:
+    return {
+        **{field: 0 for field in USAGE_COUNTER_FIELDS},
+        "actual_cost_usd": 0.0,
+        "finish_reason": "end_turn",
+        "by_model": {},
+    }
+
+
+def merge_usage(*usages: Dict[str, Any]) -> Dict[str, Any]:
+    """Combine call-level usage without losing per-model hybrid costs."""
+    merged = empty_usage()
+    for usage in usages:
+        if not isinstance(usage, dict):
+            continue
+        for field in USAGE_COUNTER_FIELDS:
+            value = usage.get(field, 0)
+            if isinstance(value, (int, float)) and value >= 0:
+                merged[field] += int(value)
+        if usage.get("finish_reason") == "max_tokens":
+            merged["finish_reason"] = "max_tokens"
+
+        by_model = usage.get("by_model", {})
+        if not isinstance(by_model, dict):
+            continue
+        for model, raw_totals in by_model.items():
+            if not isinstance(model, str) or not isinstance(raw_totals, dict):
+                continue
+            current = merged["by_model"].setdefault(
+                model,
+                {field: 0 for field in USAGE_COUNTER_FIELDS},
+            )
+            for field in USAGE_COUNTER_FIELDS:
+                value = raw_totals.get(field, 0)
+                if isinstance(value, (int, float)) and value >= 0:
+                    current[field] += int(value)
+
+    merged["actual_cost_usd"] = merged["actual_cost_microusd"] / 1_000_000
+    return merged
+
 def call_llm(
     *,
     system_blocks: List[Dict[str, Any]],
@@ -638,7 +700,8 @@ def call_llm(
     temperature: float = DEFAULT_TEMPERATURE,
     retries: int = 3,
     proxy_url: Optional[str] = None,
-) -> Tuple[Optional[Dict[str, Any]], str, Dict[str, int]]:
+    job_id: Optional[str] = None,
+) -> Tuple[Optional[Dict[str, Any]], str, Dict[str, Any]]:
     """Block-aware LLM call via the Firebase proxy.
 
     Args:
@@ -652,13 +715,14 @@ def call_llm(
       temperature: sampling temperature (default 0.1).
       retries: transport retry count.
       proxy_url: override the default Cloud Function URL.
+      job_id: ingest-queue document ID for exact server-side job telemetry.
 
     Returns:
       (tool_input, text, usage)
         tool_input: dict if tool was forced and call succeeded; else None
         text: first text block (if any) — useful for non-tool calls
-        usage: {input_tokens, output_tokens, cache_creation_input_tokens,
-                cache_read_input_tokens}
+        usage: token counters, call count, exact cost, finish reason, and
+               per-model totals from the server-side ledger.
     """
     url = proxy_url or os.getenv("LLM_PROXY_URL") or DEFAULT_PROXY_URL
     model_id = MODEL_IDS.get(model_key, MODEL_IDS["sonnet"])
@@ -673,6 +737,8 @@ def call_llm(
         "max_tokens": total_max_tokens,
         "temperature": temperature,
     }
+    if job_id:
+        payload["job_id"] = job_id
     if tool:
         payload["tools"] = [tool]
         # Anthropic restriction: tool_choice cannot FORCE a specific tool when
@@ -710,6 +776,15 @@ def call_llm(
         try:
             resp = requests.post(url, json=payload, headers=proxy_headers, timeout=540)
             if resp.status_code == 429:
+                try:
+                    error_data = resp.json()
+                except ValueError:
+                    error_data = {}
+                if error_data.get("code") == "DAILY_BUDGET_EXCEEDED":
+                    raise DailyBudgetExceededError(
+                        error_data.get("error", "Daily AI dollar budget exhausted."),
+                        error_data.get("resetAt"),
+                    )
                 wait = 30 * attempt
                 log.warning(f"    Rate limited — waiting {wait}s (attempt {attempt}/{retries})")
                 time.sleep(wait)
@@ -725,6 +800,15 @@ def call_llm(
                 raise RuntimeError(
                     f"Proxy rejected the request (400). Body: {resp.text[:500]}"
                 )
+            if resp.status_code == 503:
+                try:
+                    error_data = resp.json()
+                except ValueError:
+                    error_data = {}
+                if error_data.get("code") == "BUDGET_ACCOUNTING_ERROR":
+                    raise LlmAccountingError(
+                        error_data.get("error", "AI cost accounting failed.")
+                    )
             resp.raise_for_status()
             data = resp.json()
 
@@ -732,14 +816,32 @@ def call_llm(
             tool_uses = data.get("tool_uses", []) or []
             tool_input = tool_uses[0]["input"] if tool_uses else None
 
+            raw_usage = data.get("usage", {})
+            response_model = data.get("model") or model_id
             usage = {
-                "input_tokens": data.get("usage", {}).get("input_tokens", 0),
-                "output_tokens": data.get("usage", {}).get("output_tokens", 0),
-                "cache_creation_input_tokens": data.get("usage", {}).get("cache_creation_input_tokens", 0),
-                "cache_read_input_tokens": data.get("usage", {}).get("cache_read_input_tokens", 0),
+                "input_tokens": int(raw_usage.get("input_tokens", 0)),
+                "output_tokens": int(raw_usage.get("output_tokens", 0)),
+                "cache_creation_input_tokens": int(raw_usage.get("cache_creation_input_tokens", 0)),
+                "cache_read_input_tokens": int(raw_usage.get("cache_read_input_tokens", 0)),
+                "call_count": int(raw_usage.get("call_count", 1)),
+                "actual_cost_microusd": int(raw_usage.get("actual_cost_microusd", 0)),
+                "actual_cost_usd": float(raw_usage.get("actual_cost_usd", 0.0)),
+                "finish_reason": data.get("stop_reason") or "end_turn",
+                "by_model": {
+                    response_model: {
+                        "input_tokens": int(raw_usage.get("input_tokens", 0)),
+                        "output_tokens": int(raw_usage.get("output_tokens", 0)),
+                        "cache_creation_input_tokens": int(raw_usage.get("cache_creation_input_tokens", 0)),
+                        "cache_read_input_tokens": int(raw_usage.get("cache_read_input_tokens", 0)),
+                        "call_count": int(raw_usage.get("call_count", 1)),
+                        "actual_cost_microusd": int(raw_usage.get("actual_cost_microusd", 0)),
+                    },
+                },
             }
             return tool_input, text, usage
 
+        except (DailyBudgetExceededError, LlmAccountingError):
+            raise
         except Exception as e:
             last_err = e
             if attempt < retries:
@@ -1689,12 +1791,13 @@ def _reader_user_blocks(
 def run_genre_detection(
     screenplay_block: Dict[str, Any],
     proxy_url: Optional[str],
-) -> Dict[str, Any]:
+    job_id: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Cheap Haiku pass that classifies the script into the Five-Leaf Clover.
     Returns a normalised detection dict (never raises — falls back to a
     low-confidence Society/drama read so the pipeline always proceeds)."""
     try:
-        _tool_input, text, _usage = call_llm(
+        _tool_input, text, usage = call_llm(
             system_blocks=[{
                 "type": "text",
                 "text": "You are a Story Grid genre analyst. Classify precisely.",
@@ -1706,12 +1809,18 @@ def run_genre_detection(
             model_key="haiku",
             max_tokens=400,
             proxy_url=proxy_url,
+            job_id=job_id,
         )
         raw = extract_json(text)
-        return parse_detection(raw)
+        return parse_detection(raw), usage
+    except (DailyBudgetExceededError, LlmAccountingError):
+        raise
     except Exception as e:
         log.warning(f"    Genre detection failed ({e}); defaulting to Society/drama.")
-        return parse_detection({"external_genre": "Society", "confidence": "low"})
+        return (
+            parse_detection({"external_genre": "Society", "confidence": "low"}),
+            empty_usage(),
+        )
 
 
 # ─── SYNTHESIS ───────────────────────────────────────────────────────────────
@@ -2362,7 +2471,8 @@ def run_v9_full(
     proxy_url: Optional[str],
     triage_impression: Optional[Dict[str, Any]] = None,
     calibration_prompt: Optional[str] = None,
-) -> Tuple[Dict[str, Any], Dict[str, int]]:
+    job_id: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Run the full 5-reader + synthesis V9 pipeline.
 
     - Tool_use forces schema-valid JSON output (no silent 5/10 fallback).
@@ -2388,19 +2498,20 @@ def run_v9_full(
     # First reader call writes the cache; subsequent calls read at 10% input cost.
     screenplay_block = _screenplay_user_block(truncated, cached=True)
 
-    total_usage: Dict[str, int] = {
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "cache_creation_input_tokens": 0,
-        "cache_read_input_tokens": 0,
-    }
+    total_usage = empty_usage()
 
-    def _accumulate(usage: Dict[str, int]) -> None:
-        for k in total_usage:
-            total_usage[k] += usage.get(k, 0)
+    def _accumulate(usage: Dict[str, Any]) -> None:
+        combined = merge_usage(total_usage, usage)
+        total_usage.clear()
+        total_usage.update(combined)
 
     # ── Genre detection (cheap Haiku pass) → the genre card the readers use ──
-    genre_detection = run_genre_detection(screenplay_block, proxy_url)
+    genre_detection, genre_usage = run_genre_detection(
+        screenplay_block,
+        proxy_url,
+        job_id=job_id,
+    )
+    _accumulate(genre_usage)
     genre_card = build_genre_card(genre_detection)
     _gd = genre_detection
     _label = _gd["external_genre"]
@@ -2415,7 +2526,7 @@ def run_v9_full(
     reader_reports: Dict[str, Any] = {}
     reader_start = time.time()
 
-    def run_reader(reader: str) -> Tuple[str, Any, Dict[str, int]]:
+    def run_reader(reader: str) -> Tuple[str, Any, Dict[str, Any]]:
         system_blocks = _reader_system_blocks(reader)
         user_blocks = _reader_user_blocks(reader, screenplay_block, title, page_count, genre_card)
         tool = READER_TOOLS[reader]
@@ -2428,7 +2539,10 @@ def run_v9_full(
                 thinking_budget=THINKING_BUDGET_READER,
                 max_tokens=OUTPUT_BUDGET_READER,
                 proxy_url=proxy_url,
+                job_id=job_id,
             )
+        except (DailyBudgetExceededError, LlmAccountingError):
+            raise
         except Exception as e:
             log.error(f"      ✗ {reader} call failed: {e}")
             return reader, {"reader": reader, "pillar_score": 0, "error": str(e), "call_error": True}, {}
@@ -2450,6 +2564,8 @@ def run_v9_full(
                 _accumulate(usage)
                 score = report.get("pillar_score", report.get("overall_score", "?"))
                 log.info(f"      ✓ {r_name} (pillar_score: {score})")
+            except (DailyBudgetExceededError, LlmAccountingError):
+                raise
             except Exception as e:
                 log.error(f"      ✗ {reader} reader failed: {e}")
                 reader_reports[reader] = {"reader": reader, "pillar_score": 0, "error": str(e)}
@@ -2509,6 +2625,7 @@ def run_v9_full(
                 thinking_budget=THINKING_BUDGET_SYNTHESIS,
                 max_tokens=OUTPUT_BUDGET_SYNTHESIS,
                 proxy_url=proxy_url,
+                job_id=job_id,
             )
             _accumulate(syn_usage)
             if tool_input is not None:
@@ -2516,6 +2633,8 @@ def run_v9_full(
                 break
             last_err = RuntimeError("synthesis returned no tool_use block")
             log.warning(f"    Synthesis attempt {attempt}/3: no tool_use block")
+        except (DailyBudgetExceededError, LlmAccountingError):
+            raise
         except Exception as e:
             last_err = e
             log.warning(f"    Synthesis attempt {attempt}/3 failed: {e}")
@@ -2708,7 +2827,8 @@ def run_v9_stable(
     proxy_url: Optional[str],
     triage_impression: Optional[Dict[str, Any]] = None,
     calibration_prompt: Optional[str] = None,
-) -> Tuple[Dict[str, Any], Dict[str, int]]:
+    job_id: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """run_v9_full with boundary re-runs. Drop-in replacement.
 
     Set LEMON_BOUNDARY_RERUNS=0 to disable (single-pass, e.g. cost-capped
@@ -2718,6 +2838,7 @@ def run_v9_stable(
         text=text, title=title, page_count=page_count, word_count=word_count,
         model_key=model_key, proxy_url=proxy_url, triage_impression=triage_impression,
         calibration_prompt=calibration_prompt,
+        job_id=job_id,
     )
     combined: Dict[str, Any] = dict(usage)
 
@@ -2736,17 +2857,14 @@ def run_v9_stable(
                 text=text, title=title, page_count=page_count, word_count=word_count,
                 model_key=model_key, proxy_url=proxy_url, triage_impression=triage_impression,
                 calibration_prompt=calibration_prompt,
+                job_id=job_id,
             )
+        except (DailyBudgetExceededError, LlmAccountingError):
+            raise
         except Exception as e:
             log.warning(f"    Boundary re-run {i + 2} failed (continuing with {len(runs)} run(s)): {e}")
             continue
-        for k, v in extra_usage.items():
-            if isinstance(v, int) and isinstance(combined.get(k), int):
-                combined[k] = combined[k] + v
-            elif isinstance(v, int) and k not in combined:
-                combined[k] = v
-            else:
-                combined[k] = v
+        combined = merge_usage(combined, extra_usage)
         runs.append((_adjusted_score(extra), extra))
 
     if len(runs) == 1:
@@ -2769,7 +2887,8 @@ def run_v9_hybrid(
     proxy_url: Optional[str],
     triage_impression: Optional[Dict[str, Any]] = None,
     calibration_prompt: Optional[str] = None,
-) -> Tuple[Dict[str, Any], Dict[str, int]]:
+    job_id: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Smart two-pass: Sonnet first; if verdict is RECOMMEND or FILM_NOW,
     re-run on Opus for deeper analysis.
 
@@ -2792,6 +2911,7 @@ def run_v9_hybrid(
         proxy_url=proxy_url,
         triage_impression=triage_impression,
         calibration_prompt=calibration_prompt,
+        job_id=job_id,
     )
 
     sonnet_verdict_raw = str(sonnet_analysis.get("verdict", ""))
@@ -2824,12 +2944,11 @@ def run_v9_hybrid(
         proxy_url=proxy_url,
         triage_impression=triage_impression,
         calibration_prompt=calibration_prompt,
+        job_id=job_id,
     )
 
     # Combine usage across both passes (cost accounting).
-    combined_usage: Dict[str, int] = {}
-    for k in set(sonnet_usage) | set(opus_usage):
-        combined_usage[k] = int(sonnet_usage.get(k, 0)) + int(opus_usage.get(k, 0))
+    combined_usage = merge_usage(sonnet_usage, opus_usage)
 
     opus_analysis["_hybrid_mode"] = {
         "promoted_to_opus": True,
@@ -2943,7 +3062,7 @@ def build_raw_document(
     collection: str,
     model_key: str,
     mode: str,
-    total_usage: Dict[str, int],
+    total_usage: Dict[str, Any],
     total_duration_ms: int,
     content_hash: str,
     queued_at_ms: int,
@@ -2971,6 +3090,9 @@ def build_raw_document(
             "word_count": parsed.get("word_count", 0),
         },
         "analysis": analysis,
+        "usage": total_usage,
+        "actual_cost_microusd": total_usage.get("actual_cost_microusd", 0),
+        "actual_cost_usd": total_usage.get("actual_cost_usd", 0.0),
         "v9_meta": {
             "reader_count": 5 if mode == "full" else 1,
             "total_tokens": total_usage,

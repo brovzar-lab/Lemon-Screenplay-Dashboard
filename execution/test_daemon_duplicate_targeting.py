@@ -180,7 +180,7 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                     patch.object(daemon, "compute_content_hash", return_value=CONTENT_HASH),
                     patch.object(daemon, "is_already_complete", return_value=True),
                     patch.object(daemon, "mark_skipped") as mark_skipped,
-                    patch.object(daemon, "check_and_increment_budget") as budget,
+                    patch.object(daemon, "check_daily_budget_available") as budget,
                 ):
                     daemon.process_job({
                         "id": "duplicate-job",
@@ -316,7 +316,7 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                             },
                         },
                     ),
-                    patch.object(daemon, "check_and_increment_budget"),
+                    patch.object(daemon, "check_daily_budget_available"),
                     patch.object(daemon, "mark_complete") as mark_complete,
                     patch.object(daemon, "mark_failed") as mark_failed,
                 ):

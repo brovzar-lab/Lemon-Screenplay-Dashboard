@@ -123,6 +123,22 @@ export interface IngestJob {
   // ── Cost + quality telemetry ──────────────────────────────────────────────
   input_tokens: number | null;
   output_tokens: number | null;
+  /** Successful calls made for this queue job, including failed attempts. */
+  llm_call_count: number;
+  llm_input_tokens: number;
+  llm_output_tokens: number;
+  llm_cache_creation_input_tokens: number;
+  llm_cache_read_input_tokens: number;
+  actual_cost_microusd: number;
+  actual_cost_usd: number;
+  llm_models: Record<string, {
+    call_count: number;
+    input_tokens: number;
+    output_tokens: number;
+    cache_creation_input_tokens: number;
+    cache_read_input_tokens: number;
+    actual_cost_microusd: number;
+  }>;
   /** E.g., 'claude-sonnet-4-6' */
   anthropic_model: string | null;
   /**
@@ -184,6 +200,14 @@ export function buildPendingJob(params: {
     screenplay_doc_id: null,
     input_tokens: null,
     output_tokens: null,
+    llm_call_count: 0,
+    llm_input_tokens: 0,
+    llm_output_tokens: 0,
+    llm_cache_creation_input_tokens: 0,
+    llm_cache_read_input_tokens: 0,
+    actual_cost_microusd: 0,
+    actual_cost_usd: 0,
+    llm_models: {},
     anthropic_model: null,
     anthropic_finish_reason: null,
     estimated_cost_usd: null,
@@ -191,14 +215,5 @@ export function buildPendingJob(params: {
   };
 }
 
-// ── Budget counter document (Firestore: system/api-budget-{YYYY-MM-DD}) ───────
-
-export interface DailyBudget {
-  date: string;    // YYYY-MM-DD (UTC)
-  count: number;   // Incremented transactionally
-  limit: number;   // Default 200
-}
-
 export const INGEST_QUEUE_COLLECTION = 'ingest-queue' as const;
 export const SYSTEM_COLLECTION = 'system' as const;
-export const DAILY_BUDGET_LIMIT = 200 as const;

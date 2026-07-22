@@ -20,8 +20,24 @@ import { defineString } from "firebase-functions/params";
 import Anthropic from "@anthropic-ai/sdk";
 import cors from "cors";
 import { authenticateProxyRequest } from "./proxyAuth";
+import {
+  DailyBudgetExceededError,
+  releaseLlmBudget,
+  reserveLlmBudget,
+  settleLlmBudget,
+  type LlmBudgetReservation,
+} from "./budgetCounter";
+import {
+  DEFAULT_DAILY_LLM_BUDGET_USD,
+  parseDailyBudgetUsd,
+  usdToMicrousd,
+  type LlmTokenUsage,
+} from "./llmCost";
 
 const anthropicApiKey = defineString("ANTHROPIC_API_KEY");
+const dailyLlmBudgetUsd = defineString("DAILY_LLM_BUDGET_USD", {
+  default: String(DEFAULT_DAILY_LLM_BUDGET_USD),
+});
 // Shared secret for the VPS daemon (server-side, no user session). Empty in
 // local dev disables service-key auth; browser ID-token auth still applies.
 const proxyServiceKey = defineString("PROXY_SERVICE_KEY");
@@ -81,6 +97,8 @@ interface ToolDefinition {
 interface ProxyRequestBody {
   model: string;
   messages: InboundMessage[];
+  /** VPS-only queue identity used for exact per-job cost telemetry. */
+  job_id?: string;
   // System can be a string OR an array of cacheable text blocks
   system?: string | Array<{ type: "text"; text: string; cache_control?: { type: "ephemeral" } }>;
   temperature?: number;
@@ -181,6 +199,9 @@ export const llmProxy = onRequest(
     timeoutSeconds: 3600,
     memory: "512MiB",
     maxInstances: 50,
+    // One long-running request per instance keeps the active reservation map
+    // bounded while still allowing up to 50 parallel model calls.
+    concurrency: 1,
   },
   (req, res) => {
     corsMiddleware(req, res, async () => {
@@ -267,24 +288,73 @@ export const llmProxy = onRequest(
         return;
       }
 
+      let jobId: string | undefined;
+      if (authResult.kind === "service" && body.job_id !== undefined) {
+        if (
+          typeof body.job_id !== "string"
+          || body.job_id.length < 1
+          || body.job_id.length > 1_500
+          || body.job_id.includes("/")
+        ) {
+          res.status(400).json({
+            error: "job_id must be a Firestore document ID.",
+            code: "INVALID_INPUT",
+            isRetryable: false,
+          });
+          return;
+        }
+        jobId = body.job_id;
+      }
+
+      const system = extractSystem(body);
+      const messages = userAssistantMessages(body);
+
+      // Build the request payload with all optional fields forwarded.
+      const payload: Record<string, unknown> = {
+        model: body.model,
+        max_tokens: maxTokens,
+        messages,
+      };
+      if (system !== undefined) payload.system = system;
+      if (typeof body.temperature === "number") payload.temperature = body.temperature;
+      if (body.tools && body.tools.length > 0) payload.tools = body.tools;
+      if (body.tool_choice) payload.tool_choice = body.tool_choice;
+      if (body.thinking) payload.thinking = body.thinking;
+
+      let reservation: LlmBudgetReservation;
+      try {
+        const limitUsd = parseDailyBudgetUsd(dailyLlmBudgetUsd.value());
+        reservation = await reserveLlmBudget({
+          model: body.model,
+          requestBytes: Buffer.byteLength(JSON.stringify(payload), "utf8"),
+          maxOutputTokens: maxTokens,
+          limitMicrousd: usdToMicrousd(limitUsd),
+          jobId,
+        });
+      } catch (error) {
+        if (error instanceof DailyBudgetExceededError) {
+          res.status(429).json({
+            error: error.message,
+            code: error.code,
+            isRetryable: false,
+            resetAt: error.resetAt.toISOString(),
+            limitUsd: error.limitMicrousd / 1_000_000,
+          });
+          return;
+        }
+        console.error("[llmProxy] Budget reservation failed:", error);
+        res.status(503).json({
+          error: "AI budget accounting is unavailable. No model call was made.",
+          code: "BUDGET_ACCOUNTING_ERROR",
+          isRetryable: true,
+        });
+        return;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let message: any;
       try {
         const client = new Anthropic({ apiKey: anthropicApiKey.value() });
-
-        const system = extractSystem(body);
-        const messages = userAssistantMessages(body);
-
-        // Build the request payload with all optional fields forwarded.
-        const payload: Record<string, unknown> = {
-          model: body.model,
-          max_tokens: maxTokens,
-          messages,
-        };
-        if (system !== undefined) payload.system = system;
-        if (typeof body.temperature === "number") payload.temperature = body.temperature;
-        if (body.tools && body.tools.length > 0) payload.tools = body.tools;
-        if (body.tool_choice) payload.tool_choice = body.tool_choice;
-        if (body.thinking) payload.thinking = body.thinking;
-
         // Use streaming under the hood and collect into a final Message.
         // Anthropic's SDK refuses non-streaming calls it estimates may exceed
         // 10 minutes (which heavy thinking + tool_use synthesis trips). The
@@ -293,51 +363,14 @@ export const llmProxy = onRequest(
         // .create() — so the rest of the handler is unchanged.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const stream = (client.messages.stream as any)(payload);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const message: any = await stream.finalMessage();
-
-        // Extract the first text block (back-compat).
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const textBlock = message.content.find((b: any) => b.type === "text");
-        const text = textBlock?.text ?? "";
-
-        // Extract tool_use blocks (new path) — the daemon and frontend can
-        // read this directly to get schema-guaranteed JSON without parsing.
-        const toolUses = message.content
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .filter((b: any) => b.type === "tool_use")
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((b: any) => ({ id: b.id, name: b.name, input: b.input }));
-
-        // Pull thinking blocks too (informational; useful for debugging).
-        const thinking = message.content
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .filter((b: any) => b.type === "thinking")
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((b: any) => b.thinking ?? "")
-          .join("\n");
-
-        // Full usage breakdown (cache hits, thinking, output tokens).
-        const usage = {
-          input_tokens: message.usage.input_tokens ?? 0,
-          output_tokens: message.usage.output_tokens ?? 0,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          cache_creation_input_tokens: (message.usage as any).cache_creation_input_tokens ?? 0,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          cache_read_input_tokens: (message.usage as any).cache_read_input_tokens ?? 0,
-        };
-
-        res.status(200).json({
-          text,
-          tool_uses: toolUses,
-          thinking,
-          content: message.content, // full block array for advanced callers
-          model: message.model,
-          stop_reason: message.stop_reason,
-          usage,
-        });
+        message = await stream.finalMessage();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
+        try {
+          await releaseLlmBudget(reservation, error?.message ?? "Anthropic request failed");
+        } catch (releaseError) {
+          console.error("[llmProxy] Budget release failed:", releaseError);
+        }
         console.error("[llmProxy] Error:", error);
 
         if (error.status === 429) {
@@ -369,6 +402,67 @@ export const llmProxy = onRequest(
           error: error.message || "Internal proxy error",
           code: "NETWORK_ERROR",
           isRetryable: true,
+        });
+        return;
+      }
+
+      try {
+        // Extract the first text block (back-compat).
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const textBlock = message.content.find((b: any) => b.type === "text");
+        const text = textBlock?.text ?? "";
+
+        // Extract tool_use blocks (new path) — the daemon and frontend can
+        // read this directly to get schema-guaranteed JSON without parsing.
+        const toolUses = message.content
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .filter((b: any) => b.type === "tool_use")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((b: any) => ({ id: b.id, name: b.name, input: b.input }));
+
+        // Pull thinking blocks too (informational; useful for debugging).
+        const thinking = message.content
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .filter((b: any) => b.type === "thinking")
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((b: any) => b.thinking ?? "")
+          .join("\n");
+
+        // Full usage breakdown (cache hits, thinking, output tokens).
+        const usage: LlmTokenUsage = {
+          input_tokens: message.usage.input_tokens ?? 0,
+          output_tokens: message.usage.output_tokens ?? 0,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          cache_creation_input_tokens: (message.usage as any).cache_creation_input_tokens ?? 0,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          cache_read_input_tokens: (message.usage as any).cache_read_input_tokens ?? 0,
+        };
+
+        const settlement = await settleLlmBudget(reservation, usage);
+
+        res.status(200).json({
+          text,
+          tool_uses: toolUses,
+          thinking,
+          content: message.content, // full block array for advanced callers
+          model: message.model,
+          stop_reason: message.stop_reason,
+          usage: {
+            ...usage,
+            call_count: 1,
+            actual_cost_microusd: settlement.actual_cost_microusd,
+            actual_cost_usd: settlement.actual_cost_usd,
+          },
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (error: any) {
+        // The Anthropic call happened, so leave the reservation in place. It
+        // must never be released as though no money was spent.
+        console.error("[llmProxy] Budget settlement failed:", error);
+        res.status(503).json({
+          error: "The model responded, but cost accounting could not be settled.",
+          code: "BUDGET_ACCOUNTING_ERROR",
+          isRetryable: false,
         });
       }
     });

@@ -69,7 +69,7 @@ class CompletedVersionPreflightTests(unittest.TestCase):
                         return_value=existing_version,
                     ) as version_lookup,
                     patch.object(daemon, "archive_pdf_version") as archive_pdf,
-                    patch.object(daemon, "check_and_increment_budget") as budget,
+                    patch.object(daemon, "check_daily_budget_available") as budget,
                     patch.object(daemon, "load_calibration_profile") as calibration,
                     patch.object(daemon, "mark_complete") as mark_complete,
                 ):
@@ -173,7 +173,7 @@ class BudgetWaitingStateTests(unittest.TestCase):
                     patch.object(daemon, "check_tmdb_for_job", return_value=(False, "", None)),
                     patch.object(
                         daemon,
-                        "check_and_increment_budget",
+                        "check_daily_budget_available",
                         side_effect=budget_error,
                     ),
                     patch.object(daemon, "mark_waiting_for_budget") as mark_waiting,
@@ -324,7 +324,7 @@ class TerminalFailureTests(unittest.TestCase):
                     ),
                     patch.object(daemon, "mark_terminal_failed") as terminal_failed,
                     patch.object(daemon, "mark_failed") as retryable_failed,
-                    patch.object(daemon, "check_and_increment_budget") as budget,
+                    patch.object(daemon, "check_daily_budget_available") as budget,
                 ):
                     daemon.process_job({
                         "id": "missing-target-job",
