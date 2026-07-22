@@ -1,4 +1,6 @@
+import { useCallback, useRef, useState } from 'react';
 import { DiscoverControls } from '@/components/discover/DiscoverControls';
+import { DiscoverDrawer } from '@/components/discover/DiscoverDrawer';
 import { DiscoverGrid, DiscoverShowcase } from '@/components/discover/DiscoverResults';
 import type { Screenplay } from '@/types';
 
@@ -69,6 +71,22 @@ export function DiscoverShell({
   isLoading,
   isError,
 }: DiscoverShellProps) {
+  const [selectedScreenplay, setSelectedScreenplay] = useState<Screenplay | null>(null);
+  const returnFocusRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleOpen = useCallback((screenplay: Screenplay, trigger: HTMLButtonElement) => {
+    returnFocusRef.current = trigger;
+    setSelectedScreenplay(screenplay);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    const returnTarget = returnFocusRef.current;
+    setSelectedScreenplay(null);
+    window.requestAnimationFrame(() => {
+      if (returnTarget?.isConnected) returnTarget.focus();
+    });
+  }, []);
+
   if (isLoading) return <DiscoverLoading />;
 
   if (isError) {
@@ -129,7 +147,7 @@ export function DiscoverShell({
           </section>
         ) : (
           <>
-            <DiscoverShowcase featured={featured} topMatches={topMatches} />
+            <DiscoverShowcase featured={featured} topMatches={topMatches} onOpen={handleOpen} />
 
             <section aria-labelledby="discovery-archive">
               <div className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-black-700 pb-4">
@@ -145,11 +163,14 @@ export function DiscoverShell({
                   {grid.length} beyond the shelf
                 </span>
               </div>
-              <DiscoverGrid screenplays={grid} />
+              <DiscoverGrid screenplays={grid} onOpen={handleOpen} />
             </section>
           </>
         )}
       </div>
+      {selectedScreenplay && (
+        <DiscoverDrawer screenplay={selectedScreenplay} onClose={handleClose} />
+      )}
     </main>
   );
 }

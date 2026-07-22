@@ -24,9 +24,19 @@ interface ModalHeaderProps {
     closeButtonRef: RefObject<HTMLButtonElement | null>;
     onClose: () => void;
     onReanalyzeComplete?: () => void;
+    showActions?: boolean;
+    titleId?: string;
+    closeLabel?: string;
 }
-
-export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeComplete }: ModalHeaderProps) {
+export function ModalHeader({
+    screenplay,
+    closeButtonRef,
+    onClose,
+    onReanalyzeComplete,
+    showActions = true,
+    titleId = 'modal-title',
+    closeLabel = 'Close modal',
+}: ModalHeaderProps) {
     const isAdmin = useIsAdmin();
     const budgetInfo = BUDGET_TIERS[screenplay.budgetCategory];
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -149,7 +159,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                         ref={closeButtonRef}
                         onClick={onClose}
                         className="modal-close-btn transition-all p-2 rounded-lg text-black-400 hover:text-black-200 hover:bg-white/10 shrink-0"
-                        aria-label="Close modal"
+                        aria-label={closeLabel}
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -160,7 +170,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                 {/* Tier 2: Title + Author */}
                 <div className="mb-4">
                     <h2
-                        id="modal-title"
+                        id={titleId}
                         className={clsx(
                             'text-2xl font-display mb-1',
                             screenplay.isFilmNow ? 'text-gradient-gold' : ''
@@ -187,7 +197,7 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                     </div>
 
                     {/* Right: Share + Coverage + Re-analyze + PDF + Delete */}
-                    <div className="flex items-center gap-2">
+                    {showActions && <div className="flex items-center gap-2">
                         <ShareButton screenplay={screenplay} />
                         <button
                             onClick={handleDownloadCoverage}
@@ -277,12 +287,12 @@ export function ModalHeader({ screenplay, closeButtonRef, onClose, onReanalyzeCo
                             </svg>
                             Delete
                         </button>}
-                    </div>
+                    </div>}
                 </div>
             </div>
 
             {/* Delete Confirmation Dialog */}
-            {isAdmin && <DeleteConfirmDialog
+            {showActions && isAdmin && <DeleteConfirmDialog
                 isOpen={showDeleteConfirm}
                 onConfirm={handleDelete}
                 onCancel={() => setShowDeleteConfirm(false)}
