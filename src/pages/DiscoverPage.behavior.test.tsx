@@ -256,4 +256,14 @@ describe('DiscoverPage find toolchain', () => {
     expect(useFilterStore.getState().hideNonScreenplays).toBe(false);
     expect(screen.queryByText('1 non-screenplay hidden')).not.toBeInTheDocument();
   });
+
+  it('focuses the Discovery search when slash is pressed outside an editable control', async () => {
+    renderPage();
+    await waitForWeightedDefault();
+    const search = screen.getByRole('searchbox', { name: 'Discovery search' });
+
+    fireEvent.keyDown(document, { key: '/' });
+
+    expect(search).toHaveFocus();
+  });
 });

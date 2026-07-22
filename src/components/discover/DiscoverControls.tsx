@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { clsx } from 'clsx';
 import { MultiSelect } from '@/components/filters/MultiSelect';
 import { RangeSlider } from '@/components/filters/RangeSlider';
@@ -30,6 +31,7 @@ interface DiscoverControlsProps {
   onRevealProduced: () => void;
   nonScreenplayHiddenCount: number;
   onRevealNonScreenplays: () => void;
+  shortcutsEnabled: boolean;
 }
 
 export function DiscoverControls({
@@ -43,12 +45,36 @@ export function DiscoverControls({
   onRevealProduced,
   nonScreenplayHiddenCount,
   onRevealNonScreenplays,
+  shortcutsEnabled,
 }: DiscoverControlsProps) {
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const filters = useFilterStore();
   const sortConfigs = useSortStore((state) => state.sortConfigs);
   const setSortConfigs = useSortStore((state) => state.setSortConfigs);
   const setPrioritizeFilmNow = useSortStore((state) => state.setPrioritizeFilmNow);
   const activeSort = sortConfigs[0]?.field ?? 'weightedScore';
+
+  useEffect(() => {
+    if (!shortcutsEnabled) return;
+
+    const handleSlash = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
+
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+    };
+
+    document.addEventListener('keydown', handleSlash);
+    return () => document.removeEventListener('keydown', handleSlash);
+  }, [shortcutsEnabled]);
 
   const handleSort = (field: SortField) => {
     const direction: SortDirection = field === 'title' ? 'asc' : 'desc';
@@ -74,6 +100,7 @@ export function DiscoverControls({
               /
             </span>
             <input
+              ref={searchInputRef}
               id="discovery-search"
               type="search"
               aria-label="Discovery search"

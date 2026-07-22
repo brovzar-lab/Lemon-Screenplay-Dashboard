@@ -150,6 +150,7 @@ export function DiscoverShell({
                 onRevealProduced={onRevealProduced}
                 nonScreenplayHiddenCount={nonScreenplayHiddenCount}
                 onRevealNonScreenplays={onRevealNonScreenplays}
+                shortcutsEnabled={!selectedScreenplay}
               />
 
               {totalCount === 0 ? (
