@@ -1,4 +1,4 @@
-import type { Screenplay } from '@/types';
+import { RECOMMENDATION_CONFIG, type Screenplay } from '@/types';
 
 interface DiscoverShellProps {
   screenplays: Screenplay[];
@@ -87,7 +87,7 @@ export function DiscoverShell({ screenplays, isLoading, isError }: DiscoverShell
               <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-black-300">
                 <span>{featured.genre}</span>
                 <span aria-hidden="true">•</span>
-                <span className="capitalize">{featured.recommendation.replace('_', ' ')}</span>
+                <span>{RECOMMENDATION_CONFIG[featured.recommendation].label}</span>
               </div>
               <h2
                 id="featured-screenplay"

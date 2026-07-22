@@ -21,7 +21,7 @@ vi.mock('@/lib/analysisStore', () => ({
 
 import DiscoverPage from './DiscoverPage';
 
-function rawAnalysis(title: string, score: number, sourceFile: string) {
+function rawAnalysis(title: string, score: number, sourceFile: string, verdict = 'RECOMMEND') {
   return {
     project_id: sourceFile.replace('.pdf', '').toLowerCase(),
     source_file: sourceFile,
@@ -41,7 +41,7 @@ function rawAnalysis(title: string, score: number, sourceFile: string) {
       themes: ['Identity'],
       logline: `${title} comes from the Firestore analysis collection.`,
       tone: 'Tense',
-      verdict: 'RECOMMEND',
+      verdict,
       weighted_score: score,
       pillar_scores: {
         structure: { score, evidence: 'Strong structure.' },
@@ -75,7 +75,7 @@ describe('DiscoverPage', () => {
   beforeEach(() => {
     const analyses = [
       rawAnalysis('Cactus Season', 7.4, 'Cactus Season.pdf'),
-      rawAnalysis('Midnight Orchard', 8.8, 'Midnight Orchard.pdf'),
+      rawAnalysis('Midnight Orchard', 8.8, 'Midnight Orchard.pdf', 'FILM_NOW'),
     ];
 
     mockLoadAllAnalyses.mockReset().mockResolvedValue(analyses);
@@ -91,6 +91,7 @@ describe('DiscoverPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Midnight Orchard' })).toBeInTheDocument();
     expect(screen.getAllByText('8.8').length).toBeGreaterThan(0);
+    expect(screen.getByText('FILM NOW')).toBeInTheDocument();
     expect(screen.getAllByText('Cactus Season').length).toBeGreaterThan(0);
     expect(mockLoadAllAnalyses).toHaveBeenCalledOnce();
     expect(mockSubscribeToAnalyses).toHaveBeenCalledOnce();
