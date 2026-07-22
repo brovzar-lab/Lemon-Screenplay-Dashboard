@@ -302,6 +302,20 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                             "2002",
                         ),
                     ) as archive_pdf,
+                    patch.object(
+                        daemon,
+                        "load_calibration_profile",
+                        return_value={
+                            "prompt": "Favor emotional specificity.",
+                            "provenance": {
+                                "applied": True,
+                                "profile_id": "admin",
+                                "prompt_sha256": "ab" * 32,
+                                "last_calibrated": "2026-07-21T12:00:00Z",
+                                "total_reviews": 12,
+                            },
+                        },
+                    ),
                     patch.object(daemon, "check_and_increment_budget"),
                     patch.object(daemon, "mark_complete") as mark_complete,
                     patch.object(daemon, "mark_failed") as mark_failed,
@@ -328,6 +342,15 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                 self.assertEqual(written[0]["source_file"], "Completely Renamed Draft.pdf")
                 self.assertEqual(written[0]["storage_generation"], "2002")
                 self.assertIn("/versions/", written[0]["storage_path"])
+                self.assertEqual(
+                    written[0]["calibration_profile"]["prompt_sha256"],
+                    "ab" * 32,
+                )
+                self.assertNotIn("prompt", written[0]["calibration_profile"])
+                self.assertEqual(
+                    fake_engine.run_v9_stable.call_args.kwargs["calibration_prompt"],
+                    "Favor emotional specificity.",
+                )
                 archive_pdf.assert_called_once_with(
                     storage_path="gs://bucket/ingest-queue/LEMON/upload/Renamed.pdf",
                     storage_generation="1001",

@@ -2044,6 +2044,7 @@ def _synthesis_user_blocks(
     reader_reports: Dict[str, Any],
     triage_impression: Optional[Dict[str, Any]] = None,
     genre_detection: Optional[Dict[str, Any]] = None,
+    calibration_prompt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Synthesis user blocks. Reader reports change per script — NOT cached.
 
@@ -2088,6 +2089,15 @@ def _synthesis_user_blocks(
             f"your 5 readers by 3+ points, note in reader_disagreements.\n\n"
         )
 
+    calibration_block = ""
+    if calibration_prompt and calibration_prompt.strip():
+        calibration_block = (
+            "# PRODUCER CALIBRATION\n"
+            f"{calibration_prompt.strip()}\n\n"
+            "Apply these biases to the synthesis without overriding the V9 "
+            "methodology, evidence requirements, or code-enforced verdict gates.\n\n"
+        )
+
     return [
         {
             "type": "text",
@@ -2095,6 +2105,7 @@ def _synthesis_user_blocks(
                 f"# TITLE\n{title}\n\n"
                 f"{genre_block}"
                 f"{triage_block}"
+                f"{calibration_block}"
                 f"# READER REPORTS\n```json\n{reports_json}\n```\n\n"
                 f"# YOUR TASK\nSynthesise these reports into a final verdict.\n"
                 f"Call `submit_synthesis_report` exactly once.\n"
@@ -2350,6 +2361,7 @@ def run_v9_full(
     model_key: str,
     proxy_url: Optional[str],
     triage_impression: Optional[Dict[str, Any]] = None,
+    calibration_prompt: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, int]]:
     """Run the full 5-reader + synthesis V9 pipeline.
 
@@ -2477,7 +2489,13 @@ def run_v9_full(
 
     # ── Synthesis (with retry) ──────────────────────────────────────────────
     syn_system_blocks = _synthesis_system_blocks()
-    syn_user_blocks = _synthesis_user_blocks(title, reader_reports, triage_impression, genre_detection)
+    syn_user_blocks = _synthesis_user_blocks(
+        title,
+        reader_reports,
+        triage_impression,
+        genre_detection,
+        calibration_prompt,
+    )
 
     analysis: Optional[Dict[str, Any]] = None
     last_err: Optional[BaseException] = None
@@ -2689,6 +2707,7 @@ def run_v9_stable(
     model_key: str,
     proxy_url: Optional[str],
     triage_impression: Optional[Dict[str, Any]] = None,
+    calibration_prompt: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, int]]:
     """run_v9_full with boundary re-runs. Drop-in replacement.
 
@@ -2698,6 +2717,7 @@ def run_v9_stable(
     analysis, usage = run_v9_full(
         text=text, title=title, page_count=page_count, word_count=word_count,
         model_key=model_key, proxy_url=proxy_url, triage_impression=triage_impression,
+        calibration_prompt=calibration_prompt,
     )
     combined: Dict[str, Any] = dict(usage)
 
@@ -2715,6 +2735,7 @@ def run_v9_stable(
             extra, extra_usage = run_v9_full(
                 text=text, title=title, page_count=page_count, word_count=word_count,
                 model_key=model_key, proxy_url=proxy_url, triage_impression=triage_impression,
+                calibration_prompt=calibration_prompt,
             )
         except Exception as e:
             log.warning(f"    Boundary re-run {i + 2} failed (continuing with {len(runs)} run(s)): {e}")
@@ -2747,6 +2768,7 @@ def run_v9_hybrid(
     word_count: int,
     proxy_url: Optional[str],
     triage_impression: Optional[Dict[str, Any]] = None,
+    calibration_prompt: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, int]]:
     """Smart two-pass: Sonnet first; if verdict is RECOMMEND or FILM_NOW,
     re-run on Opus for deeper analysis.
@@ -2769,6 +2791,7 @@ def run_v9_hybrid(
         model_key="sonnet",
         proxy_url=proxy_url,
         triage_impression=triage_impression,
+        calibration_prompt=calibration_prompt,
     )
 
     sonnet_verdict_raw = str(sonnet_analysis.get("verdict", ""))
@@ -2800,6 +2823,7 @@ def run_v9_hybrid(
         model_key="opus",
         proxy_url=proxy_url,
         triage_impression=triage_impression,
+        calibration_prompt=calibration_prompt,
     )
 
     # Combine usage across both passes (cost accounting).

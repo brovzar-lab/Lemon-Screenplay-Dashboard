@@ -55,6 +55,7 @@ OPTIONAL ENV VARS
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import logging.handlers
@@ -134,6 +135,9 @@ MAX_ATTEMPTS      = 3
 QUEUE_COLLECTION  = "ingest-queue"
 SYSTEM_COLLECTION = "system"
 OUTPUT_COLLECTION = "uploaded_analyses"
+CALIBRATION_COLLECTION = "producer_profiles"
+CALIBRATION_PROFILE_ID = "admin"
+MAX_CALIBRATION_PROMPT_CHARS = 12_000
 
 # ── Firebase init ─────────────────────────────────────────────────────────────
 
@@ -162,6 +166,61 @@ def init_firebase() -> None:
         log.info(f"Firebase Storage connected: {STORAGE_BUCKET}")
     except Exception as e:
         log.warning(f"Storage init failed (PDF downloads disabled): {e}")
+
+
+def load_calibration_profile() -> Optional[dict]:
+    """Load the enabled Lemon calibration profile before any paid AI work."""
+    snapshot = (
+        _db.collection(CALIBRATION_COLLECTION)
+        .document(CALIBRATION_PROFILE_ID)
+        .get()
+    )
+    if not snapshot.exists:
+        return None
+
+    data = snapshot.to_dict() or {}
+    enabled = data.get("enabled", False)
+    if enabled is False:
+        return None
+    if enabled is not True:
+        raise ValueError("Calibration profile enabled must be a boolean")
+
+    prompt = data.get("calibrationPrompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ValueError("Enabled calibration profile requires calibrationPrompt")
+    prompt = prompt.strip()
+    if len(prompt) > MAX_CALIBRATION_PROMPT_CHARS:
+        raise ValueError(
+            f"calibrationPrompt exceeds {MAX_CALIBRATION_PROMPT_CHARS} characters"
+        )
+
+    total_reviews = data.get("totalReviews", 0)
+    if type(total_reviews) is not int or total_reviews < 0:
+        raise ValueError("Calibration profile totalReviews must be a non-negative integer")
+    last_calibrated = data.get("lastCalibrated")
+    if last_calibrated is not None and not isinstance(last_calibrated, str):
+        raise ValueError("Calibration profile lastCalibrated must be a string")
+
+    prompt_sha256 = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    provenance = {
+        "applied": True,
+        "profile_id": CALIBRATION_PROFILE_ID,
+        "prompt_sha256": prompt_sha256,
+        "last_calibrated": last_calibrated,
+        "total_reviews": total_reviews,
+    }
+    log.info(
+        f"[calibration] Applying {CALIBRATION_PROFILE_ID} profile "
+        f"({total_reviews} reviews, {prompt_sha256[:8]}…)"
+    )
+    return {
+        "prompt": prompt,
+        "profile_id": CALIBRATION_PROFILE_ID,
+        "prompt_sha256": prompt_sha256,
+        "last_calibrated": last_calibrated,
+        "total_reviews": total_reviews,
+        "provenance": provenance,
+    }
 
 # ── Orphan sweep (startup crash recovery) ─────────────────────────────────────
 
@@ -675,6 +734,7 @@ def build_raw_document(
     target_project_id: Optional[str] = None,
     storage_path: Optional[str] = None,
     storage_generation: Optional[str] = None,
+    calibration_provenance: Optional[dict] = None,
 ) -> dict:
     """Build the daemon's V9 parent document using the shared identity contract."""
     raw_doc = {
@@ -695,6 +755,7 @@ def build_raw_document(
         "_worker_id": WORKER_ID,
         "queued_at_ms": queued_at_millis(queued_at_ms),
         **verified_identity_fields(content_hash),
+        "calibration_profile": calibration_provenance or {"applied": False},
     }
     if target_project_id:
         raw_doc["project_id"] = target_project_id
@@ -824,6 +885,7 @@ def process_job(job: dict) -> None:
         # ── 5. Budget check (shared counter with Cloud Function) ──────────
         screenplay_doc_id = project_id or ingest_v9.to_doc_id(filename)
         version_id = build_version_id(content_hash, queued_at_ms)
+        calibration_profile = load_calibration_profile()
         archive_storage_path, archive_storage_generation = archive_pdf_version(
             storage_path=storage_path,
             storage_generation=storage_generation,
@@ -865,6 +927,9 @@ def process_job(job: dict) -> None:
                 page_count=page_count,
                 word_count=word_count,
                 proxy_url=proxy_url,
+                calibration_prompt=(
+                    calibration_profile["prompt"] if calibration_profile else None
+                ),
             )
         else:
             log.info(f"[analyze] Running V9 full analysis: '{title}' (model: {model_key})")
@@ -875,6 +940,9 @@ def process_job(job: dict) -> None:
                 word_count=word_count,
                 model_key=model_key,
                 proxy_url=proxy_url,
+                calibration_prompt=(
+                    calibration_profile["prompt"] if calibration_profile else None
+                ),
             )
 
         # ── 8. Check finish reason (don't save truncated JSON) ────────────
@@ -901,6 +969,9 @@ def process_job(job: dict) -> None:
             target_project_id=screenplay_doc_id,
             storage_path=archive_storage_path,
             storage_generation=archive_storage_generation,
+            calibration_provenance=(
+                calibration_profile["provenance"] if calibration_profile else None
+            ),
         )
 
         success = ingest_v9.write_to_firestore(raw_doc)
