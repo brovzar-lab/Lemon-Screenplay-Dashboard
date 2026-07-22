@@ -28,6 +28,8 @@ interface DiscoverControlsProps {
   onClearFilters: () => void;
   producedHiddenCount: number;
   onRevealProduced: () => void;
+  nonScreenplayHiddenCount: number;
+  onRevealNonScreenplays: () => void;
 }
 
 export function DiscoverControls({
@@ -39,6 +41,8 @@ export function DiscoverControls({
   onClearFilters,
   producedHiddenCount,
   onRevealProduced,
+  nonScreenplayHiddenCount,
+  onRevealNonScreenplays,
 }: DiscoverControlsProps) {
   const filters = useFilterStore();
   const sortConfigs = useSortStore((state) => state.sortConfigs);
@@ -182,6 +186,24 @@ export function DiscoverControls({
                 className="font-sans font-semibold uppercase tracking-[0.1em] text-gold-300 hover:text-gold-200"
               >
                 Show produced films
+              </button>
+            </>
+          )}
+          {nonScreenplayHiddenCount > 0 && (
+            <>
+              <span aria-hidden="true" className="text-black-600">
+                ·
+              </span>
+              <span>
+                {nonScreenplayHiddenCount}{' '}
+                {nonScreenplayHiddenCount === 1 ? 'non-screenplay' : 'non-screenplays'} hidden
+              </span>
+              <button
+                type="button"
+                onClick={onRevealNonScreenplays}
+                className="font-sans font-semibold uppercase tracking-[0.1em] text-gold-300 hover:text-gold-200"
+              >
+                Show non-screenplays
               </button>
             </>
           )}

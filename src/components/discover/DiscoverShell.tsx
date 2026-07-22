@@ -21,6 +21,8 @@ interface DiscoverShellProps {
   onClearFilters: () => void;
   producedHiddenCount: number;
   onRevealProduced: () => void;
+  nonScreenplayHiddenCount: number;
+  onRevealNonScreenplays: () => void;
   stats: DiscoverStats;
   selectedScreenplay: Screenplay | null;
   onOpenScreenplay: (screenplay: Screenplay) => void;
@@ -78,6 +80,8 @@ export function DiscoverShell({
   onClearFilters,
   producedHiddenCount,
   onRevealProduced,
+  nonScreenplayHiddenCount,
+  onRevealNonScreenplays,
   stats,
   selectedScreenplay,
   onOpenScreenplay,
@@ -144,6 +148,8 @@ export function DiscoverShell({
                 onClearFilters={onClearFilters}
                 producedHiddenCount={producedHiddenCount}
                 onRevealProduced={onRevealProduced}
+                nonScreenplayHiddenCount={nonScreenplayHiddenCount}
+                onRevealNonScreenplays={onRevealNonScreenplays}
               />
 
               {totalCount === 0 ? (

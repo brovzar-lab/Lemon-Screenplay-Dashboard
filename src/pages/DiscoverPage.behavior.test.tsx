@@ -233,4 +233,27 @@ describe('DiscoverPage find toolchain', () => {
     expect(useFilterStore.getState().hideProduced).toBe(false);
     expect(screen.queryByText('1 produced film hidden')).not.toBeInTheDocument();
   });
+
+  it('discloses non-screenplays hidden by default and reveals them in one click', async () => {
+    const user = userEvent.setup();
+    hookState.screenplays = buildScreenplays().map((item) =>
+      item.id === 'amber'
+        ? {
+            ...item,
+            genre: 'Industry Reference',
+            weightedScore: 1.5,
+          }
+        : item,
+    );
+
+    renderPage();
+    await waitFor(() => expect(discoveryResults()).toHaveLength(6));
+
+    expect(screen.getByText('1 non-screenplay hidden')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Show non-screenplays' }));
+
+    await waitFor(() => expect(discoveryResults()).toHaveLength(7));
+    expect(useFilterStore.getState().hideNonScreenplays).toBe(false);
+    expect(screen.queryByText('1 non-screenplay hidden')).not.toBeInTheDocument();
+  });
 });

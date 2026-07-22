@@ -1,10 +1,15 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DiscoverShell } from '@/components/discover';
-import { useFilteredScreenplays, useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
+import {
+  passesFilters,
+  useFilteredScreenplays,
+  useHasActiveFilters,
+} from '@/hooks/useFilteredScreenplays';
 import { useLiveScreenplaySync, useScreenplays } from '@/hooks/useScreenplays';
 import { getScreenplayStats } from '@/lib/api';
 import { useFilterStore } from '@/stores/filterStore';
+import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { useSortStore } from '@/stores/sortStore';
 import { DEFAULT_SORT_STATE } from '@/types/filters';
 import type { Screenplay } from '@/types';
@@ -28,9 +33,9 @@ function DiscoverPage() {
   const { data: allScreenplays = [] } = useScreenplays();
   const { screenplays, totalCount, filteredCount, isLoading, error } = useFilteredScreenplays();
   const hasActiveFilters = useHasActiveFilters();
-  const resetFilters = useFilterStore((state) => state.resetFilters);
-  const hideProduced = useFilterStore((state) => state.hideProduced);
-  const setHideProduced = useFilterStore((state) => state.setHideProduced);
+  const filters = useFilterStore();
+  const pdfStatuses = usePdfStatusStore((state) => state.statuses);
+  const hasPdfScanResult = usePdfStatusStore((state) => state.hasScanResult);
 
   // Match the existing dashboard data spine: the query supplies normalized
   // startup data and the live listener replaces it with normalized snapshots.
@@ -63,13 +68,40 @@ function DiscoverPage() {
   }, [allScreenplays]);
 
   const stats = useMemo(() => getScreenplayStats(allScreenplays), [allScreenplays]);
-  const producedHiddenCount = useMemo(
-    () =>
-      hideProduced
-        ? allScreenplays.filter((screenplay) => screenplay.tmdbStatus?.isProduced).length
-        : 0,
-    [allScreenplays, hideProduced],
-  );
+  const { producedHiddenCount, nonScreenplayHiddenCount } = useMemo(() => {
+    const pdfScanData = { statuses: pdfStatuses, hasScanResult: hasPdfScanResult };
+    const withoutDefaultHides = {
+      ...filters,
+      hideProduced: false,
+      hideNonScreenplays: false,
+    };
+    const withNonScreenplayHide = {
+      ...withoutDefaultHides,
+      hideNonScreenplays: true,
+    };
+    let produced = 0;
+    let nonScreenplay = 0;
+
+    allScreenplays.forEach((screenplay) => {
+      if (!passesFilters(screenplay, withoutDefaultHides, pdfScanData)) return;
+
+      // Classify overlaps in filter order. Revealing produced films will then
+      // surface any remaining non-screenplay exclusion as the next disclosure.
+      if (filters.hideProduced && screenplay.tmdbStatus?.isProduced) {
+        produced += 1;
+      } else if (
+        filters.hideNonScreenplays &&
+        !passesFilters(screenplay, withNonScreenplayHide, pdfScanData)
+      ) {
+        nonScreenplay += 1;
+      }
+    });
+
+    return {
+      producedHiddenCount: produced,
+      nonScreenplayHiddenCount: nonScreenplay,
+    };
+  }, [allScreenplays, filters, hasPdfScanResult, pdfStatuses]);
   const selectedScreenplay = useMemo(
     () =>
       projectId
@@ -96,9 +128,11 @@ function DiscoverPage() {
       genres={genres}
       themes={themes}
       hasActiveFilters={hasActiveFilters}
-      onClearFilters={resetFilters}
+      onClearFilters={filters.resetFilters}
       producedHiddenCount={producedHiddenCount}
-      onRevealProduced={() => setHideProduced(false)}
+      onRevealProduced={() => filters.setHideProduced(false)}
+      nonScreenplayHiddenCount={nonScreenplayHiddenCount}
+      onRevealNonScreenplays={() => filters.setHideNonScreenplays(false)}
       stats={stats}
       selectedScreenplay={selectedScreenplay}
       onOpenScreenplay={openScreenplay}
