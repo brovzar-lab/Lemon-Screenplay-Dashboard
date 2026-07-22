@@ -11,6 +11,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { DevExecToggle } from '@/components/devexec';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { UserMenu } from '@/components/auth';
 import { useIsAdmin } from '@/stores/authStore';
 
@@ -55,12 +56,8 @@ function StatPill({ label, value, highlight = false }: StatPillProps) {
 export function Header() {
   const { data: stats, isLoading } = useScreenplayStats();
   const { filteredCount, totalCount } = useFilteredScreenplays();
-  const { isDark, setTheme } = useThemeStore();
+  const { isDark } = useThemeStore();
   const isAdmin = useIsAdmin();
-
-  const toggleTheme = () => {
-    setTheme(isDark ? 'light' : 'dark');
-  };
 
   return (
     <header
@@ -154,35 +151,8 @@ export function Header() {
             {/* Design System Switcher — dropdown with all available themes */}
             <ThemeSwitcher />
 
-            {/* Theme Toggle — small sun/moon icon per DESIGN.md §6 */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg"
-              style={{ color: 'var(--sp-text-3)', transition: 'color 120ms, background 120ms' }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget;
-                el.style.color = 'var(--sp-accent)';
-                el.style.background = 'var(--sp-sunken)';
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget;
-                el.style.color = 'var(--sp-text-3)';
-                el.style.background = 'transparent';
-              }}
-              title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-              aria-label="Toggle theme"
-            >
-              {isDark ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2m0 16v2m10-10h-2M4 12H2m15.07-7.07-1.42 1.42M8.35 15.65l-1.42 1.42m12.14 0-1.42-1.42M8.35 8.35 6.93 6.93" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
-            </button>
+            {/* Theme Toggle — shared with the Discovery shell. */}
+            <ThemeToggle />
 
             {/* Settings Link */}
             {isAdmin && <Link
