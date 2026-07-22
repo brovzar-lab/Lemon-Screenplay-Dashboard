@@ -23,6 +23,7 @@ function reasonLabel(reason: SkipReason): string {
 }
 
 function guidance(job: BadFormatJob): string {
+  if (job.status === 'failed' && job.retryable === false) return 'This job cannot be retried safely. Dismiss it, then upload the PDF again and choose whether it is a new revision or a separate project.';
   if (job.status === 'failed') return 'The analysis service could not finish. Retry when you are ready; this starts a paid analysis.';
   if (job.skip_reason === 'insufficient_text_extracted') return 'This is probably a scanned document. Replace it with a searchable OCR PDF.';
   if (job.skip_reason === 'pdf_parse_failed') return 'The PDF is damaged, protected, or encoded in a way the parser cannot read. Replace it with a fresh PDF export.';
@@ -41,6 +42,10 @@ function canAnalyzeAnyway(job: BadFormatJob): boolean {
   return job.status === 'skipped' && ['tmdb_already_produced', 'already_complete'].includes(job.skip_reason);
 }
 
+function canRetry(job: BadFormatJob): boolean {
+  return job.status === 'failed' && job.retryable !== false;
+}
+
 export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
   const [jobs, setJobs] = useState<BadFormatJob[]>([]);
   const [filter, setFilter] = useState<Filter>('action');
@@ -53,7 +58,7 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
     return subscribeToUploadIssues(setJobs);
   }, [open]);
 
-  const failedIds = useMemo(() => jobs.filter((job) => job.status === 'failed').map((job) => job.id), [jobs]);
+  const retryableFailedIds = useMemo(() => jobs.filter(canRetry).map((job) => job.id), [jobs]);
   const filtered = useMemo(() => {
     if (filter === 'failed') return jobs.filter((job) => job.status === 'failed');
     if (filter === 'bad') return jobs.filter((job) => BAD_FORMAT_REASONS.includes(job.skip_reason));
@@ -64,12 +69,12 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
 
   const counts = useMemo(() => ({
     action: jobs.length,
-    failed: failedIds.length,
+    failed: jobs.filter((job) => job.status === 'failed').length,
     bad: jobs.filter((job) => BAD_FORMAT_REASONS.includes(job.skip_reason)).length,
     tmdb: jobs.filter((job) => job.skip_reason === 'tmdb_already_produced').length,
     dup: jobs.filter((job) => job.skip_reason === 'already_complete').length,
     all: jobs.length,
-  }), [failedIds.length, jobs]);
+  }), [jobs]);
 
   const runAction = async (action: 'retry' | 'dismiss' | 'analyze_anyway', ids: string[]) => {
     setBusyIds((current) => new Set([...current, ...ids]));
@@ -156,8 +161,8 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
               <option value="opus">Opus, deepest</option>
               <option value="hybrid">Hybrid</option>
             </select>
-            {failedIds.length > 1 && (
-              <button disabled={busyIds.size > 0} onClick={() => confirmPaidAction(failedIds)} className="min-h-11 rounded bg-blue-500 px-4 text-sm font-semibold text-black-950 disabled:opacity-50">
+            {retryableFailedIds.length > 1 && (
+              <button disabled={busyIds.size > 0} onClick={() => confirmPaidAction(retryableFailedIds)} className="min-h-11 rounded bg-blue-500 px-4 text-sm font-semibold text-black-950 disabled:opacity-50">
                 Retry All Failed
               </button>
             )}
@@ -181,7 +186,9 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="break-all text-base font-semibold text-black-50">{job.filename || job.id}</h3>
                           <span className={`rounded-full px-2 py-1 text-xs font-semibold ${job.status === 'failed' || needsReplacement(job) ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-300'}`}>
-                            {job.status === 'failed' ? 'Analysis failed' : reasonLabel(job.skip_reason)}
+                            {job.status === 'failed'
+                              ? (job.retryable === false ? 'Cannot retry' : 'Analysis failed')
+                              : reasonLabel(job.skip_reason)}
                           </span>
                         </div>
                         <p className="mt-2 max-w-3xl text-sm leading-6 text-black-200">{guidance(job)}</p>
@@ -194,7 +201,7 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
                         )}
                       </div>
                       <div className="flex min-w-fit flex-wrap gap-2">
-                        {job.status === 'failed' && <button disabled={busy} onClick={() => confirmPaidAction([job.id])} className="min-h-11 rounded bg-blue-500 px-4 text-sm font-semibold text-black-950 disabled:opacity-50">{busy ? 'Working…' : 'Retry Analysis'}</button>}
+                        {canRetry(job) && <button disabled={busy} onClick={() => confirmPaidAction([job.id])} className="min-h-11 rounded bg-blue-500 px-4 text-sm font-semibold text-black-950 disabled:opacity-50">{busy ? 'Working…' : 'Retry Analysis'}</button>}
                         {needsReplacement(job) && (
                           <label className={`flex min-h-11 cursor-pointer items-center rounded bg-blue-500 px-4 text-sm font-semibold text-black-950 ${busy ? 'pointer-events-none opacity-50' : ''}`}>
                             {busy ? 'Uploading…' : 'Replace PDF'}

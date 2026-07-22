@@ -39,6 +39,8 @@ describe('subscribeToUploadIssues', () => {
             status: 'failed',
             last_error: 'Anthropic timeout',
             attempt_count: 3,
+            retryable: false,
+            failure_kind: 'terminal',
           }),
         },
       ],
@@ -50,6 +52,8 @@ describe('subscribeToUploadIssues', () => {
         status: 'failed',
         last_error: 'Anthropic timeout',
         attempt_count: 3,
+        retryable: false,
+        failure_kind: 'terminal',
       }),
     ]);
   });

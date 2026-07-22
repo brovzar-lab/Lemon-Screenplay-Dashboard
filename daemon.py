@@ -65,6 +65,7 @@ import shutil
 import signal
 import sys
 import tempfile
+import threading
 import time
 import traceback
 from datetime import datetime, timezone
@@ -126,7 +127,7 @@ CONCURRENCY       = int(os.getenv("DAEMON_CONCURRENCY", "2"))
 POLL_INTERVAL     = int(os.getenv("DAEMON_POLL_INTERVAL", "10"))
 WORK_DIR          = Path(os.getenv("DAEMON_WORK_DIR", "/tmp/lemon"))
 DAILY_BUDGET      = int(os.getenv("DAILY_BUDGET_LIMIT", "200"))
-WORKER_ID         = f"hostinger-vps-{os.getenv('HOSTNAME', 'unknown')}"
+WORKER_ID         = f"hostinger-vps-{os.getenv('HOSTNAME', 'unknown')}-{os.getpid()}"
 HEARTBEAT_SECS    = 60
 ORPHAN_SWEEP_SECS = int(os.getenv("DAEMON_ORPHAN_SWEEP_INTERVAL", "300"))
 MAX_ATTEMPTS      = 3
@@ -138,6 +139,29 @@ OUTPUT_COLLECTION = "uploaded_analyses"
 CALIBRATION_COLLECTION = "producer_profiles"
 CALIBRATION_PROFILE_ID = "admin"
 MAX_CALIBRATION_PROMPT_CHARS = 12_000
+
+
+class TerminalJobError(ValueError):
+    """A deterministic queue error that retrying cannot repair."""
+
+
+_active_job_ids: set[str] = set()
+_active_job_lock = threading.Lock()
+
+
+def register_active_job(job_id: str) -> None:
+    with _active_job_lock:
+        _active_job_ids.add(job_id)
+
+
+def unregister_active_job(job_id: str) -> None:
+    with _active_job_lock:
+        _active_job_ids.discard(job_id)
+
+
+def is_active_job(job_id: str) -> bool:
+    with _active_job_lock:
+        return job_id in _active_job_ids
 
 # ── Firebase init ─────────────────────────────────────────────────────────────
 
@@ -224,12 +248,59 @@ def load_calibration_profile() -> Optional[dict]:
 
 # ── Orphan sweep (startup crash recovery) ─────────────────────────────────────
 
+def recover_orphaned_job(reference, stale_cutoff: datetime) -> str:
+    """Recover one stale candidate after re-checking ownership transactionally."""
+
+    @fb_firestore.transactional
+    def recover_in_transaction(transaction, reference):
+        fresh = reference.get(transaction=transaction)
+        if not fresh.exists:
+            return "unchanged"
+
+        data = fresh.to_dict() or {}
+        heartbeat = data.get("last_heartbeat_at")
+        if data.get("status") != "processing":
+            return "unchanged"
+        if not isinstance(heartbeat, datetime) or heartbeat >= stale_cutoff:
+            return "unchanged"
+
+        # A delayed heartbeat must never let this daemon reclaim work that one
+        # of its own threads is still actively processing.
+        if data.get("worker_id") == WORKER_ID and is_active_job(reference.id):
+            return "active"
+
+        attempts = data.get("attempt_count", 0)
+        if type(attempts) is not int or attempts < 0:
+            attempts = 0
+        if attempts >= MAX_ATTEMPTS:
+            transaction.update(reference, {
+                "status": "failed",
+                "last_error": (
+                    f"Exceeded max attempts ({MAX_ATTEMPTS}) — "
+                    f"last known worker: {data.get('worker_id')}"
+                ),
+                "attempt_count": attempts,
+            })
+            return "failed"
+
+        transaction.update(reference, {
+            "status": "pending",
+            "worker_id": None,
+            "last_heartbeat_at": None,
+            "processing_started_at": None,
+            "attempt_count": attempts,
+            "last_error": (
+                "Reset by orphan sweep — orphaned from "
+                f"{data.get('worker_id', 'unknown')}"
+            ),
+        })
+        return "pending"
+
+    return recover_in_transaction(_db.transaction(), reference)
+
+
 def sweep_orphaned_jobs() -> None:
-    """
-    On daemon startup: find any job stuck at 'processing' with a stale
-    heartbeat (> HEARTBEAT_SECS * 5) and reset to 'pending'.
-    This handles the case where the daemon crashed mid-job previously.
-    """
+    """Recover jobs whose heartbeat remains stale after a transactional re-check."""
     stale_cutoff = datetime.now(timezone.utc).timestamp() - (HEARTBEAT_SECS * 5)
     stale_cutoff_dt = datetime.fromtimestamp(stale_cutoff, tz=timezone.utc)
 
@@ -242,28 +313,18 @@ def sweep_orphaned_jobs() -> None:
         )
         reset_count = 0
         for doc in stuck_jobs:
-            data = doc.to_dict()
-            # Claiming the job already counted this attempt. The sweep only
-            # decides whether that interrupted attempt exhausted the limit.
-            attempts = data.get("attempt_count", 0)
-            if attempts >= MAX_ATTEMPTS:
-                doc.reference.update({
-                    "status": "failed",
-                    "last_error": f"Exceeded max attempts ({MAX_ATTEMPTS}) — last known worker: {data.get('worker_id')}",
-                    "attempt_count": attempts,
-                })
-                log.warning(f"[sweep] Marked as FAILED (max attempts): {doc.id}")
-            else:
-                doc.reference.update({
-                    "status": "pending",
-                    "worker_id": None,
-                    "last_heartbeat_at": None,
-                    "processing_started_at": None,
-                    "attempt_count": attempts,
-                    "last_error": f"Reset by startup sweep — orphaned from {data.get('worker_id', 'unknown')}",
-                })
+            try:
+                result = recover_orphaned_job(doc.reference, stale_cutoff_dt)
+            except Exception as error:
+                log.warning(f"[sweep] Could not inspect {doc.id}: {error}")
+                continue
+            if result == "pending":
                 reset_count += 1
-                log.info(f"[sweep] Reset orphaned job: {doc.id} (attempt {attempts})")
+                log.info(f"[sweep] Reset orphaned job: {doc.id}")
+            elif result == "failed":
+                log.warning(f"[sweep] Marked as FAILED (max attempts): {doc.id}")
+            elif result == "active":
+                log.info(f"[sweep] Kept live local job: {doc.id}")
         if reset_count:
             log.info(f"[sweep] Reset {reset_count} orphaned job(s)")
     except Exception as e:
@@ -391,35 +452,65 @@ class HeartbeatTask:
             if self._stop:
                 break
             try:
-                _db.collection(QUEUE_COLLECTION).document(self.job_id).update({
-                    "last_heartbeat_at": fb_firestore.SERVER_TIMESTAMP,
-                })
-                log.debug(f"[heartbeat] {self.job_id} ✓")
+                reference = _db.collection(QUEUE_COLLECTION).document(self.job_id)
+
+                @fb_firestore.transactional
+                def refresh_in_transaction(transaction, reference):
+                    fresh = reference.get(transaction=transaction)
+                    data = fresh.to_dict() if fresh.exists else {}
+                    if (
+                        data.get("status") != "processing"
+                        or data.get("worker_id") != WORKER_ID
+                    ):
+                        return False
+                    transaction.update(reference, {
+                        "last_heartbeat_at": fb_firestore.SERVER_TIMESTAMP,
+                    })
+                    return True
+
+                if refresh_in_transaction(_db.transaction(), reference):
+                    log.debug(f"[heartbeat] {self.job_id} ✓")
+                else:
+                    log.warning(
+                        f"[heartbeat] Lost ownership of {self.job_id}; stopping heartbeat"
+                    )
+                    break
             except Exception as e:
                 log.warning(f"[heartbeat] Failed for {self.job_id}: {e}")
 
 # ── PDF download ──────────────────────────────────────────────────────────────
 
-def download_pdf(storage_path: str, workdir: Path) -> Path:
+def download_pdf(
+    storage_path: str,
+    workdir: Path,
+    storage_generation: object,
+) -> Path:
     """
     Download a PDF from Firebase Storage to the job's work directory.
     storage_path format: gs://bucket-name/ingest-queue/COLLECTION/file.pdf
     Returns the local Path to the downloaded file.
     """
-    # Strip gs://bucket-name/ prefix
-    if storage_path.startswith("gs://"):
-        path_without_gs = storage_path[5:]                    # bucket-name/path/to/file.pdf
-        bucket_slash_blob = path_without_gs.split("/", 1)     # ['bucket-name', 'path/to/file.pdf']
-        blob_path = bucket_slash_blob[1] if len(bucket_slash_blob) > 1 else storage_path
-    else:
-        blob_path = storage_path
+    generation_text = str(storage_generation or "").strip()
+    if not generation_text.isdigit():
+        raise TerminalJobError(
+            "storage_generation is required to download the exact uploaded PDF"
+        )
+
+    _bucket_name, blob_path = parse_storage_path(storage_path)
+    bucket = storage_bucket_for_path(storage_path)
+    generation = int(generation_text)
 
     filename = Path(blob_path).name
     local_path = workdir / filename
 
-    log.info(f"[download] Downloading: {blob_path} → {local_path}")
-    blob = _bucket.blob(blob_path)
-    blob.download_to_filename(str(local_path))
+    log.info(
+        f"[download] Downloading: {blob_path} generation {generation} → {local_path}"
+    )
+    blob = bucket.blob(blob_path, generation=generation)
+    blob.download_to_filename(
+        str(local_path),
+        if_generation_match=generation,
+    )
     log.info(f"[download] ✓ {filename} ({local_path.stat().st_size / 1024:.1f} KB)")
     return local_path
 
@@ -517,7 +608,7 @@ def resolve_target_project_id(value: object) -> Optional[str]:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise ValueError("target_project_id must be a Firestore document ID")
+        raise TerminalJobError("target_project_id must be a Firestore document ID")
 
     target_project_id = value.strip()
     if (
@@ -525,11 +616,11 @@ def resolve_target_project_id(value: object) -> Optional[str]:
         or len(target_project_id) > 200
         or "/" in target_project_id
     ):
-        raise ValueError("target_project_id must be a Firestore document ID")
+        raise TerminalJobError("target_project_id must be a Firestore document ID")
 
     parent = _db.collection(OUTPUT_COLLECTION).document(target_project_id).get()
     if not parent.exists:
-        raise ValueError(
+        raise TerminalJobError(
             f"target_project_id does not exist: {target_project_id}"
         )
     return target_project_id
@@ -595,32 +686,62 @@ BAD_FORMAT_SKIP_REASONS = {
 }
 
 
-def move_blob_to_bad_format(storage_path: str, collection_id: str, filename: str, reason: str) -> str | None:
-    """Move a PDF blob from ingest-queue/{collection}/file.pdf to
-    bad-formats/{collection}/file.pdf. Returns the new gs:// path or None
-    on failure. Safe to call even if the blob is already gone.
-    """
-    if _bucket is None:
-        log.warning("[bad-format] Storage bucket not initialised; cannot move blob")
-        return None
+def move_blob_to_bad_format(
+    storage_path: str,
+    collection_id: str,
+    filename: str,
+    reason: str,
+    *,
+    quarantine_id: str,
+    storage_generation: object,
+) -> str | None:
+    """Idempotently move one exact source generation to its quarantine path."""
     try:
-        # storage_path is "gs://bucket/ingest-queue/COLLECTION/file.pdf"
-        if storage_path.startswith("gs://"):
-            src_blob_path = storage_path[5:].split("/", 1)[1]
-        else:
-            src_blob_path = storage_path
-        dst_blob_path = f"bad-formats/{collection_id}/{filename}"
-        src_blob = _bucket.blob(src_blob_path)
+        bucket_name, src_blob_path = parse_storage_path(storage_path)
+        generation_text = str(storage_generation or "").strip()
+        if not generation_text.isdigit():
+            raise ValueError("storage_generation is required for quarantine")
+        if any(
+            not isinstance(value, str) or not value or "/" in value
+            for value in (collection_id, filename, quarantine_id)
+        ):
+            raise ValueError("Invalid quarantine path component")
+
+        generation = int(generation_text)
+        bucket = storage_bucket_for_path(storage_path)
+        dst_blob_path = f"bad-formats/{collection_id}/{quarantine_id}/{filename}"
+        src_blob = bucket.blob(src_blob_path, generation=generation)
+        dst_blob = bucket.blob(dst_blob_path)
+        new_path = f"gs://{bucket_name}/{dst_blob_path}"
+
+        # A retry after the copy succeeded but the queue update was lost should
+        # reuse the existing destination rather than 404 on the missing source.
+        if dst_blob.exists():
+            if src_blob.exists():
+                src_blob.delete(if_generation_match=generation)
+            log.info(f"[bad-format] destination already exists: {new_path}")
+            return new_path
         if not src_blob.exists():
             log.info(f"[bad-format] source blob already gone: {src_blob_path}")
             return None
-        _bucket.copy_blob(src_blob, _bucket, dst_blob_path)
+
+        copied_blob = bucket.copy_blob(
+            src_blob,
+            bucket,
+            new_name=dst_blob_path,
+            source_generation=generation,
+            if_generation_match=0,
+            if_source_generation_match=generation,
+        )
         # Set metadata so the dashboard can show why it was quarantined
-        dst_blob = _bucket.blob(dst_blob_path)
-        dst_blob.metadata = {"quarantine_reason": reason, "original_path": src_blob_path}
-        dst_blob.patch()
-        src_blob.delete()
-        new_path = f"gs://{_bucket.name}/{dst_blob_path}"
+        copied_blob.metadata = {
+            **(copied_blob.metadata or {}),
+            "quarantine_reason": reason,
+            "original_path": src_blob_path,
+            "source_generation": generation_text,
+        }
+        copied_blob.patch(if_generation_match=copied_blob.generation)
+        src_blob.delete(if_generation_match=generation)
         log.info(f"[bad-format] moved → {new_path} (reason: {reason})")
         return new_path
     except Exception as e:
@@ -677,11 +798,27 @@ def mark_failed(job_id: str, error: Exception, attempt_count: int) -> None:
     else:
         log.warning(f"[job] {job_id} → reset to PENDING for retry (attempt {attempt_count}): {error}")
 
+
+def mark_terminal_failed(job_id: str, error: Exception) -> None:
+    """Fail a deterministic job once; retrying cannot change this outcome."""
+    _db.collection(QUEUE_COLLECTION).document(job_id).update({
+        "status": "failed",
+        "last_error": str(error)[:2000],
+        "failure_kind": "terminal",
+        "retryable": False,
+        "worker_id": WORKER_ID,
+        "last_heartbeat_at": None,
+        "processing_started_at": None,
+        "processing_completed_at": fb_firestore.SERVER_TIMESTAMP,
+    })
+    log.error(f"[job] {job_id} → FAILED (terminal): {error}")
+
 def mark_skipped(
     job_id: str,
     reason: str,
     *,
     storage_path: str | None = None,
+    storage_generation: object = None,
     collection_id: str | None = None,
     filename: str | None = None,
     extra: dict | None = None,
@@ -694,16 +831,50 @@ def mark_skipped(
     if extra:
         update.update(extra)
 
-    # If this is a bad-format skip AND we have a storage_path, move the PDF
-    # out of the ingest queue into bad-formats/{collection}/ so the dashboard
-    # can surface it and the queue doesn't keep cycling on it.
-    if reason in BAD_FORMAT_SKIP_REASONS and storage_path and collection_id and filename:
-        new_path = move_blob_to_bad_format(storage_path, collection_id, filename, reason)
-        if new_path:
-            update["storage_path"] = new_path
-            update["quarantined"] = True
+    should_quarantine = bool(
+        reason in BAD_FORMAT_SKIP_REASONS
+        and storage_path
+        and collection_id
+        and filename
+    )
+    if should_quarantine:
+        update["quarantine_status"] = "pending"
 
-    _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
+    job_reference = _db.collection(QUEUE_COLLECTION).document(job_id)
+    # Persist the terminal queue state before touching Storage. If a later
+    # acknowledgement is lost, this job will not be reset and redownload a
+    # source blob that has already moved.
+    job_reference.update(update)
+
+    if should_quarantine:
+        new_path = move_blob_to_bad_format(
+            storage_path,
+            collection_id,
+            filename,
+            reason,
+            quarantine_id=job_id,
+            storage_generation=storage_generation,
+        )
+        quarantine_update = (
+            {
+                "storage_path": new_path,
+                "quarantined": True,
+                "quarantine_status": "complete",
+            }
+            if new_path
+            else {
+                "quarantined": False,
+                "quarantine_status": "failed",
+            }
+        )
+        try:
+            job_reference.update(quarantine_update)
+        except Exception as error:
+            log.warning(
+                f"[bad-format] queue follow-up failed for {job_id}; "
+                f"skip status is already durable: {error}"
+            )
+
     log.info(f"[job] {job_id} → SKIPPED: {reason}")
 
 # ── Backoff with jitter ───────────────────────────────────────────────────────
@@ -789,21 +960,20 @@ def process_job(job: dict) -> None:
     log.info(f"━━━ Processing: {filename} [{collection_id}] (attempt {attempt_count}) ━━━")
     start_time = time.time()
 
-    # Start heartbeat thread
+    # Register locally before the watchdog can inspect this claimed job.
+    register_active_job(job_id)
     heartbeat = HeartbeatTask(job_id)
-    heartbeat.start()
 
     # Isolated work directory — auto-cleaned on exit even on crash
     workdir = WORK_DIR / job_id
-    workdir.mkdir(parents=True, exist_ok=True)
 
     try:
+        workdir.mkdir(parents=True, exist_ok=True)
+        heartbeat.start()
         queued_at_ms = queued_at_millis(job.get("queued_at"))
 
         # ── 1. Download PDF ────────────────────────────────────────────────
-        if not _bucket:
-            raise RuntimeError("Firebase Storage not connected — cannot download PDF")
-        local_pdf = download_pdf(storage_path, workdir)
+        local_pdf = download_pdf(storage_path, workdir, storage_generation)
 
         # ── 2. Content hash + idempotency check ───────────────────────────
         content_hash = compute_content_hash(local_pdf)
@@ -849,7 +1019,10 @@ def process_job(job: dict) -> None:
         if parsed is None:
             mark_skipped(
                 job_id, "pdf_parse_failed",
-                storage_path=storage_path, collection_id=collection_id, filename=filename,
+                storage_path=storage_path,
+                storage_generation=storage_generation,
+                collection_id=collection_id,
+                filename=filename,
             )
             return
 
@@ -862,7 +1035,10 @@ def process_job(job: dict) -> None:
         if not is_valid:
             mark_skipped(
                 job_id, reason,
-                storage_path=storage_path, collection_id=collection_id, filename=filename,
+                storage_path=storage_path,
+                storage_generation=storage_generation,
+                collection_id=collection_id,
+                filename=filename,
             )
             return
 
@@ -1017,6 +1193,10 @@ def process_job(job: dict) -> None:
             f"({duration}s | {input_tokens:,}+{output_tokens:,} tokens | ${estimated_cost:.3f})"
         )
 
+    except TerminalJobError as e:
+        log.error(f"[job] ❌ {filename} — terminal queue error: {e}")
+        log.debug(traceback.format_exc())
+        mark_terminal_failed(job_id, e)
     except Exception as e:
         log.error(f"[job] ❌ {filename} — {e}")
         log.debug(traceback.format_exc())
@@ -1024,6 +1204,7 @@ def process_job(job: dict) -> None:
 
     finally:
         heartbeat.stop()
+        unregister_active_job(job_id)
         # Clean up temp files
         try:
             shutil.rmtree(workdir, ignore_errors=True)

@@ -11,6 +11,7 @@ const node_crypto_1 = require("node:crypto");
 const cors_1 = __importDefault(require("cors"));
 const proxyAuth_1 = require("./proxyAuth");
 const reanalysisQueue_1 = require("./reanalysisQueue");
+const queueActions_1 = require("./queueActions");
 const corsMiddleware = (0, cors_1.default)({
     origin: [
         "https://lemon-screenplay-dashboard.web.app",
@@ -111,7 +112,7 @@ exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSe
             const data = snapshot.data() ?? {};
             const status = data.status;
             const reason = data.skip_reason;
-            if (action === "retry" && status === "failed") {
+            if (action === "retry" && (0, queueActions_1.canRetryQueueJob)(data)) {
                 batch.update(snapshot.ref, {
                     status: "pending",
                     attempt_count: 0,

@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import cors from "cors";
 import { authenticateProxyRequest } from "./proxyAuth";
 import { buildReanalysisCopyPlan } from "./reanalysisQueue";
+import { canRetryQueueJob } from "./queueActions";
 import type { IngestModel } from "./ingestQueue";
 
 const corsMiddleware = cors({
@@ -120,7 +121,7 @@ export const queueManager = onRequest(
         const status = data.status as string;
         const reason = data.skip_reason as string;
 
-        if (action === "retry" && status === "failed") {
+        if (action === "retry" && canRetryQueueJob(data)) {
           batch.update(snapshot.ref, {
             status: "pending",
             attempt_count: 0,
