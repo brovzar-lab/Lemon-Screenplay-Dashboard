@@ -17,7 +17,7 @@ import argparse
 import json
 import logging
 import sys
-import os
+import tempfile
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
 
@@ -53,6 +53,11 @@ logger = logging.getLogger(__name__)
 
 # Minimum viable text length (words) to consider extraction successful
 MIN_WORD_COUNT = 500  # A screenplay should have at least 500 words
+OCR_DPI = 200
+OCR_LANGUAGES = "eng+spa"
+MAX_OCR_PAGES = 200
+OCR_RENDER_TIMEOUT_SECONDS = 300
+OCR_PAGE_TIMEOUT_SECONDS = 45
 
 
 def extract_text_pypdf2(pdf_path: Path) -> Tuple[str, str]:
@@ -135,7 +140,7 @@ def extract_text_pymupdf(pdf_path: Path) -> Tuple[str, str]:
         return "", 'pymupdf_failed'
 
 
-def extract_text_ocr(pdf_path: Path, dpi: int = 300) -> Tuple[str, str]:
+def extract_text_ocr(pdf_path: Path, dpi: int = OCR_DPI) -> Tuple[str, str]:
     """
     Extract text using OCR (for scanned PDFs).
 
@@ -150,18 +155,49 @@ def extract_text_ocr(pdf_path: Path, dpi: int = 300) -> Tuple[str, str]:
         logger.error("OCR packages not available. Install pytesseract and pdf2image.")
         return "", 'ocr_not_available'
 
+    page_count = get_page_count(pdf_path)
+    if page_count <= 0:
+        logger.error(f"OCR could not determine the page count for {pdf_path.name}.")
+        return "", 'ocr_page_count_failed'
+    if page_count > MAX_OCR_PAGES:
+        raise ValueError(
+            f"{pdf_path.name} has {page_count} pages and exceeds the "
+            f"{MAX_OCR_PAGES}-page OCR limit."
+        )
+
     try:
-        logger.info(f"Converting PDF to images (DPI: {dpi})...")
-        images = convert_from_path(pdf_path, dpi=dpi)
+        logger.info(
+            f"Converting {page_count} PDF pages to disk-backed images "
+            f"(DPI: {dpi}, languages: {OCR_LANGUAGES})..."
+        )
+        with tempfile.TemporaryDirectory(prefix="lemon-ocr-") as image_dir:
+            image_paths = convert_from_path(
+                pdf_path,
+                dpi=dpi,
+                output_folder=image_dir,
+                fmt="jpeg",
+                grayscale=True,
+                thread_count=2,
+                paths_only=True,
+                timeout=OCR_RENDER_TIMEOUT_SECONDS,
+            )
+            if len(image_paths) != page_count:
+                logger.error(
+                    f"OCR rendered {len(image_paths)} of {page_count} pages; "
+                    "discarding the incomplete result."
+                )
+                return "", 'ocr_incomplete'
 
-        text_parts = []
-        total_pages = len(images)
-
-        for i, image in enumerate(images, 1):
-            logger.info(f"OCR processing page {i}/{total_pages}...")
-            page_text = pytesseract.image_to_string(image)
-            if page_text:
-                text_parts.append(page_text)
+            text_parts = []
+            for i, image_path in enumerate(image_paths, 1):
+                logger.info(f"OCR processing page {i}/{page_count}...")
+                page_text = pytesseract.image_to_string(
+                    image_path,
+                    lang=OCR_LANGUAGES,
+                    timeout=OCR_PAGE_TIMEOUT_SECONDS,
+                )
+                if page_text:
+                    text_parts.append(page_text)
 
         return '\n'.join(text_parts), 'OCR'
     except Exception as e:
@@ -188,7 +224,11 @@ def get_page_count(pdf_path: Path) -> int:
         return 0
 
 
-def parse_screenplay(pdf_path: Path, force_ocr: bool = False) -> Dict[str, Any]:
+def parse_screenplay(
+    pdf_path: Path,
+    force_ocr: bool = False,
+    ocr_dpi: int = OCR_DPI,
+) -> Dict[str, Any]:
     """
     Parse a screenplay PDF and extract structured content.
 
@@ -212,7 +252,7 @@ def parse_screenplay(pdf_path: Path, force_ocr: bool = False) -> Dict[str, Any]:
 
     if force_ocr:
         logger.info("Force OCR mode enabled")
-        text, method = extract_text_ocr(pdf_path)
+        text, method = extract_text_ocr(pdf_path, dpi=ocr_dpi)
     else:
         # Try extraction methods in order
         extraction_methods = [
@@ -235,13 +275,17 @@ def parse_screenplay(pdf_path: Path, force_ocr: bool = False) -> Dict[str, Any]:
         # If all standard methods fail, try OCR
         if len(text.split()) < MIN_WORD_COUNT:
             logger.warning("All standard methods failed, attempting OCR...")
-            text, method = extract_text_ocr(pdf_path)
+            text, method = extract_text_ocr(pdf_path, dpi=ocr_dpi)
 
     word_count = len(text.split()) if text else 0
 
     if word_count < MIN_WORD_COUNT:
         logger.error(f"All extraction methods failed for {pdf_path.name} (got {word_count} words)")
-        raise ValueError(f"Could not extract sufficient text from {pdf_path.name}. Got {word_count} words, need {MIN_WORD_COUNT}.")
+        raise ValueError(
+            f"Could not extract sufficient text from {pdf_path.name}. "
+            f"Got {word_count} words, need {MIN_WORD_COUNT}. "
+            f"Last extraction result: {method or 'unknown'}."
+        )
 
     # Get metadata
     page_count = get_page_count(pdf_path)
@@ -314,8 +358,8 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         '--dpi',
         type=int,
-        default=300,
-        help='DPI for OCR image conversion (default: 300)'
+        default=OCR_DPI,
+        help=f'DPI for OCR image conversion (default: {OCR_DPI})'
     )
 
     return parser.parse_args()
@@ -350,7 +394,11 @@ def main() -> int:
 
         for pdf_path in pdf_files:
             try:
-                content = parse_screenplay(pdf_path, force_ocr=args.ocr)
+                content = parse_screenplay(
+                    pdf_path,
+                    force_ocr=args.ocr,
+                    ocr_dpi=args.dpi,
+                )
 
                 # Save to output directory
                 output_filename = pdf_path.stem + '.json'
@@ -361,6 +409,7 @@ def main() -> int:
 
             except Exception as e:
                 logger.error(f"✗ Failed to parse {pdf_path.name}: {e}")
+                print(f"PARSE_ERROR: {e}", file=sys.stderr)
                 failed += 1
 
         print(f"\n✓ Parsed {successful} files")

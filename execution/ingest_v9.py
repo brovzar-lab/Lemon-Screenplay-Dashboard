@@ -154,7 +154,8 @@ MIN_WORDS = 500
 
 # Parsed screenplay cache. The parser version is part of the key so extraction
 # changes cannot silently reuse output from an older parser implementation.
-PARSER_VERSION = "v2"
+PARSER_VERSION = "v3-ocr-eng-spa"
+PARSER_SUBPROCESS_TIMEOUT_SECONDS = 15 * 60
 PARSE_CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
 PARSE_CACHE_MAX_BYTES = 512 * 1024 * 1024
 PARSE_CACHE_CLEANUP_INTERVAL_SECONDS = 60 * 60
@@ -564,18 +565,27 @@ def parse_pdf(pdf_path: Path, content_hash: Optional[str] = None) -> Optional[Di
             pass
 
     with tempfile.TemporaryDirectory(prefix=".working-", dir=cache_root) as working_dir:
-        result = subprocess.run(
-            [sys.executable, str(parse_script),
-             "--input", str(pdf_path),
-             "--output", working_dir],
-            capture_output=True, text=True, timeout=300,
-        )
+        try:
+            result = subprocess.run(
+                [sys.executable, str(parse_script),
+                 "--input", str(pdf_path),
+                 "--output", working_dir],
+                capture_output=True,
+                text=True,
+                timeout=PARSER_SUBPROCESS_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            log.error(
+                f"  ✗ Parse timed out after {PARSER_SUBPROCESS_TIMEOUT_SECONDS}s: "
+                f"{pdf_path.name}; no partial parse was saved"
+            )
+            return None
         parser_output = Path(working_dir) / (pdf_path.stem + ".json")
 
         if result.returncode != 0 or not parser_output.exists():
             log.error(f"  ✗ Parse failed: {pdf_path.name}")
             if result.stderr:
-                log.debug(f"    stderr: {result.stderr[:300]}")
+                log.error(f"    {result.stderr.strip()[-500:]}")
             return None
 
         data = _read_valid_parse(parser_output)
