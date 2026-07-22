@@ -16,6 +16,14 @@
         { "fieldPath": "priority", "order": "DESCENDING" },
         { "fieldPath": "queued_at", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "ingest-queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "budget_resume_at", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
