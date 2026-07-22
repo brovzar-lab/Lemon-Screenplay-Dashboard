@@ -4,7 +4,9 @@ const test = require('node:test');
 const {
   DailyBudgetExceededError,
   admitBudgetReservation,
+  chargeUncertainBudgetReservationInLedger,
   normalizeBudgetLedger,
+  reservationExpiresAtMs,
   settleBudgetReservationInLedger,
 } = require('../lib/budgetCounter');
 
@@ -70,6 +72,38 @@ test('expired reservations are reclaimed before admitting new work', () => {
   assert.deepEqual(Object.keys(admitted.active_reservations), ['fresh']);
 });
 
+test('unsettled reservations remain held through the current UTC budget day', () => {
+  const beforeReset = Date.parse('2026-07-21T23:59:59.999Z');
+  const reset = Date.parse('2026-07-22T00:00:00.000Z');
+  assert.equal(reservationExpiresAtMs(beforeReset), reset);
+  const held = admitBudgetReservation(
+    ledger(1_000_000),
+    'unresolved',
+    {
+      reserved_microusd: 700_000,
+      expires_at_ms: reset,
+      model: 'claude-sonnet-4-6',
+      job_id: 'job-unresolved',
+    },
+    beforeReset,
+  );
+
+  assert.throws(
+    () => admitBudgetReservation(
+      held,
+      'would-overspend',
+      {
+        reserved_microusd: 400_000,
+        expires_at_ms: reset,
+        model: 'claude-sonnet-4-6',
+        job_id: 'job-next',
+      },
+      beforeReset,
+    ),
+    DailyBudgetExceededError,
+  );
+});
+
 test('settlement records exact calls, tokens, model, and dollars', () => {
   const reserved = admitBudgetReservation(
     ledger(1_000_000),
@@ -105,4 +139,45 @@ test('settlement records exact calls, tokens, model, and dollars', () => {
     ...usage,
     actual_cost_microusd: 9_000,
   });
+});
+
+test('a mid-stream failure after partial output is charged, not refunded', () => {
+  const reserved = admitBudgetReservation(
+    ledger(1_000_000),
+    'partial-stream',
+    {
+      reserved_microusd: 700_000,
+      expires_at_ms: 10_000,
+      model: 'claude-sonnet-4-6',
+      job_id: 'job-partial',
+    },
+    1_000,
+  );
+
+  const charged = chargeUncertainBudgetReservationInLedger(
+    reserved,
+    'partial-stream',
+    700_000,
+    2_000,
+  );
+
+  assert.equal(charged.spent_microusd, 700_000);
+  assert.equal(charged.uncertain_spend_microusd, 700_000);
+  assert.equal(charged.uncertain_call_count, 1);
+  assert.equal(charged.reserved_microusd, 0);
+  assert.deepEqual(charged.active_reservations, {});
+  assert.throws(
+    () => admitBudgetReservation(
+      charged,
+      'next-call',
+      {
+        reserved_microusd: 400_000,
+        expires_at_ms: 10_000,
+        model: 'claude-sonnet-4-6',
+        job_id: 'job-next',
+      },
+      2_000,
+    ),
+    DailyBudgetExceededError,
+  );
 });

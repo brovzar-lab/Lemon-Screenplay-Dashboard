@@ -10,18 +10,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DailyBudgetExceededError = void 0;
 exports.normalizeBudgetLedger = normalizeBudgetLedger;
 exports.admitBudgetReservation = admitBudgetReservation;
-exports.releaseBudgetReservationFromLedger = releaseBudgetReservationFromLedger;
 exports.settleBudgetReservationInLedger = settleBudgetReservationInLedger;
+exports.chargeUncertainBudgetReservationInLedger = chargeUncertainBudgetReservationInLedger;
 exports.dailyBudgetDocId = dailyBudgetDocId;
 exports.nextUtcReset = nextUtcReset;
+exports.reservationExpiresAtMs = reservationExpiresAtMs;
 exports.reserveLlmBudget = reserveLlmBudget;
 exports.settleLlmBudget = settleLlmBudget;
-exports.releaseLlmBudget = releaseLlmBudget;
+exports.settleUncertainLlmBudget = settleUncertainLlmBudget;
 const node_crypto_1 = require("node:crypto");
 const firestore_1 = require("firebase-admin/firestore");
 const llmCost_1 = require("./llmCost");
 const ingestQueue_1 = require("./ingestQueue");
-const RESERVATION_TTL_MS = 75 * 60 * 1_000;
 class DailyBudgetExceededError extends Error {
     limitMicrousd;
     spentMicrousd;
@@ -107,6 +107,8 @@ function normalizeBudgetLedger(value, date, limitMicrousd) {
         spent_microusd: nonNegativeInteger(record.spent_microusd),
         reserved_microusd: nonNegativeInteger(record.reserved_microusd),
         call_count: nonNegativeInteger(record.call_count),
+        uncertain_call_count: nonNegativeInteger(record.uncertain_call_count),
+        uncertain_spend_microusd: nonNegativeInteger(record.uncertain_spend_microusd),
         input_tokens: nonNegativeInteger(record.input_tokens),
         output_tokens: nonNegativeInteger(record.output_tokens),
         cache_creation_input_tokens: nonNegativeInteger(record.cache_creation_input_tokens),
@@ -138,15 +140,6 @@ function admitBudgetReservation(ledger, reservationId, reservation, nowMs) {
         active_reservations: nextActive,
     };
 }
-function releaseBudgetReservationFromLedger(ledger, reservationId, nowMs) {
-    const active = activeReservationsAt(ledger.active_reservations, nowMs);
-    delete active[reservationId];
-    return {
-        ...ledger,
-        reserved_microusd: sumReserved(active),
-        active_reservations: active,
-    };
-}
 function settleBudgetReservationInLedger(ledger, reservationId, model, usage, actualCostMicrousd, nowMs) {
     const active = activeReservationsAt(ledger.active_reservations, nowMs);
     if (!active[reservationId]) {
@@ -175,11 +168,30 @@ function settleBudgetReservationInLedger(ledger, reservationId, model, usage, ac
         active_reservations: active,
     };
 }
+function chargeUncertainBudgetReservationInLedger(ledger, reservationId, reservedMicrousd, nowMs) {
+    const chargedMicrousd = nonNegativeInteger(reservedMicrousd);
+    if (chargedMicrousd <= 0) {
+        throw new Error("Uncertain LLM spend must retain a positive reservation.");
+    }
+    const active = activeReservationsAt(ledger.active_reservations, nowMs);
+    delete active[reservationId];
+    return {
+        ...ledger,
+        spent_microusd: ledger.spent_microusd + chargedMicrousd,
+        reserved_microusd: sumReserved(active),
+        uncertain_call_count: ledger.uncertain_call_count + 1,
+        uncertain_spend_microusd: ledger.uncertain_spend_microusd + chargedMicrousd,
+        active_reservations: active,
+    };
+}
 function dailyBudgetDocId(date = new Date()) {
     return `llm-budget-${date.toISOString().slice(0, 10)}`;
 }
 function nextUtcReset(date = new Date()) {
     return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
+}
+function reservationExpiresAtMs(nowMs) {
+    return nextUtcReset(new Date(nowMs)).getTime();
 }
 async function reserveLlmBudget(params) {
     const db = (0, firestore_1.getFirestore)();
@@ -190,7 +202,7 @@ async function reserveLlmBudget(params) {
     const reservationRef = budgetRef.collection("reservations").doc(reservationId);
     const activeReservation = {
         reserved_microusd: (0, llmCost_1.calculateReservationMicrousd)(params.model, params.requestBytes, params.maxOutputTokens),
-        expires_at_ms: nowMs + RESERVATION_TTL_MS,
+        expires_at_ms: reservationExpiresAtMs(nowMs),
         model: params.model,
         job_id: params.jobId ?? null,
     };
@@ -293,32 +305,66 @@ async function settleLlmBudget(reservation, usage) {
         };
     });
 }
-async function releaseLlmBudget(reservation, reason) {
+async function settleUncertainLlmBudget(reservation, reason) {
     const db = (0, firestore_1.getFirestore)();
     const nowMs = Date.now();
     const budgetRef = db.collection(ingestQueue_1.SYSTEM_COLLECTION).doc(reservation.budget_document_id);
     const reservationRef = budgetRef.collection("reservations").doc(reservation.id);
-    await db.runTransaction(async (transaction) => {
-        const [reservationSnapshot, budgetSnapshot] = await Promise.all([
+    const queueRef = reservation.job_id
+        ? db.collection(ingestQueue_1.INGEST_QUEUE_COLLECTION).doc(reservation.job_id)
+        : null;
+    return db.runTransaction(async (transaction) => {
+        const [reservationSnapshot, budgetSnapshot, queueSnapshot] = await Promise.all([
             transaction.get(reservationRef),
             transaction.get(budgetRef),
+            queueRef ? transaction.get(queueRef) : Promise.resolve(null),
         ]);
-        if (!reservationSnapshot.exists || reservationSnapshot.data()?.status !== "reserved")
-            return;
+        if (!reservationSnapshot.exists) {
+            throw new Error(`Budget reservation ${reservation.id} does not exist.`);
+        }
+        const reservationData = reservationSnapshot.data() ?? {};
+        if (reservationData.status === "uncertain" || reservationData.status === "settled") {
+            const priorCharge = nonNegativeInteger(reservationData.charged_cost_microusd
+                ?? reservationData.actual_cost_microusd);
+            return {
+                actual_cost_microusd: priorCharge,
+                actual_cost_usd: (0, llmCost_1.microusdToUsd)(priorCharge),
+            };
+        }
+        if (reservationData.status !== "reserved") {
+            throw new Error(`Budget reservation ${reservation.id} is ${reservationData.status}.`);
+        }
         const storedLimit = nonNegativeInteger(budgetSnapshot.data()?.limit_microusd);
         if (storedLimit <= 0)
             throw new Error("Daily AI budget ledger is missing its limit.");
         const ledger = normalizeBudgetLedger(budgetSnapshot.data(), reservation.budget_document_id.replace("llm-budget-", ""), storedLimit);
-        const next = releaseBudgetReservationFromLedger(ledger, reservation.id, nowMs);
+        const chargedMicrousd = reservation.reserved_microusd;
+        const next = chargeUncertainBudgetReservationInLedger(ledger, reservation.id, chargedMicrousd, nowMs);
         transaction.set(budgetRef, {
             ...next,
             updated_at: firestore_1.FieldValue.serverTimestamp(),
         });
         transaction.update(reservationRef, {
-            status: "released",
-            release_reason: reason.slice(0, 500),
-            released_at: firestore_1.FieldValue.serverTimestamp(),
+            status: "uncertain",
+            charged_cost_microusd: chargedMicrousd,
+            uncertainty_reason: reason.slice(0, 500),
+            settled_at: firestore_1.FieldValue.serverTimestamp(),
         });
+        if (queueRef && queueSnapshot?.exists) {
+            const modelPrefix = `llm_models.${reservation.model}`;
+            transaction.update(queueRef, {
+                llm_uncertain_call_count: firestore_1.FieldValue.increment(1),
+                uncertain_cost_microusd: firestore_1.FieldValue.increment(chargedMicrousd),
+                uncertain_cost_usd: firestore_1.FieldValue.increment((0, llmCost_1.microusdToUsd)(chargedMicrousd)),
+                [`${modelPrefix}.uncertain_call_count`]: firestore_1.FieldValue.increment(1),
+                [`${modelPrefix}.uncertain_cost_microusd`]: firestore_1.FieldValue.increment(chargedMicrousd),
+                last_llm_call_at: firestore_1.FieldValue.serverTimestamp(),
+            });
+        }
+        return {
+            actual_cost_microusd: chargedMicrousd,
+            actual_cost_usd: (0, llmCost_1.microusdToUsd)(chargedMicrousd),
+        };
     });
 }
 //# sourceMappingURL=budgetCounter.js.map

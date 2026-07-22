@@ -17,14 +17,17 @@
 
 import { onRequest } from "firebase-functions/v2/https";
 import { defineString } from "firebase-functions/params";
-import Anthropic from "@anthropic-ai/sdk";
 import cors from "cors";
 import { authenticateProxyRequest } from "./proxyAuth";
 import {
+  createAnthropicClient,
+  finalMessageWithUncertainSpendProtection,
+} from "./anthropicClient";
+import {
   DailyBudgetExceededError,
-  releaseLlmBudget,
   reserveLlmBudget,
   settleLlmBudget,
+  settleUncertainLlmBudget,
   type LlmBudgetReservation,
 } from "./budgetCounter";
 import {
@@ -321,6 +324,7 @@ export const llmProxy = onRequest(
       if (body.tool_choice) payload.tool_choice = body.tool_choice;
       if (body.thinking) payload.thinking = body.thinking;
 
+      const client = createAnthropicClient(anthropicApiKey.value());
       let reservation: LlmBudgetReservation;
       try {
         const limitUsd = parseDailyBudgetUsd(dailyLlmBudgetUsd.value());
@@ -354,7 +358,6 @@ export const llmProxy = onRequest(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let message: any;
       try {
-        const client = new Anthropic({ apiKey: anthropicApiKey.value() });
         // Use streaming under the hood and collect into a final Message.
         // Anthropic's SDK refuses non-streaming calls it estimates may exceed
         // 10 minutes (which heavy thinking + tool_use synthesis trips). The
@@ -362,15 +365,17 @@ export const llmProxy = onRequest(
         // `.finalMessage()` returns the same Message shape we'd get from
         // .create() — so the rest of the handler is unchanged.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const stream = (client.messages.stream as any)(payload);
-        message = await stream.finalMessage();
+        message = await finalMessageWithUncertainSpendProtection(
+          async () => {
+            const stream = (client.messages.stream as any)(payload);
+            return stream.finalMessage();
+          },
+          async (reason) => {
+            await settleUncertainLlmBudget(reservation, reason);
+          },
+        );
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
-        try {
-          await releaseLlmBudget(reservation, error?.message ?? "Anthropic request failed");
-        } catch (releaseError) {
-          console.error("[llmProxy] Budget release failed:", releaseError);
-        }
         console.error("[llmProxy] Error:", error);
 
         if (error.status === 429) {

@@ -16,8 +16,6 @@ import {
 } from "./llmCost";
 import { INGEST_QUEUE_COLLECTION, SYSTEM_COLLECTION } from "./ingestQueue";
 
-const RESERVATION_TTL_MS = 75 * 60 * 1_000;
-
 export interface ActiveReservation {
   reserved_microusd: number;
   expires_at_ms: number;
@@ -36,6 +34,8 @@ export interface DailyBudgetLedger extends LlmTokenUsage {
   spent_microusd: number;
   reserved_microusd: number;
   call_count: number;
+  uncertain_call_count: number;
+  uncertain_spend_microusd: number;
   by_model: Record<string, ModelUsageTotals>;
   active_reservations: Record<string, ActiveReservation>;
 }
@@ -140,6 +140,8 @@ export function normalizeBudgetLedger(
     spent_microusd: nonNegativeInteger(record.spent_microusd),
     reserved_microusd: nonNegativeInteger(record.reserved_microusd),
     call_count: nonNegativeInteger(record.call_count),
+    uncertain_call_count: nonNegativeInteger(record.uncertain_call_count),
+    uncertain_spend_microusd: nonNegativeInteger(record.uncertain_spend_microusd),
     input_tokens: nonNegativeInteger(record.input_tokens),
     output_tokens: nonNegativeInteger(record.output_tokens),
     cache_creation_input_tokens: nonNegativeInteger(record.cache_creation_input_tokens),
@@ -197,20 +199,6 @@ export function admitBudgetReservation(
   };
 }
 
-export function releaseBudgetReservationFromLedger(
-  ledger: DailyBudgetLedger,
-  reservationId: string,
-  nowMs: number,
-): DailyBudgetLedger {
-  const active = activeReservationsAt(ledger.active_reservations, nowMs);
-  delete active[reservationId];
-  return {
-    ...ledger,
-    reserved_microusd: sumReserved(active),
-    active_reservations: active,
-  };
-}
-
 export function settleBudgetReservationInLedger(
   ledger: DailyBudgetLedger,
   reservationId: string,
@@ -253,6 +241,29 @@ export function settleBudgetReservationInLedger(
   };
 }
 
+export function chargeUncertainBudgetReservationInLedger(
+  ledger: DailyBudgetLedger,
+  reservationId: string,
+  reservedMicrousd: number,
+  nowMs: number,
+): DailyBudgetLedger {
+  const chargedMicrousd = nonNegativeInteger(reservedMicrousd);
+  if (chargedMicrousd <= 0) {
+    throw new Error("Uncertain LLM spend must retain a positive reservation.");
+  }
+
+  const active = activeReservationsAt(ledger.active_reservations, nowMs);
+  delete active[reservationId];
+  return {
+    ...ledger,
+    spent_microusd: ledger.spent_microusd + chargedMicrousd,
+    reserved_microusd: sumReserved(active),
+    uncertain_call_count: ledger.uncertain_call_count + 1,
+    uncertain_spend_microusd: ledger.uncertain_spend_microusd + chargedMicrousd,
+    active_reservations: active,
+  };
+}
+
 export function dailyBudgetDocId(date = new Date()): string {
   return `llm-budget-${date.toISOString().slice(0, 10)}`;
 }
@@ -263,6 +274,10 @@ export function nextUtcReset(date = new Date()): Date {
     date.getUTCMonth(),
     date.getUTCDate() + 1,
   ));
+}
+
+export function reservationExpiresAtMs(nowMs: number): number {
+  return nextUtcReset(new Date(nowMs)).getTime();
 }
 
 export async function reserveLlmBudget(params: {
@@ -284,7 +299,7 @@ export async function reserveLlmBudget(params: {
       params.requestBytes,
       params.maxOutputTokens,
     ),
-    expires_at_ms: nowMs + RESERVATION_TTL_MS,
+    expires_at_ms: reservationExpiresAtMs(nowMs),
     model: params.model,
     job_id: params.jobId ?? null,
   };
@@ -423,21 +438,41 @@ export async function settleLlmBudget(
   });
 }
 
-export async function releaseLlmBudget(
+export async function settleUncertainLlmBudget(
   reservation: LlmBudgetReservation,
   reason: string,
-): Promise<void> {
+): Promise<LlmBudgetSettlement> {
   const db = getFirestore();
   const nowMs = Date.now();
   const budgetRef = db.collection(SYSTEM_COLLECTION).doc(reservation.budget_document_id);
   const reservationRef = budgetRef.collection("reservations").doc(reservation.id);
+  const queueRef = reservation.job_id
+    ? db.collection(INGEST_QUEUE_COLLECTION).doc(reservation.job_id)
+    : null;
 
-  await db.runTransaction(async (transaction) => {
-    const [reservationSnapshot, budgetSnapshot] = await Promise.all([
+  return db.runTransaction(async (transaction) => {
+    const [reservationSnapshot, budgetSnapshot, queueSnapshot] = await Promise.all([
       transaction.get(reservationRef),
       transaction.get(budgetRef),
+      queueRef ? transaction.get(queueRef) : Promise.resolve(null),
     ]);
-    if (!reservationSnapshot.exists || reservationSnapshot.data()?.status !== "reserved") return;
+    if (!reservationSnapshot.exists) {
+      throw new Error(`Budget reservation ${reservation.id} does not exist.`);
+    }
+    const reservationData = reservationSnapshot.data() ?? {};
+    if (reservationData.status === "uncertain" || reservationData.status === "settled") {
+      const priorCharge = nonNegativeInteger(
+        reservationData.charged_cost_microusd
+          ?? reservationData.actual_cost_microusd,
+      );
+      return {
+        actual_cost_microusd: priorCharge,
+        actual_cost_usd: microusdToUsd(priorCharge),
+      };
+    }
+    if (reservationData.status !== "reserved") {
+      throw new Error(`Budget reservation ${reservation.id} is ${reservationData.status}.`);
+    }
     const storedLimit = nonNegativeInteger(budgetSnapshot.data()?.limit_microusd);
     if (storedLimit <= 0) throw new Error("Daily AI budget ledger is missing its limit.");
     const ledger = normalizeBudgetLedger(
@@ -445,15 +480,39 @@ export async function releaseLlmBudget(
       reservation.budget_document_id.replace("llm-budget-", ""),
       storedLimit,
     );
-    const next = releaseBudgetReservationFromLedger(ledger, reservation.id, nowMs);
+    const chargedMicrousd = reservation.reserved_microusd;
+    const next = chargeUncertainBudgetReservationInLedger(
+      ledger,
+      reservation.id,
+      chargedMicrousd,
+      nowMs,
+    );
     transaction.set(budgetRef, {
       ...next,
       updated_at: FieldValue.serverTimestamp(),
     });
     transaction.update(reservationRef, {
-      status: "released",
-      release_reason: reason.slice(0, 500),
-      released_at: FieldValue.serverTimestamp(),
+      status: "uncertain",
+      charged_cost_microusd: chargedMicrousd,
+      uncertainty_reason: reason.slice(0, 500),
+      settled_at: FieldValue.serverTimestamp(),
     });
+
+    if (queueRef && queueSnapshot?.exists) {
+      const modelPrefix = `llm_models.${reservation.model}`;
+      transaction.update(queueRef, {
+        llm_uncertain_call_count: FieldValue.increment(1),
+        uncertain_cost_microusd: FieldValue.increment(chargedMicrousd),
+        uncertain_cost_usd: FieldValue.increment(microusdToUsd(chargedMicrousd)),
+        [`${modelPrefix}.uncertain_call_count`]: FieldValue.increment(1),
+        [`${modelPrefix}.uncertain_cost_microusd`]: FieldValue.increment(chargedMicrousd),
+        last_llm_call_at: FieldValue.serverTimestamp(),
+      });
+    }
+
+    return {
+      actual_cost_microusd: chargedMicrousd,
+      actual_cost_usd: microusdToUsd(chargedMicrousd),
+    };
   });
 }
