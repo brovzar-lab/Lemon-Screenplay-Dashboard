@@ -1,40 +1,83 @@
-import { RECOMMENDATION_CONFIG, type Screenplay } from '@/types';
+import { DiscoverControls } from '@/components/discover/DiscoverControls';
+import { DiscoverGrid, DiscoverShowcase } from '@/components/discover/DiscoverResults';
+import type { Screenplay } from '@/types';
 
 interface DiscoverShellProps {
   screenplays: Screenplay[];
+  totalCount: number;
+  filteredCount: number;
+  genres: string[];
+  themes: string[];
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
   isLoading: boolean;
   isError: boolean;
 }
 
-function Score({ value }: { value: number }) {
+function DiscoverHeader() {
   return (
-    <span
-      className="font-mono text-sm font-semibold text-black-50"
-      aria-label={`Score ${value.toFixed(1)}`}
-    >
-      {value.toFixed(1)}
-    </span>
+    <header className="mb-7 flex flex-wrap items-end justify-between gap-5 border-b border-black-700 pb-6">
+      <div>
+        <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-gold-400">
+          Lemon Studios · Development slate
+        </p>
+        <h1 className="font-display text-5xl leading-none text-black-50 sm:text-6xl">Discover</h1>
+      </div>
+      <p className="max-w-sm text-right text-sm leading-6 text-black-400">
+        Find the strongest story for the moment, then follow the signal through the slate.
+      </p>
+    </header>
   );
 }
 
-export function DiscoverShell({ screenplays, isLoading, isError }: DiscoverShellProps) {
-  if (isLoading) {
-    return (
-      <main className="min-h-screen bg-black-950 px-6 py-12" role="status">
-        <div className="mx-auto max-w-[1600px] animate-pulse">
-          <div className="mb-10 h-10 w-72 rounded bg-black-800" />
-          <div className="h-72 rounded-xl border border-black-700 bg-black-900" />
+function DiscoverLoading() {
+  return (
+    <main
+      className="min-h-screen bg-black-950 px-4 py-8 text-black-50 sm:px-6 lg:px-10"
+      role="status"
+    >
+      <div className="mx-auto max-w-[1600px] animate-pulse">
+        <div className="mb-7 h-16 w-72 bg-black-800" />
+        <div className="mb-8 h-48 border border-black-700 bg-black-900" />
+        <div className="mb-12 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="h-[27rem] border border-black-700 bg-black-900" />
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="h-48 border border-black-700 bg-black-900" />
+            ))}
+          </div>
         </div>
-        <span className="sr-only">Loading Discovery</span>
-      </main>
-    );
-  }
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="h-72 border border-black-700 bg-black-900" />
+          ))}
+        </div>
+      </div>
+      <span className="sr-only">Loading Discovery</span>
+    </main>
+  );
+}
+
+export function DiscoverShell({
+  screenplays,
+  totalCount,
+  filteredCount,
+  genres,
+  themes,
+  hasActiveFilters,
+  onClearFilters,
+  isLoading,
+  isError,
+}: DiscoverShellProps) {
+  if (isLoading) return <DiscoverLoading />;
 
   if (isError) {
     return (
       <main className="min-h-screen bg-black-950 px-6 py-12">
-        <div className="mx-auto max-w-[1600px] rounded-xl border border-red-500/30 bg-black-900 p-8">
-          <h1 className="text-2xl text-black-50">Discovery is temporarily unavailable</h1>
+        <div className="mx-auto max-w-[1600px] border border-red-500/30 bg-black-900 p-8">
+          <h1 className="font-display text-3xl text-black-50">
+            Discovery is temporarily unavailable
+          </h1>
           <p className="mt-3 text-black-300">
             The existing dashboard is still available at the main route.
           </p>
@@ -43,140 +86,69 @@ export function DiscoverShell({ screenplays, isLoading, isError }: DiscoverShell
     );
   }
 
-  if (screenplays.length === 0) {
-    return (
-      <main className="min-h-screen bg-black-950 px-6 py-12">
-        <div className="mx-auto max-w-[1600px]">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-gold-400">
-            Lemon Studios
-          </p>
-          <h1 className="font-display text-4xl text-black-50">Discover</h1>
-          <p className="mt-8 rounded-xl border border-black-700 bg-black-900 p-8 text-black-300">
-            No analyzed screenplays are available yet.
-          </p>
-        </div>
-      </main>
-    );
-  }
-
   const [featured, ...remaining] = screenplays;
   const topMatches = remaining.slice(0, 4);
-  const library = remaining.slice(4);
+  const grid = remaining.slice(4);
 
   return (
-    <main className="min-h-screen bg-black-950 px-6 py-10 text-black-50">
+    <main className="min-h-screen bg-black-950 px-4 py-8 text-black-50 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-[1600px]">
-        <header className="mb-10 flex flex-wrap items-end justify-between gap-4 border-b border-black-700 pb-6">
-          <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-gold-400">
-              Lemon Studios
-            </p>
-            <h1 className="font-display text-4xl sm:text-5xl">Discover</h1>
-          </div>
-          <p className="font-mono text-sm text-black-400">
-            {screenplays.length} analyzed screenplays
-          </p>
-        </header>
+        <DiscoverHeader />
+        <DiscoverControls
+          genres={genres}
+          themes={themes}
+          filteredCount={filteredCount}
+          totalCount={totalCount}
+          hasActiveFilters={hasActiveFilters}
+          onClearFilters={onClearFilters}
+        />
 
-        <section aria-labelledby="featured-screenplay" className="mb-12">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-black-400">
-            Featured
-          </p>
-          <article className="grid gap-6 rounded-xl border border-gold-500/30 bg-black-900 p-6 md:grid-cols-[minmax(0,2fr)_minmax(14rem,1fr)] md:p-8">
-            <div>
-              <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-black-300">
-                <span>{featured.genre}</span>
-                <span aria-hidden="true">•</span>
-                <span>{RECOMMENDATION_CONFIG[featured.recommendation].label}</span>
+        {totalCount === 0 ? (
+          <section className="border border-black-700 bg-black-900 p-10 text-center">
+            <h2 className="font-display text-3xl text-black-50">No analyzed screenplays yet</h2>
+            <p className="mt-3 text-black-400">
+              New analyses will appear here through the live data feed.
+            </p>
+          </section>
+        ) : !featured ? (
+          <section className="border border-black-700 bg-black-900 p-10 text-center">
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
+              No match
+            </p>
+            <h2 className="mt-3 font-display text-3xl text-black-50">No scripts match this view</h2>
+            <p className="mx-auto mt-3 max-w-md text-black-400">
+              Try a broader search or clear the active filters to reopen the full slate.
+            </p>
+            <button
+              type="button"
+              onClick={onClearFilters}
+              className="mt-6 border border-gold-500/60 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-gold-300 hover:bg-gold-500/10"
+            >
+              Clear filters
+            </button>
+          </section>
+        ) : (
+          <>
+            <DiscoverShowcase featured={featured} topMatches={topMatches} />
+
+            <section aria-labelledby="discovery-archive">
+              <div className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-black-700 pb-4">
+                <div>
+                  <p className="mb-2 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
+                    The full read
+                  </p>
+                  <h2 id="discovery-archive" className="font-display text-3xl text-black-50">
+                    Slate archive
+                  </h2>
+                </div>
+                <span className="font-mono text-xs text-black-500">
+                  {grid.length} beyond the shelf
+                </span>
               </div>
-              <h2
-                id="featured-screenplay"
-                className="font-display text-3xl text-black-50 sm:text-4xl"
-              >
-                {featured.title}
-              </h2>
-              <p className="mt-3 text-sm text-black-400">
-                by {featured.author || 'Unknown writer'}
-              </p>
-              {featured.logline && (
-                <p className="mt-6 max-w-3xl text-base leading-7 text-black-200">
-                  {featured.logline}
-                </p>
-              )}
-            </div>
-            <div className="flex items-end justify-between border-t border-black-700 pt-5 md:flex-col md:items-end md:justify-between md:border-l md:border-t-0 md:pl-6 md:pt-0">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-black-400">
-                V9 score
-              </span>
-              <span className="font-display text-6xl text-black-50">
-                {featured.weightedScore.toFixed(1)}
-              </span>
-            </div>
-          </article>
-        </section>
-
-        <section aria-labelledby="top-matches" className="mb-12">
-          <div className="mb-4 flex items-baseline justify-between gap-4">
-            <h2 id="top-matches" className="font-display text-2xl text-black-50">
-              Top matches
-            </h2>
-            <span className="text-xs uppercase tracking-[0.14em] text-black-400">
-              Highest V9 scores
-            </span>
-          </div>
-          {topMatches.length > 0 ? (
-            <ol className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {topMatches.map((screenplay, index) => (
-                <li
-                  key={screenplay.id}
-                  className="rounded-xl border border-black-700 bg-black-900 p-5"
-                >
-                  <div className="mb-6 flex items-center justify-between gap-3 text-xs text-black-400">
-                    <span>#{index + 2}</span>
-                    <Score value={screenplay.weightedScore} />
-                  </div>
-                  <h3 className="font-display text-xl text-black-50">{screenplay.title}</h3>
-                  <p className="mt-2 text-sm text-black-400">{screenplay.genre}</p>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="rounded-xl border border-black-700 bg-black-900 p-6 text-sm text-black-400">
-              More matches will appear as analyses are added.
-            </p>
-          )}
-        </section>
-
-        <section aria-labelledby="discovery-library">
-          <div className="mb-4 flex items-baseline justify-between gap-4">
-            <h2 id="discovery-library" className="font-display text-2xl text-black-50">
-              Library
-            </h2>
-            <span className="font-mono text-xs text-black-400">{library.length} more</span>
-          </div>
-          {library.length > 0 ? (
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {library.map((screenplay) => (
-                <li
-                  key={screenplay.id}
-                  className="flex items-start justify-between gap-4 rounded-lg border border-black-700 bg-black-900 p-4"
-                >
-                  <div className="min-w-0">
-                    <h3 className="truncate text-base font-semibold text-black-50">
-                      {screenplay.title}
-                    </h3>
-                    <p className="mt-1 truncate text-sm text-black-400">{screenplay.genre}</p>
-                  </div>
-                  <Score value={screenplay.weightedScore} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="rounded-xl border border-black-700 bg-black-900 p-6 text-sm text-black-400">
-              Every available screenplay is shown above.
-            </p>
-          )}
-        </section>
+              <DiscoverGrid screenplays={grid} />
+            </section>
+          </>
+        )}
       </div>
     </main>
   );

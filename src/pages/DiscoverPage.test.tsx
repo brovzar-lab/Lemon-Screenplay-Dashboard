@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockOnSnapshot, mockUnsubscribe } = vi.hoisted(() => ({
@@ -117,7 +117,9 @@ describe('DiscoverPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Midnight Orchard' })).toBeInTheDocument();
     expect(screen.getAllByText('8.8').length).toBeGreaterThan(0);
-    expect(screen.getByText('FILM NOW')).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('discovery-featured')).getByText('FILM NOW'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Cactus Season')).not.toBeInTheDocument();
   });
 });
