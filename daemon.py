@@ -202,27 +202,42 @@ def load_calibration_profile() -> Optional[dict]:
         return None
 
     data = snapshot.to_dict() or {}
-    enabled = data.get("enabled", False)
-    if enabled is False:
-        return None
-    if enabled is not True:
-        raise ValueError("Calibration profile enabled must be a boolean")
+    try:
+        enabled = data.get("enabled", False)
+        if enabled is False:
+            return None
+        if enabled is not True:
+            raise ValueError("Calibration profile enabled must be a boolean")
 
-    prompt = data.get("calibrationPrompt")
-    if not isinstance(prompt, str) or not prompt.strip():
-        raise ValueError("Enabled calibration profile requires calibrationPrompt")
-    prompt = prompt.strip()
-    if len(prompt) > MAX_CALIBRATION_PROMPT_CHARS:
-        raise ValueError(
-            f"calibrationPrompt exceeds {MAX_CALIBRATION_PROMPT_CHARS} characters"
-        )
+        prompt = data.get("calibrationPrompt")
+        if not isinstance(prompt, str) or not prompt.strip():
+            raise ValueError("Enabled calibration profile requires calibrationPrompt")
+        prompt = prompt.strip()
+        if len(prompt) > MAX_CALIBRATION_PROMPT_CHARS:
+            raise ValueError(
+                f"calibrationPrompt exceeds {MAX_CALIBRATION_PROMPT_CHARS} characters"
+            )
 
-    total_reviews = data.get("totalReviews", 0)
-    if type(total_reviews) is not int or total_reviews < 0:
-        raise ValueError("Calibration profile totalReviews must be a non-negative integer")
-    last_calibrated = data.get("lastCalibrated")
-    if last_calibrated is not None and not isinstance(last_calibrated, str):
-        raise ValueError("Calibration profile lastCalibrated must be a string")
+        total_reviews = data.get("totalReviews", 0)
+        if type(total_reviews) is not int or total_reviews < 0:
+            raise ValueError("Calibration profile totalReviews must be a non-negative integer")
+        last_calibrated = data.get("lastCalibrated")
+        if last_calibrated is not None and not isinstance(last_calibrated, str):
+            raise ValueError("Calibration profile lastCalibrated must be a string")
+    except ValueError as error:
+        # A bad saved preference must not stall every screenplay three times.
+        # The analysis continues without calibration and records the fallback.
+        log.error(f"[calibration] Invalid admin profile; using uncalibrated fallback: {error}")
+        return {
+            "prompt": None,
+            "profile_id": CALIBRATION_PROFILE_ID,
+            "provenance": {
+                "applied": False,
+                "profile_id": CALIBRATION_PROFILE_ID,
+                "fallback_reason": "invalid_profile",
+                "validation_error": str(error),
+            },
+        }
 
     prompt_sha256 = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     provenance = {

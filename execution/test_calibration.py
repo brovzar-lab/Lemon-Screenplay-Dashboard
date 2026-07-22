@@ -54,14 +54,29 @@ class CalibrationProfileTests(unittest.TestCase):
         )
         self.assertIsNone(daemon.load_calibration_profile())
 
-    def test_enabled_profile_with_invalid_prompt_fails_before_paid_work(self):
+    def test_enabled_profile_with_invalid_prompt_falls_back_uncalibrated(self):
         daemon._db.collection.return_value.document.return_value.get.return_value = (
             SimpleNamespace(
                 exists=True,
                 to_dict=lambda: {"enabled": True, "calibrationPrompt": ""},
             )
         )
-        with self.assertRaisesRegex(ValueError, "calibrationPrompt"):
+        profile = daemon.load_calibration_profile()
+
+        self.assertIsNone(profile["prompt"])
+        self.assertEqual(profile["provenance"], {
+            "applied": False,
+            "profile_id": "admin",
+            "fallback_reason": "invalid_profile",
+            "validation_error": "Enabled calibration profile requires calibrationPrompt",
+        })
+
+    def test_profile_read_failure_remains_retryable(self):
+        daemon._db.collection.return_value.document.return_value.get.side_effect = (
+            RuntimeError("Firestore unavailable")
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "Firestore unavailable"):
             daemon.load_calibration_profile()
 
 
