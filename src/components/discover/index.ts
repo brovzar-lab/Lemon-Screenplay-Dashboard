@@ -1,1 +1,1 @@
-export { DiscoverShell } from './DiscoverShell';
+export { DiscoverShell } from '@/components/discover/DiscoverShell';

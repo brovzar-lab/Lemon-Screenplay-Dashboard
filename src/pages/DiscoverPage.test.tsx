@@ -31,7 +31,7 @@ vi.mock('firebase/firestore', () => ({
   getCountFromServer: vi.fn(),
 }));
 
-import DiscoverPage from './DiscoverPage';
+import DiscoverPage from '@/pages/DiscoverPage';
 
 function rawAnalysis(title: string, score: number, sourceFile: string, verdict = 'RECOMMEND') {
   return {

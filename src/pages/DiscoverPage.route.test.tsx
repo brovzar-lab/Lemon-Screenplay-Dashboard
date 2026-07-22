@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -11,11 +13,11 @@ vi.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: Record<string, unknown>) => unknown) => selector(mockState),
 }));
 
-vi.mock('./DiscoverPage', () => ({
+vi.mock('@/pages/DiscoverPage', () => ({
   default: () => <div>Discovery experience</div>,
 }));
 
-import DiscoverPage from './DiscoverPage';
+import DiscoverPage from '@/pages/DiscoverPage';
 
 function renderDiscoverRoute() {
   const queryClient = new QueryClient({
@@ -58,6 +60,18 @@ describe('/discover authentication', () => {
 
     expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeInTheDocument();
     expect(screen.queryByText('Discovery experience')).not.toBeInTheDocument();
+  });
+
+  it('keeps the production route lazy, error-bounded, and reader-authenticated', () => {
+    const mainSource = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8');
+
+    expect(mainSource).toContain(
+      "importWithReload('discover', () => import('./pages/DiscoverPage'))",
+    );
+    expect(mainSource).toContain('path="/discover"');
+    expect(mainSource).toContain('areaName="Discovery"');
+    expect(mainSource).toContain('<AuthGate><DiscoverPage /></AuthGate>');
+    expect(mainSource).not.toContain('<AuthGate requireAdmin><DiscoverPage /></AuthGate>');
   });
 
   it('allows a reader into Discovery without requiring admin access', () => {
