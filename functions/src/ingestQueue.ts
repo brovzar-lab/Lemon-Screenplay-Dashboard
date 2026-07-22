@@ -17,6 +17,7 @@ import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 export type IngestStatus =
   | 'pending'     // Waiting to be claimed by a worker
   | 'processing'  // Claimed — worker is actively running
+  | 'waiting_for_budget' // Paused outside the queue until the next UTC budget window
   | 'complete'    // Analysis written to Firestore screenplays collection
   | 'failed'      // Exhausted max_attempts — needs manual review
   | 'skipped';    // Pre-flight validation failed (scanned PDF, too short, etc.)

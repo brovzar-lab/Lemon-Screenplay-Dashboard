@@ -68,7 +68,7 @@ import tempfile
 import threading
 import time
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -380,6 +380,12 @@ def claim_pending_job() -> Optional[dict]:
     Returns the job dict or None if queue is empty.
     Only claims status='pending' jobs — never touches 'complete' or 'failed'.
     """
+    # Budget waiters are outside the claimable queue until their UTC reset.
+    try:
+        resume_due_budget_jobs()
+    except Exception as error:
+        log.warning(f"[budget] Could not release due waiters: {error}")
+
     # Query: pending, ordered by priority desc then queued_at asc
     candidates = (
         _db.collection(QUEUE_COLLECTION)
@@ -603,6 +609,53 @@ def is_already_complete(content_hash: str) -> bool:
     return any(True for _ in existing)
 
 
+def get_existing_version(project_id: str, version_id: str) -> Optional[dict]:
+    """Return an already committed immutable version for retry idempotency."""
+    if not project_id or "/" in project_id:
+        raise TerminalJobError("project_id must be a Firestore document ID")
+    if not version_id or "/" in version_id:
+        raise TerminalJobError("version_id must be a Firestore document ID")
+
+    snapshot = (
+        _db.collection(OUTPUT_COLLECTION)
+        .document(project_id)
+        .collection("versions")
+        .document(version_id)
+        .get()
+    )
+    if snapshot.exists is not True:
+        return None
+    return snapshot.to_dict() or {}
+
+
+def existing_version_completion_telemetry(
+    version: dict,
+    version_id: str,
+) -> dict:
+    """Rebuild queue completion telemetry without repeating paid work."""
+    usage = version.get("usage")
+    if not isinstance(usage, dict):
+        usage = {}
+    return {
+        "duration_seconds": 0,
+        "input_tokens": usage.get("input_tokens", 0),
+        "output_tokens": usage.get("output_tokens", 0),
+        "llm_call_count": usage.get("call_count", 0),
+        "anthropic_model": version.get("analysis_model"),
+        "anthropic_finish_reason": usage.get("finish_reason", "end_turn"),
+        "estimated_cost_usd": version.get(
+            "actual_cost_usd",
+            version.get("estimated_cost_usd"),
+        ),
+        "prompt_version": version.get("prompt_version"),
+        "analysis_version": version.get("analysis_version", "v9_archaeology"),
+        "archived_storage_path": version.get("storage_path"),
+        "archived_storage_generation": version.get("storage_generation"),
+        "version_id": version_id,
+        "idempotent_replay": True,
+    }
+
+
 def resolve_target_project_id(value: object) -> Optional[str]:
     """Validate that an explicitly targeted revision parent already exists."""
     if value is None:
@@ -797,6 +850,86 @@ def mark_failed(job_id: str, error: Exception, attempt_count: int) -> None:
         log.error(f"[job] {job_id} → FAILED after {attempt_count} attempts: {error}")
     else:
         log.warning(f"[job] {job_id} → reset to PENDING for retry (attempt {attempt_count}): {error}")
+
+
+def next_budget_resume_at(now: Optional[datetime] = None) -> datetime:
+    """Return the next UTC midnight, when the daily server budget resets."""
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise ValueError("Budget timestamps must include a timezone")
+    current_utc = current.astimezone(timezone.utc)
+    return datetime(
+        current_utc.year,
+        current_utc.month,
+        current_utc.day,
+        tzinfo=timezone.utc,
+    ) + timedelta(days=1)
+
+
+def mark_waiting_for_budget(
+    job_id: str,
+    error: Exception,
+    attempt_count: int,
+    *,
+    now: Optional[datetime] = None,
+) -> None:
+    """Pause outside the claimable queue without consuming an attempt."""
+    attempts_before_claim = max(0, int(attempt_count or 0) - 1)
+    resume_at = next_budget_resume_at(now)
+    _db.collection(QUEUE_COLLECTION).document(job_id).update({
+        "status": "waiting_for_budget",
+        "attempt_count": attempts_before_claim,
+        "last_error": str(error)[:2000],
+        "failure_kind": "budget_wait",
+        "retryable": True,
+        "budget_resume_at": resume_at,
+        "worker_id": None,
+        "last_heartbeat_at": None,
+        "processing_started_at": None,
+    })
+    log.warning(
+        f"[budget] {job_id} waiting until {resume_at.isoformat()} without using an attempt"
+    )
+
+
+def resume_due_budget_jobs(now: Optional[datetime] = None) -> int:
+    """Move only due budget waiters back to pending; never claim them early."""
+    current = now or datetime.now(timezone.utc)
+    candidates = (
+        _db.collection(QUEUE_COLLECTION)
+        .where("status", "==", "waiting_for_budget")
+        .where("budget_resume_at", "<=", current)
+        .limit(50)
+        .stream()
+    )
+    resumed = 0
+    for document in candidates:
+        reference = document.reference
+
+        @fb_firestore.transactional
+        def resume_in_transaction(transaction, reference):
+            fresh = reference.get(transaction=transaction)
+            data = fresh.to_dict() if fresh.exists else {}
+            resume_at = data.get("budget_resume_at")
+            if (
+                data.get("status") != "waiting_for_budget"
+                or not isinstance(resume_at, datetime)
+                or resume_at > current
+            ):
+                return False
+            transaction.update(reference, {
+                "status": "pending",
+                "budget_resume_at": None,
+                "failure_kind": None,
+                "last_error": None,
+            })
+            return True
+
+        if resume_in_transaction(_db.transaction(), reference):
+            resumed += 1
+    if resumed:
+        log.info(f"[budget] Released {resumed} job(s) after the UTC budget reset")
+    return resumed
 
 
 def mark_terminal_failed(job_id: str, error: Exception) -> None:
@@ -1014,6 +1147,21 @@ def process_job(job: dict) -> None:
             upload_id=job.get("upload_id"),
         )
 
+        screenplay_doc_id = project_id or ingest_v9.to_doc_id(filename)
+        version_id = build_version_id(content_hash, queued_at_ms)
+        existing_version = get_existing_version(screenplay_doc_id, version_id)
+        if existing_version is not None:
+            mark_complete(
+                job_id,
+                screenplay_doc_id,
+                existing_version_completion_telemetry(existing_version, version_id),
+            )
+            log.info(
+                f"[job] {job_id} → complete from existing immutable version "
+                f"{version_id[:16]}…; no paid work repeated"
+            )
+            return
+
         # Parse PDF
         parsed = ingest_v9.parse_pdf(local_pdf, content_hash=content_hash)
         if parsed is None:
@@ -1059,8 +1207,13 @@ def process_job(job: dict) -> None:
             return
 
         # ── 5. Budget check (shared counter with Cloud Function) ──────────
-        screenplay_doc_id = project_id or ingest_v9.to_doc_id(filename)
-        version_id = build_version_id(content_hash, queued_at_ms)
+        try:
+            check_and_increment_budget()
+        except BudgetExceededError as e:
+            mark_waiting_for_budget(job_id, e, attempt_count)
+            log.warning(f"[budget] Pausing — {e}")
+            return
+
         calibration_profile = load_calibration_profile()
         archive_storage_path, archive_storage_generation = archive_pdf_version(
             storage_path=storage_path,
@@ -1069,14 +1222,6 @@ def process_job(job: dict) -> None:
             version_id=version_id,
             content_hash=content_hash,
         )
-
-        try:
-            check_and_increment_budget()
-        except BudgetExceededError as e:
-            # Don't mark as failed — just delay. Reset to pending so it retries tomorrow.
-            mark_failed(job_id, e, 0)   # attempt 0 = don't count against max_attempts
-            log.warning(f"[budget] Pausing — {e}")
-            return
 
         # ── 6. Determine model ────────────────────────────────────────────
         # Valid: haiku | sonnet | opus | hybrid | auto.

@@ -170,6 +170,12 @@ export function UploadPanel() {
               updateJob(jobId, { status: 'analyzing', progress: 20 });
             } else if (update.status === 'processing') {
               updateJob(jobId, { status: 'analyzing', progress: 60 });
+            } else if (update.status === 'waiting_for_budget') {
+              updateJob(jobId, {
+                status: 'analyzing',
+                progress: 20,
+                error: 'Waiting for the next daily AI budget window',
+              });
             } else if (update.status === 'complete') {
               updateJob(jobId, {
                 status: 'complete',

@@ -237,6 +237,12 @@ export async function reanalyzeFromStorage(
       onProgress?.({ stage: 'analyzing', percent: 20, message: 'Re-analysis queued...' });
     } else if (update.status === 'processing') {
       onProgress?.({ stage: 'analyzing', percent: 60, message: 'VPS readers are analyzing...' });
+    } else if (update.status === 'waiting_for_budget') {
+      onProgress?.({
+        stage: 'analyzing',
+        percent: 20,
+        message: 'Waiting for the next daily AI budget window...',
+      });
     }
   });
 

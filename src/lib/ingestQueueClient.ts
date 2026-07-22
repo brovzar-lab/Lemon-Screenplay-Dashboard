@@ -28,6 +28,7 @@ const INGEST_QUEUE_COLLECTION = 'ingest-queue';
 export type IngestStatus =
   | 'pending'
   | 'processing'
+  | 'waiting_for_budget'
   | 'complete'
   | 'failed'
   | 'skipped';
