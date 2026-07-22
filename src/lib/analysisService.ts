@@ -207,25 +207,62 @@ export function assertPermanentAnalysisVersion(analysisVersion: unknown): void {
   }
 }
 
-export async function reanalyzeFromStorage(
+export interface ReanalysisExecutionOptions {
+  v9Mode?: 'full' | 'triage';
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
+const activeReanalyses = new Map<string, Promise<void>>();
+
+export function reanalyzeFromStorage(
   screenplay: Screenplay,
   model: 'sonnet' | 'opus' | 'haiku',
   onProgress?: (p: AnalysisProgress) => void,
-  engineOptions?: { v9Mode?: 'full' | 'triage' },
+  engineOptions?: ReanalysisExecutionOptions,
 ): Promise<void> {
   if (engineOptions?.v9Mode === 'triage') {
-    throw new Error(
+    return Promise.reject(new Error(
       'Triage-only results cannot replace full V9 coverage. Run a full re-analysis instead.'
-    );
+    ));
   }
 
   const projectId = screenplay.projectId;
   if (!projectId) {
-    throw new Error(
+    return Promise.reject(new Error(
       `"${screenplay.title}" predates immutable PDF archiving and cannot be re-analyzed safely.`
-    );
+    ));
   }
 
+  const active = activeReanalyses.get(projectId);
+  if (active) return active;
+
+  const operation = runQueuedReanalysis(
+    screenplay,
+    projectId,
+    model,
+    onProgress,
+    engineOptions,
+  );
+  activeReanalyses.set(projectId, operation);
+  void operation.then(
+    () => {
+      if (activeReanalyses.get(projectId) === operation) activeReanalyses.delete(projectId);
+    },
+    () => {
+      if (activeReanalyses.get(projectId) === operation) activeReanalyses.delete(projectId);
+    },
+  );
+  return operation;
+}
+
+async function runQueuedReanalysis(
+  screenplay: Screenplay,
+  projectId: string,
+  model: 'sonnet' | 'opus' | 'haiku',
+  onProgress?: (p: AnalysisProgress) => void,
+  options?: ReanalysisExecutionOptions,
+): Promise<void> {
   onProgress?.({ stage: 'parsing', percent: 5, message: 'Queuing archived PDF on the VPS...' });
   const queued = await queueScreenplayReanalysis(
     projectId,
@@ -244,7 +281,7 @@ export async function reanalyzeFromStorage(
         message: 'Waiting for the next daily AI budget window...',
       });
     }
-  });
+  }, { signal: options?.signal, timeoutMs: options?.timeoutMs });
 
   assertPermanentAnalysisVersion(completed.analysisVersion);
   onProgress?.({ stage: 'complete', percent: 100, message: 'Re-analysis complete!' });

@@ -30,6 +30,7 @@ interface BulkReanalyzeModalProps {
 
 export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanalyzeModalProps) {
   const cancelledRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [items, setItems] = useState<Record<string, ReanalyzeItem>>({});
@@ -78,12 +79,19 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
 
       setItemStatus(sp.id, 'analyzing');
       let success = false;
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
       try {
-        await reanalyzeFromStorage(sp, 'sonnet');
+        await reanalyzeFromStorage(sp, 'sonnet', undefined, {
+          signal: abortController.signal,
+        });
         success = true;
       } catch {
         success = false;
       } finally {
+        if (abortControllerRef.current === abortController) {
+          abortControllerRef.current = null;
+        }
         useApiConfigStore.getState().incrementUsage(ESTIMATED_COST_PER_SCREENPLAY);
       }
 
@@ -124,6 +132,11 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
     setIsDone(false);
     setSummary('');
     cancelledRef.current = false;
+
+    return () => {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+    };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -257,7 +270,10 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
         <div className="flex items-center justify-end gap-3 p-4 border-t border-black-700 bg-black-900/30">
           {isProcessing && (
             <button
-              onClick={() => { cancelledRef.current = true; }}
+              onClick={() => {
+                cancelledRef.current = true;
+                abortControllerRef.current?.abort();
+              }}
               className="btn btn-ghost text-sm"
               aria-label="Cancel"
             >

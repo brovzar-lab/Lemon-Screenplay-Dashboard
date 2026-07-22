@@ -138,6 +138,7 @@ describe('reanalysis persistence safety', () => {
     expect(mockWaitForQueuedReanalysis).toHaveBeenCalledWith(
       expect.stringContaining('/ingest-queue/'),
       expect.any(Function),
+      { signal: undefined, timeoutMs: undefined },
     );
     expect(mockRunMultiReaderAnalysis).not.toHaveBeenCalled();
     expect(mockSaveAnalysis).not.toHaveBeenCalled();
@@ -154,5 +155,37 @@ describe('reanalysis persistence safety', () => {
       createTestScreenplay({ projectId: 'Writer_Parity.pdf' }),
       'sonnet',
     )).rejects.toThrow(/only complete V9 coverage/i);
+  });
+
+  it('coalesces two simultaneous re-analysis requests for one project', async () => {
+    let releaseQueue: ((value: {
+      screenplayId: string;
+      storagePath: string;
+    }) => void) | undefined;
+    mockQueueScreenplayReanalysis.mockImplementation(() => new Promise((resolve) => {
+      releaseQueue = resolve;
+    }));
+    const screenplay = createTestScreenplay({ projectId: 'Double_Click.pdf' });
+
+    const first = reanalyzeFromStorage(screenplay, 'sonnet');
+    const second = reanalyzeFromStorage(screenplay, 'opus');
+
+    expect(first).toBe(second);
+    expect(mockQueueScreenplayReanalysis).toHaveBeenCalledOnce();
+    releaseQueue?.({
+      screenplayId: 'Double_Click.pdf',
+      storagePath: 'gs://bucket/ingest-queue/LEMON/upload-id/Double_Click.pdf',
+    });
+    await Promise.all([first, second]);
+    expect(mockWaitForQueuedReanalysis).toHaveBeenCalledOnce();
+  });
+
+  it('allows a new re-analysis after the prior one settles', async () => {
+    const screenplay = createTestScreenplay({ projectId: 'Repeat_Later.pdf' });
+
+    await reanalyzeFromStorage(screenplay, 'sonnet');
+    await reanalyzeFromStorage(screenplay, 'sonnet');
+
+    expect(mockQueueScreenplayReanalysis).toHaveBeenCalledTimes(2);
   });
 });

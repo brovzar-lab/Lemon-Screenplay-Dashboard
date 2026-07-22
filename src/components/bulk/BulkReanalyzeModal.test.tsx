@@ -94,6 +94,9 @@ describe('BulkReanalyzeModal — BULK-02', () => {
     fireEvent.click(screen.getByRole('button', { name: /start reanalysis/i }));
 
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(
+      (reanalyzeFromStorage as ReturnType<typeof vi.fn>).mock.calls[0]?.[3]?.signal.aborted
+    ).toBe(true);
 
     // Resolve the first promise to unblock
     resolveFirst!();
