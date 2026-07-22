@@ -805,7 +805,15 @@ def call_llm(
                     error_data = resp.json()
                 except ValueError:
                     error_data = {}
-                if error_data.get("code") == "BUDGET_ACCOUNTING_ERROR":
+                error_code = error_data.get("code")
+                is_retryable = error_data.get("isRetryable") is True
+                if (
+                    error_code == "POST_CALL_ACCOUNTING_UNCERTAIN"
+                    or (
+                        error_code == "BUDGET_ACCOUNTING_ERROR"
+                        and not is_retryable
+                    )
+                ):
                     raise LlmAccountingError(
                         error_data.get("error", "AI cost accounting failed.")
                     )

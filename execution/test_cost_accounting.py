@@ -70,6 +70,73 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertEqual(post.call_count, 1)
         self.assertEqual(raised.exception.reset_at, "2026-07-22T00:00:00.000Z")
 
+    def test_transient_pre_call_accounting_outage_retries_then_succeeds(self):
+        unavailable = MagicMock()
+        unavailable.status_code = 503
+        unavailable.json.return_value = {
+            "code": "PRE_CALL_ACCOUNTING_UNAVAILABLE",
+            "error": "No model call was made.",
+            "isRetryable": True,
+        }
+        unavailable.raise_for_status.side_effect = ingest_v9.requests.HTTPError(
+            "503 accounting unavailable"
+        )
+        success = MagicMock()
+        success.status_code = 200
+        success.json.return_value = {
+            "text": "ok after retry",
+            "tool_uses": [],
+            "model": "claude-sonnet-4-6",
+            "stop_reason": "end_turn",
+            "usage": {},
+        }
+
+        with patch.object(
+            ingest_v9.requests,
+            "post",
+            side_effect=[unavailable, success],
+        ) as post, patch.object(ingest_v9.time, "sleep") as sleep:
+            _tool, text, _usage = ingest_v9.call_llm(
+                system_blocks=[{"type": "text", "text": "system"}],
+                user_blocks=[{"type": "text", "text": "screenplay"}],
+                model_key="sonnet",
+                proxy_url="https://proxy.test",
+                job_id="queue-job-1",
+                retries=3,
+            )
+
+        self.assertEqual(text, "ok after retry")
+        self.assertEqual(post.call_count, 2)
+        sleep.assert_called_once_with(5)
+
+    def test_post_call_accounting_uncertainty_is_terminal_without_retry(self):
+        uncertain = MagicMock()
+        uncertain.status_code = 503
+        uncertain.json.return_value = {
+            "code": "POST_CALL_ACCOUNTING_UNCERTAIN",
+            "error": "A paid call may have completed.",
+            "isRetryable": False,
+            "manualReviewRequired": True,
+        }
+
+        with patch.object(
+            ingest_v9.requests,
+            "post",
+            return_value=uncertain,
+        ) as post, patch.object(ingest_v9.time, "sleep") as sleep:
+            with self.assertRaises(ingest_v9.LlmAccountingError):
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key="sonnet",
+                    proxy_url="https://proxy.test",
+                    job_id="queue-job-1",
+                    retries=3,
+                )
+
+        self.assertEqual(post.call_count, 1)
+        sleep.assert_not_called()
+
 
 class HybridCostAggregationTests(unittest.TestCase):
     def test_hybrid_counts_every_sonnet_and_opus_call_at_its_own_rate(self):

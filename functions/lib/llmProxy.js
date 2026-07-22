@@ -27,6 +27,7 @@ const proxyAuth_1 = require("./proxyAuth");
 const anthropicClient_1 = require("./anthropicClient");
 const budgetCounter_1 = require("./budgetCounter");
 const llmCost_1 = require("./llmCost");
+const llmProxyErrors_1 = require("./llmProxyErrors");
 const anthropicApiKey = (0, params_1.defineString)("ANTHROPIC_API_KEY");
 const dailyLlmBudgetUsd = (0, params_1.defineString)("DAILY_LLM_BUDGET_USD", {
     default: String(llmCost_1.DEFAULT_DAILY_LLM_BUDGET_USD),
@@ -255,11 +256,7 @@ exports.llmProxy = (0, https_1.onRequest)({
                 return;
             }
             console.error("[llmProxy] Budget reservation failed:", error);
-            res.status(503).json({
-                error: "AI budget accounting is unavailable. No model call was made.",
-                code: "BUDGET_ACCOUNTING_ERROR",
-                isRetryable: true,
-            });
+            res.status(503).json((0, llmProxyErrors_1.preCallAccountingUnavailableResponse)());
             return;
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -282,35 +279,7 @@ exports.llmProxy = (0, https_1.onRequest)({
         }
         catch (error) {
             console.error("[llmProxy] Error:", error);
-            if (error.status === 429) {
-                res.status(429).json({
-                    error: "Rate limit exceeded — please wait and retry.",
-                    code: "RATE_LIMIT",
-                    isRetryable: true,
-                });
-                return;
-            }
-            if (error.status === 401) {
-                res.status(401).json({
-                    error: "Invalid Anthropic API key.",
-                    code: "INVALID_API_KEY",
-                    isRetryable: false,
-                });
-                return;
-            }
-            if (error.status === 400) {
-                res.status(400).json({
-                    error: error.message || "Invalid request.",
-                    code: "INVALID_INPUT",
-                    isRetryable: false,
-                });
-                return;
-            }
-            res.status(500).json({
-                error: error.message || "Internal proxy error",
-                code: "NETWORK_ERROR",
-                isRetryable: true,
-            });
+            res.status(503).json((0, llmProxyErrors_1.postCallAccountingUncertainResponse)());
             return;
         }
         try {
@@ -362,11 +331,7 @@ exports.llmProxy = (0, https_1.onRequest)({
             // The Anthropic call happened, so leave the reservation in place. It
             // must never be released as though no money was spent.
             console.error("[llmProxy] Budget settlement failed:", error);
-            res.status(503).json({
-                error: "The model responded, but cost accounting could not be settled.",
-                code: "BUDGET_ACCOUNTING_ERROR",
-                isRetryable: false,
-            });
+            res.status(503).json((0, llmProxyErrors_1.postCallAccountingUncertainResponse)());
         }
     });
 });
