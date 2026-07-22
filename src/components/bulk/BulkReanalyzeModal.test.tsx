@@ -71,15 +71,16 @@ describe('BulkReanalyzeModal — BULK-02', () => {
     expect(screen.getByText(/estimated maximum cost: \$1.00/i)).toBeInTheDocument();
   });
 
-  it('cancel flag stops loop after current in-flight item', async () => {
-    let resolveFirst: () => void;
-    const firstPromise = new Promise<void>((resolve) => {
-      resolveFirst = resolve;
-    });
-
-    (reanalyzeFromStorage as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce(firstPromise)
-      .mockResolvedValue(undefined);
+  it('stop watching leaves the queued VPS job running and starts no later items', async () => {
+    (reanalyzeFromStorage as ReturnType<typeof vi.fn>).mockImplementation(
+      (_screenplay, _model, _progress, options) => new Promise<void>((_resolve, reject) => {
+        options?.signal?.addEventListener('abort', () => {
+          const error = new Error('Stopped watching. The queued VPS job may continue.');
+          error.name = 'AbortError';
+          reject(error);
+        }, { once: true });
+      })
+    );
 
     const sp2 = { id: 'sp-2', title: 'Second Screenplay', hasPdf: true };
 
@@ -93,17 +94,14 @@ describe('BulkReanalyzeModal — BULK-02', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /start reanalysis/i }));
 
-    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    fireEvent.click(screen.getByRole('button', { name: /stop watching/i }));
     expect(
       (reanalyzeFromStorage as ReturnType<typeof vi.fn>).mock.calls[0]?.[3]?.signal.aborted
     ).toBe(true);
 
-    // Resolve the first promise to unblock
-    resolveFirst!();
-
     await waitFor(() => {
-      // Second item should never have started
       expect(reanalyzeFromStorage).toHaveBeenCalledTimes(1);
+      expect(screen.getByText(/queued analysis continues.*remaining.*not started/i)).toBeInTheDocument();
     });
   });
 

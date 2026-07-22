@@ -1,7 +1,7 @@
 /**
  * BulkReanalyzeModal — BULK-02
  * Re-analysis progress queue modal for eligible screenplays (hasPdf=true).
- * Explicit confirmation, budget preflight, sequential processing, and cancellation.
+ * Explicit confirmation, budget preflight, sequential processing, and stop-watching control.
  */
 
 import { useRef, useState, useEffect } from 'react';
@@ -16,7 +16,7 @@ import { useApiConfigStore } from '@/stores/apiConfigStore';
 
 const ESTIMATED_COST_PER_SCREENPLAY = 1;
 
-type ReanalyzeItemStatus = 'queued' | 'analyzing' | 'done' | 'failed';
+type ReanalyzeItemStatus = 'queued' | 'analyzing' | 'continuing' | 'done' | 'failed';
 
 interface ReanalyzeItem {
   status: ReanalyzeItemStatus;
@@ -29,7 +29,7 @@ interface BulkReanalyzeModalProps {
 }
 
 export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanalyzeModalProps) {
-  const cancelledRef = useRef(false);
+  const stoppedWatchingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -66,14 +66,13 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
       return;
     }
 
-    cancelledRef.current = false;
+    stoppedWatchingRef.current = false;
     setIsProcessing(true);
     let completed = 0;
     const failed: string[] = [];
 
-    for (const sp of eligible) {
-      if (cancelledRef.current) {
-        setSummary(`Cancelled — ${completed} completed before cancellation`);
+    for (const [index, sp] of eligible.entries()) {
+      if (stoppedWatchingRef.current) {
         break;
       }
 
@@ -86,8 +85,26 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
           signal: abortController.signal,
         });
         success = true;
-      } catch {
-        success = false;
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          stoppedWatchingRef.current = true;
+          setItemStatus(sp.id, 'continuing');
+          const remaining = eligible.length - index - 1;
+          setSummary(
+            `Stopped watching. The current queued analysis continues on the VPS; `
+              + `${remaining} remaining ${remaining === 1 ? 'screenplay was' : 'screenplays were'} not started.`
+          );
+        } else {
+          success = false;
+          if (stoppedWatchingRef.current) {
+            const remaining = eligible.length - index - 1;
+            setSummary(
+              `Stopped watching. This analysis could not be confirmed in the queue; `
+                + `check Upload Issues before retrying. ${remaining} remaining `
+                + `${remaining === 1 ? 'screenplay was' : 'screenplays were'} not started.`
+            );
+          }
+        }
       } finally {
         if (abortControllerRef.current === abortController) {
           abortControllerRef.current = null;
@@ -95,7 +112,9 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
         useApiConfigStore.getState().incrementUsage(ESTIMATED_COST_PER_SCREENPLAY);
       }
 
-      if (success) {
+      if (stoppedWatchingRef.current) {
+        break;
+      } else if (success) {
         setItemStatus(sp.id, 'done');
         completed++;
         setCompletedCount(completed);
@@ -105,7 +124,7 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
       }
     }
 
-    if (!cancelledRef.current) {
+    if (!stoppedWatchingRef.current) {
       if (failed.length > 0) {
         setSummary(`Complete — ${completed} re-analyzed. ${failed.length} could not be processed: ${failed.join(', ')}`);
       } else {
@@ -131,7 +150,7 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
     setCompletedCount(0);
     setIsDone(false);
     setSummary('');
-    cancelledRef.current = false;
+    stoppedWatchingRef.current = false;
 
     return () => {
       abortControllerRef.current?.abort();
@@ -182,6 +201,13 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
       return (
         <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      );
+    }
+    if (status === 'continuing') {
+      return (
+        <svg className="w-4 h-4 text-sky-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       );
     }
@@ -259,7 +285,9 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
                 >
                   <StatusIcon status={item.status} />
                   <span className="flex-1 text-sm text-black-300 truncate">{sp.title}</span>
-                  <span className="text-xs text-black-500 capitalize">{item.status}</span>
+                  <span className="text-xs text-black-500 capitalize">
+                    {item.status === 'continuing' ? 'continues in queue' : item.status}
+                  </span>
                 </div>
               );
             })}
@@ -271,13 +299,13 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
           {isProcessing && (
             <button
               onClick={() => {
-                cancelledRef.current = true;
+                stoppedWatchingRef.current = true;
                 abortControllerRef.current?.abort();
               }}
               className="btn btn-ghost text-sm"
-              aria-label="Cancel"
+              aria-label="Stop Watching"
             >
-              Cancel
+              Stop Watching
             </button>
           )}
           {!isProcessing && (

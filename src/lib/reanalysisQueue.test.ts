@@ -91,7 +91,7 @@ describe('waitForQueuedReanalysis', () => {
     });
     const rejection = expect(waiting).rejects.toMatchObject({
       name: 'AbortError',
-      message: expect.stringMatching(/cancelled/i),
+      message: expect.stringMatching(/stopped watching.*queued VPS job.*continue/i),
     });
 
     controller.abort();

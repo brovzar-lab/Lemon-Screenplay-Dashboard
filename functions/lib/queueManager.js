@@ -11,6 +11,7 @@ const node_crypto_1 = require("node:crypto");
 const cors_1 = __importDefault(require("cors"));
 const proxyAuth_1 = require("./proxyAuth");
 const reanalysisQueue_1 = require("./reanalysisQueue");
+const reanalysisLock_1 = require("./reanalysisLock");
 const queueActions_1 = require("./queueActions");
 const corsMiddleware = (0, cors_1.default)({
     origin: [
@@ -59,33 +60,71 @@ exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSe
             const refs = screenplayIds.map((id) => db.collection("uploaded_analyses").doc(id));
             const snapshots = await db.getAll(...refs);
             const storage = (0, storage_1.getStorage)();
+            const lockRepository = (0, reanalysisLock_1.createFirestoreReanalysisLockRepository)(db);
             const queued = [];
             const failed = [];
             for (const snapshot of snapshots) {
                 try {
                     if (!snapshot.exists)
                         throw new Error("Screenplay project not found.");
+                    const uploadId = (0, node_crypto_1.randomUUID)();
                     const plan = (0, reanalysisQueue_1.buildReanalysisCopyPlan)({
                         screenplayId: snapshot.id,
                         screenplay: snapshot.data() ?? {},
                         requestedModel: model,
-                        uploadId: (0, node_crypto_1.randomUUID)(),
+                        uploadId,
                         destinationBucket: STORAGE_BUCKET,
                     });
+                    const storagePath = `gs://${plan.destination.bucket}/${plan.destination.objectName}`;
+                    const lock = await (0, reanalysisLock_1.acquireReanalysisLock)(lockRepository, {
+                        projectId: snapshot.id,
+                        uploadId,
+                        storagePath,
+                        state: "preparing",
+                        createdAtMs: Date.now(),
+                    });
+                    if (lock.kind === "coalesced") {
+                        queued.push({
+                            screenplayId: snapshot.id,
+                            storagePath: lock.storagePath,
+                            coalesced: true,
+                        });
+                        continue;
+                    }
+                    if (lock.kind === "busy") {
+                        throw new Error("A re-analysis for this project is already being queued. It will continue independently.");
+                    }
                     const sourceBucket = storage.bucket(plan.source.bucket);
                     const sourceFile = sourceBucket.file(plan.source.objectName, {
                         generation: plan.source.generation,
                     });
                     const destinationBucket = storage.bucket(plan.destination.bucket);
                     const destinationFile = destinationBucket.file(plan.destination.objectName);
-                    await sourceFile.copy(destinationFile, {
-                        contentType: "application/pdf",
-                        metadata: plan.destination.metadata,
-                        preconditionOpts: { ifGenerationMatch: 0 },
-                    });
+                    try {
+                        await sourceFile.copy(destinationFile, {
+                            contentType: "application/pdf",
+                            metadata: plan.destination.metadata,
+                            preconditionOpts: { ifGenerationMatch: 0 },
+                        });
+                    }
+                    catch (error) {
+                        try {
+                            await (0, reanalysisLock_1.releasePreparingReanalysisLock)(lockRepository, snapshot.id, uploadId);
+                        }
+                        catch (releaseError) {
+                            console.error(`[queueManager] Could not release failed re-analysis lock for ${snapshot.id}:`, releaseError);
+                        }
+                        throw error;
+                    }
+                    try {
+                        await (0, reanalysisLock_1.markReanalysisLockQueued)(lockRepository, snapshot.id, uploadId);
+                    }
+                    catch (error) {
+                        console.error(`[queueManager] Re-analysis lock stayed in preparing state for ${snapshot.id}:`, error);
+                    }
                     queued.push({
                         screenplayId: snapshot.id,
-                        storagePath: `gs://${plan.destination.bucket}/${plan.destination.objectName}`,
+                        storagePath,
                     });
                 }
                 catch (error) {

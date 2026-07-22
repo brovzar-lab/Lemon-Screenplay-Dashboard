@@ -10,6 +10,7 @@ const DEFAULT_REANALYSIS_TIMEOUT_MS = 45 * 60 * 1_000;
 export interface QueuedReanalysis {
   screenplayId: string;
   storagePath: string;
+  coalesced?: boolean;
 }
 
 export interface ReanalysisWaitOptions {
@@ -18,7 +19,9 @@ export interface ReanalysisWaitOptions {
 }
 
 function cancellationError(): Error {
-  const error = new Error('Re-analysis wait was cancelled. The queued VPS job may continue.');
+  const error = new Error(
+    'Stopped watching the re-analysis. The queued VPS job will continue in Upload Issues.'
+  );
   error.name = 'AbortError';
   return error;
 }
