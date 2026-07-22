@@ -26,6 +26,8 @@ interface DiscoverControlsProps {
   totalCount: number;
   hasActiveFilters: boolean;
   onClearFilters: () => void;
+  producedHiddenCount: number;
+  onRevealProduced: () => void;
 }
 
 export function DiscoverControls({
@@ -35,6 +37,8 @@ export function DiscoverControls({
   totalCount,
   hasActiveFilters,
   onClearFilters,
+  producedHiddenCount,
+  onRevealProduced,
 }: DiscoverControlsProps) {
   const filters = useFilterStore();
   const sortConfigs = useSortStore((state) => state.sortConfigs);
@@ -160,9 +164,28 @@ export function DiscoverControls({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3 sm:px-6">
-        <p className="font-mono text-xs text-black-300">
-          Showing {filteredCount} of {totalCount} screenplays
-        </p>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-black-300">
+          <span>
+            Showing {filteredCount} of {totalCount} screenplays
+          </span>
+          {producedHiddenCount > 0 && (
+            <>
+              <span aria-hidden="true" className="text-black-600">
+                ·
+              </span>
+              <span>
+                {producedHiddenCount} produced {producedHiddenCount === 1 ? 'film' : 'films'} hidden
+              </span>
+              <button
+                type="button"
+                onClick={onRevealProduced}
+                className="font-sans font-semibold uppercase tracking-[0.1em] text-gold-300 hover:text-gold-200"
+              >
+                Show produced films
+              </button>
+            </>
+          )}
+        </div>
         <div className="flex items-center gap-4">
           {hasActiveFilters && filteredCount > 0 && (
             <button

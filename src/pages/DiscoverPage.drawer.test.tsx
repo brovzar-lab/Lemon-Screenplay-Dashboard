@@ -1,4 +1,4 @@
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -67,7 +67,9 @@ function buildScreenplays(): Screenplay[] {
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/discover']}>
-      <DiscoverPage />
+      <Routes>
+        <Route path="/discover/:projectId?" element={<DiscoverPage />} />
+      </Routes>
     </MemoryRouter>,
   );
 }

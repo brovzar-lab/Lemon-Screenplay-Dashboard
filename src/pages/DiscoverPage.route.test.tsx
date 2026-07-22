@@ -29,7 +29,7 @@ function renderDiscoverRoute() {
       <MemoryRouter initialEntries={['/discover']}>
         <Routes>
           <Route
-            path="/discover"
+            path="/discover/:projectId?"
             element={
               <AuthGate>
                 <DiscoverPage />
@@ -68,10 +68,10 @@ describe('/discover authentication', () => {
     expect(mainSource).toContain(
       "importWithReload('discover', () => import('./pages/DiscoverPage'))",
     );
-    expect(mainSource).toContain('path="/discover"');
+    expect(mainSource).toContain('path="/discover/:projectId?"');
     expect(mainSource).toContain('areaName="Discovery"');
-    expect(mainSource).toContain('<AuthGate><DiscoverPage /></AuthGate>');
-    expect(mainSource).not.toContain('<AuthGate requireAdmin><DiscoverPage /></AuthGate>');
+    expect(mainSource).toMatch(/<AuthGate>\s*<DiscoverPage \/>\s*<\/AuthGate>/);
+    expect(mainSource).not.toMatch(/<AuthGate requireAdmin>\s*<DiscoverPage \/>\s*<\/AuthGate>/);
   });
 
   it('allows a reader into Discovery without requiring admin access', () => {

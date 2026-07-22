@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockOnSnapshot, mockUnsubscribe } = vi.hoisted(() => ({
@@ -78,7 +79,9 @@ function renderPage() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <DiscoverPage />
+      <MemoryRouter initialEntries={['/discover']}>
+        <DiscoverPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }

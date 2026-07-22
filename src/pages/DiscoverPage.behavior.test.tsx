@@ -203,4 +203,34 @@ describe('DiscoverPage find toolchain', () => {
       'shared-two',
     ]);
   });
+
+  it('discloses produced films hidden by default and reveals them in one click', async () => {
+    const user = userEvent.setup();
+    hookState.screenplays = buildScreenplays().map((item) =>
+      item.id === 'amber'
+        ? {
+            ...item,
+            tmdbStatus: {
+              isProduced: true,
+              tmdbId: 101,
+              tmdbTitle: 'Amber Sky',
+              releaseDate: '2024-01-01',
+              status: 'Released',
+              checkedAt: '2026-07-22T00:00:00.000Z',
+              confidence: 'high' as const,
+            },
+          }
+        : item,
+    );
+
+    renderPage();
+    await waitFor(() => expect(discoveryResults()).toHaveLength(6));
+
+    expect(screen.getByText('1 produced film hidden')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Show produced films' }));
+
+    await waitFor(() => expect(discoveryResults()).toHaveLength(7));
+    expect(useFilterStore.getState().hideProduced).toBe(false);
+    expect(screen.queryByText('1 produced film hidden')).not.toBeInTheDocument();
+  });
 });

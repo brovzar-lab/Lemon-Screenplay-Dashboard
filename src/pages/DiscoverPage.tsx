@@ -1,10 +1,13 @@
 import { useEffect, useMemo } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { DiscoverShell } from '@/components/discover';
 import { useFilteredScreenplays, useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import { useLiveScreenplaySync, useScreenplays } from '@/hooks/useScreenplays';
+import { getScreenplayStats } from '@/lib/api';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import { DEFAULT_SORT_STATE } from '@/types/filters';
+import type { Screenplay } from '@/types';
 
 function isDashboardDefaultSort() {
   const { sortConfigs, prioritizeFilmNow } = useSortStore.getState();
@@ -20,10 +23,14 @@ function isDashboardDefaultSort() {
 }
 
 function DiscoverPage() {
+  const { projectId } = useParams<{ projectId?: string }>();
+  const navigate = useNavigate();
   const { data: allScreenplays = [] } = useScreenplays();
   const { screenplays, totalCount, filteredCount, isLoading, error } = useFilteredScreenplays();
   const hasActiveFilters = useHasActiveFilters();
   const resetFilters = useFilterStore((state) => state.resetFilters);
+  const hideProduced = useFilterStore((state) => state.hideProduced);
+  const setHideProduced = useFilterStore((state) => state.setHideProduced);
 
   // Match the existing dashboard data spine: the query supplies normalized
   // startup data and the live listener replaces it with normalized snapshots.
@@ -55,6 +62,32 @@ function DiscoverPage() {
     };
   }, [allScreenplays]);
 
+  const stats = useMemo(() => getScreenplayStats(allScreenplays), [allScreenplays]);
+  const producedHiddenCount = useMemo(
+    () =>
+      hideProduced
+        ? allScreenplays.filter((screenplay) => screenplay.tmdbStatus?.isProduced).length
+        : 0,
+    [allScreenplays, hideProduced],
+  );
+  const selectedScreenplay = useMemo(
+    () =>
+      projectId
+        ? (allScreenplays.find(
+            (screenplay) => screenplay.projectId === projectId || screenplay.id === projectId,
+          ) ?? null)
+        : null,
+    [allScreenplays, projectId],
+  );
+
+  const openScreenplay = (screenplay: Screenplay) => {
+    navigate(`/discover/${encodeURIComponent(screenplay.projectId ?? screenplay.id)}`);
+  };
+
+  const closeScreenplay = () => {
+    navigate('/discover', { replace: true });
+  };
+
   return (
     <DiscoverShell
       screenplays={screenplays}
@@ -64,6 +97,12 @@ function DiscoverPage() {
       themes={themes}
       hasActiveFilters={hasActiveFilters}
       onClearFilters={resetFilters}
+      producedHiddenCount={producedHiddenCount}
+      onRevealProduced={() => setHideProduced(false)}
+      stats={stats}
+      selectedScreenplay={selectedScreenplay}
+      onOpenScreenplay={openScreenplay}
+      onCloseScreenplay={closeScreenplay}
       isLoading={isLoading}
       isError={Boolean(error)}
     />
