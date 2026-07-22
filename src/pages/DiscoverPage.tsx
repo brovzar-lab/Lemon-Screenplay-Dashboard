@@ -4,17 +4,18 @@ import { useFilteredScreenplays, useHasActiveFilters } from '@/hooks/useFiltered
 import { useLiveScreenplaySync, useScreenplays } from '@/hooks/useScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
+import { DEFAULT_SORT_STATE } from '@/types/filters';
 
 function isDashboardDefaultSort() {
   const { sortConfigs, prioritizeFilmNow } = useSortStore.getState();
 
   return (
-    prioritizeFilmNow &&
-    sortConfigs.length === 2 &&
-    sortConfigs[0]?.field === 'marketPotential' &&
-    sortConfigs[0]?.direction === 'desc' &&
-    sortConfigs[1]?.field === 'weightedScore' &&
-    sortConfigs[1]?.direction === 'desc'
+    prioritizeFilmNow === DEFAULT_SORT_STATE.prioritizeFilmNow &&
+    sortConfigs.length === DEFAULT_SORT_STATE.sortConfigs.length &&
+    sortConfigs.every((config, index) => {
+      const defaultConfig = DEFAULT_SORT_STATE.sortConfigs[index];
+      return config.field === defaultConfig?.field && config.direction === defaultConfig.direction;
+    })
   );
 }
 

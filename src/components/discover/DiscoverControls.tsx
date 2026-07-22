@@ -127,6 +127,7 @@ export function DiscoverControls({
                 min={0}
                 max={10}
                 value={[filters.weightedScoreRange.min, filters.weightedScoreRange.max]}
+                syncValue
                 enabled={filters.weightedScoreRange.enabled}
                 onEnabledChange={(enabled) => filters.setWeightedScoreRange({ enabled })}
                 onChange={([min, max]) => filters.setWeightedScoreRange({ min, max })}
@@ -136,6 +137,7 @@ export function DiscoverControls({
                 min={0}
                 max={10}
                 value={[filters.marketPotentialRange.min, filters.marketPotentialRange.max]}
+                syncValue
                 enabled={filters.marketPotentialRange.enabled}
                 onEnabledChange={(enabled) => filters.setMarketPotentialRange({ enabled })}
                 onChange={([min, max]) => filters.setMarketPotentialRange({ min, max })}
@@ -146,6 +148,7 @@ export function DiscoverControls({
                 max={18}
                 step={1}
                 value={[filters.cvsRange.min, filters.cvsRange.max]}
+                syncValue
                 enabled={filters.cvsRange.enabled}
                 onEnabledChange={(enabled) => filters.setCvsRange({ enabled })}
                 onChange={([min, max]) => filters.setCvsRange({ min, max })}

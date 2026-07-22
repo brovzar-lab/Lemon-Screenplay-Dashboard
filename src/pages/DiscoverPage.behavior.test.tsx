@@ -1,5 +1,5 @@
 import { MemoryRouter } from 'react-router-dom';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestScreenplay } from '@/test/factories';
@@ -168,6 +168,25 @@ describe('DiscoverPage find toolchain', () => {
     await user.click(screen.getByRole('button', { name: 'Clear filters' }));
 
     await waitFor(() => expect(discoveryResults()).toHaveLength(7));
+  });
+
+  it('clears score bounds in both the store and the visible range controls', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitForWeightedDefault();
+
+    await user.click(screen.getByText('Score ranges'));
+    await user.click(screen.getByRole('checkbox', { name: 'Weighted score' }));
+    fireEvent.change(screen.getByRole('slider', { name: 'Maximum Weighted score' }), {
+      target: { value: '6' },
+    });
+
+    await waitFor(() => expect(discoveryResults()).toHaveLength(4));
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await waitFor(() => expect(discoveryResults()).toHaveLength(7));
+
+    await user.click(screen.getByRole('checkbox', { name: 'Weighted score' }));
+    expect(screen.getByRole('slider', { name: 'Maximum Weighted score' })).toHaveValue('10');
   });
 
   it('keeps same-title screenplays from different projects as separate grid cards', async () => {

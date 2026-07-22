@@ -3,7 +3,7 @@
  * Dual-handle slider for score range filtering
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { clsx } from 'clsx';
 
 interface RangeSliderProps {
@@ -16,6 +16,7 @@ interface RangeSliderProps {
   enabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
   formatValue?: (value: number) => string;
+  syncValue?: boolean;
 }
 
 export function RangeSlider({
@@ -28,27 +29,44 @@ export function RangeSlider({
   enabled,
   onEnabledChange,
   formatValue = (v) => v.toFixed(1),
+  syncValue = false,
 }: RangeSliderProps) {
   const [localValue, setLocalValue] = useState(value);
+  const [externalMin, externalMax] = value;
 
-  const handleMinChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newMin = parseFloat(e.target.value);
-    const newValue: [number, number] = [Math.min(newMin, localValue[1] - step), localValue[1]];
-    setLocalValue(newValue);
-    onChange(newValue);
-  }, [localValue, onChange, step]);
+  useEffect(() => {
+    if (syncValue) setLocalValue([externalMin, externalMax]);
+  }, [externalMax, externalMin, syncValue]);
 
-  const handleMaxChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newMax = parseFloat(e.target.value);
-    const newValue: [number, number] = [localValue[0], Math.max(newMax, localValue[0] + step)];
-    setLocalValue(newValue);
-    onChange(newValue);
-  }, [localValue, onChange, step]);
+  const handleMinChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newMin = parseFloat(e.target.value);
+      const newValue: [number, number] = [Math.min(newMin, localValue[1] - step), localValue[1]];
+      setLocalValue(newValue);
+      onChange(newValue);
+    },
+    [localValue, onChange, step],
+  );
+
+  const handleMaxChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newMax = parseFloat(e.target.value);
+      const newValue: [number, number] = [localValue[0], Math.max(newMax, localValue[0] + step)];
+      setLocalValue(newValue);
+      onChange(newValue);
+    },
+    [localValue, onChange, step],
+  );
 
   const percentage = (val: number) => ((val - min) / (max - min)) * 100;
 
   return (
-    <div className={clsx('space-y-2 p-3 rounded-lg transition-all', enabled ? 'bg-gold-500/5' : 'bg-black-900/30')}>
+    <div
+      className={clsx(
+        'space-y-2 p-3 rounded-lg transition-all',
+        enabled ? 'bg-gold-500/5' : 'bg-black-900/30',
+      )}
+    >
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
@@ -57,7 +75,9 @@ export function RangeSlider({
             onChange={(e) => onEnabledChange(e.target.checked)}
             className="w-4 h-4 rounded border-black-600 bg-black-800 text-gold-500 focus:ring-gold-500 focus:ring-offset-0"
           />
-          <span className={clsx('text-sm font-medium', enabled ? 'text-gold-300' : 'text-black-400')}>
+          <span
+            className={clsx('text-sm font-medium', enabled ? 'text-gold-300' : 'text-black-400')}
+          >
             {label}
           </span>
         </label>
