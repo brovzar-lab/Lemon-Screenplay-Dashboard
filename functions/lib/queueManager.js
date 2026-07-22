@@ -6,8 +6,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.queueManager = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-admin/firestore");
+const storage_1 = require("firebase-admin/storage");
+const node_crypto_1 = require("node:crypto");
 const cors_1 = __importDefault(require("cors"));
 const proxyAuth_1 = require("./proxyAuth");
+const reanalysisQueue_1 = require("./reanalysisQueue");
+const queueActions_1 = require("./queueActions");
 const corsMiddleware = (0, cors_1.default)({
     origin: [
         "https://lemon-screenplay-dashboard.web.app",
@@ -17,6 +21,8 @@ const corsMiddleware = (0, cors_1.default)({
     ],
 });
 const MODELS = new Set(["haiku", "sonnet", "opus", "hybrid", "auto"]);
+const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET
+    ?? "lemon-screenplay-dashboard.firebasestorage.app";
 exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSeconds: 30, memory: "256MiB" }, (req, res) => {
     corsMiddleware(req, res, async () => {
         if (req.method !== "POST") {
@@ -40,6 +46,58 @@ exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSe
             ? body.jobIds.filter((id) => typeof id === "string" && id.length > 0).slice(0, 100)
             : [];
         const model = typeof body.model === "string" && MODELS.has(body.model) ? body.model : "sonnet";
+        if (action === "reanalyze") {
+            const screenplayIds = Array.isArray(body.screenplayIds)
+                ? body.screenplayIds
+                    .filter((id) => typeof id === "string" && id.length > 0)
+                    .slice(0, 25)
+                : [];
+            if (!screenplayIds.length) {
+                res.status(400).json({ error: "At least one screenplay is required for re-analysis." });
+                return;
+            }
+            const refs = screenplayIds.map((id) => db.collection("uploaded_analyses").doc(id));
+            const snapshots = await db.getAll(...refs);
+            const storage = (0, storage_1.getStorage)();
+            const queued = [];
+            const failed = [];
+            for (const snapshot of snapshots) {
+                try {
+                    if (!snapshot.exists)
+                        throw new Error("Screenplay project not found.");
+                    const plan = (0, reanalysisQueue_1.buildReanalysisCopyPlan)({
+                        screenplayId: snapshot.id,
+                        screenplay: snapshot.data() ?? {},
+                        requestedModel: model,
+                        uploadId: (0, node_crypto_1.randomUUID)(),
+                        destinationBucket: STORAGE_BUCKET,
+                    });
+                    const sourceBucket = storage.bucket(plan.source.bucket);
+                    const sourceFile = sourceBucket.file(plan.source.objectName, {
+                        generation: plan.source.generation,
+                    });
+                    const destinationBucket = storage.bucket(plan.destination.bucket);
+                    const destinationFile = destinationBucket.file(plan.destination.objectName);
+                    await sourceFile.copy(destinationFile, {
+                        contentType: "application/pdf",
+                        metadata: plan.destination.metadata,
+                        preconditionOpts: { ifGenerationMatch: 0 },
+                    });
+                    queued.push({
+                        screenplayId: snapshot.id,
+                        storagePath: `gs://${plan.destination.bucket}/${plan.destination.objectName}`,
+                    });
+                }
+                catch (error) {
+                    failed.push({
+                        screenplayId: snapshot.id,
+                        error: error instanceof Error ? error.message : "Re-analysis could not be queued.",
+                    });
+                }
+            }
+            res.status(queued.length ? 200 : 400).json({ queued, failed });
+            return;
+        }
         if (!jobIds.length || !["retry", "dismiss", "analyze_anyway"].includes(action)) {
             res.status(400).json({ error: "A valid action and at least one job are required." });
             return;
@@ -54,7 +112,7 @@ exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSe
             const data = snapshot.data() ?? {};
             const status = data.status;
             const reason = data.skip_reason;
-            if (action === "retry" && status === "failed") {
+            if (action === "retry" && (0, queueActions_1.canRetryQueueJob)(data)) {
                 batch.update(snapshot.ref, {
                     status: "pending",
                     attempt_count: 0,

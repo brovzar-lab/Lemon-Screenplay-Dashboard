@@ -34,6 +34,7 @@ import {
 import {
   buildIngestJobId,
   parseIngestPath,
+  readBooleanMetadata,
   readSeparateProject,
   readTargetProjectId,
 } from './ingestUploadIdentity';
@@ -103,6 +104,9 @@ export const onScreenplayUploaded = onObjectFinalized(
     const priority = customMeta['priority'] ? Number(customMeta['priority']) : 0;
     const target_project_id = readTargetProjectId(customMeta);
     const separate_project = readSeparateProject(customMeta);
+    const bypass_duplicate = readBooleanMetadata(customMeta, 'bypassDuplicate');
+    const bypass_tmdb = readBooleanMetadata(customMeta, 'bypassTmdb');
+    const request_kind = customMeta['requestKind'] === 'reanalysis' ? 'reanalysis' : 'upload';
     if (target_project_id && separate_project) {
       throw new Error('Upload metadata cannot target a revision and request a separate project.');
     }
@@ -119,6 +123,9 @@ export const onScreenplayUploaded = onObjectFinalized(
       upload_id,
       target_project_id,
       separate_project,
+      bypass_duplicate,
+      bypass_tmdb,
+      request_kind,
       // content_hash computed by worker (avoids downloading PDF here)
       content_hash: 'pending', // placeholder; worker updates with real SHA-256
       requested_model: requestedModel,

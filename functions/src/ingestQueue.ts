@@ -60,6 +60,12 @@ export interface IngestJob {
   target_project_id: string | null;
   /** User explicitly chose a distinct project despite a title/filename match. */
   separate_project: boolean;
+  /** Explicit paid re-analysis may analyze bytes that already completed once. */
+  bypass_duplicate: boolean;
+  /** Explicit re-analysis is not re-screened as a newly submitted produced film. */
+  bypass_tmdb: boolean;
+  /** Distinguishes ordinary intake from an explicitly requested re-analysis. */
+  request_kind: 'upload' | 'reanalysis';
   /**
    * SHA-256 of the PDF bytes — enables true idempotency.
    * If a job with this hash already has status=complete, skip re-processing.
@@ -141,6 +147,9 @@ export function buildPendingJob(params: {
   upload_id?: string | null;
   target_project_id?: string | null;
   separate_project?: boolean;
+  bypass_duplicate?: boolean;
+  bypass_tmdb?: boolean;
+  request_kind?: 'upload' | 'reanalysis';
   content_hash: string;
   requested_model?: IngestModel;
   priority?: number;
@@ -154,6 +163,9 @@ export function buildPendingJob(params: {
     upload_id: params.upload_id ?? null,
     target_project_id: params.target_project_id ?? null,
     separate_project: params.separate_project ?? false,
+    bypass_duplicate: params.bypass_duplicate ?? false,
+    bypass_tmdb: params.bypass_tmdb ?? false,
+    request_kind: params.request_kind ?? 'upload',
     content_hash: params.content_hash,
     status: 'pending',
     attempt_count: 0,

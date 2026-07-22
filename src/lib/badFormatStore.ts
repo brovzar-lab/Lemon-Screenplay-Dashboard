@@ -37,6 +37,8 @@ export interface BadFormatJob {
   skip_reason: SkipReason;
   status: 'skipped' | 'failed';
   last_error?: string;
+  failure_kind?: string;
+  retryable?: boolean;
   attempt_count?: number;
   queued_at?: { seconds: number } | string | null;
   processing_completed_at?: { seconds: number } | string | null;
@@ -119,6 +121,8 @@ export function subscribeToUploadIssues(
           skip_reason: String(data.skip_reason ?? '') as SkipReason,
           status: data.status === 'failed' ? 'failed' : 'skipped',
           last_error: typeof data.last_error === 'string' ? data.last_error : undefined,
+          failure_kind: typeof data.failure_kind === 'string' ? data.failure_kind : undefined,
+          retryable: data.retryable !== false,
           attempt_count: typeof data.attempt_count === 'number' ? data.attempt_count : undefined,
           queued_at: data.queued_at as BadFormatJob['queued_at'],
           processing_completed_at: data.processing_completed_at as BadFormatJob['processing_completed_at'],

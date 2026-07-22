@@ -57,6 +57,7 @@ class TestWriterIdentityParity(unittest.TestCase):
         self.assertEqual(daemon_identity, cli_identity)
         self.assertEqual(daemon_doc["queued_at_ms"], QUEUED_AT_MS)
         self.assertEqual(cli_doc["queued_at_ms"], QUEUED_AT_MS)
+        self.assertTrue(cli_doc["v9_meta"]["ingested_at"].endswith("Z"))
         self.assertEqual(
             build_version_id(daemon_doc["content_hash"], daemon_doc["queued_at_ms"]),
             build_version_id(cli_doc["content_hash"], cli_doc["queued_at_ms"]),

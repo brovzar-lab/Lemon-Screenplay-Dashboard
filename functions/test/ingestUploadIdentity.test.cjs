@@ -4,6 +4,7 @@ const test = require('node:test');
 const {
   buildIngestJobId,
   parseIngestPath,
+  readBooleanMetadata,
   readSeparateProject,
   readTargetProjectId,
 } = require('../lib/ingestUploadIdentity');
@@ -97,4 +98,32 @@ test('explicit separate-project choice reaches the queue without a target', () =
 
   assert.equal(job.target_project_id, null);
   assert.equal(job.separate_project, true);
+});
+
+test('reanalysis metadata reaches the queue as explicit bypass flags', () => {
+  const metadata = {
+    bypassDuplicate: 'true',
+    bypassTmdb: 'true',
+  };
+  const job = buildPendingJob({
+    id: 'reanalysis-job',
+    collection_id: 'LEMON',
+    filename: 'Draft.pdf',
+    storage_path: 'gs://bucket/ingest-queue/LEMON/reanalysis-id/Draft.pdf',
+    storage_generation: '1003',
+    upload_id: 'reanalysis-id',
+    target_project_id: 'Original_Draft.pdf',
+    content_hash: 'pending',
+    bypass_duplicate: readBooleanMetadata(metadata, 'bypassDuplicate'),
+    bypass_tmdb: readBooleanMetadata(metadata, 'bypassTmdb'),
+    request_kind: 'reanalysis',
+  });
+
+  assert.equal(job.bypass_duplicate, true);
+  assert.equal(job.bypass_tmdb, true);
+  assert.equal(job.request_kind, 'reanalysis');
+  assert.throws(
+    () => readBooleanMetadata({ bypassDuplicate: 'yes' }, 'bypassDuplicate'),
+    /must be true or false/,
+  );
 });

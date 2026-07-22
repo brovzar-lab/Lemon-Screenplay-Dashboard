@@ -62,4 +62,37 @@ describe('normalizeAnalyses quarantine visibility', () => {
       'shared-title-separate',
     ]);
   });
+
+  it('keeps a renamed revision under one project card', async () => {
+    const archaeologyDoc = (sourceFile: string, title: string) => ({
+      project_id: 'original-project',
+      source_file: sourceFile,
+      analysis_version: 'v9_archaeology',
+      collection: 'LEMON',
+      analysis: {
+        title,
+        verdict: 'CONSIDER',
+        weighted_score: 7,
+        pillar_scores: {
+          structure: { score: 7, evidence: 'evidence' },
+          character: { score: 7, evidence: 'evidence' },
+          craft_scene: { score: 7, evidence: 'evidence' },
+          concept: { score: 7, evidence: 'evidence' },
+          emotional_resonance: { score: 7, evidence: 'evidence' },
+        },
+      },
+    });
+
+    const result = await normalizeAnalyses([
+      archaeologyDoc('Original Draft.pdf', 'Original Draft'),
+      archaeologyDoc('Completely Renamed Draft.pdf', 'Completely Renamed Draft'),
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(expect.objectContaining({
+      projectId: 'original-project',
+      sourceFile: 'Completely Renamed Draft.pdf',
+      title: 'Completely Renamed Draft',
+    }));
+  });
 });

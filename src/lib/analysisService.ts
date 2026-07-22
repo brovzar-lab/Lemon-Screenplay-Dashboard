@@ -11,9 +11,6 @@
  */
 
 import { parsePDF, type ParsedPDF } from './pdfParser';
-import { storage, uploadScreenplayPdf } from './firebase';
-import { ref, getBlob } from 'firebase/storage';
-import { saveAnalysis } from './analysisStore';
 import type { Screenplay } from '@/types';
 import {
   runMultiReaderAnalysis,
@@ -23,6 +20,7 @@ import {
 } from './multiPassAnalysis';
 import { loadCalibrationProfile } from './feedbackStore';
 import { buildVerifiedIdentity, computeContentHash } from './analysisIdentity';
+import { queueScreenplayReanalysis, waitForQueuedReanalysis } from './reanalysisQueue';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -181,14 +179,6 @@ async function analyzeV9Path(
 
   onProgress?.({ stage: 'complete', percent: 100, message: 'V9 analysis complete!' });
 
-  // Upload PDF to Firebase Storage (non-blocking)
-  try {
-    const title = (v9Result.analysis as Record<string, unknown>).title as string | undefined;
-    await uploadScreenplayPdf(parsed.title + '.pdf' as unknown as File, category, title);
-  } catch (err) {
-    console.warn('[Firebase Storage] PDF upload failed:', err);
-  }
-
   return {
     raw,
     parsed,
@@ -201,108 +191,56 @@ async function analyzeV9Path(
 // ─── Re-analyze from Firebase Storage ────────────────────────────────────────
 
 /**
- * Re-analyze a screenplay by fetching its PDF from Firebase Storage.
+ * Re-analyze a screenplay through the authoritative VPS queue.
  *
  * Flow:
- *   1. Reconstruct Storage path from screenplay metadata
- *   2. Fetch PDF → convert to File object
- *   3. Run full V9 Archaeology Engine analysis with chosen model
- *   4. Save an immutable version and advance the latest project view
- *   5. Return new analysis result
+ *   1. Ask the authenticated queue function to copy the archived PDF
+ *   2. Storage finalize creates a fresh ingest job targeting this project
+ *   3. VPS runs the full V9 engine and writes the immutable version
+ *   4. Browser observes the queue until the permanent V9 result completes
  */
+export function assertPermanentAnalysisVersion(analysisVersion: unknown): void {
+  if (analysisVersion !== 'v9_archaeology') {
+    throw new Error(
+      'Only complete V9 coverage can replace a permanent screenplay analysis.'
+    );
+  }
+}
+
 export async function reanalyzeFromStorage(
   screenplay: Screenplay,
   model: 'sonnet' | 'opus' | 'haiku',
   onProgress?: (p: AnalysisProgress) => void,
   engineOptions?: { v9Mode?: 'full' | 'triage' },
-): Promise<AnalysisResult> {
+): Promise<void> {
   if (engineOptions?.v9Mode === 'triage') {
     throw new Error(
       'Triage-only results cannot replace full V9 coverage. Run a full re-analysis instead.'
     );
   }
 
-  onProgress?.({ stage: 'parsing', percent: 0, message: 'Fetching PDF from storage...' });
-
-  // Reconstruct the Storage path (matches uploadScreenplayPdf in firebase.ts)
-  const category = screenplay.category || 'OTHER';
-  const safeName = (screenplay.title || screenplay.sourceFile || 'untitled')
-    .replace(/\.pdf$/i, '')
-    .replace(/[^a-zA-Z0-9_\- ]/g, '')
-    .trim()
-    .replace(/\s+/g, '_');
-
-  // Try primary path, then fallback without category
-  // Use getBlob() instead of getDownloadURL+fetch to bypass CORS
-  let blob: Blob;
-  try {
-    const primaryPath = `screenplays/${category}/${safeName}.pdf`;
-    const fileRef = ref(storage, primaryPath);
-    blob = await getBlob(fileRef);
-  } catch {
-    try {
-      const fallbackRef = ref(storage, `screenplays/${safeName}.pdf`);
-      blob = await getBlob(fallbackRef);
-    } catch {
-      throw new Error(
-        `PDF not found in Firebase Storage for "${screenplay.title}". ` +
-        `Upload the PDF first via the Upload panel.`
-      );
-    }
-  }
-
-  onProgress?.({ stage: 'parsing', percent: 30, message: 'PDF downloaded, parsing...' });
-
-  const file = new File([blob], `${safeName}.pdf`, { type: 'application/pdf' });
-
-  onProgress?.({ stage: 'parsing', percent: 40, message: 'Re-parsing PDF...' });
-
-  // Run the full analysis pipeline
-  let result: AnalysisResult;
-  try {
-    result = await analyzeScreenplay(
-      file,
-      category,
-      {
-        model: model === 'haiku' ? 'haiku' : model,
-        lenses: ['commercial'],
-        v9Mode: engineOptions?.v9Mode,
-      },
-      (p) => {
-        // Map progress: parsing 40-50%, analyzing 50-95%
-        if (p.stage === 'parsing') {
-          onProgress?.({ ...p, percent: 40 + (p.percent * 0.1) });
-        } else if (p.stage === 'analyzing') {
-          onProgress?.({ ...p, percent: 50 + (p.percent * 0.45) });
-        } else {
-          onProgress?.(p);
-        }
-      },
-    );
-  } catch (analysisErr) {
-    const msg = analysisErr instanceof Error ? analysisErr.message : 'Unknown error';
-    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-      throw new Error(
-        `Network error during analysis. If using the API directly, ` +
-        `ensure your Anthropic API key is valid and CORS is configured.`
-      );
-    }
-    throw new Error(`Analysis failed: ${msg}`);
-  }
-
-  onProgress?.({ stage: 'analyzing', percent: 96, message: 'Saving new analysis...' });
-
-  if (result.raw.analysis_version !== 'v9_archaeology') {
+  const projectId = screenplay.projectId;
+  if (!projectId) {
     throw new Error(
-      'Only complete V9 coverage can replace a permanent screenplay analysis.'
+      `"${screenplay.title}" predates immutable PDF archiving and cannot be re-analyzed safely.`
     );
   }
 
-  // Save immutable history and atomically advance the latest project view.
-  await saveAnalysis(result.raw);
+  onProgress?.({ stage: 'parsing', percent: 5, message: 'Queuing archived PDF on the VPS...' });
+  const queued = await queueScreenplayReanalysis(
+    projectId,
+    model === 'opus' ? 'opus' : 'sonnet',
+  );
+  onProgress?.({ stage: 'analyzing', percent: 15, message: 'Waiting for the VPS analysis engine...' });
+  const completed = await waitForQueuedReanalysis(queued.storagePath, (update) => {
+    if (update.status === 'pending') {
+      onProgress?.({ stage: 'analyzing', percent: 20, message: 'Re-analysis queued...' });
+    } else if (update.status === 'processing') {
+      onProgress?.({ stage: 'analyzing', percent: 60, message: 'VPS readers are analyzing...' });
+    }
+  });
 
+  assertPermanentAnalysisVersion(completed.analysisVersion);
   onProgress?.({ stage: 'complete', percent: 100, message: 'Re-analysis complete!' });
-  console.log(`[Lemon] Re-analyzed "${screenplay.title}" with ${model}`);
-
-  return result;
+  console.log(`[Lemon] VPS re-analysis completed for "${screenplay.title}" with ${model}`);
 }

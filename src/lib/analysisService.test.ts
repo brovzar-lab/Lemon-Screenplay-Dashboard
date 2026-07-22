@@ -9,6 +9,8 @@ const {
   mockRunTriage,
   mockSaveAnalysis,
   mockUploadScreenplayPdf,
+  mockQueueScreenplayReanalysis,
+  mockWaitForQueuedReanalysis,
 } = vi.hoisted(() => ({
   mockComputeContentHash: vi.fn(),
   mockLoadCalibrationProfile: vi.fn(),
@@ -17,6 +19,8 @@ const {
   mockRunTriage: vi.fn(),
   mockSaveAnalysis: vi.fn(),
   mockUploadScreenplayPdf: vi.fn(),
+  mockQueueScreenplayReanalysis: vi.fn(),
+  mockWaitForQueuedReanalysis: vi.fn(),
 }));
 
 vi.mock('./analysisStore', () => ({
@@ -49,6 +53,11 @@ vi.mock('./analysisIdentity', async (importOriginal) => {
   return { ...actual, computeContentHash: mockComputeContentHash };
 });
 
+vi.mock('./reanalysisQueue', () => ({
+  queueScreenplayReanalysis: mockQueueScreenplayReanalysis,
+  waitForQueuedReanalysis: mockWaitForQueuedReanalysis,
+}));
+
 import { analyzeScreenplay, reanalyzeFromStorage } from './analysisService';
 
 const CONTENT_HASH = 'ef'.repeat(32);
@@ -73,6 +82,15 @@ beforeEach(() => {
     mode: 'full',
   });
   mockUploadScreenplayPdf.mockResolvedValue('screenplays/LEMON/Writer_Parity.pdf');
+  mockQueueScreenplayReanalysis.mockResolvedValue({
+    screenplayId: 'Writer_Parity.pdf',
+    storagePath: 'gs://bucket/ingest-queue/LEMON/upload-id/Writer_Parity.pdf',
+  });
+  mockWaitForQueuedReanalysis.mockResolvedValue({
+    status: 'complete',
+    jobId: 'job-1',
+    analysisVersion: 'v9_archaeology',
+  });
 });
 
 describe('browser writer identity', () => {
@@ -109,5 +127,32 @@ describe('reanalysis persistence safety', () => {
     ).rejects.toThrow(/triage-only results cannot replace full V9 coverage/i);
 
     expect(mockSaveAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('routes a permanent re-analysis through the VPS queue', async () => {
+    const screenplay = createTestScreenplay({ projectId: 'Writer_Parity.pdf' });
+
+    await reanalyzeFromStorage(screenplay, 'opus');
+
+    expect(mockQueueScreenplayReanalysis).toHaveBeenCalledWith('Writer_Parity.pdf', 'opus');
+    expect(mockWaitForQueuedReanalysis).toHaveBeenCalledWith(
+      expect.stringContaining('/ingest-queue/'),
+      expect.any(Function),
+    );
+    expect(mockRunMultiReaderAnalysis).not.toHaveBeenCalled();
+    expect(mockSaveAnalysis).not.toHaveBeenCalled();
+  });
+
+  it('keeps the complete-V9 guard on the daemon result', async () => {
+    mockWaitForQueuedReanalysis.mockResolvedValue({
+      status: 'complete',
+      jobId: 'job-1',
+      analysisVersion: 'v9_triage',
+    });
+
+    await expect(reanalyzeFromStorage(
+      createTestScreenplay({ projectId: 'Writer_Parity.pdf' }),
+      'sonnet',
+    )).rejects.toThrow(/only complete V9 coverage/i);
   });
 });

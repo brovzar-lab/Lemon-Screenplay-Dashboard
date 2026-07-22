@@ -81,6 +81,9 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
     const priority = customMeta['priority'] ? Number(customMeta['priority']) : 0;
     const target_project_id = (0, ingestUploadIdentity_1.readTargetProjectId)(customMeta);
     const separate_project = (0, ingestUploadIdentity_1.readSeparateProject)(customMeta);
+    const bypass_duplicate = (0, ingestUploadIdentity_1.readBooleanMetadata)(customMeta, 'bypassDuplicate');
+    const bypass_tmdb = (0, ingestUploadIdentity_1.readBooleanMetadata)(customMeta, 'bypassTmdb');
+    const request_kind = customMeta['requestKind'] === 'reanalysis' ? 'reanalysis' : 'upload';
     if (target_project_id && separate_project) {
         throw new Error('Upload metadata cannot target a revision and request a separate project.');
     }
@@ -96,6 +99,9 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
         upload_id,
         target_project_id,
         separate_project,
+        bypass_duplicate,
+        bypass_tmdb,
+        request_kind,
         // content_hash computed by worker (avoids downloading PDF here)
         content_hash: 'pending', // placeholder; worker updates with real SHA-256
         requested_model: requestedModel,

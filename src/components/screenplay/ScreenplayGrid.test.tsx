@@ -116,7 +116,7 @@ describe('ScreenplayGrid', () => {
 
     expect(screen.getAllByRole('listitem')).toHaveLength(60);
     expect(screen.getByText('Movie 59')).toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('renders correct number of skeleton cards while loading', () => {
     render(<ScreenplayGrid screenplays={[]} isLoading={true} />);

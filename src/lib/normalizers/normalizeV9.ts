@@ -338,7 +338,27 @@ export function normalizeV9Screenplay(
     },
     producerMetrics: createProducerMetrics(),
     tmdbStatus: normalizeTmdbStatus((raw as Record<string, unknown>).tmdb_status as RawTmdbStatus | undefined),
-    hasPdf: (raw as Record<string, unknown>).hasPdf === true,
+    hasPdf:
+      (raw as Record<string, unknown>).hasPdf === true ||
+      typeof (raw as Record<string, unknown>).storage_path === 'string' ||
+      typeof (raw as Record<string, unknown>)._storagePath === 'string',
+    storagePath: (() => {
+      const value = (raw as Record<string, unknown>).storage_path
+        ?? (raw as Record<string, unknown>)._storagePath;
+      return typeof value === 'string' && value.startsWith('gs://') ? value : undefined;
+    })(),
+    storageGeneration: (() => {
+      const value = (raw as Record<string, unknown>).storage_generation;
+      return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
+    })(),
+    latestVersionId:
+      typeof (raw as Record<string, unknown>).latest_version_id === 'string'
+        ? String((raw as Record<string, unknown>).latest_version_id)
+        : undefined,
+    versionCount:
+      Number.isInteger((raw as Record<string, unknown>).version_count)
+        ? Number((raw as Record<string, unknown>).version_count)
+        : undefined,
     // Archaeology Engine fields
     pillarScores: v7PillarArray,
     goosebumpsMomentDetails: goosebumpsMoments,
