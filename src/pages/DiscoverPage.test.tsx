@@ -1,22 +1,34 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockLoadAllAnalyses, mockSubscribeToAnalyses, mockFlushPendingWrites } = vi.hoisted(() => ({
-  mockLoadAllAnalyses: vi.fn(),
-  mockSubscribeToAnalyses: vi.fn(),
-  mockFlushPendingWrites: vi.fn(),
+const { mockOnSnapshot, mockUnsubscribe } = vi.hoisted(() => ({
+  mockOnSnapshot: vi.fn(),
+  mockUnsubscribe: vi.fn(),
 }));
 
-vi.mock('@/lib/analysisStore', () => ({
-  loadAllAnalyses: (...args: unknown[]) => mockLoadAllAnalyses(...args),
-  subscribeToAnalyses: (...args: unknown[]) => mockSubscribeToAnalyses(...args),
-  flushPendingWrites: (...args: unknown[]) => mockFlushPendingWrites(...args),
-  quarantineAnalysis: vi.fn(() => Promise.resolve()),
-  removeAnalysis: vi.fn(),
-  removeMultipleAnalyses: vi.fn(),
-  getDeletedAnalyses: vi.fn(() => []),
-  restoreAnalysis: vi.fn(),
+let emitSnapshot:
+  | ((snapshot: { docs: Array<{ data: () => Record<string, unknown> }> }) => void)
+  | undefined;
+
+vi.mock('@/lib/firebase', () => ({
+  authReady: Promise.resolve(),
+  db: {},
+}));
+
+vi.mock('firebase/firestore', () => ({
+  collection: vi.fn(() => 'uploaded-analyses'),
+  query: vi.fn((reference: unknown) => reference),
+  onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
+  doc: vi.fn(),
+  setDoc: vi.fn(),
+  runTransaction: vi.fn(),
+  Timestamp: { fromMillis: vi.fn() },
+  getDocs: vi.fn(),
+  updateDoc: vi.fn(),
+  deleteField: vi.fn(),
+  where: vi.fn(),
+  getCountFromServer: vi.fn(),
 }));
 
 import DiscoverPage from './DiscoverPage';
@@ -73,27 +85,39 @@ function renderPage() {
 
 describe('DiscoverPage', () => {
   beforeEach(() => {
-    const analyses = [
-      rawAnalysis('Cactus Season', 7.4, 'Cactus Season.pdf'),
-      rawAnalysis('Midnight Orchard', 8.8, 'Midnight Orchard.pdf', 'FILM_NOW'),
-    ];
+    window.localStorage.clear();
+    window.localStorage.setItem(
+      'lemon-local-analyses',
+      JSON.stringify([rawAnalysis('Cactus Season', 7.4, 'Cactus Season.pdf')]),
+    );
 
-    mockLoadAllAnalyses.mockReset().mockResolvedValue(analyses);
-    mockFlushPendingWrites.mockReset().mockResolvedValue(undefined);
-    mockSubscribeToAnalyses.mockReset().mockImplementation((onChange) => {
-      onChange(analyses);
-      return vi.fn();
+    emitSnapshot = undefined;
+    mockUnsubscribe.mockReset();
+    mockOnSnapshot.mockReset().mockImplementation((_query, onChange) => {
+      emitSnapshot = onChange;
+      return mockUnsubscribe;
     });
   });
 
-  it('renders normalized screenplay titles and scores from the existing data spine', async () => {
+  it('replaces normalized startup data with the live Firestore snapshot', async () => {
     renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Cactus Season' })).toBeInTheDocument();
+    expect(mockOnSnapshot).toHaveBeenCalledOnce();
+
+    act(() => {
+      emitSnapshot?.({
+        docs: [
+          {
+            data: () => rawAnalysis('Midnight Orchard', 8.8, 'Midnight Orchard.pdf', 'FILM_NOW'),
+          },
+        ],
+      });
+    });
 
     expect(await screen.findByRole('heading', { name: 'Midnight Orchard' })).toBeInTheDocument();
     expect(screen.getAllByText('8.8').length).toBeGreaterThan(0);
     expect(screen.getByText('FILM NOW')).toBeInTheDocument();
-    expect(screen.getAllByText('Cactus Season').length).toBeGreaterThan(0);
-    expect(mockLoadAllAnalyses).toHaveBeenCalledOnce();
-    expect(mockSubscribeToAnalyses).toHaveBeenCalledOnce();
+    expect(screen.queryByText('Cactus Season')).not.toBeInTheDocument();
   });
 });
