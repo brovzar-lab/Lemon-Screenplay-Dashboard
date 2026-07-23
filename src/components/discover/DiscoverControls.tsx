@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { clsx } from 'clsx';
 import { MultiSelect } from '@/components/filters/MultiSelect';
 import { RangeSlider } from '@/components/filters/RangeSlider';
+import { LensMenu } from '@/components/filters/LensMenu';
+import { DiscoveryFavoritesMenu } from '@/components/discover/DiscoveryFavoritesMenu';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import {
@@ -9,6 +11,7 @@ import {
   type RecommendationTier,
   type SortDirection,
   type SortField,
+  type Screenplay,
 } from '@/types';
 
 const VERDICTS: RecommendationTier[] = ['film_now', 'recommend', 'consider', 'pass'];
@@ -32,6 +35,8 @@ interface DiscoverControlsProps {
   nonScreenplayHiddenCount: number;
   onRevealNonScreenplays: () => void;
   shortcutsEnabled: boolean;
+  screenplays: Screenplay[];
+  onOpenScreenplay: (screenplay: Screenplay, trigger: HTMLButtonElement) => void;
 }
 
 export function DiscoverControls({
@@ -46,6 +51,8 @@ export function DiscoverControls({
   nonScreenplayHiddenCount,
   onRevealNonScreenplays,
   shortcutsEnabled,
+  screenplays,
+  onOpenScreenplay,
 }: DiscoverControlsProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const filters = useFilterStore();
@@ -235,7 +242,7 @@ export function DiscoverControls({
             </>
           )}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
           {hasActiveFilters && filteredCount > 0 && (
             <button
               type="button"
@@ -259,6 +266,8 @@ export function DiscoverControls({
               <option value="title">Title</option>
             </select>
           </label>
+          <LensMenu />
+          <DiscoveryFavoritesMenu screenplays={screenplays} onOpen={onOpenScreenplay} />
         </div>
       </div>
     </section>
