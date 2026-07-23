@@ -17,10 +17,10 @@ import {
 const VERDICTS: RecommendationTier[] = ['film_now', 'recommend', 'consider', 'pass'];
 
 const VERDICT_STYLES: Record<RecommendationTier, string> = {
-  film_now: 'text-gold-400 aria-pressed:bg-gold-500/15',
-  recommend: 'text-emerald-400 aria-pressed:bg-emerald-500/15',
-  consider: 'text-amber-400 aria-pressed:bg-amber-500/15',
-  pass: 'text-red-400 aria-pressed:bg-red-500/15',
+  film_now: 'dsc-verdict-chip--film',
+  recommend: 'dsc-verdict-chip--recommend',
+  consider: 'dsc-verdict-chip--consider',
+  pass: 'dsc-verdict-chip--pass',
 };
 
 interface DiscoverControlsProps {
@@ -90,20 +90,14 @@ export function DiscoverControls({
   };
 
   return (
-    <section
-      aria-label="Find screenplays"
-      className="mb-10 overflow-hidden rounded-2xl bg-black-900 shadow-[var(--shadow-card)] dark:border dark:border-black-700"
-    >
+    <section aria-label="Find screenplays" className="dsc-card mb-10 overflow-hidden">
       <div className="grid lg:grid-cols-[minmax(18rem,1.5fr)_minmax(28rem,2fr)]">
-        <div className="bg-black-900 p-5 sm:p-6 lg:border-r lg:border-black-700">
-          <label
-            htmlFor="discovery-search"
-            className="mb-2 block text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-gold-400"
-          >
+        <div className="dsc-hairline p-5 sm:p-6 lg:border-r">
+          <label htmlFor="discovery-search" className="dsc-kicker mb-2 block">
             Search the slate
           </label>
-          <div className="flex min-h-12 items-center gap-3 rounded-xl border border-black-700 bg-black-950 px-3 shadow-[var(--inset-input)] focus-within:border-gold-400 focus-within:ring-2 focus-within:ring-gold-500/20">
-            <span aria-hidden="true" className="text-lg font-semibold text-black-500">
+          <div className="dsc-search">
+            <span aria-hidden="true" className="text-lg font-semibold text-[var(--dsc-ink-3)]">
               /
             </span>
             <input
@@ -114,7 +108,7 @@ export function DiscoverControls({
               value={filters.searchQuery}
               onChange={(event) => filters.setSearchQuery(event.target.value)}
               placeholder="Title, writer, logline, theme..."
-              className="min-w-0 flex-1 bg-transparent py-2 text-base text-black-50 outline-none placeholder:text-black-500"
+              className="py-2 text-base"
             />
           </div>
 
@@ -128,11 +122,7 @@ export function DiscoverControls({
                   type="button"
                   aria-pressed={active}
                   onClick={() => filters.toggleRecommendationTier(tier)}
-                  className={clsx(
-                    'min-h-11 rounded-full px-4 py-2 text-[0.65rem] font-bold tracking-[0.14em] transition-colors hover:bg-black-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400',
-                    VERDICT_STYLES[tier],
-                    active ? 'ring-1 ring-current' : 'bg-black-950 opacity-80',
-                  )}
+                  className={clsx('dsc-verdict-chip', VERDICT_STYLES[tier])}
                 >
                   {RECOMMENDATION_CONFIG[tier].label}
                 </button>
@@ -141,7 +131,7 @@ export function DiscoverControls({
           </div>
         </div>
 
-        <div className="border-t border-black-700 bg-black-900 p-5 sm:p-6 lg:border-t-0">
+        <div className="border-t p-5 dsc-hairline sm:p-6 lg:border-t-0">
           <div className="grid gap-4 sm:grid-cols-2">
             <MultiSelect
               label="Genre"
@@ -159,8 +149,8 @@ export function DiscoverControls({
             />
           </div>
 
-          <details className="mt-4 border-t border-black-700 pt-4">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-black-300 hover:text-black-50">
+          <details className="dsc-hairline mt-4 border-t pt-4">
+            <summary className="dsc-label cursor-pointer hover:text-[var(--dsc-ink)]">
               Score ranges
             </summary>
             <div className="mt-3 grid gap-2 xl:grid-cols-3">
@@ -201,14 +191,14 @@ export function DiscoverControls({
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 border-t border-black-700 px-5 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs text-black-300">
+      <div className="dsc-hairline flex flex-col gap-4 border-t px-5 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs text-[var(--dsc-ink-2)]">
           <span>
             Showing {filteredCount} of {totalCount} screenplays
           </span>
           {producedHiddenCount > 0 && (
             <>
-              <span aria-hidden="true" className="text-black-600">
+              <span aria-hidden="true" className="text-[var(--dsc-ink-3)]">
                 ·
               </span>
               <span>
@@ -217,7 +207,7 @@ export function DiscoverControls({
               <button
                 type="button"
                 onClick={onRevealProduced}
-                className="min-h-11 rounded-lg px-2 font-sans font-semibold uppercase tracking-[0.1em] text-gold-400 hover:bg-gold-500/10"
+                className="dsc-btn dsc-btn-ghost !min-h-11 !px-2 !text-[11px] font-bold uppercase tracking-[0.08em] !text-[var(--dsc-accent)]"
               >
                 Show produced films
               </button>
@@ -225,7 +215,7 @@ export function DiscoverControls({
           )}
           {nonScreenplayHiddenCount > 0 && (
             <>
-              <span aria-hidden="true" className="text-black-600">
+              <span aria-hidden="true" className="text-[var(--dsc-ink-3)]">
                 ·
               </span>
               <span>
@@ -235,7 +225,7 @@ export function DiscoverControls({
               <button
                 type="button"
                 onClick={onRevealNonScreenplays}
-                className="min-h-11 rounded-lg px-2 font-sans font-semibold uppercase tracking-[0.1em] text-gold-400 hover:bg-gold-500/10"
+                className="dsc-btn dsc-btn-ghost !min-h-11 !px-2 !text-[11px] font-bold uppercase tracking-[0.08em] !text-[var(--dsc-accent)]"
               >
                 Show non-screenplays
               </button>
@@ -247,18 +237,18 @@ export function DiscoverControls({
             <button
               type="button"
               onClick={onClearFilters}
-              className="min-h-11 rounded-lg px-2 text-xs font-semibold uppercase tracking-[0.12em] text-black-400 hover:bg-black-800 hover:text-gold-300"
+              className="dsc-btn dsc-btn-ghost !min-h-11 !px-2 !text-[11px] font-bold uppercase tracking-[0.08em]"
             >
               Clear filters
             </button>
           )}
-          <label className="flex min-h-11 items-center gap-2 text-xs uppercase tracking-[0.12em] text-black-400">
+          <label className="dsc-label flex min-h-11 items-center gap-2">
             Sort
             <select
               aria-label="Sort results"
               value={activeSort}
               onChange={(event) => handleSort(event.target.value as SortField)}
-              className="min-h-11 rounded-lg border border-black-700 bg-black-950 px-3 py-2 text-sm normal-case tracking-normal text-black-100 shadow-[var(--inset-input)] outline-none focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20"
+              className="dsc-select normal-case tracking-normal"
             >
               <option value="weightedScore">Weighted score</option>
               <option value="marketPotential">Market potential</option>

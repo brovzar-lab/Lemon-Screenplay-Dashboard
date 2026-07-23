@@ -6,6 +6,7 @@ import { DiscoverGrid, DiscoverShowcase } from '@/components/discover/DiscoverRe
 import { DiscoverySelectionBar } from '@/components/discover/DiscoverySelectionBar';
 import { useHasSelection } from '@/stores/selectionStore';
 import type { Screenplay } from '@/types';
+import '@/components/discover/discovery.css';
 
 interface DiscoverStats {
   total: number;
@@ -36,14 +37,12 @@ interface DiscoverShellProps {
 
 function DiscoverIntro() {
   return (
-    <section className="mb-7 flex flex-col gap-5 border-b border-black-700 pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <section className="mb-7 flex flex-col gap-5 border-b pb-6 dsc-hairline sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-gold-400">
-          Lemon Studios · Development slate
-        </p>
-        <h1 className="font-display text-5xl leading-none text-black-50 sm:text-6xl">Discover</h1>
+        <p className="dsc-kicker mb-2">Lemon Studios · Development slate</p>
+        <h1 className="dsc-display text-5xl sm:text-6xl">Discover</h1>
       </div>
-      <p className="max-w-sm text-left text-sm leading-6 text-black-400 sm:text-right">
+      <p className="max-w-sm text-left text-sm leading-6 text-[var(--dsc-ink-2)] sm:text-right">
         Find the strongest story for the moment, then follow the signal through the slate.
       </p>
     </section>
@@ -53,19 +52,19 @@ function DiscoverIntro() {
 function DiscoverLoading() {
   return (
     <div className="animate-pulse" role="status">
-      <div className="mb-7 h-16 w-64 max-w-full rounded-xl bg-black-800" />
-      <div className="mb-8 h-48 rounded-2xl bg-black-900 shadow-[var(--shadow-card)] dark:border dark:border-black-700" />
+      <div className="dsc-skeleton mb-7 h-16 w-64 max-w-full" />
+      <div className="dsc-skeleton dsc-skeleton--card mb-8 h-48" />
       <div className="mb-12 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="h-[27rem] rounded-2xl bg-black-900 shadow-[var(--shadow-card)] dark:border dark:border-black-700" />
+        <div className="dsc-skeleton dsc-skeleton--card h-[27rem]" />
         <div className="grid grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-48 rounded-xl bg-black-900 shadow-[var(--shadow-card)] dark:border dark:border-black-700" />
+            <div key={index} className="dsc-skeleton dsc-skeleton--card h-48" />
           ))}
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, index) => (
-          <div key={index} className="h-72 rounded-2xl bg-black-900 shadow-[var(--shadow-card)] dark:border dark:border-black-700" />
+          <div key={index} className="dsc-skeleton dsc-skeleton--card h-72" />
         ))}
       </div>
       <span className="sr-only">Loading Discovery</span>
@@ -120,7 +119,7 @@ export function DiscoverShell({
   const grid = remaining.slice(4);
 
   return (
-    <div className="min-h-screen bg-black-950 text-black-50">
+    <div className="discovery-root min-h-screen">
       <DiscoverAppHeader
         total={stats.total}
         averageScore={stats.avgWeightedScore}
@@ -133,11 +132,11 @@ export function DiscoverShell({
           {isLoading ? (
             <DiscoverLoading />
           ) : isError ? (
-            <section className="rounded-2xl bg-red-500/10 p-6 shadow-[var(--shadow-card)] sm:p-8 dark:border dark:border-red-500/30">
-              <h1 className="font-display text-3xl text-black-50">
+            <section className="dsc-card p-6 sm:p-8">
+              <h1 className="dsc-display text-3xl">
                 Discovery is temporarily unavailable
               </h1>
-              <p className="mt-3 text-black-300">
+              <p className="mt-3 text-[var(--dsc-ink-2)]">
                 The existing dashboard is still available at the main route.
               </p>
             </section>
@@ -161,29 +160,27 @@ export function DiscoverShell({
               />
 
               {totalCount === 0 ? (
-                <section className="rounded-2xl bg-black-900 p-8 text-center shadow-[var(--shadow-card)] sm:p-10 dark:border dark:border-black-700">
-                  <h2 className="font-display text-3xl text-black-50">
+                <section className="dsc-card p-8 text-center sm:p-10">
+                  <h2 className="dsc-display text-3xl">
                     No analyzed screenplays yet
                   </h2>
-                  <p className="mt-3 text-black-400">
+                  <p className="mt-3 text-[var(--dsc-ink-2)]">
                     New analyses will appear here through the live data feed.
                   </p>
                 </section>
               ) : !featured ? (
-                <section className="rounded-2xl bg-black-900 p-8 text-center shadow-[var(--shadow-card)] sm:p-10 dark:border dark:border-black-700">
-                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
-                    No match
-                  </p>
-                  <h2 className="mt-3 font-display text-3xl text-black-50">
+                <section className="dsc-card p-8 text-center sm:p-10">
+                  <p className="dsc-kicker">No match</p>
+                  <h2 className="dsc-display mt-3 text-3xl">
                     No scripts match this view
                   </h2>
-                  <p className="mx-auto mt-3 max-w-md text-black-400">
+                  <p className="mx-auto mt-3 max-w-md text-[var(--dsc-ink-2)]">
                     Try a broader search or clear the active filters to reopen the full slate.
                   </p>
                   <button
                     type="button"
                     onClick={onClearFilters}
-                    className="btn btn-primary mt-6 min-h-11 px-5 text-xs uppercase tracking-[0.15em]"
+                    className="dsc-btn dsc-btn-primary mt-6"
                   >
                     Clear filters
                   </button>
@@ -197,16 +194,14 @@ export function DiscoverShell({
                   />
 
                   <section aria-labelledby="discovery-archive">
-                    <div className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-black-700 pb-4">
+                    <div className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b pb-4 dsc-hairline">
                       <div>
-                        <p className="mb-2 text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
-                          The full read
-                        </p>
-                        <h2 id="discovery-archive" className="font-display text-3xl text-black-50">
+                        <p className="dsc-kicker mb-2">The full read</p>
+                        <h2 id="discovery-archive" className="dsc-display text-3xl">
                           Slate archive
                         </h2>
                       </div>
-                      <span className="font-mono text-xs text-black-500">
+                      <span className="dsc-label dsc-label-faint">
                         {grid.length} beyond the shelf
                       </span>
                     </div>

@@ -20,15 +20,9 @@ interface LedgerStatProps {
 
 function LedgerStat({ value, label, accent = false }: LedgerStatProps) {
   return (
-    <div className="flex min-w-0 flex-1 items-baseline gap-2 border-r border-black-700 px-4 py-2.5 last:border-r-0 sm:px-6">
-      <span
-        className={`font-mono text-base font-semibold tabular-nums sm:text-lg ${accent ? 'text-gold-300' : 'text-black-50'}`}
-      >
-        {value}
-      </span>
-      <span className="truncate text-[0.58rem] font-semibold uppercase tracking-[0.18em] text-black-500 sm:text-[0.65rem]">
-        {label}
-      </span>
+    <div className="dsc-stat flex min-w-0 flex-1 items-baseline gap-2 px-4 py-2.5 sm:px-6">
+      <span className={`dsc-stat-value ${accent ? 'dsc-stat-value--accent' : ''}`}>{value}</span>
+      <span className="dsc-label dsc-label-faint truncate">{label}</span>
     </div>
   );
 }
@@ -42,17 +36,10 @@ export function DiscoverAppHeader({
   const isAdmin = useIsAdmin();
   const isDark = useThemeStore((state) => state.isDark);
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `flex min-h-11 items-center border-b-2 px-1 py-3 text-xs font-semibold uppercase tracking-[0.16em] transition-colors ${
-      isActive
-        ? 'border-gold-400 text-black-50'
-        : 'border-transparent text-black-400 hover:text-black-50'
-    }`;
+    `dsc-tab ${isActive ? 'dsc-tab--active' : ''}`;
 
   return (
-    <header
-      role="banner"
-      className="sticky top-0 z-40 border-b border-black-700 bg-black-950 text-black-50"
-    >
+    <header role="banner" className="dsc-header sticky top-0 z-40">
       <div className="mx-auto flex max-w-[1800px] flex-wrap items-center gap-x-6 px-4 sm:px-6 lg:px-10">
         <NavLink
           to="/discover"
@@ -64,11 +51,9 @@ export function DiscoverAppHeader({
             alt="Lemon Studios"
             className="h-8 w-8 shrink-0"
           />
-          <span className="flex min-w-0 items-baseline gap-2">
-            <span className="font-sans text-sm font-bold tracking-[0.12em] text-black-50">
-              LEMON
-            </span>
-            <span className="hidden truncate text-sm text-black-300 sm:inline">Discovery</span>
+          <span className="flex min-w-0 flex-col">
+            <span className="dsc-brand-name">LEMON</span>
+            <span className="dsc-brand-sub hidden truncate sm:block">Discovery</span>
           </span>
         </NavLink>
 
@@ -96,10 +81,7 @@ export function DiscoverAppHeader({
         </div>
       </div>
 
-      <div
-        className="border-t border-black-700 bg-black-900"
-        aria-label="Discovery slate statistics"
-      >
+      <div className="dsc-statbar" aria-label="Discovery slate statistics">
         <div className="mx-auto flex max-w-[1800px] overflow-hidden">
           <LedgerStat value={isLoading ? '—' : String(total)} label="Total scripts" />
           <LedgerStat

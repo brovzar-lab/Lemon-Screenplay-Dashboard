@@ -1,55 +1,16 @@
-import { clsx } from 'clsx';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelectionCheckbox';
+import { ScriptCover } from '@/components/discover/ScriptCover';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
+import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
-
-function ScriptCover({
-  screenplay,
-  compact = false,
-}: {
-  screenplay: Screenplay;
-  compact?: boolean;
-}) {
-  return (
-    <div
-      className={clsx(
-        'relative flex shrink-0 flex-col justify-between overflow-hidden rounded-lg border border-black-600 bg-black-100 p-3 text-black-950 shadow-[0_16px_35px_rgba(0,0,0,0.22)]',
-        compact ? 'h-32 w-20 sm:h-36 sm:w-24' : 'aspect-[3/4] w-full max-w-48 p-5',
-      )}
-      aria-hidden="true"
-    >
-      <span className="text-[0.55rem] font-bold uppercase tracking-[0.2em] text-black-600">
-        Screenplay
-      </span>
-      <div className="border-y border-black-300 py-3 text-center">
-        <p
-          className={clsx(
-            'font-display font-semibold uppercase leading-tight',
-            compact ? 'text-sm' : 'text-xl',
-          )}
-        >
-          {screenplay.title}
-        </p>
-        <p className="mt-2 text-[0.55rem] uppercase tracking-[0.08em] text-black-600">
-          {screenplay.author || 'Unknown writer'}
-        </p>
-      </div>
-      <span className="text-[0.5rem] uppercase tracking-[0.16em] text-black-500">
-        Lemon Studios
-      </span>
-    </div>
-  );
-}
 
 function Score({ screenplay, large = false }: { screenplay: Screenplay; large?: boolean }) {
   return (
     <div className="text-right">
-      <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-black-500">
-        Score
-      </span>
+      <span className="dsc-label dsc-label-faint block">Score</span>
       <span
-        className={clsx('font-sans font-semibold leading-none tracking-tight text-black-50 tabular-nums', large ? 'text-5xl sm:text-6xl' : 'text-3xl')}
+        className={clsx('dsc-num block font-semibold leading-none', large ? 'text-5xl sm:text-6xl' : 'text-3xl')}
         aria-label={`Score ${screenplay.weightedScore.toFixed(1)}`}
       >
         {screenplay.weightedScore.toFixed(1)}
@@ -74,40 +35,38 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
         data-testid="discovery-featured"
         data-discovery-result
         data-screenplay-id={featured.id}
-        className={clsx(
-          'relative overflow-hidden rounded-2xl p-5 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)] sm:p-7 dark:border dark:border-black-700',
-          featured.isFilmNow ? 'bg-gold-50' : 'bg-black-900',
-        )}
+        className="dsc-card dsc-card-hover relative overflow-hidden"
       >
         <DiscoverySelectionCheckbox screenplay={featured} />
         <button
           type="button"
           aria-label={`Open ${featured.title} details`}
           onClick={(event) => onOpen(featured, event.currentTarget)}
-          className="block w-full rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-4 focus-visible:ring-offset-black-950"
+          className="grid h-full w-full text-left sm:grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)]"
         >
-          <div className="mb-5 flex items-center justify-between gap-4 pl-12">
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-gold-400">
-              Featured screenplay · #1
-            </p>
-            <DiscoveryShareStatus screenplay={featured} />
+          <div className="dsc-cover-zone p-6 sm:p-7">
+            <ScriptCover
+              title={featured.title}
+              author={featured.author}
+              seed={featured.projectId ?? featured.id}
+              className="max-w-56"
+            />
           </div>
-          <div className="grid gap-6 sm:grid-cols-[10rem_minmax(0,1fr)] lg:grid-cols-[11rem_minmax(0,1fr)]">
-            <ScriptCover screenplay={featured} />
-            <div className="flex min-w-0 flex-col">
-              <div className="flex items-start justify-between gap-4">
-                <RecommendationBadge tier={featured.recommendation} />
-                <Score screenplay={featured} large />
-              </div>
-              <h2 className="mt-6 font-display text-4xl leading-tight text-black-50 sm:text-5xl">
-                {featured.title}
-              </h2>
-              <p className="mt-2 text-xs uppercase tracking-[0.15em] text-black-500">
-                {featured.genre} · {featured.author || 'Unknown writer'}
-              </p>
-              <p className="mt-auto pt-6 text-base leading-7 text-black-200">
-                {featured.logline || 'Logline not yet available.'}
-              </p>
+          <div className="flex min-w-0 flex-col p-5 sm:p-7">
+            <div className="flex items-center justify-between gap-4">
+              <p className="dsc-kicker">Featured screenplay · #1</p>
+              <DiscoveryShareStatus screenplay={featured} />
+            </div>
+            <h2 className="dsc-display mt-3 text-4xl sm:text-[2.6rem]">{featured.title}</h2>
+            <p className="dsc-label dsc-label-faint mt-2">
+              {featured.genre} · {featured.author || 'Unknown writer'}
+            </p>
+            <p className="mt-5 text-base leading-7 text-[var(--dsc-ink-2)]">
+              {featured.logline || 'Logline not yet available.'}
+            </p>
+            <div className="mt-auto flex items-center justify-between gap-4 border-y py-4 dsc-hairline">
+              <RecommendationBadge tier={featured.recommendation} />
+              <Score screenplay={featured} large />
             </div>
           </div>
         </button>
@@ -115,10 +74,8 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
 
       <div>
         <div className="mb-3 flex items-baseline justify-between gap-4">
-          <h2 className="font-display text-2xl text-black-50">Top matches</h2>
-          <span className="text-[0.6rem] font-semibold uppercase tracking-[0.18em] text-black-500">
-            Current ranking
-          </span>
+          <h2 className="dsc-display text-2xl">Top matches</h2>
+          <span className="dsc-label dsc-label-faint">Current ranking</span>
         </div>
         {topMatches.length > 0 ? (
           <ol className="grid gap-3 sm:grid-cols-2">
@@ -128,29 +85,30 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
                 data-testid="discovery-shelf-result"
                 data-discovery-result
                 data-screenplay-id={screenplay.id}
-                className="relative overflow-hidden rounded-xl bg-black-900 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)] dark:border dark:border-black-700"
+                className="dsc-card dsc-card-hover relative overflow-hidden"
               >
                 <DiscoverySelectionCheckbox screenplay={screenplay} />
                 <button
                   type="button"
                   aria-label={`Open ${screenplay.title} details`}
                   onClick={(event) => onOpen(screenplay, event.currentTarget)}
-                  className="group flex min-h-44 w-full gap-3 rounded-xl p-3 text-left transition-colors hover:bg-black-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 sm:gap-4"
+                  className="flex min-h-44 w-full gap-3 p-3 text-left sm:gap-4"
                 >
-                  <ScriptCover screenplay={screenplay} compact />
+                  <ScriptCover
+                    title={screenplay.title}
+                    author={screenplay.author}
+                    seed={screenplay.projectId ?? screenplay.id}
+                    className="w-20 shrink-0 self-start sm:w-24"
+                  />
                   <div className="flex min-w-0 flex-1 flex-col py-1">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-mono text-[0.6rem] text-black-500">#{index + 2}</span>
-                      <span className="font-display text-2xl text-black-50">
+                      <span className="dsc-label dsc-label-faint">#{index + 2}</span>
+                      <span className="dsc-num text-2xl font-semibold">
                         {screenplay.weightedScore.toFixed(1)}
                       </span>
                     </div>
-                    <h3 className="mt-3 font-display text-xl leading-tight text-black-50">
-                      {screenplay.title}
-                    </h3>
-                    <p className="mt-2 text-[0.6rem] uppercase tracking-[0.12em] text-black-500">
-                      {screenplay.genre}
-                    </p>
+                    <h3 className="dsc-display mt-3 text-xl">{screenplay.title}</h3>
+                    <p className="dsc-label dsc-label-faint mt-2">{screenplay.genre}</p>
                     <div className="mt-auto flex items-center justify-between gap-2 pt-3">
                       <RecommendationBadge tier={screenplay.recommendation} />
                       <DiscoveryShareStatus screenplay={screenplay} />
@@ -161,7 +119,7 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
             ))}
           </ol>
         ) : (
-          <p className="rounded-xl bg-black-900 p-6 text-sm text-black-400 shadow-[var(--shadow-card)] dark:border dark:border-black-700">
+          <p className="dsc-card p-6 text-sm text-[var(--dsc-ink-2)]">
             More matches will appear as analyses are added.
           </p>
         )}
@@ -178,8 +136,8 @@ interface DiscoverGridProps {
 export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
   if (screenplays.length === 0) {
     return (
-      <p className="rounded-xl bg-black-900 p-6 text-sm text-black-400 shadow-[var(--shadow-card)] dark:border dark:border-black-700">
-            Every matching screenplay is shown on the shelf above.
+      <p className="dsc-card p-6 text-sm text-[var(--dsc-ink-2)]">
+        Every matching screenplay is shown on the shelf above.
       </p>
     );
   }
@@ -192,34 +150,40 @@ export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
           data-testid="discovery-grid-result"
           data-discovery-result
           data-screenplay-id={screenplay.id}
-          className="relative overflow-hidden rounded-2xl bg-black-900 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)] dark:border dark:border-black-700"
+          className="dsc-card dsc-card-hover relative overflow-hidden"
         >
           <DiscoverySelectionCheckbox screenplay={screenplay} />
           <button
             type="button"
             aria-label={`Open ${screenplay.title} details`}
             onClick={(event) => onOpen(screenplay, event.currentTarget)}
-            className="relative flex min-h-72 w-full flex-col overflow-hidden rounded-2xl p-5 text-left transition-colors hover:bg-black-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+            className="relative flex min-h-72 w-full flex-col p-5 text-left"
           >
             <div className="flex w-full items-start justify-between gap-4 pl-12">
-              <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-black-500">
+              <span className="dsc-label dsc-label-faint">
                 Archive {String(index + 1).padStart(2, '0')}
               </span>
               <Score screenplay={screenplay} />
             </div>
-            <div className="mt-7">
-              <div className="flex items-center justify-between gap-3">
-                <RecommendationBadge tier={screenplay.recommendation} />
-                <DiscoveryShareStatus screenplay={screenplay} />
+            <div className="mt-6 flex items-start gap-4">
+              <ScriptCover
+                title={screenplay.title}
+                author={screenplay.author}
+                seed={screenplay.projectId ?? screenplay.id}
+                className="w-16 shrink-0 sm:w-20"
+              />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <RecommendationBadge tier={screenplay.recommendation} />
+                  <DiscoveryShareStatus screenplay={screenplay} />
+                </div>
+                <h3 className="dsc-display mt-4 text-2xl sm:text-3xl">{screenplay.title}</h3>
+                <p className="dsc-label dsc-label-faint mt-2">
+                  {screenplay.genre} · {screenplay.author || 'Unknown writer'}
+                </p>
               </div>
-              <h3 className="mt-4 font-display text-3xl leading-tight text-black-50">
-                {screenplay.title}
-              </h3>
-              <p className="mt-2 text-[0.65rem] uppercase tracking-[0.14em] text-black-500">
-                {screenplay.genre} · {screenplay.author || 'Unknown writer'}
-              </p>
             </div>
-            <p className="mt-auto line-clamp-3 pt-6 text-sm leading-6 text-black-300">
+            <p className="mt-auto line-clamp-3 pt-6 text-sm leading-6 text-[var(--dsc-ink-2)]">
               {screenplay.logline || 'Logline not yet available.'}
             </p>
           </button>

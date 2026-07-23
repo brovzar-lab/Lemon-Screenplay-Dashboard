@@ -53,18 +53,18 @@ export function DiscoverySelectionBar({
       <section
         aria-label="Discovery selection actions"
         data-presentation="discovery"
-        className="fixed inset-x-0 bottom-0 z-40 bg-black-900 shadow-[0_-12px_36px_rgba(0,0,0,0.3)] dark:border-t dark:border-black-700"
+        className="dsc-hairline fixed inset-x-0 bottom-0 z-40 border-t bg-[var(--dsc-surface)] shadow-[0_-12px_36px_color-mix(in_oklch,var(--dsc-ink)_18%,transparent)]"
       >
         <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold tabular-nums text-black-50">
+            <span className="dsc-num text-sm font-semibold">
               {count} screenplay{count === 1 ? '' : 's'} selected
             </span>
             <button
               type="button"
               aria-label="Clear selection"
               onClick={deselectAll}
-              className="min-h-11 border-l border-black-600 pl-3 text-xs font-semibold uppercase tracking-[0.12em] text-black-400 hover:text-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+              className="dsc-hairline dsc-label min-h-11 border-l pl-3 hover:text-[var(--dsc-ink)]"
             >
               Clear
             </button>
@@ -74,21 +74,21 @@ export function DiscoverySelectionBar({
             <button
               type="button"
               onClick={() => setShowShareModal(true)}
-              className="btn btn-primary min-h-11 shrink-0 px-4 text-xs uppercase tracking-[0.12em]"
+              className="dsc-btn dsc-btn-primary shrink-0"
             >
               Bulk share links
             </button>
             <button
               type="button"
               onClick={() => setShowFavoritesModal(true)}
-              className="btn btn-secondary min-h-11 shrink-0 px-4 text-xs uppercase tracking-[0.12em]"
+              className="dsc-btn shrink-0"
             >
               Add to favorites
             </button>
             <button
               type="button"
               onClick={() => setShowPitchDeckModal(true)}
-              className="btn btn-secondary col-span-2 min-h-11 shrink-0 px-4 text-xs uppercase tracking-[0.12em] sm:col-span-1"
+              className="dsc-btn col-span-2 shrink-0 sm:col-span-1"
             >
               Pitch-deck PDFs
             </button>

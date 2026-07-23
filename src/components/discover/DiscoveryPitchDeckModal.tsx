@@ -27,7 +27,7 @@ export function DiscoveryPitchDeckModal({
       fallback={
         <div
           role="status"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black-950/80 text-sm font-medium text-black-100 backdrop-blur-sm"
+          className="dsc-drawer-scrim fixed inset-0 z-50 flex items-center justify-center text-sm font-medium text-[oklch(0.94_0.012_250)]"
         >
           Loading PDF export tools…
         </div>

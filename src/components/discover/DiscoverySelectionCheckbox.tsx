@@ -13,10 +13,10 @@ export function DiscoverySelectionCheckbox({ screenplay }: { screenplay: Screenp
       aria-pressed={isSelected}
       onClick={() => toggle(screenplay.id)}
       className={clsx(
-        'absolute left-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-xl border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300',
+        'absolute left-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-lg border transition-colors duration-150 ease-out',
         isSelected
-          ? 'border-gold-300 bg-gold-400 text-black-950'
-          : 'border-black-500 bg-black-950/85 text-transparent hover:border-gold-400 hover:text-gold-300',
+          ? 'border-[var(--dsc-accent)] bg-[var(--dsc-accent)] text-[var(--dsc-on-accent)]'
+          : 'border-[var(--dsc-line)] bg-[var(--dsc-surface)] text-transparent shadow-[var(--dsc-shadow-card)] hover:border-[var(--dsc-accent)] hover:text-[var(--dsc-accent)]',
       )}
     >
       <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">

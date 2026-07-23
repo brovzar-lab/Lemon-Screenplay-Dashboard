@@ -1,0 +1,565 @@
+/* ============================================================================
+   DISCOVERY — Compact Shelf design system
+   Ported from the approved reference at docs/design/compact-shelf-final.html.
+   Every token below is scoped under `.discovery-root` so the treatment applies
+   only to the /discover surfaces. Dark values hook into the app's existing
+   theme mechanism: the theme store stamps `data-theme` on <html>, and every
+   dark theme id ends in "dark" (dark, s2s-dark, noir-dark, ...).
+   ============================================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap');
+
+.discovery-root {
+  /* ---- Light tokens (mockup :root, lines 19-44) ---- */
+  --dsc-bg: oklch(0.96 0.007 250);
+  --dsc-surface: oklch(0.99 0.004 250);
+  --dsc-surface-2: oklch(0.935 0.012 250);
+  --dsc-surface-3: oklch(0.905 0.018 250);
+  --dsc-ink: oklch(0.18 0.025 255);
+  --dsc-ink-2: oklch(0.43 0.025 255);
+  --dsc-ink-3: oklch(0.58 0.02 255);
+  --dsc-line: oklch(0.84 0.016 250);
+  --dsc-accent: oklch(0.56 0.22 260);
+  --dsc-accent-hover: oklch(0.49 0.22 260);
+  --dsc-accent-soft: oklch(0.92 0.045 260);
+  --dsc-success: oklch(0.49 0.14 151);
+  --dsc-success-soft: oklch(0.92 0.045 151);
+  --dsc-consider: oklch(0.5 0.13 78);
+  --dsc-consider-soft: oklch(0.93 0.045 78);
+  --dsc-pass: oklch(0.49 0.12 25);
+  --dsc-pass-soft: oklch(0.92 0.04 25);
+  --dsc-match: oklch(0.48 0.15 184);
+  --dsc-match-soft: oklch(0.92 0.04 184);
+  --dsc-shadow-card:
+    0 1px 2px color-mix(in oklch, var(--dsc-ink) 10%, transparent),
+    0 12px 30px color-mix(in oklch, var(--dsc-ink) 9%, transparent);
+  --dsc-shadow-hover:
+    0 2px 5px color-mix(in oklch, var(--dsc-ink) 12%, transparent),
+    0 20px 44px color-mix(in oklch, var(--dsc-ink) 14%, transparent);
+  --dsc-scrim: oklch(0.12 0.03 255 / 0.48);
+  --dsc-radius-card: 8px;
+  --dsc-font-body: 'Schibsted Grotesk', system-ui, sans-serif;
+  --dsc-font-display: 'Playfair Display', Georgia, serif;
+  --dsc-font-type: 'Courier Prime', 'Courier New', monospace;
+  --dsc-on-accent: oklch(0.985 0.003 250);
+
+  background: var(--dsc-bg);
+  color: var(--dsc-ink);
+  font-family: var(--dsc-font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Dark tokens (mockup [data-theme="dark"], lines 45-67) ---- */
+[data-theme='dark'] .discovery-root,
+[data-theme$='-dark'] .discovery-root {
+  --dsc-bg: oklch(0.18 0.035 258);
+  --dsc-surface: oklch(0.23 0.042 258);
+  --dsc-surface-2: oklch(0.2 0.04 258);
+  --dsc-surface-3: oklch(0.28 0.045 258);
+  --dsc-ink: oklch(0.94 0.012 250);
+  --dsc-ink-2: oklch(0.74 0.025 250);
+  --dsc-ink-3: oklch(0.61 0.025 250);
+  --dsc-line: oklch(0.35 0.04 258);
+  --dsc-accent: oklch(0.68 0.18 260);
+  --dsc-accent-hover: oklch(0.73 0.16 260);
+  --dsc-accent-soft: oklch(0.3 0.07 260);
+  --dsc-success: oklch(0.71 0.14 151);
+  --dsc-success-soft: oklch(0.29 0.06 151);
+  --dsc-consider: oklch(0.78 0.12 78);
+  --dsc-consider-soft: oklch(0.3 0.055 78);
+  --dsc-pass: oklch(0.72 0.12 25);
+  --dsc-pass-soft: oklch(0.3 0.055 25);
+  --dsc-match: oklch(0.74 0.13 184);
+  --dsc-match-soft: oklch(0.29 0.055 184);
+  --dsc-shadow-card: 0 1px 2px oklch(0.05 0.02 258 / 0.5), 0 12px 30px oklch(0.05 0.02 258 / 0.35);
+  --dsc-shadow-hover: 0 2px 5px oklch(0.05 0.02 258 / 0.55), 0 20px 44px oklch(0.05 0.02 258 / 0.46);
+  --dsc-scrim: oklch(0.05 0.02 258 / 0.6);
+  --dsc-on-accent: oklch(0.16 0.03 258);
+}
+
+/* ---- Focus (mockup lines 82-85) ---- */
+.discovery-root button:focus-visible,
+.discovery-root input:focus-visible,
+.discovery-root select:focus-visible,
+.discovery-root summary:focus-visible,
+.discovery-root a:focus-visible,
+.discovery-root [tabindex]:focus-visible {
+  outline: 3px solid color-mix(in oklch, var(--dsc-accent) 70%, transparent);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   TYPOGRAPHY
+   ============================================================================ */
+.dsc-display {
+  font-family: var(--dsc-font-display);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: 0;
+  color: var(--dsc-ink);
+}
+
+/* 11px uppercase tracked label — the system's quiet instrument voice */
+.dsc-label {
+  color: var(--dsc-ink-2);
+  font-family: var(--dsc-font-body);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dsc-label-faint {
+  color: var(--dsc-ink-3);
+}
+
+/* Accent eyebrow (mockup .eyebrow / .kicker) */
+.dsc-kicker {
+  color: var(--dsc-accent);
+  font-family: var(--dsc-font-body);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dsc-num {
+  font-variant-numeric: tabular-nums;
+  color: var(--dsc-ink);
+}
+
+/* ============================================================================
+   SURFACES
+   ============================================================================ */
+.dsc-card {
+  border-radius: var(--dsc-radius-card);
+  background: var(--dsc-surface);
+  box-shadow: var(--dsc-shadow-card);
+}
+
+.dsc-card-hover {
+  transition:
+    transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dsc-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--dsc-shadow-hover);
+}
+
+.dsc-well {
+  border-radius: var(--dsc-radius-card);
+  background: var(--dsc-surface-2);
+}
+
+.dsc-hairline {
+  border-color: var(--dsc-line);
+}
+
+/* ============================================================================
+   BUTTONS (mockup .btn / .btn-primary, lines 240-263)
+   ============================================================================ */
+.dsc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 16px;
+  border: 1px solid var(--dsc-line);
+  border-radius: 8px;
+  background: var(--dsc-surface);
+  color: var(--dsc-ink);
+  cursor: pointer;
+  font-family: var(--dsc-font-body);
+  font-size: 13px;
+  font-weight: 680;
+  transition:
+    transform 100ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 150ms ease-out;
+}
+.dsc-btn:hover {
+  background: var(--dsc-surface-2);
+}
+.dsc-btn:active {
+  transform: scale(0.97);
+}
+.dsc-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.dsc-btn-primary {
+  border-color: var(--dsc-accent);
+  background: var(--dsc-accent);
+  color: var(--dsc-on-accent);
+  box-shadow:
+    0 1px 2px oklch(0.15 0.03 250 / 0.15),
+    0 7px 18px color-mix(in oklch, var(--dsc-accent) 28%, transparent);
+}
+.dsc-btn-primary:hover {
+  background: var(--dsc-accent-hover);
+}
+
+/* Ghost secondary — Lenses / Favorites / quiet text actions */
+.dsc-btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--dsc-ink-2);
+  box-shadow: none;
+}
+.dsc-btn-ghost:hover {
+  background: var(--dsc-surface-2);
+  color: var(--dsc-ink);
+}
+
+/* ============================================================================
+   VERDICT CHIPS (mockup .verdict, lines 362-376)
+   The shared RecommendationBadge renders .badge-* classes; restyle them here
+   without touching the shared component. FILM NOW keeps the protected
+   success-soft treatment from the mockup — no amber/gold text chips.
+   ============================================================================ */
+.discovery-root .badge-film-now,
+.discovery-root .badge-recommend,
+.discovery-root .badge-consider,
+.discovery-root .badge-pass {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-family: var(--dsc-font-body);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.discovery-root .badge-film-now,
+.discovery-root .badge-recommend {
+  background: var(--dsc-success-soft);
+  color: var(--dsc-success);
+}
+.discovery-root .badge-film-now {
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--dsc-success) 45%, transparent);
+}
+.discovery-root .badge-consider {
+  background: var(--dsc-consider-soft);
+  color: var(--dsc-consider);
+}
+.discovery-root .badge-pass {
+  background: var(--dsc-pass-soft);
+  color: var(--dsc-pass);
+}
+
+/* Verdict filter chips (toggle buttons in the controls card) */
+.dsc-verdict-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 5px 12px;
+  border: 1px solid var(--dsc-line);
+  border-radius: 8px;
+  background: var(--dsc-surface);
+  color: var(--dsc-ink-2);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: background 150ms ease-out;
+}
+.dsc-verdict-chip:hover {
+  background: var(--dsc-surface-2);
+}
+.dsc-verdict-chip[aria-pressed='true'] {
+  border-color: color-mix(in oklch, var(--dsc-chip-hue, var(--dsc-accent)) 55%, var(--dsc-line));
+  background: var(--dsc-chip-soft, var(--dsc-accent-soft));
+  color: color-mix(in oklch, var(--dsc-chip-hue, var(--dsc-accent)) 82%, var(--dsc-ink));
+}
+.dsc-verdict-chip--film,
+.dsc-verdict-chip--recommend {
+  --dsc-chip-hue: var(--dsc-success);
+  --dsc-chip-soft: var(--dsc-success-soft);
+}
+.dsc-verdict-chip--consider {
+  --dsc-chip-hue: var(--dsc-consider);
+  --dsc-chip-soft: var(--dsc-consider-soft);
+}
+.dsc-verdict-chip--pass {
+  --dsc-chip-hue: var(--dsc-pass);
+  --dsc-chip-soft: var(--dsc-pass-soft);
+}
+
+/* ============================================================================
+   MANUSCRIPT COVER (mockup .script-cover, lines 321-346)
+   A physical paper script: tinted stock, typewriter title block, brass brads,
+   rev footer. Paper stays paper in dark mode — it is a lit physical object.
+   ============================================================================ */
+.dsc-cover {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 8.5 / 11;
+  padding: 12% 14%;
+  border: 1px solid oklch(0.18 0.025 255 / 0.35);
+  background: var(--dsc-paper, oklch(0.91 0.014 252));
+  color: oklch(0.22 0.025 255);
+  text-align: center;
+  box-shadow: 0 16px 26px oklch(0.18 0.025 255 / 0.16);
+}
+/* Brass brads */
+.dsc-cover::before,
+.dsc-cover::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: oklch(0.62 0.09 85);
+  box-shadow: inset 0 -1px 1px oklch(0.4 0.07 85 / 0.8);
+}
+.dsc-cover::before {
+  top: 15%;
+}
+.dsc-cover::after {
+  bottom: 15%;
+}
+/* Deterministic paper tints, keyed off the project id */
+.dsc-cover[data-tint='1'] {
+  --dsc-paper: oklch(0.92 0.018 85);
+}
+.dsc-cover[data-tint='2'] {
+  --dsc-paper: oklch(0.91 0.016 150);
+}
+.dsc-cover[data-tint='3'] {
+  --dsc-paper: oklch(0.92 0.014 25);
+}
+.dsc-cover[data-tint='4'] {
+  --dsc-paper: oklch(0.91 0.012 200);
+}
+
+.dsc-cover-title {
+  margin: 0;
+  font-family: var(--dsc-font-type);
+  font-size: clamp(9px, 1.9cqw + 7px, 16px);
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.dsc-cover-author {
+  margin: 14% 0 0;
+  font-family: var(--dsc-font-type);
+  font-size: clamp(7px, 1.1cqw + 5px, 11px);
+  line-height: 1.4;
+}
+.dsc-cover-foot {
+  position: absolute;
+  right: 0;
+  bottom: 6%;
+  left: 0;
+  font-family: var(--dsc-font-type);
+  font-size: clamp(6px, 0.9cqw + 4px, 9px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: oklch(0.45 0.02 255);
+}
+.dsc-cover--container {
+  container-type: inline-size;
+}
+
+/* Cover backing zone (mockup .cover-zone) */
+.dsc-cover-zone {
+  display: grid;
+  place-items: center;
+  background: var(--dsc-surface-2);
+}
+
+/* ============================================================================
+   HEADER / NAV (mockup .app-header / .top-nav / .brand, lines 130-201)
+   ============================================================================ */
+.dsc-header {
+  background: var(--dsc-surface);
+  border-bottom: 1px solid var(--dsc-line);
+  color: var(--dsc-ink);
+}
+.dsc-brand-name {
+  font-family: var(--dsc-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: var(--dsc-ink);
+}
+.dsc-brand-sub {
+  color: var(--dsc-ink-2);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.dsc-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 12px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--dsc-ink-2);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  transition: color 150ms ease-out;
+}
+.dsc-tab:hover {
+  color: var(--dsc-ink);
+}
+.dsc-tab--active {
+  color: var(--dsc-ink);
+}
+.dsc-tab--active::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--dsc-accent);
+}
+
+/* Stats strip — quiet single-row instrument readout */
+.dsc-statbar {
+  border-top: 1px solid var(--dsc-line);
+  background: var(--dsc-surface-2);
+}
+.dsc-stat {
+  border-right: 1px solid var(--dsc-line);
+}
+.dsc-stat:last-child {
+  border-right: 0;
+}
+.dsc-stat-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--dsc-ink);
+}
+.dsc-stat-value--accent {
+  color: var(--dsc-accent);
+}
+
+/* ============================================================================
+   SEARCH (mockup .search-box, lines 224-239)
+   ============================================================================ */
+.dsc-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--dsc-line);
+  border-radius: 8px;
+  background: var(--dsc-surface-2);
+  box-shadow: inset 0 1px 2px color-mix(in oklch, var(--dsc-ink) 7%, transparent);
+  transition: border-color 150ms ease-out;
+}
+.dsc-search:focus-within {
+  border-color: var(--dsc-accent);
+  outline: 3px solid color-mix(in oklch, var(--dsc-accent) 45%, transparent);
+  outline-offset: 2px;
+}
+.dsc-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--dsc-ink);
+  font: inherit;
+}
+.dsc-search input:focus-visible {
+  outline: none;
+}
+.dsc-search input::placeholder {
+  color: var(--dsc-ink-3);
+}
+
+/* Select (mockup .sort-select) */
+.dsc-select {
+  min-height: 44px;
+  padding: 5px 10px;
+  border: 1px solid var(--dsc-line);
+  border-radius: 8px;
+  background: var(--dsc-surface);
+  color: var(--dsc-ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+/* ============================================================================
+   DRAWER (mockup .drawer, lines 607-640)
+   ============================================================================ */
+.dsc-drawer-scrim {
+  background: var(--dsc-scrim);
+}
+.dsc-drawer {
+  background: var(--dsc-bg);
+  color: var(--dsc-ink);
+  box-shadow: -18px 0 50px oklch(0.12 0.03 255 / 0.28);
+}
+.dsc-drawer-head {
+  background: var(--dsc-surface);
+  border-bottom: 1px solid var(--dsc-line);
+}
+
+/* ============================================================================
+   STATES
+   ============================================================================ */
+.dsc-skeleton {
+  border-radius: var(--dsc-radius-card);
+  background: var(--dsc-surface-2);
+}
+.dsc-skeleton--card {
+  background: var(--dsc-surface);
+  box-shadow: var(--dsc-shadow-card);
+}
+
+/* ============================================================================
+   SHARED-COMPONENT HARMONIZATION (scoped; shared files untouched)
+   Inner panels rendered with presentation="discovery" keep their own classes;
+   these rules only align their chrome with the Discovery tokens.
+   ============================================================================ */
+.discovery-root .btn-secondary,
+.discovery-root .btn-ghost {
+  border-radius: 8px;
+}
+
+/* Lenses trigger (shared LensMenu, presentation="discovery") reads as a ghost
+   button beside Favorites, per the mockup's secondary treatment. */
+.discovery-root .btn.btn-secondary {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--dsc-ink-2);
+}
+.discovery-root .btn.btn-secondary:hover {
+  background: var(--dsc-surface-2);
+  color: var(--dsc-ink);
+}
+
+/* ============================================================================
+   MOTION
+   ============================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .discovery-root *,
+  .discovery-root *::before,
+  .discovery-root *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

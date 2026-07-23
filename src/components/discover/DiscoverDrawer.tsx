@@ -66,7 +66,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-black-950/70 backdrop-blur-sm sm:p-3 sm:pl-10"
+      className="dsc-drawer-scrim fixed inset-0 z-50 flex justify-end sm:p-3 sm:pl-10"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose();
       }}
@@ -77,9 +77,9 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
         aria-modal="true"
         aria-labelledby="discovery-drawer-title"
         data-presentation="discovery"
-        className="animate-slide-in-right flex h-full w-full max-w-5xl flex-col overflow-hidden bg-black-950 shadow-[var(--shadow-pop)] sm:rounded-2xl dark:border dark:border-black-700"
+        className="dsc-drawer animate-slide-in-right flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-[var(--dsc-radius-card)]"
       >
-        <div className="relative z-10 shrink-0 bg-black-900">
+        <div className="dsc-drawer-head relative z-10 shrink-0">
           <ModalHeader
             screenplay={screenplay}
             closeButtonRef={closeButtonRef}
@@ -103,23 +103,18 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-black-950">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-            <section
-              className="rounded-2xl bg-black-900 p-5 shadow-[var(--shadow-card)] sm:p-6 dark:border dark:border-black-700"
-              aria-labelledby="drawer-logline"
-            >
-              <p className="text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
-                The read
-              </p>
-              <h3 id="drawer-logline" className="mt-2 font-display text-2xl text-black-50">
+            <section className="dsc-card p-5 sm:p-6" aria-labelledby="drawer-logline">
+              <p className="dsc-kicker">The read</p>
+              <h3 id="drawer-logline" className="dsc-display mt-2 text-2xl">
                 Logline
               </h3>
-              <p className="mt-3 text-base leading-7 text-black-200">
+              <p className="mt-3 text-base leading-7 text-[var(--dsc-ink-2)]">
                 {screenplay.logline || 'Logline not yet available.'}
               </p>
               {screenplay.verdictStatement && (
-                <p className="mt-4 text-sm italic leading-6 text-black-400">
+                <p className="mt-4 text-sm italic leading-6 text-[var(--dsc-ink-3)]">
                   {screenplay.verdictStatement}
                 </p>
               )}
@@ -127,21 +122,21 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
 
             <section
               data-testid="discovery-scores-panel"
-              className="rounded-2xl bg-black-900 p-5 shadow-[var(--shadow-card)] sm:p-6 dark:border dark:border-black-700"
+              className="dsc-card p-5 sm:p-6"
               aria-label="Screenplay scores"
             >
               <ScoresPanel screenplay={screenplay} />
             </section>
             <section
               data-testid="discovery-content-details"
-              className="space-y-8 rounded-2xl bg-black-900 p-5 shadow-[var(--shadow-card)] sm:p-6 dark:border dark:border-black-700"
+              className="dsc-card space-y-8 p-5 sm:p-6"
               aria-label="Screenplay details"
             >
               <ContentDetails screenplay={screenplay} />
             </section>
             <section
               data-testid="discovery-notes-panel"
-              className="rounded-2xl bg-black-900 p-5 shadow-[var(--shadow-card)] sm:p-6 dark:border dark:border-black-700"
+              className="dsc-card p-5 sm:p-6"
               aria-label="Private notes"
             >
               <NotesSection screenplayId={screenplay.id} />

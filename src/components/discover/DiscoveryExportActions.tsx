@@ -43,10 +43,9 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
                   : 'Download coverage PDF'
             }
             className={clsx(
-              'btn min-h-11 px-3 text-xs font-semibold',
-              coverageState === 'error'
-                ? 'bg-red-500/10 text-red-300'
-                : 'btn-secondary',
+              'dsc-btn !px-3',
+              coverageState === 'error' &&
+                '!border-[color-mix(in_oklch,var(--dsc-pass)_45%,var(--dsc-line))] !bg-[var(--dsc-pass-soft)] !text-[var(--dsc-pass)]',
               coverageState === 'loading' && 'cursor-wait opacity-60',
             )}
           >
@@ -59,13 +58,16 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
           <button
             type="button"
             onClick={() => setShowPitchDeckModal(true)}
-            className="btn btn-secondary min-h-11 px-3 text-xs font-semibold"
+            className="dsc-btn !px-3"
           >
             Pitch-deck PDF
           </button>
         </div>
         {coverageState === 'error' && (
-          <span role="alert" className="rounded-lg bg-red-500/10 px-2 py-1 text-xs text-red-300">
+          <span
+            role="alert"
+            className="rounded-md bg-[var(--dsc-pass-soft)] px-2 py-1 text-xs text-[var(--dsc-pass)]"
+          >
             Coverage PDF failed. Please try again.
           </span>
         )}
