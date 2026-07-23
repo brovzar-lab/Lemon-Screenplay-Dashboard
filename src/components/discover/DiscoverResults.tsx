@@ -157,7 +157,7 @@ export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
             type="button"
             aria-label={`Open ${screenplay.title} details`}
             onClick={(event) => onOpen(screenplay, event.currentTarget)}
-            className="relative flex min-h-72 w-full flex-col p-5 text-left"
+            className="relative flex w-full flex-col p-5 text-left"
           >
             <div className="flex w-full items-start justify-between gap-4 pl-12">
               <span className="dsc-label dsc-label-faint">

@@ -52,7 +52,8 @@
 
 /* ---- Dark tokens (mockup [data-theme="dark"], lines 45-67) ---- */
 [data-theme='dark'] .discovery-root,
-[data-theme$='-dark'] .discovery-root {
+[data-theme$='-dark'] .discovery-root,
+.dark .discovery-root {
   --dsc-bg: oklch(0.18 0.035 258);
   --dsc-surface: oklch(0.23 0.042 258);
   --dsc-surface-2: oklch(0.2 0.04 258);
@@ -304,7 +305,11 @@
   align-items: center;
   justify-content: center;
   aspect-ratio: 8.5 / 11;
-  padding: 12% 14%;
+  /* The aspect ratio is load-bearing: without min-height/overflow clamps a
+     long title grows the box into a tower and the ratio silently loses. */
+  min-height: 0;
+  overflow: hidden;
+  padding: 10% 12%;
   border: 1px solid oklch(0.18 0.025 255 / 0.35);
   background: var(--dsc-paper, oklch(0.91 0.014 252));
   color: oklch(0.22 0.025 255);
@@ -348,16 +353,24 @@
   font-family: var(--dsc-font-type);
   font-size: clamp(9px, 1.9cqw + 7px, 16px);
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 1.4;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
 }
 .dsc-cover-author {
-  margin: 14% 0 0;
+  margin: 10% 0 0;
   font-family: var(--dsc-font-type);
   font-size: clamp(7px, 1.1cqw + 5px, 11px);
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 .dsc-cover-foot {
   position: absolute;

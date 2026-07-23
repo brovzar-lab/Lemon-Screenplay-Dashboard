@@ -12,14 +12,18 @@ export function DiscoverySelectionCheckbox({ screenplay }: { screenplay: Screenp
       aria-label={`${isSelected ? 'Deselect' : 'Select'} ${screenplay.title}`}
       aria-pressed={isSelected}
       onClick={() => toggle(screenplay.id)}
-      className={clsx(
-        'absolute left-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-lg border transition-colors duration-150 ease-out',
-        isSelected
-          ? 'border-[var(--dsc-accent)] bg-[var(--dsc-accent)] text-[var(--dsc-on-accent)]'
-          : 'border-[var(--dsc-line)] bg-[var(--dsc-surface)] text-transparent shadow-[var(--dsc-shadow-card)] hover:border-[var(--dsc-accent)] hover:text-[var(--dsc-accent)]',
-      )}
+      className="group/check absolute left-1 top-1 z-20 flex h-11 w-11 items-center justify-center"
     >
-      <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+      <span
+        aria-hidden="true"
+        className={clsx(
+          'flex h-[22px] w-[22px] items-center justify-center rounded-md border transition-colors duration-150 ease-out',
+          isSelected
+            ? 'border-[var(--dsc-accent)] bg-[var(--dsc-accent)] text-[var(--dsc-on-accent)]'
+            : 'border-[var(--dsc-line-strong,var(--dsc-line))] bg-[var(--dsc-surface)] text-transparent group-hover/check:border-[var(--dsc-accent)] group-hover/check:text-[var(--dsc-accent)]',
+        )}
+      >
+      <svg aria-hidden="true" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
         <path
           d="m5 12 4 4L19 6"
           stroke="currentColor"
@@ -28,6 +32,7 @@ export function DiscoverySelectionCheckbox({ screenplay }: { screenplay: Screenp
           strokeWidth="2.5"
         />
       </svg>
+      </span>
     </button>
   );
 }
