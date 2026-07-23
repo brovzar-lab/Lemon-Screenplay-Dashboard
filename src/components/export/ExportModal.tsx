@@ -16,23 +16,35 @@ interface ExportModalProps {
   onClose: () => void;
   screenplays: Screenplay[];
   mode: 'single' | 'multiple' | 'filtered' | 'selected' | 'all';
+  pdfOnly?: boolean;
+  showInlineFailure?: boolean;
 }
 
 type ExportFormat = 'pdf' | 'csv';
 
-export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalProps) {
+export function ExportModal({
+  isOpen,
+  onClose,
+  screenplays,
+  mode,
+  pdfOnly = false,
+  showInlineFailure = false,
+}: ExportModalProps) {
   const [format, setFormat] = useState<ExportFormat>('pdf');
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const effectiveFormat: ExportFormat = pdfOnly ? 'pdf' : format;
 
   if (!isOpen) return null;
 
   const handleExport = async () => {
     setIsExporting(true);
     setExportProgress(0);
+    setExportError(null);
 
     try {
-      if (format === 'csv') {
+      if (effectiveFormat === 'csv') {
         // CSV export
         const filename = mode === 'single'
           ? screenplays[0].title.replace(/\s+/g, '_')
@@ -78,6 +90,7 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
     } catch (error) {
       console.error('Export failed:', error);
       useToastStore.getState().addToast('Export failed — please try again');
+      setExportError('Pitch-deck PDF generation failed. Please try again.');
       setIsExporting(false);
       setExportProgress(0);
     }
@@ -144,7 +157,7 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
           </div>
 
           {/* Format Selection */}
-          <div>
+          {!pdfOnly && <div>
             <label className="text-sm font-medium text-black-400 block mb-2">Format</label>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -183,11 +196,11 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
                 </div>
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Format Info */}
           <div className="p-3 bg-black-900/30 rounded-lg border border-black-700">
-            {format === 'pdf' ? (
+            {effectiveFormat === 'pdf' ? (
               <div className="text-xs text-black-400">
                 <p className="font-medium text-black-300 mb-1">PDF Pitch Deck includes:</p>
                 <ul className="space-y-1 ml-4 list-disc">
@@ -226,6 +239,14 @@ export function ExportModal({ isOpen, onClose, screenplays, mode }: ExportModalP
                 />
               </div>
             </div>
+          )}
+          {showInlineFailure && exportError && (
+            <p
+              role="alert"
+              className="border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+            >
+              {exportError}
+            </p>
           )}
         </div>
 

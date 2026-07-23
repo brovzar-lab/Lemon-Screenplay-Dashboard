@@ -7,6 +7,7 @@ import {
   ShareButton,
 } from '@/components/screenplay/modal';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
+import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
 import type { Screenplay } from '@/types';
 
 interface DiscoverDrawerProps {
@@ -86,13 +87,14 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
             titleId="discovery-drawer-title"
             closeLabel="Close details"
             supplementalActions={
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <DiscoveryShareStatus screenplay={screenplay} />
                 <ShareButton
                   key={screenplay.sourceFile}
                   screenplay={screenplay}
                   waitForExistingLink
                 />
+                <DiscoveryExportActions screenplay={screenplay} />
               </div>
             }
           />

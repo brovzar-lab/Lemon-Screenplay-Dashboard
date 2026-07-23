@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AddToFavoritesModal } from '@/components/bulk/AddToFavoritesModal';
 import { BulkShareModal } from '@/components/bulk/BulkShareModal';
+import { DiscoveryPitchDeckModal } from '@/components/discover/DiscoveryPitchDeckModal';
 import {
   useHasSelection,
   useSelectionCount,
@@ -19,6 +20,7 @@ export function DiscoverySelectionBar({
 }: DiscoverySelectionBarProps) {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+  const [showPitchDeckModal, setShowPitchDeckModal] = useState(false);
   const hasSelection = useHasSelection();
   const count = useSelectionCount();
   const selectedIds = useSelectionStore((state) => state.selectedIds);
@@ -36,6 +38,7 @@ export function DiscoverySelectionBar({
       event.preventDefault();
       setShowShareModal(false);
       setShowFavoritesModal(false);
+      setShowPitchDeckModal(false);
       deselectAll();
     };
 
@@ -81,6 +84,13 @@ export function DiscoverySelectionBar({
             >
               Add to favorites
             </button>
+            <button
+              type="button"
+              onClick={() => setShowPitchDeckModal(true)}
+              className="border border-black-500 px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-black-100 hover:border-gold-500/60 hover:text-gold-200"
+            >
+              Pitch-deck PDFs
+            </button>
           </div>
         </div>
       </section>
@@ -96,6 +106,12 @@ export function DiscoverySelectionBar({
       <AddToFavoritesModal
         isOpen={showFavoritesModal}
         onClose={() => setShowFavoritesModal(false)}
+      />
+      <DiscoveryPitchDeckModal
+        isOpen={showPitchDeckModal}
+        onClose={() => setShowPitchDeckModal(false)}
+        screenplays={selectedScreenplays}
+        mode="selected"
       />
     </>
   );
