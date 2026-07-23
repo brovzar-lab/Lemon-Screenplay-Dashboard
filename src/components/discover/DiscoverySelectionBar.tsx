@@ -29,17 +29,19 @@ export function DiscoverySelectionBar({
   );
 
   useEffect(() => {
-    if (!escapeEnabled || !hasSelection || showShareModal || showFavoritesModal) return;
+    if (!escapeEnabled || !hasSelection) return;
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
+      setShowShareModal(false);
+      setShowFavoritesModal(false);
       deselectAll();
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [deselectAll, escapeEnabled, hasSelection, showFavoritesModal, showShareModal]);
+  }, [deselectAll, escapeEnabled, hasSelection]);
 
   if (!hasSelection) return null;
 
@@ -83,11 +85,14 @@ export function DiscoverySelectionBar({
         </div>
       </section>
 
-      <BulkShareModal
-        isOpen={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        screenplays={selectedScreenplays}
-      />
+      {showShareModal && (
+        <BulkShareModal
+          isOpen
+          onClose={() => setShowShareModal(false)}
+          screenplays={selectedScreenplays}
+          screenplayIdentity="sourceFile"
+        />
+      )}
       <AddToFavoritesModal
         isOpen={showFavoritesModal}
         onClose={() => setShowFavoritesModal(false)}

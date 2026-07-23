@@ -21,9 +21,15 @@ interface BulkShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   screenplays: Screenplay[];
+  screenplayIdentity?: 'id' | 'sourceFile';
 }
 
-export function BulkShareModal({ isOpen, onClose, screenplays }: BulkShareModalProps) {
+export function BulkShareModal({
+  isOpen,
+  onClose,
+  screenplays,
+  screenplayIdentity = 'id',
+}: BulkShareModalProps) {
   const [rows, setRows] = useState<Record<string, ShareRow>>(() =>
     Object.fromEntries(screenplays.map((sp) => [sp.id, { status: 'pending' as const }]))
   );
@@ -36,8 +42,10 @@ export function BulkShareModal({ isOpen, onClose, screenplays }: BulkShareModalP
   }
 
   async function generateForScreenplay(sp: Screenplay) {
+    const screenplayId = screenplayIdentity === 'sourceFile' ? sp.sourceFile : sp.id;
+
     // 1. Check in-memory cache synchronously (fast path — no service calls needed)
-    const cachedToken = useShareStore.getState().tokens[sp.id];
+    const cachedToken = useShareStore.getState().tokens[screenplayId];
     const cachedWithUrl = cachedToken as typeof cachedToken & { url?: string };
     if (cachedWithUrl?.token) {
       const url = cachedWithUrl.url ?? `${window.location.origin}/share/${cachedWithUrl.token}`;
@@ -49,16 +57,20 @@ export function BulkShareModal({ isOpen, onClose, screenplays }: BulkShareModalP
       // 2. Check Firestore for existing token
       // null = explicit "no existing" → create new
       // undefined = service not configured (test mock) → keep current state
-      const existing = await getExistingShareToken(sp.id);
+      const existing = await getExistingShareToken(screenplayId);
 
       if (existing === null) {
         // No existing token in Firestore → create new
         setRowStatus(sp.id, { status: 'generating' });
-        const result = await createShareToken(sp.id, sp as Parameters<typeof createShareToken>[1], false);
+        const result = await createShareToken(
+          screenplayId,
+          sp as Parameters<typeof createShareToken>[1],
+          false,
+        );
         if (result?.url) {
-          useShareStore.getState().setToken(sp.id, {
+          useShareStore.getState().setToken(screenplayId, {
             token: result.token,
-            screenplayId: sp.id,
+            screenplayId,
             screenplayTitle: sp.title,
             includeNotes: false,
             createdAt: new Date().toISOString(),
@@ -68,7 +80,7 @@ export function BulkShareModal({ isOpen, onClose, screenplays }: BulkShareModalP
       } else if (existing) {
         // Existing token found in Firestore
         const url = `${window.location.origin}/share/${existing.token}`;
-        useShareStore.getState().setToken(sp.id, existing);
+        useShareStore.getState().setToken(screenplayId, existing);
         setRowStatus(sp.id, { status: 'done', url });
       }
       // existing === undefined: service returned nothing (not configured) → keep current state

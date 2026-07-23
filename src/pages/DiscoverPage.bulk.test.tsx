@@ -126,22 +126,57 @@ describe('Discovery bulk actions', () => {
 
   it('generates links for the selection through the existing bulk share modal', async () => {
     const user = userEvent.setup();
+    shareMocks.getExistingShareToken.mockImplementation(async (id: string) =>
+      id === 'atlas.pdf'
+        ? {
+            token: 'existing-atlas',
+            screenplayId: 'atlas.pdf',
+            screenplayTitle: 'Atlas Fall',
+            includeNotes: false,
+            createdAt: '2026-07-22T00:00:00.000Z',
+          }
+        : null,
+    );
     renderPage();
     await select(user, 'Atlas Fall');
     await select(user, 'Bravo Room');
 
     await user.click(screen.getByRole('button', { name: 'Bulk share links' }));
 
-    expect(await screen.findByText('http://localhost:3000/share/token-atlas')).toBeInTheDocument();
-    expect(await screen.findByText('http://localhost:3000/share/token-bravo')).toBeInTheDocument();
-    expect(shareMocks.createShareToken).toHaveBeenCalledWith(
-      'atlas',
-      expect.objectContaining({ title: 'Atlas Fall' }),
+    expect(await screen.findByText(/share\/existing-atlas/)).toBeInTheDocument();
+    expect(await screen.findByText('http://localhost:3000/share/token-bravo.pdf')).toBeInTheDocument();
+    expect(shareMocks.getExistingShareToken).toHaveBeenCalledWith('atlas.pdf');
+    expect(shareMocks.getExistingShareToken).toHaveBeenCalledWith('bravo.pdf');
+    expect(shareMocks.createShareToken).not.toHaveBeenCalledWith(
+      'atlas.pdf',
+      expect.anything(),
       false,
     );
     expect(shareMocks.createShareToken).toHaveBeenCalledWith(
-      'bravo',
+      'bravo.pdf',
       expect.objectContaining({ title: 'Bravo Room' }),
+      false,
+    );
+    expect(screen.getByLabelText('Active share link for Atlas Fall')).toBeInTheDocument();
+    expect(screen.getByLabelText('Active share link for Bravo Room')).toBeInTheDocument();
+  });
+
+  it('regenerates rows for a changed selection each time bulk share opens', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await select(user, 'Atlas Fall');
+    await user.click(screen.getByRole('button', { name: 'Bulk share links' }));
+    expect(await screen.findByText('http://localhost:3000/share/token-atlas.pdf')).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole('button', { name: 'Close' })[0]);
+    await user.click(screen.getByRole('button', { name: 'Deselect Atlas Fall' }));
+    await select(user, 'Foxtrot House');
+    await user.click(screen.getByRole('button', { name: 'Bulk share links' }));
+
+    expect(await screen.findByText('http://localhost:3000/share/token-foxtrot.pdf')).toBeInTheDocument();
+    expect(shareMocks.createShareToken).toHaveBeenCalledWith(
+      'foxtrot.pdf',
+      expect.objectContaining({ title: 'Foxtrot House' }),
       false,
     );
   });
@@ -187,5 +222,18 @@ describe('Discovery bulk actions', () => {
       fireEvent.keyDown(document, { key: 'Escape' });
     });
     expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+  });
+
+  it('clears selection and closes a bulk modal with Escape when no drawer is open', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await select(user, 'Atlas Fall');
+    await user.click(screen.getByRole('button', { name: 'Add to favorites' }));
+    expect(screen.getByText('Add to Favorites', { selector: 'h3' })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    expect(screen.queryByText('Add to Favorites', { selector: 'h3' })).not.toBeInTheDocument();
   });
 });
