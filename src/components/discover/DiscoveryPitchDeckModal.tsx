@@ -27,7 +27,7 @@ export function DiscoveryPitchDeckModal({
       fallback={
         <div
           role="status"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black-950/80 text-sm text-gold-200 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black-950/80 text-sm font-medium text-black-100 backdrop-blur-sm"
         >
           Loading PDF export tools…
         </div>
@@ -40,6 +40,7 @@ export function DiscoveryPitchDeckModal({
         mode={mode}
         pdfOnly
         showInlineFailure
+        presentation="discovery"
       />
     </Suspense>
   );

@@ -52,42 +52,43 @@ export function DiscoverySelectionBar({
     <>
       <section
         aria-label="Discovery selection actions"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-gold-500/35 bg-black-950/95 shadow-[0_-18px_45px_rgba(0,0,0,0.45)] backdrop-blur"
+        data-presentation="discovery"
+        className="fixed inset-x-0 bottom-0 z-40 bg-black-900 shadow-[0_-12px_36px_rgba(0,0,0,0.3)] dark:border-t dark:border-black-700"
       >
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-10">
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-sm font-semibold text-gold-200">
+            <span className="text-sm font-semibold tabular-nums text-black-50">
               {count} screenplay{count === 1 ? '' : 's'} selected
             </span>
             <button
               type="button"
               aria-label="Clear selection"
               onClick={deselectAll}
-              className="border-l border-black-600 pl-3 text-xs font-semibold uppercase tracking-[0.12em] text-black-400 hover:text-gold-300"
+              className="min-h-11 border-l border-black-600 pl-3 text-xs font-semibold uppercase tracking-[0.12em] text-black-400 hover:text-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
             >
               Clear
             </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
             <button
               type="button"
               onClick={() => setShowShareModal(true)}
-              className="border border-gold-500/60 bg-gold-500/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-gold-200 hover:bg-gold-500/20"
+              className="btn btn-primary min-h-11 shrink-0 px-4 text-xs uppercase tracking-[0.12em]"
             >
               Bulk share links
             </button>
             <button
               type="button"
               onClick={() => setShowFavoritesModal(true)}
-              className="border border-black-500 px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-black-100 hover:border-gold-500/60 hover:text-gold-200"
+              className="btn btn-secondary min-h-11 shrink-0 px-4 text-xs uppercase tracking-[0.12em]"
             >
               Add to favorites
             </button>
             <button
               type="button"
               onClick={() => setShowPitchDeckModal(true)}
-              className="border border-black-500 px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-black-100 hover:border-gold-500/60 hover:text-gold-200"
+              className="btn btn-secondary col-span-2 min-h-11 shrink-0 px-4 text-xs uppercase tracking-[0.12em] sm:col-span-1"
             >
               Pitch-deck PDFs
             </button>
@@ -101,11 +102,13 @@ export function DiscoverySelectionBar({
           onClose={() => setShowShareModal(false)}
           screenplays={selectedScreenplays}
           screenplayIdentity="sourceFile"
+          presentation="discovery"
         />
       )}
       <AddToFavoritesModal
         isOpen={showFavoritesModal}
         onClose={() => setShowFavoritesModal(false)}
+        presentation="discovery"
       />
       <DiscoveryPitchDeckModal
         isOpen={showPitchDeckModal}

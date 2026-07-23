@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react';
+import { clsx } from 'clsx';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -12,9 +13,15 @@ import { useToastStore } from '@/stores/toastStore';
 interface AddToFavoritesModalProps {
   isOpen: boolean;
   onClose: () => void;
+  presentation?: 'default' | 'discovery';
 }
 
-export function AddToFavoritesModal({ isOpen, onClose }: AddToFavoritesModalProps) {
+export function AddToFavoritesModal({
+  isOpen,
+  onClose,
+  presentation = 'default',
+}: AddToFavoritesModalProps) {
+  const isDiscovery = presentation === 'discovery';
   const [selectedList, setSelectedList] = useState<string>('quick');
   const lists = useFavoritesStore((s) => s.lists);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -47,12 +54,31 @@ export function AddToFavoritesModal({ isOpen, onClose }: AddToFavoritesModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className={clsx(
+      'fixed inset-0 z-50 flex justify-center',
+      isDiscovery ? 'items-end p-0 sm:items-center sm:p-4' : 'items-center p-4',
+    )}>
       <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md glass border border-gold-500/20 rounded-xl overflow-hidden animate-scale-in">
+      <div
+        data-testid="add-to-favorites-surface"
+        data-presentation={presentation}
+        className={clsx(
+          'relative w-full max-w-md overflow-hidden animate-scale-in',
+          isDiscovery
+            ? 'rounded-t-2xl bg-black-900 shadow-[var(--shadow-pop)] sm:rounded-2xl dark:border dark:border-black-700'
+            : 'glass rounded-xl border border-gold-500/20',
+        )}
+      >
         {/* Header */}
-        <div className="px-6 py-4">
-          <h3 className="text-lg font-heading font-semibold text-gold-200">Add to Favorites</h3>
+        <div className={clsx('px-6 py-4', isDiscovery && 'border-b border-black-700 py-5')}>
+          {isDiscovery && (
+            <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
+              Save selection
+            </p>
+          )}
+          <h3 className={clsx('font-heading font-semibold text-gold-200', isDiscovery ? 'text-xl' : 'text-lg')}>
+            Add to Favorites
+          </h3>
         </div>
 
         {/* Body */}
@@ -60,11 +86,17 @@ export function AddToFavoritesModal({ isOpen, onClose }: AddToFavoritesModalProp
           {/* Quick Favorites row */}
           <div
             onClick={() => setSelectedList('quick')}
-            className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+            className={clsx(
+              'flex items-center gap-3 p-3 cursor-pointer transition-colors',
+              isDiscovery ? 'min-h-14 rounded-xl' : 'rounded-lg border',
               selectedList === 'quick'
-                ? 'bg-gold-500/10 border border-gold-500/30'
-                : 'bg-black-800/50 border border-black-700 hover:border-black-600'
-            }`}
+                ? isDiscovery
+                  ? 'bg-gold-500/10 ring-2 ring-gold-500/40'
+                  : 'border-gold-500/30 bg-gold-500/10'
+                : isDiscovery
+                  ? 'bg-black-950 hover:bg-black-800'
+                  : 'border-black-700 bg-black-800/50 hover:border-black-600',
+            )}
           >
             <input
               type="radio"
@@ -86,11 +118,17 @@ export function AddToFavoritesModal({ isOpen, onClose }: AddToFavoritesModalProp
             <div
               key={list.id}
               onClick={() => setSelectedList(list.id)}
-              className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+              className={clsx(
+                'flex items-center gap-3 p-3 cursor-pointer transition-colors',
+                isDiscovery ? 'min-h-14 rounded-xl' : 'rounded-lg border',
                 selectedList === list.id
-                  ? 'bg-gold-500/10 border border-gold-500/30'
-                  : 'bg-black-800/50 border border-black-700 hover:border-black-600'
-              }`}
+                  ? isDiscovery
+                    ? 'bg-gold-500/10 ring-2 ring-gold-500/40'
+                    : 'border-gold-500/30 bg-gold-500/10'
+                  : isDiscovery
+                    ? 'bg-black-950 hover:bg-black-800'
+                    : 'border-black-700 bg-black-800/50 hover:border-black-600',
+              )}
             >
               <input
                 type="radio"
@@ -107,7 +145,7 @@ export function AddToFavoritesModal({ isOpen, onClose }: AddToFavoritesModalProp
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 flex justify-end gap-3">
+        <div className={clsx('flex justify-end gap-3 px-6 py-4', isDiscovery && 'border-t border-black-700')}>
           <button onClick={onClose} className="btn btn-ghost text-sm">
             Keep Favorites
           </button>

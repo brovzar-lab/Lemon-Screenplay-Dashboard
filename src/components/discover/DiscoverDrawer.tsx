@@ -66,7 +66,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-black-950/75 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex justify-end bg-black-950/70 backdrop-blur-sm sm:p-3 sm:pl-10"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose();
       }}
@@ -76,9 +76,10 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="discovery-drawer-title"
-        className="animate-slide-in-right flex h-full w-full max-w-5xl flex-col border-l border-gold-500/30 bg-black-950 shadow-[-30px_0_80px_rgba(0,0,0,0.55)]"
+        data-presentation="discovery"
+        className="animate-slide-in-right flex h-full w-full max-w-5xl flex-col overflow-hidden bg-black-950 shadow-[var(--shadow-pop)] sm:rounded-2xl dark:border dark:border-black-700"
       >
-        <div className="relative z-10 shrink-0 border-b border-black-700 bg-black-950">
+        <div className="relative z-10 shrink-0 bg-black-900">
           <ModalHeader
             screenplay={screenplay}
             closeButtonRef={closeButtonRef}
@@ -86,6 +87,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
             showActions={false}
             titleId="discovery-drawer-title"
             closeLabel="Close details"
+            presentation="discovery"
             supplementalActions={
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <DiscoveryShareStatus screenplay={screenplay} />
@@ -93,6 +95,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
                   key={screenplay.sourceFile}
                   screenplay={screenplay}
                   waitForExistingLink
+                  presentation="discovery"
                 />
                 <DiscoveryExportActions screenplay={screenplay} />
               </div>
@@ -100,10 +103,10 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="space-y-10 p-5 sm:p-8 lg:p-10">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-black-950">
+          <div className="space-y-6 p-4 sm:p-6 lg:p-8">
             <section
-              className="border-l-2 border-gold-500/60 pl-5"
+              className="rounded-2xl bg-black-900 p-5 shadow-[var(--shadow-card)] sm:p-6 dark:border dark:border-black-700"
               aria-labelledby="drawer-logline"
             >
               <p className="text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
@@ -122,9 +125,27 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
               )}
             </section>
 
-            <ScoresPanel screenplay={screenplay} />
-            <ContentDetails screenplay={screenplay} />
-            <NotesSection screenplayId={screenplay.id} />
+            <section
+              data-testid="discovery-scores-panel"
+              className="rounded-2xl bg-black-900 p-5 shadow-[var(--shadow-card)] sm:p-6 dark:border dark:border-black-700"
+              aria-label="Screenplay scores"
+            >
+              <ScoresPanel screenplay={screenplay} />
+            </section>
+            <section
+              data-testid="discovery-content-details"
+              className="space-y-8 rounded-2xl bg-black-900 p-5 shadow-[var(--shadow-card)] sm:p-6 dark:border dark:border-black-700"
+              aria-label="Screenplay details"
+            >
+              <ContentDetails screenplay={screenplay} />
+            </section>
+            <section
+              data-testid="discovery-notes-panel"
+              className="rounded-2xl bg-black-900 p-5 shadow-[var(--shadow-card)] sm:p-6 dark:border dark:border-black-700"
+              aria-label="Private notes"
+            >
+              <NotesSection screenplayId={screenplay.id} />
+            </section>
           </div>
         </div>
       </aside>

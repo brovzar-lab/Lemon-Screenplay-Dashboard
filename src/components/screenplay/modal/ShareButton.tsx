@@ -22,13 +22,19 @@ import { useToastStore } from '@/stores/toastStore';
 interface ShareButtonProps {
     screenplay: Screenplay;
     waitForExistingLink?: boolean;
+    presentation?: 'default' | 'discovery';
 }
 
 function getShareBaseUrl(): string {
     return `${window.location.origin}/share`;
 }
 
-export function ShareButton({ screenplay, waitForExistingLink = false }: ShareButtonProps) {
+export function ShareButton({
+    screenplay,
+    waitForExistingLink = false,
+    presentation = 'default',
+}: ShareButtonProps) {
+    const isDiscovery = presentation === 'discovery';
     const screenplayId = screenplay.sourceFile;
 
     const [showPopover, setShowPopover] = useState(false);
@@ -211,7 +217,9 @@ export function ShareButton({ screenplay, waitForExistingLink = false }: ShareBu
                 disabled={isDisabled}
                 className={`text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border ${isDisabled
                         ? 'bg-black-700/50 text-black-500 border-black-600/30 cursor-not-allowed'
-                        : 'bg-gold-500/90 hover:bg-gold-400 text-black-900 border-gold-400/50 shadow-sm shadow-gold-500/20'
+                        : isDiscovery
+                            ? 'min-h-11 border-black-600 bg-black-900 text-black-100 hover:border-gold-500/60 hover:bg-black-800'
+                            : 'bg-gold-500/90 hover:bg-gold-400 text-black-900 border-gold-400/50 shadow-sm shadow-gold-500/20'
                     }`}
                 title={
                     synced === false
@@ -265,7 +273,11 @@ export function ShareButton({ screenplay, waitForExistingLink = false }: ShareBu
             {showPopover && cachedToken && (
                 <div
                     ref={popoverRef}
-                    className="absolute top-full mt-2 right-0 z-50 w-80 rounded-lg border border-gold-500/20 bg-black-800 shadow-xl shadow-black/40 p-4"
+                    data-testid="share-popover"
+                    data-presentation={presentation}
+                    className={isDiscovery
+                        ? 'fixed inset-x-4 top-24 z-[90] rounded-2xl bg-black-900 p-5 shadow-[var(--shadow-pop)] dark:border dark:border-black-700 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80'
+                        : 'absolute top-full mt-2 right-0 z-50 w-80 rounded-lg border border-gold-500/20 bg-black-800 shadow-xl shadow-black/40 p-4'}
                 >
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-sm font-medium text-gold-200">
@@ -297,14 +309,18 @@ export function ShareButton({ screenplay, waitForExistingLink = false }: ShareBu
 
                     {/* URL display + copy */}
                     <div className="flex items-center gap-2 mb-3">
-                        <div className="flex-1 bg-black-900/60 rounded px-2.5 py-1.5 text-xs text-black-300 truncate border border-black-700/50 select-all">
+                        <div className={isDiscovery
+                            ? 'min-h-11 flex-1 truncate rounded-lg border border-black-700 bg-black-950 px-3 py-2.5 text-xs text-black-300 select-all'
+                            : 'flex-1 bg-black-900/60 rounded px-2.5 py-1.5 text-xs text-black-300 truncate border border-black-700/50 select-all'}>
                             {shareUrl}
                         </div>
                         <button
                             onClick={handleCopy}
                             className={`shrink-0 text-xs px-2.5 py-1.5 rounded font-medium transition-all border ${copied
                                     ? 'bg-green-600/20 text-green-400 border-green-500/30'
-                                    : 'bg-gold-500/20 text-gold-300 border-gold-500/30 hover:bg-gold-500/30'
+                                    : isDiscovery
+                                        ? 'min-h-11 border-gold-500/40 bg-gold-500/10 text-gold-400 hover:bg-gold-500/20'
+                                        : 'bg-gold-500/20 text-gold-300 border-gold-500/30 hover:bg-gold-500/30'
                                 }`}
                         >
                             {copied ? 'Copied!' : 'Copy'}

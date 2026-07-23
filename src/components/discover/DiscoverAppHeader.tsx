@@ -42,7 +42,7 @@ export function DiscoverAppHeader({
   const isAdmin = useIsAdmin();
   const isDark = useThemeStore((state) => state.isDark);
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `border-b-2 px-1 py-3 text-xs font-semibold uppercase tracking-[0.16em] transition-colors ${
+    `flex min-h-11 items-center border-b-2 px-1 py-3 text-xs font-semibold uppercase tracking-[0.16em] transition-colors ${
       isActive
         ? 'border-gold-400 text-black-50'
         : 'border-transparent text-black-400 hover:text-black-50'
@@ -51,7 +51,7 @@ export function DiscoverAppHeader({
   return (
     <header
       role="banner"
-      className="sticky top-0 z-40 border-b border-black-700 bg-black-950/95 text-black-50 backdrop-blur"
+      className="sticky top-0 z-40 border-b border-black-700 bg-black-950 text-black-50"
     >
       <div className="mx-auto flex max-w-[1800px] flex-wrap items-center gap-x-6 px-4 sm:px-6 lg:px-10">
         <NavLink
@@ -65,7 +65,7 @@ export function DiscoverAppHeader({
             className="h-8 w-8 shrink-0"
           />
           <span className="flex min-w-0 items-baseline gap-2">
-            <span className="font-display text-lg font-bold tracking-[0.04em] text-gold-300">
+            <span className="font-sans text-sm font-bold tracking-[0.12em] text-black-50">
               LEMON
             </span>
             <span className="hidden truncate text-sm text-black-300 sm:inline">Discovery</span>

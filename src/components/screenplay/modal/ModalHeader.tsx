@@ -28,6 +28,7 @@ interface ModalHeaderProps {
     titleId?: string;
     closeLabel?: string;
     supplementalActions?: ReactNode;
+    presentation?: 'default' | 'discovery';
 }
 export function ModalHeader({
     screenplay,
@@ -38,7 +39,9 @@ export function ModalHeader({
     titleId = 'modal-title',
     closeLabel = 'Close modal',
     supplementalActions,
+    presentation = 'default',
 }: ModalHeaderProps) {
+    const isDiscovery = presentation === 'discovery';
     const isAdmin = useIsAdmin();
     const budgetInfo = BUDGET_TIERS[screenplay.budgetCategory];
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -149,10 +152,15 @@ export function ModalHeader({
     return (
         <>
             <div className={clsx(
-                'modal-header relative p-6 border-b',
-                screenplay.isFilmNow
-                    ? 'bg-gradient-to-r from-black-900/30 to-black-800/20 border-black-700'
-                    : 'bg-black-900/80 border-black-700'
+                'modal-header relative border-b border-black-700',
+                isDiscovery
+                    ? 'bg-black-900 p-5 sm:p-6 lg:px-8'
+                    : 'p-6',
+                !isDiscovery && (
+                    screenplay.isFilmNow
+                        ? 'bg-gradient-to-r from-black-900/30 to-black-800/20'
+                        : 'bg-black-900/80'
+                ),
             )}>
                 {/* Tier 1: Verdict Badge (top-left) + Close (top-right) */}
                 <div className="flex items-start justify-between mb-3">
@@ -160,10 +168,15 @@ export function ModalHeader({
                     <button
                         ref={closeButtonRef}
                         onClick={onClose}
-                        className="modal-close-btn transition-all p-2 rounded-lg text-black-400 hover:text-black-200 hover:bg-white/10 shrink-0"
+                        className={clsx(
+                            'modal-close-btn shrink-0 rounded-lg text-black-400 transition-all hover:text-black-200',
+                            isDiscovery
+                                ? 'btn btn-ghost !h-11 !min-h-11 !w-11 !min-w-11 !p-0'
+                                : 'p-2 hover:bg-white/10',
+                        )}
                         aria-label={closeLabel}
                     >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
@@ -174,8 +187,9 @@ export function ModalHeader({
                     <h2
                         id={titleId}
                         className={clsx(
-                            'text-2xl font-display mb-1',
-                            screenplay.isFilmNow ? 'text-gradient-gold' : ''
+                            'font-display mb-1',
+                            isDiscovery ? 'text-3xl sm:text-4xl' : 'text-2xl',
+                            !isDiscovery && screenplay.isFilmNow ? 'text-gradient-gold' : ''
                         )}
                     >
                         {screenplay.title}
@@ -184,7 +198,10 @@ export function ModalHeader({
                 </div>
 
                 {/* Tier 3: Chips (left) + Actions (right) */}
-                <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className={clsx(
+                    'flex justify-between gap-3 flex-wrap',
+                    isDiscovery ? 'items-end' : 'items-center',
+                )}>
                     {/* Left: Chips */}
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="chip chip-genre">

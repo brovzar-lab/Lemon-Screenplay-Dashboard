@@ -36,14 +36,14 @@ interface DiscoverShellProps {
 
 function DiscoverIntro() {
   return (
-    <section className="mb-7 flex flex-wrap items-end justify-between gap-5 border-b border-black-700 pb-6">
+    <section className="mb-7 flex flex-col gap-5 border-b border-black-700 pb-6 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-gold-400">
           Lemon Studios · Development slate
         </p>
         <h1 className="font-display text-5xl leading-none text-black-50 sm:text-6xl">Discover</h1>
       </div>
-      <p className="max-w-sm text-right text-sm leading-6 text-black-400">
+      <p className="max-w-sm text-left text-sm leading-6 text-black-400 sm:text-right">
         Find the strongest story for the moment, then follow the signal through the slate.
       </p>
     </section>
@@ -53,19 +53,19 @@ function DiscoverIntro() {
 function DiscoverLoading() {
   return (
     <div className="animate-pulse" role="status">
-      <div className="mb-7 h-16 w-72 bg-black-800" />
-      <div className="mb-8 h-48 border border-black-700 bg-black-900" />
+      <div className="mb-7 h-16 w-64 max-w-full rounded-xl bg-black-800" />
+      <div className="mb-8 h-48 rounded-2xl bg-black-900 shadow-[var(--shadow-card)] dark:border dark:border-black-700" />
       <div className="mb-12 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="h-[27rem] border border-black-700 bg-black-900" />
+        <div className="h-[27rem] rounded-2xl bg-black-900 shadow-[var(--shadow-card)] dark:border dark:border-black-700" />
         <div className="grid grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-48 border border-black-700 bg-black-900" />
+            <div key={index} className="h-48 rounded-xl bg-black-900 shadow-[var(--shadow-card)] dark:border dark:border-black-700" />
           ))}
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, index) => (
-          <div key={index} className="h-72 border border-black-700 bg-black-900" />
+          <div key={index} className="h-72 rounded-2xl bg-black-900 shadow-[var(--shadow-card)] dark:border dark:border-black-700" />
         ))}
       </div>
       <span className="sr-only">Loading Discovery</span>
@@ -128,12 +128,12 @@ export function DiscoverShell({
         isLoading={isLoading}
       />
 
-      <main className={`px-4 py-8 sm:px-6 lg:px-10 ${hasSelection ? 'pb-28' : ''}`}>
+      <main className={`px-4 py-6 sm:px-6 sm:py-8 lg:px-10 ${hasSelection ? 'pb-56 sm:pb-28' : ''}`}>
         <div className="mx-auto max-w-[1600px]">
           {isLoading ? (
             <DiscoverLoading />
           ) : isError ? (
-            <section className="border border-red-500/30 bg-black-900 p-8">
+            <section className="rounded-2xl bg-red-500/10 p-6 shadow-[var(--shadow-card)] sm:p-8 dark:border dark:border-red-500/30">
               <h1 className="font-display text-3xl text-black-50">
                 Discovery is temporarily unavailable
               </h1>
@@ -161,7 +161,7 @@ export function DiscoverShell({
               />
 
               {totalCount === 0 ? (
-                <section className="border border-black-700 bg-black-900 p-10 text-center">
+                <section className="rounded-2xl bg-black-900 p-8 text-center shadow-[var(--shadow-card)] sm:p-10 dark:border dark:border-black-700">
                   <h2 className="font-display text-3xl text-black-50">
                     No analyzed screenplays yet
                   </h2>
@@ -170,7 +170,7 @@ export function DiscoverShell({
                   </p>
                 </section>
               ) : !featured ? (
-                <section className="border border-black-700 bg-black-900 p-10 text-center">
+                <section className="rounded-2xl bg-black-900 p-8 text-center shadow-[var(--shadow-card)] sm:p-10 dark:border dark:border-black-700">
                   <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
                     No match
                   </p>
@@ -183,7 +183,7 @@ export function DiscoverShell({
                   <button
                     type="button"
                     onClick={onClearFilters}
-                    className="mt-6 border border-gold-500/60 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-gold-300 hover:bg-gold-500/10"
+                    className="btn btn-primary mt-6 min-h-11 px-5 text-xs uppercase tracking-[0.15em]"
                   >
                     Clear filters
                   </button>

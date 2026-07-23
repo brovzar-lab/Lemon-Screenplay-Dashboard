@@ -17,8 +17,8 @@ export function DiscoveryFavoritesMenu({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedListId, setSelectedListId] = useState<FavoriteSelection>('quick');
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const lists = useFavoritesStore((state) => state.lists);
-  const quickFavorites = useFavoritesStore((state) => state.quickFavorites);
+  const lists = useFavoritesStore((state) => state.lists ?? []);
+  const quickFavorites = useFavoritesStore((state) => state.quickFavorites ?? []);
 
   const totalSaved = useMemo(
     () => new Set([...quickFavorites, ...lists.flatMap((list) => list.screenplayIds)]).size,
@@ -103,7 +103,7 @@ export function DiscoveryFavoritesMenu({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="btn btn-ghost h-11 w-11 p-0 text-xl"
+                className="btn btn-ghost !h-11 !min-h-11 !w-11 !min-w-11 !p-0 text-xl"
                 aria-label="Close favorites"
               >
                 ×

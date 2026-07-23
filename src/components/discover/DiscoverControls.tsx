@@ -17,10 +17,10 @@ import {
 const VERDICTS: RecommendationTier[] = ['film_now', 'recommend', 'consider', 'pass'];
 
 const VERDICT_STYLES: Record<RecommendationTier, string> = {
-  film_now: 'border-gold-500/70 text-gold-300 aria-pressed:bg-gold-500/20',
-  recommend: 'border-emerald-500/60 text-emerald-300 aria-pressed:bg-emerald-500/20',
-  consider: 'border-amber-500/60 text-amber-300 aria-pressed:bg-amber-500/20',
-  pass: 'border-red-500/60 text-red-300 aria-pressed:bg-red-500/20',
+  film_now: 'text-gold-400 aria-pressed:bg-gold-500/15',
+  recommend: 'text-emerald-400 aria-pressed:bg-emerald-500/15',
+  consider: 'text-amber-400 aria-pressed:bg-amber-500/15',
+  pass: 'text-red-400 aria-pressed:bg-red-500/15',
 };
 
 interface DiscoverControlsProps {
@@ -92,18 +92,18 @@ export function DiscoverControls({
   return (
     <section
       aria-label="Find screenplays"
-      className="mb-8 border-y border-black-700 bg-black-900/70"
+      className="mb-10 overflow-hidden rounded-2xl bg-black-900 shadow-[var(--shadow-card)] dark:border dark:border-black-700"
     >
-      <div className="grid gap-px bg-black-700 lg:grid-cols-[minmax(18rem,1.5fr)_minmax(28rem,2fr)]">
-        <div className="bg-black-900 p-5 sm:p-6">
+      <div className="grid lg:grid-cols-[minmax(18rem,1.5fr)_minmax(28rem,2fr)]">
+        <div className="bg-black-900 p-5 sm:p-6 lg:border-r lg:border-black-700">
           <label
             htmlFor="discovery-search"
             className="mb-2 block text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-gold-400"
           >
             Search the slate
           </label>
-          <div className="flex items-center gap-3 border-b border-black-500 pb-2 focus-within:border-gold-400">
-            <span aria-hidden="true" className="font-display text-2xl text-black-500">
+          <div className="flex min-h-12 items-center gap-3 rounded-xl border border-black-700 bg-black-950 px-3 shadow-[var(--inset-input)] focus-within:border-gold-400 focus-within:ring-2 focus-within:ring-gold-500/20">
+            <span aria-hidden="true" className="text-lg font-semibold text-black-500">
               /
             </span>
             <input
@@ -114,7 +114,7 @@ export function DiscoverControls({
               value={filters.searchQuery}
               onChange={(event) => filters.setSearchQuery(event.target.value)}
               placeholder="Title, writer, logline, theme..."
-              className="min-w-0 flex-1 bg-transparent py-1 text-base text-black-50 outline-none placeholder:text-black-500"
+              className="min-w-0 flex-1 bg-transparent py-2 text-base text-black-50 outline-none placeholder:text-black-500"
             />
           </div>
 
@@ -129,9 +129,9 @@ export function DiscoverControls({
                   aria-pressed={active}
                   onClick={() => filters.toggleRecommendationTier(tier)}
                   className={clsx(
-                    'border px-3 py-1.5 text-[0.65rem] font-bold tracking-[0.14em] transition-colors hover:bg-black-700',
+                    'min-h-11 rounded-full px-4 py-2 text-[0.65rem] font-bold tracking-[0.14em] transition-colors hover:bg-black-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400',
                     VERDICT_STYLES[tier],
-                    active ? 'border-current' : 'opacity-75',
+                    active ? 'ring-1 ring-current' : 'bg-black-950 opacity-80',
                   )}
                 >
                   {RECOMMENDATION_CONFIG[tier].label}
@@ -141,7 +141,7 @@ export function DiscoverControls({
           </div>
         </div>
 
-        <div className="bg-black-900 p-5 sm:p-6">
+        <div className="border-t border-black-700 bg-black-900 p-5 sm:p-6 lg:border-t-0">
           <div className="grid gap-4 sm:grid-cols-2">
             <MultiSelect
               label="Genre"
@@ -201,8 +201,8 @@ export function DiscoverControls({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3 sm:px-6">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-black-300">
+      <div className="flex flex-col gap-4 border-t border-black-700 px-5 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs text-black-300">
           <span>
             Showing {filteredCount} of {totalCount} screenplays
           </span>
@@ -217,7 +217,7 @@ export function DiscoverControls({
               <button
                 type="button"
                 onClick={onRevealProduced}
-                className="font-sans font-semibold uppercase tracking-[0.1em] text-gold-300 hover:text-gold-200"
+                className="min-h-11 rounded-lg px-2 font-sans font-semibold uppercase tracking-[0.1em] text-gold-400 hover:bg-gold-500/10"
               >
                 Show produced films
               </button>
@@ -235,30 +235,30 @@ export function DiscoverControls({
               <button
                 type="button"
                 onClick={onRevealNonScreenplays}
-                className="font-sans font-semibold uppercase tracking-[0.1em] text-gold-300 hover:text-gold-200"
+                className="min-h-11 rounded-lg px-2 font-sans font-semibold uppercase tracking-[0.1em] text-gold-400 hover:bg-gold-500/10"
               >
                 Show non-screenplays
               </button>
             </>
           )}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
           {hasActiveFilters && filteredCount > 0 && (
             <button
               type="button"
               onClick={onClearFilters}
-              className="text-xs font-semibold uppercase tracking-[0.12em] text-black-400 hover:text-gold-300"
+              className="min-h-11 rounded-lg px-2 text-xs font-semibold uppercase tracking-[0.12em] text-black-400 hover:bg-black-800 hover:text-gold-300"
             >
               Clear filters
             </button>
           )}
-          <label className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-black-400">
+          <label className="flex min-h-11 items-center gap-2 text-xs uppercase tracking-[0.12em] text-black-400">
             Sort
             <select
               aria-label="Sort results"
               value={activeSort}
               onChange={(event) => handleSort(event.target.value as SortField)}
-              className="border border-black-600 bg-black-950 px-3 py-2 text-sm normal-case tracking-normal text-black-100 outline-none focus:border-gold-500"
+              className="min-h-11 rounded-lg border border-black-700 bg-black-950 px-3 py-2 text-sm normal-case tracking-normal text-black-100 shadow-[var(--inset-input)] outline-none focus:border-gold-500 focus:ring-2 focus:ring-gold-500/20"
             >
               <option value="weightedScore">Weighted score</option>
               <option value="marketPotential">Market potential</option>
@@ -266,7 +266,7 @@ export function DiscoverControls({
               <option value="title">Title</option>
             </select>
           </label>
-          <LensMenu />
+          <LensMenu presentation="discovery" />
           <DiscoveryFavoritesMenu screenplays={screenplays} onOpen={onOpenScreenplay} />
         </div>
       </div>

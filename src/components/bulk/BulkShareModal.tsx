@@ -22,6 +22,7 @@ interface BulkShareModalProps {
   onClose: () => void;
   screenplays: Screenplay[];
   screenplayIdentity?: 'id' | 'sourceFile';
+  presentation?: 'default' | 'discovery';
 }
 
 export function BulkShareModal({
@@ -29,7 +30,9 @@ export function BulkShareModal({
   onClose,
   screenplays,
   screenplayIdentity = 'id',
+  presentation = 'default',
 }: BulkShareModalProps) {
+  const isDiscovery = presentation === 'discovery';
   const [rows, setRows] = useState<Record<string, ShareRow>>(() =>
     Object.fromEntries(screenplays.map((sp) => [sp.id, { status: 'pending' as const }]))
   );
@@ -134,17 +137,34 @@ export function BulkShareModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className={clsx(
+      'fixed inset-0 z-50 flex justify-center',
+      isDiscovery ? 'items-end p-0 sm:items-center sm:p-4' : 'items-center p-4',
+    )}>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg glass border border-gold-500/20 rounded-xl overflow-hidden animate-scale-in">
+      <div
+        data-testid="bulk-share-surface"
+        data-presentation={presentation}
+        className={clsx(
+          'relative w-full max-w-lg overflow-hidden animate-scale-in',
+          isDiscovery
+            ? 'rounded-t-2xl bg-black-900 shadow-[var(--shadow-pop)] sm:rounded-2xl dark:border dark:border-black-700'
+            : 'glass rounded-xl border border-gold-500/20',
+        )}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-black-700">
+        <div className={clsx('flex items-center justify-between border-b border-black-700', isDiscovery ? 'p-5 sm:px-6' : 'p-4')}>
           <div>
-            <h3 className="text-lg font-display text-gold-200">Generate Share Links</h3>
-            <p className="text-xs text-black-400 mt-0.5">
+            {isDiscovery && (
+              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
+                Selected slate
+              </p>
+            )}
+            <h3 className={clsx('font-display text-gold-200', isDiscovery ? 'text-2xl' : 'text-lg')}>Generate Share Links</h3>
+            <p className={clsx('text-black-400', isDiscovery ? 'mt-1 text-sm' : 'mt-0.5 text-xs')}>
               {doneCount} of {total} complete
             </p>
           </div>
@@ -179,7 +199,12 @@ export function BulkShareModal({
             return (
               <div
                 key={sp.id}
-                className="flex items-center gap-3 py-2 border-b border-black-800 last:border-0"
+              className={clsx(
+                'flex items-center gap-3 py-2',
+                isDiscovery
+                  ? 'mb-2 min-h-14 rounded-xl bg-black-950 px-3 last:mb-0'
+                  : 'border-b border-black-800 last:border-0',
+              )}
               >
                 <span className="flex-1 text-sm text-black-300 truncate">{sp.title}</span>
 
@@ -219,7 +244,7 @@ export function BulkShareModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end p-4 border-t border-black-700 bg-black-900/30">
+        <div className={clsx('flex justify-end border-t border-black-700 p-4', !isDiscovery && 'bg-black-900/30')}>
           <button onClick={onClose} className="btn btn-ghost text-sm">
             Close
           </button>

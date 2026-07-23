@@ -18,6 +18,7 @@ interface ExportModalProps {
   mode: 'single' | 'multiple' | 'filtered' | 'selected' | 'all';
   pdfOnly?: boolean;
   showInlineFailure?: boolean;
+  presentation?: 'default' | 'discovery';
 }
 
 type ExportFormat = 'pdf' | 'csv';
@@ -29,7 +30,9 @@ export function ExportModal({
   mode,
   pdfOnly = false,
   showInlineFailure = false,
+  presentation = 'default',
 }: ExportModalProps) {
+  const isDiscovery = presentation === 'discovery';
   const [format, setFormat] = useState<ExportFormat>('pdf');
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
@@ -97,15 +100,37 @@ export function ExportModal({
   };
 
   return (
-    <div data-testid="export-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      data-testid="export-modal"
+      className={clsx(
+        'fixed inset-0 z-50 flex justify-center',
+        isDiscovery ? 'items-end p-0 sm:items-center sm:p-4' : 'items-center p-4',
+      )}
+    >
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md glass border border-gold-500/20 rounded-xl overflow-hidden animate-scale-in">
+      <div
+        data-testid="export-modal-surface"
+        data-presentation={presentation}
+        className={clsx(
+          'relative w-full max-w-md overflow-hidden animate-scale-in',
+          isDiscovery
+            ? 'max-h-[92vh] overflow-y-auto rounded-t-2xl bg-black-900 shadow-[var(--shadow-pop)] sm:rounded-2xl dark:border dark:border-black-700'
+            : 'glass rounded-xl border border-gold-500/20',
+        )}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-black-700">
-          <h3 className="text-lg font-display text-gold-200">Export Screenplays</h3>
+        <div className={clsx('flex items-center justify-between border-b border-black-700', isDiscovery ? 'p-5 sm:px-6' : 'p-4')}>
+          <div>
+            {isDiscovery && (
+              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
+                Presentation ready
+              </p>
+            )}
+            <h3 className={clsx('font-display text-gold-200', isDiscovery ? 'text-2xl' : 'text-lg')}>Export Screenplays</h3>
+          </div>
           <button
             onClick={onClose}
             className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400"
@@ -117,9 +142,9 @@ export function ExportModal({
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-4">
+        <div className={clsx('space-y-4', isDiscovery ? 'p-5 sm:p-6' : 'p-4')}>
           {/* Export Summary */}
-          <div className="p-3 bg-black-900/50 rounded-lg">
+          <div className={clsx('p-3', isDiscovery ? 'rounded-xl bg-black-950' : 'rounded-lg bg-black-900/50')}>
             <p className="text-sm text-black-400">
               <strong className="text-gold-400">
                 {mode === 'selected'
@@ -199,7 +224,10 @@ export function ExportModal({
           </div>}
 
           {/* Format Info */}
-          <div className="p-3 bg-black-900/30 rounded-lg border border-black-700">
+          <div className={clsx(
+            'p-3',
+            isDiscovery ? 'rounded-xl bg-black-950' : 'rounded-lg border border-black-700 bg-black-900/30',
+          )}>
             {effectiveFormat === 'pdf' ? (
               <div className="text-xs text-black-400">
                 <p className="font-medium text-black-300 mb-1">PDF Pitch Deck includes:</p>
@@ -251,7 +279,7 @@ export function ExportModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-4 border-t border-black-700 bg-black-900/30">
+        <div className={clsx('flex items-center justify-end gap-3 border-t border-black-700 p-4', !isDiscovery && 'bg-black-900/30')}>
           <button onClick={onClose} className="btn btn-ghost" disabled={isExporting}>
             Cancel
           </button>

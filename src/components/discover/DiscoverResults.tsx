@@ -2,14 +2,7 @@ import { clsx } from 'clsx';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelectionCheckbox';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
-import type { RecommendationTier, Screenplay } from '@/types';
-
-const TIER_BORDERS: Record<RecommendationTier, string> = {
-  film_now: 'border-gold-500/60',
-  recommend: 'border-emerald-500/45',
-  consider: 'border-amber-500/40',
-  pass: 'border-red-500/35',
-};
+import type { Screenplay } from '@/types';
 
 function ScriptCover({
   screenplay,
@@ -21,8 +14,8 @@ function ScriptCover({
   return (
     <div
       className={clsx(
-        'relative flex shrink-0 flex-col justify-between overflow-hidden border border-black-600 bg-black-100 p-3 text-black-950 shadow-[0_16px_35px_rgba(0,0,0,0.28)]',
-        compact ? 'h-36 w-24' : 'aspect-[3/4] w-full max-w-48 p-5',
+        'relative flex shrink-0 flex-col justify-between overflow-hidden rounded-lg border border-black-600 bg-black-100 p-3 text-black-950 shadow-[0_16px_35px_rgba(0,0,0,0.22)]',
+        compact ? 'h-32 w-20 sm:h-36 sm:w-24' : 'aspect-[3/4] w-full max-w-48 p-5',
       )}
       aria-hidden="true"
     >
@@ -56,7 +49,7 @@ function Score({ screenplay, large = false }: { screenplay: Screenplay; large?: 
         Score
       </span>
       <span
-        className={clsx('font-display leading-none text-black-50', large ? 'text-6xl' : 'text-3xl')}
+        className={clsx('font-sans font-semibold leading-none tracking-tight text-black-50 tabular-nums', large ? 'text-5xl sm:text-6xl' : 'text-3xl')}
         aria-label={`Score ${screenplay.weightedScore.toFixed(1)}`}
       >
         {screenplay.weightedScore.toFixed(1)}
@@ -82,8 +75,8 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
         data-discovery-result
         data-screenplay-id={featured.id}
         className={clsx(
-          'relative overflow-hidden border bg-black-900 p-5 sm:p-7',
-          TIER_BORDERS[featured.recommendation],
+          'relative overflow-hidden rounded-2xl p-5 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)] sm:p-7 dark:border dark:border-black-700',
+          featured.isFilmNow ? 'bg-gold-50' : 'bg-black-900',
         )}
       >
         <DiscoverySelectionCheckbox screenplay={featured} />
@@ -91,16 +84,15 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
           type="button"
           aria-label={`Open ${featured.title} details`}
           onClick={(event) => onOpen(featured, event.currentTarget)}
-          className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-4 focus-visible:ring-offset-black-950"
+          className="block w-full rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-4 focus-visible:ring-offset-black-950"
         >
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold-400/70 to-transparent" />
-          <div className="mb-5 flex items-center justify-between gap-4 pl-9">
+          <div className="mb-5 flex items-center justify-between gap-4 pl-12">
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-gold-400">
               Featured screenplay · #1
             </p>
             <DiscoveryShareStatus screenplay={featured} />
           </div>
-          <div className="grid gap-7 sm:grid-cols-[11rem_minmax(0,1fr)]">
+          <div className="grid gap-6 sm:grid-cols-[10rem_minmax(0,1fr)] lg:grid-cols-[11rem_minmax(0,1fr)]">
             <ScriptCover screenplay={featured} />
             <div className="flex min-w-0 flex-col">
               <div className="flex items-start justify-between gap-4">
@@ -136,17 +128,14 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
                 data-testid="discovery-shelf-result"
                 data-discovery-result
                 data-screenplay-id={screenplay.id}
-                className="relative bg-black-900"
+                className="relative overflow-hidden rounded-xl bg-black-900 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)] dark:border dark:border-black-700"
               >
                 <DiscoverySelectionCheckbox screenplay={screenplay} />
                 <button
                   type="button"
                   aria-label={`Open ${screenplay.title} details`}
                   onClick={(event) => onOpen(screenplay, event.currentTarget)}
-                  className={clsx(
-                    'group flex min-h-44 w-full gap-4 border p-3 text-left transition-colors hover:bg-black-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400',
-                    TIER_BORDERS[screenplay.recommendation],
-                  )}
+                  className="group flex min-h-44 w-full gap-3 rounded-xl p-3 text-left transition-colors hover:bg-black-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 sm:gap-4"
                 >
                   <ScriptCover screenplay={screenplay} compact />
                   <div className="flex min-w-0 flex-1 flex-col py-1">
@@ -172,7 +161,7 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
             ))}
           </ol>
         ) : (
-          <p className="border border-black-700 bg-black-900 p-6 text-sm text-black-400">
+          <p className="rounded-xl bg-black-900 p-6 text-sm text-black-400 shadow-[var(--shadow-card)] dark:border dark:border-black-700">
             More matches will appear as analyses are added.
           </p>
         )}
@@ -189,8 +178,8 @@ interface DiscoverGridProps {
 export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
   if (screenplays.length === 0) {
     return (
-      <p className="border border-black-700 bg-black-900 p-6 text-sm text-black-400">
-        Every matching screenplay is shown on the shelf above.
+      <p className="rounded-xl bg-black-900 p-6 text-sm text-black-400 shadow-[var(--shadow-card)] dark:border dark:border-black-700">
+            Every matching screenplay is shown on the shelf above.
       </p>
     );
   }
@@ -203,19 +192,16 @@ export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
           data-testid="discovery-grid-result"
           data-discovery-result
           data-screenplay-id={screenplay.id}
-          className="relative bg-black-900"
+          className="relative overflow-hidden rounded-2xl bg-black-900 shadow-[var(--shadow-card)] transition-[transform,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)] dark:border dark:border-black-700"
         >
           <DiscoverySelectionCheckbox screenplay={screenplay} />
           <button
             type="button"
             aria-label={`Open ${screenplay.title} details`}
             onClick={(event) => onOpen(screenplay, event.currentTarget)}
-            className={clsx(
-              'relative flex min-h-72 w-full flex-col overflow-hidden border p-5 text-left transition-colors hover:bg-black-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400',
-              TIER_BORDERS[screenplay.recommendation],
-            )}
+            className="relative flex min-h-72 w-full flex-col overflow-hidden rounded-2xl p-5 text-left transition-colors hover:bg-black-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
           >
-            <div className="flex w-full items-start justify-between gap-4 pl-8">
+            <div className="flex w-full items-start justify-between gap-4 pl-12">
               <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-black-500">
                 Archive {String(index + 1).padStart(2, '0')}
               </span>
