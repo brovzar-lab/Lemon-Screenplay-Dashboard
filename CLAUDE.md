@@ -3,31 +3,37 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-07-21
+**Last session:** 2026-07-22
 
-**Done (landed on `main` @ `a9a9a87` — merged, NOT redeployed yet):**
-- **Backend machinery audit (read-only):** independently confirmed all 8 Codex Sol ingestion/analysis findings and added 5 new ones — (A) Re-analyze is broken for every VPS-ingested screenplay: nothing ever uploads PDFs to `screenplays/{category}/…` and `ingest_v9.py` writes a phantom `_storagePath`; (B) `analysisService.ts:178` passes a string cast as a File, so the browser's post-analysis PDF upload silently fails always; (C) `llmProxy` has **no daily budget enforcement** — `functions/src/budgetCounter.ts` is imported by nothing, browser limits are localStorage-only; (D) budget exhaustion puts the daemon in a 10s claim/release churn loop that inflates `attempt_count`, so the next transient error permanently fails jobs; (E) UploadPanel's content-hash dedup queries `uploaded_analyses.content_hash`, a field only ever written to `ingest-queue` job docs — it never matches.
-- **Legacy version cleanup (merged: 6 commits `e0a89a9..2b2b250`):** fixed the `HEAVY_FIELDS` bug (quota fallback never stripped `v9_meta`); renamed `normalizeV7.ts`→`normalizeV9.ts` (`isV7RawAnalysis`→`isArchaeologyAnalysis`, `v7PillarScores`→`pillarScores`, etc.); deleted dead `normalizeV5.ts`/`normalizeV6.ts`/`smartNormalize.ts` + 7 orphaned helpers + the v6 branch in `api.ts`; `parsed_v7`→`parsed_v9` cache dir (intentional cold start — old cache had a stale-reuse bug); stale V5/V6/V7 comments fixed. Guards: `src/lib/normalizers/legacyLabels.test.ts` + `npm run lint:legacy`. **582 tests pass (56 files), lint + build clean.**
-- **Live Firestore census** (`scripts/census-analysis-versions.mjs`, read-only): prod `uploaded_analyses` = **23 docs total** — 16 `v8_archaeology`, 7 `v9_archaeology`, zero v7/v6/unlabeled. The v8 label MUST stay accepted (guard test enforces); the "500+ screenplays" figure is not in prod Firestore.
+**Done (Discovery reconnection R0-R6):**
+- The approved Compact Shelf design is permanently rescued at `docs/design/compact-shelf-final.html`; the product definition is in `PRODUCT.md`; every deferred decision is recorded in `docs/DISCOVERY-BACKLOG.md`.
+- **R0 Foundation:** added the authenticated, side-by-side `/discover` route without changing `/`; connected it to the existing `useScreenplays` + live-sync data spine with no mock production data.
+- **R1 Find:** added the featured screenplay, ranked shelf, responsive archive grid, shared search/filter/sort stores, honest counts, loading, and empty states.
+- **R2 Real analysis:** cards open a deep detail drawer using the existing score, content, and notes panels; Escape, focus return, and note persistence retain the proven modal behavior.
+- **R2.5 App shell:** added the Lemon header, real slate statistics, existing account/theme/sync controls, and deep links at `/discover/:projectId` with browser back/forward support.
+- **R3 Sharing:** connected the existing share-link create/reuse/copy/revoke machinery and public `/share/:token` flow; `/` focuses Discovery search.
+- **R4 Bulk actions:** connected the existing selection store, bulk share modal, and favorites modal across the featured, shelf, and grid surfaces.
+- **R5 PDFs:** connected the existing formal coverage generator and pitch-deck PDF exporter for one script or a multi-script selection. R5 is merged into `main` at `2fd3561` but is not deployed.
+- **R6 Finish line (current branch `codex/discovery-reconnect-r6`):** connected the existing shared Lens store/menu so saved views work in both dashboards; added Discovery access to Quick Favorites and named favorite lists; completed the Compact Shelf restyle for the drawer, share/export/bulk surfaces, selection bar, loading/empty states, light/dark themes, and desktop/tablet/phone layouts. No backend, rules, service, or store behavior changed.
 
-**In progress:** Codex "Pipeline Safety" plan — approved, 5 chunks, Codex implements on its own branches, one review per chunk, production deploy needs separate Billy approval:
-1. **Stop data damage**: disable the dashboard Hybrid (it saves a Haiku triage stub OVER full coverage — `analysisService.ts:102`/`:281`) and the no-op "Force Re-analyze" (trigger skips same-path re-uploads; old complete job fakes a green checkmark).
-2. **Script identity & revisions**: content fingerprint + immutable versions grouped per project; parse cache keyed by fingerprint+parser version; write `content_hash` into analysis docs; fix `ingest_v9.py` legacy `appspot.com` bucket default.
-3. **VPS engine = sole authority**: reanalysis through the queue (also fixes finding A); archive PDFs at version locations; calibration profiles into the VPS engine; remove the dead string-cast upload.
-4. **Real budget**: server-side daily ceiling in `llmProxy`; count actual calls/tokens/dollars (daemon counts 1 per screenplay but a hybrid run can be ~36 API calls; hybrid cost uses wrong default rate at `daemon.py:733`); `waiting_for_budget` state without `attempt_count` inflation.
-5. **Parsing & reliability gate**: Python 3.11 pinned, OCR packages (currently commented out in `execution/requirements.txt:17`), golden tests, full-suite run.
+**Production state:**
+- Hosting currently serves commit `62c47dd` (through R4). Both `/` and `/discover` return HTTP 200; the old dashboard remains the default at `/` and Discovery remains behind team sign-in.
+- R5 and R6 have **not** been deployed. The closing deployment must be a separately approved hosting-only deploy after Atlas verification and Billy's final visual pass.
 
-**Next up (priority order):**
-1. Codex Chunk 1 → Billy review → merge. Then Chunks 2-5 in order.
-2. Deploy after chunks land: hosting + functions + **VPS pull** (Hermes still runs pre-cleanup code; delete stale `/opt/lemon-ingest/.tmp/parsed_v7/` when pulling).
-3. UI/UX redesign on `codex/discovery-engine-redesign` (parked, has PRODUCT.md product definition — do NOT merge until machinery is safe). `codex/item-14-design-pass` also parked for reference.
-4. Backfill (~1,000 scripts, ~$300) only AFTER Chunks 2+4 (identity + real budget), or costs/duplicates compound.
+**In progress:**
+- R6 is complete on `codex/discovery-reconnect-r6` and awaiting independent Atlas verification, then Billy's final signed-in visual approval.
 
-**Open questions / blockers:**
-- main is ahead of the deployed site: cleanup merged but hosting/functions not redeployed this session.
-- Key rotation status (Google/TMDB from the 07-08 audit) not re-verified this session — confirm before the next deploy.
-- e2e suite not run this session (unit + build + lint only).
-- `AGENTS.md` (untracked, Codex's guidance file) still carries the old 07-08 WWW — Codex should refresh it.
+**Next up:**
+1. Atlas code-read + full-suite rerun + signed-in browser verification of `/discover`.
+2. Billy final visual pass in both themes and at phone/desktop sizes.
+3. After explicit approval, merge R6 into `main` and run the closing hosting-only deploy. Do not deploy functions, rules, or VPS changes.
+
+**Backlog pointer:**
+- All postponed or skipped Discovery work is tracked in `docs/DISCOVERY-BACKLOG.md`. Treat that file as the scope source for any post-reconnection phase; do not infer new work from the prototype HTML.
+
+**Open notes:**
+- `docs/design/compact-shelf-final.html` remains the approved visual reference; `dist/` prototype HTML is reference-only and must never ship as the app.
+- Existing untracked screenshots and `AGENTS.md` were intentionally left untouched throughout R0-R6.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
