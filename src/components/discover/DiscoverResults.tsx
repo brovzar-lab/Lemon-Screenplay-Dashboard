@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
+import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelectionCheckbox';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import type { RecommendationTier, Screenplay } from '@/types';
 
@@ -85,6 +86,7 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
           TIER_BORDERS[featured.recommendation],
         )}
       >
+        <DiscoverySelectionCheckbox screenplay={featured} />
         <button
           type="button"
           aria-label={`Open ${featured.title} details`}
@@ -92,7 +94,7 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
           className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-4 focus-visible:ring-offset-black-950"
         >
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold-400/70 to-transparent" />
-          <div className="mb-5 flex items-center justify-between gap-4">
+          <div className="mb-5 flex items-center justify-between gap-4 pl-9">
             <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-gold-400">
               Featured screenplay · #1
             </p>
@@ -134,8 +136,9 @@ export function DiscoverShowcase({ featured, topMatches, onOpen }: DiscoverShowc
                 data-testid="discovery-shelf-result"
                 data-discovery-result
                 data-screenplay-id={screenplay.id}
-                className="bg-black-900"
+                className="relative bg-black-900"
               >
+                <DiscoverySelectionCheckbox screenplay={screenplay} />
                 <button
                   type="button"
                   aria-label={`Open ${screenplay.title} details`}
@@ -200,8 +203,9 @@ export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
           data-testid="discovery-grid-result"
           data-discovery-result
           data-screenplay-id={screenplay.id}
-          className="bg-black-900"
+          className="relative bg-black-900"
         >
+          <DiscoverySelectionCheckbox screenplay={screenplay} />
           <button
             type="button"
             aria-label={`Open ${screenplay.title} details`}
@@ -211,7 +215,7 @@ export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
               TIER_BORDERS[screenplay.recommendation],
             )}
           >
-            <div className="flex w-full items-start justify-between gap-4">
+            <div className="flex w-full items-start justify-between gap-4 pl-8">
               <span className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-black-500">
                 Archive {String(index + 1).padStart(2, '0')}
               </span>

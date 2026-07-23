@@ -125,6 +125,7 @@ function DiscoverPage() {
   return (
     <DiscoverShell
       screenplays={screenplays}
+      allScreenplays={allScreenplays}
       totalCount={totalCount}
       filteredCount={filteredCount}
       genres={genres}

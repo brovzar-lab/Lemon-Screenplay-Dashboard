@@ -3,6 +3,8 @@ import { DiscoverAppHeader } from '@/components/discover/DiscoverAppHeader';
 import { DiscoverControls } from '@/components/discover/DiscoverControls';
 import { DiscoverDrawer } from '@/components/discover/DiscoverDrawer';
 import { DiscoverGrid, DiscoverShowcase } from '@/components/discover/DiscoverResults';
+import { DiscoverySelectionBar } from '@/components/discover/DiscoverySelectionBar';
+import { useHasSelection } from '@/stores/selectionStore';
 import type { Screenplay } from '@/types';
 
 interface DiscoverStats {
@@ -13,6 +15,7 @@ interface DiscoverStats {
 
 interface DiscoverShellProps {
   screenplays: Screenplay[];
+  allScreenplays: Screenplay[];
   totalCount: number;
   filteredCount: number;
   genres: string[];
@@ -72,6 +75,7 @@ function DiscoverLoading() {
 
 export function DiscoverShell({
   screenplays,
+  allScreenplays,
   totalCount,
   filteredCount,
   genres,
@@ -89,6 +93,7 @@ export function DiscoverShell({
   isLoading,
   isError,
 }: DiscoverShellProps) {
+  const hasSelection = useHasSelection();
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const previousSelectionRef = useRef<Screenplay | null>(selectedScreenplay);
 
@@ -123,7 +128,7 @@ export function DiscoverShell({
         isLoading={isLoading}
       />
 
-      <main className="px-4 py-8 sm:px-6 lg:px-10">
+      <main className={`px-4 py-8 sm:px-6 lg:px-10 ${hasSelection ? 'pb-28' : ''}`}>
         <div className="mx-auto max-w-[1600px]">
           {isLoading ? (
             <DiscoverLoading />
@@ -211,6 +216,11 @@ export function DiscoverShell({
           )}
         </div>
       </main>
+
+      <DiscoverySelectionBar
+        screenplays={allScreenplays}
+        escapeEnabled={!selectedScreenplay}
+      />
 
       {selectedScreenplay && (
         <DiscoverDrawer screenplay={selectedScreenplay} onClose={onCloseScreenplay} />
