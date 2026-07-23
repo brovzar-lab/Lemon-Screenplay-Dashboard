@@ -139,6 +139,9 @@ describe('Discovery Compact Shelf surface smoke tests', () => {
 
   it('keeps selection, favorites, and bulk sharing behavior inside the restyled bar and modals', async () => {
     const user = userEvent.setup();
+    for (let index = 1; index <= 12; index += 1) {
+      useFavoritesStore.getState().createList(`Producer List ${index}`);
+    }
     renderPage();
     await user.click(await screen.findByRole('button', { name: 'Select Atlas Fall' }));
     await user.click(screen.getByRole('button', { name: 'Select Foxtrot House' }));
@@ -149,6 +152,11 @@ describe('Discovery Compact Shelf surface smoke tests', () => {
     await user.click(within(selectionBar).getByRole('button', { name: 'Add to favorites' }));
     const favoritesModal = screen.getByTestId('add-to-favorites-surface');
     expect(favoritesModal).toHaveAttribute('data-presentation', 'discovery');
+    expect(favoritesModal).toHaveClass('max-h-[100dvh]');
+    expect(within(favoritesModal).getByTestId('favorites-list-options')).toHaveClass(
+      'overflow-y-auto',
+    );
+    expect(within(favoritesModal).getByText('Producer List 12')).toBeInTheDocument();
     await user.click(within(favoritesModal).getByRole('button', { name: 'Add to Favorites' }));
     expect(useFavoritesStore.getState().quickFavorites).toEqual(['atlas', 'foxtrot']);
 

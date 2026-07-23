@@ -65,7 +65,7 @@ export function AddToFavoritesModal({
         className={clsx(
           'relative w-full max-w-md overflow-hidden animate-scale-in',
           isDiscovery
-            ? 'rounded-t-2xl bg-black-900 shadow-[var(--shadow-pop)] sm:rounded-2xl dark:border dark:border-black-700'
+            ? 'flex max-h-[100dvh] flex-col rounded-t-2xl bg-black-900 shadow-[var(--shadow-pop)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl dark:border dark:border-black-700'
             : 'glass rounded-xl border border-gold-500/20',
         )}
       >
@@ -82,7 +82,13 @@ export function AddToFavoritesModal({
         </div>
 
         {/* Body */}
-        <div className="px-6 py-4 space-y-3">
+        <div
+          data-testid="favorites-list-options"
+          className={clsx(
+            'space-y-3 px-6 py-4',
+            isDiscovery && 'min-h-0 flex-1 overflow-y-auto',
+          )}
+        >
           {/* Quick Favorites row */}
           <div
             onClick={() => setSelectedList('quick')}
