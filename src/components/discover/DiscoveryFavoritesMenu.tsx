@@ -56,9 +56,7 @@ export function DiscoveryFavoritesMenu({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
-  const handleOpenScreenplay = (screenplay: Screenplay) => {
-    const trigger = triggerRef.current;
-    if (!trigger) return;
+  const handleOpenScreenplay = (screenplay: Screenplay, trigger: HTMLButtonElement) => {
     setIsOpen(false);
     onOpen(screenplay, trigger);
   };
@@ -168,7 +166,7 @@ export function DiscoveryFavoritesMenu({
                       <li key={screenplay.id}>
                         <button
                           type="button"
-                          onClick={() => handleOpenScreenplay(screenplay)}
+                          onClick={(event) => handleOpenScreenplay(screenplay, event.currentTarget)}
                           aria-label={`Open ${screenplay.title} from favorites`}
                           className="dsc-card dsc-card-hover group flex min-h-16 w-full items-center justify-between gap-4 px-4 py-3 text-left"
                         >

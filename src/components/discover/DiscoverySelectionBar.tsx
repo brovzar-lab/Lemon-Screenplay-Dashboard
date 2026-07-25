@@ -53,7 +53,7 @@ export function DiscoverySelectionBar({
       <section
         aria-label="Discovery selection actions"
         data-presentation="discovery"
-        className="dsc-hairline fixed inset-x-0 bottom-0 z-40 border-t bg-[var(--dsc-surface)] shadow-[0_-12px_36px_color-mix(in_oklch,var(--dsc-ink)_18%,transparent)]"
+        className="dsc-card fixed inset-x-0 bottom-0 z-40 rounded-none bg-[var(--dsc-surface)]"
       >
         <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
           <div className="flex items-center gap-3">
@@ -64,7 +64,7 @@ export function DiscoverySelectionBar({
               type="button"
               aria-label="Clear selection"
               onClick={deselectAll}
-              className="dsc-hairline dsc-label min-h-11 border-l pl-3 hover:text-[var(--dsc-ink)]"
+              className="dsc-btn dsc-btn-ghost !min-h-11 !px-3"
             >
               Clear
             </button>

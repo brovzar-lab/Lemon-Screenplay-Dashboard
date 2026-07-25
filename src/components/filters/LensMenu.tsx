@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { clsx } from 'clsx';
 import { DEFAULT_FILTER_STATE, type FilterState, type SortState } from '@/types';
 import { useFilterStore } from '@/stores/filterStore';
@@ -57,6 +57,19 @@ export function LensMenu({ presentation = 'default' }: LensMenuProps) {
     setIsOpen(false);
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setIsOpen(false);
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen]);
+
   return (
     <>
       <button
@@ -71,7 +84,7 @@ export function LensMenu({ presentation = 'default' }: LensMenuProps) {
       >
         Lenses
         {lenses.length > 0 && (
-          <span className="px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold">
+          <span className={isDiscovery ? 'rounded-full bg-[var(--dsc-accent-soft)] px-1.5 py-0.5 text-xs font-bold text-[var(--dsc-accent)]' : 'px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold'}>
             {lenses.length}
           </span>
         )}
@@ -82,7 +95,7 @@ export function LensMenu({ presentation = 'default' }: LensMenuProps) {
           className={clsx(
             'fixed inset-0 z-[80] flex justify-center',
             isDiscovery
-              ? 'items-end bg-black-950/75 p-0 backdrop-blur-sm sm:items-center sm:p-4'
+              ? 'dsc-scrim items-end p-0 sm:items-center sm:p-4'
               : 'items-center bg-black-950/80 p-4',
           )}
           role="dialog"
@@ -95,24 +108,26 @@ export function LensMenu({ presentation = 'default' }: LensMenuProps) {
         >
           <div
             className={clsx(
-              'w-full max-w-lg bg-black-900',
+              'w-full max-w-lg',
+              !isDiscovery && 'bg-black-900',
               isDiscovery
-                ? 'overflow-hidden rounded-t-2xl shadow-[var(--shadow-pop)] sm:rounded-2xl dark:border dark:border-black-700'
+                ? 'dsc-modal overflow-hidden rounded-t-2xl sm:rounded-2xl'
                 : 'rounded-lg border border-black-600 shadow-2xl',
             )}
           >
             <header className={clsx(
               'flex items-center justify-between border-b border-black-700',
+              isDiscovery && 'dsc-modal-header',
               isDiscovery ? 'px-5 py-5 sm:px-6' : 'px-5 py-4',
             )}>
               <div>
                 {isDiscovery && (
-                  <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
+                  <p className="dsc-modal-kicker mb-1">
                     Saved views
                   </p>
                 )}
-                <h2 id="lenses-title" className={clsx('font-display text-gold-200', isDiscovery ? 'text-2xl' : 'text-xl')}>Lenses</h2>
-                <p className={clsx('text-black-400', isDiscovery ? 'mt-1 text-sm' : 'text-xs')}>
+                <h2 id="lenses-title" className={isDiscovery ? 'dsc-modal-title text-2xl' : 'font-display text-xl text-gold-200'}>Lenses</h2>
+                <p className={isDiscovery ? 'dsc-muted mt-1 text-sm' : 'text-xs text-black-400'}>
                   {isDiscovery
                     ? 'Save the exact search, filters, and ranking you are using.'
                     : 'Saved filters and sorting'}
@@ -163,37 +178,41 @@ export function LensMenu({ presentation = 'default' }: LensMenuProps) {
                 isDiscovery ? 'space-y-2' : 'divide-y divide-black-700',
               )}>
                 {lenses.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-black-400">No saved Lenses yet.</p>
+                  <p className={clsx('py-8 text-center text-sm text-black-400', isDiscovery && 'dsc-muted')}>
+                    No saved Lenses yet.
+                  </p>
                 ) : (
                   lenses.map((lens) => (
                     <div
                       key={lens.id}
                       className={clsx(
                         'flex items-center gap-2',
-                        isDiscovery && 'rounded-xl bg-black-950 p-1 shadow-sm',
+                        isDiscovery && 'dsc-row rounded-xl p-1',
                         !isDiscovery && 'py-2',
                       )}
                     >
                       <button
                         onClick={() => handleApply(lens.id)}
                         className={clsx(
-                          'min-w-0 flex-1 px-3 py-2 text-left hover:bg-black-800',
+                          'min-w-0 flex-1 px-3 py-2 text-left',
+                          !isDiscovery && 'hover:bg-black-800',
                           isDiscovery
-                            ? 'min-h-11 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400'
+                            ? 'min-h-11 rounded-lg hover:!bg-[var(--dsc-surface-3)] focus-visible:outline-none'
                             : 'rounded',
                         )}
                       >
-                        <span className="block truncate text-sm text-black-100">{lens.name}</span>
-                        <span className="block text-xs text-black-500">
+                        <span className={clsx('block truncate text-sm text-black-100', isDiscovery && 'text-[var(--dsc-ink)]')}>{lens.name}</span>
+                        <span className={clsx('block text-xs text-black-500', isDiscovery && 'dsc-muted-faint')}>
                           {activeLensId === lens.id ? 'Active' : new Date(lens.createdAt).toLocaleDateString()}
                         </span>
                       </button>
                       <button
                         onClick={() => deleteLens(lens.id)}
                         className={clsx(
-                          'shrink-0 text-black-400 hover:text-red-400',
+                          'shrink-0 text-black-400',
+                          !isDiscovery && 'hover:text-red-400',
                           isDiscovery
-                            ? 'h-11 w-11 rounded-lg hover:bg-red-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400'
+                            ? 'h-11 w-11 rounded-lg hover:bg-[var(--error-soft)] hover:text-[var(--on-error)] focus-visible:outline-none'
                             : 'h-10 w-10',
                         )}
                         aria-label={`Delete ${lens.name}`}

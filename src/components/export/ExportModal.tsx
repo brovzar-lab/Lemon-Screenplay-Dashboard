@@ -108,7 +108,10 @@ export function ExportModal({
       )}
     >
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className={isDiscovery ? 'fixed inset-0 dsc-scrim' : 'fixed inset-0 bg-black-950/80 backdrop-blur-sm'}
+        onClick={onClose}
+      />
 
       {/* Modal */}
       <div
@@ -117,23 +120,23 @@ export function ExportModal({
         className={clsx(
           'relative w-full max-w-md overflow-hidden animate-scale-in',
           isDiscovery
-            ? 'max-h-[92vh] overflow-y-auto rounded-t-2xl bg-black-900 shadow-[var(--shadow-pop)] sm:rounded-2xl dark:border dark:border-black-700'
+            ? 'dsc-modal max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl'
             : 'glass rounded-xl border border-gold-500/20',
         )}
       >
         {/* Header */}
-        <div className={clsx('flex items-center justify-between border-b border-black-700', isDiscovery ? 'p-5 sm:px-6' : 'p-4')}>
+        <div className={clsx('flex items-center justify-between border-b border-black-700', isDiscovery && 'dsc-modal-header', isDiscovery ? 'p-5 sm:px-6' : 'p-4')}>
           <div>
             {isDiscovery && (
-              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
+              <p className="dsc-modal-kicker mb-1">
                 Presentation ready
               </p>
             )}
-            <h3 className={clsx('font-display text-gold-200', isDiscovery ? 'text-2xl' : 'text-lg')}>Export Screenplays</h3>
+            <h3 className={isDiscovery ? 'dsc-modal-title text-2xl' : 'font-display text-lg text-gold-200'}>Export Screenplays</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400"
+            className={isDiscovery ? 'rounded p-1 text-[var(--dsc-ink-2)] hover:bg-[var(--dsc-surface-2)] hover:text-[var(--dsc-ink)]' : 'p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400'}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -144,9 +147,9 @@ export function ExportModal({
         {/* Content */}
         <div className={clsx('space-y-4', isDiscovery ? 'p-5 sm:p-6' : 'p-4')}>
           {/* Export Summary */}
-          <div className={clsx('p-3', isDiscovery ? 'rounded-xl bg-black-950' : 'rounded-lg bg-black-900/50')}>
-            <p className="text-sm text-black-400">
-              <strong className="text-gold-400">
+          <div className={clsx('p-3', isDiscovery ? 'dsc-row rounded-xl' : 'rounded-lg bg-black-900/50')}>
+            <p className={isDiscovery ? 'dsc-muted text-sm' : 'text-sm text-black-400'}>
+              <strong className={isDiscovery ? 'text-[var(--dsc-accent)]' : 'text-gold-400'}>
                 {mode === 'selected'
                   ? `Exporting ${screenplays.length} selected ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`
                   : mode === 'filtered'
@@ -161,13 +164,13 @@ export function ExportModal({
             {screenplays.length <= 5 && (
               <ul className="mt-2 space-y-1">
                 {screenplays.map((sp) => (
-                  <li key={sp.id} className="text-xs text-black-300 flex items-center gap-2">
+                  <li key={sp.id} className={clsx('text-xs text-black-300 flex items-center gap-2', isDiscovery && 'text-[var(--dsc-ink-2)]')}>
                     <span className={clsx(
                       'w-2 h-2 rounded-full',
-                      sp.isFilmNow && 'bg-gold-500',
-                      sp.recommendation === 'recommend' && 'bg-emerald-500',
-                      sp.recommendation === 'consider' && 'bg-amber-500',
-                      sp.recommendation === 'pass' && 'bg-red-500'
+                      sp.isFilmNow && (isDiscovery ? 'bg-[var(--dsc-success)]' : 'bg-gold-500'),
+                      sp.recommendation === 'recommend' && (isDiscovery ? 'bg-[var(--dsc-success)]' : 'bg-emerald-500'),
+                      sp.recommendation === 'consider' && (isDiscovery ? 'bg-[var(--dsc-consider)]' : 'bg-amber-500'),
+                      sp.recommendation === 'pass' && (isDiscovery ? 'bg-[var(--dsc-pass)]' : 'bg-red-500')
                     )} />
                     {sp.title}
                   </li>
@@ -175,7 +178,7 @@ export function ExportModal({
               </ul>
             )}
             {screenplays.length > 5 && (
-              <p className="text-xs text-black-500 mt-1">
+              <p className={clsx('text-xs text-black-500 mt-1', isDiscovery && 'dsc-muted-faint')}>
                 {screenplays.slice(0, 3).map((sp) => sp.title).join(', ')} +{screenplays.length - 3} more
               </p>
             )}
@@ -183,23 +186,23 @@ export function ExportModal({
 
           {/* Format Selection */}
           {!pdfOnly && <div>
-            <label className="text-sm font-medium text-black-400 block mb-2">Format</label>
+            <label className={clsx('text-sm font-medium text-black-400 block mb-2', isDiscovery && 'dsc-muted')}>Format</label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setFormat('pdf')}
                 className={clsx(
                   'p-4 rounded-lg border-2 transition-all',
                   format === 'pdf'
-                    ? 'border-gold-500 bg-gold-500/10'
-                    : 'border-black-700 hover:border-black-600'
+                    ? isDiscovery ? 'border-[var(--dsc-accent)] bg-[var(--dsc-accent-soft)]' : 'border-gold-500 bg-gold-500/10'
+                    : isDiscovery ? 'border-[var(--dsc-line)] hover:border-[var(--dsc-accent)]' : 'border-black-700 hover:border-black-600'
                 )}
               >
                 <div className="flex flex-col items-center gap-2">
-                  <svg className="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className={clsx('w-8 h-8 text-red-500', isDiscovery && 'text-[var(--dsc-pass)]')} fill="currentColor" viewBox="0 0 24 24">
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM6 20V4h7v5h5v11H6zm3-7h6v1H9v-1zm0 2h6v1H9v-1zm0 2h4v1H9v-1z" />
                   </svg>
-                  <span className="text-sm font-medium text-black-200">PDF Pitch Deck</span>
-                  <span className="text-xs text-black-500">Professional format</span>
+                  <span className={clsx('text-sm font-medium text-black-200', isDiscovery && 'text-[var(--dsc-ink)]')}>PDF Pitch Deck</span>
+                  <span className={clsx('text-xs text-black-500', isDiscovery && 'dsc-muted-faint')}>Professional format</span>
                 </div>
               </button>
 
@@ -208,16 +211,16 @@ export function ExportModal({
                 className={clsx(
                   'p-4 rounded-lg border-2 transition-all',
                   format === 'csv'
-                    ? 'border-gold-500 bg-gold-500/10'
-                    : 'border-black-700 hover:border-black-600'
+                    ? isDiscovery ? 'border-[var(--dsc-accent)] bg-[var(--dsc-accent-soft)]' : 'border-gold-500 bg-gold-500/10'
+                    : isDiscovery ? 'border-[var(--dsc-line)] hover:border-[var(--dsc-accent)]' : 'border-black-700 hover:border-black-600'
                 )}
               >
                 <div className="flex flex-col items-center gap-2">
-                  <svg className="w-8 h-8 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className={clsx('w-8 h-8 text-emerald-500', isDiscovery && 'text-[var(--dsc-success)]')} fill="currentColor" viewBox="0 0 24 24">
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 11H7v-1h6v1zm3-3H7V9h9v1zm0-3H7V6h9v1z" />
                   </svg>
-                  <span className="text-sm font-medium text-black-200">CSV Spreadsheet</span>
-                  <span className="text-xs text-black-500">Excel compatible</span>
+                  <span className={clsx('text-sm font-medium text-black-200', isDiscovery && 'text-[var(--dsc-ink)]')}>CSV Spreadsheet</span>
+                  <span className={clsx('text-xs text-black-500', isDiscovery && 'dsc-muted-faint')}>Excel compatible</span>
                 </div>
               </button>
             </div>
@@ -226,11 +229,11 @@ export function ExportModal({
           {/* Format Info */}
           <div className={clsx(
             'p-3',
-            isDiscovery ? 'rounded-xl bg-black-950' : 'rounded-lg border border-black-700 bg-black-900/30',
+            isDiscovery ? 'dsc-row rounded-xl' : 'rounded-lg border border-black-700 bg-black-900/30',
           )}>
             {effectiveFormat === 'pdf' ? (
-              <div className="text-xs text-black-400">
-                <p className="font-medium text-black-300 mb-1">PDF Pitch Deck includes:</p>
+              <div className={clsx('text-xs text-black-400', isDiscovery && 'dsc-muted')}>
+                <p className={clsx('font-medium text-black-300 mb-1', isDiscovery && 'text-[var(--dsc-ink)]')}>PDF Pitch Deck includes:</p>
                 <ul className="space-y-1 ml-4 list-disc">
                   <li>Title page with recommendation badge</li>
                   <li>Core scores and producer metrics</li>
@@ -240,8 +243,8 @@ export function ExportModal({
                 </ul>
               </div>
             ) : (
-              <div className="text-xs text-black-400">
-                <p className="font-medium text-black-300 mb-1">CSV Export includes:</p>
+              <div className={clsx('text-xs text-black-400', isDiscovery && 'dsc-muted')}>
+                <p className={clsx('font-medium text-black-300 mb-1', isDiscovery && 'text-[var(--dsc-ink)]')}>CSV Export includes:</p>
                 <ul className="space-y-1 ml-4 list-disc">
                   <li>All screenplay metadata and scores</li>
                   <li>Dimension scores and CVS factors</li>
@@ -257,12 +260,12 @@ export function ExportModal({
           {isExporting && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-black-400">Exporting...</span>
-                <span className="text-gold-400">{exportProgress}%</span>
+                <span className={isDiscovery ? 'dsc-muted' : 'text-black-400'}>Exporting...</span>
+                <span className={isDiscovery ? 'text-[var(--dsc-accent)]' : 'text-gold-400'}>{exportProgress}%</span>
               </div>
-              <div className="h-2 bg-black-800 rounded-full overflow-hidden">
+              <div className={isDiscovery ? 'h-2 overflow-hidden rounded-full bg-[var(--dsc-surface-2)]' : 'h-2 bg-black-800 rounded-full overflow-hidden'}>
                 <div
-                  className="h-full bg-gold-500 transition-all duration-300"
+                  className={isDiscovery ? 'h-full bg-[var(--dsc-accent)] transition-all duration-300' : 'h-full bg-gold-500 transition-all duration-300'}
                   style={{ width: `${exportProgress}%` }}
                 />
               </div>
@@ -271,7 +274,7 @@ export function ExportModal({
           {showInlineFailure && exportError && (
             <p
               role="alert"
-              className="border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+              className={clsx('border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300', isDiscovery && 'border-[var(--error)] bg-[var(--error-soft)] text-[var(--on-error)]')}
             >
               {exportError}
             </p>
@@ -279,7 +282,7 @@ export function ExportModal({
         </div>
 
         {/* Footer */}
-        <div className={clsx('flex items-center justify-end gap-3 border-t border-black-700 p-4', !isDiscovery && 'bg-black-900/30')}>
+        <div className={clsx('flex items-center justify-end gap-3 border-t border-black-700 p-4', isDiscovery && 'dsc-modal-footer', !isDiscovery && 'bg-black-900/30')}>
           <button onClick={onClose} className="btn btn-ghost" disabled={isExporting}>
             Cancel
           </button>

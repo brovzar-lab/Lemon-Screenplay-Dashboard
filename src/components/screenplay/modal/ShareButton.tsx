@@ -218,7 +218,7 @@ export function ShareButton({
                 className={`text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border ${isDisabled
                         ? 'bg-black-700/50 text-black-500 border-black-600/30 cursor-not-allowed'
                         : isDiscovery
-                            ? 'min-h-11 border-black-600 bg-black-900 text-black-100 hover:border-gold-500/60 hover:bg-black-800'
+                            ? 'min-h-11 border-[var(--dsc-line)] bg-[var(--dsc-surface)] text-[var(--dsc-ink)] hover:border-[var(--dsc-accent)] hover:bg-[var(--dsc-surface-2)]'
                             : 'bg-gold-500/90 hover:bg-gold-400 text-black-900 border-gold-400/50 shadow-sm shadow-gold-500/20'
                     }`}
                 title={
@@ -276,11 +276,11 @@ export function ShareButton({
                     data-testid="share-popover"
                     data-presentation={presentation}
                     className={isDiscovery
-                        ? 'fixed inset-x-4 top-24 z-[90] rounded-2xl bg-black-900 p-5 shadow-[var(--shadow-pop)] dark:border dark:border-black-700 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80'
+                        ? 'dsc-modal fixed inset-x-4 top-24 z-[90] rounded-2xl p-5 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80'
                         : 'absolute top-full mt-2 right-0 z-50 w-80 rounded-lg border border-gold-500/20 bg-black-800 shadow-xl shadow-black/40 p-4'}
                 >
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-gold-200">
+                        <span className={isDiscovery ? 'text-sm font-medium text-[var(--dsc-ink)]' : 'text-sm font-medium text-gold-200'}>
                             Share Link
                         </span>
                         <button
@@ -288,7 +288,7 @@ export function ShareButton({
                                 setShowPopover(false);
                                 setConfirmRevoke(false);
                             }}
-                            className="text-black-400 hover:text-black-200 p-0.5"
+                            className={isDiscovery ? 'dsc-muted p-0.5 hover:text-[var(--dsc-ink)]' : 'text-black-400 hover:text-black-200 p-0.5'}
                             aria-label="Close popover"
                         >
                             <svg
@@ -310,16 +310,16 @@ export function ShareButton({
                     {/* URL display + copy */}
                     <div className="flex items-center gap-2 mb-3">
                         <div className={isDiscovery
-                            ? 'min-h-11 flex-1 truncate rounded-lg border border-black-700 bg-black-950 px-3 py-2.5 text-xs text-black-300 select-all'
+                            ? 'min-h-11 flex-1 truncate rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] px-3 py-2.5 text-xs text-[var(--dsc-ink-2)] select-all'
                             : 'flex-1 bg-black-900/60 rounded px-2.5 py-1.5 text-xs text-black-300 truncate border border-black-700/50 select-all'}>
                             {shareUrl}
                         </div>
                         <button
                             onClick={handleCopy}
                             className={`shrink-0 text-xs px-2.5 py-1.5 rounded font-medium transition-all border ${copied
-                                    ? 'bg-green-600/20 text-green-400 border-green-500/30'
+                                    ? isDiscovery ? 'border-[var(--success)] bg-[var(--success-soft)] text-[var(--on-success)]' : 'bg-green-600/20 text-green-400 border-green-500/30'
                                     : isDiscovery
-                                        ? 'min-h-11 border-gold-500/40 bg-gold-500/10 text-gold-400 hover:bg-gold-500/20'
+                                        ? 'min-h-11 border-[var(--dsc-accent)] bg-[var(--dsc-accent-soft)] text-[var(--dsc-accent)] hover:bg-[var(--dsc-surface-2)]'
                                         : 'bg-gold-500/20 text-gold-300 border-gold-500/30 hover:bg-gold-500/30'
                                 }`}
                         >
@@ -328,27 +328,27 @@ export function ShareButton({
                     </div>
 
                     {/* Include Notes toggle */}
-                    <label className="flex items-center gap-2 mb-3 cursor-pointer text-sm text-black-300 hover:text-black-200">
+                    <label className={isDiscovery ? 'dsc-muted flex items-center gap-2 mb-3 cursor-pointer text-sm hover:text-[var(--dsc-ink)]' : 'flex items-center gap-2 mb-3 cursor-pointer text-sm text-black-300 hover:text-black-200'}>
                         <input
                             type="checkbox"
                             checked={currentIncludeNotes}
                             onChange={handleNotesToggle}
-                            className="w-3.5 h-3.5 rounded border-black-600 bg-black-900 text-gold-500 focus:ring-gold-500/30"
+                            className={isDiscovery ? 'w-3.5 h-3.5 rounded border-[var(--dsc-line)] bg-[var(--dsc-surface)] text-[var(--dsc-accent)] focus:ring-[var(--dsc-accent)]/30' : 'w-3.5 h-3.5 rounded border-black-600 bg-black-900 text-gold-500 focus:ring-gold-500/30'}
                         />
                         Include notes
                     </label>
 
                     {/* Revoke button */}
-                    <div className="border-t border-black-700/50 pt-3">
+                    <div className={isDiscovery ? 'border-t border-[var(--dsc-line)] pt-3' : 'border-t border-black-700/50 pt-3'}>
                         {confirmRevoke ? (
                             <div className="flex items-center gap-2">
-                                <span className="text-xs text-red-400">
+                                <span className={isDiscovery ? 'text-xs text-[var(--on-error)]' : 'text-xs text-red-400'}>
                                     Revoke this link?
                                 </span>
                                 <button
                                     onClick={() => revokeMutation.mutate()}
                                     disabled={revokeMutation.isPending}
-                                    className="text-xs px-2 py-1 rounded bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 font-medium transition-all"
+                                    className={isDiscovery ? 'text-xs px-2 py-1 rounded bg-[var(--error-soft)] text-[var(--on-error)] border border-[var(--error)] font-medium transition-all' : 'text-xs px-2 py-1 rounded bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 font-medium transition-all'}
                                 >
                                     {revokeMutation.isPending
                                         ? 'Revoking...'
@@ -356,7 +356,7 @@ export function ShareButton({
                                 </button>
                                 <button
                                     onClick={() => setConfirmRevoke(false)}
-                                    className="text-xs px-2 py-1 rounded text-black-400 hover:text-black-200 transition-colors"
+                                    className={isDiscovery ? 'dsc-muted text-xs px-2 py-1 rounded hover:text-[var(--dsc-ink)] transition-colors' : 'text-xs px-2 py-1 rounded text-black-400 hover:text-black-200 transition-colors'}
                                 >
                                     Cancel
                                 </button>
@@ -364,7 +364,7 @@ export function ShareButton({
                         ) : (
                             <button
                                 onClick={() => setConfirmRevoke(true)}
-                                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                                className={isDiscovery ? 'text-xs text-[var(--on-error)] hover:text-[var(--error)] transition-colors' : 'text-xs text-red-400 hover:text-red-300 transition-colors'}
                             >
                                 Revoke link
                             </button>

@@ -58,25 +58,28 @@ export function AddToFavoritesModal({
       'fixed inset-0 z-50 flex justify-center',
       isDiscovery ? 'items-end p-0 sm:items-center sm:p-4' : 'items-center p-4',
     )}>
-      <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className={isDiscovery ? 'fixed inset-0 dsc-scrim' : 'fixed inset-0 bg-black-950/80 backdrop-blur-sm'}
+        onClick={onClose}
+      />
       <div
         data-testid="add-to-favorites-surface"
         data-presentation={presentation}
         className={clsx(
           'relative w-full max-w-md overflow-hidden animate-scale-in',
           isDiscovery
-            ? 'flex max-h-[100dvh] flex-col rounded-t-2xl bg-black-900 shadow-[var(--shadow-pop)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl dark:border dark:border-black-700'
+            ? 'dsc-modal flex max-h-[100dvh] flex-col rounded-t-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl'
             : 'glass rounded-xl border border-gold-500/20',
         )}
       >
         {/* Header */}
-        <div className={clsx('px-6 py-4', isDiscovery && 'border-b border-black-700 py-5')}>
+        <div className={clsx('px-6 py-4', isDiscovery && 'dsc-modal-header border-b py-5')}>
           {isDiscovery && (
-            <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
+            <p className="dsc-modal-kicker mb-1">
               Save selection
             </p>
           )}
-          <h3 className={clsx('font-heading font-semibold text-gold-200', isDiscovery ? 'text-xl' : 'text-lg')}>
+          <h3 className={isDiscovery ? 'dsc-modal-title text-xl font-semibold' : 'font-heading text-lg font-semibold text-gold-200'}>
             Add to Favorites
           </h3>
         </div>
@@ -97,10 +100,10 @@ export function AddToFavoritesModal({
               isDiscovery ? 'min-h-14 rounded-xl' : 'rounded-lg border',
               selectedList === 'quick'
                 ? isDiscovery
-                  ? 'bg-gold-500/10 ring-2 ring-gold-500/40'
+                  ? 'dsc-row-active'
                   : 'border-gold-500/30 bg-gold-500/10'
                 : isDiscovery
-                  ? 'bg-black-950 hover:bg-black-800'
+                  ? 'dsc-row'
                   : 'border-black-700 bg-black-800/50 hover:border-black-600',
             )}
           >
@@ -112,11 +115,11 @@ export function AddToFavoritesModal({
               onChange={() => setSelectedList('quick')}
               className="sr-only"
             />
-            <svg className="w-5 h-5 text-gold-400" fill="currentColor" viewBox="0 0 24 24">
+            <svg className={isDiscovery ? 'w-5 h-5 text-[var(--dsc-accent)]' : 'w-5 h-5 text-gold-400'} fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
-            <span className="text-sm text-gold-200 flex-1">Quick Favorites</span>
-            <div className={`w-4 h-4 rounded-full ${selectedList === 'quick' ? 'bg-gold-500' : 'bg-black-600'}`} />
+            <span className={isDiscovery ? 'flex-1 text-sm text-[var(--dsc-ink)]' : 'text-sm text-gold-200 flex-1'}>Quick Favorites</span>
+            <div className={clsx('w-4 h-4 rounded-full', selectedList === 'quick' ? 'dsc-dot-active' : 'dsc-dot')} />
           </div>
 
           {/* Named lists */}
@@ -129,10 +132,10 @@ export function AddToFavoritesModal({
                 isDiscovery ? 'min-h-14 rounded-xl' : 'rounded-lg border',
                 selectedList === list.id
                   ? isDiscovery
-                    ? 'bg-gold-500/10 ring-2 ring-gold-500/40'
+                    ? 'dsc-row-active'
                     : 'border-gold-500/30 bg-gold-500/10'
                   : isDiscovery
-                    ? 'bg-black-950 hover:bg-black-800'
+                    ? 'dsc-row'
                     : 'border-black-700 bg-black-800/50 hover:border-black-600',
               )}
             >
@@ -144,14 +147,14 @@ export function AddToFavoritesModal({
                 onChange={() => setSelectedList(list.id)}
                 className="sr-only"
               />
-              <span className="text-sm text-black-200 flex-1">{list.name}</span>
-              <div className={`w-4 h-4 rounded-full ${selectedList === list.id ? 'bg-gold-500' : 'bg-black-600'}`} />
+              <span className={clsx('text-sm text-black-200 flex-1', isDiscovery && 'text-[var(--dsc-ink)]')}>{list.name}</span>
+              <div className={clsx('w-4 h-4 rounded-full', selectedList === list.id ? 'dsc-dot-active' : 'dsc-dot')} />
             </div>
           ))}
         </div>
 
         {/* Footer */}
-        <div className={clsx('flex justify-end gap-3 px-6 py-4', isDiscovery && 'border-t border-black-700')}>
+        <div className={clsx('flex justify-end gap-3 px-6 py-4', isDiscovery && 'dsc-modal-footer border-t')}>
           <button onClick={onClose} className="btn btn-ghost text-sm">
             Keep Favorites
           </button>

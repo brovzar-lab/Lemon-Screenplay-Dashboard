@@ -3,7 +3,7 @@ import { clsx } from 'clsx';
 interface ScriptCoverProps {
   title: string;
   author?: string;
-  /** Stable seed (project id) so each script keeps its paper tint. */
+  /** Stable seed (project id) so each script keeps its cover tint. */
   seed?: string;
   className?: string;
 }
@@ -19,8 +19,8 @@ function tintFromSeed(seed: string): number {
 }
 
 /**
- * A physical paper screenplay cover: tinted stock, typewriter title block,
- * "Written by" author line, brass brads, and a rev footer. Pure presentation —
+ * A physical screenplay cover: neutral stock, title block,
+ * "Written by" author line, binding dots, and a rev footer. Pure presentation,
  * ported from the approved Compact Shelf reference (.script-cover).
  */
 export function ScriptCover({ title, author, seed, className }: ScriptCoverProps) {

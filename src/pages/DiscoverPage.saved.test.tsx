@@ -150,6 +150,18 @@ describe('Discovery saved views and favorites', () => {
     expect(screen.getByText('No saved Lenses yet.')).toBeInTheDocument();
   });
 
+  it('closes the Discovery Lens menu with Escape', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await openLenses(user);
+    expect(screen.getByRole('dialog', { name: 'Lenses' })).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog', { name: 'Lenses' })).not.toBeInTheDocument();
+  });
+
   it('shows a Discovery-created view in the old dashboard Lens menu', async () => {
     const user = userEvent.setup();
     const page = renderPage();

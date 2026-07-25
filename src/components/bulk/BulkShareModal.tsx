@@ -142,7 +142,10 @@ export function BulkShareModal({
       isDiscovery ? 'items-end p-0 sm:items-center sm:p-4' : 'items-center p-4',
     )}>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className={isDiscovery ? 'fixed inset-0 dsc-scrim' : 'fixed inset-0 bg-black-950/80 backdrop-blur-sm'}
+        onClick={onClose}
+      />
 
       {/* Modal */}
       <div
@@ -151,20 +154,20 @@ export function BulkShareModal({
         className={clsx(
           'relative w-full max-w-lg overflow-hidden animate-scale-in',
           isDiscovery
-            ? 'rounded-t-2xl bg-black-900 shadow-[var(--shadow-pop)] sm:rounded-2xl dark:border dark:border-black-700'
+            ? 'dsc-modal rounded-t-2xl sm:rounded-2xl'
             : 'glass rounded-xl border border-gold-500/20',
         )}
       >
         {/* Header */}
-        <div className={clsx('flex items-center justify-between border-b border-black-700', isDiscovery ? 'p-5 sm:px-6' : 'p-4')}>
+        <div className={clsx('flex items-center justify-between border-b border-black-700', isDiscovery && 'dsc-modal-header', isDiscovery ? 'p-5 sm:px-6' : 'p-4')}>
           <div>
             {isDiscovery && (
-              <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-gold-400">
+              <p className="dsc-modal-kicker mb-1">
                 Selected slate
               </p>
             )}
-            <h3 className={clsx('font-display text-gold-200', isDiscovery ? 'text-2xl' : 'text-lg')}>Generate Share Links</h3>
-            <p className={clsx('text-black-400', isDiscovery ? 'mt-1 text-sm' : 'mt-0.5 text-xs')}>
+            <h3 className={isDiscovery ? 'dsc-modal-title text-2xl' : 'font-display text-lg text-gold-200'}>Generate Share Links</h3>
+            <p className={isDiscovery ? 'dsc-muted mt-1 text-sm' : 'mt-0.5 text-xs text-black-400'}>
               {doneCount} of {total} complete
             </p>
           </div>
@@ -182,7 +185,7 @@ export function BulkShareModal({
             </button>
             <button
               onClick={onClose}
-              className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400"
+              className={isDiscovery ? 'rounded p-1 text-[var(--dsc-ink-2)] hover:bg-[var(--dsc-surface-2)] hover:text-[var(--dsc-ink)]' : 'p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400'}
               aria-label="Close"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -202,27 +205,27 @@ export function BulkShareModal({
               className={clsx(
                 'flex items-center gap-3 py-2',
                 isDiscovery
-                  ? 'mb-2 min-h-14 rounded-xl bg-black-950 px-3 last:mb-0'
+                  ? 'dsc-row mb-2 min-h-14 rounded-xl px-3 last:mb-0'
                   : 'border-b border-black-800 last:border-0',
               )}
               >
-                <span className="flex-1 text-sm text-black-300 truncate">{sp.title}</span>
+                <span className={clsx('flex-1 text-sm text-black-300 truncate', isDiscovery && 'text-[var(--dsc-ink)]')}>{sp.title}</span>
 
                 {row.status === 'pending' && (
-                  <span className="text-xs text-black-500">Pending</span>
+                  <span className={clsx('text-xs text-black-500', isDiscovery && 'dsc-muted-faint')}>Pending</span>
                 )}
                 {row.status === 'generating' && (
-                  <svg className="animate-spin w-4 h-4 text-gold-400 shrink-0" fill="none" viewBox="0 0 24 24">
+                  <svg className={isDiscovery ? 'animate-spin w-4 h-4 text-[var(--dsc-accent)] shrink-0' : 'animate-spin w-4 h-4 text-gold-400 shrink-0'} fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                 )}
                 {row.status === 'done' && row.url && (
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs text-emerald-400 truncate max-w-[200px]">{row.url}</span>
+                    <span className={clsx('text-xs text-emerald-400 truncate max-w-[200px]', isDiscovery && 'dsc-status-success')}>{row.url}</span>
                     <button
                       onClick={() => handleCopyOne(sp.id, row.url!)}
-                      className="text-xs text-black-400 hover:text-gold-400 shrink-0"
+                      className={isDiscovery ? 'dsc-muted shrink-0 text-xs hover:text-[var(--dsc-accent)]' : 'text-xs text-black-400 hover:text-gold-400 shrink-0'}
                       aria-label={`Copy ${sp.title}`}
                     >
                       {copiedId === sp.id ? 'Copied!' : 'Copy'}
@@ -232,7 +235,7 @@ export function BulkShareModal({
                 {row.status === 'failed' && (
                   <button
                     onClick={() => generateForScreenplay(sp)}
-                    className="text-xs text-red-400 hover:text-red-300"
+                    className={clsx('text-xs text-red-400 hover:text-red-300', isDiscovery && 'dsc-status-error hover:text-[var(--error)]')}
                     aria-label="Retry"
                   >
                     Retry
@@ -244,7 +247,7 @@ export function BulkShareModal({
         </div>
 
         {/* Footer */}
-        <div className={clsx('flex justify-end border-t border-black-700 p-4', !isDiscovery && 'bg-black-900/30')}>
+        <div className={clsx('flex justify-end border-t border-black-700 p-4', isDiscovery && 'dsc-modal-footer', !isDiscovery && 'bg-black-900/30')}>
           <button onClick={onClose} className="btn btn-ghost text-sm">
             Close
           </button>

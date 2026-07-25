@@ -9,38 +9,35 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap');
 
 .discovery-root {
-  /* ---- Light tokens (mockup :root, lines 19-44) ---- */
-  --dsc-bg: oklch(0.96 0.007 250);
-  --dsc-surface: oklch(0.99 0.004 250);
-  --dsc-surface-2: oklch(0.935 0.012 250);
-  --dsc-surface-3: oklch(0.905 0.018 250);
-  --dsc-ink: oklch(0.18 0.025 255);
-  --dsc-ink-2: oklch(0.43 0.025 255);
-  --dsc-ink-3: oklch(0.58 0.02 255);
-  --dsc-line: oklch(0.84 0.016 250);
-  --dsc-accent: oklch(0.56 0.22 260);
-  --dsc-accent-hover: oklch(0.49 0.22 260);
-  --dsc-accent-soft: oklch(0.92 0.045 260);
-  --dsc-success: oklch(0.49 0.14 151);
-  --dsc-success-soft: oklch(0.92 0.045 151);
-  --dsc-consider: oklch(0.5 0.13 78);
-  --dsc-consider-soft: oklch(0.93 0.045 78);
-  --dsc-pass: oklch(0.49 0.12 25);
-  --dsc-pass-soft: oklch(0.92 0.04 25);
-  --dsc-match: oklch(0.48 0.15 184);
-  --dsc-match-soft: oklch(0.92 0.04 184);
-  --dsc-shadow-card:
-    0 1px 2px color-mix(in oklch, var(--dsc-ink) 10%, transparent),
-    0 12px 30px color-mix(in oklch, var(--dsc-ink) 9%, transparent);
-  --dsc-shadow-hover:
-    0 2px 5px color-mix(in oklch, var(--dsc-ink) 12%, transparent),
-    0 20px 44px color-mix(in oklch, var(--dsc-ink) 14%, transparent);
-  --dsc-scrim: oklch(0.12 0.03 255 / 0.48);
-  --dsc-radius-card: 8px;
-  --dsc-font-body: 'Schibsted Grotesk', system-ui, sans-serif;
-  --dsc-font-display: 'Playfair Display', Georgia, serif;
-  --dsc-font-type: 'Courier Prime', 'Courier New', monospace;
-  --dsc-on-accent: oklch(0.985 0.003 250);
+  /* ---- Discovery aliases the house Instrument tokens. ---- */
+  --dsc-bg: var(--bg);
+  --dsc-surface: var(--surface);
+  --dsc-surface-2: var(--sunken);
+  --dsc-surface-3: var(--line);
+  --dsc-ink: var(--ink);
+  --dsc-ink-2: var(--ink-2);
+  --dsc-ink-3: var(--ink-3);
+  --dsc-line: var(--line);
+  --dsc-accent: var(--accent);
+  --dsc-accent-hover: var(--accent-press);
+  --dsc-accent-soft: var(--accent-soft);
+  --dsc-success: var(--success);
+  --dsc-success-soft: var(--success-soft);
+  --dsc-consider: var(--on-soft);
+  --dsc-consider-soft: var(--accent-soft);
+  --dsc-pass: var(--on-error);
+  --dsc-pass-soft: var(--error-soft);
+  --dsc-match: var(--data-teal);
+  --dsc-match-soft: color-mix(in oklch, var(--data-teal) 16%, var(--surface));
+  --dsc-shadow-card: var(--shadow-card);
+  --dsc-shadow-hover: var(--shadow-hover);
+  --dsc-shadow-pop: var(--shadow-pop);
+  --dsc-scrim: color-mix(in oklch, var(--ink) 50%, transparent);
+  --dsc-radius-card: var(--radius-lg);
+  --dsc-font-body: var(--font-body);
+  --dsc-font-display: var(--font-display);
+  --dsc-font-type: var(--font-body);
+  --dsc-on-accent: var(--surface);
 
   background: var(--dsc-bg);
   color: var(--dsc-ink);
@@ -54,29 +51,8 @@
 [data-theme='dark'] .discovery-root,
 [data-theme$='-dark'] .discovery-root,
 .dark .discovery-root {
-  --dsc-bg: oklch(0.18 0.035 258);
-  --dsc-surface: oklch(0.23 0.042 258);
-  --dsc-surface-2: oklch(0.2 0.04 258);
-  --dsc-surface-3: oklch(0.28 0.045 258);
-  --dsc-ink: oklch(0.94 0.012 250);
-  --dsc-ink-2: oklch(0.74 0.025 250);
-  --dsc-ink-3: oklch(0.61 0.025 250);
-  --dsc-line: oklch(0.35 0.04 258);
-  --dsc-accent: oklch(0.68 0.18 260);
-  --dsc-accent-hover: oklch(0.73 0.16 260);
-  --dsc-accent-soft: oklch(0.3 0.07 260);
-  --dsc-success: oklch(0.71 0.14 151);
-  --dsc-success-soft: oklch(0.29 0.06 151);
-  --dsc-consider: oklch(0.78 0.12 78);
-  --dsc-consider-soft: oklch(0.3 0.055 78);
-  --dsc-pass: oklch(0.72 0.12 25);
-  --dsc-pass-soft: oklch(0.3 0.055 25);
-  --dsc-match: oklch(0.74 0.13 184);
-  --dsc-match-soft: oklch(0.29 0.055 184);
-  --dsc-shadow-card: 0 1px 2px oklch(0.05 0.02 258 / 0.5), 0 12px 30px oklch(0.05 0.02 258 / 0.35);
-  --dsc-shadow-hover: 0 2px 5px oklch(0.05 0.02 258 / 0.55), 0 20px 44px oklch(0.05 0.02 258 / 0.46);
-  --dsc-scrim: oklch(0.05 0.02 258 / 0.6);
-  --dsc-on-accent: oklch(0.16 0.03 258);
+  --dsc-scrim: color-mix(in oklch, var(--bg) 72%, transparent);
+  --dsc-on-accent: var(--bg);
 }
 
 /* ---- Focus (mockup lines 82-85) ---- */
@@ -193,11 +169,10 @@
 
 .dsc-btn-primary {
   border-color: var(--dsc-accent);
+  border-radius: var(--radius-md);
   background: var(--dsc-accent);
   color: var(--dsc-on-accent);
-  box-shadow:
-    0 1px 2px oklch(0.15 0.03 250 / 0.15),
-    0 7px 18px color-mix(in oklch, var(--dsc-accent) 28%, transparent);
+  box-shadow: var(--shadow-btn);
 }
 .dsc-btn-primary:hover {
   background: var(--dsc-accent-hover);
@@ -213,6 +188,80 @@
 .dsc-btn-ghost:hover {
   background: var(--dsc-surface-2);
   color: var(--dsc-ink);
+}
+
+.dsc-scrim {
+  background: var(--dsc-scrim);
+  backdrop-filter: blur(10px);
+}
+
+.dsc-modal {
+  background: var(--dsc-surface);
+  color: var(--dsc-ink);
+  box-shadow: var(--dsc-shadow-pop);
+}
+
+[data-theme='dark'] .discovery-root .dsc-modal,
+[data-theme$='-dark'] .discovery-root .dsc-modal,
+.dark .discovery-root .dsc-modal {
+  border: 1px solid var(--dsc-line);
+}
+
+.dsc-modal-header,
+.dsc-modal-footer {
+  border-color: var(--dsc-line);
+}
+
+.dsc-modal-kicker {
+  color: var(--dsc-accent);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.dsc-modal-title {
+  color: var(--dsc-ink);
+  font-family: var(--dsc-font-display);
+}
+
+.dsc-muted {
+  color: var(--dsc-ink-2);
+}
+
+.dsc-muted-faint {
+  color: var(--dsc-ink-3);
+}
+
+.dsc-row {
+  background: var(--dsc-surface-2);
+  color: var(--dsc-ink);
+}
+
+.dsc-row:hover {
+  background: var(--dsc-surface-3);
+}
+
+.dsc-row-active {
+  background: var(--dsc-accent-soft);
+  color: var(--dsc-accent);
+  box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--dsc-accent) 38%, transparent);
+}
+
+.dsc-dot {
+  background: var(--dsc-ink-3);
+}
+
+.dsc-dot-active {
+  background: var(--dsc-accent);
+}
+
+.dsc-status-success {
+  color: var(--success);
+}
+
+.dsc-status-error {
+  color: var(--on-error);
 }
 
 /* ============================================================================
@@ -295,8 +344,8 @@
 
 /* ============================================================================
    MANUSCRIPT COVER (mockup .script-cover, lines 321-346)
-   A physical paper script: tinted stock, typewriter title block, brass brads,
-   rev footer. Paper stays paper in dark mode — it is a lit physical object.
+   A physical script block with neutral stock, title block, binding dots,
+   and a revision footer.
    ============================================================================ */
 .dsc-cover {
   position: relative;
@@ -310,13 +359,13 @@
   min-height: 0;
   overflow: hidden;
   padding: 10% 12%;
-  border: 1px solid oklch(0.18 0.025 255 / 0.35);
-  background: var(--dsc-paper, oklch(0.91 0.014 252));
-  color: oklch(0.22 0.025 255);
+  border: 1px solid var(--dsc-line);
+  background: var(--dsc-paper, var(--dsc-surface-2));
+  color: var(--dsc-ink);
   text-align: center;
-  box-shadow: 0 16px 26px oklch(0.18 0.025 255 / 0.16);
+  box-shadow: var(--dsc-shadow-card);
 }
-/* Brass brads */
+/* Neutral binding dots, weighted like a physical script without warm metal. */
 .dsc-cover::before,
 .dsc-cover::after {
   content: '';
@@ -325,8 +374,8 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: oklch(0.62 0.09 85);
-  box-shadow: inset 0 -1px 1px oklch(0.4 0.07 85 / 0.8);
+  background: var(--dsc-ink-3);
+  box-shadow: inset 0 -1px 1px color-mix(in oklch, var(--dsc-ink) 28%, transparent);
 }
 .dsc-cover::before {
   top: 15%;
@@ -336,16 +385,16 @@
 }
 /* Deterministic paper tints, keyed off the project id */
 .dsc-cover[data-tint='1'] {
-  --dsc-paper: oklch(0.92 0.018 85);
+  --dsc-paper: color-mix(in oklch, var(--dsc-surface-2) 88%, var(--data-blue));
 }
 .dsc-cover[data-tint='2'] {
-  --dsc-paper: oklch(0.91 0.016 150);
+  --dsc-paper: color-mix(in oklch, var(--dsc-surface-2) 88%, var(--data-teal));
 }
 .dsc-cover[data-tint='3'] {
-  --dsc-paper: oklch(0.92 0.014 25);
+  --dsc-paper: color-mix(in oklch, var(--dsc-surface-2) 88%, var(--data-violet));
 }
 .dsc-cover[data-tint='4'] {
-  --dsc-paper: oklch(0.91 0.012 200);
+  --dsc-paper: color-mix(in oklch, var(--dsc-surface-2) 88%, var(--data-coral));
 }
 
 .dsc-cover-title {
@@ -381,7 +430,7 @@
   font-size: clamp(6px, 0.9cqw + 4px, 9px);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: oklch(0.45 0.02 255);
+  color: var(--dsc-ink-2);
 }
 .dsc-cover--container {
   container-type: inline-size;
