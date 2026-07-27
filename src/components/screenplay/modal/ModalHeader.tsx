@@ -29,6 +29,7 @@ interface ModalHeaderProps {
     closeLabel?: string;
     supplementalActions?: ReactNode;
     presentation?: 'default' | 'discovery';
+    authorFallback?: string;
 }
 export function ModalHeader({
     screenplay,
@@ -40,6 +41,7 @@ export function ModalHeader({
     closeLabel = 'Close modal',
     supplementalActions,
     presentation = 'default',
+    authorFallback,
 }: ModalHeaderProps) {
     const isDiscovery = presentation === 'discovery';
     const isAdmin = useIsAdmin();
@@ -194,7 +196,7 @@ export function ModalHeader({
                     >
                         {screenplay.title}
                     </h2>
-                    <p className="text-black-400">by {screenplay.author}</p>
+                    <p className="text-black-400">by {screenplay.author || authorFallback || ''}</p>
                 </div>
 
                 {/* Tier 3: Chips (left) + Actions (right) */}

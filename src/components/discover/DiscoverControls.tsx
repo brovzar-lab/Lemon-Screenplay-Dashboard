@@ -90,9 +90,9 @@ export function DiscoverControls({
   };
 
   return (
-    <section aria-label="Find screenplays" className="dsc-card mb-10 overflow-hidden">
+    <section aria-label="Find screenplays" className="dsc-card mb-8 overflow-hidden">
       <div className="grid lg:grid-cols-[minmax(18rem,1.5fr)_minmax(28rem,2fr)]">
-        <div className="dsc-hairline p-5 sm:p-6 lg:border-r">
+        <div className="dsc-hairline p-4 sm:p-5 lg:border-r">
           <label htmlFor="discovery-search" className="dsc-kicker mb-2 block">
             Search the slate
           </label>
@@ -112,7 +112,7 @@ export function DiscoverControls({
             />
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2" aria-label="Verdict filters">
+          <div className="mt-4 flex flex-wrap gap-2" aria-label="Verdict filters">
             {VERDICTS.map((tier) => {
               const active = filters.recommendationTiers.includes(tier);
 
@@ -131,7 +131,7 @@ export function DiscoverControls({
           </div>
         </div>
 
-        <div className="border-t p-5 dsc-hairline sm:p-6 lg:border-t-0">
+        <div className="border-t p-4 dsc-hairline sm:p-5 lg:border-t-0">
           <div className="grid gap-4 sm:grid-cols-2">
             <MultiSelect
               label="Genre"
@@ -191,7 +191,7 @@ export function DiscoverControls({
         </div>
       </div>
 
-      <div className="dsc-hairline flex flex-col gap-4 border-t px-5 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+      <div className="dsc-hairline flex flex-col gap-3 border-t px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs text-[var(--dsc-ink-2)]">
           <span>
             Showing {filteredCount} of {totalCount} screenplays

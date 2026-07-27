@@ -37,10 +37,10 @@ interface DiscoverShellProps {
 
 function DiscoverIntro() {
   return (
-    <section className="mb-7 flex flex-col gap-5 border-b pb-6 dsc-hairline sm:flex-row sm:items-end sm:justify-between">
+    <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p className="dsc-kicker mb-2">Lemon Studios · Development slate</p>
-        <h1 className="dsc-display text-5xl sm:text-6xl">Discover</h1>
+        <h1 className="dsc-display text-4xl sm:text-5xl">Discover</h1>
       </div>
       <p className="max-w-sm text-left text-sm leading-6 text-[var(--dsc-ink-2)] sm:text-right">
         Find the strongest story for the moment, then follow the signal through the slate.
@@ -127,8 +127,8 @@ export function DiscoverShell({
         isLoading={isLoading}
       />
 
-      <main className={`px-4 py-6 sm:px-6 sm:py-8 lg:px-10 ${hasSelection ? 'pb-56 sm:pb-28' : ''}`}>
-        <div className="mx-auto max-w-[1600px]">
+      <main className={`px-4 py-5 sm:px-6 sm:py-7 lg:px-8 ${hasSelection ? 'pb-56 sm:pb-28' : ''}`}>
+        <div className="mx-auto max-w-[1480px]">
           {isLoading ? (
             <DiscoverLoading />
           ) : isError ? (
@@ -194,10 +194,10 @@ export function DiscoverShell({
                   />
 
                   <section aria-labelledby="discovery-archive">
-                    <div className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b pb-4 dsc-hairline">
+                    <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
                       <div>
                         <p className="dsc-kicker mb-2">The full read</p>
-                        <h2 id="discovery-archive" className="dsc-display text-3xl">
+                        <h2 id="discovery-archive" className="text-2xl font-semibold text-[var(--dsc-ink)]">
                           Slate archive
                         </h2>
                       </div>

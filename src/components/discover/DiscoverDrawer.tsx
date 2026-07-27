@@ -66,7 +66,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
 
   return (
     <div
-      className="dsc-drawer-scrim fixed inset-0 z-50 flex justify-end sm:p-3 sm:pl-10"
+      className="dsc-drawer-scrim fixed inset-0 z-[100] flex justify-end sm:p-3 sm:pl-10"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose();
       }}
@@ -77,7 +77,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
         aria-modal="true"
         aria-labelledby="discovery-drawer-title"
         data-presentation="discovery"
-        className="dsc-drawer animate-slide-in-right flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-[var(--dsc-radius-card)]"
+        className="dsc-drawer animate-slide-in-right relative flex h-full w-full max-w-[76rem] flex-col overflow-hidden rounded-[var(--dsc-radius-card)]"
       >
         <div className="dsc-drawer-head relative z-10 shrink-0">
           <ModalHeader
@@ -88,6 +88,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
             titleId="discovery-drawer-title"
             closeLabel="Close details"
             presentation="discovery"
+            authorFallback="Unknown writer"
             supplementalActions={
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <DiscoveryShareStatus screenplay={screenplay} />
@@ -103,8 +104,8 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <div className="dsc-drawer-body relative z-10 min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-5 lg:p-6">
             <section className="dsc-card p-5 sm:p-6" aria-labelledby="drawer-logline">
               <p className="dsc-kicker">The read</p>
               <h3 id="drawer-logline" className="dsc-display mt-2 text-2xl">
@@ -122,21 +123,21 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
 
             <section
               data-testid="discovery-scores-panel"
-              className="dsc-card p-5 sm:p-6"
+              className="dsc-card p-4 sm:p-5"
               aria-label="Screenplay scores"
             >
               <ScoresPanel screenplay={screenplay} />
             </section>
             <section
               data-testid="discovery-content-details"
-              className="dsc-card space-y-8 p-5 sm:p-6"
+              className="dsc-card space-y-7 p-4 sm:p-5"
               aria-label="Screenplay details"
             >
               <ContentDetails screenplay={screenplay} />
             </section>
             <section
               data-testid="discovery-notes-panel"
-              className="dsc-card p-5 sm:p-6"
+              className="dsc-card p-4 sm:p-5"
               aria-label="Private notes"
             >
               <NotesSection screenplayId={screenplay.id} />
