@@ -42,13 +42,13 @@ interface DiscoverShellProps {
 
 function DiscoverIntro() {
   return (
-    <section className="mb-5 flex items-end justify-between gap-6">
+    <section className="cinema-page-intro">
       <div>
-        <p className="dsc-kicker mb-1.5">Lemon Studios · Development slate</p>
-        <h1 className="dsc-display text-4xl">Discover</h1>
+        <p className="dsc-kicker">Lemon Studios · Development slate</p>
+        <h1>Cinema Browse</h1>
       </div>
-      <p className="hidden max-w-md text-right text-sm leading-6 text-[var(--dsc-ink-2)] md:block">
-        Find the stories worth making. Follow the evidence, then open the complete read.
+      <p>
+        Find the strongest story for the moment, then follow the signal through the slate.
       </p>
     </section>
   );
@@ -133,8 +133,8 @@ export function DiscoverShell({
         isLoading={isLoading}
       />
 
-      <main className={`px-4 py-5 sm:px-6 sm:py-7 lg:px-8 ${hasSelection ? 'pb-56 sm:pb-28' : ''}`}>
-        <div className="mx-auto max-w-[1480px]">
+      <main className={`px-4 py-5 sm:px-6 lg:px-8 ${hasSelection ? 'pb-56 sm:pb-28' : ''}`}>
+        <div className="mx-auto max-w-[1800px]">
           {isLoading ? (
             <DiscoverLoading />
           ) : isError ? (
@@ -200,17 +200,10 @@ export function DiscoverShell({
                   <DiscoverFilmNowShelf screenplays={filmNow} onOpen={handleOpen} />
                   <DiscoverRankedShelf screenplays={topMatches} onOpen={handleOpen} />
 
-                  <section aria-labelledby="discovery-archive">
-                    <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-                      <div>
-                        <p className="dsc-kicker mb-2">The full collection</p>
-                        <h2 id="discovery-archive" className="text-2xl font-semibold text-[var(--dsc-ink)]">
-                          Full slate
-                        </h2>
-                      </div>
-                      <span className="dsc-label dsc-label-faint">
-                        {grid.length} beyond the ranking
-                      </span>
+                  <section aria-labelledby="discovery-archive" className="cinema-shelf">
+                    <div className="cinema-shelf-head">
+                      <h2 id="discovery-archive">Browse the slate</h2>
+                      <span>{grid.length} more in this view</span>
                     </div>
                     <DiscoverGrid screenplays={grid} onOpen={handleOpen} />
                   </section>

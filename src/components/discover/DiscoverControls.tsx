@@ -90,8 +90,8 @@ export function DiscoverControls({
   };
 
   return (
-    <section aria-label="Find screenplays" className="dsc-command dsc-card mb-8">
-      <div className="flex flex-col gap-3 p-4 xl:flex-row xl:items-end">
+    <section aria-label="Find screenplays" className="dsc-command cinema-command mb-5">
+      <div className="cinema-command-primary flex flex-col gap-3 xl:flex-row xl:items-end">
         <div className="min-w-0 flex-1">
           <label htmlFor="discovery-search" className="dsc-label mb-1.5 block">
             Search
@@ -151,7 +151,7 @@ export function DiscoverControls({
         </div>
       </div>
 
-      <div className="dsc-command-lower flex flex-col gap-3 px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="dsc-command-lower cinema-command-lower flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-wrap gap-2" aria-label="Verdict filters">
           {VERDICTS.map((tier) => {
             const active = filters.recommendationTiers.includes(tier);

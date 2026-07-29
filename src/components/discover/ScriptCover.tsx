@@ -30,6 +30,8 @@ export function ScriptCover({ title, author, seed, className }: ScriptCoverProps
       data-tint={seed ? tintFromSeed(seed) : 0}
       className={clsx('dsc-cover dsc-cover--container w-full', className)}
     >
+      <span className="dsc-cover-art" />
+      <span className="dsc-cover-rule" />
       <p className="dsc-cover-title">{title}</p>
       <p className="dsc-cover-author">
         Written by

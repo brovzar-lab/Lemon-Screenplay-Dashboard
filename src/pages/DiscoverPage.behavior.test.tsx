@@ -102,6 +102,7 @@ describe('DiscoverPage find toolchain', () => {
     renderPage();
 
     await waitForWeightedDefault();
+    expect(screen.getByRole('heading', { name: 'Cinema Browse' })).toBeInTheDocument();
     expect(discoveryResults()).toHaveLength(7);
   });
 

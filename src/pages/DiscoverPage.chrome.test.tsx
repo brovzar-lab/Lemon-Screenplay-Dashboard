@@ -117,7 +117,7 @@ describe('Discovery app shell and route state', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(router.state.location.pathname).toBe('/discover');
-    expect(screen.getByRole('heading', { name: 'Discover' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Cinema Browse' })).toBeInTheDocument();
   });
 
   it.each([

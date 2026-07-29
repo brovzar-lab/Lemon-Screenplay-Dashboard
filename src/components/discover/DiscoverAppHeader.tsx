@@ -57,9 +57,14 @@ export function DiscoverAppHeader({
           </span>
         </NavLink>
 
+        <div className="cinema-header-title hidden lg:flex">
+          <span aria-hidden="true" />
+          <strong>Cinema Browse</strong>
+        </div>
+
         <nav
           aria-label="Discovery navigation"
-          className="order-3 flex w-full gap-5 sm:order-none sm:w-auto"
+          className="order-3 flex w-full gap-5 lg:order-none lg:w-auto"
         >
           <NavLink to="/discover" end={false} className={navClass}>
             Discover
