@@ -90,11 +90,11 @@ export function DiscoverControls({
   };
 
   return (
-    <section aria-label="Find screenplays" className="dsc-card mb-8 overflow-hidden">
-      <div className="grid lg:grid-cols-[minmax(18rem,1.5fr)_minmax(28rem,2fr)]">
-        <div className="dsc-hairline p-4 sm:p-5 lg:border-r">
-          <label htmlFor="discovery-search" className="dsc-kicker mb-2 block">
-            Search the slate
+    <section aria-label="Find screenplays" className="dsc-command dsc-card mb-8">
+      <div className="flex flex-col gap-3 p-4 xl:flex-row xl:items-end">
+        <div className="min-w-0 flex-1">
+          <label htmlFor="discovery-search" className="dsc-label mb-1.5 block">
+            Search
           </label>
           <div className="dsc-search">
             <span aria-hidden="true" className="text-lg font-semibold text-[var(--dsc-ink-3)]">
@@ -111,89 +111,67 @@ export function DiscoverControls({
               className="py-2 text-base"
             />
           </div>
-
-          <div className="mt-4 flex flex-wrap gap-2" aria-label="Verdict filters">
-            {VERDICTS.map((tier) => {
-              const active = filters.recommendationTiers.includes(tier);
-
-              return (
-                <button
-                  key={tier}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => filters.toggleRecommendationTier(tier)}
-                  className={clsx('dsc-verdict-chip', VERDICT_STYLES[tier])}
-                >
-                  {RECOMMENDATION_CONFIG[tier].label}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
-        <div className="border-t p-4 dsc-hairline sm:p-5 lg:border-t-0">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <MultiSelect
-              label="Genre"
-              options={genres}
-              selected={filters.genres}
-              onChange={filters.setGenres}
-              placeholder="All genres"
-            />
-            <MultiSelect
-              label="Theme"
-              options={themes}
-              selected={filters.themes}
-              onChange={filters.setThemes}
-              placeholder="All themes"
-            />
-          </div>
+        <div className="dsc-compact-filter grid gap-3 md:grid-cols-2 xl:w-[22rem]">
+          <MultiSelect
+            label="Genre"
+            options={genres}
+            selected={filters.genres}
+            onChange={filters.setGenres}
+            placeholder="All genres"
+          />
+          <MultiSelect
+            label="Theme"
+            options={themes}
+            selected={filters.themes}
+            onChange={filters.setThemes}
+            placeholder="All themes"
+          />
+        </div>
 
-          <details className="dsc-hairline mt-4 border-t pt-4">
-            <summary className="dsc-label cursor-pointer hover:text-[var(--dsc-ink)]">
-              Score ranges
-            </summary>
-            <div className="mt-3 grid gap-2 xl:grid-cols-3">
-              <RangeSlider
-                label="Weighted score"
-                min={0}
-                max={10}
-                value={[filters.weightedScoreRange.min, filters.weightedScoreRange.max]}
-                syncValue
-                enabled={filters.weightedScoreRange.enabled}
-                onEnabledChange={(enabled) => filters.setWeightedScoreRange({ enabled })}
-                onChange={([min, max]) => filters.setWeightedScoreRange({ min, max })}
-              />
-              <RangeSlider
-                label="Market potential"
-                min={0}
-                max={10}
-                value={[filters.marketPotentialRange.min, filters.marketPotentialRange.max]}
-                syncValue
-                enabled={filters.marketPotentialRange.enabled}
-                onEnabledChange={(enabled) => filters.setMarketPotentialRange({ enabled })}
-                onChange={([min, max]) => filters.setMarketPotentialRange({ min, max })}
-              />
-              <RangeSlider
-                label="CVS"
-                min={0}
-                max={18}
-                step={1}
-                value={[filters.cvsRange.min, filters.cvsRange.max]}
-                syncValue
-                enabled={filters.cvsRange.enabled}
-                onEnabledChange={(enabled) => filters.setCvsRange({ enabled })}
-                onChange={([min, max]) => filters.setCvsRange({ min, max })}
-                formatValue={(value) => value.toFixed(0)}
-              />
-            </div>
-          </details>
+        <label className="dsc-label flex flex-col items-start gap-1.5 xl:w-44">
+          Sort
+          <select
+            aria-label="Sort results"
+            value={activeSort}
+            onChange={(event) => handleSort(event.target.value as SortField)}
+            className="dsc-select w-full normal-case tracking-normal"
+          >
+            <option value="weightedScore">Weighted score</option>
+            <option value="marketPotential">Market potential</option>
+            <option value="cvsTotal">CVS</option>
+            <option value="title">Title</option>
+          </select>
+        </label>
+
+        <div className="flex items-center gap-2">
+          <LensMenu presentation="discovery" />
+          <DiscoveryFavoritesMenu screenplays={screenplays} onOpen={onOpenScreenplay} />
         </div>
       </div>
 
-      <div className="dsc-hairline flex flex-col gap-3 border-t px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs text-[var(--dsc-ink-2)]">
-          <span>
+      <div className="dsc-command-lower flex flex-col gap-3 px-4 py-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap gap-2" aria-label="Verdict filters">
+          {VERDICTS.map((tier) => {
+            const active = filters.recommendationTiers.includes(tier);
+
+            return (
+              <button
+                key={tier}
+                type="button"
+                aria-pressed={active}
+                onClick={() => filters.toggleRecommendationTier(tier)}
+                className={clsx('dsc-verdict-chip', VERDICT_STYLES[tier])}
+              >
+                {RECOMMENDATION_CONFIG[tier].label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--dsc-ink-2)]">
+          <span className="font-semibold text-[var(--dsc-ink)]">
             Showing {filteredCount} of {totalCount} screenplays
           </span>
           {producedHiddenCount > 0 && (
@@ -207,7 +185,7 @@ export function DiscoverControls({
               <button
                 type="button"
                 onClick={onRevealProduced}
-                className="dsc-btn dsc-btn-ghost !min-h-11 !px-2 !text-[11px] font-bold uppercase tracking-[0.08em] !text-[var(--dsc-accent)]"
+                className="dsc-command-link"
               >
                 Show produced films
               </button>
@@ -225,40 +203,58 @@ export function DiscoverControls({
               <button
                 type="button"
                 onClick={onRevealNonScreenplays}
-                className="dsc-btn dsc-btn-ghost !min-h-11 !px-2 !text-[11px] font-bold uppercase tracking-[0.08em] !text-[var(--dsc-accent)]"
+                className="dsc-command-link"
               >
                 Show non-screenplays
               </button>
             </>
           )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
           {hasActiveFilters && filteredCount > 0 && (
-            <button
-              type="button"
-              onClick={onClearFilters}
-              className="dsc-btn dsc-btn-ghost !min-h-11 !px-2 !text-[11px] font-bold uppercase tracking-[0.08em]"
-            >
+            <button type="button" onClick={onClearFilters} className="dsc-command-link">
               Clear filters
             </button>
           )}
-          <label className="dsc-label flex min-h-11 items-center gap-2">
-            Sort
-            <select
-              aria-label="Sort results"
-              value={activeSort}
-              onChange={(event) => handleSort(event.target.value as SortField)}
-              className="dsc-select normal-case tracking-normal"
-            >
-              <option value="weightedScore">Weighted score</option>
-              <option value="marketPotential">Market potential</option>
-              <option value="cvsTotal">CVS</option>
-              <option value="title">Title</option>
-            </select>
-          </label>
-          <LensMenu presentation="discovery" />
-          <DiscoveryFavoritesMenu screenplays={screenplays} onOpen={onOpenScreenplay} />
         </div>
+
+        <details className="dsc-score-details">
+          <summary className="dsc-btn dsc-btn-ghost !min-h-10 whitespace-nowrap">
+            Score ranges
+          </summary>
+          <div className="dsc-score-popover">
+            <RangeSlider
+              label="Weighted score"
+              min={0}
+              max={10}
+              value={[filters.weightedScoreRange.min, filters.weightedScoreRange.max]}
+              syncValue
+              enabled={filters.weightedScoreRange.enabled}
+              onEnabledChange={(enabled) => filters.setWeightedScoreRange({ enabled })}
+              onChange={([min, max]) => filters.setWeightedScoreRange({ min, max })}
+            />
+            <RangeSlider
+              label="Market potential"
+              min={0}
+              max={10}
+              value={[filters.marketPotentialRange.min, filters.marketPotentialRange.max]}
+              syncValue
+              enabled={filters.marketPotentialRange.enabled}
+              onEnabledChange={(enabled) => filters.setMarketPotentialRange({ enabled })}
+              onChange={([min, max]) => filters.setMarketPotentialRange({ min, max })}
+            />
+            <RangeSlider
+              label="CVS"
+              min={0}
+              max={18}
+              step={1}
+              value={[filters.cvsRange.min, filters.cvsRange.max]}
+              syncValue
+              enabled={filters.cvsRange.enabled}
+              onEnabledChange={(enabled) => filters.setCvsRange({ enabled })}
+              onChange={([min, max]) => filters.setCvsRange({ min, max })}
+              formatValue={(value) => value.toFixed(0)}
+            />
+          </div>
+        </details>
       </div>
     </section>
   );

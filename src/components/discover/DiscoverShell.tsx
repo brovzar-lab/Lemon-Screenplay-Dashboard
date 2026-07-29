@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef } from 'react';
 import { DiscoverAppHeader } from '@/components/discover/DiscoverAppHeader';
 import { DiscoverControls } from '@/components/discover/DiscoverControls';
 import { DiscoverDrawer } from '@/components/discover/DiscoverDrawer';
-import { DiscoverGrid, DiscoverShowcase } from '@/components/discover/DiscoverResults';
+import {
+  DiscoverFeature,
+  DiscoverFilmNowShelf,
+  DiscoverGrid,
+  DiscoverRankedShelf,
+} from '@/components/discover/DiscoverResults';
 import { DiscoverySelectionBar } from '@/components/discover/DiscoverySelectionBar';
 import { useHasSelection } from '@/stores/selectionStore';
 import type { Screenplay } from '@/types';
@@ -37,13 +42,13 @@ interface DiscoverShellProps {
 
 function DiscoverIntro() {
   return (
-    <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <section className="mb-5 flex items-end justify-between gap-6">
       <div>
-        <p className="dsc-kicker mb-2">Lemon Studios · Development slate</p>
-        <h1 className="dsc-display text-4xl sm:text-5xl">Discover</h1>
+        <p className="dsc-kicker mb-1.5">Lemon Studios · Development slate</p>
+        <h1 className="dsc-display text-4xl">Discover</h1>
       </div>
-      <p className="max-w-sm text-left text-sm leading-6 text-[var(--dsc-ink-2)] sm:text-right">
-        Find the strongest story for the moment, then follow the signal through the slate.
+      <p className="hidden max-w-md text-right text-sm leading-6 text-[var(--dsc-ink-2)] md:block">
+        Find the stories worth making. Follow the evidence, then open the complete read.
       </p>
     </section>
   );
@@ -117,6 +122,7 @@ export function DiscoverShell({
   const [featured, ...remaining] = screenplays;
   const topMatches = remaining.slice(0, 4);
   const grid = remaining.slice(4);
+  const filmNow = screenplays.filter((screenplay) => screenplay.recommendation === 'film_now');
 
   return (
     <div className="discovery-root min-h-screen">
@@ -187,22 +193,23 @@ export function DiscoverShell({
                 </section>
               ) : (
                 <>
-                  <DiscoverShowcase
+                  <DiscoverFeature
                     featured={featured}
-                    topMatches={topMatches}
                     onOpen={handleOpen}
                   />
+                  <DiscoverFilmNowShelf screenplays={filmNow} onOpen={handleOpen} />
+                  <DiscoverRankedShelf screenplays={topMatches} onOpen={handleOpen} />
 
                   <section aria-labelledby="discovery-archive">
                     <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
                       <div>
-                        <p className="dsc-kicker mb-2">The full read</p>
+                        <p className="dsc-kicker mb-2">The full collection</p>
                         <h2 id="discovery-archive" className="text-2xl font-semibold text-[var(--dsc-ink)]">
-                          Slate archive
+                          Full slate
                         </h2>
                       </div>
                       <span className="dsc-label dsc-label-faint">
-                        {grid.length} beyond the shelf
+                        {grid.length} beyond the ranking
                       </span>
                     </div>
                     <DiscoverGrid screenplays={grid} onOpen={handleOpen} />
@@ -216,6 +223,7 @@ export function DiscoverShell({
 
       <DiscoverySelectionBar
         screenplays={allScreenplays}
+        visibleScreenplays={screenplays}
         escapeEnabled={!selectedScreenplay}
       />
 

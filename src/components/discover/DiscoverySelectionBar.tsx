@@ -11,11 +11,13 @@ import type { Screenplay } from '@/types';
 
 interface DiscoverySelectionBarProps {
   screenplays: Screenplay[];
+  visibleScreenplays: Screenplay[];
   escapeEnabled: boolean;
 }
 
 export function DiscoverySelectionBar({
   screenplays,
+  visibleScreenplays,
   escapeEnabled,
 }: DiscoverySelectionBarProps) {
   const [showShareModal, setShowShareModal] = useState(false);
@@ -28,6 +30,10 @@ export function DiscoverySelectionBar({
   const selectedScreenplays = useMemo(
     () => screenplays.filter((screenplay) => selectedIds.has(screenplay.id)),
     [screenplays, selectedIds],
+  );
+  const visibleSelectedScreenplays = useMemo(
+    () => visibleScreenplays.filter((screenplay) => selectedIds.has(screenplay.id)),
+    [visibleScreenplays, selectedIds],
   );
 
   useEffect(() => {
@@ -53,13 +59,16 @@ export function DiscoverySelectionBar({
       <section
         aria-label="Discovery selection actions"
         data-presentation="discovery"
-        className="dsc-card fixed inset-x-0 bottom-0 z-40 rounded-none bg-[var(--dsc-surface)]"
+        className="dsc-selection-tray fixed inset-x-0 bottom-0 z-40 bg-[var(--dsc-surface)]"
       >
-        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
+        <div className="mx-auto flex max-w-[1800px] flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:px-10">
           <div className="flex items-center gap-3">
-            <span className="dsc-num text-sm font-semibold">
-              {count} screenplay{count === 1 ? '' : 's'} selected
-            </span>
+            <div>
+              <span className="dsc-kicker block">Selection</span>
+              <span className="dsc-num mt-0.5 block text-sm font-semibold">
+                {count} screenplay{count === 1 ? '' : 's'} selected
+              </span>
+            </div>
             <button
               type="button"
               aria-label="Clear selection"
@@ -70,7 +79,25 @@ export function DiscoverySelectionBar({
             </button>
           </div>
 
-          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+          <div className="hidden min-w-0 flex-1 gap-2 xl:flex">
+            {visibleSelectedScreenplays.slice(0, 3).map((screenplay) => (
+              <div key={screenplay.id} className="dsc-selection-project min-w-0 flex-1">
+                <span className="truncate text-sm font-semibold text-[var(--dsc-ink)]">
+                  {screenplay.title}
+                </span>
+                <span className="dsc-num shrink-0 text-lg font-semibold">
+                  {screenplay.weightedScore.toFixed(1)}
+                </span>
+              </div>
+            ))}
+            {count > 3 && (
+              <div className="dsc-selection-project flex-none">
+                <span className="dsc-num text-sm font-semibold">+{count - 3} more</span>
+              </div>
+            )}
+          </div>
+
+          <div className="grid w-full grid-cols-2 gap-2 lg:ml-auto lg:flex lg:w-auto lg:flex-wrap lg:items-center">
             <button
               type="button"
               onClick={() => setShowShareModal(true)}

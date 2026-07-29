@@ -257,6 +257,28 @@ describe('DiscoverPage find toolchain', () => {
     expect(screen.queryByText('1 non-screenplay hidden')).not.toBeInTheDocument();
   });
 
+  it('only renders the FILM NOW shelf when the slate contains a Film Now project', async () => {
+    hookState.screenplays = buildScreenplays();
+    const { unmount } = renderPage();
+
+    await waitForWeightedDefault();
+    expect(screen.queryByRole('heading', { name: 'FILM NOW' })).not.toBeInTheDocument();
+
+    unmount();
+    hookState.screenplays = buildScreenplays().map((item) =>
+      item.id === 'amber' ? { ...item, recommendation: 'film_now' as const } : item,
+    );
+    renderPage();
+
+    const filmNowHeading = await screen.findByRole('heading', { name: 'FILM NOW' });
+    expect(filmNowHeading).toBeInTheDocument();
+    expect(
+      within(filmNowHeading.closest('section') as HTMLElement).getByRole('button', {
+        name: 'Open FILM NOW Amber Sky details',
+      }),
+    ).toBeInTheDocument();
+  });
+
   it('focuses the Discovery search when slash is pressed outside an editable control', async () => {
     renderPage();
     await waitForWeightedDefault();

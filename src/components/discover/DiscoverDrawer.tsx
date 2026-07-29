@@ -106,19 +106,61 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
 
         <div className="dsc-drawer-body relative z-10 min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-5 lg:p-6">
-            <section className="dsc-card p-5 sm:p-6" aria-labelledby="drawer-logline">
+            <section className="dsc-card p-5 sm:p-6" aria-labelledby="drawer-executive-read">
               <p className="dsc-kicker">The read</p>
-              <h3 id="drawer-logline" className="dsc-display mt-2 text-2xl">
-                Logline
+              <h3 id="drawer-executive-read" className="dsc-display mt-2 text-3xl">
+                Executive read
               </h3>
-              <p className="mt-3 text-base leading-7 text-[var(--dsc-ink-2)]">
-                {screenplay.logline || 'Logline not yet available.'}
-              </p>
-              {screenplay.verdictStatement && (
-                <p className="mt-4 text-sm italic leading-6 text-[var(--dsc-ink-3)]">
-                  {screenplay.verdictStatement}
-                </p>
-              )}
+              <div className="mt-5 grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
+                <div>
+                  <p className="dsc-label dsc-label-faint">Logline</p>
+                  <p className="mt-2 text-base leading-7 text-[var(--dsc-ink-2)]">
+                    {screenplay.logline || 'Logline not yet available.'}
+                  </p>
+                  {screenplay.verdictStatement && (
+                    <div className="dsc-executive-verdict mt-5">
+                      <p className="dsc-label">Recommendation</p>
+                      <p className="mt-2 text-sm leading-6 text-[var(--dsc-ink)]">
+                        {screenplay.verdictStatement}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="dsc-executive-evidence">
+                  <div>
+                    <p className="dsc-label">Strengths</p>
+                    {screenplay.strengths.length > 0 ? (
+                      <ul className="mt-3 space-y-2">
+                        {screenplay.strengths.slice(0, 3).map((strength) => (
+                          <li key={strength} className="flex gap-2 text-sm leading-5 text-[var(--dsc-ink-2)]">
+                            <span aria-hidden="true" className="text-[var(--dsc-success)]">●</span>
+                            <span>{strength}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-sm text-[var(--dsc-ink-3)]">Not yet available.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="dsc-label">Watch points</p>
+                    {screenplay.weaknesses.length > 0 ? (
+                      <ul className="mt-3 space-y-2">
+                        {screenplay.weaknesses.slice(0, 2).map((weakness) => (
+                          <li key={weakness} className="flex gap-2 text-sm leading-5 text-[var(--dsc-ink-2)]">
+                            <span aria-hidden="true" className="text-[var(--dsc-pass)]">●</span>
+                            <span>{weakness}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-sm text-[var(--dsc-ink-3)]">No watch points recorded.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section
