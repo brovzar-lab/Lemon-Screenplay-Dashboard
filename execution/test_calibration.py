@@ -119,6 +119,88 @@ class CalibrationPromptTests(unittest.TestCase):
         for call in run_full.call_args_list:
             self.assertEqual(call.kwargs["calibration_prompt"], "Lemon profile")
 
+    def test_boundary_rerun_failure_is_preserved_in_provenance(self):
+        first = {
+            "weighted_score_adjusted": 7.5,
+            "verdict": "RECOMMEND",
+            "verdict_model": "RECOMMEND",
+        }
+        usage = {"input_tokens": 1, "output_tokens": 1}
+        with (
+            patch.object(ingest_v9, "_near_boundary", return_value=True),
+            patch.object(
+                ingest_v9,
+                "run_v9_full",
+                side_effect=[
+                    (first, usage),
+                    RuntimeError("reader timeout"),
+                    RuntimeError("proxy unavailable"),
+                ],
+            ),
+        ):
+            analysis, _usage = ingest_v9.run_v9_stable(
+                text="INT. HOUSE - DAY",
+                title="Draft",
+                page_count=100,
+                word_count=20_000,
+                model_key="sonnet",
+                proxy_url=None,
+            )
+
+        provenance = analysis["_boundary_reruns"]
+        self.assertTrue(provenance["triggered"])
+        self.assertEqual(provenance["reason"], "reruns_failed")
+        self.assertEqual(provenance["attempted_runs"], 3)
+        self.assertEqual(provenance["completed_runs"], 1)
+        self.assertEqual(
+            [failure["error_type"] for failure in provenance["failed_runs"]],
+            ["RuntimeError", "RuntimeError"],
+        )
+
+    def test_boundary_postprocessing_failure_keeps_accrued_usage(self):
+        first = {
+            "weighted_score_adjusted": 7.5,
+            "verdict": "RECOMMEND",
+            "verdict_model": "RECOMMEND",
+        }
+        third = {
+            "weighted_score_adjusted": 7.7,
+            "verdict": "RECOMMEND",
+            "verdict_model": "RECOMMEND",
+        }
+        successful_usage = {"input_tokens": 1, "output_tokens": 1}
+        call_number = 0
+
+        def run_full(**kwargs):
+            nonlocal call_number
+            call_number += 1
+            if call_number == 1:
+                return first, successful_usage
+            if call_number == 2:
+                sink = kwargs["usage_sink"]
+                sink["input_tokens"] = 50
+                raise ValueError("pillar post-processing failed")
+            return third, successful_usage
+
+        with (
+            patch.object(ingest_v9, "_near_boundary", return_value=True),
+            patch.object(ingest_v9, "run_v9_full", side_effect=run_full),
+        ):
+            analysis, usage = ingest_v9.run_v9_stable(
+                text="INT. HOUSE - DAY",
+                title="Draft",
+                page_count=100,
+                word_count=20_000,
+                model_key="sonnet",
+                proxy_url=None,
+            )
+
+        self.assertEqual(usage["input_tokens"], 52)
+        self.assertEqual(
+            analysis["_boundary_reruns"]["failed_runs"][0]["error_type"],
+            "ValueError",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

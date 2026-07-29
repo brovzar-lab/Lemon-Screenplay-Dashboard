@@ -59,6 +59,8 @@ Optional env vars:
 """
 
 import argparse
+import copy
+import hashlib
 import json
 import os
 import re
@@ -90,8 +92,13 @@ except ImportError:
 try:
     import firebase_admin
     from firebase_admin import credentials, firestore, storage as fb_storage
+    from google.api_core.exceptions import PreconditionFailed
+    from google.cloud.firestore_v1 import _helpers as firestore_helpers
+    from google.cloud.firestore_v1.types import Document as FirestoreDocument
     FIREBASE_AVAILABLE = True
 except ImportError:
+    firestore_helpers = None
+    FirestoreDocument = None
     FIREBASE_AVAILABLE = False
     print("⚠ firebase-admin not installed — Firestore writes disabled.")
     print("  Install: pip install firebase-admin")
@@ -105,6 +112,18 @@ from content_identity import (  # noqa: E402
     queued_at_millis,
     verified_identity_fields,
     version_created_at,
+)
+from trust_manifest import (  # noqa: E402
+    attach_trust_manifest,
+    validate_permanent_analysis,
+)
+from verdict_contract import (  # noqa: E402
+    BOUNDARY_WINDOW,
+    compute_failure_penalty,
+    derive_verdict,
+    near_verdict_boundary,
+    READER_WEIGHTS,
+    VERDICT_BOUNDARIES,
 )
 from story_grid import (  # noqa: E402
     build_genre_detection_prompt,
@@ -133,6 +152,9 @@ log = logging.getLogger("lemon")
 
 # Firestore collection (must match src/lib/analysisStore.ts)
 FIRESTORE_COLLECTION = "uploaded_analyses"
+FIRESTORE_MAX_DOCUMENT_BYTES = 1_048_576
+# Leave ~148 KB for document-name/index/protobuf overhead and SDK variation.
+PERMANENT_DOCUMENT_GUARD_BYTES = 900_000
 
 # Live Firebase Cloud Function URL (prod)
 DEFAULT_PROXY_URL = "https://us-central1-lemon-screenplay-dashboard.cloudfunctions.net/llmProxy"
@@ -182,15 +204,6 @@ THINKING_BUDGET_SYNTHESIS = 16_000
 # total max_tokens passed to the API).
 OUTPUT_BUDGET_READER = 4_000
 OUTPUT_BUDGET_SYNTHESIS = 6_000
-
-# Reader weights (must match src/lib/promptClient.v9.ts READER_WEIGHTS)
-READER_WEIGHTS = {
-    "structure":          0.30,  # Reduced from 0.40 — was acting as proxy for overall quality.
-    "character":          0.30,  # Raised to match — audiences remember characters.
-    "craft_scene":        0.15,
-    "concept":            0.15,  # Raised — the marketable signal was underweighted.
-    "emotional_resonance":0.10,
-}
 
 # ── Firebase Init ─────────────────────────────────────────────────────────────
 
@@ -270,6 +283,11 @@ def build_version_document(
     queued_at_ms: int,
 ) -> Dict[str, Any]:
     """Build an immutable analysis snapshot with Firestore-native field types."""
+    validate_permanent_analysis(raw)
+    if raw.get("project_id") != project_id:
+        raise ValueError("Permanent analysis project_id does not match write target")
+    if raw.get("version_id") != version_id:
+        raise ValueError("Permanent analysis version_id does not match write target")
     identity = verified_identity_fields(str(raw.get("content_hash", "")))
     if raw.get("identity_status") != "verified":
         raise ValueError("Permanent V9 coverage requires verified identity")
@@ -315,6 +333,36 @@ def build_parent_document(
     }
 
 
+def encoded_firestore_document_size(document: Dict[str, Any]) -> int:
+    """Return the protobuf field size used by the Firestore client."""
+    if firestore_helpers is None or FirestoreDocument is None:
+        return len(
+            json.dumps(
+                document,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+                default=str,
+            ).encode("utf-8")
+        )
+    encoded_fields = firestore_helpers.encode_dict(document)
+    return int(FirestoreDocument(fields=encoded_fields)._pb.ByteSize())
+
+
+def assert_permanent_document_size(
+    document: Dict[str, Any],
+    label: str,
+) -> int:
+    """Fail locally before Firestore's 1 MiB rejection."""
+    size = encoded_firestore_document_size(document)
+    if size > PERMANENT_DOCUMENT_GUARD_BYTES:
+        raise ValueError(
+            f"{label} is {size:,} encoded bytes, above the "
+            f"{PERMANENT_DOCUMENT_GUARD_BYTES:,}-byte permanent-write guard"
+        )
+    return size
+
+
 def write_analysis_transaction(
     transaction: Any,
     parent_ref: Any,
@@ -325,11 +373,17 @@ def write_analysis_transaction(
     queued_at_ms: int,
 ) -> int:
     """Create history and advance latest using one Firestore transaction."""
+    validate_permanent_analysis(raw)
     parent_snapshot = parent_ref.get(transaction=transaction)
     version_snapshot = version_ref.get(transaction=transaction)
 
     if version_snapshot.exists:
         existing_version = version_snapshot.to_dict() or {}
+        validate_permanent_analysis(existing_version)
+        if existing_version.get("project_id") != project_id:
+            raise ValueError("Existing immutable version has the wrong project_id")
+        if existing_version.get("version_id") != version_id:
+            raise ValueError("Existing immutable version has the wrong version_id")
         version_number = existing_version.get("version_number")
         if type(version_number) is not int or version_number <= 0:
             raise ValueError("Existing immutable version has an invalid version_number")
@@ -351,6 +405,8 @@ def write_analysis_transaction(
         queued_at_ms,
         existing_parent,
     )
+    assert_permanent_document_size(version_document, "Immutable version document")
+    assert_permanent_document_size(parent_document, "Latest parent document")
 
     transaction.create(version_ref, version_document)
     transaction.set(parent_ref, parent_document)
@@ -359,6 +415,7 @@ def write_analysis_transaction(
 
 def write_to_firestore(raw: Dict[str, Any]) -> bool:
     """Atomically create an immutable version and advance its latest parent."""
+    validate_permanent_analysis(raw)
     if _db is None:
         return False
 
@@ -405,6 +462,87 @@ def write_to_firestore(raw: Dict[str, Any]) -> bool:
     except Exception as e:
         log.error(f"  ✗ Firestore write failed for {project_id}: {e}")
         return False
+
+
+def persist_analysis_or_save_fallback(
+    raw: Dict[str, Any],
+    pdf_path: Path,
+) -> bool:
+    """Persist permanently, or retain a local recovery file and report failure."""
+    if write_to_firestore(raw):
+        return True
+
+    fallback_path = LOG_DIR / "failed_writes" / (pdf_path.stem + ".json")
+    fallback_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(fallback_path, "w", encoding="utf-8") as fallback_file:
+        json.dump(raw, fallback_file, indent=2, ensure_ascii=False)
+    log.warning(
+        f"  ⚠ Firestore write failed — recovery copy saved locally: {fallback_path}"
+    )
+    return False
+
+
+def archive_cli_pdf_version(
+    pdf_path: Path,
+    *,
+    project_id: str,
+    version_id: str,
+    content_hash: str,
+) -> Tuple[str, str]:
+    """Preserve a CLI source PDF before any paid analysis begins."""
+    if _bucket is None:
+        raise RuntimeError(
+            "Firebase Storage is required for permanent CLI analysis"
+        )
+    if not version_id.startswith(f"{content_hash}_"):
+        raise ValueError("CLI version_id does not match its content hash")
+    object_name = f"screenplays/{project_id}/versions/{version_id}.pdf"
+    pdf_bytes = pdf_path.read_bytes()
+    if hashlib.sha256(pdf_bytes).hexdigest() != content_hash:
+        raise RuntimeError("CLI source PDF changed after its identity was computed")
+    blob = _bucket.blob(object_name)
+    metadata = {
+        "content_hash": content_hash,
+        "project_id": project_id,
+        "version_id": version_id,
+        "writer": "ingest_v9.py",
+    }
+    blob.metadata = metadata
+    try:
+        blob.upload_from_string(
+            pdf_bytes,
+            content_type="application/pdf",
+            if_generation_match=0,
+        )
+    except PreconditionFailed:
+        blob.reload()
+        existing_generation = str(
+            getattr(blob, "generation", "") or ""
+        ).strip()
+        if not existing_generation.isdigit():
+            raise RuntimeError(
+                "Immutable CLI archive lacks bucket generation provenance"
+            )
+        archived_bytes = blob.download_as_bytes(
+            if_generation_match=int(existing_generation)
+        )
+        if hashlib.sha256(archived_bytes).hexdigest() != content_hash:
+            raise RuntimeError(
+                "Immutable CLI archive bytes do not match the content hash"
+            )
+        existing_metadata = blob.metadata or {}
+        if any(existing_metadata.get(key) != value for key, value in metadata.items()):
+            raise RuntimeError(
+                "Immutable CLI archive exists with conflicting provenance"
+            )
+    else:
+        blob.reload()
+
+    generation = getattr(blob, "generation", None)
+    bucket_name = getattr(_bucket, "name", None)
+    if generation is None or not isinstance(bucket_name, str) or not bucket_name:
+        raise RuntimeError("Immutable CLI archive lacks bucket generation provenance")
+    return f"gs://{bucket_name}/{object_name}", str(generation)
 
 
 def check_already_in_firestore(source_file: str) -> bool:
@@ -659,13 +797,63 @@ class LlmAccountingError(RuntimeError):
     """A model call may have completed but its server ledger did not settle."""
 
 
+class LlmProvenanceError(RuntimeError):
+    """A settled model response was missing immutable response provenance."""
+
+
+class LlmCallFailedError(RuntimeError):
+    """A model call exhausted retries while preserving every failed attempt."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        attempt_history: List[Dict[str, Any]],
+        requested_model: str,
+        stage: str,
+        pipeline_pass: str,
+        boundary_run: int,
+        reader_name: Optional[str],
+    ):
+        super().__init__(message)
+        self.attempt_history = attempt_history
+        self.requested_model = requested_model
+        self.stage = stage
+        self.pipeline_pass = pipeline_pass
+        self.boundary_run = boundary_run
+        self.reader_name = reader_name
+
+
+class V9RunError(RuntimeError):
+    """A V9 pass failed after some calls had already accrued provenance."""
+
+    def __init__(self, message: str, usage: Dict[str, Any]):
+        super().__init__(message)
+        self.usage = usage
+
+
 def empty_usage() -> Dict[str, Any]:
     return {
         **{field: 0 for field in USAGE_COUNTER_FIELDS},
         "actual_cost_usd": 0.0,
         "finish_reason": "end_turn",
         "by_model": {},
+        "calls": [],
+        "failed_calls": [],
     }
+
+
+def failed_usage(error: LlmCallFailedError) -> Dict[str, Any]:
+    usage = empty_usage()
+    usage["failed_calls"] = [{
+        "requested_model": error.requested_model,
+        "stage": error.stage,
+        "pipeline_pass": error.pipeline_pass,
+        "boundary_run": error.boundary_run,
+        "reader_name": error.reader_name,
+        "attempt_history": error.attempt_history,
+    }]
+    return usage
 
 
 def merge_usage(*usages: Dict[str, Any]) -> Dict[str, Any]:
@@ -680,6 +868,17 @@ def merge_usage(*usages: Dict[str, Any]) -> Dict[str, Any]:
                 merged[field] += int(value)
         if usage.get("finish_reason") == "max_tokens":
             merged["finish_reason"] = "max_tokens"
+
+        calls = usage.get("calls", [])
+        if isinstance(calls, list):
+            merged["calls"].extend(
+                call for call in calls if isinstance(call, dict)
+            )
+        failed_calls = usage.get("failed_calls", [])
+        if isinstance(failed_calls, list):
+            merged["failed_calls"].extend(
+                call for call in failed_calls if isinstance(call, dict)
+            )
 
         by_model = usage.get("by_model", {})
         if not isinstance(by_model, dict):
@@ -699,6 +898,20 @@ def merge_usage(*usages: Dict[str, Any]) -> Dict[str, Any]:
     merged["actual_cost_usd"] = merged["actual_cost_microusd"] / 1_000_000
     return merged
 
+
+def set_successful_call_disposition(
+    usage: Dict[str, Any],
+    disposition: str,
+) -> None:
+    """Mark whether a paid successful response actually influenced the result."""
+    if disposition not in {"used", "discarded_unusable"}:
+        raise ValueError("Invalid successful-call disposition")
+    calls = usage.get("calls")
+    if not isinstance(calls, list) or len(calls) != 1:
+        raise ValueError("One model call must produce exactly one call record")
+    calls[0]["disposition"] = disposition
+
+
 def call_llm(
     *,
     system_blocks: List[Dict[str, Any]],
@@ -711,6 +924,10 @@ def call_llm(
     retries: int = 3,
     proxy_url: Optional[str] = None,
     job_id: Optional[str] = None,
+    stage: str = "unspecified",
+    pipeline_pass: str = "unspecified",
+    boundary_run: int = 0,
+    reader_name: Optional[str] = None,
 ) -> Tuple[Optional[Dict[str, Any]], str, Dict[str, Any]]:
     """Block-aware LLM call via the Firebase proxy.
 
@@ -782,6 +999,7 @@ def call_llm(
         proxy_headers["X-Lemon-Service-Key"] = service_key
 
     last_err: Optional[Exception] = None
+    attempt_history: List[Dict[str, Any]] = []
     for attempt in range(1, retries + 1):
         try:
             resp = requests.post(url, json=payload, headers=proxy_headers, timeout=540)
@@ -796,6 +1014,13 @@ def call_llm(
                         error_data.get("resetAt"),
                     )
                 wait = 30 * attempt
+                attempt_history.append({
+                    "attempt": attempt,
+                    "outcome": "failed",
+                    "error_type": "rate_limited",
+                    "http_status": 429,
+                })
+                last_err = RuntimeError("rate limited")
                 log.warning(f"    Rate limited — waiting {wait}s (attempt {attempt}/{retries})")
                 time.sleep(wait)
                 continue
@@ -835,7 +1060,24 @@ def call_llm(
             tool_input = tool_uses[0]["input"] if tool_uses else None
 
             raw_usage = data.get("usage", {})
-            response_model = data.get("model") or model_id
+            response_model = data.get("model")
+            response_id = data.get("response_id")
+            if not isinstance(response_model, str) or not response_model:
+                raise LlmProvenanceError(
+                    "Settled LLM response did not include its exact returned model ID"
+                )
+            if not isinstance(response_id, str) or not response_id:
+                raise LlmProvenanceError(
+                    "Settled LLM response did not include its immutable response ID"
+                )
+            successful_history = [
+                *attempt_history,
+                {
+                    "attempt": attempt,
+                    "outcome": "success",
+                    "response_id": response_id,
+                },
+            ]
             usage = {
                 "input_tokens": int(raw_usage.get("input_tokens", 0)),
                 "output_tokens": int(raw_usage.get("output_tokens", 0)),
@@ -845,6 +1087,20 @@ def call_llm(
                 "actual_cost_microusd": int(raw_usage.get("actual_cost_microusd", 0)),
                 "actual_cost_usd": float(raw_usage.get("actual_cost_usd", 0.0)),
                 "finish_reason": data.get("stop_reason") or "end_turn",
+                "calls": [{
+                    "response_id": response_id,
+                    "requested_model": model_id,
+                    "returned_model": response_model,
+                    "stop_reason": data.get("stop_reason") or "end_turn",
+                    "successful_attempt": attempt,
+                    "retry_history": successful_history,
+                    "stage": stage,
+                    "pipeline_pass": pipeline_pass,
+                    "boundary_run": boundary_run,
+                    "reader_name": reader_name,
+                    "disposition": "pending",
+                }],
+                "failed_calls": [],
                 "by_model": {
                     response_model: {
                         "input_tokens": int(raw_usage.get("input_tokens", 0)),
@@ -858,16 +1114,34 @@ def call_llm(
             }
             return tool_input, text, usage
 
-        except (DailyBudgetExceededError, LlmAccountingError):
+        except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
             raise
         except Exception as e:
             last_err = e
+            failure: Dict[str, Any] = {
+                "attempt": attempt,
+                "outcome": "failed",
+                "error_type": type(e).__name__,
+            }
+            response = getattr(e, "response", None)
+            status_code = getattr(response, "status_code", None)
+            if isinstance(status_code, int):
+                failure["http_status"] = status_code
+            attempt_history.append(failure)
             if attempt < retries:
                 wait = attempt * 5
                 log.warning(f"    LLM call failed (attempt {attempt}/{retries}): {e} — retrying in {wait}s")
                 time.sleep(wait)
 
-    raise RuntimeError(f"LLM call failed after {retries} attempts: {last_err}")
+    raise LlmCallFailedError(
+        f"LLM call failed after {retries} attempts: {last_err}",
+        attempt_history=attempt_history,
+        requested_model=model_id,
+        stage=stage,
+        pipeline_pass=pipeline_pass,
+        boundary_run=boundary_run,
+        reader_name=reader_name,
+    )
 
 
 def _screenplay_user_block(text: str, cached: bool = True) -> Dict[str, Any]:
@@ -933,106 +1207,6 @@ def _truncate(text: str, max_chars: int = MAX_CHARS) -> str:
 # penalty, the Story-vs-Situation cap, and the trap downgrades — but nothing
 # enforced them, and _compute_weighted_score's pure-sum override silently
 # discarded the model's penalty. The model proposes; this code disposes.
-
-VERDICT_TIERS = ["PASS", "CONSIDER", "RECOMMEND", "FILM_NOW"]
-
-# Must match the synthesis prompt (Step 5): MINOR -0.3, MODERATE -0.5,
-# MAJOR -0.8, CRITICAL -1.2, total capped at -3.0.
-FAILURE_PENALTIES = {"minor": 0.3, "moderate": 0.5, "major": 0.8, "critical": 1.2}
-MAX_FAILURE_PENALTY = 3.0
-
-def compute_failure_penalty(critical_failures: Any) -> float:
-    """Sum severity penalties from the structured critical_failures list."""
-    if not isinstance(critical_failures, list):
-        return 0.0
-    total = 0.0
-    for item in critical_failures:
-        if not isinstance(item, dict):
-            continue
-        severity = str(item.get("severity", "")).lower()
-        total += FAILURE_PENALTIES.get(severity, 0.0)
-    return round(min(total, MAX_FAILURE_PENALTY), 2)
-
-
-def _score_to_tier(score: float) -> str:
-    """Verdict thresholds (synthesis prompt Step 6)."""
-    if score >= 8.5:
-        return "FILM_NOW"
-    if score >= 7.5:
-        return "RECOMMEND"
-    if score >= 5.5:
-        return "CONSIDER"
-    return "PASS"
-
-
-def _cap_tier(tier: str, cap: str) -> str:
-    return cap if VERDICT_TIERS.index(tier) > VERDICT_TIERS.index(cap) else tier
-
-
-def derive_verdict(
-    weighted_score: float,
-    critical_failures: Any = None,
-    situation_verdict: str = "",
-    weighted_trap_score: float = 0.0,
-    truncated: bool = False,
-) -> Dict[str, Any]:
-    """Derive the final verdict in code from the synthesis's structured outputs.
-
-    Order of operations (mirrors the synthesis prompt Steps 4-6):
-      1. Subtract critical-failure penalty from the weighted score.
-      2. Map adjusted score to a tier.
-      3. Story-vs-Situation gate: "situation" caps at CONSIDER.
-      4. Trap gate: trap score >= 3.0 caps at CONSIDER; >= 2.0 downgrades one tier.
-      5. Truncation gate: never RECOMMEND/FILM_NOW a script whose ending
-         the readers did not see — cap at CONSIDER.
-
-    Returns dict with verdict, adjusted_score, penalty, and a human-readable
-    adjustments trail for the coverage document.
-    """
-    adjustments: List[str] = []
-
-    penalty = compute_failure_penalty(critical_failures)
-    adjusted = round(max(0.0, weighted_score - penalty), 2)
-    if penalty > 0:
-        adjustments.append(
-            f"critical_failure_penalty: -{penalty} ({weighted_score} → {adjusted})"
-        )
-
-    verdict = _score_to_tier(adjusted)
-    base_verdict = verdict
-
-    if str(situation_verdict).lower() == "situation":
-        capped = _cap_tier(verdict, "CONSIDER")
-        if capped != verdict:
-            adjustments.append(f"story_vs_situation gate: {verdict} → {capped}")
-        verdict = capped
-
-    if weighted_trap_score >= 3.0:
-        capped = _cap_tier(verdict, "CONSIDER")
-        if capped != verdict:
-            adjustments.append(f"trap score {weighted_trap_score} >= 3.0: {verdict} → {capped}")
-        verdict = capped
-    elif weighted_trap_score >= 2.0:
-        idx = VERDICT_TIERS.index(verdict)
-        if idx > 0:
-            downgraded = VERDICT_TIERS[idx - 1]
-            adjustments.append(f"trap score {weighted_trap_score} >= 2.0: {verdict} → {downgraded}")
-            verdict = downgraded
-
-    if truncated:
-        capped = _cap_tier(verdict, "CONSIDER")
-        if capped != verdict:
-            adjustments.append(f"truncated script (Act 3 unread): {verdict} → {capped}")
-        verdict = capped
-
-    return {
-        "verdict": verdict,
-        "verdict_before_gates": base_verdict,
-        "adjusted_score": adjusted,
-        "penalty": penalty,
-        "adjustments": adjustments,
-    }
-
 
 # V9: Rigorous reader prompts + tool schemas + few-shot anchors.
 # Methodology ported from agent/skills/screenplay-evaluator/references/
@@ -1810,10 +1984,13 @@ def run_genre_detection(
     screenplay_block: Dict[str, Any],
     proxy_url: Optional[str],
     job_id: Optional[str] = None,
+    pipeline_pass: str = "full",
+    boundary_run: int = 1,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Cheap Haiku pass that classifies the script into the Five-Leaf Clover.
     Returns a normalised detection dict (never raises — falls back to a
     low-confidence Society/drama read so the pipeline always proceeds)."""
+    usage = empty_usage()
     try:
         _tool_input, text, usage = call_llm(
             system_blocks=[{
@@ -1828,16 +2005,25 @@ def run_genre_detection(
             max_tokens=400,
             proxy_url=proxy_url,
             job_id=job_id,
+            stage="genre_detection",
+            pipeline_pass=pipeline_pass,
+            boundary_run=boundary_run,
         )
         raw = extract_json(text)
-        return parse_detection(raw), usage
-    except (DailyBudgetExceededError, LlmAccountingError):
+        detection = parse_detection(raw)
+        set_successful_call_disposition(usage, "used")
+        return detection, usage
+    except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
         raise
     except Exception as e:
         log.warning(f"    Genre detection failed ({e}); defaulting to Society/drama.")
+        if isinstance(e, LlmCallFailedError):
+            usage = failed_usage(e)
+        elif usage.get("calls"):
+            set_successful_call_disposition(usage, "discarded_unusable")
         return (
             parse_detection({"external_genre": "Society", "confidence": "low"}),
-            empty_usage(),
+            usage,
         )
 
 
@@ -2480,6 +2666,46 @@ def _synthesis_user_prompt(title: str, reader_reports: Dict[str, Any]) -> str:
 
 # ── V9 Analysis Engine ────────────────────────────────────────────────────────
 
+def _validated_cold_read(
+    cold_read: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Normalize synthesis cold-read evidence and its exact model responses."""
+    if cold_read is None:
+        return None
+    if not isinstance(cold_read, dict):
+        raise ValueError("cold_read must be a structured evidence object")
+    evidence = cold_read.get("evidence")
+    response_ids = cold_read.get("response_ids")
+    if not isinstance(evidence, dict):
+        raise ValueError("cold_read.evidence must be an object")
+    if (
+        not isinstance(response_ids, list)
+        or not response_ids
+        or not all(isinstance(response_id, str) and response_id for response_id in response_ids)
+        or len(set(response_ids)) != len(response_ids)
+    ):
+        raise ValueError("cold_read.response_ids must identify exact model responses")
+    triage_score = evidence.get("triage_score")
+    if (
+        isinstance(triage_score, bool)
+        or not isinstance(triage_score, (int, float))
+    ):
+        raise ValueError("cold_read triage_score must be numeric")
+    verdict = evidence.get("verdict")
+    if not isinstance(verdict, str) or not verdict.strip():
+        raise ValueError("cold_read verdict must be a non-empty string")
+    return {
+        "used_in_synthesis": True,
+        "evidence": {
+            "triage_score": float(triage_score),
+            "verdict": verdict.strip(),
+            "genre": str(evidence.get("genre", "")),
+            "logline": str(evidence.get("logline", "")),
+        },
+        "response_ids": list(response_ids),
+    }
+
+
 def run_v9_full(
     text: str,
     title: str,
@@ -2487,9 +2713,12 @@ def run_v9_full(
     word_count: int,
     model_key: str,
     proxy_url: Optional[str],
-    triage_impression: Optional[Dict[str, Any]] = None,
+    cold_read: Optional[Dict[str, Any]] = None,
     calibration_prompt: Optional[str] = None,
     job_id: Optional[str] = None,
+    pipeline_pass: Optional[str] = None,
+    boundary_run: int = 1,
+    usage_sink: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Run the full 5-reader + synthesis V9 pipeline.
 
@@ -2504,6 +2733,13 @@ def run_v9_full(
     Returns (analysis_dict, total_usage).
     """
     truncated = _truncate(text)
+    sealed_cold_read = _validated_cold_read(cold_read)
+    triage_impression = (
+        sealed_cold_read["evidence"]
+        if sealed_cold_read is not None
+        else None
+    )
+    pass_name = pipeline_pass or model_key
     was_truncated = len(text) > MAX_CHARS
     if was_truncated:
         log.warning(
@@ -2516,7 +2752,9 @@ def run_v9_full(
     # First reader call writes the cache; subsequent calls read at 10% input cost.
     screenplay_block = _screenplay_user_block(truncated, cached=True)
 
-    total_usage = empty_usage()
+    total_usage = usage_sink if usage_sink is not None else empty_usage()
+    total_usage.clear()
+    total_usage.update(empty_usage())
 
     def _accumulate(usage: Dict[str, Any]) -> None:
         combined = merge_usage(total_usage, usage)
@@ -2528,6 +2766,8 @@ def run_v9_full(
         screenplay_block,
         proxy_url,
         job_id=job_id,
+        pipeline_pass=pass_name,
+        boundary_run=boundary_run,
     )
     _accumulate(genre_usage)
     genre_card = build_genre_card(genre_detection)
@@ -2558,18 +2798,34 @@ def run_v9_full(
                 max_tokens=OUTPUT_BUDGET_READER,
                 proxy_url=proxy_url,
                 job_id=job_id,
+                stage="reader",
+                pipeline_pass=pass_name,
+                boundary_run=boundary_run,
+                reader_name=reader,
             )
-        except (DailyBudgetExceededError, LlmAccountingError):
+        except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
             raise
         except Exception as e:
             log.error(f"      ✗ {reader} call failed: {e}")
-            return reader, {"reader": reader, "pillar_score": 0, "error": str(e), "call_error": True}, {}
+            usage = failed_usage(e) if isinstance(e, LlmCallFailedError) else empty_usage()
+            return (
+                reader,
+                {
+                    "reader": reader,
+                    "pillar_score": 0,
+                    "error": str(e),
+                    "call_error": True,
+                },
+                usage,
+            )
 
         if tool_input is None:
+            set_successful_call_disposition(usage, "discarded_unusable")
             log.warning(f"      ⚠ {reader} returned no tool_use block")
             return reader, {"reader": reader, "pillar_score": 0, "error": "no tool_use block", "parse_error": True}, usage
 
         # tool_use guarantees schema validity, so tool_input IS the report.
+        set_successful_call_disposition(usage, "used")
         return reader, tool_input, usage
 
     with ThreadPoolExecutor(max_workers=5) as pool:
@@ -2582,7 +2838,7 @@ def run_v9_full(
                 _accumulate(usage)
                 score = report.get("pillar_score", report.get("overall_score", "?"))
                 log.info(f"      ✓ {r_name} (pillar_score: {score})")
-            except (DailyBudgetExceededError, LlmAccountingError):
+            except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
                 raise
             except Exception as e:
                 log.error(f"      ✗ {reader} reader failed: {e}")
@@ -2611,9 +2867,10 @@ def run_v9_full(
         if name not in failed_readers
     }
     if len(reader_reports) < 3:
-        raise RuntimeError(
+        raise V9RunError(
             f"Insufficient reader results: {len(reader_reports)}/5 completed; "
-            f"failed: {', '.join(failed_readers)}"
+            f"failed: {', '.join(failed_readers)}",
+            total_usage,
         )
     if failed_readers:
         log.warning(
@@ -2644,17 +2901,28 @@ def run_v9_full(
                 max_tokens=OUTPUT_BUDGET_SYNTHESIS,
                 proxy_url=proxy_url,
                 job_id=job_id,
+                stage="synthesis",
+                pipeline_pass=pass_name,
+                boundary_run=boundary_run,
             )
-            _accumulate(syn_usage)
             if tool_input is not None:
+                set_successful_call_disposition(syn_usage, "used")
+                _accumulate(syn_usage)
                 analysis = tool_input
                 break
+            set_successful_call_disposition(
+                syn_usage,
+                "discarded_unusable",
+            )
+            _accumulate(syn_usage)
             last_err = RuntimeError("synthesis returned no tool_use block")
             log.warning(f"    Synthesis attempt {attempt}/3: no tool_use block")
-        except (DailyBudgetExceededError, LlmAccountingError):
+        except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
             raise
         except Exception as e:
             last_err = e
+            if isinstance(e, LlmCallFailedError):
+                _accumulate(failed_usage(e))
             log.warning(f"    Synthesis attempt {attempt}/3 failed: {e}")
         if attempt < 3:
             wait = 5 * attempt
@@ -2662,7 +2930,10 @@ def run_v9_full(
             time.sleep(wait)
 
     if analysis is None:
-        raise RuntimeError(f"Synthesis failed after 3 attempts: {last_err}") from last_err
+        raise V9RunError(
+            f"Synthesis failed after 3 attempts: {last_err}",
+            total_usage,
+        ) from last_err
 
     # ── Code-side score computation (mirrors TypeScript engine) ────────────────
     # Recompute every pillar score from its sub-scores so LLM arithmetic errors
@@ -2745,6 +3016,7 @@ def run_v9_full(
         )
     analysis["verdict_model"] = model_verdict
     analysis["verdict"] = derived["verdict"]
+    analysis["verdict_before_gates"] = derived["verdict_before_gates"]
     analysis["weighted_score_adjusted"] = derived["adjusted_score"]
     analysis["critical_failure_penalty_applied"] = derived["penalty"]
     analysis["verdict_adjustments"] = derived["adjustments"]
@@ -2764,8 +3036,10 @@ def run_v9_full(
     }
     if failed_readers:
         analysis["failed_readers"] = failed_readers
-        analysis["failed_reader_errors"] = reader_errors
+    analysis["failed_reader_errors"] = reader_errors
     analysis["genre_detection"] = genre_detection
+    if sealed_cold_read is not None:
+        analysis["_cold_read"] = copy.deepcopy(sealed_cold_read)
     analysis["_total_usage"] = total_usage
     analysis["analysis_version"] = "v9_archaeology"  # Always override — source of truth.
     return analysis, total_usage
@@ -2779,13 +3053,11 @@ def run_v9_full(
 # median-score run with the majority verdict. Prompt caching makes the extra
 # passes cheap when they run within the cache TTL.
 
-BOUNDARY_WINDOW = 0.5
-VERDICT_BOUNDARIES = (5.5, 7.5, 8.5)
 MAX_BOUNDARY_RUNS = 3
 
 
 def _near_boundary(score: float, window: float = BOUNDARY_WINDOW) -> bool:
-    return any(abs(score - b) < window for b in VERDICT_BOUNDARIES)
+    return near_verdict_boundary(score, window)
 
 
 def _adjusted_score(analysis: Dict[str, Any]) -> float:
@@ -2793,6 +3065,78 @@ def _adjusted_score(analysis: Dict[str, Any]) -> float:
     if val is None:
         val = analysis.get("weighted_score", 0)
     return float(val or 0)
+
+
+def _usage_response_ids(
+    usage: Dict[str, Any],
+    *,
+    pipeline_pass: str,
+    boundary_run: int,
+) -> List[str]:
+    return [
+        str(call["response_id"])
+        for call in usage.get("calls", [])
+        if isinstance(call, dict)
+        and call.get("pipeline_pass") == pipeline_pass
+        and call.get("boundary_run") == boundary_run
+        and call.get("disposition") == "used"
+        and isinstance(call.get("response_id"), str)
+    ]
+
+
+def _analysis_run_evidence(
+    analysis: Dict[str, Any],
+    *,
+    include_boundary: bool = False,
+) -> Dict[str, Any]:
+    """Keep the minimum evidence needed to independently recompute one run."""
+    keys = (
+        "analysis_version",
+        "weighted_score",
+        "weighted_score_adjusted",
+        "critical_failure_penalty_applied",
+        "verdict_model",
+        "verdict_before_adjustments",
+        "verdict_before_gates",
+        "verdict_adjustments",
+        "verdict",
+        "critical_failures",
+        "story_vs_situation",
+        "false_positive_check",
+        "_truncation",
+        "reader_reports",
+        "pillar_scores",
+        "analysis_quality",
+        "failed_reader_errors",
+    )
+    evidence = {
+        key: copy.deepcopy(analysis[key])
+        for key in keys
+        if key in analysis
+    }
+    reports = evidence.get("reader_reports")
+    if isinstance(reports, dict):
+        evidence["reader_reports"] = {
+            reader_name: {
+                key: copy.deepcopy(report[key])
+                for key in ("reader", "pillar_score", "sub_scores")
+                if key in report
+            }
+            for reader_name, report in reports.items()
+            if isinstance(report, dict)
+        }
+    pillar_scores = evidence.get("pillar_scores")
+    if isinstance(pillar_scores, dict):
+        evidence["pillar_scores"] = {
+            reader_name: {"score": pillar.get("score")}
+            for reader_name, pillar in pillar_scores.items()
+            if isinstance(pillar, dict)
+        }
+    if include_boundary and "_boundary_reruns" in analysis:
+        evidence["_boundary_reruns"] = copy.deepcopy(
+            analysis["_boundary_reruns"]
+        )
+    return evidence
 
 
 def select_stable_result(
@@ -2843,25 +3187,72 @@ def run_v9_stable(
     word_count: int,
     model_key: str,
     proxy_url: Optional[str],
-    triage_impression: Optional[Dict[str, Any]] = None,
+    cold_read: Optional[Dict[str, Any]] = None,
     calibration_prompt: Optional[str] = None,
     job_id: Optional[str] = None,
+    pipeline_pass: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """run_v9_full with boundary re-runs. Drop-in replacement.
 
     Set LEMON_BOUNDARY_RERUNS=0 to disable (single-pass, e.g. cost-capped
     experiments).
     """
-    analysis, usage = run_v9_full(
-        text=text, title=title, page_count=page_count, word_count=word_count,
-        model_key=model_key, proxy_url=proxy_url, triage_impression=triage_impression,
-        calibration_prompt=calibration_prompt,
-        job_id=job_id,
-    )
+    pass_name = pipeline_pass or model_key
+    initial_usage_sink = empty_usage()
+    try:
+        analysis, usage = run_v9_full(
+            text=text, title=title, page_count=page_count, word_count=word_count,
+            model_key=model_key, proxy_url=proxy_url,
+            cold_read=cold_read,
+            calibration_prompt=calibration_prompt,
+            job_id=job_id,
+            pipeline_pass=pass_name,
+            boundary_run=1,
+            usage_sink=initial_usage_sink,
+        )
+    except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
+        raise
+    except V9RunError:
+        raise
+    except Exception as error:
+        raise V9RunError(
+            f"V9 run failed after model work: {error}",
+            initial_usage_sink,
+        ) from error
     combined: Dict[str, Any] = dict(usage)
 
     score = _adjusted_score(analysis)
-    if os.getenv("LEMON_BOUNDARY_RERUNS", "1") == "0" or not _near_boundary(score):
+    reruns_enabled = os.getenv("LEMON_BOUNDARY_RERUNS", "1") != "0"
+    near_boundary = _near_boundary(score)
+    if not reruns_enabled or not near_boundary:
+        analysis["_boundary_reruns"] = {
+            "triggered": False,
+            "reason": (
+                "disabled_by_environment"
+                if not reruns_enabled
+                else "outside_boundary_window"
+            ),
+            "boundary_window": BOUNDARY_WINDOW,
+            "attempted_runs": 1,
+            "completed_runs": 1,
+            "failed_runs": [],
+            "runs": [{
+                "run_number": 1,
+                "adjusted_score": score,
+                "verdict": str(analysis.get("verdict", "")),
+                "verdict_model": str(analysis.get("verdict_model", "")),
+                "response_ids": _usage_response_ids(
+                    combined,
+                    pipeline_pass=pass_name,
+                    boundary_run=1,
+                ),
+                "analysis_evidence": _analysis_run_evidence(analysis),
+            }],
+            "selected_run_number": 1,
+            "median_adjusted_score": score,
+            "score_spread": 0.0,
+            "final_verdict": str(analysis.get("verdict", "")),
+        }
         return analysis, combined
 
     log.info(
@@ -2869,27 +3260,103 @@ def run_v9_stable(
         f"of a verdict boundary — running {MAX_BOUNDARY_RUNS - 1} more passes…"
     )
     runs: List[Tuple[float, Dict[str, Any]]] = [(score, analysis)]
+    run_records: List[Tuple[int, float, Dict[str, Any], Dict[str, Any]]] = [
+        (1, score, analysis, usage)
+    ]
+    failed_runs: List[Dict[str, Any]] = []
     for i in range(MAX_BOUNDARY_RUNS - 1):
+        extra_usage_sink = empty_usage()
         try:
             extra, extra_usage = run_v9_full(
                 text=text, title=title, page_count=page_count, word_count=word_count,
-                model_key=model_key, proxy_url=proxy_url, triage_impression=triage_impression,
+                model_key=model_key, proxy_url=proxy_url, cold_read=cold_read,
                 calibration_prompt=calibration_prompt,
                 job_id=job_id,
+                pipeline_pass=pass_name,
+                boundary_run=i + 2,
+                usage_sink=extra_usage_sink,
             )
-        except (DailyBudgetExceededError, LlmAccountingError):
+        except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
             raise
         except Exception as e:
+            failed_usage_record = (
+                e.usage if isinstance(e, V9RunError) else extra_usage_sink
+            )
+            combined = merge_usage(combined, failed_usage_record)
+            failed_runs.append({
+                "run_number": i + 2,
+                "error_type": type(e).__name__,
+                "error_message": str(e)[:500],
+                "response_ids": _usage_response_ids(
+                    failed_usage_record,
+                    pipeline_pass=pass_name,
+                    boundary_run=i + 2,
+                ),
+                "failed_calls": failed_usage_record.get("failed_calls", []),
+            })
             log.warning(f"    Boundary re-run {i + 2} failed (continuing with {len(runs)} run(s)): {e}")
             continue
         combined = merge_usage(combined, extra_usage)
         runs.append((_adjusted_score(extra), extra))
+        run_records.append((i + 2, _adjusted_score(extra), extra, extra_usage))
 
     if len(runs) == 1:
+        analysis["_boundary_reruns"] = {
+            "triggered": True,
+            "reason": "reruns_failed",
+            "boundary_window": BOUNDARY_WINDOW,
+            "attempted_runs": 1 + len(failed_runs),
+            "completed_runs": 1,
+            "failed_runs": failed_runs,
+            "runs": [{
+                "run_number": 1,
+                "adjusted_score": score,
+                "verdict": str(analysis.get("verdict", "")),
+                "verdict_model": str(analysis.get("verdict_model", "")),
+                "response_ids": _usage_response_ids(
+                    combined,
+                    pipeline_pass=pass_name,
+                    boundary_run=1,
+                ),
+                "analysis_evidence": _analysis_run_evidence(analysis),
+            }],
+            "selected_run_number": 1,
+            "median_adjusted_score": score,
+            "score_spread": 0.0,
+            "final_verdict": str(analysis.get("verdict", "")),
+        }
         return analysis, combined
 
+    stable_run_rows = [
+        {
+            "run_number": run_number,
+            "adjusted_score": adjusted_score,
+            "verdict": str(run_analysis.get("verdict", "")),
+            "verdict_model": str(run_analysis.get("verdict_model", "")),
+            "response_ids": _usage_response_ids(
+                run_usage,
+                pipeline_pass=pass_name,
+                boundary_run=run_number,
+            ),
+            "analysis_evidence": _analysis_run_evidence(run_analysis),
+        }
+        for run_number, adjusted_score, run_analysis, run_usage in run_records
+    ]
     final = select_stable_result(runs)
     reruns = final["_boundary_reruns"]
+    reruns["runs"] = stable_run_rows
+    reruns["selected_run_number"] = next(
+        run_number
+        for run_number, _score, run_analysis, _usage in run_records
+        if run_analysis is final
+    )
+    reruns.update({
+        "reason": "near_boundary",
+        "boundary_window": BOUNDARY_WINDOW,
+        "attempted_runs": len(runs) + len(failed_runs),
+        "completed_runs": len(runs),
+        "failed_runs": failed_runs,
+    })
     log.info(
         f"    Boundary re-run result: scores {[r['adjusted_score'] for r in reruns['runs']]} "
         f"(spread {reruns['score_spread']}) → verdict {reruns['final_verdict']}"
@@ -2903,7 +3370,7 @@ def run_v9_hybrid(
     page_count: int,
     word_count: int,
     proxy_url: Optional[str],
-    triage_impression: Optional[Dict[str, Any]] = None,
+    cold_read: Optional[Dict[str, Any]] = None,
     calibration_prompt: Optional[str] = None,
     job_id: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -2927,9 +3394,10 @@ def run_v9_hybrid(
         word_count=word_count,
         model_key="sonnet",
         proxy_url=proxy_url,
-        triage_impression=triage_impression,
+        cold_read=cold_read,
         calibration_prompt=calibration_prompt,
         job_id=job_id,
+        pipeline_pass="sonnet",
     )
 
     sonnet_verdict_raw = str(sonnet_analysis.get("verdict", ""))
@@ -2947,6 +3415,10 @@ def run_v9_hybrid(
             "promoted_to_opus": False,
             "sonnet_verdict": sonnet_verdict,
             "final_model": "sonnet",
+            "sonnet_analysis_evidence": _analysis_run_evidence(
+                sonnet_analysis,
+                include_boundary=True,
+            ),
         }
         return sonnet_analysis, sonnet_usage
 
@@ -2960,9 +3432,10 @@ def run_v9_hybrid(
         word_count=word_count,
         model_key="opus",
         proxy_url=proxy_url,
-        triage_impression=triage_impression,
+        cold_read=cold_read,
         calibration_prompt=calibration_prompt,
         job_id=job_id,
+        pipeline_pass="opus",
     )
 
     # Combine usage across both passes (cost accounting).
@@ -2975,8 +3448,10 @@ def run_v9_hybrid(
         "opus_verdict": str(opus_analysis.get("verdict", "")),
         "opus_score": opus_analysis.get("weighted_score"),
         "final_model": "opus",
-        "sonnet_usage": sonnet_usage,
-        "opus_usage": opus_usage,
+        "sonnet_analysis_evidence": _analysis_run_evidence(
+            sonnet_analysis,
+            include_boundary=True,
+        ),
     }
     return opus_analysis, combined_usage
 
@@ -2987,7 +3462,7 @@ def run_v9_triage(
     page_count: int,
     word_count: int,
     proxy_url: Optional[str],
-) -> Tuple[Dict[str, Any], Dict[str, int]]:
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Run a fast single-pass triage (Haiku model).
 
     Returns (analysis_dict, usage).
@@ -3011,14 +3486,24 @@ def run_v9_triage(
         model_key="haiku",
         max_tokens=500,
         proxy_url=proxy_url,
+        stage="triage",
+        pipeline_pass="triage",
+        boundary_run=1,
     )
     try:
         triage = extract_json(triage_text)
+        if not isinstance(triage, dict):
+            raise ValueError("triage response must be a JSON object")
+        score = float(triage.get("triage_score", 0))
     except Exception as e:
-        raise RuntimeError(f"Triage JSON parse failed: {e}") from e
+        set_successful_call_disposition(usage, "discarded_unusable")
+        raise V9RunError(
+            f"Triage response normalization failed: {e}",
+            usage,
+        ) from e
+    set_successful_call_disposition(usage, "used")
 
     # Normalise to match the app's normalization expectations
-    score = float(triage.get("triage_score", 0))
     raw_verdict = str(triage.get("verdict", "pass")).lower()
 
     if "film now" in raw_verdict or "film_now" in raw_verdict:
@@ -3085,27 +3570,43 @@ def build_raw_document(
     content_hash: str,
     queued_at_ms: int,
     tmdb_status: Optional[Dict[str, Any]] = None,
+    storage_path: Optional[str] = None,
+    storage_generation: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the raw document that saveAnalysis() writes to Firestore.
     Mirrors the structure in src/lib/analysisService.ts analyzeV9Path().
     """
     source_file = pdf_path.stem + ".pdf"
-    safe_name = (
-        re.sub(r"[^a-zA-Z0-9_\- ]", "", pdf_path.stem)
-        .strip()
-        .replace(" ", "_")
-    )
+    project_id = to_doc_id(source_file)
+    queued_at = queued_at_millis(queued_at_ms)
+    version_id = build_version_id(content_hash, queued_at)
+    effective_model_key = model_key
+    if model_key == "hybrid":
+        hybrid_meta = analysis.get("_hybrid_mode") or {}
+        effective_model_key = str(hybrid_meta.get("final_model", "sonnet"))
+    effective_model_id = MODEL_IDS.get(effective_model_key)
+    if not effective_model_id:
+        raise ValueError("Permanent analysis requires an exact effective model ID")
+    parser_metadata = parsed.get("metadata")
+    if not isinstance(parser_metadata, dict):
+        parser_metadata = {}
 
     raw: Dict[str, Any] = {
         "source_file": source_file,
-        "analysis_model": f"claude-{model_key}",
+        "project_id": project_id,
+        "version_id": version_id,
+        "analysis_model": effective_model_id,
         "analysis_version": "v9_archaeology" if mode == "full" else "v9_triage",
+        "parser_version": PARSER_VERSION,
         "lenses_enabled": ["commercial"],
         "collection": collection,
         "metadata": {
             "filename": source_file,
             "page_count": parsed.get("page_count", 0),
             "word_count": parsed.get("word_count", 0),
+            "character_count": len(str(parsed.get("text", ""))),
+            "extraction_method": parser_metadata.get("extraction_method"),
+            "parser_extractor_version": parser_metadata.get("parser_version"),
         },
         "analysis": analysis,
         "usage": total_usage,
@@ -3119,17 +3620,27 @@ def build_raw_document(
             "ingested_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "ingested_by": "ingest_v9.py",
         },
-        "queued_at_ms": queued_at_millis(queued_at_ms),
+        "queued_at_ms": queued_at,
         **verified_identity_fields(content_hash),
+        "calibration_profile": {"applied": False},
+        "storage_path": storage_path,
+        "storage_generation": storage_generation,
+        "_storagePath": storage_path,
+        "hasPdf": True,
     }
 
     if tmdb_status:
         raw["tmdb_status"] = tmdb_status
 
-    # Storage path (matches uploadScreenplayPdf in firebase.ts)
-    raw["_storagePath"] = f"screenplays/{collection}/{safe_name}.pdf"
-
-    return raw
+    return attach_trust_manifest(
+        raw,
+        selection_request=model_key,
+        pipeline_model_tier=model_key,
+        effective_model_tier=effective_model_key,
+        model_ids=MODEL_IDS,
+        origin_kind="cli",
+        origin_id=None,
+    )
 
 
 # ── Single-Script Ingestion ───────────────────────────────────────────────────
@@ -3206,8 +3717,23 @@ def ingest_one(
         log.info(f"  [DRY RUN] Would analyze {word_count:,} words — estimated cost: {cost_est}")
         return "ok"
 
+    project_id = to_doc_id(source_file)
+    version_id = build_version_id(content_hash, queued_at_ms)
+    try:
+        archive_storage_path, archive_storage_generation = archive_cli_pdf_version(
+            pdf_path,
+            project_id=project_id,
+            version_id=version_id,
+            content_hash=content_hash,
+        )
+    except Exception as error:
+        log.error(f"  ✗ Immutable source archive failed: {error}")
+        return "fail"
+
     # --- Run V9 ---
     start = time.time()
+    triage_usage: Optional[Dict[str, Any]] = None
+    cold_read: Optional[Dict[str, Any]] = None
     try:
         if mode == "triage":
             analysis, usage = run_v9_triage(text, title, page_count, word_count, proxy_url)
@@ -3221,10 +3747,18 @@ def ingest_one(
                     text, title, page_count, word_count, proxy_url
                 )
                 triage_impression: Optional[Dict[str, Any]] = {
-                    "triage_score": triage_result.get("triage_score", 0),
+                    "triage_score": triage_result.get("weighted_score", 0),
                     "verdict": triage_result.get("verdict", ""),
                     "genre": triage_result.get("genre", ""),
                     "logline": triage_result.get("logline", ""),
+                }
+                cold_read = {
+                    "evidence": copy.deepcopy(triage_impression),
+                    "response_ids": _usage_response_ids(
+                        triage_usage,
+                        pipeline_pass="triage",
+                        boundary_run=1,
+                    ),
                 }
                 log.info(
                     f"    Triage cold-read: {triage_impression['triage_score']}/10 "
@@ -3232,11 +3766,18 @@ def ingest_one(
                 )
             except Exception as e:
                 log.warning(f"    Triage pre-pass failed (continuing without): {e}")
+                if isinstance(e, V9RunError):
+                    triage_usage = e.usage
+                elif isinstance(e, LlmCallFailedError):
+                    triage_usage = failed_usage(e)
                 triage_impression = None
+                cold_read = None
             analysis, usage = run_v9_stable(
                 text, title, page_count, word_count, model_key, proxy_url,
-                triage_impression=triage_impression,
+                cold_read=cold_read,
             )
+            if triage_usage is not None:
+                usage = merge_usage(triage_usage, usage)
     except Exception as e:
         log.error(f"  ✗ Analysis failed: {e}")
         log.debug(traceback.format_exc())
@@ -3257,6 +3798,8 @@ def ingest_one(
         content_hash=content_hash,
         queued_at_ms=queued_at_ms,
         tmdb_status=tmdb_status,
+        storage_path=archive_storage_path,
+        storage_generation=archive_storage_generation,
     )
 
     # --- Write to Firestore ---
@@ -3265,13 +3808,8 @@ def ingest_one(
     log.info(f"  ✓ Analysis complete: {score:.1f}/10 [{verdict.upper()}] in {duration_ms/1000:.1f}s")
     log.info(f"    Tokens: {usage.get('input_tokens',0):,} in / {usage.get('output_tokens',0):,} out")
 
-    if not write_to_firestore(raw):
-        # Save locally as fallback
-        fallback_path = LOG_DIR / "failed_writes" / (pdf_path.stem + ".json")
-        fallback_path.parent.mkdir(exist_ok=True)
-        with open(fallback_path, "w", encoding="utf-8") as f:
-            json.dump(raw, f, indent=2, ensure_ascii=False)
-        log.warning(f"  ⚠ Firestore write failed — saved locally: {fallback_path}")
+    if not persist_analysis_or_save_fallback(raw, pdf_path):
+        return "fail"
 
     return "ok"
 

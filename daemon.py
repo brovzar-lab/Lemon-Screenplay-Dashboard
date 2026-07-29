@@ -41,7 +41,7 @@ REQUIRED ENV VARS
 ──────────────────
   GOOGLE_APPLICATION_CREDENTIALS  — path to Firebase service account JSON
   FIREBASE_PROJECT_ID             — lemon-screenplay-dashboard
-  ANTHROPIC_API_KEY               — direct Anthropic key (bypasses Cloud Function)
+  PROXY_SERVICE_KEY               — shared secret for authenticated llmProxy calls
 
 OPTIONAL ENV VARS
 ──────────────────
@@ -51,7 +51,7 @@ OPTIONAL ENV VARS
   DAEMON_POLL_INTERVAL  — seconds between Firestore polls (default: 10)
   DAEMON_WORK_DIR       — temp directory for PDF downloads (default: /tmp/lemon)
   DAILY_LLM_BUDGET_USD  — enforced by the llmProxy Cloud Function (default: $100/day)
-  LLM_PROXY_URL         — override if you want to route through Cloud Function instead
+  LLM_PROXY_URL         — override the production llmProxy URL
 """
 
 import asyncio
@@ -72,6 +72,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+import requests
+
 from execution.content_identity import (
     build_version_id,
     build_separate_project_id,
@@ -80,6 +82,11 @@ from execution.content_identity import (
     verified_identity_fields,
 )
 from execution.firebase_config import resolve_storage_bucket
+from execution.trust_manifest import TRUST_MANIFEST_VERSION, attach_trust_manifest
+
+DEFAULT_LLM_PROXY_URL = (
+    "https://us-central1-lemon-screenplay-dashboard.cloudfunctions.net/llmProxy"
+)
 
 # ── Dependency guard ──────────────────────────────────────────────────────────
 
@@ -117,6 +124,38 @@ logging.basicConfig(
 )
 
 log = logging.getLogger("lemon.daemon")
+
+
+def verify_proxy_trust_capability(
+    proxy_url: Optional[str] = None,
+    service_key: Optional[str] = None,
+) -> dict:
+    """Fail before claiming work when the proxy cannot satisfy the trust contract."""
+    url = proxy_url or os.getenv("LLM_PROXY_URL") or DEFAULT_LLM_PROXY_URL
+    key = service_key or os.getenv("PROXY_SERVICE_KEY")
+    if not key:
+        raise RuntimeError(
+            "PROXY_SERVICE_KEY is required; no queued work was claimed"
+        )
+    response = requests.get(
+        url,
+        headers={"X-Lemon-Service-Key": key},
+        timeout=15,
+    )
+    response.raise_for_status()
+    capability = response.json()
+
+    if (
+        capability.get("service") != "llmProxy"
+        or capability.get("trust_contract_version") != TRUST_MANIFEST_VERSION
+        or capability.get("response_id_supported") is not True
+    ):
+        raise RuntimeError(
+            "llmProxy is not compatible with "
+            f"{TRUST_MANIFEST_VERSION}; no queued work was claimed"
+        )
+
+    return capability
 
 # ── Config from env ───────────────────────────────────────────────────────────
 
@@ -580,6 +619,20 @@ def archive_pdf_version(
 
     if destination.exists():
         destination.reload()
+        destination_generation = str(
+            getattr(destination, "generation", "") or ""
+        ).strip()
+        if not destination_generation.isdigit():
+            raise RuntimeError(
+                "Existing immutable PDF archive lacks generation provenance"
+            )
+        archived_bytes = destination.download_as_bytes(
+            if_generation_match=int(destination_generation)
+        )
+        if hashlib.sha256(archived_bytes).hexdigest() != content_hash:
+            raise RuntimeError(
+                "Existing immutable PDF archive bytes do not match the content hash"
+            )
         existing_metadata = destination.metadata or {}
         existing_hash = existing_metadata.get("content_hash")
         if existing_hash and existing_hash != content_hash:
@@ -587,7 +640,7 @@ def archive_pdf_version(
         if any(existing_metadata.get(k) != v for k, v in metadata.items()):
             destination.metadata = {**existing_metadata, **metadata}
             destination.patch(if_generation_match=destination.generation)
-        return f"gs://{bucket_name}/{destination_name}", str(destination.generation)
+        return f"gs://{bucket_name}/{destination_name}", destination_generation
 
     generation = int(generation_text)
     source = bucket.blob(source_name, generation=generation)
@@ -603,6 +656,40 @@ def archive_pdf_version(
     archived.patch(if_generation_match=archived.generation)
     log.info(f"[archive] Preserved PDF: gs://{bucket_name}/{destination_name}")
     return f"gs://{bucket_name}/{destination_name}", str(archived.generation)
+
+
+def verify_archived_pdf_version(
+    *,
+    storage_path: object,
+    storage_generation: object,
+    project_id: str,
+    version_id: str,
+    content_hash: str,
+) -> None:
+    """Rehash the exact archived generation before trusting an existing version."""
+    archive_path = str(storage_path or "")
+    _bucket_name, object_name = parse_storage_path(archive_path)
+    expected_name = f"screenplays/{project_id}/versions/{version_id}.pdf"
+    if object_name != expected_name:
+        raise RuntimeError(
+            "Existing immutable version points to the wrong PDF archive path"
+        )
+    generation_text = str(storage_generation or "").strip()
+    if not generation_text.isdigit() or int(generation_text) <= 0:
+        raise RuntimeError(
+            "Existing immutable version lacks archive generation provenance"
+        )
+    generation = int(generation_text)
+    bucket = storage_bucket_for_path(archive_path)
+    archived = bucket.blob(object_name, generation=generation)
+    archived_bytes = archived.download_as_bytes(
+        if_generation_match=generation
+    )
+    if hashlib.sha256(archived_bytes).hexdigest() != content_hash:
+        raise RuntimeError(
+            "Existing immutable version PDF bytes do not match its content hash"
+        )
+
 
 def is_already_complete(content_hash: str) -> bool:
     """Return True if a job with this hash already completed successfully."""
@@ -1050,12 +1137,33 @@ def build_raw_document(
     storage_path: Optional[str] = None,
     storage_generation: Optional[str] = None,
     calibration_provenance: Optional[dict] = None,
+    text_character_count: int = 0,
+    parser_metadata: Optional[dict] = None,
+    effective_model_key: Optional[str] = None,
+    model_ids: Optional[dict] = None,
+    parser_version: Optional[str] = None,
+    selection_request: Optional[str] = None,
 ) -> dict:
     """Build the daemon's V9 parent document using the shared identity contract."""
+    if not isinstance(model_ids, dict) or not model_ids:
+        raise ValueError("Permanent analysis requires the exact model ID map")
+    effective_key = effective_model_key or model_key
+    effective_model_id = model_ids.get(effective_key)
+    if not isinstance(effective_model_id, str) or not effective_model_id:
+        raise ValueError("Permanent analysis requires an exact effective model ID")
+    if not isinstance(target_project_id, str) or not target_project_id:
+        raise ValueError("Permanent daemon analysis requires target_project_id")
+    project_id = target_project_id
+    queued_at = queued_at_millis(queued_at_ms)
+    version_id = build_version_id(content_hash, queued_at)
+    parser_details = parser_metadata if isinstance(parser_metadata, dict) else {}
     raw_doc = {
         "source_file": filename,
-        "analysis_model": f"claude-{model_key}",
+        "project_id": project_id,
+        "version_id": version_id,
+        "analysis_model": effective_model_id,
         "analysis_version": "v9_archaeology",
+        "parser_version": parser_version,
         "collection_id": collection_id,
         "collection": collection_id,
         "tmdb_status": tmdb_status,
@@ -1063,6 +1171,9 @@ def build_raw_document(
             "filename": filename,
             "page_count": page_count,
             "word_count": word_count,
+            "character_count": text_character_count,
+            "extraction_method": parser_details.get("extraction_method"),
+            "parser_extractor_version": parser_details.get("parser_version"),
         },
         "analysis": analysis,
         "usage": usage,
@@ -1070,19 +1181,25 @@ def build_raw_document(
         "actual_cost_usd": usage.get("actual_cost_usd", 0.0),
         "_ingest_job_id": job_id,
         "_worker_id": WORKER_ID,
-        "queued_at_ms": queued_at_millis(queued_at_ms),
+        "queued_at_ms": queued_at,
         **verified_identity_fields(content_hash),
         "calibration_profile": calibration_provenance or {"applied": False},
     }
-    if target_project_id:
-        raw_doc["project_id"] = target_project_id
     if storage_path:
         raw_doc["storage_path"] = storage_path
         raw_doc["_storagePath"] = storage_path
         raw_doc["hasPdf"] = True
     if storage_generation:
         raw_doc["storage_generation"] = storage_generation
-    return raw_doc
+    return attach_trust_manifest(
+        raw_doc,
+        selection_request=selection_request or model_key,
+        pipeline_model_tier=model_key,
+        effective_model_tier=effective_key,
+        model_ids=model_ids,
+        origin_kind="daemon_queue",
+        origin_id=job_id,
+    )
 
 # ── Core job processor ────────────────────────────────────────────────────────
 
@@ -1164,6 +1281,14 @@ def process_job(job: dict) -> None:
         version_id = build_version_id(content_hash, queued_at_ms)
         existing_version = get_existing_version(screenplay_doc_id, version_id)
         if existing_version is not None:
+            ingest_v9.validate_permanent_analysis(existing_version)
+            verify_archived_pdf_version(
+                storage_path=existing_version.get("storage_path"),
+                storage_generation=existing_version.get("storage_generation"),
+                project_id=screenplay_doc_id,
+                version_id=version_id,
+                content_hash=content_hash,
+            )
             mark_complete(
                 job_id,
                 screenplay_doc_id,
@@ -1254,7 +1379,7 @@ def process_job(job: dict) -> None:
         title = Path(filename).stem.replace("_", " ").replace("-", " ")
 
         # ── 7. Run V9 Archaeology Engine analysis ─────────────────────────
-        proxy_url = os.getenv("LLM_PROXY_URL")  # None = call Anthropic directly
+        proxy_url = os.getenv("LLM_PROXY_URL")  # None = production proxy URL
 
         try:
             if model_key == "hybrid":
@@ -1295,6 +1420,13 @@ def process_job(job: dict) -> None:
                 "manual review required before retrying."
             )
             return
+        except ingest_v9.LlmProvenanceError as e:
+            mark_terminal_failed(job_id, e)
+            log.error(
+                "[trust] Model response provenance was incomplete; "
+                "manual review required before retrying."
+            )
+            return
 
         # ── 8. Check finish reason (don't save truncated JSON) ────────────
         finish_reason = usage.get("finish_reason", "end_turn")
@@ -1305,6 +1437,11 @@ def process_job(job: dict) -> None:
             )
 
         # ── 9. Build full document and write to Firestore ─────────────────
+        final_model_key = model_key
+        if model_key == "hybrid":
+            hybrid_meta = analysis.get("_hybrid_mode") or {}
+            final_model_key = hybrid_meta.get("final_model", "sonnet")
+
         raw_doc = build_raw_document(
             filename=filename,
             model_key=model_key,
@@ -1322,6 +1459,16 @@ def process_job(job: dict) -> None:
             storage_generation=archive_storage_generation,
             calibration_provenance=(
                 calibration_profile["provenance"] if calibration_profile else None
+            ),
+            text_character_count=len(text),
+            parser_metadata=parsed.get("metadata"),
+            effective_model_key=final_model_key,
+            model_ids=ingest_v9.MODEL_IDS,
+            parser_version=ingest_v9.PARSER_VERSION,
+            selection_request=(
+                requested_model
+                if isinstance(requested_model, str) and requested_model
+                else "auto"
             ),
         )
 
@@ -1341,11 +1488,6 @@ def process_job(job: dict) -> None:
 
         # For hybrid runs, report the model that actually produced the final
         # result (sonnet for no-promotion, opus for promoted scripts).
-        final_model_key = model_key
-        if model_key == "hybrid":
-            hybrid_meta = analysis.get("_hybrid_mode") or {}
-            final_model_key = hybrid_meta.get("final_model", "sonnet")
-
         mark_complete(job_id, screenplay_doc_id, {
             "duration_seconds": duration,
             "input_tokens": input_tokens,
@@ -1358,7 +1500,7 @@ def process_job(job: dict) -> None:
             # Compatibility field for existing dashboard readers. It now holds
             # exact server-settled cost rather than a model-key estimate.
             "estimated_cost_usd": actual_cost_usd,
-            "prompt_version": None,   # TODO: pipe through from ingest_v9
+            "prompt_version": raw_doc["prompt_version"],
             "analysis_version": "v9_archaeology",
             "archived_storage_path": archive_storage_path,
             "archived_storage_generation": archive_storage_generation,
@@ -1426,9 +1568,24 @@ def main() -> None:
     log.info("    Daily budget: enforced as dollars by the llmProxy Cloud Function")
     log.info("═" * 70)
 
-    if not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("LLM_PROXY_URL"):
-        log.error("ANTHROPIC_API_KEY and LLM_PROXY_URL are both unset — daemon cannot reach Claude. Exiting.")
+    if not os.getenv("PROXY_SERVICE_KEY"):
+        log.error(
+            "PROXY_SERVICE_KEY is unset; daemon cannot authenticate to llmProxy. "
+            "Exiting before queue consumption."
+        )
         sys.exit(1)
+
+    try:
+        verify_proxy_trust_capability()
+    except Exception as exc:
+        log.error(
+            "[startup] llmProxy trust preflight failed; "
+            f"no queue jobs will be claimed: {exc}"
+        )
+        sys.exit(1)
+    log.info(
+        f"[startup] llmProxy supports trust contract {TRUST_MANIFEST_VERSION}"
+    )
 
     # Ensure work dir exists
     WORK_DIR.mkdir(parents=True, exist_ok=True)

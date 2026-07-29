@@ -16,6 +16,56 @@ CONTENT_HASH = "cd" * 32
 QUEUED_AT_MS = 1_784_588_800_123
 
 
+class ProxyTrustCapabilityTests(unittest.TestCase):
+    def test_supported_proxy_contract_passes_without_a_paid_call(self):
+        response = MagicMock()
+        response.json.return_value = {
+            "service": "llmProxy",
+            "trust_contract_version": daemon.TRUST_MANIFEST_VERSION,
+            "response_id_supported": True,
+        }
+
+        with patch.object(daemon.requests, "get", return_value=response) as get:
+            capability = daemon.verify_proxy_trust_capability(
+                "https://proxy.example/llm",
+                "test-service-key",
+            )
+
+        get.assert_called_once_with(
+            "https://proxy.example/llm",
+            headers={"X-Lemon-Service-Key": "test-service-key"},
+            timeout=15,
+        )
+        response.raise_for_status.assert_called_once_with()
+        self.assertTrue(capability["response_id_supported"])
+
+    def test_older_proxy_contract_stops_before_queue_consumption(self):
+        response = MagicMock()
+        response.json.return_value = {
+            "service": "llmProxy",
+            "response_id_supported": False,
+        }
+
+        with (
+            patch.object(daemon.requests, "get", return_value=response),
+            self.assertRaisesRegex(RuntimeError, "no queued work was claimed"),
+        ):
+            daemon.verify_proxy_trust_capability(
+                "https://old-proxy.example/llm",
+                "test-service-key",
+            )
+
+    def test_missing_service_key_stops_before_network_or_queue_consumption(self):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(daemon.requests, "get") as get,
+            self.assertRaisesRegex(RuntimeError, "PROXY_SERVICE_KEY"),
+        ):
+            daemon.verify_proxy_trust_capability("https://proxy.example/llm")
+
+        get.assert_not_called()
+
+
 class CompletedVersionPreflightTests(unittest.TestCase):
     def test_existing_version_completes_without_repeating_paid_work(self):
         heartbeat = MagicMock()
@@ -26,6 +76,7 @@ class CompletedVersionPreflightTests(unittest.TestCase):
             run_v9_stable=MagicMock(),
             run_v9_hybrid=MagicMock(),
             write_to_firestore=MagicMock(),
+            validate_permanent_analysis=MagicMock(),
             MODEL_IDS={"sonnet": "claude-sonnet-4-6"},
         )
         prior_engine = sys.modules.get("ingest_v9")
@@ -68,6 +119,10 @@ class CompletedVersionPreflightTests(unittest.TestCase):
                         "get_existing_version",
                         return_value=existing_version,
                     ) as version_lookup,
+                    patch.object(
+                        daemon,
+                        "verify_archived_pdf_version",
+                    ) as verify_archive,
                     patch.object(daemon, "archive_pdf_version") as archive_pdf,
                     patch.object(daemon, "check_daily_budget_available") as budget,
                     patch.object(daemon, "load_calibration_profile") as calibration,
@@ -103,6 +158,16 @@ class CompletedVersionPreflightTests(unittest.TestCase):
                 fake_engine.run_v9_stable.assert_not_called()
                 fake_engine.run_v9_hybrid.assert_not_called()
                 fake_engine.write_to_firestore.assert_not_called()
+                fake_engine.validate_permanent_analysis.assert_called_once_with(
+                    existing_version
+                )
+                verify_archive.assert_called_once_with(
+                    storage_path=existing_version["storage_path"],
+                    storage_generation=existing_version["storage_generation"],
+                    project_id="Original_Draft.pdf",
+                    version_id=f"{CONTENT_HASH}_{QUEUED_AT_MS}",
+                    content_hash=CONTENT_HASH,
+                )
             finally:
                 daemon.WORK_DIR = prior_work_dir
                 daemon._db = prior_db

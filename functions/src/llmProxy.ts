@@ -19,6 +19,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { defineString } from "firebase-functions/params";
 import cors from "cors";
 import { authenticateProxyRequest } from "./proxyAuth";
+import { buildTrustCapability } from "./llmProxyCapability";
 import {
   createAnthropicClient,
   finalMessageWithUncertainSpendProtection,
@@ -212,7 +213,7 @@ export const llmProxy = onRequest(
   },
   (req, res) => {
     corsMiddleware(req, res, async () => {
-      if (req.method !== "POST") {
+      if (req.method !== "GET" && req.method !== "POST") {
         res.status(405).json({ error: "Method not allowed" });
         return;
       }
@@ -227,6 +228,22 @@ export const llmProxy = onRequest(
         });
         return;
       }
+
+      // Free authenticated rollout preflight for the VPS daemon. This stays
+      // before any budget reservation or model call.
+      if (req.method === "GET") {
+        if (authResult.kind !== "service") {
+          res.status(403).json({
+            error: "The trust preflight is available to the ingest service only.",
+            code: "FORBIDDEN",
+            isRetryable: false,
+          });
+          return;
+        }
+        res.status(200).json(buildTrustCapability());
+        return;
+      }
+
       if (authResult.kind === "user"
           && (!authResult.emailVerified || !authResult.email.endsWith("@lemonfilms.com"))) {
         res.status(403).json({
@@ -420,6 +437,7 @@ export const llmProxy = onRequest(
           tool_uses: toolUses,
           thinking,
           content: message.content, // full block array for advanced callers
+          response_id: message.id,
           model: message.model,
           stop_reason: message.stop_reason,
           usage: {

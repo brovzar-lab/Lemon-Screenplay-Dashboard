@@ -24,6 +24,7 @@ const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const cors_1 = __importDefault(require("cors"));
 const proxyAuth_1 = require("./proxyAuth");
+const llmProxyCapability_1 = require("./llmProxyCapability");
 const anthropicClient_1 = require("./anthropicClient");
 const budgetCounter_1 = require("./budgetCounter");
 const llmCost_1 = require("./llmCost");
@@ -120,7 +121,7 @@ exports.llmProxy = (0, https_1.onRequest)({
     concurrency: 1,
 }, (req, res) => {
     corsMiddleware(req, res, async () => {
-        if (req.method !== "POST") {
+        if (req.method !== "GET" && req.method !== "POST") {
             res.status(405).json({ error: "Method not allowed" });
             return;
         }
@@ -132,6 +133,20 @@ exports.llmProxy = (0, https_1.onRequest)({
                 code: "UNAUTHORIZED",
                 isRetryable: false,
             });
+            return;
+        }
+        // Free authenticated rollout preflight for the VPS daemon. This stays
+        // before any budget reservation or model call.
+        if (req.method === "GET") {
+            if (authResult.kind !== "service") {
+                res.status(403).json({
+                    error: "The trust preflight is available to the ingest service only.",
+                    code: "FORBIDDEN",
+                    isRetryable: false,
+                });
+                return;
+            }
+            res.status(200).json((0, llmProxyCapability_1.buildTrustCapability)());
             return;
         }
         if (authResult.kind === "user"
@@ -316,6 +331,7 @@ exports.llmProxy = (0, https_1.onRequest)({
                 tool_uses: toolUses,
                 thinking,
                 content: message.content, // full block array for advanced callers
+                response_id: message.id,
                 model: message.model,
                 stop_reason: message.stop_reason,
                 usage: {

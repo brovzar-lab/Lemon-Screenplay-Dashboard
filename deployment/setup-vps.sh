@@ -95,7 +95,7 @@ if [ ! -f "$REPO_DIR/.env" ]; then
     chown "$DAEMON_USER:$DAEMON_USER" "$REPO_DIR/.env"
     echo ""
     echo "  ⚠️  ACTION REQUIRED: Edit $REPO_DIR/.env and fill in:"
-    echo "     - ANTHROPIC_API_KEY"
+    echo "     - PROXY_SERVICE_KEY (must match the Cloud Function)"
     echo "     - GOOGLE_APPLICATION_CREDENTIALS (path to service-account.json)"
     echo "     - TMDB_API_KEY (optional)"
     echo ""

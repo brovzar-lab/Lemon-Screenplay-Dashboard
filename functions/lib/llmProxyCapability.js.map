@@ -1,0 +1,1 @@
+{"version":3,"file":"llmProxyCapability.js","sourceRoot":"","sources":["../src/llmProxyCapability.ts"],"names":[],"mappings":";;;AAEA,oDAMC;AARY,QAAA,sBAAsB,GAAG,yBAAyB,CAAC;AAEhE,SAAgB,oBAAoB;IAClC,OAAO;QACL,OAAO,EAAE,UAAU;QACnB,sBAAsB,EAAE,8BAAsB;QAC9C,qBAAqB,EAAE,IAAI;KACnB,CAAC;AACb,CAAC"}

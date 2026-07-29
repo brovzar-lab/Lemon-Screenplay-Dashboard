@@ -12,6 +12,11 @@ os.environ.setdefault("DAEMON_LOG_DIR", "/tmp/lemon-daemon-test")
 import daemon
 from execution.content_identity import build_separate_project_id
 from execution.ingest_v9 import write_analysis_transaction
+from execution.v9_test_fixtures import (
+    HAIKU_MODEL_ID,
+    complete_analysis,
+    complete_usage,
+)
 
 
 CONTENT_HASH = "ef" * 32
@@ -214,13 +219,28 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
             collection_id="LEMON",
             page_count=100,
             word_count=20_000,
-            analysis={"title": "Completely Renamed Draft"},
-            usage={"input_tokens": 10, "output_tokens": 5},
+            analysis=complete_analysis("Completely Renamed Draft"),
+            usage=complete_usage("claude-sonnet-test"),
             job_id="revision-job",
             content_hash=CONTENT_HASH,
             queued_at_ms=QUEUED_AT_MS,
             tmdb_status=None,
             target_project_id="Original_Draft.pdf",
+            storage_path=(
+                "gs://bucket/screenplays/Original_Draft.pdf/versions/"
+                f"{CONTENT_HASH}_{QUEUED_AT_MS}.pdf"
+            ),
+            storage_generation="2002",
+            text_character_count=123_456,
+            parser_metadata={
+                "extraction_method": "pdfplumber",
+                "parser_version": "v2",
+            },
+            model_ids={
+                "haiku": HAIKU_MODEL_ID,
+                "sonnet": "claude-sonnet-test",
+            },
+            parser_version="parser-test",
         )
 
         self.assertEqual(raw["project_id"], "Original_Draft.pdf")
@@ -259,15 +279,23 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                 "text": ("INT. HOUSE - DAY\nA scene unfolds.\n" * 30),
                 "page_count": 100,
                 "word_count": 20_000,
+                "metadata": {
+                    "extraction_method": "pdfplumber",
+                    "parser_version": "v2",
+                },
             }),
             run_v9_stable=MagicMock(return_value=(
-                {"title": "Completely Renamed Draft", "verdict": "CONSIDER"},
-                {"input_tokens": 10, "output_tokens": 5, "finish_reason": "end_turn"},
+                complete_analysis("Completely Renamed Draft"),
+                complete_usage("claude-sonnet-test"),
             )),
             run_v9_hybrid=MagicMock(),
             write_to_firestore=MagicMock(side_effect=lambda raw: written.append(raw) or True),
             to_doc_id=MagicMock(return_value="wrong-new-project"),
-            MODEL_IDS={"sonnet": "claude-sonnet-test"},
+            MODEL_IDS={
+                "haiku": HAIKU_MODEL_ID,
+                "sonnet": "claude-sonnet-test",
+            },
+            PARSER_VERSION="parser-test",
         )
         prior_engine = sys.modules.get("ingest_v9")
         sys.modules["ingest_v9"] = fake_engine
