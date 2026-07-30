@@ -5,12 +5,16 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestScreenplay } from '@/test/factories';
+import type { LocalProducerTakeDraft } from '@/lib/producerCalibration';
 import type { ProducerAssessment } from '@/types';
 import { ProducerTake } from './ProducerTake';
 
 const mocks = vi.hoisted(() => ({
   loadProducerAssessment: vi.fn(),
   submitProducerAssessment: vi.fn(),
+  isLocalCalibrationPreviewMode: vi.fn(() => false),
+  loadLocalProducerTakeDraft: vi.fn(),
+  saveLocalProducerTakeDraft: vi.fn(),
 }));
 
 vi.mock('@/lib/producerCalibration', async (importOriginal) => {
@@ -20,6 +24,9 @@ vi.mock('@/lib/producerCalibration', async (importOriginal) => {
     ...original,
     loadProducerAssessment: mocks.loadProducerAssessment,
     submitProducerAssessment: mocks.submitProducerAssessment,
+    isLocalCalibrationPreviewMode: mocks.isLocalCalibrationPreviewMode,
+    loadLocalProducerTakeDraft: mocks.loadLocalProducerTakeDraft,
+    saveLocalProducerTakeDraft: mocks.saveLocalProducerTakeDraft,
   };
 });
 
@@ -71,9 +78,26 @@ function assessment(): ProducerAssessment {
   };
 }
 
+function localDraft(): LocalProducerTakeDraft {
+  const saved = assessment();
+  return {
+    schemaVersion: 'lemon-local-producer-take-v1',
+    projectId: saved.analysis.projectId,
+    versionId: saved.analysis.versionId,
+    title: saved.analysis.title,
+    aiFinalScore: saved.analysis.aiFinalScore,
+    aiVerdict: saved.analysis.aiVerdict,
+    judgment: saved.judgment,
+    revision: saved.revision,
+    savedAt: saved.publishedAt,
+  };
+}
+
 describe('ProducerTake', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.isLocalCalibrationPreviewMode.mockReturnValue(false);
+    mocks.loadLocalProducerTakeDraft.mockReturnValue(null);
   });
 
   it('shows the producer judgment beside the unchanged AI final', async () => {
@@ -91,7 +115,9 @@ describe('ProducerTake', () => {
     expect(await screen.findByText('Producer Take')).toBeInTheDocument();
     expect(screen.getByText('5.1')).toBeInTheDocument();
     expect(screen.getByText('8.7')).toBeInTheDocument();
-    expect(screen.getByText('It undervalued how funny and playable the script is.')).toBeInTheDocument();
+    expect(
+      screen.getByText('It undervalued how funny and playable the script is.'),
+    ).toBeInTheDocument();
     expect(screenplay.weightedScore).toBe(5.1);
   });
 
@@ -143,6 +169,7 @@ describe('ProducerTake', () => {
   });
 
   it('shows a clean local first-take form before Q5 security rules are deployed', async () => {
+    mocks.isLocalCalibrationPreviewMode.mockReturnValue(true);
     mocks.loadProducerAssessment.mockRejectedValue({
       code: 'permission-denied',
     });
@@ -157,9 +184,47 @@ describe('ProducerTake', () => {
     render(<ProducerTake screenplay={screenplay} />, { wrapper });
 
     expect(
-      await screen.findByRole('button', { name: 'Publish Producer Take' }),
+      await screen.findByRole('button', { name: 'Save local preview' }),
     ).toBeInTheDocument();
+    expect(screen.getByText('Local review mode')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('saves a local preview without calling the undeployed server', async () => {
+    const user = userEvent.setup();
+    mocks.isLocalCalibrationPreviewMode.mockReturnValue(true);
+    mocks.loadProducerAssessment.mockResolvedValue(null);
+    mocks.saveLocalProducerTakeDraft.mockReturnValue(localDraft());
+    const screenplay = createTestScreenplay({
+      id: 'will-2010',
+      projectId: 'will-2010',
+      latestVersionId: 'version-sealed-1',
+      title: 'Will 2010',
+      weightedScore: 5.1,
+      recommendation: 'pass',
+    });
+
+    render(<ProducerTake screenplay={screenplay} />, { wrapper });
+    await screen.findByText('Local review mode');
+    await user.type(
+      screen.getByLabelText('What did the AI miss?'),
+      'It undervalued the comedy.',
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Save local preview' }),
+    );
+
+    expect(mocks.saveLocalProducerTakeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 'will-2010',
+        versionId: 'version-sealed-1',
+        title: 'Will 2010',
+      }),
+    );
+    expect(mocks.submitProducerAssessment).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/Local preview · Revision 1/),
+    ).toBeInTheDocument();
   });
 
   it('requires a new take when the screenplay analysis version has changed', async () => {

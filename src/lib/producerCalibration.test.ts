@@ -1,12 +1,19 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   EMPTY_PRODUCER_JUDGMENT,
+  loadLocalProducerAssessmentHeads,
+  loadLocalProducerTakeDraft,
   producerAssessmentHeadId,
+  saveLocalProducerTakeDraft,
   validateProducerJudgment,
 } from '@/lib/producerCalibration';
 
 describe('producerCalibration client contract', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it('builds a stable latest-assessment identity per producer and project', () => {
     expect(producerAssessmentHeadId('billy-uid', 'will-2010')).toBe(
       'billy-uid__will-2010',
@@ -36,5 +43,38 @@ describe('producerCalibration client contract', () => {
         aiGotRight: '',
       }),
     ).toThrow('what the analysis missed or got right');
+  });
+
+  it('keeps local review evidence through refresh without publishing it', () => {
+    const input = {
+      projectId: 'will-2010',
+      versionId: 'sealed-version-1',
+      title: 'Will 2010',
+      aiFinalScore: 5.1,
+      aiVerdict: 'pass' as const,
+      judgment: {
+        ...EMPTY_PRODUCER_JUDGMENT,
+        producerScore: 8.8,
+        producerVerdict: 'recommend' as const,
+        aiMissed: 'It undervalued the comedy.',
+      },
+    };
+
+    expect(saveLocalProducerTakeDraft(input).revision).toBe(1);
+    expect(saveLocalProducerTakeDraft(input).revision).toBe(2);
+    expect(loadLocalProducerTakeDraft('will-2010')).toEqual(
+      expect.objectContaining({
+        projectId: 'will-2010',
+        revision: 2,
+      }),
+    );
+    expect(loadLocalProducerAssessmentHeads()).toEqual([
+      expect.objectContaining({
+        producerUid: 'local-preview',
+        latestAssessmentId: 'local-preview__will-2010',
+        producerScore: 8.8,
+        revision: 2,
+      }),
+    ]);
   });
 });

@@ -5,8 +5,12 @@ import {
   EMPTY_PRODUCER_JUDGMENT,
   TASTE_SIGNAL_LABELS,
   isExpectedLocalCalibrationPredeployError,
+  isLocalCalibrationPreviewMode,
+  loadLocalProducerTakeDraft,
   loadProducerAssessment,
+  saveLocalProducerTakeDraft,
   submitProducerAssessment,
+  type LocalProducerTakeDraft,
 } from '@/lib/producerCalibration';
 import type {
   ProducerAssessment,
@@ -43,7 +47,11 @@ function judgmentFromAi(
 
 export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
   const projectId = screenplay.projectId ?? screenplay.id;
+  const isLocalPreview = isLocalCalibrationPreviewMode();
   const [assessment, setAssessment] = useState<ProducerAssessment | null>(null);
+  const [localDraft, setLocalDraft] = useState<LocalProducerTakeDraft | null>(
+    null,
+  );
   const [judgment, setJudgment] = useState<ProducerJudgment>(() =>
     judgmentFromAi(screenplay.weightedScore, screenplay.recommendation),
   );
@@ -56,6 +64,20 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     let active = true;
     setLoading(true);
     setError('');
+    const applyLocalDraftOrNewTake = () => {
+      const draft = loadLocalProducerTakeDraft(projectId);
+      setLocalDraft(draft);
+      const isExactLocalVersion =
+        draft?.versionId === screenplay.latestVersionId;
+      if (draft && isExactLocalVersion) {
+        setJudgment(draft.judgment);
+      } else {
+        setJudgment(
+          judgmentFromAi(screenplay.weightedScore, screenplay.recommendation),
+        );
+      }
+      setEditing(!isExactLocalVersion);
+    };
     loadProducerAssessment(projectId)
       .then((loaded) => {
         if (!active) return;
@@ -63,28 +85,26 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
         const isExactVersion =
           loaded?.analysis.versionId === screenplay.latestVersionId;
         if (loaded && isExactVersion) {
+          setLocalDraft(null);
           setJudgment(loaded.judgment);
+          setEditing(false);
+        } else if (isLocalPreview) {
+          applyLocalDraftOrNewTake();
         } else {
           setJudgment(
-            judgmentFromAi(
-              screenplay.weightedScore,
-              screenplay.recommendation,
-            ),
+            judgmentFromAi(screenplay.weightedScore, screenplay.recommendation),
           );
+          setEditing(true);
         }
-        setEditing(!isExactVersion);
       })
       .catch((loadError: unknown) => {
         if (!active) return;
-        if (isExpectedLocalCalibrationPredeployError(loadError)) {
+        if (
+          isLocalPreview &&
+          isExpectedLocalCalibrationPredeployError(loadError)
+        ) {
           setAssessment(null);
-          setJudgment(
-            judgmentFromAi(
-              screenplay.weightedScore,
-              screenplay.recommendation,
-            ),
-          );
-          setEditing(true);
+          applyLocalDraftOrNewTake();
           return;
         }
         setError(
@@ -101,6 +121,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     };
   }, [
     projectId,
+    isLocalPreview,
     screenplay.latestVersionId,
     screenplay.recommendation,
     screenplay.weightedScore,
@@ -111,9 +132,12 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     [judgment.producerScore, screenplay.weightedScore],
   );
   const exactVersionAvailable = Boolean(screenplay.latestVersionId);
+  const savedJudgment = assessment?.judgment ?? localDraft?.judgment ?? null;
+  const hasSavedTake = savedJudgment !== null;
+  const savedVersionId =
+    assessment?.analysis.versionId ?? localDraft?.versionId ?? null;
   const isPriorVersion =
-    assessment !== null
-    && assessment.analysis.versionId !== screenplay.latestVersionId;
+    savedVersionId !== null && savedVersionId !== screenplay.latestVersionId;
 
   const update = <K extends keyof ProducerJudgment>(
     key: K,
@@ -134,12 +158,29 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     setSaving(true);
     setError('');
     try {
+      if (isLocalPreview) {
+        const savedDraft = saveLocalProducerTakeDraft({
+          projectId,
+          versionId: screenplay.latestVersionId,
+          title: screenplay.title,
+          aiFinalScore: screenplay.weightedScore,
+          aiVerdict: screenplay.recommendation,
+          judgment,
+        });
+        setAssessment(null);
+        setLocalDraft(savedDraft);
+        setJudgment(savedDraft.judgment);
+        setEditing(false);
+        window.dispatchEvent(new Event(PRODUCER_ASSESSMENT_UPDATED_EVENT));
+        return;
+      }
       const saved = await submitProducerAssessment({
         projectId,
         versionId: screenplay.latestVersionId,
         judgment,
       });
       setAssessment(saved);
+      setLocalDraft(null);
       setJudgment(saved.judgment);
       setEditing(false);
       window.dispatchEvent(new Event(PRODUCER_ASSESSMENT_UPDATED_EVENT));
@@ -187,7 +228,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               Your judgment stays beside the AI result. It never replaces it.
             </p>
           </div>
-          {assessment && !editing && (
+          {hasSavedTake && !editing && (
             <button
               type="button"
               className="btn btn-secondary text-sm"
@@ -243,14 +284,14 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
             Producer calibration requires a sealed analysis version. Reanalyze
             this legacy record before using it as taste evidence.
           </p>
-        ) : !editing && assessment ? (
+        ) : !editing && savedJudgment ? (
           <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black-500">
                 What the AI missed
               </p>
               <p className="mt-1 leading-6 text-black-200">
-                {assessment.judgment.aiMissed || 'No correction recorded.'}
+                {savedJudgment.aiMissed || 'No correction recorded.'}
               </p>
             </div>
             <div>
@@ -258,19 +299,30 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 What the AI got right
               </p>
               <p className="mt-1 leading-6 text-black-200">
-                {assessment.judgment.aiGotRight || 'No confirmation recorded.'}
+                {savedJudgment.aiGotRight || 'No confirmation recorded.'}
               </p>
             </div>
             <p className="text-xs text-black-500 sm:col-span-2">
-              Revision {assessment.revision} · Exact analysis version{' '}
-              {assessment.analysis.versionId.slice(0, 12)}… ·{' '}
-              {assessment.judgment.includeInCalibration
+              {localDraft ? 'Local preview' : 'Published'} · Revision{' '}
+              {assessment?.revision ?? localDraft?.revision} · Exact analysis
+              version {savedVersionId?.slice(0, 12)}… ·{' '}
+              {savedJudgment.includeInCalibration
                 ? 'Included in calibration'
                 : 'Held out of calibration'}
             </p>
           </div>
         ) : (
           <div className="mt-5 space-y-5">
+            {isLocalPreview && (
+              <div className="rounded-lg border border-[#3157d5]/30 bg-[#3157d5]/8 p-3 text-sm leading-6 text-black-300">
+                <strong className="block text-black-100">
+                  Local review mode
+                </strong>
+                This take will be saved only on this Mac for Q5 review.
+                Production publishing becomes available after Q5 is approved and
+                deployed.
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between gap-4">
                 <label
@@ -364,9 +416,11 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 What moved your decision?
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
-                {(Object.entries(TASTE_SIGNAL_LABELS) as Array<
-                  [TasteSignal, string]
-                >).map(([signal, label]) => (
+                {(
+                  Object.entries(TASTE_SIGNAL_LABELS) as Array<
+                    [TasteSignal, string]
+                  >
+                ).map(([signal, label]) => (
                   <button
                     key={signal}
                     type="button"
@@ -433,12 +487,12 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
             )}
 
             <div className="flex flex-wrap justify-end gap-2">
-              {assessment && (
+              {hasSavedTake && savedJudgment && (
                 <button
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => {
-                    setJudgment(assessment.judgment);
+                    setJudgment(savedJudgment);
                     setEditing(false);
                     setError('');
                   }}
@@ -454,15 +508,19 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               >
                 {saving
                   ? 'Saving…'
-                  : assessment
-                    ? 'Publish new revision'
-                    : 'Publish Producer Take'}
+                  : isLocalPreview && hasSavedTake
+                    ? 'Save local revision'
+                    : isLocalPreview
+                      ? 'Save local preview'
+                      : assessment
+                        ? 'Publish new revision'
+                        : 'Publish Producer Take'}
               </button>
             </div>
           </div>
         )}
 
-        {error && !editing && assessment && (
+        {error && !editing && hasSavedTake && (
           <p role="alert" className="mt-4 text-sm text-red-400">
             {error}
           </p>

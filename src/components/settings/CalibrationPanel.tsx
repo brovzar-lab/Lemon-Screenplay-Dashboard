@@ -5,8 +5,10 @@ import {
   activateCalibrationCandidate,
   buildCalibrationCandidate,
   isExpectedLocalCalibrationPredeployError,
+  isLocalCalibrationPreviewMode,
   loadActiveCalibrationProfile,
   loadCalibrationCandidates,
+  loadLocalProducerAssessmentHeads,
   loadProducerAssessmentHeads,
   rollbackCalibrationProfile,
 } from '@/lib/producerCalibration';
@@ -34,6 +36,7 @@ function candidateStatus(candidate: CalibrationCandidate): string {
 }
 
 export function CalibrationPanel() {
+  const isLocalPreview = isLocalCalibrationPreviewMode();
   const [assessments, setAssessments] = useState<ProducerAssessmentHead[]>([]);
   const [candidates, setCandidates] = useState<CalibrationCandidate[]>([]);
   const [activeProfile, setActiveProfile] =
@@ -72,10 +75,26 @@ export function CalibrationPanel() {
         );
       });
     } catch (loadError) {
-      if (isExpectedLocalCalibrationPredeployError(loadError)) {
-        setAssessments([]);
+      if (
+        isLocalPreview &&
+        isExpectedLocalCalibrationPredeployError(loadError)
+      ) {
+        const localAssessments = loadLocalProducerAssessmentHeads();
+        const eligible = localAssessments.filter(
+          (assessment) => assessment.includeInCalibration,
+        );
+        setAssessments(localAssessments);
         setCandidates([]);
         setActiveProfile(null);
+        setAssignments((current) => {
+          if (Object.keys(current).length > 0) return current;
+          return Object.fromEntries(
+            eligible.map((assessment, index) => [
+              assessment.latestAssessmentId,
+              index === 0 ? 'holdout' : 'training',
+            ]),
+          );
+        });
         setError('');
         return;
       }
@@ -87,7 +106,7 @@ export function CalibrationPanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isLocalPreview]);
 
   useEffect(() => {
     void refresh();
@@ -114,7 +133,9 @@ export function CalibrationPanel() {
     [assessments, assignments],
   );
   const canBuild =
-    trainingAssessmentIds.length >= 4 && holdoutAssessmentIds.length >= 1;
+    !isLocalPreview &&
+    trainingAssessmentIds.length >= 4 &&
+    holdoutAssessmentIds.length >= 1;
 
   const handleBuild = async () => {
     if (!canBuild) return;
@@ -198,7 +219,19 @@ export function CalibrationPanel() {
         </p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-3" aria-label="Calibration status">
+      {isLocalPreview && (
+        <section className="rounded-xl border border-[#3157d5]/30 bg-[#3157d5]/8 p-4 text-sm leading-6 text-black-300">
+          <strong className="block text-black-100">Local review mode</strong>
+          Producer Takes shown here are saved only on this Mac. Candidate
+          compilation, paid model calls, and calibration activation remain
+          unavailable until Q5 is approved and deployed.
+        </section>
+      )}
+
+      <section
+        className="grid gap-4 sm:grid-cols-3"
+        aria-label="Calibration status"
+      >
         <div className="rounded-xl border border-black-700 bg-black-900/35 p-5">
           <p className="text-xs uppercase tracking-wider text-black-500">
             Taste evidence
@@ -206,7 +239,9 @@ export function CalibrationPanel() {
           <strong className="mt-2 block text-3xl tabular-nums text-black-100">
             {assessments.filter((item) => item.includeInCalibration).length}
           </strong>
-          <span className="text-sm text-black-400">included Producer Takes</span>
+          <span className="text-sm text-black-400">
+            included Producer Takes
+          </span>
         </div>
         <div className="rounded-xl border border-black-700 bg-black-900/35 p-5">
           <p className="text-xs uppercase tracking-wider text-black-500">
@@ -299,15 +334,16 @@ export function CalibrationPanel() {
                   aria-label={`Evidence role for ${assessment.title}`}
                   value={
                     assessment.includeInCalibration
-                      ? assignments[assessment.latestAssessmentId] ?? 'exclude'
+                      ? (assignments[assessment.latestAssessmentId] ??
+                        'exclude')
                       : 'exclude'
                   }
                   disabled={!assessment.includeInCalibration}
                   onChange={(event) =>
                     setAssignments((current) => ({
                       ...current,
-                      [assessment.latestAssessmentId]:
-                        event.target.value as EvidenceAssignment,
+                      [assessment.latestAssessmentId]: event.target
+                        .value as EvidenceAssignment,
                     }))
                   }
                   className="input min-w-36 text-sm"
@@ -332,7 +368,11 @@ export function CalibrationPanel() {
             disabled={!canBuild || building}
             onClick={handleBuild}
           >
-            {building ? 'Building and benchmarking…' : 'Build candidate'}
+            {building
+              ? 'Building and benchmarking…'
+              : isLocalPreview
+                ? 'Available after deployment'
+                : 'Build candidate'}
           </button>
         </div>
       </section>
@@ -342,8 +382,8 @@ export function CalibrationPanel() {
           Candidate history
         </h3>
         <p className="mt-1 text-sm text-black-400">
-          Every candidate, benchmark, publication, and rollback keeps its
-          exact evidence and model provenance.
+          Every candidate, benchmark, publication, and rollback keeps its exact
+          evidence and model provenance.
         </p>
 
         {candidates.length === 0 ? (
@@ -384,8 +424,8 @@ export function CalibrationPanel() {
                       </div>
                       <p className="mt-1 text-xs text-black-500">
                         {candidate.sourceAssessmentIds.length} training reads ·{' '}
-                        {candidate.benchmark.holdoutAssessmentIds.length} holdout
-                        reads · {candidate.compilerModelId}
+                        {candidate.benchmark.holdoutAssessmentIds.length}{' '}
+                        holdout reads · {candidate.compilerModelId}
                       </p>
                     </div>
                     {candidate.benchmark.passed && !isActive && (
@@ -417,9 +457,13 @@ export function CalibrationPanel() {
                         Score error
                       </span>
                       <strong className="block text-black-100">
-                        {candidate.benchmark.baselineMeanAbsoluteError.toFixed(2)}
+                        {candidate.benchmark.baselineMeanAbsoluteError.toFixed(
+                          2,
+                        )}
                         {' → '}
-                        {candidate.benchmark.candidateMeanAbsoluteError.toFixed(2)}
+                        {candidate.benchmark.candidateMeanAbsoluteError.toFixed(
+                          2,
+                        )}
                       </strong>
                     </div>
                     <div>

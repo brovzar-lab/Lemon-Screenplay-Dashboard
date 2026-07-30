@@ -1,10 +1,30 @@
 import { useEffect, useState } from 'react';
 
-import { loadProducerAssessmentHeads } from '@/lib/producerCalibration';
+import {
+  isExpectedLocalCalibrationPredeployError,
+  isLocalCalibrationPreviewMode,
+  loadLocalProducerAssessmentHeads,
+  loadProducerAssessmentHeads,
+} from '@/lib/producerCalibration';
 import type { ProducerAssessmentHead } from '@/types';
 
 export const PRODUCER_ASSESSMENT_UPDATED_EVENT =
   'lemon:producer-assessment-updated';
+
+function mergeAssessmentHeads(
+  canonical: ProducerAssessmentHead[],
+  local: ProducerAssessmentHead[],
+): ProducerAssessmentHead[] {
+  const byProject = new Map(
+    canonical.map((assessment) => [assessment.projectId, assessment]),
+  );
+  for (const assessment of local) {
+    byProject.set(assessment.projectId, assessment);
+  }
+  return [...byProject.values()].sort((left, right) =>
+    right.updatedAt.localeCompare(left.updatedAt),
+  );
+}
 
 export function useProducerAssessmentHeads(enabled = true) {
   const [data, setData] = useState<ProducerAssessmentHead[]>([]);
@@ -25,10 +45,25 @@ export function useProducerAssessmentHeads(enabled = true) {
       try {
         const assessments = await loadProducerAssessmentHeads();
         if (!active) return;
-        setData(assessments);
+        setData(
+          isLocalCalibrationPreviewMode()
+            ? mergeAssessmentHeads(
+                assessments,
+                loadLocalProducerAssessmentHeads(),
+              )
+            : assessments,
+        );
         setError(null);
       } catch (loadError) {
         if (!active) return;
+        if (
+          isLocalCalibrationPreviewMode() &&
+          isExpectedLocalCalibrationPredeployError(loadError)
+        ) {
+          setData(loadLocalProducerAssessmentHeads());
+          setError(null);
+          return;
+        }
         setError(
           loadError instanceof Error
             ? loadError

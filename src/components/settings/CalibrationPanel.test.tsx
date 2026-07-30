@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   activateCalibrationCandidate: vi.fn(),
   rollbackCalibrationProfile: vi.fn(),
   isExpectedLocalCalibrationPredeployError: vi.fn(() => false),
+  isLocalCalibrationPreviewMode: vi.fn(() => false),
+  loadLocalProducerAssessmentHeads: vi.fn(),
 }));
 
 vi.mock('@/lib/producerCalibration', () => mocks);
@@ -44,6 +46,9 @@ describe('CalibrationPanel', () => {
     mocks.loadCalibrationCandidates.mockResolvedValue([]);
     mocks.loadActiveCalibrationProfile.mockResolvedValue(null);
     mocks.buildCalibrationCandidate.mockResolvedValue({});
+    mocks.isExpectedLocalCalibrationPredeployError.mockReturnValue(false);
+    mocks.isLocalCalibrationPreviewMode.mockReturnValue(false);
+    mocks.loadLocalProducerAssessmentHeads.mockReturnValue([]);
     Object.defineProperty(window, 'confirm', {
       configurable: true,
       value: vi.fn(() => false),
@@ -80,7 +85,9 @@ describe('CalibrationPanel', () => {
 
     fireEvent.change(
       screen.getByRole('combobox', { name: 'Evidence role for Script 1' }),
-      { target: { value: 'training' } },
+      {
+        target: { value: 'training' },
+      },
     );
 
     await waitFor(() =>
@@ -88,5 +95,23 @@ describe('CalibrationPanel', () => {
         screen.getByRole('button', { name: 'Build candidate' }),
       ).toBeDisabled(),
     );
+  });
+
+  it('shows Mac-only evidence while paid calibration remains disabled locally', async () => {
+    mocks.isLocalCalibrationPreviewMode.mockReturnValue(true);
+    mocks.isExpectedLocalCalibrationPredeployError.mockReturnValue(true);
+    mocks.loadProducerAssessmentHeads.mockRejectedValue({
+      code: 'permission-denied',
+    });
+    mocks.loadLocalProducerAssessmentHeads.mockReturnValue([head(1)]);
+
+    render(<CalibrationPanel />);
+
+    expect(await screen.findByText('Local review mode')).toBeInTheDocument();
+    expect(screen.getByText('Script 1')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Available after deployment' }),
+    ).toBeDisabled();
+    expect(mocks.buildCalibrationCandidate).not.toHaveBeenCalled();
   });
 });

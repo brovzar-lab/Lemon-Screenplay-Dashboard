@@ -15,12 +15,26 @@ import type {
   ProducerAssessment,
   ProducerAssessmentHead,
   ProducerJudgment,
+  RecommendationTier,
   SubmitProducerAssessmentInput,
 } from '@/types';
 
 const CALIBRATION_URL = import.meta.env.DEV
   ? 'http://127.0.0.1:5001/lemon-screenplay-dashboard/us-central1/calibrationManager'
   : '/api/calibration';
+const LOCAL_PRODUCER_TAKES_KEY = 'lemon-local-producer-takes-v1';
+
+export interface LocalProducerTakeDraft {
+  schemaVersion: 'lemon-local-producer-take-v1';
+  projectId: string;
+  versionId: string;
+  title: string;
+  aiFinalScore: number;
+  aiVerdict: RecommendationTier;
+  judgment: ProducerJudgment;
+  revision: number;
+  savedAt: string;
+}
 
 export const TASTE_SIGNAL_LABELS = {
   reading_pleasure: 'Reading pleasure',
@@ -60,8 +74,97 @@ export function isExpectedLocalCalibrationPredeployError(
   if (!import.meta.env.DEV || typeof error !== 'object' || error === null) {
     return false;
   }
-  const code = 'code' in error && typeof error.code === 'string' ? error.code : '';
+  const code =
+    'code' in error && typeof error.code === 'string' ? error.code : '';
   return code === 'permission-denied' || code === 'firestore/permission-denied';
+}
+
+export function isLocalCalibrationPreviewMode(): boolean {
+  return import.meta.env.DEV;
+}
+
+function readLocalProducerTakes(): Record<string, LocalProducerTakeDraft> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const stored = window.localStorage.getItem(LOCAL_PRODUCER_TAKES_KEY);
+    if (!stored) return {};
+    const parsed = JSON.parse(stored) as unknown;
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return {};
+    }
+    return parsed as Record<string, LocalProducerTakeDraft>;
+  } catch {
+    return {};
+  }
+}
+
+export function loadLocalProducerTakeDraft(
+  projectId: string,
+): LocalProducerTakeDraft | null {
+  if (!isLocalCalibrationPreviewMode()) return null;
+  return (
+    readLocalProducerTakes()[requireDocumentId(projectId, 'Project')] ?? null
+  );
+}
+
+export function saveLocalProducerTakeDraft(input: {
+  projectId: string;
+  versionId: string;
+  title: string;
+  aiFinalScore: number;
+  aiVerdict: RecommendationTier;
+  judgment: ProducerJudgment;
+}): LocalProducerTakeDraft {
+  if (!isLocalCalibrationPreviewMode() || typeof window === 'undefined') {
+    throw new Error(
+      'Local Producer Take previews are available only in development.',
+    );
+  }
+
+  const projectId = requireDocumentId(input.projectId, 'Project');
+  const current = readLocalProducerTakes();
+  const previous = current[projectId];
+  const draft: LocalProducerTakeDraft = {
+    schemaVersion: 'lemon-local-producer-take-v1',
+    projectId,
+    versionId: requireDocumentId(input.versionId, 'Analysis version'),
+    title: input.title.trim() || 'Untitled screenplay',
+    aiFinalScore: input.aiFinalScore,
+    aiVerdict: input.aiVerdict,
+    judgment: validateProducerJudgment(input.judgment),
+    revision: (previous?.revision ?? 0) + 1,
+    savedAt: new Date().toISOString(),
+  };
+  window.localStorage.setItem(
+    LOCAL_PRODUCER_TAKES_KEY,
+    JSON.stringify({ ...current, [projectId]: draft }),
+  );
+  return draft;
+}
+
+export function loadLocalProducerAssessmentHeads(): ProducerAssessmentHead[] {
+  if (!isLocalCalibrationPreviewMode()) return [];
+  return Object.values(readLocalProducerTakes())
+    .map((draft) => ({
+      producerUid: 'local-preview',
+      projectId: draft.projectId,
+      latestAssessmentId: `local-preview__${draft.projectId}`,
+      revision: draft.revision,
+      versionId: draft.versionId,
+      title: draft.title,
+      aiFinalScore: draft.aiFinalScore,
+      aiVerdict: draft.aiVerdict,
+      producerScore: draft.judgment.producerScore,
+      producerVerdict: draft.judgment.producerVerdict,
+      pursuit: draft.judgment.pursuit,
+      includeInCalibration: draft.judgment.includeInCalibration,
+      updatedAt: draft.savedAt,
+    }))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
 function requireDocumentId(value: string, label: string): string {
@@ -86,9 +189,9 @@ export function validateProducerJudgment(
   judgment: ProducerJudgment,
 ): ProducerJudgment {
   if (
-    !Number.isFinite(judgment.producerScore)
-    || judgment.producerScore < 1
-    || judgment.producerScore > 10
+    !Number.isFinite(judgment.producerScore) ||
+    judgment.producerScore < 1 ||
+    judgment.producerScore > 10
   ) {
     throw new Error('Producer score must be between 1 and 10.');
   }
@@ -120,7 +223,9 @@ async function callCalibrationManager<T>(
   });
   const body = (await response.json()) as CalibrationResponse<T>;
   if (!response.ok || body.result === undefined) {
-    throw new Error(body.error || `Calibration request failed (${response.status}).`);
+    throw new Error(
+      body.error || `Calibration request failed (${response.status}).`,
+    );
   }
   return body.result;
 }
@@ -147,9 +252,7 @@ export async function loadProducerAssessmentHead(
     producerAssessmentHeadId(uid, projectId),
   );
   const snapshot = await getDoc(reference);
-  return snapshot.exists()
-    ? (snapshot.data() as ProducerAssessmentHead)
-    : null;
+  return snapshot.exists() ? (snapshot.data() as ProducerAssessmentHead) : null;
 }
 
 export async function loadProducerAssessment(
@@ -160,9 +263,7 @@ export async function loadProducerAssessment(
   const snapshot = await getDoc(
     doc(db, 'producer_assessments', head.latestAssessmentId),
   );
-  return snapshot.exists()
-    ? (snapshot.data() as ProducerAssessment)
-    : null;
+  return snapshot.exists() ? (snapshot.data() as ProducerAssessment) : null;
 }
 
 export async function loadProducerAssessmentHeads(): Promise<
@@ -192,9 +293,12 @@ export async function buildCalibrationCandidate(input: {
 export async function activateCalibrationCandidate(
   candidateId: string,
 ): Promise<ActiveCalibrationProfile> {
-  return callCalibrationManager<ActiveCalibrationProfile>('activate_candidate', {
-    candidateId: requireDocumentId(candidateId, 'Candidate'),
-  });
+  return callCalibrationManager<ActiveCalibrationProfile>(
+    'activate_candidate',
+    {
+      candidateId: requireDocumentId(candidateId, 'Candidate'),
+    },
+  );
 }
 
 export async function rollbackCalibrationProfile(
@@ -217,9 +321,7 @@ export async function loadCalibrationCandidates(): Promise<
   return snapshot.docs.map((item) => item.data() as CalibrationCandidate);
 }
 
-export async function loadActiveCalibrationProfile(): Promise<
-  ActiveCalibrationProfile | null
-> {
+export async function loadActiveCalibrationProfile(): Promise<ActiveCalibrationProfile | null> {
   const snapshot = await getDoc(doc(db, 'producer_profiles', 'admin'));
   return snapshot.exists()
     ? (snapshot.data() as ActiveCalibrationProfile)
