@@ -113,6 +113,166 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         self.assertEqual(post.call_args.kwargs["json"]["job_id"], "queue-job-1")
 
+    def test_tool_request_uses_a_strict_anthropic_compatible_schema(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "",
+            "tool_uses": [{
+                "id": "toolu_craft",
+                "name": "submit_craft_scene_report",
+                "input": {"reader": "craft_scene"},
+            }],
+            "response_id": "msg_strict_craft",
+            "model": "claude-opus-4-7",
+            "stop_reason": "tool_use",
+            "usage": {},
+        }
+
+        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+            ingest_v9.call_llm(
+                system_blocks=[{"type": "text", "text": "system"}],
+                user_blocks=[{"type": "text", "text": "screenplay"}],
+                model_key="opus",
+                tool=ingest_v9.CRAFT_SCENE_TOOL,
+                proxy_url="https://proxy.test",
+                retries=1,
+            )
+
+        sent_tool = post.call_args.kwargs["json"]["tools"][0]
+        self.assertIs(sent_tool["strict"], True)
+
+        def assert_strict_compatible(node):
+            if isinstance(node, dict):
+                self.assertNotIn("minimum", node)
+                self.assertNotIn("maximum", node)
+                self.assertNotIn("minItems", node)
+                if node.get("type") == "object":
+                    self.assertIs(node.get("additionalProperties"), False)
+                for value in node.values():
+                    assert_strict_compatible(value)
+            elif isinstance(node, list):
+                for value in node:
+                    assert_strict_compatible(value)
+
+        strict_tools = [
+            ingest_v9._strict_tool_definition(tool)
+            for tool in [
+                *ingest_v9.READER_TOOLS.values(),
+                ingest_v9.SYNTHESIS_TOOL,
+            ]
+        ]
+        for strict_tool in strict_tools:
+            self.assertIs(strict_tool["strict"], True)
+            assert_strict_compatible(strict_tool["input_schema"])
+
+        assert_strict_compatible(sent_tool["input_schema"])
+        self.assertNotIn("strict", ingest_v9.CRAFT_SCENE_TOOL)
+        self.assertIn(
+            "maximum",
+            ingest_v9.CRAFT_SCENE_TOOL["input_schema"]["properties"][
+                "pillar_score"
+            ],
+        )
+
+    def test_wrong_tool_envelope_is_rejected_with_settled_usage(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "",
+            "tool_uses": [{
+                "id": "toolu_wrong",
+                "name": "submit_structure_report",
+                "input": {"reader": "craft_scene"},
+            }],
+            "response_id": "msg_wrong_tool",
+            "model": "claude-opus-4-7",
+            "stop_reason": "tool_use",
+            "usage": {"actual_cost_microusd": 321},
+        }
+
+        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+            with self.assertRaisesRegex(
+                ingest_v9.LlmOutputContractError,
+                "expected submit_craft_scene_report",
+            ) as raised:
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key="opus",
+                    tool=ingest_v9.CRAFT_SCENE_TOOL,
+                    proxy_url="https://proxy.test",
+                    retries=3,
+                )
+
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 321)
+        self.assertEqual(
+            raised.exception.usage["calls"][0]["response_id"],
+            "msg_wrong_tool",
+        )
+
+    def test_truncated_tool_output_is_rejected_with_settled_usage(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "",
+            "tool_uses": [],
+            "response_id": "msg_truncated_tool",
+            "model": "claude-opus-4-7",
+            "stop_reason": "max_tokens",
+            "usage": {"actual_cost_microusd": 654},
+        }
+
+        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+            with self.assertRaisesRegex(
+                ingest_v9.LlmOutputContractError,
+                "max_tokens",
+            ) as raised:
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key="opus",
+                    tool=ingest_v9.CRAFT_SCENE_TOOL,
+                    proxy_url="https://proxy.test",
+                    retries=3,
+                )
+
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 654)
+
+    def test_missing_tool_input_is_rejected_with_settled_usage(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "",
+            "tool_uses": [{
+                "id": "toolu_missing_input",
+                "name": "submit_craft_scene_report",
+            }],
+            "response_id": "msg_missing_tool_input",
+            "model": "claude-opus-4-7",
+            "stop_reason": "tool_use",
+            "usage": {"actual_cost_microusd": 777},
+        }
+
+        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+            with self.assertRaisesRegex(
+                ingest_v9.LlmOutputContractError,
+                "not an object",
+            ) as raised:
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key="opus",
+                    tool=ingest_v9.CRAFT_SCENE_TOOL,
+                    proxy_url="https://proxy.test",
+                    retries=3,
+                )
+
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 777)
+
     def test_synthesis_validator_rejects_non_numeric_score_before_publication(self):
         candidate = complete_analysis("Malformed Synthesis")
         candidate["weighted_score"] = "high"
@@ -462,6 +622,78 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertTrue(
             trusted["trust_manifest"]["readers"]["publication_ready"]
         )
+
+    def test_missing_craft_identity_gets_a_corrective_retry_and_recovers(self):
+        fixture_analysis = complete_analysis("Craft Recovery Draft")
+        craft_user_blocks = []
+        craft_attempts = 0
+
+        def fake_call_llm(**kwargs):
+            nonlocal craft_attempts
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            if stage == "reader":
+                report = copy.deepcopy(
+                    fixture_analysis["reader_reports"][reader_name]
+                )
+                if reader_name == "craft_scene":
+                    craft_attempts += 1
+                    craft_user_blocks.append(
+                        copy.deepcopy(kwargs["user_blocks"])
+                    )
+                    if craft_attempts == 1:
+                        report.pop("reader")
+                return (
+                    report,
+                    "",
+                    self._successful_call_usage(
+                        f"msg_reader_{reader_name}_{craft_attempts or 1}",
+                        stage=stage,
+                        reader_name=reader_name,
+                    ),
+                )
+            return (
+                copy.deepcopy(fixture_analysis),
+                "",
+                self._successful_call_usage(
+                    "msg_synthesis",
+                    stage=stage,
+                ),
+            )
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(
+            ingest_v9.time,
+            "sleep",
+        ):
+            analysis, _usage = ingest_v9.run_v9_full(
+                text="INT. HOUSE - DAY\n" * 2_000,
+                title="Craft Recovery Draft",
+                page_count=100,
+                word_count=20_000,
+                model_key="opus",
+                proxy_url="https://proxy.test",
+                pipeline_pass="opus",
+            )
+
+        self.assertEqual(craft_attempts, 2)
+        self.assertEqual(analysis["analysis_quality"]["status"], "complete")
+        self.assertEqual(len(craft_user_blocks[0]), 3)
+        self.assertEqual(len(craft_user_blocks[1]), 4)
+        repair_instruction = craft_user_blocks[1][-1]["text"]
+        self.assertIn("reader identity mismatch", repair_instruction)
+        self.assertIn("submit_craft_scene_report", repair_instruction)
 
     def test_exhausted_reader_panel_blocks_synthesis_and_preserves_review_evidence(
         self,

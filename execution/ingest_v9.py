@@ -811,6 +811,14 @@ class LlmProvenanceError(RuntimeError):
     """A settled model response was missing immutable response provenance."""
 
 
+class LlmOutputContractError(RuntimeError):
+    """A paid response settled but violated its requested output contract."""
+
+    def __init__(self, message: str, usage: Dict[str, Any]):
+        super().__init__(message)
+        self.usage = usage
+
+
 class LlmCallFailedError(RuntimeError):
     """A model call exhausted retries while preserving every failed attempt."""
 
@@ -976,6 +984,68 @@ def set_successful_call_disposition(
     calls[0]["disposition"] = disposition
 
 
+_STRICT_SCHEMA_UNSUPPORTED_KEYWORDS = {
+    "minimum",
+    "maximum",
+    "minItems",
+}
+
+
+def _strict_schema_node(node: Any) -> Any:
+    """Return the Anthropic strict-output subset without weakening local checks.
+
+    The source schemas retain numeric and collection bounds for application-side
+    validation. Anthropic's grammar compiler receives a deep-copied schema with
+    unsupported constraints removed and closed object shapes at every level.
+    """
+    if isinstance(node, list):
+        return [_strict_schema_node(value) for value in node]
+    if not isinstance(node, dict):
+        return node
+
+    strict_node = {
+        key: _strict_schema_node(value)
+        for key, value in node.items()
+        if key not in _STRICT_SCHEMA_UNSUPPORTED_KEYWORDS
+    }
+    if strict_node.get("type") == "object":
+        strict_node["additionalProperties"] = False
+    return strict_node
+
+
+def _strict_tool_definition(tool: Dict[str, Any]) -> Dict[str, Any]:
+    """Enable grammar-constrained tool input without mutating the registry."""
+    strict_tool = copy.deepcopy(tool)
+    strict_tool["strict"] = True
+    strict_tool["input_schema"] = _strict_schema_node(
+        strict_tool["input_schema"]
+    )
+    return strict_tool
+
+
+def _corrective_retry_user_blocks(
+    user_blocks: List[Dict[str, Any]],
+    *,
+    tool_name: str,
+    error: BaseException,
+) -> List[Dict[str, Any]]:
+    """Add a precise correction while preserving the cached screenplay prefix."""
+    return [
+        *user_blocks,
+        {
+            "type": "text",
+            "text": (
+                "# STRUCTURED OUTPUT CORRECTION\n"
+                "Your previous response was rejected by the reliability gate: "
+                f"{str(error)[:500]}\n"
+                f"Call `{tool_name}` exactly once. Return every required field "
+                "with the exact names and types defined by the tool schema. "
+                "Do not omit, rename, or add fields."
+            ),
+        },
+    ]
+
+
 def call_llm(
     *,
     system_blocks: List[Dict[str, Any]],
@@ -1031,7 +1101,8 @@ def call_llm(
     if job_id:
         payload["job_id"] = job_id
     if tool:
-        payload["tools"] = [tool]
+        strict_tool = _strict_tool_definition(tool)
+        payload["tools"] = [strict_tool]
         # Anthropic restriction: tool_choice cannot FORCE a specific tool when
         # extended thinking is enabled (error: "Thinking may not be enabled
         # when tool_choice forces tool use"). When thinking is on, use
@@ -1040,7 +1111,10 @@ def call_llm(
         if thinking_budget > 0:
             payload["tool_choice"] = {"type": "auto"}
         else:
-            payload["tool_choice"] = {"type": "tool", "name": tool["name"]}
+            payload["tool_choice"] = {
+                "type": "tool",
+                "name": strict_tool["name"],
+            }
     if thinking_budget > 0:
         # Two thinking APIs depending on the model:
         #   • Opus 4.7+   → adaptive thinking (Anthropic decides effort)
@@ -1120,8 +1194,18 @@ def call_llm(
             data = resp.json()
 
             text = data.get("text", "")
-            tool_uses = data.get("tool_uses", []) or []
-            tool_input = tool_uses[0]["input"] if tool_uses else None
+            raw_tool_uses = data.get("tool_uses", [])
+            tool_uses = raw_tool_uses if isinstance(raw_tool_uses, list) else []
+            first_tool_use = (
+                tool_uses[0]
+                if tool_uses and isinstance(tool_uses[0], dict)
+                else None
+            )
+            tool_input = (
+                first_tool_use.get("input")
+                if first_tool_use is not None
+                else None
+            )
 
             raw_usage = data.get("usage", {})
             response_model = data.get("model")
@@ -1176,9 +1260,48 @@ def call_llm(
                     },
                 },
             }
+            if tool:
+                stop_reason = data.get("stop_reason") or "end_turn"
+                if stop_reason in {
+                    "max_tokens",
+                    "model_context_window_exceeded",
+                    "refusal",
+                }:
+                    raise LlmOutputContractError(
+                        "Structured output stopped before a trustworthy tool "
+                        f"result was available: {stop_reason}",
+                        usage,
+                    )
+                if len(tool_uses) != 1:
+                    raise LlmOutputContractError(
+                        "Structured output must contain exactly one tool call; "
+                        f"received {len(tool_uses)}",
+                        usage,
+                    )
+                returned_tool_name = (
+                    first_tool_use.get("name")
+                    if first_tool_use is not None
+                    else None
+                )
+                if returned_tool_name != tool["name"]:
+                    raise LlmOutputContractError(
+                        "Structured output used the wrong tool: "
+                        f"expected {tool['name']}, got {returned_tool_name}",
+                        usage,
+                    )
+                if not isinstance(tool_input, dict):
+                    raise LlmOutputContractError(
+                        "Structured tool input is not an object",
+                        usage,
+                    )
             return tool_input, text, usage
 
-        except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
+        except (
+            DailyBudgetExceededError,
+            LlmAccountingError,
+            LlmProvenanceError,
+            LlmOutputContractError,
+        ):
             raise
         except Exception as e:
             last_err = e
@@ -3014,9 +3137,16 @@ def run_v9_full(
         for report_attempt in range(1, MAX_READER_REPORT_ATTEMPTS + 1):
             attempt_usage = empty_usage()
             try:
+                attempt_user_blocks = user_blocks
+                if failures:
+                    attempt_user_blocks = _corrective_retry_user_blocks(
+                        user_blocks,
+                        tool_name=tool["name"],
+                        error=RuntimeError(failures[-1]["error"]),
+                    )
                 tool_input, _text, attempt_usage = call_llm(
                     system_blocks=system_blocks,
-                    user_blocks=user_blocks,
+                    user_blocks=attempt_user_blocks,
                     model_key=model_key,
                     tool=tool,
                     thinking_budget=THINKING_BUDGET_READER,
@@ -3040,6 +3170,12 @@ def run_v9_full(
             except Exception as error:
                 if isinstance(error, LlmCallFailedError):
                     attempt_usage = failed_usage(error)
+                elif isinstance(error, LlmOutputContractError):
+                    attempt_usage = error.usage
+                    set_successful_call_disposition(
+                        attempt_usage,
+                        "discarded_unusable",
+                    )
                 elif attempt_usage.get("calls"):
                     set_successful_call_disposition(
                         attempt_usage,
@@ -3189,9 +3325,16 @@ def run_v9_full(
     for attempt in range(1, 4):  # 3 attempts
         syn_usage = empty_usage()
         try:
+            attempt_user_blocks = syn_user_blocks
+            if last_err is not None:
+                attempt_user_blocks = _corrective_retry_user_blocks(
+                    syn_user_blocks,
+                    tool_name=SYNTHESIS_TOOL["name"],
+                    error=last_err,
+                )
             tool_input, _text, syn_usage = call_llm(
                 system_blocks=syn_system_blocks,
-                user_blocks=syn_user_blocks,
+                user_blocks=attempt_user_blocks,
                 model_key=model_key,
                 tool=SYNTHESIS_TOOL,
                 thinking_budget=THINKING_BUDGET_SYNTHESIS,
@@ -3211,6 +3354,13 @@ def run_v9_full(
             last_err = e
             if isinstance(e, LlmCallFailedError):
                 _accumulate(failed_usage(e))
+            elif isinstance(e, LlmOutputContractError):
+                syn_usage = e.usage
+                set_successful_call_disposition(
+                    syn_usage,
+                    "discarded_unusable",
+                )
+                _accumulate(syn_usage)
             elif syn_usage.get("calls"):
                 set_successful_call_disposition(
                     syn_usage,
