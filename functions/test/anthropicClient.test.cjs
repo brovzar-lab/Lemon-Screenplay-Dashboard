@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const {
   createAnthropicClient,
@@ -41,13 +42,22 @@ test('a partial stream failure invokes conservative accounting before it escapes
 test('a definite Anthropic invalid request releases the reservation without charging', async () => {
   let accountedReason = '';
   let releasedReason = '';
-  const rejection = Object.assign(
-    new Error('The compiled grammar is too large'),
-    {
-      status: 400,
+  const responseBody = {
+    type: 'error',
+    error: {
       type: 'invalid_request_error',
+      message: 'The compiled grammar is too large',
     },
+  };
+  const rejection = Anthropic.APIError.generate(
+    400,
+    responseBody,
+    responseBody.error.message,
+    new Headers({ 'request-id': 'req_invalid_schema' }),
   );
+
+  assert.equal(rejection.type, undefined);
+  assert.equal(rejection.error.error.type, 'invalid_request_error');
 
   await assert.rejects(
     finalMessageWithUncertainSpendProtection(
@@ -65,5 +75,5 @@ test('a definite Anthropic invalid request releases the reservation without char
   );
 
   assert.equal(accountedReason, '');
-  assert.equal(releasedReason, 'The compiled grammar is too large');
+  assert.match(releasedReason, /The compiled grammar is too large/);
 });

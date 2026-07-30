@@ -1493,6 +1493,13 @@ def process_job(job: dict) -> None:
                 "manual review required before retrying."
             )
             return
+        except ingest_v9.LlmRequestRejectedError as e:
+            mark_terminal_failed(job_id, e)
+            log.error(
+                "[trust] Anthropic rejected the request before generation; "
+                "deployment review required before retrying."
+            )
+            return
         except SourceEvidenceError as e:
             mark_needs_review(job_id, str(e))
             return

@@ -17,8 +17,17 @@ function isDefiniteAnthropicRequestRejection(error) {
     if (!error || typeof error !== "object")
         return false;
     const candidate = error;
+    const responseBody = (candidate.error
+        && typeof candidate.error === "object")
+        ? candidate.error
+        : undefined;
+    const responseError = (responseBody?.error
+        && typeof responseBody.error === "object")
+        ? responseBody.error
+        : undefined;
     return (candidate.status === 400
-        && candidate.type === "invalid_request_error");
+        && (candidate.type === "invalid_request_error"
+            || responseError?.type === "invalid_request_error"));
 }
 async function finalMessageWithUncertainSpendProtection(finalMessage, accountForUncertainSpend, releaseDefiniteRejection) {
     try {

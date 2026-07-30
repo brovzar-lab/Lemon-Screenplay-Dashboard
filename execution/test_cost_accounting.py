@@ -531,6 +531,29 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertEqual(post.call_count, 1)
         self.assertEqual(raised.exception.reset_at, "2026-07-22T00:00:00.000Z")
 
+    def test_non_retryable_upstream_rejection_is_not_retried(self):
+        response = MagicMock()
+        response.status_code = 400
+        response.json.return_value = {
+            "code": "UPSTREAM_INVALID_REQUEST",
+            "error": "Anthropic rejected the request before model generation.",
+            "isRetryable": False,
+        }
+
+        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+            with self.assertRaises(ingest_v9.LlmRequestRejectedError):
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key="opus",
+                    tool=ingest_v9.CRAFT_SCENE_TOOL,
+                    compact_json_envelope=True,
+                    proxy_url="https://proxy.test",
+                    retries=3,
+                )
+
+        self.assertEqual(post.call_count, 1)
+
     def test_transient_pre_call_accounting_outage_retries_then_succeeds(self):
         unavailable = MagicMock()
         unavailable.status_code = 503
@@ -836,9 +859,11 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         fixture_analysis = complete_analysis("Craft Recovery Draft")
         craft_user_blocks = []
         craft_attempts = 0
+        compact_flags = []
 
         def fake_call_llm(**kwargs):
             nonlocal craft_attempts
+            compact_flags.append(kwargs.get("compact_json_envelope"))
             stage = kwargs["stage"]
             reader_name = kwargs.get("reader_name")
             if stage == "reader":
@@ -903,6 +928,47 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         repair_instruction = craft_user_blocks[1][-1]["text"]
         self.assertIn("reader identity mismatch", repair_instruction)
         self.assertIn("submit_craft_scene_report", repair_instruction)
+        self.assertTrue(compact_flags)
+        self.assertTrue(all(compact_flags))
+
+    def test_non_retryable_rejection_stops_reader_report_recovery(self):
+        reader_calls = {}
+
+        def reject_reader(**kwargs):
+            reader_name = kwargs["reader_name"]
+            reader_calls[reader_name] = reader_calls.get(reader_name, 0) + 1
+            raise ingest_v9.LlmRequestRejectedError(
+                "request rejected before model generation"
+            )
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=reject_reader,
+        ):
+            with self.assertRaises(ingest_v9.LlmRequestRejectedError):
+                ingest_v9.run_v9_full(
+                    text="INT. HOUSE - DAY\n" * 2_000,
+                    title="Rejected Draft",
+                    page_count=100,
+                    word_count=20_000,
+                    model_key="opus",
+                    proxy_url="https://proxy.test",
+                    pipeline_pass="opus",
+                )
+
+        self.assertEqual(
+            reader_calls,
+            {reader: 1 for reader in ingest_v9.READER_WEIGHTS},
+        )
 
     def test_exhausted_reader_panel_blocks_synthesis_and_preserves_review_evidence(
         self,

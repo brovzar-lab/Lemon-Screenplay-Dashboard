@@ -811,6 +811,10 @@ class LlmProvenanceError(RuntimeError):
     """A settled model response was missing immutable response provenance."""
 
 
+class LlmRequestRejectedError(RuntimeError):
+    """The upstream API rejected a request before model generation."""
+
+
 class LlmOutputContractError(RuntimeError):
     """A paid response settled but violated its requested output contract."""
 
@@ -1352,6 +1356,20 @@ def call_llm(
                     f"matches functions/.env. Body: {resp.text[:200]}"
                 )
             if resp.status_code == 400:
+                try:
+                    error_data = resp.json()
+                except ValueError:
+                    error_data = {}
+                if (
+                    error_data.get("code") == "UPSTREAM_INVALID_REQUEST"
+                    and error_data.get("isRetryable") is False
+                ):
+                    raise LlmRequestRejectedError(
+                        error_data.get(
+                            "error",
+                            "Anthropic rejected the request before generation.",
+                        )
+                    )
                 raise RuntimeError(
                     f"Proxy rejected the request (400). Body: {resp.text[:500]}"
                 )
@@ -1490,6 +1508,7 @@ def call_llm(
             DailyBudgetExceededError,
             LlmAccountingError,
             LlmProvenanceError,
+            LlmRequestRejectedError,
             LlmOutputContractError,
         ):
             raise
@@ -2400,7 +2419,12 @@ def run_genre_detection(
         detection = parse_detection(raw)
         set_successful_call_disposition(usage, "used")
         return detection, usage
-    except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
+    except (
+        DailyBudgetExceededError,
+        LlmAccountingError,
+        LlmProvenanceError,
+        LlmRequestRejectedError,
+    ):
         raise
     except Exception as e:
         log.warning(f"    Genre detection failed ({e}); defaulting to Society/drama.")
@@ -3356,6 +3380,7 @@ def run_v9_full(
                 DailyBudgetExceededError,
                 LlmAccountingError,
                 LlmProvenanceError,
+                LlmRequestRejectedError,
             ):
                 raise
             except Exception as error:
@@ -3444,7 +3469,12 @@ def run_v9_full(
                 log.info(
                     f"      ✓ {r_name} (pillar_score: {score}{recovery_note})"
                 )
-            except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
+            except (
+                DailyBudgetExceededError,
+                LlmAccountingError,
+                LlmProvenanceError,
+                LlmRequestRejectedError,
+            ):
                 raise
             except Exception as e:
                 log.error(f"      ✗ {reader} reader failed: {e}")
@@ -3540,7 +3570,12 @@ def run_v9_full(
             if tool_input is None:
                 raise ValueError("synthesis returned no tool_use block")
             candidate = _validate_synthesis_report(tool_input)
-        except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
+        except (
+            DailyBudgetExceededError,
+            LlmAccountingError,
+            LlmProvenanceError,
+            LlmRequestRejectedError,
+        ):
             raise
         except Exception as e:
             last_err = e
@@ -3859,7 +3894,12 @@ def run_v9_stable(
             boundary_run=1,
             usage_sink=initial_usage_sink,
         )
-    except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
+    except (
+        DailyBudgetExceededError,
+        LlmAccountingError,
+        LlmProvenanceError,
+        LlmRequestRejectedError,
+    ):
         raise
     except V9RunError:
         raise
@@ -3925,7 +3965,12 @@ def run_v9_stable(
                 boundary_run=i + 2,
                 usage_sink=extra_usage_sink,
             )
-        except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
+        except (
+            DailyBudgetExceededError,
+            LlmAccountingError,
+            LlmProvenanceError,
+            LlmRequestRejectedError,
+        ):
             raise
         except QualityReviewRequiredError as error:
             error.usage = merge_usage(combined, error.usage)

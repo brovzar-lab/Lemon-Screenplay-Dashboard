@@ -15,10 +15,30 @@ export function isDefiniteAnthropicRequestRejection(
   const candidate = error as {
     status?: unknown;
     type?: unknown;
+    error?: unknown;
   };
+  const responseBody = (
+    candidate.error
+    && typeof candidate.error === "object"
+  )
+    ? candidate.error as {
+        error?: unknown;
+      }
+    : undefined;
+  const responseError = (
+    responseBody?.error
+    && typeof responseBody.error === "object"
+  )
+    ? responseBody.error as {
+        type?: unknown;
+      }
+    : undefined;
   return (
     candidate.status === 400
-    && candidate.type === "invalid_request_error"
+    && (
+      candidate.type === "invalid_request_error"
+      || responseError?.type === "invalid_request_error"
+    )
   );
 }
 
