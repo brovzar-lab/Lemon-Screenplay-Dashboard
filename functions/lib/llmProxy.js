@@ -289,11 +289,17 @@ exports.llmProxy = (0, https_1.onRequest)({
                 return stream.finalMessage();
             }, async (reason) => {
                 await (0, budgetCounter_1.settleUncertainLlmBudget)(reservation, reason);
+            }, async (reason) => {
+                await (0, budgetCounter_1.releaseLlmBudget)(reservation, reason);
             });
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
         }
         catch (error) {
             console.error("[llmProxy] Error:", error);
+            if ((0, anthropicClient_1.isDefiniteAnthropicRequestRejection)(error)) {
+                res.status(400).json((0, llmProxyErrors_1.upstreamInvalidRequestResponse)());
+                return;
+            }
             res.status(503).json((0, llmProxyErrors_1.postCallAccountingUncertainResponse)());
             return;
         }

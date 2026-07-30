@@ -12,12 +12,14 @@ exports.normalizeBudgetLedger = normalizeBudgetLedger;
 exports.admitBudgetReservation = admitBudgetReservation;
 exports.settleBudgetReservationInLedger = settleBudgetReservationInLedger;
 exports.chargeUncertainBudgetReservationInLedger = chargeUncertainBudgetReservationInLedger;
+exports.releaseBudgetReservationInLedger = releaseBudgetReservationInLedger;
 exports.dailyBudgetDocId = dailyBudgetDocId;
 exports.nextUtcReset = nextUtcReset;
 exports.reservationExpiresAtMs = reservationExpiresAtMs;
 exports.reserveLlmBudget = reserveLlmBudget;
 exports.settleLlmBudget = settleLlmBudget;
 exports.settleUncertainLlmBudget = settleUncertainLlmBudget;
+exports.releaseLlmBudget = releaseLlmBudget;
 const node_crypto_1 = require("node:crypto");
 const firestore_1 = require("firebase-admin/firestore");
 const llmCost_1 = require("./llmCost");
@@ -181,6 +183,18 @@ function chargeUncertainBudgetReservationInLedger(ledger, reservationId, reserve
         reserved_microusd: sumReserved(active),
         uncertain_call_count: ledger.uncertain_call_count + 1,
         uncertain_spend_microusd: ledger.uncertain_spend_microusd + chargedMicrousd,
+        active_reservations: active,
+    };
+}
+function releaseBudgetReservationInLedger(ledger, reservationId, nowMs) {
+    const active = activeReservationsAt(ledger.active_reservations, nowMs);
+    if (!active[reservationId]) {
+        throw new Error(`Budget reservation ${reservationId} is missing or expired.`);
+    }
+    delete active[reservationId];
+    return {
+        ...ledger,
+        reserved_microusd: sumReserved(active),
         active_reservations: active,
     };
 }
@@ -365,6 +379,41 @@ async function settleUncertainLlmBudget(reservation, reason) {
             actual_cost_microusd: chargedMicrousd,
             actual_cost_usd: (0, llmCost_1.microusdToUsd)(chargedMicrousd),
         };
+    });
+}
+async function releaseLlmBudget(reservation, reason) {
+    const db = (0, firestore_1.getFirestore)();
+    const nowMs = Date.now();
+    const budgetRef = db.collection(ingestQueue_1.SYSTEM_COLLECTION).doc(reservation.budget_document_id);
+    const reservationRef = budgetRef.collection("reservations").doc(reservation.id);
+    await db.runTransaction(async (transaction) => {
+        const [reservationSnapshot, budgetSnapshot] = await Promise.all([
+            transaction.get(reservationRef),
+            transaction.get(budgetRef),
+        ]);
+        if (!reservationSnapshot.exists) {
+            throw new Error(`Budget reservation ${reservation.id} does not exist.`);
+        }
+        const reservationData = reservationSnapshot.data() ?? {};
+        if (reservationData.status === "released")
+            return;
+        if (reservationData.status !== "reserved") {
+            throw new Error(`Budget reservation ${reservation.id} is ${reservationData.status}.`);
+        }
+        const storedLimit = nonNegativeInteger(budgetSnapshot.data()?.limit_microusd);
+        if (storedLimit <= 0)
+            throw new Error("Daily AI budget ledger is missing its limit.");
+        const ledger = normalizeBudgetLedger(budgetSnapshot.data(), reservation.budget_document_id.replace("llm-budget-", ""), storedLimit);
+        const next = releaseBudgetReservationInLedger(ledger, reservation.id, nowMs);
+        transaction.set(budgetRef, {
+            ...next,
+            updated_at: firestore_1.FieldValue.serverTimestamp(),
+        });
+        transaction.update(reservationRef, {
+            status: "released",
+            release_reason: reason.slice(0, 500),
+            released_at: firestore_1.FieldValue.serverTimestamp(),
+        });
     });
 }
 //# sourceMappingURL=budgetCounter.js.map

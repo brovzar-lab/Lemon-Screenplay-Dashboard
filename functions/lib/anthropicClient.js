@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createAnthropicClient = createAnthropicClient;
+exports.isDefiniteAnthropicRequestRejection = isDefiniteAnthropicRequestRejection;
 exports.finalMessageWithUncertainSpendProtection = finalMessageWithUncertainSpendProtection;
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 function createAnthropicClient(apiKey) {
@@ -12,12 +13,25 @@ function createAnthropicClient(apiKey) {
 function errorMessage(error) {
     return error instanceof Error ? error.message : String(error);
 }
-async function finalMessageWithUncertainSpendProtection(finalMessage, accountForUncertainSpend) {
+function isDefiniteAnthropicRequestRejection(error) {
+    if (!error || typeof error !== "object")
+        return false;
+    const candidate = error;
+    return (candidate.status === 400
+        && candidate.type === "invalid_request_error");
+}
+async function finalMessageWithUncertainSpendProtection(finalMessage, accountForUncertainSpend, releaseDefiniteRejection) {
     try {
         return await finalMessage();
     }
     catch (error) {
-        await accountForUncertainSpend(errorMessage(error));
+        const reason = errorMessage(error);
+        if (isDefiniteAnthropicRequestRejection(error)) {
+            await releaseDefiniteRejection(reason);
+        }
+        else {
+            await accountForUncertainSpend(reason);
+        }
         throw error;
     }
 }

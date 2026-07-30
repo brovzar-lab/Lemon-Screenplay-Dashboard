@@ -264,6 +264,23 @@ export function chargeUncertainBudgetReservationInLedger(
   };
 }
 
+export function releaseBudgetReservationInLedger(
+  ledger: DailyBudgetLedger,
+  reservationId: string,
+  nowMs: number,
+): DailyBudgetLedger {
+  const active = activeReservationsAt(ledger.active_reservations, nowMs);
+  if (!active[reservationId]) {
+    throw new Error(`Budget reservation ${reservationId} is missing or expired.`);
+  }
+  delete active[reservationId];
+  return {
+    ...ledger,
+    reserved_microusd: sumReserved(active),
+    active_reservations: active,
+  };
+}
+
 export function dailyBudgetDocId(date = new Date()): string {
   return `llm-budget-${date.toISOString().slice(0, 10)}`;
 }
@@ -514,5 +531,51 @@ export async function settleUncertainLlmBudget(
       actual_cost_microusd: chargedMicrousd,
       actual_cost_usd: microusdToUsd(chargedMicrousd),
     };
+  });
+}
+
+export async function releaseLlmBudget(
+  reservation: LlmBudgetReservation,
+  reason: string,
+): Promise<void> {
+  const db = getFirestore();
+  const nowMs = Date.now();
+  const budgetRef = db.collection(SYSTEM_COLLECTION).doc(reservation.budget_document_id);
+  const reservationRef = budgetRef.collection("reservations").doc(reservation.id);
+
+  await db.runTransaction(async (transaction) => {
+    const [reservationSnapshot, budgetSnapshot] = await Promise.all([
+      transaction.get(reservationRef),
+      transaction.get(budgetRef),
+    ]);
+    if (!reservationSnapshot.exists) {
+      throw new Error(`Budget reservation ${reservation.id} does not exist.`);
+    }
+    const reservationData = reservationSnapshot.data() ?? {};
+    if (reservationData.status === "released") return;
+    if (reservationData.status !== "reserved") {
+      throw new Error(`Budget reservation ${reservation.id} is ${reservationData.status}.`);
+    }
+    const storedLimit = nonNegativeInteger(budgetSnapshot.data()?.limit_microusd);
+    if (storedLimit <= 0) throw new Error("Daily AI budget ledger is missing its limit.");
+    const ledger = normalizeBudgetLedger(
+      budgetSnapshot.data(),
+      reservation.budget_document_id.replace("llm-budget-", ""),
+      storedLimit,
+    );
+    const next = releaseBudgetReservationInLedger(
+      ledger,
+      reservation.id,
+      nowMs,
+    );
+    transaction.set(budgetRef, {
+      ...next,
+      updated_at: FieldValue.serverTimestamp(),
+    });
+    transaction.update(reservationRef, {
+      status: "released",
+      release_reason: reason.slice(0, 500),
+      released_at: FieldValue.serverTimestamp(),
+    });
   });
 }

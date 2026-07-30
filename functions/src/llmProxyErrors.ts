@@ -1,6 +1,9 @@
 export interface LlmProxyAccountingErrorResponse {
   error: string;
-  code: "PRE_CALL_ACCOUNTING_UNAVAILABLE" | "POST_CALL_ACCOUNTING_UNCERTAIN";
+  code:
+    | "PRE_CALL_ACCOUNTING_UNAVAILABLE"
+    | "POST_CALL_ACCOUNTING_UNCERTAIN"
+    | "UPSTREAM_INVALID_REQUEST";
   isRetryable: boolean;
   manualReviewRequired?: boolean;
 }
@@ -19,5 +22,13 @@ export function postCallAccountingUncertainResponse(): LlmProxyAccountingErrorRe
     code: "POST_CALL_ACCOUNTING_UNCERTAIN",
     isRetryable: false,
     manualReviewRequired: true,
+  };
+}
+
+export function upstreamInvalidRequestResponse(): LlmProxyAccountingErrorResponse {
+  return {
+    error: "Anthropic rejected the request before model generation. No AI spend was recorded.",
+    code: "UPSTREAM_INVALID_REQUEST",
+    isRetryable: false,
   };
 }

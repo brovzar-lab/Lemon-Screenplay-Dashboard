@@ -23,9 +23,11 @@ import { buildTrustCapability } from "./llmProxyCapability";
 import {
   createAnthropicClient,
   finalMessageWithUncertainSpendProtection,
+  isDefiniteAnthropicRequestRejection,
 } from "./anthropicClient";
 import {
   DailyBudgetExceededError,
+  releaseLlmBudget,
   reserveLlmBudget,
   settleLlmBudget,
   settleUncertainLlmBudget,
@@ -40,6 +42,7 @@ import {
 import {
   postCallAccountingUncertainResponse,
   preCallAccountingUnavailableResponse,
+  upstreamInvalidRequestResponse,
 } from "./llmProxyErrors";
 
 const anthropicApiKey = defineString("ANTHROPIC_API_KEY");
@@ -390,10 +393,17 @@ export const llmProxy = onRequest(
           async (reason) => {
             await settleUncertainLlmBudget(reservation, reason);
           },
+          async (reason) => {
+            await releaseLlmBudget(reservation, reason);
+          },
         );
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         console.error("[llmProxy] Error:", error);
+        if (isDefiniteAnthropicRequestRejection(error)) {
+          res.status(400).json(upstreamInvalidRequestResponse());
+          return;
+        }
         res.status(503).json(postCallAccountingUncertainResponse());
         return;
       }

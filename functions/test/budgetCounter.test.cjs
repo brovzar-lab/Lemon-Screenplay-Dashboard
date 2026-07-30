@@ -6,6 +6,7 @@ const {
   admitBudgetReservation,
   chargeUncertainBudgetReservationInLedger,
   normalizeBudgetLedger,
+  releaseBudgetReservationInLedger,
   reservationExpiresAtMs,
   settleBudgetReservationInLedger,
 } = require('../lib/budgetCounter');
@@ -180,4 +181,30 @@ test('a mid-stream failure after partial output is charged, not refunded', () =>
     ),
     DailyBudgetExceededError,
   );
+});
+
+test('a definite pre-generation rejection releases the hold without recording spend', () => {
+  const reserved = admitBudgetReservation(
+    ledger(1_000_000),
+    'invalid-request',
+    {
+      reserved_microusd: 700_000,
+      expires_at_ms: 10_000,
+      model: 'claude-opus-4-7',
+      job_id: 'job-invalid',
+    },
+    1_000,
+  );
+
+  const released = releaseBudgetReservationInLedger(
+    reserved,
+    'invalid-request',
+    2_000,
+  );
+
+  assert.equal(released.spent_microusd, 0);
+  assert.equal(released.uncertain_spend_microusd, 0);
+  assert.equal(released.uncertain_call_count, 0);
+  assert.equal(released.reserved_microusd, 0);
+  assert.deepEqual(released.active_reservations, {});
 });
