@@ -97,7 +97,11 @@ export function waitForQueuedReanalysis(
         (update) => {
           onUpdate?.(update);
           if (update.status === 'complete') finish(() => resolve(update));
-          if (update.status === 'failed' || update.status === 'skipped') {
+          if (
+            update.status === 'failed'
+            || update.status === 'skipped'
+            || update.status === 'needs_review'
+          ) {
             finish(() => reject(new Error(update.error || 'VPS re-analysis did not complete.')));
           }
         },

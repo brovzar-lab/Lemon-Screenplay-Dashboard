@@ -204,6 +204,13 @@ export function UploadPanel() {
               });
               unsub();
               resolve();
+            } else if (update.status === 'needs_review') {
+              updateJob(jobId, {
+                status: 'needs_review',
+                error: update.error || 'The screenplay evidence needs review',
+              });
+              unsub();
+              resolve();
             }
           },
           (err) => {

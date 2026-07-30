@@ -1,7 +1,7 @@
 # Q1: Immutable Trust Manifest
 
 Date: 2026-07-29
-Status: implemented on `codex/v9-trust-hardening`, not deployed
+Status: deployed and proven in production from main commit `706edcf`
 
 ## Producer guarantee
 
@@ -75,17 +75,23 @@ guard, leaving safety headroom below Firestore's 1 MiB hard limit. Oversized
 results are rejected before Firestore; CLI runs retain a local recovery copy
 and report failure, never success.
 
-## Deployment dependency
+## Production proof
 
-Q1 changes both sides of the analysis call:
+Q1 changed both sides of the analysis call:
 
 1. `llmProxy` returns the Anthropic `message.id`.
 2. The daemon requires that ID before saving an analysis.
 
-When deployment is later approved, deploy the Function first and the VPS daemon
-second. Until both are deployed, production behavior remains unchanged. The new
-daemon performs a free authenticated startup capability check before it
-connects workers or claims queue jobs. This confirms both the Q1 contract and
-the daemon's service credential. If it talks to an older proxy, or cannot
-authenticate, it exits and systemd retries later. No screenplay is claimed and
-no paid model call is made until the compatible Function is live.
+The Function and daemon were deployed in that order with Billy's approval. The
+new daemon performs a free authenticated startup capability check before it
+connects workers or claims queue jobs.
+
+`W_I_L_L_2010.pdf` then completed as the production proof:
+
+- 118 pages and 20,464 words
+- all 7 model calls succeeded
+- all 5 readers completed
+- final PASS verdict, 4.72 adjusted score
+- immutable PDF archive hash matched
+- engine fingerprints and response lineage matched
+- trust manifest `lemon-trust-manifest-v1`

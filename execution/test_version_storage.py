@@ -17,6 +17,7 @@ from execution.v9_test_fixtures import (
     QUEUED_AT_MS,
     VERSION_ID,
     raw_analysis as untrusted_raw_analysis,
+    prepare_q2_analysis,
     trusted_raw,
 )
 from execution.trust_manifest import attach_trust_manifest
@@ -97,6 +98,11 @@ class TestImmutableVersionStorage(unittest.TestCase):
                 include_boundary=True,
             ),
         }
+        prepare_q2_analysis(
+            raw["analysis"],
+            raw["metadata"],
+            "sonnet",
+        )
         trusted = attach_trust_manifest(
             raw,
             selection_request="hybrid",

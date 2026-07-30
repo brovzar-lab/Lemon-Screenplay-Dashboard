@@ -3,6 +3,12 @@
 import copy
 
 from execution.trust_manifest import attach_trust_manifest
+from execution.source_evidence import (
+    attach_verified_citation_quality,
+    build_context_policy_for_length,
+    build_page_evidence,
+    join_marked_pages,
+)
 
 
 CONTENT_HASH = "ab" * 32
@@ -17,6 +23,9 @@ MODEL_IDS = {
     "sonnet": MODEL_ID,
     "opus": OPUS_MODEL_ID,
 }
+PAGE_COUNT = 101
+WORD_COUNT = 22_000
+CHARACTER_COUNT = 123_456
 READER_NAMES = (
     "structure",
     "character",
@@ -52,17 +61,119 @@ def refresh_boundary_evidence(analysis):
     }
 
 
+def _q2_page_texts(page_count, word_count):
+    if word_count < page_count * 3:
+        raise ValueError("Q2 fixture needs at least three words per page")
+    base_words, remainder = divmod(word_count, page_count)
+    page_texts = [
+        ["word"] * (base_words + (1 if index < remainder else 0))
+        for index in range(page_count)
+    ]
+    page_texts[0][:4] = ["INT.", "HOUSE", "-", "DAY"]
+    return [" ".join(words) for words in page_texts]
+
+
+def q2_parser_metadata(
+    *,
+    page_count=PAGE_COUNT,
+    word_count=WORD_COUNT,
+    character_count=CHARACTER_COUNT,
+    extraction_method="pdfplumber",
+):
+    page_texts = _q2_page_texts(page_count, word_count)
+    page_evidence = build_page_evidence(
+        join_marked_pages(page_texts),
+        page_count,
+        extraction_method,
+    )
+    return {
+        "page_count": page_count,
+        "word_count": word_count,
+        "character_count": character_count,
+        "extraction_method": extraction_method,
+        "parser_version": "v4-page-evidence",
+        "parser_extractor_version": "v4-page-evidence",
+        "page_evidence_version": page_evidence["page_evidence_version"],
+        "extraction_quality": page_evidence["extraction_quality"],
+        "page_diagnostics": page_evidence["page_diagnostics"],
+        "page_evidence_sha256": page_evidence["evidence_sha256"],
+        "native_cross_check": {
+            "status": "corroborated",
+            "methods_compared": ["pdfplumber", "pymupdf"],
+            "word_counts": {
+                "pdfplumber": word_count,
+                "pymupdf": word_count,
+            },
+            "word_count_agreement_ratio": 1.0,
+        },
+    }
+
+
+def q2_parsed_source(
+    *,
+    page_count=PAGE_COUNT,
+    word_count=WORD_COUNT,
+    extraction_method="pdfplumber",
+):
+    page_texts = _q2_page_texts(page_count, word_count)
+    text = join_marked_pages(page_texts)
+    return {
+        "text": text,
+        "page_count": page_count,
+        "word_count": word_count,
+        "metadata": q2_parser_metadata(
+            page_count=page_count,
+            word_count=word_count,
+            character_count=len(text),
+            extraction_method=extraction_method,
+        ),
+    }
+
+
+def prepare_q2_analysis(analysis, metadata, model_tier="sonnet"):
+    analysis["_context_policy"] = build_context_policy_for_length(
+        metadata["character_count"],
+        model_tier,
+    )
+    attach_verified_citation_quality(
+        analysis,
+        metadata,
+        metadata["page_count"],
+    )
+    return analysis
+
+
 def complete_analysis(title="Trustworthy Draft"):
     reader_reports = {
         name: {
             "reader": name,
             "pillar_score": 7.2,
             "sub_scores": {
-                "one": {"score": 7},
-                "two": {"score": 7},
-                "three": {"score": 7},
-                "four": {"score": 7},
-                "five": {"score": 8},
+                "one": {
+                    "score": 7,
+                    "justification": "Evidence on page one.",
+                    "page_citations": [1],
+                },
+                "two": {
+                    "score": 7,
+                    "justification": "Evidence on page one.",
+                    "page_citations": [1],
+                },
+                "three": {
+                    "score": 7,
+                    "justification": "Evidence on page one.",
+                    "page_citations": [1],
+                },
+                "four": {
+                    "score": 7,
+                    "justification": "Evidence on page one.",
+                    "page_citations": [1],
+                },
+                "five": {
+                    "score": 8,
+                    "justification": "Evidence on page one.",
+                    "page_citations": [1],
+                },
             },
         }
         for name in READER_NAMES
@@ -96,6 +207,10 @@ def complete_analysis(title="Trustworthy Draft"):
             "chars_lost": 0,
             "approx_pages_lost": 0,
         },
+        "_context_policy": build_context_policy_for_length(
+            CHARACTER_COUNT,
+            "sonnet",
+        ),
         "reader_reports": reader_reports,
         "pillar_scores": {
             name: {"score": 7.2}
@@ -205,23 +320,21 @@ def complete_usage(model_id=MODEL_ID):
 
 
 def raw_analysis():
+    metadata = {
+        "filename": "Trustworthy Draft.pdf",
+        **q2_parser_metadata(),
+    }
+    analysis = prepare_q2_analysis(complete_analysis(), metadata)
     return {
         "source_file": "Trustworthy Draft.pdf",
         "project_id": PROJECT_ID,
         "version_id": VERSION_ID,
         "analysis_model": MODEL_ID,
         "analysis_version": "v9_archaeology",
-        "parser_version": "v3-ocr-eng-spa",
+        "parser_version": "v4-page-evidence",
         "collection": "LEMON",
-        "metadata": {
-            "filename": "Trustworthy Draft.pdf",
-            "page_count": 101,
-            "word_count": 22_000,
-            "character_count": 123_456,
-            "extraction_method": "pdfplumber",
-            "parser_extractor_version": "v2",
-        },
-        "analysis": complete_analysis(),
+        "metadata": metadata,
+        "analysis": analysis,
         "usage": complete_usage(),
         "actual_cost_microusd": 12_345,
         "actual_cost_usd": 0.012345,

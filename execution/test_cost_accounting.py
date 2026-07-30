@@ -227,6 +227,12 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertEqual(usage["failed_calls"][0]["stage"], "reader")
         self.assertEqual(usage["failed_calls"][0]["boundary_run"], 2)
 
+    def test_dry_run_estimate_scales_with_screenplay_word_count(self):
+        short_script = ingest_v9.estimate_cost(2_000, "sonnet", "full")
+        feature_script = ingest_v9.estimate_cost(20_000, "sonnet", "full")
+
+        self.assertGreater(float(feature_script.removeprefix("~$")), float(short_script.removeprefix("~$")))
+
     def test_genre_fallback_keeps_the_paid_response_provenance(self):
         usage = ingest_v9.empty_usage()
         usage["call_count"] = 1
@@ -335,6 +341,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             },
             "response_ids": ["msg_triage_cold_read"],
         }
+        screenplay_text = "INT. HOUSE - DAY\n" * 2_000
         with patch.object(
             ingest_v9,
             "run_genre_detection",
@@ -351,7 +358,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             {"LEMON_BOUNDARY_RERUNS": "0"},
         ):
             analysis, usage = ingest_v9.run_v9_stable(
-                text="INT. HOUSE - DAY\n" * 2_000,
+                text=screenplay_text,
                 title="Recovered Draft",
                 page_count=100,
                 word_count=20_000,
@@ -391,6 +398,12 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         raw = raw_analysis()
         raw["analysis"] = analysis
         raw["usage"] = usage
+        raw["metadata"]["character_count"] = len(screenplay_text)
+        ingest_v9.attach_verified_citation_quality(
+            raw["analysis"],
+            raw["metadata"],
+            raw["metadata"]["page_count"],
+        )
         raw["actual_cost_microusd"] = usage["actual_cost_microusd"]
         raw["actual_cost_usd"] = usage["actual_cost_usd"]
         trusted = attach_trust_manifest(

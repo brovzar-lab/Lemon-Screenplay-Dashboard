@@ -15,6 +15,8 @@ from execution.v9_test_fixtures import (
     MODEL_IDS as TEST_MODEL_IDS,
     complete_analysis,
     complete_usage,
+    prepare_q2_analysis,
+    q2_parsed_source,
 )
 
 
@@ -28,13 +30,23 @@ EXPECTED_IDENTITY = {
 
 class TestWriterIdentityParity(unittest.TestCase):
     def test_daemon_and_cli_builders_emit_the_same_verified_identity(self):
+        parsed = q2_parsed_source(page_count=101, word_count=22_000)
+        metadata = {
+            **parsed["metadata"],
+            "page_count": parsed["page_count"],
+            "word_count": parsed["word_count"],
+            "character_count": len(parsed["text"]),
+        }
         daemon_doc = daemon.build_raw_document(
             filename="Renamed Draft.pdf",
             model_key="sonnet",
             collection_id="LEMON",
             page_count=101,
             word_count=22_000,
-            analysis=complete_analysis("Renamed Draft"),
+            analysis=prepare_q2_analysis(
+                complete_analysis("Renamed Draft"),
+                metadata,
+            ),
             usage=complete_usage(),
             job_id="job-123",
             content_hash=CONTENT_HASH,
@@ -46,11 +58,8 @@ class TestWriterIdentityParity(unittest.TestCase):
                 f"{CONTENT_HASH}_{QUEUED_AT_MS}.pdf"
             ),
             storage_generation="2002",
-            text_character_count=123_456,
-            parser_metadata={
-                "extraction_method": "pdfplumber",
-                "parser_version": "v2",
-            },
+            text_character_count=len(parsed["text"]),
+            parser_metadata=parsed["metadata"],
             model_ids=TEST_MODEL_IDS,
             parser_version=ingest_v9.PARSER_VERSION,
         )
@@ -60,16 +69,11 @@ class TestWriterIdentityParity(unittest.TestCase):
             pdf_path.write_bytes(b"writer parity fixture")
             cli_doc = ingest_v9.build_raw_document(
                 pdf_path=pdf_path,
-                parsed={
-                    "text": "A" * 123_456,
-                    "page_count": 101,
-                    "word_count": 22_000,
-                    "metadata": {
-                        "extraction_method": "pdfplumber",
-                        "parser_version": "v2",
-                    },
-                },
-                analysis=complete_analysis("Renamed Draft"),
+                parsed=parsed,
+                analysis=prepare_q2_analysis(
+                    complete_analysis("Renamed Draft"),
+                    metadata,
+                ),
                 collection="LEMON",
                 model_key="sonnet",
                 mode="full",

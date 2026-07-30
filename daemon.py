@@ -82,11 +82,17 @@ from execution.content_identity import (
     verified_identity_fields,
 )
 from execution.firebase_config import resolve_storage_bucket
+from execution.source_evidence import (
+    SourceEvidenceError,
+    attach_verified_citation_quality,
+    validate_parsed_source,
+)
 from execution.trust_manifest import TRUST_MANIFEST_VERSION, attach_trust_manifest
 
 DEFAULT_LLM_PROXY_URL = (
     "https://us-central1-lemon-screenplay-dashboard.cloudfunctions.net/llmProxy"
 )
+LLM_PROXY_TRUST_CONTRACT_VERSION = "lemon-trust-manifest-v1"
 
 # ── Dependency guard ──────────────────────────────────────────────────────────
 
@@ -147,12 +153,12 @@ def verify_proxy_trust_capability(
 
     if (
         capability.get("service") != "llmProxy"
-        or capability.get("trust_contract_version") != TRUST_MANIFEST_VERSION
+        or capability.get("trust_contract_version") != LLM_PROXY_TRUST_CONTRACT_VERSION
         or capability.get("response_id_supported") is not True
     ):
         raise RuntimeError(
             "llmProxy is not compatible with "
-            f"{TRUST_MANIFEST_VERSION}; no queued work was claimed"
+            f"{LLM_PROXY_TRUST_CONTRACT_VERSION}; no queued work was claimed"
         )
 
     return capability
@@ -801,7 +807,6 @@ def validate_screenplay_text(text: str, filename: str) -> tuple[bool, str]:
     """
     Checks before spending an Anthropic call:
     - Minimum length (scanned PDF check)
-    - Maximum length (token budget guard)
     - Screenplay structure markers (not a random PDF)
     Returns (is_valid, reason).
     """
@@ -809,13 +814,6 @@ def validate_screenplay_text(text: str, filename: str) -> tuple[bool, str]:
 
     if len(stripped) < 500:
         return False, "insufficient_text_extracted"   # Likely scanned image PDF
-
-    if len(stripped) > 195_000:
-        log.warning(
-            f"[validate] '{filename}' is {len(stripped):,} chars — "
-            f"will be truncated to 195,000 by the analysis engine"
-        )
-        # Don't reject — the ingest_v9.py engine truncates gracefully
 
     has_structure = any(
         marker in stripped.upper()
@@ -1044,6 +1042,30 @@ def mark_terminal_failed(job_id: str, error: Exception) -> None:
     })
     log.error(f"[job] {job_id} → FAILED (terminal): {error}")
 
+
+def mark_needs_review(
+    job_id: str,
+    reason: str,
+    *,
+    evidence: Optional[dict] = None,
+) -> None:
+    """Stop safely when source or model evidence cannot support a verdict."""
+    update = {
+        "status": "needs_review",
+        "review_reason": str(reason)[:2000],
+        "failure_kind": "evidence_review",
+        "retryable": False,
+        "worker_id": WORKER_ID,
+        "last_heartbeat_at": None,
+        "processing_started_at": None,
+        "processing_completed_at": fb_firestore.SERVER_TIMESTAMP,
+    }
+    if evidence:
+        update["review_evidence"] = evidence
+    _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
+    log.warning(f"[job] {job_id} → NEEDS REVIEW: {reason}")
+
+
 def mark_skipped(
     job_id: str,
     reason: str,
@@ -1174,6 +1196,12 @@ def build_raw_document(
             "character_count": text_character_count,
             "extraction_method": parser_details.get("extraction_method"),
             "parser_extractor_version": parser_details.get("parser_version"),
+            "page_evidence_version": parser_details.get("page_evidence_version"),
+            "extraction_quality": parser_details.get("extraction_quality"),
+            "page_diagnostics": parser_details.get("page_diagnostics"),
+            "page_evidence_sha256": parser_details.get("page_evidence_sha256"),
+            "extraction_attempts": parser_details.get("extraction_attempts"),
+            "native_cross_check": parser_details.get("native_cross_check"),
         },
         "analysis": analysis,
         "usage": usage,
@@ -1328,6 +1356,26 @@ def process_job(job: dict) -> None:
             )
             return
 
+        try:
+            validate_parsed_source(parsed)
+        except SourceEvidenceError as error:
+            metadata = parsed.get("metadata")
+            extraction_quality = (
+                metadata.get("extraction_quality")
+                if isinstance(metadata, dict)
+                else None
+            )
+            mark_needs_review(
+                job_id,
+                str(error),
+                evidence=(
+                    {"extraction_quality": extraction_quality}
+                    if isinstance(extraction_quality, dict)
+                    else None
+                ),
+            )
+            return
+
         # ── 4b. TMDB pre-screen — skip already-produced films ─────────────
         # Title hint comes from filename (stem with separators normalized).
         # If TMDB returns a hit, we mark skipped WITHOUT moving the PDF —
@@ -1427,6 +1475,9 @@ def process_job(job: dict) -> None:
                 "manual review required before retrying."
             )
             return
+        except SourceEvidenceError as e:
+            mark_needs_review(job_id, str(e))
+            return
 
         # ── 8. Check finish reason (don't save truncated JSON) ────────────
         finish_reason = usage.get("finish_reason", "end_turn")
@@ -1435,6 +1486,25 @@ def process_job(job: dict) -> None:
                 f"Anthropic output truncated (max_tokens) — JSON is incomplete. "
                 f"Will retry on next attempt."
             )
+
+        try:
+            citation_quality = attach_verified_citation_quality(
+                analysis,
+                parsed.get("metadata") or {},
+                page_count,
+            )
+        except SourceEvidenceError as error:
+            citation_quality = analysis.get("_citation_quality")
+            mark_needs_review(
+                job_id,
+                str(error),
+                evidence=(
+                    {"citation_quality": citation_quality}
+                    if isinstance(citation_quality, dict)
+                    else None
+                ),
+            )
+            return
 
         # ── 9. Build full document and write to Firestore ─────────────────
         final_model_key = model_key
@@ -1584,7 +1654,9 @@ def main() -> None:
         )
         sys.exit(1)
     log.info(
-        f"[startup] llmProxy supports trust contract {TRUST_MANIFEST_VERSION}"
+        "[startup] llmProxy supports response trust contract "
+        f"{LLM_PROXY_TRUST_CONTRACT_VERSION}; permanent records use "
+        f"{TRUST_MANIFEST_VERSION}"
     )
 
     # Ensure work dir exists

@@ -31,8 +31,25 @@ except ImportError:
         near_verdict_boundary,
     )
 
+try:
+    from .source_evidence import (
+        validate_stored_citation_quality,
+        validate_stored_context_policy,
+        validate_stored_page_evidence,
+    )
+except ImportError:
+    from source_evidence import (
+        validate_stored_citation_quality,
+        validate_stored_context_policy,
+        validate_stored_page_evidence,
+    )
 
-TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v1"
+LEGACY_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v1"
+TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v2"
+SUPPORTED_TRUST_MANIFEST_VERSIONS = {
+    LEGACY_TRUST_MANIFEST_VERSION,
+    TRUST_MANIFEST_VERSION,
+}
 ANALYSIS_SCHEMA_VERSION = "v9-archaeology-schema-2026-07-29"
 TRIAGE_SCHEMA_VERSION = "v9-triage-schema-2026-07-29"
 PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-07-29"
@@ -99,25 +116,28 @@ def _code_fingerprints() -> Dict[str, str]:
     story_grid_source_path = _ROOT / "story_grid.py"
     story_grid_path = _ROOT / "story_grid.json"
     verdict_contract_path = _ROOT / "verdict_contract.py"
+    source_evidence_path = _ROOT / "source_evidence.py"
     manifest_path = Path(__file__).resolve()
 
     engine_hash = _sha256_file(engine_path)
     story_grid_source_hash = _sha256_file(story_grid_source_path)
     story_grid_hash = _sha256_file(story_grid_path)
     verdict_contract_hash = _sha256_file(verdict_contract_path)
+    source_evidence_hash = _sha256_file(source_evidence_path)
     return {
         "engine_source_sha256": engine_hash,
         "parser_source_sha256": _sha256_file(parser_path),
         "story_grid_source_sha256": story_grid_source_hash,
         "story_grid_sha256": story_grid_hash,
         "verdict_contract_sha256": verdict_contract_hash,
+        "source_evidence_sha256": source_evidence_hash,
         "manifest_builder_sha256": _sha256_file(manifest_path),
         # Conservative by design: any engine or Story Grid change invalidates
         # this bundle even if the edit was outside a prompt literal.
         "prompt_bundle_sha256": _sha256_bytes(
             (
                 f"{engine_hash}:{story_grid_source_hash}:{story_grid_hash}:"
-                f"{verdict_contract_hash}"
+                f"{verdict_contract_hash}:{source_evidence_hash}"
             ).encode("utf-8")
         ),
     }
@@ -397,15 +417,24 @@ def _model_lineage(
             raise ValueError(
                 f"usage.calls[{index}] has an unresolved disposition"
             )
-        expected_tier = (
-            "haiku" if stage in {"genre_detection", "triage"} else pipeline_pass
-        )
-        expected_model = model_ids_by_tier.get(expected_tier)
-        if expected_model is None:
-            raise ValueError(
-                f"usage.calls[{index}] has an unknown model tier {expected_tier}"
-            )
-        if requested_model != expected_model or returned_model != expected_model:
+        if stage == "genre_detection":
+            expected_models = {
+                model_ids_by_tier[tier]
+                for tier in ("haiku", "sonnet")
+                if tier in model_ids_by_tier
+            }
+        else:
+            expected_tier = "haiku" if stage == "triage" else pipeline_pass
+            expected_model = model_ids_by_tier.get(expected_tier)
+            if expected_model is None:
+                raise ValueError(
+                    f"usage.calls[{index}] has an unknown model tier {expected_tier}"
+                )
+            expected_models = {expected_model}
+        if (
+            requested_model not in expected_models
+            or returned_model != requested_model
+        ):
             raise ValueError(
                 f"usage.calls[{index}] requested or returned the wrong exact model"
             )
@@ -497,11 +526,17 @@ def _model_lineage(
             raise ValueError(
                 f"usage.failed_calls[{index}] has a reader outside the reader stage"
             )
-        expected_tier = (
-            "haiku" if stage in {"genre_detection", "triage"} else pipeline_pass
-        )
-        expected_model = model_ids_by_tier.get(expected_tier)
-        if expected_model is None or requested_model != expected_model:
+        if stage == "genre_detection":
+            expected_models = {
+                model_ids_by_tier[tier]
+                for tier in ("haiku", "sonnet")
+                if tier in model_ids_by_tier
+            }
+        else:
+            expected_tier = "haiku" if stage == "triage" else pipeline_pass
+            expected_model = model_ids_by_tier.get(expected_tier)
+            expected_models = {expected_model} if expected_model else set()
+        if requested_model not in expected_models:
             raise ValueError(
                 f"usage.failed_calls[{index}] requested the wrong exact model"
             )
@@ -1108,6 +1143,45 @@ def _usage_summary(usage: Any) -> Dict[str, Any]:
     }
 
 
+def _evidence_provenance(
+    *,
+    metadata: Mapping[str, Any],
+    analysis: Mapping[str, Any],
+    page_count: int,
+    character_count: int,
+    effective_model_tier: str,
+) -> Dict[str, Any]:
+    page_evidence = validate_stored_page_evidence(metadata, page_count)
+    context_policy = validate_stored_context_policy(
+        analysis,
+        character_count,
+        effective_model_tier,
+    )
+    citation_quality = validate_stored_citation_quality(
+        analysis,
+        metadata,
+        page_count,
+    )
+    extraction_quality = page_evidence["extraction_quality"]
+    return {
+        "page_extraction": {
+            "version": page_evidence["page_evidence_version"],
+            "evidence_sha256": metadata.get("page_evidence_sha256"),
+            "status": extraction_quality["status"],
+            "publication_ready": extraction_quality["publication_ready"],
+            "readable_page_count": extraction_quality["readable_page_count"],
+            "coverage_ratio": extraction_quality["coverage_ratio"],
+            "opening_coverage_ratio": extraction_quality["opening_coverage_ratio"],
+            "ending_coverage_ratio": extraction_quality["ending_coverage_ratio"],
+            "native_cross_check": copy.deepcopy(
+                metadata.get("native_cross_check")
+            ),
+        },
+        "context": copy.deepcopy(context_policy),
+        "citations": copy.deepcopy(citation_quality),
+    }
+
+
 def _validate_cost_mirrors(raw: Dict[str, Any], usage: Dict[str, Any]) -> None:
     canonical_cost_microusd = usage.get("actual_cost_microusd")
     if (
@@ -1131,6 +1205,25 @@ def _validate_response_links(
     score_lineage: Dict[str, Any],
     analysis: Dict[str, Any],
 ) -> None:
+    context_policy = analysis.get("_context_policy")
+    if isinstance(context_policy, dict):
+        genre_tier = context_policy.get("genre_model")
+        expected_genre_model = models["model_ids_by_tier"].get(genre_tier)
+        if not expected_genre_model:
+            raise ValueError("Context policy genre model has no exact model ID")
+        genre_calls = [
+            call
+            for call in models["calls"] + models["failed_calls"]
+            if call["stage"] == "genre_detection"
+        ]
+        if any(
+            call["requested_model"] != expected_genre_model
+            for call in genre_calls
+        ):
+            raise ValueError(
+                "Genre detection call does not match the sealed context policy"
+            )
+
     boundary = score_lineage.get("boundary_reruns")
     if boundary is None:
         return
@@ -1583,6 +1676,13 @@ def attach_trust_manifest(
             trusted.get("calibration_profile")
         ),
         "usage": _usage_summary(trusted.get("usage")),
+        "evidence": _evidence_provenance(
+            metadata=metadata,
+            analysis=trusted["analysis"],
+            page_count=page_count,
+            character_count=character_count,
+            effective_model_tier=effective_model_tier,
+        ),
     }
     _validate_response_links(
         manifest["models"],
@@ -1625,7 +1725,8 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
     manifest = raw.get("trust_manifest")
     if not isinstance(manifest, dict):
         raise ValueError("Permanent analysis requires a trust manifest")
-    if manifest.get("manifest_version") != TRUST_MANIFEST_VERSION:
+    manifest_version = manifest.get("manifest_version")
+    if manifest_version not in SUPPORTED_TRUST_MANIFEST_VERSIONS:
         raise ValueError("Unsupported trust manifest version")
 
     sealed = copy.deepcopy(manifest)
@@ -1689,7 +1790,7 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
 
     analysis_version = str(raw.get("analysis_version", ""))
     expected_versions = {
-        "trust_manifest_version": TRUST_MANIFEST_VERSION,
+        "trust_manifest_version": manifest_version,
         "analysis_schema_version": _schema_version(analysis_version),
         "prompt_version": PROMPT_CONTRACT_VERSION,
         "scoring_code_version": SCORING_CODE_VERSION,
@@ -1764,6 +1865,20 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
         raise ValueError("Trust manifest hybrid provenance does not match analysis")
     if manifest.get("usage") != _usage_summary(usage):
         raise ValueError("Trust manifest usage does not match analysis usage")
+    if manifest_version == TRUST_MANIFEST_VERSION:
+        current_evidence = _evidence_provenance(
+            metadata=metadata,
+            analysis=raw["analysis"],
+            page_count=metadata.get("page_count"),
+            character_count=metadata.get("character_count"),
+            effective_model_tier=str(models.get("effective_model_tier", "")),
+        )
+        if manifest.get("evidence") != current_evidence:
+            raise ValueError(
+                "Trust manifest source evidence does not match analysis"
+            )
+    elif "evidence" in manifest:
+        raise ValueError("Legacy trust manifest cannot contain Q2 evidence")
     _validate_cost_mirrors(raw, usage)
     if manifest.get("calibration") != _sanitized_calibration(
         raw.get("calibration_profile")

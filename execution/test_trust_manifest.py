@@ -17,11 +17,16 @@ from execution.v9_test_fixtures import (
 )
 from execution.trust_manifest import (
     ANALYSIS_SCHEMA_VERSION,
+    LEGACY_TRUST_MANIFEST_VERSION,
     PROMPT_CONTRACT_VERSION,
     SCORING_CODE_VERSION,
     TRUST_MANIFEST_VERSION,
     attach_trust_manifest,
     validate_permanent_analysis,
+)
+from execution.source_evidence import (
+    attach_verified_citation_quality,
+    build_context_policy_for_length,
 )
 
 class TrustManifestTests(unittest.TestCase):
@@ -54,6 +59,47 @@ class TrustManifestTests(unittest.TestCase):
         )
         self.assertNotIn("prompt", first["trust_manifest"]["calibration"])
         validate_permanent_analysis(first)
+
+    def test_q1_manifest_remains_readable_after_q2_upgrade(self):
+        legacy = trusted_raw()
+        manifest = legacy["trust_manifest"]
+        manifest.pop("evidence")
+        manifest["manifest_version"] = LEGACY_TRUST_MANIFEST_VERSION
+        manifest.pop("integrity_sha256")
+        manifest["integrity_sha256"] = hashlib.sha256(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        legacy["trust_manifest_version"] = LEGACY_TRUST_MANIFEST_VERSION
+
+        validate_permanent_analysis(legacy)
+
+    def test_page_evidence_tampering_is_rejected(self):
+        raw = trusted_raw()
+        raw["metadata"]["page_diagnostics"][0]["words"] += 1
+
+        with self.assertRaisesRegex(ValueError, "word count|integrity"):
+            validate_permanent_analysis(raw)
+
+    def test_invalid_reader_citation_cannot_receive_a_manifest(self):
+        raw = raw_analysis()
+        metric = raw["analysis"]["reader_reports"]["structure"]["sub_scores"]["one"]
+        metric["page_citations"] = [999]
+
+        with self.assertRaisesRegex(ValueError, "citation evidence"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
 
     def test_auto_selection_is_preserved_separately_from_effective_model(self):
         raw = attach_trust_manifest(
@@ -101,6 +147,34 @@ class TrustManifestTests(unittest.TestCase):
         self.assertEqual(
             trusted["trust_manifest"]["models"]["requested_model_ids"],
             sorted(["claude-haiku-4-5-20251001", extra_model, MODEL_ID]),
+        )
+
+    def test_long_source_genre_detection_is_sealed_to_sonnet(self):
+        raw = raw_analysis()
+        raw["metadata"]["character_count"] = 500_000
+        raw["analysis"]["_context_policy"] = build_context_policy_for_length(
+            500_000,
+            "sonnet",
+        )
+        genre_call = raw["usage"]["calls"][0]
+        genre_call["requested_model"] = MODEL_ID
+        genre_call["returned_model"] = MODEL_ID
+        raw["usage"]["by_model"][MODEL_ID]["call_count"] = 7
+        raw["usage"]["by_model"].pop("claude-haiku-4-5-20251001")
+
+        trusted = attach_trust_manifest(
+            raw,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+            origin_kind="daemon_queue",
+            origin_id="queue-job-1",
+        )
+
+        self.assertEqual(
+            trusted["trust_manifest"]["evidence"]["context"]["genre_model"],
+            "sonnet",
         )
 
     def test_paid_but_unusable_synthesis_response_is_sealed_not_selected(self):
@@ -265,6 +339,11 @@ class TrustManifestTests(unittest.TestCase):
         }]
         analysis["_boundary_reruns"]["runs"][0]["response_ids"].remove("msg_6")
         refresh_boundary_evidence(analysis)
+        attach_verified_citation_quality(
+            analysis,
+            raw["metadata"],
+            raw["metadata"]["page_count"],
+        )
 
         trusted = attach_trust_manifest(
             raw,
@@ -495,6 +574,11 @@ class TrustManifestTests(unittest.TestCase):
             "final_model": "sonnet",
             "sonnet_analysis_evidence": copy.deepcopy(raw["analysis"]),
         }
+        attach_verified_citation_quality(
+            raw["analysis"],
+            raw["metadata"],
+            raw["metadata"]["page_count"],
+        )
 
         trusted = attach_trust_manifest(
             raw,

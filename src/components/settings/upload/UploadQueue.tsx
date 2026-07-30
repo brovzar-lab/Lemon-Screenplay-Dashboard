@@ -6,7 +6,11 @@
  */
 
 import { clsx } from 'clsx';
-import { isUploadJobReady, type UploadJob } from '@/stores/uploadStore';
+import {
+  isUploadJobReady,
+  isUploadTerminalStatus,
+  type UploadJob,
+} from '@/stores/uploadStore';
 import { MODEL_OPTIONS } from './upload.constants';
 import type { ModelOption } from './upload.types';
 import { JobItem } from './JobItem';
@@ -43,7 +47,8 @@ export function UploadQueue({
   const pendingJobs = jobs.filter((j) => j.status === 'pending');
   const actionablePending = pendingJobs.filter(isUploadJobReady);
   const activeJobs = jobs.filter((j) => j.status === 'parsing' || j.status === 'analyzing' || j.status === 'promoting');
-  const completedJobs = jobs.filter((j) => j.status === 'complete' || j.status === 'error');
+  const terminalJobs = jobs.filter((job) => isUploadTerminalStatus(job.status));
+  const completedJobs = terminalJobs.filter((job) => job.status !== 'skipped');
   const skippedJobs = jobs.filter((j) => j.status === 'skipped');
   const duplicateCount = pendingJobs.filter((j) => j.isDuplicate).length;
   const decisionCount = pendingJobs.filter(
@@ -56,7 +61,7 @@ export function UploadQueue({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium text-gold-200">Upload Queue</h3>
-        {(completedJobs.length > 0 || skippedJobs.length > 0) && (
+        {terminalJobs.length > 0 && (
           <button
             onClick={onClearCompleted}
             className="text-sm text-black-400 hover:text-gold-400 transition-colors"

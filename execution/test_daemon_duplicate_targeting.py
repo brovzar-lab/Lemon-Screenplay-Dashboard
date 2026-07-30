@@ -16,6 +16,9 @@ from execution.v9_test_fixtures import (
     HAIKU_MODEL_ID,
     complete_analysis,
     complete_usage,
+    prepare_q2_analysis,
+    q2_parsed_source,
+    q2_parser_metadata,
 )
 
 
@@ -213,13 +216,22 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                     sys.modules["ingest_v9"] = prior_engine
 
     def test_renamed_revision_stays_under_the_target_project(self):
+        parser_metadata = q2_parser_metadata(
+            page_count=100,
+            word_count=20_000,
+            character_count=123_456,
+        )
+        analysis = prepare_q2_analysis(
+            complete_analysis("Completely Renamed Draft"),
+            parser_metadata,
+        )
         raw = daemon.build_raw_document(
             filename="Completely Renamed Draft.pdf",
             model_key="sonnet",
             collection_id="LEMON",
             page_count=100,
             word_count=20_000,
-            analysis=complete_analysis("Completely Renamed Draft"),
+            analysis=analysis,
             usage=complete_usage("claude-sonnet-test"),
             job_id="revision-job",
             content_hash=CONTENT_HASH,
@@ -232,10 +244,7 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
             ),
             storage_generation="2002",
             text_character_count=123_456,
-            parser_metadata={
-                "extraction_method": "pdfplumber",
-                "parser_version": "v2",
-            },
+            parser_metadata=parser_metadata,
             model_ids={
                 "haiku": HAIKU_MODEL_ID,
                 "sonnet": "claude-sonnet-test",
@@ -273,19 +282,21 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
     def test_queue_target_reaches_the_versioned_writer_and_completion_record(self):
         heartbeat = MagicMock()
         written = []
+        parsed = q2_parsed_source(page_count=100, word_count=20_000)
+        analysis = prepare_q2_analysis(
+            complete_analysis("Completely Renamed Draft"),
+            {
+                **parsed["metadata"],
+                "page_count": parsed["page_count"],
+                "word_count": parsed["word_count"],
+                "character_count": len(parsed["text"]),
+            },
+        )
         fake_engine = SimpleNamespace(
             init_firebase=MagicMock(),
-            parse_pdf=MagicMock(return_value={
-                "text": ("INT. HOUSE - DAY\nA scene unfolds.\n" * 30),
-                "page_count": 100,
-                "word_count": 20_000,
-                "metadata": {
-                    "extraction_method": "pdfplumber",
-                    "parser_version": "v2",
-                },
-            }),
+            parse_pdf=MagicMock(return_value=parsed),
             run_v9_stable=MagicMock(return_value=(
-                complete_analysis("Completely Renamed Draft"),
+                analysis,
                 complete_usage("claude-sonnet-test"),
             )),
             run_v9_hybrid=MagicMock(),

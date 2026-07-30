@@ -35,7 +35,7 @@ export interface BadFormatJob {
   collection_id: string;
   storage_path: string;
   skip_reason: SkipReason;
-  status: 'skipped' | 'failed';
+  status: 'skipped' | 'failed' | 'needs_review';
   last_error?: string;
   failure_kind?: string;
   retryable?: boolean;
@@ -105,7 +105,7 @@ export function subscribeToUploadIssues(
 ): Unsubscribe {
   const q = query(
     collection(db, INGEST_QUEUE_COLLECTION),
-    where('status', 'in', ['skipped', 'failed']),
+    where('status', 'in', ['skipped', 'failed', 'needs_review']),
   );
 
   return onSnapshot(
@@ -119,8 +119,16 @@ export function subscribeToUploadIssues(
           collection_id: String(data.collection_id ?? ''),
           storage_path: String(data.storage_path ?? ''),
           skip_reason: String(data.skip_reason ?? '') as SkipReason,
-          status: data.status === 'failed' ? 'failed' : 'skipped',
-          last_error: typeof data.last_error === 'string' ? data.last_error : undefined,
+          status: data.status === 'failed'
+            ? 'failed'
+            : data.status === 'needs_review'
+              ? 'needs_review'
+              : 'skipped',
+          last_error: typeof data.review_reason === 'string'
+            ? data.review_reason
+            : typeof data.last_error === 'string'
+              ? data.last_error
+              : undefined,
           failure_kind: typeof data.failure_kind === 'string' ? data.failure_kind : undefined,
           retryable: data.retryable !== false,
           attempt_count: typeof data.attempt_count === 'number' ? data.attempt_count : undefined,

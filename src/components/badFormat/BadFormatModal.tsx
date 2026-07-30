@@ -23,6 +23,7 @@ function reasonLabel(reason: SkipReason): string {
 }
 
 function guidance(job: BadFormatJob): string {
+  if (job.status === 'needs_review') return 'No verdict was saved because the screenplay or its page citations could not be verified. Review the technical details before replacing or dismissing this upload.';
   if (job.status === 'failed' && job.retryable === false) return 'This job cannot be retried safely. Dismiss it, then upload the PDF again and choose whether it is a new revision or a separate project.';
   if (job.status === 'failed') return 'The analysis service could not finish. Retry when you are ready; this starts a paid analysis.';
   if (job.skip_reason === 'insufficient_text_extracted') return 'This is probably a scanned document. Replace it with a searchable OCR PDF.';
@@ -188,6 +189,8 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
                           <span className={`rounded-full px-2 py-1 text-xs font-semibold ${job.status === 'failed' || needsReplacement(job) ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-300'}`}>
                             {job.status === 'failed'
                               ? (job.retryable === false ? 'Cannot retry' : 'Analysis failed')
+                              : job.status === 'needs_review'
+                                ? 'Needs evidence review'
                               : reasonLabel(job.skip_reason)}
                           </span>
                         </div>

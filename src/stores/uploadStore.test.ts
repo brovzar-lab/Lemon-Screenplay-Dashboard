@@ -81,4 +81,20 @@ describe('revision-aware upload decisions', () => {
       }),
     );
   });
+
+  it('clears every terminal upload state, including Needs Review', () => {
+    useUploadStore.setState({
+      jobs: [
+        { ...possibleMatch, id: 'complete', status: 'complete' },
+        { ...possibleMatch, id: 'error', status: 'error' },
+        { ...possibleMatch, id: 'skipped', status: 'skipped' },
+        { ...possibleMatch, id: 'review', status: 'needs_review' },
+        { ...possibleMatch, id: 'pending', status: 'pending' },
+      ],
+    });
+
+    useUploadStore.getState().clearCompleted();
+
+    expect(useUploadStore.getState().jobs.map((job) => job.id)).toEqual(['pending']);
+  });
 });

@@ -35,6 +35,17 @@ vi.mock('@/lib/badFormatStore', async (importOriginal) => {
           retryable: false,
           failure_kind: 'terminal',
         },
+        {
+          id: 'review-job',
+          filename: 'Missing ending.pdf',
+          collection_id: 'LEMON',
+          storage_path: 'ingest-queue/LEMON/Missing-ending.pdf',
+          skip_reason: '',
+          status: 'needs_review',
+          last_error: 'insufficient_ending_page_text',
+          retryable: false,
+          failure_kind: 'evidence_review',
+        },
       ]);
       return vi.fn();
     },
@@ -76,5 +87,15 @@ describe('BadFormatModal', () => {
     expect(terminalRow).not.toBeNull();
     expect(within(terminalRow!).queryByRole('button', { name: 'Retry Analysis' })).not.toBeInTheDocument();
     expect(within(terminalRow!).getByText(/cannot be retried/i)).toBeInTheDocument();
+  });
+
+  it('shows evidence-review jobs without offering an unsafe retry', () => {
+    render(<BadFormatModal open onClose={vi.fn()} />);
+
+    const reviewRow = screen.getByText('Missing ending.pdf').closest('li');
+    expect(reviewRow).not.toBeNull();
+    expect(within(reviewRow!).getByText('Needs evidence review')).toBeInTheDocument();
+    expect(within(reviewRow!).getByText('insufficient_ending_page_text')).toBeInTheDocument();
+    expect(within(reviewRow!).queryByRole('button', { name: 'Retry Analysis' })).not.toBeInTheDocument();
   });
 });

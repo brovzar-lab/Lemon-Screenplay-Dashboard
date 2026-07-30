@@ -166,7 +166,7 @@ exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSe
                 });
                 updated += 1;
             }
-            else if (action === "dismiss" && ["failed", "skipped"].includes(status)) {
+            else if (action === "dismiss" && (0, queueActions_1.canDismissQueueJob)(data)) {
                 batch.update(snapshot.ref, {
                     resolution_dismissed: true,
                     resolution_updated_at: firestore_1.FieldValue.serverTimestamp(),

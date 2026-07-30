@@ -130,6 +130,12 @@ from story_grid import (  # noqa: E402
     parse_detection,
     build_genre_card,
 )
+from source_evidence import (  # noqa: E402
+    SourceEvidenceError,
+    attach_verified_citation_quality,
+    build_context_policy,
+    validate_parsed_source,
+)
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -166,17 +172,12 @@ MODEL_IDS = {
     "opus":   "claude-opus-4-7",
 }
 
-# Max characters sent to AI. Raised from 150_000 → 195_000 so feature-length
-# scripts (90-130 pages) fit without losing Act 3. Sonnet 4.6 / Opus 4.7 have
-# 200K context windows; this leaves ~5K for system prompts + reader output.
-MAX_CHARS = 195_000
-
 # Min words for a valid screenplay
 MIN_WORDS = 500
 
 # Parsed screenplay cache. The parser version is part of the key so extraction
 # changes cannot silently reuse output from an older parser implementation.
-PARSER_VERSION = "v3-ocr-eng-spa"
+PARSER_VERSION = "v4-page-evidence"
 PARSER_SUBPROCESS_TIMEOUT_SECONDS = 15 * 60
 PARSE_CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
 PARSE_CACHE_MAX_BYTES = 512 * 1024 * 1024
@@ -1193,15 +1194,6 @@ def extract_json(text: str) -> Dict[str, Any]:
     raise ValueError(f"No valid JSON found in LLM response (first 200 chars): {text[:200]}")
 
 
-# ── V9 Reader Prompts ─────────────────────────────────────────────────────────
-
-def _truncate(text: str, max_chars: int = MAX_CHARS) -> str:
-    """Truncate screenplay text to the character limit with a clear marker."""
-    if len(text) <= max_chars:
-        return text
-    return text[:max_chars] + "\n\n[SCREENPLAY TRUNCATED AT CHARACTER LIMIT]"
-
-
 # ── Code-Side Verdict Derivation ─────────────────────────────────────────────
 # The synthesis prompt instructs the model to apply the critical-failure
 # penalty, the Story-vs-Situation cap, and the trap downgrades — but nothing
@@ -1215,8 +1207,9 @@ def _truncate(text: str, max_chars: int = MAX_CHARS) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Sub-score schema fragment reused across all reader tool definitions.
-# Page citations are optional per sub-score; they're REQUIRED in the prompt for
-# scores ≥7 but enforcing that here would reject valid low-score reports.
+# Every metric carries a citation array. Low scores may return an empty array;
+# scores ≥7 must cite at least one physical [PAGE N] marker and are verified
+# before a verdict can be saved.
 SUB_SCORE_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -1224,7 +1217,7 @@ SUB_SCORE_SCHEMA: Dict[str, Any] = {
         "justification": {"type": "string"},
         "page_citations": {"type": "array", "items": {"type": "integer"}},
     },
-    "required": ["score", "justification"],
+    "required": ["score", "justification", "page_citations"],
 }
 
 
@@ -1233,6 +1226,12 @@ def _sub_score_schema_with(extra: Dict[str, Any]) -> Dict[str, Any]:
     base = json.loads(json.dumps(SUB_SCORE_SCHEMA))  # deep copy
     base["properties"].update(extra)
     return base
+
+
+PAGE_CITATION_INSTRUCTION = """\
+Every sub-score MUST include `page_citations` using the physical [PAGE N]
+markers in the screenplay text. Any score of 7 or higher MUST cite at least one
+page. Never infer a page number from screenplay formatting."""
 
 
 # ─── FEW-SHOT ANCHOR (placeholder; REPLACE WITH ACTUAL LEMON EVALUATIONS) ────
@@ -1301,8 +1300,11 @@ fit. Not whether you personally like the story.
 7 = genuinely good. 6 = median produced film. 5 = below average.
 4 = needs structural rewrite. 1–3 = amateur.
 
-Score each sub-criterion 1–10 with a one-sentence justification. Cite page
-numbers for any score ≥7. Use the `submit_structure_report` tool.
+Score each sub-criterion 1–10 with a one-sentence justification.
+
+{PAGE_CITATION_INSTRUCTION}
+
+Use the `submit_structure_report` tool.
 
 {FEW_SHOT_ANCHORS}
 """
@@ -1418,7 +1420,9 @@ You are evaluating CHARACTER PSYCHOLOGY ONLY. Not structure. Not premise.
 (Parasite). 8 = excellent. 7 = genuinely good. 6 = median produced film.
 5 = below average. 4 = underdeveloped. 1–3 = amateur.
 
-Score each sub-criterion 1–10. Cite page numbers for any score ≥7.
+Score each sub-criterion 1–10.
+
+{PAGE_CITATION_INSTRUCTION}
 
 ALSO COMPLETE the Lyons 5-point Story-vs-Situation test (each Yes=1, No=0):
 1. Does it reveal something about the human condition?
@@ -1575,6 +1579,8 @@ each, then score globally.
 (Sicario). 8 = excellent. 7 = genuinely good. 6 = median produced film.
 5 = below average. 4 = flat scene writing. 1–3 = amateur.
 
+{PAGE_CITATION_INSTRUCTION}
+
 Call `submit_craft_scene_report` once.
 
 {FEW_SHOT_ANCHORS}
@@ -1703,6 +1709,8 @@ execution scores LOW here.
 8 = excellent. 7 = genuinely good. 6 = median produced film. 5 = below
 average. 4 = derivative. 1–3 = no concept.
 
+{PAGE_CITATION_INSTRUCTION}
+
 Call `submit_concept_report` once.
 
 {FEW_SHOT_ANCHORS}
@@ -1816,6 +1824,8 @@ cold scores LOW.
 10 = devastating emotional impact (Schindler's List). 9 = exceptional
 (Moonlight). 8 = excellent. 7 = genuinely good. 6 = median produced film.
 5 = below average. 4 = emotionally flat. 1–3 = no emotional engagement.
+
+{PAGE_CITATION_INSTRUCTION}
 
 Call `submit_emotional_resonance_report` once.
 
@@ -1986,8 +1996,9 @@ def run_genre_detection(
     job_id: Optional[str] = None,
     pipeline_pass: str = "full",
     boundary_run: int = 1,
+    model_key: str = "haiku",
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Cheap Haiku pass that classifies the script into the Five-Leaf Clover.
+    """Classify the script into the Five-Leaf Clover using a context-safe model.
     Returns a normalised detection dict (never raises — falls back to a
     low-confidence Society/drama read so the pipeline always proceeds)."""
     usage = empty_usage()
@@ -2001,7 +2012,7 @@ def run_genre_detection(
                 screenplay_block,
                 {"type": "text", "text": build_genre_detection_prompt()},
             ],
-            model_key="haiku",
+            model_key=model_key,
             max_tokens=400,
             proxy_url=proxy_url,
             job_id=job_id,
@@ -2732,7 +2743,7 @@ def run_v9_full(
 
     Returns (analysis_dict, total_usage).
     """
-    truncated = _truncate(text)
+    context_policy = build_context_policy(text, model_key)
     sealed_cold_read = _validated_cold_read(cold_read)
     triage_impression = (
         sealed_cold_read["evidence"]
@@ -2740,17 +2751,9 @@ def run_v9_full(
         else None
     )
     pass_name = pipeline_pass or model_key
-    was_truncated = len(text) > MAX_CHARS
-    if was_truncated:
-        log.warning(
-            f"    ⚠ Truncated screenplay {len(text):,} → {MAX_CHARS:,} chars "
-            f"(~{(len(text) - MAX_CHARS) // 250} pages lost). Score may be biased "
-            f"against late-act material."
-        )
-
     # ONE cached screenplay block — shared across the 5 readers + synthesis.
     # First reader call writes the cache; subsequent calls read at 10% input cost.
-    screenplay_block = _screenplay_user_block(truncated, cached=True)
+    screenplay_block = _screenplay_user_block(text, cached=True)
 
     total_usage = usage_sink if usage_sink is not None else empty_usage()
     total_usage.clear()
@@ -2768,6 +2771,7 @@ def run_v9_full(
         job_id=job_id,
         pipeline_pass=pass_name,
         boundary_run=boundary_run,
+        model_key=context_policy["genre_model"],
     )
     _accumulate(genre_usage)
     genre_card = build_genre_card(genre_detection)
@@ -3005,7 +3009,7 @@ def run_v9_full(
         critical_failures=analysis.get("critical_failures"),
         situation_verdict=str(svs.get("verdict", "")),
         weighted_trap_score=float(fp_check.get("weighted_trap_score", 0) or 0),
-        truncated=was_truncated,
+        truncated=False,
     )
     model_verdict = str(analysis.get("verdict", ""))
     if model_verdict and model_verdict != derived["verdict"]:
@@ -3021,10 +3025,11 @@ def run_v9_full(
     analysis["critical_failure_penalty_applied"] = derived["penalty"]
     analysis["verdict_adjustments"] = derived["adjustments"]
     analysis["_truncation"] = {
-        "truncated": was_truncated,
-        "chars_lost": max(0, len(text) - MAX_CHARS),
-        "approx_pages_lost": max(0, (len(text) - MAX_CHARS) // 250),
+        "truncated": False,
+        "chars_lost": 0,
+        "approx_pages_lost": 0,
     }
+    analysis["_context_policy"] = context_policy
 
     # Embed reader reports, genre detection, and lock version string.
     analysis["reader_reports"] = reader_reports
@@ -3467,11 +3472,11 @@ def run_v9_triage(
 
     Returns (analysis_dict, usage).
     """
-    truncated = _truncate(text)
+    context_policy = build_context_policy(text, "haiku")
     triage_prompt = (
         f"You are a script reader doing a QUICK ASSESSMENT of a screenplay.\n"
         f"Title: {title}\nPages: {page_count}\nWords: {word_count}\n\n"
-        f"SCREENPLAY TEXT:\n{truncated}\n\n"
+        f"SCREENPLAY TEXT:\n{text}\n\n"
         f"Return ONLY this JSON:\n"
         f'{{"triage_score": 0, "verdict": "", "genre": "", "logline": "", "should_deep_analyze": false}}\n'
         f"Set should_deep_analyze true if triage_score >= 6.\n"
@@ -3552,6 +3557,12 @@ def run_v9_triage(
             "confidence": "low",
             "primary_reason": "Triage mode — single Haiku pass",
         },
+        "_truncation": {
+            "truncated": False,
+            "chars_lost": 0,
+            "approx_pages_lost": 0,
+        },
+        "_context_policy": context_policy,
     }
     return analysis, usage
 
@@ -3607,6 +3618,12 @@ def build_raw_document(
             "character_count": len(str(parsed.get("text", ""))),
             "extraction_method": parser_metadata.get("extraction_method"),
             "parser_extractor_version": parser_metadata.get("parser_version"),
+            "page_evidence_version": parser_metadata.get("page_evidence_version"),
+            "extraction_quality": parser_metadata.get("extraction_quality"),
+            "page_diagnostics": parser_metadata.get("page_diagnostics"),
+            "page_evidence_sha256": parser_metadata.get("page_evidence_sha256"),
+            "extraction_attempts": parser_metadata.get("extraction_attempts"),
+            "native_cross_check": parser_metadata.get("native_cross_check"),
         },
         "analysis": analysis,
         "usage": total_usage,
@@ -3686,6 +3703,11 @@ def ingest_one(
     text = parsed.get("text", "")
     page_count = parsed.get("page_count", 0)
     word_count = parsed.get("word_count", 0)
+    try:
+        validate_parsed_source(parsed)
+    except SourceEvidenceError as error:
+        log.error(f"  ✗ Source evidence needs review: {error}")
+        return "fail"
 
     # --- TMDB check ---
     tmdb_status: Optional[Dict[str, Any]] = None
@@ -3783,6 +3805,16 @@ def ingest_one(
         log.debug(traceback.format_exc())
         return "fail"
 
+    try:
+        attach_verified_citation_quality(
+            analysis,
+            parsed.get("metadata") or {},
+            page_count,
+        )
+    except SourceEvidenceError as error:
+        log.error(f"  ✗ Analysis evidence needs review: {error}")
+        return "fail"
+
     duration_ms = int((time.time() - start) * 1000)
 
     # --- Build raw document ---
@@ -3825,7 +3857,7 @@ def estimate_cost(word_count: int, model_key: str, mode: str) -> str:
         "opus":   {"in": 15.00, "out": 75.00},
     }
     r = rates.get(model_key, rates["sonnet"])
-    chars = min(len(str(word_count) * 5), MAX_CHARS)
+    chars = max(0, word_count) * 5
 
     if mode == "triage":
         in_tok = (chars / 4) + 200

@@ -2,11 +2,13 @@
  * Client-side PDF text extraction using pdfjs-dist.
  *
  * Extracts text, page count, and word count from a PDF File object.
- * Enforces a 200K character limit (matching the Python pipeline).
+ * Preserves physical page identity and refuses incomplete source evidence.
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
 import { getPdfFileError, getScreenplayTextError } from './pdfValidation';
+import { buildBrowserPageEvidence } from '@/lib/sourceEvidence';
+import type { BrowserPageEvidence } from '@/types';
 
 // Use the bundled worker from pdfjs-dist
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -14,19 +16,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url,
 ).toString();
 
-// V9: raised from 150_000 → 195_000. Sonnet 4.6 / Opus 4.7 have 200K-token
-// context windows; this fits feature-length scripts (90-130 pages) without
-// losing Act 3 to truncation. Stay in sync with MAX_CHARS in
-// execution/ingest_v9.py.
-const MAX_CHARS = 195_000;
-
 export interface ParsedPDF {
   title: string;
   text: string;
   pageCount: number;
   wordCount: number;
-  /** Whether the text was truncated to MAX_CHARS */
+  /** Retained for compatibility. Q2 never truncates screenplay source. */
   truncated: boolean;
+  sourceEvidence: BrowserPageEvidence;
 }
 
 /**
@@ -61,13 +58,18 @@ export async function parsePDF(
     }
   }
 
-  let text = pages.join('\n\n');
-  const truncated = text.length > MAX_CHARS;
-  if (truncated) {
-    text = text.slice(0, MAX_CHARS) + '\n\n[... truncated ...]';
+  const sourceEvidence = buildBrowserPageEvidence(pages);
+  if (!sourceEvidence.publicationReady) {
+    throw new Error(
+      `The screenplay extraction needs review: ${sourceEvidence.issues.join(', ')}.`,
+    );
   }
+  const text = sourceEvidence.text;
 
-  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  const wordCount = sourceEvidence.diagnostics.reduce(
+    (total, page) => total + page.words,
+    0,
+  );
 
   const textError = getScreenplayTextError(text);
   if (textError) throw new Error(textError);
@@ -75,5 +77,12 @@ export async function parsePDF(
   // Infer title from filename (strip extension)
   const title = file.name.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ');
 
-  return { title, text, pageCount, wordCount, truncated };
+  return {
+    title,
+    text,
+    pageCount,
+    wordCount,
+    truncated: false,
+    sourceEvidence,
+  };
 }

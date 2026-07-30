@@ -15,6 +15,8 @@ from execution.v9_test_fixtures import (
     MODEL_IDS as TEST_MODEL_IDS,
     complete_analysis,
     complete_usage,
+    prepare_q2_analysis,
+    q2_parser_metadata,
 )
 
 
@@ -167,13 +169,22 @@ class ArchivePdfTests(unittest.TestCase):
                 )
 
     def test_parent_document_marks_the_archived_pdf_available(self):
+        parser_metadata = q2_parser_metadata(
+            page_count=100,
+            word_count=20_000,
+            character_count=120_000,
+        )
+        analysis = prepare_q2_analysis(
+            complete_analysis("Draft"),
+            parser_metadata,
+        )
         raw = daemon.build_raw_document(
             filename="Draft.pdf",
             model_key="sonnet",
             collection_id="LEMON",
             page_count=100,
             word_count=20_000,
-            analysis=complete_analysis("Draft"),
+            analysis=analysis,
             usage=complete_usage(),
             job_id="job-1",
             content_hash="ab" * 32,
@@ -186,10 +197,7 @@ class ArchivePdfTests(unittest.TestCase):
             ),
             storage_generation="4321",
             text_character_count=120_000,
-            parser_metadata={
-                "extraction_method": "pdfplumber",
-                "parser_version": "v2",
-            },
+            parser_metadata=parser_metadata,
             model_ids=TEST_MODEL_IDS,
             parser_version=ingest_v9.PARSER_VERSION,
         )

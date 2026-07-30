@@ -11,7 +11,7 @@ import {
   markReanalysisLockQueued,
   releasePreparingReanalysisLock,
 } from "./reanalysisLock";
-import { canRetryQueueJob } from "./queueActions";
+import { canDismissQueueJob, canRetryQueueJob } from "./queueActions";
 import type { IngestModel } from "./ingestQueue";
 
 const corsMiddleware = cors({
@@ -193,7 +193,7 @@ export const queueManager = onRequest(
             resolution_updated_at: FieldValue.serverTimestamp(),
           });
           updated += 1;
-        } else if (action === "dismiss" && ["failed", "skipped"].includes(status)) {
+        } else if (action === "dismiss" && canDismissQueueJob(data)) {
           batch.update(snapshot.ref, {
             resolution_dismissed: true,
             resolution_updated_at: FieldValue.serverTimestamp(),

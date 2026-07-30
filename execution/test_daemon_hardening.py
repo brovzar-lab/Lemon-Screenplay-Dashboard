@@ -21,7 +21,7 @@ class ProxyTrustCapabilityTests(unittest.TestCase):
         response = MagicMock()
         response.json.return_value = {
             "service": "llmProxy",
-            "trust_contract_version": daemon.TRUST_MANIFEST_VERSION,
+            "trust_contract_version": daemon.LLM_PROXY_TRUST_CONTRACT_VERSION,
             "response_id_supported": True,
         }
 
@@ -64,6 +64,29 @@ class ProxyTrustCapabilityTests(unittest.TestCase):
             daemon.verify_proxy_trust_capability("https://proxy.example/llm")
 
         get.assert_not_called()
+
+
+class NeedsReviewStateTests(unittest.TestCase):
+    def test_incomplete_evidence_has_a_terminal_review_state(self):
+        previous_db = daemon._db
+        daemon._db = MagicMock()
+        try:
+            daemon.mark_needs_review(
+                "review-job",
+                "ending pages are missing",
+                evidence={"extraction_quality": {"publication_ready": False}},
+            )
+            update = (
+                daemon._db.collection.return_value.document.return_value.update
+                .call_args.args[0]
+            )
+        finally:
+            daemon._db = previous_db
+
+        self.assertEqual(update["status"], "needs_review")
+        self.assertFalse(update["retryable"])
+        self.assertEqual(update["failure_kind"], "evidence_review")
+        self.assertIn("ending pages", update["review_reason"])
 
 
 class CompletedVersionPreflightTests(unittest.TestCase):
@@ -235,6 +258,7 @@ class BudgetWaitingStateTests(unittest.TestCase):
                     patch.object(daemon, "compute_content_hash", return_value=CONTENT_HASH),
                     patch.object(daemon, "is_already_complete", return_value=False),
                     patch.object(daemon, "get_existing_version", return_value=None),
+                    patch.object(daemon, "validate_parsed_source"),
                     patch.object(daemon, "check_tmdb_for_job", return_value=(False, "", None)),
                     patch.object(
                         daemon,

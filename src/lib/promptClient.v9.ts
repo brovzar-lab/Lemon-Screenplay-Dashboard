@@ -181,7 +181,7 @@ You are evaluating CHARACTER QUALITY ONLY. Not commercial potential. Not structu
 
 Score anchors: 10 = masterpiece characterization (There Will Be Blood), 9 = exceptional (Parasite), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = underdeveloped, 1-3 = amateur.
 
-Score each sub-criterion 1-10. Cite page numbers for any score >= 7.`;
+Score each sub-criterion 1-10. Every sub-score MUST include page_citations using the physical [PAGE N] markers. Any score >= 7 MUST cite at least one page.`;
 
   const userPrompt = `Analyze this screenplay's CHARACTERS:
 
@@ -231,16 +231,16 @@ Return ONLY this JSON:
   "pillar_score": null,
   "sub_scores": {
     "ghost": { "score": 0, "justification": "", "page_citations": [] },
-    "lie": { "score": 0, "justification": "", "identified_lie": "" },
-    "want_vs_need": { "score": 0, "justification": "", "want": "", "need": "" },
-    "arc_delivery": { "score": 0, "justification": "", "arc_type": "positive|negative_fall|negative_corruption|negative_disillusionment|flat|absent" },
-    "moral_blind_spot": { "score": 0, "justification": "", "identified_blind_spot": "" },
+    "lie": { "score": 0, "justification": "", "page_citations": [], "identified_lie": "" },
+    "want_vs_need": { "score": 0, "justification": "", "page_citations": [], "want": "", "need": "" },
+    "arc_delivery": { "score": 0, "justification": "", "page_citations": [], "arc_type": "positive|negative_fall|negative_corruption|negative_disillusionment|flat|absent" },
+    "moral_blind_spot": { "score": 0, "justification": "", "page_citations": [], "identified_blind_spot": "" },
     "immoral_effect": { "score": 0, "justification": "", "page_citations": [] },
-    "active_vs_passive": { "score": 0, "justification": "", "verdict": "active|passive", "agency_shifts": [{ "scene_or_page": 0, "event": "", "agency_level": "passive|reactive|active" }] },
-    "opponent_design": { "score": 0, "justification": "" },
-    "enneagram_consistency": { "score": 0, "justification": "", "likely_type": "", "confidence": "high|medium|low" },
-    "supporting_cast_function": { "score": 0, "justification": "", "reflection_characters_count": 0 },
-    "star_role_potential": { "score": 0, "justification": "" }
+    "active_vs_passive": { "score": 0, "justification": "", "page_citations": [], "verdict": "active|passive", "agency_shifts": [{ "scene_or_page": 0, "event": "", "agency_level": "passive|reactive|active" }] },
+    "opponent_design": { "score": 0, "justification": "", "page_citations": [] },
+    "enneagram_consistency": { "score": 0, "justification": "", "page_citations": [], "likely_type": "", "confidence": "high|medium|low" },
+    "supporting_cast_function": { "score": 0, "justification": "", "page_citations": [], "reflection_characters_count": 0 },
+    "star_role_potential": { "score": 0, "justification": "", "page_citations": [] }
   },
   "story_vs_situation": {
     "human_condition": true,
@@ -272,6 +272,8 @@ function buildCraftSceneReaderPrompt(text: string, metadata: ScriptMetadata): Re
 Evaluate SCENE CRAFT ONLY. Not macro-structure, not character arcs, not concept.
 
 Score anchors: 10 = masterpiece scene craft (No Country for Old Men), 9 = exceptional (Sicario), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = flat, 1-3 = amateur.
+
+Every sub-score MUST include page_citations using the physical [PAGE N] markers. Any score >= 7 MUST cite at least one page.
 
 Sample 8 scenes distributed across the script: opening (pages 1-5), inciting incident area, Act 1 turning point, Act 2 early, midpoint, Act 2 late/dark night, pre-climax, and the climax scene.`;
 
@@ -315,15 +317,15 @@ Return ONLY this JSON:
   "reader": "craft_scene",
   "pillar_score": null,
   "sub_scores": {
-    "beat_question_clarity": { "score": 0, "justification": "" },
-    "bmoc_architecture": { "score": 0, "justification": "" },
-    "power_shifts": { "score": 0, "justification": "" },
-    "suspense_tools": { "score": 0, "justification": "" },
-    "dialogue_tactic_changes": { "score": 0, "justification": "" },
-    "dialogue_voice_distinction": { "score": 0, "justification": "" },
-    "dialogue_subtext": { "score": 0, "justification": "" },
-    "visual_storytelling": { "score": 0, "justification": "" },
-    "exposition_handling": { "score": 0, "justification": "" }
+    "beat_question_clarity": { "score": 0, "justification": "", "page_citations": [] },
+    "bmoc_architecture": { "score": 0, "justification": "", "page_citations": [] },
+    "power_shifts": { "score": 0, "justification": "", "page_citations": [] },
+    "suspense_tools": { "score": 0, "justification": "", "page_citations": [] },
+    "dialogue_tactic_changes": { "score": 0, "justification": "", "page_citations": [] },
+    "dialogue_voice_distinction": { "score": 0, "justification": "", "page_citations": [] },
+    "dialogue_subtext": { "score": 0, "justification": "", "page_citations": [] },
+    "visual_storytelling": { "score": 0, "justification": "", "page_citations": [] },
+    "exposition_handling": { "score": 0, "justification": "", "page_citations": [] }
   },
   "bmoc_failure_scan": {
     "scenes_sampled": 8,
@@ -373,7 +375,9 @@ function buildConceptReaderPrompt(text: string, metadata: ScriptMetadata): Reade
 
 Evaluate THE IDEA, not the execution. A brilliant concept with mediocre execution scores high here.
 
-Score anchors: 10 = masterpiece concept (The Matrix premise), 9 = exceptional (Get Out), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = derivative, 1-3 = no concept.`;
+Score anchors: 10 = masterpiece concept (The Matrix premise), 9 = exceptional (Get Out), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = derivative, 1-3 = no concept.
+
+Every sub-score MUST include page_citations using the physical [PAGE N] markers. Any score >= 7 MUST cite at least one page.`;
 
   const userPrompt = `Analyze this screenplay's CONCEPT:
 
@@ -406,14 +410,14 @@ Return ONLY this JSON:
   "reader": "concept",
   "pillar_score": null,
   "sub_scores": {
-    "hook_clarity": { "score": 0, "justification": "", "one_sentence_pitch": "" },
-    "narrative_engine": { "score": 0, "justification": "" },
-    "freshness": { "score": 0, "justification": "" },
-    "genre_execution": { "score": 0, "justification": "", "genre": "", "obligatory_scenes_present": [], "obligatory_scenes_missing": [] },
-    "genre_promise_delivery": { "score": 0, "justification": "" },
-    "controlling_idea": { "score": 0, "justification": "", "stated_controlling_idea": "" },
-    "thematic_resonance": { "score": 0, "justification": "" },
-    "premise_line": { "score": 0, "justification": "", "four_clause_premise": "" }
+    "hook_clarity": { "score": 0, "justification": "", "page_citations": [], "one_sentence_pitch": "" },
+    "narrative_engine": { "score": 0, "justification": "", "page_citations": [] },
+    "freshness": { "score": 0, "justification": "", "page_citations": [] },
+    "genre_execution": { "score": 0, "justification": "", "page_citations": [], "genre": "", "obligatory_scenes_present": [], "obligatory_scenes_missing": [] },
+    "genre_promise_delivery": { "score": 0, "justification": "", "page_citations": [] },
+    "controlling_idea": { "score": 0, "justification": "", "page_citations": [], "stated_controlling_idea": "" },
+    "thematic_resonance": { "score": 0, "justification": "", "page_citations": [] },
+    "premise_line": { "score": 0, "justification": "", "page_citations": [], "four_clause_premise": "" }
   },
   "red_flags": [],
   "one_sentence_verdict": ""
@@ -432,7 +436,9 @@ function buildEmotionalResonanceReaderPrompt(text: string, metadata: ScriptMetad
 
 Evaluate EMOTIONAL POWER, not craft competence or structural correctness. A structurally imperfect script that makes you cry scores high here.
 
-Score anchors: 10 = devastating (Schindler's List), 9 = exceptional (Moonlight), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = flat, 1-3 = no engagement.`;
+Score anchors: 10 = devastating (Schindler's List), 9 = exceptional (Moonlight), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = flat, 1-3 = no engagement.
+
+Every sub-score MUST include page_citations using the physical [PAGE N] markers. Any score >= 7 MUST cite at least one page.`;
 
   const userPrompt = `Analyze this screenplay's EMOTIONAL RESONANCE:
 
@@ -464,13 +470,13 @@ Return ONLY this JSON:
   "reader": "emotional_resonance",
   "pillar_score": null,
   "sub_scores": {
-    "emotional_clarity": { "score": 0, "justification": "" },
-    "empathy_investment": { "score": 0, "justification": "" },
-    "emotional_escalation": { "score": 0, "justification": "" },
-    "catharsis_quality": { "score": 0, "justification": "" },
-    "truth": { "score": 0, "justification": "" },
-    "goosebumps_moments": { "score": 0, "justification": "" },
-    "value_turn_range": { "score": 0, "justification": "", "value_spectrum": "" }
+    "emotional_clarity": { "score": 0, "justification": "", "page_citations": [] },
+    "empathy_investment": { "score": 0, "justification": "", "page_citations": [] },
+    "emotional_escalation": { "score": 0, "justification": "", "page_citations": [] },
+    "catharsis_quality": { "score": 0, "justification": "", "page_citations": [] },
+    "truth": { "score": 0, "justification": "", "page_citations": [] },
+    "goosebumps_moments": { "score": 0, "justification": "", "page_citations": [] },
+    "value_turn_range": { "score": 0, "justification": "", "page_citations": [], "value_spectrum": "" }
   },
   "goosebumps_scenes": [
     { "page": 0, "description": "", "why_it_works": "" }

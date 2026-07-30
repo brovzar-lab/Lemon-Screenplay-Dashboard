@@ -68,6 +68,7 @@ export const STATUS_LABELS: Record<UploadStatus, { label: string; color: string 
   complete: { label: 'Complete', color: 'text-emerald-400' },
   error: { label: 'Error', color: 'text-red-400' },
   skipped: { label: 'Skipped (duplicate)', color: 'text-black-400' },
+  needs_review: { label: 'Needs review', color: 'text-amber-400' },
 };
 
 

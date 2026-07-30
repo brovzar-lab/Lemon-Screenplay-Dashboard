@@ -13,7 +13,8 @@ export type UploadStatus =
   | 'promoting'
   | 'complete'
   | 'error'
-  | 'skipped';
+  | 'skipped'
+  | 'needs_review';
 
 export type UploadMatchResolution = 'revision' | 'separate';
 
@@ -98,6 +99,13 @@ export function isUploadJobReady(job: UploadJob): boolean {
   return job.matchResolution === 'separate' && job.separateProject === true && !job.targetProjectId;
 }
 
+export function isUploadTerminalStatus(status: UploadStatus): boolean {
+  return status === 'complete'
+    || status === 'error'
+    || status === 'skipped'
+    || status === 'needs_review';
+}
+
 export const useUploadStore = create<UploadState>()(
   persist(
     (set, get) => ({
@@ -141,10 +149,10 @@ export const useUploadStore = create<UploadState>()(
       },
 
       clearCompleted: () => {
-        const completed = get().jobs.filter((j) => j.status === 'complete' || j.status === 'error');
+        const completed = get().jobs.filter((job) => isUploadTerminalStatus(job.status));
         completed.forEach((j) => fileMap.delete(j.id));
         set((state) => ({
-          jobs: state.jobs.filter((j) => j.status !== 'complete' && j.status !== 'error'),
+          jobs: state.jobs.filter((job) => !isUploadTerminalStatus(job.status)),
         }));
       },
 

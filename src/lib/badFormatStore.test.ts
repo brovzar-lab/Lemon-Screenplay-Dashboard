@@ -22,11 +22,15 @@ describe('subscribeToUploadIssues', () => {
     snapshotHandler = undefined;
   });
 
-  it('subscribes to skipped and permanently failed jobs', () => {
+  it('subscribes to skipped, failed, and evidence-review jobs', () => {
     const onChange = vi.fn();
     subscribeToUploadIssues(onChange);
 
-    expect(mockWhere).toHaveBeenCalledWith('status', 'in', ['skipped', 'failed']);
+    expect(mockWhere).toHaveBeenCalledWith(
+      'status',
+      'in',
+      ['skipped', 'failed', 'needs_review'],
+    );
 
     snapshotHandler?.({
       docs: [

@@ -152,6 +152,62 @@ export interface RawMetadata {
 }
 
 // ============================================
+// SOURCE EVIDENCE (Q2 trust boundary)
+// ============================================
+
+export type EvidenceModel = 'haiku' | 'sonnet' | 'opus';
+
+export interface PageDiagnostic {
+  page: number;
+  status: 'empty' | 'sparse' | 'readable';
+  characters: number;
+  words: number;
+}
+
+export interface BrowserPageEvidence {
+  pageEvidenceVersion: 'lemon-page-evidence-v1';
+  text: string;
+  diagnostics: PageDiagnostic[];
+  publicationReady: boolean;
+  issues: string[];
+  coverageRatio: number;
+  openingCoverageRatio: number;
+  endingCoverageRatio: number;
+}
+
+export interface BrowserContextPolicy {
+  contextPolicyVersion: 'lemon-context-policy-v1';
+  sourceTruncated: false;
+  inputCharacters: number;
+  estimatedInputTokens: number;
+  primaryModel: EvidenceModel;
+  safeInputTokens: number;
+  modelContextTokens: number;
+}
+
+export interface RawCitationIssue {
+  path: string;
+  reason: string;
+  page?: number;
+  value?: unknown;
+}
+
+export interface RawCitationQuality {
+  citation_evidence_version: 'lemon-citation-evidence-v1';
+  status: 'verified' | 'needs_review';
+  page_count: number;
+  total_citations: number;
+  valid_citations: number;
+  verified_page_numbers: number[];
+  high_score_items: number;
+  malformed_reader_metrics: string[];
+  missing_required_citations: string[];
+  invalid_citations: RawCitationIssue[];
+  unverifiable_citations: RawCitationIssue[];
+  issues: string[];
+}
+
+// ============================================
 // TMDB STATUS (raw JSON format)
 // ============================================
 

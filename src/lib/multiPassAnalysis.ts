@@ -20,6 +20,11 @@ import type { LensName } from './promptClient';
 import type { ParsedPDF } from './pdfParser';
 import { useToastStore } from '@/stores/toastStore';
 import { callLLM } from './proxyClient';
+import {
+  attachVerifiedBrowserCitationQuality,
+  buildBrowserContextPolicy,
+  SourceContextError,
+} from '@/lib/sourceEvidence';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -342,6 +347,7 @@ function parseClaudeJSON(text: string): Record<string, unknown> {
 export async function runTriage(
   parsed: ParsedPDF,
 ): Promise<TriageResult> {
+  buildBrowserContextPolicy(parsed.text, 'haiku');
   const prompt = buildTriagePrompt(parsed.text, {
     title: parsed.title,
     pageCount: parsed.pageCount,
@@ -387,6 +393,7 @@ export async function runMultiReaderAnalysis(
 ): Promise<AnalysisResult> {
   const startTime = Date.now();
   const model = options.model ?? 'sonnet';
+  const contextPolicy = buildBrowserContextPolicy(parsed.text, model);
   const lenses = options.lenses ?? ['commercial'];
   const metadata: ScriptMetadata = {
     title: parsed.title,
@@ -492,6 +499,13 @@ export async function runMultiReaderAnalysis(
   const readerReports = Object.fromEntries(
     readerResults.map((r) => [r.reader, r.report]),
   ) as Record<ReaderName, Record<string, unknown>>;
+  const citationEnvelope: Record<string, unknown> = {
+    reader_reports: readerReports,
+  };
+  const citationQuality = attachVerifiedBrowserCitationQuality(
+    citationEnvelope,
+    parsed.sourceEvidence,
+  );
 
   const synthesisInput = buildSynthesisPrompt({
     title: parsed.title,
@@ -538,7 +552,7 @@ export async function runMultiReaderAnalysis(
     criticalFailures: synthesis.critical_failures,
     situationVerdict: String(svs.verdict ?? ''),
     weightedTrapScore: Number(fpCheck.weighted_trap_score ?? 0),
-    truncated: parsed.truncated,
+    truncated: false,
   });
   const modelVerdict = String(synthesis.verdict ?? '');
   if (modelVerdict && modelVerdict !== derived.verdict) {
@@ -553,8 +567,20 @@ export async function runMultiReaderAnalysis(
   (synthesis as Record<string, unknown>).critical_failure_penalty_applied = derived.penalty;
   (synthesis as Record<string, unknown>).verdict_adjustments = derived.adjustments;
   (synthesis as Record<string, unknown>)._truncation = {
-    truncated: parsed.truncated,
-    chars_lost: parsed.truncated ? Math.max(0, parsed.text.length - 195_000) : 0,
+    truncated: false,
+    chars_lost: 0,
+    approx_pages_lost: 0,
+  };
+  (synthesis as Record<string, unknown>)._context_policy = {
+    context_policy_version: contextPolicy.contextPolicyVersion,
+    source_truncated: contextPolicy.sourceTruncated,
+    input_characters: contextPolicy.inputCharacters,
+    estimated_input_tokens: contextPolicy.estimatedInputTokens,
+    primary_model: contextPolicy.primaryModel,
+    primary_model_safe_input_tokens: contextPolicy.safeInputTokens,
+    model_context_tokens: {
+      [contextPolicy.primaryModel]: contextPolicy.modelContextTokens,
+    },
   };
   (synthesis as Record<string, unknown>).analysis_quality = {
     status: failedReaders.length > 0 ? 'partial' : 'complete',
@@ -565,6 +591,7 @@ export async function runMultiReaderAnalysis(
 
   // Attach full reader reports to synthesis output for transparency
   (synthesis as Record<string, unknown>).reader_reports = readerReports;
+  (synthesis as Record<string, unknown>)._citation_quality = citationQuality;
   (synthesis as Record<string, unknown>).analysis_version = 'v9_archaeology';
   (synthesis as Record<string, unknown>).analysis_mode = options.mode;
 
@@ -638,7 +665,15 @@ export async function analyzeV9(
     readersComplete: [],
   });
 
-  const triage = await runTriage(parsed);
+  let triage: TriageResult;
+  try {
+    triage = await runTriage(parsed);
+  } catch (error) {
+    if (error instanceof SourceContextError) {
+      return runMultiReaderAnalysis(parsed, options, onProgress);
+    }
+    throw error;
+  }
 
   if (!triage.should_deep_analyze) {
     // Below threshold — return triage result only, do not spend Sonnet

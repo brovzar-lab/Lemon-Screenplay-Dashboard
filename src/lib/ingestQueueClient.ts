@@ -31,12 +31,13 @@ export type IngestStatus =
   | 'waiting_for_budget'
   | 'complete'
   | 'failed'
-  | 'skipped';
+  | 'skipped'
+  | 'needs_review';
 
 export interface IngestJobUpdate {
   status: IngestStatus;
   jobId: string;
-  /** Set when status === 'failed' or 'skipped' */
+  /** Set when status is a terminal issue state. */
   error?: string;
   /** Set when status === 'complete'; points at the uploaded_analyses doc */
   screenplayDocId?: string;
@@ -73,7 +74,9 @@ export function subscribeToIngestJob(
       onUpdate({
         status: data.status as IngestStatus,
         jobId: doc.id,
-        error: (data.last_error as string | undefined) ?? (data.skip_reason as string | undefined),
+        error: (data.review_reason as string | undefined)
+          ?? (data.last_error as string | undefined)
+          ?? (data.skip_reason as string | undefined),
         screenplayDocId: data.screenplay_doc_id as string | undefined,
         attemptCount: data.attempt_count as number | undefined,
         analysisVersion: data.analysis_version as string | undefined,
@@ -91,5 +94,8 @@ export function subscribeToIngestJob(
  * are expected and the caller should unsubscribe.
  */
 export function isTerminalStatus(status: IngestStatus): boolean {
-  return status === 'complete' || status === 'failed' || status === 'skipped';
+  return status === 'complete'
+    || status === 'failed'
+    || status === 'skipped'
+    || status === 'needs_review';
 }
