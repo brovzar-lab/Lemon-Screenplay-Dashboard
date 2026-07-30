@@ -45,11 +45,14 @@ except ImportError:
     )
 
 LEGACY_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v1"
-TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v2"
+Q2_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v2"
+TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v3"
 SUPPORTED_TRUST_MANIFEST_VERSIONS = {
     LEGACY_TRUST_MANIFEST_VERSION,
+    Q2_TRUST_MANIFEST_VERSION,
     TRUST_MANIFEST_VERSION,
 }
+READER_RELIABILITY_CONTRACT_VERSION = "lemon-five-reader-panel-v1"
 ANALYSIS_SCHEMA_VERSION = "v9-archaeology-schema-2026-07-29"
 TRIAGE_SCHEMA_VERSION = "v9-triage-schema-2026-07-29"
 PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-07-29"
@@ -648,6 +651,40 @@ def _reader_lineage(analysis: Any, analysis_version: str) -> Dict[str, Any]:
     }
 
 
+def _manifest_reader_lineage(
+    analysis: Any,
+    analysis_version: str,
+    manifest_version: str,
+) -> Dict[str, Any]:
+    """Apply the reader publication rule for the requested manifest version."""
+    lineage = _reader_lineage(analysis, analysis_version)
+    if (
+        analysis_version == "v9_archaeology"
+        and manifest_version == TRUST_MANIFEST_VERSION
+    ):
+        if (
+            lineage.get("quality_status") != "complete"
+            or lineage.get("expected_specialist_readers")
+            != len(CANONICAL_READER_NAMES)
+            or lineage.get("completed_specialist_readers")
+            != len(CANONICAL_READER_NAMES)
+            or lineage.get("failed_readers")
+            or set(lineage.get("report_names", []))
+            != CANONICAL_READER_NAMES
+        ):
+            raise ValueError(
+                "Q3 permanent analysis requires all five specialist readers"
+            )
+        return {
+            **lineage,
+            "reliability_contract_version": (
+                READER_RELIABILITY_CONTRACT_VERSION
+            ),
+            "publication_ready": True,
+        }
+    return lineage
+
+
 def _boundary_provenance(analysis: Dict[str, Any]) -> Dict[str, Any]:
     boundary = analysis.get("_boundary_reruns")
     if not isinstance(boundary, dict):
@@ -1204,6 +1241,7 @@ def _validate_response_links(
     readers: Dict[str, Any],
     score_lineage: Dict[str, Any],
     analysis: Dict[str, Any],
+    manifest_version: str,
 ) -> None:
     context_policy = analysis.get("_context_policy")
     if isinstance(context_policy, dict):
@@ -1269,21 +1307,34 @@ def _validate_response_links(
         ]
         if len(synthesis_calls) != 1:
             raise ValueError("each completed boundary run requires one synthesis")
-        run_readers = {
-            call["reader_name"]
+        used_reader_calls = [
+            call
             for call in run_calls
             if call["stage"] == "reader"
+        ]
+        run_readers = {
+            call["reader_name"]
+            for call in used_reader_calls
         }
         raw_run = raw_runs.get(run["run_number"])
         if not isinstance(raw_run, dict):
             raise ValueError("boundary run is missing its raw evidence")
-        evidence_readers = _reader_lineage(
+        evidence_readers = _manifest_reader_lineage(
             raw_run["analysis_evidence"],
             "v9_archaeology",
+            manifest_version,
         )
         if run_readers != set(evidence_readers["report_names"]):
             raise ValueError(
                 "boundary responses do not match completed readers"
+            )
+        if (
+            manifest_version == TRUST_MANIFEST_VERSION
+            and len(used_reader_calls) != len(CANONICAL_READER_NAMES)
+        ):
+            raise ValueError(
+                "Q3 boundary run requires exactly one used response "
+                "from each specialist reader"
             )
         if (
             run["run_number"] == selected_run_number
@@ -1308,10 +1359,20 @@ def _validate_response_links(
             and call["boundary_run"] == run["run_number"]
             and call["stage"] == "reader"
         }
-        if (
+        attempted_failure_names = (
             discarded_reader_names | exhausted_reader_names
-            != set(evidence_readers["failed_readers"])
-        ):
+        )
+        declared_failed_names = set(evidence_readers["failed_readers"])
+        if manifest_version == TRUST_MANIFEST_VERSION:
+            if declared_failed_names:
+                raise ValueError(
+                    "Q3 completed run cannot declare failed readers"
+                )
+            if not attempted_failure_names.issubset(run_readers):
+                raise ValueError(
+                    "Q3 discarded reader attempt lacks a recovered used report"
+                )
+        elif attempted_failure_names != declared_failed_names:
             raise ValueError(
                 "reader call failures do not match declared failed readers"
             )
@@ -1435,6 +1496,7 @@ def _hybrid_provenance(
     readers: Dict[str, Any],
     score_lineage: Dict[str, Any],
     cold_read: Optional[Dict[str, Any]],
+    manifest_version: str,
 ) -> Optional[Dict[str, Any]]:
     root_response_ids = _boundary_response_ids(score_lineage)
     cold_read_response_ids = (
@@ -1480,7 +1542,11 @@ def _hybrid_provenance(
     sonnet_evidence = hybrid.get("sonnet_analysis_evidence")
     if not isinstance(sonnet_evidence, dict):
         raise ValueError("hybrid analysis must retain Sonnet decision evidence")
-    sonnet_readers = _reader_lineage(sonnet_evidence, "v9_archaeology")
+    sonnet_readers = _manifest_reader_lineage(
+        sonnet_evidence,
+        "v9_archaeology",
+        manifest_version,
+    )
     sonnet_score_lineage = _score_lineage(
         sonnet_evidence,
         "v9_archaeology",
@@ -1490,6 +1556,7 @@ def _hybrid_provenance(
         sonnet_readers,
         sonnet_score_lineage,
         sonnet_evidence,
+        manifest_version,
     )
     sonnet_verdict = _require_nonempty_string(
         hybrid.get("sonnet_verdict"),
@@ -1667,7 +1734,11 @@ def attach_trust_manifest(
             **_code_fingerprints(),
         },
         "models": models,
-        "readers": _reader_lineage(trusted.get("analysis"), analysis_version),
+        "readers": _manifest_reader_lineage(
+            trusted.get("analysis"),
+            analysis_version,
+            TRUST_MANIFEST_VERSION,
+        ),
         "score_lineage": _score_lineage(
             trusted.get("analysis"),
             analysis_version,
@@ -1689,6 +1760,7 @@ def attach_trust_manifest(
         manifest["readers"],
         manifest["score_lineage"],
         trusted["analysis"],
+        TRUST_MANIFEST_VERSION,
     )
     manifest["cold_read"] = _cold_read_provenance(
         analysis=trusted["analysis"],
@@ -1703,6 +1775,7 @@ def attach_trust_manifest(
         readers=manifest["readers"],
         score_lineage=manifest["score_lineage"],
         cold_read=manifest["cold_read"],
+        manifest_version=TRUST_MANIFEST_VERSION,
     )
     manifest["integrity_sha256"] = _sha256_bytes(
         _canonical_json(manifest).encode("utf-8")
@@ -1825,7 +1898,11 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
     current_score_lineage = _score_lineage(raw.get("analysis"), analysis_version)
     if manifest.get("score_lineage") != current_score_lineage:
         raise ValueError("Trust manifest score lineage does not match analysis")
-    current_reader_lineage = _reader_lineage(raw.get("analysis"), analysis_version)
+    current_reader_lineage = _manifest_reader_lineage(
+        raw.get("analysis"),
+        analysis_version,
+        str(manifest_version),
+    )
     if manifest.get("readers") != current_reader_lineage:
         raise ValueError("Trust manifest reader lineage does not match analysis")
 
@@ -1844,6 +1921,7 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
         current_reader_lineage,
         current_score_lineage,
         raw["analysis"],
+        str(manifest_version),
     )
     current_cold_read = _cold_read_provenance(
         analysis=raw["analysis"],
@@ -1860,12 +1938,16 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
         readers=current_reader_lineage,
         score_lineage=current_score_lineage,
         cold_read=current_cold_read,
+        manifest_version=str(manifest_version),
     )
     if manifest.get("hybrid") != current_hybrid:
         raise ValueError("Trust manifest hybrid provenance does not match analysis")
     if manifest.get("usage") != _usage_summary(usage):
         raise ValueError("Trust manifest usage does not match analysis usage")
-    if manifest_version == TRUST_MANIFEST_VERSION:
+    if manifest_version in {
+        Q2_TRUST_MANIFEST_VERSION,
+        TRUST_MANIFEST_VERSION,
+    }:
         current_evidence = _evidence_provenance(
             metadata=metadata,
             analysis=raw["analysis"],
@@ -1878,7 +1960,7 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
                 "Trust manifest source evidence does not match analysis"
             )
     elif "evidence" in manifest:
-        raise ValueError("Legacy trust manifest cannot contain Q2 evidence")
+        raise ValueError("Q1 trust manifest cannot contain Q2 evidence")
     _validate_cost_mirrors(raw, usage)
     if manifest.get("calibration") != _sanitized_calibration(
         raw.get("calibration_profile")

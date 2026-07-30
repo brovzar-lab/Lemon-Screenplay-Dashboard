@@ -62,6 +62,7 @@ import argparse
 import copy
 import hashlib
 import json
+import math
 import os
 import re
 import sys
@@ -119,6 +120,7 @@ from trust_manifest import (  # noqa: E402
 )
 from verdict_contract import (  # noqa: E402
     BOUNDARY_WINDOW,
+    FAILURE_PENALTIES,
     compute_failure_penalty,
     derive_verdict,
     near_verdict_boundary,
@@ -205,6 +207,13 @@ THINKING_BUDGET_SYNTHESIS = 16_000
 # total max_tokens passed to the API).
 OUTPUT_BUDGET_READER = 4_000
 OUTPUT_BUDGET_SYNTHESIS = 6_000
+
+# Q3 fail-closed reader policy. A report-level attempt sits above call_llm's
+# transport retries, so malformed successful responses can recover without
+# rerunning readers that already produced usable evidence.
+MAX_READER_REPORT_ATTEMPTS = 3
+READER_REPORT_RETRY_DELAYS = (5, 10)
+READER_RELIABILITY_CONTRACT_VERSION = "lemon-five-reader-panel-v1"
 
 # ── Firebase Init ─────────────────────────────────────────────────────────────
 
@@ -831,6 +840,60 @@ class V9RunError(RuntimeError):
     def __init__(self, message: str, usage: Dict[str, Any]):
         super().__init__(message)
         self.usage = usage
+
+
+class QualityReviewRequiredError(V9RunError):
+    """A bounded quality stage failed and must not publish a verdict."""
+
+    review_required = True
+
+    def __init__(
+        self,
+        message: str,
+        usage: Dict[str, Any],
+        *,
+        review_kind: str,
+        review_evidence: Dict[str, Any],
+    ):
+        super().__init__(message, usage)
+        self.review_kind = review_kind
+        self.review_evidence = review_evidence
+
+
+class ReaderPanelIncompleteError(QualityReviewRequiredError):
+    """All five specialist reports were not available after recovery."""
+
+    def __init__(
+        self,
+        message: str,
+        usage: Dict[str, Any],
+        *,
+        review_evidence: Dict[str, Any],
+    ):
+        super().__init__(
+            message,
+            usage,
+            review_kind="reader_panel_review",
+            review_evidence=review_evidence,
+        )
+
+
+class SynthesisIncompleteError(QualityReviewRequiredError):
+    """The five-reader roundtable could not produce usable synthesis."""
+
+    def __init__(
+        self,
+        message: str,
+        usage: Dict[str, Any],
+        *,
+        review_evidence: Dict[str, Any],
+    ):
+        super().__init__(
+            message,
+            usage,
+            review_kind="synthesis_review",
+            review_evidence=review_evidence,
+        )
 
 
 def empty_usage() -> Dict[str, Any]:
@@ -2717,6 +2780,147 @@ def _validated_cold_read(
     }
 
 
+def _validate_reader_report(reader: str, report: Any) -> Dict[str, Any]:
+    """Reject a reader response that cannot support score arithmetic."""
+    if not isinstance(report, dict):
+        raise ValueError("structured reader report is not an object")
+    if report.get("reader") != reader:
+        raise ValueError(
+            f"reader identity mismatch: expected {reader}, got {report.get('reader')}"
+        )
+    sub_scores = report.get("sub_scores")
+    if not isinstance(sub_scores, dict) or not sub_scores:
+        raise ValueError("reader report has no sub-score evidence")
+    for metric_name, metric in sub_scores.items():
+        if not isinstance(metric_name, str) or not metric_name:
+            raise ValueError("reader report has an invalid sub-score name")
+        if not isinstance(metric, dict):
+            raise ValueError(f"reader sub-score {metric_name} is not an object")
+        score = metric.get("score")
+        if (
+            isinstance(score, bool)
+            or not isinstance(score, (int, float))
+            or not 0 <= float(score) <= 10
+        ):
+            raise ValueError(
+                f"reader sub-score {metric_name} has an invalid score"
+            )
+    return report
+
+
+def _validate_synthesis_report(report: Any) -> Dict[str, Any]:
+    """Reject synthesis that does not carry all five canonical pillars."""
+    if not isinstance(report, dict):
+        raise ValueError("structured synthesis is not an object")
+    required_fields = (
+        "analysis_version",
+        "title",
+        "pillar_scores",
+        "weighted_score",
+        "story_vs_situation",
+        "false_positive_check",
+        "verdict",
+        "verdict_before_adjustments",
+    )
+    missing = [field for field in required_fields if field not in report]
+    if missing:
+        raise ValueError(
+            "synthesis is missing required fields: " + ", ".join(missing)
+        )
+    if report.get("analysis_version") != "v9_archaeology":
+        raise ValueError("synthesis has an invalid analysis version")
+    pillar_scores = report.get("pillar_scores")
+    if not isinstance(pillar_scores, dict):
+        raise ValueError("synthesis pillar scores are not an object")
+    missing_pillars = sorted(set(READER_WEIGHTS) - set(pillar_scores))
+    if missing_pillars:
+        raise ValueError(
+            "synthesis is missing canonical pillars: "
+            + ", ".join(missing_pillars)
+        )
+    for reader_name in READER_WEIGHTS:
+        pillar = pillar_scores.get(reader_name)
+        if not isinstance(pillar, dict):
+            raise ValueError(
+                f"synthesis pillar {reader_name} is not an object"
+            )
+        score = pillar.get("score")
+        if (
+            isinstance(score, bool)
+            or not isinstance(score, (int, float))
+            or not math.isfinite(float(score))
+            or not 0 <= float(score) <= 10
+        ):
+            raise ValueError(
+                f"synthesis pillar {reader_name} has an invalid score"
+            )
+    weighted_score = report.get("weighted_score")
+    if (
+        isinstance(weighted_score, bool)
+        or not isinstance(weighted_score, (int, float))
+        or not math.isfinite(float(weighted_score))
+        or not 0 <= float(weighted_score) <= 10
+    ):
+        raise ValueError("synthesis weighted score is invalid")
+    for verdict_field in ("verdict", "verdict_before_adjustments"):
+        verdict = report.get(verdict_field)
+        if not isinstance(verdict, str) or not verdict.strip():
+            raise ValueError(
+                f"synthesis {verdict_field} is invalid"
+            )
+    story_vs_situation = report.get("story_vs_situation")
+    if not isinstance(story_vs_situation, dict):
+        raise ValueError("synthesis story_vs_situation is not an object")
+    if story_vs_situation.get("verdict") not in {
+        "story",
+        "borderline",
+        "situation",
+    }:
+        raise ValueError(
+            "synthesis story-vs-situation verdict is invalid"
+        )
+    false_positive_check = report.get("false_positive_check")
+    if not isinstance(false_positive_check, dict):
+        raise ValueError("synthesis false_positive_check is not an object")
+    weighted_trap_score = false_positive_check.get("weighted_trap_score")
+    if (
+        isinstance(weighted_trap_score, bool)
+        or not isinstance(weighted_trap_score, (int, float))
+        or not math.isfinite(float(weighted_trap_score))
+    ):
+        raise ValueError(
+            "synthesis false-positive weighted trap score is invalid"
+        )
+    critical_failures = report.get("critical_failures")
+    if not isinstance(critical_failures, list):
+        raise ValueError("synthesis critical failures must be a list")
+    for index, failure in enumerate(critical_failures):
+        if not isinstance(failure, dict):
+            raise ValueError(
+                f"synthesis critical failure {index} is not an object"
+            )
+        description = failure.get("description")
+        if not isinstance(description, str) or not description.strip():
+            raise ValueError(
+                f"synthesis critical failure {index} has no description"
+            )
+        if failure.get("severity") not in FAILURE_PENALTIES:
+            raise ValueError(
+                f"synthesis critical failure {index} has invalid severity"
+            )
+        penalty = failure.get("penalty")
+        if (
+            isinstance(penalty, bool)
+            or not isinstance(penalty, (int, float))
+            or not math.isfinite(float(penalty))
+            or float(penalty) < 0
+        ):
+            raise ValueError(
+                f"synthesis critical failure {index} has invalid penalty"
+            )
+    return report
+
+
 def run_v9_full(
     text: str,
     title: str,
@@ -2784,69 +2988,149 @@ def run_v9_full(
     log.info(f"    Genre: {_label} | internal: {_gd.get('internal_genre') or '?'} "
              f"(confidence {_gd.get('confidence')})")
 
-    log.info(f"    Running 5 readers in parallel (model: {model_key}, tool_use + caching + thinking)…")
+    log.info(
+        f"    Running 5 readers in parallel (model: {model_key}, "
+        "tool_use + caching + thinking)…"
+    )
     reader_reports: Dict[str, Any] = {}
+    reader_recovery: Dict[str, Dict[str, Any]] = {}
     reader_start = time.time()
 
-    def run_reader(reader: str) -> Tuple[str, Any, Dict[str, Any]]:
+    def run_reader(
+        reader: str,
+    ) -> Tuple[str, Optional[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]:
         system_blocks = _reader_system_blocks(reader)
-        user_blocks = _reader_user_blocks(reader, screenplay_block, title, page_count, genre_card)
+        user_blocks = _reader_user_blocks(
+            reader,
+            screenplay_block,
+            title,
+            page_count,
+            genre_card,
+        )
         tool = READER_TOOLS[reader]
-        try:
-            tool_input, _text, usage = call_llm(
-                system_blocks=system_blocks,
-                user_blocks=user_blocks,
-                model_key=model_key,
-                tool=tool,
-                thinking_budget=THINKING_BUDGET_READER,
-                max_tokens=OUTPUT_BUDGET_READER,
-                proxy_url=proxy_url,
-                job_id=job_id,
-                stage="reader",
-                pipeline_pass=pass_name,
-                boundary_run=boundary_run,
-                reader_name=reader,
-            )
-        except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
-            raise
-        except Exception as e:
-            log.error(f"      ✗ {reader} call failed: {e}")
-            usage = failed_usage(e) if isinstance(e, LlmCallFailedError) else empty_usage()
+        combined_usage = empty_usage()
+        failures: List[Dict[str, Any]] = []
+
+        for report_attempt in range(1, MAX_READER_REPORT_ATTEMPTS + 1):
+            attempt_usage = empty_usage()
+            try:
+                tool_input, _text, attempt_usage = call_llm(
+                    system_blocks=system_blocks,
+                    user_blocks=user_blocks,
+                    model_key=model_key,
+                    tool=tool,
+                    thinking_budget=THINKING_BUDGET_READER,
+                    max_tokens=OUTPUT_BUDGET_READER,
+                    proxy_url=proxy_url,
+                    job_id=job_id,
+                    stage="reader",
+                    pipeline_pass=pass_name,
+                    boundary_run=boundary_run,
+                    reader_name=reader,
+                )
+                if tool_input is None:
+                    raise ValueError("no tool_use block")
+                report = _validate_reader_report(reader, tool_input)
+            except (
+                DailyBudgetExceededError,
+                LlmAccountingError,
+                LlmProvenanceError,
+            ):
+                raise
+            except Exception as error:
+                if isinstance(error, LlmCallFailedError):
+                    attempt_usage = failed_usage(error)
+                elif attempt_usage.get("calls"):
+                    set_successful_call_disposition(
+                        attempt_usage,
+                        "discarded_unusable",
+                    )
+                combined_usage = merge_usage(combined_usage, attempt_usage)
+                failure = {
+                    "attempt": report_attempt,
+                    "error_type": type(error).__name__,
+                    "error": str(error)[:500],
+                    "response_ids": [
+                        call["response_id"]
+                        for call in attempt_usage.get("calls", [])
+                        if isinstance(call, dict)
+                        and isinstance(call.get("response_id"), str)
+                    ],
+                }
+                failures.append(failure)
+                if report_attempt < MAX_READER_REPORT_ATTEMPTS:
+                    delay = READER_REPORT_RETRY_DELAYS[report_attempt - 1]
+                    log.warning(
+                        f"      ⚠ {reader} report attempt "
+                        f"{report_attempt}/{MAX_READER_REPORT_ATTEMPTS} "
+                        f"unusable: {error}. Retrying in {delay}s…"
+                    )
+                    time.sleep(delay)
+                    continue
+                log.error(
+                    f"      ✗ {reader} exhausted "
+                    f"{MAX_READER_REPORT_ATTEMPTS} report attempts: {error}"
+                )
+                return (
+                    reader,
+                    None,
+                    combined_usage,
+                    {
+                        "attempts": report_attempt,
+                        "recovered": False,
+                        "failures": failures,
+                    },
+                )
+
+            set_successful_call_disposition(attempt_usage, "used")
+            combined_usage = merge_usage(combined_usage, attempt_usage)
             return (
                 reader,
+                report,
+                combined_usage,
                 {
-                    "reader": reader,
-                    "pillar_score": 0,
-                    "error": str(e),
-                    "call_error": True,
+                    "attempts": report_attempt,
+                    "recovered": report_attempt > 1,
+                    "failures": failures,
                 },
-                usage,
             )
 
-        if tool_input is None:
-            set_successful_call_disposition(usage, "discarded_unusable")
-            log.warning(f"      ⚠ {reader} returned no tool_use block")
-            return reader, {"reader": reader, "pillar_score": 0, "error": "no tool_use block", "parse_error": True}, usage
-
-        # tool_use guarantees schema validity, so tool_input IS the report.
-        set_successful_call_disposition(usage, "used")
-        return reader, tool_input, usage
+        raise AssertionError("reader recovery loop ended unexpectedly")
 
     with ThreadPoolExecutor(max_workers=5) as pool:
         futures = {pool.submit(run_reader, r): r for r in READER_WEIGHTS}
         for fut in as_completed(futures):
             reader = futures[fut]
             try:
-                r_name, report, usage = fut.result()
-                reader_reports[r_name] = report
+                r_name, report, usage, recovery = fut.result()
                 _accumulate(usage)
+                reader_recovery[r_name] = recovery
+                if report is None:
+                    continue
+                reader_reports[r_name] = report
                 score = report.get("pillar_score", report.get("overall_score", "?"))
-                log.info(f"      ✓ {r_name} (pillar_score: {score})")
+                recovery_note = (
+                    f", recovered on attempt {recovery['attempts']}"
+                    if recovery["recovered"]
+                    else ""
+                )
+                log.info(
+                    f"      ✓ {r_name} (pillar_score: {score}{recovery_note})"
+                )
             except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
                 raise
             except Exception as e:
                 log.error(f"      ✗ {reader} reader failed: {e}")
-                reader_reports[reader] = {"reader": reader, "pillar_score": 0, "error": str(e)}
+                reader_recovery[reader] = {
+                    "attempts": MAX_READER_REPORT_ATTEMPTS,
+                    "recovered": False,
+                    "failures": [{
+                        "attempt": MAX_READER_REPORT_ATTEMPTS,
+                        "error_type": type(e).__name__,
+                        "error": str(e)[:500],
+                        "response_ids": [],
+                    }],
+                }
 
     reader_duration = time.time() - reader_start
     cache_hit_ratio = (
@@ -2854,33 +3138,41 @@ def run_v9_full(
         / max(1, total_usage["cache_read_input_tokens"] + total_usage["input_tokens"])
     )
     log.info(
-        f"    Readers complete in {reader_duration:.1f}s. "
-        f"Cache hit ratio: {cache_hit_ratio:.0%}. Running synthesis…"
+        f"    Reader recovery complete in {reader_duration:.1f}s. "
+        f"Cache hit ratio: {cache_hit_ratio:.0%}."
     )
 
-    failed_readers = [
-        name for name, report in reader_reports.items()
-        if report.get("call_error") or report.get("parse_error") or report.get("error")
-    ]
+    failed_readers = sorted(set(READER_WEIGHTS) - set(reader_reports))
     reader_errors = {
-        name: str(reader_reports[name].get("error", "unknown reader failure"))
+        name: str(
+            (reader_recovery.get(name, {}).get("failures") or [{}])[-1].get(
+                "error",
+                "unknown reader failure",
+            )
+        )
         for name in failed_readers
     }
-    reader_reports = {
-        name: report for name, report in reader_reports.items()
-        if name not in failed_readers
-    }
-    if len(reader_reports) < 3:
-        raise V9RunError(
-            f"Insufficient reader results: {len(reader_reports)}/5 completed; "
-            f"failed: {', '.join(failed_readers)}",
-            total_usage,
-        )
     if failed_readers:
-        log.warning(
-            f"    Partial analysis: {len(reader_reports)}/5 readers completed; "
-            f"missing {', '.join(failed_readers)}. Scores will be reweighted."
+        raise ReaderPanelIncompleteError(
+            "Reader panel incomplete after recovery: "
+            f"{len(reader_reports)}/5 completed; failed: "
+            f"{', '.join(failed_readers)}. "
+            "No synthesis or verdict was produced.",
+            total_usage,
+            review_evidence={
+                "reliability_contract_version": (
+                    READER_RELIABILITY_CONTRACT_VERSION
+                ),
+                "completed_readers": len(reader_reports),
+                "completed_reader_names": sorted(reader_reports),
+                "expected_readers": len(READER_WEIGHTS),
+                "failed_readers": failed_readers,
+                "failed_reader_errors": reader_errors,
+                "max_attempts_per_reader": MAX_READER_REPORT_ATTEMPTS,
+                "reader_attempts": reader_recovery,
+            },
         )
+    log.info("    All 5 readers complete. Running synthesis…")
 
     # ── Synthesis (with retry) ──────────────────────────────────────────────
     syn_system_blocks = _synthesis_system_blocks()
@@ -2895,6 +3187,7 @@ def run_v9_full(
     analysis: Optional[Dict[str, Any]] = None
     last_err: Optional[BaseException] = None
     for attempt in range(1, 4):  # 3 attempts
+        syn_usage = empty_usage()
         try:
             tool_input, _text, syn_usage = call_llm(
                 system_blocks=syn_system_blocks,
@@ -2909,34 +3202,49 @@ def run_v9_full(
                 pipeline_pass=pass_name,
                 boundary_run=boundary_run,
             )
-            if tool_input is not None:
-                set_successful_call_disposition(syn_usage, "used")
-                _accumulate(syn_usage)
-                analysis = tool_input
-                break
-            set_successful_call_disposition(
-                syn_usage,
-                "discarded_unusable",
-            )
-            _accumulate(syn_usage)
-            last_err = RuntimeError("synthesis returned no tool_use block")
-            log.warning(f"    Synthesis attempt {attempt}/3: no tool_use block")
+            if tool_input is None:
+                raise ValueError("synthesis returned no tool_use block")
+            candidate = _validate_synthesis_report(tool_input)
         except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
             raise
         except Exception as e:
             last_err = e
             if isinstance(e, LlmCallFailedError):
                 _accumulate(failed_usage(e))
+            elif syn_usage.get("calls"):
+                set_successful_call_disposition(
+                    syn_usage,
+                    "discarded_unusable",
+                )
+                _accumulate(syn_usage)
             log.warning(f"    Synthesis attempt {attempt}/3 failed: {e}")
+        else:
+            set_successful_call_disposition(syn_usage, "used")
+            _accumulate(syn_usage)
+            analysis = candidate
+            break
         if attempt < 3:
             wait = 5 * attempt
             log.info(f"    Retrying synthesis in {wait}s…")
             time.sleep(wait)
 
     if analysis is None:
-        raise V9RunError(
-            f"Synthesis failed after 3 attempts: {last_err}",
+        raise SynthesisIncompleteError(
+            "Synthesis failed after 3 attempts. "
+            "No score or verdict was produced. "
+            f"Last error: {last_err}",
             total_usage,
+            review_evidence={
+                "reliability_contract_version": (
+                    READER_RELIABILITY_CONTRACT_VERSION
+                ),
+                "completed_readers": len(reader_reports),
+                "completed_reader_names": sorted(reader_reports),
+                "expected_readers": len(READER_WEIGHTS),
+                "failed_readers": [],
+                "synthesis_attempts": 3,
+                "last_error": str(last_err)[:500],
+            },
         ) from last_err
 
     # ── Code-side score computation (mirrors TypeScript engine) ────────────────
@@ -2955,19 +3263,11 @@ def run_v9_full(
         return round(sum(values) / len(values), 2) if values else None
 
     def _compute_weighted_score(pillar_scores: Dict[str, Any]) -> float:
-        """Reweighted average across completed readers only."""
-        total = 0.0
-        completed_weight = 0.0
-        for reader_name, weight in READER_WEIGHTS.items():
-            if reader_name not in reader_reports:
-                continue
-            ps = pillar_scores.get(reader_name, {})
-            score = ps.get("score") if isinstance(ps, dict) else None
-            if not isinstance(score, (int, float)):
-                continue
-            total += score * weight
-            completed_weight += weight
-        return round(total / completed_weight, 2) if completed_weight else 0.0
+        """Compute the canonical weighted score across all five readers."""
+        return round(sum(
+            float(pillar_scores[reader_name]["score"]) * weight
+            for reader_name, weight in READER_WEIGHTS.items()
+        ), 2)
 
     # Override reader pillar_scores with code-computed values.
     for reader_name, report in reader_reports.items():
@@ -2976,7 +3276,11 @@ def run_v9_full(
         computed = _compute_pillar_score(report)
         if computed is not None:
             llm_score = report.get("pillar_score")
-            if llm_score is not None and abs(computed - llm_score) > 0.2:
+            if (
+                not isinstance(llm_score, bool)
+                and isinstance(llm_score, (int, float))
+                and abs(computed - llm_score) > 0.2
+            ):
                 log.warning(
                     f"    ⚠ {reader_name}: LLM pillar_score={llm_score} "
                     f"vs code-computed={computed} (diff={abs(computed-llm_score):.2f}). "
@@ -3034,14 +3338,12 @@ def run_v9_full(
     # Embed reader reports, genre detection, and lock version string.
     analysis["reader_reports"] = reader_reports
     analysis["analysis_quality"] = {
-        "status": "partial" if failed_readers else "complete",
+        "status": "complete",
         "completed_readers": len(reader_reports),
         "expected_readers": len(READER_WEIGHTS),
-        "failed_readers": failed_readers,
+        "failed_readers": [],
     }
-    if failed_readers:
-        analysis["failed_readers"] = failed_readers
-    analysis["failed_reader_errors"] = reader_errors
+    analysis["failed_reader_errors"] = {}
     analysis["genre_detection"] = genre_detection
     if sealed_cold_read is not None:
         analysis["_cold_read"] = copy.deepcopy(sealed_cold_read)
@@ -3282,6 +3584,9 @@ def run_v9_stable(
                 usage_sink=extra_usage_sink,
             )
         except (DailyBudgetExceededError, LlmAccountingError, LlmProvenanceError):
+            raise
+        except QualityReviewRequiredError as error:
+            error.usage = merge_usage(combined, error.usage)
             raise
         except Exception as e:
             failed_usage_record = (

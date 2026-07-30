@@ -16,6 +16,7 @@ import type {
   DimensionJustifications,
   CommercialViability,
   ComparableFilm,
+  CriticalFailureSeverity,
 } from '@/types';
 
 import { createProducerMetrics } from '../calculations';
@@ -128,6 +129,49 @@ export function normalizeV9Screenplay(
   const completedReaders = typeof rawQuality?.completed_readers === 'number'
     ? rawQuality.completed_readers
     : Math.max(0, expectedReaders - failedReaders.length);
+  type RawCriticalFailure = {
+    failure?: unknown;
+    description?: unknown;
+    why_structural?: unknown;
+    severity?: unknown;
+    penalty?: unknown;
+  };
+  const severityValues: CriticalFailureSeverity[] = [
+    'minor',
+    'moderate',
+    'major',
+    'critical',
+  ];
+  const rawCriticalFailures = Array.isArray(analysis.critical_failures)
+    ? analysis.critical_failures as Array<RawCriticalFailure | string>
+    : [];
+  const criticalFailureDetails = rawCriticalFailures.map((failure) => {
+    if (typeof failure === 'string') {
+      return {
+        failure,
+        severity: 'major' as const,
+        penalty: -0.5,
+        evidence: 'See reader reports',
+      };
+    }
+    const description = String(failure.description || failure.failure || '');
+    const severity = severityValues.includes(
+      failure.severity as CriticalFailureSeverity,
+    )
+      ? failure.severity as CriticalFailureSeverity
+      : 'major';
+    const penalty = typeof failure.penalty === 'number'
+      ? -Math.abs(failure.penalty)
+      : -0.5;
+    return {
+      failure: description,
+      severity,
+      penalty,
+      evidence: String(
+        failure.why_structural || description || 'See reader reports',
+      ),
+    };
+  });
 
   // Extract pillar scores
   const pillarScores = analysis.pillar_scores as Record<string, { score: number; weight: number }> | undefined;
@@ -281,27 +325,21 @@ export function normalizeV9Screenplay(
     dimensionScores,
     dimensionJustifications,
     commercialViability,
-    criticalFailures: Array.isArray(analysis.critical_failures)
-      ? (analysis.critical_failures as Array<{ failure?: string; why_structural?: string } | string>).map(
-          (cf) => (typeof cf === 'string' ? cf : String(cf.failure || ''))
-        )
+    criticalFailures: rawCriticalFailures.length > 0
+      ? criticalFailureDetails.map((failure) => failure.failure)
       : redFlags || [],
-    criticalFailureDetails: Array.isArray(analysis.critical_failures)
-      ? (analysis.critical_failures as Array<{ failure?: string; why_structural?: string } | string>).map(
-          (cf) => ({
-            failure: typeof cf === 'string' ? cf : String(cf.failure || ''),
-            severity: 'major' as const,
-            penalty: -0.5,
-            evidence: typeof cf === 'string' ? 'See reader reports' : String(cf.why_structural || 'See reader reports'),
-          })
-        )
+    criticalFailureDetails: rawCriticalFailures.length > 0
+      ? criticalFailureDetails
       : (redFlags || []).map((f) => ({
           failure: f,
           severity: 'major' as const,
           penalty: -0.5,
           evidence: 'See reader reports',
         })),
-    criticalFailureTotalPenalty: 0,
+    criticalFailureTotalPenalty: criticalFailureDetails.reduce(
+      (sum, failure) => sum + failure.penalty,
+      0,
+    ),
     majorWeaknesses: (analysis.weaknesses as string[]) || redFlags || [],
     strengths: (analysis.strengths as string[]) || [],
     weaknesses: (analysis.weaknesses as string[]) || redFlags || [],

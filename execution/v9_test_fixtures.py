@@ -191,7 +191,11 @@ def complete_analysis(title="Trustworthy Draft"):
             "critical_failure_penalty: -0.3 (7.2 → 6.9)",
         ],
         "verdict": "CONSIDER",
-        "critical_failures": [{"severity": "minor", "issue": "repairable"}],
+        "critical_failures": [{
+            "description": "A repairable structural break.",
+            "severity": "minor",
+            "penalty": 0.3,
+        }],
         "story_vs_situation": {
             "score": 4,
             "verdict": "story",

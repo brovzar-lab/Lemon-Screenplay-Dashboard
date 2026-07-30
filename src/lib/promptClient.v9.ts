@@ -616,7 +616,7 @@ Return ONLY this JSON:
   "strengths": [],
   "weaknesses": [],
   "critical_failures": [
-    { "failure": "", "why_structural": "" }
+    { "description": "", "severity": "minor|moderate|major|critical", "penalty": 0.0 }
   ],
   "development_notes": [],
   "verdict": "PASS",
@@ -652,7 +652,7 @@ Return ONLY this JSON:
 
 IMPORTANT:
 - strengths MUST have minimum 4 items. Empty strengths array is NEVER acceptable.
-- critical_failures must be a STRICT SUBSET of weaknesses. Each must include why_structural.
+- critical_failures must be a STRICT SUBSET of weaknesses. Each description must explain why the issue is structural. Severity and penalty must match: minor=0.3, moderate=0.5, major=0.8, critical=1.2.
 - themes MUST have minimum 2 items.
 - tone MUST be non-empty.
 - author MUST NOT be "Unknown" — extract from title page or set "Not found on title page".

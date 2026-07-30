@@ -353,6 +353,42 @@ describe('normalizeV9Screenplay', () => {
         expect(result.weightedScore).toBe(8.35);
     });
 
+    it('preserves Q3 critical-failure severity and penalty while reading legacy fields', () => {
+        const raw = createMockV9Raw();
+        const analysis = raw.analysis as Record<string, unknown>;
+        analysis.critical_failures = [
+            {
+                description: 'The protagonist never makes the decisive choice.',
+                severity: 'critical',
+                penalty: 1.2,
+            },
+        ];
+        const result = normalizeV9Screenplay(raw, 'Analysis');
+
+        expect(result.criticalFailures).toEqual([
+            'The protagonist never makes the decisive choice.',
+        ]);
+        expect(result.criticalFailureDetails).toEqual([
+            {
+                failure: 'The protagonist never makes the decisive choice.',
+                severity: 'critical',
+                penalty: -1.2,
+                evidence: 'The protagonist never makes the decisive choice.',
+            },
+        ]);
+        expect(result.criticalFailureTotalPenalty).toBe(-1.2);
+
+        analysis.critical_failures = [
+            {
+                failure: 'Legacy structural failure',
+                why_structural: 'Legacy evidence',
+            },
+        ];
+        const legacy = normalizeV9Screenplay(raw, 'Analysis');
+        expect(legacy.criticalFailures).toEqual(['Legacy structural failure']);
+        expect(legacy.criticalFailureDetails[0].evidence).toBe('Legacy evidence');
+    });
+
     it('maps recommendation from verdict field', () => {
         const raw = createMockV9Raw();
         const result = normalizeV9Screenplay(raw, 'Analysis');

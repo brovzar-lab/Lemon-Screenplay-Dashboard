@@ -82,6 +82,285 @@ const CLAUDE_MODELS: Record<string, string> = {
   opus: 'claude-opus-4-7',
 };
 
+const CANONICAL_READERS: readonly ReaderName[] = [
+  'structure',
+  'character',
+  'craft_scene',
+  'concept',
+  'emotional_resonance',
+];
+const MAX_QUALITY_STAGE_ATTEMPTS = 3;
+type TokenUsage = { input_tokens: number; output_tokens: number };
+
+function mergeTokenUsage(left: TokenUsage, right: TokenUsage): TokenUsage {
+  return {
+    input_tokens: left.input_tokens + right.input_tokens,
+    output_tokens: left.output_tokens + right.output_tokens,
+  };
+}
+
+export class UnusableQualityOutputError extends Error {
+  readonly usage: TokenUsage;
+
+  constructor(message: string, usage: TokenUsage) {
+    super(message);
+    this.name = 'UnusableQualityOutputError';
+    this.usage = usage;
+  }
+}
+
+export class QualityStageExhaustedError extends Error {
+  readonly stage: string;
+  readonly attempts: number;
+  readonly failures: string[];
+  readonly usage: TokenUsage;
+
+  constructor(
+    stage: string,
+    attempts: number,
+    failures: string[],
+    usage: TokenUsage,
+  ) {
+    super(`${stage} failed after ${attempts} attempts: ${failures.at(-1) ?? 'unknown failure'}`);
+    this.name = 'QualityStageExhaustedError';
+    this.stage = stage;
+    this.attempts = attempts;
+    this.failures = failures;
+    this.usage = usage;
+  }
+}
+
+interface ReaderFailureEvidence {
+  attempts: number;
+  failures: string[];
+}
+
+export class ReaderPanelIncompleteError extends Error {
+  readonly completedReaders: ReaderName[];
+  readonly failedReaders: ReaderName[];
+  readonly failureEvidence: Partial<Record<ReaderName, ReaderFailureEvidence>>;
+  readonly usage: TokenUsage;
+
+  constructor(
+    completedReaders: ReaderName[],
+    failedReaders: ReaderName[],
+    failureEvidence: Partial<Record<ReaderName, ReaderFailureEvidence>>,
+    usage: TokenUsage,
+  ) {
+    super(
+      `Q3 requires 5/5 readers before synthesis. Missing: ${
+        failedReaders.join(', ') || 'none'
+      }.`,
+    );
+    this.name = 'ReaderPanelIncompleteError';
+    this.completedReaders = completedReaders;
+    this.failedReaders = failedReaders;
+    this.failureEvidence = failureEvidence;
+    this.usage = usage;
+  }
+}
+
+interface QualityRecoveryOptions {
+  maxAttempts?: number;
+  delay?: (milliseconds: number) => Promise<void>;
+}
+
+export async function runQualityStageWithRecovery<T>(
+  stage: string,
+  run: () => Promise<{ value: T; usage: TokenUsage }>,
+  options: QualityRecoveryOptions = {},
+): Promise<{
+  value: T;
+  usage: TokenUsage;
+  attempts: number;
+  failures: string[];
+}> {
+  const maxAttempts = options.maxAttempts ?? MAX_QUALITY_STAGE_ATTEMPTS;
+  const delay = options.delay ?? (
+    (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds))
+  );
+  const failures: string[] = [];
+  let usage: TokenUsage = { input_tokens: 0, output_tokens: 0 };
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await run();
+      usage = mergeTokenUsage(usage, result.usage);
+      return {
+        value: result.value,
+        usage,
+        attempts: attempt,
+        failures,
+      };
+    } catch (error) {
+      if (!(error instanceof UnusableQualityOutputError)) {
+        throw error;
+      }
+      usage = mergeTokenUsage(usage, error.usage);
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(message);
+      if (attempt < maxAttempts) {
+        await delay(attempt * 5_000);
+      }
+    }
+  }
+
+  throw new QualityStageExhaustedError(
+    stage,
+    maxAttempts,
+    failures,
+    usage,
+  );
+}
+
+export function requireCompleteReaderPanel(
+  readers: ReaderName[],
+  failureEvidence: Partial<Record<ReaderName, ReaderFailureEvidence>> = {},
+  usage: TokenUsage = { input_tokens: 0, output_tokens: 0 },
+): void {
+  const completed = new Set(readers);
+  const missing = CANONICAL_READERS.filter((reader) => !completed.has(reader));
+  const hasDuplicates = completed.size !== readers.length;
+  if (
+    readers.length !== CANONICAL_READERS.length
+    || hasDuplicates
+    || missing.length > 0
+  ) {
+    throw new ReaderPanelIncompleteError(
+      readers,
+      missing,
+      failureEvidence,
+      usage,
+    );
+  }
+}
+
+function validateBrowserReaderReport(
+  reader: ReaderName,
+  report: Record<string, unknown>,
+): void {
+  if (report.reader !== reader) {
+    throw new Error(`Reader identity mismatch for ${reader}.`);
+  }
+  const subScores = report.sub_scores;
+  if (!subScores || typeof subScores !== 'object' || Array.isArray(subScores)) {
+    throw new Error(`${reader} reader returned no sub-score evidence.`);
+  }
+  const metrics = Object.values(subScores as Record<string, unknown>);
+  if (metrics.length === 0) {
+    throw new Error(`${reader} reader returned no sub-score evidence.`);
+  }
+  for (const metric of metrics) {
+    const score = metric && typeof metric === 'object'
+      ? (metric as Record<string, unknown>).score
+      : undefined;
+    if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > 10) {
+      throw new Error(`${reader} reader returned an invalid sub-score.`);
+    }
+  }
+}
+
+export function validateBrowserSynthesis(report: Record<string, unknown>): void {
+  const pillarScores = report.pillar_scores;
+  if (!pillarScores || typeof pillarScores !== 'object' || Array.isArray(pillarScores)) {
+    throw new Error('Synthesis returned no pillar scores.');
+  }
+  const missing = CANONICAL_READERS.filter(
+    (reader) => !(reader in (pillarScores as Record<string, unknown>)),
+  );
+  if (missing.length > 0) {
+    throw new Error(`Synthesis omitted reader pillars: ${missing.join(', ')}.`);
+  }
+  for (const reader of CANONICAL_READERS) {
+    const pillar = (pillarScores as Record<string, unknown>)[reader];
+    const score = pillar && typeof pillar === 'object' && !Array.isArray(pillar)
+      ? (pillar as Record<string, unknown>).score
+      : undefined;
+    if (
+      typeof score !== 'number'
+      || !Number.isFinite(score)
+      || score < 0
+      || score > 10
+    ) {
+      throw new Error(`Synthesis returned an invalid ${reader} pillar score.`);
+    }
+  }
+  if (
+    typeof report.weighted_score !== 'number'
+    || !Number.isFinite(report.weighted_score)
+    || report.weighted_score < 0
+    || report.weighted_score > 10
+  ) {
+    throw new Error('Synthesis returned an invalid weighted score.');
+  }
+  if (
+    typeof report.verdict !== 'string'
+    || report.verdict.trim().length === 0
+    || typeof report.verdict_before_adjustments !== 'string'
+    || report.verdict_before_adjustments.trim().length === 0
+  ) {
+    throw new Error('Synthesis returned an incomplete verdict.');
+  }
+  if (
+    !report.story_vs_situation
+    || typeof report.story_vs_situation !== 'object'
+    || Array.isArray(report.story_vs_situation)
+  ) {
+    throw new Error('Synthesis returned invalid story-vs-situation evidence.');
+  }
+  const storyVerdict = (
+    report.story_vs_situation as Record<string, unknown>
+  ).verdict;
+  if (
+    storyVerdict !== 'story'
+    && storyVerdict !== 'borderline'
+    && storyVerdict !== 'situation'
+  ) {
+    throw new Error('Synthesis returned an invalid story-vs-situation verdict.');
+  }
+  if (
+    !report.false_positive_check
+    || typeof report.false_positive_check !== 'object'
+    || Array.isArray(report.false_positive_check)
+  ) {
+    throw new Error('Synthesis returned invalid false-positive evidence.');
+  }
+  const weightedTrapScore = (
+    report.false_positive_check as Record<string, unknown>
+  ).weighted_trap_score;
+  if (typeof weightedTrapScore !== 'number' || !Number.isFinite(weightedTrapScore)) {
+    throw new Error('Synthesis returned an invalid weighted trap score.');
+  }
+  if (!Array.isArray(report.critical_failures)) {
+    throw new Error('Synthesis critical failures must be a list.');
+  }
+  const validFailureSeverities = new Set([
+    'minor',
+    'moderate',
+    'major',
+    'critical',
+  ]);
+  for (const [index, failure] of report.critical_failures.entries()) {
+    if (!failure || typeof failure !== 'object' || Array.isArray(failure)) {
+      throw new Error(`Synthesis critical failure ${index} is invalid.`);
+    }
+    const record = failure as Record<string, unknown>;
+    if (typeof record.description !== 'string' || record.description.trim().length === 0) {
+      throw new Error(`Synthesis critical failure ${index} has no description.`);
+    }
+    if (typeof record.severity !== 'string' || !validFailureSeverities.has(record.severity)) {
+      throw new Error(`Synthesis critical failure ${index} has invalid severity.`);
+    }
+    if (
+      typeof record.penalty !== 'number'
+      || !Number.isFinite(record.penalty)
+      || record.penalty < 0
+    ) {
+      throw new Error(`Synthesis critical failure ${index} has invalid penalty.`);
+    }
+  }
+}
+
 // ─── Score Arithmetic (computed in code, not by the AI) ──────────────────────
 
 /**
@@ -110,12 +389,13 @@ function computePillarScoreFromReport(report: Record<string, unknown>): number |
  */
 export function computeWeightedScoreFromSynthesis(
   synthesis: Record<string, unknown>,
-  completedReaders: ReaderName[],
 ): number {
   const pillarScores = synthesis.pillar_scores as
     | Record<string, { score?: number; weight?: number }>
     | undefined;
-  if (!pillarScores) return 0;
+  if (!pillarScores) {
+    throw new Error('Cannot compute a score without all five synthesis pillars.');
+  }
 
   // Use weights from READER_WEIGHTS as the authoritative source
   const WEIGHTS: Record<string, number> = {
@@ -127,16 +407,19 @@ export function computeWeightedScoreFromSynthesis(
   };
 
   let total = 0;
-  let completedWeight = 0;
   for (const [reader, weight] of Object.entries(WEIGHTS)) {
-    if (!completedReaders.includes(reader as ReaderName)) continue;
     const score = pillarScores[reader]?.score;
-    if (typeof score !== 'number') continue;
+    if (
+      typeof score !== 'number'
+      || !Number.isFinite(score)
+      || score < 0
+      || score > 10
+    ) {
+      throw new Error(`Cannot compute a score without a valid ${reader} pillar.`);
+    }
     total += score * weight;
-    completedWeight += weight;
   }
-  if (completedWeight === 0) return 0;
-  return Math.round((total / completedWeight) * 100) / 100;
+  return Math.round(total * 100) / 100;
 }
 
 // ─── Code-Side Verdict Derivation ────────────────────────────────────────────
@@ -419,22 +702,35 @@ export async function runMultiReaderAnalysis(
 
   const readerPromises = readerPrompts.map(async (rp) => {
     const readerStart = Date.now();
+    const recovered = await runQualityStageWithRecovery(
+      `${rp.reader} reader`,
+      async () => {
+        const { text, usage } = await callClaude(
+          rp.systemPrompt,
+          rp.userPrompt,
+          model,
+          8000,
+        );
+        try {
+          const report = parseClaudeJSON(text);
+          validateBrowserReaderReport(rp.reader, report);
 
-    const { text, usage } = await callClaude(
-      rp.systemPrompt,
-      rp.userPrompt,
-      model,
-      8000,
+          // Compute pillar_score from sub_scores in code. A report without
+          // usable arithmetic is retried and never reaches synthesis.
+          const computedPillar = computePillarScoreFromReport(report);
+          if (computedPillar === null) {
+            throw new Error(`${rp.reader} reader returned no usable score evidence.`);
+          }
+          report.pillar_score = computedPillar;
+          return { value: report, usage };
+        } catch (error) {
+          throw new UnusableQualityOutputError(
+            error instanceof Error ? error.message : String(error),
+            usage,
+          );
+        }
+      },
     );
-
-    const report = parseClaudeJSON(text);
-
-    // Compute pillar_score from sub_scores in code — do not trust AI arithmetic.
-    // Readers return pillar_score: null; we fill it here with verified arithmetic.
-    const computedPillar = computePillarScoreFromReport(report);
-    if (computedPillar !== null) {
-      report.pillar_score = computedPillar;
-    }
 
     const durationMs = Date.now() - readerStart;
 
@@ -444,14 +740,16 @@ export async function runMultiReaderAnalysis(
     onProgress?.({
       stage: 'readers',
       percent: pct,
-      message: `${completedReaders.length}/5 readers complete (${rp.reader})`,
+      message: `${completedReaders.length}/5 readers complete (${rp.reader}${
+        recovered.attempts > 1 ? `, recovered on attempt ${recovered.attempts}` : ''
+      })`,
       readersComplete: [...completedReaders],
     });
 
     return {
       reader: rp.reader,
-      report,
-      usage,
+      report: recovered.value,
+      usage: recovered.usage,
       durationMs,
     } as ReaderResult;
   });
@@ -461,7 +759,10 @@ export async function runMultiReaderAnalysis(
   // Collect results, note failures
   const readerResults: ReaderResult[] = [];
   const failedReaders: ReaderName[] = [];
-  const failedReaderErrors: Record<string, string> = {};
+  const readerFailureEvidence: Partial<
+    Record<ReaderName, ReaderFailureEvidence>
+  > = {};
+  let failedReaderUsage: TokenUsage = { input_tokens: 0, output_tokens: 0 };
 
   for (const [index, result] of readerSettled.entries()) {
     if (result.status === 'fulfilled') {
@@ -470,21 +771,40 @@ export async function runMultiReaderAnalysis(
       const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
       const reader = readerPrompts[index].reader;
       failedReaders.push(reader);
-      failedReaderErrors[reader] = reason;
+      if (result.reason instanceof QualityStageExhaustedError) {
+        readerFailureEvidence[reader] = {
+          attempts: result.reason.attempts,
+          failures: result.reason.failures,
+        };
+        failedReaderUsage = mergeTokenUsage(
+          failedReaderUsage,
+          result.reason.usage,
+        );
+      } else {
+        readerFailureEvidence[reader] = {
+          attempts: 1,
+          failures: [reason],
+        };
+      }
       console.error(`[V9] ${reader} reader failed:`, reason);
     }
   }
 
-  if (readerResults.length < 3) {
-    // Need at least 3 readers to produce meaningful synthesis
-    useToastStore.getState().addToast(
-      `Multi-reader analysis failed: only ${readerResults.length}/5 readers completed. ${failedReaders.join('; ')}`,
+  const readerPanelUsage = readerResults.reduce(
+    (usage, result) => mergeTokenUsage(usage, result.usage),
+    failedReaderUsage,
+  );
+  try {
+    requireCompleteReaderPanel(
+      readerResults.map((result) => result.reader),
+      readerFailureEvidence,
+      readerPanelUsage,
     );
-    throw new Error(`Insufficient reader results: ${readerResults.length}/5 completed`);
-  }
-
-  if (failedReaders.length > 0) {
-    console.warn(`[V9] ${failedReaders.length} reader(s) failed, proceeding with ${readerResults.length} results`);
+  } catch (error) {
+    useToastStore.getState().addToast(
+      `Analysis needs review: ${readerResults.length}/5 readers completed. No score or verdict was produced. Missing: ${failedReaders.join(', ')}.`,
+    );
+    throw error;
   }
 
   // ── Pass 6: Synthesis roundtable ──
@@ -516,31 +836,42 @@ export async function runMultiReaderAnalysis(
   });
 
   const synthesisStart = Date.now();
-
-  const { text: synthesisText, usage: synthesisUsage } = await callClaude(
-    synthesisInput.systemPrompt,
-    synthesisInput.userPrompt,
-    model,
-    12000,
+  const synthesisRecovery = await runQualityStageWithRecovery(
+    'synthesis roundtable',
+    async () => {
+      const { text, usage } = await callClaude(
+        synthesisInput.systemPrompt,
+        synthesisInput.userPrompt,
+        model,
+        12000,
+      );
+      try {
+        const report = parseClaudeJSON(text);
+        validateBrowserSynthesis(report);
+        return { value: report, usage };
+      } catch (error) {
+        throw new UnusableQualityOutputError(
+          error instanceof Error ? error.message : String(error),
+          usage,
+        );
+      }
+    },
   );
-
-  const synthesis = parseClaudeJSON(synthesisText);
+  const synthesis = synthesisRecovery.value;
+  const synthesisUsage = synthesisRecovery.usage;
   const synthesisDurationMs = Date.now() - synthesisStart;
 
   // Override AI-computed weighted_score with verified arithmetic from code.
   // This prevents synthesis arithmetic errors from affecting the final verdict.
-  const completedReaderNames = readerResults.map((result) => result.reader);
-  const computedWeightedScore = computeWeightedScoreFromSynthesis(synthesis, completedReaderNames);
-  if (computedWeightedScore > 0) {
-    // Log if AI and code disagree by more than 0.1
-    const aiScore = synthesis.weighted_score as number | undefined;
-    if (aiScore !== undefined && Math.abs(aiScore - computedWeightedScore) > 0.1) {
-      console.warn(
-        `[V9] Synthesis weighted_score mismatch: AI said ${aiScore}, computed ${computedWeightedScore}. Using computed.`
-      );
-    }
-    (synthesis as Record<string, unknown>).weighted_score = computedWeightedScore;
+  const computedWeightedScore = computeWeightedScoreFromSynthesis(synthesis);
+  // Log if AI and code disagree by more than 0.1
+  const aiScore = synthesis.weighted_score as number;
+  if (Math.abs(aiScore - computedWeightedScore) > 0.1) {
+    console.warn(
+      `[V9] Synthesis weighted_score mismatch: AI said ${aiScore}, computed ${computedWeightedScore}. Using computed.`
+    );
   }
+  (synthesis as Record<string, unknown>).weighted_score = computedWeightedScore;
 
   // Derive the verdict in code from the structured synthesis outputs —
   // restores the critical-failure penalty and enforces the situation/trap/
@@ -583,11 +914,12 @@ export async function runMultiReaderAnalysis(
     },
   };
   (synthesis as Record<string, unknown>).analysis_quality = {
-    status: failedReaders.length > 0 ? 'partial' : 'complete',
+    status: 'complete',
     completed_readers: readerResults.length,
     expected_readers: readerPrompts.length,
-    failed_readers: failedReaders,
+    failed_readers: [],
   };
+  (synthesis as Record<string, unknown>).failed_reader_errors = {};
 
   // Attach full reader reports to synthesis output for transparency
   (synthesis as Record<string, unknown>).reader_reports = readerReports;
@@ -609,11 +941,6 @@ export async function runMultiReaderAnalysis(
     `Tokens: ${totalUsage.input_tokens} in, ${totalUsage.output_tokens} out. ` +
     `Synthesis took ${(synthesisDurationMs / 1000).toFixed(1)}s.`,
   );
-
-  if (failedReaders.length > 0) {
-    (synthesis as Record<string, unknown>).failed_readers = failedReaders;
-    (synthesis as Record<string, unknown>).failed_reader_errors = failedReaderErrors;
-  }
 
   onProgress?.({
     stage: 'complete',

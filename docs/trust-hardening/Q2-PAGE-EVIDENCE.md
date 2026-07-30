@@ -2,7 +2,19 @@
 
 Date: 2026-07-29
 
-Status: implemented on `codex/q2-parser-evidence`, not deployed
+Status: deployed and proven in production on commit `690f729`
+
+## Production proof
+
+`Sola.pdf` completed under the Q2 contract with:
+
+- all 75 physical pages preserved;
+- 13,717 extracted words;
+- 100 percent readable-page coverage;
+- 99.8 percent native-extractor agreement;
+- 344 valid page citations;
+- a matching archived-source hash; and
+- a validated `lemon-trust-manifest-v2`.
 
 ## Producer guarantee
 

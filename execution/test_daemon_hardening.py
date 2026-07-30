@@ -88,6 +88,41 @@ class NeedsReviewStateTests(unittest.TestCase):
         self.assertEqual(update["failure_kind"], "evidence_review")
         self.assertIn("ending pages", update["review_reason"])
 
+    def test_reader_panel_failure_routes_to_needs_review_with_attempt_evidence(self):
+        review_error = RuntimeError("reader panel incomplete")
+        review_error.review_required = True
+        review_error.review_kind = "reader_panel_review"
+        review_error.review_evidence = {
+            "completed_readers": 4,
+            "expected_readers": 5,
+            "failed_readers": ["emotional_resonance"],
+            "max_attempts_per_reader": 3,
+        }
+
+        with patch.object(daemon, "mark_needs_review") as mark_needs_review:
+            handled = daemon.route_analysis_review_error(
+                "reader-review-job",
+                review_error,
+            )
+
+        self.assertTrue(handled)
+        mark_needs_review.assert_called_once_with(
+            "reader-review-job",
+            "reader panel incomplete",
+            evidence=review_error.review_evidence,
+            failure_kind="reader_panel_review",
+        )
+
+    def test_unclassified_engine_failure_remains_retryable(self):
+        with patch.object(daemon, "mark_needs_review") as mark_needs_review:
+            handled = daemon.route_analysis_review_error(
+                "retryable-job",
+                RuntimeError("temporary network failure"),
+            )
+
+        self.assertFalse(handled)
+        mark_needs_review.assert_not_called()
+
 
 class CompletedVersionPreflightTests(unittest.TestCase):
     def test_existing_version_completes_without_repeating_paid_work(self):

@@ -113,6 +113,32 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         self.assertEqual(post.call_args.kwargs["json"]["job_id"], "queue-job-1")
 
+    def test_synthesis_validator_rejects_non_numeric_score_before_publication(self):
+        candidate = complete_analysis("Malformed Synthesis")
+        candidate["weighted_score"] = "high"
+
+        with self.assertRaisesRegex(ValueError, "weighted score"):
+            ingest_v9._validate_synthesis_report(candidate)
+
+        candidate = complete_analysis("Malformed Pillar")
+        candidate["pillar_scores"]["concept"] = "strong"
+
+        with self.assertRaisesRegex(ValueError, "concept"):
+            ingest_v9._validate_synthesis_report(candidate)
+
+    def test_synthesis_validator_requires_verdict_gate_inputs(self):
+        candidate = complete_analysis("Missing Failures")
+        candidate.pop("critical_failures")
+
+        with self.assertRaisesRegex(ValueError, "critical failures"):
+            ingest_v9._validate_synthesis_report(candidate)
+
+        candidate = complete_analysis("Invalid Story Gate")
+        candidate["story_vs_situation"]["verdict"] = "unknown"
+
+        with self.assertRaisesRegex(ValueError, "story-vs-situation verdict"):
+            ingest_v9._validate_synthesis_report(candidate)
+
     def test_daily_dollar_limit_is_not_retried_as_a_rate_limit(self):
         response = MagicMock()
         response.status_code = 429
@@ -284,23 +310,30 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             }],
         )
 
-    def test_partial_reader_and_synthesis_retry_produce_a_valid_manifest(self):
+    def test_reader_and_synthesis_recovery_produce_a_complete_manifest(self):
         synthesis_attempt = 0
+        reader_attempts = {}
         fixture_analysis = complete_analysis("Recovered Draft")
         fixture_analysis.pop("_boundary_reruns")
 
         def fake_call_llm(**kwargs):
-            nonlocal synthesis_attempt
+            nonlocal synthesis_attempt, reader_attempts
             stage = kwargs["stage"]
             reader_name = kwargs.get("reader_name")
             if stage == "reader":
-                response_id = f"msg_reader_{reader_name}"
+                reader_attempts[reader_name] = reader_attempts.get(reader_name, 0) + 1
+                response_id = (
+                    f"msg_reader_{reader_name}_{reader_attempts[reader_name]}"
+                )
                 usage = self._successful_call_usage(
                     response_id,
                     stage=stage,
                     reader_name=reader_name,
                 )
-                if reader_name == "emotional_resonance":
+                if (
+                    reader_name == "emotional_resonance"
+                    and reader_attempts[reader_name] == 1
+                ):
                     return None, "missing tool result", usage
                 return (
                     copy.deepcopy(
@@ -374,15 +407,19 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             for call in usage["calls"]
         }
         self.assertEqual(
-            dispositions["msg_reader_emotional_resonance"],
+            dispositions["msg_reader_emotional_resonance_1"],
             "discarded_unusable",
+        )
+        self.assertEqual(
+            dispositions["msg_reader_emotional_resonance_2"],
+            "used",
         )
         self.assertEqual(
             dispositions["msg_synthesis_1"],
             "discarded_unusable",
         )
         self.assertEqual(dispositions["msg_synthesis_2"], "used")
-        self.assertEqual(analysis["analysis_quality"]["status"], "partial")
+        self.assertEqual(analysis["analysis_quality"]["status"], "complete")
         self.assertEqual(
             analysis["_cold_read"],
             {
@@ -392,8 +429,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         self.assertEqual(
             analysis["analysis_quality"]["failed_readers"],
-            ["emotional_resonance"],
+            [],
         )
+        self.assertEqual(analysis["analysis_quality"]["completed_readers"], 5)
+        self.assertEqual(analysis["failed_reader_errors"], {})
 
         raw = raw_analysis()
         raw["analysis"] = analysis
@@ -418,7 +457,173 @@ class ProxyCostTelemetryTests(unittest.TestCase):
 
         self.assertEqual(
             trusted["trust_manifest"]["readers"]["quality_status"],
-            "partial",
+            "complete",
+        )
+        self.assertTrue(
+            trusted["trust_manifest"]["readers"]["publication_ready"]
+        )
+
+    def test_exhausted_reader_panel_blocks_synthesis_and_preserves_review_evidence(
+        self,
+    ):
+        synthesis_calls = 0
+        reader_attempts = {}
+        fixture_analysis = complete_analysis("Incomplete Draft")
+
+        def fake_call_llm(**kwargs):
+            nonlocal synthesis_calls, reader_attempts
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            if stage == "synthesis":
+                synthesis_calls += 1
+                return copy.deepcopy(fixture_analysis), "", self._successful_call_usage(
+                    "msg_synthesis_should_not_run",
+                    stage=stage,
+                )
+
+            reader_attempts[reader_name] = reader_attempts.get(reader_name, 0) + 1
+            usage = self._successful_call_usage(
+                f"msg_reader_{reader_name}_{reader_attempts[reader_name]}",
+                stage=stage,
+                reader_name=reader_name,
+            )
+            if reader_name == "emotional_resonance":
+                return None, "missing tool result", usage
+            return (
+                copy.deepcopy(fixture_analysis["reader_reports"][reader_name]),
+                "",
+                usage,
+            )
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(
+            ingest_v9.time,
+            "sleep",
+        ):
+            with self.assertRaises(
+                ingest_v9.ReaderPanelIncompleteError
+            ) as raised:
+                ingest_v9.run_v9_full(
+                    text="INT. HOUSE - DAY\n" * 2_000,
+                    title="Incomplete Draft",
+                    page_count=100,
+                    word_count=20_000,
+                    model_key="sonnet",
+                    proxy_url="https://proxy.test",
+                    pipeline_pass="sonnet",
+                )
+
+        self.assertEqual(synthesis_calls, 0)
+        self.assertEqual(reader_attempts["emotional_resonance"], 3)
+        self.assertTrue(raised.exception.review_required)
+        self.assertEqual(
+            raised.exception.review_kind,
+            "reader_panel_review",
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["failed_readers"],
+            ["emotional_resonance"],
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["completed_readers"],
+            4,
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["completed_reader_names"],
+            ["character", "concept", "craft_scene", "structure"],
+        )
+
+    def test_exhausted_synthesis_blocks_verdict_after_complete_reader_panel(self):
+        synthesis_calls = 0
+        fixture_analysis = complete_analysis("Unsynthesized Draft")
+
+        def fake_call_llm(**kwargs):
+            nonlocal synthesis_calls
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            if stage == "reader":
+                return (
+                    copy.deepcopy(fixture_analysis["reader_reports"][reader_name]),
+                    "",
+                    self._successful_call_usage(
+                        f"msg_reader_{reader_name}",
+                        stage=stage,
+                        reader_name=reader_name,
+                    ),
+                )
+            synthesis_calls += 1
+            return (
+                None,
+                "missing tool result",
+                self._successful_call_usage(
+                    f"msg_synthesis_{synthesis_calls}",
+                    stage=stage,
+                ),
+            )
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(
+            ingest_v9.time,
+            "sleep",
+        ):
+            with self.assertRaises(
+                ingest_v9.SynthesisIncompleteError
+            ) as raised:
+                ingest_v9.run_v9_full(
+                    text="INT. HOUSE - DAY\n" * 2_000,
+                    title="Unsynthesized Draft",
+                    page_count=100,
+                    word_count=20_000,
+                    model_key="sonnet",
+                    proxy_url="https://proxy.test",
+                    pipeline_pass="sonnet",
+                )
+
+        self.assertEqual(synthesis_calls, 3)
+        self.assertEqual(raised.exception.review_kind, "synthesis_review")
+        self.assertEqual(
+            raised.exception.review_evidence["completed_readers"],
+            5,
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["completed_reader_names"],
+            [
+                "character",
+                "concept",
+                "craft_scene",
+                "emotional_resonance",
+                "structure",
+            ],
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["failed_readers"],
+            [],
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["synthesis_attempts"],
+            3,
         )
 
     def test_full_engine_rejects_unlinked_cold_read_before_model_work(self):

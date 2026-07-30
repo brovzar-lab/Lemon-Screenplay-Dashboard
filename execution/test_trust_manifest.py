@@ -19,6 +19,8 @@ from execution.trust_manifest import (
     ANALYSIS_SCHEMA_VERSION,
     LEGACY_TRUST_MANIFEST_VERSION,
     PROMPT_CONTRACT_VERSION,
+    Q2_TRUST_MANIFEST_VERSION,
+    READER_RELIABILITY_CONTRACT_VERSION,
     SCORING_CODE_VERSION,
     TRUST_MANIFEST_VERSION,
     attach_trust_manifest,
@@ -54,6 +56,15 @@ class TrustManifestTests(unittest.TestCase):
             "CONSIDER",
         )
         self.assertEqual(
+            first["trust_manifest"]["readers"][
+                "reliability_contract_version"
+            ],
+            READER_RELIABILITY_CONTRACT_VERSION,
+        )
+        self.assertTrue(
+            first["trust_manifest"]["readers"]["publication_ready"]
+        )
+        self.assertEqual(
             first["trust_manifest"]["calibration"]["prompt_sha256"],
             "cd" * 32,
         )
@@ -64,6 +75,8 @@ class TrustManifestTests(unittest.TestCase):
         legacy = trusted_raw()
         manifest = legacy["trust_manifest"]
         manifest.pop("evidence")
+        manifest["readers"].pop("reliability_contract_version")
+        manifest["readers"].pop("publication_ready")
         manifest["manifest_version"] = LEGACY_TRUST_MANIFEST_VERSION
         manifest.pop("integrity_sha256")
         manifest["integrity_sha256"] = hashlib.sha256(
@@ -77,6 +90,25 @@ class TrustManifestTests(unittest.TestCase):
         legacy["trust_manifest_version"] = LEGACY_TRUST_MANIFEST_VERSION
 
         validate_permanent_analysis(legacy)
+
+    def test_q2_manifest_remains_readable_after_q3_upgrade(self):
+        prior = trusted_raw()
+        manifest = prior["trust_manifest"]
+        manifest["readers"].pop("reliability_contract_version")
+        manifest["readers"].pop("publication_ready")
+        manifest["manifest_version"] = Q2_TRUST_MANIFEST_VERSION
+        manifest.pop("integrity_sha256")
+        manifest["integrity_sha256"] = hashlib.sha256(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        prior["trust_manifest_version"] = Q2_TRUST_MANIFEST_VERSION
+
+        validate_permanent_analysis(prior)
 
     def test_page_evidence_tampering_is_rejected(self):
         raw = trusted_raw()
@@ -301,7 +333,7 @@ class TrustManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "analysis payload"):
             validate_permanent_analysis(raw)
 
-    def test_reader_failure_details_are_sealed(self):
+    def test_q3_rejects_a_partial_reader_panel_before_sealing(self):
         raw = raw_analysis()
         analysis = raw["analysis"]
         analysis["reader_reports"].pop("emotional_resonance")
@@ -345,20 +377,19 @@ class TrustManifestTests(unittest.TestCase):
             raw["metadata"]["page_count"],
         )
 
-        trusted = attach_trust_manifest(
-            raw,
-            selection_request="sonnet",
-            pipeline_model_tier="sonnet",
-            effective_model_tier="sonnet",
-            model_ids=TEST_MODEL_IDS,
-            origin_kind="daemon_queue",
-            origin_id="queue-job-1",
-        )
-
-        self.assertEqual(
-            trusted["trust_manifest"]["readers"]["failed_reader_errors"],
-            {"emotional_resonance": "model call exhausted retries"},
-        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "all five specialist readers",
+        ):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
 
     def test_missing_reader_failure_detail_is_rejected(self):
         raw = raw_analysis()
@@ -506,7 +537,7 @@ class TrustManifestTests(unittest.TestCase):
             3,
         )
 
-    def test_failed_reader_call_cannot_contradict_completed_reader_evidence(self):
+    def test_recovered_reader_failure_is_sealed_with_completed_evidence(self):
         raw = raw_analysis()
         raw["usage"]["failed_calls"] = [{
             "requested_model": MODEL_ID,
@@ -521,16 +552,26 @@ class TrustManifestTests(unittest.TestCase):
             }],
         }]
 
-        with self.assertRaisesRegex(ValueError, "declared failed readers"):
-            attach_trust_manifest(
-                raw,
-                selection_request="sonnet",
-                pipeline_model_tier="sonnet",
-                effective_model_tier="sonnet",
-                model_ids=TEST_MODEL_IDS,
-                origin_kind="daemon_queue",
-                origin_id="queue-job-1",
-            )
+        trusted = attach_trust_manifest(
+            raw,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+            origin_kind="daemon_queue",
+            origin_id="queue-job-1",
+        )
+
+        self.assertEqual(
+            trusted["trust_manifest"]["models"]["failed_calls"][0][
+                "reader_name"
+            ],
+            "structure",
+        )
+        self.assertEqual(
+            trusted["trust_manifest"]["readers"]["quality_status"],
+            "complete",
+        )
 
     def test_unpromoted_hybrid_decision_is_sealed_and_validated(self):
         raw = raw_analysis()

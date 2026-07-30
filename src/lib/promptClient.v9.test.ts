@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildAllReaderPrompts } from '@/lib/promptClient.v9';
+import {
+  buildAllReaderPrompts,
+  buildSynthesisPrompt,
+  type ReaderName,
+} from '@/lib/promptClient.v9';
 
 describe('V9 reader citation contract', () => {
   it('requires a physical-page citation array on every reader sub-score', () => {
@@ -24,5 +28,30 @@ describe('V9 reader citation contract', () => {
         );
       });
     });
+  });
+});
+
+describe('V9 synthesis critical-failure contract', () => {
+  it('requests the severity-bearing structure used by verdict arithmetic', () => {
+    const reports = Object.fromEntries(
+      ([
+        'structure',
+        'character',
+        'craft_scene',
+        'concept',
+        'emotional_resonance',
+      ] as ReaderName[]).map((reader) => [reader, { reader }]),
+    ) as Record<ReaderName, Record<string, unknown>>;
+    const prompt = buildSynthesisPrompt({
+      title: 'Reliability Test',
+      readerReports: reports,
+      lenses: [],
+    }).userPrompt;
+
+    expect(prompt).toContain(
+      '{ "description": "", "severity": "minor|moderate|major|critical", "penalty": 0.0 }',
+    );
+    expect(prompt).toContain('minor=0.3, moderate=0.5, major=0.8, critical=1.2');
+    expect(prompt).not.toContain('{ "failure": "", "why_structural": "" }');
   });
 });

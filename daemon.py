@@ -1048,12 +1048,13 @@ def mark_needs_review(
     reason: str,
     *,
     evidence: Optional[dict] = None,
+    failure_kind: str = "evidence_review",
 ) -> None:
     """Stop safely when source or model evidence cannot support a verdict."""
     update = {
         "status": "needs_review",
         "review_reason": str(reason)[:2000],
-        "failure_kind": "evidence_review",
+        "failure_kind": failure_kind,
         "retryable": False,
         "worker_id": WORKER_ID,
         "last_heartbeat_at": None,
@@ -1064,6 +1065,23 @@ def mark_needs_review(
         update["review_evidence"] = evidence
     _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
     log.warning(f"[job] {job_id} → NEEDS REVIEW: {reason}")
+
+
+def route_analysis_review_error(job_id: str, error: Exception) -> bool:
+    """Move bounded quality failures to review instead of retrying whole runs."""
+    if getattr(error, "review_required", False) is not True:
+        return False
+    evidence = getattr(error, "review_evidence", None)
+    failure_kind = str(
+        getattr(error, "review_kind", "analysis_quality_review")
+    )
+    mark_needs_review(
+        job_id,
+        str(error),
+        evidence=evidence if isinstance(evidence, dict) else None,
+        failure_kind=failure_kind,
+    )
+    return True
 
 
 def mark_skipped(
@@ -1478,6 +1496,10 @@ def process_job(job: dict) -> None:
         except SourceEvidenceError as e:
             mark_needs_review(job_id, str(e))
             return
+        except Exception as e:
+            if route_analysis_review_error(job_id, e):
+                return
+            raise
 
         # ── 8. Check finish reason (don't save truncated JSON) ────────────
         finish_reason = usage.get("finish_reason", "end_turn")

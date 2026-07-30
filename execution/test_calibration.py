@@ -157,6 +157,42 @@ class CalibrationPromptTests(unittest.TestCase):
             ["RuntimeError", "RuntimeError"],
         )
 
+    def test_boundary_reader_quality_failure_blocks_the_entire_verdict(self):
+        first = {
+            "weighted_score_adjusted": 7.5,
+            "verdict": "RECOMMEND",
+            "verdict_model": "RECOMMEND",
+        }
+        usage = {"input_tokens": 1, "output_tokens": 1}
+        quality_failure = ingest_v9.ReaderPanelIncompleteError(
+            "reader panel incomplete after recovery",
+            ingest_v9.empty_usage(),
+            review_evidence={
+                "completed_readers": 4,
+                "expected_readers": 5,
+                "failed_readers": ["emotional_resonance"],
+            },
+        )
+        with (
+            patch.object(ingest_v9, "_near_boundary", return_value=True),
+            patch.object(
+                ingest_v9,
+                "run_v9_full",
+                side_effect=[(first, usage), quality_failure],
+            ) as run_full,
+        ):
+            with self.assertRaises(ingest_v9.ReaderPanelIncompleteError):
+                ingest_v9.run_v9_stable(
+                    text="INT. HOUSE - DAY",
+                    title="Draft",
+                    page_count=100,
+                    word_count=20_000,
+                    model_key="sonnet",
+                    proxy_url=None,
+                )
+
+        self.assertEqual(run_full.call_count, 2)
+
     def test_boundary_postprocessing_failure_keeps_accrued_usage(self):
         first = {
             "weighted_score_adjusted": 7.5,
