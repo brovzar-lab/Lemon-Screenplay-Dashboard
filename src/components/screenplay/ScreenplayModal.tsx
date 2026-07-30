@@ -17,8 +17,7 @@ import {
   ProducerMetricsPanel,
   ContentDetails,
   NotesSection,
-  FeedbackSection,
-  BillysTake,
+  ProducerTake,
   ModalFooter,
   PosterSection,
   FieldPositionPanel,
@@ -155,7 +154,7 @@ export function ScreenplayModal({
             <AlertBanners screenplay={screenplay} />
             <FieldPositionPanel rank={percentileRank} />
             <FilmNowSection screenplay={screenplay} />
-            {isAdmin && <BillysTake screenplay={screenplay} />}
+            {isAdmin && <ProducerTake screenplay={screenplay} />}
 
             {/* Logline */}
             <div>
@@ -177,7 +176,6 @@ export function ScreenplayModal({
               />
             )}
             <NotesSection screenplayId={screenplay.id} />
-            <FeedbackSection screenplay={screenplay} />
             <ModalFooter screenplay={screenplay} />
           </div>
 

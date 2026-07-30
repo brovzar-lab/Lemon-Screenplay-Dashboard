@@ -7,9 +7,9 @@ import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import {
   AlertBanners,
   ContentDetails,
-  FeedbackSection,
   FieldPositionPanel,
   NotesSection,
+  ProducerTake,
   ScoresPanel,
 } from './modal';
 
@@ -187,7 +187,7 @@ export function ReadingRoom({
           <aside className="px-5 md:px-6 py-7 space-y-8 bg-black-900/40">
             <NotesSection key={`notes-${screenplay.id}`} screenplayId={screenplay.id} />
             {isAdmin && (
-              <FeedbackSection key={`feedback-${screenplay.id}`} screenplay={screenplay} />
+              <ProducerTake key={`producer-take-${screenplay.id}`} screenplay={screenplay} />
             )}
           </aside>
         </div>

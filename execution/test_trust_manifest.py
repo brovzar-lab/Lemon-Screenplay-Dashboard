@@ -20,6 +20,7 @@ from execution.trust_manifest import (
     LEGACY_TRUST_MANIFEST_VERSION,
     PROMPT_CONTRACT_VERSION,
     Q2_TRUST_MANIFEST_VERSION,
+    Q3_TRUST_MANIFEST_VERSION,
     READER_RELIABILITY_CONTRACT_VERSION,
     SCORING_CODE_VERSION,
     TRUST_MANIFEST_VERSION,
@@ -109,6 +110,53 @@ class TrustManifestTests(unittest.TestCase):
         prior["trust_manifest_version"] = Q2_TRUST_MANIFEST_VERSION
 
         validate_permanent_analysis(prior)
+
+    def test_q3_manifest_remains_readable_after_q5_upgrade(self):
+        prior = trusted_raw()
+        manifest = prior["trust_manifest"]
+        manifest["manifest_version"] = Q3_TRUST_MANIFEST_VERSION
+        manifest.pop("integrity_sha256")
+        manifest["integrity_sha256"] = hashlib.sha256(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        prior["trust_manifest_version"] = Q3_TRUST_MANIFEST_VERSION
+
+        validate_permanent_analysis(prior)
+
+    def test_q5_manifest_seals_exact_calibration_profile_version(self):
+        raw = raw_analysis()
+        raw["calibration_profile"].update({
+            "profile_version_id": "candidate-1",
+            "source_assessment_set_sha256": "ef" * 32,
+            "compiler_model_id": "claude-opus-4-7",
+        })
+
+        trusted = attach_trust_manifest(
+            raw,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+            origin_kind="daemon_queue",
+            origin_id="queue-job-q5",
+        )
+
+        calibration = trusted["trust_manifest"]["calibration"]
+        self.assertEqual(calibration["profile_version_id"], "candidate-1")
+        self.assertEqual(
+            calibration["source_assessment_set_sha256"],
+            "ef" * 32,
+        )
+        self.assertEqual(
+            calibration["compiler_model_id"],
+            "claude-opus-4-7",
+        )
+        validate_permanent_analysis(trusted)
 
     def test_page_evidence_tampering_is_rejected(self):
         raw = trusted_raw()

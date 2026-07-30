@@ -249,8 +249,8 @@ describe('user roles', () => {
 });
 
 describe('role-specific collections', () => {
-  it('allows readers to write feedback but not Billy verdicts', async () => {
-    await assertSucceeds(setDoc(doc(readerDb(), 'screenplay_feedback/feedback-one'), {
+  it('keeps producer calibration projections server-authored', async () => {
+    await assertFails(setDoc(doc(readerDb(), 'screenplay_feedback/feedback-one'), {
       screenplayId: 'script-one',
       text: 'Strong concept.',
     }));
@@ -258,12 +258,93 @@ describe('role-specific collections', () => {
       screenplayId: 'script-one',
       billyVerdict: 'recommend',
     }));
-  });
-
-  it('allows admins to write Billy verdicts', async () => {
-    await assertSucceeds(setDoc(doc(adminDb(), 'brain_verdicts/script-one'), {
+    await assertFails(setDoc(doc(adminDb(), 'brain_verdicts/script-one'), {
       screenplayId: 'script-one',
       billyVerdict: 'recommend',
     }));
+  });
+
+  it('allows admins to read calibration evidence but blocks browser writes', async () => {
+    await seed('producer_assessments/assessment-one', {
+      assessmentId: 'assessment-one',
+      producerUid: 'admin-user',
+    });
+    await seed('producer_assessment_heads/admin-user__script-one', {
+      latestAssessmentId: 'assessment-one',
+      producerUid: 'admin-user',
+      projectId: 'script-one',
+    });
+    await seed('producer_profiles/admin', {
+      enabled: false,
+      activeVersionId: null,
+    });
+    await seed('producer_profiles/admin/versions/candidate-one', {
+      candidateId: 'candidate-one',
+      status: 'candidate',
+    });
+    await seed('producer_profiles/admin/publications/publication-one', {
+      publicationId: 'publication-one',
+      action: 'activate',
+      candidateId: 'candidate-one',
+    });
+
+    await assertSucceeds(
+      getDoc(doc(adminDb(), 'producer_assessments/assessment-one')),
+    );
+    await assertSucceeds(
+      getDoc(
+        doc(
+          adminDb(),
+          'producer_assessment_heads/admin-user__script-one',
+        ),
+      ),
+    );
+    await assertSucceeds(
+      getDoc(doc(adminDb(), 'producer_profiles/admin/versions/candidate-one')),
+    );
+    await assertSucceeds(
+      getDoc(
+        doc(
+          adminDb(),
+          'producer_profiles/admin/publications/publication-one',
+        ),
+      ),
+    );
+
+    await assertFails(
+      setDoc(doc(adminDb(), 'producer_assessments/assessment-two'), {
+        assessmentId: 'assessment-two',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(adminDb(), 'producer_profiles/admin'), {
+        enabled: true,
+      }),
+    );
+    await assertFails(
+      setDoc(
+        doc(
+          adminDb(),
+          'producer_profiles/admin/publications/publication-two',
+        ),
+        { action: 'activate' },
+      ),
+    );
+  });
+
+  it('keeps producer calibration private from readers', async () => {
+    await seed('producer_assessments/assessment-one', {
+      assessmentId: 'assessment-one',
+      producerUid: 'admin-user',
+    });
+    await seed('producer_profiles/admin', {
+      enabled: false,
+      activeVersionId: null,
+    });
+
+    await assertFails(
+      getDoc(doc(readerDb(), 'producer_assessments/assessment-one')),
+    );
+    await assertFails(getDoc(doc(readerDb(), 'producer_profiles/admin')));
   });
 });

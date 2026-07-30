@@ -148,18 +148,21 @@ service cloud.firestore {
     //   • Delete allowed (users should be able to remove their own notes).
     match /screenplay_feedback/{docId} {
       allow read: if isTeamMember();
+      // Compatibility projection written only by calibrationManager.
+      allow create, update, delete: if false;
+    }
 
-      allow create, update: if isTeamMember()
-                   && 'screenplayId' in request.resource.data
-                   && request.resource.data.screenplayId is string
-                   && request.resource.data.screenplayId.size() <= 500
-                   && (
-                        !('text' in request.resource.data)
-                        || (request.resource.data.text is string
-                            && request.resource.data.text.size() <= 10000)
-                      );
+    // ── producer assessments ──────────────────────────────────────────────
+    // Immutable producer judgments and their latest-per-project projection.
+    // calibrationManager validates exact analysis identity and writes both.
+    match /producer_assessments/{assessmentId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
 
-      allow delete: if isTeamMember();
+    match /producer_assessment_heads/{headId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
 
     // ── producer_profiles ────────────────────────────────────────────────
@@ -170,15 +173,20 @@ service cloud.firestore {
     //   • Auth required for all operations to prevent profile enumeration.
     match /producer_profiles/{docId} {
       allow read: if isAdmin();
+      // Active profile pointers are published only by calibrationManager.
+      allow create, update, delete: if false;
 
-      allow create, update: if isAdmin()
-                   && (
-                        !('name' in request.resource.data)
-                        || (request.resource.data.name is string
-                            && request.resource.data.name.size() <= 200)
-                      );
+      match /versions/{versionId} {
+        allow read: if isAdmin();
+        // Candidate versions are immutable and server-authored.
+        allow create, update, delete: if false;
+      }
 
-      allow delete: if isAdmin();
+      match /publications/{publicationId} {
+        allow read: if isAdmin();
+        // Activation and rollback receipts are immutable and server-authored.
+        allow create, update, delete: if false;
+      }
     }
 
     // ── shared_views ─────────────────────────────────────────────────────
@@ -220,17 +228,8 @@ service cloud.firestore {
     //   • No delete from client — verdicts are permanent once set.
     match /brain_verdicts/{screenplayId} {
       allow read: if isAdmin();
-
-      allow create, update: if isAdmin()
-                   && 'screenplayId' in request.resource.data
-                   && request.resource.data.screenplayId is string
-                   && request.resource.data.screenplayId.size() <= 500
-                   && 'billyVerdict' in request.resource.data
-                   && request.resource.data.billyVerdict in
-                      ['pass', 'consider', 'recommend', 'film_now'];
-
-      // DELETE: Admin SDK only. Verdicts are permanent.
-      allow delete: if false;
+      // Compatibility projection written only by calibrationManager.
+      allow create, update, delete: if false;
     }
 
     // ── _unrecognized_analyses (quarantine) ───────────────────────────────

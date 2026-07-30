@@ -63,6 +63,10 @@
         "function": "queueManager"
       },
       {
+        "source": "/api/calibration",
+        "function": "calibrationManager"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

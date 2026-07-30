@@ -61,6 +61,7 @@ import logging
 import logging.handlers
 import os
 import random
+import re
 import shutil
 import signal
 import sys
@@ -269,6 +270,30 @@ def load_calibration_profile() -> Optional[dict]:
         last_calibrated = data.get("lastCalibrated")
         if last_calibrated is not None and not isinstance(last_calibrated, str):
             raise ValueError("Calibration profile lastCalibrated must be a string")
+
+        profile_version_id = data.get("activeVersionId")
+        prompt_sha256 = data.get("promptSha256")
+        assessment_set_sha256 = data.get("sourceAssessmentSetSha256")
+        compiler_model_id = data.get("compilerModelId")
+        if profile_version_id is not None:
+            if (
+                not isinstance(profile_version_id, str)
+                or not profile_version_id
+                or "/" in profile_version_id
+            ):
+                raise ValueError("Calibration activeVersionId is invalid")
+            computed_prompt_sha256 = hashlib.sha256(
+                prompt.encode("utf-8")
+            ).hexdigest()
+            if prompt_sha256 != computed_prompt_sha256:
+                raise ValueError("Calibration prompt hash does not match active profile")
+            if (
+                not isinstance(assessment_set_sha256, str)
+                or not re.fullmatch(r"[a-f0-9]{64}", assessment_set_sha256)
+            ):
+                raise ValueError("Calibration assessment-set hash is invalid")
+            if not isinstance(compiler_model_id, str) or not compiler_model_id:
+                raise ValueError("Calibration compiler model is missing")
     except ValueError as error:
         # A bad saved preference must not stall every screenplay three times.
         # The analysis continues without calibration and records the fallback.
@@ -292,6 +317,12 @@ def load_calibration_profile() -> Optional[dict]:
         "last_calibrated": last_calibrated,
         "total_reviews": total_reviews,
     }
+    if profile_version_id is not None:
+        provenance.update({
+            "profile_version_id": profile_version_id,
+            "source_assessment_set_sha256": assessment_set_sha256,
+            "compiler_model_id": compiler_model_id,
+        })
     log.info(
         f"[calibration] Applying {CALIBRATION_PROFILE_ID} profile "
         f"({total_reviews} reviews, {prompt_sha256[:8]}…)"
@@ -302,6 +333,9 @@ def load_calibration_profile() -> Optional[dict]:
         "prompt_sha256": prompt_sha256,
         "last_calibrated": last_calibrated,
         "total_reviews": total_reviews,
+        "profile_version_id": profile_version_id,
+        "source_assessment_set_sha256": assessment_set_sha256,
+        "compiler_model_id": compiler_model_id,
         "provenance": provenance,
     }
 

@@ -46,10 +46,12 @@ except ImportError:
 
 LEGACY_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v1"
 Q2_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v2"
-TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v3"
+Q3_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v3"
+TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v4"
 SUPPORTED_TRUST_MANIFEST_VERSIONS = {
     LEGACY_TRUST_MANIFEST_VERSION,
     Q2_TRUST_MANIFEST_VERSION,
+    Q3_TRUST_MANIFEST_VERSION,
     TRUST_MANIFEST_VERSION,
 }
 READER_RELIABILITY_CONTRACT_VERSION = "lemon-five-reader-panel-v1"
@@ -242,8 +244,10 @@ def _sanitized_calibration(raw: Any) -> Dict[str, Any]:
     result: Dict[str, Any] = {"applied": applied}
     for key in (
         "profile_id",
+        "profile_version_id",
         "last_calibrated",
         "total_reviews",
+        "compiler_model_id",
         "fallback_reason",
         "validation_error",
     ):
@@ -254,6 +258,11 @@ def _sanitized_calibration(raw: Any) -> Dict[str, Any]:
             raw.get("prompt_sha256"),
             "calibration prompt_sha256",
         )
+        if raw.get("profile_version_id") is not None:
+            result["source_assessment_set_sha256"] = _require_sha256(
+                raw.get("source_assessment_set_sha256"),
+                "calibration source_assessment_set_sha256",
+            )
     return result
 
 
@@ -660,7 +669,10 @@ def _manifest_reader_lineage(
     lineage = _reader_lineage(analysis, analysis_version)
     if (
         analysis_version == "v9_archaeology"
-        and manifest_version == TRUST_MANIFEST_VERSION
+        and manifest_version in {
+            Q3_TRUST_MANIFEST_VERSION,
+            TRUST_MANIFEST_VERSION,
+        }
     ):
         if (
             lineage.get("quality_status") != "complete"
@@ -1329,7 +1341,10 @@ def _validate_response_links(
                 "boundary responses do not match completed readers"
             )
         if (
-            manifest_version == TRUST_MANIFEST_VERSION
+            manifest_version in {
+                Q3_TRUST_MANIFEST_VERSION,
+                TRUST_MANIFEST_VERSION,
+            }
             and len(used_reader_calls) != len(CANONICAL_READER_NAMES)
         ):
             raise ValueError(
@@ -1363,7 +1378,10 @@ def _validate_response_links(
             discarded_reader_names | exhausted_reader_names
         )
         declared_failed_names = set(evidence_readers["failed_readers"])
-        if manifest_version == TRUST_MANIFEST_VERSION:
+        if manifest_version in {
+            Q3_TRUST_MANIFEST_VERSION,
+            TRUST_MANIFEST_VERSION,
+        }:
             if declared_failed_names:
                 raise ValueError(
                     "Q3 completed run cannot declare failed readers"
@@ -1946,6 +1964,7 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
         raise ValueError("Trust manifest usage does not match analysis usage")
     if manifest_version in {
         Q2_TRUST_MANIFEST_VERSION,
+        Q3_TRUST_MANIFEST_VERSION,
         TRUST_MANIFEST_VERSION,
     }:
         current_evidence = _evidence_provenance(

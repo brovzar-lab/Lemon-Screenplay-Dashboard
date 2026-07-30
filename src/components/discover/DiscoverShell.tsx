@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { DiscoverAppHeader } from '@/components/discover/DiscoverAppHeader';
 import { DiscoverControls } from '@/components/discover/DiscoverControls';
 import { DiscoverDrawer } from '@/components/discover/DiscoverDrawer';
@@ -10,7 +10,9 @@ import {
 } from '@/components/discover/DiscoverResults';
 import { DiscoverySelectionBar } from '@/components/discover/DiscoverySelectionBar';
 import { useHasSelection } from '@/stores/selectionStore';
-import type { Screenplay } from '@/types';
+import { useIsAdmin } from '@/stores/authStore';
+import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
+import type { ProducerAssessmentHead, Screenplay } from '@/types';
 import '@/components/discover/discovery.css';
 
 interface DiscoverStats {
@@ -97,7 +99,20 @@ export function DiscoverShell({
   isLoading,
   isError,
 }: DiscoverShellProps) {
+  const isAdmin = useIsAdmin();
   const hasSelection = useHasSelection();
+  const { data: producerAssessmentHeads = [] } =
+    useProducerAssessmentHeads(isAdmin);
+  const producerAssessments = useMemo(
+    () =>
+      new Map<string, ProducerAssessmentHead>(
+        producerAssessmentHeads.map((assessment) => [
+          assessment.projectId,
+          assessment,
+        ]),
+      ),
+    [producerAssessmentHeads],
+  );
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const previousSelectionRef = useRef<Screenplay | null>(selectedScreenplay);
 
@@ -217,7 +232,11 @@ export function DiscoverShell({
                       <h2 id="discovery-review-only">Needs review</h2>
                       <span>{reviewOnlyScreenplays.length} unranked</span>
                     </div>
-                    <DiscoverGrid screenplays={reviewOnlyScreenplays} onOpen={handleOpen} />
+                    <DiscoverGrid
+                      screenplays={reviewOnlyScreenplays}
+                      onOpen={handleOpen}
+                      producerAssessments={producerAssessments}
+                    />
                   </section>
                 </>
               ) : (
@@ -225,16 +244,29 @@ export function DiscoverShell({
                   <DiscoverFeature
                     featured={featured}
                     onOpen={handleOpen}
+                    producerAssessments={producerAssessments}
                   />
-                  <DiscoverFilmNowShelf screenplays={filmNow} onOpen={handleOpen} />
-                  <DiscoverRankedShelf screenplays={topMatches} onOpen={handleOpen} />
+                  <DiscoverFilmNowShelf
+                    screenplays={filmNow}
+                    onOpen={handleOpen}
+                    producerAssessments={producerAssessments}
+                  />
+                  <DiscoverRankedShelf
+                    screenplays={topMatches}
+                    onOpen={handleOpen}
+                    producerAssessments={producerAssessments}
+                  />
 
                   <section aria-labelledby="discovery-archive" className="cinema-shelf">
                     <div className="cinema-shelf-head">
                       <h2 id="discovery-archive">Browse the slate</h2>
                       <span>{grid.length} more in this view</span>
                     </div>
-                    <DiscoverGrid screenplays={grid} onOpen={handleOpen} />
+                    <DiscoverGrid
+                      screenplays={grid}
+                      onOpen={handleOpen}
+                      producerAssessments={producerAssessments}
+                    />
                   </section>
                 </>
               )}

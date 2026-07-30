@@ -4,12 +4,26 @@ import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus
 import { ScriptCover } from '@/components/discover/ScriptCover';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
+import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
-import type { Screenplay } from '@/types';
+import type { ProducerAssessmentHead, Screenplay } from '@/types';
+
+type ProducerAssessmentMap = ReadonlyMap<string, ProducerAssessmentHead>;
 
 interface ResultSurfaceProps {
   screenplay: Screenplay;
   onOpen: (screenplay: Screenplay, trigger: HTMLButtonElement) => void;
+  producerAssessments?: ProducerAssessmentMap;
+}
+
+function assessmentFor(
+  assessments: ProducerAssessmentMap | undefined,
+  screenplay: Screenplay,
+): ProducerAssessmentHead | undefined {
+  const assessment = assessments?.get(screenplay.projectId ?? screenplay.id);
+  return assessment?.versionId === screenplay.latestVersionId
+    ? assessment
+    : undefined;
 }
 
 function Score({
@@ -57,6 +71,7 @@ function RankedCard({
   screenplay,
   rank,
   onOpen,
+  producerAssessments,
 }: ResultSurfaceProps & { rank: number }) {
   return (
     <li
@@ -87,6 +102,10 @@ function RankedCard({
             <span className="flex items-center gap-1.5">
               <AnalysisTrustBadge screenplay={screenplay} />
               <DiscoveryShareStatus screenplay={screenplay} />
+              <ProducerScoreBadge
+                assessment={assessmentFor(producerAssessments, screenplay)}
+                compact
+              />
             </span>
           </span>
           <h3 className="cinema-poster-title">{screenplay.title}</h3>
@@ -100,9 +119,11 @@ function RankedCard({
 export function DiscoverFeature({
   featured,
   onOpen,
+  producerAssessments,
 }: {
   featured: Screenplay;
   onOpen: ResultSurfaceProps['onOpen'];
+  producerAssessments?: ProducerAssessmentMap;
 }) {
   return (
     <article
@@ -133,6 +154,9 @@ export function DiscoverFeature({
             <span className="dsc-kicker">Featured screenplay</span>
             <AnalysisTrustBadge screenplay={featured} />
             <DiscoveryShareStatus screenplay={featured} />
+            <ProducerScoreBadge
+              assessment={assessmentFor(producerAssessments, featured)}
+            />
           </div>
           <h2 className="cinema-feature-title">{featured.title}</h2>
           <p className="cinema-feature-genre">
@@ -180,9 +204,11 @@ function screenplayMetric(value: number | null): string {
 export function DiscoverRankedShelf({
   screenplays,
   onOpen,
+  producerAssessments,
 }: {
   screenplays: Screenplay[];
   onOpen: ResultSurfaceProps['onOpen'];
+  producerAssessments?: ProducerAssessmentMap;
 }) {
   if (screenplays.length === 0) return null;
 
@@ -199,6 +225,7 @@ export function DiscoverRankedShelf({
             screenplay={screenplay}
             rank={index + 2}
             onOpen={onOpen}
+            producerAssessments={producerAssessments}
           />
         ))}
       </ol>
@@ -209,9 +236,11 @@ export function DiscoverRankedShelf({
 export function DiscoverFilmNowShelf({
   screenplays,
   onOpen,
+  producerAssessments,
 }: {
   screenplays: Screenplay[];
   onOpen: ResultSurfaceProps['onOpen'];
+  producerAssessments?: ProducerAssessmentMap;
 }) {
   if (screenplays.length === 0) return null;
 
@@ -247,6 +276,10 @@ export function DiscoverFilmNowShelf({
               />
               <span className="min-w-0">
                 <RecommendationBadge tier="film_now" />
+                <ProducerScoreBadge
+                  assessment={assessmentFor(producerAssessments, screenplay)}
+                  compact
+                />
                 <span className="cinema-film-title">{screenplay.title}</span>
                 <span className="cinema-film-logline">
                   {screenplay.recommendationRationale || screenplay.logline}
@@ -264,9 +297,14 @@ export function DiscoverFilmNowShelf({
 interface DiscoverGridProps {
   screenplays: Screenplay[];
   onOpen: ResultSurfaceProps['onOpen'];
+  producerAssessments?: ProducerAssessmentMap;
 }
 
-export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
+export function DiscoverGrid({
+  screenplays,
+  onOpen,
+  producerAssessments,
+}: DiscoverGridProps) {
   if (screenplays.length === 0) {
     return <p className="cinema-empty-rail">Every matching screenplay is shown above.</p>;
   }
@@ -307,6 +345,10 @@ export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
                 <span className="flex items-center gap-1.5">
                   <AnalysisTrustBadge screenplay={screenplay} />
                   <DiscoveryShareStatus screenplay={screenplay} />
+                  <ProducerScoreBadge
+                    assessment={assessmentFor(producerAssessments, screenplay)}
+                    compact
+                  />
                 </span>
               </span>
               <h3 className="cinema-poster-title">{screenplay.title}</h3>

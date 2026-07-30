@@ -5,12 +5,14 @@ import {
   DeferredReaderEvidence,
   ModalHeader,
   NotesSection,
+  ProducerTake,
   ScoresPanel,
   ShareButton,
 } from '@/components/screenplay/modal';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
 import type { Screenplay } from '@/types';
+import { useIsAdmin } from '@/stores/authStore';
 
 interface DiscoverDrawerProps {
   screenplay: Screenplay;
@@ -21,6 +23,7 @@ const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
+  const isAdmin = useIsAdmin();
   const drawerRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -173,6 +176,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
             >
               <ScoresPanel screenplay={screenplay} />
             </section>
+            {isAdmin && <ProducerTake screenplay={screenplay} />}
             <section
               data-testid="discovery-content-details"
               className="dsc-card space-y-7 p-4 sm:p-5"

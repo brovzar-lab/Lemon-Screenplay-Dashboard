@@ -22,8 +22,8 @@ vi.mock('./modal', () => ({
   ContentDetails: ({ screenplay }: { screenplay: { title: string } }) => (
     <p>Details {screenplay.title}</p>
   ),
-  FeedbackSection: ({ screenplay }: { screenplay: { title: string } }) => (
-    <p>Feedback {screenplay.title}</p>
+  ProducerTake: ({ screenplay }: { screenplay: { title: string } }) => (
+    <p>Producer Take {screenplay.title}</p>
   ),
   FieldPositionPanel: () => <p>Field Position</p>,
   NotesSection: ({ screenplayId }: { screenplayId: string }) => (

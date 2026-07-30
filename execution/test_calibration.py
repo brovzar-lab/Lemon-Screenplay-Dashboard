@@ -1,4 +1,5 @@
 import os
+import hashlib
 import tempfile
 import unittest
 from types import SimpleNamespace
@@ -19,12 +20,17 @@ class CalibrationProfileTests(unittest.TestCase):
         daemon._db = self.previous_db
 
     def test_enabled_profile_is_loaded_with_a_non_secret_fingerprint(self):
+        prompt = "Favor emotional specificity over tidy structure."
         daemon._db.collection.return_value.document.return_value.get.return_value = (
             SimpleNamespace(
                 exists=True,
                 to_dict=lambda: {
                     "enabled": True,
-                    "calibrationPrompt": "Favor emotional specificity over tidy structure.",
+                    "calibrationPrompt": prompt,
+                    "activeVersionId": "candidate-1",
+                    "promptSha256": hashlib.sha256(prompt.encode()).hexdigest(),
+                    "sourceAssessmentSetSha256": "ab" * 32,
+                    "compilerModelId": "claude-opus-4-7",
                     "lastCalibrated": "2026-07-21T12:00:00Z",
                     "totalReviews": 12,
                 },
@@ -41,6 +47,46 @@ class CalibrationProfileTests(unittest.TestCase):
         self.assertEqual(profile["total_reviews"], 12)
         self.assertRegex(profile["prompt_sha256"], r"^[a-f0-9]{64}$")
         self.assertNotIn("prompt", profile["provenance"])
+        self.assertEqual(
+            profile["provenance"]["profile_version_id"],
+            "candidate-1",
+        )
+        self.assertEqual(
+            profile["provenance"]["source_assessment_set_sha256"],
+            "ab" * 32,
+        )
+        self.assertEqual(
+            profile["provenance"]["compiler_model_id"],
+            "claude-opus-4-7",
+        )
+
+    def test_versioned_profile_with_mismatched_prompt_hash_falls_back(self):
+        daemon._db.collection.return_value.document.return_value.get.return_value = (
+            SimpleNamespace(
+                exists=True,
+                to_dict=lambda: {
+                    "enabled": True,
+                    "calibrationPrompt": "Published prompt",
+                    "activeVersionId": "candidate-1",
+                    "promptSha256": "00" * 32,
+                    "sourceAssessmentSetSha256": "ab" * 32,
+                    "compilerModelId": "claude-opus-4-7",
+                    "totalReviews": 5,
+                },
+            )
+        )
+
+        profile = daemon.load_calibration_profile()
+
+        self.assertIsNone(profile["prompt"])
+        self.assertEqual(
+            profile["provenance"]["fallback_reason"],
+            "invalid_profile",
+        )
+        self.assertIn(
+            "prompt hash",
+            profile["provenance"]["validation_error"],
+        )
 
     def test_disabled_or_missing_profile_does_not_change_analysis(self):
         daemon._db.collection.return_value.document.return_value.get.return_value = (

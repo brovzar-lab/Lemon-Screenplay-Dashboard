@@ -3,9 +3,9 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-07-29
+**Last session:** 2026-07-30
 
-**Done and deployed on `main` at `0c47f00`:**
+**Done and deployed on `main` at `d314c94`:**
 - Discovery reconnection R0-R6 and the Cinema Browse presentation are available
   at `/discover`; the original dashboard remains available at `/`.
 - **Q0 baseline:** captured the production data census and froze the trust
@@ -19,9 +19,7 @@
 - **Q3.1 and Q3.2 strict output/accounting:** malformed output cannot become a
   false model success, upstream rejections remain rejections, and failed calls
   release their budget reservations correctly.
-
-**In progress on `codex/q4-app-projection`:**
-- Q4 repairs what the app presents as true. Stored adjusted scores now drive
+- **Q4 producer projection:** stored adjusted scores now drive
   ranking, while raw score, deductions, gates, and final score remain visible.
 - Current analysis shows the actual five V9 specialist pillars. The old seven
   approximated dimensions remain only as a labeled legacy compatibility path.
@@ -30,18 +28,39 @@
 - New writes keep specialist reports only in the immutable version. The latest
   parent and slate listener carry the summary; detail views fetch the exact
   sealed evidence when opened.
-- The complete contract and historical wire-level limitation are documented in
-  `docs/trust-hardening/Q4-PRODUCER-PROJECTION.md`.
+- Q4 is deployed and production-approved.
+
+**Implemented locally on `codex/q5-producer-calibration`:**
+- A single Producer Take replaces the two old visible feedback inputs. Billy's
+  score, verdict, pursuit decision, fixability, confidence, taste signals, and
+  written correction live beside the AI result without changing it.
+- Producer assessments are append-only revisions bound to an exact immutable
+  analysis version. Server-authored compatibility projections keep the existing
+  Brain and feedback data paths usable.
+- A frontier Opus candidate compiler learns only from explicit training
+  assessments. A disjoint holdout replay stays blind to Billy's answer.
+- Candidates are blocked if they worsen score error, verdict agreement, false
+  passes, or false recommendations. Passing candidates support explicit
+  publication and rollback with immutable receipts.
+- Trust-manifest v4 seals the exact active profile version, prompt hash,
+  assessment-set hash, and compiler model. Invalid profiles fall back to neutral
+  analysis before paid work.
+- Full contract: `docs/trust-hardening/Q5-PRODUCER-CALIBRATION.md`.
 
 **Production state:**
-- Production remains on `main` at `0c47f00`, including Q3.2.
-- Q4 has not been deployed and has made no paid model calls.
+- Production is on `main` at `d314c94`, including approved Q4.
+- Q5 is local only. It has made no paid model calls, deployed nothing, and
+  activated no calibration profile.
 
 **Next up:**
-1. Billy reviews `/discover` locally, especially WILL, Sola, and HERMANOS.
-2. Run an independent code and browser verification of the Q4 branch.
-3. Only after Billy explicitly approves, merge Q4 and coordinate its hosting
-   and VPS deployment. Q4 does not require a Functions or rules deployment.
+1. Billy reviews the Q5 Producer Take in a sealed screenplay analysis and the
+   Calibration settings panel locally.
+2. Run an independent code and browser verification of the Q5 branch.
+3. Only after explicit approval, merge Q5 and coordinate hosting,
+   `calibrationManager`, Firestore rules, and VPS deployment.
+4. After deployment, Billy records at least five diverse Producer Takes.
+5. Paid candidate compilation and calibration activation each require separate
+   explicit approval.
 
 **Backlog pointer:**
 - Discovery UI backlog remains in `docs/DISCOVERY-BACKLOG.md`.
