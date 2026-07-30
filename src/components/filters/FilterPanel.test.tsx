@@ -70,7 +70,7 @@ describe('FilterPanel', () => {
             expect(screen.getByText('Source Category')).toBeInTheDocument();
             expect(screen.getByText('Genre & Theme')).toBeInTheDocument();
             expect(screen.getByText('Core Scores')).toBeInTheDocument();
-            expect(screen.getByText('Dimension Scores')).toBeInTheDocument();
+            expect(screen.getByText('Legacy Score Estimates')).toBeInTheDocument();
             expect(screen.getByText('Market Analysis')).toBeInTheDocument();
         });
 
@@ -84,7 +84,7 @@ describe('FilterPanel', () => {
         it('Core Scores section is closed initially', () => {
             render(<FilterPanel isOpen={true} onClose={mockOnClose} />);
             // Core Scores should NOT be open by default — its content not visible
-            expect(screen.queryByText('Weighted Score')).not.toBeInTheDocument();
+            expect(screen.queryByText('Final Score')).not.toBeInTheDocument();
             expect(screen.queryByText('CVS Total')).not.toBeInTheDocument();
         });
 
@@ -97,7 +97,7 @@ describe('FilterPanel', () => {
             // Open Core Scores by clicking it
             fireEvent.click(screen.getByText('Core Scores'));
             // Core Scores content should now be visible
-            expect(screen.getByText('Weighted Score')).toBeInTheDocument();
+            expect(screen.getByText('Final Score')).toBeInTheDocument();
             expect(screen.getByText('CVS Total')).toBeInTheDocument();
         });
 
@@ -124,8 +124,8 @@ describe('FilterPanel', () => {
     describe('Advanced disclosure', () => {
         it('renders without Advanced content visible by default', () => {
             render(<FilterPanel isOpen={true} onClose={mockOnClose} />);
-            // Open Dimension Scores section first
-            fireEvent.click(screen.getByText('Dimension Scores'));
+            // Open Legacy Score Estimates section first
+            fireEvent.click(screen.getByText('Legacy Score Estimates'));
             // The dimension sliders (Concept, Structure, etc.) should NOT be visible
             // without clicking the "Advanced" button first
             expect(screen.queryByText('Concept')).not.toBeInTheDocument();
@@ -133,8 +133,8 @@ describe('FilterPanel', () => {
 
         it('clicking Advanced button reveals dimension slider content', () => {
             render(<FilterPanel isOpen={true} onClose={mockOnClose} />);
-            // Open Dimension Scores section
-            fireEvent.click(screen.getByText('Dimension Scores'));
+            // Open Legacy Score Estimates section
+            fireEvent.click(screen.getByText('Legacy Score Estimates'));
             // Before clicking Advanced — sliders hidden
             expect(screen.queryByText('Concept')).not.toBeInTheDocument();
             // Click the "Advanced" toggle button
@@ -163,7 +163,7 @@ describe('FilterPanel', () => {
                 conceptRange: { min: 0, max: 10, enabled: true },
             });
             render(<FilterPanel isOpen={true} onClose={mockOnClose} />);
-            // The Dimension Scores section should be open and Advanced expanded
+            // The Legacy Score Estimates section should be open and Advanced expanded
             // so that the Concept slider is visible
             expect(screen.getByText('Concept')).toBeInTheDocument();
         });
@@ -275,14 +275,14 @@ describe('FilterPanel', () => {
     });
 
     // ────────────────────────────────────────────
-    // Dimension Scores Section
+    // Legacy Score Estimates Section
     // ────────────────────────────────────────────
 
-    describe('dimension scores section', () => {
-        it('renders all 7 dimension range sliders when Dimension Scores and Advanced are opened', () => {
+    describe('legacy score estimates section', () => {
+        it('renders all 7 compatibility sliders when Legacy Score Estimates and Advanced are opened', () => {
             render(<FilterPanel isOpen={true} onClose={mockOnClose} />);
-            // Open Dimension Scores accordion first
-            fireEvent.click(screen.getByText('Dimension Scores'));
+            // Open Legacy Score Estimates accordion first
+            fireEvent.click(screen.getByText('Legacy Score Estimates'));
             // Then open the Advanced disclosure to reveal sliders (FILTER-02)
             fireEvent.click(screen.getByText('Advanced'));
 

@@ -330,8 +330,14 @@ def build_parent_document(
     existing_source = (existing_parent or {}).get("source_file")
     canonical_source = existing_source if isinstance(existing_source, str) and existing_source else source_file
     saved_at = version_created_at(queued_at_ms).isoformat().replace("+00:00", "Z")
+    parent_projection = dict(raw)
+    analysis = raw.get("analysis")
+    if isinstance(analysis, dict):
+        projected_analysis = dict(analysis)
+        projected_analysis.pop("reader_reports", None)
+        parent_projection["analysis"] = projected_analysis
     return {
-        **raw,
+        **parent_projection,
         "source_file": canonical_source,
         "latest_source_file": source_file,
         "project_id": project_id,

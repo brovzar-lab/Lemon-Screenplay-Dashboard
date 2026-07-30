@@ -3,7 +3,7 @@
  *
  * Displayed in the screenplay modal, allowing the admin to:
  * - Override the overall score and verdict
- * - Override individual dimension scores
+ * - Override the displayed specialist pillars (or honest legacy dimensions)
  * - Add corrections and highlights
  * - Mark greenlight decision
  *
@@ -13,8 +13,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { clsx } from 'clsx';
-import type { Screenplay } from '@/types';
+import { DIMENSION_CONFIG, type Screenplay } from '@/types';
 import { SectionHeader } from './SectionHeader';
+import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import {
     saveFeedback,
     loadFeedback,
@@ -27,16 +28,6 @@ interface FeedbackSectionProps {
 }
 
 const VERDICTS = ['pass', 'consider', 'recommend', 'film_now'] as const;
-
-const DIMENSIONS = [
-    { key: 'concept', label: 'Concept/Premise' },
-    { key: 'structure', label: 'Structure' },
-    { key: 'protagonist', label: 'Protagonist' },
-    { key: 'supportingCast', label: 'Supporting Cast' },
-    { key: 'dialogue', label: 'Dialogue' },
-    { key: 'genreExecution', label: 'Genre/Voice' },
-    { key: 'originality', label: 'Originality/Theme' },
-] as const;
 
 function verdictLabel(v: string): string {
     return v.replace(/_/g, ' ').toUpperCase();
@@ -52,6 +43,20 @@ function verdictColor(v: string): string {
     }
 }
 
+function buildEvidenceOverrides(
+    screenplay: Screenplay,
+): Record<string, DimensionOverride> {
+    return Object.fromEntries(
+        getDimensionDisplay(screenplay).map((dimension) => [
+            dimension.key,
+            {
+                aiScore: dimension.score,
+                userScore: dimension.score,
+            },
+        ]),
+    );
+}
+
 export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -65,6 +70,13 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
     const [aiMissed, setAiMissed] = useState('');
     const [aiGotRight, setAiGotRight] = useState('');
     const [greenlight, setGreenlight] = useState<'yes' | 'no' | 'maybe' | null>(null);
+    const evidenceDimensions = getDimensionDisplay(screenplay);
+    const currentEvidenceKeys = new Set(
+        evidenceDimensions.map((dimension) => dimension.key),
+    );
+    const preservedLegacyOverrides = Object.entries(dimensionOverrides).filter(
+        ([key]) => !currentEvidenceKeys.has(key),
+    );
 
     // Load existing feedback
     useEffect(() => {
@@ -73,7 +85,10 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
             if (fb) {
                 setUserScore(fb.userScore);
                 setUserVerdict(fb.userVerdict);
-                setDimensionOverrides(fb.dimensionOverrides);
+                setDimensionOverrides({
+                    ...buildEvidenceOverrides(screenplay),
+                    ...fb.dimensionOverrides,
+                });
                 setAiMissed(fb.aiMissed);
                 setAiGotRight(fb.aiGotRight);
                 setGreenlight(fb.greenlight);
@@ -81,16 +96,12 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
             }
             setLoaded(true);
         });
-    }, [screenplay.id, loaded]);
+    }, [screenplay, loaded]);
 
     // Initialize dimension overrides with AI scores
     useEffect(() => {
         if (Object.keys(dimensionOverrides).length > 0) return;
-        const initial: Record<string, DimensionOverride> = {};
-        for (const dim of DIMENSIONS) {
-            const aiScore = screenplay.dimensionScores?.[dim.key as keyof typeof screenplay.dimensionScores] ?? 0;
-            initial[dim.key] = { aiScore: Number(aiScore), userScore: Number(aiScore) };
-        }
+        const initial = buildEvidenceOverrides(screenplay);
         // Use functional update to avoid stale closure; only runs when overrides are empty
         setDimensionOverrides((current) => Object.keys(current).length > 0 ? current : initial);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -204,13 +215,15 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                         </div>
                     </div>
 
-                    {/* Per-Dimension Score Overrides */}
+                    {/* Per-evidence score overrides */}
                     <div>
                         <label className="text-xs text-black-500 uppercase tracking-wider mb-3 block">
-                            Dimension Score Overrides
+                            {screenplay.pillarScores?.length
+                                ? 'Five-Pillar Score Overrides'
+                                : 'Legacy Dimension Score Overrides'}
                         </label>
                         <div className="space-y-2">
-                            {DIMENSIONS.map((dim) => {
+                            {evidenceDimensions.map((dim) => {
                                 const override = dimensionOverrides[dim.key];
                                 if (!override) return null;
                                 const delta = override.userScore - override.aiScore;
@@ -243,6 +256,70 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                                 );
                             })}
                         </div>
+                        {preservedLegacyOverrides.length > 0 && (
+                            <div
+                                className="mt-4 border-t border-black-700 pt-4"
+                                data-testid="preserved-legacy-feedback"
+                            >
+                                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-300">
+                                    Previously Saved Legacy Dimension Overrides
+                                </p>
+                                <p className="mb-3 text-xs leading-5 text-black-500">
+                                    These producer corrections belong to the older
+                                    seven-dimension system. They are preserved as
+                                    historical feedback and are not relabeled as
+                                    five-pillar evidence.
+                                </p>
+                                <div className="space-y-2">
+                                    {preservedLegacyOverrides.map(([key, override]) => {
+                                        const label = DIMENSION_CONFIG.find(
+                                            (dimension) => dimension.key === key,
+                                        )?.label ?? key.replaceAll('_', ' ');
+                                        const delta = override.userScore - override.aiScore;
+                                        return (
+                                            <div key={key} className="flex items-center gap-3">
+                                                <span className="w-28 shrink-0 text-xs text-black-400">
+                                                    {label}
+                                                </span>
+                                                <span className="w-8 text-right text-xs text-black-600">
+                                                    {override.aiScore.toFixed(1)}
+                                                </span>
+                                                <input
+                                                    type="range"
+                                                    min="1"
+                                                    max="10"
+                                                    step="0.1"
+                                                    value={override.userScore}
+                                                    onChange={(event) =>
+                                                        updateDimension(
+                                                            key,
+                                                            parseFloat(event.target.value),
+                                                        )}
+                                                    className="flex-1 accent-gold-500"
+                                                    aria-label={`${label} legacy override`}
+                                                />
+                                                <span className="w-8 text-right text-sm text-black-300">
+                                                    {override.userScore.toFixed(1)}
+                                                </span>
+                                                {Math.abs(delta) >= 0.5 && (
+                                                    <span
+                                                        className={clsx(
+                                                            'w-10 text-xs',
+                                                            delta > 0
+                                                                ? 'text-emerald-400'
+                                                                : 'text-red-400',
+                                                        )}
+                                                    >
+                                                        {delta > 0 ? '+' : ''}
+                                                        {delta.toFixed(1)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Greenlight Decision */}

@@ -153,6 +153,14 @@ class TestImmutableVersionStorage(unittest.TestCase):
         self.assertTrue(all(tx is transaction for tx in version_ref.read_transactions))
         self.assertEqual(transaction.operations[0][2]["version_id"], VERSION_ID)
         self.assertEqual(transaction.operations[1][2]["latest_version_id"], VERSION_ID)
+        self.assertIn(
+            "reader_reports",
+            transaction.operations[0][2]["analysis"],
+        )
+        self.assertNotIn(
+            "reader_reports",
+            transaction.operations[1][2]["analysis"],
+        )
 
     def test_renamed_revision_produces_two_self_validating_documents(self):
         transaction = FakeTransaction()
@@ -187,7 +195,7 @@ class TestImmutableVersionStorage(unittest.TestCase):
             raw["source_file"],
         )
         validate_permanent_analysis(version_document)
-        validate_permanent_analysis(parent_document)
+        self.assertNotIn("reader_reports", parent_document["analysis"])
 
     def test_retrying_an_existing_version_does_not_advance_the_parent(self):
         transaction = FakeTransaction()

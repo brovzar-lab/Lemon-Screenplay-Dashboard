@@ -287,7 +287,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
                 }}
               >
                 <option value="marketPotential">Sort: Market Potential</option>
-                <option value="weightedScore">Sort: Weighted Score</option>
+                <option value="weightedScore">Sort: Final Score</option>
                 <option value="cvsTotal">Sort: CVS Total</option>
 
                 <option value="title">Sort: Title A-Z</option>

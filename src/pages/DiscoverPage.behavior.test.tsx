@@ -177,8 +177,8 @@ describe('DiscoverPage find toolchain', () => {
     await waitForWeightedDefault();
 
     await user.click(screen.getByText('Score ranges'));
-    await user.click(screen.getByRole('checkbox', { name: 'Weighted score' }));
-    fireEvent.change(screen.getByRole('slider', { name: 'Maximum Weighted score' }), {
+    await user.click(screen.getByRole('checkbox', { name: 'Final score' }));
+    fireEvent.change(screen.getByRole('slider', { name: 'Maximum Final score' }), {
       target: { value: '6' },
     });
 
@@ -186,8 +186,8 @@ describe('DiscoverPage find toolchain', () => {
     await user.click(screen.getByRole('button', { name: 'Clear filters' }));
     await waitFor(() => expect(discoveryResults()).toHaveLength(7));
 
-    await user.click(screen.getByRole('checkbox', { name: 'Weighted score' }));
-    expect(screen.getByRole('slider', { name: 'Maximum Weighted score' })).toHaveValue('10');
+    await user.click(screen.getByRole('checkbox', { name: 'Final score' }));
+    expect(screen.getByRole('slider', { name: 'Maximum Final score' })).toHaveValue('10');
   });
 
   it('keeps same-title screenplays from different projects as separate grid cards', async () => {

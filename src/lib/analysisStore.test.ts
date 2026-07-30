@@ -243,6 +243,14 @@ describe('analysisStore authReady gates', () => {
             projectId: 'identified.pdf',
             contentHash,
             queuedAtMs,
+            data: {
+                analysis: {
+                    weighted_score: 7.1,
+                    reader_reports: {
+                        structure: { pillar_score: 7.2 },
+                    },
+                },
+            },
         });
         const { flushPendingWrites } = await import('./analysisStore');
 
@@ -270,8 +278,15 @@ describe('analysisStore authReady gates', () => {
             }),
         );
         const versionDocument = mockTransactionSet.mock.calls[0][1] as Record<string, unknown>;
+        const parentDocument = mockTransactionSet.mock.calls[1][1] as Record<string, unknown>;
         expect((versionDocument.created_at as MockTimestamp).toMillis()).toBe(queuedAtMs);
         expect(Number.isInteger(versionDocument.version_number)).toBe(true);
+        expect(
+            (versionDocument.analysis as Record<string, unknown>).reader_reports,
+        ).toBeDefined();
+        expect(
+            (parentDocument.analysis as Record<string, unknown>).reader_reports,
+        ).toBeUndefined();
         expect(mockSetDoc).not.toHaveBeenCalled();
     });
 
@@ -839,5 +854,43 @@ describe('slimRecord (localStorage quota fallback)', () => {
         expect(slim.analysis_version).toBe('v9_archaeology');
         // Original record must be untouched (slim is a copy)
         expect(record).toHaveProperty('v9_meta');
+    });
+});
+
+describe('stripDeferredAnalysisFields', () => {
+    it('keeps projection fields while removing heavy reader reports from list data', async () => {
+        const { stripDeferredAnalysisFields } = await import('./analysisStore');
+        const record = {
+            source_file: 'Evidence.pdf',
+            analysis: {
+                title: 'Evidence',
+                weighted_score: 7.2,
+                pillar_scores: {
+                    structure: { score: 7.1 },
+                },
+                reader_reports: {
+                    structure: {
+                        pillar_score: 7.1,
+                        sub_scores: { beginning: { score: 7 } },
+                    },
+                },
+            },
+        };
+
+        const projection = stripDeferredAnalysisFields(record);
+
+        expect(projection).toEqual({
+            source_file: 'Evidence.pdf',
+            analysis: {
+                title: 'Evidence',
+                weighted_score: 7.2,
+                pillar_scores: {
+                    structure: { score: 7.1 },
+                },
+            },
+        });
+        expect(
+            (record.analysis as Record<string, unknown>).reader_reports,
+        ).toBeDefined();
     });
 });

@@ -5,7 +5,10 @@
 
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
-import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import {
+  getDimensionDisplay,
+  hasPillarScores,
+} from '@/lib/dimensionDisplay';
 
 interface ComparisonSideBySideProps {
   screenplays: Screenplay[];
@@ -13,6 +16,23 @@ interface ComparisonSideBySideProps {
 }
 
 export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBySideProps) {
+  const evidenceGroups = (['pillar', 'legacy'] as const).flatMap((kind) => {
+    const reference = screenplays.find((screenplay) =>
+      kind === 'pillar'
+        ? hasPillarScores(screenplay)
+        : !hasPillarScores(screenplay),
+    );
+    return reference
+      ? [{
+          kind,
+          title: kind === 'pillar'
+            ? 'Five-Pillar Reader Evidence'
+            : 'Legacy Dimension Scores',
+          dimensions: getDimensionDisplay(reference),
+        }]
+      : [];
+  });
+
   // Get tier badge style
   const getTierBadge = (sp: Screenplay) => {
     switch (sp.recommendation) {
@@ -83,9 +103,9 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
         <div className="mb-6">
           <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--sp-accent)' }}>Core Scores</h4>
 
-          {/* Weighted Score Row */}
+          {/* Final Score Row */}
           <MetricRow
-            label="Weighted Score"
+            label="Final Score"
             values={screenplays.map(sp => sp.weightedScore)}
             max={10}
             screenplays={screenplays}
@@ -101,20 +121,32 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
           />
         </div>
 
-        {/* Dimension Scores Section — uses version-appropriate labels */}
-        <div className="mb-6">
-          <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--sp-accent)' }}>Dimension Scores</h4>
+        {/* Analysis evidence sections stay separate across engine generations. */}
+        {evidenceGroups.map((group) => (
+          <div key={group.kind} className="mb-6">
+            <h4 className="text-sm font-medium mb-3" style={{ color: 'var(--sp-accent)' }}>
+              {group.title}
+            </h4>
 
-          {getDimensionDisplay(screenplays[0]).map((dim, idx) => (
-            <MetricRow
-              key={dim.key}
-              label={dim.label}
-              values={screenplays.map(sp => getDimensionDisplay(sp)[idx]?.score ?? 0)}
-              max={10}
-              screenplays={screenplays}
-            />
-          ))}
-        </div>
+            {group.dimensions.map((dimension) => (
+              <MetricRow
+                key={`${group.kind}:${dimension.key}`}
+                label={dimension.label}
+                values={screenplays.map((screenplay) => {
+                  const sameKind = group.kind === 'pillar'
+                    ? hasPillarScores(screenplay)
+                    : !hasPillarScores(screenplay);
+                  if (!sameKind) return null;
+                  return getDimensionDisplay(screenplay).find(
+                    (item) => item.key === dimension.key,
+                  )?.score ?? null;
+                })}
+                max={10}
+                screenplays={screenplays}
+              />
+            ))}
+          </div>
+        ))}
 
         {/* AI Market Analysis Section */}
         <div className="mb-6">
@@ -231,14 +263,21 @@ export function ComparisonSideBySide({ screenplays, onRemove }: ComparisonSideBy
 // Metric Row Component
 interface MetricRowProps {
   label: string;
-  values: number[];
+  values: Array<number | null>;
   max: number;
   screenplays: Screenplay[];
   formatValue?: (v: number) => string;
 }
 
 function MetricRow({ label, values, max, screenplays, formatValue = (v) => v.toFixed(1) }: MetricRowProps) {
-  const bestIndex = Math.max(...values) === Math.min(...values) ? -1 : values.indexOf(Math.max(...values));
+  const numericValues = values.flatMap((value) =>
+    value === null ? [] : [value],
+  );
+  const highest = numericValues.length > 0 ? Math.max(...numericValues) : null;
+  const lowest = numericValues.length > 0 ? Math.min(...numericValues) : null;
+  const bestIndex = highest === null || highest === lowest
+    ? -1
+    : values.indexOf(highest);
 
   return (
     <div
@@ -247,6 +286,13 @@ function MetricRow({ label, values, max, screenplays, formatValue = (v) => v.toF
     >
       <div className="text-sm text-black-400">{label}</div>
       {values.map((value, index) => {
+        if (value === null) {
+          return (
+            <div key={screenplays[index].id} className="text-sm text-black-500">
+              N/A
+            </div>
+          );
+        }
         const pct = (value / max) * 100;
         const isBest = index === bestIndex;
         const scoreClass = pct >= 80 ? 'text-emerald-400' : pct >= 60 ? 'text-amber-400' : 'text-red-400';

@@ -17,9 +17,15 @@ import type {
   CommercialViability,
   ComparableFilm,
   CriticalFailureSeverity,
+  PillarScore,
+  ReaderDisagreement,
 } from '@/types';
 
 import { createProducerMetrics } from '../calculations';
+import {
+  buildProducerProjection,
+  canonicalCriticalFailurePenalty,
+} from '@/lib/producerProjection';
 
 import { collectionToCategoryId } from './collectionMap';
 import {
@@ -28,14 +34,9 @@ import {
   normalizeTmdbStatus,
 } from './helpers';
 
-// ─── Types ──────────────────────────────────────────────────
+export type { PillarScore } from '@/types';
 
-/** Pillar score (from Archaeology Engine) */
-export interface PillarScore {
-  name: string;
-  score: number;
-  weight: number;
-}
+// ─── Types ──────────────────────────────────────────────────
 
 /** Goosebumps moment */
 export interface GoosebumpsMoment {
@@ -48,7 +49,6 @@ export interface GoosebumpsMoment {
 export interface ScreenplayWithPillars extends Screenplay {
   pillarScores?: PillarScore[];
   goosebumpsMomentDetails?: GoosebumpsMoment[];
-  readerDisagreements?: string[];
   storyVsSituation?: { score: number; verdict: string; gate_applied: boolean };
   executiveSummary?: string;
 }
@@ -86,7 +86,7 @@ export function isArchaeologyAnalysis(raw: unknown): boolean {
     typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10;
 
   if (String(v).endsWith('_triage')) {
-    return isFiniteScore(analysis.triage_score);
+    return isFiniteScore(analysis.triage_score ?? analysis.weighted_score);
   }
 
   if (!isFiniteScore(analysis.weighted_score)) return false;
@@ -116,19 +116,8 @@ export function normalizeV9Screenplay(
   collection: Collection,
 ): ScreenplayWithPillars {
   const analysis = raw.analysis as Record<string, unknown> || {};
-  const rawQuality = analysis.analysis_quality as Record<string, unknown> | undefined;
-  const legacyFailedReaders = Array.isArray(analysis.failed_readers)
-    ? analysis.failed_readers.map(String)
-    : [];
-  const failedReaders = Array.isArray(rawQuality?.failed_readers)
-    ? rawQuality.failed_readers.map(String)
-    : legacyFailedReaders;
-  const expectedReaders = typeof rawQuality?.expected_readers === 'number'
-    ? rawQuality.expected_readers
-    : 5;
-  const completedReaders = typeof rawQuality?.completed_readers === 'number'
-    ? rawQuality.completed_readers
-    : Math.max(0, expectedReaders - failedReaders.length);
+  const { projection: producerProjection, analysisQuality } =
+    buildProducerProjection(raw, analysis);
   type RawCriticalFailure = {
     failure?: unknown;
     description?: unknown;
@@ -150,7 +139,7 @@ export function normalizeV9Screenplay(
       return {
         failure,
         severity: 'major' as const,
-        penalty: -0.5,
+        penalty: -(canonicalCriticalFailurePenalty('major') ?? 0.8),
         evidence: 'See reader reports',
       };
     }
@@ -160,13 +149,10 @@ export function normalizeV9Screenplay(
     )
       ? failure.severity as CriticalFailureSeverity
       : 'major';
-    const penalty = typeof failure.penalty === 'number'
-      ? -Math.abs(failure.penalty)
-      : -0.5;
     return {
       failure: description,
       severity,
-      penalty,
+      penalty: -(canonicalCriticalFailurePenalty(severity) ?? 0.8),
       evidence: String(
         failure.why_structural || description || 'See reader reports',
       ),
@@ -180,11 +166,7 @@ export function normalizeV9Screenplay(
   const craftScore = pillarScores?.craft_scene?.score ?? 0;
   const conceptScore = pillarScores?.concept?.score ?? 0;
   const emotionScore = pillarScores?.emotional_resonance?.score ?? 0;
-  const weightedScore = typeof analysis.weighted_score === 'number'
-    ? analysis.weighted_score
-    : typeof analysis.triage_score === 'number'
-      ? analysis.triage_score
-      : 0;
+  const weightedScore = producerProjection.finalScore;
 
   // Map 5-pillar → legacy 7-dimension (best-effort mapping)
   const dimensionScores: DimensionScores = {
@@ -209,8 +191,7 @@ export function normalizeV9Screenplay(
   };
 
   // Verdict / recommendation
-  const verdictStr = String(analysis.verdict || 'PASS');
-  const recommendation = normalizeRecommendation(verdictStr);
+  const recommendation = normalizeRecommendation(producerProjection.finalVerdict);
   const isFilmNow = recommendation === 'film_now';
 
   // Characters
@@ -275,6 +256,38 @@ export function normalizeV9Screenplay(
 
   // Red flags
   const redFlags = analysis.red_flags as string[] | undefined;
+  const rawReaderDisagreements = Array.isArray(analysis.reader_disagreements)
+    ? analysis.reader_disagreements
+    : [];
+  const readerDisagreements: ReaderDisagreement[] = rawReaderDisagreements.map(
+    (disagreement) => {
+      if (typeof disagreement === 'string') {
+        return {
+          topic: disagreement,
+          readerA: '',
+          readerAPosition: '',
+          readerB: '',
+          readerBPosition: '',
+          resolution: '',
+        };
+      }
+      const record = disagreement && typeof disagreement === 'object'
+        ? disagreement as Record<string, unknown>
+        : {};
+      return {
+        topic: String(record.topic || record.issue || record.disagreement || ''),
+        readerA: String(record.reader_a || record.readerA || ''),
+        readerAPosition: String(
+          record.reader_a_position || record.readerAPosition || record.position_a || '',
+        ),
+        readerB: String(record.reader_b || record.readerB || ''),
+        readerBPosition: String(
+          record.reader_b_position || record.readerBPosition || record.position_b || '',
+        ),
+        resolution: String(record.resolution || record.synthesis_resolution || ''),
+      };
+    },
+  );
 
   // Metadata
   const metadata = raw.metadata as Record<string, unknown> | undefined;
@@ -297,12 +310,8 @@ export function normalizeV9Screenplay(
     sourceFile,
     analysisModel: String(raw.analysis_model || 'claude-sonnet'),
     analysisVersion: String(raw.analysis_version || 'v9_archaeology'),
-    analysisQuality: {
-      status: failedReaders.length > 0 || rawQuality?.status === 'partial' ? 'partial' : 'complete',
-      completedReaders,
-      expectedReaders,
-      failedReaders,
-    },
+    analysisQuality,
+    producerProjection,
     weightedScore,
     cvsTotal: commercialViability.cvsTotal,
     genre: String(analysis.genre || ''),
@@ -333,13 +342,12 @@ export function normalizeV9Screenplay(
       : (redFlags || []).map((f) => ({
           failure: f,
           severity: 'major' as const,
-          penalty: -0.5,
+          penalty: -(canonicalCriticalFailurePenalty('major') ?? 0.8),
           evidence: 'See reader reports',
         })),
-    criticalFailureTotalPenalty: criticalFailureDetails.reduce(
-      (sum, failure) => sum + failure.penalty,
-      0,
-    ),
+    criticalFailureTotalPenalty: producerProjection.penaltyApplied > 0
+      ? -producerProjection.penaltyApplied
+      : -producerProjection.reportedPenalty,
     majorWeaknesses: (analysis.weaknesses as string[]) || redFlags || [],
     strengths: (analysis.strengths as string[]) || [],
     weaknesses: (analysis.weaknesses as string[]) || redFlags || [],
@@ -400,7 +408,7 @@ export function normalizeV9Screenplay(
     // Archaeology Engine fields
     pillarScores: v7PillarArray,
     goosebumpsMomentDetails: goosebumpsMoments,
-    readerDisagreements: (analysis.reader_disagreements as string[]) || [],
+    readerDisagreements,
     storyVsSituation: storyVsSituation,
     executiveSummary: String(analysis.executive_summary || ''),
   };

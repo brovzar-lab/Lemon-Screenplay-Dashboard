@@ -237,7 +237,7 @@ export function ExportModal({
                 <ul className="space-y-1 ml-4 list-disc">
                   <li>Title page with recommendation badge</li>
                   <li>Core scores and producer metrics</li>
-                  <li>Dimension score breakdown</li>
+                  <li>Five-pillar or legacy score breakdown</li>
                   <li>Strengths, weaknesses, and development notes</li>
                   <li>Comparable films and production details</li>
                 </ul>
@@ -247,7 +247,7 @@ export function ExportModal({
                 <p className={clsx('font-medium text-black-300 mb-1', isDiscovery && 'text-[var(--dsc-ink)]')}>CSV Export includes:</p>
                 <ul className="space-y-1 ml-4 list-disc">
                   <li>All screenplay metadata and scores</li>
-                  <li>Dimension scores and CVS factors</li>
+                  <li>Five specialist pillars or legacy scores, plus CVS factors</li>
                   <li>Producer metrics</li>
                   <li>Assessment details</li>
                   <li>Compatible with Excel, Google Sheets</li>

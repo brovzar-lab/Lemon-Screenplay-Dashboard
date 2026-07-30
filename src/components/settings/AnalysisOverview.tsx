@@ -257,7 +257,7 @@ export function AnalysisOverview() {
         </div>
         <div className="grid grid-cols-4 divide-x divide-gold-500/10">
           {[
-            { icon: '🎯', value: '0–10', label: 'Weighted Score', sub: '5 pillar average' },
+            { icon: '🎯', value: '0–10', label: 'Final Score', sub: '5 pillars after deductions' },
             { icon: '💰', value: '/18', label: 'CVS Score', sub: 'Commercial viability' },
             { icon: '🏷️', value: '4 tiers', label: 'Verdict', sub: 'Film Now → Pass' },
             { icon: '🖼️', value: 'AI art', label: 'Movie Poster', sub: 'Cinematic one-sheet' },

@@ -85,7 +85,7 @@ export function DataManagement() {
         'Author',
         'Genre',
         'Recommendation',
-        'Weighted Score',
+        'Final Score',
         'CVS Total',
         ...dimHeaders,
         'Market Potential',

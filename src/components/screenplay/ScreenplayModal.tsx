@@ -22,6 +22,7 @@ import {
   ModalFooter,
   PosterSection,
   FieldPositionPanel,
+  DeferredReaderEvidence,
   SimilarProjects,
 } from './modal';
 import { useIsAdmin } from '@/stores/authStore';
@@ -167,6 +168,7 @@ export function ScreenplayModal({
             <ScoresPanel screenplay={screenplay} />
             <ProducerMetricsPanel screenplay={screenplay} />
             <ContentDetails screenplay={screenplay} />
+            <DeferredReaderEvidence screenplay={screenplay} />
             {onSelectScreenplay && (
               <SimilarProjects
                 screenplay={screenplay}

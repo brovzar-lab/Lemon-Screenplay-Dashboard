@@ -3,37 +3,58 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-07-22
+**Last session:** 2026-07-29
 
-**Done (Discovery reconnection R0-R6):**
-- The approved Compact Shelf design is permanently rescued at `docs/design/compact-shelf-final.html`; the product definition is in `PRODUCT.md`; every deferred decision is recorded in `docs/DISCOVERY-BACKLOG.md`.
-- **R0 Foundation:** added the authenticated, side-by-side `/discover` route without changing `/`; connected it to the existing `useScreenplays` + live-sync data spine with no mock production data.
-- **R1 Find:** added the featured screenplay, ranked shelf, responsive archive grid, shared search/filter/sort stores, honest counts, loading, and empty states.
-- **R2 Real analysis:** cards open a deep detail drawer using the existing score, content, and notes panels; Escape, focus return, and note persistence retain the proven modal behavior.
-- **R2.5 App shell:** added the Lemon header, real slate statistics, existing account/theme/sync controls, and deep links at `/discover/:projectId` with browser back/forward support.
-- **R3 Sharing:** connected the existing share-link create/reuse/copy/revoke machinery and public `/share/:token` flow; `/` focuses Discovery search.
-- **R4 Bulk actions:** connected the existing selection store, bulk share modal, and favorites modal across the featured, shelf, and grid surfaces.
-- **R5 PDFs:** connected the existing formal coverage generator and pitch-deck PDF exporter for one script or a multi-script selection. R5 is merged into `main` at `2fd3561` but is not deployed.
-- **R6 Finish line (current branch `codex/discovery-reconnect-r6`):** connected the existing shared Lens store/menu so saved views work in both dashboards; added Discovery access to Quick Favorites and named favorite lists; completed the Compact Shelf restyle for the drawer, share/export/bulk surfaces, selection bar, loading/empty states, light/dark themes, and desktop/tablet/phone layouts. No backend, rules, service, or store behavior changed.
+**Done and deployed on `main` at `0c47f00`:**
+- Discovery reconnection R0-R6 and the Cinema Browse presentation are available
+  at `/discover`; the original dashboard remains available at `/`.
+- **Q0 baseline:** captured the production data census and froze the trust
+  defects before changing the analysis system.
+- **Q1 immutable trust:** future permanent analyses require a sealed trust
+  manifest that identifies the model, prompt, evidence, response, and cost.
+- **Q2 complete evidence:** the parser proves page coverage and stops truncated
+  screenplays before scoring or verdict.
+- **Q3 five-reader reliability:** all five canonical specialist readers must
+  complete before synthesis; partial panels stop as `needs_review`.
+- **Q3.1 and Q3.2 strict output/accounting:** malformed output cannot become a
+  false model success, upstream rejections remain rejections, and failed calls
+  release their budget reservations correctly.
+
+**In progress on `codex/q4-app-projection`:**
+- Q4 repairs what the app presents as true. Stored adjusted scores now drive
+  ranking, while raw score, deductions, gates, and final score remain visible.
+- Current analysis shows the actual five V9 specialist pillars. The old seven
+  approximated dimensions remain only as a labeled legacy compatibility path.
+- Incomplete and truncated work cannot enter featured ranking. Instability,
+  disagreement, and legacy status are visible warnings.
+- New writes keep specialist reports only in the immutable version. The latest
+  parent and slate listener carry the summary; detail views fetch the exact
+  sealed evidence when opened.
+- The complete contract and historical wire-level limitation are documented in
+  `docs/trust-hardening/Q4-PRODUCER-PROJECTION.md`.
 
 **Production state:**
-- Hosting currently serves commit `62c47dd` (through R4). Both `/` and `/discover` return HTTP 200; the old dashboard remains the default at `/` and Discovery remains behind team sign-in.
-- R5 and R6 have **not** been deployed. The closing deployment must be a separately approved hosting-only deploy after Atlas verification and Billy's final visual pass.
-
-**In progress:**
-- R6 is complete on `codex/discovery-reconnect-r6` and awaiting independent Atlas verification, then Billy's final signed-in visual approval.
+- Production remains on `main` at `0c47f00`, including Q3.2.
+- Q4 has not been deployed and has made no paid model calls.
 
 **Next up:**
-1. Atlas code-read + full-suite rerun + signed-in browser verification of `/discover`.
-2. Billy final visual pass in both themes and at phone/desktop sizes.
-3. After explicit approval, merge R6 into `main` and run the closing hosting-only deploy. Do not deploy functions, rules, or VPS changes.
+1. Billy reviews `/discover` locally, especially WILL, Sola, and HERMANOS.
+2. Run an independent code and browser verification of the Q4 branch.
+3. Only after Billy explicitly approves, merge Q4 and coordinate its hosting
+   and VPS deployment. Q4 does not require a Functions or rules deployment.
 
 **Backlog pointer:**
-- All postponed or skipped Discovery work is tracked in `docs/DISCOVERY-BACKLOG.md`. Treat that file as the scope source for any post-reconnection phase; do not infer new work from the prototype HTML.
+- Discovery UI backlog remains in `docs/DISCOVERY-BACKLOG.md`.
+- Trust-hardening contracts and proof are in `docs/trust-hardening/`.
 
 **Open notes:**
-- `docs/design/compact-shelf-final.html` remains the approved visual reference; `dist/` prototype HTML is reference-only and must never ship as the app.
-- Existing untracked screenshots and `AGENTS.md` were intentionally left untouched throughout R0-R6.
+- Historical parent Firestore documents can still transfer embedded reader
+  reports during the existing live snapshot because Firestore cannot field-mask
+  a document. Q4 strips that data from list state and fetches exact version
+  evidence on open. Full historical wire-level deferral needs a separately
+  approved one-time parent-projection migration or replacement of the
+  disposable test slate.
+- Existing untracked screenshots, mockups, and `AGENTS.md` remain untouched.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.

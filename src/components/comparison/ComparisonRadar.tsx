@@ -13,7 +13,10 @@ import {
   Tooltip,
 } from 'recharts';
 import type { Screenplay } from '@/types';
-import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import {
+  getDimensionDisplay,
+  hasPillarScores,
+} from '@/lib/dimensionDisplay';
 
 interface ComparisonRadarProps {
   screenplays: Screenplay[];
@@ -59,13 +62,24 @@ function CustomTooltip({ active, payload, label, screenplays }: RadarCustomToolt
 }
 
 export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps) {
+  const evidenceKinds = new Set(
+    screenplays.map((screenplay) =>
+      hasPillarScores(screenplay) ? 'pillar' : 'legacy',
+    ),
+  );
+  const hasMixedEvidence = evidenceKinds.size > 1;
   // Transform data for Recharts radar — uses version-appropriate dimensions
-  const referenceDimensions = getDimensionDisplay(screenplays[0]);
-  const radarData = referenceDimensions.map((dim, idx) => ({
+  const referenceDimensions = hasMixedEvidence
+    ? []
+    : getDimensionDisplay(screenplays[0]);
+  const radarData = referenceDimensions.map((dim) => ({
     dimension: dim.label.length > 12 ? dim.label.slice(0, 12) + '.' : dim.label,
     fullMark: 10,
     ...Object.fromEntries(
-      screenplays.map((sp) => [sp.id, getDimensionDisplay(sp)[idx]?.score ?? 0])
+      screenplays.map((sp) => [
+        sp.id,
+        getDimensionDisplay(sp).find((item) => item.key === dim.key)?.score,
+      ])
     ),
   }));
 
@@ -96,10 +110,25 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
         ))}
       </div>
 
-      {/* Radar Chart */}
-      <div className="h-[500px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={radarData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+      {/* Mixed engine generations cannot truthfully share one set of axes. */}
+      {hasMixedEvidence ? (
+        <div
+          className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-5"
+          role="status"
+        >
+          <h4 className="text-sm font-semibold text-amber-300">
+            Mixed analysis generations
+          </h4>
+          <p className="mt-1 text-sm leading-6 text-black-300">
+            Five-pillar reader evidence and legacy dimensions measure different
+            things, so the app will not overlay them on one radar. Use the
+            side-by-side view to see each evidence system under its own labels.
+          </p>
+        </div>
+      ) : (
+        <div className="h-[500px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart data={radarData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
             <PolarGrid
               stroke="rgba(100, 116, 139, 0.3)"
               strokeDasharray="3 3"
@@ -140,9 +169,10 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
             ))}
 
             <Tooltip content={(props) => <CustomTooltip {...props} screenplays={screenplays} />} />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Score Comparison Table */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -157,7 +187,7 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-black-400">Weighted:</span>
+                <span className="text-black-400">Final:</span>
                 <span className="font-bold" style={{ color: 'var(--sp-text)' }}>{sp.weightedScore.toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
@@ -170,12 +200,17 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
               </div>
             </div>
 
-            {/* Dimension Averages */}
+            {/* Displayed evidence average */}
             <div className="mt-3 pt-3 border-t border-black-700">
               <div className="text-xs text-black-500">
-                Avg Dimension Score:{' '}
+                Avg Evidence Score:{' '}
                 <span style={{ color: 'var(--sp-text)' }}>
-                  {(Object.values(sp.dimensionScores).reduce((a, b) => a + b, 0) / 7).toFixed(1)}
+                  {(() => {
+                    const evidence = getDimensionDisplay(sp);
+                    return evidence.length > 0
+                      ? (evidence.reduce((total, item) => total + item.score, 0) / evidence.length).toFixed(1)
+                      : 'N/A';
+                  })()}
                 </span>
               </div>
             </div>
@@ -184,7 +219,8 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
       </div>
 
       {/* Dimension Breakdown Table */}
-      <div className="border border-black-700 rounded-lg overflow-hidden">
+      {!hasMixedEvidence && (
+        <div className="border border-black-700 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-black-800">
             <tr>
@@ -198,8 +234,12 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
             </tr>
           </thead>
           <tbody>
-            {referenceDimensions.map((dim, idx) => {
-              const scores = screenplays.map((sp) => getDimensionDisplay(sp)[idx]?.score ?? 0);
+            {referenceDimensions.map((dim) => {
+              const scores = screenplays.map((sp) =>
+                getDimensionDisplay(sp).find(
+                  (item) => item.key === dim.key,
+                )?.score ?? 0,
+              );
               const maxScore = Math.max(...scores);
               const winnerIndex = scores.indexOf(maxScore);
               const isTie = scores.filter((s) => s === maxScore).length > 1;
@@ -230,7 +270,8 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
             })}
           </tbody>
         </table>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

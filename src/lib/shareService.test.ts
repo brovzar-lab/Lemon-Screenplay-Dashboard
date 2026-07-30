@@ -276,6 +276,46 @@ describe('shareService', () => {
             const [, docData] = mockSetDoc.mock.calls[0];
             expect(docData.posterUrl).toBeNull();
         });
+
+        it('omits optional undefined projection fields from the Firestore snapshot', async () => {
+            mockGetDownloadURL.mockResolvedValueOnce('https://storage.example.com/sp.pdf');
+            const screenplay = makeMockScreenplay({
+                producerProjection: {
+                    rawScore: 6.5,
+                    finalScore: 6.5,
+                    scoreSource: 'triage',
+                    penaltyApplied: 0,
+                    reportedPenalty: 0,
+                    finalVerdict: 'consider',
+                    verdictBeforeGates: undefined,
+                    verdictAdjustments: [],
+                    gates: [],
+                    warnings: [],
+                    rankable: true,
+                    trustStatus: 'legacy_unverified',
+                    trustManifestVersion: undefined,
+                    boundary: {
+                        checked: false,
+                        runCount: 0,
+                        failedRunCount: 0,
+                        scoreSpread: 0,
+                        verdicts: [],
+                        stable: true,
+                    },
+                    readerDisagreementCount: 0,
+                },
+            });
+
+            await createShareToken('sp-001', screenplay, false);
+
+            const [, docData] = mockSetDoc.mock.calls[0];
+            expect(docData.analysis.producerProjection).not.toHaveProperty(
+                'verdictBeforeGates',
+            );
+            expect(docData.analysis.producerProjection).not.toHaveProperty(
+                'trustManifestVersion',
+            );
+        });
     });
 
     describe('resolveShareToken', () => {

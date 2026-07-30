@@ -22,6 +22,7 @@ import { ProductionBadge } from './ProductionBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { useIsAdmin } from '@/stores/authStore';
 import { PercentileBadge } from '@/components/ui/PercentileBadge';
+import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import type { PercentileRank } from '@/lib/percentileRanking';
 
 interface ScreenplayCardProps {
@@ -187,6 +188,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
           <div className="mb-2 flex items-center gap-2 min-w-0">
             <RecommendationBadge tier={screenplay.recommendation} />
             <PercentileBadge rank={percentileRank} showAll />
+            <AnalysisTrustBadge screenplay={screenplay} />
           </div>
           {/* Title: always 1 line, truncated */}
           <h3 className="text-base font-display leading-tight truncate" style={{ color: 'var(--sp-text)' }}>

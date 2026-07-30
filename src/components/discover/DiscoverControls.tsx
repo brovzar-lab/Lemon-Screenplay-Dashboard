@@ -138,7 +138,7 @@ export function DiscoverControls({
             onChange={(event) => handleSort(event.target.value as SortField)}
             className="dsc-select w-full normal-case tracking-normal"
           >
-            <option value="weightedScore">Weighted score</option>
+            <option value="weightedScore">Final score</option>
             <option value="marketPotential">Market potential</option>
             <option value="cvsTotal">CVS</option>
             <option value="title">Title</option>
@@ -222,7 +222,7 @@ export function DiscoverControls({
           </summary>
           <div className="dsc-score-popover">
             <RangeSlider
-              label="Weighted score"
+              label="Final score"
               min={0}
               max={10}
               value={[filters.weightedScoreRange.min, filters.weightedScoreRange.max]}

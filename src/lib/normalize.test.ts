@@ -260,6 +260,15 @@ describe('isArchaeologyAnalysis', () => {
         expect(isArchaeologyAnalysis(createMockTriageRaw('v9_triage'))).toBe(true);
     });
 
+    it('accepts trusted VPS triage output that stores weighted_score', () => {
+        const raw = createMockTriageRaw('v9_triage');
+        const analysis = raw.analysis as Record<string, unknown>;
+        delete analysis.triage_score;
+        analysis.weighted_score = 6.5;
+
+        expect(isArchaeologyAnalysis(raw)).toBe(true);
+    });
+
     it('returns true for plain v7 (legacy browser path)', () => {
         expect(isArchaeologyAnalysis(createMockV9Raw({ analysis_version: 'v7' }))).toBe(true);
     });
@@ -353,6 +362,29 @@ describe('normalizeV9Screenplay', () => {
         expect(result.weightedScore).toBe(8.35);
     });
 
+    it('projects the recorded adjusted score everywhere producers rank scripts', () => {
+        const raw = createMockV9Raw({
+            trust_manifest_version: 'lemon-trust-manifest-v3',
+        });
+        const analysis = raw.analysis as Record<string, unknown>;
+        analysis.weighted_score_adjusted = 7.85;
+        analysis.critical_failure_penalty_applied = 0.5;
+        analysis.verdict_before_gates = 'RECOMMEND';
+        analysis.verdict = 'CONSIDER';
+
+        const result = normalizeV9Screenplay(raw, 'Analysis');
+
+        expect(result.weightedScore).toBe(7.85);
+        expect(result.dimensionScores.weightedScore).toBe(7.85);
+        expect(result.producerProjection).toMatchObject({
+            rawScore: 8.35,
+            finalScore: 7.85,
+            penaltyApplied: 0.5,
+            scoreSource: 'adjusted',
+            finalVerdict: 'consider',
+        });
+    });
+
     it('preserves Q3 critical-failure severity and penalty while reading legacy fields', () => {
         const raw = createMockV9Raw();
         const analysis = raw.analysis as Record<string, unknown>;
@@ -387,6 +419,29 @@ describe('normalizeV9Screenplay', () => {
         const legacy = normalizeV9Screenplay(raw, 'Analysis');
         expect(legacy.criticalFailures).toEqual(['Legacy structural failure']);
         expect(legacy.criticalFailureDetails[0].evidence).toBe('Legacy evidence');
+    });
+
+    it('uses the Q3 severity contract instead of trusting a conflicting model penalty', () => {
+        const raw = createMockV9Raw();
+        const analysis = raw.analysis as Record<string, unknown>;
+        analysis.critical_failures = [
+            {
+                description: 'The ending does not pay off the governing choice.',
+                severity: 'moderate',
+                penalty: 0.1,
+            },
+        ];
+
+        const result = normalizeV9Screenplay(raw, 'Analysis');
+
+        expect(result.criticalFailureDetails[0].penalty).toBe(-0.5);
+        expect(result.criticalFailureTotalPenalty).toBe(-0.5);
+    });
+
+    it('does not invent reader completion metadata for older records', () => {
+        const result = normalizeV9Screenplay(createMockV9Raw(), 'Analysis');
+
+        expect(result.analysisQuality).toBeUndefined();
     });
 
     it('maps recommendation from verdict field', () => {

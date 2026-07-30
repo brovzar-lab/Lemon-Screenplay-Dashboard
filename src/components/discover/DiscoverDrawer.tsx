@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import {
+  AnalysisWarnings,
   ContentDetails,
+  DeferredReaderEvidence,
   ModalHeader,
   NotesSection,
   ScoresPanel,
@@ -106,6 +108,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
 
         <div className="dsc-drawer-body relative z-10 min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-5 lg:p-6">
+            <AnalysisWarnings screenplay={screenplay} />
             <section className="dsc-card p-5 sm:p-6" aria-labelledby="drawer-executive-read">
               <p className="dsc-kicker">The read</p>
               <h3 id="drawer-executive-read" className="dsc-display mt-2 text-3xl">
@@ -176,6 +179,12 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
               aria-label="Screenplay details"
             >
               <ContentDetails screenplay={screenplay} />
+            </section>
+            <section
+              className="dsc-card p-4 sm:p-5"
+              aria-label="Specialist reader evidence"
+            >
+              <DeferredReaderEvidence screenplay={screenplay} />
             </section>
             <section
               data-testid="discovery-notes-panel"

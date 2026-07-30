@@ -290,7 +290,7 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
           <Text style={styles.sectionTitle}>Core Scores</Text>
           <View style={styles.scoreGrid}>
             <View style={styles.scoreItem}>
-              <Text style={styles.scoreLabel}>Weighted Score</Text>
+              <Text style={styles.scoreLabel}>Final Score</Text>
               <Text style={[styles.scoreValue, { color: getScoreColor(screenplay.weightedScore) }]}>
                 {screenplay.weightedScore.toFixed(1)}
               </Text>
@@ -362,10 +362,14 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
         </View>
       </Page>
 
-      {/* Dimension Scores Page */}
+      {/* Analysis evidence page */}
       <Page size="A4" style={styles.page}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Dimension Scores</Text>
+          <Text style={styles.sectionTitle}>
+            {screenplay.pillarScores?.length
+              ? 'Five-Pillar Reader Evidence'
+              : 'Legacy Dimension Scores'}
+          </Text>
           <View style={styles.scoreGrid}>
             {getDimensionDisplay(screenplay).map((dim) => (
               <View key={dim.key} style={styles.scoreItem}>

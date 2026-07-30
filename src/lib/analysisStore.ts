@@ -105,7 +105,7 @@ async function writeVersionedAnalysis(
             created_at: Timestamp.fromMillis(identity.queued_at_ms),
         });
         transaction.set(parentRef, {
-            ...record,
+            ...stripDeferredAnalysisFields(record),
             source_file: canonicalSourceFile,
             latest_source_file: sourceFile,
             project_id: projectId,
@@ -135,6 +135,26 @@ export function slimRecord(r: Record<string, unknown>): Record<string, unknown> 
 }
 
 /**
+ * Reader reports are large evidence documents. List and ranking surfaces use
+ * the sealed pillar summary only; the exact immutable reports are fetched when
+ * a screenplay detail view opens.
+ */
+export function stripDeferredAnalysisFields(
+    record: Record<string, unknown>,
+): Record<string, unknown> {
+    const analysis = record.analysis;
+    if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) {
+        return record;
+    }
+    const { reader_reports: _deferredReaderReports, ...projection } =
+        analysis as Record<string, unknown>;
+    return {
+        ...record,
+        analysis: projection,
+    };
+}
+
+/**
  * Write to localStorage with two-level quota fallback:
  *   1. Try writing full records.
  *   2. On QuotaExceededError: strip heavy fields, try again.
@@ -143,9 +163,10 @@ export function slimRecord(r: Record<string, unknown>): Record<string, unknown> 
  * @param silent — if true, suppress error toasts (used for background sync).
  */
 function writeToLocal(analyses: Record<string, unknown>[], silent = false): void {
+    const projectionRecords = analyses.map(stripDeferredAnalysisFields);
     // Level 1 — full write
     try {
-        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(analyses));
+        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(projectionRecords));
         return;
     } catch (err) {
         const isQuota =
@@ -164,7 +185,7 @@ function writeToLocal(analyses: Record<string, unknown>[], silent = false): void
 
     // Level 2 — slim write (strip heavy analysis payloads)
     try {
-        const slim = analyses.map(slimRecord);
+        const slim = projectionRecords.map(slimRecord);
         localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(slim));
         console.log('[Lemon] Slim write succeeded — heavy fields stripped to fit quota');
         return;
@@ -354,7 +375,9 @@ export function getPendingWriteCount(): number {
  * path and replaces this cache as soon as its initial snapshot arrives.
  */
 export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
-    const localData = readFromLocal().filter((a) => !a._deleted_at && !isQuarantined(a));
+    const localData = readFromLocal()
+        .filter((a) => !a._deleted_at && !isQuarantined(a))
+        .map(stripDeferredAnalysisFields);
     console.log(`[Lemon] Loaded ${localData.length} analyses from startup cache`);
     return localData;
 }
@@ -397,8 +420,10 @@ export function subscribeToAnalyses(
             const cloudRecords = snapshot.docs
                 .map((d) => d.data() as Record<string, unknown>)
                 .filter((data) => !isQuarantined(data))
-                .map((data) => stripInternals(data));
-            const next = applyPendingWritesToRecords(cloudRecords).filter((d) => !d._deleted_at);
+                .map((data) => stripDeferredAnalysisFields(stripInternals(data)));
+            const next = applyPendingWritesToRecords(cloudRecords)
+                .filter((d) => !d._deleted_at)
+                .map(stripDeferredAnalysisFields);
 
             // Mirror to localStorage so the next cold-load is fast.
             writeToLocal(next, true);

@@ -29,7 +29,9 @@ export function exportToCSV(screenplays: Screenplay[], filename: string = 'scree
     'Verdict Statement': sp.verdictStatement,
 
     // Core Scores
-    'Weighted Score': sp.weightedScore.toFixed(2),
+    'Final Score': sp.weightedScore.toFixed(2),
+    'Raw Five-Pillar Score': sp.producerProjection?.rawScore.toFixed(2) ?? '',
+    'Critical-Failure Deduction': sp.producerProjection?.penaltyApplied.toFixed(2) ?? '',
     'CVS Total': sp.cvsTotal,
 
     // Dimension Scores (version-appropriate labels)

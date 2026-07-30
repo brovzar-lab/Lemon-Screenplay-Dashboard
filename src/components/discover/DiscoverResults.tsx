@@ -3,6 +3,7 @@ import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelec
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { ScriptCover } from '@/components/discover/ScriptCover';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
+import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import type { Screenplay } from '@/types';
 
@@ -20,7 +21,7 @@ function Score({
 }) {
   return (
     <div className={large ? 'cinema-score-lockup' : 'cinema-card-score'}>
-      {large && <span className="dsc-label dsc-label-faint block">Weighted score</span>}
+      {large && <span className="dsc-label dsc-label-faint block">Final score</span>}
       <span
         className={clsx('dsc-num block font-semibold leading-none', large ? 'text-6xl' : 'text-2xl')}
         aria-label={`Score ${screenplay.weightedScore.toFixed(1)}`}
@@ -75,6 +76,7 @@ function RankedCard({
           title={screenplay.title}
           author={screenplay.author}
           seed={screenplay.projectId ?? screenplay.id}
+          analysisVersion={screenplay.analysisVersion}
           className="cinema-poster-cover"
         />
         <span className="cinema-rank">#{rank}</span>
@@ -82,7 +84,10 @@ function RankedCard({
         <span className="cinema-poster-meta">
           <span className="flex items-center justify-between gap-2">
             <RecommendationBadge tier={screenplay.recommendation} />
-            <DiscoveryShareStatus screenplay={screenplay} />
+            <span className="flex items-center gap-1.5">
+              <AnalysisTrustBadge screenplay={screenplay} />
+              <DiscoveryShareStatus screenplay={screenplay} />
+            </span>
           </span>
           <h3 className="cinema-poster-title">{screenplay.title}</h3>
           <span className="cinema-poster-genre">{screenplay.genre}</span>
@@ -118,6 +123,7 @@ export function DiscoverFeature({
             title={featured.title}
             author={featured.author}
             seed={featured.projectId ?? featured.id}
+            analysisVersion={featured.analysisVersion}
             className="cinema-feature-cover"
           />
         </div>
@@ -125,6 +131,7 @@ export function DiscoverFeature({
         <div className="cinema-feature-copy">
           <div className="flex flex-wrap items-center gap-3">
             <span className="dsc-kicker">Featured screenplay</span>
+            <AnalysisTrustBadge screenplay={featured} />
             <DiscoveryShareStatus screenplay={featured} />
           </div>
           <h2 className="cinema-feature-title">{featured.title}</h2>
@@ -235,6 +242,7 @@ export function DiscoverFilmNowShelf({
                 title={screenplay.title}
                 author={screenplay.author}
                 seed={screenplay.projectId ?? screenplay.id}
+                analysisVersion={screenplay.analysisVersion}
                 className="w-24 shrink-0"
               />
               <span className="min-w-0">
@@ -284,14 +292,22 @@ export function DiscoverGrid({ screenplays, onOpen }: DiscoverGridProps) {
               title={screenplay.title}
               author={screenplay.author}
               seed={screenplay.projectId ?? screenplay.id}
+              analysisVersion={screenplay.analysisVersion}
               className="cinema-poster-cover"
             />
-            <span className="cinema-rank">#{index + 6}</span>
+            <span className="cinema-rank">
+              {screenplay.producerProjection?.rankable === false
+                ? 'Review'
+                : `#${index + 6}`}
+            </span>
             <span className="cinema-score-chip">{screenplay.weightedScore.toFixed(1)}</span>
             <span className="cinema-poster-meta">
               <span className="flex items-center justify-between gap-2">
                 <RecommendationBadge tier={screenplay.recommendation} />
-                <DiscoveryShareStatus screenplay={screenplay} />
+                <span className="flex items-center gap-1.5">
+                  <AnalysisTrustBadge screenplay={screenplay} />
+                  <DiscoveryShareStatus screenplay={screenplay} />
+                </span>
               </span>
               <h3 className="cinema-poster-title">{screenplay.title}</h3>
               <span className="cinema-poster-genre">{screenplay.genre}</span>

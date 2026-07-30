@@ -5,6 +5,7 @@ interface ScriptCoverProps {
   author?: string;
   /** Stable seed (project id) so each script keeps its cover tint. */
   seed?: string;
+  analysisVersion?: string;
   className?: string;
 }
 
@@ -23,7 +24,19 @@ function tintFromSeed(seed: string): number {
  * "Written by" author line, binding dots, and a rev footer. Pure presentation,
  * ported from the approved Compact Shelf reference (.script-cover).
  */
-export function ScriptCover({ title, author, seed, className }: ScriptCoverProps) {
+function revisionLabel(analysisVersion?: string): string {
+  const match = analysisVersion?.match(/^v(\d+)(?:_(triage))?/i);
+  if (!match) return 'Legacy analysis';
+  return `Rev. V${match[1]}${match[2] ? ' triage' : ''}`;
+}
+
+export function ScriptCover({
+  title,
+  author,
+  seed,
+  analysisVersion,
+  className,
+}: ScriptCoverProps) {
   return (
     <div
       aria-hidden="true"
@@ -38,7 +51,9 @@ export function ScriptCover({ title, author, seed, className }: ScriptCoverProps
         <br />
         {author || 'Unknown writer'}
       </p>
-      <span className="dsc-cover-foot">Lemon Studios · Rev. V9</span>
+      <span className="dsc-cover-foot">
+        Lemon Studios · {revisionLabel(analysisVersion)}
+      </span>
     </div>
   );
 }

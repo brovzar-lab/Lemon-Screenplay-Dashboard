@@ -293,7 +293,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
           >
             <div className="space-y-3">
               <RangeSlider
-                label="Weighted Score"
+                label="Final Score"
                 min={0}
                 max={10}
                 step={0.5}
@@ -316,9 +316,9 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
             </div>
           </Section>
 
-          {/* Dimension Scores Section — wrapped in AdvancedDisclosure (FILTER-02) */}
+          {/* Legacy compatibility estimates — wrapped in AdvancedDisclosure (FILTER-02) */}
           <Section
-            title="Dimension Scores"
+            title="Legacy Score Estimates"
             isOpen={activeSection === 'dimensions'}
             onToggle={() => toggleSection('dimensions')}
             badge={[
@@ -337,6 +337,10 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
               isOpen={isAdvancedOpen}
               onToggle={() => setIsAdvancedOpen((prev) => !prev)}
             >
+              <p className="mb-3 text-xs leading-5 text-black-400">
+                Compatibility estimates for older dashboard filters. They are not independent
+                reader scores. Open a screenplay to see its five specialist pillars.
+              </p>
               <div className="space-y-3">
                 <RangeSlider
                   label="Concept"

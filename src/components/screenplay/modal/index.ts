@@ -8,6 +8,8 @@ export { NotesSection } from './NotesSection';
 export { ModalHeader } from './ModalHeader';
 export { ShareButton } from './ShareButton';
 export { AlertBanners } from './AlertBanners';
+export { AnalysisWarnings } from './AnalysisWarnings';
+export { DeferredReaderEvidence } from './DeferredReaderEvidence';
 export { FilmNowSection } from './FilmNowSection';
 export { ScoresPanel } from './ScoresPanel';
 export { FieldPositionPanel } from './FieldPositionPanel';

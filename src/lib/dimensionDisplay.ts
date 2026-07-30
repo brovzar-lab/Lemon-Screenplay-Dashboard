@@ -8,9 +8,8 @@
  * display defined in DIMENSION_CONFIG.
  */
 
-import type { Screenplay } from '@/types';
+import type { PillarScore, Screenplay } from '@/types';
 import { DIMENSION_CONFIG } from '@/types/screenplay';
-import type { PillarScore } from '@/lib/normalize';
 
 export interface DimensionDisplayItem {
   key: string;
@@ -32,7 +31,7 @@ const V7_PILLAR_DISPLAY: Record<string, { label: string; emoji: string }> = {
 /**
  * Check if a screenplay has Archaeology Engine pillar data.
  */
-function hasPillarScores(screenplay: Screenplay): screenplay is Screenplay & { pillarScores: PillarScore[] } {
+export function hasPillarScores(screenplay: Screenplay): screenplay is Screenplay & { pillarScores: PillarScore[] } {
   return 'pillarScores' in screenplay
     && Array.isArray(screenplay.pillarScores)
     && screenplay.pillarScores.length > 0;
@@ -73,7 +72,9 @@ export function getDimensionDisplay(screenplay: Screenplay): DimensionDisplayIte
  * Returns a flat label for the analysis version type shown in the UI.
  */
 export function getAnalysisVersionLabel(screenplay: Screenplay): string {
-  if (hasPillarScores(screenplay)) return 'V9 (5-Reader Archaeology)';
+  if (hasPillarScores(screenplay)) {
+    const version = screenplay.analysisVersion.match(/^v(\d+)/i)?.[1];
+    return `${version ? `V${version}` : 'Archaeology'} (5-Reader Archaeology)`;
+  }
   return 'Legacy (no pillar scores)';
 }
-

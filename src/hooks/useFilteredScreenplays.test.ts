@@ -430,6 +430,31 @@ describe('sortScreenplays', () => {
         expect(all).toEqual(original);
     });
 
+    it('keeps incomplete analyses visible without corrupting the requested sort', () => {
+        const incomplete = createMockScreenplay({
+            id: 'incomplete',
+            weightedScore: 9.9,
+            producerProjection: {
+                rankable: false,
+            } as Screenplay['producerProjection'],
+        });
+        const trusted = createMockScreenplay({
+            id: 'trusted',
+            weightedScore: 6.5,
+        });
+
+        const sorted = sortScreenplays(
+            [incomplete, trusted],
+            [{ field: 'weightedScore', direction: 'desc' }],
+            false,
+        );
+
+        expect(sorted.map((screenplay) => screenplay.id)).toEqual([
+            'incomplete',
+            'trusted',
+        ]);
+    });
+
     it('handles multi-column sort (tiebreaker)', () => {
         const a = createMockScreenplay({ id: 'a', title: 'Alpha', weightedScore: 7 });
         const b = createMockScreenplay({ id: 'b', title: 'Zeta', weightedScore: 7 });

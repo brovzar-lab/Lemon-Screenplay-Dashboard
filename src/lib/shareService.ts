@@ -37,6 +37,8 @@ import type {
     BudgetCategory,
     Marketability,
     RecommendationTier,
+    PillarScore,
+    ProducerProjection,
 } from '@/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -76,6 +78,8 @@ export interface SharedViewDocument {
         verdictStatement: string;
         isFilmNow: boolean;
         weightedScore: number;
+        pillarScores?: PillarScore[];
+        producerProjection?: ProducerProjection;
         cvsTotal: number;
         dimensionScores: DimensionScores;
         dimensionJustifications: DimensionJustifications;
@@ -134,6 +138,21 @@ function buildPdfStoragePath(screenplay: Screenplay): string {
 /**
  * Build the analysis snapshot from a Screenplay object.
  */
+function compactProducerProjection(
+    projection: ProducerProjection,
+): ProducerProjection {
+    const {
+        verdictBeforeGates,
+        trustManifestVersion,
+        ...required
+    } = projection;
+    return {
+        ...required,
+        ...(verdictBeforeGates !== undefined ? { verdictBeforeGates } : {}),
+        ...(trustManifestVersion !== undefined ? { trustManifestVersion } : {}),
+    };
+}
+
 function buildAnalysisSnapshot(screenplay: Screenplay): SharedViewDocument['analysis'] {
     return {
         title: screenplay.title,
@@ -148,6 +167,16 @@ function buildAnalysisSnapshot(screenplay: Screenplay): SharedViewDocument['anal
         verdictStatement: screenplay.verdictStatement,
         isFilmNow: screenplay.isFilmNow,
         weightedScore: screenplay.weightedScore,
+        ...(screenplay.pillarScores
+            ? { pillarScores: screenplay.pillarScores }
+            : {}),
+        ...(screenplay.producerProjection
+            ? {
+                producerProjection: compactProducerProjection(
+                    screenplay.producerProjection,
+                ),
+            }
+            : {}),
         cvsTotal: screenplay.cvsTotal,
         dimensionScores: screenplay.dimensionScores,
         dimensionJustifications: screenplay.dimensionJustifications,

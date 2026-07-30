@@ -167,7 +167,7 @@ export interface SortFieldConfig {
 
 export const SORT_FIELD_CONFIG: SortFieldConfig[] = [
   // Scores
-  { field: 'weightedScore', label: 'Weighted Score', group: 'score' },
+  { field: 'weightedScore', label: 'Final Score', group: 'score' },
   { field: 'cvsTotal', label: 'CVS Total', group: 'score' },
   { field: 'recommendation', label: 'Recommendation', group: 'score' },
 

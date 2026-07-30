@@ -34,6 +34,99 @@ export interface CriticalFailureDetail {
   evidence: string;
 }
 
+export interface AnalysisQuality {
+  status: 'complete' | 'partial';
+  completedReaders: number;
+  expectedReaders: number;
+  failedReaders: string[];
+}
+
+export type ProducerProjectionWarningCode =
+  | 'incomplete_readers'
+  | 'truncated_source'
+  | 'unstable_boundary'
+  | 'reader_disagreement'
+  | 'legacy_unverified'
+  | 'legacy_raw_score';
+
+export interface ProducerProjectionWarning {
+  code: ProducerProjectionWarningCode;
+  severity: 'blocking' | 'warning' | 'information';
+  title: string;
+  detail: string;
+}
+
+export interface VerdictGateProjection {
+  key: 'story_vs_situation' | 'false_positive' | 'truncation';
+  label: string;
+  triggered: boolean;
+  applied: boolean;
+  detail: string;
+}
+
+export interface BoundaryStabilityProjection {
+  checked: boolean;
+  runCount: number;
+  failedRunCount: number;
+  scoreSpread: number;
+  verdicts: RecommendationTier[];
+  stable: boolean;
+}
+
+export interface ProducerProjection {
+  /** Five-pillar weighted score before critical-failure deductions. */
+  rawScore: number;
+  /** Canonical score used by every producer-facing surface and sort. */
+  finalScore: number;
+  scoreSource: 'adjusted' | 'triage' | 'legacy_raw';
+  /** Positive deduction that was actually applied to the final score. */
+  penaltyApplied: number;
+  /** Penalty reported by older documents when application cannot prove it was applied. */
+  reportedPenalty: number;
+  finalVerdict: RecommendationTier;
+  verdictBeforeGates?: RecommendationTier;
+  verdictAdjustments: string[];
+  gates: VerdictGateProjection[];
+  warnings: ProducerProjectionWarning[];
+  rankable: boolean;
+  trustStatus: 'verified' | 'legacy_unverified' | 'incomplete';
+  trustManifestVersion?: string;
+  boundary: BoundaryStabilityProjection;
+  readerDisagreementCount: number;
+}
+
+export interface ReaderDisagreement {
+  topic: string;
+  readerA: string;
+  readerAPosition: string;
+  readerB: string;
+  readerBPosition: string;
+  resolution: string;
+}
+
+export interface PillarScore {
+  name: string;
+  score: number;
+  weight: number;
+}
+
+export interface ReaderSubScoreEvidence {
+  key: string;
+  label: string;
+  score: number;
+  justification: string;
+  pageCitations: number[];
+}
+
+export interface ReaderReportEvidence {
+  reader: string;
+  label: string;
+  pillarScore: number;
+  oneSentenceVerdict: string;
+  redFlags: string[];
+  subScores: ReaderSubScoreEvidence[];
+}
+
 // ============================================
 // RAW JSON TYPES (from analysis files)
 // ============================================
@@ -362,12 +455,10 @@ export interface Screenplay {
   // Analysis Metadata
   analysisModel: string;
   analysisVersion: string;
-  analysisQuality?: {
-    status: 'complete' | 'partial';
-    completedReaders: number;
-    expectedReaders: number;
-    failedReaders: string[];
-  };
+  analysisQuality?: AnalysisQuality;
+  producerProjection?: ProducerProjection;
+  readerDisagreements?: ReaderDisagreement[];
+  pillarScores?: PillarScore[];
 
   // Poster Generation
   posterUrl?: string; // URL to the generated poster in Firebase Storage

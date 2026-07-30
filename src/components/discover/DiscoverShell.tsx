@@ -119,10 +119,18 @@ export function DiscoverShell({
     previousSelectionRef.current = selectedScreenplay;
   }, [selectedScreenplay]);
 
-  const [featured, ...remaining] = screenplays;
+  const rankableScreenplays = screenplays.filter(
+    (screenplay) => screenplay.producerProjection?.rankable !== false,
+  );
+  const reviewOnlyScreenplays = screenplays.filter(
+    (screenplay) => screenplay.producerProjection?.rankable === false,
+  );
+  const [featured, ...remaining] = rankableScreenplays;
   const topMatches = remaining.slice(0, 4);
-  const grid = remaining.slice(4);
-  const filmNow = screenplays.filter((screenplay) => screenplay.recommendation === 'film_now');
+  const grid = [...remaining.slice(4), ...reviewOnlyScreenplays];
+  const filmNow = rankableScreenplays.filter(
+    (screenplay) => screenplay.recommendation === 'film_now',
+  );
 
   return (
     <div className="discovery-root min-h-screen">
@@ -174,7 +182,7 @@ export function DiscoverShell({
                     New analyses will appear here through the live data feed.
                   </p>
                 </section>
-              ) : !featured ? (
+              ) : screenplays.length === 0 ? (
                 <section className="dsc-card p-8 text-center sm:p-10">
                   <p className="dsc-kicker">No match</p>
                   <h2 className="dsc-display mt-3 text-3xl">
@@ -191,6 +199,27 @@ export function DiscoverShell({
                     Clear filters
                   </button>
                 </section>
+              ) : !featured ? (
+                <>
+                  <section className="dsc-card border-amber-500/30 p-8 text-center sm:p-10">
+                    <p className="dsc-kicker">Review required</p>
+                    <h2 className="dsc-display mt-3 text-3xl">
+                      These analyses cannot be ranked yet
+                    </h2>
+                    <p className="mx-auto mt-3 max-w-xl text-[var(--dsc-ink-2)]">
+                      Their screenplay evidence or specialist reader panel is incomplete.
+                      They remain available below for diagnosis, but Discovery will not
+                      promote one as the best script.
+                    </p>
+                  </section>
+                  <section aria-labelledby="discovery-review-only" className="cinema-shelf">
+                    <div className="cinema-shelf-head">
+                      <h2 id="discovery-review-only">Needs review</h2>
+                      <span>{reviewOnlyScreenplays.length} unranked</span>
+                    </div>
+                    <DiscoverGrid screenplays={reviewOnlyScreenplays} onOpen={handleOpen} />
+                  </section>
+                </>
               ) : (
                 <>
                   <DiscoverFeature
