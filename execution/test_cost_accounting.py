@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import tempfile
 import unittest
@@ -18,6 +19,35 @@ from execution.v9_test_fixtures import (
 
 
 class ProxyCostTelemetryTests(unittest.TestCase):
+    @staticmethod
+    def _schema_example(schema):
+        if "enum" in schema:
+            return copy.deepcopy(schema["enum"][0])
+        value_type = schema.get("type")
+        if value_type == "object":
+            properties = schema.get("properties", {})
+            return {
+                field: ProxyCostTelemetryTests._schema_example(
+                    properties[field]
+                )
+                for field in schema.get("required", [])
+            }
+        if value_type == "array":
+            minimum_items = schema.get("minItems", 0)
+            return [
+                ProxyCostTelemetryTests._schema_example(schema["items"])
+                for _index in range(minimum_items)
+            ]
+        if value_type == "string":
+            return "evidence"
+        if value_type == "boolean":
+            return False
+        if value_type == "integer":
+            return 5
+        if value_type == "number":
+            return 5.0
+        raise AssertionError(f"Unsupported test schema: {schema}")
+
     @staticmethod
     def _successful_call_usage(
         response_id,
@@ -174,6 +204,185 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "pillar_score"
             ],
         )
+
+    def test_v9_reports_use_a_compact_strict_json_envelope(self):
+        for source_tool in [
+            *ingest_v9.READER_TOOLS.values(),
+            ingest_v9.SYNTHESIS_TOOL,
+        ]:
+            envelope = ingest_v9._strict_json_envelope_definition(source_tool)
+            self.assertIs(envelope["strict"], True)
+            self.assertEqual(envelope["name"], source_tool["name"])
+            self.assertLess(len(json.dumps(envelope)), 1_000)
+            self.assertEqual(
+                envelope["input_schema"],
+                {
+                    "type": "object",
+                    "properties": {
+                        "contract": {
+                            "type": "string",
+                            "enum": [source_tool["name"]],
+                        },
+                        "report_json": {"type": "string"},
+                    },
+                    "required": ["contract", "report_json"],
+                    "additionalProperties": False,
+                },
+            )
+
+    def test_compact_envelope_preserves_and_validates_the_full_reader_report(self):
+        report = self._schema_example(
+            ingest_v9.CRAFT_SCENE_TOOL["input_schema"]
+        )
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "",
+            "tool_uses": [{
+                "id": "toolu_compact_craft",
+                "name": "submit_craft_scene_report",
+                "input": {
+                    "contract": "submit_craft_scene_report",
+                    "report_json": json.dumps(report),
+                },
+            }],
+            "response_id": "msg_compact_craft",
+            "model": "claude-opus-4-7",
+            "stop_reason": "tool_use",
+            "usage": {"actual_cost_microusd": 812},
+        }
+
+        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+            tool_input, _text, usage = ingest_v9.call_llm(
+                system_blocks=[{"type": "text", "text": "system"}],
+                user_blocks=[{"type": "text", "text": "screenplay"}],
+                model_key="opus",
+                tool=ingest_v9.CRAFT_SCENE_TOOL,
+                compact_json_envelope=True,
+                proxy_url="https://proxy.test",
+                retries=1,
+            )
+
+        self.assertEqual(tool_input, report)
+        self.assertEqual(usage["actual_cost_microusd"], 812)
+        payload = post.call_args.kwargs["json"]
+        self.assertLess(len(json.dumps(payload["tools"][0])), 1_000)
+        full_contract = payload["messages"][0]["content"][-1]["text"]
+        self.assertIn('"bmoc_failure_scan"', full_contract)
+        self.assertIn('"page_citations"', full_contract)
+
+        incomplete = copy.deepcopy(report)
+        incomplete.pop("bmoc_failure_scan")
+        response.json.return_value["tool_uses"][0]["input"]["report_json"] = (
+            json.dumps(incomplete)
+        )
+        with patch.object(ingest_v9.requests, "post", return_value=response):
+            with self.assertRaisesRegex(
+                ingest_v9.LlmOutputContractError,
+                "bmoc_failure_scan",
+            ) as raised:
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key="opus",
+                    tool=ingest_v9.CRAFT_SCENE_TOOL,
+                    compact_json_envelope=True,
+                    proxy_url="https://proxy.test",
+                    retries=1,
+                )
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 812)
+
+        unexpected = copy.deepcopy(report)
+        unexpected["unapproved_score"] = 10
+        response.json.return_value["tool_uses"][0]["input"]["report_json"] = (
+            json.dumps(unexpected)
+        )
+        with patch.object(ingest_v9.requests, "post", return_value=response):
+            with self.assertRaisesRegex(
+                ingest_v9.LlmOutputContractError,
+                "unapproved_score",
+            ):
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key="opus",
+                    tool=ingest_v9.CRAFT_SCENE_TOOL,
+                    compact_json_envelope=True,
+                    proxy_url="https://proxy.test",
+                    retries=1,
+                )
+
+    def test_compact_envelope_rejects_malformed_json_with_settled_usage(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "",
+            "tool_uses": [{
+                "id": "toolu_bad_json",
+                "name": "submit_structure_report",
+                "input": {
+                    "contract": "submit_structure_report",
+                    "report_json": '{"reader":"structure"',
+                },
+            }],
+            "response_id": "msg_bad_json",
+            "model": "claude-opus-4-7",
+            "stop_reason": "tool_use",
+            "usage": {"actual_cost_microusd": 913},
+        }
+
+        with patch.object(ingest_v9.requests, "post", return_value=response):
+            with self.assertRaisesRegex(
+                ingest_v9.LlmOutputContractError,
+                "valid JSON",
+            ) as raised:
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key="opus",
+                    tool=ingest_v9.STRUCTURE_TOOL,
+                    compact_json_envelope=True,
+                    proxy_url="https://proxy.test",
+                    retries=1,
+                )
+
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 913)
+
+    def test_compact_envelope_preserves_and_validates_full_synthesis(self):
+        report = self._schema_example(
+            ingest_v9.SYNTHESIS_TOOL["input_schema"]
+        )
+        report["critical_failures"] = []
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "",
+            "tool_uses": [{
+                "id": "toolu_compact_synthesis",
+                "name": "submit_synthesis_report",
+                "input": {
+                    "contract": "submit_synthesis_report",
+                    "report_json": json.dumps(report),
+                },
+            }],
+            "response_id": "msg_compact_synthesis",
+            "model": "claude-opus-4-7",
+            "stop_reason": "tool_use",
+            "usage": {"actual_cost_microusd": 1_117},
+        }
+
+        with patch.object(ingest_v9.requests, "post", return_value=response):
+            tool_input, _text, _usage = ingest_v9.call_llm(
+                system_blocks=[{"type": "text", "text": "system"}],
+                user_blocks=[{"type": "text", "text": "reports"}],
+                model_key="opus",
+                tool=ingest_v9.SYNTHESIS_TOOL,
+                compact_json_envelope=True,
+                proxy_url="https://proxy.test",
+                retries=1,
+            )
+
+        self.assertEqual(tool_input, report)
 
     def test_wrong_tool_envelope_is_rejected_with_settled_usage(self):
         response = MagicMock()

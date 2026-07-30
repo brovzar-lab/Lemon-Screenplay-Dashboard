@@ -1023,6 +1023,171 @@ def _strict_tool_definition(tool: Dict[str, Any]) -> Dict[str, Any]:
     return strict_tool
 
 
+def _strict_json_envelope_definition(
+    tool: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Return a compiler-safe strict envelope for a rich V9 report.
+
+    Anthropic's grammar compiler rejects the complete nested V9 reader and
+    synthesis schemas as too complex. The transport grammar therefore
+    constrains only the immutable contract identity and a JSON string. The
+    complete source schema is still supplied to the model in the prompt and
+    is enforced locally after the envelope is decoded.
+    """
+    tool_name = tool["name"]
+    return {
+        "name": tool_name,
+        "description": tool["description"],
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "contract": {
+                    "type": "string",
+                    "enum": [tool_name],
+                },
+                "report_json": {"type": "string"},
+            },
+            "required": ["contract", "report_json"],
+            "additionalProperties": False,
+        },
+    }
+
+
+def _json_envelope_contract_block(
+    tool: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Give the model the full V9 contract outside the compiled grammar."""
+    schema_json = json.dumps(
+        tool["input_schema"],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return {
+        "type": "text",
+        "text": (
+            "# COMPLETE V9 OUTPUT CONTRACT\n"
+            f"Call `{tool['name']}` exactly once. Set `contract` to "
+            f"`{tool['name']}`. Set `report_json` to a valid JSON string "
+            "encoding the complete report described by the schema below. "
+            "The decoded report is validated locally before it can influence "
+            "a score. Include every required field with the exact names and "
+            "types. Do not add markdown or commentary inside `report_json`.\n"
+            f"{schema_json}"
+        ),
+    }
+
+
+def _validate_json_schema_value(
+    value: Any,
+    schema: Dict[str, Any],
+    path: str = "report",
+) -> None:
+    """Validate the JSON Schema subset used by all V9 output contracts."""
+    if "enum" in schema and value not in schema["enum"]:
+        raise ValueError(
+            f"{path} must be one of {schema['enum']}; got {value!r}"
+        )
+
+    expected_type = schema.get("type")
+    if expected_type == "object":
+        if not isinstance(value, dict):
+            raise ValueError(f"{path} must be an object")
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+        for field in required:
+            if field not in value:
+                raise ValueError(
+                    f"{path} is missing required field {field}"
+                )
+        # V9 tool objects were closed recursively by strict tool use before
+        # compact envelopes were introduced. Preserve that exact contract
+        # locally even though JSON Schema defaults additionalProperties to true.
+        if schema.get("additionalProperties", False) is False:
+            unexpected = sorted(set(value) - set(properties))
+            if unexpected:
+                raise ValueError(
+                    f"{path} contains unexpected fields: "
+                    + ", ".join(unexpected)
+                )
+        for field, field_value in value.items():
+            field_schema = properties.get(field)
+            if isinstance(field_schema, dict):
+                _validate_json_schema_value(
+                    field_value,
+                    field_schema,
+                    f"{path}.{field}",
+                )
+        return
+
+    if expected_type == "array":
+        if not isinstance(value, list):
+            raise ValueError(f"{path} must be an array")
+        minimum_items = schema.get("minItems")
+        if isinstance(minimum_items, int) and len(value) < minimum_items:
+            raise ValueError(
+                f"{path} must contain at least {minimum_items} items"
+            )
+        item_schema = schema.get("items")
+        if isinstance(item_schema, dict):
+            for index, item in enumerate(value):
+                _validate_json_schema_value(
+                    item,
+                    item_schema,
+                    f"{path}[{index}]",
+                )
+        return
+
+    if expected_type == "string":
+        if not isinstance(value, str):
+            raise ValueError(f"{path} must be a string")
+    elif expected_type == "boolean":
+        if not isinstance(value, bool):
+            raise ValueError(f"{path} must be a boolean")
+    elif expected_type == "integer":
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{path} must be an integer")
+    elif expected_type == "number":
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+        ):
+            raise ValueError(f"{path} must be a finite number")
+
+    if expected_type in {"integer", "number"}:
+        minimum = schema.get("minimum")
+        maximum = schema.get("maximum")
+        if isinstance(minimum, (int, float)) and value < minimum:
+            raise ValueError(f"{path} must be at least {minimum}")
+        if isinstance(maximum, (int, float)) and value > maximum:
+            raise ValueError(f"{path} must be at most {maximum}")
+
+
+def _decode_json_envelope(
+    tool: Dict[str, Any],
+    tool_input: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Decode and fully validate a compiler-safe V9 report envelope."""
+    expected_contract = tool["name"]
+    if tool_input.get("contract") != expected_contract:
+        raise ValueError(
+            "structured output contract mismatch: "
+            f"expected {expected_contract}, got {tool_input.get('contract')}"
+        )
+    report_json = tool_input.get("report_json")
+    if not isinstance(report_json, str) or not report_json.strip():
+        raise ValueError("report_json must be a non-empty JSON string")
+    try:
+        report = json.loads(report_json)
+    except json.JSONDecodeError as error:
+        raise ValueError("report_json is not valid JSON") from error
+    if not isinstance(report, dict):
+        raise ValueError("decoded report_json must be an object")
+    _validate_json_schema_value(report, tool["input_schema"])
+    return report
+
+
 def _corrective_retry_user_blocks(
     user_blocks: List[Dict[str, Any]],
     *,
@@ -1038,9 +1203,10 @@ def _corrective_retry_user_blocks(
                 "# STRUCTURED OUTPUT CORRECTION\n"
                 "Your previous response was rejected by the reliability gate: "
                 f"{str(error)[:500]}\n"
-                f"Call `{tool_name}` exactly once. Return every required field "
-                "with the exact names and types defined by the tool schema. "
-                "Do not omit, rename, or add fields."
+                f"Call `{tool_name}` exactly once. The `report_json` value must "
+                "encode every required V9 report field with the exact names "
+                "and types defined by the complete output contract. Do not "
+                "omit, rename, or add fields."
             ),
         },
     ]
@@ -1052,6 +1218,7 @@ def call_llm(
     user_blocks: List[Dict[str, Any]],
     model_key: str,
     tool: Optional[Dict[str, Any]] = None,
+    compact_json_envelope: bool = False,
     thinking_budget: int = 0,
     max_tokens: int = 4_000,
     temperature: float = DEFAULT_TEMPERATURE,
@@ -1071,6 +1238,8 @@ def call_llm(
       model_key: 'sonnet' | 'haiku' | 'opus'.
       tool: optional tool definition; if set, tool_choice forces this tool and
             the model's structured output is returned in the first return value.
+      compact_json_envelope: compile a small strict transport envelope, then
+            decode and locally validate the complete source report schema.
       thinking_budget: extended-thinking budget in tokens. 0 = disabled.
       max_tokens: output tokens (not including thinking budget).
       temperature: sampling temperature (default 0.1).
@@ -1091,17 +1260,30 @@ def call_llm(
     # Combine thinking budget into total max_tokens.
     total_max_tokens = max_tokens + (thinking_budget if thinking_budget > 0 else 0)
 
+    request_user_blocks = user_blocks
+    strict_tool: Optional[Dict[str, Any]] = None
+    if tool:
+        strict_tool = (
+            _strict_json_envelope_definition(tool)
+            if compact_json_envelope
+            else _strict_tool_definition(tool)
+        )
+        if compact_json_envelope:
+            request_user_blocks = [
+                *user_blocks,
+                _json_envelope_contract_block(tool),
+            ]
+
     payload: Dict[str, Any] = {
         "model": model_id,
         "system": system_blocks,
-        "messages": [{"role": "user", "content": user_blocks}],
+        "messages": [{"role": "user", "content": request_user_blocks}],
         "max_tokens": total_max_tokens,
         "temperature": temperature,
     }
     if job_id:
         payload["job_id"] = job_id
-    if tool:
-        strict_tool = _strict_tool_definition(tool)
+    if tool and strict_tool is not None:
         payload["tools"] = [strict_tool]
         # Anthropic restriction: tool_choice cannot FORCE a specific tool when
         # extended thinking is enabled (error: "Thinking may not be enabled
@@ -1294,6 +1476,14 @@ def call_llm(
                         "Structured tool input is not an object",
                         usage,
                     )
+                if compact_json_envelope:
+                    try:
+                        tool_input = _decode_json_envelope(tool, tool_input)
+                    except ValueError as error:
+                        raise LlmOutputContractError(
+                            str(error),
+                            usage,
+                        ) from error
             return tool_input, text, usage
 
         except (
@@ -3149,6 +3339,7 @@ def run_v9_full(
                     user_blocks=attempt_user_blocks,
                     model_key=model_key,
                     tool=tool,
+                    compact_json_envelope=True,
                     thinking_budget=THINKING_BUDGET_READER,
                     max_tokens=OUTPUT_BUDGET_READER,
                     proxy_url=proxy_url,
@@ -3337,6 +3528,7 @@ def run_v9_full(
                 user_blocks=attempt_user_blocks,
                 model_key=model_key,
                 tool=SYNTHESIS_TOOL,
+                compact_json_envelope=True,
                 thinking_budget=THINKING_BUDGET_SYNTHESIS,
                 max_tokens=OUTPUT_BUDGET_SYNTHESIS,
                 proxy_url=proxy_url,
