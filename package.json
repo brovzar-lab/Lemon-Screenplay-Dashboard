@@ -17,7 +17,10 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "test:rules": "firebase emulators:exec --only firestore,storage \"vitest run --config vitest.rules.config.ts\"",
+    "test:env": "bash scripts/check-test-environment.sh",
+    "test:python": "PYTHONPATH=. .venv/bin/python -m unittest discover -s execution -p 'test_*.py'",
+    "test:rules": "bash scripts/with-java-21.sh firebase emulators:exec --only firestore,storage \"vitest run --config vitest.rules.config.ts\"",
+    "test:full": "npm run test:env && npm run test:run && npm --prefix functions test && npm run test:python && npm run test:rules",
     "deploy": "npm run build && firebase deploy --only hosting",
     "format": "prettier --write 'src/**/*.{ts,tsx,css}'",
     "lint:legacy": "bash scripts/check-legacy-refs.sh"
