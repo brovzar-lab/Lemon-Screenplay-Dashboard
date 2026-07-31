@@ -47,6 +47,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.discovery-root ::selection {
+  background: var(--dsc-accent);
+  color: var(--dsc-on-accent);
+  text-shadow: none;
+}
+
 /* ---- Dark tokens (mockup [data-theme="dark"], lines 45-67) ---- */
 [data-theme='dark'] .discovery-root,
 [data-theme$='-dark'] .discovery-root,
@@ -1025,7 +1031,11 @@
   border: 1px solid var(--dsc-line);
   border-radius: 18px;
   background:
-    radial-gradient(circle at 12% 30%, color-mix(in oklch, var(--dsc-accent) 18%, transparent), transparent 32%),
+    radial-gradient(
+      circle at 12% 30%,
+      color-mix(in oklch, var(--dsc-accent) 18%, transparent),
+      transparent 32%
+    ),
     linear-gradient(115deg, var(--dsc-surface-2), var(--dsc-surface) 66%);
   box-shadow: 0 24px 70px color-mix(in oklch, var(--dsc-bg) 72%, transparent);
 }
@@ -1058,7 +1068,11 @@
   padding: 26px 34px;
   border-right: 1px solid var(--dsc-line);
   background:
-    radial-gradient(circle at 50% 50%, color-mix(in oklch, var(--dsc-accent) 16%, transparent), transparent 58%),
+    radial-gradient(
+      circle at 50% 50%,
+      color-mix(in oklch, var(--dsc-accent) 16%, transparent),
+      transparent 58%
+    ),
     color-mix(in oklch, var(--dsc-bg) 45%, transparent);
 }
 
@@ -1461,7 +1475,12 @@
   --cover-ink: #17181a;
   --cover-paper: #d8c6a7;
   --cover-art:
-    radial-gradient(circle at 68% 24%, transparent 0 15%, rgb(255 255 255 / 0.42) 15.5% 16.5%, transparent 17%),
+    radial-gradient(
+      circle at 68% 24%,
+      transparent 0 15%,
+      rgb(255 255 255 / 0.42) 15.5% 16.5%,
+      transparent 17%
+    ),
     linear-gradient(145deg, transparent 0 54%, rgb(22 34 48 / 0.88) 55% 72%, transparent 73%);
   border-color: rgb(255 255 255 / 0.14);
   background: var(--cover-paper);
@@ -1471,8 +1490,12 @@
 .dsc-cover[data-tint='1'] {
   --cover-paper: #173e3d;
   --cover-ink: #f2ead9;
-  --cover-art:
-    repeating-radial-gradient(ellipse at 110% 65%, transparent 0 13%, rgb(217 201 152 / 0.2) 14% 16%, transparent 17% 22%);
+  --cover-art: repeating-radial-gradient(
+    ellipse at 110% 65%,
+    transparent 0 13%,
+    rgb(217 201 152 / 0.2) 14% 16%,
+    transparent 17% 22%
+  );
 }
 
 .dsc-cover[data-tint='2'] {
@@ -1487,7 +1510,12 @@
   --cover-paper: #d7bb83;
   --cover-ink: #1d1b18;
   --cover-art:
-    radial-gradient(ellipse at 55% 70%, transparent 0 18%, rgb(62 65 57 / 0.38) 19% 21%, transparent 22%),
+    radial-gradient(
+      ellipse at 55% 70%,
+      transparent 0 18%,
+      rgb(62 65 57 / 0.38) 19% 21%,
+      transparent 22%
+    ),
     linear-gradient(165deg, transparent 0 55%, rgb(73 79 70 / 0.28) 56% 59%, transparent 60%);
 }
 

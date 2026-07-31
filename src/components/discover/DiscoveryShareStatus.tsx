@@ -17,7 +17,7 @@ export function DiscoveryShareStatus({ screenplay }: { screenplay: Screenplay })
           hasActiveShare ? 'bg-[var(--dsc-success)]' : 'bg-[var(--dsc-ink-3)]'
         }`}
       />
-      {hasActiveShare ? 'Shared' : 'Private'}
+      {hasActiveShare ? 'Link active' : 'Private'}
     </span>
   );
 }

@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation } from '@tanstack/react-query';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -27,6 +28,12 @@ interface ShareButtonProps {
 
 function getShareBaseUrl(): string {
     return `${window.location.origin}/share`;
+}
+
+function DiscoveryPortal({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
+    if (!enabled) return children;
+    const host = document.querySelector('.discovery-root') ?? document.body;
+    return createPortal(children, host);
 }
 
 export function ShareButton({
@@ -60,12 +67,16 @@ export function ShareButton({
     // Check sync status on mount
     useEffect(() => {
         let cancelled = false;
-        isScreenplaySynced(screenplayId).then((result) => {
-            if (!cancelled) setSynced(result);
-        }).catch(() => {
-            if (!cancelled) setSynced(false);
-        });
-        return () => { cancelled = true; };
+        isScreenplaySynced(screenplayId)
+            .then((result) => {
+                if (!cancelled) setSynced(result);
+            })
+            .catch(() => {
+                if (!cancelled) setSynced(false);
+            });
+        return () => {
+            cancelled = true;
+        };
     }, [screenplayId]);
 
     // Check for existing token on mount (cache miss -> Firestore lookup).
@@ -74,17 +85,21 @@ export function ShareButton({
         if (cachedToken) return;
 
         let cancelled = false;
-        getExistingShareToken(screenplayId).then((view) => {
-            if (!cancelled && view) {
-                useShareStore.getState().setToken(screenplayId, view);
-                setIncludeNotes(view.includeNotes);
-            }
-            if (!cancelled && waitForExistingLink) setExistingLookupComplete(true);
-        }).catch(() => {
-            // Silently ignore lookup failures
-            if (!cancelled && waitForExistingLink) setExistingLookupComplete(true);
-        });
-        return () => { cancelled = true; };
+        getExistingShareToken(screenplayId)
+            .then((view) => {
+                if (!cancelled && view) {
+                    useShareStore.getState().setToken(screenplayId, view);
+                    setIncludeNotes(view.includeNotes);
+                }
+                if (!cancelled && waitForExistingLink) setExistingLookupComplete(true);
+            })
+            .catch(() => {
+                // Silently ignore lookup failures
+                if (!cancelled && waitForExistingLink) setExistingLookupComplete(true);
+            });
+        return () => {
+            cancelled = true;
+        };
     }, [screenplayId, cachedToken, waitForExistingLink]);
 
     // Close popover on outside click
@@ -125,6 +140,11 @@ export function ShareButton({
                 createdAt: new Date().toISOString(),
             });
             setShowPopover(true);
+            if (isDiscovery) {
+                useToastStore
+                    .getState()
+                    .addToast('Share link created. It has not been sent to anyone.', 'success');
+            }
         },
         onError: () => {
             useToastStore.getState().addToast('Failed to create share link');
@@ -140,6 +160,9 @@ export function ShareButton({
         onSuccess: () => {
             setShowPopover(false);
             setConfirmRevoke(false);
+            if (isDiscovery) {
+                useToastStore.getState().addToast('Share link revoked.', 'success');
+            }
         },
         onError: () => {
             useToastStore.getState().addToast('Failed to revoke share link');
@@ -164,9 +187,7 @@ export function ShareButton({
         }
     };
 
-    const shareUrl = cachedToken
-        ? `${getShareBaseUrl()}/${cachedToken.token}`
-        : '';
+    const shareUrl = cachedToken ? `${getShareBaseUrl()}/${cachedToken.token}` : '';
 
     const handleCopy = useCallback(async () => {
         try {
@@ -174,9 +195,7 @@ export function ShareButton({
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch {
-            useToastStore
-                .getState()
-                .addToast('Failed to copy to clipboard');
+            useToastStore.getState().addToast('Failed to copy to clipboard');
         }
     }, [shareUrl]);
 
@@ -195,19 +214,14 @@ export function ShareButton({
                     includeNotes: newValue,
                 });
             } catch {
-                useToastStore
-                    .getState()
-                    .addToast('Failed to update notes setting');
+                useToastStore.getState().addToast('Failed to update notes setting');
                 setIncludeNotes(!newValue); // Revert
             }
         }
     }, [currentIncludeNotes, cachedToken, screenplayId]);
 
     const isDisabled =
-        synced === false ||
-        createMutation.isPending ||
-        synced === null ||
-        !existingLookupReady;
+        synced === false || createMutation.isPending || synced === null || !existingLookupReady;
 
     return (
         <div className="relative">
@@ -215,28 +229,25 @@ export function ShareButton({
                 ref={buttonRef}
                 onClick={handleClick}
                 disabled={isDisabled}
-                className={`text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border ${isDisabled
+                className={`text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border ${
+                    isDisabled
                         ? 'bg-black-700/50 text-black-500 border-black-600/30 cursor-not-allowed'
                         : isDiscovery
-                            ? 'min-h-11 border-[var(--dsc-line)] bg-[var(--dsc-surface)] text-[var(--dsc-ink)] hover:border-[var(--dsc-accent)] hover:bg-[var(--dsc-surface-2)]'
-                            : 'bg-gold-500/90 hover:bg-gold-400 text-black-900 border-gold-400/50 shadow-sm shadow-gold-500/20'
-                    }`}
+                          ? 'min-h-11 border-[var(--dsc-line)] bg-[var(--dsc-surface)] text-[var(--dsc-ink)] hover:border-[var(--dsc-accent)] hover:bg-[var(--dsc-surface-2)]'
+                          : 'bg-gold-500/90 hover:bg-gold-400 text-black-900 border-gold-400/50 shadow-sm shadow-gold-500/20'
+                }`}
                 title={
                     synced === false
                         ? 'Sync pending -- wait for Firestore sync before sharing'
                         : !existingLookupReady
-                            ? 'Checking for an existing share link...'
-                        : synced === null
+                          ? 'Checking for an existing share link...'
+                          : synced === null
                             ? 'Checking sync status...'
                             : 'Share this screenplay'
                 }
             >
                 {createMutation.isPending ? (
-                    <svg
-                        className="w-3.5 h-3.5 animate-spin"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                    >
+                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle
                             className="opacity-25"
                             cx="12"
@@ -245,11 +256,7 @@ export function ShareButton({
                             stroke="currentColor"
                             strokeWidth="4"
                         />
-                        <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8v8z"
-                        />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                     </svg>
                 ) : (
                     <svg
@@ -271,106 +278,186 @@ export function ShareButton({
 
             {/* Popover */}
             {showPopover && cachedToken && (
-                <div
-                    ref={popoverRef}
-                    data-testid="share-popover"
-                    data-presentation={presentation}
-                    className={isDiscovery
-                        ? 'dsc-modal fixed inset-x-4 top-24 z-[90] rounded-2xl p-5 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80'
-                        : 'absolute top-full mt-2 right-0 z-50 w-80 rounded-lg border border-gold-500/20 bg-black-800 shadow-xl shadow-black/40 p-4'}
-                >
-                    <div className="flex items-center justify-between mb-3">
-                        <span className={isDiscovery ? 'text-sm font-medium text-[var(--dsc-ink)]' : 'text-sm font-medium text-gold-200'}>
-                            Share Link
-                        </span>
-                        <button
-                            onClick={() => {
-                                setShowPopover(false);
-                                setConfirmRevoke(false);
-                            }}
-                            className={isDiscovery ? 'dsc-muted p-0.5 hover:text-[var(--dsc-ink)]' : 'text-black-400 hover:text-black-200 p-0.5'}
-                            aria-label="Close popover"
-                        >
-                            <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
+                <DiscoveryPortal enabled={isDiscovery}>
+                    <div
+                        ref={popoverRef}
+                        role={isDiscovery ? 'dialog' : undefined}
+                        aria-label={isDiscovery ? 'Share screenplay' : undefined}
+                        data-testid="share-popover"
+                        data-presentation={presentation}
+                        className={
+                            isDiscovery
+                                ? 'dsc-modal fixed inset-x-4 top-24 z-[170] rounded-2xl p-5 sm:inset-x-auto sm:right-6 sm:w-96'
+                                : 'absolute top-full mt-2 right-0 z-50 w-80 rounded-lg border border-gold-500/20 bg-black-800 shadow-xl shadow-black/40 p-4'
+                        }
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <span
+                                className={
+                                    isDiscovery
+                                        ? 'text-sm font-medium text-[var(--dsc-ink)]'
+                                        : 'text-sm font-medium text-gold-200'
+                                }
                             >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M6 18L18 6M6 6l12 12"
-                                />
-                            </svg>
-                        </button>
-                    </div>
-
-                    {/* URL display + copy */}
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className={isDiscovery
-                            ? 'min-h-11 flex-1 truncate rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] px-3 py-2.5 text-xs text-[var(--dsc-ink-2)] select-all'
-                            : 'flex-1 bg-black-900/60 rounded px-2.5 py-1.5 text-xs text-black-300 truncate border border-black-700/50 select-all'}>
-                            {shareUrl}
-                        </div>
-                        <button
-                            onClick={handleCopy}
-                            className={`shrink-0 text-xs px-2.5 py-1.5 rounded font-medium transition-all border ${copied
-                                    ? isDiscovery ? 'border-[var(--success)] bg-[var(--success-soft)] text-[var(--on-success)]' : 'bg-green-600/20 text-green-400 border-green-500/30'
-                                    : isDiscovery
-                                        ? 'min-h-11 border-[var(--dsc-accent)] bg-[var(--dsc-accent-soft)] text-[var(--dsc-accent)] hover:bg-[var(--dsc-surface-2)]'
-                                        : 'bg-gold-500/20 text-gold-300 border-gold-500/30 hover:bg-gold-500/30'
-                                }`}
-                        >
-                            {copied ? 'Copied!' : 'Copy'}
-                        </button>
-                    </div>
-
-                    {/* Include Notes toggle */}
-                    <label className={isDiscovery ? 'dsc-muted flex items-center gap-2 mb-3 cursor-pointer text-sm hover:text-[var(--dsc-ink)]' : 'flex items-center gap-2 mb-3 cursor-pointer text-sm text-black-300 hover:text-black-200'}>
-                        <input
-                            type="checkbox"
-                            checked={currentIncludeNotes}
-                            onChange={handleNotesToggle}
-                            className={isDiscovery ? 'w-3.5 h-3.5 rounded border-[var(--dsc-line)] bg-[var(--dsc-surface)] text-[var(--dsc-accent)] focus:ring-[var(--dsc-accent)]/30' : 'w-3.5 h-3.5 rounded border-black-600 bg-black-900 text-gold-500 focus:ring-gold-500/30'}
-                        />
-                        Include notes
-                    </label>
-
-                    {/* Revoke button */}
-                    <div className={isDiscovery ? 'border-t border-[var(--dsc-line)] pt-3' : 'border-t border-black-700/50 pt-3'}>
-                        {confirmRevoke ? (
-                            <div className="flex items-center gap-2">
-                                <span className={isDiscovery ? 'text-xs text-[var(--on-error)]' : 'text-xs text-red-400'}>
-                                    Revoke this link?
-                                </span>
-                                <button
-                                    onClick={() => revokeMutation.mutate()}
-                                    disabled={revokeMutation.isPending}
-                                    className={isDiscovery ? 'text-xs px-2 py-1 rounded bg-[var(--error-soft)] text-[var(--on-error)] border border-[var(--error)] font-medium transition-all' : 'text-xs px-2 py-1 rounded bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 font-medium transition-all'}
-                                >
-                                    {revokeMutation.isPending
-                                        ? 'Revoking...'
-                                        : 'Confirm'}
-                                </button>
-                                <button
-                                    onClick={() => setConfirmRevoke(false)}
-                                    className={isDiscovery ? 'dsc-muted text-xs px-2 py-1 rounded hover:text-[var(--dsc-ink)] transition-colors' : 'text-xs px-2 py-1 rounded text-black-400 hover:text-black-200 transition-colors'}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        ) : (
+                                {isDiscovery ? 'Link active' : 'Share Link'}
+                            </span>
                             <button
-                                onClick={() => setConfirmRevoke(true)}
-                                className={isDiscovery ? 'text-xs text-[var(--on-error)] hover:text-[var(--error)] transition-colors' : 'text-xs text-red-400 hover:text-red-300 transition-colors'}
+                                onClick={() => {
+                                    setShowPopover(false);
+                                    setConfirmRevoke(false);
+                                }}
+                                className={
+                                    isDiscovery
+                                        ? 'dsc-muted p-0.5 hover:text-[var(--dsc-ink)]'
+                                        : 'text-black-400 hover:text-black-200 p-0.5'
+                                }
+                                aria-label="Close popover"
                             >
-                                Revoke link
+                                <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                    />
+                                </svg>
                             </button>
+                        </div>
+
+                        {isDiscovery && (
+                            <p className="mb-3 text-sm leading-5 text-[var(--dsc-ink-2)]">
+                                This link is ready, but the app has not sent it to anyone.
+                            </p>
                         )}
+
+                        {/* URL display + copy */}
+                        <div className="flex items-center gap-2 mb-3">
+                            <div
+                                className={
+                                    isDiscovery
+                                        ? 'min-h-11 flex-1 truncate rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] px-3 py-2.5 text-xs text-[var(--dsc-ink-2)] select-all'
+                                        : 'flex-1 bg-black-900/60 rounded px-2.5 py-1.5 text-xs text-black-300 truncate border border-black-700/50 select-all'
+                                }
+                            >
+                                {shareUrl}
+                            </div>
+                            <button
+                                onClick={handleCopy}
+                                className={`shrink-0 text-xs px-2.5 py-1.5 rounded font-medium transition-all border ${
+                                    copied
+                                        ? isDiscovery
+                                            ? 'border-[var(--success)] bg-[var(--success-soft)] text-[var(--on-success)]'
+                                            : 'bg-green-600/20 text-green-400 border-green-500/30'
+                                        : isDiscovery
+                                          ? 'min-h-11 border-[var(--dsc-accent)] bg-[var(--dsc-accent-soft)] text-[var(--dsc-accent)] hover:bg-[var(--dsc-surface-2)]'
+                                          : 'bg-gold-500/20 text-gold-300 border-gold-500/30 hover:bg-gold-500/30'
+                                }`}
+                            >
+                                {copied ? 'Copied!' : 'Copy'}
+                            </button>
+                        </div>
+
+                        {/* Include Notes toggle */}
+                        <label
+                            className={
+                                isDiscovery
+                                    ? 'dsc-muted flex items-center gap-2 mb-3 cursor-pointer text-sm hover:text-[var(--dsc-ink)]'
+                                    : 'flex items-center gap-2 mb-3 cursor-pointer text-sm text-black-300 hover:text-black-200'
+                            }
+                        >
+                            <input
+                                type="checkbox"
+                                checked={currentIncludeNotes}
+                                onChange={handleNotesToggle}
+                                className={
+                                    isDiscovery
+                                        ? 'w-3.5 h-3.5 rounded border-[var(--dsc-line)] bg-[var(--dsc-surface)] text-[var(--dsc-accent)] focus:ring-[var(--dsc-accent)]/30'
+                                        : 'w-3.5 h-3.5 rounded border-black-600 bg-black-900 text-gold-500 focus:ring-gold-500/30'
+                                }
+                            />
+                            Include notes
+                        </label>
+
+                        {isDiscovery && (
+                            <div className="mb-3 flex items-center gap-4 text-xs font-semibold">
+                                <a
+                                    href={shareUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[var(--dsc-accent)] hover:underline"
+                                >
+                                    Open preview
+                                </a>
+                                <a
+                                    href="/settings?tab=data#shared-links"
+                                    className="text-[var(--dsc-accent)] hover:underline"
+                                >
+                                    Manage all links
+                                </a>
+                            </div>
+                        )}
+
+                        {/* Revoke button */}
+                        <div
+                            className={
+                                isDiscovery
+                                    ? 'border-t border-[var(--dsc-line)] pt-3'
+                                    : 'border-t border-black-700/50 pt-3'
+                            }
+                        >
+                            {confirmRevoke ? (
+                                <div className="flex items-center gap-2">
+                                    <span
+                                        className={
+                                            isDiscovery
+                                                ? 'text-xs text-[var(--on-error)]'
+                                                : 'text-xs text-red-400'
+                                        }
+                                    >
+                                        Revoke this link?
+                                    </span>
+                                    <button
+                                        onClick={() => revokeMutation.mutate()}
+                                        disabled={revokeMutation.isPending}
+                                        className={
+                                            isDiscovery
+                                                ? 'text-xs px-2 py-1 rounded bg-[var(--error-soft)] text-[var(--on-error)] border border-[var(--error)] font-medium transition-all'
+                                                : 'text-xs px-2 py-1 rounded bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 font-medium transition-all'
+                                        }
+                                    >
+                                        {revokeMutation.isPending ? 'Revoking...' : 'Confirm'}
+                                    </button>
+                                    <button
+                                        onClick={() => setConfirmRevoke(false)}
+                                        className={
+                                            isDiscovery
+                                                ? 'dsc-muted text-xs px-2 py-1 rounded hover:text-[var(--dsc-ink)] transition-colors'
+                                                : 'text-xs px-2 py-1 rounded text-black-400 hover:text-black-200 transition-colors'
+                                        }
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setConfirmRevoke(true)}
+                                    className={
+                                        isDiscovery
+                                            ? 'text-xs text-[var(--on-error)] hover:text-[var(--error)] transition-colors'
+                                            : 'text-xs text-red-400 hover:text-red-300 transition-colors'
+                                    }
+                                >
+                                    Revoke link
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
+                </DiscoveryPortal>
             )}
         </div>
     );

@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import type { Screenplay } from '@/types';
 
 const ExportModal = lazy(() =>
@@ -21,8 +22,9 @@ export function DiscoveryPitchDeckModal({
   mode,
 }: DiscoveryPitchDeckModalProps) {
   if (!isOpen) return null;
+  const host = document.querySelector('.discovery-root') ?? document.body;
 
-  return (
+  return createPortal(
     <Suspense
       fallback={
         <div
@@ -42,6 +44,7 @@ export function DiscoveryPitchDeckModal({
         showInlineFailure
         presentation="discovery"
       />
-    </Suspense>
+    </Suspense>,
+    host,
   );
 }

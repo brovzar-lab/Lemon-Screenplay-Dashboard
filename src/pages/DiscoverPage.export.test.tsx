@@ -33,7 +33,11 @@ const pdfMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/useScreenplays', () => ({
-  useScreenplays: () => ({ data: hookState.screenplays, isLoading: false, error: null }),
+  useScreenplays: () => ({
+    data: hookState.screenplays,
+    isLoading: false,
+    error: null,
+  }),
   useLiveScreenplaySync: vi.fn(),
   useDeleteScreenplays: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -59,7 +63,9 @@ function screenplay(id: string, title: string, weightedScore: number): Screenpla
 }
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
 
   return render(
     <QueryClientProvider client={queryClient}>
@@ -115,7 +121,9 @@ describe('Discovery PDF exports', () => {
     );
     renderPage();
     await user.click(await screen.findByRole('button', { name: 'Open Atlas Fall details' }));
-    const coverageButton = await screen.findByRole('button', { name: 'Download coverage PDF' });
+    const coverageButton = await screen.findByRole('button', {
+      name: 'Download coverage PDF',
+    });
 
     await user.click(coverageButton);
 
@@ -134,11 +142,9 @@ describe('Discovery PDF exports', () => {
     const firstPdf = new Promise<Blob>((resolve) => {
       finishFirstPdf = resolve;
     });
-    pdfMocks.pdf
-      .mockReturnValueOnce({ toBlob: vi.fn(() => firstPdf) })
-      .mockReturnValueOnce({
-        toBlob: vi.fn().mockResolvedValue(new Blob(['bravo'], { type: 'application/pdf' })),
-      });
+    pdfMocks.pdf.mockReturnValueOnce({ toBlob: vi.fn(() => firstPdf) }).mockReturnValueOnce({
+      toBlob: vi.fn().mockResolvedValue(new Blob(['bravo'], { type: 'application/pdf' })),
+    });
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test-pitch-deck');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
     const downloadClick = vi
@@ -158,6 +164,11 @@ describe('Discovery PDF exports', () => {
     await act(async () => finishFirstPdf(new Blob(['atlas'], { type: 'application/pdf' })));
     await waitFor(() => expect(pdfMocks.pdf).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(downloadClick).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('status', { name: 'Pitch deck downloaded' })).toHaveTextContent(
+      '2 pitch-deck PDFs are in your Downloads folder.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByTestId('export-modal')).not.toBeInTheDocument();
   });
 
   it('renders a graceful pitch-deck failure message', async () => {

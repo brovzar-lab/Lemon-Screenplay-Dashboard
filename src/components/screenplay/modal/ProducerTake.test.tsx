@@ -18,8 +18,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/producerCalibration', async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import('@/lib/producerCalibration')>();
+  const original = await importOriginal<typeof import('@/lib/producerCalibration')>();
   return {
     ...original,
     loadProducerAssessment: mocks.loadProducerAssessment,
@@ -34,9 +33,7 @@ function wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
 function assessment(): ProducerAssessment {
@@ -145,13 +142,8 @@ describe('ProducerTake', () => {
       target: { value: '8.8' },
     });
     await user.click(screen.getByRole('button', { name: 'Recommend' }));
-    await user.type(
-      screen.getByLabelText('What did the AI miss?'),
-      'It undervalued the comedy.',
-    );
-    await user.click(
-      screen.getByRole('button', { name: 'Publish Producer Take' }),
-    );
+    await user.type(screen.getByLabelText('What did the AI miss?'), 'It undervalued the comedy.');
+    await user.click(screen.getByRole('button', { name: 'Publish Producer Take' }));
 
     await waitFor(() =>
       expect(mocks.submitProducerAssessment).toHaveBeenCalledWith(
@@ -183,9 +175,7 @@ describe('ProducerTake', () => {
 
     render(<ProducerTake screenplay={screenplay} />, { wrapper });
 
-    expect(
-      await screen.findByRole('button', { name: 'Save local preview' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Save local preview' })).toBeInTheDocument();
     expect(screen.getByText('Local review mode')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
@@ -206,13 +196,8 @@ describe('ProducerTake', () => {
 
     render(<ProducerTake screenplay={screenplay} />, { wrapper });
     await screen.findByText('Local review mode');
-    await user.type(
-      screen.getByLabelText('What did the AI miss?'),
-      'It undervalued the comedy.',
-    );
-    await user.click(
-      screen.getByRole('button', { name: 'Save local preview' }),
-    );
+    await user.type(screen.getByLabelText('What did the AI miss?'), 'It undervalued the comedy.');
+    await user.click(screen.getByRole('button', { name: 'Save local preview' }));
 
     expect(mocks.saveLocalProducerTakeDraft).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -222,9 +207,17 @@ describe('ProducerTake', () => {
       }),
     );
     expect(mocks.submitProducerAssessment).not.toHaveBeenCalled();
-    expect(
-      await screen.findByText(/Local preview · Revision 1/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Local preview · Revision 1/)).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Producer Take saved' })).toHaveTextContent(
+      'Saved on this Mac',
+    );
+    expect(screen.getByText('Calibration evidence')).toBeInTheDocument();
+    expect(screen.getByText('Candidate test')).toBeInTheDocument();
+    expect(screen.getByText('Future analyses')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View in Calibration' })).toHaveAttribute(
+      'href',
+      '/settings?tab=calibration',
+    );
   });
 
   it('requires a new take when the screenplay analysis version has changed', async () => {
@@ -245,8 +238,6 @@ describe('ProducerTake', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Your score')).toHaveValue('6.2');
-    expect(
-      screen.getByRole('button', { name: 'Publish new revision' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Publish new revision' })).toBeInTheDocument();
   });
 });

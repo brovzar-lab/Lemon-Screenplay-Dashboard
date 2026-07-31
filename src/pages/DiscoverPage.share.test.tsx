@@ -160,9 +160,12 @@ describe('Discovery sharing', () => {
         undefined,
       ),
     );
-    expect(await within(drawer).findByText(/share-new/)).toBeInTheDocument();
-    await user.click(within(drawer).getByRole('button', { name: 'Copy' }));
-    expect(await within(drawer).findByRole('button', { name: 'Copied!' })).toBeInTheDocument();
+    const sharePanel = await screen.findByRole('dialog', {
+      name: 'Share screenplay',
+    });
+    expect(within(sharePanel).getByText(/share-new/)).toBeInTheDocument();
+    await user.click(within(sharePanel).getByRole('button', { name: 'Copy' }));
+    expect(await within(sharePanel).findByRole('button', { name: 'Copied!' })).toBeInTheDocument();
 
     await act(async () => {
       await router.navigate('/share/share-new');
@@ -186,7 +189,10 @@ describe('Discovery sharing', () => {
     );
     await user.click(within(drawer).getByRole('button', { name: 'Share' }));
 
-    expect(await within(drawer).findByText(/share-existing/)).toBeInTheDocument();
+    const sharePanel = await screen.findByRole('dialog', {
+      name: 'Share screenplay',
+    });
+    expect(within(sharePanel).getByText(/share-existing/)).toBeInTheDocument();
     expect(shareMocks.createShareToken).not.toHaveBeenCalled();
   });
 
@@ -213,8 +219,11 @@ describe('Discovery sharing', () => {
     await user.click(shareButton);
 
     expect(shareMocks.createShareToken).not.toHaveBeenCalled();
-    expect(await within(drawer).findByText(/share-delayed/)).toBeInTheDocument();
-    expect(within(drawer).getByRole('checkbox', { name: 'Include notes' })).toBeChecked();
+    const sharePanel = await screen.findByRole('dialog', {
+      name: 'Share screenplay',
+    });
+    expect(within(sharePanel).getByText(/share-delayed/)).toBeInTheDocument();
+    expect(within(sharePanel).getByRole('checkbox', { name: 'Include notes' })).toBeChecked();
   });
 
   it('revokes through the existing service and clears active status', async () => {
@@ -230,8 +239,11 @@ describe('Discovery sharing', () => {
       expect(screen.getAllByLabelText('Active share link for Bravo Room')).toHaveLength(2),
     );
     await user.click(within(drawer).getByRole('button', { name: 'Share' }));
-    await user.click(within(drawer).getByRole('button', { name: 'Revoke link' }));
-    await user.click(within(drawer).getByRole('button', { name: 'Confirm' }));
+    const sharePanel = await screen.findByRole('dialog', {
+      name: 'Share screenplay',
+    });
+    await user.click(within(sharePanel).getByRole('button', { name: 'Revoke link' }));
+    await user.click(within(sharePanel).getByRole('button', { name: 'Confirm' }));
 
     await waitFor(() =>
       expect(shareMocks.revokeShareToken).toHaveBeenCalledWith('share-existing', 'Bravo Room.pdf'),

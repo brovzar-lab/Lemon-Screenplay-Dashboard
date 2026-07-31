@@ -21,17 +21,10 @@ import type {
 } from '@/types';
 import { PRODUCER_ASSESSMENT_UPDATED_EVENT } from '@/hooks/useProducerAssessments';
 
-const VERDICTS: RecommendationTier[] = [
-  'pass',
-  'consider',
-  'recommend',
-  'film_now',
-];
+const VERDICTS: RecommendationTier[] = ['pass', 'consider', 'recommend', 'film_now'];
 
 function verdictLabel(value: RecommendationTier): string {
-  return value === 'film_now'
-    ? 'Film Now'
-    : value.charAt(0).toUpperCase() + value.slice(1);
+  return value === 'film_now' ? 'Film Now' : value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function judgmentFromAi(
@@ -45,13 +38,19 @@ function judgmentFromAi(
   };
 }
 
+function formatSavedAt(value: string | undefined): string {
+  if (!value) return '';
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
 export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
   const projectId = screenplay.projectId ?? screenplay.id;
   const isLocalPreview = isLocalCalibrationPreviewMode();
   const [assessment, setAssessment] = useState<ProducerAssessment | null>(null);
-  const [localDraft, setLocalDraft] = useState<LocalProducerTakeDraft | null>(
-    null,
-  );
+  const [localDraft, setLocalDraft] = useState<LocalProducerTakeDraft | null>(null);
   const [judgment, setJudgment] = useState<ProducerJudgment>(() =>
     judgmentFromAi(screenplay.weightedScore, screenplay.recommendation),
   );
@@ -67,14 +66,11 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     const applyLocalDraftOrNewTake = () => {
       const draft = loadLocalProducerTakeDraft(projectId);
       setLocalDraft(draft);
-      const isExactLocalVersion =
-        draft?.versionId === screenplay.latestVersionId;
+      const isExactLocalVersion = draft?.versionId === screenplay.latestVersionId;
       if (draft && isExactLocalVersion) {
         setJudgment(draft.judgment);
       } else {
-        setJudgment(
-          judgmentFromAi(screenplay.weightedScore, screenplay.recommendation),
-        );
+        setJudgment(judgmentFromAi(screenplay.weightedScore, screenplay.recommendation));
       }
       setEditing(!isExactLocalVersion);
     };
@@ -82,8 +78,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
       .then((loaded) => {
         if (!active) return;
         setAssessment(loaded);
-        const isExactVersion =
-          loaded?.analysis.versionId === screenplay.latestVersionId;
+        const isExactVersion = loaded?.analysis.versionId === screenplay.latestVersionId;
         if (loaded && isExactVersion) {
           setLocalDraft(null);
           setJudgment(loaded.judgment);
@@ -91,26 +86,19 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
         } else if (isLocalPreview) {
           applyLocalDraftOrNewTake();
         } else {
-          setJudgment(
-            judgmentFromAi(screenplay.weightedScore, screenplay.recommendation),
-          );
+          setJudgment(judgmentFromAi(screenplay.weightedScore, screenplay.recommendation));
           setEditing(true);
         }
       })
       .catch((loadError: unknown) => {
         if (!active) return;
-        if (
-          isLocalPreview &&
-          isExpectedLocalCalibrationPredeployError(loadError)
-        ) {
+        if (isLocalPreview && isExpectedLocalCalibrationPredeployError(loadError)) {
           setAssessment(null);
           applyLocalDraftOrNewTake();
           return;
         }
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : 'Producer Take could not be loaded.',
+          loadError instanceof Error ? loadError.message : 'Producer Take could not be loaded.',
         );
       })
       .finally(() => {
@@ -134,15 +122,12 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
   const exactVersionAvailable = Boolean(screenplay.latestVersionId);
   const savedJudgment = assessment?.judgment ?? localDraft?.judgment ?? null;
   const hasSavedTake = savedJudgment !== null;
-  const savedVersionId =
-    assessment?.analysis.versionId ?? localDraft?.versionId ?? null;
-  const isPriorVersion =
-    savedVersionId !== null && savedVersionId !== screenplay.latestVersionId;
+  const savedVersionId = assessment?.analysis.versionId ?? localDraft?.versionId ?? null;
+  const isPriorVersion = savedVersionId !== null && savedVersionId !== screenplay.latestVersionId;
+  const savedAt = assessment?.publishedAt ?? localDraft?.savedAt;
 
-  const update = <K extends keyof ProducerJudgment>(
-    key: K,
-    value: ProducerJudgment[K],
-  ) => setJudgment((current) => ({ ...current, [key]: value }));
+  const update = <K extends keyof ProducerJudgment>(key: K, value: ProducerJudgment[K]) =>
+    setJudgment((current) => ({ ...current, [key]: value }));
 
   const toggleSignal = (signal: TasteSignal) => {
     update(
@@ -186,9 +171,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
       window.dispatchEvent(new Event(PRODUCER_ASSESSMENT_UPDATED_EVENT));
     } catch (saveError) {
       setError(
-        saveError instanceof Error
-          ? saveError.message
-          : 'Producer Take could not be saved.',
+        saveError instanceof Error ? saveError.message : 'Producer Take could not be saved.',
       );
     } finally {
       setSaving(false);
@@ -208,11 +191,19 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
 
   return (
     <section
-      className="overflow-hidden rounded-xl border border-[#3157d5]/30 bg-black-900/45"
+      className={clsx(
+        'overflow-hidden rounded-xl border bg-black-900/45 transition-colors',
+        hasSavedTake && !editing ? 'border-emerald-500/45' : 'border-[#3157d5]/30',
+      )}
       aria-labelledby={`producer-take-${screenplay.id}`}
       data-testid="producer-take"
     >
-      <div className="border-l-4 border-[#3157d5] px-5 py-4">
+      <div
+        className={clsx(
+          'border-l-4 px-5 py-4',
+          hasSavedTake && !editing ? 'border-emerald-500' : 'border-[#3157d5]',
+        )}
+      >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3157d5]">
@@ -274,15 +265,43 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
 
         {isPriorVersion && (
           <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
-            Your saved take belongs to an earlier analysis version. Saving now
-            creates a new version-specific assessment.
+            Your saved take belongs to an earlier analysis version. Saving now creates a new
+            version-specific assessment.
           </p>
+        )}
+
+        {!editing && savedJudgment && (
+          <div
+            role="status"
+            aria-label="Producer Take saved"
+            className="mt-4 rounded-lg border border-emerald-500/35 bg-emerald-500/10 p-4"
+          >
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden="true"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white"
+              >
+                ✓
+              </span>
+              <div className="min-w-0">
+                <strong className="block text-sm text-black-100">
+                  {localDraft ? 'Saved on this Mac' : 'Published to calibration evidence'}
+                </strong>
+                <p className="mt-1 text-xs leading-5 text-black-400">
+                  {localDraft
+                    ? 'Your review is safely stored for this local Q5 preview. It has not changed the AI score or activated calibration.'
+                    : 'Your review is now part of the evidence set. It has not changed the AI score or activated a calibration profile.'}
+                  {savedAt ? ` Saved ${formatSavedAt(savedAt)}.` : ''}
+                </p>
+              </div>
+            </div>
+          </div>
         )}
 
         {!exactVersionAvailable ? (
           <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
-            Producer calibration requires a sealed analysis version. Reanalyze
-            this legacy record before using it as taste evidence.
+            Producer calibration requires a sealed analysis version. Reanalyze this legacy record
+            before using it as taste evidence.
           </p>
         ) : !editing && savedJudgment ? (
           <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
@@ -304,23 +323,89 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
             </div>
             <p className="text-xs text-black-500 sm:col-span-2">
               {localDraft ? 'Local preview' : 'Published'} · Revision{' '}
-              {assessment?.revision ?? localDraft?.revision} · Exact analysis
-              version {savedVersionId?.slice(0, 12)}… ·{' '}
+              {assessment?.revision ?? localDraft?.revision} · Exact analysis version{' '}
+              {savedVersionId?.slice(0, 12)}… ·{' '}
               {savedJudgment.includeInCalibration
                 ? 'Included in calibration'
                 : 'Held out of calibration'}
             </p>
+            <div className="sm:col-span-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black-500">
+                What happens next
+              </p>
+              <ol className="mt-3 grid gap-2 sm:grid-cols-4">
+                {[
+                  {
+                    label: 'Producer Take saved',
+                    state: 'complete',
+                    detail: 'Your judgment is recorded',
+                  },
+                  {
+                    label: 'Calibration evidence',
+                    state: savedJudgment.includeInCalibration ? 'complete' : 'held',
+                    detail: savedJudgment.includeInCalibration
+                      ? 'Eligible when published'
+                      : 'Held out by your choice',
+                  },
+                  {
+                    label: 'Candidate test',
+                    state: 'pending',
+                    detail: 'Needs a larger evidence set',
+                  },
+                  {
+                    label: 'Future analyses',
+                    state: 'pending',
+                    detail: 'Only after manual activation',
+                  },
+                ].map((step, index) => (
+                  <li
+                    key={step.label}
+                    className={clsx(
+                      'rounded-lg border p-3',
+                      step.state === 'complete'
+                        ? 'border-emerald-500/35 bg-emerald-500/8'
+                        : 'border-black-700 bg-black-950/20',
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className={clsx(
+                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
+                          step.state === 'complete'
+                            ? 'bg-emerald-500 text-white'
+                            : 'border border-black-600 text-black-400',
+                        )}
+                      >
+                        {step.state === 'complete' ? '✓' : index + 1}
+                      </span>
+                      <strong className="text-xs text-black-200">{step.label}</strong>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-4 text-black-500">{step.detail}</p>
+                  </li>
+                ))}
+              </ol>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs leading-5 text-black-500">
+                  Historical AI scores stay untouched. A tested profile can influence only future
+                  analyses after you approve activation.
+                </p>
+                <a
+                  href="/settings?tab=calibration"
+                  className="text-xs font-semibold text-[#3157d5] hover:underline"
+                >
+                  View in Calibration
+                </a>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="mt-5 space-y-5">
             {isLocalPreview && (
               <div className="rounded-lg border border-[#3157d5]/30 bg-[#3157d5]/8 p-3 text-sm leading-6 text-black-300">
-                <strong className="block text-black-100">
-                  Local review mode
-                </strong>
-                This take will be saved only on this Mac for Q5 review.
-                Production publishing becomes available after Q5 is approved and
-                deployed.
+                <strong className="block text-black-100">Local review mode</strong>
+                This take will be saved only on this Mac for Q5 review. Production publishing
+                becomes available after Q5 is approved and deployed.
               </div>
             )}
             <div>
@@ -342,9 +427,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 max="10"
                 step="0.1"
                 value={judgment.producerScore}
-                onChange={(event) =>
-                  update('producerScore', Number(event.target.value))
-                }
+                onChange={(event) => update('producerScore', Number(event.target.value))}
                 className="mt-2 w-full accent-[#3157d5]"
               />
             </div>
@@ -379,10 +462,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 <select
                   value={judgment.pursuit}
                   onChange={(event) =>
-                    update(
-                      'pursuit',
-                      event.target.value as ProducerJudgment['pursuit'],
-                    )
+                    update('pursuit', event.target.value as ProducerJudgment['pursuit'])
                   }
                   className="input mt-2 w-full normal-case tracking-normal"
                 >
@@ -396,10 +476,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 <select
                   value={judgment.fixability}
                   onChange={(event) =>
-                    update(
-                      'fixability',
-                      event.target.value as ProducerJudgment['fixability'],
-                    )
+                    update('fixability', event.target.value as ProducerJudgment['fixability'])
                   }
                   className="input mt-2 w-full normal-case tracking-normal"
                 >
@@ -416,26 +493,24 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 What moved your decision?
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
-                {(
-                  Object.entries(TASTE_SIGNAL_LABELS) as Array<
-                    [TasteSignal, string]
-                  >
-                ).map(([signal, label]) => (
-                  <button
-                    key={signal}
-                    type="button"
-                    aria-pressed={judgment.tasteSignals.includes(signal)}
-                    onClick={() => toggleSignal(signal)}
-                    className={clsx(
-                      'rounded-full border px-3 py-1.5 text-xs transition-colors',
-                      judgment.tasteSignals.includes(signal)
-                        ? 'border-[#3157d5]/60 bg-[#3157d5]/12 text-[#3157d5]'
-                        : 'border-black-700 text-black-400 hover:border-black-500',
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
+                {(Object.entries(TASTE_SIGNAL_LABELS) as Array<[TasteSignal, string]>).map(
+                  ([signal, label]) => (
+                    <button
+                      key={signal}
+                      type="button"
+                      aria-pressed={judgment.tasteSignals.includes(signal)}
+                      onClick={() => toggleSignal(signal)}
+                      className={clsx(
+                        'rounded-full border px-3 py-1.5 text-xs transition-colors',
+                        judgment.tasteSignals.includes(signal)
+                          ? 'border-[#3157d5]/60 bg-[#3157d5]/12 text-[#3157d5]'
+                          : 'border-black-700 text-black-400 hover:border-black-500',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ),
+                )}
               </div>
             </fieldset>
 
@@ -466,17 +541,13 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               <input
                 type="checkbox"
                 checked={judgment.includeInCalibration}
-                onChange={(event) =>
-                  update('includeInCalibration', event.target.checked)
-                }
+                onChange={(event) => update('includeInCalibration', event.target.checked)}
                 className="mt-0.5 accent-[#3157d5]"
               />
               <span>
-                <strong className="block text-black-100">
-                  Use this as calibration evidence
-                </strong>
-                Leave this off when your opinion is tentative or the analysis
-                version is not representative.
+                <strong className="block text-black-100">Use this as calibration evidence</strong>
+                Leave this off when your opinion is tentative or the analysis version is not
+                representative.
               </span>
             </label>
 

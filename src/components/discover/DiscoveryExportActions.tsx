@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { clsx } from 'clsx';
 import { DiscoveryPitchDeckModal } from '@/components/discover/DiscoveryPitchDeckModal';
 import { useToastStore } from '@/stores/toastStore';
@@ -9,6 +9,12 @@ type CoverageState = 'idle' | 'loading' | 'error';
 export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay }) {
   const [coverageState, setCoverageState] = useState<CoverageState>('idle');
   const [showPitchDeckModal, setShowPitchDeckModal] = useState(false);
+  const pitchDeckButtonRef = useRef<HTMLButtonElement>(null);
+
+  const closePitchDeck = () => {
+    setShowPitchDeckModal(false);
+    window.requestAnimationFrame(() => pitchDeckButtonRef.current?.focus());
+  };
 
   const downloadCoverage = async () => {
     if (coverageState === 'loading') return;
@@ -20,9 +26,7 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
       setCoverageState('idle');
     } catch (error) {
       console.error('[Discovery Coverage PDF] Generation failed:', error);
-      useToastStore
-        .getState()
-        .addToast('Coverage PDF generation failed — please try again');
+      useToastStore.getState().addToast('Coverage PDF generation failed — please try again');
       setCoverageState('error');
     }
   };
@@ -32,6 +36,7 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
       <div className="flex flex-col items-end gap-1.5">
         <div className="flex flex-wrap items-center justify-end gap-2">
           <button
+            ref={pitchDeckButtonRef}
             type="button"
             onClick={downloadCoverage}
             disabled={coverageState === 'loading'}
@@ -75,7 +80,7 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
 
       <DiscoveryPitchDeckModal
         isOpen={showPitchDeckModal}
-        onClose={() => setShowPitchDeckModal(false)}
+        onClose={closePitchDeck}
         screenplays={[screenplay]}
         mode="single"
       />

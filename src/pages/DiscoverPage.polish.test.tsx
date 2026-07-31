@@ -26,7 +26,11 @@ const shareMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/useScreenplays', () => ({
-  useScreenplays: () => ({ data: hookState.screenplays, isLoading: false, error: null }),
+  useScreenplays: () => ({
+    data: hookState.screenplays,
+    isLoading: false,
+    error: null,
+  }),
   useLiveScreenplaySync: vi.fn(),
   useDeleteScreenplays: () => ({ mutate: vi.fn(), isPending: false }),
 }));
@@ -63,7 +67,9 @@ function buildScreenplays(): Screenplay[] {
 }
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={['/discover']}>
@@ -109,7 +115,9 @@ describe('Discovery Compact Shelf surface smoke tests', () => {
     expect(within(drawer).getByTestId('discovery-notes-panel')).toBeInTheDocument();
 
     await user.click(within(drawer).getByRole('button', { name: 'Close details' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Atlas Fall' })).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Atlas Fall' })).not.toBeInTheDocument(),
+    );
   });
 
   it('keeps share and export controls working inside their Discovery-styled surfaces', async () => {
@@ -123,13 +131,21 @@ describe('Discovery Compact Shelf surface smoke tests', () => {
     });
     renderPage();
     await user.click(await screen.findByRole('button', { name: 'Open Atlas Fall details' }));
+    const drawer = await screen.findByRole('dialog', { name: 'Atlas Fall' });
 
     await user.click(await screen.findByRole('button', { name: 'Share' }));
-    expect(screen.getByTestId('share-popover')).toHaveAttribute('data-presentation', 'discovery');
+    const sharePanel = screen.getByTestId('share-popover');
+    expect(sharePanel).toHaveAttribute('data-presentation', 'discovery');
+    expect(drawer).not.toContainElement(sharePanel);
+    expect(within(sharePanel).getByText('Link active')).toBeInTheDocument();
+    expect(
+      within(sharePanel).getByText('This link is ready, but the app has not sent it to anyone.'),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Close popover' }));
 
     await user.click(screen.getByRole('button', { name: 'Pitch-deck PDF' }));
     const exportModal = await screen.findByTestId('export-modal');
+    expect(drawer).not.toContainElement(exportModal);
     expect(within(exportModal).getByTestId('export-modal-surface')).toHaveAttribute(
       'data-presentation',
       'discovery',
@@ -146,7 +162,9 @@ describe('Discovery Compact Shelf surface smoke tests', () => {
     await user.click(await screen.findByRole('button', { name: 'Select Atlas Fall' }));
     await user.click(screen.getByRole('button', { name: 'Select Foxtrot House' }));
 
-    const selectionBar = screen.getByRole('region', { name: 'Discovery selection actions' });
+    const selectionBar = screen.getByRole('region', {
+      name: 'Discovery selection actions',
+    });
     expect(selectionBar).toHaveAttribute('data-presentation', 'discovery');
 
     await user.click(within(selectionBar).getByRole('button', { name: 'Add to favorites' }));
@@ -163,7 +181,9 @@ describe('Discovery Compact Shelf surface smoke tests', () => {
     await user.click(within(selectionBar).getByRole('button', { name: 'Bulk share links' }));
     const bulkShareModal = await screen.findByTestId('bulk-share-surface');
     expect(bulkShareModal).toHaveAttribute('data-presentation', 'discovery');
-    expect(await screen.findByText('http://localhost:3000/share/token-atlas.pdf')).toBeInTheDocument();
+    expect(
+      await screen.findByText('http://localhost:3000/share/token-atlas.pdf'),
+    ).toBeInTheDocument();
   });
 
   it('keeps saved-view behavior inside the restyled Lenses surface', async () => {
