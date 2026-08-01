@@ -5,10 +5,11 @@
 
 import { useState, useRef } from 'react';
 import { clsx } from 'clsx';
+import type { UploadPresentation } from '@/components/settings/upload/upload.types';
 
 interface UploadDropzoneProps {
   onFilesSelected: (files: FileList | null) => void;
-  presentation?: 'settings' | 'intake';
+  presentation?: UploadPresentation;
 }
 
 export function UploadDropzone({ onFilesSelected, presentation = 'settings' }: UploadDropzoneProps) {

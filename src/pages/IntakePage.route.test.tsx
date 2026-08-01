@@ -38,7 +38,7 @@ describe('/intake authorization', () => {
   it('uses the lazy, error-bounded, admin-only route pattern', () => {
     const mainSource = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8');
 
-    expect(mainSource).toContain("importWithReload('intake', () => import('./pages/IntakePage'))");
+    expect(mainSource).toContain("importWithReload('intake', () => import('@/pages/IntakePage'))");
     expect(mainSource).toContain('path="/intake"');
     expect(mainSource).toContain('areaName="Intake"');
     expect(mainSource).toMatch(/<AuthGate requireAdmin><IntakePage \/><\/AuthGate>/);

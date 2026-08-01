@@ -12,7 +12,7 @@ import {
   type UploadJob,
 } from '@/stores/uploadStore';
 import { MODEL_OPTIONS } from './upload.constants';
-import type { ModelOption } from './upload.types';
+import type { ModelOption, UploadPresentation } from '@/components/settings/upload/upload.types';
 import { JobItem } from './JobItem';
 
 interface UploadQueueProps {
@@ -29,7 +29,7 @@ interface UploadQueueProps {
   onChooseRevision: (id: string) => void;
   onChooseSeparate: (id: string) => void;
   onOpenAnalysis?: (projectId: string) => void;
-  presentation?: 'settings' | 'intake';
+  presentation?: UploadPresentation;
   headingId?: string;
 }
 

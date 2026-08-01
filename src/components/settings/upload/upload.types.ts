@@ -4,6 +4,8 @@
 
 export type ModelOption = 'haiku' | 'sonnet' | 'opus' | 'hybrid';
 
+export type UploadPresentation = 'settings' | 'intake';
+
 export interface ModelInfo {
   id: ModelOption;
   name: string;

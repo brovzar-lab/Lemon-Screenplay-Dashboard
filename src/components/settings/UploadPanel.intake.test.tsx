@@ -1,10 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useUploadStore, type UploadJob } from '@/stores/uploadStore';
 
 const mockUpload = vi.fn();
+const mockComputeHash = vi.fn();
+const mockFindByHash = vi.fn();
+const mockSubscribe = vi.fn((..._args: unknown[]) => vi.fn());
 
 vi.mock('@/lib/firebase', () => ({
   uploadPdfToIngestQueue: (...args: unknown[]) => mockUpload(...args),
@@ -24,15 +27,15 @@ vi.mock('@/stores/apiConfigStore', () => ({
 }));
 
 vi.mock('@/lib/ingestQueueClient', () => ({
-  subscribeToIngestJob: vi.fn(),
+  subscribeToIngestJob: (...args: unknown[]) => mockSubscribe(...args),
 }));
 
 vi.mock('@/lib/analysisIdentity', () => ({
-  computeContentHash: vi.fn().mockResolvedValue('content-hash'),
+  computeContentHash: (...args: unknown[]) => mockComputeHash(...args),
 }));
 
 vi.mock('@/lib/analysisLookup', () => ({
-  findAnalysisByContentHash: vi.fn().mockResolvedValue(null),
+  findAnalysisByContentHash: (...args: unknown[]) => mockFindByHash(...args),
 }));
 
 import { UploadPanel } from '@/components/settings/UploadPanel';
@@ -52,6 +55,9 @@ describe('Intake upload presentation', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockUpload.mockReset();
+    mockComputeHash.mockReset().mockResolvedValue('content-hash');
+    mockFindByHash.mockReset().mockResolvedValue(null);
+    mockSubscribe.mockClear();
     useUploadStore.setState({ jobs: [], isProcessing: false });
   });
 
@@ -104,5 +110,76 @@ describe('Intake upload presentation', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('alertdialog', { name: 'Send to the reader room?' })).not.toBeInTheDocument();
     expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('blocks exact duplicates selected together before analysis', async () => {
+    const user = userEvent.setup();
+    const first = new File(['same bytes'], 'First.pdf', { type: 'application/pdf' });
+    const second = new File(['same bytes'], 'Second.pdf', { type: 'application/pdf' });
+    mockComputeHash.mockResolvedValue('same-content-hash');
+    renderPanel();
+
+    await user.upload(screen.getByLabelText('Choose screenplay PDFs'), [first, second]);
+
+    expect(await screen.findByText(/1 exact duplicate/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Review and start analysis \(1 file\)/ })).toBeInTheDocument();
+  });
+
+  it('requires an explicit choice for same-title projects selected together', async () => {
+    const user = userEvent.setup();
+    const first = new File(['first draft'], 'Shared_Title.pdf', { type: 'application/pdf' });
+    const second = new File(['second draft'], 'Shared_Title.pdf', { type: 'application/pdf' });
+    mockComputeHash.mockResolvedValueOnce('first-hash').mockResolvedValueOnce('second-hash');
+    renderPanel();
+
+    await user.upload(screen.getByLabelText('Choose screenplay PDFs'), [first, second]);
+
+    expect(await screen.findByText(/1 possible match/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Review and start analysis \(1 file\)/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Separate project' }));
+    expect(screen.getByRole('button', { name: /Review and start analysis \(2 files\)/ })).toBeInTheDocument();
+  });
+
+  it('shows the full Hybrid cost range in the final confirmation', async () => {
+    const user = userEvent.setup();
+    const first = new File(['first'], 'First.pdf', { type: 'application/pdf' });
+    const second = new File(['second'], 'Second.pdf', { type: 'application/pdf' });
+    mockComputeHash.mockResolvedValueOnce('first-hash').mockResolvedValueOnce('second-hash');
+    renderPanel();
+
+    await user.upload(screen.getByLabelText('Choose screenplay PDFs'), [first, second]);
+    await user.click(await screen.findByRole('button', { name: /Review and start analysis \(2 files\)/ }));
+
+    expect(screen.getByText(/Estimated batch cost: ~\$0\.44–\$2\.24/)).toBeInTheDocument();
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('reconnects an accepted queue job and preserves its authoritative project route', async () => {
+    const onOpenAnalysis = vi.fn();
+    const acceptedJob: UploadJob = {
+      id: 'accepted-job',
+      filename: 'Reloaded.pdf',
+      category: 'LEMON',
+      status: 'analyzing',
+      progress: 20,
+      createdAt: new Date().toISOString(),
+      ingestQueueStoragePath: 'ingest-queue/LEMON/upload/Reloaded.pdf',
+    };
+    useUploadStore.setState({ jobs: [acceptedJob], isProcessing: false });
+    renderPanel({ onOpenAnalysis });
+
+    expect(mockSubscribe).toHaveBeenCalledWith(
+      acceptedJob.ingestQueueStoragePath,
+      expect.any(Function),
+      expect.any(Function),
+    );
+    const onUpdate = mockSubscribe.mock.calls[0][1] as (update: {
+      status: 'complete';
+      screenplayDocId: string;
+    }) => void;
+    act(() => onUpdate({ status: 'complete', screenplayDocId: 'reloaded-project' }));
+
+    expect(await screen.findByRole('button', { name: 'Open analysis' })).toBeInTheDocument();
+    expect(useUploadStore.getState().jobs[0].result?.projectId).toBe('reloaded-project');
   });
 });

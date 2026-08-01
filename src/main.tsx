@@ -11,7 +11,7 @@ import { importWithReload } from '@/lib/lazyWithReload';
 // Lazy-loaded routes — loaded on demand for code splitting
 const SettingsPage = lazy(() => importWithReload('settings', () => import('./pages/SettingsPage')));
 const DiscoverPage = lazy(() => importWithReload('discover', () => import('./pages/DiscoverPage')));
-const IntakePage = lazy(() => importWithReload('intake', () => import('./pages/IntakePage')));
+const IntakePage = lazy(() => importWithReload('intake', () => import('@/pages/IntakePage')));
 const SharedViewPage = lazy(() => importWithReload('shared-view', () => import('./pages/SharedViewPage')));
 
 // Create React Query client

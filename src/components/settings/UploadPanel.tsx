@@ -15,7 +15,7 @@
  * uploaded_analyses takes over the job.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { isUploadJobReady, useUploadStore } from '@/stores/uploadStore';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
@@ -37,11 +37,11 @@ import { UploadDropzone } from './upload/UploadDropzone';
 import { UploadQueue } from './upload/UploadQueue';
 import { UploadInstructions } from './upload/UploadInstructions';
 import { MODEL_OPTIONS } from './upload/upload.constants';
-import type { ModelOption } from './upload/upload.types';
+import type { ModelOption, UploadPresentation } from './upload/upload.types';
 
 interface UploadPanelProps {
   /** Keeps the established Settings presentation as the default. */
-  presentation?: 'settings' | 'intake';
+  presentation?: UploadPresentation;
   initialModel?: ModelOption;
   onOpenAnalysis?: (projectId: string) => void;
 }
@@ -57,6 +57,15 @@ function inferTitleFromFilename(filename: string): string {
     .replace(/\.pdf$/i, '')
     .replace(/[_-]/g, ' ')
     .trim();
+}
+
+function estimateBatchCost(model: ModelOption, projectCount: number): string | null {
+  if (projectCount === 0) return null;
+  const option = MODEL_OPTIONS.find((candidate) => candidate.id === model);
+  const perScriptCosts = option?.costPerScript.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+  if (perScriptCosts.length === 0) return null;
+  const totals = perScriptCosts.map((cost) => (cost * projectCount).toFixed(2));
+  return totals.length === 1 ? `~$${totals[0]}` : `~$${totals[0]}–$${totals[totals.length - 1]}`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -94,52 +103,69 @@ export function UploadPanel({
 
   const handleFileSelect = async (files: FileList | null) => {
     if (!files) return;
-    // Process all files in parallel — hashing is async but local-only.
-    await Promise.all(
-      Array.from(files).map(async (file) => {
-        const fileError = getPdfFileError(file);
-        if (fileError) {
-          useToastStore.getState().addToast(fileError, 'warning');
-          return;
-        }
-        const jobId = addJob(file.name, selectedCategory, file);
-
-        // Layer 1 (fast): a title match identifies a likely revision target.
-        // It is not proof of duplicate bytes and must not block the upload.
-        if (screenplays && screenplays.length > 0) {
-          const inferred = inferTitleFromFilename(file.name).toLowerCase();
-          const match = screenplays.find(
-            (s) => s.title.toLowerCase().trim() === inferred,
-          );
-          if (match) {
-            updateJob(jobId, {
-              existingTitle: match.title,
-              possibleMatchProjectId: match.projectId ?? toDocId(match.sourceFile),
-            });
-          }
-        }
-
-        // Layer 2 (true content dedup): SHA-256 of file bytes → Firestore lookup.
-        // Catches re-uploads of the same PDF under a different filename.
+    const validFiles = Array.from(files).filter((file) => {
+      const fileError = getPdfFileError(file);
+      if (fileError) useToastStore.getState().addToast(fileError, 'warning');
+      return !fileError;
+    });
+    const identityResults = await Promise.all(
+      validFiles.map(async (file) => {
         try {
           const hash = await computeContentHash(file);
           const existing = await findAnalysisByContentHash(hash);
-          if (existing) {
-            updateJob(jobId, {
-              isDuplicate: true,
-              existingTitle: existing,
-              matchResolution: undefined,
-              targetProjectId: undefined,
-              separateProject: false,
-            });
-          }
+          return { file, hash, existing };
         } catch (err) {
           console.warn('[upload] hash compute failed (proceeding):', err);
-        } finally {
-          updateJob(jobId, { identityCheckComplete: true });
+          return { file, hash: undefined, existing: null };
         }
       }),
     );
+    const batchHashes = new Map<string, string>();
+    const batchTitles = new Map<string, { filename: string; title: string }>();
+    jobs.forEach((job) => {
+      if (job.status !== 'pending' || job.isDuplicate) return;
+      if (job.contentHash) batchHashes.set(job.contentHash, job.filename);
+      const title = inferTitleFromFilename(job.filename);
+      batchTitles.set(title.toLowerCase(), { filename: job.filename, title });
+    });
+
+    identityResults.forEach(({ file, hash, existing }) => {
+      const jobId = addJob(file.name, selectedCategory, file);
+      const inferredTitle = inferTitleFromFilename(file.name);
+      const normalizedTitle = inferredTitle.toLowerCase();
+      const batchTitleMatch = batchTitles.get(normalizedTitle);
+      const batchHashMatch = hash ? batchHashes.get(hash) : undefined;
+      const archiveTitleMatch = screenplays?.find(
+        (screenplay) => screenplay.title.toLowerCase().trim() === normalizedTitle,
+      );
+      const possibleMatchProjectId = archiveTitleMatch
+        ? archiveTitleMatch.projectId ?? toDocId(archiveTitleMatch.sourceFile)
+        : batchTitleMatch
+          ? toDocId(batchTitleMatch.filename)
+          : undefined;
+
+      // Content hashes are compared against both Firestore and this selection.
+      // Exact duplicates never become actionable, even when selected together.
+      const isDuplicate = Boolean(existing || batchHashMatch);
+      updateJob(jobId, {
+        identityCheckComplete: true,
+        isDuplicate,
+        contentHash: hash,
+        existingTitle: existing
+          ?? (batchHashMatch
+            ? inferTitleFromFilename(batchHashMatch)
+            : archiveTitleMatch?.title ?? batchTitleMatch?.title),
+        possibleMatchProjectId: isDuplicate ? undefined : possibleMatchProjectId,
+        matchResolution: undefined,
+        targetProjectId: undefined,
+        separateProject: false,
+      });
+
+      if (hash && !batchHashes.has(hash)) batchHashes.set(hash, file.name);
+      if (!batchTitles.has(normalizedTitle)) {
+        batchTitles.set(normalizedTitle, { filename: file.name, title: inferredTitle });
+      }
+    });
   };
 
   // ─── Duplicate action handlers ─────────────────────────────────────────────
@@ -253,11 +279,57 @@ export function UploadPanel({
     // Pass the user's selection through unchanged.
     const requestedModel = selectedModel;
 
-    // Run uploads in parallel — daemon enforces its own worker concurrency cap
-    await Promise.all(pending.map((job) => processOne(job.id, requestedModel)));
+    if (presentation === 'intake') {
+      // A same-batch revision may target the project immediately before it.
+      // Preserve selection order so that parent exists before the revision runs.
+      for (const job of pending) await processOne(job.id, requestedModel);
+    } else {
+      // Preserve the established Settings upload behavior.
+      await Promise.all(pending.map((job) => processOne(job.id, requestedModel)));
+    }
 
     setProcessing(false);
-  }, [isProcessing, setProcessing, selectedModel, processOne]);
+  }, [isProcessing, setProcessing, selectedModel, processOne, presentation]);
+
+  // Reconnect to accepted queue jobs after navigation or a browser reload.
+  useEffect(() => {
+    if (isProcessing) return;
+    const resumableJobs = useUploadStore.getState().jobs.filter(
+      (job) => (job.status === 'analyzing' || job.status === 'promoting') && job.ingestQueueStoragePath,
+    );
+    const subscriptions = resumableJobs.map((job) => subscribeToIngestJob(
+      job.ingestQueueStoragePath!,
+      (update) => {
+        if (update.status === 'pending' || update.status === 'waiting_for_budget') {
+          updateJob(job.id, { status: 'analyzing', progress: 20, error: update.error });
+        } else if (update.status === 'processing') {
+          updateJob(job.id, { status: 'analyzing', progress: 60, error: undefined });
+        } else if (update.status === 'complete') {
+          updateJob(job.id, {
+            status: 'complete',
+            progress: 100,
+            error: undefined,
+            result: {
+              title: inferTitleFromFilename(job.filename),
+              author: 'See analysis',
+              analysisPath: 'firestore',
+              projectId: update.screenplayDocId,
+            },
+            completedAt: new Date().toISOString(),
+          });
+          queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
+        } else if (update.status === 'failed') {
+          updateJob(job.id, { status: 'error', error: update.error || 'Daemon analysis failed' });
+        } else if (update.status === 'skipped') {
+          updateJob(job.id, { status: 'skipped', error: update.error || 'Job skipped' });
+        } else if (update.status === 'needs_review') {
+          updateJob(job.id, { status: 'needs_review', error: update.error || 'The screenplay evidence needs review' });
+        }
+      },
+      (err) => updateJob(job.id, { status: 'error', error: `Subscription error: ${err.message}` }),
+    ));
+    return () => subscriptions.forEach((unsubscribe) => unsubscribe());
+  }, [isProcessing, queryClient, updateJob]);
 
   // Retry a failed job: reset to pending and re-trigger processing
   const retryJob = useCallback((jobId: string) => {
@@ -266,25 +338,9 @@ export function UploadPanel({
   }, [updateJob, processJobs]);
 
   const pendingJobs = jobs.filter(isUploadJobReady);
-  const displayJobs = useMemo(
-    () => jobs.map((job) => {
-      if (job.status !== 'complete' || job.result?.projectId) return job;
-      const inferredTitle = inferTitleFromFilename(job.filename).toLowerCase();
-      const screenplay = screenplays?.find(
-        (candidate) => candidate.sourceFile === job.filename
-          || candidate.title.toLowerCase().trim() === inferredTitle,
-      );
-      const projectId = screenplay?.projectId ?? screenplay?.id;
-      if (!projectId || !job.result) return job;
-      return { ...job, result: { ...job.result, projectId } };
-    }),
-    [jobs, screenplays],
-  );
 
   // Calculate batch cost estimate (only actionable pending jobs)
-  const batchCostEstimate = pendingJobs.length > 0
-    ? `~$${(pendingJobs.length * parseFloat(MODEL_OPTIONS.find(m => m.id === selectedModel)!.costPerScript.replace(/[^0-9.]/g, ''))).toFixed(2)}`
-    : null;
+  const batchCostEstimate = estimateBatchCost(selectedModel, pendingJobs.length);
 
   const handleStartProcessing = () => {
     if (!isConfigured) {
@@ -306,6 +362,7 @@ export function UploadPanel({
     setShowConfirmation(false);
     processJobs();
   };
+  const cancelConfirmation = useCallback(() => setShowConfirmation(false), []);
 
   if (presentation === 'intake') {
     return (
@@ -385,7 +442,7 @@ export function UploadPanel({
 
         <section className="dsc-card p-5 sm:p-7" aria-labelledby="intake-queue-heading">
           <UploadQueue
-            jobs={displayJobs}
+            jobs={jobs}
             isProcessing={isProcessing}
             isConfigured={isConfigured}
             selectedModel={selectedModel}
@@ -408,7 +465,7 @@ export function UploadPanel({
           projectCount={pendingJobs.length}
           modelName={MODEL_OPTIONS.find((model) => model.id === selectedModel)?.name ?? selectedModel}
           costEstimate={batchCostEstimate}
-          onCancel={() => setShowConfirmation(false)}
+          onCancel={cancelConfirmation}
           onConfirm={confirmStartProcessing}
         />
       </div>

@@ -40,6 +40,8 @@ export interface UploadJob {
   identityCheckComplete?: boolean;
   /** True only when SHA-256 proves these exact PDF bytes were already analyzed. */
   isDuplicate?: boolean;
+  /** Local SHA-256 used to block duplicates selected in the same intake batch. */
+  contentHash?: string;
   existingTitle?: string;
   /** Suggested parent from a title match. The user must confirm it. */
   possibleMatchProjectId?: string;
@@ -205,8 +207,12 @@ export const useUploadStore = create<UploadState>()(
     {
       name: 'lemon-uploads',
       partialize: (state) => ({
-        // Only persist completed jobs for reference
-        jobs: state.jobs.filter((j) => j.status === 'complete'),
+        // Keep accepted queue jobs so Intake can reconnect after navigation/reload.
+        // Pending files remain memory-only because File objects cannot be serialized.
+        jobs: state.jobs.filter((job) =>
+          isUploadTerminalStatus(job.status)
+          || ((job.status === 'analyzing' || job.status === 'promoting') && job.ingestQueueStoragePath),
+        ),
       }),
     }
   )

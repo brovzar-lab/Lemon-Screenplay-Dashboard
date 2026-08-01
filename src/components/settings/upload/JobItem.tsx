@@ -6,6 +6,7 @@
 
 import { clsx } from 'clsx';
 import type { UploadJob } from '@/stores/uploadStore';
+import type { UploadPresentation } from '@/components/settings/upload/upload.types';
 import { STATUS_LABELS } from './upload.constants';
 
 interface JobItemProps {
@@ -16,7 +17,7 @@ interface JobItemProps {
   onChooseRevision: (id: string) => void;
   onChooseSeparate: (id: string) => void;
   onOpenAnalysis?: (projectId: string) => void;
-  presentation?: 'settings' | 'intake';
+  presentation?: UploadPresentation;
 }
 
 export function JobItem({

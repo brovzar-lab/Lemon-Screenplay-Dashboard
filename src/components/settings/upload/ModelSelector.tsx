@@ -5,14 +5,14 @@
 
 import { clsx } from 'clsx';
 import { MODEL_OPTIONS } from './upload.constants';
-import type { ModelOption } from './upload.types';
+import type { ModelOption, UploadPresentation } from '@/components/settings/upload/upload.types';
 
 interface ModelSelectorProps {
   selectedModel: ModelOption;
   onSelectModel: (model: ModelOption) => void;
   pendingCount: number;
   batchCostEstimate: string | null;
-  presentation?: 'settings' | 'intake';
+  presentation?: UploadPresentation;
 }
 
 export function ModelSelector({

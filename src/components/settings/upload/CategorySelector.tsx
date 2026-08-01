@@ -5,13 +5,14 @@
 
 import { useState } from 'react';
 import { clsx } from 'clsx';
+import type { UploadPresentation } from '@/components/settings/upload/upload.types';
 
 interface CategorySelectorProps {
   categoryIds: string[];
   selectedCategory: string;
   onSelectCategory: (cat: string) => void;
   onAddCategory: (cat: { id: string; name: string; description: string }) => void;
-  presentation?: 'settings' | 'intake';
+  presentation?: UploadPresentation;
 }
 
 export function CategorySelector({

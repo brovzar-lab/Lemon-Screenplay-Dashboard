@@ -1,1 +1,1 @@
-export { IntakeConfirmationDialog } from './IntakeConfirmationDialog';
+export { IntakeConfirmationDialog } from '@/components/intake/IntakeConfirmationDialog';
