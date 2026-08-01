@@ -15,7 +15,7 @@ import {
     getAuth,
     onAuthStateChanged,
     setPersistence,
-    signInWithPopup,
+    signInWithRedirect,
     signOut,
 } from 'firebase/auth';
 import type { Unsubscribe, User } from 'firebase/auth';
@@ -64,19 +64,16 @@ export function isLemonEmail(email: string | null | undefined): boolean {
     return email?.toLowerCase().endsWith(`@${LEMON_EMAIL_DOMAIN}`) ?? false;
 }
 
-export async function signInWithGoogle(): Promise<User> {
+export async function signInWithGoogle(): Promise<void> {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({
         hd: LEMON_EMAIL_DOMAIN,
         prompt: 'select_account',
     });
 
-    const credential = await signInWithPopup(auth, provider);
-    if (!credential.user.emailVerified || !isLemonEmail(credential.user.email)) {
-        await signOut(auth);
-        throw new Error(`Use your @${LEMON_EMAIL_DOMAIN} Google account.`);
-    }
-    return credential.user;
+    // A full-page redirect works in the in-app review browser and avoids
+    // popup blockers. The auth-state listener validates the returned account.
+    await signInWithRedirect(auth, provider);
 }
 
 export function signOutUser(): Promise<void> {

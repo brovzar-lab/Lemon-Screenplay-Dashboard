@@ -13,7 +13,7 @@ export function LoginScreen() {
           Screenplay Dashboard
         </h1>
         <p className="mb-8 text-sm" style={{ color: 'var(--sp-text-3)' }}>
-          Sign in with your Lemon Studios account.
+          Sign in with your Lemon Studios account. Google will open securely in this window and return you here.
         </p>
 
         <button

@@ -37,6 +37,7 @@ vi.mock('firebase/auth', async (importOriginal) => {
       return vi.fn();
     }),
     signInWithPopup: vi.fn().mockResolvedValue({ user }),
+    signInWithRedirect: vi.fn().mockResolvedValue(undefined),
     signOut: vi.fn().mockResolvedValue(undefined),
     setPersistence: vi.fn().mockResolvedValue(undefined),
   };

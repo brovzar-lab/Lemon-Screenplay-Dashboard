@@ -26,6 +26,7 @@ const mockUser = {
   emailVerified: true,
 };
 const mockSignOut = vi.fn().mockResolvedValue(undefined);
+const mockSignInWithRedirect = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('firebase/auth', () => ({
   browserLocalPersistence: { type: 'LOCAL' },
@@ -38,7 +39,7 @@ vi.mock('firebase/auth', () => ({
     return vi.fn();
   }),
   setPersistence: vi.fn().mockResolvedValue(undefined),
-  signInWithPopup: vi.fn().mockResolvedValue({ user: mockUser }),
+  signInWithRedirect: mockSignInWithRedirect,
   signOut: mockSignOut,
 }));
 
@@ -64,8 +65,9 @@ describe('firebase module', () => {
     expect(firebaseModule.isLemonEmail(null)).toBe(false);
   });
 
-  it('returns the Google user after sign-in', async () => {
-    await expect(firebaseModule.signInWithGoogle()).resolves.toEqual(mockUser);
+  it('starts Google sign-in in the current window', async () => {
+    await expect(firebaseModule.signInWithGoogle()).resolves.toBeUndefined();
+    expect(mockSignInWithRedirect).toHaveBeenCalledOnce();
   });
 
   it('exposes the initialized auth singleton', () => {
