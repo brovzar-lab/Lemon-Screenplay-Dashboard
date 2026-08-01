@@ -12,22 +12,39 @@ interface ModelSelectorProps {
   onSelectModel: (model: ModelOption) => void;
   pendingCount: number;
   batchCostEstimate: string | null;
+  presentation?: 'settings' | 'intake';
 }
 
-export function ModelSelector({ selectedModel, onSelectModel, pendingCount, batchCostEstimate }: ModelSelectorProps) {
+export function ModelSelector({
+  selectedModel,
+  onSelectModel,
+  pendingCount,
+  batchCostEstimate,
+  presentation = 'settings',
+}: ModelSelectorProps) {
+  const isIntake = presentation === 'intake';
   return (
     <div>
-      <label className="block text-sm font-medium text-gold-300 mb-3">
+      <p className={clsx(
+        'mb-3 block text-sm font-medium',
+        isIntake ? 'text-[var(--dsc-ink)]' : 'text-gold-300',
+      )}>
         Analysis Model
-      </label>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      </p>
+      <div className={clsx('grid grid-cols-1 gap-3 md:grid-cols-2', isIntake && '2xl:grid-cols-4')}>
         {MODEL_OPTIONS.map((model) => (
           <button
+            type="button"
             key={model.id}
             onClick={() => onSelectModel(model.id)}
+            aria-pressed={selectedModel === model.id}
             className={clsx(
               'relative p-4 rounded-xl border text-left transition-all',
-              selectedModel === model.id
+              isIntake
+                ? selectedModel === model.id
+                  ? 'border-[var(--dsc-accent)] bg-[var(--dsc-accent-soft)] shadow-[inset_0_0_0_1px_var(--dsc-accent)]'
+                  : 'border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] hover:border-[var(--dsc-accent)]'
+                : selectedModel === model.id
                 ? 'border-gold-500/60 bg-gold-500/10 ring-1 ring-gold-500/30'
                 : 'border-black-700 bg-black-800/50 hover:border-gold-500/30 hover:bg-black-800'
             )}
@@ -46,11 +63,13 @@ export function ModelSelector({ selectedModel, onSelectModel, pendingCount, batc
               <div>
                 <p className={clsx(
                   'font-semibold text-sm',
-                  selectedModel === model.id ? 'text-gold-200' : 'text-black-200'
+                  isIntake
+                    ? 'text-[var(--dsc-ink)]'
+                    : selectedModel === model.id ? 'text-gold-200' : 'text-black-200'
                 )}>
                   {model.name}
                 </p>
-                <p className="text-xs text-black-400">{model.subtitle}</p>
+                <p className={clsx('text-xs', isIntake ? 'text-[var(--dsc-ink-3)]' : 'text-black-400')}>{model.subtitle}</p>
               </div>
             </div>
 
@@ -67,17 +86,17 @@ export function ModelSelector({ selectedModel, onSelectModel, pendingCount, batc
                 </p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-black-500 mb-0.5">Speed</p>
-                <p className="text-sm text-black-300">{model.speed}</p>
+                <p className={clsx('mb-0.5 text-xs', isIntake ? 'text-[var(--dsc-ink-3)]' : 'text-black-500')}>Speed</p>
+                <p className={clsx('text-sm', isIntake ? 'text-[var(--dsc-ink-2)]' : 'text-black-300')}>{model.speed}</p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-black-500 mb-0.5">Quality</p>
-                <p className="text-sm text-black-300">{model.quality}</p>
+                <p className={clsx('mb-0.5 text-xs', isIntake ? 'text-[var(--dsc-ink-3)]' : 'text-black-500')}>Quality</p>
+                <p className={clsx('text-sm', isIntake ? 'text-[var(--dsc-ink-2)]' : 'text-black-300')}>{model.quality}</p>
               </div>
             </div>
 
             {/* Description */}
-            <p className="text-xs text-black-400 leading-relaxed">
+            <p className={clsx('text-xs leading-relaxed', isIntake ? 'text-[var(--dsc-ink-2)]' : 'text-black-400')}>
               {model.description}
             </p>
 
@@ -101,7 +120,7 @@ export function ModelSelector({ selectedModel, onSelectModel, pendingCount, batc
           <svg className="w-4 h-4 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="text-black-400">
+          <span className={isIntake ? 'text-[var(--dsc-ink-2)]' : 'text-black-400'}>
             Estimated batch cost for {pendingCount} files with {MODEL_OPTIONS.find(m => m.id === selectedModel)!.name}: {' '}
             <span style={{ color: 'var(--sp-accent)', fontVariantNumeric: 'tabular-nums' }}>{batchCostEstimate}</span>
           </span>

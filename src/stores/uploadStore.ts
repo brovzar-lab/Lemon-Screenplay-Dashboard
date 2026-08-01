@@ -29,6 +29,8 @@ export interface UploadJob {
     title: string;
     author: string;
     analysisPath: string;
+    /** Stable project route returned by the authoritative ingest queue. */
+    projectId?: string;
   };
   createdAt: string;
   completedAt?: string;

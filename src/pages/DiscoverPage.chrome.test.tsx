@@ -69,6 +69,10 @@ function makeRouter(initialEntries: string[], initialIndex?: number) {
         path: '/settings',
         element: <div>Settings destination</div>,
       },
+      {
+        path: '/intake',
+        element: <div>Intake destination</div>,
+      },
     ],
     { initialEntries, initialIndex },
   );
@@ -137,6 +141,7 @@ describe('Discovery app shell and route state', () => {
       expect(await screen.findByRole('banner')).toBeInTheDocument();
       expect(screen.getByRole('navigation', { name: 'Discovery navigation' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Discover' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Intake' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Toggle theme' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Account' })).toBeInTheDocument();

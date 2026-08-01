@@ -15,6 +15,8 @@ interface JobItemProps {
   onSkip?: (id: string) => void;
   onChooseRevision: (id: string) => void;
   onChooseSeparate: (id: string) => void;
+  onOpenAnalysis?: (projectId: string) => void;
+  presentation?: 'settings' | 'intake';
 }
 
 export function JobItem({
@@ -24,16 +26,25 @@ export function JobItem({
   onSkip,
   onChooseRevision,
   onChooseSeparate,
+  onOpenAnalysis,
+  presentation = 'settings',
 }: JobItemProps) {
   const status = STATUS_LABELS[job.status];
   const isActive = job.status === 'parsing' || job.status === 'analyzing' || job.status === 'promoting';
   const isSkipped = job.status === 'skipped';
   const needsReview = job.status === 'needs_review';
+  const isIntake = presentation === 'intake';
 
   return (
     <div className={clsx(
       'rounded-lg border transition-all',
-      job.isDuplicate && job.status === 'pending'
+      isIntake
+        ? job.isDuplicate && job.status === 'pending'
+          ? 'border-amber-500/40 bg-amber-500/10'
+          : needsReview || job.status === 'error'
+            ? 'border-amber-500/40 bg-[var(--dsc-surface-2)]'
+            : 'border-[var(--dsc-line)] bg-[var(--dsc-surface-2)]'
+        : job.isDuplicate && job.status === 'pending'
         ? 'border-amber-500/30 bg-amber-500/5'
         : isSkipped
           ? 'border-black-700 bg-black-800/30 opacity-60'
@@ -141,7 +152,7 @@ export function JobItem({
 
         {/* File Info */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gold-200 truncate">{job.filename}</p>
+          <p className={clsx('truncate text-sm font-medium', isIntake ? 'text-[var(--dsc-ink)]' : 'text-gold-200')}>{job.filename}</p>
           <div className="flex items-center gap-2 text-xs flex-wrap">
             <span className={status.color}>{status.label}</span>
             <span className="text-black-500">&middot;</span>
@@ -215,9 +226,20 @@ export function JobItem({
             ↻ Retry
           </button>
         )}
+        {job.status === 'complete' && job.result?.projectId && onOpenAnalysis && (
+          <button
+            type="button"
+            onClick={() => onOpenAnalysis(job.result!.projectId!)}
+            className={isIntake ? 'dsc-btn dsc-btn-primary shrink-0' : 'btn btn-primary shrink-0'}
+          >
+            Open analysis
+          </button>
+        )}
         {(job.status === 'pending' || job.status === 'complete' || job.status === 'error' || isSkipped || needsReview) && (
           <button
+            type="button"
             onClick={() => onRemove(job.id)}
+            aria-label={`Remove ${job.filename} from intake`}
             className="p-1 text-black-500 hover:text-red-400 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

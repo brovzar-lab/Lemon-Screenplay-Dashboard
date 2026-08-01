@@ -28,6 +28,9 @@ interface UploadQueueProps {
   onSkipJob: (id: string) => void;
   onChooseRevision: (id: string) => void;
   onChooseSeparate: (id: string) => void;
+  onOpenAnalysis?: (projectId: string) => void;
+  presentation?: 'settings' | 'intake';
+  headingId?: string;
 }
 
 export function UploadQueue({
@@ -43,6 +46,9 @@ export function UploadQueue({
   onSkipJob,
   onChooseRevision,
   onChooseSeparate,
+  onOpenAnalysis,
+  presentation = 'settings',
+  headingId,
 }: UploadQueueProps) {
   const pendingJobs = jobs.filter((j) => j.status === 'pending');
   const actionablePending = pendingJobs.filter(isUploadJobReady);
@@ -55,16 +61,45 @@ export function UploadQueue({
     (j) => !j.isDuplicate && j.possibleMatchProjectId && !j.matchResolution,
   ).length;
 
-  if (jobs.length === 0) return null;
+  const isIntake = presentation === 'intake';
+
+  if (jobs.length === 0) {
+    if (!isIntake) return null;
+    return (
+      <div>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="dsc-kicker">Live docket</p>
+            <h2 id={headingId} className="dsc-display mt-2 text-3xl">Intake ledger</h2>
+          </div>
+          <span className="text-sm text-[var(--dsc-ink-3)]">0 projects in motion</span>
+        </div>
+        <div className="mt-6 grid min-h-40 place-items-center rounded-[var(--dsc-radius-card)] border border-dashed border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] px-6 py-10 text-center">
+          <div>
+            <p className="font-semibold text-[var(--dsc-ink)]">The desk is clear</p>
+            <p className="mt-2 text-sm text-[var(--dsc-ink-3)]">Add screenplay PDFs above. Their status will stay visible here.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gold-200">Upload Queue</h3>
+        <div>
+          {isIntake && <p className="dsc-kicker">Live docket</p>}
+          <h3 id={headingId} className={clsx(isIntake ? 'dsc-display mt-2 text-3xl' : 'text-lg font-medium text-gold-200')}>
+            {isIntake ? 'Intake ledger' : 'Upload Queue'}
+          </h3>
+        </div>
         {terminalJobs.length > 0 && (
           <button
             onClick={onClearCompleted}
-            className="text-sm text-black-400 hover:text-gold-400 transition-colors"
+            className={clsx(
+              'text-sm transition-colors',
+              isIntake ? 'text-[var(--dsc-ink-3)] hover:text-[var(--dsc-accent)]' : 'text-black-400 hover:text-gold-400',
+            )}
           >
             Clear completed
           </button>
@@ -102,6 +137,8 @@ export function UploadQueue({
             onSkip={onSkipJob}
             onChooseRevision={onChooseRevision}
             onChooseSeparate={onChooseSeparate}
+            onOpenAnalysis={onOpenAnalysis}
+            presentation={presentation}
           />
         ))}
 
@@ -115,6 +152,8 @@ export function UploadQueue({
             onSkip={onSkipJob}
             onChooseRevision={onChooseRevision}
             onChooseSeparate={onChooseSeparate}
+            onOpenAnalysis={onOpenAnalysis}
+            presentation={presentation}
           />
         ))}
 
@@ -127,6 +166,8 @@ export function UploadQueue({
             onRetry={onRetryJob}
             onChooseRevision={onChooseRevision}
             onChooseSeparate={onChooseSeparate}
+            onOpenAnalysis={onOpenAnalysis}
+            presentation={presentation}
           />
         ))}
 
@@ -139,6 +180,8 @@ export function UploadQueue({
             onRetry={onRetryJob}
             onChooseRevision={onChooseRevision}
             onChooseSeparate={onChooseSeparate}
+            onOpenAnalysis={onOpenAnalysis}
+            presentation={presentation}
           />
         ))}
       </div>
@@ -151,13 +194,14 @@ export function UploadQueue({
             onClick={onStartProcessing}
             disabled={!isConfigured}
             className={clsx(
-              'btn w-full',
-              isConfigured ? 'btn-primary' : 'btn-secondary opacity-70'
+              'w-full',
+              isIntake ? 'dsc-btn dsc-btn-primary' : 'btn',
+              !isIntake && (isConfigured ? 'btn-primary' : 'btn-secondary opacity-70'),
             )}
           >
             {isConfigured ? (
               <>
-                Start Analysis ({actionablePending.length} file{actionablePending.length > 1 ? 's' : ''})
+                {isIntake ? 'Review and start analysis' : 'Start Analysis'} ({actionablePending.length} file{actionablePending.length > 1 ? 's' : ''})
                 <span className="ml-2 text-xs opacity-70">
                   using {MODEL_OPTIONS.find(m => m.id === selectedModel)!.name}
                   {batchCostEstimate && ` \u2022 ${batchCostEstimate}`}
@@ -182,7 +226,10 @@ export function UploadQueue({
 
       {/* Processing indicator */}
       {isProcessing && (
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-gold-500/10 border border-gold-500/20">
+        <div className={clsx(
+          'flex items-center gap-3 rounded-lg border p-3',
+          isIntake ? 'border-[var(--dsc-accent)] bg-[var(--dsc-accent-soft)]' : 'border-gold-500/20 bg-gold-500/10',
+        )}>
           <div className="w-5 h-5 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-gold-300">
             Processing with {MODEL_OPTIONS.find(m => m.id === selectedModel)!.name}... {' '}

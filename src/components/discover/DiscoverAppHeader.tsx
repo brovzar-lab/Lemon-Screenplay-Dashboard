@@ -10,6 +10,7 @@ interface DiscoverAppHeaderProps {
   averageScore: number;
   filmNowCount: number;
   isLoading: boolean;
+  sectionTitle?: string;
 }
 
 interface LedgerStatProps {
@@ -32,6 +33,7 @@ export function DiscoverAppHeader({
   averageScore,
   filmNowCount,
   isLoading,
+  sectionTitle = 'Cinema Browse',
 }: DiscoverAppHeaderProps) {
   const isAdmin = useIsAdmin();
   const isDark = useThemeStore((state) => state.isDark);
@@ -59,7 +61,7 @@ export function DiscoverAppHeader({
 
         <div className="cinema-header-title hidden lg:flex">
           <span aria-hidden="true" />
-          <strong>Cinema Browse</strong>
+          <strong>{sectionTitle}</strong>
         </div>
 
         <nav
@@ -69,6 +71,11 @@ export function DiscoverAppHeader({
           <NavLink to="/discover" end={false} className={navClass}>
             Discover
           </NavLink>
+          {isAdmin && (
+            <NavLink to="/intake" className={navClass}>
+              Intake
+            </NavLink>
+          )}
           {isAdmin && (
             <NavLink to="/settings" className={navClass}>
               Settings

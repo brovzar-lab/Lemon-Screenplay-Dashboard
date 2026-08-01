@@ -3,64 +3,53 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-07-30
+**Last session:** 2026-07-31
 
-**Done and deployed on `main` at `d314c94`:**
-- Discovery reconnection R0-R6 and the Cinema Browse presentation are available
-  at `/discover`; the original dashboard remains available at `/`.
-- **Q0 baseline:** captured the production data census and froze the trust
-  defects before changing the analysis system.
-- **Q1 immutable trust:** future permanent analyses require a sealed trust
-  manifest that identifies the model, prompt, evidence, response, and cost.
-- **Q2 complete evidence:** the parser proves page coverage and stops truncated
-  screenplays before scoring or verdict.
-- **Q3 five-reader reliability:** all five canonical specialist readers must
-  complete before synthesis; partial panels stop as `needs_review`.
-- **Q3.1 and Q3.2 strict output/accounting:** malformed output cannot become a
-  false model success, upstream rejections remain rejections, and failed calls
-  release their budget reservations correctly.
-- **Q4 producer projection:** stored adjusted scores now drive
-  ranking, while raw score, deductions, gates, and final score remain visible.
-- Current analysis shows the actual five V9 specialist pillars. The old seven
-  approximated dimensions remain only as a labeled legacy compatibility path.
-- Incomplete and truncated work cannot enter featured ranking. Instability,
-  disagreement, and legacy status are visible warnings.
-- New writes keep specialist reports only in the immutable version. The latest
-  parent and slate listener carry the summary; detail views fetch the exact
-  sealed evidence when opened.
-- Q4 is deployed and production-approved.
+**Done and deployed on `main` at `0671443`:**
+- Discovery reconnection R0-R6 and the Cinema Browse presentation are live at
+  `/discover`; the original dashboard remains available at `/`.
+- Q0-Q4 trust hardening is live: complete screenplay evidence, five required
+  specialist readers, strict output and accounting, immutable trust manifests,
+  and truthful producer-facing ranking.
+- Q5 Producer Calibration is live but dormant. Producer Takes are append-only,
+  bound to exact sealed analyses, and cannot overwrite AI judgments.
+- `calibrationManager`, Firestore rules, and the VPS trust-manifest v4 path are
+  deployed. No calibration profile exists or is active, and no paid calibration
+  call has run.
+- Full calibration contract:
+  `docs/trust-hardening/Q5-PRODUCER-CALIBRATION.md`.
 
-**Implemented locally on `codex/q5-producer-calibration`:**
-- A single Producer Take replaces the two old visible feedback inputs. Billy's
-  score, verdict, pursuit decision, fixability, confidence, taste signals, and
-  written correction live beside the AI result without changing it.
-- Producer assessments are append-only revisions bound to an exact immutable
-  analysis version. Server-authored compatibility projections keep the existing
-  Brain and feedback data paths usable.
-- A frontier Opus candidate compiler learns only from explicit training
-  assessments. A disjoint holdout replay stays blind to Billy's answer.
-- Candidates are blocked if they worsen score error, verdict agreement, false
-  passes, or false recommendations. Passing candidates support explicit
-  publication and rollback with immutable receipts.
-- Trust-manifest v4 seals the exact active profile version, prompt hash,
-  assessment-set hash, and compiler model. Invalid profiles fall back to neutral
-  analysis before paid work.
-- Full contract: `docs/trust-hardening/Q5-PRODUCER-CALIBRATION.md`.
+**Implemented locally on `codex/q6-intake-mvp`:**
+- New admin-only `/intake` route, lazy-loaded through the existing AuthGate and
+  ErrorBoundary pattern.
+- Discovery header now exposes Intake only to admins and preserves current
+  Discover and Settings behavior.
+- The existing upload, duplicate detection, revision resolution, Storage queue,
+  Firestore subscription, and VPS analysis machinery is reused without backend
+  changes.
+- Intake has an intentional desktop/tablet interface: reading route, category,
+  PDF drop desk, safeguards, and a live project docket.
+- Hybrid is the Intake default to support a quality-first funnel. Existing
+  Settings upload behavior still defaults to Sonnet.
+- A final confirmation shows the model, project count, and estimated spend.
+  Closing or pressing Escape starts nothing.
+- New completed jobs retain the authoritative project ID and can open the final
+  Discovery analysis directly.
+- Q6 has made no paid calls and deployed nothing. Contract:
+  `docs/Q6-INTAKE-MVP.md`.
 
 **Production state:**
-- Production is on `main` at `d314c94`, including approved Q4.
-- Q5 is local only. It has made no paid model calls, deployed nothing, and
-  activated no calibration profile.
+- Production remains on `main` at `0671443`, including approved Q5.
+- Calibration remains inactive.
+- Q6 exists only on the local branch `codex/q6-intake-mvp`.
 
 **Next up:**
-1. Billy reviews the Q5 Producer Take in a sealed screenplay analysis and the
-   Calibration settings panel locally.
-2. Run an independent code and browser verification of the Q5 branch.
-3. Only after explicit approval, merge Q5 and coordinate hosting,
-   `calibrationManager`, Firestore rules, and VPS deployment.
-4. After deployment, Billy records at least five diverse Producer Takes.
-5. Paid candidate compilation and calibration activation each require separate
-   explicit approval.
+1. Finish Q6 full-suite verification and local browser review.
+2. Billy reviews `http://localhost:3000/intake` without starting an analysis.
+3. After explicit approval, merge Q6 and coordinate the required hosting-only
+   deployment. The existing ingest backend does not need a Q6 redeploy.
+4. After Q6, build the full screenplay Project Workspace, then Chat With the
+   Room. Producer calibration remains a later checkpoint before bulk intake.
 
 **Backlog pointer:**
 - Discovery UI backlog remains in `docs/DISCOVERY-BACKLOG.md`.

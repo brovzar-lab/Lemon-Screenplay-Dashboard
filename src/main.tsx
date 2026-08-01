@@ -11,6 +11,7 @@ import { importWithReload } from '@/lib/lazyWithReload';
 // Lazy-loaded routes — loaded on demand for code splitting
 const SettingsPage = lazy(() => importWithReload('settings', () => import('./pages/SettingsPage')));
 const DiscoverPage = lazy(() => importWithReload('discover', () => import('./pages/DiscoverPage')));
+const IntakePage = lazy(() => importWithReload('intake', () => import('./pages/IntakePage')));
 const SharedViewPage = lazy(() => importWithReload('shared-view', () => import('./pages/SharedViewPage')));
 
 // Create React Query client
@@ -53,6 +54,14 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <ErrorBoundary fullPage areaName="Discovery">
                     <AuthGate><DiscoverPage /></AuthGate>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/intake"
+                element={
+                  <ErrorBoundary fullPage areaName="Intake">
+                    <AuthGate requireAdmin><IntakePage /></AuthGate>
                   </ErrorBoundary>
                 }
               />

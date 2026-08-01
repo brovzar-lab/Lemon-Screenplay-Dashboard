@@ -11,18 +11,26 @@ interface CategorySelectorProps {
   selectedCategory: string;
   onSelectCategory: (cat: string) => void;
   onAddCategory: (cat: { id: string; name: string; description: string }) => void;
+  presentation?: 'settings' | 'intake';
 }
 
-export function CategorySelector({ categoryIds, selectedCategory, onSelectCategory, onAddCategory }: CategorySelectorProps) {
+export function CategorySelector({
+  categoryIds,
+  selectedCategory,
+  onSelectCategory,
+  onAddCategory,
+  presentation = 'settings',
+}: CategorySelectorProps) {
   const [showNewCatForm, setShowNewCatForm] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatError, setNewCatError] = useState('');
+  const isIntake = presentation === 'intake';
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gold-300 mb-2">
+      <p className={clsx('mb-2 block text-sm font-medium', isIntake ? 'text-[var(--dsc-ink)]' : 'text-gold-300')}>
         Assign Category
-      </label>
+      </p>
       <div className="flex flex-wrap gap-2">
         {categoryIds.map((cat) => (
           <button
@@ -30,7 +38,11 @@ export function CategorySelector({ categoryIds, selectedCategory, onSelectCatego
             onClick={() => onSelectCategory(cat)}
             className={clsx(
               'px-4 py-2 rounded-lg text-sm font-medium transition-all',
-              selectedCategory === cat
+              isIntake
+                ? selectedCategory === cat
+                  ? 'border border-[var(--dsc-accent)] bg-[var(--dsc-accent)] text-[var(--dsc-on-accent)]'
+                  : 'border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] text-[var(--dsc-ink-2)] hover:border-[var(--dsc-accent)]'
+                : selectedCategory === cat
                 ? 'bg-gold-500/30 text-gold-300 border border-gold-500/50'
                 : 'bg-black-800/50 text-black-300 border border-black-700 hover:border-gold-500/30'
             )}
@@ -44,7 +56,11 @@ export function CategorySelector({ categoryIds, selectedCategory, onSelectCatego
           onClick={() => setShowNewCatForm(!showNewCatForm)}
           className={clsx(
             'px-4 py-2 rounded-lg text-sm font-medium transition-all',
-            showNewCatForm
+            isIntake
+              ? showNewCatForm
+                ? 'border border-[var(--dsc-accent)] bg-[var(--dsc-accent-soft)] text-[var(--dsc-accent)]'
+                : 'border border-dashed border-[var(--dsc-line)] text-[var(--dsc-ink-3)] hover:border-[var(--dsc-accent)]'
+              : showNewCatForm
               ? 'bg-gold-500/30 text-gold-300 border border-gold-500/50'
               : 'bg-black-800/50 text-black-400 border border-dashed border-black-600 hover:border-gold-500/30 hover:text-gold-300'
           )}
@@ -60,7 +76,10 @@ export function CategorySelector({ categoryIds, selectedCategory, onSelectCatego
 
       {/* Inline New Category Form */}
       {showNewCatForm && (
-        <div className="mt-3 p-3 rounded-lg bg-black-800/50 border border-black-700 space-y-3">
+        <div className={clsx(
+          'mt-3 space-y-3 rounded-lg border p-3',
+          isIntake ? 'border-[var(--dsc-line)] bg-[var(--dsc-surface-2)]' : 'border-black-700 bg-black-800/50',
+        )}>
           <div>
             <label className="block text-xs text-black-400 mb-1">Category Name</label>
             <input

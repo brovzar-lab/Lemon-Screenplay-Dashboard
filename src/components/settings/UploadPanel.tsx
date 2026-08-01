@@ -15,7 +15,7 @@
  * uploaded_analyses takes over the job.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { isUploadJobReady, useUploadStore } from '@/stores/uploadStore';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
@@ -28,6 +28,7 @@ import { getPdfFileError } from '@/lib/pdfValidation';
 import { computeContentHash } from '@/lib/analysisIdentity';
 import { findAnalysisByContentHash } from '@/lib/analysisLookup';
 import { toDocId } from '@/lib/analysisStore';
+import { IntakeConfirmationDialog } from '@/components/intake';
 
 import { ApiConfigToggle } from './upload/ApiConfigToggle';
 import { ModelSelector } from './upload/ModelSelector';
@@ -37,6 +38,13 @@ import { UploadQueue } from './upload/UploadQueue';
 import { UploadInstructions } from './upload/UploadInstructions';
 import { MODEL_OPTIONS } from './upload/upload.constants';
 import type { ModelOption } from './upload/upload.types';
+
+interface UploadPanelProps {
+  /** Keeps the established Settings presentation as the default. */
+  presentation?: 'settings' | 'intake';
+  initialModel?: ModelOption;
+  onOpenAnalysis?: (projectId: string) => void;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -53,10 +61,15 @@ function inferTitleFromFilename(filename: string): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function UploadPanel() {
+export function UploadPanel({
+  presentation = 'settings',
+  initialModel = 'sonnet',
+  onOpenAnalysis,
+}: UploadPanelProps = {}) {
   const [selectedCategory, setSelectedCategory] = useState('LEMON');
-  const [selectedModel, setSelectedModel] = useState<ModelOption>('sonnet');
+  const [selectedModel, setSelectedModel] = useState<ModelOption>(initialModel);
   const [showApiConfig, setShowApiConfig] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const { categoryIds, addCategory: addCategoryToStore } = useCategories();
 
   const {
@@ -184,6 +197,7 @@ export function UploadPanel() {
                   title: inferTitleFromFilename(file.name),
                   author: 'See analysis',
                   analysisPath: 'firestore',
+                  projectId: update.screenplayDocId,
                 },
                 completedAt: new Date().toISOString(),
               });
@@ -252,6 +266,20 @@ export function UploadPanel() {
   }, [updateJob, processJobs]);
 
   const pendingJobs = jobs.filter(isUploadJobReady);
+  const displayJobs = useMemo(
+    () => jobs.map((job) => {
+      if (job.status !== 'complete' || job.result?.projectId) return job;
+      const inferredTitle = inferTitleFromFilename(job.filename).toLowerCase();
+      const screenplay = screenplays?.find(
+        (candidate) => candidate.sourceFile === job.filename
+          || candidate.title.toLowerCase().trim() === inferredTitle,
+      );
+      const projectId = screenplay?.projectId ?? screenplay?.id;
+      if (!projectId || !job.result) return job;
+      return { ...job, result: { ...job.result, projectId } };
+    }),
+    [jobs, screenplays],
+  );
 
   // Calculate batch cost estimate (only actionable pending jobs)
   const batchCostEstimate = pendingJobs.length > 0
@@ -267,8 +295,125 @@ export function UploadPanel() {
       alert('Cannot process: Budget limit reached or daily request limit exceeded. Check API Configuration.');
       return;
     }
+    if (presentation === 'intake') {
+      setShowConfirmation(true);
+      return;
+    }
     processJobs();
   };
+
+  const confirmStartProcessing = () => {
+    setShowConfirmation(false);
+    processJobs();
+  };
+
+  if (presentation === 'intake') {
+    return (
+      <div className="space-y-6" data-testid="intake-workbench">
+        <section className="dsc-card overflow-hidden" aria-labelledby="intake-routing-heading">
+          <div className="border-b border-[var(--dsc-line)] px-5 py-4 sm:px-7">
+            <p className="dsc-kicker">Reading route</p>
+            <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 id="intake-routing-heading" className="dsc-display text-3xl">Choose the level of review</h2>
+                <p className="mt-1 text-sm text-[var(--dsc-ink-2)]">
+                  Hybrid is the studio default: complete coverage first, deeper review for the strongest material.
+                </p>
+              </div>
+              {pendingJobs.length > 0 && batchCostEstimate && (
+                <div className="rounded-full border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] px-4 py-2 text-sm text-[var(--dsc-ink-2)]">
+                  {pendingJobs.length} ready · estimated {batchCostEstimate}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="grid gap-7 px-5 py-6 sm:px-7 xl:grid-cols-[minmax(0,1fr)_18rem]">
+            <ModelSelector
+              selectedModel={selectedModel}
+              onSelectModel={setSelectedModel}
+              pendingCount={pendingJobs.length}
+              batchCostEstimate={batchCostEstimate}
+              presentation="intake"
+            />
+            <CategorySelector
+              categoryIds={categoryIds}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+              onAddCategory={addCategoryToStore}
+              presentation="intake"
+            />
+          </div>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
+          <div className="dsc-card p-5 sm:p-7">
+            <div className="mb-5">
+              <p className="dsc-kicker">New screenplay</p>
+              <h2 className="dsc-display mt-2 text-3xl">Place material on the desk</h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
+                PDF screenplays only. Identity and exact-byte checks happen before anything can enter paid analysis.
+              </p>
+            </div>
+            <UploadDropzone onFilesSelected={handleFileSelect} presentation="intake" />
+          </div>
+
+          <aside className="dsc-card flex flex-col justify-between p-5 sm:p-7" aria-label="Intake safeguards">
+            <div>
+              <p className="dsc-kicker">Before the readers begin</p>
+              <h2 className="dsc-display mt-2 text-3xl">Nothing enters silently</h2>
+              <ul className="mt-6 space-y-5">
+                {[
+                  ['Identity', 'Exact duplicates stop before any AI spend.'],
+                  ['Revisions', 'Same-title drafts wait for your project decision.'],
+                  ['Authority', 'The five-reader engine runs only after final confirmation.'],
+                ].map(([label, copy]) => (
+                  <li key={label} className="grid grid-cols-[0.75rem_1fr] gap-3">
+                    <span className="mt-1.5 h-2 w-2 rounded-full bg-[var(--dsc-accent)]" aria-hidden="true" />
+                    <span>
+                      <strong className="block text-sm text-[var(--dsc-ink)]">{label}</strong>
+                      <span className="mt-1 block text-sm leading-5 text-[var(--dsc-ink-2)]">{copy}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <p className="mt-8 border-t border-[var(--dsc-line)] pt-4 text-xs leading-5 text-[var(--dsc-ink-3)]">
+              Adding files is free. Analysis begins only from the confirmation screen.
+            </p>
+          </aside>
+        </section>
+
+        <section className="dsc-card p-5 sm:p-7" aria-labelledby="intake-queue-heading">
+          <UploadQueue
+            jobs={displayJobs}
+            isProcessing={isProcessing}
+            isConfigured={isConfigured}
+            selectedModel={selectedModel}
+            batchCostEstimate={batchCostEstimate}
+            onRemoveJob={removeJob}
+            onRetryJob={retryJob}
+            onClearCompleted={clearCompleted}
+            onStartProcessing={handleStartProcessing}
+            onSkipJob={handleSkipJob}
+            onChooseRevision={chooseRevision}
+            onChooseSeparate={chooseSeparateProject}
+            onOpenAnalysis={onOpenAnalysis}
+            presentation="intake"
+            headingId="intake-queue-heading"
+          />
+        </section>
+
+        <IntakeConfirmationDialog
+          isOpen={showConfirmation}
+          projectCount={pendingJobs.length}
+          modelName={MODEL_OPTIONS.find((model) => model.id === selectedModel)?.name ?? selectedModel}
+          costEstimate={batchCostEstimate}
+          onCancel={() => setShowConfirmation(false)}
+          onConfirm={confirmStartProcessing}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
