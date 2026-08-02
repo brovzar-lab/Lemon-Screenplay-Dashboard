@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 
 import { fetchReaderReports } from '@/lib/readerReportService';
+import { PrivateReaderChat } from '@/components/project/PrivateReaderChat';
 import type { ReaderReportEvidence, Screenplay } from '@/types';
 
-interface ReaderPersona {
+interface ReaderProfile {
   key: 'structure' | 'character' | 'craft' | 'concept' | 'emotion';
   name: string;
   role: string;
@@ -14,7 +15,7 @@ interface ReaderPersona {
   matches: string[];
 }
 
-const PERSONAS: ReaderPersona[] = [
+const READERS: ReaderProfile[] = [
   {
     key: 'structure',
     name: 'Lena Park',
@@ -58,7 +59,7 @@ const PERSONAS: ReaderPersona[] = [
 ];
 
 function reportFor(
-  persona: ReaderPersona,
+  persona: ReaderProfile,
   reports: ReaderReportEvidence[],
 ): ReaderReportEvidence | undefined {
   return reports.find((report) => {
@@ -68,7 +69,7 @@ function reportFor(
 }
 
 export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
-  const [selectedKey, setSelectedKey] = useState<ReaderPersona['key']>('structure');
+  const [selectedKey, setSelectedKey] = useState<ReaderProfile['key']>('structure');
   const [conversationOpen, setConversationOpen] = useState(false);
   const reportsQuery = useQuery({
     queryKey: [
@@ -80,10 +81,10 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
     staleTime: Number.POSITIVE_INFINITY,
   });
 
-  const selectedPersona = PERSONAS.find((persona) => persona.key === selectedKey) ?? PERSONAS[0];
+  const selectedReader = READERS.find((reader) => reader.key === selectedKey) ?? READERS[0];
   const selectedReport = useMemo(
-    () => reportFor(selectedPersona, reportsQuery.data ?? []),
-    [reportsQuery.data, selectedPersona],
+    () => reportFor(selectedReader, reportsQuery.data ?? []),
+    [reportsQuery.data, selectedReader],
   );
 
   return (
@@ -99,27 +100,26 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
       </header>
 
       <div className="reader-room__stage">
-        <div className="reader-room__rail" aria-label="AI reader personas">
-          {PERSONAS.map((persona) => {
-            const report = reportFor(persona, reportsQuery.data ?? []);
-            const selected = selectedKey === persona.key;
+        <div className="reader-room__rail" aria-label="Specialist readers">
+          {READERS.map((reader) => {
+            const report = reportFor(reader, reportsQuery.data ?? []);
+            const selected = selectedKey === reader.key;
             return (
               <button
-                key={persona.key}
+                key={reader.key}
                 type="button"
                 onClick={() => {
-                  setSelectedKey(persona.key);
+                  setSelectedKey(reader.key);
                   setConversationOpen(false);
                 }}
                 aria-pressed={selected}
-                aria-label={`${persona.role}: ${persona.name}`}
+                aria-label={`${reader.role}: ${reader.name}`}
                 className={clsx('reader-persona', selected && 'reader-persona--active')}
               >
-                <img src={persona.image} alt="" />
+                <img src={reader.image} alt="" />
                 <span className="reader-persona__copy">
-                  <small>AI persona</small>
-                  <strong>{persona.name}</strong>
-                  <span>{persona.role}</span>
+                  <strong>{reader.name}</strong>
+                  <span>{reader.role}</span>
                 </span>
                 <b>{report ? report.pillarScore.toFixed(1) : '—'}</b>
               </button>
@@ -129,11 +129,11 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
 
         <article className="reader-case" aria-live="polite">
           <div className="reader-case__header">
-            <img src={selectedPersona.image} alt="" />
+            <img src={selectedReader.image} alt="" />
             <div>
-              <span className="dsc-kicker">{selectedPersona.role} · AI persona</span>
-              <h3>{selectedPersona.name}</h3>
-              <p>{selectedPersona.remit}</p>
+              <span className="dsc-kicker">{selectedReader.role} · Independent report</span>
+              <h3>{selectedReader.name}</h3>
+              <p>{selectedReader.remit}</p>
             </div>
             <strong>{selectedReport ? selectedReport.pillarScore.toFixed(1) : '—'}</strong>
           </div>
@@ -171,7 +171,7 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
             </>
           ) : (
             <p className="reader-case__empty">
-              This older analysis does not contain a sealed {selectedPersona.role.toLowerCase()} report.
+              This older analysis does not contain a sealed {selectedReader.role.toLowerCase()} report.
             </p>
           )}
 
@@ -182,43 +182,23 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
             disabled={!selectedReport}
           >
             <span aria-hidden="true">◉</span>
-            Talk with {selectedPersona.name.split(' ')[0]}
+            Talk privately with {selectedReader.name.split(' ')[0]}
           </button>
         </article>
 
-        <aside
-          className={clsx('reader-conversation', conversationOpen && 'reader-conversation--open')}
-          role={conversationOpen ? 'dialog' : undefined}
-          aria-label={conversationOpen ? 'Conversation preview' : undefined}
-          aria-hidden={!conversationOpen}
-        >
-          {conversationOpen && selectedReport && (
-            <>
-              <header>
-                <div>
-                  <span className="dsc-kicker">No-cost local preview</span>
-                  <h3>Conversation with {selectedPersona.name}</h3>
-                </div>
-                <button type="button" onClick={() => setConversationOpen(false)} aria-label="Close conversation">×</button>
-              </header>
-              <div className="reader-conversation__notice">
-                Gemini Live remains off for local review. No model call has been made and no voice cost has been incurred.
-              </div>
-              <div className="reader-conversation__transcript">
-                <span>{selectedPersona.name}</span>
-                <p>{selectedReport.oneSentenceVerdict}</p>
-                {selectedReport.subScores[0] && (
-                  <p>
-                    My strongest evidence is {selectedReport.subScores[0].label.toLowerCase()}: {selectedReport.subScores[0].justification}
-                  </p>
-                )}
-              </div>
-              <footer>
-                Live questions and spoken answers unlock only after a separate paid voice-call approval.
-              </footer>
-            </>
-          )}
-        </aside>
+        {selectedReport && (
+          <PrivateReaderChat
+            open={conversationOpen}
+            onClose={() => setConversationOpen(false)}
+            projectId={screenplay.projectId ?? screenplay.id}
+            versionId={screenplay.latestVersionId ?? 'latest-parent'}
+            reader={selectedReader.key}
+            readerName={selectedReader.name}
+            readerRole={selectedReader.role}
+            readerImage={selectedReader.image}
+            report={selectedReport}
+          />
+        )}
       </div>
 
       {screenplay.readerDisagreements && screenplay.readerDisagreements.length > 0 && (

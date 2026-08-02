@@ -30,6 +30,18 @@ const MODEL_PRICING = {
         cacheRead: 0.5,
         output: 25,
     },
+    "claude-opus-5": {
+        input: 5,
+        cacheWrite: 6.25,
+        cacheRead: 0.5,
+        output: 25,
+    },
+    "claude-fable-5": {
+        input: 10,
+        cacheWrite: 12.5,
+        cacheRead: 1,
+        output: 50,
+    },
 };
 function requireNonNegativeInteger(value, field) {
     if (!Number.isInteger(value) || value < 0) {

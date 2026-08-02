@@ -44,6 +44,7 @@ import {
   preCallAccountingUnavailableResponse,
   upstreamInvalidRequestResponse,
 } from "./llmProxyErrors";
+import { INTERACTIVE_MODELS } from "./modelRegistry";
 
 const anthropicApiKey = defineString("ANTHROPIC_API_KEY");
 const dailyLlmBudgetUsd = defineString("DAILY_LLM_BUDGET_USD", {
@@ -56,6 +57,7 @@ const ALLOWED_MODELS = new Set([
   "claude-haiku-4-5-20251001",
   "claude-sonnet-4-6",
   "claude-opus-4-7",
+  ...INTERACTIVE_MODELS,
 ]);
 const MAX_OUTPUT_TOKENS = 24_000;
 const MAX_THINKING_TOKENS = 16_000;

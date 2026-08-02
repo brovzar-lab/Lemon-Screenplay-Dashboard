@@ -29,6 +29,7 @@ const anthropicClient_1 = require("./anthropicClient");
 const budgetCounter_1 = require("./budgetCounter");
 const llmCost_1 = require("./llmCost");
 const llmProxyErrors_1 = require("./llmProxyErrors");
+const modelRegistry_1 = require("./modelRegistry");
 const anthropicApiKey = (0, params_1.defineString)("ANTHROPIC_API_KEY");
 const dailyLlmBudgetUsd = (0, params_1.defineString)("DAILY_LLM_BUDGET_USD", {
     default: String(llmCost_1.DEFAULT_DAILY_LLM_BUDGET_USD),
@@ -40,6 +41,7 @@ const ALLOWED_MODELS = new Set([
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-6",
     "claude-opus-4-7",
+    ...modelRegistry_1.INTERACTIVE_MODELS,
 ]);
 const MAX_OUTPUT_TOKENS = 24_000;
 const MAX_THINKING_TOKENS = 16_000;

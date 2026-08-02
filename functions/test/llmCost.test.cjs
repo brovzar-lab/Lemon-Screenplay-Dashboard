@@ -18,6 +18,8 @@ test('actual cost uses the approved per-model and cache rates', () => {
   assert.equal(calculateActualCostMicrousd('claude-haiku-4-5-20251001', usage), 3_760);
   assert.equal(calculateActualCostMicrousd('claude-sonnet-4-6', usage), 11_280);
   assert.equal(calculateActualCostMicrousd('claude-opus-4-7', usage), 18_800);
+  assert.equal(calculateActualCostMicrousd('claude-opus-5', usage), 18_800);
+  assert.equal(calculateActualCostMicrousd('claude-fable-5', usage), 37_600);
 });
 
 test('a hybrid Sonnet and Opus run is the sum of both real model costs', () => {

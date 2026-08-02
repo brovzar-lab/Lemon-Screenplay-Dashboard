@@ -67,6 +67,10 @@
         "function": "calibrationManager"
       },
       {
+        "source": "/api/reader-chat",
+        "function": "readerChat"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

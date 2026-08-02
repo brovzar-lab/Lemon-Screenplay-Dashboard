@@ -11,3 +11,4 @@ export { googleProxy } from './googleProxy';
 export { onScreenplayUploaded } from './onScreenplayUploaded';
 export { queueManager } from './queueManager';
 export { calibrationManager } from './calibrationManager';
+export { readerChat } from './readerChat';

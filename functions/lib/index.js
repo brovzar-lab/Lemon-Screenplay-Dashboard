@@ -7,7 +7,7 @@
  *   - onScreenplayUploaded: Triggers VPS daemon on new PDF upload
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.calibrationManager = exports.queueManager = exports.onScreenplayUploaded = exports.googleProxy = exports.llmProxy = void 0;
+exports.readerChat = exports.calibrationManager = exports.queueManager = exports.onScreenplayUploaded = exports.googleProxy = exports.llmProxy = void 0;
 var llmProxy_1 = require("./llmProxy");
 Object.defineProperty(exports, "llmProxy", { enumerable: true, get: function () { return llmProxy_1.llmProxy; } });
 var googleProxy_1 = require("./googleProxy");
@@ -18,4 +18,6 @@ var queueManager_1 = require("./queueManager");
 Object.defineProperty(exports, "queueManager", { enumerable: true, get: function () { return queueManager_1.queueManager; } });
 var calibrationManager_1 = require("./calibrationManager");
 Object.defineProperty(exports, "calibrationManager", { enumerable: true, get: function () { return calibrationManager_1.calibrationManager; } });
+var readerChat_1 = require("./readerChat");
+Object.defineProperty(exports, "readerChat", { enumerable: true, get: function () { return readerChat_1.readerChat; } });
 //# sourceMappingURL=index.js.map

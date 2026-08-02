@@ -49,12 +49,12 @@ function renderRoom() {
 }
 
 describe('ReaderRoom', () => {
-  it('uses five clearly-labelled AI personas while grounding the selected reader in stored evidence', async () => {
+  it('presents five specialist readers without AI persona labels and grounds each in sealed evidence', async () => {
     const user = userEvent.setup();
     renderRoom();
 
     expect(await screen.findByRole('heading', { name: 'The Readers Room' })).toBeInTheDocument();
-    expect(screen.getAllByText('AI persona')).toHaveLength(5);
+    expect(screen.queryByText(/AI persona/i)).not.toBeInTheDocument();
     expect(await screen.findByText('Pages 48, 51')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Character Reader/i }));
@@ -62,15 +62,24 @@ describe('ReaderRoom', () => {
     expect(screen.getByText('Pages 82')).toBeInTheDocument();
   });
 
-  it('opens an honest no-cost talk preview without making a model call', async () => {
+  it('opens the no-cost private conversation and saves a cited local exchange', async () => {
     const user = userEvent.setup();
     renderRoom();
 
     await screen.findByText('Pages 48, 51');
-    await user.click(screen.getByRole('button', { name: /Talk with Lena/i }));
+    await user.click(screen.getByRole('button', { name: /Talk privately with Lena/i }));
 
-    expect(screen.getByRole('dialog', { name: 'Conversation preview' })).toBeInTheDocument();
-    expect(screen.getByText(/Gemini Live remains off/i)).toBeInTheDocument();
-    expect(screen.getByText(/No model call has been made/i)).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: /Private conversation with Lena/i })).toBeInTheDocument();
+    expect(screen.getByText(/No model call or charge occurs/i)).toBeInTheDocument();
+
+    await user.type(
+      screen.getByLabelText(/Ask Lena anything/i),
+      'Why did the ending feel late?',
+    );
+    await user.click(screen.getByRole('button', { name: /Send privately/i }));
+
+    expect(await screen.findByText('Why did the ending feel late?')).toBeInTheDocument();
+    expect(screen.getByText(/My sealed position remains/i)).toBeInTheDocument();
+    expect(screen.getByText('p. 48')).toBeInTheDocument();
   });
 });
