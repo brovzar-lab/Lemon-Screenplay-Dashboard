@@ -9,6 +9,7 @@ import {
 import type {
   PrivateReaderConversation,
   PrivateReaderKey,
+  PrivateReaderModelChoice,
   ReaderReportEvidence,
 } from '@/types';
 
@@ -37,6 +38,7 @@ export function PrivateReaderChat({
 }: PrivateReaderChatProps) {
   const [conversation, setConversation] = useState<PrivateReaderConversation | null>(null);
   const [draft, setDraft] = useState('');
+  const [modelChoice, setModelChoice] = useState<PrivateReaderModelChoice>('auto');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +88,7 @@ export function PrivateReaderChat({
         reader,
         message: draft,
         sealedReport: report,
+        modelChoice,
       });
       setConversation(updated);
       setDraft('');
@@ -94,6 +97,62 @@ export function PrivateReaderChat({
     } finally {
       setSending(false);
     }
+  }
+
+  async function handleDeepReview(question: string) {
+    if (!question.trim() || sending || mode === 'not_activated') return;
+    setSending(true);
+    setError(null);
+    try {
+      const updated = await sendPrivateReaderMessage({
+        projectId,
+        versionId,
+        reader,
+        message: question,
+        sealedReport: report,
+        modelChoice: 'fable',
+        deepReview: true,
+      });
+      setConversation(updated);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Deep review could not be requested.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function modelName(modelId?: string): string {
+    if (modelId?.includes('fable')) return 'Fable 5';
+    if (modelId?.includes('opus')) return 'Opus 5';
+    return 'Model not recorded';
+  }
+
+  function usageSummary(message: PrivateReaderConversation['messages'][number]): string {
+    if (message.simulated) return 'No model call or charge';
+    const attemptsWithUsage = message.modelAttempts?.filter((attempt) => attempt.usage) ?? [];
+    const inputTokens = attemptsWithUsage.length
+      ? attemptsWithUsage.reduce((total, attempt) => total + (attempt.usage?.input_tokens ?? 0), 0)
+      : message.usage?.input_tokens;
+    const outputTokens = attemptsWithUsage.length
+      ? attemptsWithUsage.reduce((total, attempt) => total + (attempt.usage?.output_tokens ?? 0), 0)
+      : message.usage?.output_tokens;
+    const actualCost = attemptsWithUsage.length
+      ? attemptsWithUsage.reduce((total, attempt) => total + (attempt.usage?.actual_cost_usd ?? 0), 0)
+      : message.usage?.actual_cost_usd;
+    const tokens = inputTokens !== undefined || outputTokens !== undefined
+      ? `${(inputTokens ?? 0).toLocaleString()} in · ${(outputTokens ?? 0).toLocaleString()} out · `
+      : '';
+    return actualCost !== undefined ? `${tokens}$${actualCost.toFixed(4)}` : `${tokens}Cost pending`;
+  }
+
+  function auditCost(attempts: NonNullable<PrivateReaderConversation['routingAudits']>[number]['modelAttempts']): string {
+    const recorded = attempts.filter((attempt) => attempt.usage?.actual_cost_usd !== undefined);
+    if (!recorded.length) return 'Cost unavailable';
+    const total = recorded.reduce(
+      (sum, attempt) => sum + (attempt.usage?.actual_cost_usd ?? 0),
+      0,
+    );
+    return `$${total.toFixed(4)} recorded`;
   }
 
   if (!open) return null;
@@ -117,6 +176,38 @@ export function PrivateReaderChat({
         <span>Conversation saved</span>
       </div>
 
+      <section className="reader-model-router" aria-label="Reader Chat model">
+        <div>
+          <span className="dsc-kicker">Lemon Model Router</span>
+          <strong>Choose how deeply this reader should think</strong>
+          <small>
+            {modelChoice === 'auto'
+              ? 'Auto starts with Opus 5 and uses Fable only after an objective safe failure.'
+              : modelChoice === 'opus'
+                ? 'Opus 5 answers directly at high effort with no model escalation.'
+                : 'Fable 5 performs the deepest review directly at high effort.'}
+          </small>
+        </div>
+        <div className="reader-model-router__choices" role="group" aria-label="Model selection">
+          {([
+            ['auto', 'Auto', 'Recommended'],
+            ['opus', 'Opus 5', 'Direct'],
+            ['fable', 'Fable 5', 'Deepest'],
+          ] as const).map(([value, label, detail]) => (
+            <button
+              key={value}
+              type="button"
+              className={modelChoice === value ? 'is-active' : ''}
+              aria-pressed={modelChoice === value}
+              onClick={() => setModelChoice(value)}
+            >
+              <span>{label}</span>
+              <small>{detail}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
       {mode === 'local_review' && (
         <div className="reader-conversation__notice" role="status">
           Local review mode. You can test writing, saved history, citations, and status changes. No model call or charge occurs.
@@ -127,12 +218,31 @@ export function PrivateReaderChat({
           Private Reader Chat is prepared but not activated. The sealed reader report remains available above.
         </div>
       )}
+      {conversation?.routingAudits?.[0] && (
+        <div className="reader-conversation__routing-audit" role="status">
+          <strong>Previous model attempt stopped safely</strong>
+          <span>{conversation.routingAudits[0].routeLabel || 'Reader Chat route recorded'}</span>
+          <span>
+            {conversation.routingAudits[0].modelAttempts.length} attempt{conversation.routingAudits[0].modelAttempts.length === 1 ? '' : 's'}
+            {' · '}
+            {auditCost(conversation.routingAudits[0].modelAttempts)}
+          </span>
+        </div>
+      )}
 
       <div className="reader-conversation__transcript" aria-live="polite">
         {loading ? (
           <p className="reader-conversation__empty">Opening your saved private conversation…</p>
         ) : conversation?.messages.length ? (
-          conversation.messages.map((message) => (
+          conversation.messages.map((message, messageIndex) => {
+            const priorQuestion = conversation.messages
+              .slice(0, messageIndex)
+              .reverse()
+              .find((candidate) => candidate.role === 'producer')?.text;
+            const canDeepReview = message.role === 'reader'
+              && !message.modelId?.includes('fable')
+              && Boolean(priorQuestion);
+            return (
             <article key={message.id} className={`reader-message reader-message--${message.role}`}>
               <div className="reader-message__speaker">
                 {message.role === 'reader' ? <img src={readerImage} alt="" /> : <span aria-hidden="true">BR</span>}
@@ -144,6 +254,18 @@ export function PrivateReaderChat({
                 )}
               </div>
               <p>{message.text}</p>
+              {message.role === 'reader' && message.modelId && (
+                <div className="reader-message__model" aria-label="Response provenance">
+                  <strong>{message.simulated ? 'Preview route' : 'Answered with'} {modelName(message.modelId)} · {message.effort || 'high'} effort</strong>
+                  <span>{message.routeLabel || 'Model route recorded'}</span>
+                  {message.fallbackFrom && <span>Fallback from {modelName(message.fallbackFrom)}</span>}
+                  <span>
+                    {message.modelAttempts?.length || 1} model attempt{(message.modelAttempts?.length || 1) === 1 ? '' : 's'}
+                    {' · '}
+                    {usageSummary(message)}
+                  </span>
+                </div>
+              )}
               {message.citations.length > 0 && (
                 <div className="reader-message__citations" aria-label="Screenplay citations">
                   {message.citations.map((citation, index) => (
@@ -163,8 +285,19 @@ export function PrivateReaderChat({
                   <small>The sealed score above has not changed.</small>
                 </section>
               )}
+              {canDeepReview && (
+                <button
+                  type="button"
+                  className="reader-message__deep-review"
+                  onClick={() => void handleDeepReview(priorQuestion || '')}
+                  disabled={sending || mode === 'not_activated'}
+                >
+                  Get Fable 5’s deeper second opinion
+                </button>
+              )}
             </article>
-          ))
+            );
+          })
         ) : (
           <div className="reader-conversation__opening">
             <img src={readerImage} alt="" />

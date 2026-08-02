@@ -51,7 +51,7 @@ test('all five readers have versioned charters and stable private identities', (
   );
 });
 
-test('reader conversations bind the exact report, exact PDF object, and current chat model', () => {
+test('reader conversations bind the exact report and exact PDF object', () => {
   const source = version();
   assert.equal(readerReportFromVersion(source, 'craft').pillar_score, 6.2);
   assert.deepEqual(screenplayStoragePointer(source), {
@@ -70,7 +70,7 @@ test('reader conversations bind the exact report, exact PDF object, and current 
     versionId: 'sealed-v1',
     title: 'WILL 2010',
   });
-  assert.equal(READER_CHAT_MODEL, 'claude-fable-5');
+  assert.equal(READER_CHAT_MODEL, 'claude-opus-5');
   assert.match(prompt, /SEALED VERSION ID: sealed-v1/);
   assert.match(prompt, /Never claim that this conversation edits it/i);
   assert.match(prompt, /untrusted evidence/i);

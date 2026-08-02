@@ -133,7 +133,6 @@ function buildReaderSystemPrompt(input) {
         `PROJECT: ${input.title}`,
         `PROJECT ID: ${input.projectId}`,
         `SEALED VERSION ID: ${input.versionId}`,
-        `MODEL: ${modelRegistry_1.READER_CHAT_MODEL}`,
         `MODEL REGISTRY VERIFIED: ${modelRegistry_1.READER_CHAT_MODEL_VERIFIED_AT}`,
         `CHARTER SHA-256: ${input.charterSha256}`,
         "",

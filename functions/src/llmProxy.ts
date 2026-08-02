@@ -44,7 +44,11 @@ import {
   preCallAccountingUnavailableResponse,
   upstreamInvalidRequestResponse,
 } from "./llmProxyErrors";
-import { INTERACTIVE_MODELS } from "./modelRegistry";
+import {
+  approvedOutputConfig,
+  isApprovedProxyModel,
+  type ApprovedEffort,
+} from "./llmProxyPolicy";
 
 const anthropicApiKey = defineString("ANTHROPIC_API_KEY");
 const dailyLlmBudgetUsd = defineString("DAILY_LLM_BUDGET_USD", {
@@ -53,12 +57,6 @@ const dailyLlmBudgetUsd = defineString("DAILY_LLM_BUDGET_USD", {
 // Shared secret for the VPS daemon (server-side, no user session). Empty in
 // local dev disables service-key auth; browser ID-token auth still applies.
 const proxyServiceKey = defineString("PROXY_SERVICE_KEY");
-const ALLOWED_MODELS = new Set([
-  "claude-haiku-4-5-20251001",
-  "claude-sonnet-4-6",
-  "claude-opus-4-7",
-  ...INTERACTIVE_MODELS,
-]);
 const MAX_OUTPUT_TOKENS = 24_000;
 const MAX_THINKING_TOKENS = 16_000;
 
@@ -126,6 +124,9 @@ interface ProxyRequestBody {
   thinking?:
     | { type: "enabled"; budget_tokens: number }
     | { type: "adaptive" };
+  output_config?: {
+    effort?: ApprovedEffort;
+  };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -268,7 +269,7 @@ export const llmProxy = onRequest(
         });
         return;
       }
-      if (!ALLOWED_MODELS.has(body.model)) {
+      if (!isApprovedProxyModel(body.model, authResult.kind)) {
         res.status(400).json({ error: "Model is not approved.", code: "INVALID_MODEL" });
         return;
       }
@@ -316,6 +317,16 @@ export const llmProxy = onRequest(
         });
         return;
       }
+      let outputConfig: { effort: ApprovedEffort } | undefined;
+      try {
+        outputConfig = approvedOutputConfig(body.output_config);
+      } catch (error) {
+        res.status(400).json({
+          error: error instanceof Error ? error.message : "Invalid output_config.",
+          code: "INVALID_INPUT",
+        });
+        return;
+      }
 
       let jobId: string | undefined;
       if (authResult.kind === "service" && body.job_id !== undefined) {
@@ -349,6 +360,7 @@ export const llmProxy = onRequest(
       if (body.tools && body.tools.length > 0) payload.tools = body.tools;
       if (body.tool_choice) payload.tool_choice = body.tool_choice;
       if (body.thinking) payload.thinking = body.thinking;
+      if (outputConfig) payload.output_config = outputConfig;
 
       const client = createAnthropicClient(anthropicApiKey.value());
       let reservation: LlmBudgetReservation;

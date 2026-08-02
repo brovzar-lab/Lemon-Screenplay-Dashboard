@@ -4,6 +4,7 @@ import type {
   PrivateReaderConversation,
   PrivateReaderKey,
   PrivateReaderMessage,
+  PrivateReaderModelChoice,
   ReaderReportEvidence,
 } from '@/types';
 
@@ -68,6 +69,7 @@ function emptyConversation(input: {
     threadId: `local-review::${input.key}`,
     exists: false,
     messages: [],
+    routingAudits: [],
     provenance: {
       charterVersion: 'reader-charters-v1',
       modelId: 'No model called in local review',
@@ -149,6 +151,8 @@ export async function sendPrivateReaderMessage(input: {
   reader: PrivateReaderKey;
   message: string;
   sealedReport: ReaderReportEvidence;
+  modelChoice?: PrivateReaderModelChoice;
+  deepReview?: boolean;
 }): Promise<PrivateReaderConversation> {
   const projectId = validateIdentity(input.projectId, 'Project');
   const versionId = validateIdentity(input.versionId, 'Analysis version');
@@ -157,6 +161,7 @@ export async function sendPrivateReaderMessage(input: {
     throw new Error('Your message must be between 1 and 4,000 characters.');
   }
   const mode = privateReaderChatMode();
+  const modelChoice = input.deepReview ? 'fable' : (input.modelChoice ?? 'auto');
   if (mode === 'not_activated') {
     throw new Error('Private Reader Chat has not been activated for production.');
   }
@@ -167,6 +172,8 @@ export async function sendPrivateReaderMessage(input: {
       versionId,
       reader: input.reader,
       message,
+      modelChoice,
+      deepReview: input.deepReview === true,
     });
     return loadPrivateReaderConversation({ ...input, projectId, versionId });
   }
@@ -187,12 +194,47 @@ export async function sendPrivateReaderMessage(input: {
     text: localReply.text,
     citations: localReply.citations,
     position: 'unchanged',
+    modelId: modelChoice === 'fable' ? 'claude-fable-5' : 'claude-opus-5',
+    effort: 'high',
+    requestedModelChoice: modelChoice,
+    routeReason: input.deepReview
+      ? 'producer_deep_review'
+      : modelChoice === 'fable'
+        ? 'producer_selected_fable'
+        : modelChoice === 'opus'
+          ? 'producer_selected_opus'
+          : 'auto_default_opus',
+    routeLabel: input.deepReview
+      ? 'Previewing a Fable deep review'
+      : modelChoice === 'fable'
+        ? 'Previewing your Fable 5 selection'
+        : modelChoice === 'opus'
+          ? 'Previewing your Opus 5 selection'
+          : 'Previewing Auto with Opus 5',
+    routingPolicyVersion: 'reader-chat-routing-v1',
+    modelAttempts: [{
+      modelId: modelChoice === 'fable' ? 'claude-fable-5' : 'claude-opus-5',
+      outcome: 'success',
+      usage: { actual_cost_usd: 0 },
+    }],
+    usage: { actual_cost_usd: 0 },
+    simulated: true,
     createdAt: now,
   };
   const conversation: PrivateReaderConversation = {
     ...existing,
     exists: true,
     messages: [...existing.messages, producerMessage, readerMessage],
+    provenance: {
+      ...existing.provenance,
+      modelId: readerMessage.modelId,
+      effort: 'high',
+      requestedModelChoice: modelChoice,
+      routeReason: readerMessage.routeReason,
+      routeLabel: readerMessage.routeLabel,
+      routingPolicyVersion: 'reader-chat-routing-v1',
+      modelAttempts: readerMessage.modelAttempts,
+    },
   };
   const key = localConversationKey({ ...input, projectId, versionId });
   window.localStorage.setItem(

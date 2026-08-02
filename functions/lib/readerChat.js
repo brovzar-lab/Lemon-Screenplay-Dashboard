@@ -12,6 +12,7 @@ const firestore_1 = require("firebase-admin/firestore");
 const storage_1 = require("firebase-admin/storage");
 const proxyAuth_1 = require("./proxyAuth");
 const modelRegistry_1 = require("./modelRegistry");
+const readerChatRouting_1 = require("./readerChatRouting");
 const readerChatCore_1 = require("./readerChatCore");
 const proxyServiceKey = (0, params_1.defineString)("PROXY_SERVICE_KEY");
 const readerChatEnabled = (0, params_1.defineString)("READER_CHAT_ENABLED", { default: "false" });
@@ -136,6 +137,31 @@ function serializeMessage(snapshot) {
         citations: data.citations ?? [],
         position: data.position,
         reconsideredPosition: data.reconsideredPosition,
+        modelId: data.modelId,
+        modelResponseId: data.modelResponseId,
+        effort: data.effort,
+        requestedModelChoice: data.requestedModelChoice,
+        routeReason: data.routeReason,
+        routeLabel: data.routeLabel,
+        fallbackFrom: data.fallbackFrom,
+        routingPolicyVersion: data.routingPolicyVersion,
+        modelAttempts: data.modelAttempts ?? [],
+        usage: data.usage,
+        createdAt: data.createdAt instanceof firestore_1.Timestamp
+            ? data.createdAt.toDate().toISOString()
+            : null,
+    };
+}
+function serializeRoutingAudit(snapshot) {
+    const data = snapshot.data();
+    return {
+        id: snapshot.id,
+        requestedModelChoice: data.requestedModelChoice,
+        routeReason: data.routeReason,
+        routeLabel: data.routeLabel,
+        failureReason: data.failureReason,
+        error: data.error,
+        modelAttempts: Array.isArray(data.modelAttempts) ? data.modelAttempts : [],
         createdAt: data.createdAt instanceof firestore_1.Timestamp
             ? data.createdAt.toDate().toISOString()
             : null,
@@ -144,65 +170,149 @@ function serializeMessage(snapshot) {
 async function loadConversation(input) {
     const threadId = (0, readerChatCore_1.conversationId)(input);
     const threadRef = (0, firestore_1.getFirestore)().collection("reader_conversations").doc(threadId);
-    const [threadSnapshot, messageSnapshots] = await Promise.all([
+    const [threadSnapshot, messageSnapshots, auditSnapshots] = await Promise.all([
         threadRef.get(),
         threadRef.collection("messages").orderBy("sequence", "asc").limit(100).get(),
+        threadRef.collection("routing_audits").orderBy("createdAt", "desc").limit(20).get(),
     ]);
     return {
         threadId,
         exists: threadSnapshot.exists,
         messages: messageSnapshots.docs.map(serializeMessage),
+        routingAudits: auditSnapshots.docs.map(serializeRoutingAudit),
         provenance: threadSnapshot.exists ? threadSnapshot.get("provenance") : null,
     };
 }
 async function callReader(input) {
-    const response = await fetch(llmProxyUrl(), {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-Lemon-Service-Key": proxyServiceKey.value(),
-        },
-        body: JSON.stringify({
-            model: modelRegistry_1.READER_CHAT_MODEL,
-            system: [{ type: "text", text: input.system, cache_control: { type: "ephemeral" } }],
-            messages: [{
-                    role: "user",
-                    content: [
-                        {
-                            type: "document",
-                            source: {
-                                type: "base64",
-                                media_type: "application/pdf",
-                                data: input.pdf.toString("base64"),
+    let response;
+    try {
+        response = await fetch(llmProxyUrl(), {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Lemon-Service-Key": proxyServiceKey.value(),
+            },
+            body: JSON.stringify({
+                model: input.modelId,
+                system: [{ type: "text", text: input.system, cache_control: { type: "ephemeral" } }],
+                messages: [{
+                        role: "user",
+                        content: [
+                            {
+                                type: "document",
+                                source: {
+                                    type: "base64",
+                                    media_type: "application/pdf",
+                                    data: input.pdf.toString("base64"),
+                                },
+                                cache_control: { type: "ephemeral" },
+                                citations: { enabled: true },
                             },
-                            cache_control: { type: "ephemeral" },
-                            citations: { enabled: true },
-                        },
-                        {
-                            type: "text",
-                            text: `PRIVATE CONVERSATION SO FAR:\n${input.history}\n\nPRODUCER'S NEW QUESTION:\n${input.question}`,
-                        },
-                    ],
-                }],
-            // Fable 5 uses adaptive thinking inside this hard limit. Use the
-            // proxy's full approved allowance so reasoning cannot crowd out the
-            // structured answer on a difficult screenplay question.
-            max_tokens: 24_000,
-            tools: [readerChatCore_1.READER_REPLY_TOOL],
-            tool_choice: { type: "tool", name: readerChatCore_1.READER_REPLY_TOOL.name },
-        }),
-    });
-    const body = await response.json();
+                            {
+                                type: "text",
+                                text: `PRIVATE CONVERSATION SO FAR:\n${input.history}\n\nPRODUCER'S NEW QUESTION:\n${input.question}`,
+                            },
+                        ],
+                    }],
+                // Opus and Fable use the full approved allowance so high-effort
+                // reasoning cannot crowd out the structured grounded answer.
+                max_tokens: 24_000,
+                output_config: { effort: input.effort },
+                tools: [readerChatCore_1.READER_REPLY_TOOL],
+                tool_choice: { type: "tool", name: readerChatCore_1.READER_REPLY_TOOL.name },
+            }),
+        });
+    }
+    catch {
+        throw new readerChatRouting_1.ReaderChatAttemptFailure("The secure model service could not be reached. No automatic retry was made because delivery is uncertain.", "accounting_uncertain", {
+            modelId: input.modelId,
+            outcome: "failed",
+            failureReason: "accounting_uncertain",
+        }, 503);
+    }
+    let body;
+    try {
+        body = await response.json();
+    }
+    catch {
+        throw new readerChatRouting_1.ReaderChatAttemptFailure("The secure model service returned an unreadable response. No automatic retry was made because accounting is uncertain.", "accounting_uncertain", {
+            modelId: input.modelId,
+            outcome: "failed",
+            failureReason: "accounting_uncertain",
+        }, 503);
+    }
     if (!response.ok) {
-        throw Object.assign(new Error(body.error || `Private reader failed (${response.status}).`), { status: response.status >= 500 ? 503 : response.status });
+        const failureReason = body.code === "POST_CALL_ACCOUNTING_UNCERTAIN"
+            ? "accounting_uncertain"
+            : body.code === "DAILY_LLM_BUDGET_EXCEEDED"
+                ? "budget_exceeded"
+                : body.code === "UPSTREAM_INVALID_REQUEST" || response.status === 400
+                    ? "invalid_request"
+                    : "unknown";
+        throw new readerChatRouting_1.ReaderChatAttemptFailure(body.error || `Private reader failed (${response.status}).`, failureReason, { modelId: input.modelId, outcome: "failed", failureReason }, response.status >= 500 ? 503 : response.status);
     }
     if (body.stop_reason === "refusal") {
-        throw Object.assign(new Error("This reader could not answer that question. Rephrase it and try again."), { status: 422 });
+        throw new readerChatRouting_1.ReaderChatAttemptFailure("This reader could not answer that question.", "refusal", {
+            modelId: body.model ?? input.modelId,
+            outcome: "failed",
+            failureReason: "refusal",
+            responseId: body.response_id,
+            usage: body.usage,
+        }, 422);
     }
     const tool = body.tool_uses?.find((item) => item.name === readerChatCore_1.READER_REPLY_TOOL.name);
-    if (!tool)
-        throw new Error("The reader returned no grounded answer.");
+    if (!tool) {
+        throw new readerChatRouting_1.ReaderChatAttemptFailure("The reader returned no grounded answer.", "invalid_grounded_answer", {
+            modelId: body.model ?? input.modelId,
+            outcome: "failed",
+            failureReason: "invalid_grounded_answer",
+            responseId: body.response_id,
+            usage: body.usage,
+        }, 422);
+    }
     return { replyInput: tool.input, response: body };
+}
+async function runReaderAttempt(input) {
+    const result = await callReader({
+        system: input.system,
+        pdf: input.pdf,
+        history: input.history,
+        question: input.question,
+        modelId: input.route.modelId,
+        effort: input.route.effort,
+    });
+    try {
+        return {
+            value: {
+                reply: (0, readerChatCore_1.parseReaderReply)(result.replyInput, input.screenplayPageCount),
+                response: result.response,
+            },
+            attempt: {
+                modelId: result.response.model ?? input.route.modelId,
+                outcome: "success",
+                responseId: result.response.response_id,
+                usage: result.response.usage,
+            },
+        };
+    }
+    catch (error) {
+        throw new readerChatRouting_1.ReaderChatAttemptFailure(error instanceof Error ? error.message : "The reader returned an invalid grounded answer.", "invalid_grounded_answer", {
+            modelId: result.response.model ?? input.route.modelId,
+            outcome: "failed",
+            failureReason: "invalid_grounded_answer",
+            responseId: result.response.response_id,
+            usage: result.response.usage,
+        }, 422);
+    }
+}
+function attemptsForStorage(attempts) {
+    return attempts.map((attempt) => ({
+        modelId: attempt.modelId,
+        outcome: attempt.outcome,
+        ...(attempt.failureReason ? { failureReason: attempt.failureReason } : {}),
+        ...(attempt.responseId ? { responseId: attempt.responseId } : {}),
+        ...(attempt.usage ? { usage: attempt.usage } : {}),
+    }));
 }
 async function saveExchange(input) {
     const db = (0, firestore_1.getFirestore)();
@@ -232,7 +342,14 @@ async function saveExchange(input) {
             provenance: {
                 charterVersion: input.charterVersion,
                 charterSha256: input.charterSha256,
-                modelId: input.response.model ?? modelRegistry_1.READER_CHAT_MODEL,
+                modelId: input.response.model ?? input.route.modelId,
+                effort: input.route.effort,
+                requestedModelChoice: input.route.requestedChoice,
+                routeReason: input.route.reason,
+                routeLabel: (0, readerChatRouting_1.readerChatRouteLabel)(input.route.reason),
+                ...(input.route.fallbackFrom ? { fallbackFrom: input.route.fallbackFrom } : {}),
+                routingPolicyVersion: readerChatRouting_1.READER_CHAT_ROUTING_POLICY_VERSION,
+                modelAttempts: attemptsForStorage(input.attempts),
                 modelRegistryVerifiedAt: modelRegistry_1.READER_CHAT_MODEL_VERIFIED_AT,
                 sealedProjectId: input.projectId,
                 sealedVersionId: input.versionId,
@@ -253,14 +370,87 @@ async function saveExchange(input) {
             citations: input.citations,
             position: input.position,
             ...(input.reconsideredPosition ? { reconsideredPosition: input.reconsideredPosition } : {}),
-            modelId: input.response.model ?? modelRegistry_1.READER_CHAT_MODEL,
+            modelId: input.response.model ?? input.route.modelId,
             modelResponseId: input.response.response_id ?? null,
+            effort: input.route.effort,
+            requestedModelChoice: input.route.requestedChoice,
+            routeReason: input.route.reason,
+            routeLabel: (0, readerChatRouting_1.readerChatRouteLabel)(input.route.reason),
+            ...(input.route.fallbackFrom ? { fallbackFrom: input.route.fallbackFrom } : {}),
+            routingPolicyVersion: readerChatRouting_1.READER_CHAT_ROUTING_POLICY_VERSION,
+            modelAttempts: attemptsForStorage(input.attempts),
             usage: input.response.usage ?? null,
             sequence: nextSequence + 1,
             createdAt: now,
         });
     });
     return threadId;
+}
+async function saveFailedRoutingAudit(input) {
+    const db = (0, firestore_1.getFirestore)();
+    const threadId = (0, readerChatCore_1.conversationId)(input);
+    const threadRef = db.collection("reader_conversations").doc(threadId);
+    const auditRef = threadRef.collection("routing_audits").doc((0, node_crypto_1.randomUUID)());
+    const now = firestore_1.FieldValue.serverTimestamp();
+    const routeLabel = (0, readerChatRouting_1.readerChatRouteLabel)(input.failure.route.reason);
+    const modelAttempts = attemptsForStorage(input.failure.attempts);
+    await db.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(threadRef);
+        transaction.set(threadRef, {
+            threadId,
+            ownerUid: input.uid,
+            ownerEmail: input.email,
+            projectId: input.projectId,
+            versionId: input.versionId,
+            title: input.title,
+            reader: input.reader,
+            readerIdentity: (0, readerChatCore_1.readerIdentity)(input.reader),
+            originalSealedScore: input.originalScore,
+            updatedAt: now,
+            ...(snapshot.exists ? {} : { createdAt: now, nextSequence: 0 }),
+            provenance: {
+                status: "failed",
+                charterVersion: input.charterVersion,
+                charterSha256: input.charterSha256,
+                modelId: input.failure.route.modelId,
+                effort: input.failure.route.effort,
+                requestedModelChoice: input.failure.route.requestedChoice,
+                routeReason: input.failure.route.reason,
+                routeLabel,
+                ...(input.failure.route.fallbackFrom
+                    ? { fallbackFrom: input.failure.route.fallbackFrom }
+                    : {}),
+                failureReason: input.failure.failureReason,
+                routingPolicyVersion: readerChatRouting_1.READER_CHAT_ROUTING_POLICY_VERSION,
+                modelAttempts,
+                modelRegistryVerifiedAt: modelRegistry_1.READER_CHAT_MODEL_VERIFIED_AT,
+                sealedProjectId: input.projectId,
+                sealedVersionId: input.versionId,
+            },
+        }, { merge: true });
+        transaction.create(auditRef, {
+            auditId: auditRef.id,
+            ownerUid: input.uid,
+            ownerEmail: input.email,
+            projectId: input.projectId,
+            versionId: input.versionId,
+            reader: input.reader,
+            question: input.question,
+            requestedModelChoice: input.failure.route.requestedChoice,
+            routeReason: input.failure.route.reason,
+            routeLabel,
+            ...(input.failure.route.fallbackFrom
+                ? { fallbackFrom: input.failure.route.fallbackFrom }
+                : {}),
+            effort: input.failure.route.effort,
+            failureReason: input.failure.failureReason,
+            error: input.failure.message,
+            modelAttempts,
+            routingPolicyVersion: readerChatRouting_1.READER_CHAT_ROUTING_POLICY_VERSION,
+            modelRegistryVerifiedAt: modelRegistry_1.READER_CHAT_MODEL_VERIFIED_AT,
+            createdAt: now,
+        });
+    });
 }
 async function sendMessage(input) {
     if (readerChatEnabled.value().toLowerCase() !== "true") {
@@ -285,14 +475,39 @@ async function sendMessage(input) {
         title,
     });
     const pdf = await loadPdf(version);
-    const result = await callReader({
-        system,
-        pdf,
-        history: (0, readerChatCore_1.buildConversationHistory)(historyMessages),
-        question: input.question,
-    });
-    const reply = (0, readerChatCore_1.parseReaderReply)(result.replyInput, pageCount(version));
     const originalScore = typeof report.pillar_score === "number" ? report.pillar_score : null;
+    let routed;
+    try {
+        routed = await (0, readerChatRouting_1.executeReaderChatRoute)({
+            choice: input.modelChoice,
+            deepReview: input.deepReview,
+            attempt: async (route) => runReaderAttempt({
+                system,
+                pdf,
+                history: (0, readerChatCore_1.buildConversationHistory)(historyMessages),
+                question: input.question,
+                route,
+                screenplayPageCount: pageCount(version),
+            }),
+        });
+    }
+    catch (error) {
+        if (!(error instanceof readerChatRouting_1.ReaderChatRoutingFailure))
+            throw error;
+        await saveFailedRoutingAudit({
+            ...input,
+            title,
+            originalScore,
+            charterVersion: charter.version,
+            charterSha256: charter.sha256,
+            failure: error,
+        });
+        throw error;
+    }
+    const result = routed.value;
+    const route = routed.route;
+    const attempts = routed.attempts;
+    const reply = result.reply;
     const threadId = await saveExchange({
         ...input,
         title,
@@ -305,8 +520,22 @@ async function sendMessage(input) {
         charterVersion: charter.version,
         charterSha256: charter.sha256,
         response: result.response,
+        route,
+        attempts,
     });
-    return { threadId, reply };
+    return {
+        threadId,
+        reply,
+        routing: {
+            modelId: result.response.model ?? route.modelId,
+            effort: route.effort,
+            requestedModelChoice: route.requestedChoice,
+            routeReason: route.reason,
+            routeLabel: (0, readerChatRouting_1.readerChatRouteLabel)(route.reason),
+            ...(route.fallbackFrom ? { fallbackFrom: route.fallbackFrom } : {}),
+            attempts,
+        },
+    };
 }
 exports.readerChat = (0, https_1.onRequest)({
     region: "us-central1",
@@ -336,6 +565,8 @@ exports.readerChat = (0, https_1.onRequest)({
                         versionId,
                         reader,
                         question: producerMessage(body.message),
+                        modelChoice: (0, readerChatRouting_1.parseReaderChatModelChoice)(body.modelChoice),
+                        deepReview: body.deepReview === true,
                     })
                     : (() => { throw new Error("Unknown private reader action."); })();
             res.status(200).json({ result });

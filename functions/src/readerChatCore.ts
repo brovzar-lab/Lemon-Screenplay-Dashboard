@@ -2,10 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import {
-  READER_CHAT_MODEL,
-  READER_CHAT_MODEL_VERIFIED_AT,
-} from "./modelRegistry";
+import { READER_CHAT_MODEL_VERIFIED_AT } from "./modelRegistry";
 
 export const READER_CHARTER_VERSION = "reader-charters-v1";
 
@@ -206,7 +203,6 @@ export function buildReaderSystemPrompt(input: {
     `PROJECT: ${input.title}`,
     `PROJECT ID: ${input.projectId}`,
     `SEALED VERSION ID: ${input.versionId}`,
-    `MODEL: ${READER_CHAT_MODEL}`,
     `MODEL REGISTRY VERIFIED: ${READER_CHAT_MODEL_VERIFIED_AT}`,
     `CHARTER SHA-256: ${input.charterSha256}`,
     "",

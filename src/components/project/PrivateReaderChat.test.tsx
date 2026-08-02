@@ -1,8 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PrivateReaderChat } from '@/components/project/PrivateReaderChat';
+import {
+  loadPrivateReaderConversation,
+  sendPrivateReaderMessage,
+} from '@/lib/privateReaderChat';
 
 vi.mock('@/lib/privateReaderChat', () => ({
   privateReaderChatMode: () => 'live',
@@ -11,22 +15,39 @@ vi.mock('@/lib/privateReaderChat', () => ({
     exists: true,
     provenance: {
       charterVersion: 'reader-charters-v1',
-      modelId: 'claude-fable-5',
+      modelId: 'claude-opus-5',
       sealedProjectId: 'atlas',
       sealedVersionId: 'sealed-v1',
     },
-    messages: [{
-      id: 'message-1',
-      role: 'reader',
-      text: 'I underweighted the comic escalation.',
-      citations: [{ page: 35, note: 'The joke compounds through the reversal.' }],
-      position: 'reconsidered',
-      reconsideredPosition: {
-        summary: 'The protagonist is more active than my sealed report allowed.',
-        suggestedScore: 6.4,
+    messages: [
+      {
+        id: 'question-1',
+        role: 'producer',
+        text: 'Why did you underweight the comedy?',
+        citations: [],
+        createdAt: '2026-08-02T11:59:00.000Z',
       },
-      createdAt: '2026-08-02T12:00:00.000Z',
-    }],
+      {
+        id: 'message-1',
+        role: 'reader',
+        text: 'I underweighted the comic escalation.',
+        citations: [{ page: 35, note: 'The joke compounds through the reversal.' }],
+        position: 'reconsidered',
+        reconsideredPosition: {
+          summary: 'The protagonist is more active than my sealed report allowed.',
+          suggestedScore: 6.4,
+        },
+        modelId: 'claude-opus-5',
+        effort: 'high',
+        requestedModelChoice: 'auto',
+        routeReason: 'auto_default_opus',
+        routeLabel: 'Auto selected Opus 5',
+        routingPolicyVersion: 'reader-chat-routing-v1',
+        modelAttempts: [{ modelId: 'claude-opus-5', outcome: 'success' }],
+        usage: { actual_cost_usd: 0.1245 },
+        createdAt: '2026-08-02T12:00:00.000Z',
+      },
+    ],
   })),
   sendPrivateReaderMessage: vi.fn(),
 }));
@@ -39,6 +60,11 @@ const report = {
   redFlags: [],
   subScores: [],
 };
+
+beforeEach(() => {
+  vi.mocked(loadPrivateReaderConversation).mockClear();
+  vi.mocked(sendPrivateReaderMessage).mockReset();
+});
 
 describe('PrivateReaderChat', () => {
   it('shows citations and a reconsidered view without replacing the sealed score', async () => {
@@ -61,6 +87,74 @@ describe('PrivateReaderChat', () => {
     expect(screen.getByText('Position reconsidered')).toBeInTheDocument();
     expect(screen.getByText('New private view: 6.4')).toBeInTheDocument();
     expect(screen.getByText('The sealed score above has not changed.')).toBeInTheDocument();
+    expect(screen.getByText('Answered with Opus 5 · high effort')).toBeInTheDocument();
+    expect(screen.getByText('Auto selected Opus 5')).toBeInTheDocument();
+    expect(screen.getByText(/\$0\.1245/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Get Fable 5’s deeper second opinion/i })).toBeInTheDocument();
+  });
+
+  it('sends an explicit Fable selection through the secure request seam', async () => {
+    const user = userEvent.setup();
+    vi.mocked(sendPrivateReaderMessage).mockResolvedValue({
+      threadId: 'thread-1',
+      exists: true,
+      provenance: null,
+      messages: [],
+    });
+    render(
+      <PrivateReaderChat
+        open
+        onClose={vi.fn()}
+        projectId="atlas"
+        versionId="sealed-v1"
+        reader="structure"
+        readerName="Lena Park"
+        readerRole="Structure Reader"
+        readerImage="/reader-personas/structure.jpg"
+        report={report}
+      />,
+    );
+
+    await screen.findByText('I underweighted the comic escalation.');
+    await user.click(screen.getByRole('button', { name: /Fable 5 Deepest/i }));
+    await user.type(screen.getByLabelText(/Ask Lena anything/i), 'Take the deepest possible look.');
+    await user.click(screen.getByRole('button', { name: 'Send privately' }));
+
+    expect(sendPrivateReaderMessage).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Take the deepest possible look.',
+      modelChoice: 'fable',
+    }));
+  });
+
+  it('requests a one-click Fable deep review of the prior producer question', async () => {
+    const user = userEvent.setup();
+    vi.mocked(sendPrivateReaderMessage).mockResolvedValue({
+      threadId: 'thread-1',
+      exists: true,
+      provenance: null,
+      messages: [],
+    });
+    render(
+      <PrivateReaderChat
+        open
+        onClose={vi.fn()}
+        projectId="atlas"
+        versionId="sealed-v1"
+        reader="structure"
+        readerName="Lena Park"
+        readerRole="Structure Reader"
+        readerImage="/reader-personas/structure.jpg"
+        report={report}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: /Get Fable 5’s deeper second opinion/i }));
+
+    expect(sendPrivateReaderMessage).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'Why did you underweight the comedy?',
+      modelChoice: 'fable',
+      deepReview: true,
+    }));
   });
 
   it('closes the private conversation with Escape', async () => {
