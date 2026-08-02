@@ -11,13 +11,14 @@ vi.mock('@/lib/readerReportService', () => ({
   fetchReaderReports: (...args: unknown[]) => fetchReaderReports(...args),
 }));
 
-function renderPanel() {
+function renderPanel(presentation: 'default' | 'workspace' = 'default') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   render(
     <QueryClientProvider client={client}>
       <ReaderEvidencePanel
+        presentation={presentation}
         screenplay={createTestScreenplay({
           projectId: 'project-1',
           latestVersionId: 'version-2',
@@ -56,5 +57,14 @@ describe('ReaderEvidencePanel', () => {
     expect(screen.getByText('The middle escalates cleanly.')).toBeInTheDocument();
     expect(screen.getByText('Scene Necessity')).toBeInTheDocument();
     expect(screen.getByText(/Pages 38/)).toBeInTheDocument();
+  });
+
+  it('uses the dossier heading in workspace presentation without changing reader data', async () => {
+    fetchReaderReports.mockResolvedValueOnce([]);
+
+    renderPanel('workspace');
+
+    expect(await screen.findByText('Specialist evidence')).toBeInTheDocument();
+    expect(screen.queryByText('Specialist Reader Evidence')).not.toBeInTheDocument();
   });
 });

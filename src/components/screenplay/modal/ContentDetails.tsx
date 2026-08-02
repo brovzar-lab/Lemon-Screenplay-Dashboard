@@ -9,39 +9,45 @@ import { SectionHeader } from './SectionHeader';
 
 interface ContentDetailsProps {
     screenplay: Screenplay;
+    presentation?: 'default' | 'workspace';
 }
 
-export function ContentDetails({ screenplay }: ContentDetailsProps) {
-    return (
+export function ContentDetails({ screenplay, presentation = 'default' }: ContentDetailsProps) {
+    const isWorkspace = presentation === 'workspace';
+    const content = (
         <>
             {/* Characters */}
-            <CharactersSection screenplay={screenplay} />
+            <CharactersSection screenplay={screenplay} isWorkspace={isWorkspace} />
 
             {/* Comparable Films */}
             {screenplay.comparableFilms.filter(f => f.title?.trim()).length > 0 && (
-                <ComparableFilmsSection films={screenplay.comparableFilms.filter(f => f.title?.trim())} />
+                <ComparableFilmsSection films={screenplay.comparableFilms.filter(f => f.title?.trim())} isWorkspace={isWorkspace} />
             )}
 
             {/* Standout Scenes */}
             {screenplay.standoutScenes.filter(s => s.scene?.trim()).length > 0 && (
-                <StandoutScenesSection scenes={screenplay.standoutScenes.filter(s => s.scene?.trim())} />
+                <StandoutScenesSection scenes={screenplay.standoutScenes.filter(s => s.scene?.trim())} isWorkspace={isWorkspace} />
             )}
 
             {/* Strengths & Weaknesses */}
-            <StrengthsWeaknessesSection screenplay={screenplay} />
+            <StrengthsWeaknessesSection screenplay={screenplay} isWorkspace={isWorkspace} />
 
             {/* Development Notes */}
             {screenplay.developmentNotes.length > 0 && (
-                <DevelopmentNotesSection notes={screenplay.developmentNotes} />
+                <DevelopmentNotesSection notes={screenplay.developmentNotes} isWorkspace={isWorkspace} />
             )}
         </>
     );
+
+    return isWorkspace
+        ? <div className="grid gap-9 xl:grid-cols-2">{content}</div>
+        : content;
 }
 
-function CharactersSection({ screenplay }: { screenplay: Screenplay }) {
+function CharactersSection({ screenplay, isWorkspace }: { screenplay: Screenplay; isWorkspace: boolean }) {
     return (
         <div>
-            <SectionHeader icon="👥">Characters</SectionHeader>
+            <SectionHeader icon={isWorkspace ? undefined : '👥'}>Characters</SectionHeader>
             <div className="space-y-3">
                 <div>
                     <h5 className="text-sm font-medium text-gold-400 mb-1">Protagonist</h5>
@@ -66,13 +72,13 @@ function CharactersSection({ screenplay }: { screenplay: Screenplay }) {
     );
 }
 
-function ComparableFilmsSection({ films }: { films: Screenplay['comparableFilms'] }) {
+function ComparableFilmsSection({ films, isWorkspace }: { films: Screenplay['comparableFilms']; isWorkspace: boolean }) {
     return (
         <div>
-            <SectionHeader icon="🎥">Comparable Films</SectionHeader>
+            <SectionHeader icon={isWorkspace ? undefined : '🎥'}>Comparable Films</SectionHeader>
             <div className="grid md:grid-cols-2 gap-3">
                 {films.map((film, i) => (
-                    <div key={i} className="p-3 rounded-lg bg-black-900/50">
+                    <div key={i} className={clsx('p-3 bg-black-900/50', isWorkspace ? 'rounded-sm border border-black-700' : 'rounded-lg')}>
                         <div className="flex items-center justify-between mb-1">
                             <span className="font-medium text-black-200">{film.title}</span>
                             <span className={clsx(
@@ -95,13 +101,13 @@ function ComparableFilmsSection({ films }: { films: Screenplay['comparableFilms'
     );
 }
 
-function StandoutScenesSection({ scenes }: { scenes: Screenplay['standoutScenes'] }) {
+function StandoutScenesSection({ scenes, isWorkspace }: { scenes: Screenplay['standoutScenes']; isWorkspace: boolean }) {
     return (
         <div>
-            <SectionHeader icon="✨">Standout Scenes</SectionHeader>
+            <SectionHeader icon={isWorkspace ? undefined : '✨'}>Standout Scenes</SectionHeader>
             <div className="space-y-3">
                 {scenes.map((scene, i) => (
-                    <div key={i} className="p-3 rounded-lg bg-black-900/50">
+                    <div key={i} className={clsx('p-3 bg-black-900/50', isWorkspace ? 'rounded-sm border border-black-700' : 'rounded-lg')}>
                         <p className="text-sm text-black-200 mb-1">{scene.scene}</p>
                         <p className="text-xs text-black-500 italic">Why: {scene.why}</p>
                     </div>
@@ -111,7 +117,7 @@ function StandoutScenesSection({ scenes }: { scenes: Screenplay['standoutScenes'
     );
 }
 
-function StrengthsWeaknessesSection({ screenplay }: { screenplay: Screenplay }) {
+function StrengthsWeaknessesSection({ screenplay, isWorkspace }: { screenplay: Screenplay; isWorkspace: boolean }) {
     if (screenplay.strengths.length === 0 && screenplay.weaknesses.length === 0 && screenplay.majorWeaknesses.length === 0) {
         return null;
     }
@@ -120,7 +126,7 @@ function StrengthsWeaknessesSection({ screenplay }: { screenplay: Screenplay }) 
         <div className="grid md:grid-cols-2 gap-6">
             {screenplay.strengths.length > 0 && (
                 <div>
-                    <SectionHeader icon="💪">Strengths</SectionHeader>
+                    <SectionHeader icon={isWorkspace ? undefined : '💪'}>Strengths</SectionHeader>
                     <ul className="space-y-2">
                         {screenplay.strengths.map((strength, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-black-300">
@@ -133,7 +139,7 @@ function StrengthsWeaknessesSection({ screenplay }: { screenplay: Screenplay }) 
             )}
             {(screenplay.weaknesses.length > 0 || screenplay.majorWeaknesses.length > 0) && (
                 <div>
-                    <SectionHeader icon="⚠️">Weaknesses</SectionHeader>
+                    <SectionHeader icon={isWorkspace ? undefined : '⚠️'}>Weaknesses</SectionHeader>
                     <ul className="space-y-2">
                         {screenplay.majorWeaknesses.map((weakness, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-red-300">
@@ -154,10 +160,10 @@ function StrengthsWeaknessesSection({ screenplay }: { screenplay: Screenplay }) 
     );
 }
 
-function DevelopmentNotesSection({ notes }: { notes: string[] }) {
+function DevelopmentNotesSection({ notes, isWorkspace }: { notes: string[]; isWorkspace: boolean }) {
     return (
         <div>
-            <SectionHeader icon="📋">Development Notes</SectionHeader>
+            <SectionHeader icon={isWorkspace ? undefined : '📋'}>Development Notes</SectionHeader>
             <ul className="space-y-2">
                 {notes.map((note, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-black-300">

@@ -9,9 +9,11 @@ import { SectionHeader } from './SectionHeader';
 
 interface NotesSectionProps {
     screenplayId: string;
+    presentation?: 'default' | 'workspace';
 }
 
-export function NotesSection({ screenplayId }: NotesSectionProps) {
+export function NotesSection({ screenplayId, presentation = 'default' }: NotesSectionProps) {
+    const isWorkspace = presentation === 'workspace';
     const notes = useScreenplayNotes(screenplayId);
     const addNote = useNotesStore((s) => s.addNote);
     const deleteNote = useNotesStore((s) => s.deleteNote);
@@ -41,7 +43,9 @@ export function NotesSection({ screenplayId }: NotesSectionProps) {
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between">
-                <SectionHeader icon="📝">Notes ({notes.length})</SectionHeader>
+                <SectionHeader icon={isWorkspace ? undefined : '📝'}>
+                    {isWorkspace ? `Private notes (${notes.length})` : `Notes (${notes.length})`}
+                </SectionHeader>
                 {!isAdding && (
                     <button onClick={() => setIsAdding(true)} className="btn btn-secondary text-sm">
                         + Add Note

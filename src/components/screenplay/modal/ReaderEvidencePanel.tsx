@@ -1,10 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
+import { clsx } from 'clsx';
 
 import type { Screenplay } from '@/types';
 import { fetchReaderReports } from '@/lib/readerReportService';
 import { SectionHeader } from '@/components/screenplay/modal/SectionHeader';
 
-export function ReaderEvidencePanel({ screenplay }: { screenplay: Screenplay }) {
+export function ReaderEvidencePanel({
+  screenplay,
+  presentation = 'default',
+}: {
+  screenplay: Screenplay;
+  presentation?: 'default' | 'workspace';
+}) {
+  const isWorkspace = presentation === 'workspace';
   const reportsQuery = useQuery({
     queryKey: [
       'reader-evidence',
@@ -17,7 +25,9 @@ export function ReaderEvidencePanel({ screenplay }: { screenplay: Screenplay }) 
 
   return (
     <section data-testid="reader-evidence-panel">
-      <SectionHeader icon="🔎">Specialist Reader Evidence</SectionHeader>
+      <SectionHeader icon={isWorkspace ? undefined : '🔎'}>
+        {isWorkspace ? 'Specialist evidence' : 'Specialist Reader Evidence'}
+      </SectionHeader>
       {reportsQuery.isPending && (
         <div className="rounded-xl border border-black-700 bg-black-900/30 p-4">
           <p className="text-sm text-black-400">Loading the sealed reader reports…</p>
@@ -48,16 +58,24 @@ export function ReaderEvidencePanel({ screenplay }: { screenplay: Screenplay }) 
         </div>
       )}
       {reportsQuery.isSuccess && reportsQuery.data.length > 0 && (
-        <div className="space-y-3">
+        <div className={isWorkspace ? 'border-y border-black-700' : 'space-y-3'}>
           {reportsQuery.data.map((report, index) => (
             <details
               key={report.reader}
               open={index === 0}
-              className="rounded-xl border border-black-700 bg-black-900/30"
+              className={clsx(
+                'border-black-700',
+                isWorkspace
+                  ? 'border-b bg-transparent last:border-b-0'
+                  : 'rounded-xl border bg-black-900/30',
+              )}
             >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3">
+              <summary className={clsx(
+                'flex cursor-pointer list-none items-center justify-between gap-4',
+                isWorkspace ? 'px-2 py-5 sm:px-4' : 'px-4 py-3',
+              )}>
                 <span>
-                  <span className="block text-sm font-semibold text-black-100">
+                    <span className={clsx('block font-semibold text-black-100', isWorkspace ? 'text-base' : 'text-sm')}>
                     {report.label} Reader
                   </span>
                   {report.oneSentenceVerdict && (
@@ -66,11 +84,11 @@ export function ReaderEvidencePanel({ screenplay }: { screenplay: Screenplay }) 
                     </span>
                   )}
                 </span>
-                <strong className="font-mono text-lg text-gold-200">
+                <strong className={clsx('font-mono text-gold-200', isWorkspace ? 'text-3xl' : 'text-lg')}>
                   {report.pillarScore.toFixed(1)}
                 </strong>
               </summary>
-              <div className="border-t border-black-700 px-4 py-3">
+              <div className={clsx('border-t border-black-700', isWorkspace ? 'px-2 py-5 sm:px-4' : 'px-4 py-3')}>
                 <div className="space-y-3">
                   {report.subScores.map((subScore) => (
                     <div key={subScore.key} className="grid gap-1 sm:grid-cols-[minmax(10rem,0.35fr)_minmax(0,1fr)]">
@@ -110,7 +128,10 @@ export function ReaderEvidencePanel({ screenplay }: { screenplay: Screenplay }) 
       )}
 
       {screenplay.readerDisagreements && screenplay.readerDisagreements.length > 0 && (
-        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <div className={clsx(
+          'mt-4 border border-amber-500/30 bg-amber-500/10 p-4',
+          isWorkspace ? 'rounded-sm border-l-4' : 'rounded-xl',
+        )}>
           <p className="text-xs font-bold uppercase tracking-wide text-amber-300">
             Roundtable disagreements
           </p>

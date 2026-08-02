@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { DiscoverAppHeader } from '@/components/discover/DiscoverAppHeader';
 import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
@@ -66,7 +66,16 @@ function readerLabel(screenplay: Screenplay): string {
   return `${quality.completedReaders}/${quality.expectedReaders} readers complete`;
 }
 
-function ProjectDecisionSpine({
+const DOSSIER_SECTIONS = [
+  { label: 'Overview', href: '#project-executive-read' },
+  { label: 'Scores', href: '#project-scores' },
+  { label: 'Reader Room', href: '#project-readers' },
+  { label: 'Story X-Ray', href: '#project-story-xray' },
+  { label: 'Producer Take', href: '#project-producer-take', adminOnly: true },
+  { label: 'Notes', href: '#project-notes' },
+];
+
+function ProjectDecisionDocket({
   screenplay,
   producerAssessment,
   isAdmin,
@@ -115,43 +124,67 @@ function ProjectDecisionSpine({
   ];
 
   return (
-    <aside className="xl:sticky xl:top-6 xl:self-start" aria-label="Project decision spine">
-      <div className="dsc-card overflow-hidden">
-        <div className="border-b border-[var(--dsc-line)] px-5 py-4">
-          <p className="dsc-kicker">Decision spine</p>
-          <p className="mt-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
-            The system&apos;s judgment, its evidence, and your decision in one line of sight.
-          </p>
+    <section
+      aria-label="Project decision docket"
+      className="overflow-hidden border-x border-b border-[#25344a] bg-[#101a29] text-[#f5f1e8] shadow-2xl"
+    >
+      <div className="grid md:grid-cols-[10rem_minmax(0,1fr)]">
+        <div className="flex items-center border-b border-[#2a3b54] px-5 py-4 md:border-b-0 md:border-r">
+          <div>
+            <p className="font-semibold uppercase tracking-[0.12em] text-white">Decision docket</p>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#8290a5]">At a glance</p>
+          </div>
         </div>
-        <nav aria-label="Workspace sections">
-          <ol className="divide-y divide-[var(--dsc-line)]">
-            {spineItems.map((item, index) => (
-              <li key={item.label} className="relative px-5 py-4 pl-10">
-                <span
-                  aria-hidden="true"
-                  className="absolute left-5 top-5 h-2.5 w-2.5 rounded-full border-2 border-[var(--dsc-accent)] bg-[var(--dsc-surface)]"
-                />
-                {index < spineItems.length - 1 && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute bottom-[-1rem] left-[1.48rem] top-7 w-px bg-[var(--dsc-line-strong)]"
-                  />
-                )}
-                <a href={item.href} className="group block rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--dsc-accent)]">
-                  <span className="dsc-label dsc-label-faint block">{item.label}</span>
-                  <strong className="mt-1 block text-sm text-[var(--dsc-ink)] group-hover:text-[var(--dsc-accent)]">
-                    {item.value}
-                  </strong>
-                  <span className="mt-1 block text-xs leading-5 text-[var(--dsc-ink-3)]">
-                    {item.detail}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        </nav>
+        <ol className="grid grid-cols-2 divide-x divide-y divide-[#2a3b54] sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0">
+          {spineItems.map((item) => (
+            <li key={item.label} className="min-w-0">
+              <a href={item.href} className="group block min-h-24 px-4 py-4 hover:bg-[#16243a]">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-[#8290a5]">
+                  {item.label}
+                </span>
+                <strong className="mt-2 block truncate text-sm text-[#f5f1e8] group-hover:text-[#7da0ff]">
+                  {item.value}
+                </strong>
+                <span className="mt-1 block text-xs leading-5 text-[#9da9ba]">{item.detail}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
       </div>
-    </aside>
+    </section>
+  );
+}
+
+function ProjectDossierNav({ isAdmin }: { isAdmin: boolean }) {
+  const [activeHash, setActiveHash] = useState(() => window.location.hash || '#project-executive-read');
+
+  useEffect(() => {
+    const syncActiveHash = () => setActiveHash(window.location.hash || '#project-executive-read');
+    window.addEventListener('hashchange', syncActiveHash);
+    return () => window.removeEventListener('hashchange', syncActiveHash);
+  }, []);
+
+  return (
+    <nav
+      aria-label="Project dossier"
+      className="sticky top-[9rem] z-30 mt-5 overflow-x-auto rounded-t-xl border border-[var(--dsc-line)] bg-[var(--dsc-surface)] shadow-lg lg:top-[6.4rem]"
+    >
+      <div className="flex min-w-max px-3 pt-2">
+        {DOSSIER_SECTIONS.filter((section) => !section.adminOnly || isAdmin).map((section) => (
+          <a
+            key={section.label}
+            href={section.href}
+            className={`min-h-12 border-b-2 px-5 py-3 text-xs font-bold uppercase tracking-[0.11em] transition-colors ${
+              activeHash === section.href
+                ? 'border-[var(--dsc-accent)] text-[var(--dsc-accent)]'
+                : 'border-transparent text-[var(--dsc-ink-2)] hover:border-[var(--dsc-line)] hover:text-[var(--dsc-ink)]'
+            }`}
+          >
+            {section.label}
+          </a>
+        ))}
+      </div>
+    </nav>
   );
 }
 
@@ -168,13 +201,20 @@ export function ProjectWorkspace({ screenplay, stats, onBack }: ProjectWorkspace
   const isFavorite = quickFavorites.includes(screenplay.id);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    const frame = window.requestAnimationFrame(() => titleRef.current?.focus({ preventScroll: true }));
+    const frame = window.requestAnimationFrame(() => {
+      const targetId = window.location.hash.slice(1);
+      if (targetId) {
+        document.getElementById(targetId)?.scrollIntoView({ block: 'start' });
+        return;
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      titleRef.current?.focus({ preventScroll: true });
+    });
     return () => window.cancelAnimationFrame(frame);
   }, [screenplay.id]);
 
   return (
-    <div className="discovery-root min-h-screen" data-testid="project-workspace">
+    <div className="discovery-root min-h-screen bg-[var(--dsc-surface-3)]" data-testid="project-workspace">
       <DiscoverAppHeader
         total={stats.total}
         averageScore={stats.avgWeightedScore}
@@ -183,8 +223,8 @@ export function ProjectWorkspace({ screenplay, stats, onBack }: ProjectWorkspace
       />
 
       <main className="px-4 py-5 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1800px]">
-          <button type="button" onClick={onBack} className="dsc-btn mb-5">
+        <div className="mx-auto max-w-[1680px]">
+          <button type="button" onClick={onBack} className="dsc-btn mb-4 bg-[var(--dsc-surface)]">
             <span aria-hidden="true">←</span>
             Back to Discovery
           </button>
@@ -192,20 +232,20 @@ export function ProjectWorkspace({ screenplay, stats, onBack }: ProjectWorkspace
           <section
             id="project-overview"
             aria-labelledby="project-workspace-title"
-            className="dsc-card overflow-hidden"
+            className="overflow-hidden rounded-xl border border-[var(--dsc-line)] bg-[var(--dsc-surface)] shadow-2xl"
           >
-            <div className="grid xl:grid-cols-[minmax(13rem,0.32fr)_minmax(0,1fr)_minmax(17rem,0.34fr)]">
-              <div className="border-b border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] p-5 sm:p-7 xl:border-b-0 xl:border-r">
+            <div className="grid md:grid-cols-[13rem_minmax(0,1fr)] lg:grid-cols-[14rem_minmax(0,1fr)_18rem] 2xl:grid-cols-[15rem_minmax(0,1fr)_19rem]">
+              <div className="border-b border-[var(--dsc-line)] bg-[#2b3748] p-5 sm:p-6 md:border-b-0 md:border-r">
                 <ScriptCover
                   title={screenplay.title}
                   author={screenplay.author}
                   seed={screenplay.projectId ?? screenplay.id}
                   analysisVersion={screenplay.analysisVersion}
-                  className="mx-auto aspect-[2/3] max-w-[17rem] shadow-xl"
+                  className="mx-auto aspect-[2/3] max-h-[22rem] w-full max-w-[15rem] shadow-2xl"
                 />
               </div>
 
-              <div className="p-6 sm:p-8 lg:p-10">
+              <div className="p-6 sm:p-8 2xl:p-9">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="dsc-kicker">Project workspace</span>
                   <AnalysisTrustBadge screenplay={screenplay} />
@@ -226,11 +266,11 @@ export function ProjectWorkspace({ screenplay, stats, onBack }: ProjectWorkspace
                 <p className="dsc-label dsc-label-faint mt-5">
                   {screenplay.genre} · {screenplay.metadata.pageCount || 'Unknown'} pages · {screenplay.analysisModel}
                 </p>
-                <p className="mt-6 max-w-3xl text-lg leading-8 text-[var(--dsc-ink-2)]">
+                <p className="mt-5 max-w-3xl text-base leading-7 text-[var(--dsc-ink-2)] lg:text-lg lg:leading-8">
                   {screenplay.logline || 'Logline not yet available.'}
                 </p>
 
-                <div className="mt-7 flex flex-wrap items-center gap-2">
+                <div className="mt-6 flex flex-wrap items-center gap-2">
                   <ScreenplayPdfButton screenplay={screenplay} presentation="workspace" allowReupload={false} />
                   <ShareButton screenplay={screenplay} waitForExistingLink presentation="discovery" />
                   <DiscoveryExportActions screenplay={screenplay} />
@@ -246,30 +286,30 @@ export function ProjectWorkspace({ screenplay, stats, onBack }: ProjectWorkspace
                 </div>
               </div>
 
-              <div className="flex flex-col justify-between border-t border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] p-6 sm:p-8 xl:border-l xl:border-t-0">
+              <div className="col-span-full flex flex-col justify-between border-t border-[#2a3b54] bg-[#101a29] p-6 text-[#f5f1e8] md:flex-row md:items-center md:gap-10 lg:col-span-1 lg:flex-col lg:items-stretch lg:border-l lg:border-t-0 lg:p-7">
                 <div>
-                  <p className="dsc-label dsc-label-faint">Final score</p>
-                  <strong className="dsc-num mt-2 block text-7xl leading-none text-[var(--dsc-ink)]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8290a5]">Final score</p>
+                  <strong className="mt-2 block font-mono text-7xl leading-none text-[#f5f1e8] 2xl:text-8xl">
                     {screenplay.weightedScore.toFixed(1)}
                   </strong>
-                  <div className="mt-5">
+                  <div className="mt-5 [&_.badge-consider]:!bg-[#e8ecff] [&_.badge-consider]:!text-[#2449d8] [&_.badge-film-now]:!bg-[#d9f6e9] [&_.badge-film-now]:!text-[#146844] [&_.badge-pass]:!bg-[#edeff3] [&_.badge-pass]:!text-[#465267] [&_.badge-recommend]:!bg-[#d9f6e9] [&_.badge-recommend]:!text-[#146844]">
                     <RecommendationBadge tier={screenplay.recommendation} size="lg" />
                   </div>
                 </div>
-                <div id="project-provenance" className="mt-8 border-t border-[var(--dsc-line)] pt-5">
-                  <p className="dsc-label dsc-label-faint">Decision provenance</p>
+                <div id="project-provenance" className="mt-6 min-w-[16rem] border-t border-[#2a3b54] pt-5 md:mt-0 md:border-l md:border-t-0 md:pl-8 lg:mt-8 lg:border-l-0 lg:border-t lg:pl-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8290a5]">Decision provenance</p>
                   <dl className="mt-3 space-y-2 text-sm">
                     <div className="flex justify-between gap-4">
-                      <dt className="text-[var(--dsc-ink-3)]">Evidence</dt>
-                      <dd className="text-right font-semibold text-[var(--dsc-ink)]">{trustLabel(screenplay)}</dd>
+                      <dt className="text-[#8290a5]">Evidence</dt>
+                      <dd className="text-right font-semibold text-[#f5f1e8]">{trustLabel(screenplay)}</dd>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <dt className="text-[var(--dsc-ink-3)]">Readers</dt>
-                      <dd className="text-right font-semibold text-[var(--dsc-ink)]">{readerLabel(screenplay)}</dd>
+                      <dt className="text-[#8290a5]">Readers</dt>
+                      <dd className="text-right font-semibold text-[#f5f1e8]">{readerLabel(screenplay)}</dd>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <dt className="text-[var(--dsc-ink-3)]">Analysis</dt>
-                      <dd className="text-right font-semibold text-[var(--dsc-ink)]">{screenplay.analysisVersion}</dd>
+                      <dt className="text-[#8290a5]">Analysis</dt>
+                      <dd className="text-right font-semibold text-[#f5f1e8]">{screenplay.analysisVersion}</dd>
                     </div>
                   </dl>
                 </div>
@@ -277,30 +317,30 @@ export function ProjectWorkspace({ screenplay, stats, onBack }: ProjectWorkspace
             </div>
           </section>
 
-          <div className="mt-6 grid gap-6 xl:grid-cols-[17rem_minmax(0,1fr)]">
-            <ProjectDecisionSpine
-              screenplay={screenplay}
-              producerAssessment={producerAssessment}
-              isAdmin={isAdmin}
-            />
+          <ProjectDecisionDocket
+            screenplay={screenplay}
+            producerAssessment={producerAssessment}
+            isAdmin={isAdmin}
+          />
+          <ProjectDossierNav isAdmin={isAdmin} />
 
-            <div className="min-w-0 space-y-6">
+          <div data-presentation="discovery" className="min-w-0 space-y-5 rounded-b-xl border-x border-b border-[var(--dsc-line)] bg-[var(--dsc-bg)] p-4 shadow-xl sm:p-6 lg:p-8">
               <AnalysisWarnings screenplay={screenplay} />
 
-              <section className="dsc-card p-5 sm:p-7" aria-labelledby="project-executive-read">
+              <section id="project-executive-read" className="scroll-mt-40 rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface)] p-5 shadow-md sm:p-7 lg:p-9" aria-labelledby="project-executive-read-title">
                 <p className="dsc-kicker">The read</p>
-                <h2 id="project-executive-read" className="dsc-display mt-2 text-3xl sm:text-4xl">
+                <h2 id="project-executive-read-title" className="dsc-display mt-2 text-3xl sm:text-4xl">
                   Executive read
                 </h2>
-                <div className="mt-6 grid gap-7 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]">
+                <div className="mt-6 grid gap-8 xl:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
                   <div>
                     <p className="dsc-label dsc-label-faint">Why it received this verdict</p>
                     <p className="mt-3 text-base leading-7 text-[var(--dsc-ink-2)]">
                       {screenplay.verdictStatement || screenplay.recommendationRationale || 'Verdict rationale not yet available.'}
                     </p>
                   </div>
-                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
-                    <div>
+                  <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
+                    <div className="border-l-2 border-[var(--dsc-accent)] pl-4">
                       <p className="dsc-label">Strongest signals</p>
                       <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
                         {screenplay.strengths.length > 0
@@ -308,7 +348,7 @@ export function ProjectWorkspace({ screenplay, stats, onBack }: ProjectWorkspace
                           : <li>No strengths were recorded in this analysis.</li>}
                       </ul>
                     </div>
-                    <div>
+                    <div className="border-l-2 border-amber-500 pl-4">
                       <p className="dsc-label">Watch points</p>
                       <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
                         {[...screenplay.majorWeaknesses, ...screenplay.weaknesses].length > 0
@@ -323,16 +363,16 @@ export function ProjectWorkspace({ screenplay, stats, onBack }: ProjectWorkspace
               <section
                 id="project-scores"
                 data-testid="project-scores-panel"
-                className="dsc-card scroll-mt-6 p-5 sm:p-7"
+                className="scroll-mt-40 rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface)] p-5 shadow-md sm:p-7 lg:p-9"
                 aria-label="Scores and score lineage"
               >
-                <ScoresPanel screenplay={screenplay} />
+                <ScoresPanel screenplay={screenplay} presentation="workspace" />
               </section>
 
               <section
                 id="project-readers"
                 data-testid="project-reader-room"
-                className="dsc-card scroll-mt-6 p-5 sm:p-7"
+                className="scroll-mt-40 rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface)] p-5 shadow-md sm:p-7 lg:p-9"
                 aria-label="Reader room"
               >
                 <div className="mb-6">
@@ -342,24 +382,24 @@ export function ProjectWorkspace({ screenplay, stats, onBack }: ProjectWorkspace
                     Open each specialist lens to see its score, written case, page evidence, flags, and roundtable disagreements.
                   </p>
                 </div>
-                <DeferredReaderEvidence screenplay={screenplay} />
+                <DeferredReaderEvidence screenplay={screenplay} presentation="workspace" />
               </section>
 
               <section
                 id="project-story-xray"
                 data-testid="project-story-xray"
-                className="dsc-card scroll-mt-6 space-y-8 p-5 sm:p-7"
+                className="scroll-mt-40 space-y-8 rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface)] p-5 shadow-md sm:p-7 lg:p-9"
                 aria-label="Story X-Ray"
               >
                 <div>
                   <p className="dsc-kicker">Inside the material</p>
                   <h2 className="dsc-display mt-2 text-3xl sm:text-4xl">Story X-Ray</h2>
                 </div>
-                <ContentDetails screenplay={screenplay} />
+                <ContentDetails screenplay={screenplay} presentation="workspace" />
               </section>
 
               {isAdmin && (
-                <div id="project-producer-take" className="scroll-mt-6">
+                <div id="project-producer-take" className="scroll-mt-40">
                   <ProducerTake screenplay={screenplay} />
                 </div>
               )}
@@ -367,12 +407,11 @@ export function ProjectWorkspace({ screenplay, stats, onBack }: ProjectWorkspace
               <section
                 id="project-notes"
                 data-testid="project-notes"
-                className="dsc-card scroll-mt-6 p-5 sm:p-7"
+                className="scroll-mt-40 rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface)] p-5 shadow-md sm:p-7 lg:p-9"
                 aria-label="Private notes"
               >
-                <NotesSection screenplayId={screenplay.id} />
+                <NotesSection screenplayId={screenplay.id} presentation="workspace" />
               </section>
-            </div>
           </div>
         </div>
       </main>

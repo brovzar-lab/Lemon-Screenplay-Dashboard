@@ -14,9 +14,11 @@ import { CVSFactor } from './CVSFactor';
 
 interface ScoresPanelProps {
     screenplay: Screenplay;
+    presentation?: 'default' | 'workspace';
 }
 
-export function ScoresPanel({ screenplay }: ScoresPanelProps) {
+export function ScoresPanel({ screenplay, presentation = 'default' }: ScoresPanelProps) {
+    const isWorkspace = presentation === 'workspace';
     const projection = screenplay.producerProjection;
     const scoreLabel = projection?.scoreSource === 'adjusted'
         ? 'Final adjusted score'
@@ -28,10 +30,13 @@ export function ScoresPanel({ screenplay }: ScoresPanelProps) {
         : 'Raw five-pillar score';
 
     return (
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className={clsx(
+            'grid gap-6',
+            isWorkspace ? 'xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)] xl:gap-10' : 'md:grid-cols-2',
+        )}>
             {/* Analysis evidence */}
             <div>
-                <SectionHeader icon="📊">
+                <SectionHeader icon={isWorkspace ? undefined : '📊'}>
                     {hasPillarScores(screenplay)
                         ? 'Five-Pillar Reader Evidence'
                         : 'Legacy Dimension Scores'}
@@ -60,7 +65,10 @@ export function ScoresPanel({ screenplay }: ScoresPanelProps) {
                         </div>
                         {projection && (
                             <div
-                                className="mt-4 space-y-2 rounded-xl border border-black-700 bg-black-900/40 p-3"
+                                className={clsx(
+                                    'mt-4 space-y-2 border border-black-700 p-3',
+                                    isWorkspace ? 'rounded-sm bg-black-900/20' : 'rounded-xl bg-black-900/40',
+                                )}
                                 data-testid="score-lineage"
                             >
                                 <div className="flex items-center justify-between gap-4 text-sm">
@@ -125,7 +133,7 @@ export function ScoresPanel({ screenplay }: ScoresPanelProps) {
 
             {/* CVS Breakdown */}
             <div>
-                <SectionHeader icon="💰">Commercial Viability Score</SectionHeader>
+                <SectionHeader icon={isWorkspace ? undefined : '💰'}>Commercial Viability Score</SectionHeader>
                 {screenplay.commercialViability.cvsAssessed === false ? (
                     <div className="p-4 rounded-lg bg-black-900/50 border border-black-700 border-dashed">
                         <p className="text-sm text-black-400 italic">

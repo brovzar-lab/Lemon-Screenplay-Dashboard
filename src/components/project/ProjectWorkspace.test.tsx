@@ -129,11 +129,13 @@ describe('ProjectWorkspace', () => {
     testState.toggleFavorite.mockClear();
   });
 
-  it('presents the complete real-analysis workspace with a decision spine', () => {
+  it('presents the complete real-analysis workspace as a studio dossier', () => {
     render(<ProjectWorkspace screenplay={project()} stats={stats} onBack={vi.fn()} />);
 
     expect(screen.getByRole('heading', { name: 'Atlas Fall' })).toBeInTheDocument();
-    expect(screen.getByText('Decision spine')).toBeInTheDocument();
+    expect(screen.getByText('Decision docket')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Project dossier' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Reader Room' })).toHaveAttribute('href', '#project-readers');
     expect(screen.getAllByText('Verified analysis')).not.toHaveLength(0);
     expect(screen.getAllByText('5/5 readers complete')).not.toHaveLength(0);
     expect(screen.getByText('Score lineage 8.4')).toBeInTheDocument();
@@ -153,7 +155,7 @@ describe('ProjectWorkspace', () => {
 
     expect(screen.getByText('Five readers for Atlas Fall')).toBeInTheDocument();
     expect(screen.queryByText('Producer Take for Atlas Fall')).not.toBeInTheDocument();
-    expect(within(screen.getByLabelText('Project decision spine')).queryByText('Producer Take')).not.toBeInTheDocument();
+    expect(within(screen.getByLabelText('Project decision docket')).queryByText('Producer Take')).not.toBeInTheDocument();
   });
 
   it('uses the existing favorite control and returns through the supplied navigation', async () => {

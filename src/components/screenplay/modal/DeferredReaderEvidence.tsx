@@ -8,7 +8,13 @@ const ReaderEvidencePanel = lazy(() =>
   })),
 );
 
-export function DeferredReaderEvidence({ screenplay }: { screenplay: Screenplay }) {
+export function DeferredReaderEvidence({
+  screenplay,
+  presentation = 'default',
+}: {
+  screenplay: Screenplay;
+  presentation?: 'default' | 'workspace';
+}) {
   return (
     <Suspense
       fallback={(
@@ -17,7 +23,7 @@ export function DeferredReaderEvidence({ screenplay }: { screenplay: Screenplay 
         </div>
       )}
     >
-      <ReaderEvidencePanel screenplay={screenplay} />
+      <ReaderEvidencePanel screenplay={screenplay} presentation={presentation} />
     </Suspense>
   );
 }
