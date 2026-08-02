@@ -18,7 +18,7 @@ export function IntakeConfirmationDialog({
 }: IntakeConfirmationDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const [acknowledged, setAcknowledged] = useState(false);
+  const [paidAnalysisAcknowledged, setPaidAnalysisAcknowledged] = useState(false);
   const projectCount = filenames.length;
 
   useEffect(() => {
@@ -121,8 +121,8 @@ export function IntakeConfirmationDialog({
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4">
             <input
               type="checkbox"
-              checked={acknowledged}
-              onChange={(event) => setAcknowledged(event.target.checked)}
+              checked={paidAnalysisAcknowledged}
+              onChange={(event) => setPaidAnalysisAcknowledged(event.target.checked)}
               className="mt-1 h-4 w-4 accent-red-600"
             />
             <span>
@@ -142,7 +142,7 @@ export function IntakeConfirmationDialog({
             <button
               type="button"
               className="dsc-btn dsc-btn-primary disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={!acknowledged}
+              disabled={!paidAnalysisAcknowledged}
               onClick={onConfirm}
             >
               Authorize paid analysis for {projectCount} screenplay{projectCount === 1 ? '' : 's'}
