@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DiscoverShell } from '@/components/discover';
 import { useDiscoveryShareStatuses } from '@/components/discover/useDiscoveryShareStatuses';
 import {
@@ -31,6 +31,7 @@ function isDashboardDefaultSort() {
 function DiscoverPage() {
   const { projectId } = useParams<{ projectId?: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { data: allScreenplays = [] } = useScreenplays();
   const { screenplays, totalCount, filteredCount, isLoading, error } = useFilteredScreenplays();
   const hasActiveFilters = useHasActiveFilters();
@@ -115,11 +116,19 @@ function DiscoverPage() {
   );
 
   const openScreenplay = (screenplay: Screenplay) => {
-    navigate(`/discover/${encodeURIComponent(screenplay.projectId ?? screenplay.id)}`);
+    const targetId = encodeURIComponent(screenplay.projectId ?? screenplay.id);
+    if (searchParams.get('preview') === 'drawer') {
+      navigate(`/discover/${targetId}?preview=drawer`);
+      return;
+    }
+    navigate(`/projects/${targetId}`, { state: { fromDiscovery: true } });
   };
 
   const closeScreenplay = () => {
-    navigate('/discover', { replace: true });
+    navigate(
+      searchParams.get('preview') === 'drawer' ? '/discover?preview=drawer' : '/discover',
+      { replace: true },
+    );
   };
 
   return (

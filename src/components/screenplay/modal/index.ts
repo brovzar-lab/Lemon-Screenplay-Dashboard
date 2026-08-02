@@ -21,3 +21,4 @@ export { PosterSection } from './PosterSection';
 export { FeedbackSection } from './FeedbackSection';
 export { BillysTake } from './BillysTake';
 export { ProducerTake } from './ProducerTake';
+export { ScreenplayPdfButton } from './ScreenplayPdfButton';

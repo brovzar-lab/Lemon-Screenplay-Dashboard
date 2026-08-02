@@ -3,9 +3,9 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-07-31
+**Last session:** 2026-08-01
 
-**Done and deployed on `main` at `0671443`:**
+**Done and deployed on `main` at `d9b7beb`:**
 - Discovery reconnection R0-R6 and the Cinema Browse presentation are live at
   `/discover`; the original dashboard remains available at `/`.
 - Q0-Q4 trust hardening is live: complete screenplay evidence, five required
@@ -19,37 +19,35 @@
 - Full calibration contract:
   `docs/trust-hardening/Q5-PRODUCER-CALIBRATION.md`.
 
-**Implemented locally on `codex/q6-intake-mvp`:**
-- New admin-only `/intake` route, lazy-loaded through the existing AuthGate and
-  ErrorBoundary pattern.
-- Discovery header now exposes Intake only to admins and preserves current
-  Discover and Settings behavior.
-- The existing upload, duplicate detection, revision resolution, Storage queue,
-  Firestore subscription, and VPS analysis machinery is reused without backend
-  changes.
-- Intake has an intentional desktop/tablet interface: reading route, category,
-  PDF drop desk, safeguards, and a live project docket.
-- Hybrid is the Intake default to support a quality-first funnel. Existing
-  Settings upload behavior still defaults to Sonnet.
-- A final confirmation shows the model, project count, and estimated spend.
-  Closing or pressing Escape starts nothing.
-- New completed jobs retain the authoritative project ID and can open the final
-  Discovery analysis directly.
-- Q6 has made no paid calls and deployed nothing. Contract:
-  `docs/Q6-INTAKE-MVP.md`.
+- Q6 Intake MVP is live at `/intake`: admin-only staged uploads, duplicate and
+  revision review, explicit model and spend confirmation, honest live docket,
+  and safe routing into the existing queue. Q6 was hosting-only and did not
+  change Functions, rules, or the VPS. Contract: `docs/Q6-INTAKE-MVP.md`.
+
+**Implemented locally on `codex/q7-project-workspace`:**
+- Cinema Browse cards now open a full project destination at
+  `/projects/:projectId`; direct links and refreshes resolve the same real data.
+- The workspace presents the paper screenplay, decision spine, executive read,
+  score lineage, five reader reports, Story X-Ray, Producer Take, private notes,
+  sharing, favorites, source screenplay, coverage, and pitch-deck actions.
+- The current drawer remains intact at `/discover/:projectId`, with
+  `/discover?preview=drawer` as an explicit fallback browsing mode.
+- Q7 changes only additive UI and routing. No paid model calls, production
+  deployment, backend changes, or calibration activation. Contract:
+  `docs/Q7-PROJECT-WORKSPACE.md`.
 
 **Production state:**
-- Production remains on `main` at `0671443`, including approved Q5.
+- Production remains on `main` at `d9b7beb`, including approved Q6.
 - Calibration remains inactive.
-- Q6 exists only on the local branch `codex/q6-intake-mvp`.
+- Q7 exists only on the local branch `codex/q7-project-workspace`.
 
 **Next up:**
-1. Finish Q6 full-suite verification and local browser review.
-2. Billy reviews `http://localhost:3000/intake` without starting an analysis.
-3. After explicit approval, merge Q6 and coordinate the required hosting-only
-   deployment. The existing ingest backend does not need a Q6 redeploy.
-4. After Q6, build the full screenplay Project Workspace, then Chat With the
-   Room. Producer calibration remains a later checkpoint before bulk intake.
+1. Finish Q7 full-suite verification and local browser review.
+2. Billy reviews a screenplay from `http://localhost:3000/discover` in the new
+   full Project Workspace.
+3. After explicit approval, merge Q7 and coordinate a hosting-only deployment.
+4. Plan Q8 Chat With the Room as a separately approved, costed conversation
+   system. Producer calibration remains a later checkpoint before bulk intake.
 
 **Backlog pointer:**
 - Discovery UI backlog remains in `docs/DISCOVERY-BACKLOG.md`.
@@ -96,6 +94,10 @@ Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated c
 ## Routes (src/main.tsx)
 ```
 /                → App           (main dashboard)
+/discover        → DiscoverPage  (lazy, Cinema Browse)
+/discover/:id    → DiscoverPage  (preserved drawer fallback)
+/projects/:id    → ProjectWorkspacePage (lazy, full dossier)
+/intake          → IntakePage    (lazy, admin-only)
 /settings        → SettingsPage  (lazy)
 /share/:token    → SharedViewPage (lazy)
 *                → redirect to /

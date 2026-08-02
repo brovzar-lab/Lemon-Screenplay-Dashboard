@@ -95,7 +95,7 @@ function sharedDocument(item: Screenplay, token: string): SharedViewDocument {
   };
 }
 
-function renderRoutes(initialEntries = ['/discover']) {
+function renderRoutes(initialEntries = ['/discover?preview=drawer']) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [

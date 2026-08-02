@@ -3,7 +3,7 @@
  * Reorganized layout: Close (X) top-right, then Title row, then action bar.
  */
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { BUDGET_TIERS } from '@/types';
@@ -12,12 +12,11 @@ import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { ReanalyzeButton } from './ReanalyzeButton';
 import { ShareButton } from './ShareButton';
 import { useDeleteScreenplays } from '@/hooks/useScreenplays';
-import { storage, uploadScreenplayPdf } from '@/lib/firebase';
-import { ref, getDownloadURL } from 'firebase/storage';
 // downloadCoveragePdf is dynamically imported below to defer @react-pdf/renderer
 import { useToastStore } from '@/stores/toastStore';
 import { useIsAdmin } from '@/stores/authStore';
 import type { ReactNode, RefObject } from 'react';
+import { ScreenplayPdfButton } from './ScreenplayPdfButton';
 
 interface ModalHeaderProps {
     screenplay: Screenplay;
@@ -48,80 +47,6 @@ export function ModalHeader({
     const budgetInfo = BUDGET_TIERS[screenplay.budgetCategory];
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const deleteMutation = useDeleteScreenplays();
-
-    /** Open the immutable PDF archived with the latest analysis version. */
-    const [pdfState, setPdfState] = useState<'idle' | 'loading' | 'error' | 'uploading'>('idle');
-    const pdfReuploadRef = useRef<HTMLInputElement>(null);
-
-    const handlePdfReupload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setPdfState('uploading');
-        try {
-            const category = screenplay.category || 'OTHER';
-            await uploadScreenplayPdf(file, category, screenplay.title);
-            useToastStore.getState().addToast(`PDF uploaded for "${screenplay.title}"`);
-            setPdfState('idle');
-        } catch (err) {
-            console.error('[PDF Re-upload]', err);
-            useToastStore.getState().addToast('PDF upload failed — please try again');
-            setPdfState('error');
-        }
-        // Reset file input so same file can be re-selected
-        if (pdfReuploadRef.current) pdfReuploadRef.current.value = '';
-    };
-
-    const handleDownloadPdf = async () => {
-        if (pdfState === 'loading') return;
-        setPdfState('loading');
-
-        if (screenplay.storagePath) {
-            try {
-                const archivedRef = ref(storage, screenplay.storagePath);
-                const url = await getDownloadURL(archivedRef);
-                window.open(url, '_blank');
-                setPdfState('idle');
-                return;
-            } catch (err) {
-                console.warn('[PDF Download] Immutable archive pointer failed:', err);
-            }
-        }
-
-        // Compatibility fallback for manually attached legacy PDFs.
-        const category = screenplay.category || 'OTHER';
-        const safeName = (screenplay.title || screenplay.sourceFile || 'untitled')
-            .replace(/\.pdf$/i, '')
-            .replace(/[^a-zA-Z0-9_\- ]/g, '')
-            .trim()
-            .replace(/\s+/g, '_');
-        const storagePath = `screenplays/${category}/${safeName}.pdf`;
-
-        try {
-            const fileRef = ref(storage, storagePath);
-            const url = await getDownloadURL(fileRef);
-            window.open(url, '_blank');
-            setPdfState('idle');
-            return;
-        } catch (err) {
-            console.warn('[PDF Download] Primary path failed:', err);
-        }
-
-        // Fallback: try without category subfolder
-        try {
-            const fallbackRef = ref(storage, `screenplays/${safeName}.pdf`);
-            const url = await getDownloadURL(fallbackRef);
-            window.open(url, '_blank');
-            setPdfState('idle');
-            return;
-        } catch {
-            console.warn('[PDF Download] PDF not found in storage. Path tried:', storagePath);
-        }
-
-        // Show error on button, reset after 3s
-        setPdfState('error');
-        setTimeout(() => setPdfState('idle'), 3000);
-    };
 
     const [coverageState, setCoverageState] = useState<'idle' | 'loading' | 'error'>('idle');
 
@@ -255,50 +180,7 @@ export function ModalHeader({
                             {coverageState === 'error' ? 'Failed' : 'Coverage'}
                         </button>
                         {isAdmin && <ReanalyzeButton screenplay={screenplay} onComplete={onReanalyzeComplete} />}
-                        <div className="relative">
-                            <button
-                                onClick={pdfState === 'error' && isAdmin ? () => pdfReuploadRef.current?.click() : handleDownloadPdf}
-                                disabled={pdfState === 'loading' || pdfState === 'uploading' || (pdfState === 'error' && !isAdmin)}
-                                className={clsx(
-                                    'btn text-xs flex items-center gap-1.5 py-1.5 px-3 transition-all',
-                                    pdfState === 'error'
-                                        ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30 hover:bg-amber-600/30'
-                                        : 'btn-primary',
-                                    (pdfState === 'loading' || pdfState === 'uploading') && 'opacity-60 cursor-wait',
-                                )}
-                                title={
-                                    pdfState === 'error'
-                                        ? 'PDF not found — click to re-upload'
-                                        : pdfState === 'uploading'
-                                            ? 'Uploading PDF...'
-                                            : `Download ${screenplay.sourceFile || screenplay.title}`
-                                }
-                            >
-                                {(pdfState === 'loading' || pdfState === 'uploading') ? (
-                                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                                    </svg>
-                                ) : pdfState === 'error' ? (
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                    </svg>
-                                ) : (
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                )}
-                                {pdfState === 'error' ? 'Re-Upload PDF' : pdfState === 'uploading' ? 'Uploading...' : 'PDF'}
-                            </button>
-                            {/* Hidden file input for re-upload */}
-                            {isAdmin && <input
-                                ref={pdfReuploadRef}
-                                type="file"
-                                accept=".pdf"
-                                className="hidden"
-                                onChange={handlePdfReupload}
-                            />}
-                        </div>
+                        <ScreenplayPdfButton screenplay={screenplay} />
                         {isAdmin && <button
                             onClick={() => setShowDeleteConfirm(true)}
                             className="modal-delete-btn text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border"

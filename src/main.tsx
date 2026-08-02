@@ -12,6 +12,9 @@ import { importWithReload } from '@/lib/lazyWithReload';
 const SettingsPage = lazy(() => importWithReload('settings', () => import('./pages/SettingsPage')));
 const DiscoverPage = lazy(() => importWithReload('discover', () => import('./pages/DiscoverPage')));
 const IntakePage = lazy(() => importWithReload('intake', () => import('@/pages/IntakePage')));
+const ProjectWorkspacePage = lazy(() =>
+  importWithReload('project-workspace', () => import('@/pages/ProjectWorkspacePage')),
+);
 const SharedViewPage = lazy(() => importWithReload('shared-view', () => import('./pages/SharedViewPage')));
 
 // Create React Query client
@@ -62,6 +65,14 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <ErrorBoundary fullPage areaName="Intake">
                     <AuthGate requireAdmin><IntakePage /></AuthGate>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/projects/:projectId"
+                element={
+                  <ErrorBoundary fullPage areaName="Project Workspace">
+                    <AuthGate><ProjectWorkspacePage /></AuthGate>
                   </ErrorBoundary>
                 }
               />

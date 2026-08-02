@@ -1,6 +1,6 @@
 # Q6 Intake MVP Closure
 
-Status: implemented locally on `codex/q6-intake-mvp`. Nothing in Q6 is deployed.
+Status: merged and deployed hosting-only on `main` at `d9b7beb`.
 
 ## Producer promise
 
@@ -54,6 +54,6 @@ No paid model calls are required for local review or automated verification.
 
 ## Deployment checkpoint
 
-After Billy approves the local screen, Q6 requires a hosting-only deployment.
-The ingest Functions, Firestore rules, and VPS daemon are unchanged and should
-not be redeployed for Q6.
+Q6 passed local review and was deployed hosting-only with Billy's explicit
+approval. The ingest Functions, Firestore rules, and VPS daemon were unchanged
+and were not redeployed for Q6.
