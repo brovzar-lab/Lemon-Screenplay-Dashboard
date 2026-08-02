@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useUploadStore, type UploadJob } from '@/stores/uploadStore';
@@ -103,12 +103,15 @@ describe('Intake upload presentation', () => {
 
     await user.click(screen.getByRole('button', { name: /Review and start analysis/ }));
 
-    expect(screen.getByRole('alertdialog', { name: 'Send to the reader room?' })).toBeInTheDocument();
-    expect(screen.getByText(/Closing this window starts nothing/)).toBeInTheDocument();
+    const dialog = screen.getByRole('alertdialog', { name: 'Authorize paid analysis?' });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText('New_Script.pdf')).toBeInTheDocument();
+    expect(within(dialog).getByText(/No analysis starts unless you authorize it below/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Authorize paid analysis for 1 screenplay' })).toBeDisabled();
     expect(mockUpload).not.toHaveBeenCalled();
 
     await user.keyboard('{Escape}');
-    expect(screen.queryByRole('alertdialog', { name: 'Send to the reader room?' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog', { name: 'Authorize paid analysis?' })).not.toBeInTheDocument();
     expect(mockUpload).not.toHaveBeenCalled();
   });
 
@@ -150,8 +153,32 @@ describe('Intake upload presentation', () => {
     await user.upload(screen.getByLabelText('Choose screenplay PDFs'), [first, second]);
     await user.click(await screen.findByRole('button', { name: /Review and start analysis \(2 files\)/ }));
 
-    expect(screen.getByText(/Estimated batch cost: ~\$0\.44–\$2\.24/)).toBeInTheDocument();
+    const dialog = screen.getByRole('alertdialog', { name: 'Authorize paid analysis?' });
+    expect(within(dialog).getByText('Estimated batch cost')).toBeInTheDocument();
+    expect(within(dialog).getByText('~$0.44–$2.24')).toBeInTheDocument();
+    expect(within(dialog).getByText('First.pdf')).toBeInTheDocument();
+    expect(within(dialog).getByText('Second.pdf')).toBeInTheDocument();
     expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('requires explicit paid-analysis authorization before the final action', async () => {
+    const user = userEvent.setup();
+    const file = new File(['screenplay'], 'Greenlight.pdf', { type: 'application/pdf' });
+    const jobId = useUploadStore.getState().addJob('Greenlight.pdf', 'LEMON', file);
+    useUploadStore.getState().updateJob(jobId, { identityCheckComplete: true });
+    renderPanel();
+
+    await user.click(screen.getByRole('button', { name: /Review and start analysis/ }));
+    const authorize = screen.getByRole('button', { name: 'Authorize paid analysis for 1 screenplay' });
+    expect(authorize).toBeDisabled();
+
+    await user.click(screen.getByRole('checkbox', { name: /I understand that this starts paid AI analysis now/ }));
+    expect(authorize).toBeEnabled();
+    expect(mockUpload).not.toHaveBeenCalled();
+
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: /Review and start analysis/ }));
+    expect(screen.getByRole('button', { name: 'Authorize paid analysis for 1 screenplay' })).toBeDisabled();
   });
 
   it('reconnects an accepted queue job and preserves its authoritative project route', async () => {

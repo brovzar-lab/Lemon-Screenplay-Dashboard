@@ -1,9 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 interface IntakeConfirmationDialogProps {
-  isOpen: boolean;
-  projectCount: number;
+  filenames: string[];
   modelName: string;
   costEstimate: string | null;
   onCancel: () => void;
@@ -11,8 +10,7 @@ interface IntakeConfirmationDialogProps {
 }
 
 export function IntakeConfirmationDialog({
-  isOpen,
-  projectCount,
+  filenames,
   modelName,
   costEstimate,
   onCancel,
@@ -20,10 +18,10 @@ export function IntakeConfirmationDialog({
 }: IntakeConfirmationDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const projectCount = filenames.length;
 
   useEffect(() => {
-    if (!isOpen) return;
-
     const priorFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
@@ -60,9 +58,7 @@ export function IntakeConfirmationDialog({
       document.body.style.overflow = previousOverflow;
       priorFocus?.focus();
     };
-  }, [isOpen, onCancel]);
-
-  if (!isOpen) return null;
+  }, [onCancel]);
 
   return createPortal(
     <div
@@ -77,27 +73,81 @@ export function IntakeConfirmationDialog({
         aria-modal="true"
         aria-labelledby="intake-confirm-title"
         aria-describedby="intake-confirm-description"
-        className="dsc-modal w-full max-w-xl rounded-[var(--dsc-radius-card)] p-6 sm:p-8"
+        className="dsc-modal max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-[var(--dsc-radius-card)]"
       >
-        <p className="dsc-kicker">Final check</p>
-        <h2 id="intake-confirm-title" className="dsc-display mt-2 text-4xl">
-          Send to the reader room?
-        </h2>
-        <p id="intake-confirm-description" className="mt-4 leading-7 text-[var(--dsc-ink-2)]">
-          {projectCount} screenplay{projectCount === 1 ? '' : 's'} will begin analysis with{' '}
-          <strong className="text-[var(--dsc-ink)]">{modelName}</strong>.
-          {costEstimate ? ` Estimated batch cost: ${costEstimate}.` : ''}
-        </p>
-        <p className="mt-3 text-sm leading-6 text-[var(--dsc-ink-3)]">
-          Closing this window starts nothing. Confirm only when the slate is ready for paid analysis.
-        </p>
-        <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button ref={cancelRef} type="button" className="dsc-btn" onClick={onCancel}>
-            Keep editing
-          </button>
-          <button type="button" className="dsc-btn dsc-btn-primary" onClick={onConfirm}>
-            Confirm and start analysis
-          </button>
+        <div className="border-b border-red-500/25 bg-red-500/10 px-6 py-5 sm:px-8">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-600 dark:text-red-300">
+            Paid analysis authorization
+          </p>
+          <h2 id="intake-confirm-title" className="dsc-display mt-2 text-4xl">
+            Authorize paid analysis?
+          </h2>
+          <p id="intake-confirm-description" className="mt-3 max-w-xl text-sm leading-6 text-[var(--dsc-ink-2)]">
+            This immediately sends the screenplays below to the V9 reader room. Once submitted,
+            an active screenplay cannot be canceled from this screen.
+          </p>
+        </div>
+
+        <div className="space-y-6 p-6 sm:p-8">
+          <div className="grid gap-px overflow-hidden rounded-xl border border-[var(--dsc-line)] bg-[var(--dsc-line)] sm:grid-cols-3">
+            <div className="bg-[var(--dsc-surface-2)] p-4">
+              <p className="text-xs uppercase tracking-wider text-[var(--dsc-ink-3)]">Screenplays</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--dsc-ink)]">{projectCount}</p>
+            </div>
+            <div className="bg-[var(--dsc-surface-2)] p-4">
+              <p className="text-xs uppercase tracking-wider text-[var(--dsc-ink-3)]">Reading route</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--dsc-ink)]">{modelName}</p>
+            </div>
+            <div className="bg-[var(--dsc-surface-2)] p-4">
+              <p className="text-xs uppercase tracking-wider text-[var(--dsc-ink-3)]">Estimated batch cost</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--dsc-ink)]">{costEstimate ?? 'Unavailable'}</p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--dsc-ink-3)]">
+              Screenplays entering the room
+            </p>
+            <ol className="mt-3 max-h-48 divide-y divide-[var(--dsc-line)] overflow-y-auto rounded-xl border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)]">
+              {filenames.map((filename, index) => (
+                <li key={`${filename}-${index}`} className="grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 px-4 py-3">
+                  <span className="font-mono text-xs text-[var(--dsc-ink-3)]">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="truncate text-sm font-medium text-[var(--dsc-ink)]" title={filename}>{filename}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(event) => setAcknowledged(event.target.checked)}
+              className="mt-1 h-4 w-4 accent-red-600"
+            />
+            <span>
+              <strong className="block text-sm text-[var(--dsc-ink)]">
+                I understand that this starts paid AI analysis now.
+              </strong>
+              <span className="mt-1 block text-xs leading-5 text-[var(--dsc-ink-3)]">
+                No analysis starts unless you authorize it below. Closing this window or returning to Intake starts nothing.
+              </span>
+            </span>
+          </label>
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button ref={cancelRef} type="button" className="dsc-btn" onClick={onCancel}>
+              Return to Intake, start nothing
+            </button>
+            <button
+              type="button"
+              className="dsc-btn dsc-btn-primary disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!acknowledged}
+              onClick={onConfirm}
+            >
+              Authorize paid analysis for {projectCount} screenplay{projectCount === 1 ? '' : 's'}
+            </button>
+          </div>
         </div>
       </section>
     </div>,

@@ -460,14 +460,15 @@ export function UploadPanel({
           />
         </section>
 
-        <IntakeConfirmationDialog
-          isOpen={showConfirmation}
-          projectCount={pendingJobs.length}
-          modelName={MODEL_OPTIONS.find((model) => model.id === selectedModel)?.name ?? selectedModel}
-          costEstimate={batchCostEstimate}
-          onCancel={cancelConfirmation}
-          onConfirm={confirmStartProcessing}
-        />
+        {showConfirmation && (
+          <IntakeConfirmationDialog
+            filenames={pendingJobs.map((job) => job.filename)}
+            modelName={MODEL_OPTIONS.find((model) => model.id === selectedModel)?.name ?? selectedModel}
+            costEstimate={batchCostEstimate}
+            onCancel={cancelConfirmation}
+            onConfirm={confirmStartProcessing}
+          />
+        )}
       </div>
     );
   }
