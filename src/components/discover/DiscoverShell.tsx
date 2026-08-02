@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DiscoverAppHeader } from '@/components/discover/DiscoverAppHeader';
 import { DiscoverControls } from '@/components/discover/DiscoverControls';
 import { DiscoverDrawer } from '@/components/discover/DiscoverDrawer';
@@ -99,6 +99,7 @@ export function DiscoverShell({
   isLoading,
   isError,
 }: DiscoverShellProps) {
+  const [archivePosition, setArchivePosition] = useState({ signature: '', page: 1 });
   const isAdmin = useIsAdmin();
   const hasSelection = useHasSelection();
   const { data: producerAssessmentHeads = [] } =
@@ -143,6 +144,16 @@ export function DiscoverShell({
   const [featured, ...remaining] = rankableScreenplays;
   const topMatches = remaining.slice(0, 4);
   const grid = [...remaining.slice(4), ...reviewOnlyScreenplays];
+  const archivePageSize = 50;
+  const archivePageCount = Math.max(1, Math.ceil(grid.length / archivePageSize));
+  const gridSignature = grid.map((screenplay) => screenplay.id).join('|');
+  const archivePage = archivePosition.signature === gridSignature
+    ? Math.min(archivePosition.page, archivePageCount)
+    : 1;
+  const visibleGrid = grid.slice(
+    (archivePage - 1) * archivePageSize,
+    archivePage * archivePageSize,
+  );
   const filmNow = rankableScreenplays.filter(
     (screenplay) => screenplay.recommendation === 'film_now',
   );
@@ -260,13 +271,41 @@ export function DiscoverShell({
                   <section aria-labelledby="discovery-archive" className="cinema-shelf">
                     <div className="cinema-shelf-head">
                       <h2 id="discovery-archive">Browse the slate</h2>
-                      <span>{grid.length} more in this view</span>
+                      <span>
+                        {grid.length} projects · {archivePageSize} per page
+                      </span>
                     </div>
                     <DiscoverGrid
-                      screenplays={grid}
+                      screenplays={visibleGrid}
                       onOpen={handleOpen}
                       producerAssessments={producerAssessments}
+                      rankOffset={(archivePage - 1) * archivePageSize}
                     />
+                    {archivePageCount > 1 && (
+                      <nav className="cinema-pagination" aria-label="Browse the slate pages">
+                        <button
+                          type="button"
+                          onClick={() => setArchivePosition({
+                            signature: gridSignature,
+                            page: Math.max(1, archivePage - 1),
+                          })}
+                          disabled={archivePage === 1}
+                        >
+                          ← Previous 50
+                        </button>
+                        <span>Page {archivePage} of {archivePageCount}</span>
+                        <button
+                          type="button"
+                          onClick={() => setArchivePosition({
+                            signature: gridSignature,
+                            page: Math.min(archivePageCount, archivePage + 1),
+                          })}
+                          disabled={archivePage === archivePageCount}
+                        >
+                          Next 50 →
+                        </button>
+                      </nav>
+                    )}
                   </section>
                 </>
               )}

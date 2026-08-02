@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestScreenplay } from '@/test/factories';
@@ -62,6 +62,10 @@ vi.mock('@/components/screenplay/modal', () => ({
   ProducerTake: ({ screenplay }: { screenplay: Screenplay }) => <div>Producer Take for {screenplay.title}</div>,
   ScoresPanel: ({ screenplay }: { screenplay: Screenplay }) => <div>Score lineage {screenplay.weightedScore}</div>,
   ShareButton: () => <button>Share</button>,
+}));
+
+vi.mock('@/components/project/ReaderRoom', () => ({
+  ReaderRoom: ({ screenplay }: { screenplay: Screenplay }) => <div>Five readers for {screenplay.title}</div>,
 }));
 
 import { ProjectWorkspace } from '@/components/project/ProjectWorkspace';
@@ -130,43 +134,55 @@ describe('ProjectWorkspace', () => {
   });
 
   it('presents the complete real-analysis workspace as a studio dossier', () => {
-    render(<ProjectWorkspace screenplay={project()} stats={stats} onBack={vi.fn()} />);
+    render(<ProjectWorkspace screenplay={project()} stats={stats} activeTab="overview" onSelectTab={vi.fn()} onBack={vi.fn()} />);
 
     expect(screen.getByRole('heading', { name: 'Atlas Fall' })).toBeInTheDocument();
-    expect(screen.getByText('Decision docket')).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Project dossier' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Reader Room' })).toHaveAttribute('href', '#project-readers');
+    expect(screen.getByRole('navigation', { name: 'Project workspace' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reader Room' })).toBeInTheDocument();
     expect(screen.getAllByText('Verified analysis')).not.toHaveLength(0);
     expect(screen.getAllByText('5/5 readers complete')).not.toHaveLength(0);
     expect(screen.getByText('Score lineage 8.4')).toBeInTheDocument();
-    expect(screen.getByText('Five readers for Atlas Fall')).toBeInTheDocument();
-    expect(screen.getByText('Characters for Atlas Fall')).toBeInTheDocument();
-    expect(screen.getByText('Producer Take for Atlas Fall')).toBeInTheDocument();
+    expect(screen.queryByText('Five readers for Atlas Fall')).not.toBeInTheDocument();
+    expect(screen.queryByText('Characters for Atlas Fall')).not.toBeInTheDocument();
+    expect(screen.queryByText('Producer Take for Atlas Fall')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Open source screenplay/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /reanalyze/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /chat/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId('project-tab-overview')).toBeInTheDocument();
   });
 
   it('keeps Producer Take admin-only while preserving the analysis for readers', () => {
     testState.isAdmin = false;
-    render(<ProjectWorkspace screenplay={project()} stats={stats} onBack={vi.fn()} />);
+    render(<ProjectWorkspace screenplay={project()} stats={stats} activeTab="overview" onSelectTab={vi.fn()} onBack={vi.fn()} />);
 
-    expect(screen.getByText('Five readers for Atlas Fall')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reader Room' })).toBeInTheDocument();
     expect(screen.queryByText('Producer Take for Atlas Fall')).not.toBeInTheDocument();
-    expect(within(screen.getByLabelText('Project decision docket')).queryByText('Producer Take')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Producer Take' })).not.toBeInTheDocument();
   });
 
   it('uses the existing favorite control and returns through the supplied navigation', async () => {
     const user = userEvent.setup();
     const onBack = vi.fn();
-    render(<ProjectWorkspace screenplay={project()} stats={stats} onBack={onBack} />);
+    render(<ProjectWorkspace screenplay={project()} stats={stats} activeTab="overview" onSelectTab={vi.fn()} onBack={onBack} />);
 
     await user.click(screen.getByRole('button', { name: 'Favorite' }));
     expect(testState.toggleFavorite).toHaveBeenCalledWith('atlas-file');
 
     await user.click(screen.getByRole('button', { name: 'Back to Discovery' }));
     expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('shows only the active replacement page and asks the route owner to switch tabs', async () => {
+    const user = userEvent.setup();
+    const onSelectTab = vi.fn();
+    render(<ProjectWorkspace screenplay={project()} stats={stats} activeTab="reader-room" onSelectTab={onSelectTab} onBack={vi.fn()} />);
+
+    expect(screen.getByText('Five readers for Atlas Fall')).toBeInTheDocument();
+    expect(screen.queryByText('Score lineage 8.4')).not.toBeInTheDocument();
+    expect(screen.queryByText('Characters for Atlas Fall')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Story X-Ray' }));
+    expect(onSelectTab).toHaveBeenCalledWith('story-x-ray');
   });
 });

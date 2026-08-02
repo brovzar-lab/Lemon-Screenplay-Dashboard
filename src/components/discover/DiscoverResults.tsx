@@ -215,7 +215,7 @@ export function DiscoverRankedShelf({
   return (
     <section aria-labelledby="discovery-ranked" className="cinema-shelf">
       <div className="cinema-shelf-head">
-        <h2 id="discovery-ranked">Top ranked this view</h2>
+        <h2 id="discovery-ranked">Top Picks</h2>
         <span>Current sort · best first</span>
       </div>
       <ol className="cinema-poster-rail">
@@ -298,12 +298,14 @@ interface DiscoverGridProps {
   screenplays: Screenplay[];
   onOpen: ResultSurfaceProps['onOpen'];
   producerAssessments?: ProducerAssessmentMap;
+  rankOffset?: number;
 }
 
 export function DiscoverGrid({
   screenplays,
   onOpen,
   producerAssessments,
+  rankOffset = 0,
 }: DiscoverGridProps) {
   if (screenplays.length === 0) {
     return <p className="cinema-empty-rail">Every matching screenplay is shown above.</p>;
@@ -336,7 +338,7 @@ export function DiscoverGrid({
             <span className="cinema-rank">
               {screenplay.producerProjection?.rankable === false
                 ? 'Review'
-                : `#${index + 6}`}
+                : `#${rankOffset + index + 6}`}
             </span>
             <span className="cinema-score-chip">{screenplay.weightedScore.toFixed(1)}</span>
             <span className="cinema-poster-meta">

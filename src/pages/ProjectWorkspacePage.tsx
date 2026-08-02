@@ -1,7 +1,11 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { ProjectWorkspace, ProjectWorkspaceState } from '@/components/project';
+import {
+  ProjectWorkspace,
+  ProjectWorkspaceState,
+  type ProjectWorkspaceTab,
+} from '@/components/project';
 import '@/components/discover/discovery.css';
 import { useLiveScreenplaySync, useScreenplays } from '@/hooks/useScreenplays';
 import { getScreenplayStats } from '@/lib/api';
@@ -11,7 +15,7 @@ interface WorkspaceNavigationState {
 }
 
 function ProjectWorkspacePage() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId, section } = useParams<{ projectId: string; section?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
   const { data: screenplays = [], isLoading, error } = useScreenplays();
@@ -25,6 +29,9 @@ function ProjectWorkspacePage() {
     ),
     [projectId, screenplays],
   );
+  const activeTab: ProjectWorkspaceTab = isProjectWorkspaceTab(section)
+    ? section
+    : 'overview';
 
   const goBack = () => {
     const state = location.state as WorkspaceNavigationState | null;
@@ -68,7 +75,33 @@ function ProjectWorkspacePage() {
     );
   }
 
-  return <ProjectWorkspace screenplay={screenplay} stats={stats} onBack={goBack} />;
+  const selectTab = (tab: ProjectWorkspaceTab) => {
+    const stableProjectId = screenplay.projectId ?? screenplay.id;
+    navigate(
+      tab === 'overview'
+        ? `/projects/${stableProjectId}`
+        : `/projects/${stableProjectId}/${tab}`,
+      { replace: false },
+    );
+  };
+
+  return (
+    <ProjectWorkspace
+      screenplay={screenplay}
+      stats={stats}
+      activeTab={activeTab}
+      onSelectTab={selectTab}
+      onBack={goBack}
+    />
+  );
+}
+
+function isProjectWorkspaceTab(value: string | undefined): value is ProjectWorkspaceTab {
+  return value === 'overview'
+    || value === 'reader-room'
+    || value === 'story-x-ray'
+    || value === 'producer-take'
+    || value === 'notes-files';
 }
 
 export default ProjectWorkspacePage;

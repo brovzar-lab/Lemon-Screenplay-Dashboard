@@ -69,7 +69,7 @@ createRoot(document.getElementById('root')!).render(
                 }
               />
               <Route
-                path="/projects/:projectId"
+                path="/projects/:projectId/:section?"
                 element={
                   <ErrorBoundary fullPage areaName="Project Workspace">
                     <AuthGate><ProjectWorkspacePage /></AuthGate>

@@ -32,9 +32,11 @@ vi.mock('@/stores/authStore', () => ({
 }));
 
 vi.mock('@/components/project', () => ({
-  ProjectWorkspace: ({ screenplay, onBack }: { screenplay: Screenplay; onBack: () => void }) => (
+  ProjectWorkspace: ({ screenplay, activeTab, onSelectTab, onBack }: { screenplay: Screenplay; activeTab: string; onSelectTab: (tab: string) => void; onBack: () => void }) => (
     <div data-testid="project-workspace">
       <h1>{screenplay.title}</h1>
+      <span>Active tab: {activeTab}</span>
+      <button type="button" onClick={() => onSelectTab('reader-room')}>Open Reader Room</button>
       <button type="button" onClick={onBack}>Back to Discovery</button>
     </div>
   ),
@@ -62,7 +64,7 @@ function renderRoute(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
-          <Route path="/projects/:projectId" element={<ProjectWorkspacePage />} />
+          <Route path="/projects/:projectId/:section?" element={<ProjectWorkspacePage />} />
           <Route path="/discover" element={<div>Discovery restored</div>} />
         </Routes>
       </MemoryRouter>
@@ -83,9 +85,23 @@ describe('Project Workspace route', () => {
     expect(mainSource).toContain(
       "importWithReload('project-workspace', () => import('@/pages/ProjectWorkspacePage'))",
     );
-    expect(mainSource).toContain('path="/projects/:projectId"');
+    expect(mainSource).toContain('path="/projects/:projectId/:section?"');
     expect(mainSource).toContain('areaName="Project Workspace"');
     expect(mainSource).toMatch(/<AuthGate><ProjectWorkspacePage \/><\/AuthGate>/);
+  });
+
+  it('opens and switches deep-linkable replacement tabs', async () => {
+    const user = userEvent.setup();
+    renderRoute('/projects/atlas-project/story-x-ray');
+
+    expect(screen.getByText('Active tab: story-x-ray')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Open Reader Room' }));
+    expect(screen.getByText('Active tab: reader-room')).toBeInTheDocument();
+  });
+
+  it('falls back to Overview for an unknown section', () => {
+    renderRoute('/projects/atlas-project/not-a-real-tab');
+    expect(screen.getByText('Active tab: overview')).toBeInTheDocument();
   });
 
   it('resolves a direct link by authoritative project id', () => {
