@@ -140,7 +140,7 @@ function localEvidenceReply(report: ReaderReportEvidence): {
       'This is the no-cost local review response, assembled only to test the private-conversation experience.',
       `My sealed position remains: ${report.oneSentenceVerdict || 'No summary verdict was preserved.'}`,
       'When live chat is separately activated, I will answer the exact question against the screenplay PDF and can clarify or reconsider my position with page citations.',
-    ].join(' '),
+    ].join('\n\n'),
     citations,
   };
 }

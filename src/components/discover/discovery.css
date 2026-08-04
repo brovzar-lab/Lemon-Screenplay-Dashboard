@@ -1907,7 +1907,8 @@
 
 .reader-conversation {
   display: none;
-  grid-column: 1 / -1;
+  min-width: 0;
+  height: clamp(620px, 72vh, 780px);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--dsc-accent) 48%, var(--dsc-line));
   border-radius: 14px;
@@ -1916,7 +1917,8 @@
 }
 
 .reader-conversation--open {
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
 
 .reader-conversation > header {
@@ -1934,14 +1936,22 @@
   font-size: 24px;
 }
 
-.reader-conversation > header button {
-  align-self: start;
-  width: 36px;
-  height: 36px;
+.reader-conversation__back {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  align-self: center;
+  padding: 8px 11px;
   border: 1px solid var(--dsc-line);
-  border-radius: 50%;
-  font-size: 26px;
-  line-height: 1;
+  border-radius: 999px;
+  color: var(--dsc-ink-2);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.reader-conversation__back:hover {
+  border-color: var(--dsc-accent);
+  color: var(--dsc-accent);
 }
 
 .reader-conversation__identity {
@@ -2061,12 +2071,17 @@
 
 .reader-conversation__transcript {
   display: grid;
+  flex: 1;
   gap: 16px;
-  max-height: min(48vh, 520px);
+  min-height: 0;
   overflow-y: auto;
   padding: 24px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--dsc-surface-2) 45%, transparent), transparent 9rem),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--dsc-surface-2) 45%, transparent),
+      transparent 9rem
+    ),
     var(--dsc-surface);
 }
 
@@ -2140,7 +2155,7 @@
   font-size: 12px;
 }
 
-.reader-message > p {
+.reader-message__bubble {
   padding: 14px 16px;
   border: 1px solid var(--dsc-line);
   border-radius: 4px 12px 12px 12px;
@@ -2150,10 +2165,78 @@
   white-space: pre-wrap;
 }
 
-.reader-message--producer > p {
+.reader-message__bubble p + p {
+  margin-top: 10px;
+}
+
+.reader-message--producer > .reader-message__bubble {
   border-color: color-mix(in srgb, var(--dsc-accent) 45%, var(--dsc-line));
   border-radius: 12px 4px 12px 12px;
   background: color-mix(in srgb, var(--dsc-accent) 12%, var(--dsc-surface));
+}
+
+.reader-message__sent {
+  margin-left: auto;
+  color: var(--dsc-ink-3);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.reader-message--thinking .reader-message__bubble {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  width: fit-content;
+  color: var(--dsc-ink-2);
+  font-size: 12px;
+}
+
+.reader-message--thinking .reader-message__speaker img {
+  animation: reader-portrait-pulse 1.8s ease-in-out infinite;
+}
+
+.reader-typing-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.reader-typing-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--dsc-accent);
+  animation: reader-thinking-dot 1.1s ease-in-out infinite;
+}
+
+.reader-typing-dots i:nth-child(2) {
+  animation-delay: 140ms;
+}
+
+.reader-typing-dots i:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+.reader-message__cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: 2px;
+  background: var(--dsc-accent);
+  vertical-align: -0.14em;
+  animation: reader-cursor-blink 800ms steps(1, end) infinite;
+}
+
+.reader-message__finish-reveal {
+  margin-top: 7px;
+  color: var(--dsc-accent);
+  font-size: 9px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.reader-message__finish-reveal:hover {
+  text-decoration: underline;
 }
 
 .reader-position {
@@ -2284,7 +2367,7 @@
 
 .reader-conversation__composer textarea {
   width: 100%;
-  min-height: 86px;
+  min-height: 64px;
   resize: vertical;
   border: 1px solid var(--dsc-line);
   border-radius: 9px;
@@ -2319,6 +2402,59 @@
   margin-top: 8px;
   color: var(--dsc-ink-2);
   font-size: 10px;
+}
+
+.reader-conversation__composer kbd {
+  padding: 2px 5px;
+  border: 1px solid var(--dsc-line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--dsc-surface);
+  color: var(--dsc-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+}
+
+@keyframes reader-thinking-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes reader-portrait-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--dsc-accent) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--dsc-accent) 16%, transparent);
+  }
+}
+
+@keyframes reader-cursor-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-message--thinking .reader-message__speaker img,
+  .reader-typing-dots i,
+  .reader-message__cursor {
+    animation: none;
+  }
 }
 
 .reader-room__roundtable {

@@ -74,6 +74,8 @@ test('reader conversations bind the exact report and exact PDF object', () => {
   assert.match(prompt, /SEALED VERSION ID: sealed-v1/);
   assert.match(prompt, /Never claim that this conversation edits it/i);
   assert.match(prompt, /untrusted evidence/i);
+  assert.match(prompt, /150–250 words/i);
+  assert.match(prompt, /short conversational paragraphs/i);
   assert.equal(READER_REPLY_TOOL.name, 'reader_private_reply');
 });
 

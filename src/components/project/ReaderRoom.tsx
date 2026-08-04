@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 
@@ -71,6 +71,7 @@ function reportFor(
 export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
   const [selectedKey, setSelectedKey] = useState<ReaderProfile['key']>('structure');
   const [conversationOpen, setConversationOpen] = useState(false);
+  const selectedReaderButtonRef = useRef<HTMLButtonElement>(null);
   const reportsQuery = useQuery({
     queryKey: [
       'reader-evidence',
@@ -87,15 +88,22 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
     [reportsQuery.data, selectedReader],
   );
 
+  function closeConversation() {
+    setConversationOpen(false);
+    window.requestAnimationFrame(() => selectedReaderButtonRef.current?.focus());
+  }
+
   return (
     <section className="reader-room" aria-labelledby="reader-room-title">
       <header className="reader-room__intro">
         <div>
           <p className="dsc-kicker">Five specialist lenses · sealed V9 evidence</p>
-          <h2 id="reader-room-title" className="dsc-display">The Readers Room</h2>
+          <h2 id="reader-room-title" className="dsc-display">
+            The Readers Room
+          </h2>
         </div>
         <p>
-          Select a reader to hear their case. Scores and citations below come from the saved analysis, not a new model call.
+          Select a reader to start a private conversation. Their sealed report stays one click away.
         </p>
       </header>
 
@@ -107,13 +115,14 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
             return (
               <button
                 key={reader.key}
+                ref={selected ? selectedReaderButtonRef : undefined}
                 type="button"
                 onClick={() => {
                   setSelectedKey(reader.key);
-                  setConversationOpen(false);
+                  setConversationOpen(Boolean(report));
                 }}
                 aria-pressed={selected}
-                aria-label={`${reader.role}: ${reader.name}`}
+                aria-label={`${reader.role}: ${reader.name}. ${report ? 'Open private conversation' : 'Sealed report unavailable'}`}
                 className={clsx('reader-persona', selected && 'reader-persona--active')}
               >
                 <img src={reader.image} alt="" />
@@ -127,69 +136,11 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
           })}
         </div>
 
-        <article className="reader-case" aria-live="polite">
-          <div className="reader-case__header">
-            <img src={selectedReader.image} alt="" />
-            <div>
-              <span className="dsc-kicker">{selectedReader.role} · Independent report</span>
-              <h3>{selectedReader.name}</h3>
-              <p>{selectedReader.remit}</p>
-            </div>
-            <strong>{selectedReport ? selectedReport.pillarScore.toFixed(1) : '—'}</strong>
-          </div>
-
-          {reportsQuery.isPending ? (
-            <p className="reader-case__empty">Opening the sealed reader report…</p>
-          ) : reportsQuery.isError ? (
-            <div className="reader-case__empty" role="alert">
-              Reader evidence could not be loaded.
-              <button type="button" onClick={() => void reportsQuery.refetch()}>Try again</button>
-            </div>
-          ) : selectedReport ? (
-            <>
-              <blockquote>{selectedReport.oneSentenceVerdict || 'No summary verdict was preserved.'}</blockquote>
-              <div className="reader-case__evidence">
-                {selectedReport.subScores.map((subScore) => (
-                  <section key={subScore.key}>
-                    <header>
-                      <h4>{subScore.label}</h4>
-                      <strong>{subScore.score.toFixed(1)}</strong>
-                    </header>
-                    <p>{subScore.justification || 'No written evidence was preserved.'}</p>
-                    {subScore.pageCitations.length > 0 && (
-                      <span>Pages {subScore.pageCitations.join(', ')}</span>
-                    )}
-                  </section>
-                ))}
-              </div>
-              {selectedReport.redFlags.length > 0 && (
-                <div className="reader-case__flags">
-                  <span>Watch points</span>
-                  <ul>{selectedReport.redFlags.map((flag) => <li key={flag}>{flag}</li>)}</ul>
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="reader-case__empty">
-              This older analysis does not contain a sealed {selectedReader.role.toLowerCase()} report.
-            </p>
-          )}
-
-          <button
-            type="button"
-            className="reader-case__talk"
-            onClick={() => setConversationOpen(true)}
-            disabled={!selectedReport}
-          >
-            <span aria-hidden="true">◉</span>
-            Talk privately with {selectedReader.name.split(' ')[0]}
-          </button>
-        </article>
-
-        {selectedReport && (
+        {conversationOpen && selectedReport ? (
           <PrivateReaderChat
-            open={conversationOpen}
-            onClose={() => setConversationOpen(false)}
+            key={selectedReader.key}
+            open
+            onClose={closeConversation}
             projectId={screenplay.projectId ?? screenplay.id}
             versionId={screenplay.latestVersionId ?? 'latest-parent'}
             reader={selectedReader.key}
@@ -198,6 +149,74 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
             readerImage={selectedReader.image}
             report={selectedReport}
           />
+        ) : (
+          <article className="reader-case" aria-live="polite">
+            <div className="reader-case__header">
+              <img src={selectedReader.image} alt="" />
+              <div>
+                <span className="dsc-kicker">{selectedReader.role} · Independent report</span>
+                <h3>{selectedReader.name}</h3>
+                <p>{selectedReader.remit}</p>
+              </div>
+              <strong>{selectedReport ? selectedReport.pillarScore.toFixed(1) : '—'}</strong>
+            </div>
+
+            {reportsQuery.isPending ? (
+              <p className="reader-case__empty">Opening the sealed reader report…</p>
+            ) : reportsQuery.isError ? (
+              <div className="reader-case__empty" role="alert">
+                Reader evidence could not be loaded.
+                <button type="button" onClick={() => void reportsQuery.refetch()}>
+                  Try again
+                </button>
+              </div>
+            ) : selectedReport ? (
+              <>
+                <blockquote>
+                  {selectedReport.oneSentenceVerdict || 'No summary verdict was preserved.'}
+                </blockquote>
+                <div className="reader-case__evidence">
+                  {selectedReport.subScores.map((subScore) => (
+                    <section key={subScore.key}>
+                      <header>
+                        <h4>{subScore.label}</h4>
+                        <strong>{subScore.score.toFixed(1)}</strong>
+                      </header>
+                      <p>{subScore.justification || 'No written evidence was preserved.'}</p>
+                      {subScore.pageCitations.length > 0 && (
+                        <span>Pages {subScore.pageCitations.join(', ')}</span>
+                      )}
+                    </section>
+                  ))}
+                </div>
+                {selectedReport.redFlags.length > 0 && (
+                  <div className="reader-case__flags">
+                    <span>Watch points</span>
+                    <ul>
+                      {selectedReport.redFlags.map((flag) => (
+                        <li key={flag}>{flag}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="reader-case__empty">
+                This older analysis does not contain a sealed {selectedReader.role.toLowerCase()}{' '}
+                report.
+              </p>
+            )}
+
+            <button
+              type="button"
+              className="reader-case__talk"
+              onClick={() => setConversationOpen(true)}
+              disabled={!selectedReport}
+            >
+              <span aria-hidden="true">◉</span>
+              Talk privately with {selectedReader.name.split(' ')[0]}
+            </button>
+          </article>
         )}
       </div>
 
