@@ -27,7 +27,7 @@ vi.mock('@/lib/privateReaderChat', () => ({
       {
         id: 'message-1',
         role: 'reader',
-        text: 'I underweighted the comic escalation.',
+        text: 'I <cite index="1-10,1-12">underweighted the comic escalation</cite>.',
         citations: [{ page: 35, note: 'The joke compounds through the reversal.' }],
         position: 'reconsidered',
         reconsideredPosition: {
@@ -80,6 +80,7 @@ describe('PrivateReaderChat', () => {
     );
 
     expect(await screen.findByText('I underweighted the comic escalation.')).toBeInTheDocument();
+    expect(screen.queryByText(/<cite/i)).not.toBeInTheDocument();
     expect(screen.getByText('p. 35')).toBeInTheDocument();
     expect(screen.getByText('Position reconsidered')).toBeInTheDocument();
     expect(screen.getByText('New private view: 6.4')).toBeInTheDocument();

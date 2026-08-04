@@ -34,12 +34,16 @@ interface ProgressiveReply {
 const LOCAL_THINKING_DELAY_MS = 450;
 const REVEAL_INTERVAL_MS = 24;
 
+function readerTextForDisplay(text: string): string {
+  return text.replace(/<cite\b[^>]*>/gi, '').replace(/<\/cite>/gi, '');
+}
+
 function responseTokens(text: string): string[] {
-  return text.split(/(\s+)/).filter(Boolean);
+  return readerTextForDisplay(text).split(/(\s+)/).filter(Boolean);
 }
 
 function responseParagraphs(text: string): string[] {
-  return text
+  return readerTextForDisplay(text)
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
