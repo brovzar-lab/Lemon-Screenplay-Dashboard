@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DiscoverShell } from '@/components/discover';
+import type { DiscoverShellProps } from '@/components/discover/DiscoverShell';
+import { HybridDiscoverShell } from '@/components/discover/hybrid/HybridDiscoverShell';
 import { useDiscoveryShareStatuses } from '@/components/discover/useDiscoveryShareStatuses';
 import {
   passesFilters,
@@ -9,6 +11,7 @@ import {
 } from '@/hooks/useFilteredScreenplays';
 import { useLiveScreenplaySync, useScreenplays } from '@/hooks/useScreenplays';
 import { getScreenplayStats } from '@/lib/api';
+import { resolveDiscoveryPresentation } from '@/lib/discoveryPresentation';
 import { useFilterStore } from '@/stores/filterStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { useSortStore } from '@/stores/sortStore';
@@ -32,6 +35,7 @@ function DiscoverPage() {
   const { projectId } = useParams<{ projectId?: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const presentation = resolveDiscoveryPresentation(searchParams.get('ui'));
   const { data: allScreenplays = [] } = useScreenplays();
   const { screenplays, totalCount, filteredCount, isLoading, error } = useFilteredScreenplays();
   const hasActiveFilters = useHasActiveFilters();
@@ -118,41 +122,44 @@ function DiscoverPage() {
   const openScreenplay = (screenplay: Screenplay) => {
     const targetId = encodeURIComponent(screenplay.projectId ?? screenplay.id);
     if (searchParams.get('preview') === 'drawer') {
-      navigate(`/discover/${targetId}?preview=drawer`);
+      const nextParams = new URLSearchParams(searchParams);
+      const query = nextParams.toString();
+      navigate(`/discover/${targetId}${query ? `?${query}` : ''}`);
       return;
     }
     navigate(`/projects/${targetId}`, { state: { fromDiscovery: true } });
   };
 
   const closeScreenplay = () => {
-    navigate(
-      searchParams.get('preview') === 'drawer' ? '/discover?preview=drawer' : '/discover',
-      { replace: true },
-    );
+    const nextParams = new URLSearchParams(searchParams);
+    const query = nextParams.toString();
+    navigate(`/discover${query ? `?${query}` : ''}`, { replace: true });
   };
 
-  return (
-    <DiscoverShell
-      screenplays={screenplays}
-      allScreenplays={allScreenplays}
-      totalCount={totalCount}
-      filteredCount={filteredCount}
-      genres={genres}
-      themes={themes}
-      hasActiveFilters={hasActiveFilters}
-      onClearFilters={filters.resetFilters}
-      producedHiddenCount={producedHiddenCount}
-      onRevealProduced={() => filters.setHideProduced(false)}
-      nonScreenplayHiddenCount={nonScreenplayHiddenCount}
-      onRevealNonScreenplays={() => filters.setHideNonScreenplays(false)}
-      stats={stats}
-      selectedScreenplay={selectedScreenplay}
-      onOpenScreenplay={openScreenplay}
-      onCloseScreenplay={closeScreenplay}
-      isLoading={isLoading}
-      isError={Boolean(error)}
-    />
-  );
+  const shellProps: DiscoverShellProps = {
+    screenplays,
+    allScreenplays,
+    totalCount,
+    filteredCount,
+    genres,
+    themes,
+    hasActiveFilters,
+    onClearFilters: filters.resetFilters,
+    producedHiddenCount,
+    onRevealProduced: () => filters.setHideProduced(false),
+    nonScreenplayHiddenCount,
+    onRevealNonScreenplays: () => filters.setHideNonScreenplays(false),
+    stats,
+    selectedScreenplay,
+    onOpenScreenplay: openScreenplay,
+    onCloseScreenplay: closeScreenplay,
+    isLoading,
+    isError: Boolean(error),
+  };
+
+  return presentation === 'hybrid'
+    ? <HybridDiscoverShell {...shellProps} />
+    : <DiscoverShell {...shellProps} />;
 }
 
 export default DiscoverPage;

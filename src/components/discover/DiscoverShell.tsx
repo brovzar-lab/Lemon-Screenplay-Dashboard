@@ -21,7 +21,7 @@ interface DiscoverStats {
   filmNowCount: number;
 }
 
-interface DiscoverShellProps {
+export interface DiscoverShellProps {
   screenplays: Screenplay[];
   allScreenplays: Screenplay[];
   totalCount: number;
