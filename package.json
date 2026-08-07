@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "bash deploy.sh",
+    "deploy": "echo 'Lemon Studio Dashboard Firebase deploy retired — project migrated to native Paperclip UI'",
     "deploy:rules": "node_modules/.bin/firebase deploy --only firestore:rules",
     "firestore:write": "node scripts/firestore-write.mjs",
     "seed:titles": "node scripts/seed-titles.mjs",
