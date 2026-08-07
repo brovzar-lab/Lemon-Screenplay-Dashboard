@@ -6,6 +6,7 @@ import { HybridCommandRail } from '@/components/discover/hybrid/HybridCommandRai
 import { HybridHeader } from '@/components/discover/hybrid/HybridHeader';
 import { ScreenplayRanking } from '@/components/discover/screenplay/ScreenplayRanking';
 import { ScreenplayGrid } from '@/components/discover/screenplay/ScreenplayResults';
+import { ScreenplaySlateInsights } from '@/components/discover/screenplay/ScreenplaySlateInsights';
 import { ScreenplaySlateStats } from '@/components/discover/screenplay/ScreenplaySlateStats';
 import { buildScreenplayRanking } from '@/components/discover/screenplay/screenplayRankingProjection';
 import { usePercentiles } from '@/hooks/usePercentiles';
@@ -166,6 +167,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
           />
         ) : (
           <>
+            <ScreenplaySlateInsights screenplays={screenplays} allScreenplays={allScreenplays} />
             {ranking.showRanking && ranking.topResult && ranking.reason && (
               <ScreenplayRanking
                 topResult={ranking.topResult}

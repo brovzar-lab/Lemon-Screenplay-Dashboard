@@ -20,6 +20,10 @@ interface AnalyticsDashboardProps {
   onFilterByTier?: (tier: RecommendationTier) => void;
   onFilterByGenre?: (genre: string) => void;
   onFilterByBudget?: (budget: BudgetCategory) => void;
+  title?: string;
+  initiallyExpanded?: boolean;
+  deferContentUntilExpanded?: boolean;
+  className?: string;
 }
 
 export function AnalyticsDashboard({
@@ -29,9 +33,13 @@ export function AnalyticsDashboard({
   onFilterByTier,
   onFilterByGenre,
   onFilterByBudget,
+  title = 'Analytics Dashboard',
+  initiallyExpanded = true,
+  deferContentUntilExpanded = false,
+  className = '',
 }: AnalyticsDashboardProps) {
   const isAdmin = useIsAdmin();
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState(2000);
 
@@ -71,16 +79,12 @@ export function AnalyticsDashboard({
     {
       title: 'Score Distribution',
       hint: onFilterByScoreRange ? 'Click a bar to filter' : null,
-      content: (
-        <ScoreDistribution screenplays={screenplays} onBarClick={onFilterByScoreRange} />
-      ),
+      content: <ScoreDistribution screenplays={screenplays} onBarClick={onFilterByScoreRange} />,
     },
     {
       title: 'Recommendation Tiers',
       hint: onFilterByTier ? 'Click to filter by tier' : null,
-      content: (
-        <TierBreakdown screenplays={screenplays} onTierClick={onFilterByTier} />
-      ),
+      content: <TierBreakdown screenplays={screenplays} onTierClick={onFilterByTier} />,
     },
     {
       title: 'Top Genres',
@@ -92,17 +96,18 @@ export function AnalyticsDashboard({
     {
       title: 'Budget Tiers',
       hint: onFilterByBudget ? 'Click to filter by budget' : null,
-      content: (
-        <BudgetChart screenplays={screenplays} onBudgetClick={onFilterByBudget} />
-      ),
+      content: <BudgetChart screenplays={screenplays} onBudgetClick={onFilterByBudget} />,
     },
   ];
 
   return (
-    <div className="mb-6">
+    <div className={`mb-6 ${className}`.trim()}>
       {/* Header with toggle */}
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
+        type="button"
+        onClick={() => setIsExpanded((expanded) => !expanded)}
+        aria-expanded={isExpanded}
+        aria-controls="analytics-dashboard-content"
         className="w-full flex items-center justify-between p-4 rounded-lg glass border border-black-700 hover:border-gold-500/50 transition-colors"
       >
         <div className="flex items-center gap-4">
@@ -120,7 +125,7 @@ export function AnalyticsDashboard({
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
               />
             </svg>
-            <span className="font-semibold text-black-50">Analytics Dashboard</span>
+            <span className="font-semibold text-black-50">{title}</span>
           </div>
 
           {/* Quick stats — count-up when expanded, static when collapsed */}
@@ -169,42 +174,47 @@ export function AnalyticsDashboard({
 
       {/* Expandable content — smooth height + opacity transition */}
       <div
+        id="analytics-dashboard-content"
         ref={contentRef}
         className="overflow-hidden transition-all duration-400 ease-out"
         style={
           isExpanded
             ? {
-              maxHeight: contentHeight,
-              opacity: 1,
-            }
+                maxHeight: contentHeight,
+                opacity: 1,
+              }
             : {
-              maxHeight: 0,
-              opacity: 0,
-            }
+                maxHeight: 0,
+                opacity: 0,
+              }
         }
       >
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {chartCards.map((card, i) => (
-            <div
-              key={card.title}
-              className={isExpanded ? 'card-enter' : ''}
-              style={
-                isExpanded
-                  ? { animationDelay: `${i * 100}ms`, animationFillMode: 'both' }
-                  : undefined
-              }
-            >
-              <div className="glass rounded-lg border border-black-700 p-4 h-full">
-                <h2 className="text-sm font-medium text-black-300 mb-3">{card.title}</h2>
-                <div className="h-48">{card.content}</div>
-                {card.hint && (
-                  <p className="text-xs text-black-400 mt-2 text-center">{card.hint}</p>
-                )}
-              </div>
+        {(!deferContentUntilExpanded || isExpanded) && (
+          <>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {chartCards.map((card, index) => (
+                <div
+                  key={card.title}
+                  className={isExpanded ? 'card-enter' : ''}
+                  style={
+                    isExpanded
+                      ? { animationDelay: `${index * 100}ms`, animationFillMode: 'both' }
+                      : undefined
+                  }
+                >
+                  <div className="glass rounded-lg border border-black-700 p-4 h-full">
+                    <h2 className="text-sm font-medium text-black-300 mb-3">{card.title}</h2>
+                    <div className="h-48">{card.content}</div>
+                    {card.hint && (
+                      <p className="text-xs text-black-400 mt-2 text-center">{card.hint}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        {isAdmin && <TasteMatch />}
+            {isAdmin && <TasteMatch />}
+          </>
+        )}
       </div>
     </div>
   );

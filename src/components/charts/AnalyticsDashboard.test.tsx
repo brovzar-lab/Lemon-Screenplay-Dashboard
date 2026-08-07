@@ -4,6 +4,7 @@
 
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { createTestScreenplay } from '@/test/factories';
 
@@ -36,10 +37,13 @@ const disconnect = vi.fn();
 beforeEach(() => {
   observe.mockClear();
   disconnect.mockClear();
-  vi.stubGlobal('ResizeObserver', class {
-    observe = observe;
-    disconnect = disconnect;
-  });
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe = observe;
+      disconnect = disconnect;
+    },
+  );
 });
 
 describe('AnalyticsDashboard', () => {
@@ -95,5 +99,36 @@ describe('AnalyticsDashboard', () => {
     render(<AnalyticsDashboard screenplays={mockScreenplays} totalScreenplays={all} />);
 
     expect(screen.getByText('(filtered)')).toBeInTheDocument();
+  });
+
+  it('preserves the old expanded default when no presentation props are supplied', () => {
+    render(<AnalyticsDashboard screenplays={mockScreenplays} />);
+
+    expect(screen.getByRole('button', { name: /Analytics Dashboard/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.getByTestId('score-distribution')).toBeInTheDocument();
+  });
+
+  it('defers chart rendering until a collapsed disclosure is opened', async () => {
+    const user = userEvent.setup();
+    render(
+      <AnalyticsDashboard
+        screenplays={mockScreenplays}
+        title="Slate Insights"
+        initiallyExpanded={false}
+        deferContentUntilExpanded
+      />,
+    );
+
+    const toggle = screen.getByRole('button', { name: /Slate Insights/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('score-distribution')).not.toBeInTheDocument();
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('score-distribution')).toBeInTheDocument();
   });
 });
