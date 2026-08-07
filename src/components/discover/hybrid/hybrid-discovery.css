@@ -249,7 +249,7 @@
   border: 0;
   background: transparent;
   box-shadow: none;
-  color: var(--hybrid-ink-muted);
+  color: var(--hybrid-ink) !important;
   font-size: 12px;
   font-weight: 650;
 }

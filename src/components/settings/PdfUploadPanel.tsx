@@ -611,7 +611,6 @@ export function PdfUploadPanel() {
           const storageStatus = storageStatuses[screenplay.id] ?? 'checking';
           const uploadEntry = uploadEntries[screenplay.id];
           const isUploading = uploadEntry?.state === 'uploading';
-          const storagePath = buildStoragePath(screenplay);
           const isSelected = selectedIds.has(screenplay.id);
 
           return (
@@ -684,7 +683,15 @@ export function PdfUploadPanel() {
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gold-200 truncate">{screenplay.title}</p>
-                <p className="text-xs text-black-500 truncate">{storagePath}</p>
+                <p className="text-xs text-black-500 truncate">
+                  {isUploading
+                    ? 'Uploading source screenplay'
+                    : storageStatus === 'checking'
+                      ? 'Checking source screenplay'
+                      : storageStatus === 'found'
+                        ? 'Source screenplay available'
+                        : 'Source screenplay needed'}
+                </p>
                 {uploadEntry?.error && (
                   <p className="text-xs text-red-400 mt-0.5 truncate">{uploadEntry.error}</p>
                 )}

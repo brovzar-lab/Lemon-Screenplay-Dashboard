@@ -185,7 +185,7 @@ export function CalibrationPanel() {
   return (
     <div className="space-y-7">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#3157d5]">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--settings-kicker)]">
           Producer calibration
         </p>
         <h2 className="mt-2 text-3xl font-display text-black-100">
@@ -200,9 +200,9 @@ export function CalibrationPanel() {
       {isLocalPreview && (
         <section className="rounded-xl border border-[#3157d5]/30 bg-[#3157d5]/8 p-4 text-sm leading-6 text-black-300">
           <strong className="block text-black-100">Local review mode</strong>
-          This screen shows the evidence and profile available to this environment. Candidate
-          compilation uses paid model calls, and profile activation is intentionally disabled in
-          this local review. The production profile is not changed here.
+          Producer Takes shown here are real saved evidence. Building a candidate uses paid model
+          calls, and activating a profile changes future analyses, so both actions remain disabled
+          during local review. Nothing on this screen changes the production profile.
         </section>
       )}
 
@@ -232,12 +232,12 @@ export function CalibrationPanel() {
               activeProfile?.enabled ? 'text-emerald-400' : 'text-black-100',
             )}
           >
-            {activeProfile?.enabled ? 'Calibrated' : 'Neutral'}
+            {activeProfile?.enabled ? 'Active' : 'Not active'}
           </strong>
-          <span className="break-all text-sm text-black-400">
+          <span className="text-sm text-black-400">
             {activeProfile?.activeVersionId
               ? `Version ${activeProfile.activeVersionId.slice(0, 12)}…`
-              : 'Future analyses use the neutral policy'}
+              : 'No calibration profile affects future analyses'}
           </span>
         </div>
       </section>
@@ -276,7 +276,7 @@ export function CalibrationPanel() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <strong className="truncate text-black-100">{assessment.title}</strong>
-                    <span className="rounded border border-[#3157d5]/30 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[#3157d5]">
+                    <span className="rounded border border-[#3157d5]/30 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[var(--settings-kicker)]">
                       Billy {assessment.producerScore.toFixed(1)}
                     </span>
                     <span className="text-xs text-black-500">
@@ -331,7 +331,7 @@ export function CalibrationPanel() {
             {building
               ? 'Building and benchmarking…'
               : isLocalPreview
-                ? 'Available in production'
+                ? 'Disabled during local review'
                 : 'Build candidate'}
           </button>
         </div>
@@ -374,7 +374,7 @@ export function CalibrationPanel() {
                           {candidateStatus(candidate)}
                         </span>
                         {isActive && (
-                          <span className="rounded-full border border-[#3157d5]/35 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[#3157d5]">
+                          <span className="rounded-full border border-[#3157d5]/35 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[var(--settings-kicker)]">
                             Active
                           </span>
                         )}

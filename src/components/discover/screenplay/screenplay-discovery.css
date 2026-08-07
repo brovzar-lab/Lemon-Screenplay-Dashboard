@@ -29,6 +29,7 @@
 [data-theme='dark'] .screenplay-discovery,
 [data-theme$='-dark'] .screenplay-discovery,
 .dark .screenplay-discovery {
+  --screenplay-cobalt: #9bb1ff;
   --screenplay-paper: #f5f2ea;
   --screenplay-canvas: #090f1e;
   --screenplay-ink: #111827;
@@ -722,6 +723,47 @@
   border-color: #d4555d;
   background: #fde8e9;
   color: #8f1d25;
+}
+
+/* In dark mode the archive remains a dark workspace. The screenplay itself is
+   still ivory paper, while the card shell and metadata return to navy. */
+[data-theme='dark'] .screenplay-wall__open,
+[data-theme='dark'] .screenplay-wall__copy {
+  background: #111a2f;
+  color: #edf1f9;
+}
+[data-theme='dark'] .screenplay-wall__object-stage {
+  background: #17213a;
+}
+[data-theme='dark'] .screenplay-wall__item[data-verdict='film_now'] .screenplay-wall__object-stage {
+  background: #2a241a;
+}
+[data-theme='dark'] .screenplay-wall__item[data-verdict='recommend'] .screenplay-wall__object-stage {
+  background: #142c25;
+}
+[data-theme='dark'] .screenplay-wall__item[data-verdict='consider'] .screenplay-wall__object-stage {
+  background: #18233f;
+}
+[data-theme='dark'] .screenplay-wall__item[data-verdict='pass'] .screenplay-wall__object-stage {
+  background: #301d25;
+}
+[data-theme='dark'] .screenplay-wall__title em,
+[data-theme='dark'] .screenplay-wall__title small,
+[data-theme='dark'] .screenplay-wall__score small,
+[data-theme='dark'] .screenplay-wall__meta > span:last-child,
+[data-theme='dark'] .screenplay-wall__status {
+  color: #b8c4d8;
+}
+[data-theme='dark'] .screenplay-wall__score strong {
+  color: #f5f7fb;
+}
+[data-theme='dark'] .screenplay-wall__facts span {
+  border-color: #344461;
+  background: #18233b;
+  color: #c4cede;
+}
+[data-theme='dark'] .screenplay-wall__status {
+  background: #18233b;
 }
 
 /* Verdicts are deliberately redundant: color speeds scanning while the text

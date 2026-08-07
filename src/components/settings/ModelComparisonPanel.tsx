@@ -15,6 +15,7 @@ import { analyzeScreenplay } from '@/lib/analysisService';
 import type { AnalysisProgress } from '@/lib/analysisService';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import { MODEL_COSTS, MODEL_OPTIONS } from './upload/upload.constants';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -53,21 +54,46 @@ interface SlotResult {
 
 type SlotKey = `${EngineId}-${ModelId}`;
 
-const MODELS: ModelConfig[] = [
-  { id: 'haiku', name: 'Haiku 4.5', badge: 'FAST', badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', costLabel: '~$0.10', icon: '⚡' },
-  { id: 'sonnet', name: 'Sonnet 4.5', badge: 'BALANCED', badgeColor: 'bg-gold-500/20 text-gold-400 border-gold-500/30', costLabel: '~$0.50', icon: '🎯' },
-  { id: 'opus', name: 'Opus 4', badge: 'DEEPEST', badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30', costLabel: '~$3.00', icon: '🧠' },
-];
+const MODEL_DECORATION: Record<ModelId, Pick<ModelConfig, 'badgeColor' | 'icon'>> = {
+  haiku: {
+    badgeColor: 'settings-model-badge--budget',
+    icon: '⚡',
+  },
+  sonnet: {
+    badgeColor: 'bg-gold-500/20 text-gold-400 border-gold-500/30',
+    icon: '🎯',
+  },
+  opus: {
+    badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    icon: '🧠',
+  },
+};
+
+const MODELS: ModelConfig[] = (['haiku', 'sonnet', 'opus'] as const).map((id) => {
+  const model = MODEL_OPTIONS.find((option) => option.id === id);
+  if (!model) throw new Error(`Missing canonical model configuration for ${id}`);
+  return {
+    id,
+    name: model.name,
+    badge: model.badge,
+    costLabel: model.costPerScript,
+    ...MODEL_DECORATION[id],
+  };
+});
 
 const ENGINES: EngineConfig[] = [
   { id: 'v9', name: 'V9 Archaeology', badge: 'V9', badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30', description: '5-reader pipeline, 5 pillars' },
 ];
 
-const COST_RATES: Record<ModelId, { input: number; output: number }> = {
-  haiku: { input: 0.80, output: 4.00 },
-  sonnet: { input: 3.00, output: 15.00 },
-  opus: { input: 15.00, output: 75.00 },
-};
+const COST_RATES: Record<ModelId, { input: number; output: number }> = Object.fromEntries(
+  (['haiku', 'sonnet', 'opus'] as const).map((id) => [
+    id,
+    {
+      input: MODEL_COSTS[id].input * 1_000,
+      output: MODEL_COSTS[id].output * 1_000,
+    },
+  ]),
+) as Record<ModelId, { input: number; output: number }>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

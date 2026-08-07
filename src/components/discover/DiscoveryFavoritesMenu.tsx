@@ -72,7 +72,7 @@ export function DiscoveryFavoritesMenu({
       >
         Favorites
         {totalSaved > 0 && (
-          <span className="dsc-num rounded-full bg-[var(--dsc-accent-soft)] px-2 py-0.5 text-xs font-bold !text-[var(--dsc-accent)]">
+          <span className="dsc-num rounded-full bg-[var(--dsc-accent)] px-2 py-0.5 text-xs font-bold !text-[var(--dsc-on-accent)]">
             {totalSaved}
           </span>
         )}

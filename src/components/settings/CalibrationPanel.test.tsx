@@ -102,7 +102,7 @@ describe('CalibrationPanel', () => {
 
     expect(await screen.findByText('Local review mode')).toBeInTheDocument();
     expect(screen.getByText('Script 1')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Available in production' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Disabled during local review' })).toBeDisabled();
     expect(mocks.buildCalibrationCandidate).not.toHaveBeenCalled();
   });
 

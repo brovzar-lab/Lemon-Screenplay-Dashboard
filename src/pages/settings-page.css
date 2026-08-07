@@ -7,6 +7,8 @@
   --settings-ink: var(--sp-text);
   --settings-ink-2: var(--sp-text-2);
   --settings-muted: var(--sp-text-3);
+  --settings-kicker: #2042c2;
+  --settings-success: #087a55;
   --settings-line: var(--sp-border);
   --settings-line-strong: var(--sp-border-strong);
   --settings-display: var(--sp-display);
@@ -21,7 +23,7 @@
   --dsc-line: var(--settings-line);
   --dsc-accent: var(--settings-cobalt);
   --dsc-accent-hover: #173bbf;
-  --dsc-on-accent: #fff;
+  --dsc-on-accent: var(--sp-accent-text);
   --dsc-radius-card: 12px;
   --dsc-shadow-card: 0 8px 24px rgb(18 24 39 / 0.08);
   --dsc-font-body: var(--settings-sans);
@@ -31,6 +33,12 @@
   background: var(--settings-bg);
   color: var(--settings-ink);
   font-family: var(--settings-sans);
+}
+[data-theme='dark'] .settings-page,
+[data-theme$='-dark'] .settings-page,
+.dark .settings-page {
+  --settings-kicker: #9bb1ff;
+  --settings-success: #68deb3;
 }
 .settings-header {
   position: sticky;
@@ -210,7 +218,7 @@
   margin: 2px 0 18px;
 }
 .settings-eyebrow {
-  color: var(--settings-cobalt);
+  color: var(--settings-kicker);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.13em;
@@ -289,6 +297,17 @@
 }
 .settings-panel [class*='text-black-500'] {
   color: var(--settings-muted) !important;
+}
+.settings-panel [class*='text-black-600'] {
+  color: var(--settings-muted) !important;
+}
+.settings-page [class*='text-emerald-'] {
+  color: var(--settings-success) !important;
+}
+.settings-page .settings-model-badge--budget {
+  border-color: #065f46 !important;
+  background: #087a55 !important;
+  color: #f6fffb !important;
 }
 .settings-panel [class*='text-gold-300'],
 .settings-panel [class*='text-gold-400'],
@@ -411,6 +430,15 @@
   outline: 2px solid var(--settings-cobalt);
   outline-offset: 2px;
 }
+.settings-panel :is(button, [role='button']):disabled,
+.settings-panel :is(button, [role='button'])[aria-disabled='true'] {
+  border-color: var(--settings-line) !important;
+  background: var(--settings-paper-muted) !important;
+  color: var(--settings-muted) !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
 
 .settings-file-row {
   border-color: var(--settings-line) !important;
@@ -458,11 +486,23 @@
   color: var(--settings-ink);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1180px) {
   .settings-main {
-    grid-template-columns: 210px minmax(0, 1fr);
-    gap: 22px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
     padding-inline: 20px;
+  }
+  .settings-sidebar nav {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .settings-nav-group + .settings-nav-group {
+    margin-top: 0;
+  }
+  .settings-nav-item small {
+    display: none;
   }
   .settings-panel {
     padding: 20px;

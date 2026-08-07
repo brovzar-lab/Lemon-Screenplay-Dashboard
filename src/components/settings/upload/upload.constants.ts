@@ -3,7 +3,7 @@
  */
 
 import type { UploadStatus } from '@/stores/uploadStore';
-import type { ModelInfo } from './upload.types';
+import type { ModelInfo, ModelOption } from './upload.types';
 
 // ─── Model definitions ───────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ export const MODEL_OPTIONS: ModelInfo[] = [
     speed: '~1 min',
     quality: 'Good',
     badge: 'BUDGET',
-    badgeColor: 'bg-emerald-500/20 text-emerald-400',
+    badgeColor: 'settings-model-badge--budget',
     description: 'Best for bulk scanning. Great accuracy for structured analysis at a fraction of the cost. Ideal for processing large batches of 100+ screenplays.',
     icon: '\u26A1',
   },
@@ -73,7 +73,7 @@ export const STATUS_LABELS: Record<UploadStatus, { label: string; color: string 
 
 
 // Token cost multipliers per model (per 1K tokens)
-export const MODEL_COSTS: Record<string, { input: number; output: number }> = {
+export const MODEL_COSTS: Record<ModelOption, { input: number; output: number }> = {
   haiku: { input: 0.001, output: 0.005 },
   sonnet: { input: 0.003, output: 0.015 },
   opus: { input: 0.015, output: 0.075 },
