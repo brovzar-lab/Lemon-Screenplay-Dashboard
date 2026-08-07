@@ -1,20 +1,22 @@
 .settings-page {
   --settings-navy: #071222;
-  --settings-navy-2: #0e1d33;
-  --settings-cobalt: #2b54f0;
-  --settings-ivory: #f7f5ef;
-  --settings-paper: #fff;
-  --settings-ink: #121827;
-  --settings-muted: #667085;
-  --settings-line: #d9dee8;
+  --settings-cobalt: var(--sp-accent);
+  --settings-bg: var(--sp-bg);
+  --settings-paper: var(--sp-surface);
+  --settings-paper-muted: var(--sp-surface-2);
+  --settings-ink: var(--sp-text);
+  --settings-ink-2: var(--sp-text-2);
+  --settings-muted: var(--sp-text-3);
+  --settings-line: var(--sp-border);
+  --settings-line-strong: var(--sp-border-strong);
   --settings-display: var(--sp-display);
   --settings-sans: var(--sp-font);
-  --dsc-bg: var(--settings-ivory);
+  --dsc-bg: var(--settings-bg);
   --dsc-surface: var(--settings-paper);
-  --dsc-surface-2: #f1f3f7;
+  --dsc-surface-2: var(--settings-paper-muted);
   --dsc-surface-3: var(--settings-line);
   --dsc-ink: var(--settings-ink);
-  --dsc-ink-2: #354156;
+  --dsc-ink-2: var(--settings-ink-2);
   --dsc-ink-3: var(--settings-muted);
   --dsc-line: var(--settings-line);
   --dsc-accent: var(--settings-cobalt);
@@ -26,7 +28,7 @@
   --dsc-font-display: var(--settings-display);
   --dsc-font-type: var(--settings-sans);
   min-height: 100vh;
-  background: var(--settings-ivory);
+  background: var(--settings-bg);
   color: var(--settings-ink);
   font-family: var(--settings-sans);
 }
@@ -36,7 +38,7 @@
   top: 0;
   border-bottom: 1px solid #223552;
   background: var(--settings-navy);
-  color: #f7f4eb;
+  color: #edf1f9;
 }
 .settings-header__inner {
   display: grid;
@@ -95,10 +97,37 @@
   font-weight: 600;
 }
 .settings-back-link {
-  justify-self: end;
   color: #d9e0ec;
   font-size: 12px;
   font-weight: 700;
+}
+.settings-header__actions {
+  display: flex;
+  justify-self: end;
+  align-items: center;
+  gap: 12px;
+}
+.settings-theme-control {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid #2a3b58;
+  border-radius: 8px;
+  background: #0e1d33;
+}
+.settings-theme-control button {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: #9eabc0;
+  font-size: 11px;
+  font-weight: 700;
+}
+.settings-theme-control button:hover {
+  color: #fff;
+}
+.settings-theme-control button.is-active {
+  background: #6e8bff;
+  color: #071222;
 }
 .settings-back-link:hover {
   color: white;
@@ -120,7 +149,7 @@
 }
 .settings-nav-group h2 {
   margin: 0 0 7px 10px;
-  color: #7b8799;
+  color: var(--settings-muted);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.13em;
@@ -135,17 +164,17 @@
   padding: 10px;
   border: 1px solid transparent;
   border-radius: 9px;
-  color: #4f5c70;
+  color: var(--settings-ink-2);
   text-align: left;
 }
 .settings-nav-item:hover {
-  background: #eef1f7;
-  color: #1f2d43;
+  background: var(--settings-paper-muted);
+  color: var(--settings-ink);
 }
 .settings-nav-item.is-active {
-  border-color: #bdc9ff;
-  background: #e8edff;
-  color: #173bbf;
+  border-color: color-mix(in oklch, var(--settings-cobalt) 45%, var(--settings-line));
+  background: color-mix(in oklch, var(--settings-cobalt) 12%, var(--settings-paper));
+  color: var(--settings-cobalt);
 }
 .settings-nav-item svg {
   width: 20px;
@@ -167,7 +196,7 @@
 }
 .settings-nav-item small {
   margin-top: 2px;
-  color: #7b8799;
+  color: var(--settings-muted);
   font-size: 9px;
   line-height: 1.35;
 }
@@ -205,7 +234,7 @@
   border: 1px solid var(--settings-line);
   border-radius: 14px;
   background: var(--settings-paper);
-  box-shadow: 0 12px 34px rgb(18 24 39 / 0.08);
+  box-shadow: var(--sp-shadow-sm);
 }
 
 /*
@@ -218,10 +247,10 @@
 .settings-panel [class*='bg-black-950'],
 .settings-panel [class*='bg-black-900'],
 .settings-panel [class*='bg-black-800'] {
-  background-color: #f7f8fb !important;
+  background-color: var(--settings-paper-muted) !important;
 }
 .settings-panel [class*='bg-gradient-to-'] {
-  background-color: #f7f8fb !important;
+  background-color: var(--settings-paper-muted) !important;
   background-image: none !important;
 }
 .settings-panel :is(button, [role='button'])[class*='bg-gradient-to-'] {
@@ -253,13 +282,13 @@
 }
 .settings-panel [class*='text-black-200'],
 .settings-panel [class*='text-black-300'] {
-  color: #354156 !important;
+  color: var(--settings-ink-2) !important;
 }
 .settings-panel [class*='text-black-400'] {
   color: var(--settings-muted) !important;
 }
 .settings-panel [class*='text-black-500'] {
-  color: #7b8799 !important;
+  color: var(--settings-muted) !important;
 }
 .settings-panel [class*='text-gold-300'],
 .settings-panel [class*='text-gold-400'],
@@ -271,12 +300,12 @@
 }
 .settings-panel .input,
 .settings-panel :is(input, select, textarea) {
-  border-color: #cfd6e2;
-  background-color: white;
+  border-color: var(--settings-line-strong);
+  background-color: var(--settings-paper);
   color: var(--settings-ink);
 }
 .settings-panel :is(input, select, textarea)::placeholder {
-  color: #8a95a6;
+  color: var(--settings-muted);
 }
 .settings-section-stack {
   display: flex;
@@ -318,7 +347,7 @@
   overflow: hidden;
   border: 1px solid var(--settings-line);
   border-radius: 10px;
-  background: #f7f8fb;
+  background: var(--settings-paper-muted);
 }
 .settings-intake-intro li {
   display: flex;
@@ -336,14 +365,14 @@
   font-size: 11px;
 }
 .settings-intake-intro li span {
-  color: #354156;
+  color: var(--settings-ink-2);
   font-size: 10px;
   font-weight: 700;
 }
 .settings-footer {
   padding: 18px 28px 26px;
   border-top: 1px solid var(--settings-line);
-  color: #7b8799;
+  color: var(--settings-muted);
   font-size: 10px;
   text-align: center;
 }
@@ -352,19 +381,19 @@
    lighter Discovery surface. These overrides are scoped to Settings only. */
 .settings-page .glass {
   border-color: var(--settings-line) !important;
-  background: #fff !important;
+  background: var(--settings-paper) !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
 }
 .settings-page .text-gold-200,
 .settings-page .text-gold-300,
 .settings-page .text-gold-400 {
-  color: #2145cf !important;
+  color: var(--settings-cobalt) !important;
 }
 .settings-page .text-black-300,
 .settings-page .text-black-400,
 .settings-page .text-black-500 {
-  color: #667085 !important;
+  color: var(--settings-muted) !important;
 }
 .settings-page .border-gold-500\/10,
 .settings-page .border-gold-500\/20,
@@ -374,6 +403,58 @@
 .settings-page input,
 .settings-page textarea,
 .settings-page select {
+  color: var(--settings-ink);
+}
+.settings-page :is(input, textarea, select):focus-visible,
+.settings-page button:focus-visible,
+.settings-page a:focus-visible {
+  outline: 2px solid var(--settings-cobalt);
+  outline-offset: 2px;
+}
+
+.settings-file-row {
+  border-color: var(--settings-line) !important;
+  background: var(--settings-paper-muted) !important;
+}
+.settings-file-row:hover {
+  border-color: var(--settings-line-strong) !important;
+}
+.settings-file-category {
+  border: 1px solid var(--settings-line-strong);
+  background: var(--settings-paper);
+  color: var(--settings-ink-2);
+  font-weight: 700;
+}
+.settings-file-action {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  background: var(--settings-paper) !important;
+}
+.settings-file-action--upload {
+  border-color: color-mix(in oklch, var(--settings-cobalt) 35%, var(--settings-line)) !important;
+  color: var(--settings-cobalt) !important;
+}
+.settings-file-action--upload:hover {
+  border-color: var(--settings-cobalt) !important;
+  background: color-mix(in oklch, var(--settings-cobalt) 9%, var(--settings-paper)) !important;
+}
+.settings-file-action--delete {
+  border-color: color-mix(in oklch, var(--sp-pass) 35%, var(--settings-line)) !important;
+  color: var(--sp-pass) !important;
+}
+.settings-file-action--delete:hover {
+  border-color: var(--sp-pass) !important;
+  background: var(--sp-pass-tint) !important;
+}
+.settings-file-cancel {
+  border: 1px solid var(--settings-line-strong);
+  background: var(--settings-paper);
+  color: var(--settings-ink-2);
+}
+.settings-file-cancel:hover {
+  background: var(--settings-paper-muted);
   color: var(--settings-ink);
 }
 
@@ -398,6 +479,12 @@
   .settings-header__inner {
     grid-template-columns: 1fr auto;
     padding-inline: 16px;
+  }
+  .settings-header__actions {
+    gap: 8px;
+  }
+  .settings-back-link {
+    display: none;
   }
   .settings-main {
     grid-template-columns: 1fr;

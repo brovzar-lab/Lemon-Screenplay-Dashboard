@@ -143,7 +143,9 @@ describe('Discovery app shell and route state', () => {
       expect(screen.getByRole('link', { name: 'Discover' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Intake' })).not.toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Toggle theme' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /^Use (dark|light) theme$/i }),
+      ).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Account' })).toBeInTheDocument();
     },
   );

@@ -8,56 +8,56 @@
    LIGHT (default)
    ============================================================================ */
 :root {
-  --sp-bg:            #E4E7EE;
-  --sp-surface:       #FFFFFF;
-  --sp-surface-2:     #EEF0F3;
-  --sp-sunken:        #EEF0F3;
-  --sp-border:        #E6E8EC;
-  --sp-border-strong: #D0D4DA;
+  --sp-bg: #e4e7ee;
+  --sp-surface: #ffffff;
+  --sp-surface-2: #eef0f3;
+  --sp-sunken: #eef0f3;
+  --sp-border: #e6e8ec;
+  --sp-border-strong: #d0d4da;
 
-  --sp-text:   #0B0D12;
-  --sp-text-2: #585F6B;
-  --sp-text-3: #9298A4;
+  --sp-text: #0b0d12;
+  --sp-text-2: #585f6b;
+  --sp-text-3: #9298a4;
 
-  --sp-accent:        #2B54F0;
-  --sp-accent-strong: #2042C2;
-  --sp-accent-soft:   #EAEEFE;
-  --sp-accent-text:   #FFFFFF;
+  --sp-accent: #2b54f0;
+  --sp-accent-strong: #2042c2;
+  --sp-accent-soft: #eaeefe;
+  --sp-accent-text: #ffffff;
 
-  --sp-rose:        var(--sp-accent);
+  --sp-rose: var(--sp-accent);
   --sp-rose-strong: var(--sp-accent-strong);
-  --sp-rose-tint:   var(--sp-accent-soft);
-  --sp-on-rose:     var(--sp-accent-text);
+  --sp-rose-tint: var(--sp-accent-soft);
+  --sp-on-rose: var(--sp-accent-text);
 
-  --sp-secondary: #119C8B;
+  --sp-secondary: #119c8b;
 
-  --sp-film-now:   #2B54F0;
-  --sp-recommend:  #12A66B;
-  --sp-consider:   #F5A524;
-  --sp-pass:       #FF5247;
+  --sp-film-now: #d8a828;
+  --sp-recommend: #12a66b;
+  --sp-consider: #2b54f0;
+  --sp-pass: #ff5247;
 
-  --sp-film-now-tint:   #EAEEFE;
-  --sp-recommend-tint:  #E2F4EC;
-  --sp-consider-tint:   #FBEDD6;
-  --sp-pass-tint:       #FCE7E7;
+  --sp-film-now-tint: #fbedd6;
+  --sp-recommend-tint: #e2f4ec;
+  --sp-consider-tint: #eaeefe;
+  --sp-pass-tint: #fce7e7;
 
-  --sp-sage:      var(--sp-recommend);
+  --sp-sage: var(--sp-recommend);
   --sp-sage-tint: var(--sp-recommend-tint);
-  --sp-sand:      var(--sp-consider);
+  --sp-sand: var(--sp-consider);
   --sp-sand-tint: var(--sp-consider-tint);
-  --sp-clay:      var(--sp-pass);
+  --sp-clay: var(--sp-pass);
   --sp-clay-tint: var(--sp-pass-tint);
 
-  --sp-genre-drama:    #119C8B;
-  --sp-genre-horror:   #FF6B5C;
-  --sp-genre-thriller: #2B54F0;
-  --sp-genre-crime:    #6E4BF0;
-  --sp-genre-action:   #FF6B5C;
-  --sp-genre-scifi:    #119C8B;
-  --sp-genre-fantasy:  #6E4BF0;
-  --sp-genre-comedy:   #FF6B5C;
-  --sp-genre-western:  #119C8B;
-  --sp-genre-romance:  #FF6B5C;
+  --sp-genre-drama: #119c8b;
+  --sp-genre-horror: #ff6b5c;
+  --sp-genre-thriller: #2b54f0;
+  --sp-genre-crime: #6e4bf0;
+  --sp-genre-action: #ff6b5c;
+  --sp-genre-scifi: #119c8b;
+  --sp-genre-fantasy: #6e4bf0;
+  --sp-genre-comedy: #ff6b5c;
+  --sp-genre-western: #119c8b;
+  --sp-genre-romance: #ff6b5c;
 
   --sp-r-xs: 4px;
   --sp-r-sm: 8px;
@@ -66,17 +66,32 @@
   --sp-r-xl: 20px;
   --sp-r-full: 999px;
 
-  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
-  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
-  --sp-12: 48px; --sp-16: 64px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
 
-  --sp-shadow-sm: 0 1px 2px rgba(16,20,30,.10), 0 2px 4px rgba(16,20,30,.06), 0 12px 30px rgba(16,20,30,.11);
-  --sp-shadow-md: 0 2px 4px rgba(16,20,30,.12), 0 6px 12px rgba(16,20,30,.10), 0 24px 50px rgba(16,20,30,.16);
-  --sp-shadow-lg: 0 2px 4px rgba(16,20,30,.12), 0 4px 8px rgba(16,20,30,.08), 0 20px 44px rgba(16,20,30,.14);
-  --sp-shadow-btn: inset 0 1px 0 rgba(255,255,255,.22), 0 1px 2px rgba(11,13,18,.12), 0 6px 16px rgba(43,84,240,.26);
-  --sp-highlight-top: inset 0 1px 0 rgba(255,255,255,.9);
-  --sp-inset-input: inset 0 1px 2px rgba(11,13,18,.06);
-  --sp-ring: 0 0 0 2px #EAECF1, 0 0 0 4px #2B54F0;
+  --sp-shadow-sm:
+    0 1px 2px rgba(16, 20, 30, 0.1), 0 2px 4px rgba(16, 20, 30, 0.06),
+    0 12px 30px rgba(16, 20, 30, 0.11);
+  --sp-shadow-md:
+    0 2px 4px rgba(16, 20, 30, 0.12), 0 6px 12px rgba(16, 20, 30, 0.1),
+    0 24px 50px rgba(16, 20, 30, 0.16);
+  --sp-shadow-lg:
+    0 2px 4px rgba(16, 20, 30, 0.12), 0 4px 8px rgba(16, 20, 30, 0.08),
+    0 20px 44px rgba(16, 20, 30, 0.14);
+  --sp-shadow-btn:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(11, 13, 18, 0.12),
+    0 6px 16px rgba(43, 84, 240, 0.26);
+  --sp-highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --sp-inset-input: inset 0 1px 2px rgba(11, 13, 18, 0.06);
+  --sp-ring: 0 0 0 2px #eaecf1, 0 0 0 4px #2b54f0;
 
   --sp-glow: none;
 
@@ -84,12 +99,12 @@
   --sp-font: 'Schibsted Grotesk', system-ui, sans-serif;
   --sp-mono: 'Schibsted Grotesk', system-ui, sans-serif;
 
-  --sp-text-xs:  11px;
-  --sp-text-sm:  13px;
-  --sp-text-base:15px;
-  --sp-text-md:  17px;
-  --sp-text-lg:  20px;
-  --sp-text-xl:  24px;
+  --sp-text-xs: 11px;
+  --sp-text-sm: 13px;
+  --sp-text-base: 15px;
+  --sp-text-md: 17px;
+  --sp-text-lg: 20px;
+  --sp-text-xl: 24px;
   --sp-text-2xl: 32px;
   --sp-text-3xl: 42px;
 
@@ -99,65 +114,67 @@
 /* ============================================================================
    DARK — Midnight navy, never pure black
    ============================================================================ */
-[data-theme="dark"] {
-  --sp-bg:            #0A1020;
-  --sp-surface:       #16203A;
-  --sp-surface-2:     #101A30;
-  --sp-sunken:        #101A30;
-  --sp-border:        #233152;
+[data-theme='dark'] {
+  --sp-bg: #0a1020;
+  --sp-surface: #16203a;
+  --sp-surface-2: #101a30;
+  --sp-sunken: #101a30;
+  --sp-border: #233152;
   --sp-border-strong: #304060;
 
-  --sp-text:   #EDF1F9;
-  --sp-text-2: #94A2BE;
-  --sp-text-3: #73819E;
+  --sp-text: #edf1f9;
+  --sp-text-2: #94a2be;
+  --sp-text-3: #73819e;
 
-  --sp-accent:        #6E8BFF;
-  --sp-accent-strong: #5E80FF;
-  --sp-accent-soft:   #1B2747;
-  --sp-accent-text:   #0E1426;
+  --sp-accent: #6e8bff;
+  --sp-accent-strong: #5e80ff;
+  --sp-accent-soft: #1b2747;
+  --sp-accent-text: #0e1426;
 
-  --sp-rose:        var(--sp-accent);
+  --sp-rose: var(--sp-accent);
   --sp-rose-strong: var(--sp-accent-strong);
-  --sp-rose-tint:   var(--sp-accent-soft);
-  --sp-on-rose:     var(--sp-accent-text);
+  --sp-rose-tint: var(--sp-accent-soft);
+  --sp-on-rose: var(--sp-accent-text);
 
-  --sp-secondary: #2FC9B0;
+  --sp-secondary: #2fc9b0;
 
-  --sp-film-now:   #6E8BFF;
-  --sp-recommend:  #34C98C;
-  --sp-consider:   #FFBE57;
-  --sp-pass:       #FF7A72;
+  --sp-film-now: #ffbe57;
+  --sp-recommend: #34c98c;
+  --sp-consider: #6e8bff;
+  --sp-pass: #ff7a72;
 
-  --sp-film-now-tint:   #1B2747;
-  --sp-recommend-tint:  #10301F;
-  --sp-consider-tint:   #33260F;
-  --sp-pass-tint:       #3A1A1C;
+  --sp-film-now-tint: #33260f;
+  --sp-recommend-tint: #10301f;
+  --sp-consider-tint: #1b2747;
+  --sp-pass-tint: #3a1a1c;
 
-  --sp-sage:      var(--sp-recommend);
+  --sp-sage: var(--sp-recommend);
   --sp-sage-tint: var(--sp-recommend-tint);
-  --sp-sand:      var(--sp-consider);
+  --sp-sand: var(--sp-consider);
   --sp-sand-tint: var(--sp-consider-tint);
-  --sp-clay:      var(--sp-pass);
+  --sp-clay: var(--sp-pass);
   --sp-clay-tint: var(--sp-pass-tint);
 
-  --sp-genre-drama:    #2FC9B0;
-  --sp-genre-horror:   #FF8A78;
-  --sp-genre-thriller: #6E8BFF;
-  --sp-genre-crime:    #9F86FF;
-  --sp-genre-action:   #FF8A78;
-  --sp-genre-scifi:    #2FC9B0;
-  --sp-genre-fantasy:  #9F86FF;
-  --sp-genre-comedy:   #FF8A78;
-  --sp-genre-western:  #2FC9B0;
-  --sp-genre-romance:  #FF8A78;
+  --sp-genre-drama: #2fc9b0;
+  --sp-genre-horror: #ff8a78;
+  --sp-genre-thriller: #6e8bff;
+  --sp-genre-crime: #9f86ff;
+  --sp-genre-action: #ff8a78;
+  --sp-genre-scifi: #2fc9b0;
+  --sp-genre-fantasy: #9f86ff;
+  --sp-genre-comedy: #ff8a78;
+  --sp-genre-western: #2fc9b0;
+  --sp-genre-romance: #ff8a78;
 
-  --sp-shadow-sm: 0 1px 2px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.40);
-  --sp-shadow-md: 0 2px 4px rgba(0,0,0,.40), 0 12px 28px rgba(0,0,0,.48);
-  --sp-shadow-lg: 0 2px 8px rgba(0,0,0,.50), 0 24px 48px rgba(0,0,0,.55);
-  --sp-shadow-btn: inset 0 1px 0 rgba(255,255,255,.25), 0 1px 2px rgba(0,0,0,.40), 0 6px 18px rgba(110,139,255,.45);
-  --sp-highlight-top: inset 0 1px 0 rgba(255,255,255,.05);
-  --sp-inset-input: inset 0 1px 3px rgba(0,0,0,.20);
-  --sp-ring: 0 0 0 2px #0E1426, 0 0 0 4px #6E8BFF;
+  --sp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 22px rgba(0, 0, 0, 0.4);
+  --sp-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.48);
+  --sp-shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.5), 0 24px 48px rgba(0, 0, 0, 0.55);
+  --sp-shadow-btn:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 6px 18px rgba(110, 139, 255, 0.45);
+  --sp-highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --sp-inset-input: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+  --sp-ring: 0 0 0 2px #0e1426, 0 0 0 4px #6e8bff;
 
   --sp-glow: none;
 }

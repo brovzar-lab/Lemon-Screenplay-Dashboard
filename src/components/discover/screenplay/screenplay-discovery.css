@@ -722,6 +722,51 @@
   color: #b4232c;
   box-shadow: inset 0 0 0 1px #efb2b6;
 }
+
+/* Slate Insights sits on Discovery's permanent navy canvas in both themes.
+   Keep its chart chrome deliberately dark while preserving semantic verdict
+   colors and the user's selected theme everywhere else. */
+.screenplay-discovery .slate-analytics {
+  --chart-axis: #9eabc0;
+  --chart-cursor: rgb(110 139 255 / 0.1);
+  color: #eef3fb;
+}
+.screenplay-discovery .slate-analytics__toggle,
+.screenplay-discovery .slate-analytics__card,
+.screenplay-discovery .producer-alignment__metrics {
+  border-color: #243652;
+  background: #151e34;
+  color: #eef3fb;
+}
+.screenplay-discovery .slate-analytics__toggle:hover {
+  border-color: #3b5274;
+}
+.screenplay-discovery .slate-analytics__summary,
+.screenplay-discovery .slate-analytics__summary .text-black-400,
+.screenplay-discovery .slate-analytics__card .text-black-400,
+.screenplay-discovery .producer-alignment,
+.screenplay-discovery .producer-alignment__note,
+.screenplay-discovery .producer-alignment__metrics span {
+  color: #9eabc0 !important;
+}
+.screenplay-discovery .slate-analytics__card h2,
+.screenplay-discovery .producer-alignment h2,
+.screenplay-discovery .producer-alignment__metrics p,
+.screenplay-discovery .producer-alignment .text-black-100 {
+  color: #eef3fb !important;
+}
+.screenplay-discovery .producer-alignment,
+.screenplay-discovery .producer-alignment__metrics > div + div {
+  border-color: #243652;
+}
+.screenplay-discovery .chart-tooltip {
+  border-color: #3b5274;
+  background: #101a2e;
+  color: #eef3fb;
+}
+.screenplay-discovery .chart-tooltip span {
+  color: #b9c4d6;
+}
 .screenplay-pagination {
   display: flex;
   align-items: center;

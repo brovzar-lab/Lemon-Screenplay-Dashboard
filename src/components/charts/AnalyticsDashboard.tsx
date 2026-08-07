@@ -8,6 +8,7 @@ import { ScoreDistribution } from './ScoreDistribution';
 import { TierBreakdown } from './TierBreakdown';
 import { GenreChart } from './GenreChart';
 import { BudgetChart } from './BudgetChart';
+import { FormatChart } from './FormatChart';
 import { TasteMatch } from './TasteMatch';
 import { useCountUp } from '../../hooks/useCountUp';
 import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
@@ -34,7 +35,7 @@ export function AnalyticsDashboard({
   onFilterByTier,
   onFilterByGenre,
   onFilterByBudget,
-  title = 'Analytics Dashboard',
+  title = 'Slate Overview',
   initiallyExpanded = true,
   deferContentUntilExpanded = false,
   className = '',
@@ -69,6 +70,9 @@ export function AnalyticsDashboard({
       : 0;
   const filmNowCount = screenplays.filter((sp) => sp.recommendation === 'film_now').length;
   const recommendCount = screenplays.filter((sp) => sp.recommendation === 'recommend').length;
+  const hasRecordedBudgets = screenplays.some(
+    (screenplay) => screenplay.budgetCategory && screenplay.budgetCategory !== 'unknown',
+  );
 
   // Animated count-up values — only run once when panel is first expanded
   const animatedTotal = useCountUp(screenplays.length, 600, isExpanded);
@@ -100,24 +104,28 @@ export function AnalyticsDashboard({
       ),
     },
     {
-      title: 'Budget Tiers',
-      hint: onFilterByBudget ? 'Click to filter by budget' : null,
-      content: <BudgetChart screenplays={screenplays} onBudgetClick={onFilterByBudget} />,
+      title: hasRecordedBudgets ? 'Budget Tiers' : 'Format Mix',
+      hint: hasRecordedBudgets && onFilterByBudget ? 'Click to filter by budget' : null,
+      content: hasRecordedBudgets ? (
+        <BudgetChart screenplays={screenplays} onBudgetClick={onFilterByBudget} />
+      ) : (
+        <FormatChart screenplays={screenplays} />
+      ),
     },
   ];
 
   return (
-    <div className={`mb-6 ${className}`.trim()}>
+    <div className={`slate-analytics mb-6 ${className}`.trim()}>
       {/* Header with toggle */}
       <button
         type="button"
         onClick={() => setIsExpanded((expanded) => !expanded)}
         aria-expanded={isExpanded}
         aria-controls="analytics-dashboard-content"
-        className="w-full flex items-center justify-between p-4 rounded-lg glass border border-black-700 hover:border-gold-500/50 transition-colors"
+        className="slate-analytics__toggle w-full"
       >
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+          <div className="slate-analytics__title flex items-center gap-2">
             <svg
               className="w-5 h-5 text-gold-400"
               fill="none"
@@ -131,11 +139,11 @@ export function AnalyticsDashboard({
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
               />
             </svg>
-            <span className="font-semibold text-black-50">{title}</span>
+            <span>{title}</span>
           </div>
 
           {/* Quick stats — count-up when expanded, static when collapsed */}
-          <div className="flex items-center gap-4 text-sm">
+          <div className="slate-analytics__summary flex items-center gap-4 text-sm">
             <span className="text-black-400">
               <span className="text-gold-400">
                 {isExpanded ? animatedTotal.toFixed(0) : screenplays.length}
@@ -143,21 +151,21 @@ export function AnalyticsDashboard({
               {isFiltered ? ` of ${totalScreenplays.length}` : ''} screenplays
               {isFiltered && <span className="ml-1 text-gold-500">(filtered)</span>}
             </span>
-            <span className="text-black-400">|</span>
+            <span aria-hidden="true">·</span>
             <span className="text-black-400">
               Avg Score:{' '}
               <span className="text-emerald-400">
                 {isExpanded ? animatedAvg.toFixed(1) : avgScoreRaw.toFixed(1)}
               </span>
             </span>
-            <span className="text-black-400">|</span>
+            <span aria-hidden="true">·</span>
             <span className="text-black-400">
               <span className="text-gold-400">
                 {isExpanded ? animatedFilmNow.toFixed(0) : filmNowCount}
               </span>{' '}
               FILM NOW
             </span>
-            <span className="text-black-400">|</span>
+            <span aria-hidden="true">·</span>
             <span className="text-black-400">
               <span className="text-emerald-400">
                 {isExpanded ? animatedRecommend.toFixed(0) : recommendCount}
@@ -197,19 +205,11 @@ export function AnalyticsDashboard({
       >
         {(!deferContentUntilExpanded || isExpanded) && (
           <>
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {chartCards.map((card, index) => (
-                <div
-                  key={card.title}
-                  className={isExpanded ? 'card-enter' : ''}
-                  style={
-                    isExpanded
-                      ? { animationDelay: `${index * 100}ms`, animationFillMode: 'both' }
-                      : undefined
-                  }
-                >
-                  <div className="glass rounded-lg border border-black-700 p-4 h-full">
-                    <h2 className="text-sm font-medium text-black-300 mb-3">{card.title}</h2>
+            <div className="slate-analytics__grid mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {chartCards.map((card) => (
+                <div key={card.title} className="slate-analytics__card">
+                  <div className="p-4 h-full">
+                    <h2>{card.title}</h2>
                     <div className="h-48">{card.content}</div>
                     {card.hint && (
                       <p className="text-xs text-black-400 mt-2 text-center">{card.hint}</p>

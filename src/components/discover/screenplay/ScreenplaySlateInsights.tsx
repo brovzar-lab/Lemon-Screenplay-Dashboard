@@ -41,7 +41,7 @@ export function ScreenplaySlateInsights({
         >
           <span>
             <strong>Slate Insights</strong>
-            <small>Score distribution · verdict mix · top genres · budget tiers</small>
+            <small>Score distribution · verdict mix · top genres · slate composition</small>
           </span>
           <span aria-hidden="true">Show</span>
           <span className="sr-only">Show Slate Insights</span>

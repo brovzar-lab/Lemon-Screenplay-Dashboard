@@ -119,14 +119,11 @@ export function HybridHeader({
             {isAdmin && (
               <NavLink
                 to="/settings"
-                className="hybrid-icon-link"
+                className="hybrid-settings-link"
                 aria-label="Settings"
                 title="Settings"
               >
-                <svg aria-hidden="true" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9 7 7m10 10 2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" />
-                </svg>
+                Settings
               </NavLink>
             )}
             <SyncStatusIndicator />

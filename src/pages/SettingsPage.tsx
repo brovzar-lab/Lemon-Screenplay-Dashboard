@@ -12,6 +12,7 @@ import { FavoritesPanel } from '@/components/settings/FavoritesPanel';
 import { AnalysisOverview } from '@/components/settings/AnalysisOverview';
 import { ApiConfigPanel } from '@/components/settings/ApiConfigPanel';
 import { PasswordGate } from '@/components/settings/PasswordGate';
+import { SettingsThemeControl } from '@/components/settings/SettingsThemeControl';
 import '@/components/discover/discovery.css';
 import '@/pages/settings-page.css';
 
@@ -45,12 +46,6 @@ const TABS: TabConfig[] = [
     group: 'Intelligence',
   },
   {
-    id: 'calibration',
-    label: 'Calibration',
-    description: 'Producer evidence and benchmarks',
-    group: 'Intelligence',
-  },
-  {
     id: 'pdf',
     label: 'PDF Files',
     description: 'Source screenplay availability',
@@ -68,13 +63,36 @@ const TABS: TabConfig[] = [
     description: 'Protected service connections',
     group: 'System',
   },
+  {
+    id: 'calibration',
+    label: 'Calibration',
+    description: 'Producer evidence and benchmarks',
+    group: 'System',
+  },
 ];
 
 const GROUPS: GroupLabel[] = ['Workflow', 'Intelligence', 'Library', 'System'];
 
 function normalizeTab(value: string | null): Tab {
-  if (value === 'upload') return 'intake';
-  return TABS.some((tab) => tab.id === value) ? (value as Tab) : 'intake';
+  const normalized = value?.trim().toLowerCase().replaceAll('_', '-');
+  const aliases: Record<string, Tab> = {
+    upload: 'intake',
+    uploads: 'intake',
+    health: 'analysis',
+    'analysis-health': 'analysis',
+    models: 'compare',
+    'model-comparison': 'compare',
+    'taste-calibration': 'calibration',
+    files: 'pdf',
+    'pdf-files': 'pdf',
+    sharing: 'data',
+    'data-sharing': 'data',
+    connections: 'api',
+    keys: 'api',
+    'api-settings': 'api',
+  };
+  if (normalized && aliases[normalized]) return aliases[normalized];
+  return TABS.some((tab) => tab.id === normalized) ? (normalized as Tab) : 'intake';
 }
 
 function SettingsIcon({ tab }: { tab: Tab }) {
@@ -210,9 +228,12 @@ export function SettingsPage() {
             <span>Administration</span>
             <strong>Settings</strong>
           </div>
-          <Link to="/discover?ui=screenplay" className="settings-back-link">
-            Back to Discovery
-          </Link>
+          <div className="settings-header__actions">
+            <SettingsThemeControl />
+            <Link to="/discover?ui=screenplay" className="settings-back-link">
+              Back to Discovery
+            </Link>
+          </div>
         </div>
       </header>
 

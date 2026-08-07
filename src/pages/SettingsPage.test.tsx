@@ -97,6 +97,38 @@ describe('Settings deep links', () => {
     expect(screen.queryByText('Upload panel')).not.toBeInTheDocument();
   });
 
+  it('keeps Calibration last under System and exposes the full theme selector', () => {
+    renderSettings('/settings?tab=intake');
+
+    const sectionButtons = screen.getAllByRole('button').filter((button) =>
+      ['Intake', 'Analysis Health', 'Model Comparison', 'PDF Files', 'Data & Sharing', 'Connections & Keys', 'Calibration'].includes(
+        button.getAttribute('aria-label') ?? '',
+      ),
+    );
+    expect(sectionButtons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Intake',
+      'Analysis Health',
+      'Model Comparison',
+      'PDF Files',
+      'Data & Sharing',
+      'Connections & Keys',
+      'Calibration',
+    ]);
+    expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Light' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dark' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'System' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['/settings?tab=pdf_files', 'PDF files'],
+    ['/settings?tab=api-settings', 'API configuration'],
+    ['/settings?tab=taste-calibration', 'Calibration workspace'],
+  ])('preserves the legacy settings alias %s', (entry, expected) => {
+    renderSettings(entry);
+    expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+
   it('keeps the selected settings tab in the URL', async () => {
     const user = userEvent.setup();
     renderSettings('/settings?tab=calibration');

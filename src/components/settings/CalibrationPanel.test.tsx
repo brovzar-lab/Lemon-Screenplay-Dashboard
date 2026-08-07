@@ -61,9 +61,7 @@ describe('CalibrationPanel', () => {
     expect(await screen.findByText('Evidence split')).toBeInTheDocument();
     expect(screen.getByText('4 training')).toBeInTheDocument();
     expect(screen.getByText('1 holdout')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Build candidate' }),
-    ).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Build candidate' })).toBeEnabled();
   });
 
   it('warns about paid calls and never builds without explicit confirmation', async () => {
@@ -83,17 +81,12 @@ describe('CalibrationPanel', () => {
     render(<CalibrationPanel />);
     await screen.findByText('Evidence split');
 
-    fireEvent.change(
-      screen.getByRole('combobox', { name: 'Evidence role for Script 1' }),
-      {
-        target: { value: 'training' },
-      },
-    );
+    fireEvent.change(screen.getByRole('combobox', { name: 'Evidence role for Script 1' }), {
+      target: { value: 'training' },
+    });
 
     await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Build candidate' }),
-      ).toBeDisabled(),
+      expect(screen.getByRole('button', { name: 'Build candidate' })).toBeDisabled(),
     );
   });
 
@@ -109,9 +102,19 @@ describe('CalibrationPanel', () => {
 
     expect(await screen.findByText('Local review mode')).toBeInTheDocument();
     expect(screen.getByText('Script 1')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Available after deployment' }),
-    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Available in production' })).toBeDisabled();
     expect(mocks.buildCalibrationCandidate).not.toHaveBeenCalled();
+  });
+
+  it('separates recorded producer decisions from eligible calibration evidence', async () => {
+    const ineligible = { ...head(5), includeInCalibration: false };
+    mocks.loadProducerAssessmentHeads.mockResolvedValue([head(1), ineligible]);
+
+    render(<CalibrationPanel />);
+
+    expect(await screen.findByText('Recorded Producer Takes')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('1 eligible calibration example')).toBeInTheDocument();
+    expect(screen.getByText('Not eligible')).toBeInTheDocument();
   });
 });

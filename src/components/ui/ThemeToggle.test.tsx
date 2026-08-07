@@ -15,7 +15,7 @@ describe('ThemeToggle', () => {
     const user = userEvent.setup();
     render(<ThemeToggle />);
 
-    await user.click(screen.getByRole('button', { name: 'Toggle theme' }));
+    await user.click(screen.getByRole('button', { name: 'Use dark theme' }));
 
     expect(useThemeStore.getState().theme).toBe('dark');
     expect(document.documentElement).toHaveAttribute('data-theme', 'dark');

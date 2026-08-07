@@ -25,10 +25,29 @@ vi.mock('./BudgetChart', () => ({
   BudgetChart: () => <div data-testid="budget-chart" />,
 }));
 
+vi.mock('./FormatChart', () => ({
+  FormatChart: () => <div data-testid="format-chart" />,
+}));
+
 const mockScreenplays = [
-  createTestScreenplay({ id: 'sp-1', recommendation: 'recommend', weightedScore: 8 }),
-  createTestScreenplay({ id: 'sp-2', recommendation: 'film_now', weightedScore: 9.5 }),
-  createTestScreenplay({ id: 'sp-3', recommendation: 'pass', weightedScore: 4 }),
+  createTestScreenplay({
+    id: 'sp-1',
+    recommendation: 'recommend',
+    weightedScore: 8,
+    budgetCategory: 'unknown',
+  }),
+  createTestScreenplay({
+    id: 'sp-2',
+    recommendation: 'film_now',
+    weightedScore: 9.5,
+    budgetCategory: 'unknown',
+  }),
+  createTestScreenplay({
+    id: 'sp-3',
+    recommendation: 'pass',
+    weightedScore: 4,
+    budgetCategory: 'unknown',
+  }),
 ];
 
 const observe = vi.fn();
@@ -47,10 +66,10 @@ beforeEach(() => {
 });
 
 describe('AnalyticsDashboard', () => {
-  it('renders the Analytics Dashboard heading', () => {
+  it('renders the Slate Overview heading', () => {
     render(<AnalyticsDashboard screenplays={mockScreenplays} />);
 
-    expect(screen.getByText('Analytics Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Slate Overview')).toBeInTheDocument();
   });
 
   it('renders a toggle button', () => {
@@ -67,14 +86,26 @@ describe('AnalyticsDashboard', () => {
     expect(screen.getByText(/screenplays/)).toBeInTheDocument();
   });
 
-  it('renders all four chart sub-components when expanded', () => {
+  it('uses format mix when the slate has no recorded budget data', () => {
     render(<AnalyticsDashboard screenplays={mockScreenplays} />);
 
     // Default state is expanded
     expect(screen.getByTestId('score-distribution')).toBeInTheDocument();
     expect(screen.getByTestId('tier-breakdown')).toBeInTheDocument();
     expect(screen.getByTestId('genre-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('format-chart')).toBeInTheDocument();
+    expect(screen.queryByTestId('budget-chart')).not.toBeInTheDocument();
+  });
+
+  it('preserves the budget chart when budget data is available', () => {
+    render(
+      <AnalyticsDashboard
+        screenplays={[createTestScreenplay({ id: 'budgeted', budgetCategory: 'micro' })]}
+      />,
+    );
+
     expect(screen.getByTestId('budget-chart')).toBeInTheDocument();
+    expect(screen.queryByTestId('format-chart')).not.toBeInTheDocument();
   });
 
   it('remeasures when asynchronous analytics content changes size', () => {
@@ -88,7 +119,7 @@ describe('AnalyticsDashboard', () => {
   it('renders correctly with an empty screenplays array', () => {
     render(<AnalyticsDashboard screenplays={[]} />);
 
-    expect(screen.getByText('Analytics Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Slate Overview')).toBeInTheDocument();
   });
 
   it('shows filtered label when totalScreenplays differs from screenplays', () => {
@@ -104,7 +135,7 @@ describe('AnalyticsDashboard', () => {
   it('preserves the old expanded default when no presentation props are supplied', () => {
     render(<AnalyticsDashboard screenplays={mockScreenplays} />);
 
-    expect(screen.getByRole('button', { name: /Analytics Dashboard/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /Slate Overview/i })).toHaveAttribute(
       'aria-expanded',
       'true',
     );

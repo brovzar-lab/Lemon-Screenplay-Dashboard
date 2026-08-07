@@ -3,15 +3,7 @@
  * Bar chart showing weighted score distribution across all screenplays
  */
 
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Cell,
-} from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
 import type { Screenplay } from '@/types';
 import { CHART_COLORS } from '@/lib/chartColors';
@@ -43,10 +35,10 @@ const SCORE_BINS = [
 
 // Color based on score quality
 function getBarColor(min: number): string {
-  if (min >= 8) return CHART_COLORS.gold;    // Gold - excellent
-  if (min >= 7) return CHART_COLORS.emerald; // Emerald - good
-  if (min >= 5) return CHART_COLORS.gray;    // Gray - average
-  return CHART_COLORS.red;                   // Red - poor
+  if (min >= 8) return CHART_COLORS.dataTeal;
+  if (min >= 7) return CHART_COLORS.dataBlue;
+  if (min >= 5) return CHART_COLORS.gray;
+  return CHART_COLORS.dataCoral;
 }
 
 interface ChartTooltipProps {
@@ -59,12 +51,12 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
   if (active && payload && payload.length) {
     const item = payload[0].payload as ScoreBinItem;
     return (
-      <div className="glass p-3 rounded-lg border border-black-700 text-sm">
-        <p className="text-gold-400 font-medium mb-1">Score: {item.label}</p>
-        <p className="text-black-50">
+      <div className="chart-tooltip">
+        <strong>Score: {item.label}</strong>
+        <span>
           <span className="font-bold">{item.count}</span> screenplays
-        </p>
-        <p className="text-black-400 text-xs">{item.percentage}% of total</p>
+        </span>
+        <span>{item.percentage}% of total</span>
       </div>
     );
   }
@@ -75,7 +67,7 @@ export function ScoreDistribution({ screenplays, onBarClick }: ScoreDistribution
   // Calculate distribution
   const data: ScoreBinItem[] = SCORE_BINS.map((bin) => {
     const count = screenplays.filter(
-      (sp) => sp.weightedScore >= bin.min && sp.weightedScore < bin.max
+      (sp) => sp.weightedScore >= bin.min && sp.weightedScore < bin.max,
     ).length;
     return {
       ...bin,
@@ -98,15 +90,18 @@ export function ScoreDistribution({ screenplays, onBarClick }: ScoreDistribution
             dataKey="label"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94A2BE', fontSize: 11 }}
+            tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94A2BE', fontSize: 11 }}
+            tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
             allowDecimals={false}
           />
-          <Tooltip content={(props) => <CustomTooltip {...props} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+          <Tooltip
+            content={(props) => <CustomTooltip {...props} />}
+            cursor={{ fill: 'var(--chart-cursor)' }}
+          />
           <Bar
             dataKey="count"
             radius={[4, 4, 0, 0]}
