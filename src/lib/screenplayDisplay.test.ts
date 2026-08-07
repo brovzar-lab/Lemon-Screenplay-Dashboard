@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { createTestScreenplay } from '@/test/factories';
-import { getScreenplayDisplayTitle, getScreenplayFormatInfo } from '@/lib/screenplayDisplay';
+import {
+  getScreenplayDisplayAuthor,
+  getScreenplayDisplayTitle,
+  getScreenplayFormatInfo,
+} from '@/lib/screenplayDisplay';
 
 describe('screenplay display formatting', () => {
   it('removes an ingestion hash without changing the actual title words', () => {
@@ -34,6 +38,35 @@ describe('screenplay display formatting', () => {
       title: 'Hermanos Márquez Castillo',
       length: 'standard',
     });
+  });
+
+  it('replaces a machine-only title without changing the stored record', () => {
+    expect(getScreenplayDisplayTitle('c8a16cdfe6b740ce8c39370728265074')).toMatchObject({
+      title: 'Untitled submission',
+    });
+  });
+
+  it.each([
+    ['Quiet City', 'standard'],
+    ['A Deliberately Longer Screenplay Title', 'long'],
+    [
+      'A Very Long Screenplay Title That Must Remain Readable Without Colliding With Metadata',
+      'very-long',
+    ],
+    ['', 'standard'],
+  ] as const)('classifies %j as a %s display title', (rawTitle, expectedLength) => {
+    expect(getScreenplayDisplayTitle(rawTitle).length).toBe(expectedLength);
+  });
+
+  it.each([
+    ['Anonymized (be352ab614f549dc891d6c7a4ff05eef)', 'Anonymized submission'],
+    ['Anonymous (submission anonymised)', 'Anonymized submission'],
+    ['Uncredited (Submission ee466e77bf740d3909e6f0ca426)', 'Uncredited submission'],
+    ['c8a16cdfe6b740ce8c39370728265074', 'Uncredited submission'],
+    ['', 'Unknown writer'],
+    ['Aaron Sorkin', 'Aaron Sorkin'],
+  ])('formats the author %j as %j for display only', (rawAuthor, expected) => {
+    expect(getScreenplayDisplayAuthor(rawAuthor)).toBe(expected);
   });
 
   it('labels explicitly described pilots and adaptations', () => {

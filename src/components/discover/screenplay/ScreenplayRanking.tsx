@@ -7,7 +7,12 @@ import type {
 } from '@/components/discover/screenplay/screenplayPresentationTypes';
 import type { RankedScreenplay } from '@/components/discover/screenplay/screenplayRankingProjection';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
-import { getScreenplayDisplayTitle, getScreenplayFormatInfo } from '@/lib/screenplayDisplay';
+import {
+  getScreenplayDisplayAuthor,
+  getScreenplayDisplayGenre,
+  getScreenplayDisplayTitle,
+  getScreenplayFormatInfo,
+} from '@/lib/screenplayDisplay';
 import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
 
 function ordinal(value: number): string {
@@ -111,8 +116,8 @@ export function ScreenplayRanking({
                 <span className="screenplay-ranking__qualifier">{title.qualifier}</span>
               )}
               <span className="screenplay-ranking__meta">
-                {format.format} · {format.source} · {screenplay.genre} ·{' '}
-                {screenplay.author || 'Unknown writer'}
+                {format.format} · {format.source} · {getScreenplayDisplayGenre(screenplay.genre)} ·{' '}
+                {getScreenplayDisplayAuthor(screenplay.author)}
               </span>
               <span className="screenplay-ranking__logline">
                 {screenplay.logline || 'Logline not yet available.'}
@@ -142,6 +147,7 @@ export function ScreenplayRanking({
               const runner = entry.screenplay;
               const runnerTitle = getScreenplayDisplayTitle(runner.title);
               const runnerFormat = getScreenplayFormatInfo(runner);
+              const runnerAuthor = getScreenplayDisplayAuthor(runner.author);
               const runnerPercentile = percentiles.get(runner.id);
               const runnerMetric = rankingMetric(runner, sortField);
               return (
@@ -156,16 +162,23 @@ export function ScreenplayRanking({
                     onClick={(event) => onOpen(runner, event.currentTarget)}
                     aria-label={`Open ${runnerTitle.title} screenplay file`}
                   >
-                    <BlueSpineScript screenplay={runner} rank={entry.rank} />
-                    <span>
-                      <small>
-                        #{entry.rank} · {runnerFormat.format}
+                    <span className="screenplay-ranking__runner-object">
+                      <BlueSpineScript screenplay={runner} presentation="compact" />
+                    </span>
+                    <span className="screenplay-ranking__runner-copy">
+                      <small className="screenplay-ranking__runner-kicker">
+                        Next #{entry.rank} · {runnerFormat.format}
                       </small>
                       <strong>{runnerTitle.title}</strong>
-                      <em>{runner.author || 'Unknown writer'}</em>
-                      <b>{runnerMetric.value}</b>
-                      <small>{runnerMetric.label}</small>
-                      <small>
+                      <em>{runnerAuthor}</em>
+                      <span className="screenplay-ranking__runner-decision">
+                        <RecommendationBadge tier={runner.recommendation} />
+                        <span>
+                          <b>{runnerMetric.value}</b>
+                          <small>{runnerMetric.label}</small>
+                        </span>
+                      </span>
+                      <small className="screenplay-ranking__runner-percentile">
                         {runnerPercentile
                           ? `${ordinal(runnerPercentile.overall)} final-score percentile`
                           : 'Position pending'}

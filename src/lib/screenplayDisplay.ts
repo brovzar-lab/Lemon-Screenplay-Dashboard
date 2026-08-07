@@ -12,6 +12,7 @@ export interface ScreenplayFormatInfo {
 }
 
 const LEADING_HASH = /^(?:[a-f\d]{20,})(?:[-_\s]+)(?=[a-z])/i;
+const MACHINE_ONLY_VALUE = /^(?:[a-f\d]{20,}|[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12})(?:\.pdf)?$/i;
 const WORKING_TITLE = /\s*\((?:working\s+title|formerly|aka)\s*:\s*([^()]+)\)\s*$/i;
 const DISPLAY_TITLE_CORRECTIONS: Readonly<Record<string, string>> = {
   HERMANOSMARQUEZCASTILLO: 'Hermanos Márquez Castillo',
@@ -22,7 +23,11 @@ function readable(value: string): string {
 }
 
 export function getScreenplayDisplayTitle(rawTitle: string): ScreenplayDisplayTitle {
-  const sanitized = readable(rawTitle).replace(LEADING_HASH, '').trim() || 'Untitled screenplay';
+  const readableTitle = readable(rawTitle);
+  const sanitized =
+    (MACHINE_ONLY_VALUE.test(readableTitle)
+      ? 'Untitled submission'
+      : readableTitle.replace(LEADING_HASH, '').trim()) || 'Untitled submission';
   const cleaned = DISPLAY_TITLE_CORRECTIONS[sanitized.toUpperCase()] ?? sanitized;
   const workingTitle = cleaned.match(WORKING_TITLE);
   const title =
@@ -38,6 +43,20 @@ export function getScreenplayDisplayTitle(rawTitle: string): ScreenplayDisplayTi
         : 'standard';
 
   return { title, qualifier, length };
+}
+
+export function getScreenplayDisplayAuthor(rawAuthor?: string): string {
+  const author = readable(rawAuthor ?? '');
+  if (!author) return 'Unknown writer';
+  if (/^(?:anonymous|anonymized|anonymised)\b/i.test(author)) return 'Anonymized submission';
+  if (/^uncredited\b/i.test(author) || MACHINE_ONLY_VALUE.test(author)) {
+    return 'Uncredited submission';
+  }
+  return author;
+}
+
+export function getScreenplayDisplayGenre(rawGenre?: string): string {
+  return readable(rawGenre ?? '') || 'Genre not recorded';
 }
 
 function combinedClassificationText(screenplay: Screenplay): string {

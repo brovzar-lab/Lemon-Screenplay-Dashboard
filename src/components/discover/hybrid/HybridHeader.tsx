@@ -93,11 +93,6 @@ export function HybridHeader({
             <NavLink to={`/discover?ui=${presentation}`} end={false} className={navClass}>
               Discover
             </NavLink>
-            {isAdmin && (
-              <NavLink to="/intake" className={navClass}>
-                Intake
-              </NavLink>
-            )}
           </nav>
 
           <label className="hybrid-global-search" htmlFor="hybrid-discovery-search">

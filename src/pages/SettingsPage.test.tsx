@@ -3,8 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
+const uploadPanelMock = vi.hoisted(() => vi.fn());
+
 vi.mock('@/components/settings/UploadPanel', () => ({
-  UploadPanel: () => <div>Upload panel</div>,
+  UploadPanel: (props: Record<string, unknown>) => {
+    uploadPanelMock(props);
+    return <div>Upload panel</div>;
+  },
 }));
 vi.mock('@/components/settings/DataManagement', () => ({
   DataManagement: () => <div>Data management</div>,
@@ -65,6 +70,26 @@ function renderSettings(initialEntry: string) {
 }
 
 describe('Settings deep links', () => {
+  it('opens the complete Intake desk by default', () => {
+    renderSettings('/settings');
+
+    expect(screen.getByText('Upload panel')).toBeInTheDocument();
+    expect(uploadPanelMock).toHaveBeenCalledWith(
+      expect.objectContaining({ presentation: 'intake', initialModel: 'hybrid' }),
+    );
+    expect(screen.getByRole('heading', { name: 'Workflow' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Intelligence' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Library' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'System' })).toBeInTheDocument();
+  });
+
+  it('keeps the legacy Upload deep link as an Intake alias', () => {
+    renderSettings('/settings?tab=upload');
+
+    expect(screen.getByText('Upload panel')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Intake' })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('opens the calibration workspace from a Producer Take link', () => {
     renderSettings('/settings?tab=calibration');
 
@@ -76,7 +101,7 @@ describe('Settings deep links', () => {
     const user = userEvent.setup();
     renderSettings('/settings?tab=calibration');
 
-    await user.click(screen.getByRole('button', { name: 'Data' }));
+    await user.click(screen.getByRole('button', { name: 'Data & Sharing' }));
 
     expect(screen.getByText('Shared links workspace')).toBeInTheDocument();
     expect(screen.getByLabelText('Current location')).toHaveTextContent('?tab=data');

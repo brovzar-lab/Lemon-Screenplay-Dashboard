@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFilterStore } from '@/stores/filterStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
+import { useSelectionStore } from '@/stores/selectionStore';
 import { useSortStore } from '@/stores/sortStore';
 import { createTestScreenplay } from '@/test/factories';
 import type { Screenplay } from '@/types';
@@ -81,6 +82,7 @@ describe('I + G screenplay Discovery presentation', () => {
     useSortStore.getState().setSortConfigs([{ field: 'weightedScore', direction: 'desc' }]);
     useSortStore.getState().setPrioritizeFilmNow(false);
     usePdfStatusStore.getState().clearStatuses();
+    useSelectionStore.getState().deselectAll();
   });
 
   it('shows an honest top result, next three, and a non-duplicated continuation wall', async () => {
@@ -94,6 +96,11 @@ describe('I + G screenplay Discovery presentation', () => {
       'echo',
     );
     expect(within(ranking).getAllByTestId('screenplay-ranking-runner')).toHaveLength(3);
+    for (const runner of within(ranking).getAllByTestId('screenplay-ranking-runner')) {
+      expect(runner.querySelector('.screenplay-object--compact')).toBeInTheDocument();
+      expect(within(runner).queryByText('Written by')).not.toBeInTheDocument();
+      expect(within(runner).queryByText('LEMON STUDIOS')).not.toBeInTheDocument();
+    }
 
     const wallResults = screen.getAllByTestId('screenplay-discovery-result');
     expect(wallResults).toHaveLength(2);
@@ -248,6 +255,33 @@ describe('I + G screenplay Discovery presentation', () => {
     await user.click(await screen.findByRole('button', { name: 'Open Echo Park screenplay file' }));
     expect(screen.getByTestId('location-probe')).toHaveTextContent(
       '/discover/echo-project?ui=screenplay&preview=drawer',
+    );
+  });
+
+  it('selects and opens projects from the top result, runner rail, and complete slate', async () => {
+    const user = userEvent.setup();
+    const connected = renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Select Echo Park' }));
+    await user.click(screen.getByRole('button', { name: 'Select Foxtrot House' }));
+    await user.click(screen.getByRole('button', { name: 'Select Hotel Blue' }));
+
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/discover?ui=screenplay');
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(['echo', 'foxtrot', 'hotel']));
+
+    await user.click(screen.getByRole('button', { name: 'Open Foxtrot House screenplay file' }));
+    expect(screen.getByTestId('location-probe')).toHaveTextContent(
+      '/projects/foxtrot-project?workspace=screenplay',
+    );
+    connected.unmount();
+
+    useSelectionStore.getState().deselectAll();
+    renderPage();
+    await user.click(
+      await screen.findByRole('button', { name: 'Open Hotel Blue screenplay file' }),
+    );
+    expect(screen.getByTestId('location-probe')).toHaveTextContent(
+      '/projects/hotel-project?workspace=screenplay',
     );
   });
 

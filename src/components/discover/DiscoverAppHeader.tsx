@@ -72,11 +72,6 @@ export function DiscoverAppHeader({
             Discover
           </NavLink>
           {isAdmin && (
-            <NavLink to="/intake" className={navClass}>
-              Intake
-            </NavLink>
-          )}
-          {isAdmin && (
             <NavLink to="/settings" className={navClass}>
               Settings
             </NavLink>

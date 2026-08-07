@@ -8,9 +8,9 @@
   background: #fbfaf6;
   color: #121827;
   box-shadow:
-    0 18px 34px rgb(0 0 0 / 0.28),
-    5px 5px 0 #e7e5df,
-    9px 9px 0 #cfd3dd;
+    0 16px 30px rgb(0 0 0 / 0.24),
+    3px 3px 0 #e7e5df,
+    6px 6px 0 #d4d7de;
 }
 .screenplay-object--featured {
   width: min(100%, 270px);
@@ -18,20 +18,20 @@
 }
 .screenplay-object__spine {
   position: absolute;
-  inset: -3px auto -7px -7.5%;
-  width: 8%;
-  min-width: 14px;
-  max-width: 19px;
-  border-radius: 7px 0 0 7px;
+  inset: -2px auto -5px -5.75%;
+  width: 6.25%;
+  min-width: 10px;
+  max-width: 15px;
+  border-radius: 5px 0 0 5px;
   background: #183f8d;
   box-shadow:
     inset -4px 0 7px rgb(0 0 0 / 0.2),
-    -3px 4px 8px rgb(0 0 0 / 0.24);
+    -2px 3px 6px rgb(0 0 0 / 0.2);
 }
 .screenplay-object__brad {
   position: absolute;
   z-index: 3;
-  left: 10px;
+  left: 8px;
   width: 11px;
   height: 11px;
   border-radius: 50%;
@@ -137,6 +137,40 @@
   font-size: 6px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+.screenplay-object--compact {
+  width: auto;
+  height: 100%;
+  border-radius: 3px 6px 6px 3px;
+  box-shadow:
+    0 8px 18px rgb(0 0 0 / 0.22),
+    2px 2px 0 #e7e5df,
+    4px 4px 0 #d4d7de;
+}
+.screenplay-object--compact .screenplay-object__spine {
+  inset: -1px auto -3px -5.5%;
+  min-width: 6px;
+  max-width: 8px;
+  border-radius: 3px 0 0 3px;
+}
+.screenplay-object--compact .screenplay-object__brad {
+  left: 5px;
+  width: 6px;
+  height: 6px;
+  box-shadow:
+    inset 1px 1px 1px #f4dc8b,
+    inset -1px -1px 2px #664310,
+    0 1px 2px rgb(0 0 0 / 0.26);
+}
+.screenplay-object--compact .screenplay-object__title-page {
+  inset: 16% 10%;
+}
+.screenplay-object--compact .screenplay-object__title-page strong,
+.screenplay-object--compact .screenplay-object__title-page--long strong,
+.screenplay-object--compact .screenplay-object__title-page--very-long strong {
+  -webkit-line-clamp: 4;
+  font-size: 8px;
+  line-height: 1.08;
 }
 @media (prefers-reduced-motion: reduce) {
   .screenplay-object--featured {

@@ -32,20 +32,44 @@ vi.mock('@/stores/authStore', () => ({
 }));
 
 vi.mock('@/components/project', () => ({
-  ProjectWorkspace: ({ screenplay, activeTab, onSelectTab, onBack }: { screenplay: Screenplay; activeTab: string; onSelectTab: (tab: string) => void; onBack: () => void }) => (
+  ProjectWorkspace: ({
+    screenplay,
+    activeTab,
+    onSelectTab,
+    onBack,
+  }: {
+    screenplay: Screenplay;
+    activeTab: string;
+    onSelectTab: (tab: string) => void;
+    onBack: () => void;
+  }) => (
     <div data-testid="project-workspace">
       <h1>{screenplay.title}</h1>
       <span>Active tab: {activeTab}</span>
-      <button type="button" onClick={() => onSelectTab('reader-room')}>Open Reader Room</button>
-      <button type="button" onClick={onBack}>Back to Discovery</button>
+      <button type="button" onClick={() => onSelectTab('reader-room')}>
+        Open Reader Room
+      </button>
+      <button type="button" onClick={onBack}>
+        Back to Discovery
+      </button>
     </div>
   ),
   ProjectWorkspaceState: ({ title }: { title: string }) => <div>{title}</div>,
-  ScreenplayFileWorkspace: ({ screenplay, activeTab, onSelectTab }: { screenplay: Screenplay; activeTab: string; onSelectTab: (tab: string) => void }) => (
+  ScreenplayFileWorkspace: ({
+    screenplay,
+    activeTab,
+    onSelectTab,
+  }: {
+    screenplay: Screenplay;
+    activeTab: string;
+    onSelectTab: (tab: string) => void;
+  }) => (
     <div data-testid="screenplay-file-workspace">
       <h1>{screenplay.title}</h1>
       <span>File tab: {activeTab}</span>
-      <button type="button" onClick={() => onSelectTab('scores')}>Open Scores</button>
+      <button type="button" onClick={() => onSelectTab('scores')}>
+        Open Scores
+      </button>
     </div>
   ),
 }));
@@ -63,9 +87,7 @@ function screenplay(overrides: Partial<Screenplay> = {}): Screenplay {
   });
 }
 
-function renderRoute(
-  entry: string | { pathname: string; state?: Record<string, unknown> },
-) {
+function renderRoute(entry: string | { pathname: string; state?: Record<string, unknown> }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
@@ -94,7 +116,7 @@ describe('Project Workspace route', () => {
     );
     expect(mainSource).toContain('path="/projects/:projectId/:section?"');
     expect(mainSource).toContain('areaName="Project Workspace"');
-    expect(mainSource).toMatch(/<AuthGate><ProjectWorkspacePage \/><\/AuthGate>/);
+    expect(mainSource).toMatch(/<AuthGate>\s*<ProjectWorkspacePage \/>\s*<\/AuthGate>/);
   });
 
   it('opens and switches deep-linkable replacement tabs', async () => {

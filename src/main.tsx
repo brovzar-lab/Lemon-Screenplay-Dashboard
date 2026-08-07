@@ -11,11 +11,12 @@ import { importWithReload } from '@/lib/lazyWithReload';
 // Lazy-loaded routes — loaded on demand for code splitting
 const SettingsPage = lazy(() => importWithReload('settings', () => import('./pages/SettingsPage')));
 const DiscoverPage = lazy(() => importWithReload('discover', () => import('./pages/DiscoverPage')));
-const IntakePage = lazy(() => importWithReload('intake', () => import('@/pages/IntakePage')));
 const ProjectWorkspacePage = lazy(() =>
   importWithReload('project-workspace', () => import('@/pages/ProjectWorkspacePage')),
 );
-const SharedViewPage = lazy(() => importWithReload('shared-view', () => import('./pages/SharedViewPage')));
+const SharedViewPage = lazy(() =>
+  importWithReload('shared-view', () => import('./pages/SharedViewPage')),
+);
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -40,7 +41,9 @@ createRoot(document.getElementById('root')!).render(
                 path="/"
                 element={
                   <ErrorBoundary fullPage areaName="Dashboard">
-                    <AuthGate><App /></AuthGate>
+                    <AuthGate>
+                      <App />
+                    </AuthGate>
                   </ErrorBoundary>
                 }
               />
@@ -48,7 +51,9 @@ createRoot(document.getElementById('root')!).render(
                 path="/settings"
                 element={
                   <ErrorBoundary fullPage areaName="Settings">
-                    <AuthGate requireAdmin><SettingsPage /></AuthGate>
+                    <AuthGate requireAdmin>
+                      <SettingsPage />
+                    </AuthGate>
                   </ErrorBoundary>
                 }
               />
@@ -56,7 +61,9 @@ createRoot(document.getElementById('root')!).render(
                 path="/discover/:projectId?"
                 element={
                   <ErrorBoundary fullPage areaName="Discovery">
-                    <AuthGate><DiscoverPage /></AuthGate>
+                    <AuthGate>
+                      <DiscoverPage />
+                    </AuthGate>
                   </ErrorBoundary>
                 }
               />
@@ -64,7 +71,9 @@ createRoot(document.getElementById('root')!).render(
                 path="/intake"
                 element={
                   <ErrorBoundary fullPage areaName="Intake">
-                    <AuthGate requireAdmin><IntakePage /></AuthGate>
+                    <AuthGate requireAdmin>
+                      <Navigate to="/settings?tab=intake" replace />
+                    </AuthGate>
                   </ErrorBoundary>
                 }
               />
@@ -72,7 +81,9 @@ createRoot(document.getElementById('root')!).render(
                 path="/projects/:projectId/:section?"
                 element={
                   <ErrorBoundary fullPage areaName="Project Workspace">
-                    <AuthGate><ProjectWorkspacePage /></AuthGate>
+                    <AuthGate>
+                      <ProjectWorkspacePage />
+                    </AuthGate>
                   </ErrorBoundary>
                 }
               />
@@ -91,5 +102,5 @@ createRoot(document.getElementById('root')!).render(
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>
-  </StrictMode>
+  </StrictMode>,
 );

@@ -1,7 +1,7 @@
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { formatAnalysisVersion } from '@/lib/producerDisplay';
-import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import '@/components/discover/screenplay/blue-spine-script.css';
 
 interface BlueSpineScriptProps {
@@ -9,6 +9,7 @@ interface BlueSpineScriptProps {
   className?: string;
   featured?: boolean;
   rank?: number;
+  presentation?: 'full' | 'compact';
 }
 
 export function BlueSpineScript({
@@ -16,18 +17,25 @@ export function BlueSpineScript({
   className,
   featured = false,
   rank,
+  presentation = 'full',
 }: BlueSpineScriptProps) {
   const displayTitle = getScreenplayDisplayTitle(screenplay.title);
+  const isCompact = presentation === 'compact';
 
   return (
     <div
-      className={clsx('screenplay-object', featured && 'screenplay-object--featured', className)}
+      className={clsx(
+        'screenplay-object',
+        featured && 'screenplay-object--featured',
+        isCompact && 'screenplay-object--compact',
+        className,
+      )}
       aria-hidden="true"
     >
       <span className="screenplay-object__spine" />
       <span className="screenplay-object__brad screenplay-object__brad--top" />
       <span className="screenplay-object__brad screenplay-object__brad--bottom" />
-      {rank && <span className="screenplay-object__rank">#{rank}</span>}
+      {!isCompact && rank && <span className="screenplay-object__rank">#{rank}</span>}
       <div
         className={clsx(
           'screenplay-object__title-page',
@@ -35,16 +43,20 @@ export function BlueSpineScript({
         )}
       >
         <strong>{displayTitle.title}</strong>
-        {displayTitle.qualifier && <em>{displayTitle.qualifier}</em>}
+        {!isCompact && displayTitle.qualifier && <em>{displayTitle.qualifier}</em>}
       </div>
-      <div className="screenplay-object__byline">
-        <span>Written by</span>
-        <small>{screenplay.author || 'Unknown writer'}</small>
-      </div>
-      <div className="screenplay-object__folio">
-        <span>LEMON STUDIOS</span>
-        <span>{formatAnalysisVersion(screenplay.analysisVersion)}</span>
-      </div>
+      {!isCompact && (
+        <>
+          <div className="screenplay-object__byline">
+            <span>Written by</span>
+            <small>{getScreenplayDisplayAuthor(screenplay.author)}</small>
+          </div>
+          <div className="screenplay-object__folio">
+            <span>LEMON STUDIOS</span>
+            <span>{formatAnalysisVersion(screenplay.analysisVersion)}</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

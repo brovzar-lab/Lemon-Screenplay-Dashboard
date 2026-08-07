@@ -9,7 +9,12 @@ import type {
 import type { RankedScreenplay } from '@/components/discover/screenplay/screenplayRankingProjection';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
-import { getScreenplayDisplayTitle, getScreenplayFormatInfo } from '@/lib/screenplayDisplay';
+import {
+  getScreenplayDisplayAuthor,
+  getScreenplayDisplayGenre,
+  getScreenplayDisplayTitle,
+  getScreenplayFormatInfo,
+} from '@/lib/screenplayDisplay';
 import type { ProducerAssessmentHead } from '@/types';
 
 function ordinal(value: number): string {
@@ -39,6 +44,7 @@ export function ScreenplayGrid({
       {entries.map(({ screenplay, rank }) => {
         const percentile = percentiles.get(screenplay.id);
         const displayTitle = getScreenplayDisplayTitle(screenplay.title);
+        const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
         const formatInfo = getScreenplayFormatInfo(screenplay);
         return (
           <li
@@ -62,7 +68,7 @@ export function ScreenplayGrid({
                 <span className="screenplay-wall__title">
                   <strong>{displayTitle.title}</strong>
                   {displayTitle.qualifier && <em>{displayTitle.qualifier}</em>}
-                  <small>{screenplay.author || 'Unknown writer'}</small>
+                  <small>{displayAuthor}</small>
                 </span>
                 <span className="screenplay-wall__score">
                   <strong>{screenplay.weightedScore.toFixed(1)}</strong>
@@ -70,7 +76,7 @@ export function ScreenplayGrid({
                 </span>
                 <span className="screenplay-wall__meta">
                   <RecommendationBadge tier={screenplay.recommendation} />
-                  <span>{screenplay.genre}</span>
+                  <span>{getScreenplayDisplayGenre(screenplay.genre)}</span>
                 </span>
                 <span className="screenplay-wall__facts" aria-label="Screenplay format and source">
                   <span>{formatInfo.format}</span>
