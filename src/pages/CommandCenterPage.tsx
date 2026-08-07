@@ -123,7 +123,7 @@ function SectionTitle({ accent, label, sub, badge }: {
   )
 }
 
-// ── Section 1: YOUR MOVE ───────────────────────────────────────────────────────
+// ── Section 1: NEEDS YOUR EYES ────────────────────────────────────────────────
 
 function YourMoveSection({ titles }: { titles: Title[] }) {
   const gate = useMemo(() => {
@@ -161,7 +161,7 @@ function YourMoveSection({ titles }: { titles: Title[] }) {
         <div className="flex items-center gap-2.5">
           <span className="w-1 h-6 rounded-full bg-lemon-400 shrink-0" />
           <div>
-            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-100">Your Move</h2>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-100">Needs Your Eyes</h2>
             <p className="text-xs text-gray-500 mt-0.5">Decision queue — titles awaiting review</p>
           </div>
         </div>
@@ -227,7 +227,7 @@ function YourMoveSection({ titles }: { titles: Title[] }) {
   )
 }
 
-// ── Section 2: FIRE WATCH ──────────────────────────────────────────────────────
+// ── Section 2: PROJECT WATCH ──────────────────────────────────────────────────
 
 function FireWatchSection({ titles }: { titles: Title[] }) {
   const active = useMemo(() => titles.filter(t => t.status !== 'killed'), [titles])
@@ -277,7 +277,7 @@ function FireWatchSection({ titles }: { titles: Title[] }) {
     <section>
       <SectionTitle
         accent="bg-status-kill"
-        label="Fire Watch"
+        label="Project Watch"
         sub="Alerts requiring immediate action"
       />
 
@@ -382,7 +382,7 @@ function FireWatchSection({ titles }: { titles: Title[] }) {
   )
 }
 
-// ── Section 3: PIPELINE PULSE ──────────────────────────────────────────────────
+// ── Section 3: PIPELINE STATUS ─────────────────────────────────────────────────
 
 function PipelinePulseSection({ titles }: { titles: Title[] }) {
   const active = useMemo(
@@ -416,7 +416,7 @@ function PipelinePulseSection({ titles }: { titles: Title[] }) {
     <section>
       <SectionTitle
         accent="bg-status-dev"
-        label="Pipeline Pulse"
+        label="Pipeline Status"
         sub="Stage velocity and age health across the active slate"
       />
 
@@ -485,7 +485,7 @@ function PipelinePulseSection({ titles }: { titles: Title[] }) {
   )
 }
 
-// ── Section 4: MARKET RADAR ────────────────────────────────────────────────────
+// ── Section 4: MARKET INTEL ────────────────────────────────────────────────────
 
 const APPETITE_COLOR: Record<string, string> = {
   high:   'text-status-green',
@@ -515,7 +515,7 @@ function MarketRadarSection({ reports, loading }: { reports: MarketIntelReport[]
     <section>
       <SectionTitle
         accent="bg-lemon-600"
-        label="Market Radar"
+        label="Market Intel"
         sub="Platform appetite, genre landscape, and slate alignment"
         badge="Phase 2 — data pipeline pending"
       />
