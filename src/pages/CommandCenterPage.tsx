@@ -139,9 +139,9 @@ function KpiBar({ titles }: { titles: Title[] }) {
   const pitching  = active.filter(t => PITCH_STAGES.has(t.pipelineStage)).length
   const hold      = active.filter(t => t.status === 'hold').length
   return (
-    <div className="bg-surface-2 border-b border-border px-6 py-2.5 flex items-center gap-6 flex-shrink-0">
+    <div className="bg-surface-2 border-b border-border px-3 sm:px-6 py-2 sm:py-2.5 flex items-center flex-wrap gap-4 sm:gap-6 flex-shrink-0">
       <KpiItem value={active.length} label="Active Titles" />
-      <div className="w-px h-8 bg-border" />
+      <div className="hidden sm:block w-px h-8 bg-border" />
       <KpiItem value={greenlit}  label="Greenlit"       color="text-status-green" />
       <KpiItem value={activeDev} label="Active Dev"     color="text-status-dev" />
       <KpiItem value={inDev}     label="In Development" color="text-blue-400" />
@@ -175,13 +175,13 @@ function CommandStrip({
 }) {
   const ts = useLiveClock()
   return (
-    <div className="bg-surface-2/90 border-b border-border flex items-stretch flex-shrink-0 h-20 px-6">
+    <div className="bg-surface-2/90 border-b border-border flex-shrink-0 grid grid-cols-2 sm:flex sm:items-stretch sm:h-20 px-3 sm:px-6 py-2 sm:py-0">
       <HeroNum num={decisions}      label="Decisions Pending" color="text-lemon-400" />
       <HeroNum num={watchlist}      label="On Watchlist"      color="text-status-dev" />
       <HeroNum num={agentsRunning ?? '--'} label="Agents Running"   color="text-status-green" />
       <HeroNum num={stalled}        label="Titles Stalled"    color="text-status-hold" last />
-      <div className="flex-1" />
-      <div className="flex items-center gap-3">
+      <div className="hidden sm:flex flex-1" />
+      <div className="hidden sm:flex items-center gap-3">
         <span className="w-2.5 h-2.5 rounded-full bg-lemon-400 animate-pulse flex-shrink-0" />
         <span className="text-[10px] font-bold uppercase tracking-widest text-lemon-400">
           Mission Control · Live
@@ -201,8 +201,8 @@ function HeroNum({
   last?: boolean
 }) {
   return (
-    <div className={`flex flex-col items-start justify-center gap-1 px-7 ${last ? '' : 'border-r border-border/70'}`}>
-      <span className={`text-[40px] font-extrabold leading-none tabular-nums tracking-tighter ${color}`}>
+    <div className={`flex flex-col items-start justify-center gap-1 px-3 sm:px-7 py-2 sm:py-0 ${last ? '' : 'sm:border-r sm:border-border/70'}`}>
+      <span className={`text-[28px] sm:text-[40px] font-extrabold leading-none tabular-nums tracking-tighter ${color}`}>
         {num}
       </span>
       <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-700">{label}</span>
@@ -371,7 +371,7 @@ function YourMove({ titles }: { titles: Title[] }) {
       />
       <div className="bg-surface-2 border border-border rounded-xl overflow-hidden">
         <div
-          className="grid px-3.5 py-1.5 border-b border-border text-[10px] font-semibold uppercase tracking-wide text-gray-700 gap-2"
+          className="hidden sm:grid px-3.5 py-1.5 border-b border-border text-[10px] font-semibold uppercase tracking-wide text-gray-700 gap-2"
           style={{ gridTemplateColumns: '1fr 52px 94px 50px 72px 28px 28px' }}
         >
           <span>Title / Genre</span>
@@ -390,34 +390,64 @@ function YourMove({ titles }: { titles: Title[] }) {
             <Link
               key={t.id}
               to={`/titles/${t.id}`}
-              className="grid px-3.5 py-2 border-b border-border/50 last:border-0 items-center gap-2 hover:bg-surface-3 transition-colors"
-              style={{ gridTemplateColumns: '1fr 52px 94px 50px 72px 28px 28px' }}
+              className="block border-b border-border/50 last:border-0 hover:bg-surface-3 transition-colors"
             >
-              <div>
-                <div className="text-[13px] font-medium text-gray-200 truncate">{t.name}</div>
-                <div className="text-[10px] text-gray-600 mt-0.5">{t.genre.slice(0, 2).join(' · ')}</div>
-              </div>
-              <span className="text-[11px] text-gray-500">{formatLabel(t.format)}</span>
-              <span className="text-[11px] text-gray-500">{stageLabel(t.pipelineStage)}</span>
-              <span className={`text-[12px] font-bold tabular-nums text-right ${waitColor(wait)}`}>
-                {wait}d
-              </span>
-              <span className={`text-[12px] font-bold tabular-nums text-right ${deadlineColor(dl)}`}>
-                {dl === null ? '—' : dl < 7 ? `🔴 ${dl}d` : `${dl}d`}
-              </span>
-              <span
-                className={`text-[11px] font-bold text-right ${
-                  dl !== null && dl < 7
-                    ? 'text-status-kill'
-                    : dl !== null && dl < 14
-                    ? 'text-status-hold'
-                    : 'text-gray-700'
-                }`}
+              {/* Desktop grid layout */}
+              <div
+                className="hidden sm:grid px-3.5 py-2 items-center gap-2"
+                style={{ gridTemplateColumns: '1fr 52px 94px 50px 72px 28px 28px' }}
               >
-                {flag}
-              </span>
-              <div className="flex justify-end" onClick={e => e.preventDefault()}>
-                <StarToggle titleId={t.id} watched={t.ceoWatch ?? false} />
+                <div>
+                  <div className="text-[13px] font-medium text-gray-200 truncate">{t.name}</div>
+                  <div className="text-[10px] text-gray-600 mt-0.5">{t.genre.slice(0, 2).join(' · ')}</div>
+                </div>
+                <span className="text-[11px] text-gray-500">{formatLabel(t.format)}</span>
+                <span className="text-[11px] text-gray-500">{stageLabel(t.pipelineStage)}</span>
+                <span className={`text-[12px] font-bold tabular-nums text-right ${waitColor(wait)}`}>
+                  {wait}d
+                </span>
+                <span className={`text-[12px] font-bold tabular-nums text-right ${deadlineColor(dl)}`}>
+                  {dl === null ? '—' : dl < 7 ? `🔴 ${dl}d` : `${dl}d`}
+                </span>
+                <span
+                  className={`text-[11px] font-bold text-right ${
+                    dl !== null && dl < 7
+                      ? 'text-status-kill'
+                      : dl !== null && dl < 14
+                      ? 'text-status-hold'
+                      : 'text-gray-700'
+                  }`}
+                >
+                  {flag}
+                </span>
+                <div className="flex justify-end" onClick={e => e.preventDefault()}>
+                  <StarToggle titleId={t.id} watched={t.ceoWatch ?? false} />
+                </div>
+              </div>
+              {/* Mobile card layout */}
+              <div className="sm:hidden px-3.5 py-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-medium text-gray-200 truncate">{t.name}</div>
+                    <div className="text-[10px] text-gray-600 mt-0.5">
+                      {stageLabel(t.pipelineStage)} · {formatLabel(t.format)} · {t.genre.slice(0, 1).join('')}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.preventDefault()}>
+                    <StarToggle titleId={t.id} watched={t.ceoWatch ?? false} />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <span className={`text-[11px] font-semibold tabular-nums ${waitColor(wait)}`}>Wait {wait}d</span>
+                  <span className={`text-[11px] font-semibold tabular-nums ${deadlineColor(dl)}`}>
+                    {dl === null ? 'No deadline' : `Due ${dl}d`}
+                  </span>
+                  {flag !== '—' && (
+                    <span className={`text-[10px] font-bold ${dl !== null && dl < 7 ? 'text-status-kill' : 'text-status-hold'}`}>
+                      {flag}
+                    </span>
+                  )}
+                </div>
               </div>
             </Link>
           )
@@ -469,7 +499,7 @@ function MyWatchlist({ titles }: { titles: Title[] }) {
       />
       <div className="bg-surface-2 border border-border rounded-xl overflow-hidden">
         <div
-          className="grid px-3.5 py-1.5 border-b border-border text-[10px] font-semibold uppercase tracking-wide text-gray-700 gap-2"
+          className="hidden sm:grid px-3.5 py-1.5 border-b border-border text-[10px] font-semibold uppercase tracking-wide text-gray-700 gap-2"
           style={{ gridTemplateColumns: '1fr 90px 104px 1fr 28px' }}
         >
           <span>Project</span>
@@ -482,32 +512,57 @@ function MyWatchlist({ titles }: { titles: Title[] }) {
           <Link
             key={t.id}
             to={`/titles/${t.id}`}
-            className="grid px-3.5 py-2 border-b border-border/50 last:border-0 items-center gap-2 hover:bg-surface-3 transition-colors"
-            style={{ gridTemplateColumns: '1fr 90px 104px 1fr 28px' }}
+            className="block border-b border-border/50 last:border-0 hover:bg-surface-3 transition-colors"
           >
-            <div>
-              <div className="text-[13px] font-medium text-gray-200 truncate">{t.name}</div>
-              <div className="text-[10px] text-gray-600 mt-0.5">
-                {t.genre.slice(0, 1).join('')} · {formatLabel(t.format)}
+            {/* Desktop grid layout */}
+            <div
+              className="hidden sm:grid px-3.5 py-2 items-center gap-2"
+              style={{ gridTemplateColumns: '1fr 90px 104px 1fr 28px' }}
+            >
+              <div>
+                <div className="text-[13px] font-medium text-gray-200 truncate">{t.name}</div>
+                <div className="text-[10px] text-gray-600 mt-0.5">
+                  {t.genre.slice(0, 1).join('')} · {formatLabel(t.format)}
+                </div>
+              </div>
+              <span className="text-[11px] text-gray-500">{stageLabel(t.pipelineStage)}</span>
+              <span className="text-[11px] text-gray-500">{relativeTime(t.updatedAt)}</span>
+              <span
+                className={
+                  t.blockers.length
+                    ? 'text-[11px] text-status-hold flex items-center gap-1 truncate'
+                    : 'text-[11px] text-status-green'
+                }
+              >
+                {t.blockers.length ? (
+                  <><span>⚠</span><span className="truncate">{t.blockers[0]}</span></>
+                ) : (
+                  'All clear'
+                )}
+              </span>
+              <div className="flex justify-end" onClick={e => e.preventDefault()}>
+                <StarToggle titleId={t.id} watched={true} />
               </div>
             </div>
-            <span className="text-[11px] text-gray-500">{stageLabel(t.pipelineStage)}</span>
-            <span className="text-[11px] text-gray-500">{relativeTime(t.updatedAt)}</span>
-            <span
-              className={
-                t.blockers.length
-                  ? 'text-[11px] text-status-hold flex items-center gap-1 truncate'
-                  : 'text-[11px] text-status-green'
-              }
-            >
-              {t.blockers.length ? (
-                <><span>⚠</span><span className="truncate">{t.blockers[0]}</span></>
-              ) : (
-                'All clear'
-              )}
-            </span>
-            <div className="flex justify-end" onClick={e => e.preventDefault()}>
-              <StarToggle titleId={t.id} watched={true} />
+            {/* Mobile card layout */}
+            <div className="sm:hidden px-3.5 py-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-medium text-gray-200 truncate">{t.name}</div>
+                  <div className="text-[10px] text-gray-600 mt-0.5">
+                    {t.genre.slice(0, 1).join('')} · {formatLabel(t.format)} · {stageLabel(t.pipelineStage)}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.preventDefault()}>
+                  <StarToggle titleId={t.id} watched={true} />
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-1.5">
+                <span className="text-[10px] text-gray-600">{relativeTime(t.updatedAt)}</span>
+                <span className={t.blockers.length ? 'text-[10px] text-status-hold' : 'text-[10px] text-status-green'}>
+                  {t.blockers.length ? `⚠ ${t.blockers[0]}` : 'All clear'}
+                </span>
+              </div>
             </div>
           </Link>
         ))}
@@ -521,9 +576,11 @@ function MyWatchlist({ titles }: { titles: Title[] }) {
 function StudioPulse({
   titles,
   agents,
+  mobile = false,
 }: {
   titles: Title[]
   agents: PaperclipAgent[] | null
+  mobile?: boolean
 }) {
   const active  = titles.filter(t => t.status !== 'killed')
   const stalled = active.filter(t => daysSince(t.updatedAt) >= 14).length
@@ -555,7 +612,10 @@ function StudioPulse({
   const idle    = agents?.filter(a => a.status === 'idle').length ?? null
 
   return (
-    <div className="w-[440px] flex-shrink-0 bg-surface border-l border-border px-4 py-3.5 flex flex-col gap-4 overflow-hidden">
+    <div className={mobile
+      ? 'w-full bg-surface px-4 py-3.5 flex flex-col gap-4 overflow-y-auto max-h-72'
+      : 'hidden sm:flex sm:flex-col w-[440px] flex-shrink-0 bg-surface border-l border-border px-4 py-3.5 gap-4 overflow-hidden'
+    }>
       <div className="flex items-center justify-between flex-shrink-0">
         <span className="text-[13px] font-bold text-gray-100 tracking-tight">Studio Pulse</span>
       </div>
@@ -684,6 +744,7 @@ export function CommandCenterPage() {
     )
   }
 
+  const [pulseOpen, setPulseOpen] = useState(false)
   const leftEmpty = decisionTitles.length === 0 && watchedTitles.length === 0
 
   return (
@@ -697,17 +758,30 @@ export function CommandCenterPage() {
       />
       {paperclip && <AgentBoard agents={paperclip.agents} />}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left column */}
-        <div className="flex-1 px-6 py-3.5 flex flex-col gap-4 overflow-y-auto border-r border-border">
-          <YourMove titles={titles} />
-          <MyWatchlist titles={titles} />
-          {leftEmpty && (
-            <div className="flex-1 flex items-center justify-center text-gray-700 text-sm">
-              No titles in queue or watchlist.
-            </div>
-          )}
+        {/* Left column + mobile pulse accordion */}
+        <div className="flex-1 flex flex-col overflow-hidden sm:border-r border-border">
+          <div className="flex-1 px-4 sm:px-6 py-3.5 flex flex-col gap-4 overflow-y-auto">
+            <YourMove titles={titles} />
+            <MyWatchlist titles={titles} />
+            {leftEmpty && (
+              <div className="flex-1 flex items-center justify-center text-gray-700 text-sm">
+                No titles in queue or watchlist.
+              </div>
+            )}
+          </div>
+          {/* Mobile Studio Pulse accordion */}
+          <div className="sm:hidden flex-shrink-0 border-t border-border">
+            <button
+              onClick={() => setPulseOpen(v => !v)}
+              className="w-full px-4 py-3 flex items-center justify-between bg-surface-2 hover:bg-surface-3 transition-colors"
+            >
+              <span className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Studio Pulse</span>
+              <span className="text-[10px] text-gray-600">{pulseOpen ? '▲' : '▼'}</span>
+            </button>
+            {pulseOpen && <StudioPulse titles={titles} agents={paperclip?.agents ?? null} mobile />}
+          </div>
         </div>
-        {/* Right sidebar */}
+        {/* Desktop right sidebar */}
         <StudioPulse titles={titles} agents={paperclip?.agents ?? null} />
       </div>
     </div>
