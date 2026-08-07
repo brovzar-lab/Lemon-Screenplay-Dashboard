@@ -4,10 +4,10 @@ import type { DiscoverShellProps } from '@/components/discover/DiscoverShell';
 import { DiscoverySelectionBar } from '@/components/discover/DiscoverySelectionBar';
 import { HybridCommandRail } from '@/components/discover/hybrid/HybridCommandRail';
 import { HybridHeader } from '@/components/discover/hybrid/HybridHeader';
-import {
-  ScreenplayFeature,
-  ScreenplayGrid,
-} from '@/components/discover/screenplay/ScreenplayResults';
+import { ScreenplayRanking } from '@/components/discover/screenplay/ScreenplayRanking';
+import { ScreenplayGrid } from '@/components/discover/screenplay/ScreenplayResults';
+import { ScreenplaySlateStats } from '@/components/discover/screenplay/ScreenplaySlateStats';
+import { buildScreenplayRanking } from '@/components/discover/screenplay/screenplayRankingProjection';
 import { usePercentiles } from '@/hooks/usePercentiles';
 import { useHasSelection } from '@/stores/selectionStore';
 import { useSortStore } from '@/stores/sortStore';
@@ -83,17 +83,18 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
     (state) => state.sortConfigs[0]?.field ?? 'weightedScore',
   ) as SortField;
   const percentiles = usePercentiles(allScreenplays);
-  const signature = useMemo(
-    () => screenplays.map((screenplay) => screenplay.id).join('|'),
-    [screenplays],
+  const ranking = useMemo(
+    () => buildScreenplayRanking(screenplays, activeSort),
+    [activeSort, screenplays],
   );
-  const pageCount = Math.max(1, Math.ceil(screenplays.length / PAGE_SIZE));
+  const signature = useMemo(
+    () => ranking.wall.map((entry) => entry.screenplay.id).join('|'),
+    [ranking.wall],
+  );
+  const pageCount = Math.max(1, Math.ceil(ranking.wall.length / PAGE_SIZE));
   const safePage =
     archivePosition.signature === signature ? Math.min(archivePosition.page, pageCount) : 1;
-  const visibleScreenplays = screenplays.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const featured =
-    screenplays.find((screenplay) => screenplay.producerProjection?.rankable !== false) ??
-    screenplays[0];
+  const visibleEntries = ranking.wall.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const handleOpen = useCallback(
     (screenplay: Screenplay, trigger: HTMLButtonElement) => {
@@ -118,6 +119,12 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         shortcutsEnabled={!selectedScreenplay}
         onOpenScreenplay={handleOpen}
         presentation="screenplay"
+      />
+      <ScreenplaySlateStats
+        screenplays={screenplays}
+        totalCount={totalCount}
+        producerLookCount={producerLookCount ?? 0}
+        loading={isLoading}
       />
       <HybridCommandRail
         genres={genres}
@@ -159,12 +166,19 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
           />
         ) : (
           <>
-            {featured && (
-              <ScreenplayFeature
-                screenplay={featured}
+            {ranking.showRanking && ranking.topResult && ranking.reason && (
+              <ScreenplayRanking
+                topResult={ranking.topResult}
+                nextThree={ranking.nextThree}
+                reason={ranking.reason}
+                filterContext={
+                  hasActiveFilters
+                    ? `Current filters · ${filteredCount} of ${totalCount} visible`
+                    : 'All visible screenplays'
+                }
                 sortField={activeSort}
                 percentiles={percentiles}
-                producerAssessment={producerAssessments.get(featured.projectId ?? featured.id)}
+                producerAssessments={producerAssessments}
                 producerLookIds={producerLookIds}
                 onOpen={handleOpen}
               />
@@ -173,7 +187,9 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
               <header className="screenplay-slate__heading">
                 <div>
                   <p className="screenplay-ui-eyebrow">Searchable archive</p>
-                  <h2 id="screenplay-slate-title">The complete slate</h2>
+                  <h2 id="screenplay-slate-title">
+                    {ranking.showRanking ? 'Continue through the slate' : 'The complete slate'}
+                  </h2>
                 </div>
                 <p aria-live="polite">
                   <strong>
@@ -198,8 +214,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
                 </p>
               </header>
               <ScreenplayGrid
-                screenplays={visibleScreenplays}
-                rankOffset={(safePage - 1) * PAGE_SIZE}
+                entries={visibleEntries}
                 percentiles={percentiles}
                 producerAssessments={producerAssessments}
                 producerLookIds={producerLookIds}

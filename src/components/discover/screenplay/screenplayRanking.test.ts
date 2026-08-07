@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestScreenplay } from '@/test/factories';
 import type { Screenplay, SortField } from '@/types';
-import { buildScreenplayRanking } from './screenplayRanking';
+import { buildScreenplayRanking } from './screenplayRankingProjection';
 
 function slate(count = 7): Screenplay[] {
   return Array.from({ length: count }, (_, index) =>

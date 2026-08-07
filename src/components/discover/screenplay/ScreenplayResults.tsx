@@ -2,18 +2,15 @@ import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelec
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { DevelopmentOpportunityBadge } from '@/components/discover/DevelopmentOpportunityBadge';
 import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
+import type {
+  OpenScreenplay,
+  PercentileMap,
+} from '@/components/discover/screenplay/screenplayPresentationTypes';
+import type { RankedScreenplay } from '@/components/discover/screenplay/screenplayRankingProjection';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
-import { getDimensionDisplay } from '@/lib/dimensionDisplay';
-import type { PercentileRank } from '@/lib/percentileRanking';
 import { getScreenplayDisplayTitle, getScreenplayFormatInfo } from '@/lib/screenplayDisplay';
-import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
-
-type PercentileMap = ReadonlyMap<string, PercentileRank>;
-
-interface OpenScreenplay {
-  (screenplay: Screenplay, trigger: HTMLButtonElement): void;
-}
+import type { ProducerAssessmentHead } from '@/types';
 
 function ordinal(value: number): string {
   const lastTwo = value % 100;
@@ -24,103 +21,14 @@ function ordinal(value: number): string {
   return `${value}th`;
 }
 
-function sortLabel(sortField: SortField): string {
-  if (sortField === 'title') return 'First by title';
-  if (sortField === 'marketPotential') return 'Top market potential';
-  if (sortField === 'cvsTotal') return 'Top commercial viability';
-  return 'Top weighted score';
-}
-
-export function ScreenplayFeature({
-  screenplay,
-  sortField,
-  percentiles,
-  producerAssessment,
-  producerLookIds,
-  onOpen,
-}: {
-  screenplay: Screenplay;
-  sortField: SortField;
-  percentiles: PercentileMap;
-  producerAssessment?: ProducerAssessmentHead;
-  producerLookIds?: ReadonlySet<string>;
-  onOpen: OpenScreenplay;
-}) {
-  const percentile = percentiles.get(screenplay.id);
-  const pillars = getDimensionDisplay(screenplay).slice(0, 5);
-  const displayTitle = getScreenplayDisplayTitle(screenplay.title);
-  const formatInfo = getScreenplayFormatInfo(screenplay);
-
-  return (
-    <article
-      className="screenplay-feature"
-      data-testid="screenplay-discovery-featured"
-      data-screenplay-id={screenplay.id}
-    >
-      <DiscoverySelectionCheckbox screenplay={screenplay} />
-      <div className="screenplay-feature__object">
-        <BlueSpineScript screenplay={screenplay} featured rank={1} />
-      </div>
-      <div className="screenplay-feature__brief">
-        <p className="screenplay-ui-eyebrow">Featured screenplay</p>
-        <h1>{displayTitle.title}</h1>
-        {displayTitle.qualifier && (
-          <p className="screenplay-feature__qualifier">{displayTitle.qualifier}</p>
-        )}
-        <p className="screenplay-feature__meta">
-          {formatInfo.format} <span>·</span> {screenplay.genre} <span>·</span>{' '}
-          {screenplay.author || 'Unknown writer'}
-        </p>
-        <p className="screenplay-feature__logline">
-          {screenplay.logline || 'Logline not yet available.'}
-        </p>
-        <div className="screenplay-feature__decision">
-          <RecommendationBadge tier={screenplay.recommendation} />
-          <DevelopmentOpportunityBadge
-            screenplay={screenplay}
-            assessment={producerAssessment}
-            routed={producerLookIds?.has(screenplay.projectId ?? screenplay.id)}
-          />
-          <span>{sortLabel(sortField)}</span>
-        </div>
-        <button
-          type="button"
-          className="screenplay-primary-action"
-          onClick={(event) => onOpen(screenplay, event.currentTarget)}
-        >
-          Open screenplay file <span aria-hidden="true">→</span>
-        </button>
-      </div>
-      <aside className="screenplay-feature__score" aria-label="Featured screenplay scores">
-        <span>Weighted score</span>
-        <strong>{screenplay.weightedScore.toFixed(1)}</strong>
-        <small>
-          {percentile ? `${ordinal(percentile.overall)} percentile` : 'Slate position pending'}
-        </small>
-        <div className="screenplay-feature__pillars">
-          {pillars.map((pillar) => (
-            <div key={pillar.key}>
-              <span>{pillar.label}</span>
-              <progress value={Math.max(0, Math.min(10, pillar.score))} max={10} />
-              <b>{pillar.score.toFixed(1)}</b>
-            </div>
-          ))}
-        </div>
-      </aside>
-    </article>
-  );
-}
-
 export function ScreenplayGrid({
-  screenplays,
-  rankOffset,
+  entries,
   percentiles,
   producerAssessments,
   producerLookIds,
   onOpen,
 }: {
-  screenplays: Screenplay[];
-  rankOffset: number;
+  entries: RankedScreenplay[];
   percentiles: PercentileMap;
   producerAssessments?: ReadonlyMap<string, ProducerAssessmentHead>;
   producerLookIds?: ReadonlySet<string>;
@@ -128,7 +36,7 @@ export function ScreenplayGrid({
 }) {
   return (
     <ul className="screenplay-wall" data-testid="screenplay-discovery-grid">
-      {screenplays.map((screenplay, index) => {
+      {entries.map(({ screenplay, rank }) => {
         const percentile = percentiles.get(screenplay.id);
         const displayTitle = getScreenplayDisplayTitle(screenplay.title);
         const formatInfo = getScreenplayFormatInfo(screenplay);
@@ -148,7 +56,7 @@ export function ScreenplayGrid({
               aria-label={`Open ${displayTitle.title} screenplay file`}
             >
               <span className="screenplay-wall__object-stage">
-                <BlueSpineScript screenplay={screenplay} rank={rankOffset + index + 1} />
+                <BlueSpineScript screenplay={screenplay} rank={rank} />
               </span>
               <span className="screenplay-wall__copy">
                 <span className="screenplay-wall__title">
