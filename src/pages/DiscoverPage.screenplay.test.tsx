@@ -251,6 +251,16 @@ describe('I + G screenplay Discovery presentation', () => {
     );
   });
 
+  it('keeps search accessible and the classic presentation available', async () => {
+    const screenplayView = renderPage();
+    expect(await screen.findByRole('searchbox', { name: 'Discovery search' })).toBeInTheDocument();
+    screenplayView.unmount();
+
+    renderPage('/discover?ui=classic');
+    expect(await screen.findByRole('searchbox', { name: 'Discovery search' })).toBeInTheDocument();
+    expect(screen.queryByTestId('screenplay-discovery-ranking')).not.toBeInTheDocument();
+  });
+
   it('cleans source titles and exposes verdict, format, and source context on every card', async () => {
     hookState.screenplays = [
       createTestScreenplay({

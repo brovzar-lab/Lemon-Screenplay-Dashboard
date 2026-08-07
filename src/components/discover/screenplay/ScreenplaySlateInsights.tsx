@@ -9,6 +9,7 @@ interface AnalyticsProps {
   initiallyExpanded?: boolean;
   deferContentUntilExpanded?: boolean;
   className?: string;
+  maxGenres?: number;
 }
 
 const LazyAnalyticsDashboard = lazy(async () => {
@@ -66,6 +67,7 @@ export function ScreenplaySlateInsights({
             initiallyExpanded
             deferContentUntilExpanded
             className="screenplay-insights__dashboard"
+            maxGenres={4}
           />
         </Suspense>
       </ErrorBoundary>

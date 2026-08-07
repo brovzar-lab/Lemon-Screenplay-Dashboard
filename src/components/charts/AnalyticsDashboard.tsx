@@ -24,6 +24,7 @@ interface AnalyticsDashboardProps {
   initiallyExpanded?: boolean;
   deferContentUntilExpanded?: boolean;
   className?: string;
+  maxGenres?: number;
 }
 
 export function AnalyticsDashboard({
@@ -37,6 +38,7 @@ export function AnalyticsDashboard({
   initiallyExpanded = true,
   deferContentUntilExpanded = false,
   className = '',
+  maxGenres = 6,
 }: AnalyticsDashboardProps) {
   const isAdmin = useIsAdmin();
   const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
@@ -90,7 +92,11 @@ export function AnalyticsDashboard({
       title: 'Top Genres',
       hint: onFilterByGenre ? 'Click to filter by genre' : null,
       content: (
-        <GenreChart screenplays={screenplays} maxGenres={6} onGenreClick={onFilterByGenre} />
+        <GenreChart
+          screenplays={screenplays}
+          maxGenres={maxGenres}
+          onGenreClick={onFilterByGenre}
+        />
       ),
     },
     {

@@ -5,8 +5,14 @@ import { createTestScreenplay } from '@/test/factories';
 import { ScreenplaySlateInsights } from './ScreenplaySlateInsights';
 
 vi.mock('@/components/charts/AnalyticsDashboard', () => ({
-  AnalyticsDashboard: ({ initiallyExpanded }: { initiallyExpanded?: boolean }) => (
-    <button type="button" aria-expanded={initiallyExpanded}>
+  AnalyticsDashboard: ({
+    initiallyExpanded,
+    maxGenres,
+  }: {
+    initiallyExpanded?: boolean;
+    maxGenres?: number;
+  }) => (
+    <button type="button" aria-expanded={initiallyExpanded} data-max-genres={maxGenres}>
       Slate Insights
     </button>
   ),
@@ -28,6 +34,10 @@ describe('ScreenplaySlateInsights', () => {
     expect(await screen.findByRole('button', { name: 'Slate Insights' })).toHaveAttribute(
       'aria-expanded',
       'true',
+    );
+    expect(screen.getByRole('button', { name: 'Slate Insights' })).toHaveAttribute(
+      'data-max-genres',
+      '4',
     );
   });
 

@@ -15,6 +15,7 @@ interface HybridHeaderProps {
   shortcutsEnabled: boolean;
   onOpenScreenplay: (screenplay: Screenplay, trigger: HTMLButtonElement) => void;
   presentation?: 'hybrid' | 'screenplay';
+  darkChrome?: boolean;
 }
 
 export function HybridHeader({
@@ -22,6 +23,7 @@ export function HybridHeader({
   shortcutsEnabled,
   onOpenScreenplay,
   presentation = 'hybrid',
+  darkChrome = false,
 }: HybridHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const sentinelRef = useRef<HTMLSpanElement>(null);
@@ -35,10 +37,9 @@ export function HybridHeader({
     const sentinel = sentinelRef.current;
     if (!sentinel || typeof IntersectionObserver === 'undefined') return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsScrolled(!entry.isIntersecting),
-      { threshold: 1 },
-    );
+    const observer = new IntersectionObserver(([entry]) => setIsScrolled(!entry.isIntersecting), {
+      threshold: 1,
+    });
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, []);
@@ -70,15 +71,15 @@ export function HybridHeader({
   return (
     <>
       <span ref={sentinelRef} className="hybrid-header-sentinel" aria-hidden="true" />
-      <header
-        role="banner"
-        className="hybrid-header"
-        data-scrolled={isScrolled ? 'true' : 'false'}
-      >
+      <header role="banner" className="hybrid-header" data-scrolled={isScrolled ? 'true' : 'false'}>
         <div className="hybrid-header__inner">
-          <NavLink to={`/discover?ui=${presentation}`} className="hybrid-brand" aria-label="Discovery home">
+          <NavLink
+            to={`/discover?ui=${presentation}`}
+            className="hybrid-brand"
+            aria-label="Discovery home"
+          >
             <img
-              src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-black.png'}
+              src={isDark || darkChrome ? '/lemon-logo-white.png' : '/lemon-logo-black.png'}
               alt=""
               className="hybrid-brand__mark"
             />
@@ -118,10 +119,7 @@ export function HybridHeader({
 
           <div className="hybrid-header__actions">
             <LensMenu presentation="discovery" triggerLabel="Saved Views" />
-            <DiscoveryFavoritesMenu
-              screenplays={screenplays}
-              onOpen={onOpenScreenplay}
-            />
+            <DiscoveryFavoritesMenu screenplays={screenplays} onOpen={onOpenScreenplay} />
             <span className="hybrid-header__divider" aria-hidden="true" />
             {isAdmin && (
               <NavLink
