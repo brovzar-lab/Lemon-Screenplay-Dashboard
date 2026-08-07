@@ -385,7 +385,10 @@ export interface StandoutScene {
 export interface ComparableFilm {
   title: string;
   similarity: string;
-  boxOfficeRelevance: BoxOfficeRelevance;
+  /** The independent V9 lens that selected this comparison. */
+  comparisonLens?: 'tone' | 'structure' | 'market';
+  /** Legacy field. Only present when the source analysis actually assessed it. */
+  boxOfficeRelevance?: BoxOfficeRelevance;
   keyDivergence?: string;
 }
 

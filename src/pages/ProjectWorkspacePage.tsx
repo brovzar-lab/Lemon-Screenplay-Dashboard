@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import {
   ProjectWorkspace,
   ProjectWorkspaceState,
   type ProjectWorkspaceTab,
+  ScreenplayFileWorkspace,
+  type ScreenplayFileTab,
 } from '@/components/project';
 import '@/components/discover/discovery.css';
 import { useLiveScreenplaySync, useScreenplays } from '@/hooks/useScreenplays';
@@ -18,6 +20,7 @@ function ProjectWorkspacePage() {
   const { projectId, section } = useParams<{ projectId: string; section?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { data: screenplays = [], isLoading, error } = useScreenplays();
 
   useLiveScreenplaySync();
@@ -30,6 +33,10 @@ function ProjectWorkspacePage() {
     [projectId, screenplays],
   );
   const activeTab: ProjectWorkspaceTab = isProjectWorkspaceTab(section)
+    ? section
+    : 'overview';
+  const screenplayFileEnabled = searchParams.get('workspace') === 'screenplay';
+  const screenplayFileTab: ScreenplayFileTab = isScreenplayFileTab(section)
     ? section
     : 'overview';
 
@@ -85,6 +92,27 @@ function ProjectWorkspacePage() {
     );
   };
 
+  const selectScreenplayFileTab = (tab: ScreenplayFileTab) => {
+    const stableProjectId = screenplay.projectId ?? screenplay.id;
+    navigate(
+      tab === 'overview'
+        ? `/projects/${stableProjectId}?workspace=screenplay`
+        : `/projects/${stableProjectId}/${tab}?workspace=screenplay`,
+      { replace: true },
+    );
+  };
+
+  if (screenplayFileEnabled) {
+    return (
+      <ScreenplayFileWorkspace
+        screenplay={screenplay}
+        activeTab={screenplayFileTab}
+        onSelectTab={selectScreenplayFileTab}
+        onBack={goBack}
+      />
+    );
+  }
+
   return (
     <ProjectWorkspace
       screenplay={screenplay}
@@ -94,6 +122,15 @@ function ProjectWorkspacePage() {
       onBack={goBack}
     />
   );
+}
+
+function isScreenplayFileTab(value: string | undefined): value is ScreenplayFileTab {
+  return value === 'overview'
+    || value === 'scores'
+    || value === 'reader-room'
+    || value === 'story-x-ray'
+    || value === 'producer-take'
+    || value === 'notes-files';
 }
 
 function isProjectWorkspaceTab(value: string | undefined): value is ProjectWorkspaceTab {

@@ -15,6 +15,9 @@ const mocks = vi.hoisted(() => ({
   isLocalCalibrationPreviewMode: vi.fn(() => false),
   loadLocalProducerTakeDraft: vi.fn(),
   saveLocalProducerTakeDraft: vi.fn(),
+  loadLocalProducerWorkingDraft: vi.fn(),
+  saveLocalProducerWorkingDraft: vi.fn(),
+  clearLocalProducerWorkingDraft: vi.fn(),
 }));
 
 vi.mock('@/lib/producerCalibration', async (importOriginal) => {
@@ -26,6 +29,9 @@ vi.mock('@/lib/producerCalibration', async (importOriginal) => {
     isLocalCalibrationPreviewMode: mocks.isLocalCalibrationPreviewMode,
     loadLocalProducerTakeDraft: mocks.loadLocalProducerTakeDraft,
     saveLocalProducerTakeDraft: mocks.saveLocalProducerTakeDraft,
+    loadLocalProducerWorkingDraft: mocks.loadLocalProducerWorkingDraft,
+    saveLocalProducerWorkingDraft: mocks.saveLocalProducerWorkingDraft,
+    clearLocalProducerWorkingDraft: mocks.clearLocalProducerWorkingDraft,
   };
 });
 
@@ -95,6 +101,7 @@ describe('ProducerTake', () => {
     vi.clearAllMocks();
     mocks.isLocalCalibrationPreviewMode.mockReturnValue(false);
     mocks.loadLocalProducerTakeDraft.mockReturnValue(null);
+    mocks.loadLocalProducerWorkingDraft.mockReturnValue(null);
   });
 
   it('shows the producer judgment beside the unchanged AI final', async () => {
@@ -239,5 +246,85 @@ describe('ProducerTake', () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Your score')).toHaveValue('6.2');
     expect(screen.getByRole('button', { name: 'Publish new revision' })).toBeInTheDocument();
+  });
+
+  it('allows a legacy project to save a local Producer Draft without calibration eligibility', async () => {
+    const user = userEvent.setup();
+    mocks.isLocalCalibrationPreviewMode.mockReturnValue(true);
+    mocks.loadProducerAssessment.mockResolvedValue(null);
+    mocks.saveLocalProducerTakeDraft.mockImplementation((input) => ({
+      schemaVersion: 'lemon-local-producer-take-v1',
+      ...input,
+      revision: 1,
+      savedAt: '2026-08-06T12:00:00.000Z',
+    }));
+    const screenplay = createTestScreenplay({
+      id: 'legacy-project',
+      projectId: 'legacy-project',
+      latestVersionId: undefined,
+      analysisVersion: 'v8_archaeology',
+      weightedScore: 6.1,
+      recommendation: 'consider',
+    });
+
+    render(<ProducerTake screenplay={screenplay} />, { wrapper });
+
+    expect(await screen.findByRole('heading', { name: 'Legacy Producer Draft' })).toBeInTheDocument();
+    expect(screen.getByText(/never enters calibration/i)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('What did the AI miss?'), 'The tone works better than the score suggests.');
+    await user.click(screen.getByRole('button', { name: 'Save Producer Draft' }));
+
+    expect(mocks.saveLocalProducerTakeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: 'legacy-project',
+        versionId: 'legacy-unverified',
+        judgment: expect.objectContaining({ includeInCalibration: false }),
+      }),
+    );
+    expect(mocks.submitProducerAssessment).not.toHaveBeenCalled();
+  });
+
+  it('makes confidence explicit and keeps tentative takes out of calibration', async () => {
+    const user = userEvent.setup();
+    mocks.isLocalCalibrationPreviewMode.mockReturnValue(true);
+    mocks.loadProducerAssessment.mockResolvedValue(null);
+    const screenplay = createTestScreenplay({ latestVersionId: 'version-sealed-1' });
+
+    render(<ProducerTake screenplay={screenplay} />, { wrapper });
+    await screen.findByText('Local review mode');
+
+    await user.click(screen.getByRole('button', { name: 'Tentative' }));
+    expect(screen.getByRole('button', { name: 'Tentative' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('checkbox', { name: /Use this as calibration evidence/i })).toBeDisabled();
+    expect(screen.getByText(/Tentative takes are always held out/i)).toBeInTheDocument();
+  });
+
+  it('restores an unfinished working draft after navigating away', async () => {
+    mocks.isLocalCalibrationPreviewMode.mockReturnValue(true);
+    mocks.loadProducerAssessment.mockResolvedValue(null);
+    mocks.loadLocalProducerWorkingDraft.mockReturnValue({
+      schemaVersion: 'lemon-local-producer-working-draft-v1',
+      projectId: 'will-2010',
+      versionId: 'version-sealed-1',
+      judgment: {
+        ...assessment().judgment,
+        aiMissed: 'Restored unfinished thought.',
+      },
+      savedAt: '2026-08-06T12:00:00.000Z',
+    });
+
+    render(
+      <ProducerTake
+        screenplay={createTestScreenplay({
+          id: 'will-2010',
+          projectId: 'will-2010',
+          latestVersionId: 'version-sealed-1',
+        })}
+      />,
+      { wrapper },
+    );
+
+    expect(await screen.findByDisplayValue('Restored unfinished thought.')).toBeInTheDocument();
+    expect(screen.getByText(/Unpublished draft restored/i)).toBeInTheDocument();
   });
 });

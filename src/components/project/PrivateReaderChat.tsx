@@ -6,6 +6,7 @@ import {
   privateReaderChatMode,
   sendPrivateReaderMessage,
 } from '@/lib/privateReaderChat';
+import { formatReaderPosition } from '@/lib/producerDisplay';
 import type {
   PrivateReaderConversation,
   PrivateReaderKey,
@@ -304,7 +305,7 @@ export function PrivateReaderChat({
         <span>Conversation saved</span>
       </div>
 
-      <section className="reader-model-router" aria-label="Reader Chat model">
+      {mode === 'live' && <section className="reader-model-router" aria-label="Reader Chat model">
         <div>
           <span className="dsc-kicker">Lemon Model Router</span>
           <strong>Choose how deeply this reader should think</strong>
@@ -336,7 +337,7 @@ export function PrivateReaderChat({
             </button>
           ))}
         </div>
-      </section>
+      </section>}
 
       {mode === 'local_review' && (
         <div className="reader-conversation__notice" role="status">
@@ -398,9 +399,7 @@ export function PrivateReaderChat({
                   <strong>{message.role === 'reader' ? readerName : 'You'}</strong>
                   {message.position && (
                     <span className={`reader-position reader-position--${message.position}`}>
-                      {message.position === 'reconsidered'
-                        ? 'Position reconsidered'
-                        : message.position}
+                      {formatReaderPosition(message.position)}
                     </span>
                   )}
                 </div>

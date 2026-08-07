@@ -88,12 +88,15 @@ export function NotesSection({ screenplayId, presentation = 'default' }: NotesSe
             ) : (
                 <div className="space-y-2">
                     {notes.map((note) => (
-                        <div key={note.id} className="p-3 rounded-lg bg-black-900/50 group">
+                        <div key={note.id} className="p-3 rounded-lg bg-black-900/50 group min-w-0">
                             <div className="flex justify-between items-start gap-2">
-                                <p className="text-sm text-black-300 whitespace-pre-wrap">{note.content}</p>
+                                <p className="min-w-0 text-sm text-black-300 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{note.content}</p>
                                 <button
                                     onClick={() => deleteNote(screenplayId, note.id)}
-                                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs shrink-0"
+                                    aria-label={`Delete note from ${new Date(note.createdAt).toLocaleDateString()}`}
+                                    className={isWorkspace
+                                        ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 text-red-400 hover:text-red-300 text-xs shrink-0'
+                                        : 'opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs shrink-0'}
                                 >
                                     ✕
                                 </button>

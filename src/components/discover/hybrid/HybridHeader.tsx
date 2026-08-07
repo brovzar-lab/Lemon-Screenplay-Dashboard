@@ -14,12 +14,14 @@ interface HybridHeaderProps {
   screenplays: Screenplay[];
   shortcutsEnabled: boolean;
   onOpenScreenplay: (screenplay: Screenplay, trigger: HTMLButtonElement) => void;
+  presentation?: 'hybrid' | 'screenplay';
 }
 
 export function HybridHeader({
   screenplays,
   shortcutsEnabled,
   onOpenScreenplay,
+  presentation = 'hybrid',
 }: HybridHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const sentinelRef = useRef<HTMLSpanElement>(null);
@@ -74,7 +76,7 @@ export function HybridHeader({
         data-scrolled={isScrolled ? 'true' : 'false'}
       >
         <div className="hybrid-header__inner">
-          <NavLink to="/discover?ui=hybrid" className="hybrid-brand" aria-label="Discovery home">
+          <NavLink to={`/discover?ui=${presentation}`} className="hybrid-brand" aria-label="Discovery home">
             <img
               src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-black.png'}
               alt=""
@@ -87,7 +89,7 @@ export function HybridHeader({
           </NavLink>
 
           <nav className="hybrid-primary-nav" aria-label="Discovery navigation">
-            <NavLink to="/discover?ui=hybrid" end={false} className={navClass}>
+            <NavLink to={`/discover?ui=${presentation}`} end={false} className={navClass}>
               Discover
             </NavLink>
             {isAdmin && (

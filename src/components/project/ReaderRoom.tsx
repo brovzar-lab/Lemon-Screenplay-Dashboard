@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 
 import { fetchReaderReports } from '@/lib/readerReportService';
+import { privateReaderChatMode } from '@/lib/privateReaderChat';
+import { formatProducerHeading, formatProducerText, formatProducerTaxonomy } from '@/lib/producerDisplay';
 import { PrivateReaderChat } from '@/components/project/PrivateReaderChat';
 import type { ReaderReportEvidence, Screenplay } from '@/types';
 
@@ -13,6 +15,12 @@ interface ReaderProfile {
   image: string;
   remit: string;
   matches: string[];
+}
+
+interface ReaderChatReadiness {
+  ready: boolean;
+  label: string;
+  detail: string;
 }
 
 const READERS: ReaderProfile[] = [
@@ -68,6 +76,52 @@ function reportFor(
   });
 }
 
+function readerChatReadiness(
+  screenplay: Screenplay,
+  report: ReaderReportEvidence | undefined,
+  mode: ReturnType<typeof privateReaderChatMode>,
+): ReaderChatReadiness {
+  if (!screenplay.latestVersionId) {
+    return {
+      ready: false,
+      label: 'Current sealed analysis required',
+      detail: 'Reanalyze this legacy record so the conversation can cite the exact screenplay version.',
+    };
+  }
+  if (!report) {
+    return {
+      ready: false,
+      label: 'Reader report unavailable',
+      detail: 'This analysis does not contain this reader’s sealed independent report.',
+    };
+  }
+  if (mode === 'not_activated') {
+    return {
+      ready: false,
+      label: 'Private chat not activated',
+      detail: 'The sealed report is available, but private conversations are not enabled here.',
+    };
+  }
+  if (mode === 'live' && (!screenplay.hasPdf || !screenplay.storagePath)) {
+    return {
+      ready: false,
+      label: 'Source screenplay required',
+      detail: 'Restore the source PDF before starting a live, project-grounded conversation.',
+    };
+  }
+  return mode === 'local_review'
+    ? {
+        ready: true,
+        label: 'Local preview ready',
+        detail: 'Uses the sealed report to demonstrate the flow. No model call or charge occurs.',
+      }
+    : {
+        ready: true,
+        label: 'Ready for private conversation',
+        detail: 'The sealed report, analysis version, and source screenplay are available.',
+      };
+}
+
 export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
   const [selectedKey, setSelectedKey] = useState<ReaderProfile['key']>('structure');
   const [conversationOpen, setConversationOpen] = useState(false);
@@ -87,6 +141,29 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
     () => reportFor(selectedReader, reportsQuery.data ?? []),
     [reportsQuery.data, selectedReader],
   );
+  const chatMode = privateReaderChatMode();
+  const hasExactVersion = Boolean(screenplay.latestVersionId);
+  const readiness = readerChatReadiness(screenplay, selectedReport, chatMode);
+  const canOpenConversation = readiness.ready;
+  const chatIntro = !hasExactVersion
+    ? 'This legacy record preserves its roundtable evidence, but it needs a current sealed analysis before private conversations can cite the screenplay.'
+    : chatMode === 'live'
+    ? 'Select a reader to start a private conversation. Their sealed report stays one click away.'
+    : chatMode === 'local_review'
+      ? 'Select a reader to preview the conversation flow. Local review uses sealed evidence and makes no model call.'
+      : 'Read each sealed report here. Private Reader Chat is not activated in this environment.';
+
+  function talkButtonLabel(): string {
+    const firstName = selectedReader.name.split(' ')[0];
+    if (!hasExactVersion) return 'Reanalyze to create a citable analysis version';
+    if (!selectedReport) return `Reanalyze for ${selectedReader.role} chat`;
+    if (chatMode === 'live' && (!screenplay.hasPdf || !screenplay.storagePath)) {
+      return 'Restore source screenplay to chat';
+    }
+    if (chatMode === 'not_activated') return 'Private Reader Chat not activated';
+    if (chatMode === 'local_review') return `Preview conversation with ${firstName}`;
+    return `Talk privately with ${firstName}`;
+  }
 
   function closeConversation() {
     setConversationOpen(false);
@@ -97,14 +174,14 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
     <section className="reader-room" aria-labelledby="reader-room-title">
       <header className="reader-room__intro">
         <div>
-          <p className="dsc-kicker">Five specialist lenses · sealed V9 evidence</p>
+          <p className="dsc-kicker">
+            {hasExactVersion ? 'Five specialist lenses · sealed V9 evidence' : 'Legacy reader evidence · preserved for review'}
+          </p>
           <h2 id="reader-room-title" className="dsc-display">
             The Readers Room
           </h2>
         </div>
-        <p>
-          Select a reader to start a private conversation. Their sealed report stays one click away.
-        </p>
+        <p>{chatIntro}</p>
       </header>
 
       <div className="reader-room__stage">
@@ -112,6 +189,7 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
           {READERS.map((reader) => {
             const report = reportFor(reader, reportsQuery.data ?? []);
             const selected = selectedKey === reader.key;
+            const readerReadiness = readerChatReadiness(screenplay, report, chatMode);
             return (
               <button
                 key={reader.key}
@@ -119,10 +197,12 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
                 type="button"
                 onClick={() => {
                   setSelectedKey(reader.key);
-                  setConversationOpen(Boolean(report));
+                  setConversationOpen(readerReadiness.ready);
                 }}
                 aria-pressed={selected}
-                aria-label={`${reader.role}: ${reader.name}. ${report ? 'Open private conversation' : 'Sealed report unavailable'}`}
+                aria-label={`${reader.role}: ${reader.name}. ${
+                  readerReadiness.label
+                }`}
                 className={clsx('reader-persona', selected && 'reader-persona--active')}
               >
                 <img src={reader.image} alt="" />
@@ -131,6 +211,7 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
                   <span>{reader.role}</span>
                 </span>
                 <b>{report ? report.pillarScore.toFixed(1) : '—'}</b>
+                <small>{readerReadiness.ready ? 'Chat ready' : 'Report only'}</small>
               </button>
             );
           })}
@@ -161,6 +242,17 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
               <strong>{selectedReport ? selectedReport.pillarScore.toFixed(1) : '—'}</strong>
             </div>
 
+            <div
+              className={clsx(
+                'reader-case__readiness',
+                readiness.ready && 'reader-case__readiness--ready',
+              )}
+              role="status"
+            >
+              <strong>{readiness.label}</strong>
+              <span>{readiness.detail}</span>
+            </div>
+
             {reportsQuery.isPending ? (
               <p className="reader-case__empty">Opening the sealed reader report…</p>
             ) : reportsQuery.isError ? (
@@ -173,16 +265,16 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
             ) : selectedReport ? (
               <>
                 <blockquote>
-                  {selectedReport.oneSentenceVerdict || 'No summary verdict was preserved.'}
+                  {formatProducerText(selectedReport.oneSentenceVerdict || 'No summary verdict was preserved.')}
                 </blockquote>
                 <div className="reader-case__evidence">
                   {selectedReport.subScores.map((subScore) => (
                     <section key={subScore.key}>
                       <header>
-                        <h4>{subScore.label}</h4>
+                        <h4>{formatProducerTaxonomy(subScore.label)}</h4>
                         <strong>{subScore.score.toFixed(1)}</strong>
                       </header>
-                      <p>{subScore.justification || 'No written evidence was preserved.'}</p>
+                      <p>{formatProducerText(subScore.justification || 'No written evidence was preserved.')}</p>
                       {subScore.pageCitations.length > 0 && (
                         <span>Pages {subScore.pageCitations.join(', ')}</span>
                       )}
@@ -194,12 +286,17 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
                     <span>Watch points</span>
                     <ul>
                       {selectedReport.redFlags.map((flag) => (
-                        <li key={flag}>{flag}</li>
+                        <li key={flag}>{formatProducerText(flag)}</li>
                       ))}
                     </ul>
                   </div>
                 )}
               </>
+            ) : !hasExactVersion ? (
+              <p className="reader-case__empty">
+                This project needs a current sealed analysis version before a private conversation
+                can cite the correct screenplay evidence.
+              </p>
             ) : (
               <p className="reader-case__empty">
                 This older analysis does not contain a sealed {selectedReader.role.toLowerCase()}{' '}
@@ -211,10 +308,10 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
               type="button"
               className="reader-case__talk"
               onClick={() => setConversationOpen(true)}
-              disabled={!selectedReport}
+              disabled={!canOpenConversation}
             >
               <span aria-hidden="true">◉</span>
-              Talk privately with {selectedReader.name.split(' ')[0]}
+              {talkButtonLabel()}
             </button>
           </article>
         )}
@@ -226,8 +323,21 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
           <div>
             {screenplay.readerDisagreements.map((disagreement, index) => (
               <article key={`${disagreement.topic}-${index}`}>
-                <h3>{disagreement.topic}</h3>
-                <p>{disagreement.resolution || 'No resolution was preserved.'}</p>
+                <h3>{formatProducerHeading(disagreement.topic)}</h3>
+                <div className="reader-room__positions">
+                  <section>
+                    <strong>{formatProducerHeading(disagreement.readerA)}</strong>
+                    <p>{formatProducerText(disagreement.readerAPosition)}</p>
+                  </section>
+                  <section>
+                    <strong>{formatProducerHeading(disagreement.readerB)}</strong>
+                    <p>{formatProducerText(disagreement.readerBPosition)}</p>
+                  </section>
+                </div>
+                <div className="reader-room__resolution">
+                  <strong>Roundtable resolution</strong>
+                  <p>{formatProducerText(disagreement.resolution || 'No resolution was preserved.')}</p>
+                </div>
               </article>
             ))}
           </div>

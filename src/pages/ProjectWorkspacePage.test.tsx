@@ -41,6 +41,13 @@ vi.mock('@/components/project', () => ({
     </div>
   ),
   ProjectWorkspaceState: ({ title }: { title: string }) => <div>{title}</div>,
+  ScreenplayFileWorkspace: ({ screenplay, activeTab, onSelectTab }: { screenplay: Screenplay; activeTab: string; onSelectTab: (tab: string) => void }) => (
+    <div data-testid="screenplay-file-workspace">
+      <h1>{screenplay.title}</h1>
+      <span>File tab: {activeTab}</span>
+      <button type="button" onClick={() => onSelectTab('scores')}>Open Scores</button>
+    </div>
+  ),
 }));
 
 import ProjectWorkspacePage from '@/pages/ProjectWorkspacePage';
@@ -97,6 +104,16 @@ describe('Project Workspace route', () => {
     expect(screen.getByText('Active tab: story-x-ray')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Open Reader Room' }));
     expect(screen.getByText('Active tab: reader-room')).toBeInTheDocument();
+  });
+
+  it('opens the additive Screenplay File workspace and preserves its query across tabs', async () => {
+    const user = userEvent.setup();
+    renderRoute('/projects/atlas-project/reader-room?workspace=screenplay');
+
+    expect(screen.getByTestId('screenplay-file-workspace')).toBeInTheDocument();
+    expect(screen.getByText('File tab: reader-room')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Open Scores' }));
+    expect(screen.getByText('File tab: scores')).toBeInTheDocument();
   });
 
   it('falls back to Overview for an unknown section', () => {

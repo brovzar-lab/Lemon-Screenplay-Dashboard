@@ -3,6 +3,7 @@ import type {
   Screenplay,
 } from '@/types';
 import { buildIncompleteReaderWarning } from '@/lib/producerProjection';
+import { formatProducerText } from '@/lib/producerDisplay';
 
 interface AnalysisWarningsProps {
   screenplay: Screenplay;
@@ -51,11 +52,11 @@ export function AnalysisWarnings({ screenplay }: AnalysisWarningsProps) {
                 {styles.label}
               </span>
               <h4 className={`text-sm font-semibold ${styles.title}`}>
-                {warning.title}
+                {formatProducerText(warning.title)}
               </h4>
             </div>
             <p className="mt-1.5 text-sm leading-6 text-black-200">
-              {warning.detail}
+              {formatProducerText(warning.detail)}
             </p>
           </div>
         );

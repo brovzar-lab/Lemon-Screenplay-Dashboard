@@ -200,10 +200,12 @@ export function normalizeV9Screenplay(
   // Comparable films
   const comps = analysis.comparable_films as Record<string, { title: string; similarity?: string; structural_match?: string; key_divergence?: string }> | undefined;
   const comparableFilms: ComparableFilm[] = comps
-    ? Object.values(comps).map((c) => ({
+    ? Object.entries(comps).map(([lens, c]) => ({
         title: c.title,
         similarity: c.similarity || c.structural_match || '',
-        boxOfficeRelevance: 'mixed' as const,
+        ...(lens === 'tone' || lens === 'structure' || lens === 'market'
+          ? { comparisonLens: lens }
+          : {}),
         ...(c.key_divergence ? { keyDivergence: c.key_divergence } : {}),
       }))
     : [];

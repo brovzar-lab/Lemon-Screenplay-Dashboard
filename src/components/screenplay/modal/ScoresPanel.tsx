@@ -8,6 +8,7 @@ import { CVS_CONFIG } from '@/types';
 import { getScoreColorClass } from '@/lib/calculations';
 import { getDimensionDisplay, hasPillarScores } from '@/lib/dimensionDisplay';
 import { toNumber } from '@/lib/utils';
+import { formatProducerHeading, formatProducerText } from '@/lib/producerDisplay';
 import { ScoreBar } from '@/components/ui/ScoreBar';
 import { SectionHeader } from './SectionHeader';
 import { CVSFactor } from './CVSFactor';
@@ -15,9 +16,133 @@ import { CVSFactor } from './CVSFactor';
 interface ScoresPanelProps {
     screenplay: Screenplay;
     presentation?: 'default' | 'workspace';
+    onOpenReaderRoom?: () => void;
 }
 
-export function ScoresPanel({ screenplay, presentation = 'default' }: ScoresPanelProps) {
+function signalDescription(score: number): string {
+    if (score >= 8) return 'Standout';
+    if (score >= 7) return 'Strong signal';
+    if (score >= 5.5) return 'Needs development';
+    return 'Material risk';
+}
+
+function DevelopmentSignalMap({
+    screenplay,
+    onOpenReaderRoom,
+}: {
+    screenplay: Screenplay;
+    onOpenReaderRoom?: () => void;
+}) {
+    const dimensions = getDimensionDisplay(screenplay);
+    const ranked = [...dimensions].sort((left, right) => right.score - left.score);
+    const strongest = ranked[0];
+    const weakest = ranked[ranked.length - 1];
+    const projection = screenplay.producerProjection;
+    const quality = screenplay.analysisQuality;
+    const strongestEvidence = screenplay.strengths[0] ?? 'No written strength was preserved.';
+    const weakestEvidence = screenplay.majorWeaknesses[0]
+        ?? screenplay.weaknesses[0]
+        ?? 'No written development risk was preserved.';
+    const trustLabel = projection?.trustStatus === 'verified'
+        ? 'Verified evidence'
+        : projection?.trustStatus === 'incomplete'
+            ? 'Incomplete evidence'
+            : projection?.trustStatus === 'legacy_unverified'
+                ? 'Legacy evidence'
+                : 'Trust not available';
+    const boundaryLabel = projection?.boundary.checked
+        ? projection.boundary.stable ? 'Stable boundary' : 'Unstable boundary'
+        : 'Boundary not checked';
+    const disagreementCount = projection?.readerDisagreementCount;
+
+    return (
+        <section className="development-map" aria-labelledby="development-signal-map-title">
+            <header className="development-map__header">
+                <div>
+                    <p className="development-map__kicker">Decision clarity</p>
+                    <h3 id="development-signal-map-title">Development Signal Map</h3>
+                    <p>One shared scale shows where the screenplay is strongest, where development work concentrates, and how much trust to place in the result.</p>
+                </div>
+                <div className="development-map__decision">
+                    <span>Final score</span>
+                    <strong>{screenplay.weightedScore.toFixed(1)}</strong>
+                    <b>{screenplay.recommendation === 'film_now' ? 'Film Now' : formatProducerHeading(screenplay.recommendation)}</b>
+                </div>
+            </header>
+
+            <div className="development-map__trust" aria-label="Analysis trust summary">
+                <span><b>Trust</b>{trustLabel}</span>
+                <span><b>Reader panel</b>{quality ? `${quality.completedReaders} of ${quality.expectedReaders} readers` : 'Not available'}</span>
+                <span><b>Boundary</b>{boundaryLabel}</span>
+                <span><b>Roundtable</b>{disagreementCount === undefined ? 'Not available' : `${disagreementCount} ${disagreementCount === 1 ? 'disagreement' : 'disagreements'}`}</span>
+            </div>
+
+            <div className="development-map__scale" aria-label="Five reader scores on a shared one to ten scale">
+                <div className="development-map__axis" aria-hidden="true">
+                    <span>Material risk</span><span>Developing</span><span>Strong</span><span>Standout</span>
+                </div>
+                {dimensions.map((dimension) => (
+                    <article className="development-map__row" key={dimension.key}>
+                        <div className="development-map__reader">
+                            <strong>{dimension.label}</strong>
+                            <span>{signalDescription(dimension.score)}</span>
+                        </div>
+                        <div className="development-map__cells" aria-label={`${dimension.label}: ${dimension.score.toFixed(1)} out of 10`}>
+                            {Array.from({ length: 10 }, (_, index) => {
+                                const filled = index + 1 <= Math.round(dimension.score);
+                                return <i key={index} className={clsx(filled && 'is-filled', index + 1 === Math.round(dimension.score) && 'is-marker')} />;
+                            })}
+                        </div>
+                        <strong className="development-map__score">{dimension.score.toFixed(1)}</strong>
+                    </article>
+                ))}
+            </div>
+
+            <div className="development-map__drivers">
+                <article className="development-map__driver development-map__driver--strength">
+                    <span>Strongest signal</span>
+                    <h4>{strongest ? `${strongest.label} · ${strongest.score.toFixed(1)}` : 'Not available'}</h4>
+                    <p>{formatProducerText(strongestEvidence)}</p>
+                </article>
+                <article className="development-map__driver development-map__driver--risk">
+                    <span>Primary development risk</span>
+                    <h4>{weakest ? `${weakest.label} · ${weakest.score.toFixed(1)}` : 'Not available'}</h4>
+                    <p>{formatProducerText(weakestEvidence)}</p>
+                </article>
+            </div>
+
+            {onOpenReaderRoom && (
+                <button type="button" className="development-map__reader-link" onClick={onOpenReaderRoom}>
+                    Open the Reader Room for the evidence behind these scores
+                </button>
+            )}
+
+            {projection && (
+                <div className="development-map__lineage" data-testid="score-lineage">
+                    <span><b>Raw five-reader score</b>{projection.rawScore.toFixed(2)}</span>
+                    <span><b>Verified deduction</b>{projection.penaltyApplied > 0 ? `−${projection.penaltyApplied.toFixed(2)}` : '0.00'}</span>
+                    <span><b>Final ranking score</b>{projection.finalScore.toFixed(2)}</span>
+                </div>
+            )}
+
+            <section className="development-map__commercial" aria-labelledby="development-commercial-title">
+                <h4 id="development-commercial-title">Commercial viability</h4>
+                {screenplay.commercialViability.cvsAssessed === false ? (
+                    <p>Not assessed in this analysis.</p>
+                ) : (
+                    <div>
+                        {CVS_CONFIG.map(({ key, label }) => (
+                            <span key={key}><b>{label}</b>{screenplay.commercialViability[key].score}/3</span>
+                        ))}
+                        <strong>{toNumber(screenplay.cvsTotal)}/18 total</strong>
+                    </div>
+                )}
+            </section>
+        </section>
+    );
+}
+
+export function ScoresPanel({ screenplay, presentation = 'default', onOpenReaderRoom }: ScoresPanelProps) {
     const isWorkspace = presentation === 'workspace';
     const projection = screenplay.producerProjection;
     const scoreLabel = projection?.scoreSource === 'adjusted'
@@ -28,6 +153,10 @@ export function ScoresPanel({ screenplay, presentation = 'default' }: ScoresPane
     const rawScoreLabel = projection?.scoreSource === 'triage'
         ? 'Raw triage score'
         : 'Raw five-pillar score';
+
+    if (isWorkspace) {
+        return <DevelopmentSignalMap screenplay={screenplay} onOpenReaderRoom={onOpenReaderRoom} />;
+    }
 
     return (
         <div className={clsx(
@@ -48,21 +177,23 @@ export function ScoresPanel({ screenplay, presentation = 'default' }: ScoresPane
                             label={`${dim.label} (${Math.round(dim.weight * 100)}%)`}
                             score={dim.score}
                             showJustification
-                            justification={dim.justification}
+                            justification={formatProducerText(dim.justification)}
                         />
                     ))}
                     <div className="pt-4 border-t border-black-700">
-                        <div className="flex justify-between items-center">
-                            <span className="text-lg font-medium text-gold-200">
-                                {scoreLabel}
-                            </span>
-                            <span className={clsx(
-                                'text-2xl font-bold',
-                                getScoreColorClass(toNumber(screenplay.weightedScore))
-                            )}>
-                                {toNumber(screenplay.weightedScore).toFixed(2)}
-                            </span>
-                        </div>
+                        {(!isWorkspace || !projection) && (
+                            <div className="flex justify-between items-center">
+                                <span className="text-lg font-medium text-gold-200">
+                                    {scoreLabel}
+                                </span>
+                                <span className={clsx(
+                                    'text-2xl font-bold',
+                                    getScoreColorClass(toNumber(screenplay.weightedScore))
+                                )}>
+                                    {toNumber(screenplay.weightedScore).toFixed(2)}
+                                </span>
+                            </div>
+                        )}
                         {projection && (
                             <div
                                 className={clsx(
@@ -116,13 +247,13 @@ export function ScoresPanel({ screenplay, presentation = 'default' }: ScoresPane
                                     >
                                         <div className="flex items-center justify-between gap-3">
                                             <span className="text-xs font-semibold uppercase tracking-wide text-black-200">
-                                                {gate.label}
+                                                {formatProducerHeading(gate.label)}
                                             </span>
                                             <span className="text-[0.65rem] font-bold uppercase tracking-wide text-amber-300">
                                                 {gate.applied ? 'Applied' : 'Flagged'}
                                             </span>
                                         </div>
-                                        <p className="mt-1 text-xs leading-5 text-black-400">{gate.detail}</p>
+                                        <p className="mt-1 text-xs leading-5 text-black-400">{formatProducerText(gate.detail)}</p>
                                     </div>
                                 ))}
                             </div>

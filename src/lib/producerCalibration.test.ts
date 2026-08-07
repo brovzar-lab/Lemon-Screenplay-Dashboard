@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   EMPTY_PRODUCER_JUDGMENT,
   loadLocalProducerAssessmentHeads,
+  loadLocalProducerWorkingDraft,
   loadLocalProducerTakeDraft,
   producerAssessmentHeadId,
+  saveLocalProducerWorkingDraft,
   saveLocalProducerTakeDraft,
   validateProducerJudgment,
 } from '@/lib/producerCalibration';
@@ -43,6 +45,41 @@ describe('producerCalibration client contract', () => {
         aiGotRight: '',
       }),
     ).toThrow('what the analysis missed or got right');
+  });
+
+  it('treats a tentative judgment as held out of calibration evidence', () => {
+    const judgment = validateProducerJudgment({
+      ...EMPTY_PRODUCER_JUDGMENT,
+      confidence: 'low',
+      includeInCalibration: true,
+      aiMissed: 'I need more time with the material.',
+    });
+
+    expect(judgment.confidence).toBe('low');
+    expect(judgment.includeInCalibration).toBe(false);
+  });
+
+  it('preserves an unfinished Producer Draft without requiring publication fields', () => {
+    saveLocalProducerWorkingDraft({
+      projectId: 'legacy-project',
+      versionId: 'legacy-unverified',
+      judgment: {
+        ...EMPTY_PRODUCER_JUDGMENT,
+        producerScore: 8.2,
+        aiMissed: 'The read undervalued',
+      },
+    });
+
+    expect(loadLocalProducerWorkingDraft('legacy-project')).toEqual(
+      expect.objectContaining({
+        projectId: 'legacy-project',
+        versionId: 'legacy-unverified',
+        judgment: expect.objectContaining({
+          producerScore: 8.2,
+          aiMissed: 'The read undervalued',
+        }),
+      }),
+    );
   });
 
   it('keeps local review evidence through refresh without publishing it', () => {

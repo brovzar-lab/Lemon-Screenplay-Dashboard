@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DiscoverShell } from '@/components/discover';
 import type { DiscoverShellProps } from '@/components/discover/DiscoverShell';
 import { HybridDiscoverShell } from '@/components/discover/hybrid/HybridDiscoverShell';
+import { ScreenplayDiscoverShell } from '@/components/discover/screenplay/ScreenplayDiscoverShell';
 import { useDiscoveryShareStatuses } from '@/components/discover/useDiscoveryShareStatuses';
 import {
   passesFilters,
@@ -127,6 +128,13 @@ function DiscoverPage() {
       navigate(`/discover/${targetId}${query ? `?${query}` : ''}`);
       return;
     }
+    if (presentation === 'screenplay') {
+      sessionStorage.setItem('lemon.discovery.screenplay.scrollY', String(window.scrollY));
+      navigate(`/projects/${targetId}?workspace=screenplay`, {
+        state: { fromDiscovery: true },
+      });
+      return;
+    }
     navigate(`/projects/${targetId}`, { state: { fromDiscovery: true } });
   };
 
@@ -157,9 +165,17 @@ function DiscoverPage() {
     isError: Boolean(error),
   };
 
-  return presentation === 'hybrid'
-    ? <HybridDiscoverShell {...shellProps} />
-    : <DiscoverShell {...shellProps} />;
+  useEffect(() => {
+    if (presentation !== 'screenplay') return;
+    const savedPosition = sessionStorage.getItem('lemon.discovery.screenplay.scrollY');
+    if (!savedPosition) return;
+    sessionStorage.removeItem('lemon.discovery.screenplay.scrollY');
+    window.requestAnimationFrame(() => window.scrollTo({ top: Number(savedPosition), behavior: 'auto' }));
+  }, [presentation]);
+
+  if (presentation === 'screenplay') return <ScreenplayDiscoverShell {...shellProps} />;
+  if (presentation === 'hybrid') return <HybridDiscoverShell {...shellProps} />;
+  return <DiscoverShell {...shellProps} />;
 }
 
 export default DiscoverPage;

@@ -52,7 +52,7 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
         <View style={s.section}>
           <Text style={s.heading}>Comparable Films</Text>
           {comps.map((film, i) => {
-            const bo = boLabel(film.boxOfficeRelevance);
+            const bo = film.boxOfficeRelevance ? boLabel(film.boxOfficeRelevance) : null;
             return (
               <View key={i} style={s.compRow} wrap={false}>
                 <View style={s.compInfo}>
@@ -64,9 +64,13 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
                     </Text>
                   ) : null}
                 </View>
-                <Text style={[s.compBadge, { color: bo.color, backgroundColor: bo.bg }]}>
-                  {bo.text}
-                </Text>
+                {bo ? (
+                  <Text style={[s.compBadge, { color: bo.color, backgroundColor: bo.bg }]}>
+                    {bo.text}
+                  </Text>
+                ) : film.comparisonLens ? (
+                  <Text style={s.compBadge}>{film.comparisonLens.toUpperCase()}</Text>
+                ) : null}
               </View>
             );
           })}

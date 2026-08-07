@@ -23,6 +23,7 @@ const CALIBRATION_URL = import.meta.env.DEV
   ? 'http://127.0.0.1:5001/lemon-screenplay-dashboard/us-central1/calibrationManager'
   : '/api/calibration';
 const LOCAL_PRODUCER_TAKES_KEY = 'lemon-local-producer-takes-v1';
+const LOCAL_PRODUCER_WORKING_DRAFTS_KEY = 'lemon-local-producer-working-drafts-v1';
 
 export interface LocalProducerTakeDraft {
   schemaVersion: 'lemon-local-producer-take-v1';
@@ -33,6 +34,14 @@ export interface LocalProducerTakeDraft {
   aiVerdict: RecommendationTier;
   judgment: ProducerJudgment;
   revision: number;
+  savedAt: string;
+}
+
+export interface LocalProducerWorkingDraft {
+  schemaVersion: 'lemon-local-producer-working-draft-v1';
+  projectId: string;
+  versionId: string;
+  judgment: ProducerJudgment;
   savedAt: string;
 }
 
@@ -55,12 +64,12 @@ export const EMPTY_PRODUCER_JUDGMENT: ProducerJudgment = {
   producerVerdict: 'consider',
   pursuit: 'maybe',
   fixability: 'medium',
-  confidence: 'high',
+  confidence: 'low',
   tasteSignals: [],
   aiMissed: '',
   aiGotRight: '',
   pillarOverrides: {},
-  includeInCalibration: true,
+  includeInCalibration: false,
 };
 
 interface CalibrationResponse<T> {
@@ -102,10 +111,65 @@ function readLocalProducerTakes(): Record<string, LocalProducerTakeDraft> {
   }
 }
 
+function readLocalProducerWorkingDrafts(): Record<string, LocalProducerWorkingDraft> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const stored = window.localStorage.getItem(LOCAL_PRODUCER_WORKING_DRAFTS_KEY);
+    if (!stored) return {};
+    const parsed = JSON.parse(stored) as unknown;
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    return parsed as Record<string, LocalProducerWorkingDraft>;
+  } catch {
+    return {};
+  }
+}
+
+export function loadLocalProducerWorkingDraft(
+  projectId: string,
+): LocalProducerWorkingDraft | null {
+  return readLocalProducerWorkingDrafts()[requireDocumentId(projectId, 'Project')] ?? null;
+}
+
+export function saveLocalProducerWorkingDraft(input: {
+  projectId: string;
+  versionId: string;
+  judgment: ProducerJudgment;
+}): LocalProducerWorkingDraft {
+  if (typeof window === 'undefined') {
+    throw new Error('Producer Take drafts require a browser session.');
+  }
+  const projectId = requireDocumentId(input.projectId, 'Project');
+  const current = readLocalProducerWorkingDrafts();
+  const draft: LocalProducerWorkingDraft = {
+    schemaVersion: 'lemon-local-producer-working-draft-v1',
+    projectId,
+    versionId: requireDocumentId(input.versionId, 'Analysis version'),
+    judgment: {
+      ...input.judgment,
+      includeInCalibration:
+        input.judgment.confidence === 'low' ? false : input.judgment.includeInCalibration,
+    },
+    savedAt: new Date().toISOString(),
+  };
+  window.localStorage.setItem(
+    LOCAL_PRODUCER_WORKING_DRAFTS_KEY,
+    JSON.stringify({ ...current, [projectId]: draft }),
+  );
+  return draft;
+}
+
+export function clearLocalProducerWorkingDraft(projectId: string): void {
+  if (typeof window === 'undefined') return;
+  const normalizedProjectId = requireDocumentId(projectId, 'Project');
+  const current = readLocalProducerWorkingDrafts();
+  if (!(normalizedProjectId in current)) return;
+  delete current[normalizedProjectId];
+  window.localStorage.setItem(LOCAL_PRODUCER_WORKING_DRAFTS_KEY, JSON.stringify(current));
+}
+
 export function loadLocalProducerTakeDraft(
   projectId: string,
 ): LocalProducerTakeDraft | null {
-  if (!isLocalCalibrationPreviewMode()) return null;
   return (
     readLocalProducerTakes()[requireDocumentId(projectId, 'Project')] ?? null
   );
@@ -119,10 +183,8 @@ export function saveLocalProducerTakeDraft(input: {
   aiVerdict: RecommendationTier;
   judgment: ProducerJudgment;
 }): LocalProducerTakeDraft {
-  if (!isLocalCalibrationPreviewMode() || typeof window === 'undefined') {
-    throw new Error(
-      'Local Producer Take previews are available only in development.',
-    );
+  if (typeof window === 'undefined') {
+    throw new Error('Local Producer Take drafts require a browser session.');
   }
 
   const projectId = requireDocumentId(input.projectId, 'Project');
@@ -206,6 +268,8 @@ export function validateProducerJudgment(
     tasteSignals: [...new Set(judgment.tasteSignals)].slice(0, 11),
     aiMissed: judgment.aiMissed.trim().slice(0, 5_000),
     aiGotRight: judgment.aiGotRight.trim().slice(0, 5_000),
+    includeInCalibration:
+      judgment.confidence === 'low' ? false : judgment.includeInCalibration,
   };
 }
 
