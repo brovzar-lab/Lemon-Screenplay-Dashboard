@@ -44,6 +44,7 @@ export interface Title {
   coverageRefs: string[]    // CoverageDoc ids
   miReportRefs: string[]    // MarketIntelReport ids
   blockers: string[]        // free-text blocker notes
+  ceoWatch?: boolean        // Billy's personal watchlist flag
   createdAt: string
   updatedAt: string
 }

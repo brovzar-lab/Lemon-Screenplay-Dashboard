@@ -6,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  updateDoc,
   Timestamp,
   type QueryConstraint,
 } from 'firebase/firestore'
@@ -63,6 +64,11 @@ export async function fetchMiReports(titleId?: string): Promise<MarketIntelRepor
   const q = query(miReportsCol, ...constraints, orderBy('reportDate', 'desc'))
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ ...d.data(), id: d.id }) as MarketIntelReport)
+}
+
+// ── CEO watchlist toggle ──────────────────────────────────────────────────────
+export async function toggleCeoWatch(titleId: string, value: boolean): Promise<void> {
+  await updateDoc(doc(titlesCol, titleId), { ceoWatch: value })
 }
 
 // ── Active-slate summary (KPI bar) ────────────────────────────────────────────
