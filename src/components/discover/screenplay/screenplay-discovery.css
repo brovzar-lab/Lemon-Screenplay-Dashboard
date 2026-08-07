@@ -10,6 +10,17 @@
   --screenplay-line: #d3d7e0;
   --screenplay-page-ink: #121827;
   --screenplay-page-muted: #596579;
+  --screenplay-panel: #fffefb;
+  --screenplay-panel-soft: #f3f6fc;
+  --screenplay-panel-ink: #121827;
+  --screenplay-panel-copy: #344054;
+  --screenplay-panel-muted: #5f6c82;
+  --screenplay-panel-line: #cbd5e3;
+  --screenplay-panel-line-strong: #aebbd0;
+  --screenplay-panel-accent: #244eea;
+  --screenplay-panel-focus: #446cf3;
+  --screenplay-chart-axis: #637089;
+  --screenplay-chart-cursor: rgb(43 84 240 / 0.08);
   min-height: 100vh;
   scroll-padding-top: 80px;
   background: var(--screenplay-canvas);
@@ -25,6 +36,17 @@
   --screenplay-line: #c9ced8;
   --screenplay-page-ink: #eef2fa;
   --screenplay-page-muted: #aeb8cb;
+  --screenplay-panel: #0e1426;
+  --screenplay-panel-soft: #151e34;
+  --screenplay-panel-ink: #f7f3e9;
+  --screenplay-panel-copy: #d3d9e4;
+  --screenplay-panel-muted: #9eabc0;
+  --screenplay-panel-line: #243652;
+  --screenplay-panel-line-strong: #3b5274;
+  --screenplay-panel-accent: #8da4ff;
+  --screenplay-panel-focus: #6e8bff;
+  --screenplay-chart-axis: #9eabc0;
+  --screenplay-chart-cursor: rgb(110 139 255 / 0.1);
 }
 
 .screenplay-discovery .hybrid-header,
@@ -150,11 +172,12 @@
   justify-content: space-between;
   gap: 18px;
   padding: 9px 16px;
-  border: 1px solid #243652;
+  border: 1px solid var(--screenplay-panel-line);
   border-radius: 10px;
-  background: #111f35;
-  color: #eef3fb;
+  background: var(--screenplay-panel);
+  color: var(--screenplay-panel-ink);
   text-align: left;
+  box-shadow: 0 1px 2px rgb(18 24 39 / 0.06);
 }
 
 .screenplay-insights--collapsed strong,
@@ -164,12 +187,12 @@
 
 .screenplay-insights--collapsed small {
   margin-top: 2px;
-  color: #9eabc0;
+  color: var(--screenplay-panel-muted);
   font-size: 11px;
 }
 
 .screenplay-insights--collapsed > button:focus-visible {
-  outline: 3px solid #6e8bff;
+  outline: 3px solid var(--screenplay-panel-focus);
   outline-offset: 2px;
 }
 
@@ -184,18 +207,19 @@
 .screenplay-insights__dashboard {
   margin-bottom: 14px;
   padding: 12px;
-  border: 1px solid #243652;
+  border: 1px solid var(--screenplay-panel-line);
   border-radius: 12px;
-  background: #111f35;
+  background: var(--screenplay-panel-soft);
 }
 
 .screenplay-ranking {
   margin-bottom: 20px;
   overflow: hidden;
-  border: 1px solid #243652;
+  border: 1px solid var(--screenplay-panel-line);
   border-radius: 14px;
-  background: var(--screenplay-midnight);
-  color: #f7f3e9;
+  background: var(--screenplay-panel);
+  color: var(--screenplay-panel-ink);
+  box-shadow: 0 8px 26px rgb(18 24 39 / 0.08);
 }
 
 .screenplay-ranking__heading {
@@ -205,18 +229,19 @@
   justify-content: space-between;
   gap: 20px;
   padding: 10px 16px;
-  border-bottom: 1px solid #243652;
+  border-bottom: 1px solid var(--screenplay-panel-line);
 }
 
 .screenplay-ranking__heading h2 {
   margin-top: 2px;
+  color: var(--screenplay-panel-ink);
   font-family: var(--dsc-font-display);
   font-size: clamp(22px, 2vw, 30px);
   font-weight: 600;
 }
 
 .screenplay-ranking__heading > p {
-  color: #aeb8ca;
+  color: var(--screenplay-panel-muted);
   font-size: 11px;
 }
 
@@ -229,7 +254,7 @@
 .screenplay-ranking__top {
   position: relative;
   min-width: 0;
-  border-right: 1px solid #243652;
+  border-right: 1px solid var(--screenplay-panel-line);
 }
 
 .screenplay-ranking__top > .discovery-selection-checkbox,
@@ -290,7 +315,7 @@
 
 .screenplay-ranking__title {
   overflow: hidden;
-  color: #fbf8ef;
+  color: var(--screenplay-panel-ink);
   font-family: var(--dsc-font-display);
   font-size: clamp(28px, 2.8vw, 42px);
   font-weight: 600;
@@ -303,7 +328,7 @@
 .screenplay-ranking__meta {
   margin-top: 6px;
   overflow: hidden;
-  color: #9ea9bd;
+  color: var(--screenplay-panel-muted);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.07em;
@@ -319,7 +344,7 @@
   margin-top: 10px;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  color: #d3d9e4;
+  color: var(--screenplay-panel-copy);
   font-size: 13px;
   line-height: 1.48;
 }
@@ -333,20 +358,20 @@
 }
 
 .screenplay-ranking__decision > strong {
-  color: #f8f4e8;
+  color: var(--screenplay-panel-ink);
   font-family: var(--dsc-font-type);
   font-size: 20px;
 }
 
 .screenplay-ranking__decision > small,
 .screenplay-ranking__action {
-  color: #9ea9bd;
+  color: var(--screenplay-panel-muted);
   font-size: 10px;
 }
 
 .screenplay-ranking__action {
   margin-top: 8px;
-  color: #8da4ff;
+  color: var(--screenplay-panel-accent);
   font-weight: 750;
 }
 
@@ -361,7 +386,7 @@
   flex: 1;
   min-width: 0;
   min-height: 96px;
-  border-top: 1px solid #243652;
+  border-top: 1px solid var(--screenplay-panel-line);
 }
 
 .screenplay-ranking__runners li:first-child {
@@ -411,7 +436,7 @@
 .screenplay-ranking__runners em,
 .screenplay-ranking__runners small {
   overflow: hidden;
-  color: #96a2b7;
+  color: var(--screenplay-panel-muted);
   font-size: 9px;
   font-style: normal;
   text-overflow: ellipsis;
@@ -419,14 +444,14 @@
 }
 
 .screenplay-ranking__runners b {
-  color: #f7f3e9;
+  color: var(--screenplay-panel-ink);
   font-family: var(--dsc-font-type);
   font-size: 17px;
   line-height: 1;
 }
 
 .screenplay-ranking__runner-kicker {
-  color: #8da4ff !important;
+  color: var(--screenplay-panel-accent) !important;
   font-weight: 750;
   letter-spacing: 0.055em;
   text-transform: uppercase;
@@ -448,11 +473,11 @@
 }
 
 .screenplay-ranking__runner-percentile {
-  color: #78869d !important;
+  color: var(--screenplay-panel-muted) !important;
 }
 
 .screenplay-ranking button:focus-visible {
-  outline: 3px solid #6e8bff;
+  outline: 3px solid var(--screenplay-panel-focus);
   outline-offset: -4px;
 }
 
@@ -723,23 +748,23 @@
   box-shadow: inset 0 0 0 1px #efb2b6;
 }
 
-/* Slate Insights sits on Discovery's permanent navy canvas in both themes.
-   Keep its chart chrome deliberately dark while preserving semantic verdict
-   colors and the user's selected theme everywhere else. */
+/* Slate Insights belongs to the working canvas, not the permanent navy chrome.
+   These shared panel tokens keep it light in light mode and deliberately dark
+   in dark mode without changing any chart behavior or semantic verdict color. */
 .screenplay-discovery .slate-analytics {
-  --chart-axis: #9eabc0;
-  --chart-cursor: rgb(110 139 255 / 0.1);
-  color: #eef3fb;
+  --chart-axis: var(--screenplay-chart-axis);
+  --chart-cursor: var(--screenplay-chart-cursor);
+  color: var(--screenplay-panel-ink);
 }
 .screenplay-discovery .slate-analytics__toggle,
 .screenplay-discovery .slate-analytics__card,
 .screenplay-discovery .producer-alignment__metrics {
-  border-color: #243652;
-  background: #151e34;
-  color: #eef3fb;
+  border-color: var(--screenplay-panel-line);
+  background: var(--screenplay-panel);
+  color: var(--screenplay-panel-ink);
 }
 .screenplay-discovery .slate-analytics__toggle:hover {
-  border-color: #3b5274;
+  border-color: var(--screenplay-panel-line-strong);
 }
 .screenplay-discovery .slate-analytics__summary,
 .screenplay-discovery .slate-analytics__summary .text-black-400,
@@ -747,25 +772,25 @@
 .screenplay-discovery .producer-alignment,
 .screenplay-discovery .producer-alignment__note,
 .screenplay-discovery .producer-alignment__metrics span {
-  color: #9eabc0 !important;
+  color: var(--screenplay-panel-muted) !important;
 }
 .screenplay-discovery .slate-analytics__card h2,
 .screenplay-discovery .producer-alignment h2,
 .screenplay-discovery .producer-alignment__metrics p,
 .screenplay-discovery .producer-alignment .text-black-100 {
-  color: #eef3fb !important;
+  color: var(--screenplay-panel-ink) !important;
 }
 .screenplay-discovery .producer-alignment,
 .screenplay-discovery .producer-alignment__metrics > div + div {
-  border-color: #243652;
+  border-color: var(--screenplay-panel-line);
 }
 .screenplay-discovery .chart-tooltip {
-  border-color: #3b5274;
-  background: #101a2e;
-  color: #eef3fb;
+  border-color: var(--screenplay-panel-line-strong);
+  background: var(--screenplay-panel);
+  color: var(--screenplay-panel-ink);
 }
 .screenplay-discovery .chart-tooltip span {
-  color: #b9c4d6;
+  color: var(--screenplay-panel-muted);
 }
 .screenplay-pagination {
   display: flex;
@@ -836,7 +861,7 @@
   }
   .screenplay-ranking__top {
     border-right: 0;
-    border-bottom: 1px solid #243652;
+    border-bottom: 1px solid var(--screenplay-panel-line);
   }
   .screenplay-ranking__runners {
     min-height: 150px;
@@ -869,7 +894,7 @@
     grid-template-columns: 1fr;
   }
   .screenplay-ranking__runner:nth-child(2) {
-    border-top: 1px solid #243652;
+    border-top: 1px solid var(--screenplay-panel-line);
     border-left: 0;
   }
   .screenplay-wall {
