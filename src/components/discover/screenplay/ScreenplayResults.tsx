@@ -6,6 +6,7 @@ import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import type { PercentileRank } from '@/lib/percentileRanking';
+import { getScreenplayDisplayTitle, getScreenplayFormatInfo } from '@/lib/screenplayDisplay';
 import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
 
 type PercentileMap = ReadonlyMap<string, PercentileRank>;
@@ -47,6 +48,8 @@ export function ScreenplayFeature({
 }) {
   const percentile = percentiles.get(screenplay.id);
   const pillars = getDimensionDisplay(screenplay).slice(0, 5);
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title);
+  const formatInfo = getScreenplayFormatInfo(screenplay);
 
   return (
     <article
@@ -60,9 +63,13 @@ export function ScreenplayFeature({
       </div>
       <div className="screenplay-feature__brief">
         <p className="screenplay-ui-eyebrow">Featured screenplay</p>
-        <h1>{screenplay.title}</h1>
+        <h1>{displayTitle.title}</h1>
+        {displayTitle.qualifier && (
+          <p className="screenplay-feature__qualifier">{displayTitle.qualifier}</p>
+        )}
         <p className="screenplay-feature__meta">
-          {screenplay.genre} <span>·</span> {screenplay.author || 'Unknown writer'}
+          {formatInfo.format} <span>·</span> {screenplay.genre} <span>·</span>{' '}
+          {screenplay.author || 'Unknown writer'}
         </p>
         <p className="screenplay-feature__logline">
           {screenplay.logline || 'Logline not yet available.'}
@@ -123,23 +130,30 @@ export function ScreenplayGrid({
     <ul className="screenplay-wall" data-testid="screenplay-discovery-grid">
       {screenplays.map((screenplay, index) => {
         const percentile = percentiles.get(screenplay.id);
+        const displayTitle = getScreenplayDisplayTitle(screenplay.title);
+        const formatInfo = getScreenplayFormatInfo(screenplay);
         return (
           <li
             key={screenplay.id}
             className="screenplay-wall__item"
             data-testid="screenplay-discovery-result"
             data-screenplay-id={screenplay.id}
+            data-verdict={screenplay.recommendation}
           >
             <DiscoverySelectionCheckbox screenplay={screenplay} />
             <button
               type="button"
+              className="screenplay-wall__open"
               onClick={(event) => onOpen(screenplay, event.currentTarget)}
-              aria-label={`Open ${screenplay.title} screenplay file`}
+              aria-label={`Open ${displayTitle.title} screenplay file`}
             >
-              <BlueSpineScript screenplay={screenplay} rank={rankOffset + index + 1} />
+              <span className="screenplay-wall__object-stage">
+                <BlueSpineScript screenplay={screenplay} rank={rankOffset + index + 1} />
+              </span>
               <span className="screenplay-wall__copy">
                 <span className="screenplay-wall__title">
-                  <strong>{screenplay.title}</strong>
+                  <strong>{displayTitle.title}</strong>
+                  {displayTitle.qualifier && <em>{displayTitle.qualifier}</em>}
                   <small>{screenplay.author || 'Unknown writer'}</small>
                 </span>
                 <span className="screenplay-wall__score">
@@ -150,16 +164,20 @@ export function ScreenplayGrid({
                   <RecommendationBadge tier={screenplay.recommendation} />
                   <span>{screenplay.genre}</span>
                 </span>
-                <span className="screenplay-wall__evidence">
+                <span className="screenplay-wall__facts" aria-label="Screenplay format and source">
+                  <span>{formatInfo.format}</span>
+                  <span>{formatInfo.source}</span>
+                </span>
+                <span className="screenplay-wall__status">
                   <AnalysisTrustBadge screenplay={screenplay} />
                   <DiscoveryShareStatus screenplay={screenplay} />
+                  <DevelopmentOpportunityBadge
+                    screenplay={screenplay}
+                    assessment={producerAssessments?.get(screenplay.projectId ?? screenplay.id)}
+                    routed={producerLookIds?.has(screenplay.projectId ?? screenplay.id)}
+                    compact
+                  />
                 </span>
-                <DevelopmentOpportunityBadge
-                  screenplay={screenplay}
-                  assessment={producerAssessments?.get(screenplay.projectId ?? screenplay.id)}
-                  routed={producerLookIds?.has(screenplay.projectId ?? screenplay.id)}
-                  compact
-                />
               </span>
             </button>
           </li>

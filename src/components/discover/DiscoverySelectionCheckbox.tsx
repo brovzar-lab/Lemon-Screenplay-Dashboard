@@ -12,7 +12,7 @@ export function DiscoverySelectionCheckbox({ screenplay }: { screenplay: Screenp
       aria-label={`${isSelected ? 'Deselect' : 'Select'} ${screenplay.title}`}
       aria-pressed={isSelected}
       onClick={() => toggle(screenplay.id)}
-      className="group/check absolute left-1 top-1 z-20 flex h-11 w-11 items-center justify-center"
+      className="discovery-selection-checkbox group/check absolute left-1 top-1 z-20 flex h-11 w-11 items-center justify-center"
     >
       <span
         aria-hidden="true"
