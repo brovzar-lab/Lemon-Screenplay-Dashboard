@@ -138,6 +138,7 @@ from source_evidence import (  # noqa: E402
     build_context_policy,
     validate_parsed_source,
 )
+from development_opportunity import derive_development_opportunity  # noqa: E402
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -3717,6 +3718,13 @@ def run_v9_full(
         "approx_pages_lost": 0,
     }
     analysis["_context_policy"] = context_policy
+
+    # Add a deterministic, non-scoring safety-net before the heavy reports are
+    # deferred from the parent projection. This never changes score or verdict.
+    analysis["development_opportunity"] = derive_development_opportunity(
+        analysis,
+        reader_reports,
+    )
 
     # Embed reader reports, genre detection, and lock version string.
     analysis["reader_reports"] = reader_reports

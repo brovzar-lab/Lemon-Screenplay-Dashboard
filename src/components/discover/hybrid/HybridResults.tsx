@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelectionCheckbox';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
+import { DevelopmentOpportunityBadge } from '@/components/discover/DevelopmentOpportunityBadge';
 import { ScriptCover } from '@/components/discover/ScriptCover';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
@@ -96,6 +97,7 @@ export function HybridFeatureStage({
   sortField,
   onOpen,
   producerAssessments,
+  producerLookIds,
   percentiles,
 }: {
   featured: Screenplay;
@@ -103,6 +105,7 @@ export function HybridFeatureStage({
   sortField: SortField;
   onOpen: OpenScreenplay;
   producerAssessments?: ProducerAssessmentMap;
+  producerLookIds?: ReadonlySet<string>;
   percentiles: PercentileMap;
 }) {
   const percentile = percentileFor(percentiles, featured);
@@ -132,15 +135,17 @@ export function HybridFeatureStage({
         <p className="hybrid-eyebrow">Featured screenplay</p>
         <h1>{featured.title}</h1>
         <p className="hybrid-feature-byline">
-          {featured.genre} <span aria-hidden="true">·</span>{' '}
-          {featured.author || 'Unknown writer'}
+          {featured.genre} <span aria-hidden="true">·</span> {featured.author || 'Unknown writer'}
         </p>
-        <p className="hybrid-feature-logline">
-          {featured.logline || 'Logline not yet available.'}
-        </p>
+        <p className="hybrid-feature-logline">{featured.logline || 'Logline not yet available.'}</p>
 
         <div className="hybrid-feature-decision">
           <RecommendationBadge tier={featured.recommendation} />
+          <DevelopmentOpportunityBadge
+            screenplay={featured}
+            assessment={assessmentFor(producerAssessments, featured)}
+            routed={producerLookIds?.has(featured.projectId ?? featured.id)}
+          />
           <span>{rankingLabel(sortField)}</span>
           <ProducerScoreBadge assessment={assessmentFor(producerAssessments, featured)} />
         </div>
@@ -289,12 +294,14 @@ export function HybridSlateGrid({
   screenplays,
   onOpen,
   producerAssessments,
+  producerLookIds,
   percentiles,
   rankOffset = 0,
 }: {
   screenplays: Screenplay[];
   onOpen: OpenScreenplay;
   producerAssessments?: ProducerAssessmentMap;
+  producerLookIds?: ReadonlySet<string>;
   percentiles: PercentileMap;
   rankOffset?: number;
 }) {
@@ -352,6 +359,12 @@ export function HybridSlateGrid({
 
                 <span className="hybrid-slate-card__footer">
                   <RecommendationBadge tier={screenplay.recommendation} />
+                  <DevelopmentOpportunityBadge
+                    screenplay={screenplay}
+                    assessment={assessmentFor(producerAssessments, screenplay)}
+                    routed={producerLookIds?.has(screenplay.projectId ?? screenplay.id)}
+                    compact
+                  />
                   <span>
                     <AnalysisTrustBadge screenplay={screenplay} />
                     <DiscoveryShareStatus screenplay={screenplay} />

@@ -432,10 +432,52 @@ export interface TmdbStatus {
 // ============================================
 
 export interface ProducerMetrics {
-  marketPotential: number | null;         // 1-10, null = not yet AI-analyzed
+  marketPotential: number | null; // 1-10, null = not yet AI-analyzed
   marketPotentialRationale: string | null;
-  uspStrength: USPStrength | null;        // AI assessment, null = not yet analyzed
+  uspStrength: USPStrength | null; // AI assessment, null = not yet analyzed
   uspStrengthRationale: string | null;
+}
+
+// ============================================
+// DEVELOPMENT OPPORTUNITY (non-scoring gate)
+// ============================================
+
+export type DevelopmentOpportunitySignal =
+  | 'high_concept'
+  | 'narrative_engine'
+  | 'originality'
+  | 'voice'
+  | 'actor_appeal'
+  | 'commercial_hook'
+  | 'cultural_specificity'
+  | 'emotional_engine'
+  | 'development_upside';
+
+export type DevelopmentOpportunityLevel = 'none' | 'watch' | 'producer_review';
+
+export type OpportunityFixability = 'high' | 'medium' | 'low' | 'unknown';
+
+export interface DevelopmentOpportunityEvidence {
+  signal: DevelopmentOpportunitySignal;
+  label: string;
+  score: number;
+  detail: string;
+  source: 'structured_v9' | 'legacy_summary' | 'producer_take';
+  pageCitations: number[];
+}
+
+export interface DevelopmentOpportunity {
+  schemaVersion: 1;
+  level: DevelopmentOpportunityLevel;
+  fixability: OpportunityFixability;
+  evidenceConfidence: 'verified' | 'summary_only' | 'producer_override';
+  strongestSignal: DevelopmentOpportunitySignal | null;
+  rationale: string;
+  evidence: DevelopmentOpportunityEvidence[];
+  risks: string[];
+  source: 'structured_v9' | 'legacy_summary' | 'producer_take';
+  requiresProducerLook: boolean;
+  opportunityScore: number;
 }
 
 // ============================================
@@ -452,7 +494,7 @@ export interface Screenplay {
   title: string;
   author: string;
   collection: Collection;
-  category?: string;  // 'BLKLST', 'LEMON', 'SUBMISSION', etc.
+  category?: string; // 'BLKLST', 'LEMON', 'SUBMISSION', etc.
   sourceFile: string;
 
   // Analysis Metadata
@@ -460,6 +502,8 @@ export interface Screenplay {
   analysisVersion: string;
   analysisQuality?: AnalysisQuality;
   producerProjection?: ProducerProjection;
+  /** Separate safety-net routing. Never changes the stored score or verdict. */
+  developmentOpportunity?: DevelopmentOpportunity;
   readerDisagreements?: ReaderDisagreement[];
   pillarScores?: PillarScore[];
 
@@ -543,11 +587,11 @@ export interface DimensionConfig {
 }
 
 export const DIMENSION_CONFIG: DimensionConfig[] = [
-  { key: 'concept', label: 'Concept', weight: 0.20 },
+  { key: 'concept', label: 'Concept', weight: 0.2 },
   { key: 'structure', label: 'Structure', weight: 0.15 },
   { key: 'protagonist', label: 'Protagonist', weight: 0.15 },
-  { key: 'supportingCast', label: 'Supporting Cast', weight: 0.10 },
-  { key: 'dialogue', label: 'Dialogue', weight: 0.10 },
+  { key: 'supportingCast', label: 'Supporting Cast', weight: 0.1 },
+  { key: 'dialogue', label: 'Dialogue', weight: 0.1 },
   { key: 'genreExecution', label: 'Genre Execution', weight: 0.15 },
   { key: 'originality', label: 'Originality', weight: 0.15 },
 ];
@@ -575,42 +619,46 @@ export const CVS_CONFIG: CVSConfig[] = [
 // BUDGET TIER CONFIG
 // ============================================
 
-export const BUDGET_TIERS: Record<BudgetCategory, { label: string; range: string; level: number }> = {
-  micro: { label: 'Micro', range: '<$1M', level: 1 },
-  low: { label: 'Low', range: '$1-10M', level: 2 },
-  medium: { label: 'Medium', range: '$10-50M', level: 3 },
-  high: { label: 'High', range: '$50M+', level: 4 },
-  unknown: { label: 'Unknown', range: 'TBD', level: 2 },
-};
+export const BUDGET_TIERS: Record<BudgetCategory, { label: string; range: string; level: number }> =
+  {
+    micro: { label: 'Micro', range: '<$1M', level: 1 },
+    low: { label: 'Low', range: '$1-10M', level: 2 },
+    medium: { label: 'Medium', range: '$10-50M', level: 3 },
+    high: { label: 'High', range: '$50M+', level: 4 },
+    unknown: { label: 'Unknown', range: 'TBD', level: 2 },
+  };
 
 // ============================================
 // RECOMMENDATION CONFIG
 // ============================================
 
-export const RECOMMENDATION_CONFIG: Record<RecommendationTier, {
-  label: string;
-  color: string;
-  description: string;
-}> = {
+export const RECOMMENDATION_CONFIG: Record<
+  RecommendationTier,
+  {
+    label: string;
+    color: string;
+    description: string;
+  }
+> = {
   film_now: {
     label: 'FILM NOW',
     color: 'gold',
-    description: 'Elite tier - immediate greenlight consideration'
+    description: 'Elite tier - immediate greenlight consideration',
   },
   recommend: {
     label: 'RECOMMEND',
     color: 'emerald',
-    description: 'Best-in-class material ready for development'
+    description: 'Best-in-class material ready for development',
   },
   consider: {
     label: 'CONSIDER',
     color: 'amber',
-    description: 'Development-ready with clear improvement path'
+    description: 'Development-ready with clear improvement path',
   },
   pass: {
     label: 'PASS',
     color: 'red',
-    description: 'Does not meet minimum quality thresholds'
+    description: 'Does not meet minimum quality thresholds',
   },
 };
 
@@ -618,9 +666,12 @@ export const RECOMMENDATION_CONFIG: Record<RecommendationTier, {
 // COLLECTION CONFIG
 // ============================================
 
-export const COLLECTION_CONFIG: Record<Collection, {
-  folder: string;
-  displayName: string;
-}> = {
-  'Analysis': { folder: 'analysis', displayName: 'Screenplay Analysis' },
+export const COLLECTION_CONFIG: Record<
+  Collection,
+  {
+    folder: string;
+    displayName: string;
+  }
+> = {
+  Analysis: { folder: 'analysis', displayName: 'Screenplay Analysis' },
 };

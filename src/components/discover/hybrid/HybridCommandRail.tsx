@@ -19,6 +19,9 @@ interface HybridCommandRailProps {
   themes: string[];
   hasActiveFilters: boolean;
   onClearFilters: () => void;
+  producerLookCount?: number;
+  producerLookActive?: boolean;
+  onToggleProducerLook?: () => void;
 }
 
 interface ActiveChip {
@@ -32,6 +35,9 @@ export function HybridCommandRail({
   themes,
   hasActiveFilters,
   onClearFilters,
+  producerLookCount = 0,
+  producerLookActive = false,
+  onToggleProducerLook,
 }: HybridCommandRailProps) {
   const [isOpen, setIsOpen] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
@@ -137,10 +143,27 @@ export function HybridCommandRail({
   return (
     <section className="hybrid-command-rail" aria-label="Current Discovery view">
       <div className="hybrid-command-rail__inner">
-        <div className="hybrid-current-view">
-          <span>{activeLens?.name ?? 'All screenplays'}</span>
-          {activeLens && <small>Saved view</small>}
-        </div>
+        <button
+          type="button"
+          className="hybrid-current-view"
+          onClick={onToggleProducerLook}
+          disabled={!onToggleProducerLook || (producerLookCount === 0 && !producerLookActive)}
+          aria-pressed={producerLookActive}
+          title="Show the bounded Producer Look queue"
+        >
+          <span>
+            {producerLookActive ? 'Producer Look' : (activeLens?.name ?? 'All screenplays')}
+          </span>
+          <small>
+            {producerLookActive
+              ? `${producerLookCount} routed · built-in view`
+              : producerLookCount > 0
+                ? `${producerLookCount} need your look`
+                : activeLens
+                  ? 'Saved view'
+                  : 'No pending Producer Looks'}
+          </small>
+        </button>
 
         <div className="hybrid-active-filters" aria-label="Active filters">
           {activeChips.slice(0, 3).map((chip) => (

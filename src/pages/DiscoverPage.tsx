@@ -11,13 +11,16 @@ import {
   useHasActiveFilters,
 } from '@/hooks/useFilteredScreenplays';
 import { useLiveScreenplaySync, useScreenplays } from '@/hooks/useScreenplays';
+import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
 import { getScreenplayStats } from '@/lib/api';
+import { selectProducerLookCandidates } from '@/lib/developmentOpportunity';
 import { resolveDiscoveryPresentation } from '@/lib/discoveryPresentation';
+import { useIsAdmin } from '@/stores/authStore';
 import { useFilterStore } from '@/stores/filterStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { useSortStore } from '@/stores/sortStore';
 import { DEFAULT_SORT_STATE } from '@/types/filters';
-import type { Screenplay } from '@/types';
+import type { ProducerAssessmentHead, Screenplay } from '@/types';
 
 function isDashboardDefaultSort() {
   const { sortConfigs, prioritizeFilmNow } = useSortStore.getState();
@@ -35,8 +38,11 @@ function isDashboardDefaultSort() {
 function DiscoverPage() {
   const { projectId } = useParams<{ projectId?: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const presentation = resolveDiscoveryPresentation(searchParams.get('ui'));
+  const producerLookActive = searchParams.get('view') === 'producer-look';
+  const isAdmin = useIsAdmin();
+  const { data: producerAssessmentHeads = [] } = useProducerAssessmentHeads(isAdmin);
   const { data: allScreenplays = [] } = useScreenplays();
   const { screenplays, totalCount, filteredCount, isLoading, error } = useFilteredScreenplays();
   const hasActiveFilters = useHasActiveFilters();
@@ -76,6 +82,42 @@ function DiscoverPage() {
   }, [allScreenplays]);
 
   const stats = useMemo(() => getScreenplayStats(allScreenplays), [allScreenplays]);
+  const producerAssessments = useMemo(
+    () =>
+      new Map<string, ProducerAssessmentHead>(
+        producerAssessmentHeads.map((assessment) => [assessment.projectId, assessment]),
+      ),
+    [producerAssessmentHeads],
+  );
+  const producerLookCandidates = useMemo(
+    () => selectProducerLookCandidates(screenplays, producerAssessments),
+    [producerAssessments, screenplays],
+  );
+  const producerLookIds = useMemo(
+    () =>
+      new Set(
+        producerLookCandidates.map(({ screenplay }) => screenplay.projectId ?? screenplay.id),
+      ),
+    [producerLookCandidates],
+  );
+  const displayedScreenplays = producerLookActive
+    ? producerLookCandidates.map(({ screenplay }) => screenplay)
+    : screenplays;
+
+  const toggleProducerLook = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (producerLookActive) nextParams.delete('view');
+    else nextParams.set('view', 'producer-look');
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const clearDiscoveryView = () => {
+    filters.resetFilters();
+    if (!producerLookActive) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('view');
+    setSearchParams(nextParams, { replace: true });
+  };
   const { producedHiddenCount, nonScreenplayHiddenCount } = useMemo(() => {
     const pdfScanData = { statuses: pdfStatuses, hasScanResult: hasPdfScanResult };
     const withoutDefaultHides = {
@@ -145,14 +187,14 @@ function DiscoverPage() {
   };
 
   const shellProps: DiscoverShellProps = {
-    screenplays,
+    screenplays: displayedScreenplays,
     allScreenplays,
     totalCount,
-    filteredCount,
+    filteredCount: producerLookActive ? displayedScreenplays.length : filteredCount,
     genres,
     themes,
-    hasActiveFilters,
-    onClearFilters: filters.resetFilters,
+    hasActiveFilters: hasActiveFilters || producerLookActive,
+    onClearFilters: clearDiscoveryView,
     producedHiddenCount,
     onRevealProduced: () => filters.setHideProduced(false),
     nonScreenplayHiddenCount,
@@ -163,6 +205,11 @@ function DiscoverPage() {
     onCloseScreenplay: closeScreenplay,
     isLoading,
     isError: Boolean(error),
+    producerAssessments,
+    producerLookIds,
+    producerLookCount: producerLookCandidates.length,
+    producerLookActive,
+    onToggleProducerLook: toggleProducerLook,
   };
 
   useEffect(() => {
@@ -170,7 +217,9 @@ function DiscoverPage() {
     const savedPosition = sessionStorage.getItem('lemon.discovery.screenplay.scrollY');
     if (!savedPosition) return;
     sessionStorage.removeItem('lemon.discovery.screenplay.scrollY');
-    window.requestAnimationFrame(() => window.scrollTo({ top: Number(savedPosition), behavior: 'auto' }));
+    window.requestAnimationFrame(() =>
+      window.scrollTo({ top: Number(savedPosition), behavior: 'auto' }),
+    );
   }, [presentation]);
 
   if (presentation === 'screenplay') return <ScreenplayDiscoverShell {...shellProps} />;

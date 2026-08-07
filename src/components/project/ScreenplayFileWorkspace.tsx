@@ -20,7 +20,12 @@ import {
 import { ScreenplayPdfButton } from '@/components/screenplay/modal/ScreenplayPdfButton';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
-import { formatAnalysisVersion, formatProducerTaxonomy, formatProducerText } from '@/lib/producerDisplay';
+import {
+  formatAnalysisVersion,
+  formatProducerTaxonomy,
+  formatProducerText,
+} from '@/lib/producerDisplay';
+import { evaluateDevelopmentOpportunity } from '@/lib/developmentOpportunity';
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -82,7 +87,10 @@ function exactAssessment(
   screenplay: Screenplay,
 ): ProducerAssessmentHead | undefined {
   const projectId = screenplay.projectId ?? screenplay.id;
-  return assessments.find((assessment) => assessment.projectId === projectId && assessment.versionId === screenplay.latestVersionId);
+  return assessments.find(
+    (assessment) =>
+      assessment.projectId === projectId && assessment.versionId === screenplay.latestVersionId,
+  );
 }
 
 function trustLabel(screenplay: Screenplay): string {
@@ -102,18 +110,58 @@ function recommendationTitle(screenplay: Screenplay): string {
   return screenplay.recommendation.charAt(0).toUpperCase() + screenplay.recommendation.slice(1);
 }
 
-function EvidenceRail({ screenplay, hasProducerTake, producerTakeVisible }: { screenplay: Screenplay; hasProducerTake: boolean; producerTakeVisible: boolean }) {
+function EvidenceRail({
+  screenplay,
+  hasProducerTake,
+  producerTakeVisible,
+}: {
+  screenplay: Screenplay;
+  hasProducerTake: boolean;
+  producerTakeVisible: boolean;
+}) {
   const quality = screenplay.analysisQuality;
   return (
     <aside className="screenplay-file__evidence" aria-label="Decision evidence">
       <p className="screenplay-file__micro">Decision evidence</p>
       <dl>
-        <div><dt>Trust status</dt><dd>{trustLabel(screenplay)}</dd></div>
-        <div><dt>Reader panel</dt><dd>{quality ? `${quality.completedReaders}/${quality.expectedReaders} complete` : 'Legacy record'}</dd></div>
-        <div><dt>Reader alignment</dt><dd>{screenplay.producerProjection ? `${screenplay.producerProjection.readerDisagreementCount} ${screenplay.producerProjection.readerDisagreementCount === 1 ? 'disagreement' : 'disagreements'}` : 'Not recorded'}</dd></div>
-        {producerTakeVisible && <div><dt>Producer take</dt><dd>{hasProducerTake ? 'Submitted' : 'Not yet submitted'}</dd></div>}
-        <div><dt>Analysis version</dt><dd>{formatAnalysisVersion(screenplay.analysisVersion)}</dd></div>
-        <div><dt>Project versions</dt><dd>{screenplay.versionCount && screenplay.versionCount > 1 ? `${screenplay.versionCount} stored` : 'Current version'}</dd></div>
+        <div>
+          <dt>Trust status</dt>
+          <dd>{trustLabel(screenplay)}</dd>
+        </div>
+        <div>
+          <dt>Reader panel</dt>
+          <dd>
+            {quality
+              ? `${quality.completedReaders}/${quality.expectedReaders} complete`
+              : 'Legacy record'}
+          </dd>
+        </div>
+        <div>
+          <dt>Reader alignment</dt>
+          <dd>
+            {screenplay.producerProjection
+              ? `${screenplay.producerProjection.readerDisagreementCount} ${screenplay.producerProjection.readerDisagreementCount === 1 ? 'disagreement' : 'disagreements'}`
+              : 'Not recorded'}
+          </dd>
+        </div>
+        {producerTakeVisible && (
+          <div>
+            <dt>Producer take</dt>
+            <dd>{hasProducerTake ? 'Submitted' : 'Not yet submitted'}</dd>
+          </div>
+        )}
+        <div>
+          <dt>Analysis version</dt>
+          <dd>{formatAnalysisVersion(screenplay.analysisVersion)}</dd>
+        </div>
+        <div>
+          <dt>Project versions</dt>
+          <dd>
+            {screenplay.versionCount && screenplay.versionCount > 1
+              ? `${screenplay.versionCount} stored`
+              : 'Current version'}
+          </dd>
+        </div>
       </dl>
     </aside>
   );
@@ -130,33 +178,123 @@ function PanelIntro({ tab }: { tab: Exclude<ScreenplayFileTab, 'reader-room'> })
   );
 }
 
-function Overview({ screenplay, hasProducerTake, producerTakeVisible }: { screenplay: Screenplay; hasProducerTake: boolean; producerTakeVisible: boolean }) {
+function Overview({
+  screenplay,
+  producerAssessment,
+  producerTakeVisible,
+}: {
+  screenplay: Screenplay;
+  producerAssessment?: ProducerAssessmentHead;
+  producerTakeVisible: boolean;
+}) {
   const strengths = screenplay.strengths.slice(0, 3);
   const watchPoints = [...screenplay.majorWeaknesses, ...screenplay.weaknesses].slice(0, 2);
-  const executiveRead = screenplay.verdictStatement
-    || screenplay.recommendationRationale
-    || 'The stored analysis does not yet include an executive verdict.';
+  const executiveRead =
+    screenplay.verdictStatement ||
+    screenplay.recommendationRationale ||
+    'The stored analysis does not yet include an executive verdict.';
+  const opportunity = evaluateDevelopmentOpportunity(screenplay, producerAssessment);
   return (
     <div className="screenplay-file__overview-grid">
       <article className="screenplay-file__read">
         <AnalysisWarnings screenplay={screenplay} />
-        <section className="screenplay-file__decision-brief" aria-labelledby="screenplay-file-decision-heading">
+        {opportunity.requiresProducerLook && (
+          <section
+            className="screenplay-file__opportunity"
+            aria-labelledby="screenplay-file-opportunity-heading"
+          >
+            <div>
+              <p className="screenplay-file__micro">Development opportunity</p>
+              <h3 id="screenplay-file-opportunity-heading">Producer Look</h3>
+              <p>{formatProducerText(opportunity.rationale)}</p>
+            </div>
+            <dl>
+              <div>
+                <dt>Strongest upside</dt>
+                <dd>{opportunity.evidence[0]?.label ?? 'Development upside'}</dd>
+              </div>
+              <div>
+                <dt>Fixability</dt>
+                <dd>
+                  {opportunity.fixability === 'unknown'
+                    ? 'Needs producer judgment'
+                    : formatProducerTaxonomy(opportunity.fixability)}
+                </dd>
+              </div>
+              <div>
+                <dt>Decision status</dt>
+                <dd>
+                  {screenplay.weightedScore.toFixed(1)} · {recommendationTitle(screenplay)}{' '}
+                  preserved
+                </dd>
+              </div>
+            </dl>
+          </section>
+        )}
+        <section
+          className="screenplay-file__decision-brief"
+          aria-labelledby="screenplay-file-decision-heading"
+        >
           <p className="screenplay-file__micro screenplay-file__micro--blue">Executive read</p>
-          <h3 id="screenplay-file-decision-heading">Why this landed at {recommendationTitle(screenplay)}</h3>
+          <h3 id="screenplay-file-decision-heading">
+            Why this landed at {recommendationTitle(screenplay)}
+          </h3>
           <p className="screenplay-file__executive-copy">{formatProducerText(executiveRead)}</p>
         </section>
         <div className="screenplay-file__signals">
-          <section><h3>Strongest signals</h3><ul>{strengths.length ? strengths.map((item) => <li key={item}><span>✓</span>{formatProducerText(item)}</li>) : <li>No strengths were recorded.</li>}</ul></section>
-          <section><h3>Watch points</h3><ul>{watchPoints.length ? watchPoints.map((item) => <li key={item}><span>△</span>{formatProducerText(item)}</li>) : <li>No watch points were recorded.</li>}</ul></section>
+          <section>
+            <h3>Strongest signals</h3>
+            <ul>
+              {strengths.length ? (
+                strengths.map((item) => (
+                  <li key={item}>
+                    <span>✓</span>
+                    {formatProducerText(item)}
+                  </li>
+                ))
+              ) : (
+                <li>No strengths were recorded.</li>
+              )}
+            </ul>
+          </section>
+          <section>
+            <h3>Watch points</h3>
+            <ul>
+              {watchPoints.length ? (
+                watchPoints.map((item) => (
+                  <li key={item}>
+                    <span>△</span>
+                    {formatProducerText(item)}
+                  </li>
+                ))
+              ) : (
+                <li>No watch points were recorded.</li>
+              )}
+            </ul>
+          </section>
         </div>
-        {screenplay.developmentNotes.length > 0 && <section className="screenplay-file__priority"><h3>Development priority</h3><p>{formatProducerText(screenplay.developmentNotes[0])}</p></section>}
+        {screenplay.developmentNotes.length > 0 && (
+          <section className="screenplay-file__priority">
+            <h3>Development priority</h3>
+            <p>{formatProducerText(screenplay.developmentNotes[0])}</p>
+          </section>
+        )}
       </article>
-      <EvidenceRail screenplay={screenplay} hasProducerTake={hasProducerTake} producerTakeVisible={producerTakeVisible} />
+      <EvidenceRail
+        screenplay={screenplay}
+        hasProducerTake={Boolean(producerAssessment)}
+        producerTakeVisible={producerTakeVisible}
+      />
     </div>
   );
 }
 
-export function ScreenplayFileWorkspace({ screenplay, activeTab, onSelectTab, onBack }: ScreenplayFileWorkspaceProps) {
+export function ScreenplayFileWorkspace({
+  screenplay,
+  activeTab,
+  onSelectTab,
+  onBack,
+}: ScreenplayFileWorkspaceProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previousProjectRef = useRef<string | null>(null);
   const isAdmin = useIsAdmin();
@@ -165,7 +303,10 @@ export function ScreenplayFileWorkspace({ screenplay, activeTab, onSelectTab, on
   const toggleQuickFavorite = useFavoritesStore((state) => state.toggleQuickFavorite);
   const isFavorite = quickFavorites.includes(screenplay.id);
   const { data: assessmentHeads = [] } = useProducerAssessmentHeads(isAdmin);
-  const producerAssessment = useMemo(() => exactAssessment(assessmentHeads, screenplay), [assessmentHeads, screenplay]);
+  const producerAssessment = useMemo(
+    () => exactAssessment(assessmentHeads, screenplay),
+    [assessmentHeads, screenplay],
+  );
 
   useEffect(() => {
     const projectChanged = previousProjectRef.current !== screenplay.id;
@@ -185,28 +326,44 @@ export function ScreenplayFileWorkspace({ screenplay, activeTab, onSelectTab, on
   }, [activeTab, isAdmin, onSelectTab]);
 
   const renderPanel = () => {
-    if (activeTab === 'scores') return (
-      <ScoresPanel
+    if (activeTab === 'scores')
+      return (
+        <ScoresPanel
+          screenplay={screenplay}
+          presentation="workspace"
+          onOpenReaderRoom={() => onSelectTab('reader-room')}
+        />
+      );
+    if (activeTab === 'reader-room') return <ReaderRoom screenplay={screenplay} />;
+    if (activeTab === 'story-x-ray')
+      return <ContentDetails screenplay={screenplay} presentation="workspace" />;
+    if (activeTab === 'producer-take')
+      return isAdmin ? <ProducerTake screenplay={screenplay} /> : null;
+    if (activeTab === 'notes-files')
+      return (
+        <div className="screenplay-file__notes">
+          <p className="screenplay-file__notes-scope">
+            These notes stay on this browser and are not shared with the team.
+          </p>
+          <NotesSection
+            screenplayId={screenplay.projectId ?? screenplay.id}
+            presentation="workspace"
+          />
+        </div>
+      );
+    return (
+      <Overview
         screenplay={screenplay}
-        presentation="workspace"
-        onOpenReaderRoom={() => onSelectTab('reader-room')}
+        producerAssessment={producerAssessment}
+        producerTakeVisible={isAdmin}
       />
     );
-    if (activeTab === 'reader-room') return <ReaderRoom screenplay={screenplay} />;
-    if (activeTab === 'story-x-ray') return <ContentDetails screenplay={screenplay} presentation="workspace" />;
-    if (activeTab === 'producer-take') return isAdmin ? <ProducerTake screenplay={screenplay} /> : null;
-    if (activeTab === 'notes-files') return (
-      <div className="screenplay-file__notes">
-        <p className="screenplay-file__notes-scope">These notes stay on this browser and are not shared with the team.</p>
-        <NotesSection screenplayId={screenplay.projectId ?? screenplay.id} presentation="workspace" />
-      </div>
-    );
-    return <Overview screenplay={screenplay} hasProducerTake={Boolean(producerAssessment)} producerTakeVisible={isAdmin} />;
   };
 
-  const panelLabelledBy = activeTab === 'reader-room'
-    ? 'screenplay-file-tab-reader-room'
-    : `screenplay-file-tab-${activeTab}`;
+  const panelLabelledBy =
+    activeTab === 'reader-room'
+      ? 'screenplay-file-tab-reader-room'
+      : `screenplay-file-tab-${activeTab}`;
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -215,13 +372,14 @@ export function ScreenplayFileWorkspace({ screenplay, activeTab, onSelectTab, on
     );
     const currentIndex = tabs.indexOf(event.currentTarget);
     if (currentIndex < 0) return;
-    const nextIndex = event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? tabs.length - 1
-        : event.key === 'ArrowRight'
-          ? (currentIndex + 1) % tabs.length
-          : (currentIndex - 1 + tabs.length) % tabs.length;
+    const nextIndex =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? tabs.length - 1
+          : event.key === 'ArrowRight'
+            ? (currentIndex + 1) % tabs.length
+            : (currentIndex - 1 + tabs.length) % tabs.length;
     const nextTab = tabs[nextIndex];
     const nextKey = nextTab?.dataset.tabKey as ScreenplayFileTab | undefined;
     if (!nextTab || !nextKey) return;
@@ -233,9 +391,21 @@ export function ScreenplayFileWorkspace({ screenplay, activeTab, onSelectTab, on
   return (
     <div className="discovery-root screenplay-file" data-testid="screenplay-file-workspace">
       <header className="screenplay-file__app-header">
-        <button type="button" onClick={onBack} className="screenplay-file__back">← Back to slate</button>
-        <div className="screenplay-file__brand"><img src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-white.png'} alt="" /><span><strong>LEMON</strong><small>Discovery</small></span></div>
-        <div className="screenplay-file__header-actions"><SyncStatusIndicator /><ThemeToggle /><UserMenu /></div>
+        <button type="button" onClick={onBack} className="screenplay-file__back">
+          ← Back to slate
+        </button>
+        <div className="screenplay-file__brand">
+          <img src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-white.png'} alt="" />
+          <span>
+            <strong>LEMON</strong>
+            <small>Discovery</small>
+          </span>
+        </div>
+        <div className="screenplay-file__header-actions">
+          <SyncStatusIndicator />
+          <ThemeToggle />
+          <UserMenu />
+        </div>
       </header>
 
       <section className="screenplay-file__hero">
@@ -243,22 +413,74 @@ export function ScreenplayFileWorkspace({ screenplay, activeTab, onSelectTab, on
         <div className="screenplay-file__identity">
           <p className="screenplay-file__micro screenplay-file__micro--blue">Screenplay file</p>
           <h1>{screenplay.title}</h1>
-          <p className="screenplay-file__meta">{formatProducerTaxonomy(screenplay.genre)} · {screenplay.author || 'Unknown writer'} · {screenplay.metadata.pageCount || 'Unknown'} pages</p>
-          <p className="screenplay-file__logline">{formatProducerText(screenplay.logline || 'Logline not yet available.')}</p>
-          <div className="screenplay-file__status"><AnalysisTrustBadge screenplay={screenplay} /><DiscoveryShareStatus screenplay={screenplay} /><ProducerScoreBadge assessment={producerAssessment} /></div>
-          <div className="screenplay-file__actions"><ScreenplayPdfButton screenplay={screenplay} presentation="workspace" allowReupload={false} /><ShareButton screenplay={screenplay} waitForExistingLink presentation="discovery" /><DiscoveryExportActions screenplay={screenplay} /><button type="button" onClick={() => toggleQuickFavorite(screenplay.id)} aria-pressed={isFavorite}>{isFavorite ? '★ Favorited' : '☆ Favorite'}</button></div>
+          <p className="screenplay-file__meta">
+            {formatProducerTaxonomy(screenplay.genre)} · {screenplay.author || 'Unknown writer'} ·{' '}
+            {screenplay.metadata.pageCount || 'Unknown'} pages
+          </p>
+          <p className="screenplay-file__logline">
+            {formatProducerText(screenplay.logline || 'Logline not yet available.')}
+          </p>
+          <div className="screenplay-file__status">
+            <AnalysisTrustBadge screenplay={screenplay} />
+            <DiscoveryShareStatus screenplay={screenplay} />
+            <ProducerScoreBadge assessment={producerAssessment} />
+          </div>
+          <div className="screenplay-file__actions">
+            <ScreenplayPdfButton
+              screenplay={screenplay}
+              presentation="workspace"
+              allowReupload={false}
+            />
+            <ShareButton screenplay={screenplay} waitForExistingLink presentation="discovery" />
+            <DiscoveryExportActions screenplay={screenplay} />
+            <button
+              type="button"
+              onClick={() => toggleQuickFavorite(screenplay.id)}
+              aria-pressed={isFavorite}
+            >
+              {isFavorite ? '★ Favorited' : '☆ Favorite'}
+            </button>
+          </div>
         </div>
-        <div className="screenplay-file__hero-score"><span>Score</span><strong>{screenplay.weightedScore.toFixed(1)}</strong><b>{recommendationLabel(screenplay)}</b></div>
+        <div className="screenplay-file__hero-score">
+          <span>Score</span>
+          <strong>{screenplay.weightedScore.toFixed(1)}</strong>
+          <b>{recommendationLabel(screenplay)}</b>
+        </div>
       </section>
 
       <main className="screenplay-file__main">
         <div className="screenplay-file__binder">
           <div className="screenplay-file__toolbar">
             <nav aria-label="Screenplay file sections" role="tablist">
-              {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => <button key={tab.key} id={`screenplay-file-tab-${tab.key}`} data-tab-key={tab.key} type="button" role="tab" tabIndex={activeTab === tab.key ? 0 : -1} onClick={() => onSelectTab(tab.key)} onKeyDown={handleTabKeyDown} aria-selected={activeTab === tab.key} aria-controls="screenplay-file-panel" className={clsx(activeTab === tab.key && 'is-active')}>{tab.label}</button>)}
+              {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => (
+                <button
+                  key={tab.key}
+                  id={`screenplay-file-tab-${tab.key}`}
+                  data-tab-key={tab.key}
+                  type="button"
+                  role="tab"
+                  tabIndex={activeTab === tab.key ? 0 : -1}
+                  onClick={() => onSelectTab(tab.key)}
+                  onKeyDown={handleTabKeyDown}
+                  aria-selected={activeTab === tab.key}
+                  aria-controls="screenplay-file-panel"
+                  className={clsx(activeTab === tab.key && 'is-active')}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </nav>
           </div>
-          <div ref={panelRef} id="screenplay-file-panel" tabIndex={-1} role="tabpanel" aria-labelledby={panelLabelledBy} className={clsx('screenplay-file__panel', `screenplay-file__section--${activeTab}`)} data-testid={`screenplay-file-tab-${activeTab}`}>
+          <div
+            ref={panelRef}
+            id="screenplay-file-panel"
+            tabIndex={-1}
+            role="tabpanel"
+            aria-labelledby={panelLabelledBy}
+            className={clsx('screenplay-file__panel', `screenplay-file__section--${activeTab}`)}
+            data-testid={`screenplay-file-tab-${activeTab}`}
+          >
             {activeTab !== 'reader-room' && <PanelIntro tab={activeTab} />}
             {renderPanel()}
           </div>

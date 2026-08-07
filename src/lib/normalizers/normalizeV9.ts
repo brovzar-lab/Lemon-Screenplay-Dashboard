@@ -19,22 +19,80 @@ import type {
   CriticalFailureSeverity,
   PillarScore,
   ReaderDisagreement,
+  DevelopmentOpportunity,
+  DevelopmentOpportunityEvidence,
+  DevelopmentOpportunitySignal,
 } from '@/types';
 
 import { createProducerMetrics } from '../calculations';
-import {
-  buildProducerProjection,
-  canonicalCriticalFailurePenalty,
-} from '@/lib/producerProjection';
+import { buildProducerProjection, canonicalCriticalFailurePenalty } from '@/lib/producerProjection';
 
 import { collectionToCategoryId } from './collectionMap';
-import {
-  generateId,
-  normalizeRecommendation,
-  normalizeTmdbStatus,
-} from './helpers';
+import { generateId, normalizeRecommendation, normalizeTmdbStatus } from './helpers';
 
 export type { PillarScore } from '@/types';
+
+const DEVELOPMENT_SIGNALS = new Set<DevelopmentOpportunitySignal>([
+  'high_concept',
+  'narrative_engine',
+  'originality',
+  'voice',
+  'actor_appeal',
+  'commercial_hook',
+  'cultural_specificity',
+  'emotional_engine',
+  'development_upside',
+]);
+
+function normalizeDevelopmentOpportunity(value: unknown): DevelopmentOpportunity | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const rawEvidence = Array.isArray(record.evidence) ? record.evidence : [];
+  const evidence = rawEvidence.flatMap<DevelopmentOpportunityEvidence>((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const entry = item as Record<string, unknown>;
+    const signal = String(entry.signal || '') as DevelopmentOpportunitySignal;
+    if (!DEVELOPMENT_SIGNALS.has(signal)) return [];
+    const score = Number(entry.score);
+    return [
+      {
+        signal,
+        label: String(entry.label || signal.replaceAll('_', ' ')),
+        score: Number.isFinite(score) ? Math.max(0, Math.min(10, score)) : 0,
+        detail: String(entry.detail || ''),
+        source: 'structured_v9' as const,
+        pageCitations: Array.isArray(entry.page_citations)
+          ? entry.page_citations.filter(
+              (page): page is number => Number.isInteger(page) && page > 0,
+            )
+          : [],
+      },
+    ];
+  });
+  const strongestSignal = String(record.strongest_signal || '') as DevelopmentOpportunitySignal;
+  const rawLevel = String(record.level || 'none');
+  const rawFixability = String(record.fixability || 'unknown');
+  const opportunityScore = Number(record.opportunity_score);
+
+  return {
+    schemaVersion: 1,
+    level: rawLevel === 'producer_review' || rawLevel === 'watch' ? rawLevel : 'none',
+    fixability:
+      rawFixability === 'high' || rawFixability === 'medium' || rawFixability === 'low'
+        ? rawFixability
+        : 'unknown',
+    evidenceConfidence: 'verified',
+    strongestSignal: DEVELOPMENT_SIGNALS.has(strongestSignal) ? strongestSignal : null,
+    rationale: String(record.rationale || ''),
+    evidence,
+    risks: Array.isArray(record.risks) ? record.risks.map(String).slice(0, 3) : [],
+    source: 'structured_v9',
+    requiresProducerLook: record.requires_producer_look === true,
+    opportunityScore: Number.isFinite(opportunityScore)
+      ? Math.max(0, Math.min(10, opportunityScore))
+      : 0,
+  };
+}
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -67,15 +125,14 @@ export function isArchaeologyAnalysis(raw: unknown): boolean {
   // 'v8_archaeology' / 'v8_triage' = intermediate test documents (backward compat)
   // 'v9_archaeology' / 'v9_triage' = current engine (source of truth)
   // 'v7' = old browser inline path (backward compat)
-  const isRecognizedVersion = (
+  const isRecognizedVersion =
     v === 'v9_archaeology' ||
     v === 'v9_triage' ||
     v === 'v8_archaeology' ||
     v === 'v8_triage' ||
     v === 'v7_archaeology' ||
     v === 'v7_triage' ||
-    v === 'v7'
-  );
+    v === 'v7';
   if (!isRecognizedVersion || !r.analysis || typeof r.analysis !== 'object') return false;
 
   const analysis = r.analysis as Record<string, unknown>;
@@ -115,9 +172,11 @@ export function normalizeV9Screenplay(
   raw: Record<string, unknown>,
   collection: Collection,
 ): ScreenplayWithPillars {
-  const analysis = raw.analysis as Record<string, unknown> || {};
-  const { projection: producerProjection, analysisQuality } =
-    buildProducerProjection(raw, analysis);
+  const analysis = (raw.analysis as Record<string, unknown>) || {};
+  const { projection: producerProjection, analysisQuality } = buildProducerProjection(
+    raw,
+    analysis,
+  );
   type RawCriticalFailure = {
     failure?: unknown;
     description?: unknown;
@@ -125,14 +184,9 @@ export function normalizeV9Screenplay(
     severity?: unknown;
     penalty?: unknown;
   };
-  const severityValues: CriticalFailureSeverity[] = [
-    'minor',
-    'moderate',
-    'major',
-    'critical',
-  ];
+  const severityValues: CriticalFailureSeverity[] = ['minor', 'moderate', 'major', 'critical'];
   const rawCriticalFailures = Array.isArray(analysis.critical_failures)
-    ? analysis.critical_failures as Array<RawCriticalFailure | string>
+    ? (analysis.critical_failures as Array<RawCriticalFailure | string>)
     : [];
   const criticalFailureDetails = rawCriticalFailures.map((failure) => {
     if (typeof failure === 'string') {
@@ -144,23 +198,21 @@ export function normalizeV9Screenplay(
       };
     }
     const description = String(failure.description || failure.failure || '');
-    const severity = severityValues.includes(
-      failure.severity as CriticalFailureSeverity,
-    )
-      ? failure.severity as CriticalFailureSeverity
+    const severity = severityValues.includes(failure.severity as CriticalFailureSeverity)
+      ? (failure.severity as CriticalFailureSeverity)
       : 'major';
     return {
       failure: description,
       severity,
       penalty: -(canonicalCriticalFailurePenalty(severity) ?? 0.8),
-      evidence: String(
-        failure.why_structural || description || 'See reader reports',
-      ),
+      evidence: String(failure.why_structural || description || 'See reader reports'),
     };
   });
 
   // Extract pillar scores
-  const pillarScores = analysis.pillar_scores as Record<string, { score: number; weight: number }> | undefined;
+  const pillarScores = analysis.pillar_scores as
+    | Record<string, { score: number; weight: number }>
+    | undefined;
   const structureScore = pillarScores?.structure?.score ?? 0;
   const characterScore = pillarScores?.character?.score ?? 0;
   const craftScore = pillarScores?.craft_scene?.score ?? 0;
@@ -198,7 +250,12 @@ export function normalizeV9Screenplay(
   const chars = analysis.characters as Record<string, unknown> | undefined;
 
   // Comparable films
-  const comps = analysis.comparable_films as Record<string, { title: string; similarity?: string; structural_match?: string; key_divergence?: string }> | undefined;
+  const comps = analysis.comparable_films as
+    | Record<
+        string,
+        { title: string; similarity?: string; structural_match?: string; key_divergence?: string }
+      >
+    | undefined;
   const comparableFilms: ComparableFilm[] = comps
     ? Object.entries(comps).map(([lens, c]) => ({
         title: c.title,
@@ -221,7 +278,9 @@ export function normalizeV9Screenplay(
   }));
 
   // Story vs. situation
-  const storyVsSituation = analysis.story_vs_situation as { score: number; verdict: string; gate_applied: boolean } | undefined;
+  const storyVsSituation = analysis.story_vs_situation as
+    | { score: number; verdict: string; gate_applied: boolean }
+    | undefined;
 
   // Lenses (commercial viability from synthesis)
   const lenses = analysis.lenses as Record<string, Record<string, unknown>> | undefined;
@@ -229,13 +288,28 @@ export function normalizeV9Screenplay(
   if (lenses?.commercial_viability) {
     const cv = lenses.commercial_viability as Record<string, { score?: number; note?: string }>;
     commercialViability = {
-      targetAudience: { score: cv.target_audience?.score ?? 0, note: cv.target_audience?.note ?? '' },
+      targetAudience: {
+        score: cv.target_audience?.score ?? 0,
+        note: cv.target_audience?.note ?? '',
+      },
       highConcept: { score: cv.high_concept?.score ?? 0, note: cv.high_concept?.note ?? '' },
-      castAttachability: { score: cv.cast_attachability?.score ?? 0, note: cv.cast_attachability?.note ?? '' },
+      castAttachability: {
+        score: cv.cast_attachability?.score ?? 0,
+        note: cv.cast_attachability?.note ?? '',
+      },
       marketingHook: { score: cv.marketing_hook?.score ?? 0, note: cv.marketing_hook?.note ?? '' },
-      budgetReturnRatio: { score: cv.budget_return_ratio?.score ?? 0, note: cv.budget_return_ratio?.note ?? '' },
-      comparableSuccess: { score: cv.comparable_success?.score ?? 0, note: cv.comparable_success?.note ?? '' },
-      cvsTotal: Object.values(cv).reduce((sum, v) => sum + (typeof v === 'object' && v && 'score' in v ? (v.score ?? 0) : 0), 0),
+      budgetReturnRatio: {
+        score: cv.budget_return_ratio?.score ?? 0,
+        note: cv.budget_return_ratio?.note ?? '',
+      },
+      comparableSuccess: {
+        score: cv.comparable_success?.score ?? 0,
+        note: cv.comparable_success?.note ?? '',
+      },
+      cvsTotal: Object.values(cv).reduce(
+        (sum, v) => sum + (typeof v === 'object' && v && 'score' in v ? (v.score ?? 0) : 0),
+        0,
+      ),
       cvsAssessed: true,
     };
   } else {
@@ -253,7 +327,11 @@ export function normalizeV9Screenplay(
 
   // Pillar array for native display
   const v7PillarArray: PillarScore[] = pillarScores
-    ? Object.entries(pillarScores).map(([name, ps]) => ({ name, score: ps.score, weight: ps.weight }))
+    ? Object.entries(pillarScores).map(([name, ps]) => ({
+        name,
+        score: ps.score,
+        weight: ps.weight,
+      }))
     : [];
 
   // Red flags
@@ -261,35 +339,34 @@ export function normalizeV9Screenplay(
   const rawReaderDisagreements = Array.isArray(analysis.reader_disagreements)
     ? analysis.reader_disagreements
     : [];
-  const readerDisagreements: ReaderDisagreement[] = rawReaderDisagreements.map(
-    (disagreement) => {
-      if (typeof disagreement === 'string') {
-        return {
-          topic: disagreement,
-          readerA: '',
-          readerAPosition: '',
-          readerB: '',
-          readerBPosition: '',
-          resolution: '',
-        };
-      }
-      const record = disagreement && typeof disagreement === 'object'
-        ? disagreement as Record<string, unknown>
-        : {};
+  const readerDisagreements: ReaderDisagreement[] = rawReaderDisagreements.map((disagreement) => {
+    if (typeof disagreement === 'string') {
       return {
-        topic: String(record.topic || record.issue || record.disagreement || ''),
-        readerA: String(record.reader_a || record.readerA || ''),
-        readerAPosition: String(
-          record.reader_a_position || record.readerAPosition || record.position_a || '',
-        ),
-        readerB: String(record.reader_b || record.readerB || ''),
-        readerBPosition: String(
-          record.reader_b_position || record.readerBPosition || record.position_b || '',
-        ),
-        resolution: String(record.resolution || record.synthesis_resolution || ''),
+        topic: disagreement,
+        readerA: '',
+        readerAPosition: '',
+        readerB: '',
+        readerBPosition: '',
+        resolution: '',
       };
-    },
-  );
+    }
+    const record =
+      disagreement && typeof disagreement === 'object'
+        ? (disagreement as Record<string, unknown>)
+        : {};
+    return {
+      topic: String(record.topic || record.issue || record.disagreement || ''),
+      readerA: String(record.reader_a || record.readerA || ''),
+      readerAPosition: String(
+        record.reader_a_position || record.readerAPosition || record.position_a || '',
+      ),
+      readerB: String(record.reader_b || record.readerB || ''),
+      readerBPosition: String(
+        record.reader_b_position || record.readerBPosition || record.position_b || '',
+      ),
+      resolution: String(record.resolution || record.synthesis_resolution || ''),
+    };
+  });
 
   // Metadata
   const metadata = raw.metadata as Record<string, unknown> | undefined;
@@ -298,9 +375,7 @@ export function normalizeV9Screenplay(
   return {
     id: generateId(sourceFile),
     projectId:
-      typeof raw.project_id === 'string' && raw.project_id.trim()
-        ? raw.project_id
-        : undefined,
+      typeof raw.project_id === 'string' && raw.project_id.trim() ? raw.project_id : undefined,
     title: String(analysis.title || ''),
     author: (() => {
       const rawAuthor = String(analysis.author || '');
@@ -308,12 +383,16 @@ export function normalizeV9Screenplay(
       return /not found|unknown/i.test(rawAuthor) ? '' : rawAuthor;
     })(),
     collection,
-    category: collectionToCategoryId(String((raw as Record<string, unknown>).collection_id || raw.collection || ''), String((raw as Record<string, unknown>).collection_id || raw.collection || '')),
+    category: collectionToCategoryId(
+      String((raw as Record<string, unknown>).collection_id || raw.collection || ''),
+      String((raw as Record<string, unknown>).collection_id || raw.collection || ''),
+    ),
     sourceFile,
     analysisModel: String(raw.analysis_model || 'claude-sonnet'),
     analysisVersion: String(raw.analysis_version || 'v9_archaeology'),
     analysisQuality,
     producerProjection,
+    developmentOpportunity: normalizeDevelopmentOpportunity(analysis.development_opportunity),
     weightedScore,
     cvsTotal: commercialViability.cvsTotal,
     genre: String(analysis.genre || ''),
@@ -325,31 +404,36 @@ export function normalizeV9Screenplay(
     recommendationRationale: String(analysis.executive_summary || ''),
     verdictStatement: String(analysis.executive_summary || ''),
     isFilmNow,
-    filmNowAssessment: isFilmNow ? {
-      qualifies: true,
-      lightningTest: null,
-      goosebumpsMoments: goosebumpsMoments.map((g) => g.description),
-      careerRiskTest: '',
-      legacyPotential: '',
-      disqualifyingFactors: [],
-    } : null,
+    filmNowAssessment: isFilmNow
+      ? {
+          qualifies: true,
+          lightningTest: null,
+          goosebumpsMoments: goosebumpsMoments.map((g) => g.description),
+          careerRiskTest: '',
+          legacyPotential: '',
+          disqualifyingFactors: [],
+        }
+      : null,
     dimensionScores,
     dimensionJustifications,
     commercialViability,
-    criticalFailures: rawCriticalFailures.length > 0
-      ? criticalFailureDetails.map((failure) => failure.failure)
-      : redFlags || [],
-    criticalFailureDetails: rawCriticalFailures.length > 0
-      ? criticalFailureDetails
-      : (redFlags || []).map((f) => ({
-          failure: f,
-          severity: 'major' as const,
-          penalty: -(canonicalCriticalFailurePenalty('major') ?? 0.8),
-          evidence: 'See reader reports',
-        })),
-    criticalFailureTotalPenalty: producerProjection.penaltyApplied > 0
-      ? -producerProjection.penaltyApplied
-      : -producerProjection.reportedPenalty,
+    criticalFailures:
+      rawCriticalFailures.length > 0
+        ? criticalFailureDetails.map((failure) => failure.failure)
+        : redFlags || [],
+    criticalFailureDetails:
+      rawCriticalFailures.length > 0
+        ? criticalFailureDetails
+        : (redFlags || []).map((f) => ({
+            failure: f,
+            severity: 'major' as const,
+            penalty: -(canonicalCriticalFailurePenalty('major') ?? 0.8),
+            evidence: 'See reader reports',
+          })),
+    criticalFailureTotalPenalty:
+      producerProjection.penaltyApplied > 0
+        ? -producerProjection.penaltyApplied
+        : -producerProjection.reportedPenalty,
     majorWeaknesses: (analysis.weaknesses as string[]) || redFlags || [],
     strengths: (analysis.strengths as string[]) || [],
     weaknesses: (analysis.weaknesses as string[]) || redFlags || [],
@@ -385,14 +469,17 @@ export function normalizeV9Screenplay(
       wordCount: typeof metadata?.word_count === 'number' ? metadata.word_count : 0,
     },
     producerMetrics: createProducerMetrics(),
-    tmdbStatus: normalizeTmdbStatus((raw as Record<string, unknown>).tmdb_status as RawTmdbStatus | undefined),
+    tmdbStatus: normalizeTmdbStatus(
+      (raw as Record<string, unknown>).tmdb_status as RawTmdbStatus | undefined,
+    ),
     hasPdf:
       (raw as Record<string, unknown>).hasPdf === true ||
       typeof (raw as Record<string, unknown>).storage_path === 'string' ||
       typeof (raw as Record<string, unknown>)._storagePath === 'string',
     storagePath: (() => {
-      const value = (raw as Record<string, unknown>).storage_path
-        ?? (raw as Record<string, unknown>)._storagePath;
+      const value =
+        (raw as Record<string, unknown>).storage_path ??
+        (raw as Record<string, unknown>)._storagePath;
       return typeof value === 'string' && value.startsWith('gs://') ? value : undefined;
     })(),
     storageGeneration: (() => {
@@ -403,10 +490,9 @@ export function normalizeV9Screenplay(
       typeof (raw as Record<string, unknown>).latest_version_id === 'string'
         ? String((raw as Record<string, unknown>).latest_version_id)
         : undefined,
-    versionCount:
-      Number.isInteger((raw as Record<string, unknown>).version_count)
-        ? Number((raw as Record<string, unknown>).version_count)
-        : undefined,
+    versionCount: Number.isInteger((raw as Record<string, unknown>).version_count)
+      ? Number((raw as Record<string, unknown>).version_count)
+      : undefined,
     // Archaeology Engine fields
     pillarScores: v7PillarArray,
     goosebumpsMomentDetails: goosebumpsMoments,

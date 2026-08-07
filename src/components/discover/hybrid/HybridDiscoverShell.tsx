@@ -28,7 +28,9 @@ function HybridLoading() {
       </div>
       <div className="hybrid-loading__heading" />
       <div className="hybrid-loading__grid">
-        {Array.from({ length: 10 }).map((_, index) => <span key={index} />)}
+        {Array.from({ length: 10 }).map((_, index) => (
+          <span key={index} />
+        ))}
       </div>
       <span className="sr-only">Loading Discovery</span>
     </div>
@@ -81,6 +83,11 @@ export function HybridDiscoverShell({
   onCloseScreenplay,
   isLoading,
   isError,
+  producerAssessments: suppliedProducerAssessments,
+  producerLookIds,
+  producerLookCount,
+  producerLookActive,
+  onToggleProducerLook,
 }: DiscoverShellProps) {
   const [archivePosition, setArchivePosition] = useState({ signature: '', page: 1 });
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
@@ -89,13 +96,17 @@ export function HybridDiscoverShell({
   const hasSelection = useHasSelection();
   const activeSort = useSortStore((state) => state.sortConfigs[0]?.field ?? 'weightedScore');
   const percentiles = usePercentiles(allScreenplays);
-  const { data: producerAssessmentHeads = [] } = useProducerAssessmentHeads(isAdmin);
-  const producerAssessments = useMemo(
-    () => new Map<string, ProducerAssessmentHead>(
-      producerAssessmentHeads.map((assessment) => [assessment.projectId, assessment]),
-    ),
+  const { data: producerAssessmentHeads = [] } = useProducerAssessmentHeads(
+    isAdmin && !suppliedProducerAssessments,
+  );
+  const loadedProducerAssessments = useMemo(
+    () =>
+      new Map<string, ProducerAssessmentHead>(
+        producerAssessmentHeads.map((assessment) => [assessment.projectId, assessment]),
+      ),
     [producerAssessmentHeads],
   );
+  const producerAssessments = suppliedProducerAssessments ?? loadedProducerAssessments;
 
   const handleOpen = useCallback(
     (screenplay: Screenplay, trigger: HTMLButtonElement) => {
@@ -127,16 +138,16 @@ export function HybridDiscoverShell({
     [featured, ...topMatches].filter(Boolean).map((screenplay) => screenplay.id),
   );
   const filmNow = rankableScreenplays.filter(
-    (screenplay) =>
-      screenplay.recommendation === 'film_now' && !promotedIds.has(screenplay.id),
+    (screenplay) => screenplay.recommendation === 'film_now' && !promotedIds.has(screenplay.id),
   );
   const grid = [...remaining.slice(4), ...reviewOnlyScreenplays];
   const archivePageSize = 50;
   const archivePageCount = Math.max(1, Math.ceil(grid.length / archivePageSize));
   const gridSignature = grid.map((screenplay) => screenplay.id).join('|');
-  const archivePage = archivePosition.signature === gridSignature
-    ? Math.min(archivePosition.page, archivePageCount)
-    : 1;
+  const archivePage =
+    archivePosition.signature === gridSignature
+      ? Math.min(archivePosition.page, archivePageCount)
+      : 1;
   const visibleGrid = grid.slice(
     (archivePage - 1) * archivePageSize,
     archivePage * archivePageSize,
@@ -154,6 +165,9 @@ export function HybridDiscoverShell({
         themes={themes}
         hasActiveFilters={hasActiveFilters}
         onClearFilters={onClearFilters}
+        producerLookCount={producerLookCount}
+        producerLookActive={producerLookActive}
+        onToggleProducerLook={onToggleProducerLook}
       />
 
       <main className={hasSelection ? 'hybrid-main hybrid-main--selection' : 'hybrid-main'}>
@@ -193,6 +207,7 @@ export function HybridDiscoverShell({
                 screenplays={reviewOnlyScreenplays}
                 onOpen={handleOpen}
                 producerAssessments={producerAssessments}
+                producerLookIds={producerLookIds}
                 percentiles={percentiles}
               />
             </section>
@@ -205,6 +220,7 @@ export function HybridDiscoverShell({
               sortField={activeSort as SortField}
               onOpen={handleOpen}
               producerAssessments={producerAssessments}
+              producerLookIds={producerLookIds}
               percentiles={percentiles}
             />
 
@@ -217,12 +233,15 @@ export function HybridDiscoverShell({
                   <h2 id="hybrid-slate-title">The slate</h2>
                 </div>
                 <p aria-live="polite">
-                  <strong>Showing {filteredCount} of {totalCount} screenplays</strong>
+                  <strong>
+                    Showing {filteredCount} of {totalCount} screenplays
+                  </strong>
                   {producedHiddenCount > 0 && (
                     <>
                       <span aria-hidden="true">·</span>
                       <span>
-                        {producedHiddenCount} produced {producedHiddenCount === 1 ? 'film' : 'films'} hidden
+                        {producedHiddenCount} produced{' '}
+                        {producedHiddenCount === 1 ? 'film' : 'films'} hidden
                       </span>
                       <button type="button" onClick={onRevealProduced}>
                         Show produced films
@@ -234,7 +253,8 @@ export function HybridDiscoverShell({
                       <span aria-hidden="true">·</span>
                       <span>
                         {nonScreenplayHiddenCount}{' '}
-                        {nonScreenplayHiddenCount === 1 ? 'non-screenplay' : 'non-screenplays'} hidden
+                        {nonScreenplayHiddenCount === 1 ? 'non-screenplay' : 'non-screenplays'}{' '}
+                        hidden
                       </span>
                       <button type="button" onClick={onRevealNonScreenplays}>
                         Show non-screenplays
@@ -248,6 +268,7 @@ export function HybridDiscoverShell({
                 screenplays={visibleGrid}
                 onOpen={handleOpen}
                 producerAssessments={producerAssessments}
+                producerLookIds={producerLookIds}
                 percentiles={percentiles}
                 rankOffset={(archivePage - 1) * archivePageSize}
               />
@@ -256,21 +277,27 @@ export function HybridDiscoverShell({
                 <nav className="hybrid-pagination" aria-label="Browse the slate pages">
                   <button
                     type="button"
-                    onClick={() => setArchivePosition({
-                      signature: gridSignature,
-                      page: Math.max(1, archivePage - 1),
-                    })}
+                    onClick={() =>
+                      setArchivePosition({
+                        signature: gridSignature,
+                        page: Math.max(1, archivePage - 1),
+                      })
+                    }
                     disabled={archivePage === 1}
                   >
                     Previous 50
                   </button>
-                  <span>Page {archivePage} of {archivePageCount}</span>
+                  <span>
+                    Page {archivePage} of {archivePageCount}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setArchivePosition({
-                      signature: gridSignature,
-                      page: Math.min(archivePageCount, archivePage + 1),
-                    })}
+                    onClick={() =>
+                      setArchivePosition({
+                        signature: gridSignature,
+                        page: Math.min(archivePageCount, archivePage + 1),
+                      })
+                    }
                     disabled={archivePage === archivePageCount}
                   >
                     Next 50

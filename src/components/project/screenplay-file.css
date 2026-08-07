@@ -106,6 +106,22 @@
 .screenplay-file__read h3, .screenplay-file__notes h3 { margin-bottom: 11px; color: #535a69; font-size: 11px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
 .screenplay-file__read section > p { max-width: 72ch; color: #303849; font-family: var(--dsc-font-body); font-size: 15.5px; line-height: 1.72; overflow-wrap: anywhere; }
 .screenplay-file__decision-brief { padding-top: 0 !important; border-top: 0 !important; }
+.screenplay-file__opportunity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 290px);
+  gap: 28px;
+  margin-bottom: 28px;
+  padding: 22px 24px !important;
+  border: 1px solid #b9c8ff !important;
+  border-radius: 10px;
+  background: #edf1ff;
+}
+.screenplay-file__opportunity h3 { margin: 7px 0 8px; color: #173fb5; font-family: var(--dsc-font-display); font-size: 25px; font-weight: 600; letter-spacing: -.01em; text-transform: none; }
+.screenplay-file__opportunity > div > p:last-child { max-width: 62ch; color: #303849; font-family: var(--dsc-font-body); font-size: 14px; line-height: 1.6; }
+.screenplay-file__opportunity dl { display: grid; align-content: center; gap: 8px; }
+.screenplay-file__opportunity dl div { display: flex; justify-content: space-between; gap: 18px; padding-bottom: 8px; border-bottom: 1px solid #ccd5f5; font-size: 11px; }
+.screenplay-file__opportunity dt { color: #65708a; }
+.screenplay-file__opportunity dd { color: #17203a; font-weight: 760; text-align: right; }
 .screenplay-file__decision-brief h3 { margin: 11px 0 14px; color: var(--file-ink); font-family: var(--dsc-font-display); font-size: clamp(25px, 2.2vw, 32px); font-weight: 600; letter-spacing: -.015em; line-height: 1.18; text-transform: none; }
 .screenplay-file__read .screenplay-file__executive-copy { max-width: 70ch; color: #303849; font-family: var(--dsc-font-body); font-size: clamp(16px, 1.1vw, 18px); font-weight: 450; line-height: 1.75; }
 .screenplay-file__signals { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; border-top: 1px solid var(--file-line); }
@@ -305,6 +321,7 @@
   .screenplay-file__overview-grid { grid-template-columns: 1fr; }
   .screenplay-file__evidence { padding: 28px 0 0; border-top: 1px solid var(--file-line); border-left: 0; }
   .screenplay-file__signals { grid-template-columns: 1fr; }
+  .screenplay-file__opportunity { grid-template-columns: 1fr; }
   .development-map__trust { grid-template-columns: repeat(2, 1fr); }
   .development-map__trust span:nth-child(2) { border-right: 0; }
   .development-map__trust span:nth-child(-n+2) { border-bottom: 1px solid var(--file-line); }

@@ -1,11 +1,12 @@
 import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelectionCheckbox';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
+import { DevelopmentOpportunityBadge } from '@/components/discover/DevelopmentOpportunityBadge';
 import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import type { PercentileRank } from '@/lib/percentileRanking';
-import type { Screenplay, SortField } from '@/types';
+import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
 
 type PercentileMap = ReadonlyMap<string, PercentileRank>;
 
@@ -33,18 +34,26 @@ export function ScreenplayFeature({
   screenplay,
   sortField,
   percentiles,
+  producerAssessment,
+  producerLookIds,
   onOpen,
 }: {
   screenplay: Screenplay;
   sortField: SortField;
   percentiles: PercentileMap;
+  producerAssessment?: ProducerAssessmentHead;
+  producerLookIds?: ReadonlySet<string>;
   onOpen: OpenScreenplay;
 }) {
   const percentile = percentiles.get(screenplay.id);
   const pillars = getDimensionDisplay(screenplay).slice(0, 5);
 
   return (
-    <article className="screenplay-feature" data-testid="screenplay-discovery-featured" data-screenplay-id={screenplay.id}>
+    <article
+      className="screenplay-feature"
+      data-testid="screenplay-discovery-featured"
+      data-screenplay-id={screenplay.id}
+    >
       <DiscoverySelectionCheckbox screenplay={screenplay} />
       <div className="screenplay-feature__object">
         <BlueSpineScript screenplay={screenplay} featured rank={1} />
@@ -55,19 +64,32 @@ export function ScreenplayFeature({
         <p className="screenplay-feature__meta">
           {screenplay.genre} <span>·</span> {screenplay.author || 'Unknown writer'}
         </p>
-        <p className="screenplay-feature__logline">{screenplay.logline || 'Logline not yet available.'}</p>
+        <p className="screenplay-feature__logline">
+          {screenplay.logline || 'Logline not yet available.'}
+        </p>
         <div className="screenplay-feature__decision">
           <RecommendationBadge tier={screenplay.recommendation} />
+          <DevelopmentOpportunityBadge
+            screenplay={screenplay}
+            assessment={producerAssessment}
+            routed={producerLookIds?.has(screenplay.projectId ?? screenplay.id)}
+          />
           <span>{sortLabel(sortField)}</span>
         </div>
-        <button type="button" className="screenplay-primary-action" onClick={(event) => onOpen(screenplay, event.currentTarget)}>
+        <button
+          type="button"
+          className="screenplay-primary-action"
+          onClick={(event) => onOpen(screenplay, event.currentTarget)}
+        >
           Open screenplay file <span aria-hidden="true">→</span>
         </button>
       </div>
       <aside className="screenplay-feature__score" aria-label="Featured screenplay scores">
         <span>Weighted score</span>
         <strong>{screenplay.weightedScore.toFixed(1)}</strong>
-        <small>{percentile ? `${ordinal(percentile.overall)} percentile` : 'Slate position pending'}</small>
+        <small>
+          {percentile ? `${ordinal(percentile.overall)} percentile` : 'Slate position pending'}
+        </small>
         <div className="screenplay-feature__pillars">
           {pillars.map((pillar) => (
             <div key={pillar.key}>
@@ -86,11 +108,15 @@ export function ScreenplayGrid({
   screenplays,
   rankOffset,
   percentiles,
+  producerAssessments,
+  producerLookIds,
   onOpen,
 }: {
   screenplays: Screenplay[];
   rankOffset: number;
   percentiles: PercentileMap;
+  producerAssessments?: ReadonlyMap<string, ProducerAssessmentHead>;
+  producerLookIds?: ReadonlySet<string>;
   onOpen: OpenScreenplay;
 }) {
   return (
@@ -98,15 +124,42 @@ export function ScreenplayGrid({
       {screenplays.map((screenplay, index) => {
         const percentile = percentiles.get(screenplay.id);
         return (
-          <li key={screenplay.id} className="screenplay-wall__item" data-testid="screenplay-discovery-result" data-screenplay-id={screenplay.id}>
+          <li
+            key={screenplay.id}
+            className="screenplay-wall__item"
+            data-testid="screenplay-discovery-result"
+            data-screenplay-id={screenplay.id}
+          >
             <DiscoverySelectionCheckbox screenplay={screenplay} />
-            <button type="button" onClick={(event) => onOpen(screenplay, event.currentTarget)} aria-label={`Open ${screenplay.title} screenplay file`}>
+            <button
+              type="button"
+              onClick={(event) => onOpen(screenplay, event.currentTarget)}
+              aria-label={`Open ${screenplay.title} screenplay file`}
+            >
               <BlueSpineScript screenplay={screenplay} rank={rankOffset + index + 1} />
               <span className="screenplay-wall__copy">
-                <span className="screenplay-wall__title"><strong>{screenplay.title}</strong><small>{screenplay.author || 'Unknown writer'}</small></span>
-                <span className="screenplay-wall__score"><strong>{screenplay.weightedScore.toFixed(1)}</strong><small>{percentile ? `${ordinal(percentile.overall)} percentile` : ''}</small></span>
-                <span className="screenplay-wall__meta"><RecommendationBadge tier={screenplay.recommendation} /><span>{screenplay.genre}</span></span>
-                <span className="screenplay-wall__evidence"><AnalysisTrustBadge screenplay={screenplay} /><DiscoveryShareStatus screenplay={screenplay} /></span>
+                <span className="screenplay-wall__title">
+                  <strong>{screenplay.title}</strong>
+                  <small>{screenplay.author || 'Unknown writer'}</small>
+                </span>
+                <span className="screenplay-wall__score">
+                  <strong>{screenplay.weightedScore.toFixed(1)}</strong>
+                  <small>{percentile ? `${ordinal(percentile.overall)} percentile` : ''}</small>
+                </span>
+                <span className="screenplay-wall__meta">
+                  <RecommendationBadge tier={screenplay.recommendation} />
+                  <span>{screenplay.genre}</span>
+                </span>
+                <span className="screenplay-wall__evidence">
+                  <AnalysisTrustBadge screenplay={screenplay} />
+                  <DiscoveryShareStatus screenplay={screenplay} />
+                </span>
+                <DevelopmentOpportunityBadge
+                  screenplay={screenplay}
+                  assessment={producerAssessments?.get(screenplay.projectId ?? screenplay.id)}
+                  routed={producerLookIds?.has(screenplay.projectId ?? screenplay.id)}
+                  compact
+                />
               </span>
             </button>
           </li>
