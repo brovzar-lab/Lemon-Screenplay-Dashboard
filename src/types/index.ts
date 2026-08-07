@@ -77,6 +77,25 @@ export interface MarketIntelReport {
   reportDate: string
   createdAt: string
   driveUrl?: string
+
+  // Cultural Momentum panel (4c)
+  culturalMomentum?: Array<{
+    genre: string
+    theme: string
+    momentum: 'rising' | 'peak' | 'declining'
+    evidence: string
+  }>
+
+  // Slate-Market Alignment panel (4d)
+  slateAlignment?: {
+    aligned: Array<{ titleName: string; reason: string }>
+    headwinds: Array<{ titleName: string; risk: string }>
+    opportunities: Array<{ genre: string; gap: string }>
+    generatedAt: string
+  }
+
+  // ISO date of Research Specialist data used to generate this report
+  researchSourceDate?: string
 }
 
 /** Firestore collection paths */
@@ -84,5 +103,6 @@ export const COLLECTIONS = {
   TITLES: 'titles',
   COVERAGE: 'coverage',
   MI_REPORTS: 'mi_reports',
+  MARKET_RESEARCH: 'market_research',
   TEAM_MEMBERS: 'team_members',
 } as const

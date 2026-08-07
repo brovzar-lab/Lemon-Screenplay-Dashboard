@@ -576,22 +576,89 @@ function MarketRadarSection({ reports, loading }: { reports: MarketIntelReport[]
           )}
         </Card>
 
-        {/* 4c: Cultural Momentum — placeholder */}
+        {/* 4c: Cultural Momentum */}
         <Card className="p-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">
             Cultural Momentum
           </p>
           <p className="text-[10px] text-gray-700 mb-3">Audience themes trending now, by genre</p>
-          <Empty msg="Awaiting MI + research pipeline" />
+          {loading ? (
+            <p className="text-xs text-gray-700 animate-pulse py-2">Loading…</p>
+          ) : (() => {
+            const latest = [...reports].reverse().find(r => r.culturalMomentum && r.culturalMomentum.length > 0)
+            if (!latest?.culturalMomentum) return <Empty msg="Awaiting MI + research pipeline" />
+            return (
+              <div className="space-y-2">
+                {latest.culturalMomentum.map((item, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-lemon-500/10 text-lemon-400 border border-lemon-500/20 capitalize shrink-0">
+                      {item.genre}
+                    </span>
+                    <span className="text-xs text-gray-300 flex-1">{item.theme}</span>
+                    <span className={`text-[10px] font-semibold shrink-0 ${
+                      item.momentum === 'rising' ? 'text-status-green' :
+                      item.momentum === 'peak'   ? 'text-lemon-400' :
+                                                   'text-gray-500'
+                    } capitalize`}>
+                      {item.momentum}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </Card>
 
-        {/* 4d: Slate-Market Alignment — placeholder */}
+        {/* 4d: Slate-Market Alignment */}
         <Card className="p-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">
             Slate-Market Alignment
           </p>
           <p className="text-[10px] text-gray-700 mb-3">Aligned, headwind, and opportunity gaps</p>
-          <Empty msg="Awaiting MI + research pipeline" />
+          {loading ? (
+            <p className="text-xs text-gray-700 animate-pulse py-2">Loading…</p>
+          ) : (() => {
+            const latest = [...reports].reverse().find(r => r.slateAlignment)
+            if (!latest?.slateAlignment) return <Empty msg="Awaiting MI + research pipeline" />
+            const { aligned, headwinds, opportunities } = latest.slateAlignment
+            return (
+              <div className="space-y-3">
+                {aligned.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-status-green mb-1">Aligned</p>
+                    {aligned.map((a, i) => (
+                      <div key={i} className="flex items-start gap-1.5 py-0.5">
+                        <span className="text-xs text-gray-300 font-medium shrink-0">{a.titleName}</span>
+                        <span className="text-[10px] text-gray-600">— {a.reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {headwinds.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-400 mb-1">Headwinds</p>
+                    {headwinds.map((h, i) => (
+                      <div key={i} className="flex items-start gap-1.5 py-0.5">
+                        <span className="text-xs text-gray-300 font-medium shrink-0">{h.titleName}</span>
+                        <span className="text-[10px] text-gray-600">— {h.risk}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {opportunities.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-400 mb-1">Opportunities</p>
+                    {opportunities.map((o, i) => (
+                      <div key={i} className="flex items-start gap-1.5 py-0.5">
+                        <span className="text-xs text-gray-300 font-medium capitalize shrink-0">{o.genre}</span>
+                        <span className="text-[10px] text-gray-600">— {o.gap}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </Card>
       </div>
     </section>
