@@ -2,8 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 
 const links = [
-  { to: '/',         label: 'Overview',          icon: '◈' },
-  { to: '/pulse',    label: 'Studio Pulse',       icon: '✦' },
+  { to: '/',         label: 'Command Center',     icon: '◈' },
   { to: '/slate',    label: 'Active Slate',       icon: '▦' },
   { to: '/film-dev', label: 'Film Development',   icon: '◫' },
   { to: '/tv-dev',   label: 'TV Development',     icon: '◪' },
