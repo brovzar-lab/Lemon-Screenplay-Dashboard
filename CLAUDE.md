@@ -58,7 +58,11 @@ Do NOT use `useEffect` + manual `fetch()` polling loops for data that changes ov
 
 **Firebase hosting is retired.** Do NOT run `firebase deploy`.
 
-Deployment method: **TBD — ask Billy Rovzar before deploying.** The current deploy mechanism has not been confirmed in this environment. Do not assume a deploy method; confirm with the Lead App Engineer or CEO before pushing to production.
+This repo (`lemon-studio-dashboard`) is a **design/prototype workspace.** It does not deploy to production. The `npm run deploy` script just prints a retirement message and exits.
+
+**Production code lives in the native Paperclip repo at `/root/lemon-paperclip-dev`.** Production deploys via `deploy.sh` on the VPS. If a feature needs to be live for Billy, it must be implemented in the native Paperclip `CommandCenter.tsx` (or the appropriate native page) — not in this standalone repo.
+
+Do not write or run any deploy command from this repo. If in doubt, ask Head of Tech.
 
 ## 6. Tech Stack
 
