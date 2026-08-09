@@ -1,9 +1,13 @@
 import { useAuthStore } from '@/stores/authStore';
+import { LocalGoogleSignInButton } from './LocalGoogleSignInButton';
 
 export function LoginScreen() {
   const signIn = useAuthStore((state) => state.signIn);
   const isSigningIn = useAuthStore((state) => state.isSigningIn);
   const error = useAuthStore((state) => state.error);
+  const isLocalReview =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1';
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--sp-bg)' }}>
@@ -16,14 +20,24 @@ export function LoginScreen() {
           Sign in with your Lemon Studios account. Google will open securely in this window and return you here.
         </p>
 
-        <button
-          type="button"
-          onClick={() => void signIn()}
-          disabled={isSigningIn}
-          className="btn btn-primary w-full min-h-[48px] justify-center"
-        >
-          {isSigningIn ? 'Signing in...' : 'Continue with Google'}
-        </button>
+        {isLocalReview ? (
+          <LocalGoogleSignInButton />
+        ) : (
+          <button
+            type="button"
+            onClick={() => void signIn()}
+            disabled={isSigningIn}
+            className="btn btn-primary w-full min-h-[48px] justify-center"
+          >
+            {isSigningIn ? 'Signing in...' : 'Continue with Google'}
+          </button>
+        )}
+
+        {isLocalReview && isSigningIn && (
+          <p className="mt-3 text-sm" style={{ color: 'var(--sp-text-3)' }}>
+            Verifying your Lemon Studios account...
+          </p>
+        )}
 
         {error && (
           <p role="alert" className="mt-4 text-sm" style={{ color: 'var(--sp-pass)' }}>

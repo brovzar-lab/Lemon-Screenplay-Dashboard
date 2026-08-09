@@ -28,6 +28,7 @@ describe('AuthGate', () => {
     mockState = {
       initialize: mockInitialize,
       signIn: mockSignIn,
+      signInWithIdToken: vi.fn(),
       isSigningIn: false,
       error: null,
       status: 'initializing',
@@ -41,10 +42,12 @@ describe('AuthGate', () => {
     expect(mockInitialize).toHaveBeenCalledOnce();
   });
 
-  it('shows Google sign-in when signed out', () => {
+  it('shows Google sign-in when signed out', async () => {
     mockState.status = 'signed_out';
     renderGate();
-    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Continue with Google' }),
+    ).toBeInTheDocument();
   });
 
   it('allows a reader into the dashboard', () => {

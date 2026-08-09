@@ -1,58 +1,28 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
-// Extend timeout for tests that need to load all screenplay data
-test.setTimeout(90000);
+test.setTimeout(90_000);
 
-test.describe('Screenplay Modal', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await expect(page.getByText(/Showing.*of.*screenplays/)).toBeVisible({ timeout: 60000 });
+test.describe('Project workspace and fallback drawer', () => {
+  test('all six Screenplay File tabs remain connected', async ({ page }) => {
+    await page.goto('/projects/matadero-5ta-version-24052026?workspace=screenplay');
+    await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({ timeout: 30_000 });
+
+    for (const tab of ['Scores', 'Reader Room', 'Story X-Ray', 'Producer Take', 'Notes']) {
+      await page.getByRole('tab', { name: tab, exact: true }).click();
+      await expect(page.getByRole('tab', { name: tab, exact: true })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+    }
   });
 
-  test('clicking a screenplay card opens the modal', async ({ page }) => {
-    // Click the first visible screenplay card article element
-    const firstCard = page.locator('[data-testid^="screenplay-card-"]').first();
-    await expect(firstCard).toBeVisible({ timeout: 10000 });
-    await firstCard.click();
-
-    // Modal wrapper should appear
-    await expect(page.getByTestId('screenplay-modal')).toBeVisible({ timeout: 5000 });
-    // The dialog role should also be present
+  test('legacy drawer still opens and Escape restores Discovery', async ({ page }) => {
+    await page.goto('/discover?ui=screenplay&preview=drawer');
+    await expect(page.getByTestId('screenplay-discovery-result').first()).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId('screenplay-discovery-result').first().locator('button.screenplay-wall__open').click();
     await expect(page.getByRole('dialog')).toBeVisible();
-  });
-
-  test('modal displays screenplay dimension scores section', async ({ page }) => {
-    const firstCard = page.locator('[data-testid^="screenplay-card-"]').first();
-    await firstCard.click();
-
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('Dimension Scores')).toBeVisible();
-  });
-
-  test('modal can be closed with the close button', async ({ page }) => {
-    const firstCard = page.locator('[data-testid^="screenplay-card-"]').first();
-    await firstCard.click();
-
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
-
-    await page.getByLabel('Close modal').click();
-
-    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 3000 });
-  });
-
-  test('modal can be closed with the Escape key', async ({ page }) => {
-    const firstCard = page.locator('[data-testid^="screenplay-card-"]').first();
-    await firstCard.click();
-
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
-
     await page.keyboard.press('Escape');
-
-    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 3000 });
-  });
-
-  test('screenplay grid container is present', async ({ page }) => {
-    await expect(page.getByTestId('screenplay-grid')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+    await expect(page).toHaveURL(/\/discover\?ui=screenplay&preview=drawer/);
   });
 });

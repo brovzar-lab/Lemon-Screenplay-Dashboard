@@ -15,6 +15,7 @@
     "test:run": "TMPDIR=./.tmp node --require ./src/test/fix-eperm.cjs ./node_modules/.bin/vitest run",
     "test:coverage": "TMPDIR=./.tmp node --require ./src/test/fix-eperm.cjs ./node_modules/.bin/vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:auth": "playwright test --project=auth-setup",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:env": "bash scripts/check-test-environment.sh",

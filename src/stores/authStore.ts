@@ -6,6 +6,7 @@ import {
   db,
   isLemonEmail,
   signInWithGoogle,
+  signInWithGoogleIdToken,
   signOutUser,
 } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -31,6 +32,7 @@ interface AuthState {
   error: string | null;
   initialize: () => void;
   signIn: () => Promise<void>;
+  signInWithIdToken: (idToken: string) => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
@@ -134,6 +136,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isSigningIn: true, error: null });
     try {
       await signInWithGoogle();
+    } catch (error) {
+      set({ isSigningIn: false, error: getErrorMessage(error) });
+    }
+  },
+
+  signInWithIdToken: async (idToken) => {
+    set({ isSigningIn: true, error: null });
+    try {
+      await signInWithGoogleIdToken(idToken);
     } catch (error) {
       set({ isSigningIn: false, error: getErrorMessage(error) });
     }
