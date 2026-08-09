@@ -21,10 +21,7 @@ const FORMAT_COLORS = [
 ];
 
 function shortFormatLabel(value: string): string {
-  return value
-    .replace('Feature Film', 'Feature')
-    .replace('Television Pilot', 'TV Pilot')
-    .replace('Format not recorded', 'Not recorded');
+  return value.replace('Feature Film', 'Feature').replace('Television Pilot', 'TV Pilot');
 }
 
 function FormatTooltip({
@@ -48,7 +45,7 @@ function FormatTooltip({
 
 export function FormatChart({ screenplays }: FormatChartProps) {
   const counts = screenplays.reduce<Record<string, number>>((accumulator, screenplay) => {
-    const format = shortFormatLabel(getScreenplayFormatInfo(screenplay).format);
+    const format = shortFormatLabel(getScreenplayFormatInfo(screenplay).format ?? 'Other');
     accumulator[format] = (accumulator[format] ?? 0) + 1;
     return accumulator;
   }, {});

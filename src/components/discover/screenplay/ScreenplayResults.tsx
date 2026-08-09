@@ -45,6 +45,7 @@ export function ScreenplayGrid({
         const percentile = percentiles.get(screenplay.id);
         const displayTitle = getScreenplayDisplayTitle(screenplay.title);
         const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
+        const displayGenre = getScreenplayDisplayGenre(screenplay.genre);
         const formatInfo = getScreenplayFormatInfo(screenplay);
         return (
           <li
@@ -68,7 +69,7 @@ export function ScreenplayGrid({
                 <span className="screenplay-wall__title">
                   <strong>{displayTitle.title}</strong>
                   {displayTitle.qualifier && <em>{displayTitle.qualifier}</em>}
-                  <small>{displayAuthor}</small>
+                  {displayAuthor && <small>{displayAuthor}</small>}
                 </span>
                 <span className="screenplay-wall__score">
                   <strong>{screenplay.weightedScore.toFixed(1)}</strong>
@@ -76,12 +77,17 @@ export function ScreenplayGrid({
                 </span>
                 <span className="screenplay-wall__meta">
                   <RecommendationBadge tier={screenplay.recommendation} />
-                  <span>{getScreenplayDisplayGenre(screenplay.genre)}</span>
+                  {displayGenre && <span>{displayGenre}</span>}
                 </span>
-                <span className="screenplay-wall__facts" aria-label="Screenplay format and source">
-                  <span>{formatInfo.format}</span>
-                  <span>{formatInfo.source}</span>
-                </span>
+                {(formatInfo.format || formatInfo.source) && (
+                  <span
+                    className="screenplay-wall__facts"
+                    aria-label="Screenplay format and source"
+                  >
+                    {formatInfo.format && <span>{formatInfo.format}</span>}
+                    {formatInfo.source && <span>{formatInfo.source}</span>}
+                  </span>
+                )}
                 <span className="screenplay-wall__status">
                   <AnalysisTrustBadge screenplay={screenplay} />
                   <DiscoveryShareStatus screenplay={screenplay} />

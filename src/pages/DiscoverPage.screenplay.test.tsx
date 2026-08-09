@@ -295,7 +295,7 @@ describe('I + G screenplay Discovery presentation', () => {
     expect(screen.queryByTestId('screenplay-discovery-ranking')).not.toBeInTheDocument();
   });
 
-  it('cleans source titles and exposes verdict, format, and source context on every card', async () => {
+  it('cleans source titles and omits non-blocking missing metadata on every card', async () => {
     hookState.screenplays = [
       createTestScreenplay({
         id: 'legacy',
@@ -313,10 +313,10 @@ describe('I + G screenplay Discovery presentation', () => {
     const result = await screen.findByTestId('screenplay-ranking-top');
     expect(result).toHaveAttribute('data-verdict', 'pass');
     expect(
-      within(result).getAllByText('ASSASSINATION OF A HIGH SCHOOL PRESIDENT'),
+      within(result).getAllByText('Assassination of a High School President'),
     ).not.toHaveLength(0);
     expect(result).toHaveTextContent('Feature film');
-    expect(result).toHaveTextContent('Source not recorded');
+    expect(result).not.toHaveTextContent('Source not recorded');
     expect(within(result).queryByText(/c8a16cd/i)).not.toBeInTheDocument();
   });
 });

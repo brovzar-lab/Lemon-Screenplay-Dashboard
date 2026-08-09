@@ -26,6 +26,7 @@ import {
   formatProducerText,
 } from '@/lib/producerDisplay';
 import { evaluateDevelopmentOpportunity } from '@/lib/developmentOpportunity';
+import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -295,6 +296,8 @@ export function ScreenplayFileWorkspace({
   onSelectTab,
   onBack,
 }: ScreenplayFileWorkspaceProps) {
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+  const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
   const panelRef = useRef<HTMLDivElement>(null);
   const previousProjectRef = useRef<string | null>(null);
   const isAdmin = useIsAdmin();
@@ -412,14 +415,19 @@ export function ScreenplayFileWorkspace({
         <BlueSpineScript screenplay={screenplay} featured />
         <div className="screenplay-file__identity">
           <p className="screenplay-file__micro screenplay-file__micro--blue">Screenplay file</p>
-          <h1>{screenplay.title}</h1>
+          <h1>{displayTitle}</h1>
           <p className="screenplay-file__meta">
-            {formatProducerTaxonomy(screenplay.genre)} · {screenplay.author || 'Unknown writer'} ·{' '}
-            {screenplay.metadata.pageCount || 'Unknown'} pages
+            {[
+              formatProducerTaxonomy(screenplay.genre),
+              displayAuthor,
+              screenplay.metadata.pageCount ? `${screenplay.metadata.pageCount} pages` : undefined,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
-          <p className="screenplay-file__logline">
-            {formatProducerText(screenplay.logline || 'Logline not yet available.')}
-          </p>
+          {screenplay.logline && (
+            <p className="screenplay-file__logline">{formatProducerText(screenplay.logline)}</p>
+          )}
           <div className="screenplay-file__status">
             <AnalysisTrustBadge screenplay={screenplay} />
             <DiscoveryShareStatus screenplay={screenplay} />

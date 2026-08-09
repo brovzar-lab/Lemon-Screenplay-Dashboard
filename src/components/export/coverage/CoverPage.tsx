@@ -10,6 +10,7 @@ import type { DimensionDisplayItem } from '@/lib/dimensionDisplay';
 import { s, scoreColor, recLabel, recColor, budgetLabel, truncate, today } from './shared';
 import { __scoreGapStyle } from './constants';
 import { Footer } from './SharedComponents';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 
 interface CoverPageProps {
   screenplay: Screenplay;
@@ -17,9 +18,10 @@ interface CoverPageProps {
 }
 
 export function CoverPage({ screenplay, dims }: CoverPageProps) {
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+
   return (
     <Page size="A4" style={s.page}>
-
       {/* Header bar */}
       <View style={s.coverHeader}>
         <View style={s.coverBrand}>
@@ -34,7 +36,7 @@ export function CoverPage({ screenplay, dims }: CoverPageProps) {
 
       {/* Title + author on separate lines */}
       <View style={s.titleBlock}>
-        <Text style={s.titleText}>{screenplay.title}</Text>
+        <Text style={s.titleText}>{displayTitle}</Text>
         <Text style={s.authorText}>by {screenplay.author}</Text>
       </View>
 
@@ -43,7 +45,8 @@ export function CoverPage({ screenplay, dims }: CoverPageProps) {
         <View style={[s.metaCell, s.metaCellAlt]}>
           <Text style={s.metaLabel}>Genre</Text>
           <Text style={s.metaValue}>
-            {screenplay.genre}{(screenplay.subgenres?.length ?? 0) > 0 ? ` / ${screenplay.subgenres.join(', ')}` : ''}
+            {screenplay.genre}
+            {(screenplay.subgenres?.length ?? 0) > 0 ? ` / ${screenplay.subgenres.join(', ')}` : ''}
           </Text>
         </View>
         <View style={s.metaCell}>
@@ -57,14 +60,16 @@ export function CoverPage({ screenplay, dims }: CoverPageProps) {
         <View style={[s.metaCell, s.metaCellAlt]}>
           <Text style={s.metaLabel}>Pages / Words</Text>
           <Text style={s.metaValue}>
-            {screenplay.metadata?.pageCount ?? '—'} pp / {(screenplay.metadata?.wordCount ?? 0).toLocaleString()} words
+            {screenplay.metadata?.pageCount ?? '—'} pp /{' '}
+            {(screenplay.metadata?.wordCount ?? 0).toLocaleString()} words
           </Text>
         </View>
         <View style={[s.metaCell, s.metaCellAlt]}>
           <Text style={s.metaLabel}>Themes</Text>
-          <Text style={s.metaValue}>{(screenplay.themes?.length ?? 0) > 0 ? screenplay.themes.join(', ') : '—'}</Text>
+          <Text style={s.metaValue}>
+            {(screenplay.themes?.length ?? 0) > 0 ? screenplay.themes.join(', ') : '—'}
+          </Text>
         </View>
-
       </View>
 
       {/* Score hero */}
@@ -72,7 +77,9 @@ export function CoverPage({ screenplay, dims }: CoverPageProps) {
         <View style={s.scoreLeft}>
           {/* Score + badge as centered group — explicit marginTop is reliable in react-pdf (flex distribution collapses) */}
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={[s.scoreNum, { color: scoreColor(Number(screenplay.weightedScore) || 0) }]}>
+            <Text
+              style={[s.scoreNum, { color: scoreColor(Number(screenplay.weightedScore) || 0) }]}
+            >
               {(Number(screenplay.weightedScore) || 0).toFixed(1)}
             </Text>
             <View style={__scoreGapStyle}>
@@ -84,9 +91,7 @@ export function CoverPage({ screenplay, dims }: CoverPageProps) {
         </View>
         <View style={s.scoreRight}>
           <Text style={s.verdictLabel}>Verdict</Text>
-          <Text style={s.verdictText}>
-            {truncate(screenplay.verdictStatement, 600)}
-          </Text>
+          <Text style={s.verdictText}>{truncate(screenplay.verdictStatement, 600)}</Text>
         </View>
       </View>
 
@@ -107,15 +112,16 @@ export function CoverPage({ screenplay, dims }: CoverPageProps) {
             <Text style={s.barWeight}>{(dim.weight * 100).toFixed(0)}%</Text>
             <View style={s.barTrack}>
               <View
-                style={[s.barFill, {
-                  width: `${(dim.score / 10) * 100}%`,
-                  backgroundColor: scoreColor(dim.score),
-                }]}
+                style={[
+                  s.barFill,
+                  {
+                    width: `${(dim.score / 10) * 100}%`,
+                    backgroundColor: scoreColor(dim.score),
+                  },
+                ]}
               />
             </View>
-            <Text style={[s.barVal, { color: scoreColor(dim.score) }]}>
-              {dim.score.toFixed(1)}
-            </Text>
+            <Text style={[s.barVal, { color: scoreColor(dim.score) }]}>{dim.score.toFixed(1)}</Text>
           </View>
         ))}
       </View>

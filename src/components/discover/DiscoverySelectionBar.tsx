@@ -2,12 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { AddToFavoritesModal } from '@/components/bulk/AddToFavoritesModal';
 import { BulkShareModal } from '@/components/bulk/BulkShareModal';
 import { DiscoveryPitchDeckModal } from '@/components/discover/DiscoveryPitchDeckModal';
-import {
-  useHasSelection,
-  useSelectionCount,
-  useSelectionStore,
-} from '@/stores/selectionStore';
+import { useHasSelection, useSelectionCount, useSelectionStore } from '@/stores/selectionStore';
 import type { Screenplay } from '@/types';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 
 interface DiscoverySelectionBarProps {
   screenplays: Screenplay[];
@@ -83,7 +80,7 @@ export function DiscoverySelectionBar({
             {visibleSelectedScreenplays.slice(0, 3).map((screenplay) => (
               <div key={screenplay.id} className="dsc-selection-project min-w-0 flex-1">
                 <span className="truncate text-sm font-semibold text-[var(--dsc-ink)]">
-                  {screenplay.title}
+                  {getScreenplayDisplayTitle(screenplay.title).title}
                 </span>
                 <span className="dsc-num shrink-0 text-lg font-semibold">
                   {screenplay.weightedScore.toFixed(1)}

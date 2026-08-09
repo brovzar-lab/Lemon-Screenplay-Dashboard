@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 
 interface ScriptCoverProps {
   title: string;
@@ -30,13 +31,9 @@ function revisionLabel(analysisVersion?: string): string {
   return `Rev. V${match[1]}${match[2] ? ' triage' : ''}`;
 }
 
-export function ScriptCover({
-  title,
-  author,
-  seed,
-  analysisVersion,
-  className,
-}: ScriptCoverProps) {
+export function ScriptCover({ title, author, seed, analysisVersion, className }: ScriptCoverProps) {
+  const displayTitle = getScreenplayDisplayTitle(title).title;
+  const displayAuthor = getScreenplayDisplayAuthor(author);
   return (
     <div
       aria-hidden="true"
@@ -45,15 +42,15 @@ export function ScriptCover({
     >
       <span className="dsc-cover-art" />
       <span className="dsc-cover-rule" />
-      <p className="dsc-cover-title">{title}</p>
-      <p className="dsc-cover-author">
-        Written by
-        <br />
-        {author || 'Unknown writer'}
-      </p>
-      <span className="dsc-cover-foot">
-        Lemon Studios · {revisionLabel(analysisVersion)}
-      </span>
+      <p className="dsc-cover-title">{displayTitle}</p>
+      {displayAuthor && (
+        <p className="dsc-cover-author">
+          Written by
+          <br />
+          {displayAuthor}
+        </p>
+      )}
+      <span className="dsc-cover-foot">Lemon Studios · {revisionLabel(analysisVersion)}</span>
     </div>
   );
 }

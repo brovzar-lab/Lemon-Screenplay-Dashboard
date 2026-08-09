@@ -6,6 +6,7 @@
 
 import { Page, Text, View } from '@react-pdf/renderer';
 import type { Screenplay } from '@/types';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { Note } from '@/types/filters';
 import { s, C, boLabel, fmtDate, hasSceneData, hasFilmData } from './shared';
 import { Footer, IntHeader } from './SharedComponents';
@@ -21,7 +22,7 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
 
   return (
     <Page size="A4" style={s.page} wrap>
-      <IntHeader title={screenplay.title} />
+      <IntHeader title={getScreenplayDisplayTitle(screenplay.title).title} />
 
       {/* Characters */}
       <View style={s.section}>

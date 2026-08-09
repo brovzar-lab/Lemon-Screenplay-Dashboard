@@ -77,6 +77,12 @@ export function ScreenplayRanking({
   const percentile = percentiles.get(screenplay.id);
   const projectKey = screenplay.projectId ?? screenplay.id;
   const metric = rankingMetric(screenplay, sortField);
+  const topMetadata = [
+    format.format,
+    format.source,
+    getScreenplayDisplayGenre(screenplay.genre),
+    getScreenplayDisplayAuthor(screenplay.author),
+  ].filter(Boolean);
 
   return (
     <section
@@ -115,13 +121,10 @@ export function ScreenplayRanking({
               {title.qualifier && (
                 <span className="screenplay-ranking__qualifier">{title.qualifier}</span>
               )}
-              <span className="screenplay-ranking__meta">
-                {format.format} · {format.source} · {getScreenplayDisplayGenre(screenplay.genre)} ·{' '}
-                {getScreenplayDisplayAuthor(screenplay.author)}
-              </span>
-              <span className="screenplay-ranking__logline">
-                {screenplay.logline || 'Logline not yet available.'}
-              </span>
+              <span className="screenplay-ranking__meta">{topMetadata.join(' · ')}</span>
+              {screenplay.logline && (
+                <span className="screenplay-ranking__logline">{screenplay.logline}</span>
+              )}
               <span className="screenplay-ranking__decision">
                 <RecommendationBadge tier={screenplay.recommendation} />
                 <DevelopmentOpportunityBadge
@@ -131,11 +134,7 @@ export function ScreenplayRanking({
                 />
                 <strong>{metric.value}</strong>
                 <small>{metric.label}</small>
-                <small>
-                  {percentile
-                    ? `${ordinal(percentile.overall)} final-score percentile`
-                    : 'Position pending'}
-                </small>
+                {percentile && <small>{ordinal(percentile.overall)} final-score percentile</small>}
               </span>
               <span className="screenplay-ranking__action">Open screenplay file →</span>
             </span>
@@ -167,10 +166,11 @@ export function ScreenplayRanking({
                     </span>
                     <span className="screenplay-ranking__runner-copy">
                       <small className="screenplay-ranking__runner-kicker">
-                        Next #{entry.rank} · {runnerFormat.format}
+                        Next #{entry.rank}
+                        {runnerFormat.format ? ` · ${runnerFormat.format}` : ''}
                       </small>
                       <strong>{runnerTitle.title}</strong>
-                      <em>{runnerAuthor}</em>
+                      {runnerAuthor && <em>{runnerAuthor}</em>}
                       <span className="screenplay-ranking__runner-decision">
                         <RecommendationBadge tier={runner.recommendation} />
                         <span>
@@ -181,7 +181,7 @@ export function ScreenplayRanking({
                       <small className="screenplay-ranking__runner-percentile">
                         {runnerPercentile
                           ? `${ordinal(runnerPercentile.overall)} final-score percentile`
-                          : 'Position pending'}
+                          : ''}
                       </small>
                     </span>
                   </button>

@@ -10,6 +10,12 @@
   min-height: 100vh;
   background: var(--file-midnight);
 }
+/* The screenplay file owns its cinematic shell in every app theme. Discovery's
+   light canvas must not wash out the project identity band behind light text. */
+html .discovery-root.screenplay-file {
+  background: var(--file-midnight);
+  color: #eef2f8;
+}
 .screenplay-file__app-header { position: relative; z-index: 40; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 68px; padding: 0 clamp(18px, 3vw, 46px); border-bottom: 1px solid #263149; background: var(--file-midnight); color: #f6f1e7; }
 .screenplay-file__back { justify-self: start; color: #c4cad7; font-size: 12px; font-weight: 650; }
 .screenplay-file__brand { display: flex; align-items: center; gap: 11px; }
@@ -19,18 +25,18 @@
 .screenplay-file__brand small { margin-top: 5px; font-family: var(--dsc-font-body); font-size: 8px; letter-spacing: .18em; text-transform: uppercase; }
 .screenplay-file__header-actions { justify-self: end; display: flex; align-items: center; gap: 9px; }
 .screenplay-file__header-actions button { color: #c4cad7 !important; }
-.screenplay-file__hero { display: grid; grid-template-columns: 280px minmax(0, 1fr) 210px; align-items: center; gap: clamp(30px, 5vw, 76px); max-width: 1570px; min-height: 400px; margin: 0 auto; padding: 42px clamp(26px, 5vw, 80px); color: #f8f4eb; }
+.screenplay-file__hero { display: grid; grid-template-columns: 280px minmax(0, 1fr) 210px; align-items: center; gap: clamp(30px, 5vw, 76px); max-width: 1570px; min-height: 400px; margin: 0 auto; padding: 42px clamp(26px, 5vw, 80px); background: var(--file-midnight); color: #eef2f8; }
 .screenplay-file__hero > .screenplay-object { width: min(100%, 240px); justify-self: center; }
 .screenplay-file__micro { margin: 0; color: #687083; font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
 .screenplay-file__micro--blue { color: #6e8bff; }
-.screenplay-file__identity h1 { margin: 12px 0 10px; color: #faf7ef; font-family: var(--dsc-font-display); font-size: clamp(48px, 5vw, 72px); font-weight: 600; line-height: .98; }
-.screenplay-file__meta { color: #9ca6b9; font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
-.screenplay-file__logline { max-width: 72ch; margin-top: 20px; color: #d2d7e1; font-family: var(--dsc-font-body); font-size: 17px; line-height: 1.65; }
+.screenplay-file__identity h1 { margin: 12px 0 10px; color: #f4f6fb; font-family: var(--dsc-font-display); font-size: clamp(48px, 5vw, 72px); font-weight: 600; line-height: .98; }
+.screenplay-file__meta { color: #aeb9cc; font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; }
+.screenplay-file__logline { max-width: 72ch; margin-top: 20px; color: #dbe2ee; font-family: var(--dsc-font-body); font-size: 17px; line-height: 1.65; }
 .screenplay-file__status { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 20px; }
 .screenplay-file__identity .screenplay-file__actions { margin-top: 22px; }
 .screenplay-file__hero-score { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 230px; border-left: 1px solid #2a354b; }
-.screenplay-file__hero-score span { color: #8894aa; font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
-.screenplay-file__hero-score strong { margin-top: 6px; font-family: var(--dsc-font-type); font-size: 70px; font-weight: 450; line-height: 1; }
+.screenplay-file__hero-score span { color: #aeb9cc; font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+.screenplay-file__hero-score strong { margin-top: 6px; color: #f4f6fb; font-family: var(--dsc-font-type); font-size: 70px; font-weight: 600; line-height: 1; }
 .screenplay-file__hero-score b { margin-top: 22px; padding: 10px 20px; border: 1px solid #4268f4; border-radius: 7px; background: #1538a6; color: white; font-size: 13px; letter-spacing: .12em; }
 .screenplay-file__main { padding: 0 20px 112px; background: #252e3d; }
 .screenplay-file__binder {
@@ -145,7 +151,7 @@
 /* Dense analysis is edited like a studio document, not enlarged like a hero. */
 .screenplay-file__section--scores > .grid,
 .screenplay-file__section--producer-take > section,
-.screenplay-file__section--story-x-ray .screenplay-xray { max-width: 1240px; }
+.screenplay-file__section--story-x-ray .screenplay-xray { width: 100%; max-width: none; }
 .screenplay-file__section--scores p.text-xs,
 .screenplay-file__section--producer-take p.text-xs,
 .screenplay-file__section--notes-files p.text-xs { font-size: 13px !important; line-height: 1.55 !important; }
@@ -158,12 +164,21 @@
 .screenplay-file__section--producer-take select { min-height: 44px; color: var(--file-ink); background: #fffefa; }
 .screenplay-file__section--producer-take button { min-height: 40px; }
 
-.screenplay-xray { display: grid; max-width: 1120px; }
+.screenplay-xray { display: grid; width: 100%; max-width: none; }
 .screenplay-xray__section { min-width: 0; padding: 34px 0; border-top: 1px solid var(--file-line); }
 .screenplay-xray__section:first-child { padding-top: 0; border-top: 0; }
 .screenplay-xray__section p,
-.screenplay-xray__section li { max-width: 76ch; color: #394255; font-size: 14.5px; line-height: 1.72; overflow-wrap: anywhere; }
-.screenplay-xray__section h3 { color: var(--file-ink) !important; font-size: 18px !important; }
+.screenplay-xray__section li { max-width: 112ch; color: #394255; font-size: 14.5px; line-height: 1.68; overflow-wrap: anywhere; }
+.screenplay-xray__section h3 { margin-bottom: 18px; color: var(--file-ink) !important; font-size: 22px !important; font-weight: 650 !important; line-height: 1.2; }
+.screenplay-xray__section h5 { margin-bottom: 6px; color: #2145cf !important; font-size: 15.5px !important; font-weight: 700 !important; line-height: 1.35; }
+.screenplay-xray__section--characters > div,
+.screenplay-xray__section--standout > div,
+.screenplay-xray__section--development > ul { width: 100%; }
+.screenplay-xray__section--standout > div > div { width: 100%; padding: 16px 18px; }
+.screenplay-xray__section--standout > div > div p,
+.screenplay-xray__section--development > ul > li { max-width: none; }
+.screenplay-xray__section--development > ul { display: grid; gap: 10px; }
+.screenplay-xray__section--development > ul > li { padding: 4px 0; }
 
 .screenplay-comparables__intro { max-width: 68ch; margin: -8px 0 20px; color: var(--file-muted) !important; font-size: 13px !important; }
 .screenplay-comparables__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }

@@ -19,6 +19,11 @@ import {
 import { ScreenplayPdfButton } from '@/components/screenplay/modal/ScreenplayPdfButton';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
+import {
+  getScreenplayDisplayAuthor,
+  getScreenplayDisplayGenre,
+  getScreenplayDisplayTitle,
+} from '@/lib/screenplayDisplay';
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
@@ -65,9 +70,12 @@ function exactProducerAssessment(
 
 function trustLabel(screenplay: Screenplay): string {
   switch (screenplay.producerProjection?.trustStatus) {
-    case 'verified': return 'Verified analysis';
-    case 'incomplete': return 'Decision blocked';
-    case 'legacy_unverified': return 'Legacy evidence';
+    case 'verified':
+      return 'Verified analysis';
+    case 'incomplete':
+      return 'Decision blocked';
+    case 'legacy_unverified':
+      return 'Legacy evidence';
     default:
       return screenplay.analysisQuality?.status === 'complete'
         ? 'Complete analysis'
@@ -95,30 +103,43 @@ function ExecutiveRead({ screenplay }: { screenplay: Screenplay }) {
           <div>
             <p className="dsc-label dsc-label-faint">Why it received this verdict</p>
             <p className="mt-3 text-base leading-8 text-[var(--dsc-ink-2)]">
-              {screenplay.verdictStatement || screenplay.recommendationRationale || 'Verdict rationale not yet available.'}
+              {screenplay.verdictStatement ||
+                screenplay.recommendationRationale ||
+                'Verdict rationale not yet available.'}
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
             <div className="border-l-2 border-[var(--dsc-accent)] pl-4">
               <p className="dsc-label">Strongest signals</p>
               <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
-                {screenplay.strengths.length > 0
-                  ? screenplay.strengths.slice(0, 3).map((strength) => <li key={strength}>● {strength}</li>)
-                  : <li>No strengths were recorded in this analysis.</li>}
+                {screenplay.strengths.length > 0 ? (
+                  screenplay.strengths
+                    .slice(0, 3)
+                    .map((strength) => <li key={strength}>● {strength}</li>)
+                ) : (
+                  <li>No strengths were recorded in this analysis.</li>
+                )}
               </ul>
             </div>
             <div className="border-l-2 border-amber-500 pl-4">
               <p className="dsc-label">Watch points</p>
               <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
-                {[...screenplay.majorWeaknesses, ...screenplay.weaknesses].length > 0
-                  ? [...screenplay.majorWeaknesses, ...screenplay.weaknesses].slice(0, 3).map((weakness) => <li key={weakness}>● {weakness}</li>)
-                  : <li>No watch points were recorded in this analysis.</li>}
+                {[...screenplay.majorWeaknesses, ...screenplay.weaknesses].length > 0 ? (
+                  [...screenplay.majorWeaknesses, ...screenplay.weaknesses]
+                    .slice(0, 3)
+                    .map((weakness) => <li key={weakness}>● {weakness}</li>)
+                ) : (
+                  <li>No watch points were recorded in this analysis.</li>
+                )}
               </ul>
             </div>
           </div>
         </div>
       </section>
-      <section className="border-t border-[var(--dsc-line)] pt-8" aria-label="Scores and score lineage">
+      <section
+        className="border-t border-[var(--dsc-line)] pt-8"
+        aria-label="Scores and score lineage"
+      >
         <ScoresPanel screenplay={screenplay} presentation="workspace" />
       </section>
     </div>
@@ -135,13 +156,16 @@ function ProjectHeader({
   const quickFavorites = useFavoritesStore((state) => state.quickFavorites);
   const toggleQuickFavorite = useFavoritesStore((state) => state.toggleQuickFavorite);
   const isFavorite = quickFavorites.includes(screenplay.id);
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+  const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
+  const displayGenre = getScreenplayDisplayGenre(screenplay.genre);
 
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--dsc-line)] bg-[var(--dsc-surface)] shadow-2xl">
       <div className="grid md:grid-cols-[11rem_minmax(0,1fr)] xl:grid-cols-[12rem_minmax(0,1fr)_17rem]">
         <div className="border-b border-[var(--dsc-line)] bg-[#273448] p-4 md:border-b-0 md:border-r">
           <ScriptCover
-            title={screenplay.title}
+            title={displayTitle}
             author={screenplay.author}
             seed={screenplay.projectId ?? screenplay.id}
             analysisVersion={screenplay.analysisVersion}
@@ -155,16 +179,30 @@ function ProjectHeader({
             <DiscoveryShareStatus screenplay={screenplay} />
             <ProducerScoreBadge assessment={producerAssessment} />
           </div>
-          <h1 className="dsc-display mt-3 text-4xl sm:text-5xl">{screenplay.title}</h1>
-          <p className="mt-1 text-base text-[var(--dsc-ink-2)]">by {screenplay.author || 'Unknown writer'}</p>
+          <h1 className="dsc-display mt-3 text-4xl sm:text-5xl">{displayTitle}</h1>
+          {displayAuthor && (
+            <p className="mt-1 text-base text-[var(--dsc-ink-2)]">by {displayAuthor}</p>
+          )}
           <p className="dsc-label dsc-label-faint mt-4">
-            {screenplay.genre} · {screenplay.metadata.pageCount || 'Unknown'} pages · {screenplay.analysisModel}
+            {[
+              displayGenre,
+              screenplay.metadata.pageCount ? `${screenplay.metadata.pageCount} pages` : undefined,
+              screenplay.analysisModel,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-[var(--dsc-ink-2)] line-clamp-3">
-            {screenplay.logline || 'Logline not yet available.'}
-          </p>
+          {screenplay.logline && (
+            <p className="mt-4 max-w-3xl text-sm leading-6 text-[var(--dsc-ink-2)] line-clamp-3">
+              {screenplay.logline}
+            </p>
+          )}
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            <ScreenplayPdfButton screenplay={screenplay} presentation="workspace" allowReupload={false} />
+            <ScreenplayPdfButton
+              screenplay={screenplay}
+              presentation="workspace"
+              allowReupload={false}
+            />
             <ShareButton screenplay={screenplay} waitForExistingLink presentation="discovery" />
             <DiscoveryExportActions screenplay={screenplay} />
             <button
@@ -180,14 +218,29 @@ function ProjectHeader({
         </div>
         <aside className="col-span-full flex items-center justify-between gap-8 border-t border-[#2a3b54] bg-[#101a29] p-5 text-[#f5f1e8] xl:col-span-1 xl:block xl:border-l xl:border-t-0 xl:p-6">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8290a5]">Final score</p>
-            <strong className="mt-1 block font-mono text-6xl leading-none">{screenplay.weightedScore.toFixed(1)}</strong>
-            <div className="mt-4"><RecommendationBadge tier={screenplay.recommendation} size="lg" /></div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8290a5]">
+              Final score
+            </p>
+            <strong className="mt-1 block font-mono text-6xl leading-none">
+              {screenplay.weightedScore.toFixed(1)}
+            </strong>
+            <div className="mt-4">
+              <RecommendationBadge tier={screenplay.recommendation} size="lg" />
+            </div>
           </div>
           <dl className="min-w-[13rem] space-y-2 border-l border-[#2a3b54] pl-6 text-xs xl:mt-7 xl:border-l-0 xl:border-t xl:pl-0 xl:pt-5">
-            <div className="flex justify-between gap-4"><dt className="text-[#8290a5]">Evidence</dt><dd>{trustLabel(screenplay)}</dd></div>
-            <div className="flex justify-between gap-4"><dt className="text-[#8290a5]">Readers</dt><dd>{readerLabel(screenplay)}</dd></div>
-            <div className="flex justify-between gap-4"><dt className="text-[#8290a5]">Analysis</dt><dd>{screenplay.analysisVersion}</dd></div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-[#8290a5]">Evidence</dt>
+              <dd>{trustLabel(screenplay)}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-[#8290a5]">Readers</dt>
+              <dd>{readerLabel(screenplay)}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-[#8290a5]">Analysis</dt>
+              <dd>{screenplay.analysisVersion}</dd>
+            </div>
           </dl>
         </aside>
       </div>
@@ -223,23 +276,41 @@ export function ProjectWorkspace({
         return (
           <section aria-labelledby="story-x-ray-title">
             <p className="dsc-kicker">Inside the material</p>
-            <h2 id="story-x-ray-title" className="dsc-display mt-2 text-4xl sm:text-5xl">Story X-Ray</h2>
-            <div className="mt-8"><ContentDetails screenplay={screenplay} presentation="workspace" /></div>
+            <h2 id="story-x-ray-title" className="dsc-display mt-2 text-4xl sm:text-5xl">
+              Story X-Ray
+            </h2>
+            <div className="mt-8">
+              <ContentDetails screenplay={screenplay} presentation="workspace" />
+            </div>
           </section>
         );
       case 'producer-take':
-        return isAdmin ? <ProducerTake screenplay={screenplay} /> : <ExecutiveRead screenplay={screenplay} />;
+        return isAdmin ? (
+          <ProducerTake screenplay={screenplay} />
+        ) : (
+          <ExecutiveRead screenplay={screenplay} />
+        );
       case 'notes-files':
         return (
           <section aria-labelledby="notes-files-title">
             <p className="dsc-kicker">Your private working layer</p>
-            <h2 id="notes-files-title" className="dsc-display mt-2 text-4xl sm:text-5xl">Notes & Files</h2>
+            <h2 id="notes-files-title" className="dsc-display mt-2 text-4xl sm:text-5xl">
+              Notes & Files
+            </h2>
             <div className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
               <NotesSection screenplayId={screenplay.id} presentation="workspace" />
               <aside className="rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] p-5">
                 <p className="dsc-label">Project files</p>
-                <p className="mt-2 text-sm leading-6 text-[var(--dsc-ink-2)]">Open the source screenplay or create the approved exports from the project header.</p>
-                <div className="mt-4"><ScreenplayPdfButton screenplay={screenplay} presentation="workspace" allowReupload={false} /></div>
+                <p className="mt-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
+                  Open the source screenplay or create the approved exports from the project header.
+                </p>
+                <div className="mt-4">
+                  <ScreenplayPdfButton
+                    screenplay={screenplay}
+                    presentation="workspace"
+                    allowReupload={false}
+                  />
+                </div>
               </aside>
             </div>
           </section>
@@ -251,7 +322,10 @@ export function ProjectWorkspace({
   };
 
   return (
-    <div className="discovery-root min-h-screen bg-[var(--dsc-surface-3)]" data-testid="project-workspace">
+    <div
+      className="discovery-root min-h-screen bg-[var(--dsc-surface-3)]"
+      data-testid="project-workspace"
+    >
       <DiscoverAppHeader
         total={stats.total}
         averageScore={stats.avgWeightedScore}

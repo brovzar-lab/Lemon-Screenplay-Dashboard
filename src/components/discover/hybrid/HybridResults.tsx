@@ -7,6 +7,7 @@ import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { PercentileRank } from '@/lib/percentileRanking';
 import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
 
@@ -81,13 +82,13 @@ function rankingLabel(sortField: SortField): string {
   }
 }
 
-function whySurfaced(screenplay: Screenplay): string {
+function whySurfaced(screenplay: Screenplay): string | undefined {
   return (
     screenplay.verdictStatement ||
     screenplay.recommendationRationale ||
     screenplay.strengths[0] ||
     screenplay.logline ||
-    'The stored analysis does not yet include a concise verdict rationale.'
+    undefined
   );
 }
 
@@ -110,6 +111,9 @@ export function HybridFeatureStage({
 }) {
   const percentile = percentileFor(percentiles, featured);
   const pillars = getDimensionDisplay(featured).slice(0, 5);
+  const displayTitle = getScreenplayDisplayTitle(featured.title).title;
+  const displayAuthor = getScreenplayDisplayAuthor(featured.author);
+  const surfacedReason = whySurfaced(featured);
 
   return (
     <article
@@ -133,11 +137,13 @@ export function HybridFeatureStage({
 
       <div className="hybrid-feature-stage__copy">
         <p className="hybrid-eyebrow">Featured screenplay</p>
-        <h1>{featured.title}</h1>
-        <p className="hybrid-feature-byline">
-          {featured.genre} <span aria-hidden="true">·</span> {featured.author || 'Unknown writer'}
-        </p>
-        <p className="hybrid-feature-logline">{featured.logline || 'Logline not yet available.'}</p>
+        <h1>{displayTitle}</h1>
+        {(featured.genre || displayAuthor) && (
+          <p className="hybrid-feature-byline">
+            {[featured.genre, displayAuthor].filter(Boolean).join(' · ')}
+          </p>
+        )}
+        {featured.logline && <p className="hybrid-feature-logline">{featured.logline}</p>}
 
         <div className="hybrid-feature-decision">
           <RecommendationBadge tier={featured.recommendation} />
@@ -150,16 +156,18 @@ export function HybridFeatureStage({
           <ProducerScoreBadge assessment={assessmentFor(producerAssessments, featured)} />
         </div>
 
-        <div className="hybrid-why-surfaced">
-          <strong>Why this surfaced</strong>
-          <p>{whySurfaced(featured)}</p>
-        </div>
+        {surfacedReason && (
+          <div className="hybrid-why-surfaced">
+            <strong>Why this surfaced</strong>
+            <p>{surfacedReason}</p>
+          </div>
+        )}
 
         <button
           type="button"
           className="hybrid-open-project"
           onClick={(event) => onOpen(featured, event.currentTarget)}
-          aria-label={`Open ${featured.title} project`}
+          aria-label={`Open ${displayTitle} project`}
         >
           Open project
           <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -215,6 +223,7 @@ export function HybridFeatureStage({
       <ol className="hybrid-ranked-folders" aria-label="Next four projects in the current ranking">
         {topMatches.map((screenplay, index) => {
           const itemPercentile = percentileFor(percentiles, screenplay);
+          const runnerTitle = getScreenplayDisplayTitle(screenplay.title).title;
           return (
             <li
               key={screenplay.id}
@@ -227,7 +236,7 @@ export function HybridFeatureStage({
               <button
                 type="button"
                 onClick={(event) => onOpen(screenplay, event.currentTarget)}
-                aria-label={`Open ${screenplay.title} project, ranked ${index + 2}`}
+                aria-label={`Open ${runnerTitle} project, ranked ${index + 2}`}
               >
                 <ScriptCover
                   title={screenplay.title}
@@ -270,21 +279,24 @@ export function HybridFilmNowRail({
         <span>{screenplays.length} ready to move</span>
       </header>
       <ul>
-        {screenplays.map((screenplay) => (
-          <li key={screenplay.id} data-testid="discovery-film-now-result">
-            <button
-              type="button"
-              onClick={(event) => onOpen(screenplay, event.currentTarget)}
-              aria-label={`Open FILM NOW ${screenplay.title} project`}
-            >
-              <span>
-                <strong>{screenplay.title}</strong>
-                <small>{screenplay.recommendationRationale || screenplay.logline}</small>
-              </span>
-              <b>{screenplay.weightedScore.toFixed(1)}</b>
-            </button>
-          </li>
-        ))}
+        {screenplays.map((screenplay) => {
+          const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+          return (
+            <li key={screenplay.id} data-testid="discovery-film-now-result">
+              <button
+                type="button"
+                onClick={(event) => onOpen(screenplay, event.currentTarget)}
+                aria-label={`Open FILM NOW ${displayTitle} project`}
+              >
+                <span>
+                  <strong>{displayTitle}</strong>
+                  <small>{screenplay.recommendationRationale || screenplay.logline}</small>
+                </span>
+                <b>{screenplay.weightedScore.toFixed(1)}</b>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -314,6 +326,8 @@ export function HybridSlateGrid({
       {screenplays.map((screenplay, index) => {
         const percentile = percentileFor(percentiles, screenplay);
         const isRankable = screenplay.producerProjection?.rankable !== false;
+        const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+        const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
         return (
           <li
             key={screenplay.id}
@@ -327,7 +341,7 @@ export function HybridSlateGrid({
               type="button"
               className="hybrid-slate-card__open"
               onClick={(event) => onOpen(screenplay, event.currentTarget)}
-              aria-label={`Open ${screenplay.title} project`}
+              aria-label={`Open ${displayTitle} project`}
             >
               <ScriptCover
                 title={screenplay.title}
@@ -339,8 +353,8 @@ export function HybridSlateGrid({
               <span className="hybrid-slate-card__copy">
                 <span className="hybrid-slate-card__title-row">
                   <span>
-                    <strong>{screenplay.title}</strong>
-                    <small>{screenplay.author || 'Unknown writer'}</small>
+                    <strong>{displayTitle}</strong>
+                    {displayAuthor && <small>{displayAuthor}</small>}
                   </span>
                   <span className="hybrid-slate-card__score">
                     <b>{screenplay.weightedScore.toFixed(1)}</b>

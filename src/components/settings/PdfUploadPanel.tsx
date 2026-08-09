@@ -15,6 +15,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { ref, getMetadata } from 'firebase/storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { db, storage, uploadScreenplayPdf } from '@/lib/firebase';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import {
   useScreenplays,
   useDeleteScreenplays,
@@ -608,6 +609,7 @@ export function PdfUploadPanel() {
           </p>
         )}
         {filteredScreenplays.map((screenplay) => {
+          const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
           const storageStatus = storageStatuses[screenplay.id] ?? 'checking';
           const uploadEntry = uploadEntries[screenplay.id];
           const isUploading = uploadEntry?.state === 'uploading';
@@ -682,7 +684,7 @@ export function PdfUploadPanel() {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gold-200 truncate">{screenplay.title}</p>
+                <p className="text-sm font-medium text-gold-200 truncate">{displayTitle}</p>
                 <p className="text-xs text-black-500 truncate">
                   {isUploading
                     ? 'Uploading source screenplay'
@@ -707,7 +709,7 @@ export function PdfUploadPanel() {
                 <button
                   onClick={() => handleRowUpload(screenplay)}
                   title={storageStatus === 'found' ? 'Re-upload PDF' : 'Upload PDF'}
-                  aria-label={`${storageStatus === 'found' ? 'Re-upload' : 'Upload'} PDF for ${screenplay.title}`}
+                  aria-label={`${storageStatus === 'found' ? 'Re-upload' : 'Upload'} PDF for ${displayTitle}`}
                   className={clsx(
                     'settings-file-action settings-file-action--upload shrink-0 p-2 rounded-lg border transition-all',
                     storageStatus === 'found'
@@ -746,7 +748,7 @@ export function PdfUploadPanel() {
                     </button>
                     <button
                       onClick={() => setConfirmDeleteId(null)}
-                      aria-label={`Cancel deleting ${screenplay.title}`}
+                      aria-label={`Cancel deleting ${displayTitle}`}
                       className="settings-file-cancel px-2 py-1 text-xs rounded-lg transition-all"
                     >
                       ✕
@@ -756,7 +758,7 @@ export function PdfUploadPanel() {
                   <button
                     onClick={() => setConfirmDeleteId(screenplay.id)}
                     title="Delete project"
-                    aria-label={`Delete ${screenplay.title}`}
+                    aria-label={`Delete ${displayTitle}`}
                     className="settings-file-action settings-file-action--delete shrink-0 p-2 rounded-lg border transition-all"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

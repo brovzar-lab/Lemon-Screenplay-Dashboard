@@ -93,7 +93,6 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
             titleId="discovery-drawer-title"
             closeLabel="Close details"
             presentation="discovery"
-            authorFallback="Unknown writer"
             supplementalActions={
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <DiscoveryShareStatus screenplay={screenplay} />
@@ -119,10 +118,14 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
               </h3>
               <div className="mt-5 grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
                 <div>
-                  <p className="dsc-label dsc-label-faint">Logline</p>
-                  <p className="mt-2 text-base leading-7 text-[var(--dsc-ink-2)]">
-                    {screenplay.logline || 'Logline not yet available.'}
-                  </p>
+                  {screenplay.logline && (
+                    <>
+                      <p className="dsc-label dsc-label-faint">Logline</p>
+                      <p className="mt-2 text-base leading-7 text-[var(--dsc-ink-2)]">
+                        {screenplay.logline}
+                      </p>
+                    </>
+                  )}
                   {screenplay.verdictStatement && (
                     <div className="dsc-executive-verdict mt-5">
                       <p className="dsc-label">Recommendation</p>
@@ -139,8 +142,13 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
                     {screenplay.strengths.length > 0 ? (
                       <ul className="mt-3 space-y-2">
                         {screenplay.strengths.slice(0, 3).map((strength) => (
-                          <li key={strength} className="flex gap-2 text-sm leading-5 text-[var(--dsc-ink-2)]">
-                            <span aria-hidden="true" className="text-[var(--dsc-success)]">●</span>
+                          <li
+                            key={strength}
+                            className="flex gap-2 text-sm leading-5 text-[var(--dsc-ink-2)]"
+                          >
+                            <span aria-hidden="true" className="text-[var(--dsc-success)]">
+                              ●
+                            </span>
                             <span>{strength}</span>
                           </li>
                         ))}
@@ -155,14 +163,21 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
                     {screenplay.weaknesses.length > 0 ? (
                       <ul className="mt-3 space-y-2">
                         {screenplay.weaknesses.slice(0, 2).map((weakness) => (
-                          <li key={weakness} className="flex gap-2 text-sm leading-5 text-[var(--dsc-ink-2)]">
-                            <span aria-hidden="true" className="text-[var(--dsc-pass)]">●</span>
+                          <li
+                            key={weakness}
+                            className="flex gap-2 text-sm leading-5 text-[var(--dsc-ink-2)]"
+                          >
+                            <span aria-hidden="true" className="text-[var(--dsc-pass)]">
+                              ●
+                            </span>
                             <span>{weakness}</span>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-2 text-sm text-[var(--dsc-ink-3)]">No watch points recorded.</p>
+                      <p className="mt-2 text-sm text-[var(--dsc-ink-3)]">
+                        No watch points recorded.
+                      </p>
                     )}
                   </div>
                 </div>
@@ -184,10 +199,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
             >
               <ContentDetails screenplay={screenplay} />
             </section>
-            <section
-              className="dsc-card p-4 sm:p-5"
-              aria-label="Specialist reader evidence"
-            >
+            <section className="dsc-card p-4 sm:p-5" aria-label="Specialist reader evidence">
               <DeferredReaderEvidence screenplay={screenplay} />
             </section>
             <section

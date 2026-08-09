@@ -1,15 +1,17 @@
 import { clsx } from 'clsx';
 import { useIsSelected, useSelectionStore } from '@/stores/selectionStore';
 import type { Screenplay } from '@/types';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 
 export function DiscoverySelectionCheckbox({ screenplay }: { screenplay: Screenplay }) {
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
   const isSelected = useIsSelected(screenplay.id);
   const toggle = useSelectionStore((state) => state.toggle);
 
   return (
     <button
       type="button"
-      aria-label={`${isSelected ? 'Deselect' : 'Select'} ${screenplay.title}`}
+      aria-label={`${isSelected ? 'Deselect' : 'Select'} ${displayTitle}`}
       aria-pressed={isSelected}
       onClick={() => toggle(screenplay.id)}
       className="discovery-selection-checkbox group/check absolute left-1 top-1 z-20 flex h-11 w-11 items-center justify-center"
@@ -23,15 +25,15 @@ export function DiscoverySelectionCheckbox({ screenplay }: { screenplay: Screenp
             : 'border-[var(--dsc-line-strong,var(--dsc-line))] bg-[var(--dsc-surface)] text-transparent group-hover/check:border-[var(--dsc-accent)] group-hover/check:text-[var(--dsc-accent)]',
         )}
       >
-      <svg aria-hidden="true" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-        <path
-          d="m5 12 4 4L19 6"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2.5"
-        />
-      </svg>
+        <svg aria-hidden="true" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+          <path
+            d="m5 12 4 4L19 6"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2.5"
+          />
+        </svg>
       </span>
     </button>
   );

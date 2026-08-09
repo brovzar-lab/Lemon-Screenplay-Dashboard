@@ -26,7 +26,7 @@ describe('BlueSpineScript presentation', () => {
     );
 
     expect(container.querySelector('.screenplay-object--compact')).toBeInTheDocument();
-    expect(screen.getByText('A Story With A Proper Cover')).toBeInTheDocument();
+    expect(screen.getByText('A Story with a Proper Cover')).toBeInTheDocument();
     expect(screen.queryByText('Written by')).not.toBeInTheDocument();
     expect(screen.queryByText('A Writer')).not.toBeInTheDocument();
     expect(screen.queryByText('V9 Archaeology')).not.toBeInTheDocument();

@@ -47,10 +47,12 @@ export function BlueSpineScript({
       </div>
       {!isCompact && (
         <>
-          <div className="screenplay-object__byline">
-            <span>Written by</span>
-            <small>{getScreenplayDisplayAuthor(screenplay.author)}</small>
-          </div>
+          {getScreenplayDisplayAuthor(screenplay.author) && (
+            <div className="screenplay-object__byline">
+              <span>Written by</span>
+              <small>{getScreenplayDisplayAuthor(screenplay.author)}</small>
+            </div>
+          )}
           <div className="screenplay-object__folio">
             <span>LEMON STUDIOS</span>
             <span>{formatAnalysisVersion(screenplay.analysisVersion)}</span>

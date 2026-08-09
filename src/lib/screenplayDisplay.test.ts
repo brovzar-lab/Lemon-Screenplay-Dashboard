@@ -14,23 +14,32 @@ describe('screenplay display formatting', () => {
         'c8a16cdfe6b740ce8c39370728265074 ASSASSINATION OF A HIGH SCHOOL PRESIDENT',
       ),
     ).toMatchObject({
-      title: 'ASSASSINATION OF A HIGH SCHOOL PRESIDENT',
+      title: 'Assassination of a High School President',
       length: 'long',
     });
   });
 
   it('moves a working-title note out of the primary title', () => {
     expect(getScreenplayDisplayTitle('DRACULA UNTOLD (working title: DRACULA YEAR ZERO)')).toEqual({
-      title: 'DRACULA UNTOLD',
-      qualifier: 'Working title: DRACULA YEAR ZERO',
+      title: 'Dracula Untold',
+      qualifier: 'Working title: Dracula Year Zero',
       length: 'standard',
     });
   });
 
   it('makes filename-like underscores readable for display only', () => {
     expect(getScreenplayDisplayTitle('A_KILLING_ON_CARNIVAL_ROW').title).toBe(
-      'A KILLING ON CARNIVAL ROW',
+      'A Killing on Carnival Row',
     );
+  });
+
+  it.each([
+    ['PAPA EN LA LUNA', 'Papa en la Luna'],
+    ['WILL', 'Will'],
+    ['LAS PURAS C1 D5', 'Las Puras C1 D5'],
+    ['3:10 TO YUMA', '3:10 to Yuma'],
+  ])('title-cases %j as %j for display only', (rawTitle, expected) => {
+    expect(getScreenplayDisplayTitle(rawTitle).title).toBe(expected);
   });
 
   it('repairs a known run-on source title and applies compact cover sizing', () => {
@@ -42,7 +51,7 @@ describe('screenplay display formatting', () => {
 
   it('replaces a machine-only title without changing the stored record', () => {
     expect(getScreenplayDisplayTitle('c8a16cdfe6b740ce8c39370728265074')).toMatchObject({
-      title: 'Untitled submission',
+      title: 'Untitled Submission',
     });
   });
 
@@ -63,7 +72,8 @@ describe('screenplay display formatting', () => {
     ['Anonymous (submission anonymised)', 'Anonymized submission'],
     ['Uncredited (Submission ee466e77bf740d3909e6f0ca426)', 'Uncredited submission'],
     ['c8a16cdfe6b740ce8c39370728265074', 'Uncredited submission'],
-    ['', 'Unknown writer'],
+    ['', undefined],
+    ['Unknown writer', undefined],
     ['Aaron Sorkin', 'Aaron Sorkin'],
   ])('formats the author %j as %j for display only', (rawAuthor, expected) => {
     expect(getScreenplayDisplayAuthor(rawAuthor)).toBe(expected);
@@ -89,7 +99,6 @@ describe('screenplay display formatting', () => {
 
     expect(getScreenplayFormatInfo(screenplay)).toEqual({
       format: 'Feature film',
-      source: 'Source not recorded',
     });
   });
 
@@ -99,6 +108,6 @@ describe('screenplay display formatting', () => {
       recommendationRationale: 'The ending falls short of the concept.',
     });
 
-    expect(getScreenplayFormatInfo(screenplay).format).toBe('Format not recorded');
+    expect(getScreenplayFormatInfo(screenplay).format).toBeUndefined();
   });
 });

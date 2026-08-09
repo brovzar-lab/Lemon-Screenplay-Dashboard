@@ -155,7 +155,7 @@ describe('ScreenplayModal', () => {
             // The id="modal-title" element should exist and contain the title
             const titleEl = document.getElementById('modal-title');
             expect(titleEl).not.toBeNull();
-            expect(titleEl?.textContent).toBe('ARIA Test Movie');
+            expect(titleEl?.textContent).toBe('Aria Test Movie');
         });
 
         it('has a close button with aria-label', () => {

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { useScreenplays } from '@/hooks/useScreenplays';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { RecommendationTier, Screenplay } from '@/types';
 
 const VERDICTS: Array<{ id: RecommendationTier; label: string; color: string }> = [
@@ -78,10 +79,7 @@ export function AnalysisOverview() {
       const genre = screenplay.genre?.trim() || 'Unclassified';
       genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
     });
-    const topGenre = [...genreCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? [
-      'No data',
-      0,
-    ];
+    const topGenre = [...genreCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['No data', 0];
     const verdictCounts = Object.fromEntries(
       VERDICTS.map(({ id }) => [
         id,
@@ -115,7 +113,10 @@ export function AnalysisOverview() {
     {
       label: 'Needs review',
       value: health.attention.length,
-      detail: health.attention.length === 0 ? 'No analysis warnings found' : 'Open items are listed below',
+      detail:
+        health.attention.length === 0
+          ? 'No analysis warnings found'
+          : 'Open items are listed below',
     },
     {
       label: 'Source PDFs ready',
@@ -137,9 +138,15 @@ export function AnalysisOverview() {
         </p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Analysis health summary">
+      <section
+        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        aria-label="Analysis health summary"
+      >
         {metrics.map((metric) => (
-          <article key={metric.label} className="rounded-xl border border-black-700 bg-black-900/30 p-5">
+          <article
+            key={metric.label}
+            className="rounded-xl border border-black-700 bg-black-900/30 p-5"
+          >
             <p className="text-xs font-semibold uppercase tracking-wider text-black-500">
               {metric.label}
             </p>
@@ -154,7 +161,9 @@ export function AnalysisOverview() {
 
       <section className="grid gap-5 rounded-xl border border-black-700 bg-black-900/30 p-5 lg:grid-cols-[0.7fr_1.3fr] lg:p-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-black-500">Slate snapshot</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-black-500">
+            Slate snapshot
+          </p>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-black-700 bg-black-950/20 p-4">
               <span className="text-xs text-black-500">Average score</span>
@@ -173,18 +182,26 @@ export function AnalysisOverview() {
         </div>
 
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-black-500">Verdict mix</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-black-500">
+            Verdict mix
+          </p>
           <div className="mt-4 space-y-3">
             {VERDICTS.map((verdict) => {
               const count = health.verdictCounts[verdict.id];
               return (
-                <div key={verdict.id} className="grid grid-cols-[86px_minmax(0,1fr)_52px] items-center gap-3">
+                <div
+                  key={verdict.id}
+                  className="grid grid-cols-[86px_minmax(0,1fr)_52px] items-center gap-3"
+                >
                   <span className="text-sm text-black-300">{verdict.label}</span>
                   <div className="h-2 overflow-hidden rounded-full bg-black-700" aria-hidden="true">
-                    <div className={`h-full rounded-full ${verdict.color} ${barWidth(count, health.total)}`} />
+                    <div
+                      className={`h-full rounded-full ${verdict.color} ${barWidth(count, health.total)}`}
+                    />
                   </div>
                   <span className="text-right text-sm tabular-nums text-black-300">
-                    {count} <span className="text-black-500">{percentage(count, health.total)}</span>
+                    {count}{' '}
+                    <span className="text-black-500">{percentage(count, health.total)}</span>
                   </span>
                 </div>
               );
@@ -213,8 +230,13 @@ export function AnalysisOverview() {
         ) : (
           <ul className="mt-5 divide-y divide-black-700 overflow-hidden rounded-lg border border-black-700">
             {health.attention.slice(0, 8).map(({ screenplay, issue }) => (
-              <li key={screenplay.id} className="grid gap-1 bg-black-950/20 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
-                <strong className="truncate text-sm text-black-100">{screenplay.title}</strong>
+              <li
+                key={screenplay.id}
+                className="grid gap-1 bg-black-950/20 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4"
+              >
+                <strong className="truncate text-sm text-black-100">
+                  {getScreenplayDisplayTitle(screenplay.title).title}
+                </strong>
                 <span className="text-sm text-black-400">{issue}</span>
               </li>
             ))}
@@ -223,19 +245,25 @@ export function AnalysisOverview() {
       </section>
 
       <details className="rounded-xl border border-black-700 bg-black-900/30 p-5 sm:p-6">
-        <summary className="cursor-pointer font-semibold text-black-100">How V9 analysis works</summary>
+        <summary className="cursor-pointer font-semibold text-black-100">
+          How V9 analysis works
+        </summary>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-black-400">
           Five independent readers examine structure, character, craft and scene, concept, and
           emotional resonance. Their reports are synthesized into one assessment while reader
           failures and disagreements remain visible.
         </p>
         <ol className="mt-4 grid gap-3 sm:grid-cols-5">
-          {['Structure', 'Character', 'Craft & Scene', 'Concept', 'Emotion'].map((reader, index) => (
-            <li key={reader} className="rounded-lg border border-black-700 bg-black-950/20 p-3">
-              <span className="text-xs font-semibold text-[var(--settings-kicker)]">0{index + 1}</span>
-              <strong className="mt-1 block text-sm text-black-100">{reader}</strong>
-            </li>
-          ))}
+          {['Structure', 'Character', 'Craft & Scene', 'Concept', 'Emotion'].map(
+            (reader, index) => (
+              <li key={reader} className="rounded-lg border border-black-700 bg-black-950/20 p-3">
+                <span className="text-xs font-semibold text-[var(--settings-kicker)]">
+                  0{index + 1}
+                </span>
+                <strong className="mt-1 block text-sm text-black-100">{reader}</strong>
+              </li>
+            ),
+          )}
         </ol>
       </details>
     </div>

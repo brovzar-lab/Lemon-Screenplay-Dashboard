@@ -50,7 +50,7 @@ export function ContentDetails({ screenplay, presentation = 'default' }: Content
 
 function CharactersSection({ screenplay, isWorkspace }: { screenplay: Screenplay; isWorkspace: boolean }) {
     return (
-        <section className={clsx(isWorkspace && 'screenplay-xray__section')}>
+        <section className={clsx(isWorkspace && 'screenplay-xray__section screenplay-xray__section--characters')}>
             <SectionHeader icon={isWorkspace ? undefined : '👥'}>Characters</SectionHeader>
             <div className="space-y-3">
                 <div>
@@ -177,7 +177,7 @@ function WorkspaceComparableFilms({ films }: { films: Screenplay['comparableFilm
 
 function StandoutScenesSection({ scenes, isWorkspace }: { scenes: Screenplay['standoutScenes']; isWorkspace: boolean }) {
     return (
-        <section className={clsx(isWorkspace && 'screenplay-xray__section')}>
+        <section className={clsx(isWorkspace && 'screenplay-xray__section screenplay-xray__section--standout')}>
             <SectionHeader icon={isWorkspace ? undefined : '✨'}>Standout Scenes</SectionHeader>
             <div className="space-y-3">
                 {scenes.map((scene, i) => (
@@ -236,7 +236,7 @@ function StrengthsWeaknessesSection({ screenplay, isWorkspace }: { screenplay: S
 
 function DevelopmentNotesSection({ notes, isWorkspace }: { notes: string[]; isWorkspace: boolean }) {
     return (
-        <section className={clsx(isWorkspace && 'screenplay-xray__section')}>
+        <section className={clsx(isWorkspace && 'screenplay-xray__section screenplay-xray__section--development')}>
             <SectionHeader icon={isWorkspace ? undefined : '📋'}>Development Notes</SectionHeader>
             <ul className="space-y-2">
                 {notes.map((note, i) => (
