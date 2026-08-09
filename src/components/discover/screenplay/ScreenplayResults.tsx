@@ -47,6 +47,7 @@ export function ScreenplayGrid({
         const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
         const displayGenre = getScreenplayDisplayGenre(screenplay.genre);
         const formatInfo = getScreenplayFormatInfo(screenplay);
+        const finalScore = screenplay.producerProjection?.finalScore ?? screenplay.weightedScore;
         return (
           <li
             key={screenplay.id}
@@ -55,7 +56,6 @@ export function ScreenplayGrid({
             data-screenplay-id={screenplay.id}
             data-verdict={screenplay.recommendation}
           >
-            <DiscoverySelectionCheckbox screenplay={screenplay} />
             <button
               type="button"
               className="screenplay-wall__open"
@@ -67,39 +67,41 @@ export function ScreenplayGrid({
               </span>
               <span className="screenplay-wall__copy">
                 <span className="screenplay-wall__title">
-                  <strong>{displayTitle.title}</strong>
+                  <strong title={displayTitle.title}>{displayTitle.title}</strong>
                   {displayTitle.qualifier && <em>{displayTitle.qualifier}</em>}
                   {displayAuthor && <small>{displayAuthor}</small>}
                 </span>
                 <span className="screenplay-wall__score">
-                  <strong>{screenplay.weightedScore.toFixed(1)}</strong>
+                  <strong>{finalScore.toFixed(1)}</strong>
                   <small>{percentile ? `${ordinal(percentile.overall)} percentile` : ''}</small>
                 </span>
                 <span className="screenplay-wall__meta">
                   <RecommendationBadge tier={screenplay.recommendation} />
                   {displayGenre && <span>{displayGenre}</span>}
                 </span>
-                {(formatInfo.format || formatInfo.source) && (
+                {formatInfo.format && (
                   <span
                     className="screenplay-wall__facts"
-                    aria-label="Screenplay format and source"
+                    aria-label="Screenplay format"
                   >
-                    {formatInfo.format && <span>{formatInfo.format}</span>}
-                    {formatInfo.source && <span>{formatInfo.source}</span>}
+                    <span>{formatInfo.format}</span>
                   </span>
                 )}
-                <span className="screenplay-wall__status">
-                  <AnalysisTrustBadge screenplay={screenplay} />
-                  <DiscoveryShareStatus screenplay={screenplay} />
-                  <DevelopmentOpportunityBadge
-                    screenplay={screenplay}
-                    assessment={producerAssessments?.get(screenplay.projectId ?? screenplay.id)}
-                    routed={producerLookIds?.has(screenplay.projectId ?? screenplay.id)}
-                    compact
-                  />
-                </span>
               </span>
             </button>
+            <footer className="screenplay-wall__footer">
+              <span className="screenplay-wall__status">
+                <AnalysisTrustBadge screenplay={screenplay} />
+                <DiscoveryShareStatus screenplay={screenplay} />
+                <DevelopmentOpportunityBadge
+                  screenplay={screenplay}
+                  assessment={producerAssessments?.get(screenplay.projectId ?? screenplay.id)}
+                  routed={producerLookIds?.has(screenplay.projectId ?? screenplay.id)}
+                  compact
+                />
+              </span>
+              <DiscoverySelectionCheckbox screenplay={screenplay} />
+            </footer>
           </li>
         );
       })}

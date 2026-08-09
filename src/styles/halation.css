@@ -8,16 +8,16 @@
    LIGHT (default)
    ============================================================================ */
 :root {
-  --sp-bg: #e4e7ee;
-  --sp-surface: #ffffff;
-  --sp-surface-2: #eef0f3;
-  --sp-sunken: #eef0f3;
-  --sp-border: #e6e8ec;
-  --sp-border-strong: #d0d4da;
+  --sp-bg: #e9edf5;
+  --sp-surface: #f5f2ea;
+  --sp-surface-2: #e2e8f1;
+  --sp-sunken: #e2e8f1;
+  --sp-border: #c8d1df;
+  --sp-border-strong: #aeb9ca;
 
-  --sp-text: #0b0d12;
-  --sp-text-2: #4b5565;
-  --sp-text-3: #5d6776;
+  --sp-text: #131b2c;
+  --sp-text-2: #56647a;
+  --sp-text-3: #66758a;
 
   --sp-accent: #2b54f0;
   --sp-accent-strong: #2042c2;
@@ -115,12 +115,12 @@
    DARK — Midnight navy, never pure black
    ============================================================================ */
 [data-theme='dark'] {
-  --sp-bg: #0a1020;
-  --sp-surface: #16203a;
-  --sp-surface-2: #101a30;
-  --sp-sunken: #101a30;
-  --sp-border: #233152;
-  --sp-border-strong: #304060;
+  --sp-bg: #071426;
+  --sp-surface: #0e1b31;
+  --sp-surface-2: #13233d;
+  --sp-sunken: #0a172a;
+  --sp-border: #2b3a55;
+  --sp-border-strong: #40506d;
 
   --sp-text: #edf1f9;
   --sp-text-2: #bac5d8;
@@ -177,4 +177,15 @@
   --sp-ring: 0 0 0 2px #0e1426, 0 0 0 4px #6e8bff;
 
   --sp-glow: none;
+}
+
+/* Authentication and public sharing intentionally keep their established
+   neutral presentation. The signed-in product is the only surface adopting
+   the studio visual system in this bundle. */
+.login-screen {
+  --sp-bg: #e4e7ee;
+  --sp-surface: #ffffff;
+  --sp-text: #0b0d12;
+  --sp-text-2: #4b5565;
+  --sp-text-3: #5d6776;
 }

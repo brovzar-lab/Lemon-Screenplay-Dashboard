@@ -24,7 +24,7 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
   const displayTitle = getScreenplayDisplayTitle(analysis.title).title;
 
   return (
-    <div className="min-h-screen bg-black-900">
+    <div className="public-shared-view min-h-screen bg-black-900">
       <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Header with logo */}
         <header className="flex items-center justify-center mb-8">

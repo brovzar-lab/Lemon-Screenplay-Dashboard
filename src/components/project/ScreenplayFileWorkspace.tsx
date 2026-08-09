@@ -111,6 +111,10 @@ function recommendationTitle(screenplay: Screenplay): string {
   return screenplay.recommendation.charAt(0).toUpperCase() + screenplay.recommendation.slice(1);
 }
 
+function finalScore(screenplay: Screenplay): number {
+  return screenplay.producerProjection?.finalScore ?? screenplay.weightedScore;
+}
+
 function EvidenceRail({
   screenplay,
   hasProducerTake,
@@ -225,7 +229,7 @@ function Overview({
               <div>
                 <dt>Decision status</dt>
                 <dd>
-                  {screenplay.weightedScore.toFixed(1)} · {recommendationTitle(screenplay)}{' '}
+                  {finalScore(screenplay).toFixed(1)} · {recommendationTitle(screenplay)}{' '}
                   preserved
                 </dd>
               </div>
@@ -450,9 +454,9 @@ export function ScreenplayFileWorkspace({
             </button>
           </div>
         </div>
-        <div className="screenplay-file__hero-score">
-          <span>Score</span>
-          <strong>{screenplay.weightedScore.toFixed(1)}</strong>
+        <div className="screenplay-file__hero-score" data-verdict={screenplay.recommendation}>
+          <span>AI verdict</span>
+          <strong>{finalScore(screenplay).toFixed(1)}</strong>
           <b>{recommendationLabel(screenplay)}</b>
         </div>
       </section>

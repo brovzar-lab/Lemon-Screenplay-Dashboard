@@ -92,7 +92,7 @@ function App() {
   return (
     <DevExecProvider screenplays={allScreenplays}>
       <ScrollProgress />
-      <div className="min-h-screen flex flex-col">
+      <div className="authenticated-dashboard min-h-screen flex flex-col">
         <div className="bokeh-atmosphere" aria-hidden="true" />
         <div className="page-enter-header">
           <ErrorBoundary areaName="Header">

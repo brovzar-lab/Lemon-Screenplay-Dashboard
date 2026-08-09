@@ -353,6 +353,63 @@
   gap: 16px;
 }
 
+.hybrid-quick-verdicts {
+  display: flex;
+  max-width: 1800px;
+  min-height: 46px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto;
+  padding: 0 24px 8px;
+  overflow-x: auto;
+}
+
+.hybrid-quick-verdicts button {
+  display: inline-flex;
+  min-height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border: 1px solid var(--hybrid-line);
+  border-radius: 999px;
+  background: var(--hybrid-surface-muted);
+  color: var(--hybrid-ink-muted);
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.hybrid-quick-verdicts button strong {
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--hybrid-ink);
+  font-size: 10px;
+  text-align: center;
+}
+
+.hybrid-quick-verdicts button[aria-pressed='true'] {
+  border-color: #6e8bff;
+  background: #173fba;
+  color: #fff;
+}
+
+.hybrid-quick-verdicts button[data-verdict='film_now'][aria-pressed='true'] {
+  border-color: #d9aa2b;
+  background: #694c08;
+}
+
+.hybrid-quick-verdicts button[data-verdict='recommend'][aria-pressed='true'] {
+  border-color: #35b986;
+  background: #0b684c;
+}
+
+.hybrid-quick-verdicts button[data-verdict='pass'][aria-pressed='true'] {
+  border-color: #ee7c84;
+  background: #8e2630;
+}
+
 .hybrid-current-view {
   display: grid;
   min-width: 170px;

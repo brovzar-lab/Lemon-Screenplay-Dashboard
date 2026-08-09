@@ -161,6 +161,7 @@ export function HybridDiscoverShell({
         onOpenScreenplay={handleOpen}
       />
       <HybridCommandRail
+        allScreenplays={allScreenplays}
         genres={genres}
         themes={themes}
         hasActiveFilters={hasActiveFilters}
