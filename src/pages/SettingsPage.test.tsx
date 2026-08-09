@@ -97,18 +97,19 @@ describe('Settings deep links', () => {
     expect(screen.queryByText('Upload panel')).not.toBeInTheDocument();
   });
 
-  it('keeps Calibration last under System and exposes the full theme selector', () => {
+  it('orders Intelligence before Workflow, keeps Intake first in Workflow, and leaves Calibration last', () => {
     renderSettings('/settings?tab=intake');
 
     const sectionButtons = screen.getAllByRole('button').filter((button) =>
-      ['Intake', 'Analysis Health', 'Model Comparison', 'PDF Files', 'Data & Sharing', 'Connections & Keys', 'Calibration'].includes(
+      ['Intake', 'Featured Project', 'Analysis Health', 'Model Comparison', 'PDF Files', 'Data & Sharing', 'Connections & Keys', 'Calibration'].includes(
         button.getAttribute('aria-label') ?? '',
       ),
     );
     expect(sectionButtons.map((button) => button.getAttribute('aria-label'))).toEqual([
-      'Intake',
       'Analysis Health',
       'Model Comparison',
+      'Intake',
+      'Featured Project',
       'PDF Files',
       'Data & Sharing',
       'Connections & Keys',

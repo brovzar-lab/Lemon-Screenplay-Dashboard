@@ -92,7 +92,7 @@ Headers:
   anthropic-version: 2023-06-01
   content-type: application/json
 Body:
-  model: claude-sonnet-4-5-20250929 | claude-haiku-4-5-20251001 | claude-opus-4-6
+  model: claude-sonnet-4-6 | claude-haiku-4-5-20251001 | claude-opus-4-7
   max_tokens: 16000
   messages: [{ role: "user", content: <prompt> }]
 ```
@@ -102,9 +102,9 @@ Reuse the exact prompt from `functions/src/prompts.ts` — the `buildAnalysisPro
 
 ### Model IDs
 ```
-sonnet → claude-sonnet-4-5-20250929
+sonnet → claude-sonnet-4-6
 haiku  → claude-haiku-4-5-20251001
-opus   → claude-opus-4-6
+opus   → claude-opus-4-7
 ```
 
 ### Hybrid Logic

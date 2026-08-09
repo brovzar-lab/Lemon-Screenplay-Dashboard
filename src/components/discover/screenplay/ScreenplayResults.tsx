@@ -87,6 +87,9 @@ export function ScreenplayGrid({
                     <span>{formatInfo.format}</span>
                   </span>
                 )}
+                {screenplay.logline?.trim() && (
+                  <span className="screenplay-wall__logline">{screenplay.logline.trim()}</span>
+                )}
               </span>
             </button>
             <footer className="screenplay-wall__footer">

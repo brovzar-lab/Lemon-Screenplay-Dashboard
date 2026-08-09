@@ -29,18 +29,6 @@ interface TabConfig {
 
 const TABS: TabConfig[] = [
   {
-    id: 'featured',
-    label: 'Featured Project',
-    description: 'Choose what deserves attention today',
-    group: 'Workflow',
-  },
-  {
-    id: 'intake',
-    label: 'Intake',
-    description: 'Verify, route, and follow new material',
-    group: 'Workflow',
-  },
-  {
     id: 'analysis',
     label: 'Analysis Health',
     description: 'Reader coverage and system readiness',
@@ -51,6 +39,18 @@ const TABS: TabConfig[] = [
     label: 'Model Comparison',
     description: 'Compare available analysis models',
     group: 'Intelligence',
+  },
+  {
+    id: 'intake',
+    label: 'Intake',
+    description: 'Verify, route, and follow new material',
+    group: 'Workflow',
+  },
+  {
+    id: 'featured',
+    label: 'Featured Project',
+    description: 'Choose what deserves attention today',
+    group: 'Workflow',
   },
   {
     id: 'pdf',
@@ -78,7 +78,7 @@ const TABS: TabConfig[] = [
   },
 ];
 
-const GROUPS: GroupLabel[] = ['Workflow', 'Intelligence', 'Library', 'System'];
+const GROUPS: GroupLabel[] = ['Intelligence', 'Workflow', 'Library', 'System'];
 
 function normalizeTab(value: string | null): Tab {
   const normalized = value?.trim().toLowerCase().replaceAll('_', '-');

@@ -9,6 +9,8 @@ export type UploadPresentation = 'settings' | 'intake';
 export interface ModelInfo {
   id: ModelOption;
   name: string;
+  modelId: string;
+  routeLabel: string;
   subtitle: string;
   costPerScript: string;
   speed: string;

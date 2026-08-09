@@ -88,6 +88,8 @@ Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated c
 | E2E (visible) | `npm run test:e2e:headed` | |
 | Lint | `npm run lint` | `eslint .` (flat config) |
 | Format | `npm run format` | Prettier on `src/**/*.{ts,tsx,css}` |
+| Check model catalog | `npm run models:check` | Compares approved Anthropic routes with the live Models API; requires `ANTHROPIC_API_KEY` |
+| Validate model catalog offline | `npm run models:check:offline` | Verifies the committed catalog and route consistency without network access |
 | Deploy hosting | `npm run deploy` | Build then `firebase deploy --only hosting` |
 | Deploy functions | `npm run deploy:functions` | `cd functions && npm run build` then deploys functions (run from repo root) |
 
@@ -161,6 +163,12 @@ VITE_ANTHROPIC_API_KEY         # dev-only; prod uses the llmProxy Cloud Function
 VITE_GOOGLE_API_KEY            # Gemini — poster generation + DevExec chat (optional, degrades gracefully)
 ```
 VPS daemon vars (set in the systemd unit, NOT this file): `ANTHROPIC_API_KEY`, `FIREBASE_PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS`, `TMDB_API_KEY`.
+
+## Model governance
+
+- `src/config/anthropic-model-catalog.json` is the single display catalog for approved screenplay-analysis routes and Reader Chat routes.
+- The scheduled `.github/workflows/anthropic-model-catalog.yml` check compares that catalog with Anthropic's Models API monthly and on demand.
+- A newly released model never changes production scoring automatically. It must first pass Lemon's sealed screenplay benchmark and receive explicit approval. This keeps model updates visible without silently changing verdict behavior.
 
 ## Conventions
 - TypeScript strict — no `any`. Data types live in `types/screenplay.ts` only (`screenplay-v6.ts` deleted).

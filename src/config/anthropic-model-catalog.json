@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-08-09",
+  "source": "https://platform.claude.com/docs/en/api/models/list",
+  "analysisRoutes": {
+    "haiku": {
+      "modelId": "claude-haiku-4-5-20251001",
+      "displayName": "Haiku 4.5"
+    },
+    "sonnet": {
+      "modelId": "claude-sonnet-4-6",
+      "displayName": "Sonnet 4.6"
+    },
+    "opus": {
+      "modelId": "claude-opus-4-7",
+      "displayName": "Opus 4.7"
+    }
+  },
+  "interactiveRoutes": {
+    "readerChatDefault": {
+      "modelId": "claude-opus-5",
+      "displayName": "Opus 5"
+    },
+    "readerChatEscalation": {
+      "modelId": "claude-fable-5",
+      "displayName": "Fable 5"
+    }
+  },
+  "latestObserved": {
+    "haiku": "claude-haiku-4-5-20251001",
+    "sonnet": "claude-sonnet-5",
+    "opus": "claude-opus-5",
+    "fable": "claude-fable-5"
+  }
+}
