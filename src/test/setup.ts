@@ -40,6 +40,7 @@ vi.mock('firebase/auth', async (importOriginal) => {
     signInWithPopup: vi.fn().mockResolvedValue({ user }),
     signInWithRedirect: vi.fn().mockResolvedValue(undefined),
     signInWithCredential: vi.fn().mockResolvedValue({ user }),
+    signInWithCustomToken: vi.fn().mockResolvedValue({ user }),
     getRedirectResult: vi.fn().mockResolvedValue(null),
     signOut: vi.fn().mockResolvedValue(undefined),
     setPersistence: vi.fn().mockResolvedValue(undefined),
@@ -59,25 +60,6 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: () => { },
     dispatchEvent: () => false,
   }),
-});
-
-// Google Identity Services renders its own button inside a host element.
-// Tests use a deterministic local stand-in instead of loading the remote SDK.
-Object.defineProperty(window, 'google', {
-  configurable: true,
-  value: {
-    accounts: {
-      id: {
-        initialize: vi.fn(),
-        renderButton: vi.fn((parent: HTMLElement) => {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.textContent = 'Continue with Google';
-          parent.appendChild(button);
-        }),
-      },
-    },
-  },
 });
 
 // Mock ResizeObserver

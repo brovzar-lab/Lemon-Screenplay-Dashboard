@@ -58,7 +58,7 @@ describe('/discover authentication', () => {
   it('shows sign-in instead of Discovery when signed out', async () => {
     renderDiscoverRoute();
 
-    expect(await screen.findByRole('button', { name: 'Continue with Google' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Continue as Billy' })).toBeInTheDocument();
     expect(screen.queryByText('Discovery experience')).not.toBeInTheDocument();
   });
 

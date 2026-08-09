@@ -29,6 +29,7 @@ describe('AuthGate', () => {
       initialize: mockInitialize,
       signIn: mockSignIn,
       signInWithIdToken: vi.fn(),
+      signInLocalReview: vi.fn(),
       isSigningIn: false,
       error: null,
       status: 'initializing',
@@ -46,7 +47,7 @@ describe('AuthGate', () => {
     mockState.status = 'signed_out';
     renderGate();
     expect(
-      await screen.findByRole('button', { name: 'Continue with Google' }),
+      await screen.findByRole('button', { name: 'Continue as Billy' }),
     ).toBeInTheDocument();
   });
 

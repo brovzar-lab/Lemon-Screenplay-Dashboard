@@ -7,6 +7,7 @@ import {
   isLemonEmail,
   signInWithGoogle,
   signInWithGoogleIdToken,
+  signInForLocalReview,
   signOutUser,
 } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -33,6 +34,7 @@ interface AuthState {
   initialize: () => void;
   signIn: () => Promise<void>;
   signInWithIdToken: (idToken: string) => Promise<void>;
+  signInLocalReview: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
@@ -145,6 +147,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isSigningIn: true, error: null });
     try {
       await signInWithGoogleIdToken(idToken);
+    } catch (error) {
+      set({ isSigningIn: false, error: getErrorMessage(error) });
+    }
+  },
+
+  signInLocalReview: async () => {
+    set({ isSigningIn: true, error: null });
+    try {
+      await signInForLocalReview();
     } catch (error) {
       set({ isSigningIn: false, error: getErrorMessage(error) });
     }

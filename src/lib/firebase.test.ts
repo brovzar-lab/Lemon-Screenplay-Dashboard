@@ -29,6 +29,7 @@ const mockSignOut = vi.fn().mockResolvedValue(undefined);
 const mockSignInWithPopup = vi.fn().mockResolvedValue({ user: mockUser });
 const mockSignInWithRedirect = vi.fn().mockResolvedValue(undefined);
 const mockSignInWithCredential = vi.fn().mockResolvedValue({ user: mockUser });
+const mockSignInWithCustomToken = vi.fn().mockResolvedValue({ user: mockUser });
 const mockGetRedirectResult = vi.fn().mockResolvedValue(null);
 const mockGoogleCredential = { providerId: 'google.com', signInMethod: 'google.com' };
 
@@ -48,6 +49,7 @@ vi.mock('firebase/auth', () => ({
   signInWithPopup: mockSignInWithPopup,
   signInWithRedirect: mockSignInWithRedirect,
   signInWithCredential: mockSignInWithCredential,
+  signInWithCustomToken: mockSignInWithCustomToken,
   signOut: mockSignOut,
 }));
 

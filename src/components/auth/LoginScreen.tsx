@@ -10,14 +10,16 @@ export function LoginScreen() {
     window.location.hostname === '127.0.0.1';
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--sp-bg)' }}>
+    <main className="login-screen min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--sp-bg)' }}>
       <section className="w-full max-w-sm text-center" aria-labelledby="login-title">
         <img src="/lemon-logo-black.png" alt="Lemon Studios" className="w-20 h-20 mx-auto mb-6" />
         <h1 id="login-title" className="text-3xl font-display mb-2" style={{ color: 'var(--sp-text)' }}>
           Screenplay Dashboard
         </h1>
         <p className="mb-8 text-sm" style={{ color: 'var(--sp-text-3)' }}>
-          Sign in with your Lemon Studios account. Google will open securely in this window and return you here.
+          {isLocalReview
+            ? 'Open the local review build using the verified Lemon Studios account on this Mac.'
+            : 'Sign in with your Lemon Studios account. Google will open securely in this window and return you here.'}
         </p>
 
         {isLocalReview ? (

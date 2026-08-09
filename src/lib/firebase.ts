@@ -17,6 +17,7 @@ import {
     onAuthStateChanged,
     setPersistence,
     signInWithCredential,
+    signInWithCustomToken,
     signInWithPopup,
     signInWithRedirect,
     signOut,
@@ -114,6 +115,28 @@ export async function signInWithGoogle(): Promise<void> {
 export async function signInWithGoogleIdToken(idToken: string): Promise<void> {
     const credential = GoogleAuthProvider.credential(idToken);
     await signInWithCredential(auth, credential);
+}
+
+export async function signInForLocalReview(): Promise<void> {
+    const isLoopback =
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1';
+    if (!import.meta.env.DEV || !isLoopback) {
+        throw new Error('Local review sign-in is available only on this Mac.');
+    }
+
+    const response = await fetch('/__local-review/session', {
+        method: 'POST',
+        headers: { 'X-Lemon-Local-Review': '1' },
+        credentials: 'same-origin',
+    });
+    const payload = await response.json() as { token?: string; error?: string };
+
+    if (!response.ok || !payload.token) {
+        throw new Error(payload.error ?? 'Local review sign-in is unavailable.');
+    }
+
+    await signInWithCustomToken(auth, payload.token);
 }
 
 export function signOutUser(): Promise<void> {
