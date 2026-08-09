@@ -2,12 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { clsx } from 'clsx';
 import { MultiSelect } from '@/components/filters/MultiSelect';
 import { RangeSlider } from '@/components/filters/RangeSlider';
+import { passesFilters } from '@/hooks/useFilteredScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useLensStore } from '@/stores/lensStore';
 import { useSortStore } from '@/stores/sortStore';
 import {
   RECOMMENDATION_CONFIG,
+  type FilterState,
   type RecommendationTier,
+  type Screenplay,
   type SortDirection,
   type SortField,
 } from '@/types';
@@ -15,6 +18,7 @@ import {
 const VERDICTS: RecommendationTier[] = ['film_now', 'recommend', 'consider', 'pass'];
 
 interface HybridCommandRailProps {
+  allScreenplays: Screenplay[];
   genres: string[];
   themes: string[];
   hasActiveFilters: boolean;
@@ -31,6 +35,7 @@ interface ActiveChip {
 }
 
 export function HybridCommandRail({
+  allScreenplays,
   genres,
   themes,
   hasActiveFilters,
@@ -49,6 +54,49 @@ export function HybridCommandRail({
   const activeLensId = useLensStore((state) => state.activeLensId);
   const activeLens = lenses.find((lens) => lens.id === activeLensId);
   const activeSort = sortConfigs[0]?.field ?? 'weightedScore';
+
+  const verdictCounts = useMemo(() => {
+    const withoutVerdict: FilterState = {
+      searchQuery: filters.searchQuery,
+      recommendationTiers: [],
+      budgetCategories: filters.budgetCategories,
+      collections: filters.collections,
+      categories: filters.categories,
+      genres: filters.genres,
+      themes: filters.themes,
+      weightedScoreRange: filters.weightedScoreRange,
+      conceptRange: filters.conceptRange,
+      structureRange: filters.structureRange,
+      protagonistRange: filters.protagonistRange,
+      supportingCastRange: filters.supportingCastRange,
+      dialogueRange: filters.dialogueRange,
+      genreExecutionRange: filters.genreExecutionRange,
+      originalityRange: filters.originalityRange,
+      cvsRange: filters.cvsRange,
+      marketPotentialRange: filters.marketPotentialRange,
+      showFilmNowOnly: false,
+      hidePassRated: false,
+      hasCriticalFailures: filters.hasCriticalFailures,
+      hideNonScreenplays: filters.hideNonScreenplays,
+      hideProduced: filters.hideProduced,
+      missingPdfOnly: filters.missingPdfOnly,
+      hasPdfOnly: filters.hasPdfOnly,
+    };
+    const base = allScreenplays.filter((screenplay) => passesFilters(screenplay, withoutVerdict));
+    return {
+      all: base.length,
+      film_now: base.filter((screenplay) => screenplay.recommendation === 'film_now').length,
+      recommend: base.filter((screenplay) => screenplay.recommendation === 'recommend').length,
+      consider: base.filter((screenplay) => screenplay.recommendation === 'consider').length,
+      pass: base.filter((screenplay) => screenplay.recommendation === 'pass').length,
+    };
+  }, [allScreenplays, filters]);
+
+  const selectVerdict = (tier?: RecommendationTier) => {
+    filters.setRecommendationTiers(tier ? [tier] : []);
+    filters.setShowFilmNowOnly(false);
+    filters.setHidePassRated(false);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -346,6 +394,30 @@ export function HybridCommandRail({
           )}
         </div>
       </div>
+      <nav className="hybrid-quick-verdicts" aria-label="Filter by AI verdict">
+        <button
+          type="button"
+          aria-pressed={filters.recommendationTiers.length === 0}
+          onClick={() => selectVerdict()}
+        >
+          <span>All</span><strong>{verdictCounts.all}</strong>
+        </button>
+        {VERDICTS.map((tier) => (
+          <button
+            key={tier}
+            type="button"
+            data-verdict={tier}
+            aria-pressed={
+              filters.recommendationTiers.length === 1 &&
+              filters.recommendationTiers[0] === tier
+            }
+            onClick={() => selectVerdict(tier)}
+          >
+            <span>{RECOMMENDATION_CONFIG[tier].label}</span>
+            <strong>{verdictCounts[tier]}</strong>
+          </button>
+        ))}
+      </nav>
     </section>
   );
 }

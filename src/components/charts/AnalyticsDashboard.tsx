@@ -7,12 +7,9 @@ import { useState, useRef, useLayoutEffect } from 'react';
 import { ScoreDistribution } from './ScoreDistribution';
 import { TierBreakdown } from './TierBreakdown';
 import { GenreChart } from './GenreChart';
-import { BudgetChart } from './BudgetChart';
 import { FormatChart } from './FormatChart';
-import { TasteMatch } from './TasteMatch';
 import { useCountUp } from '../../hooks/useCountUp';
-import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
-import { useIsAdmin } from '@/stores/authStore';
+import type { BudgetCategory, Screenplay, RecommendationTier } from '@/types';
 
 interface AnalyticsDashboardProps {
   screenplays: Screenplay[];
@@ -20,12 +17,15 @@ interface AnalyticsDashboardProps {
   onFilterByScoreRange?: (range: { min: number; max: number }) => void;
   onFilterByTier?: (tier: RecommendationTier) => void;
   onFilterByGenre?: (genre: string) => void;
+  /** Retained for old-dashboard compatibility; Discovery intentionally shows Format Mix. */
   onFilterByBudget?: (budget: BudgetCategory) => void;
   title?: string;
   initiallyExpanded?: boolean;
   deferContentUntilExpanded?: boolean;
   className?: string;
   maxGenres?: number;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function AnalyticsDashboard({
@@ -34,17 +34,24 @@ export function AnalyticsDashboard({
   onFilterByScoreRange,
   onFilterByTier,
   onFilterByGenre,
-  onFilterByBudget,
   title = 'Slate Overview',
   initiallyExpanded = true,
   deferContentUntilExpanded = false,
   className = '',
   maxGenres = 6,
+  expanded,
+  onExpandedChange,
 }: AnalyticsDashboardProps) {
-  const isAdmin = useIsAdmin();
-  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
+  const [internalExpanded, setInternalExpanded] = useState(initiallyExpanded);
+  const isExpanded = expanded ?? internalExpanded;
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState(2000);
+
+  const toggleExpanded = () => {
+    const next = !isExpanded;
+    if (expanded === undefined) setInternalExpanded(next);
+    onExpandedChange?.(next);
+  };
 
   // Measure content height after each expansion so the style reads from state,
   // not from ref.current directly during render (avoids react-hooks/refs error).
@@ -70,9 +77,6 @@ export function AnalyticsDashboard({
       : 0;
   const filmNowCount = screenplays.filter((sp) => sp.recommendation === 'film_now').length;
   const recommendCount = screenplays.filter((sp) => sp.recommendation === 'recommend').length;
-  const hasRecordedBudgets = screenplays.some(
-    (screenplay) => screenplay.budgetCategory && screenplay.budgetCategory !== 'unknown',
-  );
 
   // Animated count-up values — only run once when panel is first expanded
   const animatedTotal = useCountUp(screenplays.length, 600, isExpanded);
@@ -104,13 +108,9 @@ export function AnalyticsDashboard({
       ),
     },
     {
-      title: hasRecordedBudgets ? 'Budget Tiers' : 'Format Mix',
-      hint: hasRecordedBudgets && onFilterByBudget ? 'Click to filter by budget' : null,
-      content: hasRecordedBudgets ? (
-        <BudgetChart screenplays={screenplays} onBudgetClick={onFilterByBudget} />
-      ) : (
-        <FormatChart screenplays={screenplays} />
-      ),
+      title: 'Format Mix',
+      hint: null,
+      content: <FormatChart screenplays={screenplays} />,
     },
   ];
 
@@ -119,7 +119,7 @@ export function AnalyticsDashboard({
       {/* Header with toggle */}
       <button
         type="button"
-        onClick={() => setIsExpanded((expanded) => !expanded)}
+        onClick={toggleExpanded}
         aria-expanded={isExpanded}
         aria-controls="analytics-dashboard-content"
         className="slate-analytics__toggle w-full"
@@ -218,7 +218,6 @@ export function AnalyticsDashboard({
                 </div>
               ))}
             </div>
-            {isAdmin && <TasteMatch />}
           </>
         )}
       </div>

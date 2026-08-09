@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clsx } from 'clsx';
+import { TasteMatch } from '@/components/charts/TasteMatch';
 
 import {
   activateCalibrationCandidate,
@@ -240,6 +241,10 @@ export function CalibrationPanel() {
               : 'No calibration profile affects future analyses'}
           </span>
         </div>
+      </section>
+
+      <section aria-label="Producer alignment">
+        <TasteMatch />
       </section>
 
       <section className="rounded-xl border border-black-700 bg-black-900/30 p-5 sm:p-6">

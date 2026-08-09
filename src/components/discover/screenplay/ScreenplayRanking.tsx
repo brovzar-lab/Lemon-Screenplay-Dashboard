@@ -1,11 +1,10 @@
-import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelectionCheckbox';
 import { DevelopmentOpportunityBadge } from '@/components/discover/DevelopmentOpportunityBadge';
+import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelectionCheckbox';
 import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
 import type {
   OpenScreenplay,
   PercentileMap,
 } from '@/components/discover/screenplay/screenplayPresentationTypes';
-import type { RankedScreenplay } from '@/components/discover/screenplay/screenplayRankingProjection';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import {
   getScreenplayDisplayAuthor,
@@ -13,7 +12,11 @@ import {
   getScreenplayDisplayTitle,
   getScreenplayFormatInfo,
 } from '@/lib/screenplayDisplay';
-import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
+import type {
+  FeaturedSelectionReason,
+  ProducerAssessmentHead,
+  Screenplay,
+} from '@/types';
 
 function ordinal(value: number): string {
   const lastTwo = value % 100;
@@ -24,36 +27,11 @@ function ordinal(value: number): string {
   return `${value}th`;
 }
 
-function rankingMetric(
-  screenplay: Screenplay,
-  sortField: SortField,
-): { label: string; value: string } {
-  if (sortField === 'marketPotential') {
-    return {
-      label: 'Market potential',
-      value:
-        screenplay.producerMetrics.marketPotential === null
-          ? 'Not assessed'
-          : screenplay.producerMetrics.marketPotential.toFixed(1),
-    };
-  }
-  if (sortField === 'cvsTotal') {
-    return {
-      label: 'Commercial viability',
-      value: screenplay.commercialViability.cvsAssessed
-        ? screenplay.cvsTotal.toFixed(0)
-        : 'Not assessed',
-    };
-  }
-  return { label: 'Final score', value: screenplay.weightedScore.toFixed(1) };
-}
-
 interface ScreenplayRankingProps {
-  topResult: RankedScreenplay;
-  nextThree: RankedScreenplay[];
-  reason: string;
-  filterContext: string;
-  sortField: SortField;
+  screenplay: Screenplay;
+  rank: number;
+  reason: FeaturedSelectionReason;
+  outsideCurrentView: boolean;
   percentiles: PercentileMap;
   producerAssessments: ReadonlyMap<string, ProducerAssessmentHead>;
   producerLookIds?: ReadonlySet<string>;
@@ -61,136 +39,102 @@ interface ScreenplayRankingProps {
 }
 
 export function ScreenplayRanking({
-  topResult,
-  nextThree,
+  screenplay,
+  rank,
   reason,
-  filterContext,
-  sortField,
+  outsideCurrentView,
   percentiles,
   producerAssessments,
   producerLookIds,
   onOpen,
 }: ScreenplayRankingProps) {
-  const screenplay = topResult.screenplay;
   const title = getScreenplayDisplayTitle(screenplay.title);
   const format = getScreenplayFormatInfo(screenplay);
+  const author = getScreenplayDisplayAuthor(screenplay.author);
+  const genre = getScreenplayDisplayGenre(screenplay.genre);
   const percentile = percentiles.get(screenplay.id);
   const projectKey = screenplay.projectId ?? screenplay.id;
-  const metric = rankingMetric(screenplay, sortField);
-  const topMetadata = [
-    format.format,
-    format.source,
-    getScreenplayDisplayGenre(screenplay.genre),
-    getScreenplayDisplayAuthor(screenplay.author),
-  ].filter(Boolean);
+  const score = screenplay.producerProjection?.finalScore ?? screenplay.weightedScore;
+  const confidence = screenplay.producerProjection?.trustStatus;
+  const metadata = [format.format, genre, author].filter(Boolean);
 
   return (
     <section
-      className="screenplay-ranking"
+      className="screenplay-ranking screenplay-featured"
       data-testid="screenplay-discovery-ranking"
       aria-labelledby="screenplay-ranking-title"
+      data-verdict={screenplay.recommendation}
     >
       <header className="screenplay-ranking__heading">
         <div>
-          <p className="screenplay-ui-eyebrow">Best in the current view</p>
-          <h2 id="screenplay-ranking-title">Top result</h2>
+          <p className="screenplay-ui-eyebrow">Today’s studio focus</p>
+          <h2 id="screenplay-ranking-title">Featured project</h2>
         </div>
-        <p>
-          {reason} · {filterContext}
-        </p>
+        <p>Stable for today · based on the studio Featured policy</p>
       </header>
-      <div className="screenplay-ranking__layout">
-        <article
-          className="screenplay-ranking__top"
-          data-testid="screenplay-ranking-top"
-          data-screenplay-id={screenplay.id}
-          data-verdict={screenplay.recommendation}
+      <article
+        className="screenplay-featured__layout"
+        data-testid="screenplay-featured-project"
+        data-screenplay-id={screenplay.id}
+        data-verdict={screenplay.recommendation}
+      >
+        <button
+          type="button"
+          className="screenplay-featured__open"
+          onClick={(event) => onOpen(screenplay, event.currentTarget)}
+          aria-label={`Open ${title.title} screenplay file`}
         >
-          <DiscoverySelectionCheckbox screenplay={screenplay} />
-          <button
-            type="button"
-            className="screenplay-ranking__top-open"
-            onClick={(event) => onOpen(screenplay, event.currentTarget)}
-            aria-label={`Open ${title.title} screenplay file`}
-          >
-            <span className="screenplay-ranking__object">
-              <BlueSpineScript screenplay={screenplay} featured rank={topResult.rank} />
-            </span>
-            <span className="screenplay-ranking__brief">
-              <span className="screenplay-ranking__title">{title.title}</span>
-              {title.qualifier && (
-                <span className="screenplay-ranking__qualifier">{title.qualifier}</span>
+          <span className="screenplay-featured__object">
+            <BlueSpineScript screenplay={screenplay} featured rank={rank} />
+          </span>
+          <span className="screenplay-featured__brief">
+            <span className="screenplay-featured__kicker">Featured screenplay</span>
+            <span className="screenplay-featured__title">{title.title}</span>
+            {title.qualifier && <span className="screenplay-featured__qualifier">{title.qualifier}</span>}
+            <span className="screenplay-featured__meta">{metadata.join(' · ')}</span>
+            {screenplay.logline && (
+              <span className="screenplay-featured__logline">{screenplay.logline}</span>
+            )}
+            <span className="screenplay-featured__why">
+              <b>Why featured</b>
+              <strong>{reason.headline}</strong>
+              <small>{reason.detail}</small>
+              {outsideCurrentView && (
+                <em>This recommendation sits outside your temporary browse filters.</em>
               )}
-              <span className="screenplay-ranking__meta">{topMetadata.join(' · ')}</span>
-              {screenplay.logline && (
-                <span className="screenplay-ranking__logline">{screenplay.logline}</span>
-              )}
-              <span className="screenplay-ranking__decision">
-                <RecommendationBadge tier={screenplay.recommendation} />
-                <DevelopmentOpportunityBadge
-                  screenplay={screenplay}
-                  assessment={producerAssessments.get(projectKey)}
-                  routed={producerLookIds?.has(projectKey)}
-                />
-                <strong>{metric.value}</strong>
-                <small>{metric.label}</small>
-                {percentile && <small>{ordinal(percentile.overall)} final-score percentile</small>}
-              </span>
-              <span className="screenplay-ranking__action">Open screenplay file →</span>
             </span>
-          </button>
-        </article>
-        {nextThree.length > 0 && (
-          <ol className="screenplay-ranking__runners" aria-label="Next three results">
-            {nextThree.map((entry) => {
-              const runner = entry.screenplay;
-              const runnerTitle = getScreenplayDisplayTitle(runner.title);
-              const runnerFormat = getScreenplayFormatInfo(runner);
-              const runnerAuthor = getScreenplayDisplayAuthor(runner.author);
-              const runnerPercentile = percentiles.get(runner.id);
-              const runnerMetric = rankingMetric(runner, sortField);
-              return (
-                <li
-                  key={runner.id}
-                  data-testid="screenplay-ranking-runner"
-                  data-screenplay-id={runner.id}
-                >
-                  <DiscoverySelectionCheckbox screenplay={runner} />
-                  <button
-                    type="button"
-                    onClick={(event) => onOpen(runner, event.currentTarget)}
-                    aria-label={`Open ${runnerTitle.title} screenplay file`}
-                  >
-                    <span className="screenplay-ranking__runner-object">
-                      <BlueSpineScript screenplay={runner} presentation="compact" />
-                    </span>
-                    <span className="screenplay-ranking__runner-copy">
-                      <small className="screenplay-ranking__runner-kicker">
-                        Next #{entry.rank}
-                        {runnerFormat.format ? ` · ${runnerFormat.format}` : ''}
-                      </small>
-                      <strong>{runnerTitle.title}</strong>
-                      {runnerAuthor && <em>{runnerAuthor}</em>}
-                      <span className="screenplay-ranking__runner-decision">
-                        <RecommendationBadge tier={runner.recommendation} />
-                        <span>
-                          <b>{runnerMetric.value}</b>
-                          <small>{runnerMetric.label}</small>
-                        </span>
-                      </span>
-                      <small className="screenplay-ranking__runner-percentile">
-                        {runnerPercentile
-                          ? `${ordinal(runnerPercentile.overall)} final-score percentile`
-                          : ''}
-                      </small>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        )}
-      </div>
+            <span className="screenplay-featured__action">Open screenplay file →</span>
+          </span>
+        </button>
+        <aside className="screenplay-featured__decision" aria-label="AI decision">
+          <span>AI verdict</span>
+          <strong>{score.toFixed(1)}</strong>
+          <RecommendationBadge tier={screenplay.recommendation} />
+          <dl>
+            {percentile && (
+              <div>
+                <dt>Percentile</dt>
+                <dd>{ordinal(percentile.overall)}</dd>
+              </div>
+            )}
+            {confidence && (
+              <div>
+                <dt>Confidence</dt>
+                <dd>{confidence.replaceAll('_', ' ')}</dd>
+              </div>
+            )}
+          </dl>
+          <DevelopmentOpportunityBadge
+            screenplay={screenplay}
+            assessment={producerAssessments.get(projectKey)}
+            routed={producerLookIds?.has(projectKey)}
+          />
+          <div className="screenplay-featured__selection">
+            <span>Select project</span>
+            <DiscoverySelectionCheckbox screenplay={screenplay} />
+          </div>
+        </aside>
+      </article>
     </section>
   );
 }

@@ -10,6 +10,15 @@ interface AnalyticsProps {
   deferContentUntilExpanded?: boolean;
   className?: string;
   maxGenres?: number;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+}
+
+const INSIGHTS_COLLAPSED_KEY = 'lemon:discovery:slate-insights-collapsed';
+
+function loadExpandedPreference(): boolean {
+  if (typeof window === 'undefined') return true;
+  return window.localStorage.getItem(INSIGHTS_COLLAPSED_KEY) !== 'true';
 }
 
 const LazyAnalyticsDashboard = lazy(async () => {
@@ -28,27 +37,12 @@ export function ScreenplaySlateInsights({
   allScreenplays,
   AnalyticsComponent = LazyAnalyticsDashboard,
 }: ScreenplaySlateInsightsProps) {
-  const [requested, setRequested] = useState(false);
+  const [expanded, setExpanded] = useState(loadExpandedPreference);
 
-  if (!requested) {
-    return (
-      <section className="screenplay-insights screenplay-insights--collapsed">
-        <button
-          type="button"
-          onClick={() => setRequested(true)}
-          aria-expanded="false"
-          aria-label="Show Slate Insights"
-        >
-          <span>
-            <strong>Slate Insights</strong>
-            <small>Score distribution · verdict mix · top genres · slate composition</small>
-          </span>
-          <span aria-hidden="true">Show</span>
-          <span className="sr-only">Show Slate Insights</span>
-        </button>
-      </section>
-    );
-  }
+  const handleExpandedChange = (next: boolean) => {
+    setExpanded(next);
+    window.localStorage.setItem(INSIGHTS_COLLAPSED_KEY, String(!next));
+  };
 
   return (
     <section className="screenplay-insights">
@@ -65,7 +59,8 @@ export function ScreenplaySlateInsights({
             totalScreenplays={allScreenplays}
             title="Slate Insights"
             initiallyExpanded
-            deferContentUntilExpanded
+            expanded={expanded}
+            onExpandedChange={handleExpandedChange}
             className="screenplay-insights__dashboard"
             maxGenres={4}
           />

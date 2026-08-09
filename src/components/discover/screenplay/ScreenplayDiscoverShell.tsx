@@ -8,11 +8,12 @@ import { ScreenplayRanking } from '@/components/discover/screenplay/ScreenplayRa
 import { ScreenplayGrid } from '@/components/discover/screenplay/ScreenplayResults';
 import { ScreenplaySlateInsights } from '@/components/discover/screenplay/ScreenplaySlateInsights';
 import { ScreenplaySlateStats } from '@/components/discover/screenplay/ScreenplaySlateStats';
-import { buildScreenplayRanking } from '@/components/discover/screenplay/screenplayRankingProjection';
+import { useFeaturedProject } from '@/hooks/useFeaturedProject';
 import { usePercentiles } from '@/hooks/usePercentiles';
+import { recordFeaturedEngagement } from '@/lib/featuredProjectSettings';
+import { useAuthStore } from '@/stores/authStore';
 import { useHasSelection } from '@/stores/selectionStore';
-import { useSortStore } from '@/stores/sortStore';
-import type { Screenplay, SortField } from '@/types';
+import type { Screenplay } from '@/types';
 import '@/components/discover/hybrid/hybrid-discovery.css';
 import '@/components/discover/screenplay/screenplay-discovery.css';
 
@@ -80,29 +81,52 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const previousSelectionRef = useRef<Screenplay | null>(selectedScreenplay);
   const hasSelection = useHasSelection();
-  const activeSort = useSortStore(
-    (state) => state.sortConfigs[0]?.field ?? 'weightedScore',
-  ) as SortField;
+  const authProfile = useAuthStore((state) => state.profile);
   const percentiles = usePercentiles(allScreenplays);
-  const ranking = useMemo(
-    () => buildScreenplayRanking(screenplays, activeSort),
-    [activeSort, screenplays],
+  const featured = useFeaturedProject(allScreenplays, producerLookIds);
+  const featuredId = featured.screenplay?.id;
+  const featuredRank = useMemo(() => {
+    if (!featured.screenplay) return 1;
+    return (
+      [...allScreenplays]
+        .sort(
+          (a, b) =>
+            (b.producerProjection?.finalScore ?? b.weightedScore) -
+              (a.producerProjection?.finalScore ?? a.weightedScore) ||
+            a.title.localeCompare(b.title),
+        )
+        .findIndex((item) => item.id === featured.screenplay?.id) + 1
+    );
+  }, [allScreenplays, featured.screenplay]);
+  const wall = useMemo(
+    () =>
+      screenplays
+        .map((screenplay, index) => ({ screenplay, rank: index + 1 }))
+        .filter((entry) => entry.screenplay.id !== featuredId),
+    [featuredId, screenplays],
   );
   const signature = useMemo(
-    () => ranking.wall.map((entry) => entry.screenplay.id).join('|'),
-    [ranking.wall],
+    () => wall.map((entry) => entry.screenplay.id).join('|'),
+    [wall],
   );
-  const pageCount = Math.max(1, Math.ceil(ranking.wall.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(wall.length / PAGE_SIZE));
   const safePage =
     archivePosition.signature === signature ? Math.min(archivePosition.page, pageCount) : 1;
-  const visibleEntries = ranking.wall.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const visibleEntries = wall.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const handleOpen = useCallback(
     (screenplay: Screenplay, trigger: HTMLButtonElement) => {
       returnFocusRef.current = trigger;
+      const id = screenplay.projectId ?? screenplay.id;
+      if (
+        id === (featured.screenplay?.projectId ?? featured.screenplay?.id) &&
+        authProfile?.role === 'admin'
+      ) {
+        recordFeaturedEngagement(id, { uid: authProfile.uid, role: authProfile.role });
+      }
       onOpenScreenplay(screenplay);
     },
-    [onOpenScreenplay],
+    [authProfile, featured.screenplay, onOpenScreenplay],
   );
 
   useEffect(() => {
@@ -136,6 +160,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         producerLookCount={producerLookCount}
         producerLookActive={producerLookActive}
         onToggleProducerLook={onToggleProducerLook}
+        allScreenplays={allScreenplays}
       />
       <main
         className={
@@ -169,17 +194,12 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         ) : (
           <>
             <ScreenplaySlateInsights screenplays={screenplays} allScreenplays={allScreenplays} />
-            {ranking.showRanking && ranking.topResult && ranking.reason && (
+            {featured.screenplay && (
               <ScreenplayRanking
-                topResult={ranking.topResult}
-                nextThree={ranking.nextThree}
-                reason={ranking.reason}
-                filterContext={
-                  hasActiveFilters
-                    ? `Current filters · ${filteredCount} of ${totalCount} visible`
-                    : 'All visible screenplays'
-                }
-                sortField={activeSort}
+                screenplay={featured.screenplay}
+                rank={featuredRank}
+                reason={featured.reason}
+                outsideCurrentView={!screenplays.some((item) => item.id === featured.screenplay?.id)}
                 percentiles={percentiles}
                 producerAssessments={producerAssessments}
                 producerLookIds={producerLookIds}
@@ -191,7 +211,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
                 <div>
                   <p className="screenplay-ui-eyebrow">Searchable archive</p>
                   <h2 id="screenplay-slate-title">
-                    {ranking.showRanking ? 'Continue through the slate' : 'The complete slate'}
+                    Continue through the slate
                   </h2>
                 </div>
                 <p aria-live="polite">
