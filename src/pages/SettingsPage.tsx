@@ -13,10 +13,11 @@ import { AnalysisOverview } from '@/components/settings/AnalysisOverview';
 import { ApiConfigPanel } from '@/components/settings/ApiConfigPanel';
 import { PasswordGate } from '@/components/settings/PasswordGate';
 import { SettingsThemeControl } from '@/components/settings/SettingsThemeControl';
+import { FeaturedProjectPanel } from '@/components/settings/FeaturedProjectPanel';
 import '@/components/discover/discovery.css';
 import '@/pages/settings-page.css';
 
-type Tab = 'intake' | 'analysis' | 'compare' | 'calibration' | 'pdf' | 'data' | 'api';
+type Tab = 'intake' | 'featured' | 'analysis' | 'compare' | 'calibration' | 'pdf' | 'data' | 'api';
 type GroupLabel = 'Workflow' | 'Intelligence' | 'Library' | 'System';
 
 interface TabConfig {
@@ -27,6 +28,12 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
+  {
+    id: 'featured',
+    label: 'Featured Project',
+    description: 'Choose what deserves attention today',
+    group: 'Workflow',
+  },
   {
     id: 'intake',
     label: 'Intake',
@@ -78,6 +85,8 @@ function normalizeTab(value: string | null): Tab {
   const aliases: Record<string, Tab> = {
     upload: 'intake',
     uploads: 'intake',
+    featured: 'featured',
+    'featured-project': 'featured',
     health: 'analysis',
     'analysis-health': 'analysis',
     models: 'compare',
@@ -98,6 +107,7 @@ function normalizeTab(value: string | null): Tab {
 function SettingsIcon({ tab }: { tab: Tab }) {
   const paths: Record<Tab, string> = {
     intake: 'M12 3v12m0-12 4 4m-4-4L8 7M5 14v5h14v-5',
+    featured: 'M12 3l2.6 5.3 5.9.9-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.2 5.9-.9L12 3Z',
     analysis: 'M4 19V9m5 10V5m5 14v-7m5 7V3',
     compare: 'M4 7h10M4 12h16M10 17h10',
     calibration:
@@ -192,6 +202,8 @@ export function SettingsPage() {
         );
       case 'analysis':
         return <AnalysisOverview />;
+      case 'featured':
+        return <FeaturedProjectPanel />;
       case 'compare':
         return <ModelComparisonPanel />;
       case 'calibration':
