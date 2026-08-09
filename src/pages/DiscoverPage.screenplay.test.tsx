@@ -18,6 +18,10 @@ vi.mock('@/hooks/useScreenplays', () => ({
   useDeleteScreenplays: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
+vi.mock('@/components/discover/screenplay/ScreenplaySlateInsights', () => ({
+  ScreenplaySlateInsights: () => <section data-testid="screenplay-insights" />,
+}));
+
 import DiscoverPage from '@/pages/DiscoverPage';
 
 function LocationProbe() {
@@ -85,26 +89,24 @@ describe('I + G screenplay Discovery presentation', () => {
     useSelectionStore.getState().deselectAll();
   });
 
-  it('shows an honest top result, next three, and a non-duplicated continuation wall', async () => {
+  it('shows exactly one Featured project and returns every other project to the wall', async () => {
     renderPage();
 
     const ranking = await screen.findByTestId('screenplay-discovery-ranking');
-    expect(within(ranking).getByText('Top result')).toBeInTheDocument();
-    expect(within(ranking).getByText(/Final score · highest first/)).toBeInTheDocument();
-    expect(within(ranking).getByTestId('screenplay-ranking-top')).toHaveAttribute(
+    expect(within(ranking).getByText('Featured project')).toBeInTheDocument();
+    expect(within(ranking).getByText(/Stable for today/)).toBeInTheDocument();
+    expect(within(ranking).getByTestId('screenplay-featured-project')).toHaveAttribute(
       'data-screenplay-id',
       'echo',
     );
-    expect(within(ranking).getAllByTestId('screenplay-ranking-runner')).toHaveLength(3);
-    for (const runner of within(ranking).getAllByTestId('screenplay-ranking-runner')) {
-      expect(runner.querySelector('.screenplay-object--compact')).toBeInTheDocument();
-      expect(within(runner).queryByText('Written by')).not.toBeInTheDocument();
-      expect(within(runner).queryByText('LEMON STUDIOS')).not.toBeInTheDocument();
-    }
+    expect(within(ranking).queryByTestId('screenplay-ranking-runner')).not.toBeInTheDocument();
 
     const wallResults = screen.getAllByTestId('screenplay-discovery-result');
-    expect(wallResults).toHaveLength(2);
+    expect(wallResults).toHaveLength(5);
     expect(wallResults.map((result) => result.getAttribute('data-screenplay-id'))).toEqual([
+      'foxtrot',
+      'gamma',
+      'delta',
       'hotel',
       'amber',
     ]);
@@ -119,35 +121,42 @@ describe('I + G screenplay Discovery presentation', () => {
     expect(within(stats).getByText('Producer Look')).toBeInTheDocument();
   });
 
-  it('recomputes all ranked surfaces and removes quality ranking for title sort', async () => {
+  it('keeps Featured stable while temporary search and sort controls change the wall', async () => {
     const user = userEvent.setup();
     renderPage();
     const search = await screen.findByRole('searchbox', { name: 'Discovery search' });
 
     await user.type(search, 'buried lighthouse');
     await waitFor(() =>
-      expect(screen.getByTestId('screenplay-ranking-top')).toHaveAttribute(
+      expect(screen.getByTestId('screenplay-featured-project')).toHaveAttribute(
         'data-screenplay-id',
-        'delta',
+        'echo',
       ),
     );
-    expect(screen.queryAllByTestId('screenplay-ranking-runner')).toHaveLength(0);
-    expect(screen.queryAllByTestId('screenplay-discovery-result')).toHaveLength(0);
+    expect(screen.getByText(/outside your temporary browse filters/i)).toBeInTheDocument();
+    expect(screen.getAllByTestId('screenplay-discovery-result')).toHaveLength(1);
+    expect(screen.getByTestId('screenplay-discovery-result')).toHaveAttribute(
+      'data-screenplay-id',
+      'delta',
+    );
 
     await user.clear(search);
     await user.selectOptions(screen.getByRole('combobox', { name: 'Sort results' }), 'title');
     await waitFor(() =>
-      expect(screen.queryByTestId('screenplay-discovery-ranking')).not.toBeInTheDocument(),
+      expect(screen.getByTestId('screenplay-featured-project')).toHaveAttribute(
+        'data-screenplay-id',
+        'echo',
+      ),
     );
-    expect(screen.getAllByTestId('screenplay-discovery-result')).toHaveLength(6);
+    expect(screen.getAllByTestId('screenplay-discovery-result')).toHaveLength(5);
     expect(screen.getAllByTestId('screenplay-discovery-result')[0]).toHaveAttribute(
       'data-screenplay-id',
       'amber',
     );
-    expect(screen.getByRole('heading', { name: 'The complete slate' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Continue through the slate' })).toBeInTheDocument();
   });
 
-  it('reorders top result, runners, and wall for Market Potential and CVS', async () => {
+  it('uses browse sorts for the wall without changing today’s Featured project', async () => {
     const user = userEvent.setup();
     const alpha = screenplay('alpha', 'Alpha', 9.0);
     const bravo = screenplay('bravo', 'Bravo', 8.0);
@@ -195,34 +204,26 @@ describe('I + G screenplay Discovery presentation', () => {
     const sort = await screen.findByRole('combobox', { name: 'Sort results' });
     await user.selectOptions(sort, 'marketPotential');
     await waitFor(() =>
-      expect(screen.getByTestId('screenplay-ranking-top')).toHaveAttribute(
-        'data-screenplay-id',
-        'bravo',
-      ),
-    );
-    expect(screen.getAllByTestId('screenplay-ranking-runner')[0]).toHaveAttribute(
-      'data-screenplay-id',
-      'charlie',
-    );
-    expect(screen.getByTestId('screenplay-discovery-result')).toHaveAttribute(
-      'data-screenplay-id',
-      'alpha',
-    );
-
-    await user.selectOptions(sort, 'cvsTotal');
-    await waitFor(() =>
-      expect(screen.getByTestId('screenplay-ranking-top')).toHaveAttribute(
+      expect(screen.getByTestId('screenplay-featured-project')).toHaveAttribute(
         'data-screenplay-id',
         'alpha',
       ),
     );
-    expect(screen.getAllByTestId('screenplay-ranking-runner')[0]).toHaveAttribute(
+    expect(screen.getAllByTestId('screenplay-discovery-result')[0]).toHaveAttribute(
+      'data-screenplay-id',
+      'bravo',
+    );
+
+    await user.selectOptions(sort, 'cvsTotal');
+    await waitFor(() =>
+      expect(screen.getByTestId('screenplay-featured-project')).toHaveAttribute(
+        'data-screenplay-id',
+        'alpha',
+      ),
+    );
+    expect(screen.getAllByTestId('screenplay-discovery-result')[0]).toHaveAttribute(
       'data-screenplay-id',
       'delta',
-    );
-    expect(screen.getByTestId('screenplay-discovery-result')).toHaveAttribute(
-      'data-screenplay-id',
-      'echo',
     );
   });
 
@@ -258,20 +259,19 @@ describe('I + G screenplay Discovery presentation', () => {
     );
   });
 
-  it('selects and opens projects from the top result, runner rail, and complete slate', async () => {
+  it('selects and opens projects from Featured and the complete slate', async () => {
     const user = userEvent.setup();
     const connected = renderPage();
 
     await user.click(await screen.findByRole('button', { name: 'Select Echo Park' }));
-    await user.click(screen.getByRole('button', { name: 'Select Foxtrot House' }));
     await user.click(screen.getByRole('button', { name: 'Select Hotel Blue' }));
 
     expect(screen.getByTestId('location-probe')).toHaveTextContent('/discover?ui=screenplay');
-    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(['echo', 'foxtrot', 'hotel']));
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(['echo', 'hotel']));
 
-    await user.click(screen.getByRole('button', { name: 'Open Foxtrot House screenplay file' }));
+    await user.click(screen.getByRole('button', { name: 'Open Echo Park screenplay file' }));
     expect(screen.getByTestId('location-probe')).toHaveTextContent(
-      '/projects/foxtrot-project?workspace=screenplay',
+      '/projects/echo-project?workspace=screenplay',
     );
     connected.unmount();
 
@@ -302,7 +302,7 @@ describe('I + G screenplay Discovery presentation', () => {
         projectId: 'legacy-project',
         sourceFile: 'legacy.pdf',
         title: 'c8a16cdfe6b740ce8c39370728265074 ASSASSINATION OF A HIGH SCHOOL PRESIDENT',
-        recommendation: 'pass',
+        recommendation: 'consider',
         genre: 'Comedic Crime / Mystery',
         metadata: { filename: 'legacy.pdf', pageCount: 102, wordCount: 19_000 },
       }),
@@ -310,8 +310,8 @@ describe('I + G screenplay Discovery presentation', () => {
 
     renderPage();
 
-    const result = await screen.findByTestId('screenplay-ranking-top');
-    expect(result).toHaveAttribute('data-verdict', 'pass');
+    const result = await screen.findByTestId('screenplay-featured-project');
+    expect(result).toHaveAttribute('data-verdict', 'consider');
     expect(
       within(result).getAllByText('Assassination of a High School President'),
     ).not.toHaveLength(0);

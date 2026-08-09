@@ -18,10 +18,15 @@ test.describe('Discovery screenplay presentation', () => {
     await expect(page.getByTestId('screenplay-discovery-result').first()).toBeVisible();
   });
 
-  test('shows one top result and the next three under the active ranking', async ({ page }) => {
-    await expect(page.getByTestId('screenplay-ranking-top')).toHaveCount(1);
-    await expect(page.getByTestId('screenplay-ranking-runner')).toHaveCount(3);
-    await expect(page.getByRole('heading', { name: 'Top result' })).toBeVisible();
+  test('shows one explainable Featured project and returns every runner to the grid', async ({
+    page,
+  }) => {
+    const featured = page.getByTestId('screenplay-featured-project');
+    await expect(featured).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: 'Featured project' })).toBeVisible();
+    await expect(featured).toContainText(/AI verdict/i);
+    await expect(featured).toContainText('Why featured');
+    await expect(page.getByTestId('screenplay-ranking-runner')).toHaveCount(0);
   });
 
   test('keeps missing non-blocking metadata out of card copy', async ({ page }) => {

@@ -9,19 +9,27 @@ test.describe('Discovery find tools', () => {
   });
 
   test('search narrows the slate and slash focuses search', async ({ page }) => {
+    const featured = page.getByTestId('screenplay-featured-project');
+    const featuredId = await featured.getAttribute('data-screenplay-id');
     const search = page.getByRole('searchbox', { name: 'Discovery search' });
     await page.keyboard.press('/');
     await expect(search).toBeFocused();
     await search.fill('Matadero');
-    await expect(page.getByTestId('screenplay-ranking-top')).toContainText('Matadero');
+    await expect(featured).toHaveAttribute('data-screenplay-id', featuredId ?? '');
+    await expect(page.getByText('Matadero', { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/Showing 1 of 27 screenplays/)).toBeVisible();
   });
 
-  test('sort updates the top result and complete slate consistently', async ({ page }) => {
+  test('sort updates the complete slate without changing the daily Featured project', async ({
+    page,
+  }) => {
+    const featured = page.getByTestId('screenplay-featured-project');
+    const featuredId = await featured.getAttribute('data-screenplay-id');
     const sort = page.getByRole('combobox', { name: 'Sort results' });
     await sort.selectOption('title');
     await expect(sort).toHaveValue('title');
-    await expect(page.getByTestId('screenplay-discovery-ranking')).toHaveCount(0);
+    await expect(page.getByTestId('screenplay-discovery-ranking')).toHaveCount(1);
+    await expect(featured).toHaveAttribute('data-screenplay-id', featuredId ?? '');
     await expect(page.getByTestId('screenplay-discovery-result').first()).toContainText(
       'A Killing on Carnival Row',
     );

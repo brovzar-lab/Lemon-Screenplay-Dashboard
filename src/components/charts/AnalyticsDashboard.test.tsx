@@ -97,15 +97,15 @@ describe('AnalyticsDashboard', () => {
     expect(screen.queryByTestId('budget-chart')).not.toBeInTheDocument();
   });
 
-  it('preserves the budget chart when budget data is available', () => {
+  it('keeps the operational format mix instead of the legacy budget chart', () => {
     render(
       <AnalyticsDashboard
         screenplays={[createTestScreenplay({ id: 'budgeted', budgetCategory: 'micro' })]}
       />,
     );
 
-    expect(screen.getByTestId('budget-chart')).toBeInTheDocument();
-    expect(screen.queryByTestId('format-chart')).not.toBeInTheDocument();
+    expect(screen.getByTestId('format-chart')).toBeInTheDocument();
+    expect(screen.queryByTestId('budget-chart')).not.toBeInTheDocument();
   });
 
   it('remeasures when asynchronous analytics content changes size', () => {

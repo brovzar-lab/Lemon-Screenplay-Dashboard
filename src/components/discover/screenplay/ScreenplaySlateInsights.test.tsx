@@ -1,25 +1,34 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestScreenplay } from '@/test/factories';
 import { ScreenplaySlateInsights } from './ScreenplaySlateInsights';
 
 vi.mock('@/components/charts/AnalyticsDashboard', () => ({
   AnalyticsDashboard: ({
-    initiallyExpanded,
+    expanded,
+    onExpandedChange,
     maxGenres,
   }: {
-    initiallyExpanded?: boolean;
+    expanded?: boolean;
+    onExpandedChange?: (expanded: boolean) => void;
     maxGenres?: number;
   }) => (
-    <button type="button" aria-expanded={initiallyExpanded} data-max-genres={maxGenres}>
+    <button
+      type="button"
+      aria-expanded={expanded}
+      data-max-genres={maxGenres}
+      onClick={() => onExpandedChange?.(!expanded)}
+    >
       Slate Insights
     </button>
   ),
 }));
 
 describe('ScreenplaySlateInsights', () => {
-  it('loads the screenplay analytics disclosure collapsed', async () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it('loads expanded and remembers the user’s collapsed preference', async () => {
     const user = userEvent.setup();
     render(
       <ScreenplaySlateInsights
@@ -28,25 +37,18 @@ describe('ScreenplaySlateInsights', () => {
       />,
     );
 
-    const disclosure = screen.getByRole('button', { name: /Show Slate Insights/i });
-    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    const disclosure = await screen.findByRole('button', { name: 'Slate Insights' });
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    expect(disclosure).toHaveAttribute('data-max-genres', '4');
     await user.click(disclosure);
-    expect(await screen.findByRole('button', { name: 'Slate Insights' })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: 'Slate Insights' })).toHaveAttribute(
-      'data-max-genres',
-      '4',
-    );
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    expect(window.localStorage.getItem('lemon:discovery:slate-insights-collapsed')).toBe('true');
   });
 
   it('contains lazy-load failures without removing sibling results', async () => {
     const Broken = () => {
       throw new Error('analytics unavailable');
     };
-    const user = userEvent.setup();
-
     render(
       <div>
         <button type="button">Screenplay result</button>
@@ -57,8 +59,6 @@ describe('ScreenplaySlateInsights', () => {
         />
       </div>,
     );
-
-    await user.click(await screen.findByRole('button', { name: 'Show Slate Insights' }));
 
     expect(screen.getByText(/Slate Insights are temporarily unavailable/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Screenplay result' })).toBeInTheDocument();

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestScreenplay } from '@/test/factories';
 import type { Screenplay } from '@/types';
@@ -59,16 +59,21 @@ vi.mock('@/components/project', () => ({
     screenplay,
     activeTab,
     onSelectTab,
+    onBack,
   }: {
     screenplay: Screenplay;
     activeTab: string;
     onSelectTab: (tab: string) => void;
+    onBack: () => void;
   }) => (
     <div data-testid="screenplay-file-workspace">
       <h1>{screenplay.title}</h1>
       <span>File tab: {activeTab}</span>
       <button type="button" onClick={() => onSelectTab('scores')}>
         Open Scores
+      </button>
+      <button type="button" onClick={onBack}>
+        Back to slate
       </button>
     </div>
   ),
@@ -87,6 +92,11 @@ function screenplay(overrides: Partial<Screenplay> = {}): Screenplay {
   });
 }
 
+function DiscoveryLocationProbe() {
+  const location = useLocation();
+  return <div>Discovery restored at {location.pathname}{location.search}</div>;
+}
+
 function renderRoute(entry: string | { pathname: string; state?: Record<string, unknown> }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -94,7 +104,7 @@ function renderRoute(entry: string | { pathname: string; state?: Record<string, 
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/projects/:projectId/:section?" element={<ProjectWorkspacePage />} />
-          <Route path="/discover" element={<div>Discovery restored</div>} />
+          <Route path="/discover" element={<DiscoveryLocationProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -162,7 +172,15 @@ describe('Project Workspace route', () => {
     renderRoute('/projects/atlas-project');
 
     await user.click(screen.getByRole('button', { name: 'Back to Discovery' }));
-    expect(screen.getByText('Discovery restored')).toBeInTheDocument();
+    expect(screen.getByText('Discovery restored at /discover?ui=screenplay')).toBeInTheDocument();
+  });
+
+  it('returns the Screenplay File workspace to the approved slate presentation', async () => {
+    const user = userEvent.setup();
+    renderRoute('/projects/atlas-project/reader-room?workspace=screenplay');
+
+    await user.click(screen.getByRole('button', { name: 'Back to slate' }));
+    expect(screen.getByText('Discovery restored at /discover?ui=screenplay')).toBeInTheDocument();
   });
 
   it('shows honest loading, unavailable, and error states', () => {

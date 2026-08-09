@@ -18,6 +18,7 @@ describe('HybridCommandRail Producer Look view', () => {
     const onToggle = vi.fn();
     const { rerender } = render(
       <HybridCommandRail
+        allScreenplays={[]}
         genres={[]}
         themes={[]}
         hasActiveFilters={false}
@@ -34,6 +35,7 @@ describe('HybridCommandRail Producer Look view', () => {
 
     rerender(
       <HybridCommandRail
+        allScreenplays={[]}
         genres={[]}
         themes={[]}
         hasActiveFilters
@@ -43,7 +45,9 @@ describe('HybridCommandRail Producer Look view', () => {
         onToggleProducerLook={onToggle}
       />,
     );
-    expect(screen.getByRole('button', { pressed: true })).toHaveTextContent('Producer Look');
+    expect(
+      screen.getByRole('button', { name: /Producer Look 3 routed/i, pressed: true }),
+    ).toHaveTextContent('Producer Look');
     expect(screen.getByText('3 routed · built-in view')).toBeInTheDocument();
   });
 });
