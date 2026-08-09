@@ -248,6 +248,18 @@ export function PrivateReaderChat({
     const outputTokens = attemptsWithUsage.length
       ? attemptsWithUsage.reduce((total, attempt) => total + (attempt.usage?.output_tokens ?? 0), 0)
       : message.usage?.output_tokens;
+    const cacheWriteTokens = attemptsWithUsage.length
+      ? attemptsWithUsage.reduce(
+          (total, attempt) => total + (attempt.usage?.cache_creation_input_tokens ?? 0),
+          0,
+        )
+      : message.usage?.cache_creation_input_tokens;
+    const cacheReadTokens = attemptsWithUsage.length
+      ? attemptsWithUsage.reduce(
+          (total, attempt) => total + (attempt.usage?.cache_read_input_tokens ?? 0),
+          0,
+        )
+      : message.usage?.cache_read_input_tokens;
     const actualCost = attemptsWithUsage.length
       ? attemptsWithUsage.reduce(
           (total, attempt) => total + (attempt.usage?.actual_cost_usd ?? 0),
@@ -258,9 +270,13 @@ export function PrivateReaderChat({
       inputTokens !== undefined || outputTokens !== undefined
         ? `${(inputTokens ?? 0).toLocaleString()} in · ${(outputTokens ?? 0).toLocaleString()} out · `
         : '';
+    const cache =
+      cacheWriteTokens !== undefined || cacheReadTokens !== undefined
+        ? `${(cacheReadTokens ?? 0).toLocaleString()} cache read · ${(cacheWriteTokens ?? 0).toLocaleString()} cache write · `
+        : '';
     return actualCost !== undefined
-      ? `${tokens}$${actualCost.toFixed(4)}`
-      : `${tokens}Cost pending`;
+      ? `${tokens}${cache}$${actualCost.toFixed(4)}`
+      : `${tokens}${cache}Cost pending`;
   }
 
   function auditCost(

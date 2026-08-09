@@ -72,18 +72,18 @@ const corsMiddleware = cors({
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type ContentBlock =
-  | { type: "text"; text: string; cache_control?: { type: "ephemeral" } }
+  | { type: "text"; text: string; cache_control?: CacheControl }
   | {
       type: "image";
       source: { type: "base64"; media_type: string; data: string };
-      cache_control?: { type: "ephemeral" };
+      cache_control?: CacheControl;
     }
   | {
       type: "document";
       source:
         | { type: "base64"; media_type: "application/pdf"; data: string }
         | { type: "url"; url: string };
-      cache_control?: { type: "ephemeral" };
+      cache_control?: CacheControl;
       citations?: { enabled: boolean };
     }
   | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
@@ -99,6 +99,11 @@ interface InboundMessage {
   content: string | ContentBlock[];
 }
 
+interface CacheControl {
+  type: "ephemeral";
+  ttl?: "5m" | "1h";
+}
+
 interface ToolDefinition {
   name: string;
   description: string;
@@ -111,7 +116,7 @@ interface ProxyRequestBody {
   /** VPS-only queue identity used for exact per-job cost telemetry. */
   job_id?: string;
   // System can be a string OR an array of cacheable text blocks
-  system?: string | Array<{ type: "text"; text: string; cache_control?: { type: "ephemeral" } }>;
+  system?: string | Array<{ type: "text"; text: string; cache_control?: CacheControl }>;
   temperature?: number;
   max_tokens?: number;
   // tool_use forced output
@@ -127,6 +132,21 @@ interface ProxyRequestBody {
   output_config?: {
     effort?: ApprovedEffort;
   };
+}
+
+const EXTENDED_CACHE_TTL_BETA = "extended-cache-ttl-2025-04-11";
+
+function usesOneHourCache(body: ProxyRequestBody): boolean {
+  const systemUsesOneHourCache = Array.isArray(body.system)
+    && body.system.some((block) => block.cache_control?.ttl === "1h");
+  if (systemUsesOneHourCache) return true;
+
+  return body.messages.some((message) => (
+    Array.isArray(message.content)
+    && message.content.some((block) => (
+      "cache_control" in block && block.cache_control?.ttl === "1h"
+    ))
+  ));
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -145,7 +165,7 @@ function extractSystem(
 ):
   | undefined
   | string
-  | Array<{ type: "text"; text: string; cache_control?: { type: "ephemeral" } }> {
+  | Array<{ type: "text"; text: string; cache_control?: CacheControl }> {
   // Preferred: explicit top-level system field
   if (body.system !== undefined) return body.system;
 
@@ -163,7 +183,7 @@ function extractSystem(
   );
 
   if (hasBlocks) {
-    const blocks: Array<{ type: "text"; text: string; cache_control?: { type: "ephemeral" } }> = [];
+    const blocks: Array<{ type: "text"; text: string; cache_control?: CacheControl }> = [];
     for (const m of systemMessages) {
       if (Array.isArray(m.content)) {
         for (const b of m.content) {
@@ -401,7 +421,14 @@ export const llmProxy = onRequest(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         message = await finalMessageWithUncertainSpendProtection(
           async () => {
-            const stream = (client.messages.stream as any)(payload);
+            const requestOptions = usesOneHourCache(body)
+              ? {
+                  headers: {
+                    "anthropic-beta": EXTENDED_CACHE_TTL_BETA,
+                  },
+                }
+              : undefined;
+            const stream = (client.messages.stream as any)(payload, requestOptions);
             return stream.finalMessage();
           },
           async (reason) => {
@@ -445,13 +472,29 @@ export const llmProxy = onRequest(
           .join("\n");
 
         // Full usage breakdown (cache hits, thinking, output tokens).
+        const usageWithCache = message.usage as typeof message.usage & {
+          cache_creation_input_tokens?: number;
+          cache_read_input_tokens?: number;
+          cache_creation?: {
+            ephemeral_5m_input_tokens?: number;
+            ephemeral_1h_input_tokens?: number;
+          };
+        };
         const usage: LlmTokenUsage = {
           input_tokens: message.usage.input_tokens ?? 0,
           output_tokens: message.usage.output_tokens ?? 0,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          cache_creation_input_tokens: (message.usage as any).cache_creation_input_tokens ?? 0,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          cache_read_input_tokens: (message.usage as any).cache_read_input_tokens ?? 0,
+          cache_creation_input_tokens: usageWithCache.cache_creation_input_tokens ?? 0,
+          cache_read_input_tokens: usageWithCache.cache_read_input_tokens ?? 0,
+          ...(usageWithCache.cache_creation
+            ? {
+                cache_creation: {
+                  ephemeral_5m_input_tokens:
+                    usageWithCache.cache_creation.ephemeral_5m_input_tokens ?? 0,
+                  ephemeral_1h_input_tokens:
+                    usageWithCache.cache_creation.ephemeral_1h_input_tokens ?? 0,
+                },
+              }
+            : {}),
         };
 
         const settlement = await settleLlmBudget(reservation, usage);

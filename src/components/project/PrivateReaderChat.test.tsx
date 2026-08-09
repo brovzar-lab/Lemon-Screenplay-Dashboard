@@ -41,7 +41,13 @@ vi.mock('@/lib/privateReaderChat', () => ({
         routeLabel: 'Auto selected Opus 5',
         routingPolicyVersion: 'reader-chat-routing-v1',
         modelAttempts: [{ modelId: 'claude-opus-5', outcome: 'success' }],
-        usage: { actual_cost_usd: 0.1245 },
+        usage: {
+          input_tokens: 1_200,
+          output_tokens: 320,
+          cache_creation_input_tokens: 18_000,
+          cache_read_input_tokens: 42_000,
+          actual_cost_usd: 0.1245,
+        },
         createdAt: '2026-08-02T12:00:00.000Z',
       },
     ],
@@ -88,6 +94,8 @@ describe('PrivateReaderChat', () => {
     expect(screen.getByText('Answered with Opus 5 · high effort')).toBeInTheDocument();
     expect(screen.getByText('Auto selected Opus 5')).toBeInTheDocument();
     expect(screen.getByText(/\$0\.1245/)).toBeInTheDocument();
+    expect(screen.getByText(/42,000 cache read/)).toBeInTheDocument();
+    expect(screen.getByText(/18,000 cache write/)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Get Fable 5’s deeper second opinion/i }),
     ).toBeInTheDocument();

@@ -194,7 +194,11 @@ async function callReader(input) {
             },
             body: JSON.stringify({
                 model: input.modelId,
-                system: [{ type: "text", text: input.system, cache_control: { type: "ephemeral" } }],
+                system: [{
+                        type: "text",
+                        text: input.system,
+                        cache_control: { type: "ephemeral", ttl: "1h" },
+                    }],
                 messages: [{
                         role: "user",
                         content: [
@@ -205,7 +209,7 @@ async function callReader(input) {
                                     media_type: "application/pdf",
                                     data: input.pdf.toString("base64"),
                                 },
-                                cache_control: { type: "ephemeral" },
+                                cache_control: { type: "ephemeral", ttl: "1h" },
                                 citations: { enabled: true },
                             },
                             {

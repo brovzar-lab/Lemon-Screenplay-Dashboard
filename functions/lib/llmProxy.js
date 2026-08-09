@@ -47,6 +47,15 @@ const corsMiddleware = (0, cors_1.default)({
         /^http:\/\/127\.0\.0\.1:\d+$/,
     ],
 });
+const EXTENDED_CACHE_TTL_BETA = "extended-cache-ttl-2025-04-11";
+function usesOneHourCache(body) {
+    const systemUsesOneHourCache = Array.isArray(body.system)
+        && body.system.some((block) => block.cache_control?.ttl === "1h");
+    if (systemUsesOneHourCache)
+        return true;
+    return body.messages.some((message) => (Array.isArray(message.content)
+        && message.content.some((block) => ("cache_control" in block && block.cache_control?.ttl === "1h"))));
+}
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 /**
  * Extract a single concatenated system prompt from the request.
@@ -294,7 +303,14 @@ exports.llmProxy = (0, https_1.onRequest)({
             // .create() — so the rest of the handler is unchanged.
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             message = await (0, anthropicClient_1.finalMessageWithUncertainSpendProtection)(async () => {
-                const stream = client.messages.stream(payload);
+                const requestOptions = usesOneHourCache(body)
+                    ? {
+                        headers: {
+                            "anthropic-beta": EXTENDED_CACHE_TTL_BETA,
+                        },
+                    }
+                    : undefined;
+                const stream = client.messages.stream(payload, requestOptions);
                 return stream.finalMessage();
             }, async (reason) => {
                 await (0, budgetCounter_1.settleUncertainLlmBudget)(reservation, reason);
@@ -332,13 +348,20 @@ exports.llmProxy = (0, https_1.onRequest)({
                 .map((b) => b.thinking ?? "")
                 .join("\n");
             // Full usage breakdown (cache hits, thinking, output tokens).
+            const usageWithCache = message.usage;
             const usage = {
                 input_tokens: message.usage.input_tokens ?? 0,
                 output_tokens: message.usage.output_tokens ?? 0,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                cache_creation_input_tokens: message.usage.cache_creation_input_tokens ?? 0,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                cache_read_input_tokens: message.usage.cache_read_input_tokens ?? 0,
+                cache_creation_input_tokens: usageWithCache.cache_creation_input_tokens ?? 0,
+                cache_read_input_tokens: usageWithCache.cache_read_input_tokens ?? 0,
+                ...(usageWithCache.cache_creation
+                    ? {
+                        cache_creation: {
+                            ephemeral_5m_input_tokens: usageWithCache.cache_creation.ephemeral_5m_input_tokens ?? 0,
+                            ephemeral_1h_input_tokens: usageWithCache.cache_creation.ephemeral_1h_input_tokens ?? 0,
+                        },
+                    }
+                    : {}),
             };
             const settlement = await (0, budgetCounter_1.settleLlmBudget)(reservation, usage);
             res.status(200).json({
