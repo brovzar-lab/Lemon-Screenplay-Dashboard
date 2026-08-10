@@ -6,7 +6,12 @@ import { createTestScreenplay } from '@/test/factories';
 import type { Screenplay } from '@/types';
 
 vi.mock('@/stores/authStore', () => ({ useIsAdmin: () => true }));
-vi.mock('@/stores/selectionStore', () => ({ useHasSelection: () => false }));
+vi.mock('@/stores/selectionStore', () => ({
+  useHasSelection: () => false,
+  useSelectionCount: () => 0,
+  useSelectionStore: (selector: (state: { deselectAll: () => void }) => unknown) =>
+    selector({ deselectAll: vi.fn() }),
+}));
 vi.mock('@/hooks/useProducerAssessments', () => ({
   useProducerAssessmentHeads: () => ({ data: [] }),
 }));

@@ -10,12 +10,16 @@ interface DiscoverySelectionBarProps {
   screenplays: Screenplay[];
   visibleScreenplays: Screenplay[];
   escapeEnabled: boolean;
+  selectionMode?: boolean;
+  onExitSelectionMode?: () => void;
 }
 
 export function DiscoverySelectionBar({
   screenplays,
   visibleScreenplays,
   escapeEnabled,
+  selectionMode = true,
+  onExitSelectionMode,
 }: DiscoverySelectionBarProps) {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
@@ -34,22 +38,46 @@ export function DiscoverySelectionBar({
   );
 
   useEffect(() => {
-    if (!escapeEnabled || !hasSelection) return;
+    if (!escapeEnabled || !selectionMode) return;
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      setShowShareModal(false);
-      setShowFavoritesModal(false);
-      setShowPitchDeckModal(false);
-      deselectAll();
+      const exitSelection = () => {
+        if (onExitSelectionMode) onExitSelectionMode();
+        else deselectAll();
+      };
+      if (showPitchDeckModal) {
+        setShowPitchDeckModal(false);
+        exitSelection();
+        return;
+      }
+      if (showFavoritesModal) {
+        setShowFavoritesModal(false);
+        exitSelection();
+        return;
+      }
+      if (showShareModal) {
+        setShowShareModal(false);
+        exitSelection();
+        return;
+      }
+      exitSelection();
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [deselectAll, escapeEnabled, hasSelection]);
+  }, [
+    deselectAll,
+    escapeEnabled,
+    onExitSelectionMode,
+    selectionMode,
+    showFavoritesModal,
+    showPitchDeckModal,
+    showShareModal,
+  ]);
 
-  if (!hasSelection) return null;
+  if (!selectionMode || !hasSelection) return null;
 
   return (
     <>
@@ -69,7 +97,7 @@ export function DiscoverySelectionBar({
             <button
               type="button"
               aria-label="Clear selection"
-              onClick={deselectAll}
+              onClick={onExitSelectionMode ?? deselectAll}
               className="dsc-btn dsc-btn-ghost !min-h-11 !px-3"
             >
               Clear

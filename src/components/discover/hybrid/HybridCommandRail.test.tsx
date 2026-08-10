@@ -50,4 +50,39 @@ describe('HybridCommandRail Producer Look view', () => {
     ).toHaveTextContent('Producer Look');
     expect(screen.getByText('3 routed · built-in view')).toBeInTheDocument();
   });
+
+  it('makes project selection an intentional mode', async () => {
+    const user = userEvent.setup();
+    const onToggleSelectionMode = vi.fn();
+    const { rerender } = render(
+      <HybridCommandRail
+        allScreenplays={[]}
+        genres={[]}
+        themes={[]}
+        hasActiveFilters={false}
+        onClearFilters={vi.fn()}
+        onToggleSelectionMode={onToggleSelectionMode}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Select projects' }));
+    expect(onToggleSelectionMode).toHaveBeenCalledOnce();
+
+    rerender(
+      <HybridCommandRail
+        allScreenplays={[]}
+        genres={[]}
+        themes={[]}
+        hasActiveFilters={false}
+        onClearFilters={vi.fn()}
+        selectionMode
+        selectionCount={2}
+        onToggleSelectionMode={onToggleSelectionMode}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: /Done selecting 2/i, pressed: true }),
+    ).toBeInTheDocument();
+  });
 });

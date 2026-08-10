@@ -9,7 +9,11 @@ import {
   DiscoverRankedShelf,
 } from '@/components/discover/DiscoverResults';
 import { DiscoverySelectionBar } from '@/components/discover/DiscoverySelectionBar';
-import { useHasSelection } from '@/stores/selectionStore';
+import {
+  useHasSelection,
+  useSelectionCount,
+  useSelectionStore,
+} from '@/stores/selectionStore';
 import { useIsAdmin } from '@/stores/authStore';
 import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
@@ -103,8 +107,11 @@ export function DiscoverShell({
   isError,
 }: DiscoverShellProps) {
   const [archivePosition, setArchivePosition] = useState({ signature: '', page: 1 });
+  const [selectionMode, setSelectionMode] = useState(false);
   const isAdmin = useIsAdmin();
   const hasSelection = useHasSelection();
+  const selectionCount = useSelectionCount();
+  const deselectAll = useSelectionStore((state) => state.deselectAll);
   const { data: producerAssessmentHeads = [] } = useProducerAssessmentHeads(isAdmin);
   const producerAssessments = useMemo(
     () =>
@@ -115,6 +122,18 @@ export function DiscoverShell({
   );
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const previousSelectionRef = useRef<Screenplay | null>(selectedScreenplay);
+
+  const exitSelectionMode = useCallback(() => {
+    deselectAll();
+    setSelectionMode(false);
+  }, [deselectAll]);
+
+  useEffect(() => () => deselectAll(), [deselectAll]);
+
+  const toggleSelectionMode = useCallback(() => {
+    if (selectionMode) exitSelectionMode();
+    else setSelectionMode(true);
+  }, [exitSelectionMode, selectionMode]);
 
   const handleOpen = useCallback(
     (screenplay: Screenplay, trigger: HTMLButtonElement) => {
@@ -159,7 +178,11 @@ export function DiscoverShell({
   );
 
   return (
-    <div className="discovery-root min-h-screen">
+    <div
+      className={`discovery-root min-h-screen ${
+        selectionMode ? 'discovery-root--selection-mode' : ''
+      }`}
+    >
       <DiscoverAppHeader
         total={stats.total}
         averageScore={stats.avgWeightedScore}
@@ -167,7 +190,11 @@ export function DiscoverShell({
         isLoading={isLoading}
       />
 
-      <main className={`px-4 py-5 sm:px-6 lg:px-8 ${hasSelection ? 'pb-56 sm:pb-28' : ''}`}>
+      <main
+        className={`px-4 py-5 sm:px-6 lg:px-8 ${
+          selectionMode && hasSelection ? 'pb-56 sm:pb-28' : ''
+        }`}
+      >
         <div className="mx-auto max-w-[1800px]">
           {isLoading ? (
             <DiscoverLoading />
@@ -195,6 +222,9 @@ export function DiscoverShell({
                 shortcutsEnabled={!selectedScreenplay}
                 screenplays={allScreenplays}
                 onOpenScreenplay={handleOpen}
+                selectionMode={selectionMode}
+                selectionCount={selectionCount}
+                onToggleSelectionMode={toggleSelectionMode}
               />
 
               {totalCount === 0 ? (
@@ -318,6 +348,8 @@ export function DiscoverShell({
         screenplays={allScreenplays}
         visibleScreenplays={screenplays}
         escapeEnabled={!selectedScreenplay}
+        selectionMode={selectionMode}
+        onExitSelectionMode={exitSelectionMode}
       />
 
       {selectedScreenplay && (

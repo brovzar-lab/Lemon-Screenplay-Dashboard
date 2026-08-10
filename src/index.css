@@ -793,6 +793,12 @@
   font-size: 11px;
 }
 
+/* Selection is a deliberate secondary workflow, not the default browsing state. */
+.discovery-root:not(.discovery-root--selection-mode) .discovery-selection-checkbox,
+.discovery-root:not(.discovery-root--selection-mode) .screenplay-featured__selection {
+  display: none !important;
+}
+
 @media (max-width: 800px) {
   .slate-analytics__toggle > div {
     align-items: flex-start;

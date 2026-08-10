@@ -79,6 +79,9 @@ function renderPage() {
 }
 
 async function select(user: ReturnType<typeof userEvent.setup>, title: string) {
+  if (!screen.queryByRole('button', { name: /Done selecting/ })) {
+    await user.click(screen.getByRole('button', { name: /Select projects/ }));
+  }
   await user.click(await screen.findByRole('button', { name: `Select ${title}` }));
 }
 

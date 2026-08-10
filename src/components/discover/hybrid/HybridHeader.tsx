@@ -5,9 +5,9 @@ import { DiscoveryFavoritesMenu } from '@/components/discover/DiscoveryFavorites
 import { LensMenu } from '@/components/filters/LensMenu';
 import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { useIsAdmin } from '@/stores/authStore';
 import { useFilterStore } from '@/stores/filterStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
 import type { Screenplay } from '@/types';
 
 interface HybridHeaderProps {
@@ -28,7 +28,6 @@ export function HybridHeader({
   const [isScrolled, setIsScrolled] = useState(false);
   const sentinelRef = useRef<HTMLSpanElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const isAdmin = useIsAdmin();
   const isDark = useThemeStore((state) => state.isDark);
   const searchQuery = useFilterStore((state) => state.searchQuery);
   const setSearchQuery = useFilterStore((state) => state.setSearchQuery);
@@ -65,9 +64,6 @@ export function HybridHeader({
     return () => document.removeEventListener('keydown', handleSlash);
   }, [shortcutsEnabled]);
 
-  const navClass = ({ isActive }: { isActive: boolean }) =>
-    `hybrid-nav-link ${isActive ? 'hybrid-nav-link--active' : ''}`;
-
   return (
     <>
       <span ref={sentinelRef} className="hybrid-header-sentinel" aria-hidden="true" />
@@ -89,11 +85,7 @@ export function HybridHeader({
             </span>
           </NavLink>
 
-          <nav className="hybrid-primary-nav" aria-label="Discovery navigation">
-            <NavLink to={`/discover?ui=${presentation}`} end={false} className={navClass}>
-              Discover
-            </NavLink>
-          </nav>
+          <AuthenticatedNavigation className="hybrid-primary-nav" />
 
           <label className="hybrid-global-search" htmlFor="hybrid-discovery-search">
             <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -116,16 +108,6 @@ export function HybridHeader({
             <LensMenu presentation="discovery" triggerLabel="Saved Views" />
             <DiscoveryFavoritesMenu screenplays={screenplays} onOpen={onOpenScreenplay} />
             <span className="hybrid-header__divider" aria-hidden="true" />
-            {isAdmin && (
-              <NavLink
-                to="/settings"
-                className="hybrid-settings-link"
-                aria-label="Settings"
-                title="Settings"
-              >
-                Settings
-              </NavLink>
-            )}
             <SyncStatusIndicator />
             <ThemeToggle />
             <UserMenu />

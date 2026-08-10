@@ -100,7 +100,10 @@ describe('Header', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByTitle('Settings')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/settings?tab=analysis',
+    );
   });
 
   it('renders the theme toggle button', () => {

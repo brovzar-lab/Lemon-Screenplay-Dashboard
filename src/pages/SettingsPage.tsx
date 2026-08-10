@@ -14,6 +14,7 @@ import { ApiConfigPanel } from '@/components/settings/ApiConfigPanel';
 import { PasswordGate } from '@/components/settings/PasswordGate';
 import { SettingsThemeControl } from '@/components/settings/SettingsThemeControl';
 import { FeaturedProjectPanel } from '@/components/settings/FeaturedProjectPanel';
+import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
 import '@/components/discover/discovery.css';
 import '@/pages/settings-page.css';
 
@@ -236,15 +237,13 @@ export function SettingsPage() {
               <small>Discovery</small>
             </span>
           </Link>
+          <AuthenticatedNavigation className="settings-primary-nav" />
           <div className="settings-header__title">
             <span>Administration</span>
             <strong>Settings</strong>
           </div>
           <div className="settings-header__actions">
             <SettingsThemeControl />
-            <Link to="/discover?ui=screenplay" className="settings-back-link">
-              Back to Discovery
-            </Link>
           </div>
         </div>
       </header>

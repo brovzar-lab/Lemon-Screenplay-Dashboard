@@ -12,7 +12,11 @@ import { useFeaturedProject } from '@/hooks/useFeaturedProject';
 import { usePercentiles } from '@/hooks/usePercentiles';
 import { recordFeaturedEngagement } from '@/lib/featuredProjectSettings';
 import { useAuthStore } from '@/stores/authStore';
-import { useHasSelection } from '@/stores/selectionStore';
+import {
+  useHasSelection,
+  useSelectionCount,
+  useSelectionStore,
+} from '@/stores/selectionStore';
 import type { Screenplay } from '@/types';
 import '@/components/discover/hybrid/hybrid-discovery.css';
 import '@/components/discover/screenplay/screenplay-discovery.css';
@@ -80,7 +84,10 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
   const [archivePosition, setArchivePosition] = useState({ signature: '', page: 1 });
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const previousSelectionRef = useRef<Screenplay | null>(selectedScreenplay);
+  const [selectionMode, setSelectionMode] = useState(false);
   const hasSelection = useHasSelection();
+  const selectionCount = useSelectionCount();
+  const deselectAll = useSelectionStore((state) => state.deselectAll);
   const authProfile = useAuthStore((state) => state.profile);
   const percentiles = usePercentiles(allScreenplays);
   const featured = useFeaturedProject(allScreenplays, producerLookIds);
@@ -114,6 +121,18 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
     archivePosition.signature === signature ? Math.min(archivePosition.page, pageCount) : 1;
   const visibleEntries = wall.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
+  const exitSelectionMode = useCallback(() => {
+    deselectAll();
+    setSelectionMode(false);
+  }, [deselectAll]);
+
+  useEffect(() => () => deselectAll(), [deselectAll]);
+
+  const toggleSelectionMode = useCallback(() => {
+    if (selectionMode) exitSelectionMode();
+    else setSelectionMode(true);
+  }, [exitSelectionMode, selectionMode]);
+
   const handleOpen = useCallback(
     (screenplay: Screenplay, trigger: HTMLButtonElement) => {
       returnFocusRef.current = trigger;
@@ -138,7 +157,11 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
   }, [selectedScreenplay]);
 
   return (
-    <div className="discovery-root hybrid-discovery screenplay-discovery min-h-screen">
+    <div
+      className={`discovery-root hybrid-discovery screenplay-discovery min-h-screen ${
+        selectionMode ? 'discovery-root--selection-mode' : ''
+      }`}
+    >
       <HybridHeader
         screenplays={allScreenplays}
         shortcutsEnabled={!selectedScreenplay}
@@ -161,10 +184,13 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         producerLookActive={producerLookActive}
         onToggleProducerLook={onToggleProducerLook}
         allScreenplays={allScreenplays}
+        selectionMode={selectionMode}
+        selectionCount={selectionCount}
+        onToggleSelectionMode={toggleSelectionMode}
       />
       <main
         className={
-          hasSelection
+          selectionMode && hasSelection
             ? 'screenplay-discovery__main screenplay-discovery__main--selection'
             : 'screenplay-discovery__main'
         }
@@ -276,6 +302,8 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         screenplays={allScreenplays}
         visibleScreenplays={screenplays}
         escapeEnabled={!selectedScreenplay}
+        selectionMode={selectionMode}
+        onExitSelectionMode={exitSelectionMode}
       />
       {selectedScreenplay && (
         <DiscoverDrawer screenplay={selectedScreenplay} onClose={onCloseScreenplay} />

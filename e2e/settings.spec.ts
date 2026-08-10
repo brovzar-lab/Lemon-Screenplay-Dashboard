@@ -28,10 +28,16 @@ test.describe('Settings administration', () => {
 
   test('all settings sections switch without losing the administrative frame', async ({ page }) => {
     const nav = page.getByRole('navigation', { name: 'Settings sections' });
+    const primaryNav = page.getByRole('navigation', { name: 'Primary navigation' });
     for (const section of sections.slice(1)) {
       await nav.getByRole('button', { name: section }).click();
       await expect(page.getByRole('heading', { name: section, exact: true })).toBeVisible();
-      await expect(page.getByRole('link', { name: 'Back to Discovery' })).toBeVisible();
+      await expect(primaryNav.getByRole('link', { name: 'Dashboard' })).toBeVisible();
+      await expect(primaryNav.getByRole('link', { name: 'Discover' })).toBeVisible();
+      await expect(primaryNav.getByRole('link', { name: 'Settings' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
     }
   });
 

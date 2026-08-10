@@ -6,6 +6,7 @@ import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportAct
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
 import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator';
+import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
 import { ReaderRoom } from '@/components/project/ReaderRoom';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
@@ -401,6 +402,7 @@ export function ScreenplayFileWorkspace({
         <button type="button" onClick={onBack} className="screenplay-file__back">
           ← Back to slate
         </button>
+        <AuthenticatedNavigation className="screenplay-file__primary-nav" />
         <div className="screenplay-file__brand">
           <img src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-white.png'} alt="" />
           <span>

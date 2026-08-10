@@ -159,6 +159,7 @@ describe('Discovery Compact Shelf surface smoke tests', () => {
       useFavoritesStore.getState().createList(`Producer List ${index}`);
     }
     renderPage();
+    await user.click(screen.getByRole('button', { name: /Select projects/ }));
     await user.click(await screen.findByRole('button', { name: 'Select Atlas Fall' }));
     await user.click(screen.getByRole('button', { name: 'Select Foxtrot House' }));
 

@@ -4,7 +4,6 @@
  * Calm shell: the frame is quiet, the data is the loudest thing on screen.
  */
 
-import { Link } from 'react-router-dom';
 import { useScreenplayStats } from '@/hooks/useScreenplays';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
 import { useThemeStore } from '@/stores/themeStore';
@@ -13,7 +12,7 @@ import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { UserMenu } from '@/components/auth';
-import { useIsAdmin } from '@/stores/authStore';
+import { AuthenticatedNavigation } from './AuthenticatedNavigation';
 
 interface StatPillProps {
   label: string;
@@ -57,7 +56,6 @@ export function Header() {
   const { data: stats, isLoading } = useScreenplayStats();
   const { filteredCount, totalCount } = useFilteredScreenplays();
   const { isDark } = useThemeStore();
-  const isAdmin = useIsAdmin();
 
   return (
     <header
@@ -111,10 +109,11 @@ export function Header() {
             >
               V9 · 6.9
             </span>
+            <AuthenticatedNavigation />
           </div>
 
           {/* Stats & Actions */}
-          <nav className="flex flex-wrap items-center gap-3" aria-label="Dashboard controls">
+          <div className="flex flex-wrap items-center gap-3" aria-label="Dashboard controls">
             {isLoading ? (
               <div className="flex gap-3">
                 {[32, 28, 24].map((w) => (
@@ -154,22 +153,8 @@ export function Header() {
             {/* Theme Toggle — shared with the Discovery shell. */}
             <ThemeToggle />
 
-            {/* Settings Link */}
-            {isAdmin && <Link
-              to="/settings"
-              className="p-2 rounded-lg"
-              style={{ color: 'var(--sp-text-3)', transition: 'color 120ms, background 120ms' }}
-              title="Settings"
-              aria-label="Settings"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </Link>}
-
             <UserMenu />
-          </nav>
+          </div>
         </div>
       </div>
     </header>

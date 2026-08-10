@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestScreenplay } from '@/test/factories';
 import type { Screenplay } from '@/types';
@@ -65,6 +66,14 @@ vi.mock('@/components/project/ReaderRoom', () => ({
 }));
 
 import { ScreenplayFileWorkspace } from '@/components/project/ScreenplayFileWorkspace';
+
+function renderWorkspace(element: ReactElement) {
+  return render(
+    <MemoryRouter initialEntries={['/projects/atlas-project']}>
+      {element}
+    </MemoryRouter>,
+  );
+}
 
 function project(): Screenplay {
   return createTestScreenplay({
@@ -158,7 +167,7 @@ describe('ScreenplayFileWorkspace', () => {
       },
     ];
 
-    render(
+    renderWorkspace(
       <ScreenplayFileWorkspace
         screenplay={will}
         activeTab="overview"
@@ -173,7 +182,7 @@ describe('ScreenplayFileWorkspace', () => {
   });
 
   it('presents one focused project file with truthful evidence and existing actions', () => {
-    render(
+    renderWorkspace(
       <ScreenplayFileWorkspace
         screenplay={project()}
         activeTab="overview"
@@ -200,7 +209,7 @@ describe('ScreenplayFileWorkspace', () => {
     const user = userEvent.setup();
     const onSelectTab = vi.fn();
     state.isAdmin = false;
-    render(
+    renderWorkspace(
       <ScreenplayFileWorkspace
         screenplay={project()}
         activeTab="scores"
@@ -219,7 +228,7 @@ describe('ScreenplayFileWorkspace', () => {
 
   it('keeps every major project surface in a separate navigable tab', async () => {
     const user = userEvent.setup();
-    render(<WorkspaceHarness />);
+    renderWorkspace(<WorkspaceHarness />);
 
     await user.click(screen.getByRole('tab', { name: 'Scores' }));
     expect(screen.getByText('Real scores for Atlas Fall')).toBeInTheDocument();
@@ -243,7 +252,7 @@ describe('ScreenplayFileWorkspace', () => {
 
   it('supports arrow-key navigation between project sections', async () => {
     const user = userEvent.setup();
-    render(<WorkspaceHarness />);
+    renderWorkspace(<WorkspaceHarness />);
     const overviewTab = screen.getByRole('tab', { name: 'Overview' });
     overviewTab.focus();
 

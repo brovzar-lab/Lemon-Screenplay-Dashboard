@@ -12,7 +12,11 @@ import {
 import { usePercentiles } from '@/hooks/usePercentiles';
 import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
 import { useIsAdmin } from '@/stores/authStore';
-import { useHasSelection } from '@/stores/selectionStore';
+import {
+  useHasSelection,
+  useSelectionCount,
+  useSelectionStore,
+} from '@/stores/selectionStore';
 import { useSortStore } from '@/stores/sortStore';
 import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
 import '@/components/discover/hybrid/hybrid-discovery.css';
@@ -92,8 +96,11 @@ export function HybridDiscoverShell({
   const [archivePosition, setArchivePosition] = useState({ signature: '', page: 1 });
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const previousSelectionRef = useRef<Screenplay | null>(selectedScreenplay);
+  const [selectionMode, setSelectionMode] = useState(false);
   const isAdmin = useIsAdmin();
   const hasSelection = useHasSelection();
+  const selectionCount = useSelectionCount();
+  const deselectAll = useSelectionStore((state) => state.deselectAll);
   const activeSort = useSortStore((state) => state.sortConfigs[0]?.field ?? 'weightedScore');
   const percentiles = usePercentiles(allScreenplays);
   const { data: producerAssessmentHeads = [] } = useProducerAssessmentHeads(
@@ -107,6 +114,18 @@ export function HybridDiscoverShell({
     [producerAssessmentHeads],
   );
   const producerAssessments = suppliedProducerAssessments ?? loadedProducerAssessments;
+
+  const exitSelectionMode = useCallback(() => {
+    deselectAll();
+    setSelectionMode(false);
+  }, [deselectAll]);
+
+  useEffect(() => () => deselectAll(), [deselectAll]);
+
+  const toggleSelectionMode = useCallback(() => {
+    if (selectionMode) exitSelectionMode();
+    else setSelectionMode(true);
+  }, [exitSelectionMode, selectionMode]);
 
   const handleOpen = useCallback(
     (screenplay: Screenplay, trigger: HTMLButtonElement) => {
@@ -154,7 +173,11 @@ export function HybridDiscoverShell({
   );
 
   return (
-    <div className="discovery-root hybrid-discovery min-h-screen">
+    <div
+      className={`discovery-root hybrid-discovery min-h-screen ${
+        selectionMode ? 'discovery-root--selection-mode' : ''
+      }`}
+    >
       <HybridHeader
         screenplays={allScreenplays}
         shortcutsEnabled={!selectedScreenplay}
@@ -169,9 +192,16 @@ export function HybridDiscoverShell({
         producerLookCount={producerLookCount}
         producerLookActive={producerLookActive}
         onToggleProducerLook={onToggleProducerLook}
+        selectionMode={selectionMode}
+        selectionCount={selectionCount}
+        onToggleSelectionMode={toggleSelectionMode}
       />
 
-      <main className={hasSelection ? 'hybrid-main hybrid-main--selection' : 'hybrid-main'}>
+      <main
+        className={
+          selectionMode && hasSelection ? 'hybrid-main hybrid-main--selection' : 'hybrid-main'
+        }
+      >
         {isLoading ? (
           <HybridLoading />
         ) : isError ? (
@@ -314,6 +344,8 @@ export function HybridDiscoverShell({
         screenplays={allScreenplays}
         visibleScreenplays={screenplays}
         escapeEnabled={!selectedScreenplay}
+        selectionMode={selectionMode}
+        onExitSelectionMode={exitSelectionMode}
       />
 
       {selectedScreenplay && (

@@ -76,9 +76,12 @@ describe('Intake page', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { name: 'Intake' })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Discovery navigation' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Intake' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/settings?tab=analysis',
+    );
     expect(screen.getByLabelText('Intake stages')).toHaveTextContent('File verified');
     expect(screen.getByLabelText('Intake stages')).toHaveTextContent('Readers working');
     expect(screen.getByLabelText('Intake stages')).toHaveTextContent('Slate ready');

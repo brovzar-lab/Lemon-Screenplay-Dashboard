@@ -26,6 +26,9 @@ interface HybridCommandRailProps {
   producerLookCount?: number;
   producerLookActive?: boolean;
   onToggleProducerLook?: () => void;
+  selectionMode?: boolean;
+  selectionCount?: number;
+  onToggleSelectionMode?: () => void;
 }
 
 interface ActiveChip {
@@ -43,6 +46,9 @@ export function HybridCommandRail({
   producerLookCount = 0,
   producerLookActive = false,
   onToggleProducerLook,
+  selectionMode = false,
+  selectionCount = 0,
+  onToggleSelectionMode,
 }: HybridCommandRailProps) {
   const [isOpen, setIsOpen] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
@@ -237,6 +243,21 @@ export function HybridCommandRail({
             <option value="title">Title</option>
           </select>
         </label>
+
+        {onToggleSelectionMode && (
+          <button
+            type="button"
+            className={clsx('hybrid-selection-trigger', selectionMode && 'is-active')}
+            aria-pressed={selectionMode}
+            onClick={onToggleSelectionMode}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M5 5h14v14H5zM8 12l2.5 2.5L16 9" />
+            </svg>
+            <span>{selectionMode ? 'Done selecting' : 'Select projects'}</span>
+            {selectionCount > 0 && <strong>{selectionCount}</strong>}
+          </button>
+        )}
 
         <div ref={filterPanelRef} className="hybrid-filter-control">
           <button

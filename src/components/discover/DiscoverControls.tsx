@@ -37,6 +37,9 @@ interface DiscoverControlsProps {
   shortcutsEnabled: boolean;
   screenplays: Screenplay[];
   onOpenScreenplay: (screenplay: Screenplay, trigger: HTMLButtonElement) => void;
+  selectionMode?: boolean;
+  selectionCount?: number;
+  onToggleSelectionMode?: () => void;
 }
 
 export function DiscoverControls({
@@ -53,6 +56,9 @@ export function DiscoverControls({
   shortcutsEnabled,
   screenplays,
   onOpenScreenplay,
+  selectionMode = false,
+  selectionCount = 0,
+  onToggleSelectionMode,
 }: DiscoverControlsProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const filters = useFilterStore();
@@ -146,6 +152,17 @@ export function DiscoverControls({
         </label>
 
         <div className="flex items-center gap-2">
+          {onToggleSelectionMode && (
+            <button
+              type="button"
+              className={clsx('dsc-btn dsc-btn-ghost dsc-selection-trigger', selectionMode && 'is-active')}
+              aria-pressed={selectionMode}
+              onClick={onToggleSelectionMode}
+            >
+              <span>{selectionMode ? 'Done selecting' : 'Select projects'}</span>
+              {selectionCount > 0 && <strong>{selectionCount}</strong>}
+            </button>
+          )}
           <LensMenu presentation="discovery" />
           <DiscoveryFavoritesMenu screenplays={screenplays} onOpen={onOpenScreenplay} />
         </div>
