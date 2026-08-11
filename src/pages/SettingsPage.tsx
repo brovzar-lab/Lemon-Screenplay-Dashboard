@@ -227,7 +227,7 @@ export function SettingsPage() {
       <header className="settings-header">
         <div className="settings-header__inner">
           <Link
-            to="/discover?ui=screenplay"
+            to="/"
             className="settings-brand"
             aria-label="Lemon Discovery"
           >

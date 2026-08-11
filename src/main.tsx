@@ -40,7 +40,17 @@ createRoot(document.getElementById('root')!).render(
               <Route
                 path="/"
                 element={
-                  <ErrorBoundary fullPage areaName="Dashboard">
+                  <ErrorBoundary fullPage areaName="Discovery">
+                    <AuthGate>
+                      <DiscoverPage />
+                    </AuthGate>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/dashboard-classic"
+                element={
+                  <ErrorBoundary fullPage areaName="Classic Dashboard">
                     <AuthGate>
                       <App />
                     </AuthGate>

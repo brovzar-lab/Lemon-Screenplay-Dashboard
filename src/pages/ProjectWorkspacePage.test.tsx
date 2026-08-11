@@ -104,7 +104,7 @@ function renderRoute(entry: string | { pathname: string; state?: Record<string, 
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/projects/:projectId/:section?" element={<ProjectWorkspacePage />} />
-          <Route path="/discover" element={<DiscoveryLocationProbe />} />
+          <Route path="/" element={<DiscoveryLocationProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -172,7 +172,7 @@ describe('Project Workspace route', () => {
     renderRoute('/projects/atlas-project');
 
     await user.click(screen.getByRole('button', { name: 'Back to Discovery' }));
-    expect(screen.getByText('Discovery restored at /discover?ui=screenplay')).toBeInTheDocument();
+    expect(screen.getByText('Discovery restored at /')).toBeInTheDocument();
   });
 
   it('returns the Screenplay File workspace to the approved slate presentation', async () => {
@@ -180,7 +180,7 @@ describe('Project Workspace route', () => {
     renderRoute('/projects/atlas-project/reader-room?workspace=screenplay');
 
     await user.click(screen.getByRole('button', { name: 'Back to slate' }));
-    expect(screen.getByText('Discovery restored at /discover?ui=screenplay')).toBeInTheDocument();
+    expect(screen.getByText('Discovery restored at /')).toBeInTheDocument();
   });
 
   it('shows honest loading, unavailable, and error states', () => {

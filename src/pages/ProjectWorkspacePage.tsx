@@ -45,7 +45,7 @@ function ProjectWorkspacePage() {
     if (state?.fromDiscovery) {
       navigate(-1);
     } else {
-      navigate('/discover?ui=screenplay');
+      navigate('/');
     }
   };
 

@@ -5,10 +5,10 @@ import {
 } from '@/lib/discoveryPresentation';
 
 describe('Discovery presentation resolver', () => {
-  it('keeps the current presentation as the pre-approval default', () => {
-    expect(DEFAULT_DISCOVERY_PRESENTATION).toBe('classic');
-    expect(resolveDiscoveryPresentation(null)).toBe('classic');
-    expect(resolveDiscoveryPresentation('unknown')).toBe('classic');
+  it('uses the approved screenplay presentation by default', () => {
+    expect(DEFAULT_DISCOVERY_PRESENTATION).toBe('screenplay');
+    expect(resolveDiscoveryPresentation(null)).toBe('screenplay');
+    expect(resolveDiscoveryPresentation('unknown')).toBe('screenplay');
   });
 
   it('supports explicit hybrid and classic fallback links', () => {

@@ -11,6 +11,32 @@ const pkg = require('./package.json') as { version: string }
 
 const localReviewPath = '/__local-review/session'
 
+interface LocalReviewAdminApp {
+  name: string
+}
+
+interface LocalReviewAdminAppModule {
+  cert(serviceAccount: Record<string, unknown>): unknown
+  getApps(): LocalReviewAdminApp[]
+  initializeApp(options: { credential: unknown }, name: string): LocalReviewAdminApp
+}
+
+interface LocalReviewUser {
+  uid: string
+  email?: string
+  emailVerified: boolean
+  displayName?: string
+}
+
+interface LocalReviewAdminAuth {
+  getUserByEmail(email: string): Promise<LocalReviewUser>
+  createCustomToken(uid: string): Promise<string>
+}
+
+interface LocalReviewAdminAuthModule {
+  getAuth(app: LocalReviewAdminApp): LocalReviewAdminAuth
+}
+
 function isLoopbackRequest(request: IncomingMessage): boolean {
   const hostname = (request.headers.host ?? '').split(':')[0]
   const remoteAddress = request.socket.remoteAddress ?? ''
@@ -48,10 +74,10 @@ function localReviewAuth(): Plugin {
         try {
           const { cert, getApps, initializeApp } = require(
             './functions/node_modules/firebase-admin/lib/app/index.js',
-          ) as typeof import('./functions/node_modules/firebase-admin/lib/app/index.js')
+          ) as LocalReviewAdminAppModule
           const { getAuth } = require(
             './functions/node_modules/firebase-admin/lib/auth/index.js',
-          ) as typeof import('./functions/node_modules/firebase-admin/lib/auth/index.js')
+          ) as LocalReviewAdminAuthModule
           const credentialPath =
             process.env.GOOGLE_APPLICATION_CREDENTIALS ??
             path.resolve(__dirname, 'service-account.json')
@@ -60,7 +86,9 @@ function localReviewAuth(): Plugin {
             throw new Error('The local Firebase service account is not configured.')
           }
 
-          const serviceAccount = JSON.parse(fs.readFileSync(credentialPath, 'utf8'))
+          const serviceAccount = JSON.parse(
+            fs.readFileSync(credentialPath, 'utf8'),
+          ) as Record<string, unknown>
           const existing = getApps().find((app) => app.name === 'local-review-auth')
           const adminApp =
             existing ??

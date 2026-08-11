@@ -37,7 +37,7 @@ export function AuthGate({ children, requireAdmin = false }: AuthGateProps) {
           <p className="mb-6 text-sm" style={{ color: 'var(--sp-text-3)' }}>
             Your reader account can review, annotate, compare, export, and share screenplays.
           </p>
-          <Link to="/" className="btn btn-primary">Back to Dashboard</Link>
+          <Link to="/" className="btn btn-primary">Back to Discovery</Link>
         </section>
       </main>
     );

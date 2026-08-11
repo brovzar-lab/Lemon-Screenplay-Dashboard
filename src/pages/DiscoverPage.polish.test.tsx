@@ -72,7 +72,7 @@ function renderPage() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/discover?preview=drawer']}>
+      <MemoryRouter initialEntries={['/discover?ui=classic&preview=drawer']}>
         <Routes>
           <Route path="/discover/:projectId?" element={<DiscoverPage />} />
         </Routes>

@@ -41,7 +41,7 @@ export function DiscoverAppHeader({
     <header role="banner" className="dsc-header sticky top-0 z-40">
       <div className="mx-auto flex max-w-[1800px] flex-wrap items-center gap-x-6 px-4 sm:px-6 lg:px-10">
         <NavLink
-          to="/discover"
+          to="/"
           className="flex min-w-0 items-center gap-3 py-3"
           aria-label="Discovery home"
         >

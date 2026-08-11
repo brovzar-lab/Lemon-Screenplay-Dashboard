@@ -14,7 +14,6 @@ interface HybridHeaderProps {
   screenplays: Screenplay[];
   shortcutsEnabled: boolean;
   onOpenScreenplay: (screenplay: Screenplay, trigger: HTMLButtonElement) => void;
-  presentation?: 'hybrid' | 'screenplay';
   darkChrome?: boolean;
 }
 
@@ -22,7 +21,6 @@ export function HybridHeader({
   screenplays,
   shortcutsEnabled,
   onOpenScreenplay,
-  presentation = 'hybrid',
   darkChrome = false,
 }: HybridHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -69,11 +67,7 @@ export function HybridHeader({
       <span ref={sentinelRef} className="hybrid-header-sentinel" aria-hidden="true" />
       <header role="banner" className="hybrid-header" data-scrolled={isScrolled ? 'true' : 'false'}>
         <div className="hybrid-header__inner">
-          <NavLink
-            to={`/discover?ui=${presentation}`}
-            className="hybrid-brand"
-            aria-label="Discovery home"
-          >
+          <NavLink to="/" className="hybrid-brand" aria-label="Discovery home">
             <img
               src={isDark || darkChrome ? '/lemon-logo-white.png' : '/lemon-logo-black.png'}
               alt=""

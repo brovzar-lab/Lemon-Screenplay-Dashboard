@@ -18,7 +18,9 @@ const credentialFile = process.env.GOOGLE_APPLICATION_CREDENTIALS
 const testEmail = process.env.LEMON_E2E_EMAIL ?? 'billy@lemonfilms.com';
 
 setup('create a real local Lemon session', async ({ page }) => {
-  const serviceAccount = JSON.parse(readFileSync(credentialFile, 'utf8')) as ServiceAccount;
+  const serviceAccount = JSON.parse(
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON || readFileSync(credentialFile, 'utf8'),
+  ) as ServiceAccount;
   const existing = getApps().find((app) => app.name === 'playwright-auth');
   const adminApp = existing ?? initializeApp({ credential: cert(serviceAccount) }, 'playwright-auth');
 
@@ -30,7 +32,7 @@ setup('create a real local Lemon session', async ({ page }) => {
     }
 
     const customToken = await adminAuth.createCustomToken(user.uid);
-    await page.goto('/discover?ui=screenplay');
+    await page.goto('/');
     await page.evaluate(async (token) => {
       const authModule = await import('/src/test/playwrightAuth.ts');
       await authModule.signInForPlaywright(token);

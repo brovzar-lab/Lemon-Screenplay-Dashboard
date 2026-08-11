@@ -202,7 +202,7 @@ export function DiscoverShell({
             <section className="dsc-card p-6 sm:p-8">
               <h1 className="dsc-display text-3xl">Discovery is temporarily unavailable</h1>
               <p className="mt-3 text-[var(--dsc-ink-2)]">
-                The existing dashboard is still available at the main route.
+                The classic dashboard remains available at /dashboard-classic.
               </p>
             </section>
           ) : (

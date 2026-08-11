@@ -103,7 +103,7 @@ describe('Discovery app shell and route state', () => {
   });
 
   it('opens the correct real screenplay from a direct project link', async () => {
-    const router = makeRouter(['/discover/bravo']);
+    const router = makeRouter(['/discover/bravo?ui=classic']);
     renderRouter(router);
 
     expect(await screen.findByRole('dialog', { name: 'Bravo Room' })).toBeInTheDocument();
@@ -111,7 +111,10 @@ describe('Discovery app shell and route state', () => {
   });
 
   it('browser back closes the drawer and leaves Discovery open', async () => {
-    const router = makeRouter(['/discover', '/discover/bravo'], 1);
+    const router = makeRouter(
+      ['/discover?ui=classic', '/discover/bravo?ui=classic'],
+      1,
+    );
     renderRouter(router);
     await screen.findByRole('dialog', { name: 'Bravo Room' });
 
@@ -134,7 +137,7 @@ describe('Discovery app shell and route state', () => {
       hookState.isLoading = loading;
       hookState.error = error;
       hookState.screenplays = [...data];
-      const router = makeRouter(['/discover']);
+      const router = makeRouter(['/discover?ui=classic']);
 
       renderRouter(router);
 

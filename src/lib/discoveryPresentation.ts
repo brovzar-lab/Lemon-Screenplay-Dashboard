@@ -1,7 +1,7 @@
 export type DiscoveryPresentation = 'classic' | 'hybrid' | 'screenplay';
 
-/** Keep the current presentation primary until the signed-in hybrid review is approved. */
-export const DEFAULT_DISCOVERY_PRESENTATION: DiscoveryPresentation = 'classic';
+/** The approved signed-in home; explicit query parameters preserve both review fallbacks. */
+export const DEFAULT_DISCOVERY_PRESENTATION: DiscoveryPresentation = 'screenplay';
 
 export function resolveDiscoveryPresentation(
   value: string | null | undefined,

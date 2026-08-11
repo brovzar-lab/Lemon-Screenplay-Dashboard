@@ -166,7 +166,6 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         screenplays={allScreenplays}
         shortcutsEnabled={!selectedScreenplay}
         onOpenScreenplay={handleOpen}
-        presentation="screenplay"
         darkChrome
       />
       <ScreenplaySlateStats

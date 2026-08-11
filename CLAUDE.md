@@ -14,14 +14,18 @@
   Chat. Producer Calibration remains inactive.
 
 **Release candidate:**
-- Active branch: `codex/discovery-cleaned-hybrid`, 26 commits ahead of `main` after
-  cleanup. The intact GitHub backup at `04e37df` was 25 commits ahead.
+- Active branch: `codex/discovery-cleaned-hybrid`, 27 commits ahead of `main` after
+  the recovery fix. The intact GitHub backup at `04e37df` was 25 commits ahead.
 - The intact branch was backed up to GitHub at `04e37df` before release cleanup.
 - The branch includes the approved Discovery presentation, Screenplay File and
   Reader Room polish, navigation, Settings, local review authentication, model
   catalog, prompt caching, and related verification.
 
 **Approved product decisions:**
+- Discovery is the signed-in home at `/`. The previous dashboard is preserved as
+  a direct fallback at `/dashboard-classic` and is absent from primary navigation.
+- The screenplay Discovery presentation is the default. Explicit classic and
+  hybrid Discovery query fallbacks remain available.
 - Discovery shows exactly one stable daily Featured project selected by studio
   policy. Featured does not follow temporary search or filters.
 - Slate Insights opens by default.
@@ -30,22 +34,33 @@
 - The wider UI and infrastructure work in this branch was separately approved;
   it is not scope creep for release review.
 
-**Release cleanup completed:**
+**Release cleanup and recovery completed:**
 - Silenced expected Firestore offline-retry diagnostics only in the unit-test
   environment, removing the Vitest worker teardown race. The complete command
   now exits successfully with 887 tests passing.
 - Removed the explicit `any` introduced by the Anthropic streaming call and
   verified the Functions TypeScript build.
-- Browser-verified Dashboard, Discovery, the stable Featured project,
-  Screenplay File, and Reader Room on port 3000 with no console errors.
+- Corrected the clean-CI build dependency in `vite.config.ts`; the production
+  build passes without `functions/node_modules` available during type-checking.
+- Corrected GitHub E2E setup to install Functions dependencies and let
+  Playwright own startup and readiness on the fixed port 3000. Hosted Playwright
+  accepts a protected `FIREBASE_SERVICE_ACCOUNT_JSON` secret; that secret is not
+  configured yet and was not uploaded in this pass.
 - Existing untracked screenshots, mockups, local tool state, and `AGENTS.md`
   remain untouched.
 
+**Recovery verification:**
+- Complete app tests: 887 pass. Functions tests: 53 pass.
+- Lint and production build pass, including the clean-CI build probe without
+  `functions/node_modules` in module resolution.
+- Playwright: 29 authenticated light/dark tests pass locally on port 3000.
+- Browser proof passed for Discovery home, classic fallback, Settings,
+  Screenplay File, and Reader Room with no browser errors.
+
 **Next up:**
-1. Review the release-cleanup diff and open a PR from
-   `codex/discovery-cleaned-hybrid` to `main`.
-2. Billy reviews the GitHub PR and the local app at
-   `http://localhost:3000/discover?ui=screenplay`.
+1. Configure the protected E2E service-account secret only with Billy's
+   approval, then wait for both GitHub checks.
+2. Billy reviews draft PR #6 and the local app at `http://localhost:3000/`.
 3. Merge only after explicit approval. Deployment remains a separate approval.
 
 **Open notes:**
@@ -78,7 +93,7 @@ Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated c
 | Build | `npm run build` | `tsc -b` typecheck + Vite build. `prebuild` clears `dist/assets` |
 | Unit tests | `npm run test:run` | Vitest single run. Uses `TMPDIR=./.tmp` + `src/test/fix-eperm.cjs` (macOS EPERM workaround) |
 | Test + coverage | `npm run test:coverage` | |
-| E2E | `npm run test:e2e` | Playwright; runs against `npm run preview` (port 4173), not the dev server |
+| E2E | `npm run test:e2e` | Playwright starts the dev server on the fixed port 3000 |
 | E2E (visible) | `npm run test:e2e:headed` | |
 | Lint | `npm run lint` | `eslint .` (flat config) |
 | Format | `npm run format` | Prettier on `src/**/*.{ts,tsx,css}` |
@@ -89,8 +104,9 @@ Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated c
 
 ## Routes (src/main.tsx)
 ```
-/                → App           (main dashboard)
-/discover        → DiscoverPage  (lazy, Cinema Browse)
+/                → DiscoverPage  (lazy, approved signed-in home)
+/dashboard-classic → App         (preserved legacy fallback)
+/discover        → DiscoverPage  (lazy, explicit presentation links supported)
 /discover/:id    → DiscoverPage  (preserved drawer fallback)
 /projects/:id    → ProjectWorkspacePage (lazy, full dossier)
 /intake          → IntakePage    (lazy, admin-only)
@@ -182,7 +198,8 @@ VPS daemon vars (set in the systemd unit, NOT this file): `ANTHROPIC_API_KEY`, `
 - **AI features need the emulator locally.** Plain `npm run dev` has no `llmProxy`; use `npm run dev:full` to run Vite + Functions emulator together.
 - **Firebase web config is hardcoded** in `src/lib/firebase.ts` (apiKey/projectId literals — public web-app values). The `VITE_` env vars only cover the storage bucket and AI keys.
 - **macOS EPERM workaround.** Test scripts set `TMPDIR=./.tmp` and preload `src/test/fix-eperm.cjs`. The Vite build uses `emptyOutDir: false` + `copyPublicDir: false` and a `skip-ds-store` plugin to avoid EPERM on `.DS_Store`.
-- **E2E runs against `preview` (4173)**, not the dev server.
+- **E2E runs against the dev server on port 3000.** Playwright owns server startup
+  on that same fixed port.
 - **`analysisStore` is in `lib/`, not `stores/`**, and is not re-exported from `stores/index.ts`.
 - **Store/hook barrels are partial.** `stores/index.ts` and `hooks/index.ts` only re-export a subset; many stores/hooks are imported by direct path. Add a new store's export to `stores/index.ts` if you want it in the barrel, but don't assume everything is there.
 - **App Check is intentionally off** (a prior provider mismatch caused 400s — see comment in `firebase.ts`). Auth is Google Workspace: dashboard reads need a team sign-in, writes need the admin role, `/share/:token` stays public (see `firestore.rules`).

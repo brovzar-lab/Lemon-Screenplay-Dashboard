@@ -112,9 +112,10 @@ describe('cleaned hybrid Discovery presentation', () => {
     usePdfStatusStore.getState().clearStatuses();
   });
 
-  it('keeps the current Discovery as the default and explicit classic fallback', () => {
+  it('uses screenplay Discovery by default and keeps the classic fallback explicit', () => {
     const first = renderPage('/discover');
-    expect(screen.getByRole('heading', { name: 'Cinema Browse' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Featured project' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Discovery home' })).toHaveAttribute('href', '/');
     first.unmount();
 
     renderPage('/discover?ui=classic');

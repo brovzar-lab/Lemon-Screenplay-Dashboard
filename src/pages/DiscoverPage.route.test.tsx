@@ -64,13 +64,27 @@ describe('/discover authentication', () => {
 
   it('keeps the production route lazy, error-bounded, and reader-authenticated', () => {
     const mainSource = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8');
+    const rootRoute = mainSource.slice(
+      mainSource.indexOf('path="/"'),
+      mainSource.indexOf('path="/dashboard-classic"'),
+    );
+    const classicRoute = mainSource.slice(
+      mainSource.indexOf('path="/dashboard-classic"'),
+      mainSource.indexOf('path="/settings"'),
+    );
 
     expect(mainSource).toContain(
       "importWithReload('discover', () => import('./pages/DiscoverPage'))",
     );
     expect(mainSource).toContain('path="/discover/:projectId?"');
+    expect(mainSource).toContain('path="/dashboard-classic"');
     expect(mainSource).toContain('areaName="Discovery"');
     expect(mainSource).toMatch(/<AuthGate>\s*<DiscoverPage \/>\s*<\/AuthGate>/);
+    expect(rootRoute).toContain('areaName="Discovery"');
+    expect(rootRoute).toContain('<DiscoverPage />');
+    expect(rootRoute).not.toContain('<App />');
+    expect(classicRoute).toContain('areaName="Classic Dashboard"');
+    expect(classicRoute).toContain('<App />');
     expect(mainSource).not.toMatch(/<AuthGate requireAdmin>\s*<DiscoverPage \/>\s*<\/AuthGate>/);
   });
 

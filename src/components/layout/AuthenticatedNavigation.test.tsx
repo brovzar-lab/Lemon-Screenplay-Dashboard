@@ -22,14 +22,15 @@ describe('AuthenticatedNavigation', () => {
     authState.isAdmin = true;
   });
 
-  it('marks the dashboard active only at the root route', () => {
+  it('uses Discovery as the only primary home', () => {
     renderNavigation('/');
 
-    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Discover' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'Discover' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'Discover' })).toHaveAttribute('href', '/');
   });
 
   it('keeps Discover active throughout project workspaces', () => {
@@ -41,7 +42,7 @@ describe('AuthenticatedNavigation', () => {
     );
     expect(screen.getByRole('link', { name: 'Discover' })).toHaveAttribute(
       'href',
-      '/discover?ui=screenplay',
+      '/',
     );
   });
 
