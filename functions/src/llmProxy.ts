@@ -428,7 +428,10 @@ export const llmProxy = onRequest(
                   },
                 }
               : undefined;
-            const stream = (client.messages.stream as any)(payload, requestOptions);
+            const stream = client.messages.stream(
+              payload as Parameters<typeof client.messages.stream>[0],
+              requestOptions,
+            );
             return stream.finalMessage();
           },
           async (reason) => {

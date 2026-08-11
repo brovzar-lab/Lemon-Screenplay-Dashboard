@@ -5,6 +5,10 @@
 
 import { vi } from 'vitest';
 import '@testing-library/jest-dom';
+import { setLogLevel } from 'firebase/firestore';
+
+// Tests intentionally run without a Firestore backend; suppress its retry diagnostics.
+setLogLevel('silent');
 
 vi.mock('firebase/auth', async (importOriginal) => {
   const actual = await importOriginal<typeof import('firebase/auth')>();

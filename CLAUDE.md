@@ -3,55 +3,50 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-08-01
-
-**Done and deployed on `main` at `d9b7beb`:**
-- Discovery reconnection R0-R6 and the Cinema Browse presentation are live at
-  `/discover`; the original dashboard remains available at `/`.
-- Q0-Q4 trust hardening is live: complete screenplay evidence, five required
-  specialist readers, strict output and accounting, immutable trust manifests,
-  and truthful producer-facing ranking.
-- Q5 Producer Calibration is live but dormant. Producer Takes are append-only,
-  bound to exact sealed analyses, and cannot overwrite AI judgments.
-- `calibrationManager`, Firestore rules, and the VPS trust-manifest v4 path are
-  deployed. No calibration profile exists or is active, and no paid calibration
-  call has run.
-- Full calibration contract:
-  `docs/trust-hardening/Q5-PRODUCER-CALIBRATION.md`.
-
-- Q6 Intake MVP is live at `/intake`: admin-only staged uploads, duplicate and
-  revision review, explicit model and spend confirmation, honest live docket,
-  and safe routing into the existing queue. Q6 was hosting-only and did not
-  change Functions, rules, or the VPS. Contract: `docs/Q6-INTAKE-MVP.md`.
-
-**Implemented locally on `codex/q7-project-workspace`:**
-- Cinema Browse cards now open a full project destination at
-  `/projects/:projectId`; direct links and refreshes resolve the same real data.
-- The workspace presents the paper screenplay, decision spine, executive read,
-  score lineage, five reader reports, Story X-Ray, Producer Take, private notes,
-  sharing, favorites, source screenplay, coverage, and pitch-deck actions.
-- The current drawer remains intact at `/discover/:projectId`, with
-  `/discover?preview=drawer` as an explicit fallback browsing mode.
-- Q7 changes only additive UI and routing. No paid model calls, production
-  deployment, backend changes, or calibration activation. Contract:
-  `docs/Q7-PROJECT-WORKSPACE.md`.
+**Last session:** 2026-08-10
 
 **Production state:**
-- Production remains on `main` at `d9b7beb`, including approved Q6.
-- Calibration remains inactive.
-- Q7 exists only on the local branch `codex/q7-project-workspace`.
+- Production and GitHub `main` remain at `d71b38d`. The August 4 Firebase
+  deployment succeeded. Nothing from the current release candidate is merged or
+  deployed.
+- Q0-Q8.2 are on `main`, including trust hardening, Intake, Producer
+  Calibration, the Screenplay File workspace, Reader Room, and private Reader
+  Chat. Producer Calibration remains inactive.
+
+**Release candidate:**
+- Active branch: `codex/discovery-cleaned-hybrid`, 26 commits ahead of `main` after
+  cleanup. The intact GitHub backup at `04e37df` was 25 commits ahead.
+- The intact branch was backed up to GitHub at `04e37df` before release cleanup.
+- The branch includes the approved Discovery presentation, Screenplay File and
+  Reader Room polish, navigation, Settings, local review authentication, model
+  catalog, prompt caching, and related verification.
+
+**Approved product decisions:**
+- Discovery shows exactly one stable daily Featured project selected by studio
+  policy. Featured does not follow temporary search or filters.
+- Slate Insights opens by default.
+- Custom presentation CSS and the separate Discovery fallback shells remain
+  intentional until the new experience proves itself.
+- The wider UI and infrastructure work in this branch was separately approved;
+  it is not scope creep for release review.
+
+**Release cleanup completed:**
+- Silenced expected Firestore offline-retry diagnostics only in the unit-test
+  environment, removing the Vitest worker teardown race. The complete command
+  now exits successfully with 887 tests passing.
+- Removed the explicit `any` introduced by the Anthropic streaming call and
+  verified the Functions TypeScript build.
+- Browser-verified Dashboard, Discovery, the stable Featured project,
+  Screenplay File, and Reader Room on port 3000 with no console errors.
+- Existing untracked screenshots, mockups, local tool state, and `AGENTS.md`
+  remain untouched.
 
 **Next up:**
-1. Finish Q7 full-suite verification and local browser review.
-2. Billy reviews a screenplay from `http://localhost:3000/discover` in the new
-   full Project Workspace.
-3. After explicit approval, merge Q7 and coordinate a hosting-only deployment.
-4. Plan Q8 Chat With the Room as a separately approved, costed conversation
-   system. Producer calibration remains a later checkpoint before bulk intake.
-
-**Backlog pointer:**
-- Discovery UI backlog remains in `docs/DISCOVERY-BACKLOG.md`.
-- Trust-hardening contracts and proof are in `docs/trust-hardening/`.
+1. Review the release-cleanup diff and open a PR from
+   `codex/discovery-cleaned-hybrid` to `main`.
+2. Billy reviews the GitHub PR and the local app at
+   `http://localhost:3000/discover?ui=screenplay`.
+3. Merge only after explicit approval. Deployment remains a separate approval.
 
 **Open notes:**
 - Historical parent Firestore documents can still transfer embedded reader
@@ -60,7 +55,6 @@
   evidence on open. Full historical wire-level deferral needs a separately
   approved one-time parent-projection migration or replacement of the
   disposable test slate.
-- Existing untracked screenshots, mockups, and `AGENTS.md` remain untouched.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
