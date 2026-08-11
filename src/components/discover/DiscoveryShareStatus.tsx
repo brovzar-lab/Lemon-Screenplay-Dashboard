@@ -1,12 +1,14 @@
 import { useShareStore } from '@/stores/shareStore';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { Screenplay } from '@/types';
 
 export function DiscoveryShareStatus({ screenplay }: { screenplay: Screenplay }) {
   const hasActiveShare = useShareStore((state) => Boolean(state.tokens[screenplay.sourceFile]));
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
 
   return (
     <span
-      aria-label={`${hasActiveShare ? 'Active share link' : 'Not shared'} for ${screenplay.title}`}
+      aria-label={`${hasActiveShare ? 'Active share link' : 'Not shared'} for ${displayTitle}`}
       className={`dsc-label inline-flex items-center gap-1.5 ${
         hasActiveShare ? '!text-[var(--dsc-success)]' : 'dsc-label-faint'
       }`}

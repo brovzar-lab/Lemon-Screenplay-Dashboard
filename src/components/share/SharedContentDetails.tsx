@@ -144,15 +144,17 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
               <div key={i} className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-black-200">{film.title}</span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${
-                    film.boxOfficeRelevance === 'success'
-                      ? 'bg-emerald-500/10 text-emerald-400'
-                      : film.boxOfficeRelevance === 'failure'
-                        ? 'bg-red-500/10 text-red-400'
-                        : 'bg-amber-500/10 text-amber-400'
-                  }`}>
-                    {film.boxOfficeRelevance}
-                  </span>
+                  {(film.comparisonLens || film.boxOfficeRelevance) && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                      film.boxOfficeRelevance === 'success'
+                        ? 'bg-emerald-500/10 text-emerald-400'
+                        : film.boxOfficeRelevance === 'failure'
+                          ? 'bg-red-500/10 text-red-400'
+                          : 'bg-amber-500/10 text-amber-400'
+                    }`}>
+                      {film.comparisonLens || film.boxOfficeRelevance}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-black-400">{film.similarity}</p>
               </div>

@@ -79,7 +79,7 @@ function renderPage() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/discover']}>
+      <MemoryRouter initialEntries={['/discover?ui=classic']}>
         <DiscoverPage />
       </MemoryRouter>
     </QueryClientProvider>,

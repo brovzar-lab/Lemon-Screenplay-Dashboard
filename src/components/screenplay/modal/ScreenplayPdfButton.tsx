@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import { getDownloadURL, ref } from 'firebase/storage';
 
 import { storage, uploadScreenplayPdf } from '@/lib/firebase';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { useIsAdmin } from '@/stores/authStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { Screenplay } from '@/types';
@@ -36,10 +37,14 @@ export function ScreenplayPdfButton({
   const resetTimerRef = useRef<number | null>(null);
   const canReupload = allowReupload && isAdmin;
   const isWorkspace = presentation === 'workspace';
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
 
-  useEffect(() => () => {
-    if (resetTimerRef.current !== null) window.clearTimeout(resetTimerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (resetTimerRef.current !== null) window.clearTimeout(resetTimerRef.current);
+    },
+    [],
+  );
 
   const openPdf = async () => {
     if (pdfState === 'loading') return;
@@ -91,7 +96,7 @@ export function ScreenplayPdfButton({
     setPdfState('uploading');
     try {
       await uploadScreenplayPdf(file, screenplay.category || 'OTHER', screenplay.title);
-      useToastStore.getState().addToast(`PDF uploaded for "${screenplay.title}"`);
+      useToastStore.getState().addToast(`PDF uploaded for "${displayTitle}"`);
       setPdfState('idle');
     } catch (error) {
       console.error('[PDF Re-upload]', error);
@@ -103,17 +108,18 @@ export function ScreenplayPdfButton({
 
   const busy = pdfState === 'loading' || pdfState === 'uploading';
   const unavailable = pdfState === 'error' && !canReupload;
-  const label = pdfState === 'uploading'
-    ? 'Uploading…'
-    : pdfState === 'loading'
-      ? 'Opening…'
-      : pdfState === 'error'
-        ? isWorkspace && !canReupload
-          ? 'Source unavailable'
-          : 'Re-Upload PDF'
-        : isWorkspace
-          ? 'Open screenplay'
-          : 'PDF';
+  const label =
+    pdfState === 'uploading'
+      ? 'Uploading…'
+      : pdfState === 'loading'
+        ? 'Opening…'
+        : pdfState === 'error'
+          ? isWorkspace && !canReupload
+            ? 'Source unavailable'
+            : 'Re-Upload PDF'
+          : isWorkspace
+            ? 'Open screenplay'
+            : 'PDF';
 
   return (
     <div className="relative">
@@ -126,18 +132,19 @@ export function ScreenplayPdfButton({
           'flex items-center gap-1.5 transition-all',
           !isWorkspace && 'px-3 py-1.5',
           !isWorkspace && pdfState !== 'error' && 'btn-primary',
-          pdfState === 'error' && !isWorkspace &&
+          pdfState === 'error' &&
+            !isWorkspace &&
             'border border-amber-500/30 bg-amber-600/20 text-amber-300 hover:bg-amber-600/30',
           busy && 'cursor-wait opacity-60',
           unavailable && 'cursor-not-allowed opacity-55',
         )}
         aria-label={
           busy
-            ? `${label} ${screenplay.title}`
+            ? `${label} ${displayTitle}`
             : unavailable
-              ? `Source screenplay unavailable for ${screenplay.title}`
+              ? `Source screenplay unavailable for ${displayTitle}`
               : isWorkspace
-                ? `Open source screenplay for ${screenplay.title}`
+                ? `Open source screenplay for ${displayTitle}`
                 : undefined
         }
         title={
@@ -147,7 +154,7 @@ export function ScreenplayPdfButton({
               : 'PDF not found — click to re-upload'
             : pdfState === 'uploading'
               ? 'Uploading PDF...'
-            : `${isWorkspace ? 'Open' : 'Download'} ${screenplay.sourceFile || screenplay.title}`
+              : `${isWorkspace ? 'Open' : 'Download'} ${screenplay.sourceFile || screenplay.title}`
         }
       >
         <span aria-hidden="true">{busy ? '◌' : pdfState === 'error' ? '!' : '↗'}</span>

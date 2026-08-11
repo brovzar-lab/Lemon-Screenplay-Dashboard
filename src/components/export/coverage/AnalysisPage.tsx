@@ -6,6 +6,7 @@
 
 import { Page, Text, View } from '@react-pdf/renderer';
 import type { Screenplay } from '@/types';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { s, C } from './shared';
 import { Footer, IntHeader } from './SharedComponents';
 
@@ -16,7 +17,7 @@ interface AnalysisPageProps {
 export function AnalysisPage({ screenplay }: AnalysisPageProps) {
   return (
     <Page size="A4" style={s.page} wrap>
-      <IntHeader title={screenplay.title} />
+      <IntHeader title={getScreenplayDisplayTitle(screenplay.title).title} />
 
       {/* Strengths */}
       <View style={s.section}>

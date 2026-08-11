@@ -3,15 +3,7 @@
  * Horizontal bar chart showing top genres
  */
 
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Cell,
-} from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
 import type { Screenplay } from '@/types';
 import { canonicalizeGenre } from '@/lib/calculations';
@@ -25,6 +17,7 @@ interface GenreChartProps {
 
 interface GenreChartItem {
   genre: string;
+  filterGenre: string;
   count: number;
   color: string;
   percentage: number | string;
@@ -32,15 +25,35 @@ interface GenreChartItem {
 
 // Genre colors - rotating palette
 const GENRE_COLORS = [
-  CHART_COLORS.gold,
-  CHART_COLORS.emerald,
-  CHART_COLORS.violet,
-  CHART_COLORS.pink,
-  CHART_COLORS.cyan,
-  CHART_COLORS.orange,
-  CHART_COLORS.indigo,
-  CHART_COLORS.teal,
+  CHART_COLORS.dataBlue,
+  CHART_COLORS.dataTeal,
+  CHART_COLORS.dataViolet,
+  CHART_COLORS.dataCoral,
 ];
+
+const GENRE_FAMILIES = [
+  'Horror',
+  'Drama',
+  'Comedy',
+  'Thriller',
+  'Action',
+  'Romance',
+  'Science Fiction',
+  'Fantasy',
+  'Western',
+  'Crime',
+  'Family',
+] as const;
+
+function conciseGenre(value: string): string {
+  const canonical = canonicalizeGenre(value);
+  const family = GENRE_FAMILIES.find((candidate) =>
+    canonical.toLowerCase().includes(candidate.toLowerCase()),
+  );
+  if (family) return family === 'Science Fiction' ? 'Sci-Fi' : family;
+  const first = value.split(/\s*\/\s*|\s*·\s*|,\s*/)[0]?.trim() || 'Unknown';
+  return first.length > 17 ? `${first.slice(0, 16)}…` : first;
+}
 
 interface ChartTooltipProps {
   active?: boolean;
@@ -52,12 +65,12 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
   if (active && payload && payload.length) {
     const item = payload[0].payload as GenreChartItem;
     return (
-      <div className="glass p-3 rounded-lg border border-black-700 text-sm">
-        <p className="text-gold-400 font-medium mb-1">{item.genre}</p>
-        <p className="text-black-50">
+      <div className="chart-tooltip">
+        <strong>{item.genre}</strong>
+        <span>
           <span className="font-bold">{item.count}</span> screenplays
-        </p>
-        <p className="text-black-400 text-xs">{item.percentage}% of total</p>
+        </span>
+        <span>{item.percentage}% of total</span>
       </div>
     );
   }
@@ -66,40 +79,39 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
 
 export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreChartProps) {
   // Count genres (canonicalize so "Sci-Fi" and "Science Fiction" merge)
-  const genreDisplayMap = new Map<string, string>(); // canonical → first display name
-  const genreCounts: Record<string, number> = {};
+  const genreCounts = new Map<string, { count: number; filterGenre: string }>();
   screenplays.forEach((sp) => {
     const raw = sp.genre || 'Unknown';
-    const canonical = canonicalizeGenre(raw);
-    if (!genreDisplayMap.has(canonical)) genreDisplayMap.set(canonical, raw);
-    const display = genreDisplayMap.get(canonical)!;
-    genreCounts[display] = (genreCounts[display] || 0) + 1;
+    const display = conciseGenre(raw);
+    const current = genreCounts.get(display);
+    genreCounts.set(display, {
+      count: (current?.count ?? 0) + 1,
+      filterGenre: current?.filterGenre ?? raw,
+    });
   });
 
   // Sort by count and take top N
-  const data: GenreChartItem[] = Object.entries(genreCounts)
-    .sort((a, b) => b[1] - a[1])
+  const data: GenreChartItem[] = Array.from(genreCounts.entries())
+    .sort((a, b) => b[1].count - a[1].count)
     .slice(0, maxGenres)
-    .map(([genre, count], index) => ({
+    .map(([genre, entry], index) => ({
       genre,
-      count,
+      filterGenre: entry.filterGenre,
+      count: entry.count,
       color: GENRE_COLORS[index % GENRE_COLORS.length],
-      percentage: screenplays.length > 0 ? ((count / screenplays.length) * 100).toFixed(0) : 0,
+      percentage:
+        screenplays.length > 0 ? ((entry.count / screenplays.length) * 100).toFixed(0) : 0,
     }));
 
   return (
     <div className="h-full">
       <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-        <BarChart
-          data={data}
-          layout="vertical"
-          margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
-        >
+        <BarChart data={data} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
           <XAxis
             type="number"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94A2BE', fontSize: 11 }}
+            tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
             allowDecimals={false}
           />
           <YAxis
@@ -107,17 +119,20 @@ export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreCh
             dataKey="genre"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#94A2BE', fontSize: 11 }}
-            width={90}
+            tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+            width={82}
           />
-          <Tooltip content={(props) => <CustomTooltip {...props} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+          <Tooltip
+            content={(props) => <CustomTooltip {...props} />}
+            cursor={{ fill: 'var(--chart-cursor)' }}
+          />
           <Bar
             dataKey="count"
             radius={[0, 4, 4, 0]}
             cursor={onGenreClick ? 'pointer' : 'default'}
             onClick={(_, index) => {
               const item = data[index];
-              if (item && onGenreClick) onGenreClick(item.genre);
+              if (item && onGenreClick) onGenreClick(item.filterGenre);
             }}
           >
             {data.map((entry) => (

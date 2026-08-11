@@ -6,6 +6,7 @@
 
 import { Page, Text, View } from '@react-pdf/renderer';
 import type { Screenplay } from '@/types';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { Note } from '@/types/filters';
 import { s, C, boLabel, fmtDate, hasSceneData, hasFilmData } from './shared';
 import { Footer, IntHeader } from './SharedComponents';
@@ -21,7 +22,7 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
 
   return (
     <Page size="A4" style={s.page} wrap>
-      <IntHeader title={screenplay.title} />
+      <IntHeader title={getScreenplayDisplayTitle(screenplay.title).title} />
 
       {/* Characters */}
       <View style={s.section}>
@@ -52,7 +53,7 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
         <View style={s.section}>
           <Text style={s.heading}>Comparable Films</Text>
           {comps.map((film, i) => {
-            const bo = boLabel(film.boxOfficeRelevance);
+            const bo = film.boxOfficeRelevance ? boLabel(film.boxOfficeRelevance) : null;
             return (
               <View key={i} style={s.compRow} wrap={false}>
                 <View style={s.compInfo}>
@@ -64,9 +65,13 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
                     </Text>
                   ) : null}
                 </View>
-                <Text style={[s.compBadge, { color: bo.color, backgroundColor: bo.bg }]}>
-                  {bo.text}
-                </Text>
+                {bo ? (
+                  <Text style={[s.compBadge, { color: bo.color, backgroundColor: bo.bg }]}>
+                    {bo.text}
+                  </Text>
+                ) : film.comparisonLens ? (
+                  <Text style={s.compBadge}>{film.comparisonLens.toUpperCase()}</Text>
+                ) : null}
               </View>
             );
           })}

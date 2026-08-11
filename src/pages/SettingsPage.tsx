@@ -1,9 +1,5 @@
-/**
- * Settings Page
- * Tabbed interface for all application settings
- */
-
-import { Link, useSearchParams } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { UploadPanel } from '@/components/settings/UploadPanel';
 import { DataManagement } from '@/components/settings/DataManagement';
@@ -16,301 +12,257 @@ import { FavoritesPanel } from '@/components/settings/FavoritesPanel';
 import { AnalysisOverview } from '@/components/settings/AnalysisOverview';
 import { ApiConfigPanel } from '@/components/settings/ApiConfigPanel';
 import { PasswordGate } from '@/components/settings/PasswordGate';
+import { FeaturedProjectPanel } from '@/components/settings/FeaturedProjectPanel';
+import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
+import '@/components/discover/discovery.css';
+import '@/pages/settings-page.css';
 
-type Tab = 'upload' | 'compare' | 'data' | 'pdf' | 'calibration' | 'api' | 'analysis';
+type Tab = 'intake' | 'featured' | 'analysis' | 'compare' | 'calibration' | 'pdf' | 'data' | 'api';
+type GroupLabel = 'Workflow' | 'Intelligence' | 'Library' | 'System';
 
 interface TabConfig {
   id: Tab;
   label: string;
-  locked?: boolean;
-  icon: React.ReactNode;
+  description: string;
+  group: GroupLabel;
 }
 
 const TABS: TabConfig[] = [
   {
-    id: 'upload',
-    label: 'Upload',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-        />
-      </svg>
-    ),
+    id: 'analysis',
+    label: 'Analysis Health',
+    description: 'Reader coverage and system readiness',
+    group: 'Intelligence',
   },
   {
     id: 'compare',
-    label: 'Compare',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-        />
-      </svg>
-    ),
+    label: 'Model Comparison',
+    description: 'Compare available analysis models',
+    group: 'Intelligence',
   },
   {
-    id: 'data',
-    label: 'Data',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
-        />
-      </svg>
-    ),
+    id: 'intake',
+    label: 'Intake',
+    description: 'Verify, route, and follow new material',
+    group: 'Workflow',
+  },
+  {
+    id: 'featured',
+    label: 'Featured Project',
+    description: 'Choose what deserves attention today',
+    group: 'Workflow',
   },
   {
     id: 'pdf',
     label: 'PDF Files',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      </svg>
-    ),
+    description: 'Source screenplay availability',
+    group: 'Library',
+  },
+  {
+    id: 'data',
+    label: 'Data & Sharing',
+    description: 'Exports, links, and favorites',
+    group: 'Library',
+  },
+  {
+    id: 'api',
+    label: 'Connections & Keys',
+    description: 'Protected service connections',
+    group: 'System',
   },
   {
     id: 'calibration',
     label: 'Calibration',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: 'api',
-    label: 'API & Keys',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-        />
-      </svg>
-    ),
-  },
-  {
-    id: 'analysis',
-    label: 'Analysis',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-        />
-      </svg>
-    ),
+    description: 'Producer evidence and benchmarks',
+    group: 'System',
   },
 ];
 
-function isTab(value: string | null): value is Tab {
-  return TABS.some((tab) => tab.id === value);
+const GROUPS: GroupLabel[] = ['Intelligence', 'Workflow', 'Library', 'System'];
+
+function normalizeTab(value: string | null): Tab {
+  const normalized = value?.trim().toLowerCase().replaceAll('_', '-');
+  const aliases: Record<string, Tab> = {
+    upload: 'intake',
+    uploads: 'intake',
+    featured: 'featured',
+    'featured-project': 'featured',
+    health: 'analysis',
+    'analysis-health': 'analysis',
+    models: 'compare',
+    'model-comparison': 'compare',
+    'taste-calibration': 'calibration',
+    files: 'pdf',
+    'pdf-files': 'pdf',
+    sharing: 'data',
+    'data-sharing': 'data',
+    connections: 'api',
+    keys: 'api',
+    'api-settings': 'api',
+  };
+  if (normalized && aliases[normalized]) return aliases[normalized];
+  return TABS.some((tab) => tab.id === normalized) ? (normalized as Tab) : 'intake';
 }
 
-/** Data tab content — exports + shared links */
+function SettingsIcon({ tab }: { tab: Tab }) {
+  const paths: Record<Tab, string> = {
+    intake: 'M12 3v12m0-12 4 4m-4-4L8 7M5 14v5h14v-5',
+    featured: 'M12 3l2.6 5.3 5.9.9-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.2 5.9-.9L12 3Z',
+    analysis: 'M4 19V9m5 10V5m5 14v-7m5 7V3',
+    compare: 'M4 7h10M4 12h16M10 17h10',
+    calibration:
+      'M12 3v3m0 12v3M3 12h3m12 0h3M7.1 7.1l2.1 2.1m5.6 5.6 2.1 2.1m0-9.8-2.1 2.1m-5.6 5.6-2.1 2.1',
+    pdf: 'M7 3h7l4 4v14H7zM14 3v5h4M9 13h6m-6 4h6',
+    data: 'M5 7c0 1.7 3.1 3 7 3s7-1.3 7-3-3.1-3-7-3-7 1.3-7 3Zm0 0v5c0 1.7 3.1 3 7 3s7-1.3 7-3V7m-14 5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5',
+    api: 'M14 7a4 4 0 1 1-2.8 6.8L8 17H5v3H2v-3l5.2-5.2A4 4 0 0 1 14 7Z',
+  };
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d={paths[tab]} />
+    </svg>
+  );
+}
+
+function SectionFrame({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="settings-subsection">
+      <h3>{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 function DataTab() {
   return (
-    <div className="space-y-8">
+    <div className="settings-section-stack">
       <DataManagement />
-
-      {/* Shared Links — sub-section */}
-      <div id="shared-links" className="scroll-mt-8 border-t border-gold-500/10 pt-6">
-        <div className="flex items-center gap-3 mb-4">
-          <svg
-            className="w-5 h-5 text-gold-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-            />
-          </svg>
-          <span className="font-display text-gold-200 text-lg">Shared Links</span>
+      <SectionFrame title="Shared links">
+        <div id="shared-links" className="scroll-mt-8">
+          <SharedLinksPanel />
         </div>
-        <SharedLinksPanel />
-      </div>
-
-      {/* Favorites — sub-section */}
-      <div className="border-t border-gold-500/10 pt-6">
-        <div className="flex items-center gap-3 mb-4">
-          <svg
-            className="w-5 h-5 text-gold-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-            />
-          </svg>
-          <span className="font-display text-gold-200 text-lg">Favorites</span>
-        </div>
+      </SectionFrame>
+      <section className="settings-subsection">
         <FavoritesPanel />
-      </div>
+      </section>
     </div>
   );
 }
 
-/** Upload tab content — includes upload panel + categories as a sub-section */
-function UploadTab() {
+function IntakeTab({ onOpenAnalysis }: { onOpenAnalysis: (projectId: string) => void }) {
   return (
-    <div className="space-y-8">
-      <UploadPanel />
-
-      {/* Categories — sub-section */}
-      <div className="border-t border-gold-500/10 pt-6">
-        <div className="flex items-center gap-3 mb-4">
-          <svg
-            className="w-5 h-5 text-gold-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-            />
-          </svg>
-          <span className="font-display text-gold-200 text-lg">Categories</span>
+    <div className="settings-section-stack">
+      <div className="settings-intake-intro">
+        <div>
+          <p className="settings-eyebrow">New material</p>
+          <h3>Bring a screenplay into the slate</h3>
+          <p>
+            Adding files is free. Duplicate protection and routing happen before the confirmation
+            that starts analysis.
+          </p>
         </div>
-        <CategoryManagement />
+        <ol aria-label="Intake stages">
+          <li>
+            <strong>01</strong>
+            <span>File verified</span>
+          </li>
+          <li>
+            <strong>02</strong>
+            <span>Readers working</span>
+          </li>
+          <li>
+            <strong>03</strong>
+            <span>Slate ready</span>
+          </li>
+        </ol>
       </div>
+      <UploadPanel presentation="intake" initialModel="hybrid" onOpenAnalysis={onOpenAnalysis} />
+      <section className="settings-subsection">
+        <CategoryManagement />
+      </section>
     </div>
   );
 }
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get('tab');
-  const activeTab: Tab = isTab(requestedTab) ? requestedTab : 'upload';
+  const activeTab = normalizeTab(searchParams.get('tab'));
+  const activeConfig = TABS.find((tab) => tab.id === activeTab) ?? TABS[0];
 
-  const setActiveTab = (tab: Tab) => {
-    setSearchParams(tab === 'upload' ? {} : { tab });
-  };
+  const setActiveTab = (tab: Tab) => setSearchParams({ tab });
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'upload':
-        return <UploadTab />;
+      case 'intake':
+        return (
+          <IntakeTab
+            onOpenAnalysis={(projectId) => navigate(`/discover/${encodeURIComponent(projectId)}`)}
+          />
+        );
+      case 'analysis':
+        return <AnalysisOverview />;
+      case 'featured':
+        return <FeaturedProjectPanel />;
       case 'compare':
         return <ModelComparisonPanel />;
-      case 'data':
-        return <DataTab />;
       case 'calibration':
         return <CalibrationPanel />;
       case 'pdf':
         return <PdfUploadPanel />;
+      case 'data':
+        return <DataTab />;
       case 'api':
         return (
           <PasswordGate storageKey="api">
             <ApiConfigPanel />
           </PasswordGate>
         );
-      case 'analysis':
-        return <AnalysisOverview />;
-      default:
-        return null;
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b border-gold-500/20 bg-black-900/50 backdrop-blur-sm">
-        <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link
-              to="/"
-              className="flex items-center gap-2 text-gold-400 hover:text-gold-300 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                />
-              </svg>
-              <span>Back to Dashboard</span>
-            </Link>
-          </div>
-          <h1 className="text-xl font-display text-gold-200">Settings</h1>
-          <div className="w-32" />
-        </div>
-      </header>
+    <div className="settings-page">
+      <ApplicationHeader />
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-[1400px] mx-auto w-full px-6 py-8">
-        <div className="flex gap-8">
-          {/* Sidebar Tabs */}
-          <aside className="w-48 shrink-0">
-            <nav className="sticky top-8 space-y-1">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={clsx(
-                    'w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all',
-                    activeTab === tab.id
-                      ? 'bg-gold-500/20 text-gold-400 border border-gold-500/30'
-                      : 'text-black-300 hover:bg-black-800/50 hover:text-gold-200',
-                  )}
-                >
-                  {tab.icon}
-                  <span className="font-medium flex-1">{tab.label}</span>
-                </button>
-              ))}
-            </nav>
-          </aside>
+      <main className="settings-main">
+        <aside className="settings-sidebar">
+          <nav aria-label="Settings sections">
+            {GROUPS.map((group) => (
+              <div key={group} className="settings-nav-group">
+                <h2>{group}</h2>
+                {TABS.filter((tab) => tab.group === group).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    aria-label={tab.label}
+                    aria-current={activeTab === tab.id ? 'page' : undefined}
+                    className={clsx('settings-nav-item', activeTab === tab.id && 'is-active')}
+                  >
+                    <SettingsIcon tab={tab.id} />
+                    <span>
+                      <strong>{tab.label}</strong>
+                      <small>{tab.description}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
+        </aside>
 
-          {/* Tab Content */}
-          <div className="flex-1 min-w-0">
-            <div className="glass rounded-xl p-6 border border-gold-500/10">
-              {renderTabContent()}
-            </div>
-          </div>
-        </div>
+        <section className="settings-workspace" aria-labelledby="settings-section-title">
+          <header className="settings-workspace__heading">
+            <p className="settings-eyebrow">Administration · {activeConfig.group}</p>
+            <h1 id="settings-section-title">{activeConfig.label}</h1>
+            <p>{activeConfig.description}</p>
+          </header>
+          <div className="settings-panel">{renderTabContent()}</div>
+        </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-gold-500/10 py-4">
-        <div className="max-w-[1400px] mx-auto px-6 text-center text-sm text-black-500">
-          <p>Lemon Screenplay Dashboard v{__APP_VERSION__}</p>
-        </div>
-      </footer>
+      <footer className="settings-footer">Lemon Screenplay Dashboard v{__APP_VERSION__}</footer>
     </div>
   );
 }

@@ -22,6 +22,46 @@ test('actual cost uses the approved per-model and cache rates', () => {
   assert.equal(calculateActualCostMicrousd('claude-fable-5', usage), 37_600);
 });
 
+test('one-hour cache creation is charged at the exact higher write rate', () => {
+  const usage = {
+    input_tokens: 1_000,
+    output_tokens: 500,
+    cache_creation_input_tokens: 300,
+    cache_read_input_tokens: 100,
+    cache_creation: {
+      ephemeral_5m_input_tokens: 100,
+      ephemeral_1h_input_tokens: 200,
+    },
+  };
+
+  assert.equal(calculateActualCostMicrousd('claude-opus-5', usage), 20_175);
+  assert.throws(
+    () => calculateActualCostMicrousd('claude-opus-5', {
+      ...usage,
+      cache_creation: {
+        ephemeral_5m_input_tokens: 100,
+        ephemeral_1h_input_tokens: 100,
+      },
+    }),
+    /must equal cache_creation_input_tokens/,
+  );
+});
+
+test('one-hour-only cache creation omits a zero five-minute field safely', () => {
+  assert.equal(
+    calculateActualCostMicrousd('claude-opus-5', {
+      input_tokens: 1_000,
+      output_tokens: 500,
+      cache_creation_input_tokens: 200,
+      cache_read_input_tokens: 100,
+      cache_creation: {
+        ephemeral_1h_input_tokens: 200,
+      },
+    }),
+    19_550,
+  );
+});
+
 test('a hybrid Sonnet and Opus run is the sum of both real model costs', () => {
   const sonnetUsage = {
     input_tokens: 10_000,

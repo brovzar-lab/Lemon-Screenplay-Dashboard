@@ -110,4 +110,63 @@ describe('ScoresPanel producer projection', () => {
     expect(screen.getByText('Raw triage score')).toBeInTheDocument();
     expect(screen.queryByText('Raw five-pillar score')).not.toBeInTheDocument();
   });
+
+  it('turns workspace scores into a decision-focused Development Signal Map', () => {
+    const screenplay = createTestScreenplay({
+      analysisVersion: 'v9_archaeology',
+      weightedScore: 6.9,
+      strengths: ['The concept has an immediate theatrical hook.'],
+      weaknesses: ['The protagonist delays the final irreversible choice.'],
+      pillarScores: [
+        { name: 'structure', score: 6.2, weight: 0.2 },
+        { name: 'character', score: 5.8, weight: 0.2 },
+        { name: 'craft_scene', score: 7.1, weight: 0.2 },
+        { name: 'concept', score: 8.4, weight: 0.2 },
+        { name: 'emotional_resonance', score: 7.6, weight: 0.2 },
+      ],
+      analysisQuality: {
+        status: 'complete',
+        completedReaders: 5,
+        expectedReaders: 5,
+        failedReaders: [],
+      },
+      producerProjection: {
+        rawScore: 7.0,
+        finalScore: 6.9,
+        scoreSource: 'adjusted',
+        penaltyApplied: 0.1,
+        reportedPenalty: 0.1,
+        finalVerdict: 'consider',
+        verdictAdjustments: [],
+        gates: [],
+        warnings: [],
+        rankable: true,
+        trustStatus: 'verified',
+        trustManifestVersion: 'lemon-trust-manifest-v4',
+        boundary: {
+          checked: true,
+          runCount: 3,
+          failedRunCount: 0,
+          scoreSpread: 0.2,
+          verdicts: ['consider', 'consider', 'consider'],
+          stable: true,
+        },
+        readerDisagreementCount: 1,
+      },
+    });
+
+    render(<ScoresPanel screenplay={screenplay} presentation="workspace" />);
+
+    expect(screen.getByRole('heading', { name: 'Development Signal Map' })).toBeInTheDocument();
+    expect(screen.getByText('Verified evidence')).toBeInTheDocument();
+    expect(screen.getByText('5 of 5 readers')).toBeInTheDocument();
+    expect(screen.getByText('Stable boundary')).toBeInTheDocument();
+    expect(screen.getByText('1 disagreement')).toBeInTheDocument();
+    expect(screen.getByText('Strongest signal')).toBeInTheDocument();
+    expect(screen.getByText(/Concept · 8.4/)).toBeInTheDocument();
+    expect(screen.getByText('Primary development risk')).toBeInTheDocument();
+    expect(screen.getByText(/Character · 5.8/)).toBeInTheDocument();
+    expect(screen.getByText('The concept has an immediate theatrical hook.')).toBeInTheDocument();
+    expect(screen.getByText('The protagonist delays the final irreversible choice.')).toBeInTheDocument();
+  });
 });

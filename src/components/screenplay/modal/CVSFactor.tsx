@@ -3,6 +3,7 @@
  */
 
 import { clsx } from 'clsx';
+import { formatProducerText } from '@/lib/producerDisplay';
 
 interface CVSFactorProps {
     label: string;
@@ -23,7 +24,7 @@ export function CVSFactor({ label, score, note }: CVSFactorProps) {
             </div>
             <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-black-200">{label}</div>
-                <div className="text-xs text-black-500">{note}</div>
+                <div className="text-xs text-black-500">{formatProducerText(note)}</div>
             </div>
         </div>
     );

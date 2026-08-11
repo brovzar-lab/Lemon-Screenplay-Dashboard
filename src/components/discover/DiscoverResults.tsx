@@ -6,6 +6,7 @@ import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 
 type ProducerAssessmentMap = ReadonlyMap<string, ProducerAssessmentHead>;
@@ -21,23 +22,18 @@ function assessmentFor(
   screenplay: Screenplay,
 ): ProducerAssessmentHead | undefined {
   const assessment = assessments?.get(screenplay.projectId ?? screenplay.id);
-  return assessment?.versionId === screenplay.latestVersionId
-    ? assessment
-    : undefined;
+  return assessment?.versionId === screenplay.latestVersionId ? assessment : undefined;
 }
 
-function Score({
-  screenplay,
-  large = false,
-}: {
-  screenplay: Screenplay;
-  large?: boolean;
-}) {
+function Score({ screenplay, large = false }: { screenplay: Screenplay; large?: boolean }) {
   return (
     <div className={large ? 'cinema-score-lockup' : 'cinema-card-score'}>
       {large && <span className="dsc-label dsc-label-faint block">Final score</span>}
       <span
-        className={clsx('dsc-num block font-semibold leading-none', large ? 'text-6xl' : 'text-2xl')}
+        className={clsx(
+          'dsc-num block font-semibold leading-none',
+          large ? 'text-6xl' : 'text-2xl',
+        )}
         aria-label={`Score ${screenplay.weightedScore.toFixed(1)}`}
       >
         {screenplay.weightedScore.toFixed(1)}
@@ -73,6 +69,8 @@ function RankedCard({
   onOpen,
   producerAssessments,
 }: ResultSurfaceProps & { rank: number }) {
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+
   return (
     <li
       data-testid="discovery-shelf-result"
@@ -83,7 +81,7 @@ function RankedCard({
       <DiscoverySelectionCheckbox screenplay={screenplay} />
       <button
         type="button"
-        aria-label={`Open ${screenplay.title} details`}
+        aria-label={`Open ${displayTitle} details`}
         onClick={(event) => onOpen(screenplay, event.currentTarget)}
         className="cinema-poster-button"
       >
@@ -108,7 +106,7 @@ function RankedCard({
               />
             </span>
           </span>
-          <h3 className="cinema-poster-title">{screenplay.title}</h3>
+          <h3 className="cinema-poster-title">{displayTitle}</h3>
           <span className="cinema-poster-genre">{screenplay.genre}</span>
         </span>
       </button>
@@ -125,6 +123,9 @@ export function DiscoverFeature({
   onOpen: ResultSurfaceProps['onOpen'];
   producerAssessments?: ProducerAssessmentMap;
 }) {
+  const displayTitle = getScreenplayDisplayTitle(featured.title).title;
+  const displayAuthor = getScreenplayDisplayAuthor(featured.author);
+
   return (
     <article
       data-testid="discovery-featured"
@@ -135,7 +136,7 @@ export function DiscoverFeature({
       <DiscoverySelectionCheckbox screenplay={featured} />
       <button
         type="button"
-        aria-label={`Open ${featured.title} details`}
+        aria-label={`Open ${displayTitle} details`}
         onClick={(event) => onOpen(featured, event.currentTarget)}
         className="cinema-feature-button"
       >
@@ -154,17 +155,13 @@ export function DiscoverFeature({
             <span className="dsc-kicker">Featured screenplay</span>
             <AnalysisTrustBadge screenplay={featured} />
             <DiscoveryShareStatus screenplay={featured} />
-            <ProducerScoreBadge
-              assessment={assessmentFor(producerAssessments, featured)}
-            />
+            <ProducerScoreBadge assessment={assessmentFor(producerAssessments, featured)} />
           </div>
-          <h2 className="cinema-feature-title">{featured.title}</h2>
+          <h2 className="cinema-feature-title">{displayTitle}</h2>
           <p className="cinema-feature-genre">
-            {featured.genre} · {featured.author || 'Unknown writer'}
+            {[featured.genre, displayAuthor].filter(Boolean).join(' · ')}
           </p>
-          <p className="cinema-feature-logline">
-            {featured.logline || 'Logline not yet available.'}
-          </p>
+          {featured.logline && <p className="cinema-feature-logline">{featured.logline}</p>}
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <span className="dsc-open-analysis">
               Open analysis
@@ -254,41 +251,44 @@ export function DiscoverFilmNowShelf({
         <span>{screenplays.length} ready to move</span>
       </div>
       <ul className="cinema-film-rail">
-        {screenplays.map((screenplay) => (
-          <li
-            key={screenplay.id}
-            data-testid="discovery-film-now-result"
-            data-screenplay-id={screenplay.id}
-            className="cinema-film-card"
-          >
-            <DiscoverySelectionCheckbox screenplay={screenplay} />
-            <button
-              type="button"
-              aria-label={`Open FILM NOW ${screenplay.title} details`}
-              onClick={(event) => onOpen(screenplay, event.currentTarget)}
+        {screenplays.map((screenplay) => {
+          const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+          return (
+            <li
+              key={screenplay.id}
+              data-testid="discovery-film-now-result"
+              data-screenplay-id={screenplay.id}
+              className="cinema-film-card"
             >
-              <ScriptCover
-                title={screenplay.title}
-                author={screenplay.author}
-                seed={screenplay.projectId ?? screenplay.id}
-                analysisVersion={screenplay.analysisVersion}
-                className="w-24 shrink-0"
-              />
-              <span className="min-w-0">
-                <RecommendationBadge tier="film_now" />
-                <ProducerScoreBadge
-                  assessment={assessmentFor(producerAssessments, screenplay)}
-                  compact
+              <DiscoverySelectionCheckbox screenplay={screenplay} />
+              <button
+                type="button"
+                aria-label={`Open FILM NOW ${displayTitle} details`}
+                onClick={(event) => onOpen(screenplay, event.currentTarget)}
+              >
+                <ScriptCover
+                  title={screenplay.title}
+                  author={screenplay.author}
+                  seed={screenplay.projectId ?? screenplay.id}
+                  analysisVersion={screenplay.analysisVersion}
+                  className="w-24 shrink-0"
                 />
-                <span className="cinema-film-title">{screenplay.title}</span>
-                <span className="cinema-film-logline">
-                  {screenplay.recommendationRationale || screenplay.logline}
+                <span className="min-w-0">
+                  <RecommendationBadge tier="film_now" />
+                  <ProducerScoreBadge
+                    assessment={assessmentFor(producerAssessments, screenplay)}
+                    compact
+                  />
+                  <span className="cinema-film-title">{displayTitle}</span>
+                  <span className="cinema-film-logline">
+                    {screenplay.recommendationRationale || screenplay.logline}
+                  </span>
                 </span>
-              </span>
-              <Score screenplay={screenplay} />
-            </button>
-          </li>
-        ))}
+                <Score screenplay={screenplay} />
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -313,52 +313,55 @@ export function DiscoverGrid({
 
   return (
     <ul className="cinema-archive-rail">
-      {screenplays.map((screenplay, index) => (
-        <li
-          key={screenplay.id}
-          data-testid="discovery-grid-result"
-          data-discovery-result
-          data-screenplay-id={screenplay.id}
-          className="cinema-poster-card"
-        >
-          <DiscoverySelectionCheckbox screenplay={screenplay} />
-          <button
-            type="button"
-            aria-label={`Open ${screenplay.title} details`}
-            onClick={(event) => onOpen(screenplay, event.currentTarget)}
-            className="cinema-poster-button"
+      {screenplays.map((screenplay, index) => {
+        const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+        return (
+          <li
+            key={screenplay.id}
+            data-testid="discovery-grid-result"
+            data-discovery-result
+            data-screenplay-id={screenplay.id}
+            className="cinema-poster-card"
           >
-            <ScriptCover
-              title={screenplay.title}
-              author={screenplay.author}
-              seed={screenplay.projectId ?? screenplay.id}
-              analysisVersion={screenplay.analysisVersion}
-              className="cinema-poster-cover"
-            />
-            <span className="cinema-rank">
-              {screenplay.producerProjection?.rankable === false
-                ? 'Review'
-                : `#${rankOffset + index + 6}`}
-            </span>
-            <span className="cinema-score-chip">{screenplay.weightedScore.toFixed(1)}</span>
-            <span className="cinema-poster-meta">
-              <span className="flex items-center justify-between gap-2">
-                <RecommendationBadge tier={screenplay.recommendation} />
-                <span className="flex items-center gap-1.5">
-                  <AnalysisTrustBadge screenplay={screenplay} />
-                  <DiscoveryShareStatus screenplay={screenplay} />
-                  <ProducerScoreBadge
-                    assessment={assessmentFor(producerAssessments, screenplay)}
-                    compact
-                  />
-                </span>
+            <DiscoverySelectionCheckbox screenplay={screenplay} />
+            <button
+              type="button"
+              aria-label={`Open ${displayTitle} details`}
+              onClick={(event) => onOpen(screenplay, event.currentTarget)}
+              className="cinema-poster-button"
+            >
+              <ScriptCover
+                title={screenplay.title}
+                author={screenplay.author}
+                seed={screenplay.projectId ?? screenplay.id}
+                analysisVersion={screenplay.analysisVersion}
+                className="cinema-poster-cover"
+              />
+              <span className="cinema-rank">
+                {screenplay.producerProjection?.rankable === false
+                  ? 'Review'
+                  : `#${rankOffset + index + 6}`}
               </span>
-              <h3 className="cinema-poster-title">{screenplay.title}</h3>
-              <span className="cinema-poster-genre">{screenplay.genre}</span>
-            </span>
-          </button>
-        </li>
-      ))}
+              <span className="cinema-score-chip">{screenplay.weightedScore.toFixed(1)}</span>
+              <span className="cinema-poster-meta">
+                <span className="flex items-center justify-between gap-2">
+                  <RecommendationBadge tier={screenplay.recommendation} />
+                  <span className="flex items-center gap-1.5">
+                    <AnalysisTrustBadge screenplay={screenplay} />
+                    <DiscoveryShareStatus screenplay={screenplay} />
+                    <ProducerScoreBadge
+                      assessment={assessmentFor(producerAssessments, screenplay)}
+                      compact
+                    />
+                  </span>
+                </span>
+                <h3 className="cinema-poster-title">{displayTitle}</h3>
+                <span className="cinema-poster-genre">{screenplay.genre}</span>
+              </span>
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

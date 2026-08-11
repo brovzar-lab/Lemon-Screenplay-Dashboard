@@ -3,64 +3,67 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-08-01
+**Last session:** 2026-08-11
 
-**Done and deployed on `main` at `d9b7beb`:**
-- Discovery reconnection R0-R6 and the Cinema Browse presentation are live at
-  `/discover`; the original dashboard remains available at `/`.
-- Q0-Q4 trust hardening is live: complete screenplay evidence, five required
-  specialist readers, strict output and accounting, immutable trust manifests,
-  and truthful producer-facing ranking.
-- Q5 Producer Calibration is live but dormant. Producer Takes are append-only,
-  bound to exact sealed analyses, and cannot overwrite AI judgments.
-- `calibrationManager`, Firestore rules, and the VPS trust-manifest v4 path are
-  deployed. No calibration profile exists or is active, and no paid calibration
-  call has run.
-- Full calibration contract:
-  `docs/trust-hardening/Q5-PRODUCER-CALIBRATION.md`.
+**Production and delivery state:**
+- Production and GitHub `main` remain at `d71b38d`. Nothing from this release
+  candidate has been merged or deployed.
+- Active branch `codex/discovery-cleaned-hybrid` is 30 commits ahead of `main`.
+  The One Lemon application commit `a554315` is pushed to the branch backing
+  [PR #6](https://github.com/brovzar-lab/Lemon-Screenplay-Dashboard/pull/6).
+- PR #6 remains the only delivery target and is ready for human review. Merge
+  and deployment still require separate explicit approval.
 
-- Q6 Intake MVP is live at `/intake`: admin-only staged uploads, duplicate and
-  revision review, explicit model and spend confirmation, honest live docket,
-  and safe routing into the existing queue. Q6 was hosting-only and did not
-  change Functions, rules, or the VPS. Contract: `docs/Q6-INTAKE-MVP.md`.
+**One Lemon application completed:**
+- Discovery, Settings, and Screenplay File now use one shared 64px signed-in
+  header with Lemon identity, role-aware Discover/Settings navigation, sync
+  status, Light/Dark/System appearance, and account controls.
+- Discovery search, Saved Views, Favorites, metrics, sorting, selection, and
+  filters live below the header. Settings uses an Administration + active-section
+  workspace heading. Screenplay File uses a page toolbar for Back to Slate,
+  project identity, share/export/favorite, and all tabs including Reader Room.
+- The three canonical surfaces share the Discovery `--sp-*` palette and type
+  system. Stored experimental design-system choices migrate to Instrument while
+  preserving Light/Dark/System color mode.
+- Mobile layouts were verified without horizontal page overflow; visible sync
+  warnings collapse to an accessible status icon in the fixed-height header.
 
-**Implemented locally on `codex/q7-project-workspace`:**
-- Cinema Browse cards now open a full project destination at
-  `/projects/:projectId`; direct links and refreshes resolve the same real data.
-- The workspace presents the paper screenplay, decision spine, executive read,
-  score lineage, five reader reports, Story X-Ray, Producer Take, private notes,
-  sharing, favorites, source screenplay, coverage, and pitch-deck actions.
-- The current drawer remains intact at `/discover/:projectId`, with
-  `/discover?preview=drawer` as an explicit fallback browsing mode.
-- Q7 changes only additive UI and routing. No paid model calls, production
-  deployment, backend changes, or calibration activation. Contract:
-  `docs/Q7-PROJECT-WORKSPACE.md`.
+**Preserved fallbacks and product decisions:**
+- Discovery remains signed-in home at `/`; Classic Dashboard remains available
+  directly at `/dashboard-classic`. Explicit classic/hybrid Discovery fallbacks,
+  public share, authentication, and legacy workspace routes remain unchanged.
+- Discovery still shows exactly one stable daily Featured project independent of
+  temporary search/filters, and Slate Insights opens by default.
+- Backend behavior, Firestore data and schemas, public APIs, routes, and every
+  pre-existing untracked file remain untouched.
 
-**Production state:**
-- Production remains on `main` at `d9b7beb`, including approved Q6.
-- Calibration remains inactive.
-- Q7 exists only on the local branch `codex/q7-project-workspace`.
+**Verification:**
+- Complete app tests: 889 pass. Functions tests: 53 pass. Lint and production
+  build pass.
+- Complete local Playwright suite: 29 authenticated Light/Dark scenarios pass on
+  fixed port 3000.
+- Desktop and mobile browser proof passed for the 27-screenplay Discovery slate,
+  Featured project, Settings deep link, Screenplay File, Reader Room, navigation,
+  back behavior, and theme modes. No application console errors were found.
+- Proof screenshots are stored under the current Codex visualization folder as
+  `one-lemon-discovery.png`, `one-lemon-settings.png`, and
+  `one-lemon-screenplay-file.png`.
+- Independent standards and specification reviews report zero actionable findings.
+
+**Hosted CI completed:**
+- Playwright is now a required workflow failure; `continue-on-error` was removed.
+- Ignored `service-account.json` was validated without printing credentials: it
+  is a service-account file for project `lemon-screenplay-dashboard`.
+- The file was uploaded directly as protected repository secret
+  `FIREBASE_SERVICE_ACCOUNT_JSON`; its contents were never printed.
+- Hosted `Lint, Build & Test` and authenticated `Playwright E2E` both pass. The
+  PR description contains the final verification results and PR #6 is ready for
+  review.
 
 **Next up:**
-1. Finish Q7 full-suite verification and local browser review.
-2. Billy reviews a screenplay from `http://localhost:3000/discover` in the new
-   full Project Workspace.
-3. After explicit approval, merge Q7 and coordinate a hosting-only deployment.
-4. Plan Q8 Chat With the Room as a separately approved, costed conversation
-   system. Producer calibration remains a later checkpoint before bulk intake.
-
-**Backlog pointer:**
-- Discovery UI backlog remains in `docs/DISCOVERY-BACKLOG.md`.
-- Trust-hardening contracts and proof are in `docs/trust-hardening/`.
-
-**Open notes:**
-- Historical parent Firestore documents can still transfer embedded reader
-  reports during the existing live snapshot because Firestore cannot field-mask
-  a document. Q4 strips that data from list state and fetches exact version
-  evidence on open. Full historical wire-level deferral needs a separately
-  approved one-time parent-projection migration or replacement of the
-  disposable test slate.
-- Existing untracked screenshots, mockups, and `AGENTS.md` remain untouched.
+1. Billy reviews PR #6 and the browser proof.
+2. Merge only with explicit approval.
+3. Treat deployment as a separate approval after merge review.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
@@ -84,17 +87,20 @@ Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated c
 | Build | `npm run build` | `tsc -b` typecheck + Vite build. `prebuild` clears `dist/assets` |
 | Unit tests | `npm run test:run` | Vitest single run. Uses `TMPDIR=./.tmp` + `src/test/fix-eperm.cjs` (macOS EPERM workaround) |
 | Test + coverage | `npm run test:coverage` | |
-| E2E | `npm run test:e2e` | Playwright; runs against `npm run preview` (port 4173), not the dev server |
+| E2E | `npm run test:e2e` | Playwright starts the dev server on the fixed port 3000 |
 | E2E (visible) | `npm run test:e2e:headed` | |
 | Lint | `npm run lint` | `eslint .` (flat config) |
 | Format | `npm run format` | Prettier on `src/**/*.{ts,tsx,css}` |
+| Check model catalog | `npm run models:check` | Compares approved Anthropic routes with the live Models API; requires `ANTHROPIC_API_KEY` |
+| Validate model catalog offline | `npm run models:check:offline` | Verifies the committed catalog and route consistency without network access |
 | Deploy hosting | `npm run deploy` | Build then `firebase deploy --only hosting` |
 | Deploy functions | `npm run deploy:functions` | `cd functions && npm run build` then deploys functions (run from repo root) |
 
 ## Routes (src/main.tsx)
 ```
-/                → App           (main dashboard)
-/discover        → DiscoverPage  (lazy, Cinema Browse)
+/                → DiscoverPage  (lazy, approved signed-in home)
+/dashboard-classic → App         (preserved legacy fallback)
+/discover        → DiscoverPage  (lazy, explicit presentation links supported)
 /discover/:id    → DiscoverPage  (preserved drawer fallback)
 /projects/:id    → ProjectWorkspacePage (lazy, full dossier)
 /intake          → IntakePage    (lazy, admin-only)
@@ -162,6 +168,12 @@ VITE_GOOGLE_API_KEY            # Gemini — poster generation + DevExec chat (op
 ```
 VPS daemon vars (set in the systemd unit, NOT this file): `ANTHROPIC_API_KEY`, `FIREBASE_PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS`, `TMDB_API_KEY`.
 
+## Model governance
+
+- `src/config/anthropic-model-catalog.json` is the single display catalog for approved screenplay-analysis routes and Reader Chat routes.
+- The scheduled `.github/workflows/anthropic-model-catalog.yml` check compares that catalog with Anthropic's Models API monthly and on demand.
+- A newly released model never changes production scoring automatically. It must first pass Lemon's sealed screenplay benchmark and receive explicit approval. This keeps model updates visible without silently changing verdict behavior.
+
 ## Conventions
 - TypeScript strict — no `any`. Data types live in `types/screenplay.ts` only (`screenplay-v6.ts` deleted).
 - Import via `@/` alias, not relative paths. Aliases: `@` → `src/`, `@data` → `../.tmp`.
@@ -180,7 +192,8 @@ VPS daemon vars (set in the systemd unit, NOT this file): `ANTHROPIC_API_KEY`, `
 - **AI features need the emulator locally.** Plain `npm run dev` has no `llmProxy`; use `npm run dev:full` to run Vite + Functions emulator together.
 - **Firebase web config is hardcoded** in `src/lib/firebase.ts` (apiKey/projectId literals — public web-app values). The `VITE_` env vars only cover the storage bucket and AI keys.
 - **macOS EPERM workaround.** Test scripts set `TMPDIR=./.tmp` and preload `src/test/fix-eperm.cjs`. The Vite build uses `emptyOutDir: false` + `copyPublicDir: false` and a `skip-ds-store` plugin to avoid EPERM on `.DS_Store`.
-- **E2E runs against `preview` (4173)**, not the dev server.
+- **E2E runs against the dev server on port 3000.** Playwright owns server startup
+  on that same fixed port.
 - **`analysisStore` is in `lib/`, not `stores/`**, and is not re-exported from `stores/index.ts`.
 - **Store/hook barrels are partial.** `stores/index.ts` and `hooks/index.ts` only re-export a subset; many stores/hooks are imported by direct path. Add a new store's export to `stores/index.ts` if you want it in the barrel, but don't assume everything is there.
 - **App Check is intentionally off** (a prior provider mismatch caused 400s — see comment in `firebase.ts`). Auth is Google Workspace: dashboard reads need a team sign-in, writes need the admin role, `/share/:token` stays public (see `firestore.rules`).

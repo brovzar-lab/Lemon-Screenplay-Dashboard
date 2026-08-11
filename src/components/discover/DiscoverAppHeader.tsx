@@ -2,8 +2,8 @@ import { NavLink } from 'react-router-dom';
 import { UserMenu } from '@/components/auth';
 import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { useIsAdmin } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
 
 interface DiscoverAppHeaderProps {
   total: number;
@@ -35,16 +35,13 @@ export function DiscoverAppHeader({
   isLoading,
   sectionTitle = 'Cinema Browse',
 }: DiscoverAppHeaderProps) {
-  const isAdmin = useIsAdmin();
   const isDark = useThemeStore((state) => state.isDark);
-  const navClass = ({ isActive }: { isActive: boolean }) =>
-    `dsc-tab ${isActive ? 'dsc-tab--active' : ''}`;
 
   return (
     <header role="banner" className="dsc-header sticky top-0 z-40">
       <div className="mx-auto flex max-w-[1800px] flex-wrap items-center gap-x-6 px-4 sm:px-6 lg:px-10">
         <NavLink
-          to="/discover"
+          to="/"
           className="flex min-w-0 items-center gap-3 py-3"
           aria-label="Discovery home"
         >
@@ -64,24 +61,7 @@ export function DiscoverAppHeader({
           <strong>{sectionTitle}</strong>
         </div>
 
-        <nav
-          aria-label="Discovery navigation"
-          className="order-3 flex w-full gap-5 lg:order-none lg:w-auto"
-        >
-          <NavLink to="/discover" end={false} className={navClass}>
-            Discover
-          </NavLink>
-          {isAdmin && (
-            <NavLink to="/intake" className={navClass}>
-              Intake
-            </NavLink>
-          )}
-          {isAdmin && (
-            <NavLink to="/settings" className={navClass}>
-              Settings
-            </NavLink>
-          )}
-        </nav>
+        <AuthenticatedNavigation className="order-3 w-full lg:order-none lg:w-auto" />
 
         <div
           className="ml-auto flex items-center gap-1.5 py-2"

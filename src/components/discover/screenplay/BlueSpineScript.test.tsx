@@ -1,0 +1,34 @@
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+
+import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
+import { createTestScreenplay } from '@/test/factories';
+
+describe('BlueSpineScript presentation', () => {
+  const screenplay = createTestScreenplay({
+    title: 'A Story With A Proper Cover',
+    author: 'A Writer',
+    analysisVersion: 'v9_archaeology',
+  });
+
+  it('keeps the complete title-page treatment as the default', () => {
+    const { container } = render(<BlueSpineScript screenplay={screenplay} rank={2} />);
+
+    expect(container.querySelector('.screenplay-object--compact')).not.toBeInTheDocument();
+    expect(screen.getByText('Written by')).toBeInTheDocument();
+    expect(screen.getByText('A Writer')).toBeInTheDocument();
+    expect(screen.getByText('V9 Archaeology')).toBeInTheDocument();
+  });
+
+  it('renders only the cover essentials in compact mode', () => {
+    const { container } = render(
+      <BlueSpineScript screenplay={screenplay} rank={2} presentation="compact" />,
+    );
+
+    expect(container.querySelector('.screenplay-object--compact')).toBeInTheDocument();
+    expect(screen.getByText('A Story with a Proper Cover')).toBeInTheDocument();
+    expect(screen.queryByText('Written by')).not.toBeInTheDocument();
+    expect(screen.queryByText('A Writer')).not.toBeInTheDocument();
+    expect(screen.queryByText('V9 Archaeology')).not.toBeInTheDocument();
+  });
+});

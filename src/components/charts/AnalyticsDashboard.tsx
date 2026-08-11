@@ -7,11 +7,9 @@ import { useState, useRef, useLayoutEffect } from 'react';
 import { ScoreDistribution } from './ScoreDistribution';
 import { TierBreakdown } from './TierBreakdown';
 import { GenreChart } from './GenreChart';
-import { BudgetChart } from './BudgetChart';
-import { TasteMatch } from './TasteMatch';
+import { FormatChart } from './FormatChart';
 import { useCountUp } from '../../hooks/useCountUp';
-import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
-import { useIsAdmin } from '@/stores/authStore';
+import type { BudgetCategory, Screenplay, RecommendationTier } from '@/types';
 
 interface AnalyticsDashboardProps {
   screenplays: Screenplay[];
@@ -19,7 +17,15 @@ interface AnalyticsDashboardProps {
   onFilterByScoreRange?: (range: { min: number; max: number }) => void;
   onFilterByTier?: (tier: RecommendationTier) => void;
   onFilterByGenre?: (genre: string) => void;
+  /** Retained for old-dashboard compatibility; Discovery intentionally shows Format Mix. */
   onFilterByBudget?: (budget: BudgetCategory) => void;
+  title?: string;
+  initiallyExpanded?: boolean;
+  deferContentUntilExpanded?: boolean;
+  className?: string;
+  maxGenres?: number;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function AnalyticsDashboard({
@@ -28,12 +34,24 @@ export function AnalyticsDashboard({
   onFilterByScoreRange,
   onFilterByTier,
   onFilterByGenre,
-  onFilterByBudget,
+  title = 'Slate Overview',
+  initiallyExpanded = true,
+  deferContentUntilExpanded = false,
+  className = '',
+  maxGenres = 6,
+  expanded,
+  onExpandedChange,
 }: AnalyticsDashboardProps) {
-  const isAdmin = useIsAdmin();
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [internalExpanded, setInternalExpanded] = useState(initiallyExpanded);
+  const isExpanded = expanded ?? internalExpanded;
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState(2000);
+
+  const toggleExpanded = () => {
+    const next = !isExpanded;
+    if (expanded === undefined) setInternalExpanded(next);
+    onExpandedChange?.(next);
+  };
 
   // Measure content height after each expansion so the style reads from state,
   // not from ref.current directly during render (avoids react-hooks/refs error).
@@ -71,42 +89,43 @@ export function AnalyticsDashboard({
     {
       title: 'Score Distribution',
       hint: onFilterByScoreRange ? 'Click a bar to filter' : null,
-      content: (
-        <ScoreDistribution screenplays={screenplays} onBarClick={onFilterByScoreRange} />
-      ),
+      content: <ScoreDistribution screenplays={screenplays} onBarClick={onFilterByScoreRange} />,
     },
     {
       title: 'Recommendation Tiers',
       hint: onFilterByTier ? 'Click to filter by tier' : null,
-      content: (
-        <TierBreakdown screenplays={screenplays} onTierClick={onFilterByTier} />
-      ),
+      content: <TierBreakdown screenplays={screenplays} onTierClick={onFilterByTier} />,
     },
     {
       title: 'Top Genres',
       hint: onFilterByGenre ? 'Click to filter by genre' : null,
       content: (
-        <GenreChart screenplays={screenplays} maxGenres={6} onGenreClick={onFilterByGenre} />
+        <GenreChart
+          screenplays={screenplays}
+          maxGenres={maxGenres}
+          onGenreClick={onFilterByGenre}
+        />
       ),
     },
     {
-      title: 'Budget Tiers',
-      hint: onFilterByBudget ? 'Click to filter by budget' : null,
-      content: (
-        <BudgetChart screenplays={screenplays} onBudgetClick={onFilterByBudget} />
-      ),
+      title: 'Format Mix',
+      hint: null,
+      content: <FormatChart screenplays={screenplays} />,
     },
   ];
 
   return (
-    <div className="mb-6">
+    <div className={`slate-analytics mb-6 ${className}`.trim()}>
       {/* Header with toggle */}
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 rounded-lg glass border border-black-700 hover:border-gold-500/50 transition-colors"
+        type="button"
+        onClick={toggleExpanded}
+        aria-expanded={isExpanded}
+        aria-controls="analytics-dashboard-content"
+        className="slate-analytics__toggle w-full"
       >
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+          <div className="slate-analytics__title flex items-center gap-2">
             <svg
               className="w-5 h-5 text-gold-400"
               fill="none"
@@ -120,11 +139,11 @@ export function AnalyticsDashboard({
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
               />
             </svg>
-            <span className="font-semibold text-black-50">Analytics Dashboard</span>
+            <span>{title}</span>
           </div>
 
           {/* Quick stats — count-up when expanded, static when collapsed */}
-          <div className="flex items-center gap-4 text-sm">
+          <div className="slate-analytics__summary flex items-center gap-4 text-sm">
             <span className="text-black-400">
               <span className="text-gold-400">
                 {isExpanded ? animatedTotal.toFixed(0) : screenplays.length}
@@ -132,21 +151,21 @@ export function AnalyticsDashboard({
               {isFiltered ? ` of ${totalScreenplays.length}` : ''} screenplays
               {isFiltered && <span className="ml-1 text-gold-500">(filtered)</span>}
             </span>
-            <span className="text-black-400">|</span>
+            <span aria-hidden="true">·</span>
             <span className="text-black-400">
               Avg Score:{' '}
               <span className="text-emerald-400">
                 {isExpanded ? animatedAvg.toFixed(1) : avgScoreRaw.toFixed(1)}
               </span>
             </span>
-            <span className="text-black-400">|</span>
+            <span aria-hidden="true">·</span>
             <span className="text-black-400">
               <span className="text-gold-400">
                 {isExpanded ? animatedFilmNow.toFixed(0) : filmNowCount}
               </span>{' '}
               FILM NOW
             </span>
-            <span className="text-black-400">|</span>
+            <span aria-hidden="true">·</span>
             <span className="text-black-400">
               <span className="text-emerald-400">
                 {isExpanded ? animatedRecommend.toFixed(0) : recommendCount}
@@ -169,42 +188,38 @@ export function AnalyticsDashboard({
 
       {/* Expandable content — smooth height + opacity transition */}
       <div
+        id="analytics-dashboard-content"
         ref={contentRef}
         className="overflow-hidden transition-all duration-400 ease-out"
         style={
           isExpanded
             ? {
-              maxHeight: contentHeight,
-              opacity: 1,
-            }
+                maxHeight: contentHeight,
+                opacity: 1,
+              }
             : {
-              maxHeight: 0,
-              opacity: 0,
-            }
+                maxHeight: 0,
+                opacity: 0,
+              }
         }
       >
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {chartCards.map((card, i) => (
-            <div
-              key={card.title}
-              className={isExpanded ? 'card-enter' : ''}
-              style={
-                isExpanded
-                  ? { animationDelay: `${i * 100}ms`, animationFillMode: 'both' }
-                  : undefined
-              }
-            >
-              <div className="glass rounded-lg border border-black-700 p-4 h-full">
-                <h2 className="text-sm font-medium text-black-300 mb-3">{card.title}</h2>
-                <div className="h-48">{card.content}</div>
-                {card.hint && (
-                  <p className="text-xs text-black-400 mt-2 text-center">{card.hint}</p>
-                )}
-              </div>
+        {(!deferContentUntilExpanded || isExpanded) && (
+          <>
+            <div className="slate-analytics__grid mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {chartCards.map((card) => (
+                <div key={card.title} className="slate-analytics__card">
+                  <div className="p-4 h-full">
+                    <h2>{card.title}</h2>
+                    <div className="h-48">{card.content}</div>
+                    {card.hint && (
+                      <p className="text-xs text-black-400 mt-2 text-center">{card.hint}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        {isAdmin && <TasteMatch />}
+          </>
+        )}
       </div>
     </div>
   );

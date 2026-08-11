@@ -91,6 +91,7 @@ describe('SyncStatusIndicator', () => {
         mockStoreState.isLiveConnected = false;
         render(<SyncStatusIndicator />);
         expect(screen.getByText('Live sync disconnected')).toBeDefined();
+        expect(screen.getByRole('status', { name: 'Live sync disconnected' })).toBeDefined();
     });
 
     it('calls startSyncStatusPolling on mount', () => {

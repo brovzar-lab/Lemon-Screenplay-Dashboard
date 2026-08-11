@@ -6,6 +6,7 @@ import {
   privateReaderChatMode,
   sendPrivateReaderMessage,
 } from '@/lib/privateReaderChat';
+import { formatReaderPosition } from '@/lib/producerDisplay';
 import type {
   PrivateReaderConversation,
   PrivateReaderKey,
@@ -247,6 +248,18 @@ export function PrivateReaderChat({
     const outputTokens = attemptsWithUsage.length
       ? attemptsWithUsage.reduce((total, attempt) => total + (attempt.usage?.output_tokens ?? 0), 0)
       : message.usage?.output_tokens;
+    const cacheWriteTokens = attemptsWithUsage.length
+      ? attemptsWithUsage.reduce(
+          (total, attempt) => total + (attempt.usage?.cache_creation_input_tokens ?? 0),
+          0,
+        )
+      : message.usage?.cache_creation_input_tokens;
+    const cacheReadTokens = attemptsWithUsage.length
+      ? attemptsWithUsage.reduce(
+          (total, attempt) => total + (attempt.usage?.cache_read_input_tokens ?? 0),
+          0,
+        )
+      : message.usage?.cache_read_input_tokens;
     const actualCost = attemptsWithUsage.length
       ? attemptsWithUsage.reduce(
           (total, attempt) => total + (attempt.usage?.actual_cost_usd ?? 0),
@@ -257,9 +270,13 @@ export function PrivateReaderChat({
       inputTokens !== undefined || outputTokens !== undefined
         ? `${(inputTokens ?? 0).toLocaleString()} in · ${(outputTokens ?? 0).toLocaleString()} out · `
         : '';
+    const cache =
+      cacheWriteTokens !== undefined || cacheReadTokens !== undefined
+        ? `${(cacheReadTokens ?? 0).toLocaleString()} cache read · ${(cacheWriteTokens ?? 0).toLocaleString()} cache write · `
+        : '';
     return actualCost !== undefined
-      ? `${tokens}$${actualCost.toFixed(4)}`
-      : `${tokens}Cost pending`;
+      ? `${tokens}${cache}$${actualCost.toFixed(4)}`
+      : `${tokens}${cache}Cost pending`;
   }
 
   function auditCost(
@@ -304,7 +321,7 @@ export function PrivateReaderChat({
         <span>Conversation saved</span>
       </div>
 
-      <section className="reader-model-router" aria-label="Reader Chat model">
+      {mode === 'live' && <section className="reader-model-router" aria-label="Reader Chat model">
         <div>
           <span className="dsc-kicker">Lemon Model Router</span>
           <strong>Choose how deeply this reader should think</strong>
@@ -336,7 +353,7 @@ export function PrivateReaderChat({
             </button>
           ))}
         </div>
-      </section>
+      </section>}
 
       {mode === 'local_review' && (
         <div className="reader-conversation__notice" role="status">
@@ -398,9 +415,7 @@ export function PrivateReaderChat({
                   <strong>{message.role === 'reader' ? readerName : 'You'}</strong>
                   {message.position && (
                     <span className={`reader-position reader-position--${message.position}`}>
-                      {message.position === 'reconsidered'
-                        ? 'Position reconsidered'
-                        : message.position}
+                      {formatReaderPosition(message.position)}
                     </span>
                   )}
                 </div>

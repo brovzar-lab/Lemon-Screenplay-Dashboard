@@ -71,7 +71,7 @@ function buildScreenplays(): Screenplay[] {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/discover']}>
+    <MemoryRouter initialEntries={['/discover?ui=classic']}>
       <DiscoverPage />
     </MemoryRouter>,
   );

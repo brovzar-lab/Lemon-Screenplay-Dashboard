@@ -3,8 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
+const uploadPanelMock = vi.hoisted(() => vi.fn());
+
 vi.mock('@/components/settings/UploadPanel', () => ({
-  UploadPanel: () => <div>Upload panel</div>,
+  UploadPanel: (props: Record<string, unknown>) => {
+    uploadPanelMock(props);
+    return <div>Upload panel</div>;
+  },
 }));
 vi.mock('@/components/settings/DataManagement', () => ({
   DataManagement: () => <div>Data management</div>,
@@ -65,6 +70,27 @@ function renderSettings(initialEntry: string) {
 }
 
 describe('Settings deep links', () => {
+  it('opens the complete Intake desk by default', () => {
+    renderSettings('/settings');
+
+    expect(screen.getByTestId('application-header')).toBeInTheDocument();
+    expect(screen.getByText('Upload panel')).toBeInTheDocument();
+    expect(uploadPanelMock).toHaveBeenCalledWith(
+      expect.objectContaining({ presentation: 'intake', initialModel: 'hybrid' }),
+    );
+    expect(screen.getByRole('heading', { name: 'Workflow' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Intelligence' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Library' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'System' })).toBeInTheDocument();
+  });
+
+  it('keeps the legacy Upload deep link as an Intake alias', () => {
+    renderSettings('/settings?tab=upload');
+
+    expect(screen.getByText('Upload panel')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Intake' })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('opens the calibration workspace from a Producer Take link', () => {
     renderSettings('/settings?tab=calibration');
 
@@ -72,11 +98,44 @@ describe('Settings deep links', () => {
     expect(screen.queryByText('Upload panel')).not.toBeInTheDocument();
   });
 
+  it('orders Intelligence before Workflow, keeps Intake first in Workflow, and leaves Calibration last', () => {
+    renderSettings('/settings?tab=intake');
+
+    const sectionButtons = screen.getAllByRole('button').filter((button) =>
+      ['Intake', 'Featured Project', 'Analysis Health', 'Model Comparison', 'PDF Files', 'Data & Sharing', 'Connections & Keys', 'Calibration'].includes(
+        button.getAttribute('aria-label') ?? '',
+      ),
+    );
+    expect(sectionButtons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Analysis Health',
+      'Model Comparison',
+      'Intake',
+      'Featured Project',
+      'PDF Files',
+      'Data & Sharing',
+      'Connections & Keys',
+      'Calibration',
+    ]);
+    expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Light' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dark' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'System' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['/settings?tab=pdf_files', 'PDF files'],
+    ['/settings?tab=api-settings', 'API configuration'],
+    ['/settings?tab=taste-calibration', 'Calibration workspace'],
+  ])('preserves the legacy settings alias %s', (entry, expected) => {
+    renderSettings(entry);
+    expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+
   it('keeps the selected settings tab in the URL', async () => {
     const user = userEvent.setup();
     renderSettings('/settings?tab=calibration');
 
-    await user.click(screen.getByRole('button', { name: 'Data' }));
+    await user.click(screen.getByRole('button', { name: 'Data & Sharing' }));
 
     expect(screen.getByText('Shared links workspace')).toBeInTheDocument();
     expect(screen.getByLabelText('Current location')).toHaveTextContent('?tab=data');

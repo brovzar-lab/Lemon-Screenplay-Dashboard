@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clsx } from 'clsx';
 import { useFavoritesStore } from '@/stores/favoritesStore';
+import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { Screenplay } from '@/types';
 
 interface DiscoveryFavoritesMenuProps {
@@ -10,10 +11,7 @@ interface DiscoveryFavoritesMenuProps {
 
 type FavoriteSelection = 'quick' | string;
 
-export function DiscoveryFavoritesMenu({
-  screenplays,
-  onOpen,
-}: DiscoveryFavoritesMenuProps) {
+export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavoritesMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedListId, setSelectedListId] = useState<FavoriteSelection>('quick');
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -72,7 +70,7 @@ export function DiscoveryFavoritesMenu({
       >
         Favorites
         {totalSaved > 0 && (
-          <span className="dsc-num rounded-full bg-[var(--dsc-accent-soft)] px-2 py-0.5 text-xs font-bold !text-[var(--dsc-accent)]">
+          <span className="dsc-num rounded-full bg-[var(--dsc-accent)] px-2 py-0.5 text-xs font-bold !text-[var(--dsc-on-accent)]">
             {totalSaved}
           </span>
         )}
@@ -139,19 +137,28 @@ export function DiscoveryFavoritesMenu({
                     )}
                   >
                     {list.name}
-                    <span className="dsc-num ml-2 text-xs opacity-70">{list.screenplayIds.length}</span>
+                    <span className="dsc-num ml-2 text-xs opacity-70">
+                      {list.screenplayIds.length}
+                    </span>
                   </button>
                 ))}
               </nav>
 
-              <section className="min-h-0 overflow-y-auto p-4 sm:p-6" aria-labelledby="favorite-list-title">
+              <section
+                className="min-h-0 overflow-y-auto p-4 sm:p-6"
+                aria-labelledby="favorite-list-title"
+              >
                 <div className="mb-4 flex items-end justify-between gap-4">
                   <div>
-                    <h3 id="favorite-list-title" className="text-lg font-semibold text-[var(--dsc-ink)]">
+                    <h3
+                      id="favorite-list-title"
+                      className="text-lg font-semibold text-[var(--dsc-ink)]"
+                    >
                       {selectedName}
                     </h3>
                     <p className="mt-1 text-sm text-[var(--dsc-ink-2)]">
-                      {selectedScreenplays.length} available screenplay{selectedScreenplays.length === 1 ? '' : 's'}
+                      {selectedScreenplays.length} available screenplay
+                      {selectedScreenplays.length === 1 ? '' : 's'}
                     </p>
                   </div>
                 </div>
@@ -162,28 +169,36 @@ export function DiscoveryFavoritesMenu({
                   </p>
                 ) : (
                   <ul className="space-y-2">
-                    {selectedScreenplays.map((screenplay) => (
-                      <li key={screenplay.id}>
-                        <button
-                          type="button"
-                          onClick={(event) => handleOpenScreenplay(screenplay, event.currentTarget)}
-                          aria-label={`Open ${screenplay.title} from favorites`}
-                          className="dsc-card dsc-card-hover group flex min-h-16 w-full items-center justify-between gap-4 px-4 py-3 text-left"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold text-[var(--dsc-ink)]">
-                              {screenplay.title}
+                    {selectedScreenplays.map((screenplay) => {
+                      const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+                      const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
+                      return (
+                        <li key={screenplay.id}>
+                          <button
+                            type="button"
+                            onClick={(event) =>
+                              handleOpenScreenplay(screenplay, event.currentTarget)
+                            }
+                            aria-label={`Open ${displayTitle} from favorites`}
+                            className="dsc-card dsc-card-hover group flex min-h-16 w-full items-center justify-between gap-4 px-4 py-3 text-left"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-semibold text-[var(--dsc-ink)]">
+                                {displayTitle}
+                              </span>
+                              {(screenplay.genre || displayAuthor) && (
+                                <span className="mt-1 block truncate text-xs text-[var(--dsc-ink-3)]">
+                                  {[screenplay.genre, displayAuthor].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
                             </span>
-                            <span className="mt-1 block truncate text-xs text-[var(--dsc-ink-3)]">
-                              {screenplay.genre} · {screenplay.author || 'Unknown writer'}
+                            <span className="dsc-num shrink-0 text-lg font-semibold">
+                              {screenplay.weightedScore.toFixed(1)}
                             </span>
-                          </span>
-                          <span className="dsc-num shrink-0 text-lg font-semibold">
-                            {screenplay.weightedScore.toFixed(1)}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </section>

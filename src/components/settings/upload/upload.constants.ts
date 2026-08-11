@@ -3,26 +3,31 @@
  */
 
 import type { UploadStatus } from '@/stores/uploadStore';
-import type { ModelInfo } from './upload.types';
+import modelCatalog from '@/config/anthropic-model-catalog.json';
+import type { ModelInfo, ModelOption } from './upload.types';
 
 // ─── Model definitions ───────────────────────────────────────────────────────
 
 export const MODEL_OPTIONS: ModelInfo[] = [
   {
     id: 'haiku',
-    name: 'Haiku 4.5',
+    name: modelCatalog.analysisRoutes.haiku.displayName,
+    modelId: modelCatalog.analysisRoutes.haiku.modelId,
+    routeLabel: 'Approved analysis route',
     subtitle: 'Fast & Affordable',
     costPerScript: '~$0.06',
     speed: '~1 min',
     quality: 'Good',
     badge: 'BUDGET',
-    badgeColor: 'bg-emerald-500/20 text-emerald-400',
+    badgeColor: 'settings-model-badge--budget',
     description: 'Best for bulk scanning. Great accuracy for structured analysis at a fraction of the cost. Ideal for processing large batches of 100+ screenplays.',
     icon: '\u26A1',
   },
   {
     id: 'sonnet',
-    name: 'Sonnet 4.5',
+    name: modelCatalog.analysisRoutes.sonnet.displayName,
+    modelId: modelCatalog.analysisRoutes.sonnet.modelId,
+    routeLabel: 'Approved analysis route',
     subtitle: 'Balanced Power',
     costPerScript: '~$0.22',
     speed: '~3 min',
@@ -34,22 +39,26 @@ export const MODEL_OPTIONS: ModelInfo[] = [
   },
   {
     id: 'opus',
-    name: 'Opus 4.6',
+    name: modelCatalog.analysisRoutes.opus.displayName,
+    modelId: modelCatalog.analysisRoutes.opus.modelId,
+    routeLabel: 'Approved analysis route',
     subtitle: 'Maximum Depth',
-    costPerScript: '~$0.90',
+    costPerScript: '~$0.30',
     speed: '~5 min',
     quality: 'Premium',
     badge: 'PREMIUM',
     badgeColor: 'bg-purple-500/20 text-purple-400',
-    description: 'Deepest analysis with the most nuanced insights. Best for high-priority screenplays where you need every detail. 4x the cost of Sonnet.',
+    description: 'Deep analysis with nuanced insights. Best for high-priority screenplays where you need every detail. This pinned route remains unchanged until it passes a benchmark review.',
     icon: '\uD83D\uDC51',
   },
   {
     id: 'hybrid',
     name: 'Hybrid',
+    modelId: `${modelCatalog.analysisRoutes.sonnet.modelId} + ${modelCatalog.analysisRoutes.opus.modelId}`,
+    routeLabel: 'Approved two-pass route',
     subtitle: 'Smart Two-Pass',
-    costPerScript: '~$0.22\u2013$1.12',
-    speed: '~3\u20138 min',
+    costPerScript: '~$0.22-$0.52',
+    speed: '~3-8 min',
     quality: 'Optimized',
     badge: 'SMART',
     badgeColor: 'bg-cyan-500/20 text-cyan-400',
@@ -73,9 +82,9 @@ export const STATUS_LABELS: Record<UploadStatus, { label: string; color: string 
 
 
 // Token cost multipliers per model (per 1K tokens)
-export const MODEL_COSTS: Record<string, { input: number; output: number }> = {
+export const MODEL_COSTS: Record<ModelOption, { input: number; output: number }> = {
   haiku: { input: 0.001, output: 0.005 },
   sonnet: { input: 0.003, output: 0.015 },
-  opus: { input: 0.015, output: 0.075 },
+  opus: { input: 0.005, output: 0.025 },
   hybrid: { input: 0.003, output: 0.015 }, // base rate = Sonnet; Opus cost added dynamically
 };

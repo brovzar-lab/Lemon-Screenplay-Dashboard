@@ -72,7 +72,7 @@ function renderPage() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/discover?preview=drawer']}>
+      <MemoryRouter initialEntries={['/discover?ui=classic&preview=drawer']}>
         <Routes>
           <Route path="/discover/:projectId?" element={<DiscoverPage />} />
         </Routes>
@@ -159,6 +159,7 @@ describe('Discovery Compact Shelf surface smoke tests', () => {
       useFavoritesStore.getState().createList(`Producer List ${index}`);
     }
     renderPage();
+    await user.click(screen.getByRole('button', { name: /Select projects/ }));
     await user.click(await screen.findByRole('button', { name: 'Select Atlas Fall' }));
     await user.click(screen.getByRole('button', { name: 'Select Foxtrot House' }));
 

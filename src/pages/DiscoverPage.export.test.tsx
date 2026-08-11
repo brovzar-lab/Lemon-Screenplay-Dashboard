@@ -69,7 +69,7 @@ function renderPage() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/discover?preview=drawer']}>
+      <MemoryRouter initialEntries={['/discover?ui=classic&preview=drawer']}>
         <Routes>
           <Route path="/discover/:projectId?" element={<DiscoverPage />} />
         </Routes>
@@ -79,6 +79,9 @@ function renderPage() {
 }
 
 async function select(user: ReturnType<typeof userEvent.setup>, title: string) {
+  if (!screen.queryByRole('button', { name: /Done selecting/ })) {
+    await user.click(screen.getByRole('button', { name: /Select projects/ }));
+  }
   await user.click(await screen.findByRole('button', { name: `Select ${title}` }));
 }
 

@@ -3,15 +3,10 @@
  * Generates PDF pitch deck for screenplays using @react-pdf/renderer
  */
 
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-} from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { Screenplay } from '@/types';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 
 // PDF Styles — Soft Print on paper. Rose = brand only; sage/sand/clay = status.
 const styles = StyleSheet.create({
@@ -266,14 +261,18 @@ interface PdfDocumentProps {
 }
 
 export function PdfDocument({ screenplay }: PdfDocumentProps) {
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+
   return (
     <Document>
       {/* Title Page */}
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.title}>{screenplay.title}</Text>
+          <Text style={styles.title}>{displayTitle}</Text>
           <Text style={styles.subtitle}>by {screenplay.author}</Text>
-          <Text style={styles.subtitle}>{screenplay.genre} • {screenplay.collection}</Text>
+          <Text style={styles.subtitle}>
+            {screenplay.genre} • {screenplay.collection}
+          </Text>
           <View style={[styles.badge, getBadgeStyle(screenplay.recommendation)]}>
             <Text style={styles.badgeText}>
               {getRecommendationLabel(screenplay.recommendation)}
@@ -314,7 +313,9 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
                 </Text>
               ) : (
                 <>
-                  <Text style={[styles.scoreValue, { color: getScoreColor(screenplay.cvsTotal, 18) }]}>
+                  <Text
+                    style={[styles.scoreValue, { color: getScoreColor(screenplay.cvsTotal, 18) }]}
+                  >
                     {screenplay.cvsTotal}/18
                   </Text>
                   <View style={styles.scoreBar}>
@@ -338,11 +339,15 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
           <Text style={styles.sectionTitle}>AI Market Analysis</Text>
           <View style={styles.producerMetrics}>
             <View style={styles.metricBox}>
-              <Text style={styles.metricValue}>{screenplay.producerMetrics.marketPotential ?? 'N/A'}</Text>
+              <Text style={styles.metricValue}>
+                {screenplay.producerMetrics.marketPotential ?? 'N/A'}
+              </Text>
               <Text style={styles.metricLabel}>Market Potential</Text>
             </View>
             <View style={styles.metricBox}>
-              <Text style={styles.metricValue}>{screenplay.producerMetrics.uspStrength ?? 'N/A'}</Text>
+              <Text style={styles.metricValue}>
+                {screenplay.producerMetrics.uspStrength ?? 'N/A'}
+              </Text>
               <Text style={styles.metricLabel}>USP Strength</Text>
             </View>
           </View>
@@ -357,7 +362,8 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Lemon Screenplay Dashboard • {screenplay.analysisVersion || 'Unknown'} Analysis • Generated {new Date().toLocaleDateString()}
+            Lemon Screenplay Dashboard • {screenplay.analysisVersion || 'Unknown'} Analysis •
+            Generated {new Date().toLocaleDateString()}
           </Text>
         </View>
       </Page>
@@ -429,9 +435,7 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {screenplay.title} • Page 2
-          </Text>
+          <Text style={styles.footerText}>{displayTitle} • Page 2</Text>
         </View>
       </Page>
 
@@ -460,7 +464,9 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>USP Strength</Text>
-              <Text style={styles.infoValue}>{screenplay.producerMetrics.uspStrength ?? 'N/A'}</Text>
+              <Text style={styles.infoValue}>
+                {screenplay.producerMetrics.uspStrength ?? 'N/A'}
+              </Text>
             </View>
           </View>
         </View>
@@ -495,9 +501,7 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {screenplay.title} • Page 3
-          </Text>
+          <Text style={styles.footerText}>{displayTitle} • Page 3</Text>
         </View>
       </Page>
     </Document>

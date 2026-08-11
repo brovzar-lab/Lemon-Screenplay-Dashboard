@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Screenplay } from '@/types';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { findSimilarScreenplays } from '@/lib/screenplaySimilarity';
 import { SectionHeader } from './SectionHeader';
 
@@ -31,11 +32,9 @@ export function SimilarProjects({ screenplay, allScreenplays, onSelect }: Simila
           >
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium text-black-100">
-                {match.screenplay.title}
+                {getScreenplayDisplayTitle(match.screenplay.title).title}
               </span>
-              <span className="block mt-1 text-xs text-black-400">
-                {match.reasons.join(' · ')}
-              </span>
+              <span className="block mt-1 text-xs text-black-400">{match.reasons.join(' · ')}</span>
             </span>
             <span className="text-sm font-semibold text-gold-400 tabular-nums">
               {Math.round(match.similarity * 100)}%

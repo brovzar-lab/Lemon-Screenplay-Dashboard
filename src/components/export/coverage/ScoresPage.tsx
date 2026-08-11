@@ -6,6 +6,7 @@
 
 import { Page, Text, View } from '@react-pdf/renderer';
 import type { Screenplay } from '@/types';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { DimensionDisplayItem } from '@/lib/dimensionDisplay';
 import { CVS_CONFIG, BUDGET_TIERS } from '@/types/screenplay';
 import { s, C, scoreColor } from './shared';
@@ -18,22 +19,26 @@ interface ScoresPageProps {
 }
 
 export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
-  const cvs = screenplay.commercialViability ?? {} as typeof screenplay.commercialViability;
+  const cvs = screenplay.commercialViability ?? ({} as typeof screenplay.commercialViability);
 
   return (
     <Page size="A4" style={s.page} wrap>
-      <IntHeader title={screenplay.title} />
+      <IntHeader title={getScreenplayDisplayTitle(screenplay.title).title} />
 
       {/* Dimension deep-dive — justifications as compact paragraphs */}
       <View style={s.section}>
         <Text style={s.heading}>Quality Dimensions</Text>
         {dims.map((dim) => (
           <View key={dim.key} style={{ marginBottom: 10 }} wrap={false}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
+            <View
+              style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}
+            >
               <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.grey900 }}>
                 {dim.label}
               </Text>
-              <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: scoreColor(dim.score) }}>
+              <Text
+                style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: scoreColor(dim.score) }}
+              >
                 {dim.score.toFixed(1)}/10 ({(dim.weight * 100).toFixed(0)}%)
               </Text>
             </View>
@@ -61,10 +66,17 @@ export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
               return (
                 <View key={cfg.key} style={[s.tRow, i % 2 === 1 ? s.tRowAlt : {}]}>
                   <Text style={[s.tCell, { flex: 1 }]}>{cfg.label}</Text>
-                  <Text style={[s.tCellBold, { width: 45, textAlign: 'center', color: scoreColor(f.score, cfg.maxScore) }]}>
+                  <Text
+                    style={[
+                      s.tCellBold,
+                      { width: 45, textAlign: 'center', color: scoreColor(f.score, cfg.maxScore) },
+                    ]}
+                  >
                     {f.score}/{cfg.maxScore}
                   </Text>
-                  <Text style={[s.tCell, { flex: 2, marginLeft: 6, color: C.grey700, fontSize: 7.5 }]}>
+                  <Text
+                    style={[s.tCell, { flex: 2, marginLeft: 6, color: C.grey700, fontSize: 7.5 }]}
+                  >
                     {f.note || '—'}
                   </Text>
                 </View>
@@ -75,7 +87,7 @@ export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
               <Text style={[s.tTotalText, { width: 45, textAlign: 'center' }]}>
                 {screenplay.cvsTotal}/18
               </Text>
-              <Text style={{ flex: 2, marginLeft: 6 }}>{' '}</Text>
+              <Text style={{ flex: 2, marginLeft: 6 }}> </Text>
             </View>
           </View>
         </View>
@@ -98,7 +110,9 @@ export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
           </View>
           <View style={s.snapCard}>
             <Text style={s.snapLabel}>Budget</Text>
-            <Text style={s.snapValue}>{BUDGET_TIERS[screenplay.budgetCategory]?.label ?? screenplay.budgetCategory}</Text>
+            <Text style={s.snapValue}>
+              {BUDGET_TIERS[screenplay.budgetCategory]?.label ?? screenplay.budgetCategory}
+            </Text>
           </View>
           <View style={s.snapCard}>
             <Text style={s.snapLabel}>USP Strength</Text>
@@ -107,7 +121,12 @@ export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
           {screenplay.producerMetrics.marketPotential != null && (
             <View style={s.snapCard}>
               <Text style={s.snapLabel}>Market Potential</Text>
-              <Text style={[s.snapValue, { color: scoreColor(screenplay.producerMetrics.marketPotential) }]}>
+              <Text
+                style={[
+                  s.snapValue,
+                  { color: scoreColor(screenplay.producerMetrics.marketPotential) },
+                ]}
+              >
                 {screenplay.producerMetrics.marketPotential}/10
               </Text>
             </View>

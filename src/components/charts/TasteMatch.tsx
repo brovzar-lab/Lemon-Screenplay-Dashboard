@@ -25,57 +25,69 @@ export function TasteMatch() {
   }, []);
 
   if (isLoading) {
-    return <div className="mt-4 border-t border-black-700 pt-5 text-sm text-black-400">Loading Taste Match...</div>;
-  }
-
-  if (stats.reviewed === 0) {
     return (
-      <div className="mt-4 border-t border-black-700 pt-5">
-        <h2 className="text-lg font-display text-gold-200">Taste Match</h2>
-        <p className="mt-1 text-sm text-black-400">
-          Record Billy's Take on screenplay details to start measuring AI agreement.
-        </p>
+      <div className="producer-alignment mt-4" role="status">
+        Loading Producer Alignment…
       </div>
     );
   }
 
-  const confidence = stats.reviewed < 10 ? 'Early signal' : stats.reviewed < 30 ? 'Developing' : 'Strong sample';
+  if (stats.reviewed === 0) {
+    return (
+      <div className="producer-alignment mt-4">
+        <h2>Producer Alignment</h2>
+        <p>Publish a Producer Take to start comparing producer decisions with AI verdicts.</p>
+      </div>
+    );
+  }
+
+  const confidence =
+    stats.reviewed < 10 ? 'Early signal' : stats.reviewed < 30 ? 'Developing' : 'Strong sample';
 
   return (
-    <section className="mt-4 border-t border-black-700 pt-5" aria-labelledby="taste-match-title">
+    <section className="producer-alignment mt-4" aria-labelledby="taste-match-title">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 id="taste-match-title" className="text-lg font-display text-gold-200">Taste Match</h2>
-          <p className="text-sm text-black-400">AI verdicts measured against Billy's recorded decisions</p>
+          <h2 id="taste-match-title">Producer Alignment</h2>
+          <p>Recorded producer decisions compared with AI verdicts</p>
         </div>
-        <span className="text-xs text-black-500">{confidence} · {stats.reviewed} reviewed</span>
+        <span className="text-xs text-black-500">
+          {confidence} · {stats.reviewed} reviewed
+        </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="border-l-2 border-gold-500 pl-3">
-          <p className="text-2xl font-display text-gold-300">{stats.matchRate.toFixed(0)}%</p>
-          <p className="text-xs text-black-400">Exact agreement</p>
+      <div className="producer-alignment__metrics mt-4 grid grid-cols-2 md:grid-cols-4">
+        <div>
+          <p>{stats.reviewed}</p>
+          <span>Recorded decisions</span>
         </div>
-        <div className="border-l-2 border-emerald-500 pl-3">
-          <p className="text-2xl font-display text-black-100">{stats.matched}</p>
-          <p className="text-xs text-black-400">Same verdict</p>
+        <div>
+          <p>{stats.matchRate.toFixed(0)}%</p>
+          <span>Exact agreement</span>
         </div>
-        <div className="border-l-2 border-amber-500 pl-3">
-          <p className="text-2xl font-display text-black-100">{stats.aiTooHigh}</p>
-          <p className="text-xs text-black-400">AI too generous</p>
+        <div>
+          <p>{stats.aiTooHigh}</p>
+          <span>AI too generous</span>
         </div>
-        <div className="border-l-2 border-cyan-500 pl-3">
-          <p className="text-2xl font-display text-black-100">{stats.aiTooLow}</p>
-          <p className="text-xs text-black-400">AI too harsh</p>
+        <div>
+          <p>{stats.aiTooLow}</p>
+          <span>AI too harsh</span>
         </div>
       </div>
+      <p className="producer-alignment__note">
+        Alignment includes every recorded Producer Take. Calibration uses only takes explicitly
+        marked as eligible evidence.
+      </p>
 
       <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
           <h3 className="text-xs font-semibold uppercase text-black-400">Agreement by genre</h3>
           <div className="mt-2 space-y-2">
             {stats.genreStats.slice(0, 5).map((genre) => (
-              <div key={genre.genre} className="grid grid-cols-[minmax(0,1fr)_5rem_3rem] items-center gap-3 text-sm">
+              <div
+                key={genre.genre}
+                className="grid grid-cols-[minmax(0,1fr)_5rem_3rem] items-center gap-3 text-sm"
+              >
                 <span className="truncate text-black-200">{genre.genre}</span>
                 <progress
                   className="h-1.5 w-full accent-gold-500"
@@ -83,7 +95,9 @@ export function TasteMatch() {
                   value={genre.matchRate}
                   aria-label={`${genre.genre} agreement`}
                 />
-                <span className="text-right text-black-400 tabular-nums">{genre.matchRate.toFixed(0)}%</span>
+                <span className="text-right text-black-400 tabular-nums">
+                  {genre.matchRate.toFixed(0)}%
+                </span>
               </div>
             ))}
           </div>
@@ -96,7 +110,10 @@ export function TasteMatch() {
           ) : (
             <div className="mt-2 divide-y divide-black-700">
               {stats.disagreements.slice(0, 4).map((item) => (
-                <div key={item.screenplayId} className="py-2 flex items-center justify-between gap-4 text-sm">
+                <div
+                  key={item.screenplayId}
+                  className="py-2 flex items-center justify-between gap-4 text-sm"
+                >
                   <span className="truncate text-black-200">{item.screenplayTitle}</span>
                   <span className="shrink-0 text-xs text-black-400">
                     AI {verdictLabel(item.aiVerdict)} · Billy {verdictLabel(item.billyVerdict)}

@@ -276,6 +276,30 @@
   color: var(--dsc-ink);
 }
 
+.dsc-selection-trigger {
+  gap: 8px;
+  border-color: var(--dsc-line);
+}
+
+.dsc-selection-trigger.is-active {
+  border-color: var(--dsc-accent);
+  background: var(--dsc-accent-soft);
+  color: var(--dsc-accent);
+}
+
+.dsc-selection-trigger strong {
+  display: grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--dsc-accent);
+  color: var(--dsc-on-accent);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
 .dsc-scrim {
   background: var(--dsc-scrim);
   backdrop-filter: blur(10px);

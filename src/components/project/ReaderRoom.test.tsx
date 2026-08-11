@@ -43,11 +43,17 @@ vi.mock('@/lib/readerReportService', () => ({
   ]),
 }));
 
-function renderRoom() {
+function renderRoom(overrides = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ReaderRoom screenplay={createTestScreenplay({ projectId: 'atlas' })} />
+      <ReaderRoom screenplay={createTestScreenplay({
+        projectId: 'atlas',
+        latestVersionId: 'v9-sealed',
+        hasPdf: true,
+        storagePath: 'screenplays/atlas.pdf',
+        ...overrides,
+      })} />
     </QueryClientProvider>,
   );
 }
@@ -94,5 +100,34 @@ describe('ReaderRoom', () => {
     await user.click(await screen.findByRole('button', { name: /Show full response/i }));
     expect(screen.getByText(/My sealed position remains/i)).toBeInTheDocument();
     expect(screen.getByText('p. 48')).toBeInTheDocument();
+  });
+
+  it('explains exactly why a legacy project is not ready for private chat', async () => {
+    renderRoom({ latestVersionId: undefined, hasPdf: false, storagePath: undefined });
+
+    expect(await screen.findByText(/Current sealed analysis required/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Reanalyze to create a citable analysis version/i })).toBeDisabled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows both reader positions before the roundtable resolution', async () => {
+    renderRoom({
+      readerDisagreements: [
+        {
+          topic: 'comic engine versus character agency',
+          readerA: 'Character Reader',
+          readerAPosition: 'The lead is too passive in the final movement.',
+          readerB: 'Emotion Reader',
+          readerBPosition: 'The passivity creates comic tension and audience sympathy.',
+          resolution: 'Preserve the comic engine while giving the lead one decisive final choice.',
+        },
+      ],
+    });
+
+    expect((await screen.findAllByText('Character Reader')).length).toBeGreaterThan(1);
+    expect(screen.getByText('The lead is too passive in the final movement.')).toBeInTheDocument();
+    expect(screen.getAllByText('Emotion Reader').length).toBeGreaterThan(1);
+    expect(screen.getByText('The passivity creates comic tension and audience sympathy.')).toBeInTheDocument();
+    expect(screen.getByText(/Preserve the comic engine/i)).toBeInTheDocument();
   });
 });

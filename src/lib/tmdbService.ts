@@ -24,17 +24,70 @@ export interface TmdbCheckResult {
   checkedAt: string;
 }
 
+export interface TmdbComparableMatch {
+  tmdbId: number;
+  matchedTitle: string;
+  releaseYear?: string;
+  posterPath: string;
+  posterUrl: string;
+  confidence: 'high' | 'medium';
+  checkedAt: string;
+}
+
 interface TmdbMovie {
   id: number;
   title: string;
   release_date?: string;
   status?: string;
   popularity?: number;
+  poster_path?: string | null;
 }
 
 interface TmdbSearchResponse {
   results: TmdbMovie[];
   total_results: number;
+}
+
+interface ComparableCacheEntry {
+  expiresAt: number;
+  value: TmdbComparableMatch | null;
+}
+
+const COMPARABLE_CACHE_KEY = 'lemon-tmdb-comparable-v2';
+const COMPARABLE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1_000;
+const TMDB_POSTER_BASE_URL = 'https://image.tmdb.org/t/p/w342';
+
+function readComparableCache(): Record<string, ComparableCacheEntry> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(COMPARABLE_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, ComparableCacheEntry>
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeComparableCache(cache: Record<string, ComparableCacheEntry>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(COMPARABLE_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Poster enrichment is optional. A blocked or full cache must not affect the project file.
+  }
+}
+
+function credentialRequest(apiKey: string, url: URL): { headers: Record<string, string> } {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey.startsWith('eyJ')) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  } else {
+    url.searchParams.set('api_key', apiKey);
+  }
+  return { headers };
 }
 
 /**
@@ -47,6 +100,12 @@ function normalizeTitle(t: string): string {
     .replace(/[^\w\s]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function parseComparableTitle(value: string): { title: string; year?: string } {
+  const match = value.trim().match(/^(.*?)\s*\((\d{4})\)\s*$/);
+  if (!match) return { title: value.trim() };
+  return { title: match[1].trim(), year: match[2] };
 }
 
 /**
@@ -101,15 +160,7 @@ export async function checkTmdb(
     // Auto-detect credential type:
     //   JWT (Read Access Token) → Authorization: Bearer header
     //   Short hex string (API Key v3) → ?api_key= query param
-    const isJwt = apiKey.startsWith('eyJ');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (isJwt) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-    } else {
-      url.searchParams.set('api_key', apiKey);
-    }
-
-    const resp = await fetch(url.toString(), { headers });
+    const resp = await fetch(url.toString(), credentialRequest(apiKey, url));
     if (!resp.ok) {
       console.warn('[TMDB] API error', resp.status, resp.statusText);
       return notProduced;
@@ -147,6 +198,74 @@ export async function checkTmdb(
     console.warn('[TMDB] Check failed (non-critical):', err);
     return notProduced;
   }
+}
+
+/**
+ * Find a poster for one analysis-authored comparable title.
+ *
+ * This is display-only enrichment. It never changes the comparable title, analysis,
+ * similarity reasoning, scoring, or sealed evidence. Results and misses are cached
+ * locally for 30 days so a project normally performs at most one lookup per title.
+ */
+export async function searchTmdbComparable(
+  title: string,
+  apiKey: string,
+): Promise<TmdbComparableMatch | null> {
+  const parsedTitle = parseComparableTitle(title);
+  const normalized = normalizeTitle(parsedTitle.title);
+  if (!normalized || !apiKey) return null;
+
+  const cache = readComparableCache();
+  const cached = cache[normalized];
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  let value: TmdbComparableMatch | null = null;
+  let cacheable = false;
+  try {
+    const url = new URL('https://api.themoviedb.org/3/search/movie');
+    url.searchParams.set('query', parsedTitle.title);
+    if (parsedTitle.year) url.searchParams.set('year', parsedTitle.year);
+    url.searchParams.set('include_adult', 'false');
+    url.searchParams.set('language', 'en-US');
+    url.searchParams.set('page', '1');
+
+    const response = await fetch(url.toString(), credentialRequest(apiKey, url));
+    if (response.ok) {
+      cacheable = true;
+      const data = await response.json() as TmdbSearchResponse;
+      const best = (data.results ?? [])
+        .map((movie) => ({ movie, confidence: scoreMatch(parsedTitle.title, movie.title) }))
+        .filter((candidate) => candidate.confidence !== 'low' && Boolean(candidate.movie.poster_path))
+        .sort((a, b) => {
+          if (a.confidence !== b.confidence) return a.confidence === 'high' ? -1 : 1;
+          return (b.movie.popularity ?? 0) - (a.movie.popularity ?? 0);
+        })[0];
+
+      if (best?.movie.poster_path && best.confidence !== 'low') {
+        value = {
+          tmdbId: best.movie.id,
+          matchedTitle: best.movie.title,
+          ...(best.movie.release_date
+            ? { releaseYear: best.movie.release_date.slice(0, 4) }
+            : {}),
+          posterPath: best.movie.poster_path,
+          posterUrl: `${TMDB_POSTER_BASE_URL}${best.movie.poster_path}`,
+          confidence: best.confidence,
+          checkedAt: new Date().toISOString(),
+        };
+      }
+    } else {
+      console.warn('[TMDB] Comparable poster lookup failed', response.status, response.statusText);
+    }
+  } catch (error) {
+    console.warn('[TMDB] Comparable poster lookup failed (non-critical):', error);
+  }
+
+  if (cacheable) {
+    cache[normalized] = { value, expiresAt: Date.now() + COMPARABLE_CACHE_TTL_MS };
+    writeComparableCache(cache);
+  }
+  return value;
 }
 
 /**

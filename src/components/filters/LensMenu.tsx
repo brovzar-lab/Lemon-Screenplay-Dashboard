@@ -30,9 +30,13 @@ function applyLensSnapshot(snapshot: LensSnapshot): void {
 
 interface LensMenuProps {
   presentation?: 'default' | 'discovery';
+  triggerLabel?: string;
 }
 
-export function LensMenu({ presentation = 'default' }: LensMenuProps) {
+export function LensMenu({
+  presentation = 'default',
+  triggerLabel = 'Lenses',
+}: LensMenuProps) {
   const isDiscovery = presentation === 'discovery';
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
@@ -82,7 +86,7 @@ export function LensMenu({ presentation = 'default' }: LensMenuProps) {
         title="Saved Lenses"
         aria-haspopup="dialog"
       >
-        Lenses
+        {triggerLabel}
         {lenses.length > 0 && (
           <span className={isDiscovery ? 'rounded-full bg-[var(--dsc-accent-soft)] px-1.5 py-0.5 text-xs font-bold text-[var(--dsc-accent)]' : 'px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold'}>
             {lenses.length}

@@ -13,6 +13,7 @@ import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { SharedScoresPanel } from './SharedScoresPanel';
 import { SharedContentDetails } from './SharedContentDetails';
 import type { SharedViewDocument } from '@/lib/shareService';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 
 interface SharedViewLayoutProps {
   data: SharedViewDocument;
@@ -20,17 +21,14 @@ interface SharedViewLayoutProps {
 
 export function SharedViewLayout({ data }: SharedViewLayoutProps) {
   const { analysis } = data;
+  const displayTitle = getScreenplayDisplayTitle(analysis.title).title;
 
   return (
-    <div className="min-h-screen bg-black-900">
+    <div className="public-shared-view min-h-screen bg-black-900">
       <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Header with logo */}
         <header className="flex items-center justify-center mb-8">
-          <img
-            src="/lemon-logo-white.png"
-            alt="Lemon Studios"
-            className="h-8 w-8"
-          />
+          <img src="/lemon-logo-white.png" alt="Lemon Studios" className="h-8 w-8" />
         </header>
 
         {/* Poster */}
@@ -38,7 +36,7 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
           <div className="flex justify-center mb-8">
             <img
               src={data.posterUrl}
-              alt={`${analysis.title} poster`}
+              alt={`${displayTitle} poster`}
               className="rounded-xl max-h-80 object-cover shadow-lg"
             />
           </div>
@@ -46,12 +44,8 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
 
         {/* Title / Author / Genre bar */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gold-200 mb-2">
-            {analysis.title}
-          </h1>
-          <p className="text-lg text-black-300">
-            {analysis.author}
-          </p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gold-200 mb-2">{displayTitle}</h1>
+          <p className="text-lg text-black-300">{analysis.author}</p>
           <div className="flex items-center justify-center gap-3 mt-3 flex-wrap">
             <span className="px-3 py-1 text-sm rounded-md bg-black-800 text-black-300 border border-black-700">
               {analysis.genre}
@@ -103,10 +97,7 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
         </div>
 
         {/* Content Details */}
-        <SharedContentDetails
-          analysis={analysis}
-          notes={data.notes}
-        />
+        <SharedContentDetails analysis={analysis} notes={data.notes} />
 
         {/* Footer */}
         <footer className="mt-12 pt-6 border-t border-black-700 text-center">

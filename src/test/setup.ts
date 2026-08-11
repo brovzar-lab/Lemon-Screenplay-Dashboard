@@ -5,6 +5,10 @@
 
 import { vi } from 'vitest';
 import '@testing-library/jest-dom';
+import { setLogLevel } from 'firebase/firestore';
+
+// Tests intentionally run without a Firestore backend; suppress its retry diagnostics.
+setLogLevel('silent');
 
 vi.mock('firebase/auth', async (importOriginal) => {
   const actual = await importOriginal<typeof import('firebase/auth')>();
@@ -30,6 +34,7 @@ vi.mock('firebase/auth', async (importOriginal) => {
   return {
     ...actual,
     GoogleAuthProvider: class GoogleAuthProvider {
+      static credential = vi.fn(() => ({ providerId: 'google.com' }));
       setCustomParameters = vi.fn();
     },
     onAuthStateChanged: vi.fn((_auth, callback) => {
@@ -38,6 +43,9 @@ vi.mock('firebase/auth', async (importOriginal) => {
     }),
     signInWithPopup: vi.fn().mockResolvedValue({ user }),
     signInWithRedirect: vi.fn().mockResolvedValue(undefined),
+    signInWithCredential: vi.fn().mockResolvedValue({ user }),
+    signInWithCustomToken: vi.fn().mockResolvedValue({ user }),
+    getRedirectResult: vi.fn().mockResolvedValue(null),
     signOut: vi.fn().mockResolvedValue(undefined),
     setPersistence: vi.fn().mockResolvedValue(undefined),
   };

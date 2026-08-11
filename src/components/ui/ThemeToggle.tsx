@@ -7,18 +7,9 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      className="rounded-lg p-2"
-      style={{ color: 'var(--sp-text-3)', transition: 'color 120ms, background 120ms' }}
-      onMouseEnter={(event) => {
-        event.currentTarget.style.color = 'var(--sp-accent)';
-        event.currentTarget.style.background = 'var(--sp-sunken)';
-      }}
-      onMouseLeave={(event) => {
-        event.currentTarget.style.color = 'var(--sp-text-3)';
-        event.currentTarget.style.background = 'transparent';
-      }}
+      className="theme-toggle"
       title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-      aria-label="Toggle theme"
+      aria-label={`Use ${isDark ? 'light' : 'dark'} theme`}
     >
       {isDark ? (
         <svg

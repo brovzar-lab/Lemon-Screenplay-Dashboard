@@ -28,6 +28,8 @@ describe('AuthGate', () => {
     mockState = {
       initialize: mockInitialize,
       signIn: mockSignIn,
+      signInWithIdToken: vi.fn(),
+      signInLocalReview: vi.fn(),
       isSigningIn: false,
       error: null,
       status: 'initializing',
@@ -41,10 +43,12 @@ describe('AuthGate', () => {
     expect(mockInitialize).toHaveBeenCalledOnce();
   });
 
-  it('shows Google sign-in when signed out', () => {
+  it('shows Google sign-in when signed out', async () => {
     mockState.status = 'signed_out';
     renderGate();
-    expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Continue as Billy' }),
+    ).toBeInTheDocument();
   });
 
   it('allows a reader into the dashboard', () => {
@@ -59,6 +63,7 @@ describe('AuthGate', () => {
     mockState.profile = { role: 'reader' };
     renderGate(true);
     expect(screen.getByRole('heading', { name: 'Admin access required' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to Discovery' })).toHaveAttribute('href', '/');
     expect(screen.queryByText('Protected dashboard')).not.toBeInTheDocument();
   });
 

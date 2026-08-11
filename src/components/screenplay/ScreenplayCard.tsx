@@ -24,6 +24,7 @@ import { useIsAdmin } from '@/stores/authStore';
 import { PercentileBadge } from '@/components/ui/PercentileBadge';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import type { PercentileRank } from '@/lib/percentileRanking';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
@@ -31,7 +32,12 @@ interface ScreenplayCardProps {
   percentileRank?: PercentileRank;
 }
 
-export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick, percentileRank }: ScreenplayCardProps) {
+export const ScreenplayCard = memo(function ScreenplayCard({
+  screenplay,
+  onClick,
+  percentileRank,
+}: ScreenplayCardProps) {
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
   const isAdmin = useIsAdmin();
   const isBulkSelected = useIsSelected(screenplay.id);
   const toggleBulkSelection = useSelectionStore((s) => s.toggle);
@@ -44,8 +50,8 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
   // Hover peek: swap logline ↔ top-3 dimension pills (card height stays locked)
   const [isPeeking, setIsPeeking] = useState(false);
   const peekTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const supportsHover = typeof window !== 'undefined' &&
-    window.matchMedia('(hover: hover)').matches;
+  const supportsHover =
+    typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches;
 
   const handlePeekEnter = () => {
     if (!supportsHover) return;
@@ -108,7 +114,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
         }}
         tabIndex={0}
         role="button"
-        aria-label={`View details for ${screenplay.title}`}
+        aria-label={`View details for ${displayTitle}`}
         onMouseEnter={handlePeekEnter}
         onMouseLeave={handlePeekLeave}
         className={clsx(
@@ -139,7 +145,13 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
             aria-label={isBulkSelected ? 'Deselect screenplay' : 'Select screenplay'}
           >
             {isBulkSelected && (
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={3}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             )}
@@ -177,8 +189,12 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
             title="Delete screenplay"
           >
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
           </button>
         )}
@@ -191,8 +207,11 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
             <AnalysisTrustBadge screenplay={screenplay} />
           </div>
           {/* Title: always 1 line, truncated */}
-          <h3 className="text-base font-display leading-tight truncate" style={{ color: 'var(--sp-text)' }}>
-            {screenplay.title}
+          <h3
+            className="text-base font-display leading-tight truncate"
+            style={{ color: 'var(--sp-text)' }}
+          >
+            {displayTitle}
           </h3>
         </div>
 
@@ -230,7 +249,11 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
               <span
                 key={dim.key}
                 className="text-[10px] px-2 py-0.5 rounded-full"
-                style={{ background: 'var(--sp-surface-2)', color: 'var(--sp-text-2)', fontVariantNumeric: 'tabular-nums' }}
+                style={{
+                  background: 'var(--sp-surface-2)',
+                  color: 'var(--sp-text-2)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
               >
                 {dim.label}: {dim.score.toFixed(1)}
               </span>
@@ -248,12 +271,20 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
             <div className="flex items-baseline gap-3">
               {/* Weighted score — the primary number */}
               <div>
-                <span className="text-[9px] font-medium tracking-widest uppercase block leading-none mb-0.5" style={{ color: 'var(--sp-text-3)' }}>
+                <span
+                  className="text-[9px] font-medium tracking-widest uppercase block leading-none mb-0.5"
+                  style={{ color: 'var(--sp-text-3)' }}
+                >
                   Score
                 </span>
                 <span
                   className={clsx(isPass ? 'text-lg' : 'text-2xl', 'font-bold leading-none')}
-                  style={{ color: 'var(--sp-text)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em', fontWeight: 600 }}
+                  style={{
+                    color: 'var(--sp-text)',
+                    fontVariantNumeric: 'tabular-nums',
+                    letterSpacing: '-0.02em',
+                    fontWeight: 600,
+                  }}
                 >
                   {weightedScore}
                 </span>
@@ -262,7 +293,10 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
               {/* CVS — secondary, smaller */}
               {cvsAssessed && (
                 <div>
-                  <span className="text-[9px] font-medium tracking-widest uppercase block leading-none mb-0.5" style={{ color: 'var(--sp-text-3)' }}>
+                  <span
+                    className="text-[9px] font-medium tracking-widest uppercase block leading-none mb-0.5"
+                    style={{ color: 'var(--sp-text-3)' }}
+                  >
                     CVS
                   </span>
                   <span
@@ -282,7 +316,11 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
               <span
                 key={dim.key}
                 className="text-[9px] px-1.5 py-0.5 rounded"
-                style={{ background: 'var(--sp-surface-2)', color: 'var(--sp-text-3)', fontVariantNumeric: 'tabular-nums' }}
+                style={{
+                  background: 'var(--sp-surface-2)',
+                  color: 'var(--sp-text-3)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
               >
                 {dim.label.split(' ')[0]} {dim.score.toFixed(1)}
               </span>
@@ -291,14 +329,16 @@ export const ScreenplayCard = memo(function ScreenplayCard({ screenplay, onClick
         </div>
       </article>
 
-      {isAdmin && <DeleteConfirmDialog
-        isOpen={showDeleteConfirm}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setShowDeleteConfirm(false)}
-        title={`Delete "${screenplay.title}"?`}
-        message={`Remove "${screenplay.title}" from the dashboard? You can restore it from Settings > Data.`}
-        isPending={deleteMutation.isPending}
-      />}
+      {isAdmin && (
+        <DeleteConfirmDialog
+          isOpen={showDeleteConfirm}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+          title={`Delete "${displayTitle}"?`}
+          message={`Remove "${displayTitle}" from the dashboard? You can restore it from Settings > Data.`}
+          isPending={deleteMutation.isPending}
+        />
+      )}
     </>
   );
 });

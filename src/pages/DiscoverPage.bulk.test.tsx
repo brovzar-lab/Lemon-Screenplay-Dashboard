@@ -64,7 +64,7 @@ function renderPage() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/discover?preview=drawer']}>
+      <MemoryRouter initialEntries={['/discover?ui=classic&preview=drawer']}>
         <Routes>
           <Route path="/discover/:projectId?" element={<DiscoverPage />} />
         </Routes>
@@ -74,6 +74,9 @@ function renderPage() {
 }
 
 async function select(user: ReturnType<typeof userEvent.setup>, title: string) {
+  if (!screen.queryByRole('button', { name: /Done selecting/ })) {
+    await user.click(screen.getByRole('button', { name: /Select projects/ }));
+  }
   await user.click(await screen.findByRole('button', { name: `Select ${title}` }));
 }
 
@@ -203,6 +206,32 @@ describe('Discovery bulk actions', () => {
 
     expect(useSelectionStore.getState().selectedIds.size).toBe(0);
     expect(screen.queryByText(/screenplays? selected/)).not.toBeInTheDocument();
+  });
+
+  it('exits an empty selection mode with Escape', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Select projects/ }));
+    expect(screen.getByRole('button', { name: /Done selecting/ })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Select projects/ })).toBeInTheDocument(),
+    );
+  });
+
+  it('clears selected projects when Discovery unmounts', async () => {
+    const user = userEvent.setup();
+    const page = renderPage();
+    await select(user, 'Atlas Fall');
+
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(['atlas']));
+
+    page.unmount();
+
+    expect(useSelectionStore.getState().selectedIds.size).toBe(0);
   });
 
   it('closes the drawer before Escape clears the selection', async () => {

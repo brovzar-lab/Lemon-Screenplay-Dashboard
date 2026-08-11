@@ -1,6 +1,9 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DiscoverShell } from '@/components/discover';
+import type { DiscoverShellProps } from '@/components/discover/DiscoverShell';
+import { HybridDiscoverShell } from '@/components/discover/hybrid/HybridDiscoverShell';
+import { ScreenplayDiscoverShell } from '@/components/discover/screenplay/ScreenplayDiscoverShell';
 import { useDiscoveryShareStatuses } from '@/components/discover/useDiscoveryShareStatuses';
 import {
   passesFilters,
@@ -8,12 +11,16 @@ import {
   useHasActiveFilters,
 } from '@/hooks/useFilteredScreenplays';
 import { useLiveScreenplaySync, useScreenplays } from '@/hooks/useScreenplays';
+import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
 import { getScreenplayStats } from '@/lib/api';
+import { selectProducerLookCandidates } from '@/lib/developmentOpportunity';
+import { resolveDiscoveryPresentation } from '@/lib/discoveryPresentation';
+import { useIsAdmin } from '@/stores/authStore';
 import { useFilterStore } from '@/stores/filterStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { useSortStore } from '@/stores/sortStore';
 import { DEFAULT_SORT_STATE } from '@/types/filters';
-import type { Screenplay } from '@/types';
+import type { ProducerAssessmentHead, Screenplay } from '@/types';
 
 function isDashboardDefaultSort() {
   const { sortConfigs, prioritizeFilmNow } = useSortStore.getState();
@@ -31,7 +38,11 @@ function isDashboardDefaultSort() {
 function DiscoverPage() {
   const { projectId } = useParams<{ projectId?: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const presentation = resolveDiscoveryPresentation(searchParams.get('ui'));
+  const producerLookActive = searchParams.get('view') === 'producer-look';
+  const isAdmin = useIsAdmin();
+  const { data: producerAssessmentHeads = [] } = useProducerAssessmentHeads(isAdmin);
   const { data: allScreenplays = [] } = useScreenplays();
   const { screenplays, totalCount, filteredCount, isLoading, error } = useFilteredScreenplays();
   const hasActiveFilters = useHasActiveFilters();
@@ -71,6 +82,42 @@ function DiscoverPage() {
   }, [allScreenplays]);
 
   const stats = useMemo(() => getScreenplayStats(allScreenplays), [allScreenplays]);
+  const producerAssessments = useMemo(
+    () =>
+      new Map<string, ProducerAssessmentHead>(
+        producerAssessmentHeads.map((assessment) => [assessment.projectId, assessment]),
+      ),
+    [producerAssessmentHeads],
+  );
+  const producerLookCandidates = useMemo(
+    () => selectProducerLookCandidates(screenplays, producerAssessments),
+    [producerAssessments, screenplays],
+  );
+  const producerLookIds = useMemo(
+    () =>
+      new Set(
+        producerLookCandidates.map(({ screenplay }) => screenplay.projectId ?? screenplay.id),
+      ),
+    [producerLookCandidates],
+  );
+  const displayedScreenplays = producerLookActive
+    ? producerLookCandidates.map(({ screenplay }) => screenplay)
+    : screenplays;
+
+  const toggleProducerLook = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (producerLookActive) nextParams.delete('view');
+    else nextParams.set('view', 'producer-look');
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const clearDiscoveryView = () => {
+    filters.resetFilters();
+    if (!producerLookActive) return;
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('view');
+    setSearchParams(nextParams, { replace: true });
+  };
   const { producedHiddenCount, nonScreenplayHiddenCount } = useMemo(() => {
     const pdfScanData = { statuses: pdfStatuses, hasScanResult: hasPdfScanResult };
     const withoutDefaultHides = {
@@ -118,41 +165,66 @@ function DiscoverPage() {
   const openScreenplay = (screenplay: Screenplay) => {
     const targetId = encodeURIComponent(screenplay.projectId ?? screenplay.id);
     if (searchParams.get('preview') === 'drawer') {
-      navigate(`/discover/${targetId}?preview=drawer`);
+      const nextParams = new URLSearchParams(searchParams);
+      const query = nextParams.toString();
+      navigate(`/discover/${targetId}${query ? `?${query}` : ''}`);
+      return;
+    }
+    if (presentation === 'screenplay') {
+      sessionStorage.setItem('lemon.discovery.screenplay.scrollY', String(window.scrollY));
+      navigate(`/projects/${targetId}?workspace=screenplay`, {
+        state: { fromDiscovery: true },
+      });
       return;
     }
     navigate(`/projects/${targetId}`, { state: { fromDiscovery: true } });
   };
 
   const closeScreenplay = () => {
-    navigate(
-      searchParams.get('preview') === 'drawer' ? '/discover?preview=drawer' : '/discover',
-      { replace: true },
-    );
+    const nextParams = new URLSearchParams(searchParams);
+    const query = nextParams.toString();
+    navigate(`/discover${query ? `?${query}` : ''}`, { replace: true });
   };
 
-  return (
-    <DiscoverShell
-      screenplays={screenplays}
-      allScreenplays={allScreenplays}
-      totalCount={totalCount}
-      filteredCount={filteredCount}
-      genres={genres}
-      themes={themes}
-      hasActiveFilters={hasActiveFilters}
-      onClearFilters={filters.resetFilters}
-      producedHiddenCount={producedHiddenCount}
-      onRevealProduced={() => filters.setHideProduced(false)}
-      nonScreenplayHiddenCount={nonScreenplayHiddenCount}
-      onRevealNonScreenplays={() => filters.setHideNonScreenplays(false)}
-      stats={stats}
-      selectedScreenplay={selectedScreenplay}
-      onOpenScreenplay={openScreenplay}
-      onCloseScreenplay={closeScreenplay}
-      isLoading={isLoading}
-      isError={Boolean(error)}
-    />
-  );
+  const shellProps: DiscoverShellProps = {
+    screenplays: displayedScreenplays,
+    allScreenplays,
+    totalCount,
+    filteredCount: producerLookActive ? displayedScreenplays.length : filteredCount,
+    genres,
+    themes,
+    hasActiveFilters: hasActiveFilters || producerLookActive,
+    onClearFilters: clearDiscoveryView,
+    producedHiddenCount,
+    onRevealProduced: () => filters.setHideProduced(false),
+    nonScreenplayHiddenCount,
+    onRevealNonScreenplays: () => filters.setHideNonScreenplays(false),
+    stats,
+    selectedScreenplay,
+    onOpenScreenplay: openScreenplay,
+    onCloseScreenplay: closeScreenplay,
+    isLoading,
+    isError: Boolean(error),
+    producerAssessments,
+    producerLookIds,
+    producerLookCount: producerLookCandidates.length,
+    producerLookActive,
+    onToggleProducerLook: toggleProducerLook,
+  };
+
+  useEffect(() => {
+    if (presentation !== 'screenplay') return;
+    const savedPosition = sessionStorage.getItem('lemon.discovery.screenplay.scrollY');
+    if (!savedPosition) return;
+    sessionStorage.removeItem('lemon.discovery.screenplay.scrollY');
+    window.requestAnimationFrame(() =>
+      window.scrollTo({ top: Number(savedPosition), behavior: 'auto' }),
+    );
+  }, [presentation]);
+
+  if (presentation === 'screenplay') return <ScreenplayDiscoverShell {...shellProps} />;
+  if (presentation === 'hybrid') return <HybridDiscoverShell {...shellProps} />;
+  return <DiscoverShell {...shellProps} />;
 }
 
 export default DiscoverPage;

@@ -33,7 +33,16 @@ vi.mock('@/stores/themeStore', () => ({
     { id: 'dark', label: 'Dark', family: 'instrument', mode: 'dark' },
   ],
   DESIGN_SYSTEMS: [
-    { id: 'instrument', label: 'Instrument', description: 'Cool cobalt', lightThemeId: 'light', darkThemeId: 'dark', accentLight: '#2B54F0', accentDark: '#6E8BFF', fontHint: 'Playfair Display' },
+    {
+      id: 'instrument',
+      label: 'Instrument',
+      description: 'Cool cobalt',
+      lightThemeId: 'light',
+      darkThemeId: 'dark',
+      accentLight: '#2B54F0',
+      accentDark: '#6E8BFF',
+      fontHint: 'Playfair Display',
+    },
   ],
 }));
 
@@ -67,7 +76,7 @@ describe('Header', () => {
     render(
       <MemoryRouter>
         <Header />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText('LEMON')).toBeInTheDocument();
@@ -78,7 +87,7 @@ describe('Header', () => {
     render(
       <MemoryRouter>
         <Header />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByRole('banner')).toBeInTheDocument();
@@ -88,19 +97,22 @@ describe('Header', () => {
     render(
       <MemoryRouter>
         <Header />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
-    expect(screen.getByTitle('Settings')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/settings?tab=analysis',
+    );
   });
 
   it('renders the theme toggle button', () => {
     render(
       <MemoryRouter>
         <Header />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
-    expect(screen.getByLabelText('Toggle theme')).toBeInTheDocument();
+    expect(screen.getByLabelText('Use dark theme')).toBeInTheDocument();
   });
 });

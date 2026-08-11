@@ -13,8 +13,12 @@ import {
     GoogleAuthProvider,
     browserLocalPersistence,
     getAuth,
+    getRedirectResult,
     onAuthStateChanged,
     setPersistence,
+    signInWithCredential,
+    signInWithCustomToken,
+    signInWithPopup,
     signInWithRedirect,
     signOut,
 } from 'firebase/auth';
@@ -45,6 +49,13 @@ export const auth = getAuth(app);
 // not mount data consumers until this resolves with a signed-in user.
 export const authReady: Promise<User | null> = (async () => {
     await setPersistence(auth, browserLocalPersistence);
+
+    // Complete any full-page Google sign-in before resolving the restored
+    // session. Embedded review browsers return through Firebase's hosted auth
+    // handler, so explicitly consuming the redirect result is required for
+    // the signed-in user to survive the trip back to localhost.
+    await getRedirectResult(auth);
+
     return new Promise<User | null>((resolve, reject) => {
         let unsubscribe: Unsubscribe = () => {};
         unsubscribe = onAuthStateChanged(
@@ -60,6 +71,12 @@ export const authReady: Promise<User | null> = (async () => {
 
 export const LEMON_EMAIL_DOMAIN = 'lemonfilms.com';
 
+// Public OAuth client identifier used by Google Identity Services. This is
+// not a secret. Local embedded review browsers use it to return a Google ID
+// token directly to Firebase without relying on a cross-window popup handoff.
+export const GOOGLE_WEB_CLIENT_ID =
+    '493694843892-o0m76qpj6h6he3ovdnp14sag1lhln9ef.apps.googleusercontent.com';
+
 export function isLemonEmail(email: string | null | undefined): boolean {
     return email?.toLowerCase().endsWith(`@${LEMON_EMAIL_DOMAIN}`) ?? false;
 }
@@ -71,9 +88,55 @@ export async function signInWithGoogle(): Promise<void> {
         prompt: 'select_account',
     });
 
-    // A full-page redirect works in the in-app review browser and avoids
-    // popup blockers. The auth-state listener validates the returned account.
-    await signInWithRedirect(auth, provider);
+    try {
+        // Popup auth keeps the app origin alive while Google verifies the
+        // account. This is the reliable path in embedded review browsers,
+        // where cross-site redirect state may be partitioned or discarded.
+        await signInWithPopup(auth, provider);
+    } catch (error) {
+        const code =
+            typeof error === 'object' && error !== null && 'code' in error
+                ? String(error.code)
+                : '';
+
+        if (
+            code !== 'auth/popup-blocked' &&
+            code !== 'auth/operation-not-supported-in-this-environment'
+        ) {
+            throw error;
+        }
+
+        // Preserve a full-page fallback for browsers that cannot create a
+        // popup. authReady consumes the redirect result when the app returns.
+        await signInWithRedirect(auth, provider);
+    }
+}
+
+export async function signInWithGoogleIdToken(idToken: string): Promise<void> {
+    const credential = GoogleAuthProvider.credential(idToken);
+    await signInWithCredential(auth, credential);
+}
+
+export async function signInForLocalReview(): Promise<void> {
+    const isLoopback =
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1';
+    if (!import.meta.env.DEV || !isLoopback) {
+        throw new Error('Local review sign-in is available only on this Mac.');
+    }
+
+    const response = await fetch('/__local-review/session', {
+        method: 'POST',
+        headers: { 'X-Lemon-Local-Review': '1' },
+        credentials: 'same-origin',
+    });
+    const payload = await response.json() as { token?: string; error?: string };
+
+    if (!response.ok || !payload.token) {
+        throw new Error(payload.error ?? 'Local review sign-in is unavailable.');
+    }
+
+    await signInWithCustomToken(auth, payload.token);
 }
 
 export function signOutUser(): Promise<void> {

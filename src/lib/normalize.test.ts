@@ -532,11 +532,18 @@ describe('normalizeV9Screenplay', () => {
 
     it('maps comparable_films from object format to array', () => {
         const raw = createMockV9Raw();
+        (raw.analysis as Record<string, unknown>).comparable_films = {
+            tone: { title: 'The Royal Tenenbaums', similarity: 'Anderson whimsy + family dysfunction' },
+            structure: { title: 'Stand by Me', structural_match: 'Kids on a journey', key_divergence: 'Romance vs. friendship' },
+        };
         const result = normalizeV9Screenplay(raw, 'Analysis');
 
         expect(result.comparableFilms).toHaveLength(2);
         expect(result.comparableFilms[0].title).toBe('The Royal Tenenbaums');
+        expect(result.comparableFilms[0].comparisonLens).toBe('tone');
+        expect(result.comparableFilms[0].boxOfficeRelevance).toBeUndefined();
         expect(result.comparableFilms[1].title).toBe('Stand by Me');
+        expect(result.comparableFilms[1].comparisonLens).toBe('structure');
     });
 
     it('builds commercial viability from lenses block', () => {

@@ -4,6 +4,7 @@
  */
 
 import { clsx } from 'clsx';
+import modelCatalog from '@/config/anthropic-model-catalog.json';
 import { MODEL_OPTIONS } from './upload.constants';
 import type { ModelOption, UploadPresentation } from '@/components/settings/upload/upload.types';
 
@@ -25,12 +26,30 @@ export function ModelSelector({
   const isIntake = presentation === 'intake';
   return (
     <div>
-      <p className={clsx(
-        'mb-3 block text-sm font-medium',
-        isIntake ? 'text-[var(--dsc-ink)]' : 'text-gold-300',
-      )}>
-        Analysis Model
-      </p>
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className={clsx(
+            'block text-sm font-medium',
+            isIntake ? 'text-[var(--dsc-ink)]' : 'text-gold-300',
+          )}>
+            Analysis Model
+          </p>
+          <p className={clsx('mt-1 text-xs', isIntake ? 'text-[var(--dsc-ink-3)]' : 'text-black-400')}>
+            Approved routes verified {new Date(`${modelCatalog.verifiedAt}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. New releases require benchmark approval before scoring changes.
+          </p>
+        </div>
+        <span className={clsx('rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em]', isIntake ? 'bg-[var(--dsc-accent-soft)] text-[var(--dsc-accent)]' : 'bg-black-700 text-black-300')}>
+          Version-pinned
+        </span>
+      </div>
+      <div className={clsx('mb-3 rounded-lg border px-3 py-2 text-xs leading-relaxed', isIntake ? 'border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] text-[var(--dsc-ink-2)]' : 'border-black-700 bg-black-800/50 text-black-300')}>
+        <strong className={isIntake ? 'text-[var(--dsc-ink)]' : 'text-black-100'}>Catalog watch:</strong>{' '}
+        Anthropic currently lists <code>{modelCatalog.latestObserved.sonnet}</code> and{' '}
+        <code>{modelCatalog.latestObserved.opus}</code>. Analysis remains pinned to{' '}
+        <code>{modelCatalog.analysisRoutes.sonnet.modelId}</code> and{' '}
+        <code>{modelCatalog.analysisRoutes.opus.modelId}</code> until newer routes pass Lemon&apos;s
+        sealed screenplay benchmark.
+      </div>
       <div className={clsx('grid grid-cols-1 gap-3 md:grid-cols-2', isIntake && '2xl:grid-cols-4')}>
         {MODEL_OPTIONS.map((model) => (
           <button
@@ -76,7 +95,7 @@ export function ModelSelector({
             {/* Stats Grid */}
             <div className="grid grid-cols-3 gap-2 mt-3 mb-3">
               <div className="text-center">
-                <p className="text-xs text-black-500 mb-0.5">Cost</p>
+                <p className={clsx('mb-0.5 text-xs', isIntake ? 'text-[var(--dsc-ink-3)]' : 'text-black-500')}>Cost</p>
                 <p className={clsx(
                   'text-sm font-bold',
                   model.id === 'haiku' ? 'text-emerald-400' :
@@ -98,6 +117,11 @@ export function ModelSelector({
             {/* Description */}
             <p className={clsx('text-xs leading-relaxed', isIntake ? 'text-[var(--dsc-ink-2)]' : 'text-black-400')}>
               {model.description}
+            </p>
+            <p className={clsx('mt-3 border-t pt-2 font-mono text-[10px] leading-relaxed', isIntake ? 'border-[var(--dsc-line)] text-[var(--dsc-ink-3)]' : 'border-black-700 text-black-500')}>
+              <span className="font-sans font-bold uppercase tracking-[0.08em]">{model.routeLabel}</span>
+              <br />
+              {model.modelId}
             </p>
 
             {/* Selection Indicator */}
@@ -122,7 +146,7 @@ export function ModelSelector({
           </svg>
           <span className={isIntake ? 'text-[var(--dsc-ink-2)]' : 'text-black-400'}>
             Estimated batch cost for {pendingCount} files with {MODEL_OPTIONS.find(m => m.id === selectedModel)!.name}: {' '}
-            <span style={{ color: 'var(--sp-accent)', fontVariantNumeric: 'tabular-nums' }}>{batchCostEstimate}</span>
+            <span className="font-semibold tabular-nums text-[var(--sp-accent)]">{batchCostEstimate}</span>
           </span>
         </div>
       )}

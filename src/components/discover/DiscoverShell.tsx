@@ -9,7 +9,11 @@ import {
   DiscoverRankedShelf,
 } from '@/components/discover/DiscoverResults';
 import { DiscoverySelectionBar } from '@/components/discover/DiscoverySelectionBar';
-import { useHasSelection } from '@/stores/selectionStore';
+import {
+  useHasSelection,
+  useSelectionCount,
+  useSelectionStore,
+} from '@/stores/selectionStore';
 import { useIsAdmin } from '@/stores/authStore';
 import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
@@ -21,7 +25,7 @@ interface DiscoverStats {
   filmNowCount: number;
 }
 
-interface DiscoverShellProps {
+export interface DiscoverShellProps {
   screenplays: Screenplay[];
   allScreenplays: Screenplay[];
   totalCount: number;
@@ -40,6 +44,11 @@ interface DiscoverShellProps {
   onCloseScreenplay: () => void;
   isLoading: boolean;
   isError: boolean;
+  producerAssessments?: ReadonlyMap<string, ProducerAssessmentHead>;
+  producerLookIds?: ReadonlySet<string>;
+  producerLookCount?: number;
+  producerLookActive?: boolean;
+  onToggleProducerLook?: () => void;
 }
 
 function DiscoverIntro() {
@@ -49,9 +58,7 @@ function DiscoverIntro() {
         <p className="dsc-kicker">Lemon Studios · Development slate</p>
         <h1>Cinema Browse</h1>
       </div>
-      <p>
-        Find the strongest story for the moment, then follow the signal through the slate.
-      </p>
+      <p>Find the strongest story for the moment, then follow the signal through the slate.</p>
     </section>
   );
 }
@@ -100,22 +107,33 @@ export function DiscoverShell({
   isError,
 }: DiscoverShellProps) {
   const [archivePosition, setArchivePosition] = useState({ signature: '', page: 1 });
+  const [selectionMode, setSelectionMode] = useState(false);
   const isAdmin = useIsAdmin();
   const hasSelection = useHasSelection();
-  const { data: producerAssessmentHeads = [] } =
-    useProducerAssessmentHeads(isAdmin);
+  const selectionCount = useSelectionCount();
+  const deselectAll = useSelectionStore((state) => state.deselectAll);
+  const { data: producerAssessmentHeads = [] } = useProducerAssessmentHeads(isAdmin);
   const producerAssessments = useMemo(
     () =>
       new Map<string, ProducerAssessmentHead>(
-        producerAssessmentHeads.map((assessment) => [
-          assessment.projectId,
-          assessment,
-        ]),
+        producerAssessmentHeads.map((assessment) => [assessment.projectId, assessment]),
       ),
     [producerAssessmentHeads],
   );
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const previousSelectionRef = useRef<Screenplay | null>(selectedScreenplay);
+
+  const exitSelectionMode = useCallback(() => {
+    deselectAll();
+    setSelectionMode(false);
+  }, [deselectAll]);
+
+  useEffect(() => () => deselectAll(), [deselectAll]);
+
+  const toggleSelectionMode = useCallback(() => {
+    if (selectionMode) exitSelectionMode();
+    else setSelectionMode(true);
+  }, [exitSelectionMode, selectionMode]);
 
   const handleOpen = useCallback(
     (screenplay: Screenplay, trigger: HTMLButtonElement) => {
@@ -147,9 +165,10 @@ export function DiscoverShell({
   const archivePageSize = 50;
   const archivePageCount = Math.max(1, Math.ceil(grid.length / archivePageSize));
   const gridSignature = grid.map((screenplay) => screenplay.id).join('|');
-  const archivePage = archivePosition.signature === gridSignature
-    ? Math.min(archivePosition.page, archivePageCount)
-    : 1;
+  const archivePage =
+    archivePosition.signature === gridSignature
+      ? Math.min(archivePosition.page, archivePageCount)
+      : 1;
   const visibleGrid = grid.slice(
     (archivePage - 1) * archivePageSize,
     archivePage * archivePageSize,
@@ -159,7 +178,11 @@ export function DiscoverShell({
   );
 
   return (
-    <div className="discovery-root min-h-screen">
+    <div
+      className={`discovery-root min-h-screen ${
+        selectionMode ? 'discovery-root--selection-mode' : ''
+      }`}
+    >
       <DiscoverAppHeader
         total={stats.total}
         averageScore={stats.avgWeightedScore}
@@ -167,17 +190,19 @@ export function DiscoverShell({
         isLoading={isLoading}
       />
 
-      <main className={`px-4 py-5 sm:px-6 lg:px-8 ${hasSelection ? 'pb-56 sm:pb-28' : ''}`}>
+      <main
+        className={`px-4 py-5 sm:px-6 lg:px-8 ${
+          selectionMode && hasSelection ? 'pb-56 sm:pb-28' : ''
+        }`}
+      >
         <div className="mx-auto max-w-[1800px]">
           {isLoading ? (
             <DiscoverLoading />
           ) : isError ? (
             <section className="dsc-card p-6 sm:p-8">
-              <h1 className="dsc-display text-3xl">
-                Discovery is temporarily unavailable
-              </h1>
+              <h1 className="dsc-display text-3xl">Discovery is temporarily unavailable</h1>
               <p className="mt-3 text-[var(--dsc-ink-2)]">
-                The existing dashboard is still available at the main route.
+                The classic dashboard remains available at /dashboard-classic.
               </p>
             </section>
           ) : (
@@ -197,13 +222,14 @@ export function DiscoverShell({
                 shortcutsEnabled={!selectedScreenplay}
                 screenplays={allScreenplays}
                 onOpenScreenplay={handleOpen}
+                selectionMode={selectionMode}
+                selectionCount={selectionCount}
+                onToggleSelectionMode={toggleSelectionMode}
               />
 
               {totalCount === 0 ? (
                 <section className="dsc-card p-8 text-center sm:p-10">
-                  <h2 className="dsc-display text-3xl">
-                    No analyzed screenplays yet
-                  </h2>
+                  <h2 className="dsc-display text-3xl">No analyzed screenplays yet</h2>
                   <p className="mt-3 text-[var(--dsc-ink-2)]">
                     New analyses will appear here through the live data feed.
                   </p>
@@ -211,9 +237,7 @@ export function DiscoverShell({
               ) : screenplays.length === 0 ? (
                 <section className="dsc-card p-8 text-center sm:p-10">
                   <p className="dsc-kicker">No match</p>
-                  <h2 className="dsc-display mt-3 text-3xl">
-                    No scripts match this view
-                  </h2>
+                  <h2 className="dsc-display mt-3 text-3xl">No scripts match this view</h2>
                   <p className="mx-auto mt-3 max-w-md text-[var(--dsc-ink-2)]">
                     Try a broader search or clear the active filters to reopen the full slate.
                   </p>
@@ -233,9 +257,9 @@ export function DiscoverShell({
                       These analyses cannot be ranked yet
                     </h2>
                     <p className="mx-auto mt-3 max-w-xl text-[var(--dsc-ink-2)]">
-                      Their screenplay evidence or specialist reader panel is incomplete.
-                      They remain available below for diagnosis, but Discovery will not
-                      promote one as the best script.
+                      Their screenplay evidence or specialist reader panel is incomplete. They
+                      remain available below for diagnosis, but Discovery will not promote one as
+                      the best script.
                     </p>
                   </section>
                   <section aria-labelledby="discovery-review-only" className="cinema-shelf">
@@ -285,21 +309,27 @@ export function DiscoverShell({
                       <nav className="cinema-pagination" aria-label="Browse the slate pages">
                         <button
                           type="button"
-                          onClick={() => setArchivePosition({
-                            signature: gridSignature,
-                            page: Math.max(1, archivePage - 1),
-                          })}
+                          onClick={() =>
+                            setArchivePosition({
+                              signature: gridSignature,
+                              page: Math.max(1, archivePage - 1),
+                            })
+                          }
                           disabled={archivePage === 1}
                         >
                           ← Previous 50
                         </button>
-                        <span>Page {archivePage} of {archivePageCount}</span>
+                        <span>
+                          Page {archivePage} of {archivePageCount}
+                        </span>
                         <button
                           type="button"
-                          onClick={() => setArchivePosition({
-                            signature: gridSignature,
-                            page: Math.min(archivePageCount, archivePage + 1),
-                          })}
+                          onClick={() =>
+                            setArchivePosition({
+                              signature: gridSignature,
+                              page: Math.min(archivePageCount, archivePage + 1),
+                            })
+                          }
                           disabled={archivePage === archivePageCount}
                         >
                           Next 50 →
@@ -318,6 +348,8 @@ export function DiscoverShell({
         screenplays={allScreenplays}
         visibleScreenplays={screenplays}
         escapeEnabled={!selectedScreenplay}
+        selectionMode={selectionMode}
+        onExitSelectionMode={exitSelectionMode}
       />
 
       {selectedScreenplay && (

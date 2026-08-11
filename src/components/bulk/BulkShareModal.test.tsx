@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import type { Screenplay } from '@/types';
+
+const shareStoreState = vi.hoisted(() => ({
+  tokens: {} as Record<string, { token: string; url?: string }>,
+  setToken: vi.fn(),
+}));
 
 // vi.mock calls at module scope (Vitest hoisting)
 vi.mock('@/lib/shareService', () => ({
@@ -7,24 +13,25 @@ vi.mock('@/lib/shareService', () => ({
   createShareToken: vi.fn(),
 }));
 vi.mock('@/stores/shareStore', () => ({
-  useShareStore: { getState: () => ({ tokens: {}, setToken: vi.fn() }) },
+  useShareStore: { getState: () => shareStoreState },
 }));
 
 import { BulkShareModal } from './BulkShareModal';
 import { getExistingShareToken, createShareToken } from '@/lib/shareService';
 
-const sp1 = { id: 'sp1', title: 'The Great Heist', hasPdf: false };
-const sp2 = { id: 'sp2', title: 'Ocean of Stars', hasPdf: false };
+const sp1 = { id: 'sp1', title: 'The Great Heist', hasPdf: false } as Screenplay;
+const sp2 = { id: 'sp2', title: 'Ocean of Stars', hasPdf: false } as Screenplay;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  shareStoreState.tokens = {};
 });
 
 describe('BulkShareModal — BULK-01', () => {
   it('renders pending rows for all selected screenplays', () => {
     render(
       <BulkShareModal
-        screenplays={[sp1, sp2] as any[]}
+        screenplays={[sp1, sp2]}
         isOpen
         onClose={vi.fn()}
       />
@@ -34,18 +41,13 @@ describe('BulkShareModal — BULK-01', () => {
   });
 
   it('reuses existing token from shareStore cache without calling createShareToken', () => {
-    vi.mock('@/stores/shareStore', () => ({
-      useShareStore: {
-        getState: () => ({
-          tokens: { sp1: { token: 'cached-tok', url: 'https://example.com/share/cached-tok' } },
-          setToken: vi.fn(),
-        }),
-      },
-    }));
+    shareStoreState.tokens = {
+      sp1: { token: 'cached-tok', url: 'https://example.com/share/cached-tok' },
+    };
 
     render(
       <BulkShareModal
-        screenplays={[sp1] as any[]}
+        screenplays={[sp1]}
         isOpen
         onClose={vi.fn()}
       />
@@ -64,7 +66,7 @@ describe('BulkShareModal — BULK-01', () => {
 
     render(
       <BulkShareModal
-        screenplays={[sp1] as any[]}
+        screenplays={[sp1]}
         isOpen
         onClose={vi.fn()}
       />
@@ -86,7 +88,7 @@ describe('BulkShareModal — BULK-01', () => {
 
     render(
       <BulkShareModal
-        screenplays={[sp1, sp2] as any[]}
+        screenplays={[sp1, sp2]}
         isOpen
         onClose={vi.fn()}
       />
@@ -109,7 +111,7 @@ describe('BulkShareModal — BULK-01', () => {
 
     render(
       <BulkShareModal
-        screenplays={[sp1] as any[]}
+        screenplays={[sp1]}
         isOpen
         onClose={vi.fn()}
       />

@@ -4,6 +4,7 @@ import type { PercentileRank } from '@/lib/percentileRanking';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useIsAdmin } from '@/stores/authStore';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
+import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import {
   AlertBanners,
   ContentDetails,
@@ -91,6 +92,8 @@ export function ReadingRoom({
   }, [navigate, onClose, screenplay, toggleQuickFavorite]);
 
   if (!screenplay) return null;
+  const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+  const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
 
   return (
     <div
@@ -161,9 +164,9 @@ export function ReadingRoom({
                 id="reading-room-title"
                 className="text-3xl md:text-4xl font-display text-gold-200"
               >
-                {screenplay.title}
+                {displayTitle}
               </h1>
-              <p className="text-black-400 mt-1">by {screenplay.author || 'Unknown author'}</p>
+              {displayAuthor && <p className="text-black-400 mt-1">by {displayAuthor}</p>}
               <div className="flex flex-wrap gap-2 mt-4">
                 <span className="chip chip-genre">{screenplay.genre}</span>
                 <span className="chip chip-budget">{screenplay.budgetCategory}</span>
@@ -194,7 +197,7 @@ export function ReadingRoom({
       </div>
 
       <span className="sr-only" aria-live="polite">
-        Reviewing {screenplay.title}, screenplay {currentIndex + 1} of {screenplays.length}
+        Reviewing {displayTitle}, screenplay {currentIndex + 1} of {screenplays.length}
       </span>
     </div>
   );

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clsx } from 'clsx';
+import { TasteMatch } from '@/components/charts/TasteMatch';
 
 import {
   activateCalibrationCandidate,
@@ -39,11 +40,8 @@ export function CalibrationPanel() {
   const isLocalPreview = isLocalCalibrationPreviewMode();
   const [assessments, setAssessments] = useState<ProducerAssessmentHead[]>([]);
   const [candidates, setCandidates] = useState<CalibrationCandidate[]>([]);
-  const [activeProfile, setActiveProfile] =
-    useState<ActiveCalibrationProfile | null>(null);
-  const [assignments, setAssignments] = useState<
-    Record<string, EvidenceAssignment>
-  >({});
+  const [activeProfile, setActiveProfile] = useState<ActiveCalibrationProfile | null>(null);
+  const [assignments, setAssignments] = useState<Record<string, EvidenceAssignment>>({});
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState(false);
   const [publishingId, setPublishingId] = useState('');
@@ -53,15 +51,12 @@ export function CalibrationPanel() {
     setLoading(true);
     setError('');
     try {
-      const [loadedAssessments, loadedCandidates, loadedProfile] =
-        await Promise.all([
-          loadProducerAssessmentHeads(),
-          loadCalibrationCandidates(),
-          loadActiveCalibrationProfile(),
-        ]);
-      const eligible = loadedAssessments.filter(
-        (assessment) => assessment.includeInCalibration,
-      );
+      const [loadedAssessments, loadedCandidates, loadedProfile] = await Promise.all([
+        loadProducerAssessmentHeads(),
+        loadCalibrationCandidates(),
+        loadActiveCalibrationProfile(),
+      ]);
+      const eligible = loadedAssessments.filter((assessment) => assessment.includeInCalibration);
       setAssessments(loadedAssessments);
       setCandidates(loadedCandidates);
       setActiveProfile(loadedProfile);
@@ -75,14 +70,9 @@ export function CalibrationPanel() {
         );
       });
     } catch (loadError) {
-      if (
-        isLocalPreview &&
-        isExpectedLocalCalibrationPredeployError(loadError)
-      ) {
+      if (isLocalPreview && isExpectedLocalCalibrationPredeployError(loadError)) {
         const localAssessments = loadLocalProducerAssessmentHeads();
-        const eligible = localAssessments.filter(
-          (assessment) => assessment.includeInCalibration,
-        );
+        const eligible = localAssessments.filter((assessment) => assessment.includeInCalibration);
         setAssessments(localAssessments);
         setCandidates([]);
         setActiveProfile(null);
@@ -115,27 +105,22 @@ export function CalibrationPanel() {
   const trainingAssessmentIds = useMemo(
     () =>
       assessments
-        .filter(
-          (assessment) =>
-            assignments[assessment.latestAssessmentId] === 'training',
-        )
+        .filter((assessment) => assignments[assessment.latestAssessmentId] === 'training')
         .map((assessment) => assessment.latestAssessmentId),
     [assessments, assignments],
   );
   const holdoutAssessmentIds = useMemo(
     () =>
       assessments
-        .filter(
-          (assessment) =>
-            assignments[assessment.latestAssessmentId] === 'holdout',
-        )
+        .filter((assessment) => assignments[assessment.latestAssessmentId] === 'holdout')
         .map((assessment) => assessment.latestAssessmentId),
     [assessments, assignments],
   );
+  const eligibleAssessmentCount = assessments.filter(
+    (assessment) => assessment.includeInCalibration,
+  ).length;
   const canBuild =
-    !isLocalPreview &&
-    trainingAssessmentIds.length >= 4 &&
-    holdoutAssessmentIds.length >= 1;
+    !isLocalPreview && trainingAssessmentIds.length >= 4 && holdoutAssessmentIds.length >= 1;
 
   const handleBuild = async () => {
     if (!canBuild) return;
@@ -163,10 +148,7 @@ export function CalibrationPanel() {
     }
   };
 
-  const publish = async (
-    candidate: CalibrationCandidate,
-    mode: 'activate' | 'rollback',
-  ) => {
+  const publish = async (candidate: CalibrationCandidate, mode: 'activate' | 'rollback') => {
     const verb = mode === 'activate' ? 'activate' : 'roll back to';
     const approved = window.confirm(
       `Are you sure you want to ${verb} this calibration profile for future analyses? Existing scores will not change.`,
@@ -196,9 +178,7 @@ export function CalibrationPanel() {
     return (
       <div className="flex items-center justify-center py-16" role="status">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-black-700 border-t-[#3157d5]" />
-        <span className="ml-3 text-black-400">
-          Loading calibration evidence…
-        </span>
+        <span className="ml-3 text-black-400">Loading calibration evidence…</span>
       </div>
     );
   }
@@ -206,96 +186,81 @@ export function CalibrationPanel() {
   return (
     <div className="space-y-7">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#3157d5]">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--settings-kicker)]">
           Producer calibration
         </p>
         <h2 className="mt-2 text-3xl font-display text-black-100">
           Teach the system your taste without rewriting history
         </h2>
         <p className="mt-2 max-w-3xl leading-7 text-black-400">
-          Producer Takes remain separate from the AI scores. A candidate must
-          improve on sealed examples it was not trained on before it can be
-          published for future analyses.
+          Producer Takes remain separate from the AI scores. A candidate must improve on sealed
+          examples it was not trained on before it can be published for future analyses.
         </p>
       </header>
 
       {isLocalPreview && (
         <section className="rounded-xl border border-[#3157d5]/30 bg-[#3157d5]/8 p-4 text-sm leading-6 text-black-300">
           <strong className="block text-black-100">Local review mode</strong>
-          Producer Takes shown here are saved only on this Mac. Candidate
-          compilation, paid model calls, and calibration activation remain
-          unavailable until Q5 is approved and deployed.
+          Producer Takes shown here are real saved evidence. Building a candidate uses paid model
+          calls, and activating a profile changes future analyses, so both actions remain disabled
+          during local review. Nothing on this screen changes the production profile.
         </section>
       )}
 
-      <section
-        className="grid gap-4 sm:grid-cols-3"
-        aria-label="Calibration status"
-      >
+      <section className="grid gap-4 sm:grid-cols-3" aria-label="Calibration status">
         <div className="rounded-xl border border-black-700 bg-black-900/35 p-5">
-          <p className="text-xs uppercase tracking-wider text-black-500">
-            Taste evidence
-          </p>
+          <p className="text-xs uppercase tracking-wider text-black-500">Recorded Producer Takes</p>
           <strong className="mt-2 block text-3xl tabular-nums text-black-100">
-            {assessments.filter((item) => item.includeInCalibration).length}
+            {assessments.length}
           </strong>
-          <span className="text-sm text-black-400">
-            included Producer Takes
-          </span>
+          <span className="text-sm text-black-400">producer decisions saved</span>
         </div>
         <div className="rounded-xl border border-black-700 bg-black-900/35 p-5">
-          <p className="text-xs uppercase tracking-wider text-black-500">
-            Evidence confidence
-          </p>
+          <p className="text-xs uppercase tracking-wider text-black-500">Evidence confidence</p>
           <strong className="mt-2 block text-2xl text-black-100">
-            {confidenceLabel(
-              assessments.filter((item) => item.includeInCalibration).length,
-            )}
+            {confidenceLabel(eligibleAssessmentCount)}
           </strong>
           <span className="text-sm text-black-400">
-            more diverse reads improve reliability
+            {eligibleAssessmentCount} eligible calibration example
+            {eligibleAssessmentCount === 1 ? '' : 's'}
           </span>
         </div>
         <div className="rounded-xl border border-black-700 bg-black-900/35 p-5">
-          <p className="text-xs uppercase tracking-wider text-black-500">
-            Active profile
-          </p>
+          <p className="text-xs uppercase tracking-wider text-black-500">Active profile</p>
           <strong
             className={clsx(
               'mt-2 block text-2xl',
               activeProfile?.enabled ? 'text-emerald-400' : 'text-black-100',
             )}
           >
-            {activeProfile?.enabled ? 'Calibrated' : 'Neutral'}
+            {activeProfile?.enabled ? 'Active' : 'Not active'}
           </strong>
-          <span className="break-all text-sm text-black-400">
+          <span className="text-sm text-black-400">
             {activeProfile?.activeVersionId
               ? `Version ${activeProfile.activeVersionId.slice(0, 12)}…`
-              : 'No profile changes future verdicts'}
+              : 'No calibration profile affects future analyses'}
           </span>
         </div>
+      </section>
+
+      <section aria-label="Producer alignment">
+        <TasteMatch />
       </section>
 
       <section className="rounded-xl border border-black-700 bg-black-900/30 p-5 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h3 className="text-xl font-display text-black-100">
-              Evidence split
-            </h3>
+            <h3 className="text-xl font-display text-black-100">Evidence split</h3>
             <p className="mt-1 text-sm leading-6 text-black-400">
-              Training teaches the candidate. Holdout is the sealed test it
-              cannot study first. At least four training reads and one holdout
-              read are required.
+              Training teaches the candidate. Holdout is the sealed test it cannot study first. At
+              least four training reads and one holdout read are required. Only takes explicitly
+              marked as calibration evidence are eligible.
             </p>
           </div>
           <div className="flex gap-3 text-sm tabular-nums">
-            <span className="text-black-300">
-              {trainingAssessmentIds.length} training
-            </span>
+            <span className="text-black-300">{trainingAssessmentIds.length} training</span>
             <span className="text-black-500">·</span>
-            <span className="text-black-300">
-              {holdoutAssessmentIds.length} holdout
-            </span>
+            <span className="text-black-300">{holdoutAssessmentIds.length} holdout</span>
           </div>
         </div>
 
@@ -315,10 +280,8 @@ export function CalibrationPanel() {
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <strong className="truncate text-black-100">
-                      {assessment.title}
-                    </strong>
-                    <span className="rounded border border-[#3157d5]/30 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[#3157d5]">
+                    <strong className="truncate text-black-100">{assessment.title}</strong>
+                    <span className="rounded border border-[#3157d5]/30 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[var(--settings-kicker)]">
                       Billy {assessment.producerScore.toFixed(1)}
                     </span>
                     <span className="text-xs text-black-500">
@@ -330,28 +293,30 @@ export function CalibrationPanel() {
                     {assessment.versionId.slice(0, 12)}…
                   </p>
                 </div>
-                <select
-                  aria-label={`Evidence role for ${assessment.title}`}
-                  value={
-                    assessment.includeInCalibration
-                      ? (assignments[assessment.latestAssessmentId] ??
-                        'exclude')
-                      : 'exclude'
-                  }
-                  disabled={!assessment.includeInCalibration}
-                  onChange={(event) =>
-                    setAssignments((current) => ({
-                      ...current,
-                      [assessment.latestAssessmentId]: event.target
-                        .value as EvidenceAssignment,
-                    }))
-                  }
-                  className="input min-w-36 text-sm"
-                >
-                  <option value="training">Training</option>
-                  <option value="holdout">Holdout</option>
-                  <option value="exclude">Exclude</option>
-                </select>
+                {assessment.includeInCalibration ? (
+                  <select
+                    aria-label={`Evidence role for ${assessment.title}`}
+                    value={assignments[assessment.latestAssessmentId] ?? 'exclude'}
+                    onChange={(event) =>
+                      setAssignments((current) => ({
+                        ...current,
+                        [assessment.latestAssessmentId]: event.target.value as EvidenceAssignment,
+                      }))
+                    }
+                    className="input min-w-36 text-sm"
+                  >
+                    <option value="training">Training</option>
+                    <option value="holdout">Holdout</option>
+                    <option value="exclude">Exclude</option>
+                  </select>
+                ) : (
+                  <span
+                    className="rounded-lg border border-black-700 px-3 py-2 text-xs font-semibold text-black-400"
+                    title="This Producer Take was saved without Use as calibration evidence enabled."
+                  >
+                    Not eligible
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -359,8 +324,8 @@ export function CalibrationPanel() {
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-black-500">
-            Building uses the frontier compiler and one decision replay per
-            holdout. It never activates the result automatically.
+            Building uses the frontier compiler and one decision replay per holdout. It never
+            activates the result automatically.
           </p>
           <button
             type="button"
@@ -371,19 +336,17 @@ export function CalibrationPanel() {
             {building
               ? 'Building and benchmarking…'
               : isLocalPreview
-                ? 'Available after deployment'
+                ? 'Disabled during local review'
                 : 'Build candidate'}
           </button>
         </div>
       </section>
 
       <section className="rounded-xl border border-black-700 bg-black-900/30 p-5 sm:p-6">
-        <h3 className="text-xl font-display text-black-100">
-          Candidate history
-        </h3>
+        <h3 className="text-xl font-display text-black-100">Candidate history</h3>
         <p className="mt-1 text-sm text-black-400">
-          Every candidate, benchmark, publication, and rollback keeps its exact
-          evidence and model provenance.
+          Every candidate, benchmark, publication, and rollback keeps its exact evidence and model
+          provenance.
         </p>
 
         {candidates.length === 0 ? (
@@ -393,8 +356,7 @@ export function CalibrationPanel() {
         ) : (
           <div className="mt-5 space-y-4">
             {candidates.map((candidate) => {
-              const isActive =
-                activeProfile?.activeVersionId === candidate.candidateId;
+              const isActive = activeProfile?.activeVersionId === candidate.candidateId;
               return (
                 <article
                   key={candidate.candidateId}
@@ -417,15 +379,15 @@ export function CalibrationPanel() {
                           {candidateStatus(candidate)}
                         </span>
                         {isActive && (
-                          <span className="rounded-full border border-[#3157d5]/35 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[#3157d5]">
+                          <span className="rounded-full border border-[#3157d5]/35 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[var(--settings-kicker)]">
                             Active
                           </span>
                         )}
                       </div>
                       <p className="mt-1 text-xs text-black-500">
                         {candidate.sourceAssessmentIds.length} training reads ·{' '}
-                        {candidate.benchmark.holdoutAssessmentIds.length}{' '}
-                        holdout reads · {candidate.compilerModelId}
+                        {candidate.benchmark.holdoutAssessmentIds.length} holdout reads ·{' '}
+                        {candidate.compilerModelId}
                       </p>
                     </div>
                     {candidate.benchmark.passed && !isActive && (
@@ -436,9 +398,7 @@ export function CalibrationPanel() {
                         onClick={() =>
                           void publish(
                             candidate,
-                            activeProfile?.activeVersionId
-                              ? 'rollback'
-                              : 'activate',
+                            activeProfile?.activeVersionId ? 'rollback' : 'activate',
                           )
                         }
                       >
@@ -453,23 +413,15 @@ export function CalibrationPanel() {
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
-                      <span className="text-xs text-black-500">
-                        Score error
-                      </span>
+                      <span className="text-xs text-black-500">Score error</span>
                       <strong className="block text-black-100">
-                        {candidate.benchmark.baselineMeanAbsoluteError.toFixed(
-                          2,
-                        )}
+                        {candidate.benchmark.baselineMeanAbsoluteError.toFixed(2)}
                         {' → '}
-                        {candidate.benchmark.candidateMeanAbsoluteError.toFixed(
-                          2,
-                        )}
+                        {candidate.benchmark.candidateMeanAbsoluteError.toFixed(2)}
                       </strong>
                     </div>
                     <div>
-                      <span className="text-xs text-black-500">
-                        Verdict agreement
-                      </span>
+                      <span className="text-xs text-black-500">Verdict agreement</span>
                       <strong className="block text-black-100">
                         {percent(candidate.benchmark.baselineVerdictAgreement)}
                         {' → '}
@@ -477,9 +429,7 @@ export function CalibrationPanel() {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-xs text-black-500">
-                        False passes
-                      </span>
+                      <span className="text-xs text-black-500">False passes</span>
                       <strong className="block text-black-100">
                         {candidate.benchmark.baselineFalsePasses}
                         {' → '}
@@ -487,9 +437,7 @@ export function CalibrationPanel() {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-xs text-black-500">
-                        False recommendations
-                      </span>
+                      <span className="text-xs text-black-500">False recommendations</span>
                       <strong className="block text-black-100">
                         {candidate.benchmark.baselineFalseRecommendations}
                         {' → '}
@@ -511,15 +459,11 @@ export function CalibrationPanel() {
                       Provenance and policy
                     </summary>
                     <div className="mt-3 space-y-2 text-xs leading-5 text-black-500">
-                      <p className="break-all">
-                        Candidate: {candidate.candidateId}
-                      </p>
+                      <p className="break-all">Candidate: {candidate.candidateId}</p>
                       <p className="break-all">
                         Evidence set: {candidate.sourceAssessmentSetSha256}
                       </p>
-                      <p className="break-all">
-                        Prompt seal: {candidate.promptSha256}
-                      </p>
+                      <p className="break-all">Prompt seal: {candidate.promptSha256}</p>
                       <p>{candidate.policy.thesis}</p>
                     </div>
                   </details>

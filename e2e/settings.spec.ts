@@ -1,83 +1,60 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
-// Extend timeout to handle page load
-test.setTimeout(60000);
+test.setTimeout(90_000);
 
-test.describe('Settings Page', () => {
-  test('navigating to /settings loads the settings page', async ({ page }) => {
-    await page.goto('/settings');
-    await page.waitForLoadState('networkidle');
+const sections = [
+  'Intake',
+  'Analysis Health',
+  'Model Comparison',
+  'PDF Files',
+  'Data & Sharing',
+  'Connections & Keys',
+  'Calibration',
+] as const;
 
-    // The settings page should render without error
-    // Check for a heading or landmark that indicates we're on settings
-    await expect(page).toHaveURL(/\/settings/);
+test.describe('Settings administration', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/settings?tab=intake');
+    await expect(page.getByRole('heading', { name: 'Intake', exact: true })).toBeVisible({ timeout: 30_000 });
   });
 
-  test('clicking the settings gear icon navigates to /settings', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    await expect(page.getByText(/Showing.*of.*screenplays/)).toBeVisible({ timeout: 60000 });
-
-    // Click the settings link in the header
-    await page.getByTitle('Settings').click();
-
-    // Should now be on /settings
-    await expect(page).toHaveURL(/\/settings/);
+  test('groups every live administrative section and keeps Intake canonical', async ({ page }) => {
+    const nav = page.getByRole('navigation', { name: 'Settings sections' });
+    for (const section of sections) await expect(nav.getByRole('button', { name: section })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Workflow' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'System' })).toBeVisible();
+    await expect(page.getByTestId('intake-workbench')).toBeVisible();
   });
 
-  test('settings page has a back / navigation path to dashboard', async ({ page }) => {
-    await page.goto('/settings');
-    await page.waitForLoadState('networkidle');
-
-    // Navigating back to root should work
-    await page.goto('/');
-    await expect(page).toHaveURL(/\/$/);
+  test('all settings sections switch without losing the administrative frame', async ({ page }) => {
+    const nav = page.getByRole('navigation', { name: 'Settings sections' });
+    const primaryNav = page.getByRole('navigation', { name: 'Primary navigation' });
+    for (const section of sections.slice(1)) {
+      await nav.getByRole('button', { name: section }).click();
+      await expect(page.getByRole('heading', { name: section, exact: true })).toBeVisible();
+      await expect(primaryNav.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
+      await expect(primaryNav.getByRole('link', { name: 'Discover' })).toHaveAttribute('href', '/');
+      await expect(primaryNav.getByRole('link', { name: 'Settings' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+    }
   });
 
-  test('settings page displays all key sections', async ({ page }) => {
-    await page.goto('/settings');
-    await page.waitForLoadState('networkidle');
-
-    // The page heading should be "Settings"
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 });
-
-    // The sidebar nav should have all the expected tab buttons
-    const nav = page.locator('aside nav');
-    await expect(nav).toBeVisible();
-
-    // Verify each tab is present
-    await expect(nav.getByText('Appearance')).toBeVisible();
-    await expect(nav.getByText('Upload')).toBeVisible();
-    await expect(nav.getByText('Favorites')).toBeVisible();
-    await expect(nav.getByText('Data')).toBeVisible();
-    await expect(nav.getByText('Calibration')).toBeVisible();
-    await expect(nav.getByText('PDF Files')).toBeVisible();
-    await expect(nav.getByText('Compare')).toBeVisible();
-
-    // The "Back to Dashboard" link should be present
-    await expect(page.getByText('Back to Dashboard')).toBeVisible();
+  test('legacy Intake and Settings aliases remain compatible', async ({ page }) => {
+    await page.goto('/intake');
+    await expect(page).toHaveURL(/\/settings\?tab=intake/);
+    await page.goto('/settings?tab=upload');
+    await expect(page.getByRole('heading', { name: 'Intake', exact: true })).toBeVisible();
+    await page.goto('/settings?tab=taste-calibration');
+    await expect(page.getByRole('heading', { name: 'Calibration', exact: true })).toBeVisible();
   });
 
-  test('settings tabs switch content when clicked', async ({ page }) => {
-    await page.goto('/settings');
-    await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 });
-
-    const nav = page.locator('aside nav');
-
-    // Click the "Upload" tab and verify upload-related content appears
-    await nav.getByText('Upload').click();
-    await page.waitForTimeout(300);
-
-    // The Upload tab renders UploadPanel which contains upload-related text
-    // Look for recognizable content from the Upload tab
-    await expect(page.getByText(/Upload|Analyze|Categories/i).first()).toBeVisible({ timeout: 5000 });
-
-    // Click the "Data" tab
-    await nav.getByText('Data').click();
-    await page.waitForTimeout(300);
-
-    // Data tab should show DataManagement content
-    await expect(page.getByText(/Data|Export|Import|Shared Links/i).first()).toBeVisible({ timeout: 5000 });
+  test('theme control is explicit and matches the active browser theme', async ({ page }, testInfo) => {
+    const expected = testInfo.project.name.endsWith('-dark') ? 'Dark' : 'Light';
+    await expect(page.getByRole('button', { name: expected, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });

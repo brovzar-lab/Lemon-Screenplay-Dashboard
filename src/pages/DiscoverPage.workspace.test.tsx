@@ -66,14 +66,14 @@ describe('Discovery to Project Workspace navigation', () => {
 
   it('opens the full Project Workspace from Cinema Browse', async () => {
     const user = userEvent.setup();
-    renderRoute('/discover');
+    renderRoute('/discover?ui=classic');
 
     await user.click(await screen.findByRole('button', { name: 'Open Atlas Fall details' }));
     expect(screen.getByText('Workspace route atlas-project')).toBeInTheDocument();
   });
 
   it('preserves the current drawer behind the explicit preview fallback', async () => {
-    renderRoute('/discover/atlas-project?preview=drawer');
+    renderRoute('/discover/atlas-project?ui=classic&preview=drawer');
 
     expect(await screen.findByRole('dialog', { name: 'Atlas Fall' })).toHaveTextContent(
       'Legacy drawer for Atlas Fall',

@@ -4,7 +4,12 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useScreenplays, useDeletedScreenplays, useRestoreScreenplay, SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
+import {
+  useScreenplays,
+  useDeletedScreenplays,
+  useRestoreScreenplay,
+  SCREENPLAYS_QUERY_KEY,
+} from '@/hooks/useScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
@@ -13,6 +18,7 @@ import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToastStore } from '@/stores/toastStore';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 
 export function DataManagement() {
   const { data: screenplays = [] } = useScreenplays();
@@ -33,7 +39,9 @@ export function DataManagement() {
   const [restoredName, setRestoredName] = useState<string | null>(null);
 
   useEffect(() => {
-    getQuarantineCount().then(setQuarantineCount).catch(() => setQuarantineCount(0));
+    getQuarantineCount()
+      .then(setQuarantineCount)
+      .catch(() => setQuarantineCount(0));
   }, []);
 
   const handleExportJSON = () => {
@@ -75,9 +83,7 @@ export function DataManagement() {
 
   const handleExportCSV = () => {
     try {
-      const sampleDims = screenplays.length > 0
-        ? getDimensionDisplay(screenplays[0])
-        : [];
+      const sampleDims = screenplays.length > 0 ? getDimensionDisplay(screenplays[0]) : [];
       const dimHeaders = sampleDims.map((d) => d.label);
 
       const headers = [
@@ -139,7 +145,7 @@ export function DataManagement() {
       const key = localStorage.key(i);
       if (key?.startsWith('lemon-')) keysToRemove.push(key);
     }
-    keysToRemove.forEach(k => localStorage.removeItem(k));
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
     useToastStore.getState().addToast(`Cleared ${keysToRemove.length} settings keys`);
     setShowResetAllConfirm(false);
     window.location.reload();
@@ -164,9 +170,7 @@ export function DataManagement() {
     <div className="space-y-8">
       <div>
         <h2 className="text-xl font-display text-gold-200 mb-2">Data Management</h2>
-        <p className="text-sm text-black-400">
-          Export data, manage cache, and reset settings.
-        </p>
+        <p className="text-sm text-black-400">Export data, manage cache, and reset settings.</p>
       </div>
 
       {/* Export Section */}
@@ -179,8 +183,18 @@ export function DataManagement() {
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <svg
+                  className="w-5 h-5 text-blue-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
                 </svg>
               </div>
               <div>
@@ -196,8 +210,18 @@ export function DataManagement() {
           >
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <svg
+                  className="w-5 h-5 text-emerald-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
               </div>
               <div>
@@ -247,8 +271,18 @@ export function DataManagement() {
               <p className="font-medium text-gold-200">Reset Filters</p>
               <p className="text-sm text-black-500">Clear all active filter selections</p>
             </div>
-            <svg className="w-5 h-5 text-black-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg
+              className="w-5 h-5 text-black-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
           </button>
 
@@ -260,8 +294,18 @@ export function DataManagement() {
               <p className="font-medium text-gold-200">Clear Cache</p>
               <p className="text-sm text-black-500">Refresh screenplay data from source</p>
             </div>
-            <svg className="w-5 h-5 text-black-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            <svg
+              className="w-5 h-5 text-black-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
           </button>
         </div>
@@ -286,7 +330,8 @@ export function DataManagement() {
               className="w-full p-3 rounded-lg bg-black-800/50 border border-black-700 hover:border-gold-500/30 transition-colors text-left flex items-center justify-between mb-2"
             >
               <span className="text-sm text-gold-200">
-                {showDeletedList ? 'Hide' : 'Show'} {deletedScreenplays.length} recoverable {deletedScreenplays.length === 1 ? 'screenplay' : 'screenplays'}
+                {showDeletedList ? 'Hide' : 'Show'} {deletedScreenplays.length} recoverable{' '}
+                {deletedScreenplays.length === 1 ? 'screenplay' : 'screenplays'}
               </span>
               <svg
                 className={`w-4 h-4 text-black-400 transition-transform ${showDeletedList ? 'rotate-180' : ''}`}
@@ -294,7 +339,12 @@ export function DataManagement() {
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </button>
             {restoredName && (
@@ -308,9 +358,13 @@ export function DataManagement() {
             {showDeletedList && (
               <div className="space-y-2">
                 {deletedScreenplays.map((item) => {
+                  const displayTitle = getScreenplayDisplayTitle(item.title).title;
                   const deletedDate = new Date(item.deletedAt);
-                  const daysAgo = Math.floor((Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24));
-                  const timeLabel = daysAgo === 0 ? 'Today' : daysAgo === 1 ? '1 day ago' : `${daysAgo} days ago`;
+                  const daysAgo = Math.floor(
+                    (Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24),
+                  );
+                  const timeLabel =
+                    daysAgo === 0 ? 'Today' : daysAgo === 1 ? '1 day ago' : `${daysAgo} days ago`;
 
                   return (
                     <div
@@ -318,14 +372,14 @@ export function DataManagement() {
                       className="flex items-center justify-between p-3 rounded-lg bg-black-800/30 border border-black-700/50"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gold-200 truncate">{item.title}</p>
+                        <p className="text-sm font-medium text-gold-200 truncate">{displayTitle}</p>
                         <p className="text-xs text-zinc-500">Deleted {timeLabel}</p>
                       </div>
                       <button
                         onClick={() => {
                           restoreScreenplay.mutate(item.sourceFile, {
                             onSuccess: () => {
-                              setRestoredName(item.title);
+                              setRestoredName(displayTitle);
                               setTimeout(() => setRestoredName(null), 3000);
                             },
                           });
@@ -353,14 +407,19 @@ export function DataManagement() {
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           <div>
             <p className="text-sm font-medium text-amber-300">Analysis quarantine needs review</p>
             <p className="text-sm text-black-300 mt-1">
               {quarantineCount} {quarantineCount === 1 ? 'document has' : 'documents have'} an
-              unrecognized or malformed analysis format. They are preserved in Firebase and
-              excluded from dashboard scores.
+              unrecognized or malformed analysis format. They are preserved in Firebase and excluded
+              from dashboard scores.
             </p>
           </div>
         </div>
@@ -380,8 +439,18 @@ export function DataManagement() {
                 Soft-delete all {screenplays.length} screenplays (recoverable for 30 days)
               </p>
             </div>
-            <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            <svg
+              className="w-5 h-5 text-red-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
             </svg>
           </button>
 
@@ -391,10 +460,22 @@ export function DataManagement() {
           >
             <div>
               <p className="font-medium text-red-400">Reset Everything</p>
-              <p className="text-sm text-red-400/70">Delete all local data, favorites, and settings</p>
+              <p className="text-sm text-red-400/70">
+                Delete all local data, favorites, and settings
+              </p>
             </div>
-            <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              className="w-5 h-5 text-red-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
           </button>
         </div>

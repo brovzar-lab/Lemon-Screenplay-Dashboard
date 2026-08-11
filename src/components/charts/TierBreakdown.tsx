@@ -3,17 +3,10 @@
  * Donut chart showing recommendation tier distribution
  */
 
-import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  Legend,
-} from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 
 import type { Screenplay, RecommendationTier } from '@/types';
-import { CHART_COLORS, TIER_COLORS } from '@/lib/chartColors';
+import { TIER_COLORS } from '@/lib/chartColors';
 
 interface TierBreakdownProps {
   screenplays: Screenplay[];
@@ -43,7 +36,7 @@ interface CustomLegendProps {
 const TIER_CONFIG: Record<RecommendationTier, { label: string; color: string }> = {
   film_now: { label: 'FILM NOW', color: TIER_COLORS.film_now },
   recommend: { label: 'Recommend', color: TIER_COLORS.recommend },
-  consider: { label: 'Consider', color: CHART_COLORS.gray },
+  consider: { label: 'Consider', color: TIER_COLORS.consider },
   pass: { label: 'Pass', color: TIER_COLORS.pass },
 };
 
@@ -57,14 +50,12 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
   if (active && payload && payload.length) {
     const item = payload[0].payload as TierChartItem;
     return (
-      <div className="glass p-3 rounded-lg border border-black-700 text-sm">
-        <p className="font-medium mb-1" style={{ color: item.color }}>
-          {item.name}
-        </p>
-        <p className="text-black-50">
+      <div className="chart-tooltip">
+        <strong>{item.name}</strong>
+        <span>
           <span className="font-bold">{item.value}</span> screenplays
-        </p>
-        <p className="text-black-400 text-xs">{item.percentage}% of total</p>
+        </span>
+        <span>{item.percentage}% of total</span>
       </div>
     );
   }
@@ -83,10 +74,7 @@ function CustomLegend({ payload, data, onTierClick }: CustomLegendProps) {
           }}
           className="flex items-center gap-1.5 text-xs hover:opacity-80 transition-opacity"
         >
-          <span
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: entry.color }}
-          />
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
           <span className="text-black-300">{entry.value}</span>
         </button>
       ))}
@@ -101,18 +89,21 @@ export function TierBreakdown({ screenplays, onTierClick }: TierBreakdownProps) 
       acc[sp.recommendation] = (acc[sp.recommendation] || 0) + 1;
       return acc;
     },
-    {} as Record<RecommendationTier, number>
+    {} as Record<RecommendationTier, number>,
   );
 
-  const data: TierChartItem[] = (Object.entries(TIER_CONFIG) as [RecommendationTier, typeof TIER_CONFIG.film_now][])
+  const data: TierChartItem[] = (
+    Object.entries(TIER_CONFIG) as [RecommendationTier, typeof TIER_CONFIG.film_now][]
+  )
     .map(([tier, config]) => ({
       tier,
       name: config.label,
       value: tierCounts[tier] || 0,
       color: config.color,
-      percentage: screenplays.length > 0
-        ? ((tierCounts[tier] || 0) / screenplays.length * 100).toFixed(0)
-        : 0,
+      percentage:
+        screenplays.length > 0
+          ? (((tierCounts[tier] || 0) / screenplays.length) * 100).toFixed(0)
+          : 0,
     }))
     .filter((d) => d.value > 0);
 
@@ -142,13 +133,15 @@ export function TierBreakdown({ screenplays, onTierClick }: TierBreakdownProps) 
             ))}
           </Pie>
           <Tooltip content={(props) => <CustomTooltip {...props} />} />
-          <Legend content={(props) => (
-            <CustomLegend
-              payload={props.payload as LegendEntry[] | undefined}
-              data={data}
-              onTierClick={onTierClick}
-            />
-          )} />
+          <Legend
+            content={(props) => (
+              <CustomLegend
+                payload={props.payload as LegendEntry[] | undefined}
+                data={data}
+                onTierClick={onTierClick}
+              />
+            )}
+          />
         </PieChart>
       </ResponsiveContainer>
 

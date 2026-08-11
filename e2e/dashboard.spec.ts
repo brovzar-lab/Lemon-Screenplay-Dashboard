@@ -1,335 +1,52 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
-// Extend timeout for tests that need to load all screenplay data (132 JSON files)
-test.setTimeout(90000);
+test.setTimeout(90_000);
 
-test.describe('Dashboard E2E Tests', () => {
+test.describe('Discovery screenplay presentation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    // Wait for network activity to settle and data to load
-    await page.waitForLoadState('networkidle');
-    // Wait for the screenplay count to appear (indicates data loading is complete)
-    await expect(page.getByText(/Showing.*of.*screenplays/)).toBeVisible({ timeout: 60000 });
-    // Wait for the screenplay grid to be visible
-    await expect(page.locator('[role="list"]')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('link', { name: 'Discovery home' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Showing \d+ of \d+ screenplays/)).toBeVisible({ timeout: 30_000 });
   });
 
-  test.describe('Page Load', () => {
-    test('should load the dashboard with screenplays', async ({ page }) => {
-      // Check header is visible (use heading role to be specific)
-      await expect(page.getByRole('heading', { name: 'Lemon Screenplay Dashboard' })).toBeVisible();
-
-      // Check that screenplay cards are rendered
-      const cards = page.locator('[role="listitem"]');
-      await expect(cards.first()).toBeVisible();
-    });
-
-    test('should display screenplay count', async ({ page }) => {
-      // Should show "Showing X of Y screenplays"
-      await expect(page.getByText(/Showing.*of.*screenplays/)).toBeVisible();
-    });
-
-    test('should display filter chips', async ({ page }) => {
-      // Use exact match to avoid ambiguity with collection tabs
-      await expect(page.getByRole('button', { name: 'All', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'FILM NOW' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Recommend' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Consider' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Pass' })).toBeVisible();
-    });
+  test('loads the current slate in the selected theme', async ({ page }, testInfo) => {
+    const expectedTheme = testInfo.project.name.endsWith('-dark') ? 'dark' : 'light';
+    await expect(page.locator('html')).toHaveAttribute('data-theme', expectedTheme);
+    await expect(page.getByRole('searchbox', { name: 'Discovery search' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Continue through the slate' })).toBeVisible();
+    await expect(page.getByTestId('screenplay-discovery-grid')).toBeVisible();
+    await expect(page.getByTestId('screenplay-discovery-result').first()).toBeVisible();
   });
 
-  test.describe('Search Functionality', () => {
-    test('should filter screenplays by search query', async ({ page }) => {
-      const searchInput = page.getByPlaceholder('Search title, author, genre, logline...');
-
-      // Type a search query
-      await searchInput.fill('thriller');
-
-      // Wait for filter to apply
-      await page.waitForTimeout(300);
-
-      // Results should update
-      await expect(page.getByText(/Showing.*of.*screenplays/)).toBeVisible();
-    });
-
-    test('should clear search with X button', async ({ page }) => {
-      const searchInput = page.getByPlaceholder('Search title, author, genre, logline...');
-
-      // Type a search query
-      await searchInput.fill('drama');
-      await page.waitForTimeout(300);
-
-      // Click clear button
-      await page.getByLabel('Clear search').click();
-
-      // Search should be cleared
-      await expect(searchInput).toHaveValue('');
-    });
+  test('preserves the legacy dashboard only at its fallback route', async ({ page }) => {
+    await page.goto('/dashboard-classic');
+    await expect(page.getByRole('heading', { name: /Screenplay Dashboard/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Discover' })).toHaveAttribute('href', '/');
   });
 
-  test.describe('Filter Chips', () => {
-    test('should filter by FILM NOW', async ({ page }) => {
-      // Click FILM NOW filter chip
-      await page.getByRole('button', { name: 'FILM NOW' }).click();
-
-      // Wait for filter to apply
-      await page.waitForTimeout(500);
-
-      // Should show filtered results - check for "Clear All" button which appears when filter is active
-      await expect(page.getByRole('button', { name: /Clear All/ })).toBeVisible();
-    });
-
-    test('should filter by Recommend tier', async ({ page }) => {
-      // Click Recommend filter chip
-      await page.getByRole('button', { name: 'Recommend' }).click();
-      await page.waitForTimeout(500);
-
-      // Check that filter is active - Clear All button should appear
-      await expect(page.getByRole('button', { name: /Clear All/ })).toBeVisible();
-    });
-
-    test('should show Clear All button when filters are active', async ({ page }) => {
-      // Clear All should not be visible initially
-      await expect(page.getByRole('button', { name: /Clear All/ })).not.toBeVisible();
-
-      // Apply a filter - use exact match
-      await page.getByRole('button', { name: 'FILM NOW' }).click();
-      await page.waitForTimeout(500);
-
-      // Clear All should now be visible
-      await expect(page.getByRole('button', { name: /Clear All/ })).toBeVisible();
-    });
-
-    test('should clear all filters', async ({ page }) => {
-      // Apply some filters
-      await page.getByRole('button', { name: 'Pass' }).click();
-      await page.waitForTimeout(500);
-
-      // Click Clear All
-      await page.getByRole('button', { name: /Clear All/ }).click();
-      await page.waitForTimeout(500);
-
-      // Clear All should disappear after clearing
-      await expect(page.getByRole('button', { name: /Clear All/ })).not.toBeVisible();
-    });
+  test('shows one explainable Featured project and returns every runner to the grid', async ({
+    page,
+  }) => {
+    const featured = page.getByTestId('screenplay-featured-project');
+    await expect(featured).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: 'Featured project' })).toBeVisible();
+    await expect(featured).toContainText(/AI verdict/i);
+    await expect(featured).toContainText('Why featured');
+    await expect(page.getByTestId('screenplay-ranking-runner')).toHaveCount(0);
   });
 
-  test.describe('Screenplay Modal', () => {
-    test('should open modal when clicking a card', async ({ page }) => {
-      // Click the first screenplay card
-      await page.locator('[role="listitem"]').first().click();
-
-      // Modal should be visible
-      await expect(page.getByRole('dialog')).toBeVisible();
-    });
-
-    test('should close modal with close button', async ({ page }) => {
-      // Open modal
-      await page.locator('[role="listitem"]').first().click();
-      await expect(page.getByRole('dialog')).toBeVisible();
-
-      // Click close button
-      await page.getByLabel('Close modal').click();
-
-      // Modal should be hidden
-      await expect(page.getByRole('dialog')).not.toBeVisible();
-    });
-
-    test('should close modal with Escape key', async ({ page }) => {
-      // Open modal
-      await page.locator('[role="listitem"]').first().click();
-      await expect(page.getByRole('dialog')).toBeVisible();
-
-      // Press Escape
-      await page.keyboard.press('Escape');
-
-      // Modal should be hidden
-      await expect(page.getByRole('dialog')).not.toBeVisible();
-    });
-
-    test('should display screenplay details in modal', async ({ page }) => {
-      // Open modal
-      await page.locator('[role="listitem"]').first().click();
-
-      // Check for expected sections in modal
-      await expect(page.getByRole('dialog')).toBeVisible();
-
-      // Modal should have dimension scores section
-      await expect(page.getByText('Dimension Scores')).toBeVisible();
-    });
+  test('keeps missing non-blocking metadata out of card copy', async ({ page }) => {
+    await expect(page.getByTestId('screenplay-discovery-grid')).not.toContainText('SOURCE NOT RECORDED');
   });
 
-  test.describe('Collection Tabs', () => {
-    test('should display collection tabs', async ({ page }) => {
-      // Check for collection tab (2020 should be visible)
-      await expect(page.getByRole('button', { name: /2020/ })).toBeVisible();
-    });
+  test('opens a screenplay in the complete Screenplay File workspace', async ({ page }) => {
+    const firstCard = page.getByTestId('screenplay-discovery-result').first();
+    await firstCard.locator('button.screenplay-wall__open').click();
 
-    test('should filter by collection when tab clicked', async ({ page }) => {
-      // Click on a specific collection tab (e.g., 2020)
-      const tab2020 = page.getByRole('button', { name: /2020/ });
-      await tab2020.click();
-      await page.waitForTimeout(500);
-
-      // Results should update
-      await expect(page.getByText(/Showing.*of.*screenplays/)).toBeVisible();
-    });
-  });
-
-  test.describe('Sorting', () => {
-    test('should have sort dropdown', async ({ page }) => {
-      const sortSelect = page.locator('select').first();
-      await expect(sortSelect).toBeVisible();
-    });
-
-    test('should change sort order', async ({ page }) => {
-      const sortSelect = page.locator('select').first();
-
-      // Change to sort by title
-      await sortSelect.selectOption('title');
-      await page.waitForTimeout(300);
-
-      // Results should be sorted (hard to verify programmatically without checking order)
-      await expect(page.locator('[role="listitem"]').first()).toBeVisible();
-    });
-  });
-
-  test.describe('Comparison Feature', () => {
-    test('should add screenplay to comparison', async ({ page }) => {
-      // Find and click the comparison checkbox on first card
-      const compareButton = page.locator('[role="listitem"]').first().getByLabel('Add to comparison');
-      await compareButton.click();
-
-      // Wait for comparison bar to appear
-      await page.waitForTimeout(500);
-
-      // The compare button should now show "Remove from comparison"
-      await expect(page.locator('[role="listitem"]').first().getByLabel('Remove from comparison')).toBeVisible();
-    });
-
-    test('should remove screenplay from comparison', async ({ page }) => {
-      // Add to comparison first
-      const compareButton = page.locator('[role="listitem"]').first().getByLabel('Add to comparison');
-      await compareButton.click();
-      await page.waitForTimeout(500);
-
-      // Click again to remove
-      await page.locator('[role="listitem"]').first().getByLabel('Remove from comparison').click();
-      await page.waitForTimeout(500);
-
-      // Should be back to "Add to comparison"
-      await expect(page.locator('[role="listitem"]').first().getByLabel('Add to comparison')).toBeVisible();
-    });
-  });
-
-  test.describe('Keyboard Navigation', () => {
-    test('should navigate cards with arrow keys', async ({ page }) => {
-      // Focus the first card
-      const firstCard = page.locator('[role="listitem"]').first();
-      await firstCard.focus();
-
-      // Press arrow right
-      await page.keyboard.press('ArrowRight');
-
-      // Second card should be focused
-      const secondCard = page.locator('[role="listitem"]').nth(1);
-      await expect(secondCard).toBeFocused();
-    });
-
-    test('should open modal with Enter key', async ({ page }) => {
-      // Focus the first card
-      const firstCard = page.locator('[role="listitem"]').first();
-      await firstCard.focus();
-
-      // Press Enter
-      await page.keyboard.press('Enter');
-
-      // Modal should open
-      await expect(page.getByRole('dialog')).toBeVisible();
-    });
-  });
-
-  test.describe('Analytics Dashboard', () => {
-    test('should display analytics section', async ({ page }) => {
-      // Look for analytics/charts section - check for collapse button
-      await expect(page.getByRole('button', { name: /Analytics|Show Charts|Hide Charts/ })).toBeVisible();
-    });
-  });
-
-  test.describe('Export Feature', () => {
-    test('should have export button', async ({ page }) => {
-      await expect(page.getByRole('button', { name: 'Export' })).toBeVisible();
-    });
-
-    test('should open export modal', async ({ page }) => {
-      // Click export button
-      await page.getByRole('button', { name: 'Export' }).click();
-
-      // Export modal should appear - look for export format options
-      await expect(page.getByText(/Export as/i)).toBeVisible({ timeout: 5000 });
-    });
-  });
-
-  test.describe('Card Data Verification', () => {
-    test('should display title, weighted score, recommendation, and dimension scores in modal', async ({ page }) => {
-      // Click the first screenplay card to open its modal
-      const firstCard = page.locator('[role="listitem"]').first();
-      await expect(firstCard).toBeVisible({ timeout: 10000 });
-
-      // Capture the card title before clicking (h3 inside the article)
-      const cardTitle = await firstCard.locator('h3').first().textContent();
-
-      await firstCard.click();
-
-      // Modal should be visible
-      const modal = page.getByRole('dialog');
-      await expect(modal).toBeVisible({ timeout: 5000 });
-
-      // 1. Title should be displayed in modal header (h2#modal-title)
-      if (cardTitle) {
-        await expect(modal.locator('#modal-title')).toContainText(cardTitle.trim());
-      }
-
-      // 2. Weighted Score label and value should be visible in the ScoresPanel
-      await expect(modal.getByText('Weighted Score')).toBeVisible();
-
-      // 3. Recommendation badge should be present in the modal header
-      // The RecommendationBadge renders text like "RECOMMEND", "CONSIDER", "PASS", or "FILM NOW"
-      await expect(
-        modal.getByText(/RECOMMEND|CONSIDER|PASS|FILM NOW/i).first()
-      ).toBeVisible();
-
-      // 4. Dimension Scores section should be visible
-      await expect(modal.getByText('Dimension Scores')).toBeVisible();
-    });
-  });
-
-  test.describe('Sort By Weighted Score', () => {
-    test('should sort cards by weighted score descending', async ({ page }) => {
-      // Change sort to Weighted Score
-      const sortSelect = page.getByTestId('sort-select');
-      await expect(sortSelect).toBeVisible();
-      await sortSelect.selectOption('weightedScore');
-      await page.waitForTimeout(500);
-
-      // Collect the Score values from the first two visible cards
-      // Each card has a "Score" label followed by the numeric value
-      const cards = page.locator('[role="listitem"]');
-      const firstCardCount = await cards.count();
-
-      if (firstCardCount >= 2) {
-        // The card footer contains a span with text "Score" and then the numeric score
-        // Get the score text (font-mono font-bold) from each card
-        const firstScore = await cards.nth(0).locator('.font-mono.font-bold').first().textContent();
-        const secondScore = await cards.nth(1).locator('.font-mono.font-bold').first().textContent();
-
-        const score1 = parseFloat(firstScore ?? '0');
-        const score2 = parseFloat(secondScore ?? '0');
-
-        // First card should have score >= second card (descending order)
-        expect(score1).toBeGreaterThanOrEqual(score2);
-      }
-    });
+    await expect(page).toHaveURL(/\/projects\/[^/?]+\?workspace=screenplay/);
+    await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /Open (source )?screenplay/i }),
+    ).toBeVisible();
   });
 });

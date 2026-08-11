@@ -23,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { storage } from '@/lib/firebase';
 import { buildStoragePath } from '@/components/settings/pdfUploadPanel.helpers';
 import { patchAnalysisField } from '@/lib/analysisStore';
+import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useScreenplays, SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
@@ -92,9 +93,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
       uploadTask.on(
         'state_changed',
         (snapshot) => {
-          const progress = Math.round(
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-          );
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
           setRowStates((prev) => ({
             ...prev,
             [screenplay.id]: { status: 'uploading', progress },
@@ -121,9 +120,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
             }).on(
               'state_changed',
               (snapshot) => {
-                const p = Math.round(
-                  (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-                );
+                const p = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
                 setRowStates((prev) => ({
                   ...prev,
                   [screenplay.id]: { status: 'uploading', progress: p },
@@ -144,7 +141,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
                   ...prev,
                   [screenplay.id]: { status: 'done' },
                 }));
-              }
+              },
             );
           } else {
             // Already retried, show error
@@ -162,10 +159,10 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
             ...prev,
             [screenplay.id]: { status: 'done' },
           }));
-        }
+        },
       );
     },
-    [queryClient]
+    [queryClient],
   );
 
   // Per-row drop handler (D-02, D-15)
@@ -199,7 +196,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
 
       startUpload(file, screenplay);
     },
-    [startUpload]
+    [startUpload],
   );
 
   // Per-row browse handler
@@ -218,7 +215,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
       }
       startUpload(file, screenplay);
     },
-    [startUpload]
+    [startUpload],
   );
 
   // Batch drop zone handler (D-03)
@@ -228,10 +225,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
       setBatchDragActive(false);
 
       const files = Array.from(e.dataTransfer.files);
-      const { matched, unmatched } = matchFilesToScreenplays(
-        files,
-        missingPdfScreenplays
-      );
+      const { matched, unmatched } = matchFilesToScreenplays(files, missingPdfScreenplays);
 
       for (const { file, screenplay } of matched) {
         const validationError = validatePdfFile(file);
@@ -250,12 +244,12 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
 
       if (unmatched.length > 0) {
         setBatchError(
-          `${unmatched.length} file${unmatched.length !== 1 ? 's' : ''} could not be matched to any title`
+          `${unmatched.length} file${unmatched.length !== 1 ? 's' : ''} could not be matched to any title`,
         );
         setTimeout(() => setBatchError(null), 4000);
       }
     },
-    [missingPdfScreenplays, startUpload]
+    [missingPdfScreenplays, startUpload],
   );
 
   // Retry handler for error rows
@@ -263,7 +257,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
     (screenplay: Screenplay, file: File) => {
       startUpload(file, screenplay);
     },
-    [startUpload]
+    [startUpload],
   );
 
   // Early return when not open (after all hooks to satisfy Rules of Hooks)
@@ -272,10 +266,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black-950/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal container with stray drop prevention (D-15) */}
       <div
@@ -285,9 +276,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
       >
         {/* Header */}
         <div className="px-6 py-4 shrink-0">
-          <h3 className="text-lg font-heading font-semibold text-gold-200">
-            Upload PDFs
-          </h3>
+          <h3 className="text-lg font-heading font-semibold text-gold-200">Upload PDFs</h3>
         </div>
 
         {/* Info note (D-13) */}
@@ -311,14 +300,10 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
               <span className="text-black-300">
                 Uploaded {doneCount} of {totalRows}
                 {remainingCount > 0 && (
-                  <span className="text-black-500">
-                    {' '}&mdash; {remainingCount} remaining
-                  </span>
+                  <span className="text-black-500"> &mdash; {remainingCount} remaining</span>
                 )}
                 {errorCount > 0 && (
-                  <span className="text-red-400">
-                    {' '}&mdash; {errorCount} failed
-                  </span>
+                  <span className="text-red-400"> &mdash; {errorCount} failed</span>
                 )}
               </span>
             ) : (
@@ -351,9 +336,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
             <p className="text-sm text-black-400">
               Drop multiple PDFs here to auto-match by filename
             </p>
-            {batchError && (
-              <p className="text-xs text-red-400 mt-1">{batchError}</p>
-            )}
+            {batchError && <p className="text-xs text-red-400 mt-1">{batchError}</p>}
           </div>
         </div>
 
@@ -392,7 +375,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-gold-200 truncate">
-                        {screenplay.title}
+                        {getScreenplayDisplayTitle(screenplay.title).title}
                       </p>
                       {screenplay.category && (
                         <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-black-700 text-black-400">
@@ -417,9 +400,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
                     )}
 
                     {state.status === 'done' && (
-                      <p className="text-[10px] text-emerald-400/70 mt-0.5">
-                        Uploaded
-                      </p>
+                      <p className="text-[10px] text-emerald-400/70 mt-0.5">Uploaded</p>
                     )}
 
                     {state.status === 'error' && (
@@ -449,9 +430,7 @@ export function BulkPdfUploadModal({ isOpen, onClose }: BulkPdfUploadModalProps)
                           }}
                         />
                         <button
-                          onClick={() =>
-                            fileInputRefs.current[screenplay.id]?.click()
-                          }
+                          onClick={() => fileInputRefs.current[screenplay.id]?.click()}
                           className="text-xs px-2.5 py-1 rounded-md border border-black-600 text-black-300 hover:border-gold-500/40 hover:text-gold-300 transition-all"
                         >
                           Browse

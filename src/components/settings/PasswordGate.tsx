@@ -177,8 +177,13 @@ export function PasswordGate({ children, storageKey = 'default' }: PasswordGateP
     arr: string[],
     setArr: (v: string[]) => void,
     refs: typeof inputRefs,
+    groupLabel: string,
   ) => (
-    <div className={`flex gap-3 justify-center ${shake ? 'animate-shake' : ''}`}>
+    <div
+      className={`flex gap-3 justify-center ${shake ? 'animate-shake' : ''}`}
+      role="group"
+      aria-label={groupLabel}
+    >
       {arr.map((digit, i) => (
         <div key={i} className="relative">
           <input
@@ -189,8 +194,11 @@ export function PasswordGate({ children, storageKey = 'default' }: PasswordGateP
             value={digit}
             onChange={e => handleDigit(e.target.value, i, arr, setArr, refs)}
             onKeyDown={e => handleKeyDown(e, i, arr, setArr, refs)}
+            aria-label={`${groupLabel}, digit ${i + 1} of 4`}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? 'settings-pin-error' : undefined}
             className="w-14 h-14 text-center text-2xl font-bold bg-black-800/80 border-2 border-gold-500/20 rounded-xl text-gold-200 focus:border-gold-500/60 focus:ring-2 focus:ring-gold-500/20 outline-none transition-all"
-            autoComplete="off"
+            autoComplete={i === 0 ? 'one-time-code' : 'off'}
           />
           {/* Filled dot indicator */}
           <div className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full transition-all duration-200 ${
@@ -206,7 +214,7 @@ export function PasswordGate({ children, storageKey = 'default' }: PasswordGateP
       {/* Frosted Glass Card */}
       <div className="relative w-full max-w-sm">
         {/* Ambient glow */}
-        <div className="absolute -inset-4 bg-gradient-to-br from-gold-500/10 via-transparent to-amber-500/10 rounded-3xl blur-xl" />
+        <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-gold-500/10 via-transparent to-amber-500/10 blur-xl" />
 
         <div className="relative bg-black-900/80 backdrop-blur-xl border border-gold-500/20 rounded-2xl p-8 shadow-2xl">
           {/* Lock Icon */}
@@ -231,8 +239,8 @@ export function PasswordGate({ children, storageKey = 'default' }: PasswordGateP
               </p>
 
               {isConfirmStep
-                ? renderPinInputs(confirmPin, setConfirmPin, confirmRefs)
-                : renderPinInputs(pin, setPin, inputRefs)
+                ? renderPinInputs(confirmPin, setConfirmPin, confirmRefs, 'Confirm settings PIN')
+                : renderPinInputs(pin, setPin, inputRefs, 'Create settings PIN')
               }
             </>
           )}
@@ -247,7 +255,7 @@ export function PasswordGate({ children, storageKey = 'default' }: PasswordGateP
                 Enter your 4-digit PIN to access API settings
               </p>
 
-              {renderPinInputs(pin, setPin, inputRefs)}
+              {renderPinInputs(pin, setPin, inputRefs, 'Enter settings PIN')}
             </>
           )}
 
@@ -291,7 +299,11 @@ export function PasswordGate({ children, storageKey = 'default' }: PasswordGateP
 
           {/* Error Message */}
           {error && (
-            <p className="text-sm text-red-400 text-center mt-4 animate-pulse">
+            <p
+              id="settings-pin-error"
+              className="text-sm text-red-400 text-center mt-4 animate-pulse"
+              role="alert"
+            >
               {error}
             </p>
           )}

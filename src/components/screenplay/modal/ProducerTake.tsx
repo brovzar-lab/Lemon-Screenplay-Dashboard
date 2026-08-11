@@ -6,9 +6,12 @@ import {
   TASTE_SIGNAL_LABELS,
   isExpectedLocalCalibrationPredeployError,
   isLocalCalibrationPreviewMode,
+  clearLocalProducerWorkingDraft,
   loadLocalProducerTakeDraft,
+  loadLocalProducerWorkingDraft,
   loadProducerAssessment,
   saveLocalProducerTakeDraft,
+  saveLocalProducerWorkingDraft,
   submitProducerAssessment,
   type LocalProducerTakeDraft,
 } from '@/lib/producerCalibration';
@@ -58,6 +61,8 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [workingDraftRestored, setWorkingDraftRestored] = useState(false);
+  const producerVersionId = screenplay.latestVersionId ?? 'legacy-unverified';
 
   useEffect(() => {
     let active = true;
@@ -65,14 +70,21 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     setError('');
     const applyLocalDraftOrNewTake = () => {
       const draft = loadLocalProducerTakeDraft(projectId);
+      const workingDraft = loadLocalProducerWorkingDraft(projectId);
       setLocalDraft(draft);
-      const isExactLocalVersion = draft?.versionId === screenplay.latestVersionId;
+      const isExactLocalVersion = draft?.versionId === producerVersionId;
+      const isExactWorkingVersion = workingDraft?.versionId === producerVersionId;
       if (draft && isExactLocalVersion) {
         setJudgment(draft.judgment);
+        setWorkingDraftRestored(false);
+      } else if (workingDraft && isExactWorkingVersion) {
+        setJudgment(workingDraft.judgment);
+        setWorkingDraftRestored(true);
       } else {
         setJudgment(judgmentFromAi(screenplay.weightedScore, screenplay.recommendation));
+        setWorkingDraftRestored(false);
       }
-      setEditing(!isExactLocalVersion);
+      setEditing(!isExactLocalVersion || isExactWorkingVersion);
     };
     loadProducerAssessment(projectId)
       .then((loaded) => {
@@ -83,16 +95,26 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
           setLocalDraft(null);
           setJudgment(loaded.judgment);
           setEditing(false);
-        } else if (isLocalPreview) {
+        } else if (isLocalPreview || !screenplay.latestVersionId) {
           applyLocalDraftOrNewTake();
         } else {
-          setJudgment(judgmentFromAi(screenplay.weightedScore, screenplay.recommendation));
+          const workingDraft = loadLocalProducerWorkingDraft(projectId);
+          if (workingDraft?.versionId === producerVersionId) {
+            setJudgment(workingDraft.judgment);
+            setWorkingDraftRestored(true);
+          } else {
+            setJudgment(judgmentFromAi(screenplay.weightedScore, screenplay.recommendation));
+            setWorkingDraftRestored(false);
+          }
           setEditing(true);
         }
       })
       .catch((loadError: unknown) => {
         if (!active) return;
-        if (isLocalPreview && isExpectedLocalCalibrationPredeployError(loadError)) {
+        if (
+          !screenplay.latestVersionId ||
+          (isLocalPreview && isExpectedLocalCalibrationPredeployError(loadError))
+        ) {
           setAssessment(null);
           applyLocalDraftOrNewTake();
           return;
@@ -111,23 +133,38 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     projectId,
     isLocalPreview,
     screenplay.latestVersionId,
+    producerVersionId,
     screenplay.recommendation,
     screenplay.weightedScore,
   ]);
+
+  useEffect(() => {
+    if (loading || !editing) return;
+    saveLocalProducerWorkingDraft({
+      projectId,
+      versionId: producerVersionId,
+      judgment,
+    });
+  }, [editing, judgment, loading, producerVersionId, projectId]);
 
   const scoreDelta = useMemo(
     () => judgment.producerScore - screenplay.weightedScore,
     [judgment.producerScore, screenplay.weightedScore],
   );
   const exactVersionAvailable = Boolean(screenplay.latestVersionId);
+  const isLegacyDraft = !exactVersionAvailable;
   const savedJudgment = assessment?.judgment ?? localDraft?.judgment ?? null;
   const hasSavedTake = savedJudgment !== null;
   const savedVersionId = assessment?.analysis.versionId ?? localDraft?.versionId ?? null;
-  const isPriorVersion = savedVersionId !== null && savedVersionId !== screenplay.latestVersionId;
+  const isPriorVersion = savedVersionId !== null && savedVersionId !== producerVersionId;
   const savedAt = assessment?.publishedAt ?? localDraft?.savedAt;
 
   const update = <K extends keyof ProducerJudgment>(key: K, value: ProducerJudgment[K]) =>
-    setJudgment((current) => ({ ...current, [key]: value }));
+    setJudgment((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === 'confidence' && value === 'low' ? { includeInCalibration: false } : {}),
+    }));
 
   const toggleSignal = (signal: TasteSignal) => {
     update(
@@ -139,35 +176,40 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
   };
 
   const handleSave = async () => {
-    if (!screenplay.latestVersionId) return;
     setSaving(true);
     setError('');
     try {
-      if (isLocalPreview) {
+      if (isLocalPreview || isLegacyDraft) {
+        const localJudgment = isLegacyDraft
+          ? { ...judgment, includeInCalibration: false }
+          : judgment;
         const savedDraft = saveLocalProducerTakeDraft({
           projectId,
-          versionId: screenplay.latestVersionId,
+          versionId: producerVersionId,
           title: screenplay.title,
           aiFinalScore: screenplay.weightedScore,
           aiVerdict: screenplay.recommendation,
-          judgment,
+          judgment: localJudgment,
         });
         setAssessment(null);
         setLocalDraft(savedDraft);
         setJudgment(savedDraft.judgment);
         setEditing(false);
+        setWorkingDraftRestored(false);
+        clearLocalProducerWorkingDraft(projectId);
         window.dispatchEvent(new Event(PRODUCER_ASSESSMENT_UPDATED_EVENT));
         return;
       }
       const saved = await submitProducerAssessment({
         projectId,
-        versionId: screenplay.latestVersionId,
+        versionId: producerVersionId,
         judgment,
       });
       setAssessment(saved);
       setLocalDraft(null);
       setJudgment(saved.judgment);
       setEditing(false);
+      clearLocalProducerWorkingDraft(projectId);
       window.dispatchEvent(new Event(PRODUCER_ASSESSMENT_UPDATED_EVENT));
     } catch (saveError) {
       setError(
@@ -213,7 +255,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               id={`producer-take-${screenplay.id}`}
               className="mt-1 text-xl font-display text-black-100"
             >
-              Producer Take
+              {isLegacyDraft ? 'Legacy Producer Draft' : 'Producer Take'}
             </h3>
             <p className="mt-1 text-sm text-black-400">
               Your judgment stays beside the AI result. It never replaces it.
@@ -289,7 +331,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 </strong>
                 <p className="mt-1 text-xs leading-5 text-black-400">
                   {localDraft
-                    ? 'Your review is safely stored for this local Q5 preview. It has not changed the AI score or activated calibration.'
+                    ? 'Your review is safely stored on this Mac. It has not changed the AI score, published a production record, or activated calibration.'
                     : 'Your review is now part of the evidence set. It has not changed the AI score or activated a calibration profile.'}
                   {savedAt ? ` Saved ${formatSavedAt(savedAt)}.` : ''}
                 </p>
@@ -298,12 +340,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
           </div>
         )}
 
-        {!exactVersionAvailable ? (
-          <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
-            Producer calibration requires a sealed analysis version. Reanalyze this legacy record
-            before using it as taste evidence.
-          </p>
-        ) : !editing && savedJudgment ? (
+        {!editing && savedJudgment ? (
           <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black-500">
@@ -323,11 +360,20 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
             </div>
             <p className="text-xs text-black-500 sm:col-span-2">
               {localDraft ? 'Local preview' : 'Published'} · Revision{' '}
-              {assessment?.revision ?? localDraft?.revision} · Exact analysis version{' '}
-              {savedVersionId?.slice(0, 12)}… ·{' '}
-              {savedJudgment.includeInCalibration
-                ? 'Included in calibration'
-                : 'Held out of calibration'}
+              {assessment?.revision ?? localDraft?.revision} ·{' '}
+              {isLegacyDraft ? 'Legacy analysis snapshot' : 'Current sealed analysis'} ·{' '}
+              {localDraft && savedJudgment.includeInCalibration
+                ? 'Marked for calibration if published'
+                : savedJudgment.includeInCalibration
+                  ? 'Included in calibration'
+                  : 'Held out of calibration'}
+            </p>
+            <p className="text-xs text-black-500 sm:col-span-2">
+              Confidence: {savedJudgment.confidence === 'low'
+                ? 'Tentative'
+                : savedJudgment.confidence === 'medium'
+                  ? 'Medium'
+                  : 'High'}
             </p>
             <div className="sm:col-span-2">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black-500">
@@ -404,9 +450,22 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
             {isLocalPreview && (
               <div className="rounded-lg border border-[#3157d5]/30 bg-[#3157d5]/8 p-3 text-sm leading-6 text-black-300">
                 <strong className="block text-black-100">Local review mode</strong>
-                This take will be saved only on this Mac for Q5 review. Production publishing
-                becomes available after Q5 is approved and deployed.
+                This take will be saved only on this Mac. No production record or calibration
+                profile changes during local review.
               </div>
+            )}
+            {isLegacyDraft && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm leading-6 text-black-300">
+                <strong className="block text-black-100">Legacy Producer Draft</strong>
+                You can preserve your judgment now, but this older analysis cannot prove the sealed
+                evidence required for calibration. This draft stays privately on this device and
+                never enters calibration.
+              </div>
+            )}
+            {workingDraftRestored && (
+              <p role="status" className="rounded-lg border border-[#3157d5]/30 bg-[#3157d5]/8 p-3 text-sm text-black-300">
+                Unpublished draft restored. Your unfinished writing was preserved on this Mac.
+              </p>
             )}
             <div>
               <div className="flex items-center justify-between gap-4">
@@ -454,6 +513,39 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                   </button>
                 ))}
               </div>
+            </fieldset>
+
+            <fieldset>
+              <legend className="text-xs font-semibold uppercase tracking-wider text-black-400">
+                How confident are you in this take?
+              </legend>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {([
+                  ['high', 'High confidence'],
+                  ['medium', 'Medium confidence'],
+                  ['low', 'Tentative'],
+                ] as const).map(([confidence, label]) => (
+                  <button
+                    key={confidence}
+                    type="button"
+                    aria-pressed={judgment.confidence === confidence}
+                    onClick={() => update('confidence', confidence)}
+                    className={clsx(
+                      'rounded-md border px-3 py-2 text-xs font-semibold transition-colors',
+                      judgment.confidence === confidence
+                        ? 'border-[#3157d5] bg-[#3157d5] text-white'
+                        : 'border-black-700 text-black-300 hover:border-black-500',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs leading-5 text-black-500">
+                {judgment.confidence === 'low'
+                  ? 'Tentative takes are always held out of calibration evidence.'
+                  : 'Only include this take in calibration when your judgment feels settled.'}
+              </p>
             </fieldset>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -540,8 +632,10 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
             <label className="flex items-start gap-3 rounded-lg border border-black-700 p-3 text-sm text-black-300">
               <input
                 type="checkbox"
-                checked={judgment.includeInCalibration}
+                aria-label="Use this as calibration evidence"
+                checked={judgment.includeInCalibration && !isLegacyDraft}
                 onChange={(event) => update('includeInCalibration', event.target.checked)}
+                disabled={judgment.confidence === 'low' || isLegacyDraft}
                 className="mt-0.5 accent-[#3157d5]"
               />
               <span>
@@ -566,6 +660,8 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                     setJudgment(savedJudgment);
                     setEditing(false);
                     setError('');
+                    setWorkingDraftRestored(false);
+                    clearLocalProducerWorkingDraft(projectId);
                   }}
                 >
                   Cancel
@@ -579,6 +675,8 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               >
                 {saving
                   ? 'Saving…'
+                  : isLegacyDraft
+                    ? 'Save Producer Draft'
                   : isLocalPreview && hasSavedTake
                     ? 'Save local revision'
                     : isLocalPreview

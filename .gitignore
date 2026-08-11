@@ -38,6 +38,7 @@ Thumbs.db
 # Test artifacts
 test-results/
 playwright-report/
+playwright/.auth/
 /coverage/
 
 # Firebase cache

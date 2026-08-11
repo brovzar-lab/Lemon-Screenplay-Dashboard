@@ -26,28 +26,41 @@ const mockUser = {
   emailVerified: true,
 };
 const mockSignOut = vi.fn().mockResolvedValue(undefined);
+const mockSignInWithPopup = vi.fn().mockResolvedValue({ user: mockUser });
 const mockSignInWithRedirect = vi.fn().mockResolvedValue(undefined);
+const mockSignInWithCredential = vi.fn().mockResolvedValue({ user: mockUser });
+const mockSignInWithCustomToken = vi.fn().mockResolvedValue({ user: mockUser });
+const mockGetRedirectResult = vi.fn().mockResolvedValue(null);
+const mockGoogleCredential = { providerId: 'google.com', signInMethod: 'google.com' };
 
 vi.mock('firebase/auth', () => ({
   browserLocalPersistence: { type: 'LOCAL' },
   getAuth: vi.fn(() => ({ currentUser: mockUser })),
   GoogleAuthProvider: class GoogleAuthProvider {
+    static credential = vi.fn(() => mockGoogleCredential);
     setCustomParameters = vi.fn();
   },
+  getRedirectResult: mockGetRedirectResult,
   onAuthStateChanged: vi.fn((_auth, callback) => {
     callback(mockUser);
     return vi.fn();
   }),
   setPersistence: vi.fn().mockResolvedValue(undefined),
+  signInWithPopup: mockSignInWithPopup,
   signInWithRedirect: mockSignInWithRedirect,
+  signInWithCredential: mockSignInWithCredential,
+  signInWithCustomToken: mockSignInWithCustomToken,
   signOut: mockSignOut,
 }));
 
 describe('firebase module', () => {
   let firebaseModule: typeof import('./firebase');
+  let redirectResultCallsAtImport = 0;
 
   beforeAll(async () => {
     firebaseModule = await import('./firebase');
+    await firebaseModule.authReady;
+    redirectResultCallsAtImport = mockGetRedirectResult.mock.calls.length;
   });
 
   beforeEach(() => {
@@ -56,6 +69,7 @@ describe('firebase module', () => {
 
   it('restores the persisted Google session', async () => {
     await expect(firebaseModule.authReady).resolves.toEqual(mockUser);
+    expect(redirectResultCallsAtImport).toBe(1);
   });
 
   it('recognizes only Lemon Studios email addresses', () => {
@@ -65,9 +79,29 @@ describe('firebase module', () => {
     expect(firebaseModule.isLemonEmail(null)).toBe(false);
   });
 
-  it('starts Google sign-in in the current window', async () => {
+  it('starts Google sign-in without leaving the dashboard', async () => {
     await expect(firebaseModule.signInWithGoogle()).resolves.toBeUndefined();
+    expect(mockSignInWithPopup).toHaveBeenCalledOnce();
+    expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+  });
+
+  it('falls back to redirect when the browser blocks the popup', async () => {
+    mockSignInWithPopup.mockRejectedValueOnce({ code: 'auth/popup-blocked' });
+
+    await expect(firebaseModule.signInWithGoogle()).resolves.toBeUndefined();
+
     expect(mockSignInWithRedirect).toHaveBeenCalledOnce();
+  });
+
+  it('accepts a Google Identity Services token without a popup handoff', async () => {
+    await expect(
+      firebaseModule.signInWithGoogleIdToken('google-id-token'),
+    ).resolves.toBeUndefined();
+
+    expect(mockSignInWithCredential).toHaveBeenCalledWith(
+      firebaseModule.auth,
+      mockGoogleCredential,
+    );
   });
 
   it('exposes the initialized auth singleton', () => {
