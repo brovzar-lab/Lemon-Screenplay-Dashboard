@@ -8,11 +8,11 @@
 **Production and delivery state:**
 - Production and GitHub `main` remain at `d71b38d`. Nothing from this release
   candidate has been merged or deployed.
-- Active branch `codex/discovery-cleaned-hybrid` is 29 commits ahead of `main`.
+- Active branch `codex/discovery-cleaned-hybrid` is 30 commits ahead of `main`.
   The One Lemon application commit `a554315` is pushed to the branch backing
   [PR #6](https://github.com/brovzar-lab/Lemon-Screenplay-Dashboard/pull/6).
-- PR #6 remains the only delivery target. Merge and deployment still require
-  separate explicit approval.
+- PR #6 remains the only delivery target and is ready for human review. Merge
+  and deployment still require separate explicit approval.
 
 **One Lemon application completed:**
 - Discovery, Settings, and Screenplay File now use one shared 64px signed-in
@@ -50,21 +50,20 @@
   `one-lemon-screenplay-file.png`.
 - Independent standards and specification reviews report zero actionable findings.
 
-**Hosted CI gate:**
+**Hosted CI completed:**
 - Playwright is now a required workflow failure; `continue-on-error` was removed.
 - Ignored `service-account.json` was validated without printing credentials: it
   is a service-account file for project `lemon-screenplay-dashboard`.
-- Uploading it as protected `FIREBASE_SERVICE_ACCOUNT_JSON`, rerunning hosted
-  checks, updating the PR description, and marking PR #6 ready are blocked only
-  by the expired GitHub CLI login. A device reauthorization is awaiting Billy's
-  approval. Do not merge or deploy while this gate remains.
+- The file was uploaded directly as protected repository secret
+  `FIREBASE_SERVICE_ACCOUNT_JSON`; its contents were never printed.
+- Hosted `Lint, Build & Test` and authenticated `Playwright E2E` both pass. The
+  PR description contains the final verification results and PR #6 is ready for
+  review.
 
 **Next up:**
-1. Complete GitHub CLI device approval, upload the protected secret directly,
-   and rerun both required checks.
-2. After both checks are green, update PR #6 with the verification results and
-   mark it ready for review.
-3. Merge only with explicit approval. Treat deployment as a separate approval.
+1. Billy reviews PR #6 and the browser proof.
+2. Merge only with explicit approval.
+3. Treat deployment as a separate approval after merge review.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
