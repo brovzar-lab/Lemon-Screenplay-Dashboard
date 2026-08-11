@@ -6,64 +6,65 @@
 **Last session:** 2026-08-11
 
 **Production and delivery state:**
-- Production and GitHub `main` remain at `d71b38d`. Nothing from this release
-  candidate has been merged or deployed.
-- Active branch `codex/discovery-cleaned-hybrid` is 30 commits ahead of `main`.
-  The One Lemon application commit `a554315` is pushed to the branch backing
-  [PR #6](https://github.com/brovzar-lab/Lemon-Screenplay-Dashboard/pull/6).
-- PR #6 remains the only delivery target and is ready for human review. Merge
-  and deployment still require separate explicit approval.
+- [PR #6](https://github.com/brovzar-lab/Lemon-Screenplay-Dashboard/pull/6) is
+  **merged**. The One Lemon release shipped: `main` reached `a79343a` and Firebase
+  Hosting deployed it at 2026-08-11 14:00:56 UTC. Production serves that build
+  (verified by comparing the deployed `DiscoverPage` chunk against a local build).
+- Cloud Functions and the VPS daemon were **not** redeployed in that release.
+- [PR #7](https://github.com/brovzar-lab/Lemon-Screenplay-Dashboard/pull/7) is
+  merged; `main` is now `92a2e51`. Production deploys are gated (see below).
 
-**One Lemon application completed:**
-- Discovery, Settings, and Screenplay File now use one shared 64px signed-in
-  header with Lemon identity, role-aware Discover/Settings navigation, sync
-  status, Light/Dark/System appearance, and account controls.
-- Discovery search, Saved Views, Favorites, metrics, sorting, selection, and
-  filters live below the header. Settings uses an Administration + active-section
-  workspace heading. Screenplay File uses a page toolbar for Back to Slate,
-  project identity, share/export/favorite, and all tabs including Reader Room.
-- The three canonical surfaces share the Discovery `--sp-*` palette and type
-  system. Stored experimental design-system choices migrate to Instrument while
-  preserving Light/Dark/System color mode.
-- Mobile layouts were verified without horizontal page overflow; visible sync
-  warnings collapse to an accessible status icon in the fixed-height header.
+**Production deploys now require explicit approval:**
+- `.github/workflows/deploy.yml` was split into a `verify` job (lint, build, 889
+  unit tests, Playwright — automatic on every push to `main`) and a `deploy` job
+  bound to the protected `production` GitHub Environment.
+- Merging to `main` no longer releases. The deploy job waits for a human to
+  approve it under Actions → the waiting run → Review deployments.
+- The tested `dist/` is passed to the deploy job as an artifact, so Firebase
+  receives exactly the build that passed verification.
+- A `Protect main` ruleset is active: PR required, status checks required, force
+  pushes and deletions blocked. Direct pushes to `main` are refused.
+- Known ceiling: the environment's approver is `brovzar-lab`, the same identity
+  the agents authenticate as. The gate stops accidental deploys, not a determined
+  agent holding that token. A separate agent identity is the real fix.
 
-**Preserved fallbacks and product decisions:**
-- Discovery remains signed-in home at `/`; Classic Dashboard remains available
-  directly at `/dashboard-classic`. Explicit classic/hybrid Discovery fallbacks,
-  public share, authentication, and legacy workspace routes remain unchanged.
-- Discovery still shows exactly one stable daily Featured project independent of
-  temporary search/filters, and Slate Insights opens by default.
-- Backend behavior, Firestore data and schemas, public APIs, routes, and every
-  pre-existing untracked file remain untouched.
+**Paperclip branch contamination (resolved):**
+- Two unrelated branches, `master` and `lemon-virtual-studios`, had been pushed
+  into this repo by a Paperclip agent (35 commits, no common ancestor with `main`).
+  They never merged, never ran Actions, and never reached production.
+- Both were archived to a verified, restore-tested git bundle at
+  `~/CODE/_paperclip-branch-archive/paperclip-strays-2026-08-11.bundle`, then
+  deleted from GitHub. `brovzar-lab/paperclip` was never modified.
+- Root cause is unfixed and is not a code issue: `brovzar-lab` is a personal
+  account owning 72 repos, and the agent credentials can write to all of them.
+  Scoping that token is the outstanding remediation.
 
-**Verification:**
-- Complete app tests: 889 pass. Functions tests: 53 pass. Lint and production
-  build pass.
-- Complete local Playwright suite: 29 authenticated Light/Dark scenarios pass on
-  fixed port 3000.
-- Desktop and mobile browser proof passed for the 27-screenplay Discovery slate,
-  Featured project, Settings deep link, Screenplay File, Reader Room, navigation,
-  back behavior, and theme modes. No application console errors were found.
-- Proof screenshots are stored under the current Codex visualization folder as
-  `one-lemon-discovery.png`, `one-lemon-settings.png`, and
-  `one-lemon-screenplay-file.png`.
-- Independent standards and specification reviews report zero actionable findings.
+**V9 reanalysis (3 screenplays, production data):**
+- Matadero, Oro de Acapulco, and Hermanos Márquez Castillo were re-run through
+  the current V9 engine. No verdict changed; all three held CONSIDER.
+- Raw weighted scores moved +0.06 / +0.07 / 0.00. Adjusted scores moved
+  +0.36 / +0.57 / 0.00 because two stale critical-failure penalties cleared.
+- Hermanos cost nothing: its content hash matched an existing immutable version,
+  so the engine reused it and repeated no paid work. Total new spend $6.92.
+- All three now carry five sealed, publication-ready reader reports, which is
+  what unlocks Private Reader Chat. Sealed reports live in the `versions`
+  subcollection, not on the top-level `analysis` object.
+- Regression found and corrected: the engine derived Matadero's title from its
+  filename (`Matadero (5ta Version 24052026)`). The display title was restored to
+  `Matadero` on the top-level doc; the sealed version keeps the engine's raw value.
 
-**Hosted CI completed:**
-- Playwright is now a required workflow failure; `continue-on-error` was removed.
-- Ignored `service-account.json` was validated without printing credentials: it
-  is a service-account file for project `lemon-screenplay-dashboard`.
-- The file was uploaded directly as protected repository secret
-  `FIREBASE_SERVICE_ACCOUNT_JSON`; its contents were never printed.
-- Hosted `Lint, Build & Test` and authenticated `Playwright E2E` both pass. The
-  PR description contains the final verification results and PR #6 is ready for
-  review.
+**Open risks:**
+- `VITE_TMDB_API_KEY` in `.env` is inlined into the client bundle at build time.
+  Production is clean because CI has no such variable, but a local `npm run deploy`
+  would publish that key. Route TMDB server-side like the other providers.
+- The Playwright suite asserts against live production Firestore data, so editing
+  one screenplay's title broke CI. Fixture-backed data would remove that coupling.
+- 24 repeated chart-resize console warnings on Discovery. No visible failure.
 
 **Next up:**
-1. Billy reviews PR #6 and the browser proof.
-2. Merge only with explicit approval.
-3. Treat deployment as a separate approval after merge review.
+1. Scope the Paperclip agent credential to `brovzar-lab/paperclip` only.
+2. Rotate the Firebase service-account key afterwards, as a precaution.
+3. Decide on a separate agent identity so deploy approval is not self-approvable.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
