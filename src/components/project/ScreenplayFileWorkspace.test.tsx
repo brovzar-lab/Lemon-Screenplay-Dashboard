@@ -15,7 +15,13 @@ const state = vi.hoisted(() => ({
 
 vi.mock('@/stores/authStore', () => ({ useIsAdmin: () => state.isAdmin }));
 vi.mock('@/stores/themeStore', () => ({
-  useThemeStore: (selector: (value: { isDark: boolean }) => unknown) => selector({ isDark: false }),
+  useThemeStore: (selector: (value: Record<string, unknown>) => unknown) =>
+    selector({
+      isDark: false,
+      theme: 'light',
+      setTheme: vi.fn(),
+      setDesignSystem: vi.fn(),
+    }),
 }));
 vi.mock('@/stores/favoritesStore', () => ({
   useFavoritesStore: (selector: (value: Record<string, unknown>) => unknown) =>
@@ -190,6 +196,7 @@ describe('ScreenplayFileWorkspace', () => {
         onBack={vi.fn()}
       />,
     );
+    expect(screen.getByTestId('application-header')).toBeInTheDocument();
     expect(screen.getByTestId('screenplay-file-workspace')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Atlas Fall' })).toBeInTheDocument();
     expect(screen.getByText('5/5 complete')).toBeInTheDocument();

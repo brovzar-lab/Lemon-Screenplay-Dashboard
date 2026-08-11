@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { UploadPanel } from '@/components/settings/UploadPanel';
 import { DataManagement } from '@/components/settings/DataManagement';
@@ -12,9 +12,8 @@ import { FavoritesPanel } from '@/components/settings/FavoritesPanel';
 import { AnalysisOverview } from '@/components/settings/AnalysisOverview';
 import { ApiConfigPanel } from '@/components/settings/ApiConfigPanel';
 import { PasswordGate } from '@/components/settings/PasswordGate';
-import { SettingsThemeControl } from '@/components/settings/SettingsThemeControl';
 import { FeaturedProjectPanel } from '@/components/settings/FeaturedProjectPanel';
-import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
+import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import '@/components/discover/discovery.css';
 import '@/pages/settings-page.css';
 
@@ -224,29 +223,7 @@ export function SettingsPage() {
 
   return (
     <div className="settings-page">
-      <header className="settings-header">
-        <div className="settings-header__inner">
-          <Link
-            to="/"
-            className="settings-brand"
-            aria-label="Lemon Discovery"
-          >
-            <img src="/lemon-logo-white.png" alt="" />
-            <span>
-              <strong>LEMON</strong>
-              <small>Discovery</small>
-            </span>
-          </Link>
-          <AuthenticatedNavigation className="settings-primary-nav" />
-          <div className="settings-header__title">
-            <span>Administration</span>
-            <strong>Settings</strong>
-          </div>
-          <div className="settings-header__actions">
-            <SettingsThemeControl />
-          </div>
-        </div>
-      </header>
+      <ApplicationHeader />
 
       <main className="settings-main">
         <aside className="settings-sidebar">
@@ -277,7 +254,7 @@ export function SettingsPage() {
 
         <section className="settings-workspace" aria-labelledby="settings-section-title">
           <header className="settings-workspace__heading">
-            <p className="settings-eyebrow">{activeConfig.group}</p>
+            <p className="settings-eyebrow">Administration · {activeConfig.group}</p>
             <h1 id="settings-section-title">{activeConfig.label}</h1>
             <p>{activeConfig.description}</p>
           </header>

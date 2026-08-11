@@ -92,6 +92,7 @@ describe('I + G screenplay Discovery presentation', () => {
   it('shows exactly one Featured project and returns every other project to the wall', async () => {
     renderPage();
 
+    expect(await screen.findByTestId('application-header')).toBeInTheDocument();
     const ranking = await screen.findByTestId('screenplay-discovery-ranking');
     expect(within(ranking).getByText('Featured project')).toBeInTheDocument();
     expect(within(ranking).getByText(/Stable for today/)).toBeInTheDocument();

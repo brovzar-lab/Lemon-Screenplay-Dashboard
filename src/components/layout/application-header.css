@@ -1,0 +1,169 @@
+.application-header {
+  --sp-accent: #6e8bff;
+  --sp-accent-soft: #1b2747;
+  --sp-text: #f4f7fc;
+  --sp-text-2: #c5cede;
+  --sp-text-3: #9eabc0;
+  position: sticky;
+  z-index: 60;
+  top: 0;
+  height: 64px;
+  border-bottom: 1px solid #243652;
+  background: #071426;
+  color: #f4f7fc;
+  font-family: var(--sp-font);
+}
+
+.application-header__inner {
+  display: flex;
+  width: 100%;
+  max-width: 1800px;
+  height: 64px;
+  align-items: center;
+  gap: 18px;
+  margin: 0 auto;
+  padding: 0 clamp(18px, 2.4vw, 38px);
+}
+
+.application-header__brand {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.application-header__brand img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.application-header__brand span {
+  display: flex;
+  flex-direction: column;
+  line-height: 0.92;
+}
+
+.application-header__brand strong {
+  font-family: var(--sp-display);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+}
+
+.application-header__brand small {
+  margin-top: 5px;
+  color: #9eabc0;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.application-header__navigation {
+  flex: 0 0 auto;
+}
+
+.application-header__actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.application-header .settings-theme-control {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 3px;
+  border: 1px solid #2a3b58;
+  border-radius: 8px;
+  background: #0e1d33;
+}
+
+.application-header .settings-theme-control button {
+  min-height: 32px;
+  padding: 0 9px;
+  border-radius: 6px;
+  color: #9eabc0;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.application-header .settings-theme-control button:hover {
+  color: #fff;
+}
+
+.application-header .settings-theme-control button.is-active {
+  background: #6e8bff;
+  color: #071222;
+}
+
+.application-header :focus-visible {
+  outline: 3px solid #8da4ff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .application-header__inner {
+    gap: 8px;
+    padding-inline: 12px;
+  }
+
+  .application-header__brand span {
+    display: none;
+  }
+
+  .application-header__navigation .authenticated-navigation__link {
+    padding-inline: 8px;
+    font-size: 13px;
+  }
+
+  .application-header__actions {
+    gap: 4px;
+  }
+
+  .application-header .sync-status-indicator {
+    flex: 0 0 auto;
+    gap: 0;
+    padding: 6px;
+  }
+
+  .application-header .sync-status-indicator > span,
+  .application-header .sync-status-indicator > button {
+    display: none;
+  }
+
+  .application-header .settings-theme-control button {
+    padding-inline: 6px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 520px) {
+  .application-header__inner {
+    gap: 4px;
+    padding-inline: 6px;
+  }
+
+  .application-header__brand img {
+    width: 30px;
+    height: 30px;
+  }
+
+  .application-header__navigation .authenticated-navigation__link {
+    padding-inline: 6px;
+    font-size: 12px;
+  }
+
+  .application-header .settings-theme-control button {
+    padding-inline: 4px;
+    font-size: 8px;
+  }
+
+  .application-header__actions > div:last-child {
+    gap: 2px;
+  }
+}

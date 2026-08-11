@@ -73,6 +73,7 @@ describe('Settings deep links', () => {
   it('opens the complete Intake desk by default', () => {
     renderSettings('/settings');
 
+    expect(screen.getByTestId('application-header')).toBeInTheDocument();
     expect(screen.getByText('Upload panel')).toBeInTheDocument();
     expect(uploadPanelMock).toHaveBeenCalledWith(
       expect.objectContaining({ presentation: 'intake', initialModel: 'hybrid' }),

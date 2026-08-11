@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 import { clsx } from 'clsx';
-import { UserMenu } from '@/components/auth';
 import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
-import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator';
-import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
+import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import { ReaderRoom } from '@/components/project/ReaderRoom';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
@@ -19,7 +17,6 @@ import {
   ShareButton,
 } from '@/components/screenplay/modal';
 import { ScreenplayPdfButton } from '@/components/screenplay/modal/ScreenplayPdfButton';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
 import {
   formatAnalysisVersion,
@@ -30,7 +27,6 @@ import { evaluateDevelopmentOpportunity } from '@/lib/developmentOpportunity';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
-import { useThemeStore } from '@/stores/themeStore';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 import '@/components/project/screenplay-file.css';
 
@@ -306,7 +302,6 @@ export function ScreenplayFileWorkspace({
   const panelRef = useRef<HTMLDivElement>(null);
   const previousProjectRef = useRef<string | null>(null);
   const isAdmin = useIsAdmin();
-  const isDark = useThemeStore((state) => state.isDark);
   const quickFavorites = useFavoritesStore((state) => state.quickFavorites);
   const toggleQuickFavorite = useFavoritesStore((state) => state.toggleQuickFavorite);
   const isFavorite = quickFavorites.includes(screenplay.id);
@@ -398,24 +393,54 @@ export function ScreenplayFileWorkspace({
 
   return (
     <div className="discovery-root screenplay-file" data-testid="screenplay-file-workspace">
-      <header className="screenplay-file__app-header">
-        <button type="button" onClick={onBack} className="screenplay-file__back">
-          ← Back to slate
-        </button>
-        <AuthenticatedNavigation className="screenplay-file__primary-nav" />
-        <div className="screenplay-file__brand">
-          <img src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-white.png'} alt="" />
-          <span>
-            <strong>LEMON</strong>
-            <small>Discovery</small>
-          </span>
+      <ApplicationHeader />
+      <section className="screenplay-file__project-toolbar" aria-label="Screenplay file tools">
+        <div className="screenplay-file__project-toolbar-inner">
+          <button type="button" onClick={onBack} className="screenplay-file__back">
+            ← Back to slate
+          </button>
+          <div className="screenplay-file__project-name">
+            <span>Screenplay file</span>
+            <strong>{displayTitle}</strong>
+          </div>
+          <div className="screenplay-file__file-actions">
+            <DiscoveryShareStatus screenplay={screenplay} />
+            <ScreenplayPdfButton
+              screenplay={screenplay}
+              presentation="workspace"
+              allowReupload={false}
+            />
+            <ShareButton screenplay={screenplay} waitForExistingLink presentation="discovery" />
+            <DiscoveryExportActions screenplay={screenplay} />
+            <button
+              type="button"
+              onClick={() => toggleQuickFavorite(screenplay.id)}
+              aria-pressed={isFavorite}
+            >
+              {isFavorite ? '★ Favorited' : '☆ Favorite'}
+            </button>
+          </div>
         </div>
-        <div className="screenplay-file__header-actions">
-          <SyncStatusIndicator />
-          <ThemeToggle />
-          <UserMenu />
-        </div>
-      </header>
+        <nav aria-label="Screenplay file sections" role="tablist">
+          {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => (
+            <button
+              key={tab.key}
+              id={`screenplay-file-tab-${tab.key}`}
+              data-tab-key={tab.key}
+              type="button"
+              role="tab"
+              tabIndex={activeTab === tab.key ? 0 : -1}
+              onClick={() => onSelectTab(tab.key)}
+              onKeyDown={handleTabKeyDown}
+              aria-selected={activeTab === tab.key}
+              aria-controls="screenplay-file-panel"
+              className={clsx(activeTab === tab.key && 'is-active')}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </section>
 
       <section className="screenplay-file__hero">
         <BlueSpineScript screenplay={screenplay} featured />
@@ -436,24 +461,7 @@ export function ScreenplayFileWorkspace({
           )}
           <div className="screenplay-file__status">
             <AnalysisTrustBadge screenplay={screenplay} />
-            <DiscoveryShareStatus screenplay={screenplay} />
             <ProducerScoreBadge assessment={producerAssessment} />
-          </div>
-          <div className="screenplay-file__actions">
-            <ScreenplayPdfButton
-              screenplay={screenplay}
-              presentation="workspace"
-              allowReupload={false}
-            />
-            <ShareButton screenplay={screenplay} waitForExistingLink presentation="discovery" />
-            <DiscoveryExportActions screenplay={screenplay} />
-            <button
-              type="button"
-              onClick={() => toggleQuickFavorite(screenplay.id)}
-              aria-pressed={isFavorite}
-            >
-              {isFavorite ? '★ Favorited' : '☆ Favorite'}
-            </button>
           </div>
         </div>
         <div className="screenplay-file__hero-score" data-verdict={screenplay.recommendation}>
@@ -465,27 +473,6 @@ export function ScreenplayFileWorkspace({
 
       <main className="screenplay-file__main">
         <div className="screenplay-file__binder">
-          <div className="screenplay-file__toolbar">
-            <nav aria-label="Screenplay file sections" role="tablist">
-              {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => (
-                <button
-                  key={tab.key}
-                  id={`screenplay-file-tab-${tab.key}`}
-                  data-tab-key={tab.key}
-                  type="button"
-                  role="tab"
-                  tabIndex={activeTab === tab.key ? 0 : -1}
-                  onClick={() => onSelectTab(tab.key)}
-                  onKeyDown={handleTabKeyDown}
-                  aria-selected={activeTab === tab.key}
-                  aria-controls="screenplay-file-panel"
-                  className={clsx(activeTab === tab.key && 'is-active')}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
           <div
             ref={panelRef}
             id="screenplay-file-panel"

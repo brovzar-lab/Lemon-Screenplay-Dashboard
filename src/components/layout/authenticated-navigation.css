@@ -32,12 +32,14 @@
 }
 
 .hybrid-header .authenticated-navigation__link,
+.application-header .authenticated-navigation__link,
 .screenplay-file__app-header .authenticated-navigation__link,
 .settings-header .authenticated-navigation__link {
   color: #aebbd0;
 }
 
 .hybrid-header .authenticated-navigation__link:hover,
+.application-header .authenticated-navigation__link:hover,
 .screenplay-file__app-header .authenticated-navigation__link:hover,
 .settings-header .authenticated-navigation__link:hover {
   background: rgb(255 255 255 / 8%);
@@ -45,6 +47,7 @@
 }
 
 .hybrid-header .authenticated-navigation__link--active,
+.application-header .authenticated-navigation__link--active,
 .screenplay-file__app-header .authenticated-navigation__link--active,
 .settings-header .authenticated-navigation__link--active {
   background: rgb(43 84 240 / 18%);

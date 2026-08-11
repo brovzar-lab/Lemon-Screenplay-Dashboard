@@ -28,8 +28,19 @@ export function SyncStatusIndicator() {
         return null;
     }
 
+    const statusText = !isLiveConnected
+        ? 'Live sync disconnected'
+        : isRetrying
+          ? 'Syncing...'
+          : `${pendingCount} pending`;
+
     return (
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isLiveConnected ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+        <div
+            className={`sync-status-indicator flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isLiveConnected ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20'}`}
+            role="status"
+            aria-label={statusText}
+            title={statusText}
+        >
             {/* Sync icon */}
             <svg
                 className={`w-4 h-4 ${isLiveConnected ? 'text-amber-400' : 'text-red-400'} ${isRetrying ? 'animate-spin' : ''}`}
@@ -47,11 +58,7 @@ export function SyncStatusIndicator() {
 
             {/* Status text */}
             <span className={`text-sm ${isLiveConnected ? 'text-amber-400' : 'text-red-400'}`}>
-                {!isLiveConnected
-                    ? 'Live sync disconnected'
-                    : isRetrying
-                      ? 'Syncing...'
-                      : `${pendingCount} pending`}
+                {statusText}
             </span>
 
             {/* Retry button */}

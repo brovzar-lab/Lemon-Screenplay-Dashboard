@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { UserMenu } from '@/components/auth';
 import { DiscoveryFavoritesMenu } from '@/components/discover/DiscoveryFavoritesMenu';
+import { DiscoverySearch } from '@/components/discover/DiscoverySearch';
 import { LensMenu } from '@/components/filters/LensMenu';
 import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { useFilterStore } from '@/stores/filterStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
 import type { Screenplay } from '@/types';
@@ -25,10 +25,7 @@ export function HybridHeader({
 }: HybridHeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const sentinelRef = useRef<HTMLSpanElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const isDark = useThemeStore((state) => state.isDark);
-  const searchQuery = useFilterStore((state) => state.searchQuery);
-  const setSearchQuery = useFilterStore((state) => state.setSearchQuery);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -40,27 +37,6 @@ export function HybridHeader({
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    if (!shortcutsEnabled) return;
-
-    const handleSlash = (event: KeyboardEvent) => {
-      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      searchInputRef.current?.focus();
-    };
-
-    document.addEventListener('keydown', handleSlash);
-    return () => document.removeEventListener('keydown', handleSlash);
-  }, [shortcutsEnabled]);
 
   return (
     <>
@@ -81,22 +57,11 @@ export function HybridHeader({
 
           <AuthenticatedNavigation className="hybrid-primary-nav" />
 
-          <label className="hybrid-global-search" htmlFor="hybrid-discovery-search">
-            <svg aria-hidden="true" viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="6.5" />
-              <path d="m16 16 4 4" />
-            </svg>
-            <input
-              ref={searchInputRef}
-              id="hybrid-discovery-search"
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search screenplays, writers, themes"
-              aria-label="Discovery search"
-            />
-            <kbd aria-label="Keyboard shortcut slash">/</kbd>
-          </label>
+          <DiscoverySearch
+            id="hybrid-discovery-search"
+            className="hybrid-global-search"
+            shortcutsEnabled={shortcutsEnabled}
+          />
 
           <div className="hybrid-header__actions">
             <LensMenu presentation="discovery" triggerLabel="Saved Views" />

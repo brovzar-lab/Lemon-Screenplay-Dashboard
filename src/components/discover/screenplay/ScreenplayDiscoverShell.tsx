@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DiscoverDrawer } from '@/components/discover/DiscoverDrawer';
 import type { DiscoverShellProps } from '@/components/discover/DiscoverShell';
+import { DiscoveryFavoritesMenu } from '@/components/discover/DiscoveryFavoritesMenu';
+import { DiscoverySearch } from '@/components/discover/DiscoverySearch';
 import { DiscoverySelectionBar } from '@/components/discover/DiscoverySelectionBar';
 import { HybridCommandRail } from '@/components/discover/hybrid/HybridCommandRail';
-import { HybridHeader } from '@/components/discover/hybrid/HybridHeader';
 import { ScreenplayRanking } from '@/components/discover/screenplay/ScreenplayRanking';
 import { ScreenplayGrid } from '@/components/discover/screenplay/ScreenplayResults';
 import { ScreenplaySlateInsights } from '@/components/discover/screenplay/ScreenplaySlateInsights';
 import { ScreenplaySlateStats } from '@/components/discover/screenplay/ScreenplaySlateStats';
+import { LensMenu } from '@/components/filters/LensMenu';
+import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import { useFeaturedProject } from '@/hooks/useFeaturedProject';
 import { usePercentiles } from '@/hooks/usePercentiles';
 import { recordFeaturedEngagement } from '@/lib/featuredProjectSettings';
@@ -162,12 +165,20 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         selectionMode ? 'discovery-root--selection-mode' : ''
       }`}
     >
-      <HybridHeader
-        screenplays={allScreenplays}
-        shortcutsEnabled={!selectedScreenplay}
-        onOpenScreenplay={handleOpen}
-        darkChrome
-      />
+      <ApplicationHeader />
+      <section className="screenplay-discovery__findbar" aria-label="Discovery tools">
+        <div className="screenplay-discovery__findbar-inner">
+          <DiscoverySearch
+            id="screenplay-discovery-search"
+            className="screenplay-discovery__search"
+            shortcutsEnabled={!selectedScreenplay}
+          />
+          <div className="screenplay-discovery__find-actions">
+            <LensMenu presentation="discovery" triggerLabel="Saved Views" />
+            <DiscoveryFavoritesMenu screenplays={allScreenplays} onOpen={handleOpen} />
+          </div>
+        </div>
+      </section>
       <ScreenplaySlateStats
         screenplays={screenplays}
         totalCount={totalCount}
