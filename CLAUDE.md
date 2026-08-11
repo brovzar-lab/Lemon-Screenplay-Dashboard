@@ -3,73 +3,68 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-08-10
+**Last session:** 2026-08-11
 
-**Production state:**
-- Production and GitHub `main` remain at `d71b38d`. The August 4 Firebase
-  deployment succeeded. Nothing from the current release candidate is merged or
-  deployed.
-- Q0-Q8.2 are on `main`, including trust hardening, Intake, Producer
-  Calibration, the Screenplay File workspace, Reader Room, and private Reader
-  Chat. Producer Calibration remains inactive.
+**Production and delivery state:**
+- Production and GitHub `main` remain at `d71b38d`. Nothing from this release
+  candidate has been merged or deployed.
+- Active branch `codex/discovery-cleaned-hybrid` is 29 commits ahead of `main`.
+  The One Lemon application commit `a554315` is pushed to the branch backing
+  [PR #6](https://github.com/brovzar-lab/Lemon-Screenplay-Dashboard/pull/6).
+- PR #6 remains the only delivery target. Merge and deployment still require
+  separate explicit approval.
 
-**Release candidate:**
-- Active branch: `codex/discovery-cleaned-hybrid`, 27 commits ahead of `main` after
-  the recovery fix. The intact GitHub backup at `04e37df` was 25 commits ahead.
-- The intact branch was backed up to GitHub at `04e37df` before release cleanup.
-- The branch includes the approved Discovery presentation, Screenplay File and
-  Reader Room polish, navigation, Settings, local review authentication, model
-  catalog, prompt caching, and related verification.
+**One Lemon application completed:**
+- Discovery, Settings, and Screenplay File now use one shared 64px signed-in
+  header with Lemon identity, role-aware Discover/Settings navigation, sync
+  status, Light/Dark/System appearance, and account controls.
+- Discovery search, Saved Views, Favorites, metrics, sorting, selection, and
+  filters live below the header. Settings uses an Administration + active-section
+  workspace heading. Screenplay File uses a page toolbar for Back to Slate,
+  project identity, share/export/favorite, and all tabs including Reader Room.
+- The three canonical surfaces share the Discovery `--sp-*` palette and type
+  system. Stored experimental design-system choices migrate to Instrument while
+  preserving Light/Dark/System color mode.
+- Mobile layouts were verified without horizontal page overflow; visible sync
+  warnings collapse to an accessible status icon in the fixed-height header.
 
-**Approved product decisions:**
-- Discovery is the signed-in home at `/`. The previous dashboard is preserved as
-  a direct fallback at `/dashboard-classic` and is absent from primary navigation.
-- The screenplay Discovery presentation is the default. Explicit classic and
-  hybrid Discovery query fallbacks remain available.
-- Discovery shows exactly one stable daily Featured project selected by studio
-  policy. Featured does not follow temporary search or filters.
-- Slate Insights opens by default.
-- Custom presentation CSS and the separate Discovery fallback shells remain
-  intentional until the new experience proves itself.
-- The wider UI and infrastructure work in this branch was separately approved;
-  it is not scope creep for release review.
+**Preserved fallbacks and product decisions:**
+- Discovery remains signed-in home at `/`; Classic Dashboard remains available
+  directly at `/dashboard-classic`. Explicit classic/hybrid Discovery fallbacks,
+  public share, authentication, and legacy workspace routes remain unchanged.
+- Discovery still shows exactly one stable daily Featured project independent of
+  temporary search/filters, and Slate Insights opens by default.
+- Backend behavior, Firestore data and schemas, public APIs, routes, and every
+  pre-existing untracked file remain untouched.
 
-**Release cleanup and recovery completed:**
-- Silenced expected Firestore offline-retry diagnostics only in the unit-test
-  environment, removing the Vitest worker teardown race. The complete command
-  now exits successfully with 887 tests passing.
-- Removed the explicit `any` introduced by the Anthropic streaming call and
-  verified the Functions TypeScript build.
-- Corrected the clean-CI build dependency in `vite.config.ts`; the production
-  build passes without `functions/node_modules` available during type-checking.
-- Corrected GitHub E2E setup to install Functions dependencies and let
-  Playwright own startup and readiness on the fixed port 3000. Hosted Playwright
-  accepts a protected `FIREBASE_SERVICE_ACCOUNT_JSON` secret; that secret is not
-  configured yet and was not uploaded in this pass.
-- Existing untracked screenshots, mockups, local tool state, and `AGENTS.md`
-  remain untouched.
+**Verification:**
+- Complete app tests: 889 pass. Functions tests: 53 pass. Lint and production
+  build pass.
+- Complete local Playwright suite: 29 authenticated Light/Dark scenarios pass on
+  fixed port 3000.
+- Desktop and mobile browser proof passed for the 27-screenplay Discovery slate,
+  Featured project, Settings deep link, Screenplay File, Reader Room, navigation,
+  back behavior, and theme modes. No application console errors were found.
+- Proof screenshots are stored under the current Codex visualization folder as
+  `one-lemon-discovery.png`, `one-lemon-settings.png`, and
+  `one-lemon-screenplay-file.png`.
+- Independent standards and specification reviews report zero actionable findings.
 
-**Recovery verification:**
-- Complete app tests: 887 pass. Functions tests: 53 pass.
-- Lint and production build pass, including the clean-CI build probe without
-  `functions/node_modules` in module resolution.
-- Playwright: 29 authenticated light/dark tests pass locally on port 3000.
-- Browser proof passed for Discovery home, classic fallback, Settings,
-  Screenplay File, and Reader Room with no browser errors.
+**Hosted CI gate:**
+- Playwright is now a required workflow failure; `continue-on-error` was removed.
+- Ignored `service-account.json` was validated without printing credentials: it
+  is a service-account file for project `lemon-screenplay-dashboard`.
+- Uploading it as protected `FIREBASE_SERVICE_ACCOUNT_JSON`, rerunning hosted
+  checks, updating the PR description, and marking PR #6 ready are blocked only
+  by the expired GitHub CLI login. A device reauthorization is awaiting Billy's
+  approval. Do not merge or deploy while this gate remains.
 
 **Next up:**
-1. Configure the protected E2E service-account secret only with Billy's
-   approval, then wait for both GitHub checks.
-2. Billy reviews draft PR #6 and the local app at `http://localhost:3000/`.
-3. Merge only after explicit approval. Deployment remains a separate approval.
-
-**Open notes:**
-- Historical parent Firestore documents can still transfer embedded reader
-  reports during the existing live snapshot because Firestore cannot field-mask
-  a document. Q4 strips that data from list state and fetches exact version
-  evidence on open. Full historical wire-level deferral needs a separately
-  approved one-time parent-projection migration or replacement of the
-  disposable test slate.
+1. Complete GitHub CLI device approval, upload the protected secret directly,
+   and rerun both required checks.
+2. After both checks are green, update PR #6 with the verification results and
+   mark it ready for review.
+3. Merge only with explicit approval. Treat deployment as a separate approval.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
