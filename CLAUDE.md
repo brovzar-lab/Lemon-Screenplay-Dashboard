@@ -25,21 +25,23 @@ Workflow:
 
 If you see a commit on local `master` that has not been pushed to `origin/lemon-virtual-studios`, push it now before doing anything else.
 
-## 3. Firebase (HARD RULE — Do Not Use)
+## 3. Firebase (HARD RULE — Do Not Use in Dashboard Code)
 
 Firebase exists as legacy code in this repo:
 - `src/lib/firebase.ts` — Firebase app, auth, Firestore init
 - `src/store/authStore.ts` — Firebase auth listener
 
-**Firebase is NOT wired up in this environment.** No `VITE_FIREBASE_*` credentials are configured. Firebase code is dead code.
+**The Firebase JS client SDK is NOT wired up in this environment.** No `VITE_FIREBASE_*` credentials are configured. The dashboard's Firebase code is dead code.
 
-Rules:
+Rules for the **dashboard frontend** (React/Vite code under `src/`):
 - Do NOT add new Firebase imports or calls to any file
 - Do NOT use `firebase deploy` or any Firebase CLI for deployment — Firebase hosting was retired in LEMA-8026
 - Do NOT treat `authStore.ts` Firebase auth as a working auth layer
-- Do NOT add Firestore reads/writes for any new feature
+- Do NOT add Firestore reads/writes to any dashboard feature
 
-If a feature requires auth or persistent storage, use the **Paperclip API** instead.
+If a dashboard feature requires auth or persistent storage, use the **Paperclip API** instead.
+
+**Exception — Agent server-side Firestore writes:** `GOOGLE_APPLICATION_CREDENTIALS_JSON` IS configured in the agent environment (project: `gen-lang-client-0882654423`). Agents (such as Research Specialist) may write research data directly to Firestore via the REST API using this service account credential. This is NOT prohibited by the above rules, which apply only to the React/Vite dashboard source code. Confirmed working as of 2026-08-12 ([LEMA-8449](/LEMA/issues/LEMA-8449)).
 
 ## 4. Data Fetching
 
