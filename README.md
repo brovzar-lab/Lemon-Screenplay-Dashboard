@@ -61,12 +61,12 @@ Create `.env` from `.env.example`:
 ## Commands
 
 ```bash
-npm run dev              # Dev server (Vite, port 5173)
+npm run dev              # Dev server (Vite, port 3000 — fixed, do not change)
+npm run dev:full         # Vite + Functions emulator (needed for AI features)
 npm run build            # TypeScript check + production build
 npm run test:run         # Unit tests (Vitest)
 npm run test:e2e         # E2E tests (Playwright, needs preview server)
 npm run lint             # ESLint
-npm run deploy           # Build + Firebase Hosting deploy
 npm run deploy:functions # Deploy Cloud Functions only
 ```
 
@@ -169,10 +169,16 @@ cd /opt/lemon-ingest && git pull origin main && sudo systemctl restart lemon-dae
 
 ### Frontend (Firebase Hosting)
 
-```bash
-npm run deploy
-# Builds → uploads to Firebase → live at https://lemon-screenplay-dashboard.web.app
-```
+Production is deployed by CI, not from a laptop. Merging to `main` runs lint,
+build, unit tests and Playwright, then **waits for a human to approve** the
+release under Actions → the waiting *Deploy to Firebase* run → Review
+deployments → `production`. Nothing reaches
+https://lemon-screenplay-dashboard.web.app until that approval.
+
+> **Do not run `npm run deploy` from a local machine.** Vite inlines every
+> `VITE_*` value at build time, so a local build bakes the contents of your
+> `.env` — including `VITE_TMDB_API_KEY` — into public JavaScript. CI does not
+> set that variable, which is why the deployed bundle is clean.
 
 ### VPS Daemon
 

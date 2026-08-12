@@ -41,7 +41,10 @@
    ```
 4. Push and open a PR against `main`
 5. CI will run lint + build + tests automatically
-6. After review, merge to `main` → auto-deploys to Firebase Hosting
+6. After review, merge to `main`. Merging does **not** release: CI re-runs the
+   full check suite, then the deploy waits for a human to approve it under
+   Actions → the waiting *Deploy to Firebase* run → Review deployments →
+   `production`.
 
 ### Commit Messages
 
@@ -98,9 +101,13 @@ Firebase/API → useScreenplays (React Query) → useFilteredScreenplays (Zustan
 ## Deployment
 
 ### Frontend
-```bash
-npm run deploy  # Builds + deploys to Firebase Hosting
-```
+
+Deployed by CI on merge to `main`, gated behind a required approval on the
+`production` environment. See the Deployment section of the README.
+
+> **Never run `npm run deploy` locally.** Vite inlines `VITE_*` values into the
+> bundle at build time, so a local build publishes your `.env` secrets —
+> including `VITE_TMDB_API_KEY` — in public JavaScript.
 
 ### VPS Daemon (Admin only)
 ```bash
