@@ -6,6 +6,7 @@ import { Layout } from './components/Layout'
 import { PageSkeleton } from './components/Skeleton'
 
 const LoginPage            = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })))
+const LasAzulesPage        = lazy(() => import('./pages/LasAzulesPage').then(m => ({ default: m.LasAzulesPage })))
 const CommandCenterPage    = lazy(() => import('./pages/CommandCenterPage').then(m => ({ default: m.CommandCenterPage })))
 const ActiveSlatePage      = lazy(() => import('./pages/ActiveSlatePage').then(m => ({ default: m.ActiveSlatePage })))
 const FilmDevelopmentPage  = lazy(() => import('./pages/FilmDevelopmentPage').then(m => ({ default: m.FilmDevelopmentPage })))
@@ -36,6 +37,7 @@ export default function App() {
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/las-azules" element={<LasAzulesPage />} />
           <Route
             element={
               <ProtectedRoute>
