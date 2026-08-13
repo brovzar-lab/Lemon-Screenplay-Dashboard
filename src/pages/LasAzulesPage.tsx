@@ -240,7 +240,7 @@ const EPISODES = [
 ]
 
 const CAST = [
-  { name: 'Barbara Mori', role: 'Lieutenant María', note: 'Lead; co-wrote scripts with writers room' },
+  { name: 'Barbara Mori', role: 'Lieutenant María', note: 'Lead; deeply involved in writers room' },
   { name: 'Ximena Sarinana', role: 'Ángeles', note: 'Navigates institutional lack of empathy' },
   { name: 'Natalia Téllez', role: 'Valentina', note: 'Full ensemble return' },
   { name: 'Amorita Rasgado', role: 'Gabina', note: 'Faces machismo at home and within the force' },
@@ -287,7 +287,7 @@ const SOCIAL_POSTS_EN: SocialPost[] = [
     id: 'en-fomo-3',
     tactic: 'fomo',
     platform: 'any',
-    body: 'New episodes every Tuesday on Apple TV+. The conversation has already started — don\'t get spoiled. Las Azules S2 follows Mexico\'s first female detectives as they investigate a 1971 student activist murder that leads straight to the Halconazo massacre. Stream Episode 1 now.',
+    body: 'New episodes every Wednesday on Apple TV+. The conversation has already started — don\'t get spoiled. Las Azules S2 follows Mexico\'s first female detectives as they investigate a 1971 student activist murder that leads straight to the Halconazo massacre. Stream Episode 1 now.',
     hashtags: ['#LasAzules', '#AppleTVPlus', '#MustWatch', '#LasAzulesS2'],
   },
   // Review highlights
@@ -324,7 +324,7 @@ const SOCIAL_POSTS_EN: SocialPost[] = [
     id: 'en-funfact-2',
     tactic: 'funfact',
     platform: 'twitter',
-    body: 'Fun fact: Barbara Mori didn\'t just star in Las Azules S2 — she co-wrote the scripts with the writers room. This is her story as much as her character\'s. Streaming now on Apple TV+ 🔵',
+    body: 'Fun fact: Barbara Mori has been deeply involved in the Las Azules writers room — and her connection to María is personal: "I mirror myself greatly with Maria. I\'ve discovered I can be much more than an actress or mother." Streaming now on Apple TV+ 🔵',
     hashtags: ['#BarbaraMori', '#LasAzulesS2', '#WomenInBlue'],
   },
   {
@@ -339,14 +339,14 @@ const SOCIAL_POSTS_EN: SocialPost[] = [
     id: 'en-countdown-1',
     tactic: 'countdown',
     platform: 'instagram',
-    body: '📅 EPISODE 2 drops Tuesday, August 19. You have 7 days to watch Episode 1 and get up to speed. Trust us — you won\'t want to go in without it. Stream Episode 1 on Apple TV+ now. ⬇️',
+    body: '📅 EPISODE 2 drops Wednesday, August 19. You have 7 days to watch Episode 1 and get up to speed. Trust us — you won\'t want to go in without it. Stream Episode 1 on Apple TV+ now. ⬇️',
     hashtags: ['#LasAzulesS2', '#WomenInBlue', '#AppleTVPlus', '#TuesdayDrops'],
   },
   {
     id: 'en-countdown-2',
     tactic: 'countdown',
     platform: 'twitter',
-    body: 'Episode 1 of Las Azules S2 is LIVE. New episodes every Tuesday through September 30. Set your reminders. This one\'s going to keep building. 🔵 Apple TV+',
+    body: 'Episode 1 of Las Azules S2 is LIVE. New episodes every Wednesday through September 30. Set your reminders. This one\'s going to keep building. 🔵 Apple TV+',
     hashtags: ['#LasAzulesS2', '#WomenInBlue'],
   },
   // Cast engagement
@@ -401,7 +401,7 @@ const SOCIAL_POSTS_ES: SocialPost[] = [
     id: 'es-fomo-3',
     tactic: 'fomo',
     platform: 'any',
-    body: 'Episodios nuevos cada martes en Apple TV+. La conversación ya comenzó — no te spoileen. Las Azules T2 sigue a las primeras detectives mujeres de México investigando el asesinato de un activista estudiantil en el CDMX de 1971, una pista que lleva directo al Halconazo. Ve el Episodio 1 ahora.',
+    body: 'Episodios nuevos cada miércoles en Apple TV+. La conversación ya comenzó — no te spoileen. Las Azules T2 sigue a las primeras detectives mujeres de México investigando el asesinato de un activista estudiantil en el CDMX de 1971, una pista que lleva directo al Halconazo. Ve el Episodio 1 ahora.',
     hashtags: ['#LasAzules', '#AppleTVPlus', '#ObligatorioVerlo', '#LasAzulesT2'],
   },
   // Review highlights
@@ -438,7 +438,7 @@ const SOCIAL_POSTS_ES: SocialPost[] = [
     id: 'es-funfact-2',
     tactic: 'funfact',
     platform: 'twitter',
-    body: 'Dato: Bárbara Mori no solo protagonizó Las Azules T2 — co-escribió los guiones junto al equipo de escritores. Esto también es su historia. Ya disponible en Apple TV+ 🔵',
+    body: 'Dato: Bárbara Mori ha estado profundamente involucrada en el cuarto de escritores de Las Azules — y su conexión con María es personal: "Me reflejo mucho en María. He descubierto que puedo ser mucho más que actriz o madre." Ya disponible en Apple TV+ 🔵',
     hashtags: ['#BarbaraMori', '#LasAzulesT2'],
   },
   {
@@ -453,14 +453,14 @@ const SOCIAL_POSTS_ES: SocialPost[] = [
     id: 'es-countdown-1',
     tactic: 'countdown',
     platform: 'instagram',
-    body: '📅 El EPISODIO 2 llega el martes 19 de agosto. Tienes 7 días para ver el Episodio 1 y ponerte al día. Créeme — no querrás entrar sin haberlo visto. Estrena el Episodio 1 en Apple TV+ ahora. ⬇️',
+    body: '📅 El EPISODIO 2 llega el miércoles 19 de agosto. Tienes 7 días para ver el Episodio 1 y ponerte al día. Créeme — no querrás entrar sin haberlo visto. Estrena el Episodio 1 en Apple TV+ ahora. ⬇️',
     hashtags: ['#LasAzulesT2', '#AppleTVPlus', '#CadaMartes'],
   },
   {
     id: 'es-countdown-2',
     tactic: 'countdown',
     platform: 'twitter',
-    body: 'El Episodio 1 de Las Azules T2 está EN VIVO. Episodios nuevos cada martes hasta el 30 de septiembre. Ponle alarma. Esto va a ir creciendo. 🔵 Apple TV+',
+    body: 'El Episodio 1 de Las Azules T2 está EN VIVO. Episodios nuevos cada miércoles hasta el 30 de septiembre. Ponle alarma. Esto va a ir creciendo. 🔵 Apple TV+',
     hashtags: ['#LasAzulesT2'],
   },
   // Cast engagement
