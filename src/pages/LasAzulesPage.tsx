@@ -17,6 +17,14 @@ interface Strategy {
   text: string
 }
 
+interface SocialPost {
+  id: string
+  tactic: 'fomo' | 'review' | 'funfact' | 'countdown' | 'cast' | 'bts'
+  platform: 'instagram' | 'twitter' | 'facebook' | 'any'
+  body: string
+  hashtags: string[]
+}
+
 interface DailyUpdate {
   date: string
   content: string
@@ -259,6 +267,234 @@ const QUOTES = [
   { speaker: 'Screen Anarchy (4/5 ★)', text: '"Season 2 feels more on-point and certain of its tone. More relevant today, far beyond Mexico\'s borders, and remains a likable, lively, and thoughtful show."' },
 ]
 
+const SOCIAL_POSTS_EN: SocialPost[] = [
+  // FOMO
+  {
+    id: 'en-fomo-1',
+    tactic: 'fomo',
+    platform: 'instagram',
+    body: '🚨 Everyone is talking about Las Azules Season 2. Critics call it "more on-point, more relevant today, far beyond Mexico\'s borders." Are you watching? Episode 1 is streaming NOW on Apple TV+. Don\'t be the only one left out of this conversation.',
+    hashtags: ['#LasAzules', '#WomenInBlue', '#AppleTVPlus', '#LasAzulesS2', '#NowStreaming'],
+  },
+  {
+    id: 'en-fomo-2',
+    tactic: 'fomo',
+    platform: 'twitter',
+    body: 'Season 2 is HERE and your timeline won\'t stop talking about it. Las Azules just dropped on Apple TV+ and critics say it\'s better than ever — 4/5 stars from Screen Anarchy. You in?',
+    hashtags: ['#LasAzulesS2', '#WomenInBlue', '#NowStreaming'],
+  },
+  {
+    id: 'en-fomo-3',
+    tactic: 'fomo',
+    platform: 'any',
+    body: 'New episodes every Tuesday on Apple TV+. The conversation has already started — don\'t get spoiled. Las Azules S2 follows Mexico\'s first female detectives as they investigate a 1971 student activist murder that leads straight to the Halconazo massacre. Stream Episode 1 now.',
+    hashtags: ['#LasAzules', '#AppleTVPlus', '#MustWatch', '#LasAzulesS2'],
+  },
+  // Review highlights
+  {
+    id: 'en-review-1',
+    tactic: 'review',
+    platform: 'instagram',
+    body: '"More on-point and certain of its tone. More relevant today, far beyond Mexico\'s borders." — Screen Anarchy, 4/5 ★\n\nSeason 2 of Las Azules is streaming on Apple TV+. Critics agree: this is the show you need to watch right now.',
+    hashtags: ['#LasAzulesS2', '#WomenInBlue', '#CriticsChoice', '#AppleTVPlus'],
+  },
+  {
+    id: 'en-review-2',
+    tactic: 'review',
+    platform: 'twitter',
+    body: 'Season 1: 100% on Rotten Tomatoes 🍅. Season 2 just premiered and critics are calling it even better. Don\'t sleep on Las Azules. Apple TV+ right now.',
+    hashtags: ['#LasAzules', '#RottenTomatoes', '#WomenInBlue'],
+  },
+  {
+    id: 'en-review-3',
+    tactic: 'review',
+    platform: 'facebook',
+    body: 'The critics have spoken: Las Azules Season 2 is "a likable, lively, and thoughtful show" that is "more relevant today, far beyond Mexico\'s borders." (Screen Anarchy, 4 out of 5 stars)\n\nSeason 1 scored a perfect 100% on Rotten Tomatoes. Variety, RogerEbert.com, and Collider all gave Season 1 80/100. Season 2 is streaming now on Apple TV+. Watch it tonight.',
+    hashtags: ['#LasAzulesS2', '#WomenInBlue', '#AppleTVPlus'],
+  },
+  // Fun facts
+  {
+    id: 'en-funfact-1',
+    tactic: 'funfact',
+    platform: 'instagram',
+    body: '📜 The women in Las Azules are based on Mexico\'s first real female police detectives — women who joined the force in the 1970s and were only assigned cases deemed "appropriate" for them. Season 2 takes them to the heart of the Halconazo: June 10, 1971, the day the Mexican government massacred student protesters in Mexico City. History doesn\'t flinch. Neither does this show.',
+    hashtags: ['#LasAzulesS2', '#Halconazo', '#Tlatelolco', '#WomenInBlue', '#HistoricalDrama'],
+  },
+  {
+    id: 'en-funfact-2',
+    tactic: 'funfact',
+    platform: 'twitter',
+    body: 'Fun fact: Barbara Mori didn\'t just star in Las Azules S2 — she co-wrote the scripts with the writers room. This is her story as much as her character\'s. Streaming now on Apple TV+ 🔵',
+    hashtags: ['#BarbaraMori', '#LasAzulesS2', '#WomenInBlue'],
+  },
+  {
+    id: 'en-funfact-3',
+    tactic: 'funfact',
+    platform: 'instagram',
+    body: '🏆 Las Azules comes from International Emmy Award-winning creator Fernando Rovzar — also the mind behind Monarca. Season 1 hit a perfect 100% on Rotten Tomatoes. Wendy Riss (Emmy nominee, Yellowstone) is executive producer. Season 2 is streaming NOW on Apple TV+. This isn\'t just great Mexican TV. It\'s great television, full stop.',
+    hashtags: ['#FernandoRovzar', '#InternationalEmmy', '#LasAzulesS2', '#LemonStudios'],
+  },
+  // Episode countdown
+  {
+    id: 'en-countdown-1',
+    tactic: 'countdown',
+    platform: 'instagram',
+    body: '📅 EPISODE 2 drops Tuesday, August 19. You have 7 days to watch Episode 1 and get up to speed. Trust us — you won\'t want to go in without it. Stream Episode 1 on Apple TV+ now. ⬇️',
+    hashtags: ['#LasAzulesS2', '#WomenInBlue', '#AppleTVPlus', '#TuesdayDrops'],
+  },
+  {
+    id: 'en-countdown-2',
+    tactic: 'countdown',
+    platform: 'twitter',
+    body: 'Episode 1 of Las Azules S2 is LIVE. New episodes every Tuesday through September 30. Set your reminders. This one\'s going to keep building. 🔵 Apple TV+',
+    hashtags: ['#LasAzulesS2', '#WomenInBlue'],
+  },
+  // Cast engagement
+  {
+    id: 'en-cast-1',
+    tactic: 'cast',
+    platform: 'instagram',
+    body: 'What would you do if the entire system was your enemy?\n\nBarbara Mori and Ximena Sarinana bring that question to life in Las Azules Season 2 — playing Mexico\'s first female detectives navigating a machine designed to silence them. Streaming now on Apple TV+.',
+    hashtags: ['#BarbaraMori', '#XimenaSarinana', '#LasAzulesS2', '#WomenInBlue'],
+  },
+  {
+    id: 'en-cast-2',
+    tactic: 'cast',
+    platform: 'twitter',
+    body: 'Barbara Mori AND Ximena Sarinana in the same show. Enough said. 🙌 Las Azules S2 is streaming on Apple TV+ — drop a ✋ if you\'re watching tonight.',
+    hashtags: ['#BarbaraMori', '#XimenaSarinana', '#LasAzulesS2'],
+  },
+  // BTS / exclusive
+  {
+    id: 'en-bts-1',
+    tactic: 'bts',
+    platform: 'instagram',
+    body: '"If in the first season the enemy was a serial killer, in this season it\'s an entire system."\n— Fernando Rovzar, Creator & Director\n\nSeason 2 of Las Azules goes bigger, darker, and more personal. Now streaming on Apple TV+.',
+    hashtags: ['#FernandoRovzar', '#LasAzulesS2', '#WomenInBlue', '#AppleTVPlus'],
+  },
+  {
+    id: 'en-bts-2',
+    tactic: 'bts',
+    platform: 'instagram',
+    body: '"Now she\'s a woman giving herself permission to be. The entire season treats discovering who she really is." — Barbara Mori on her character in Season 2.\n\nWatch Las Azules S2 on Apple TV+. Link in bio.',
+    hashtags: ['#BarbaraMori', '#LasAzulesS2', '#WomenInBlue'],
+  },
+]
+
+const SOCIAL_POSTS_ES: SocialPost[] = [
+  // FOMO
+  {
+    id: 'es-fomo-1',
+    tactic: 'fomo',
+    platform: 'instagram',
+    body: '🚨 Todo el mundo habla de Las Azules Temporada 2. La crítica ya lo dijo: "más firme en su tono, más relevante hoy, mucho más allá de las fronteras de México." ¿Ya la estás viendo? El Episodio 1 está en Apple TV+ AHORA. No te quedes fuera de esta conversación.',
+    hashtags: ['#LasAzules', '#LasAzulesT2', '#AppleTVPlus', '#YaDisponible'],
+  },
+  {
+    id: 'es-fomo-2',
+    tactic: 'fomo',
+    platform: 'twitter',
+    body: 'La Temporada 2 llegó y tu timeline no para de hablar de Las Azules. Ya en Apple TV+. 4/5 estrellas en Screen Anarchy. ¿La vas a ver? 👇',
+    hashtags: ['#LasAzulesT2', '#NuevaTemporada', '#AppleTVPlus'],
+  },
+  {
+    id: 'es-fomo-3',
+    tactic: 'fomo',
+    platform: 'any',
+    body: 'Episodios nuevos cada martes en Apple TV+. La conversación ya comenzó — no te spoileen. Las Azules T2 sigue a las primeras detectives mujeres de México investigando el asesinato de un activista estudiantil en el CDMX de 1971, una pista que lleva directo al Halconazo. Ve el Episodio 1 ahora.',
+    hashtags: ['#LasAzules', '#AppleTVPlus', '#ObligatorioVerlo', '#LasAzulesT2'],
+  },
+  // Review highlights
+  {
+    id: 'es-review-1',
+    tactic: 'review',
+    platform: 'instagram',
+    body: '"Más firme en su tono. Más relevante hoy, mucho más allá de las fronteras de México." — Screen Anarchy, 4/5 ★\n\nLas Azules Temporada 2 ya está en Apple TV+. La crítica lo confirma: es la serie que tienes que ver ahora mismo.',
+    hashtags: ['#LasAzulesT2', '#LasCriticas', '#AppleTVPlus'],
+  },
+  {
+    id: 'es-review-2',
+    tactic: 'review',
+    platform: 'twitter',
+    body: 'Temporada 1: 100% en Rotten Tomatoes 🍅. La Temporada 2 acaba de estrenar y la crítica dice que es aún mejor. No te duermas con Las Azules. Ya en Apple TV+.',
+    hashtags: ['#LasAzules', '#RottenTomatoes', '#LasAzulesT2'],
+  },
+  {
+    id: 'es-review-3',
+    tactic: 'review',
+    platform: 'facebook',
+    body: 'La crítica lo tiene claro: Las Azules Temporada 2 es "una serie simpática, viva y reflexiva" que está "más relevante hoy que nunca, mucho más allá de las fronteras de México." (Screen Anarchy, 4 de 5 estrellas)\n\nLa Temporada 1 tuvo 100% en Rotten Tomatoes. Variety y RogerEbert.com le dieron 80/100. La Temporada 2 ya está en Apple TV+. Ponla esta noche.',
+    hashtags: ['#LasAzulesT2', '#AppleTVPlus'],
+  },
+  // Fun facts
+  {
+    id: 'es-funfact-1',
+    tactic: 'funfact',
+    platform: 'instagram',
+    body: '📜 Las Azules están basadas en las primeras detectives reales de la policía mexicana — mujeres que se incorporaron a la corporación en los años 70 y solo les asignaban casos "apropiados." La Temporada 2 las lleva al corazón del Halconazo: el 10 de junio de 1971, cuando el gobierno masacró a estudiantes manifestantes en la Ciudad de México. La historia es oscura. Esta serie no se achica.',
+    hashtags: ['#LasAzulesT2', '#Halconazo', '#Tlatelolco', '#HistoriaDeMexico'],
+  },
+  {
+    id: 'es-funfact-2',
+    tactic: 'funfact',
+    platform: 'twitter',
+    body: 'Dato: Bárbara Mori no solo protagonizó Las Azules T2 — co-escribió los guiones junto al equipo de escritores. Esto también es su historia. Ya disponible en Apple TV+ 🔵',
+    hashtags: ['#BarbaraMori', '#LasAzulesT2'],
+  },
+  {
+    id: 'es-funfact-3',
+    tactic: 'funfact',
+    platform: 'instagram',
+    body: '🏆 Las Azules viene del creador ganador del Emmy Internacional Fernando Rovzar — también creador de Monarca. La Temporada 1 tuvo 100% en Rotten Tomatoes. La Temporada 2 estrena AHORA en Apple TV+. No es solo excelente televisión mexicana — es excelente televisión, punto.',
+    hashtags: ['#FernandoRovzar', '#EmmyInternacional', '#LasAzulesT2', '#LemonStudios'],
+  },
+  // Episode countdown
+  {
+    id: 'es-countdown-1',
+    tactic: 'countdown',
+    platform: 'instagram',
+    body: '📅 El EPISODIO 2 llega el martes 19 de agosto. Tienes 7 días para ver el Episodio 1 y ponerte al día. Créeme — no querrás entrar sin haberlo visto. Estrena el Episodio 1 en Apple TV+ ahora. ⬇️',
+    hashtags: ['#LasAzulesT2', '#AppleTVPlus', '#CadaMartes'],
+  },
+  {
+    id: 'es-countdown-2',
+    tactic: 'countdown',
+    platform: 'twitter',
+    body: 'El Episodio 1 de Las Azules T2 está EN VIVO. Episodios nuevos cada martes hasta el 30 de septiembre. Ponle alarma. Esto va a ir creciendo. 🔵 Apple TV+',
+    hashtags: ['#LasAzulesT2'],
+  },
+  // Cast engagement
+  {
+    id: 'es-cast-1',
+    tactic: 'cast',
+    platform: 'instagram',
+    body: '¿Qué harías si todo el sistema fuera tu enemigo?\n\nBárbara Mori y Ximena Sariñana dan vida a esa pregunta en Las Azules Temporada 2 — interpretando a las primeras detectives mujeres de México enfrentando una institución diseñada para silenciarlas. Ya en Apple TV+.',
+    hashtags: ['#BarbaraMori', '#XimenaSarinana', '#LasAzulesT2'],
+  },
+  {
+    id: 'es-cast-2',
+    tactic: 'cast',
+    platform: 'twitter',
+    body: 'Bárbara Mori Y Ximena Sariñana juntas en pantalla. Con eso basta. 🙌 Las Azules T2 ya está en Apple TV+ — deja un ✋ si la ves esta noche.',
+    hashtags: ['#BarbaraMori', '#XimenaSarinana', '#LasAzulesT2'],
+  },
+  // BTS / exclusive
+  {
+    id: 'es-bts-1',
+    tactic: 'bts',
+    platform: 'instagram',
+    body: '"Si en la primera temporada el enemigo era un asesino serial, en esta temporada es todo un sistema."\n— Fernando Rovzar, Creador y Director\n\nLa Temporada 2 de Las Azules es más grande, más oscura y más personal. Ya disponible en Apple TV+.',
+    hashtags: ['#FernandoRovzar', '#LasAzulesT2', '#DetrasDeCamaras'],
+  },
+  {
+    id: 'es-bts-2',
+    tactic: 'bts',
+    platform: 'instagram',
+    body: '"Ahora es una mujer que se da permiso de ser. Toda la temporada trata de descubrir quién es realmente." — Bárbara Mori sobre su personaje en la Temporada 2.\n\nVe Las Azules T2 en Apple TV+. Link en bio.',
+    hashtags: ['#BarbaraMori', '#LasAzulesT2'],
+  },
+]
+
 const INITIAL_UPDATES: DailyUpdate[] = [
   {
     date: 'Aug 12, 2026 — PREMIERE DAY',
@@ -403,6 +639,112 @@ function StrategyList({ strategies, storageKey }: { strategies: Strategy[]; stor
             </span>
           </label>
         ))}
+      </div>
+    </div>
+  )
+}
+
+const TACTIC_META: Record<SocialPost['tactic'], { label: string; color: string }> = {
+  fomo:      { label: 'FOMO',             color: 'bg-red-500/20 text-red-300' },
+  review:    { label: 'Review',           color: 'bg-amber-500/20 text-amber-300' },
+  funfact:   { label: 'Fun Fact',         color: 'bg-purple-500/20 text-purple-300' },
+  countdown: { label: 'Countdown',        color: 'bg-blue-500/20 text-blue-300' },
+  cast:      { label: 'Cast',             color: 'bg-pink-500/20 text-pink-300' },
+  bts:       { label: 'Behind the Scenes', color: 'bg-green-500/20 text-green-300' },
+}
+
+const PLATFORM_LABEL: Record<SocialPost['platform'], string> = {
+  instagram: 'Instagram',
+  twitter:   'X / Twitter',
+  facebook:  'Facebook',
+  any:       'Any platform',
+}
+
+function SuggestedPosts() {
+  const [lang, setLang] = useState<'EN' | 'ES'>('EN')
+  const [tactic, setTactic] = useState<string>('all')
+  const [copied, setCopied] = useState<string | null>(null)
+
+  const posts = lang === 'EN' ? SOCIAL_POSTS_EN : SOCIAL_POSTS_ES
+  const filtered = tactic === 'all' ? posts : posts.filter(p => p.tactic === tactic)
+
+  const copyPost = (post: SocialPost) => {
+    const text = `${post.body}\n\n${post.hashtags.join(' ')}`
+    navigator.clipboard.writeText(text).catch(() => {})
+    setCopied(post.id)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  return (
+    <div className="bg-white/5 rounded-xl p-5 border border-white/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-300">Suggested Posts</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Ready-to-copy copy for your team and cast</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex rounded-lg overflow-hidden border border-white/15 text-xs font-bold">
+            <button
+              onClick={() => setLang('EN')}
+              className={`px-3 py-1.5 transition-colors ${lang === 'EN' ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLang('ES')}
+              className={`px-3 py-1.5 transition-colors ${lang === 'ES' ? 'bg-green-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+            >
+              ES
+            </button>
+          </div>
+          <select
+            value={tactic}
+            onChange={e => setTactic(e.target.value)}
+            className="px-2 py-1.5 text-xs bg-white/10 border border-white/20 rounded-lg text-gray-300 focus:outline-none focus:border-blue-400"
+          >
+            <option value="all">All tactics</option>
+            <option value="fomo">FOMO</option>
+            <option value="review">Review highlights</option>
+            <option value="funfact">Fun facts</option>
+            <option value="countdown">Countdown</option>
+            <option value="cast">Cast</option>
+            <option value="bts">Behind the scenes</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {filtered.map(post => {
+          const meta = TACTIC_META[post.tactic]
+          return (
+            <div key={post.id} className="bg-slate-900/60 rounded-lg p-4 border border-white/10">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${meta.color}`}>
+                  {meta.label}
+                </span>
+                <span className="text-xs text-gray-500">{PLATFORM_LABEL[post.platform]}</span>
+              </div>
+              <p className="text-sm text-gray-200 whitespace-pre-line leading-relaxed mb-3">{post.body}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-wrap gap-1">
+                  {post.hashtags.map(tag => (
+                    <span key={tag} className="text-xs text-blue-400/70 font-mono">{tag}</span>
+                  ))}
+                </div>
+                <button
+                  onClick={() => copyPost(post)}
+                  className={`shrink-0 text-xs px-3 py-1 rounded-lg transition-colors ${
+                    copied === post.id
+                      ? 'bg-green-500/20 text-green-300'
+                      : 'bg-white/10 hover:bg-white/20 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {copied === post.id ? '✓ Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -671,7 +1013,7 @@ export function LasAzulesPage() {
             <span className="w-1 h-6 bg-blue-500 rounded-full inline-block" />
             Social Media Impact
           </h2>
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
             <div className="bg-white/5 rounded-xl p-5 border border-white/10">
               <h3 className="text-sm font-semibold text-gray-300 mb-4">Trailer Performance</h3>
               <div className="space-y-3">
@@ -734,6 +1076,7 @@ export function LasAzulesPage() {
               </div>
             </div>
           </div>
+          <SuggestedPosts />
         </section>
 
         {/* ── Show Info ── */}
