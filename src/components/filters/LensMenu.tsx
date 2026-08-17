@@ -4,6 +4,7 @@ import { DEFAULT_FILTER_STATE, type FilterState, type SortState } from '@/types'
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import { useLensStore, type LensSnapshot } from '@/stores/lensStore';
+import { useTranslation } from 'react-i18next';
 
 function captureFilters(): FilterState {
   const state = useFilterStore.getState();
@@ -37,6 +38,7 @@ export function LensMenu({
   presentation = 'default',
   triggerLabel = 'Lenses',
 }: LensMenuProps) {
+  const { t, i18n } = useTranslation();
   const isDiscovery = presentation === 'discovery';
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
@@ -83,10 +85,10 @@ export function LensMenu({
           isDiscovery && 'min-h-11 rounded-xl px-4',
           !isDiscovery && 'min-h-[44px]',
         )}
-        title="Saved Lenses"
+        title={t('Saved Lenses')}
         aria-haspopup="dialog"
       >
-        {triggerLabel}
+        {t(triggerLabel)}
         {lenses.length > 0 && (
           <span className={isDiscovery ? 'rounded-full bg-[var(--dsc-accent-soft)] px-1.5 py-0.5 text-xs font-bold text-[var(--dsc-accent)]' : 'px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold'}>
             {lenses.length}
@@ -127,14 +129,14 @@ export function LensMenu({
               <div>
                 {isDiscovery && (
                   <p className="dsc-modal-kicker mb-1">
-                    Saved views
+                    {t('Saved views')}
                   </p>
                 )}
-                <h2 id="lenses-title" className={isDiscovery ? 'dsc-modal-title text-2xl' : 'font-display text-xl text-gold-200'}>Lenses</h2>
+                <h2 id="lenses-title" className={isDiscovery ? 'dsc-modal-title text-2xl' : 'font-display text-xl text-gold-200'}>{t('Lenses')}</h2>
                 <p className={isDiscovery ? 'dsc-muted mt-1 text-sm' : 'text-xs text-black-400'}>
                   {isDiscovery
-                    ? 'Save the exact search, filters, and ranking you are using.'
-                    : 'Saved filters and sorting'}
+                    ? t('Save the exact search, filters, and ranking you are using.')
+                    : t('Saved filters and sorting')}
                 </p>
               </div>
               <button
@@ -145,7 +147,7 @@ export function LensMenu({
                     ? 'btn btn-ghost !h-11 !min-h-11 !w-11 !min-w-11 !p-0'
                     : 'h-10 w-10',
                 )}
-                aria-label="Close Lenses"
+                aria-label={t('Close Lenses')}
               >
                 ×
               </button>
@@ -160,8 +162,8 @@ export function LensMenu({
                     if (event.key === 'Enter') handleSave();
                   }}
                   className={clsx('input flex-1', isDiscovery && 'min-h-11')}
-                  placeholder="Name this view"
-                  aria-label="Lens name"
+                  placeholder={t('Name this view')}
+                  aria-label={t('Lens name')}
                   maxLength={60}
                   autoFocus
                 />
@@ -173,7 +175,7 @@ export function LensMenu({
                     isDiscovery ? 'min-h-11' : 'min-h-[44px]',
                   )}
                 >
-                  Save current
+                  {t('Save current')}
                 </button>
               </div>
 
@@ -183,7 +185,7 @@ export function LensMenu({
               )}>
                 {lenses.length === 0 ? (
                   <p className={clsx('py-8 text-center text-sm text-black-400', isDiscovery && 'dsc-muted')}>
-                    No saved Lenses yet.
+                    {t('No saved Lenses yet.')}
                   </p>
                 ) : (
                   lenses.map((lens) => (
@@ -207,7 +209,11 @@ export function LensMenu({
                       >
                         <span className={clsx('block truncate text-sm text-black-100', isDiscovery && 'text-[var(--dsc-ink)]')}>{lens.name}</span>
                         <span className={clsx('block text-xs text-black-500', isDiscovery && 'dsc-muted-faint')}>
-                          {activeLensId === lens.id ? 'Active' : new Date(lens.createdAt).toLocaleDateString()}
+                          {activeLensId === lens.id
+                            ? t('Active')
+                            : new Date(lens.createdAt).toLocaleDateString(
+                                i18n.resolvedLanguage === 'es' ? 'es-MX' : 'en-US',
+                              )}
                         </span>
                       </button>
                       <button
@@ -219,7 +225,7 @@ export function LensMenu({
                             ? 'h-11 w-11 rounded-lg hover:bg-[var(--error-soft)] hover:text-[var(--on-error)] focus-visible:outline-none'
                             : 'h-10 w-10',
                         )}
-                        aria-label={`Delete ${lens.name}`}
+                        aria-label={t('Delete {{name}}', { name: lens.name })}
                       >
                         ×
                       </button>

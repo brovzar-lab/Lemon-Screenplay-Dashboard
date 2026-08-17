@@ -4,10 +4,13 @@ import { UserMenu } from '@/components/auth';
 import { SettingsThemeControl } from '@/components/settings/SettingsThemeControl';
 import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
 import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator';
+import { LanguageControl } from '@/components/layout/LanguageControl';
 import { useThemeStore } from '@/stores/themeStore';
+import { useTranslation } from 'react-i18next';
 import '@/components/layout/application-header.css';
 
 export function ApplicationHeader() {
+  const { t } = useTranslation();
   const setDesignSystem = useThemeStore((state) => state.setDesignSystem);
 
   useEffect(() => {
@@ -21,11 +24,15 @@ export function ApplicationHeader() {
       data-application-shell="lemon"
     >
       <div className="application-header__inner">
-        <Link to="/" className="application-header__brand" aria-label="Discovery home">
+        <Link
+          to="/"
+          className="application-header__brand"
+          aria-label={t('Lemon Screenplay Dashboard home')}
+        >
           <img src="/lemon-logo-white.png" alt="" />
           <span>
             <strong>LEMON</strong>
-            <small>Discovery</small>
+            <small>Screenplay Dashboard</small>
           </span>
         </Link>
 
@@ -33,6 +40,7 @@ export function ApplicationHeader() {
 
         <div className="application-header__actions">
           <SyncStatusIndicator />
+          <LanguageControl />
           <SettingsThemeControl />
           <UserMenu />
         </div>

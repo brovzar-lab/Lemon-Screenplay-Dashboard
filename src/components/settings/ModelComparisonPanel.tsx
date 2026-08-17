@@ -11,6 +11,7 @@
 
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { analyzeScreenplay } from '@/lib/analysisService';
 import type { AnalysisProgress } from '@/lib/analysisService';
 import { useScreenplays } from '@/hooks/useScreenplays';
@@ -167,6 +168,7 @@ function slotKey(engine: EngineId, model: ModelId): SlotKey {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function ModelComparisonPanel() {
+  const { t } = useTranslation();
   // API keys are now server-side — no need to read from store
   const { data: screenplays } = useScreenplays();
 
@@ -347,7 +349,7 @@ export function ModelComparisonPanel() {
               [key]: {
                 status: 'error',
                 progress: 0,
-                error: err instanceof Error ? err.message : 'Analysis failed',
+                error: err instanceof Error ? err.message : t('Analysis failed'),
               },
             }));
           }
@@ -358,7 +360,7 @@ export function ModelComparisonPanel() {
 
     await Promise.allSettled(promises);
     setIsRunning(false);
-  }, [file, isRunning, selectedEngines, selectedModels]);
+  }, [file, isRunning, selectedEngines, selectedModels, t]);
 
   // ─── Compute active slots ────────────────────────────────────────────────
 
@@ -399,11 +401,10 @@ export function ModelComparisonPanel() {
       <div>
         <h2 className="text-2xl font-display text-gold-200 flex items-center gap-3">
           <span className="text-3xl">🔬</span>
-          Engine Comparison Lab
+          {t('Engine Comparison Lab')}
         </h2>
         <p className="text-black-400 mt-1">
-          Compare AI models side-by-side with the V9 Archaeology Engine.
-          Upload a screenplay or pull from your dashboard.
+          {t('Compare AI models side-by-side with the V9 Archaeology Engine. Upload a screenplay or pull from your dashboard.')}
         </p>
       </div>
 
@@ -421,7 +422,7 @@ export function ModelComparisonPanel() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
-          Upload New PDF
+          {t('Upload New PDF')}
         </button>
         <button
           onClick={() => setSourceMode('dashboard')}
@@ -435,7 +436,7 @@ export function ModelComparisonPanel() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          Pull from Dashboard
+          {t('Pull from Dashboard')}
         </button>
       </div>
 
@@ -469,14 +470,14 @@ export function ModelComparisonPanel() {
                 <span className="text-2xl">📄</span>
                 <div>
                   <p className="text-gold-200 font-medium">{fileName}</p>
-                  <p className="text-black-400 text-sm">Click to change • {(file.size / 1024).toFixed(0)} KB</p>
+                  <p className="text-black-400 text-sm">{t('Click to change')} • {(file.size / 1024).toFixed(0)} KB</p>
                 </div>
               </div>
             ) : (
               <div>
                 <p className="text-2xl mb-2">📄</p>
-                <p className="text-gold-200 font-medium">Drop a screenplay PDF here</p>
-                <p className="text-black-500 text-sm mt-1">or click to browse</p>
+                <p className="text-gold-200 font-medium">{t('Drop a screenplay PDF here')}</p>
+                <p className="text-black-500 text-sm mt-1">{t('or click to browse')}</p>
               </div>
             )}
           </div>
@@ -495,7 +496,7 @@ export function ModelComparisonPanel() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search screenplays by title or author..."
+              placeholder={t('Search screenplays by title or author...')}
               className="input pl-10"
             />
           </div>
@@ -504,7 +505,7 @@ export function ModelComparisonPanel() {
           <div className="max-h-56 overflow-y-auto rounded-xl border border-black-700 divide-y divide-black-800">
             {filteredScreenplays.length === 0 ? (
               <div className="p-4 text-center text-black-500 text-sm">
-                {screenplays?.length ? 'No matches found' : 'No screenplays in dashboard'}
+                {screenplays?.length ? t('No matches found') : t('No screenplays in dashboard')}
               </div>
             ) : (
               filteredScreenplays.map((sp) => {
@@ -524,14 +525,14 @@ export function ModelComparisonPanel() {
                     <div className="flex-1 min-w-0">
                       <p className="text-gold-200 text-sm font-medium truncate">{sp.title}</p>
                       <p className="text-black-500 text-xs truncate">
-                        {sp.author ?? 'Unknown'} • {(Number(sp.weightedScore) || 0).toFixed(1)}/10
+                        {sp.author ?? t('Unknown')} • {(Number(sp.weightedScore) || 0).toFixed(1)}/10
                       </p>
                     </div>
                     <span className={clsx(
                       'text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider shrink-0',
                       isPillarBased ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30',
                     )}>
-                      {isPillarBased ? 'V9' : 'LEGACY'}
+                      {isPillarBased ? 'V9' : t('LEGACY')}
                     </span>
                     <span className={clsx(
                       'text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider shrink-0',
@@ -541,7 +542,7 @@ export function ModelComparisonPanel() {
                           ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
                           : 'bg-red-500/20 text-red-300 border-red-500/30',
                     )}>
-                      {sp.recommendation?.replace('_', ' ')}
+                      {t(sp.recommendation?.replace('_', ' ').toUpperCase())}
                     </span>
                   </button>
                 );
@@ -555,7 +556,7 @@ export function ModelComparisonPanel() {
               onClick={loadFromDashboard}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-gold-500/80 to-amber-500/80 text-black-900 font-display text-sm hover:from-gold-400 hover:to-amber-400 shadow-lg shadow-gold-500/20 transition-all"
             >
-              📊 Load "{selectedScreenplay.title}" Results
+              📊 {t('Load "{{title}}" Results', { title: selectedScreenplay.title })}
             </button>
           )}
         </div>
@@ -566,7 +567,7 @@ export function ModelComparisonPanel() {
         <div className="grid grid-cols-2 gap-4">
           {/* Engines */}
           <div>
-            <p className="text-xs text-black-500 uppercase tracking-wider font-semibold mb-2">Analysis Engine</p>
+            <p className="text-xs text-black-500 uppercase tracking-wider font-semibold mb-2">{t('Analysis Engine')}</p>
             <div className="space-y-2">
               {ENGINES.map((engine) => (
                 <button
@@ -593,7 +594,7 @@ export function ModelComparisonPanel() {
                   </div>
                   <div className="flex-1">
                     <p className="font-medium">{engine.name}</p>
-                    <p className="text-xs text-black-500">{engine.description}</p>
+                    <p className="text-xs text-black-500">{t(engine.description)}</p>
                   </div>
                   <span className={clsx('text-[10px] px-2 py-0.5 rounded-full border font-bold', engine.badgeColor)}>
                     {engine.badge}
@@ -605,7 +606,7 @@ export function ModelComparisonPanel() {
 
           {/* Models */}
           <div>
-            <p className="text-xs text-black-500 uppercase tracking-wider font-semibold mb-2">AI Model</p>
+            <p className="text-xs text-black-500 uppercase tracking-wider font-semibold mb-2">{t('AI Model')}</p>
             <div className="space-y-2">
               {MODELS.map((model) => (
                 <button
@@ -633,10 +634,10 @@ export function ModelComparisonPanel() {
                   <span className="text-base">{model.icon}</span>
                   <div className="flex-1">
                     <p className="font-medium">{model.name}</p>
-                    <p className="text-xs text-black-500">{model.costLabel}/script</p>
+                    <p className="text-xs text-black-500">{model.costLabel}/{t('script')}</p>
                   </div>
                   <span className={clsx('text-[10px] px-2 py-0.5 rounded-full border font-bold', model.badgeColor)}>
-                    {model.badge}
+                    {t(model.badge)}
                   </span>
                 </button>
               ))}
@@ -650,7 +651,7 @@ export function ModelComparisonPanel() {
         <div className="space-y-3">
           {activeSlots.length > 0 && (
             <p className="text-xs text-black-500 text-center">
-              Will run <strong className="text-gold-300">{activeSlots.length}</strong> analysis slot{activeSlots.length > 1 ? 's' : ''}:{' '}
+              {t('Will run {{count}} analysis slot', { count: activeSlots.length })}:{' '}
               {activeSlots.map((s) => `${s.engine.badge}×${s.model.name}`).join(', ')}
             </p>
           )}
@@ -665,8 +666,8 @@ export function ModelComparisonPanel() {
             )}
           >
             {isRunning
-              ? `⏳ Running ${activeSlots.length} slot${activeSlots.length > 1 ? 's' : ''}...`
-              : `🚀 Run Comparison (${activeSlots.length} slot${activeSlots.length > 1 ? 's' : ''})`}
+              ? `⏳ ${t('Running {{count}} slot...', { count: activeSlots.length })}`
+              : `🚀 ${t('Run Comparison ({{count}} slot)', { count: activeSlots.length })}`}
           </button>
         </div>
       )}
@@ -675,7 +676,7 @@ export function ModelComparisonPanel() {
       {hasDisagreement && (
         <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm flex items-center gap-2">
           <span className="text-lg">⚠️</span>
-          <span><strong>Verdict disagreement:</strong> {[...new Set(verdicts)].join(' vs ')}</span>
+          <span><strong>{t('Verdict disagreement')}:</strong> {[...new Set(verdicts)].map((verdict) => t(verdict)).join(` ${t('vs')} `)}</span>
         </div>
       )}
 
@@ -704,7 +705,7 @@ export function ModelComparisonPanel() {
                     <span className="text-lg">{model.icon}</span>
                     <div>
                       <p className="text-gold-200 font-medium text-sm">{model.name}</p>
-                      <p className="text-black-500 text-xs">{model.costLabel}/script</p>
+                      <p className="text-black-500 text-xs">{model.costLabel}/{t('script')}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -712,11 +713,11 @@ export function ModelComparisonPanel() {
                       {engine.badge}
                     </span>
                     <span className={clsx('text-[10px] px-2 py-0.5 rounded-full border font-bold', model.badgeColor)}>
-                      {model.badge}
+                      {t(model.badge)}
                     </span>
                     {r.fromDashboard && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full border font-bold bg-teal-500/20 text-teal-400 border-teal-500/30">
-                        STORED
+                        {t('STORED')}
                       </span>
                     )}
                   </div>
@@ -725,7 +726,7 @@ export function ModelComparisonPanel() {
                 {/* Status: Idle */}
                 {r.status === 'idle' && (
                   <div className="text-center py-8 text-black-500 text-sm">
-                    Waiting to start...
+                    {t('Waiting to start...')}
                   </div>
                 )}
 
@@ -735,7 +736,7 @@ export function ModelComparisonPanel() {
                     <div className="text-center">
                       <div className="inline-block animate-spin text-2xl mb-2">⏳</div>
                       <p className="text-gold-300 text-sm">
-                        {r.status === 'parsing' ? 'Parsing PDF...' : `Analyzing with ${engine.name}...`}
+                        {r.status === 'parsing' ? t('Parsing PDF...') : t('Analyzing with {{engine}}...', { engine: engine.name })}
                       </p>
                     </div>
                     <div className="w-full bg-black-700 rounded-full h-2">
@@ -761,7 +762,7 @@ export function ModelComparisonPanel() {
                     {/* Score + Verdict */}
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs text-black-500 uppercase tracking-wider">Score</p>
+                        <p className="text-xs text-black-500 uppercase tracking-wider">{t('Score')}</p>
                         <p className={clsx('text-3xl font-display font-bold', scoreColor(getWeightedScore(r.analysis)))}>
                           {getWeightedScore(r.analysis).toFixed(1)}
                         </p>
@@ -770,18 +771,18 @@ export function ModelComparisonPanel() {
                         'px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border',
                         verdictColor(getVerdict(r.analysis)),
                       )}>
-                        {getVerdict(r.analysis)}
+                        {t(getVerdict(r.analysis))}
                       </span>
                     </div>
 
                     {/* Dimension Scores */}
                     <div className="space-y-1.5">
                       <p className="text-xs text-black-500 uppercase tracking-wider">
-                        Pillars (V9)
+                        {t('Pillars (V9)')}
                       </p>
                       {getResultDimensions(r).map((d) => (
                         <div key={d.label} className="flex items-center gap-2">
-                          <span className="text-xs text-black-400 w-20 truncate">{d.label}</span>
+                          <span className="text-xs text-black-400 w-20 truncate">{t(d.label)}</span>
                           <div className="flex-1 bg-black-700 rounded-full h-1.5">
                             <div
                               className={clsx(
@@ -803,7 +804,7 @@ export function ModelComparisonPanel() {
                     {/* Logline */}
                     {getLogline(r.analysis) && (
                       <div>
-                        <p className="text-xs text-black-500 uppercase tracking-wider mb-1">Logline</p>
+                        <p className="text-xs text-black-500 uppercase tracking-wider mb-1">{t('Logline')}</p>
                         <p className="text-sm text-black-300 italic leading-relaxed line-clamp-3">
                           "{getLogline(r.analysis)}"
                         </p>
@@ -813,7 +814,7 @@ export function ModelComparisonPanel() {
                     {/* Executive Summary */}
                     {getExecSummary(r.analysis) && (
                       <div>
-                        <p className="text-xs text-black-500 uppercase tracking-wider mb-1">Verdict</p>
+                        <p className="text-xs text-black-500 uppercase tracking-wider mb-1">{t('Verdict')}</p>
                         <p className="text-sm text-black-300 leading-relaxed line-clamp-4">
                           {getExecSummary(r.analysis)}
                         </p>
@@ -824,15 +825,15 @@ export function ModelComparisonPanel() {
                     {!r.fromDashboard && (
                       <div className="pt-3 border-t border-black-700 grid grid-cols-3 gap-2 text-center">
                         <div>
-                          <p className="text-xs text-black-500">Cost</p>
+                          <p className="text-xs text-black-500">{t('Cost')}</p>
                           <p className="text-sm text-gold-300">{formatCost(r.usage, model.id)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-black-500">Tokens</p>
+                          <p className="text-xs text-black-500">{t('Tokens')}</p>
                           <p className="text-sm text-black-300">{formatTokens(r.usage)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-black-500">Time</p>
+                          <p className="text-xs text-black-500">{t('Time')}</p>
                           <p className="text-sm text-black-300">
                             {r.elapsedMs ? `${(r.elapsedMs / 1000).toFixed(1)}s` : '—'}
                           </p>
@@ -849,7 +850,7 @@ export function ModelComparisonPanel() {
 
       {/* Footer */}
       <p className="text-xs text-black-600 text-center">
-        Fresh analyses are temporary — use the Upload tab to permanently save results.
+        {t('Fresh analyses are temporary. Use the Upload tab to permanently save results.')}
       </p>
     </div>
   );

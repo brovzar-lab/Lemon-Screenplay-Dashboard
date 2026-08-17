@@ -8,6 +8,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 
 import type { Screenplay } from '@/types';
 import { canonicalizeGenre } from '@/lib/calculations';
 import { CHART_COLORS } from '@/lib/chartColors';
+import { useTranslation } from 'react-i18next';
 
 interface GenreChartProps {
   screenplays: Screenplay[];
@@ -62,15 +63,16 @@ interface ChartTooltipProps {
 
 // Hoisted to module scope — avoids react-hooks/static-components violation
 function CustomTooltip({ active, payload }: ChartTooltipProps) {
+  const { t } = useTranslation();
   if (active && payload && payload.length) {
     const item = payload[0].payload as GenreChartItem;
     return (
       <div className="chart-tooltip">
         <strong>{item.genre}</strong>
         <span>
-          <span className="font-bold">{item.count}</span> screenplays
+          {t('{{count}} screenplay', { count: item.count })}
         </span>
-        <span>{item.percentage}% of total</span>
+        <span>{t('{{percentage}}% of total', { percentage: item.percentage })}</span>
       </div>
     );
   }

@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 
 const state = vi.hoisted(() => ({
   isAdmin: true,
@@ -47,13 +48,17 @@ describe('ApplicationHeader', () => {
       'data-application-shell',
       'lemon',
     );
-    expect(screen.getByRole('link', { name: 'Discovery home' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Discover' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Lemon Screenplay Dashboard home' })).toHaveAttribute(
+      'href',
+      '/',
+    );
+    expect(screen.getByRole('link', { name: 'Discovery' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(
       'aria-current',
       'page',
     );
     expect(screen.getByText('Synced')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Language' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'User menu' })).toBeInTheDocument();
     await waitFor(() => expect(state.setDesignSystem).toHaveBeenCalledWith('instrument'));
@@ -67,10 +72,26 @@ describe('ApplicationHeader', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: 'Discover' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute(
       'aria-current',
       'page',
     );
     expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
+  });
+
+  it('switches to Spanish and saves the choice', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <ApplicationHeader />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Spanish' }));
+
+    expect(screen.getByRole('link', { name: 'Descubrimiento' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Idioma' })).toBeInTheDocument();
+    expect(document.documentElement).toHaveAttribute('lang', 'es');
+    expect(window.localStorage.getItem('lemon-ui-language')).toBe('es');
   });
 });

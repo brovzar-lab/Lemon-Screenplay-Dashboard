@@ -16,6 +16,7 @@ import { FeaturedProjectPanel } from '@/components/settings/FeaturedProjectPanel
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import '@/components/discover/discovery.css';
 import '@/pages/settings-page.css';
+import { useTranslation } from 'react-i18next';
 
 type Tab = 'intake' | 'featured' | 'analysis' | 'compare' | 'calibration' | 'pdf' | 'data' | 'api';
 type GroupLabel = 'Workflow' | 'Intelligence' | 'Library' | 'System';
@@ -134,10 +135,11 @@ function SectionFrame({ title, children }: { title: string; children: ReactNode 
 }
 
 function DataTab() {
+  const { t } = useTranslation();
   return (
     <div className="settings-section-stack">
       <DataManagement />
-      <SectionFrame title="Shared links">
+      <SectionFrame title={t('Shared links')}>
         <div id="shared-links" className="scroll-mt-8">
           <SharedLinksPanel />
         </div>
@@ -150,29 +152,31 @@ function DataTab() {
 }
 
 function IntakeTab({ onOpenAnalysis }: { onOpenAnalysis: (projectId: string) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="settings-section-stack">
       <div className="settings-intake-intro">
         <div>
-          <p className="settings-eyebrow">New material</p>
-          <h3>Bring a screenplay into the slate</h3>
+          <p className="settings-eyebrow">{t('New material')}</p>
+          <h3>{t('Bring a screenplay into the slate')}</h3>
           <p>
-            Adding files is free. Duplicate protection and routing happen before the confirmation
-            that starts analysis.
+            {t(
+              'Adding files is free. Duplicate protection and routing happen before the confirmation that starts analysis.',
+            )}
           </p>
         </div>
-        <ol aria-label="Intake stages">
+        <ol aria-label={t('Intake stages')}>
           <li>
             <strong>01</strong>
-            <span>File verified</span>
+            <span>{t('File verified')}</span>
           </li>
           <li>
             <strong>02</strong>
-            <span>Readers working</span>
+            <span>{t('Readers working')}</span>
           </li>
           <li>
             <strong>03</strong>
-            <span>Slate ready</span>
+            <span>{t('Slate ready')}</span>
           </li>
         </ol>
       </div>
@@ -185,6 +189,7 @@ function IntakeTab({ onOpenAnalysis }: { onOpenAnalysis: (projectId: string) => 
 }
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = normalizeTab(searchParams.get('tab'));
@@ -227,23 +232,23 @@ export function SettingsPage() {
 
       <main className="settings-main">
         <aside className="settings-sidebar">
-          <nav aria-label="Settings sections">
+          <nav aria-label={t('Settings sections')}>
             {GROUPS.map((group) => (
               <div key={group} className="settings-nav-group">
-                <h2>{group}</h2>
+                <h2>{t(group)}</h2>
                 {TABS.filter((tab) => tab.group === group).map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setActiveTab(tab.id)}
-                    aria-label={tab.label}
+                    aria-label={t(tab.label)}
                     aria-current={activeTab === tab.id ? 'page' : undefined}
                     className={clsx('settings-nav-item', activeTab === tab.id && 'is-active')}
                   >
                     <SettingsIcon tab={tab.id} />
                     <span>
-                      <strong>{tab.label}</strong>
-                      <small>{tab.description}</small>
+                      <strong>{t(tab.label)}</strong>
+                      <small>{t(tab.description)}</small>
                     </span>
                   </button>
                 ))}
@@ -254,9 +259,11 @@ export function SettingsPage() {
 
         <section className="settings-workspace" aria-labelledby="settings-section-title">
           <header className="settings-workspace__heading">
-            <p className="settings-eyebrow">Administration · {activeConfig.group}</p>
-            <h1 id="settings-section-title">{activeConfig.label}</h1>
-            <p>{activeConfig.description}</p>
+            <p className="settings-eyebrow">
+              {t('Administration')} · {t(activeConfig.group)}
+            </p>
+            <h1 id="settings-section-title">{t(activeConfig.label)}</h1>
+            <p>{t(activeConfig.description)}</p>
           </header>
           <div className="settings-panel">{renderTabContent()}</div>
         </section>

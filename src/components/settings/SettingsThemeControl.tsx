@@ -1,4 +1,5 @@
 import { useThemeStore, type ColorMode } from '@/stores/themeStore';
+import { useTranslation } from 'react-i18next';
 
 const MODES: Array<{ value: ColorMode; label: string }> = [
   { value: 'light', label: 'Light' },
@@ -7,12 +8,13 @@ const MODES: Array<{ value: ColorMode; label: string }> = [
 ];
 
 export function SettingsThemeControl() {
+  const { t } = useTranslation();
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
 
   return (
-    <fieldset className="settings-theme-control" aria-label="Appearance">
-      <legend className="sr-only">Appearance</legend>
+    <fieldset className="settings-theme-control" aria-label={t('Appearance')}>
+      <legend className="sr-only">{t('Appearance')}</legend>
       {MODES.map((mode) => (
         <button
           key={mode.value}
@@ -21,7 +23,7 @@ export function SettingsThemeControl() {
           className={theme === mode.value ? 'is-active' : undefined}
           onClick={() => setTheme(mode.value)}
         >
-          {mode.label}
+          {t(mode.label)}
         </button>
       ))}
     </fieldset>

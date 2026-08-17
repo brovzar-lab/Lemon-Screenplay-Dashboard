@@ -23,6 +23,7 @@ import {
 import type { Screenplay } from '@/types';
 import '@/components/discover/hybrid/hybrid-discovery.css';
 import '@/components/discover/screenplay/screenplay-discovery.css';
+import { useTranslation } from 'react-i18next';
 
 const PAGE_SIZE = 50;
 
@@ -37,14 +38,15 @@ function ScreenplayState({
   action?: () => void;
   loading?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <section className="screenplay-state" role={loading ? 'status' : undefined}>
-      <p className="screenplay-ui-eyebrow">The slate</p>
+      <p className="screenplay-ui-eyebrow">{t('The slate')}</p>
       <h1>{title}</h1>
       <p>{message}</p>
       {action && (
         <button type="button" onClick={action}>
-          Clear filters
+          {t('Clear filters')}
         </button>
       )}
       {loading && (
@@ -60,6 +62,7 @@ function ScreenplayState({
 }
 
 export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
+  const { t } = useTranslation();
   const {
     screenplays,
     allScreenplays,
@@ -166,7 +169,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
       }`}
     >
       <ApplicationHeader />
-      <section className="screenplay-discovery__findbar" aria-label="Discovery tools">
+      <section className="screenplay-discovery__findbar" aria-label={t('Discovery tools')}>
         <div className="screenplay-discovery__findbar-inner">
           <DiscoverySearch
             id="screenplay-discovery-search"
@@ -174,7 +177,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
             shortcutsEnabled={!selectedScreenplay}
           />
           <div className="screenplay-discovery__find-actions">
-            <LensMenu presentation="discovery" triggerLabel="Saved Views" />
+            <LensMenu presentation="discovery" triggerLabel={t('Saved Views')} />
             <DiscoveryFavoritesMenu screenplays={allScreenplays} onOpen={handleOpen} />
           </div>
         </div>
@@ -208,23 +211,25 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         {isLoading ? (
           <ScreenplayState
             loading
-            title="Opening the development slate"
-            message="Loading the latest screenplay decisions and evidence."
+            title={t('Opening the development slate')}
+            message={t('Loading the latest screenplay decisions and evidence.')}
           />
         ) : isError ? (
           <ScreenplayState
-            title="Discovery is temporarily unavailable"
-            message="Classic Discovery remains available at ?ui=classic while the live slate reconnects."
+            title={t('Discovery is temporarily unavailable')}
+            message={t(
+              'Classic Discovery remains available at ?ui=classic while the live slate reconnects.',
+            )}
           />
         ) : totalCount === 0 ? (
           <ScreenplayState
-            title="No analyzed screenplays yet"
-            message="Completed analyses will appear here automatically."
+            title={t('No analyzed screenplays yet')}
+            message={t('Completed analyses will appear here automatically.')}
           />
         ) : screenplays.length === 0 ? (
           <ScreenplayState
-            title="No screenplays match this view"
-            message="Broaden the search or clear the active filters."
+            title={t('No screenplays match this view')}
+            message={t('Broaden the search or clear the active filters.')}
             action={onClearFilters}
           />
         ) : (
@@ -245,28 +250,36 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
             <section className="screenplay-slate" aria-labelledby="screenplay-slate-title">
               <header className="screenplay-slate__heading">
                 <div>
-                  <p className="screenplay-ui-eyebrow">Searchable archive</p>
+                  <p className="screenplay-ui-eyebrow">{t('Searchable archive')}</p>
                   <h2 id="screenplay-slate-title">
-                    Continue through the slate
+                    {t('Continue through the slate')}
                   </h2>
                 </div>
                 <p aria-live="polite">
                   <strong>
-                    Showing {filteredCount} of {totalCount} screenplays
+                    {t('Showing {{filtered}} of {{total}} screenplays', {
+                      filtered: filteredCount,
+                      total: totalCount,
+                    })}
                   </strong>
                   {producedHiddenCount > 0 && (
                     <>
-                      <span> · {producedHiddenCount} produced hidden</span>
+                      <span> · {t('{{count}} produced hidden', { count: producedHiddenCount })}</span>
                       <button type="button" onClick={onRevealProduced}>
-                        Show produced films
+                        {t('Show produced films')}
                       </button>
                     </>
                   )}
                   {nonScreenplayHiddenCount > 0 && (
                     <>
-                      <span> · {nonScreenplayHiddenCount} non-screenplays hidden</span>
+                      <span>
+                        {' · '}
+                        {t('{{count}} non-screenplays hidden', {
+                          count: nonScreenplayHiddenCount,
+                        })}
+                      </span>
                       <button type="button" onClick={onRevealNonScreenplays}>
-                        Show non-screenplays
+                        {t('Show non-screenplays')}
                       </button>
                     </>
                   )}
@@ -280,7 +293,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
                 onOpen={handleOpen}
               />
               {pageCount > 1 && (
-                <nav className="screenplay-pagination" aria-label="Browse slate pages">
+                <nav className="screenplay-pagination" aria-label={t('Browse slate pages')}>
                   <button
                     type="button"
                     disabled={safePage === 1}
@@ -288,10 +301,10 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
                       setArchivePosition({ signature, page: Math.max(1, safePage - 1) })
                     }
                   >
-                    Previous 50
+                    {t('Previous 50')}
                   </button>
                   <span>
-                    Page {safePage} of {pageCount}
+                    {t('Page {{page}} of {{count}}', { page: safePage, count: pageCount })}
                   </span>
                   <button
                     type="button"
@@ -300,7 +313,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
                       setArchivePosition({ signature, page: Math.min(pageCount, safePage + 1) })
                     }
                   >
-                    Next 50
+                    {t('Next 50')}
                   </button>
                 </nav>
               )}

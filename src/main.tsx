@@ -7,6 +7,7 @@ import { AuthGate } from '@/components/auth';
 import './index.css';
 import App from './App';
 import { importWithReload } from '@/lib/lazyWithReload';
+import '@/i18n';
 
 // Lazy-loaded routes — loaded on demand for code splitting
 const SettingsPage = lazy(() => importWithReload('settings', () => import('./pages/SettingsPage')));

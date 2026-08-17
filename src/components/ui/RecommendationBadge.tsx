@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { RECOMMENDATION_CONFIG } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface RecommendationBadgeProps {
   tier: Screenplay['recommendation'];
@@ -8,6 +9,7 @@ interface RecommendationBadgeProps {
 }
 
 export function RecommendationBadge({ tier, size = 'sm' }: RecommendationBadgeProps) {
+  const { t } = useTranslation();
   const config = RECOMMENDATION_CONFIG[tier];
 
   return (
@@ -21,7 +23,7 @@ export function RecommendationBadge({ tier, size = 'sm' }: RecommendationBadgePr
         tier === 'pass' && 'badge-pass'
       )}
     >
-      {config.label}
+      {t(config.label)}
     </span>
   );
 }

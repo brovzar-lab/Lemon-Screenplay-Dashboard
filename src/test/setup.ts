@@ -3,7 +3,7 @@
  * Global setup for Vitest tests
  */
 
-import { vi } from 'vitest';
+import { beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import { setLogLevel } from 'firebase/firestore';
 
@@ -113,4 +113,10 @@ const localStorageMock = (() => {
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
   writable: true,
+});
+
+const { default: i18n } = await import('@/i18n');
+
+beforeEach(async () => {
+  await i18n.changeLanguage('en');
 });

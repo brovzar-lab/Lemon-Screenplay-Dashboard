@@ -5,6 +5,7 @@
 
 import { clsx } from 'clsx';
 import { useQueries } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 import { formatProducerTaxonomy, formatProducerText } from '@/lib/producerDisplay';
 import { searchTmdbComparable } from '@/lib/tmdbService';
@@ -49,21 +50,22 @@ export function ContentDetails({ screenplay, presentation = 'default' }: Content
 }
 
 function CharactersSection({ screenplay, isWorkspace }: { screenplay: Screenplay; isWorkspace: boolean }) {
+    const { t } = useTranslation();
     return (
         <section className={clsx(isWorkspace && 'screenplay-xray__section screenplay-xray__section--characters')}>
-            <SectionHeader icon={isWorkspace ? undefined : '👥'}>Characters</SectionHeader>
+            <SectionHeader icon={isWorkspace ? undefined : '👥'}>{t('Characters')}</SectionHeader>
             <div className="space-y-3">
                 <div>
-                    <h5 className="text-sm font-medium text-gold-400 mb-1">Protagonist</h5>
+                    <h5 className="text-sm font-medium text-gold-400 mb-1">{t('Protagonist')}</h5>
                     <p className="text-sm text-black-300">{formatProducerText(screenplay.characters.protagonist)}</p>
                 </div>
                 <div>
-                    <h5 className="text-sm font-medium text-gold-400 mb-1">Antagonist</h5>
+                    <h5 className="text-sm font-medium text-gold-400 mb-1">{t('Antagonist')}</h5>
                     <p className="text-sm text-black-300">{formatProducerText(screenplay.characters.antagonist)}</p>
                 </div>
                 {screenplay.characters.supporting.length > 0 && (
                     <div>
-                        <h5 className="text-sm font-medium text-gold-400 mb-1">Supporting Cast</h5>
+                        <h5 className="text-sm font-medium text-gold-400 mb-1">{t('Supporting Cast')}</h5>
                         <ul className="list-disc list-inside space-y-1">
                             {screenplay.characters.supporting.map((char, i) => (
                                 <li key={i} className="text-sm text-black-300">{formatProducerText(typeof char === 'string' ? char : String(char))}</li>
@@ -77,12 +79,13 @@ function CharactersSection({ screenplay, isWorkspace }: { screenplay: Screenplay
 }
 
 function ComparableFilmsSection({ films, isWorkspace }: { films: Screenplay['comparableFilms']; isWorkspace: boolean }) {
+    const { t } = useTranslation();
     const limitedFilms = films.slice(0, 3);
     if (isWorkspace) return <WorkspaceComparableFilms films={limitedFilms} />;
 
     return (
         <section>
-            <SectionHeader icon="🎥">Comparable Films</SectionHeader>
+            <SectionHeader icon="🎥">{t('Comparable Films')}</SectionHeader>
             <div className="grid md:grid-cols-2 gap-3">
                 {limitedFilms.map((film, i) => (
                     <div key={`${film.title}-${i}`} className="p-3 bg-black-900/50 rounded-lg">
@@ -96,7 +99,7 @@ function ComparableFilmsSection({ films, isWorkspace }: { films: Screenplay['com
                         </div>
                         <p className="text-xs text-black-500">{formatProducerText(film.similarity)}</p>
                         {film.keyDivergence && (
-                            <p className="text-xs text-black-500 italic mt-1">Key divergence: {formatProducerText(film.keyDivergence)}</p>
+                            <p className="text-xs text-black-500 italic mt-1">{t('Key divergence:')} {formatProducerText(film.keyDivergence)}</p>
                         )}
                     </div>
                 ))}
@@ -106,6 +109,7 @@ function ComparableFilmsSection({ films, isWorkspace }: { films: Screenplay['com
 }
 
 function WorkspaceComparableFilms({ films }: { films: Screenplay['comparableFilms'] }) {
+    const { t } = useTranslation();
     const configuredTmdbApiKey = useApiConfigStore((state) => state.tmdbApiKey);
     const tmdbApiKey = configuredTmdbApiKey
         || (import.meta.env.VITE_TMDB_API_KEY as string | undefined)
@@ -123,9 +127,9 @@ function WorkspaceComparableFilms({ films }: { films: Screenplay['comparableFilm
 
     return (
         <section className="screenplay-xray__section screenplay-comparables">
-            <SectionHeader>Comparable Films</SectionHeader>
+            <SectionHeader>{t('Comparable Films')}</SectionHeader>
             <p className="screenplay-comparables__intro">
-                Three reference points selected by the readers. Poster images are supplied by TMDB and do not affect the analysis.
+                {t('Three reference points selected by the readers. Poster images are supplied by TMDB and do not affect the analysis.')}
             </p>
             <div className="screenplay-comparables__grid">
                 {films.map((film, index) => {
@@ -154,7 +158,7 @@ function WorkspaceComparableFilms({ films }: { films: Screenplay['comparableFilm
                                 <p>{formatProducerText(film.similarity)}</p>
                                 {film.keyDivergence && (
                                     <p className="screenplay-comparable__divergence">
-                                        <strong>Where it differs:</strong> {formatProducerText(film.keyDivergence)}
+                                        <strong>{t('Where it differs:')}</strong> {formatProducerText(film.keyDivergence)}
                                     </p>
                                 )}
                                 {poster && (
@@ -163,7 +167,7 @@ function WorkspaceComparableFilms({ films }: { films: Screenplay['comparableFilm
                                         target="_blank"
                                         rel="noreferrer"
                                     >
-                                        View film details
+                                        {t('View film details')}
                                     </a>
                                 )}
                             </div>
@@ -176,14 +180,15 @@ function WorkspaceComparableFilms({ films }: { films: Screenplay['comparableFilm
 }
 
 function StandoutScenesSection({ scenes, isWorkspace }: { scenes: Screenplay['standoutScenes']; isWorkspace: boolean }) {
+    const { t } = useTranslation();
     return (
         <section className={clsx(isWorkspace && 'screenplay-xray__section screenplay-xray__section--standout')}>
-            <SectionHeader icon={isWorkspace ? undefined : '✨'}>Standout Scenes</SectionHeader>
+            <SectionHeader icon={isWorkspace ? undefined : '✨'}>{t('Standout Scenes')}</SectionHeader>
             <div className="space-y-3">
                 {scenes.map((scene, i) => (
                     <div key={i} className={clsx('p-3 bg-black-900/50', isWorkspace ? 'rounded-sm border border-black-700' : 'rounded-lg')}>
                         <p className="text-sm text-black-200 mb-1">{formatProducerText(scene.scene)}</p>
-                        <p className="text-xs text-black-500 italic">Why: {formatProducerText(scene.why)}</p>
+                        <p className="text-xs text-black-500 italic">{t('Why:')} {formatProducerText(scene.why)}</p>
                     </div>
                 ))}
             </div>
@@ -192,6 +197,7 @@ function StandoutScenesSection({ scenes, isWorkspace }: { scenes: Screenplay['st
 }
 
 function StrengthsWeaknessesSection({ screenplay, isWorkspace }: { screenplay: Screenplay; isWorkspace: boolean }) {
+    const { t } = useTranslation();
     if (screenplay.strengths.length === 0 && screenplay.weaknesses.length === 0 && screenplay.majorWeaknesses.length === 0) {
         return null;
     }
@@ -200,7 +206,7 @@ function StrengthsWeaknessesSection({ screenplay, isWorkspace }: { screenplay: S
         <section className={clsx('grid md:grid-cols-2 gap-6', isWorkspace && 'screenplay-xray__section')}>
             {screenplay.strengths.length > 0 && (
                 <div>
-                    <SectionHeader icon={isWorkspace ? undefined : '💪'}>Strengths</SectionHeader>
+                    <SectionHeader icon={isWorkspace ? undefined : '💪'}>{t('Strengths')}</SectionHeader>
                     <ul className="space-y-2">
                         {screenplay.strengths.map((strength, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-black-300">
@@ -213,12 +219,12 @@ function StrengthsWeaknessesSection({ screenplay, isWorkspace }: { screenplay: S
             )}
             {(screenplay.weaknesses.length > 0 || screenplay.majorWeaknesses.length > 0) && (
                 <div>
-                    <SectionHeader icon={isWorkspace ? undefined : '⚠️'}>Weaknesses</SectionHeader>
+                    <SectionHeader icon={isWorkspace ? undefined : '⚠️'}>{t('Weaknesses')}</SectionHeader>
                     <ul className="space-y-2">
                         {screenplay.majorWeaknesses.map((weakness, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-red-300">
                                 <span className="text-red-400 mt-0.5">✗</span>
-                                <span className="font-medium">Major: {formatProducerText(typeof weakness === 'string' ? weakness : String(weakness))}</span>
+                                <span className="font-medium">{t('Major:')} {formatProducerText(typeof weakness === 'string' ? weakness : String(weakness))}</span>
                             </li>
                         ))}
                         {screenplay.weaknesses.map((weakness, i) => (
@@ -235,9 +241,10 @@ function StrengthsWeaknessesSection({ screenplay, isWorkspace }: { screenplay: S
 }
 
 function DevelopmentNotesSection({ notes, isWorkspace }: { notes: string[]; isWorkspace: boolean }) {
+    const { t } = useTranslation();
     return (
         <section className={clsx(isWorkspace && 'screenplay-xray__section screenplay-xray__section--development')}>
-            <SectionHeader icon={isWorkspace ? undefined : '📋'}>Development Notes</SectionHeader>
+            <SectionHeader icon={isWorkspace ? undefined : '📋'}>{t('Development Notes')}</SectionHeader>
             <ul className="space-y-2">
                 {notes.map((note, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-black-300">

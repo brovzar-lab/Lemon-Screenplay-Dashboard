@@ -143,7 +143,7 @@ describe('Discovery app shell and route state', () => {
 
       expect(await screen.findByRole('banner')).toBeInTheDocument();
       expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Discover' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Discovery' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Intake' })).not.toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
       expect(

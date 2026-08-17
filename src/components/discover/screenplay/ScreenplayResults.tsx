@@ -16,6 +16,7 @@ import {
   getScreenplayFormatInfo,
 } from '@/lib/screenplayDisplay';
 import type { ProducerAssessmentHead } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 function ordinal(value: number): string {
   const lastTwo = value % 100;
@@ -39,6 +40,7 @@ export function ScreenplayGrid({
   producerLookIds?: ReadonlySet<string>;
   onOpen: OpenScreenplay;
 }) {
+  const { t } = useTranslation();
   return (
     <ul className="screenplay-wall" data-testid="screenplay-discovery-grid">
       {entries.map(({ screenplay, rank }) => {
@@ -60,7 +62,7 @@ export function ScreenplayGrid({
               type="button"
               className="screenplay-wall__open"
               onClick={(event) => onOpen(screenplay, event.currentTarget)}
-              aria-label={`Open ${displayTitle.title} screenplay file`}
+              aria-label={t('Open {{title}} screenplay file', { title: displayTitle.title })}
             >
               <span className="screenplay-wall__object-stage">
                 <BlueSpineScript screenplay={screenplay} rank={rank} />
@@ -73,7 +75,14 @@ export function ScreenplayGrid({
                 </span>
                 <span className="screenplay-wall__score">
                   <strong>{finalScore.toFixed(1)}</strong>
-                  <small>{percentile ? `${ordinal(percentile.overall)} percentile` : ''}</small>
+                  <small>
+                    {percentile
+                      ? t('{{ordinal}} percentile', {
+                          ordinal: ordinal(percentile.overall),
+                          value: percentile.overall,
+                        })
+                      : ''}
+                  </small>
                 </span>
                 <span className="screenplay-wall__meta">
                   <RecommendationBadge tier={screenplay.recommendation} />
@@ -82,7 +91,7 @@ export function ScreenplayGrid({
                 {formatInfo.format && (
                   <span
                     className="screenplay-wall__facts"
-                    aria-label="Screenplay format"
+                    aria-label={t('Screenplay format')}
                   >
                     <span>{formatInfo.format}</span>
                   </span>

@@ -10,6 +10,7 @@
 
 import { BUDGET_TIERS } from '@/types';
 import type { SharedViewDocument } from '@/lib/shareService';
+import { useTranslation } from 'react-i18next';
 
 interface SharedContentDetailsProps {
   analysis: SharedViewDocument['analysis'];
@@ -28,12 +29,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function SharedContentDetails({ analysis, notes }: SharedContentDetailsProps) {
+  const { t, i18n } = useTranslation();
   const budgetTier = BUDGET_TIERS[analysis.budgetCategory];
 
   return (
     <div className="space-y-6">
       {/* Synopsis / Logline */}
-      <Section title="Synopsis">
+      <Section title={t('Synopsis')}>
         {analysis.logline && (
           <p className="text-gold-300 italic mb-4">{analysis.logline}</p>
         )}
@@ -53,7 +55,7 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
 
       {/* Strengths */}
       {analysis.strengths?.length > 0 && (
-        <Section title="Strengths">
+        <Section title={t('Strengths')}>
           <ul className="space-y-2">
             {analysis.strengths.map((s, i) => (
               <li key={i} className="text-sm text-black-200 flex gap-2">
@@ -67,7 +69,7 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
 
       {/* Weaknesses */}
       {analysis.weaknesses?.length > 0 && (
-        <Section title="Weaknesses">
+        <Section title={t('Weaknesses')}>
           <ul className="space-y-2">
             {analysis.weaknesses.map((w, i) => (
               <li key={i} className="text-sm text-black-200 flex gap-2">
@@ -81,7 +83,7 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
 
       {/* Major Weaknesses */}
       {analysis.majorWeaknesses?.length > 0 && (
-        <Section title="Major Weaknesses">
+        <Section title={t('Major Weaknesses')}>
           <ul className="space-y-2">
             {analysis.majorWeaknesses.map((mw, i) => (
               <li key={i} className="text-sm text-black-200 flex gap-2">
@@ -95,7 +97,7 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
 
       {/* Development Notes */}
       {analysis.developmentNotes?.length > 0 && (
-        <Section title="Development Notes">
+        <Section title={t('Development Notes')}>
           <ul className="space-y-2">
             {analysis.developmentNotes.map((note, i) => (
               <li key={i} className="text-sm text-black-200">
@@ -108,23 +110,23 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
 
       {/* Characters */}
       {analysis.characters && (
-        <Section title="Characters">
+        <Section title={t('Characters')}>
           <div className="space-y-3">
             {analysis.characters.protagonist && (
               <div>
-                <span className="text-xs text-gold-300 uppercase tracking-wider">Protagonist</span>
+                <span className="text-xs text-gold-300 uppercase tracking-wider">{t('Protagonist')}</span>
                 <p className="text-sm text-black-200 mt-1">{analysis.characters.protagonist}</p>
               </div>
             )}
             {analysis.characters.antagonist && (
               <div>
-                <span className="text-xs text-gold-300 uppercase tracking-wider">Antagonist</span>
+                <span className="text-xs text-gold-300 uppercase tracking-wider">{t('Antagonist')}</span>
                 <p className="text-sm text-black-200 mt-1">{analysis.characters.antagonist}</p>
               </div>
             )}
             {analysis.characters.supporting?.length > 0 && (
               <div>
-                <span className="text-xs text-gold-300 uppercase tracking-wider">Supporting Cast</span>
+                <span className="text-xs text-gold-300 uppercase tracking-wider">{t('Supporting Cast')}</span>
                 <ul className="mt-1 space-y-1">
                   {analysis.characters.supporting.map((c, i) => (
                     <li key={i} className="text-sm text-black-200">{c}</li>
@@ -138,7 +140,7 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
 
       {/* Comparable Films */}
       {analysis.comparableFilms?.length > 0 && (
-        <Section title="Comparable Films">
+        <Section title={t('Comparable Films')}>
           <div className="space-y-3">
             {analysis.comparableFilms.map((film, i) => (
               <div key={i} className="flex flex-col gap-1">
@@ -165,7 +167,7 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
 
       {/* Standout Scenes */}
       {analysis.standoutScenes?.length > 0 && (
-        <Section title="Standout Scenes">
+        <Section title={t('Standout Scenes')}>
           <div className="space-y-3">
             {analysis.standoutScenes.map((scene, i) => (
               <div key={i}>
@@ -179,15 +181,15 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
 
       {/* Target Audience */}
       {analysis.targetAudience && (
-        <Section title="Target Audience">
+        <Section title={t('Target Audience')}>
           <div className="space-y-2">
             <p className="text-sm text-black-200">
               {analysis.targetAudience.primaryDemographic}
             </p>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-black-400">Gender skew:</span>
+              <span className="text-xs text-black-400">{t('Gender skew')}:</span>
               <span className="text-xs text-black-300 capitalize">
-                {analysis.targetAudience.genderSkew}
+                {t(analysis.targetAudience.genderSkew)}
               </span>
             </div>
             {analysis.targetAudience.interests?.length > 0 && (
@@ -207,10 +209,10 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
       )}
 
       {/* Budget Tier */}
-      <Section title="Budget Category">
+      <Section title={t('Budget Category')}>
         <div className="flex items-center gap-3">
           <span className="text-lg font-bold text-gold-300">
-            {budgetTier?.label || analysis.budgetCategory}
+            {t(budgetTier?.label || analysis.budgetCategory)}
           </span>
           {budgetTier?.range && (
             <span className="text-sm text-black-400">{budgetTier.range}</span>
@@ -223,7 +225,7 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
 
       {/* Marketability */}
       {analysis.marketability && (
-        <Section title="Marketability">
+        <Section title={t('Marketability')}>
           <span className={`inline-block px-3 py-1 text-sm font-medium rounded-md capitalize ${
             analysis.marketability === 'high'
               ? 'bg-emerald-500/10 text-emerald-400'
@@ -231,20 +233,20 @@ export function SharedContentDetails({ analysis, notes }: SharedContentDetailsPr
                 ? 'bg-red-500/10 text-red-400'
                 : 'bg-amber-500/10 text-amber-400'
           }`}>
-            {analysis.marketability}
+            {t(analysis.marketability)}
           </span>
         </Section>
       )}
 
       {/* Producer Notes (only if included) */}
       {notes && notes.length > 0 && (
-        <Section title="Producer Notes">
+        <Section title={t('Producer Notes')}>
           <div className="space-y-4">
             {notes.map((note, i) => (
               <div key={i} className="border-l-2 border-gold-500/20 pl-4">
                 <p className="text-sm text-black-200 whitespace-pre-wrap">{note.content}</p>
                 <p className="text-xs text-black-500 mt-1">
-                  {new Date(note.createdAt).toLocaleDateString('en-US', {
+                  {new Date(note.createdAt).toLocaleDateString(i18n.language === 'es' ? 'es-MX' : 'en-US', {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',

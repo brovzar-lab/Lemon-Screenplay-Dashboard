@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 
 import {
@@ -61,6 +62,7 @@ export function PrivateReaderChat({
   readerImage,
   report,
 }: PrivateReaderChatProps) {
+  const { t } = useTranslation();
   const [conversation, setConversation] = useState<PrivateReaderConversation | null>(null);
   const [draft, setDraft] = useState('');
   const [modelChoice, setModelChoice] = useState<PrivateReaderModelChoice>('auto');
@@ -89,7 +91,7 @@ export function PrivateReaderChat({
       })
       .catch((reason: unknown) => {
         if (active)
-          setError(reason instanceof Error ? reason.message : 'Conversation could not be opened.');
+          setError(reason instanceof Error ? reason.message : t('Conversation could not be opened.'));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -97,7 +99,7 @@ export function PrivateReaderChat({
     return () => {
       active = false;
     };
-  }, [open, projectId, reader, versionId]);
+  }, [open, projectId, reader, t, versionId]);
 
   useEffect(() => {
     if (open && !loading) composerRef.current?.focus();
@@ -188,7 +190,7 @@ export function PrivateReaderChat({
     } catch (reason) {
       setDraft(question);
       setPendingQuestion(null);
-      setError(reason instanceof Error ? reason.message : 'Message could not be sent.');
+      setError(reason instanceof Error ? reason.message : t('Message could not be sent.'));
     } finally {
       setSending(false);
       refocusComposer();
@@ -213,7 +215,7 @@ export function PrivateReaderChat({
       setConversation(updated);
       beginProgressiveReply(updated);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Deep review could not be requested.');
+      setError(reason instanceof Error ? reason.message : t('Deep review could not be requested.'));
     } finally {
       setSending(false);
       refocusComposer();
@@ -236,11 +238,11 @@ export function PrivateReaderChat({
   function modelName(modelId?: string): string {
     if (modelId?.includes('fable')) return 'Fable 5';
     if (modelId?.includes('opus')) return 'Opus 5';
-    return 'Model not recorded';
+    return t('Model not recorded');
   }
 
   function usageSummary(message: PrivateReaderConversation['messages'][number]): string {
-    if (message.simulated) return 'No model call or charge';
+    if (message.simulated) return t('No model call or charge');
     const attemptsWithUsage = message.modelAttempts?.filter((attempt) => attempt.usage) ?? [];
     const inputTokens = attemptsWithUsage.length
       ? attemptsWithUsage.reduce((total, attempt) => total + (attempt.usage?.input_tokens ?? 0), 0)
@@ -268,24 +270,24 @@ export function PrivateReaderChat({
       : message.usage?.actual_cost_usd;
     const tokens =
       inputTokens !== undefined || outputTokens !== undefined
-        ? `${(inputTokens ?? 0).toLocaleString()} in · ${(outputTokens ?? 0).toLocaleString()} out · `
+        ? t('{{input}} in · {{output}} out · ', { input: (inputTokens ?? 0).toLocaleString(), output: (outputTokens ?? 0).toLocaleString() })
         : '';
     const cache =
       cacheWriteTokens !== undefined || cacheReadTokens !== undefined
-        ? `${(cacheReadTokens ?? 0).toLocaleString()} cache read · ${(cacheWriteTokens ?? 0).toLocaleString()} cache write · `
+        ? t('{{read}} cache read · {{write}} cache write · ', { read: (cacheReadTokens ?? 0).toLocaleString(), write: (cacheWriteTokens ?? 0).toLocaleString() })
         : '';
     return actualCost !== undefined
       ? `${tokens}${cache}$${actualCost.toFixed(4)}`
-      : `${tokens}${cache}Cost pending`;
+      : `${tokens}${cache}${t('Cost pending')}`;
   }
 
   function auditCost(
     attempts: NonNullable<PrivateReaderConversation['routingAudits']>[number]['modelAttempts'],
   ): string {
     const recorded = attempts.filter((attempt) => attempt.usage?.actual_cost_usd !== undefined);
-    if (!recorded.length) return 'Cost unavailable';
+    if (!recorded.length) return t('Cost unavailable');
     const total = recorded.reduce((sum, attempt) => sum + (attempt.usage?.actual_cost_usd ?? 0), 0);
-    return `$${total.toFixed(4)} recorded`;
+    return t('${{cost}} recorded', { cost: total.toFixed(4) });
   }
 
   if (!open) return null;
@@ -294,13 +296,13 @@ export function PrivateReaderChat({
     <aside
       className="reader-conversation reader-conversation--open"
       role="dialog"
-      aria-label={`Private conversation with ${readerName}`}
+      aria-label={t('Private conversation with {{name}}', { name: readerName })}
     >
       <header>
         <div className="reader-conversation__identity">
           <img src={readerImage} alt="" />
           <div>
-            <span className="dsc-kicker">Talk privately · {readerRole}</span>
+            <span className="dsc-kicker">{t('Talk privately')} · {readerRole}</span>
             <h3>{readerName}</h3>
           </div>
         </div>
@@ -308,32 +310,32 @@ export function PrivateReaderChat({
           type="button"
           className="reader-conversation__back"
           onClick={onClose}
-          aria-label={`View ${readerFirstName}’s sealed report`}
+          aria-label={t('View {{name}}’s sealed report', { name: readerFirstName })}
         >
           <span aria-hidden="true">←</span>
-          View report
+          {t('View report')}
         </button>
       </header>
 
       <div className="reader-conversation__provenance">
-        <span>Bound to this screenplay version</span>
-        <span>Original report stays sealed</span>
-        <span>Conversation saved</span>
+        <span>{t('Bound to this screenplay version')}</span>
+        <span>{t('Original report stays sealed')}</span>
+        <span>{t('Conversation saved')}</span>
       </div>
 
-      {mode === 'live' && <section className="reader-model-router" aria-label="Reader Chat model">
+      {mode === 'live' && <section className="reader-model-router" aria-label={t('Reader Chat model')}>
         <div>
-          <span className="dsc-kicker">Lemon Model Router</span>
-          <strong>Choose how deeply this reader should think</strong>
+          <span className="dsc-kicker">{t('Lemon Model Router')}</span>
+          <strong>{t('Choose how deeply this reader should think')}</strong>
           <small>
             {modelChoice === 'auto'
-              ? 'Auto starts with Opus 5 and uses Fable only after an objective safe failure.'
+              ? t('Auto starts with Opus 5 and uses Fable only after an objective safe failure.')
               : modelChoice === 'opus'
-                ? 'Opus 5 answers directly at high effort with no model escalation.'
-                : 'Fable 5 performs the deepest review directly at high effort.'}
+                ? t('Opus 5 answers directly at high effort with no model escalation.')
+                : t('Fable 5 performs the deepest review directly at high effort.')}
           </small>
         </div>
-        <div className="reader-model-router__choices" role="group" aria-label="Model selection">
+        <div className="reader-model-router__choices" role="group" aria-label={t('Model selection')}>
           {(
             [
               ['auto', 'Auto', 'Recommended'],
@@ -348,8 +350,8 @@ export function PrivateReaderChat({
               aria-pressed={modelChoice === value}
               onClick={() => setModelChoice(value)}
             >
-              <span>{label}</span>
-              <small>{detail}</small>
+              <span>{t(label)}</span>
+              <small>{t(detail)}</small>
             </button>
           ))}
         </div>
@@ -357,23 +359,20 @@ export function PrivateReaderChat({
 
       {mode === 'local_review' && (
         <div className="reader-conversation__notice" role="status">
-          Local review mode. You can test writing, saved history, citations, and status changes. No
-          model call or charge occurs.
+          {t('Local review mode. You can test writing, saved history, citations, and status changes. No model call or charge occurs.')}
         </div>
       )}
       {mode === 'not_activated' && (
         <div className="reader-conversation__notice" role="status">
-          Private Reader Chat is prepared but not activated. The sealed reader report remains
-          available above.
+          {t('Private Reader Chat is prepared but not activated. The sealed reader report remains available above.')}
         </div>
       )}
       {conversation?.routingAudits?.[0] && (
         <div className="reader-conversation__routing-audit" role="status">
-          <strong>Previous model attempt stopped safely</strong>
-          <span>{conversation.routingAudits[0].routeLabel || 'Reader Chat route recorded'}</span>
+          <strong>{t('Previous model attempt stopped safely')}</strong>
+          <span>{conversation.routingAudits[0].routeLabel || t('Reader Chat route recorded')}</span>
           <span>
-            {conversation.routingAudits[0].modelAttempts.length} attempt
-            {conversation.routingAudits[0].modelAttempts.length === 1 ? '' : 's'}
+            {t('{{count}} attempt', { count: conversation.routingAudits[0].modelAttempts.length })}
             {' · '}
             {auditCost(conversation.routingAudits[0].modelAttempts)}
           </span>
@@ -382,7 +381,7 @@ export function PrivateReaderChat({
 
       <div ref={transcriptRef} className="reader-conversation__transcript" aria-busy={sending}>
         {loading ? (
-          <p className="reader-conversation__empty">Opening your saved private conversation…</p>
+          <p className="reader-conversation__empty">{t('Opening your saved private conversation…')}</p>
         ) : conversation?.messages.length ? (
           conversation.messages.map((message, messageIndex) => {
             const priorQuestion = conversation.messages
@@ -412,7 +411,7 @@ export function PrivateReaderChat({
                   ) : (
                     <span aria-hidden="true">BR</span>
                   )}
-                  <strong>{message.role === 'reader' ? readerName : 'You'}</strong>
+                  <strong>{message.role === 'reader' ? readerName : t('You')}</strong>
                   {message.position && (
                     <span className={`reader-position reader-position--${message.position}`}>
                       {formatReaderPosition(message.position)}
@@ -431,29 +430,28 @@ export function PrivateReaderChat({
                     className="reader-message__finish-reveal"
                     onClick={finishProgressiveReply}
                   >
-                    Show full response
+                    {t('Show full response')}
                   </button>
                 )}
                 {message.role === 'reader' && message.modelId && revealComplete && (
-                  <div className="reader-message__model" aria-label="Response provenance">
+                  <div className="reader-message__model" aria-label={t('Response provenance')}>
                     <strong>
-                      {message.simulated ? 'Preview route' : 'Answered with'}{' '}
-                      {modelName(message.modelId)} · {message.effort || 'high'} effort
+                      {t(message.simulated ? 'Preview route' : 'Answered with')}{' '}
+                      {modelName(message.modelId)} · {t(message.effort || 'high')} {t('effort')}
                     </strong>
-                    <span>{message.routeLabel || 'Model route recorded'}</span>
+                    <span>{message.routeLabel || t('Model route recorded')}</span>
                     {message.fallbackFrom && (
-                      <span>Fallback from {modelName(message.fallbackFrom)}</span>
+                      <span>{t('Fallback from {{model}}', { model: modelName(message.fallbackFrom) })}</span>
                     )}
                     <span>
-                      {message.modelAttempts?.length || 1} model attempt
-                      {(message.modelAttempts?.length || 1) === 1 ? '' : 's'}
+                      {t('{{count}} model attempt', { count: message.modelAttempts?.length || 1 })}
                       {' · '}
                       {usageSummary(message)}
                     </span>
                   </div>
                 )}
                 {message.citations.length > 0 && revealComplete && (
-                  <div className="reader-message__citations" aria-label="Screenplay citations">
+                  <div className="reader-message__citations" aria-label={t('Screenplay citations')}>
                     {message.citations.map((citation, index) => (
                       <span key={`${message.id}-${citation.page}-${index}`} title={citation.note}>
                         p. {citation.page}
@@ -463,14 +461,14 @@ export function PrivateReaderChat({
                 )}
                 {message.reconsideredPosition && revealComplete && (
                   <section className="reader-message__reconsidered">
-                    <strong>What changed</strong>
+                    <strong>{t('What changed')}</strong>
                     <p>{message.reconsideredPosition.summary}</p>
                     {message.reconsideredPosition.suggestedScore !== undefined && (
                       <span>
-                        New private view: {message.reconsideredPosition.suggestedScore.toFixed(1)}
+                        {t('New private view: {{score}}', { score: message.reconsideredPosition.suggestedScore.toFixed(1) })}
                       </span>
                     )}
-                    <small>The sealed score above has not changed.</small>
+                    <small>{t('The sealed score above has not changed.')}</small>
                   </section>
                 )}
                 {canDeepReview && revealComplete && (
@@ -480,7 +478,7 @@ export function PrivateReaderChat({
                     onClick={() => void handleDeepReview(priorQuestion || '')}
                     disabled={sending || mode === 'not_activated'}
                   >
-                    Get Fable 5’s deeper second opinion
+                    {t('Get Fable 5’s deeper second opinion')}
                   </button>
                 )}
               </article>
@@ -493,7 +491,7 @@ export function PrivateReaderChat({
               <span>{readerName}</span>
               <p>
                 {report.oneSentenceVerdict ||
-                  'My sealed report is open. What would you like to challenge or explore?'}
+                  t('My sealed report is open. What would you like to challenge or explore?')}
               </p>
             </div>
           </div>
@@ -502,8 +500,8 @@ export function PrivateReaderChat({
           <article className="reader-message reader-message--producer reader-message--pending">
             <div className="reader-message__speaker">
               <span aria-hidden="true">BR</span>
-              <strong>You</strong>
-              <span className="reader-message__sent">Sent</span>
+              <strong>{t('You')}</strong>
+              <span className="reader-message__sent">{t('Sent')}</span>
             </div>
             <div className="reader-message__bubble">
               {responseParagraphs(pendingQuestion).map((paragraph, index) => (
@@ -516,14 +514,14 @@ export function PrivateReaderChat({
           <article
             className="reader-message reader-message--reader reader-message--thinking"
             role="status"
-            aria-label={`${readerFirstName} is thinking`}
+            aria-label={t('{{name}} is thinking', { name: readerFirstName })}
           >
             <div className="reader-message__speaker">
               <img src={readerImage} alt="" />
               <strong>{readerName}</strong>
             </div>
             <div className="reader-message__bubble">
-              <span>{readerFirstName} is considering your question</span>
+              <span>{t('{{name}} is considering your question', { name: readerFirstName })}</span>
               <span className="reader-typing-dots" aria-hidden="true">
                 <i />
                 <i />
@@ -534,7 +532,7 @@ export function PrivateReaderChat({
         )}
         {progressiveReply && progressiveReply.visibleTokens >= progressiveReply.tokens.length && (
           <span className="sr-only" role="status">
-            {readerFirstName} finished answering.
+            {t('{{name}} finished answering.', { name: readerFirstName })}
           </span>
         )}
       </div>
@@ -550,7 +548,7 @@ export function PrivateReaderChat({
         onSubmit={(event) => void handleSubmit(event)}
       >
         <label htmlFor={`reader-message-${reader}`}>
-          Ask {readerName.split(' ')[0]} anything about this screenplay
+          {t('Ask {{name}} anything about this screenplay', { name: readerName.split(' ')[0] })}
         </label>
         <div>
           <textarea
@@ -559,18 +557,17 @@ export function PrivateReaderChat({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleComposerKeyDown}
-            placeholder="Why didn’t the comedy work for you? What would change your mind?"
+            placeholder={t('Why did the comedy not work for you? What would change your mind?')}
             rows={2}
             maxLength={4_000}
             disabled={mode === 'not_activated' || sending}
           />
           <button type="submit" disabled={!draft.trim() || sending || mode === 'not_activated'}>
-            {sending ? `${readerFirstName} is thinking…` : 'Send'}
+            {sending ? t('{{name}} is thinking…', { name: readerFirstName }) : t('Send')}
           </button>
         </div>
         <small>
-          <kbd>Enter</kbd> to send · <kbd>Shift</kbd> + <kbd>Enter</kbd> for a new line · Answers
-          cite the stored screenplay.
+          <kbd>Enter</kbd> {t('to send')} · <kbd>Shift</kbd> + <kbd>Enter</kbd> {t('for a new line · Answers cite the stored screenplay.')}
         </small>
       </form>
     </aside>

@@ -74,7 +74,8 @@
   margin-left: auto;
 }
 
-.application-header .settings-theme-control {
+.application-header .settings-theme-control,
+.application-header .language-control {
   display: inline-flex;
   flex: 0 0 auto;
   padding: 3px;
@@ -83,7 +84,8 @@
   background: #0e1d33;
 }
 
-.application-header .settings-theme-control button {
+.application-header .settings-theme-control button,
+.application-header .language-control button {
   min-height: 32px;
   padding: 0 9px;
   border-radius: 6px;
@@ -92,11 +94,13 @@
   font-weight: 750;
 }
 
-.application-header .settings-theme-control button:hover {
+.application-header .settings-theme-control button:hover,
+.application-header .language-control button:hover {
   color: #fff;
 }
 
-.application-header .settings-theme-control button.is-active {
+.application-header .settings-theme-control button.is-active,
+.application-header .language-control button.is-active {
   background: #6e8bff;
   color: #071222;
 }
@@ -136,7 +140,8 @@
     display: none;
   }
 
-  .application-header .settings-theme-control button {
+  .application-header .settings-theme-control button,
+  .application-header .language-control button {
     padding-inline: 6px;
     font-size: 9px;
   }
@@ -158,9 +163,14 @@
     font-size: 12px;
   }
 
-  .application-header .settings-theme-control button {
+  .application-header .settings-theme-control button,
+  .application-header .language-control button {
     padding-inline: 4px;
     font-size: 8px;
+  }
+
+  .application-header .settings-theme-control {
+    display: none;
   }
 
   .application-header__actions > div:last-child {

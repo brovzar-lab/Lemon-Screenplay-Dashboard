@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 
 
 interface DeleteConfirmDialogProps {
@@ -26,6 +27,7 @@ export function DeleteConfirmDialog({
     count,
     isPending = false,
 }: DeleteConfirmDialogProps) {
+    const { t } = useTranslation();
     const cancelRef = useRef<HTMLButtonElement>(null);
 
     // Focus cancel button on open, handle Escape
@@ -82,11 +84,11 @@ export function DeleteConfirmDialog({
                 </p>
                 {count !== undefined && count > 1 && (
                     <p className="text-center text-xs text-red-400 font-medium mb-4">
-                        {count} screenplay{count > 1 ? 's' : ''} will be removed
+                        {t('{{count}} screenplay will be removed', { count })}
                     </p>
                 )}
                 <p className="text-center text-xs text-black-500 mb-6">
-                    You can recover deleted items from Settings &gt; Data within 30 days.
+                    {t('You can recover deleted items from Settings > Data within 30 days.')}
                 </p>
 
                 {/* Actions */}
@@ -97,14 +99,14 @@ export function DeleteConfirmDialog({
                         className="btn btn-secondary text-sm px-4 py-2"
                         disabled={isPending}
                     >
-                        Cancel
+                        {t('Cancel')}
                     </button>
                     <button
                         onClick={onConfirm}
                         className="text-sm px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-500 text-white disabled:opacity-50"
                         disabled={isPending}
                     >
-                        {isPending ? 'Deleting…' : 'Delete'}
+                        {t(isPending ? 'Deleting…' : 'Delete')}
                     </button>
                 </div>
             </div>

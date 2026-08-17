@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useIsAdmin } from '@/stores/authStore';
+import { useTranslation } from 'react-i18next';
 import './authenticated-navigation.css';
 
 interface AuthenticatedNavigationProps {
@@ -7,6 +8,7 @@ interface AuthenticatedNavigationProps {
 }
 
 export function AuthenticatedNavigation({ className = '' }: AuthenticatedNavigationProps) {
+  const { t } = useTranslation();
   const location = useLocation();
   const isAdmin = useIsAdmin();
 
@@ -20,14 +22,14 @@ export function AuthenticatedNavigation({ className = '' }: AuthenticatedNavigat
   return (
     <nav
       className={`authenticated-navigation ${className}`.trim()}
-      aria-label="Primary navigation"
+      aria-label={t('Primary navigation')}
     >
       <Link
         to="/"
         className={`authenticated-navigation__link ${isDiscovery ? 'authenticated-navigation__link--active' : ''}`}
         aria-current={isDiscovery ? 'page' : undefined}
       >
-        Discover
+        {t('Discovery')}
       </Link>
       {isAdmin && (
         <Link
@@ -35,7 +37,7 @@ export function AuthenticatedNavigation({ className = '' }: AuthenticatedNavigat
           className={`authenticated-navigation__link ${isSettings ? 'authenticated-navigation__link--active' : ''}`}
           aria-current={isSettings ? 'page' : undefined}
         >
-          Settings
+          {t('Settings')}
         </Link>
       )}
     </nav>

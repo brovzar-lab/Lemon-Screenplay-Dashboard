@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAllSharedViews, revokeShareToken } from '@/lib/shareService';
 import type { SharedView } from '@/lib/shareService';
@@ -12,6 +13,7 @@ import { useToastStore } from '@/stores/toastStore';
 const SHARED_VIEWS_KEY = ['shared-views'];
 
 export function SharedLinksPanel() {
+    const { t, i18n } = useTranslation();
     const queryClient = useQueryClient();
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
@@ -34,7 +36,7 @@ export function SharedLinksPanel() {
         try {
             await navigator.clipboard.writeText(url);
             setCopiedToken(token);
-            useToastStore.getState().addToast('Link copied to clipboard');
+            useToastStore.getState().addToast(t('Link copied to clipboard'));
             setTimeout(() => setCopiedToken(null), 2000);
         } catch {
             // Fallback for non-HTTPS
@@ -51,13 +53,13 @@ export function SharedLinksPanel() {
 
     if (isLoading) {
         return (
-            <p className="text-sm text-black-500">Loading shared links...</p>
+            <p className="text-sm text-black-500">{t('Loading shared links...')}</p>
         );
     }
 
     if (!views || views.length === 0) {
         return (
-            <p className="text-sm text-black-500">No active share links</p>
+            <p className="text-sm text-black-500">{t('No active share links')}</p>
         );
     }
 
@@ -73,11 +75,11 @@ export function SharedLinksPanel() {
                             {view.screenplayTitle}
                         </p>
                         <p className="text-xs text-black-500">
-                            Created{' '}
-                            {new Date(view.createdAt).toLocaleDateString()}
+                            {t('Created')}{' '}
+                            {new Date(view.createdAt).toLocaleDateString(i18n.language === 'es' ? 'es-MX' : 'en-US')}
                             {view.includeNotes && (
                                 <span className="ml-2 text-black-400">
-                                    (with notes)
+                                    ({t('with notes')})
                                 </span>
                             )}
                         </p>
@@ -87,7 +89,7 @@ export function SharedLinksPanel() {
                         <button
                             onClick={() => handleCopy(view.token)}
                             className="p-1.5 rounded-md text-gold-400/60 hover:text-gold-400 hover:bg-gold-500/10 transition-colors"
-                            title="Copy share link"
+                            title={t('Copy share link')}
                         >
                             {copiedToken === view.token ? (
                                 <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -110,7 +112,7 @@ export function SharedLinksPanel() {
                             disabled={revokeMutation.isPending}
                             className="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
                         >
-                            {revokeMutation.isPending ? 'Revoking...' : 'Revoke'}
+                            {t(revokeMutation.isPending ? 'Revoking...' : 'Revoke')}
                         </button>
                     </div>
                 </div>

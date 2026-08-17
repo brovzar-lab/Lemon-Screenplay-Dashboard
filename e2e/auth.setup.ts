@@ -38,7 +38,7 @@ setup('create a real local Lemon session', async ({ page }) => {
       await authModule.signInForPlaywright(token);
     }, customToken);
 
-    await expect(page.getByRole('link', { name: 'Discovery home' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: 'Lemon Screenplay Dashboard home' })).toBeVisible({ timeout: 30_000 });
     await page.context().storageState({ path: authFile, indexedDB: true });
   } finally {
     if (!existing) await deleteApp(adminApp);

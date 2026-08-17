@@ -11,6 +11,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, getMetadata } from 'firebase/storage';
 import { useQueryClient } from '@tanstack/react-query';
@@ -66,6 +67,7 @@ type UploadState = 'idle' | 'uploading' | 'done' | 'error';
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PdfUploadPanel() {
+  const { t } = useTranslation();
   const { data: screenplays, isLoading } = useScreenplays();
   const queryClient = useQueryClient();
   const deleteMutation = useDeleteScreenplays();
@@ -251,13 +253,13 @@ export function PdfUploadPanel() {
         setPdfStoreStatus(id, 'found'); // update shared store so filter reacts
         queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Upload failed';
+        const message = err instanceof Error ? err.message : t('Upload failed');
         setUploadEntries((prev) => ({ ...prev, [id]: { state: 'error', error: message } }));
         setStorageStatuses((prev) => ({ ...prev, [id]: 'missing' }));
         setPdfStoreStatus(id, 'missing'); // update shared store
       }
     },
-    [queryClient, setPdfStoreStatus],
+    [queryClient, setPdfStoreStatus, t],
   );
 
   const handleFile = useCallback(
@@ -355,10 +357,10 @@ export function PdfUploadPanel() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-display text-gold-200 mb-1">PDF File Management</h2>
+          <h2 className="text-xl font-display text-gold-200 mb-1">{t('PDF File Management')}</h2>
           <p className="text-sm text-black-400">
-            Live check against Firebase Storage —{' '}
-            {checkingCount > 0 ? `checking ${checkingCount} remaining...` : 'storage scan complete'}
+            {t('Live check against Firebase Storage')}{' · '}
+            {checkingCount > 0 ? t('checking {{count}} remaining...', { count: checkingCount }) : t('storage scan complete')}
           </p>
         </div>
         <button
@@ -381,7 +383,7 @@ export function PdfUploadPanel() {
               />
             </svg>
           )}
-          {isScanning ? 'Scanning…' : 'Rescan & Sync'}
+          {t(isScanning ? 'Scanning…' : 'Rescan & Sync')}
         </button>
       </div>
 
@@ -389,19 +391,19 @@ export function PdfUploadPanel() {
       <div className="grid grid-cols-3 gap-4">
         <div className="p-4 rounded-xl bg-black-800/60 border border-black-700 text-center">
           <p className="text-2xl font-bold text-gold-300">{totalCount}</p>
-          <p className="text-xs text-black-500 mt-1">Total</p>
+          <p className="text-xs text-black-500 mt-1">{t('Total')}</p>
         </div>
         <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
           <p className="text-2xl font-bold text-emerald-400">
             {checkingCount > 0 ? <span className="text-lg">…{foundCount}</span> : foundCount}
           </p>
-          <p className="text-xs text-black-500 mt-1">PDF Found ✓</p>
+          <p className="text-xs text-black-500 mt-1">{t('PDF Found')} ✓</p>
         </div>
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
           <p className="text-2xl font-bold text-red-400">
             {checkingCount > 0 ? <span className="text-lg">…{missingCount}</span> : missingCount}
           </p>
-          <p className="text-xs text-black-500 mt-1">Missing PDF ✗</p>
+          <p className="text-xs text-black-500 mt-1">{t('Missing PDF')} ✗</p>
         </div>
       </div>
 
@@ -448,9 +450,9 @@ export function PdfUploadPanel() {
             </svg>
           </div>
           <div>
-            <p className="text-gold-200 font-medium">Drop a PDF here or click to browse</p>
+            <p className="text-gold-200 font-medium">{t('Drop a PDF here or click to browse')}</p>
             <p className="text-xs text-black-400 mt-1">
-              Matched to screenplay and uploaded to{' '}
+              {t('Matched to screenplay and uploaded to')}{' '}
               <code className="bg-black-900 px-1 rounded">
                 screenplays/{'{CATEGORY}'}/{'{TITLE}'}.pdf
               </code>
@@ -480,12 +482,12 @@ export function PdfUploadPanel() {
           </div>
 
           <div>
-            <label className="block text-xs text-black-400 mb-1">Link to screenplay:</label>
+            <label className="block text-xs text-black-400 mb-1">{t('Link to screenplay:')}</label>
             <select
               value={manualPickId}
               onChange={(e) => setManualPickId(e.target.value)}
               className="w-full bg-black-800 border border-black-600 rounded-lg text-sm text-gold-200 px-3 py-2 focus:outline-none focus:border-gold-500/50"
-              aria-label="Link PDF to screenplay"
+              aria-label={t('Link PDF to screenplay')}
             >
               {sortedScreenplays.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -503,10 +505,10 @@ export function PdfUploadPanel() {
 
           <div className="flex gap-2">
             <button onClick={confirmUpload} className="btn btn-primary flex-1">
-              Upload PDF
+              {t('Upload PDF')}
             </button>
             <button onClick={() => setPendingFile(null)} className="btn btn-ghost">
-              Cancel
+              {t('Cancel')}
             </button>
           </div>
         </div>
@@ -520,8 +522,8 @@ export function PdfUploadPanel() {
             onClick={toggleSelectAll}
             title={
               selectedIds.size === filteredScreenplays.length && filteredScreenplays.length > 0
-                ? 'Deselect all'
-                : 'Select all'
+                ? t('Deselect all')
+                : t('Select all')
             }
             className={clsx(
               'shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
@@ -535,7 +537,7 @@ export function PdfUploadPanel() {
             {selectedIds.size > 0 && <span className="text-[10px] font-bold">✓</span>}
           </button>
           <span className="text-xs text-black-500 group-hover:text-black-300 transition-colors select-none">
-            {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+            {selectedIds.size > 0 ? t('{{count}} selected', { count: selectedIds.size }) : t('Select all')}
           </span>
         </label>
 
@@ -557,7 +559,7 @@ export function PdfUploadPanel() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search screenplays..."
+            placeholder={t('Search screenplays...')}
             className="input w-full pl-9 text-sm"
           />
         </div>
@@ -570,7 +572,7 @@ export function PdfUploadPanel() {
               : 'bg-black-800/50 text-black-300 border-black-700 hover:border-red-500/30',
           )}
         >
-          {showMissingOnly ? '● Missing only' : 'Show all'}
+          {t(showMissingOnly ? '● Missing only' : 'Show all')}
         </button>
       </div>
 
@@ -578,14 +580,14 @@ export function PdfUploadPanel() {
       {selectedIds.size > 0 && (
         <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 animate-fade-in">
           <span className="text-sm text-red-300 font-medium">
-            {selectedIds.size} project{selectedIds.size > 1 ? 's' : ''} selected
+            {t('{{count}} project selected', { count: selectedIds.size })}
           </span>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSelectedIds(new Set())}
               className="text-xs px-3 py-1.5 rounded-lg border border-black-600 text-black-400 hover:text-white transition-colors"
             >
-              Cancel
+              {t('Cancel')}
             </button>
             <button
               onClick={handleBatchDelete}
@@ -595,7 +597,7 @@ export function PdfUploadPanel() {
               {batchDeleting && (
                 <div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
               )}
-              {batchDeleting ? 'Deleting…' : `Delete ${selectedIds.size} Selected`}
+              {batchDeleting ? t('Deleting…') : t('Delete {{count}} selected', { count: selectedIds.size })}
             </button>
           </div>
         </div>
@@ -605,7 +607,7 @@ export function PdfUploadPanel() {
       <div className="space-y-2">
         {filteredScreenplays.length === 0 && (
           <p className="text-center text-black-500 py-8 text-sm">
-            {showMissingOnly ? 'All PDFs found! 🎉' : 'No screenplays found.'}
+            {t(showMissingOnly ? 'All PDFs found! 🎉' : 'No screenplays found.')}
           </p>
         )}
         {filteredScreenplays.map((screenplay) => {
@@ -687,12 +689,12 @@ export function PdfUploadPanel() {
                 <p className="text-sm font-medium text-gold-200 truncate">{displayTitle}</p>
                 <p className="text-xs text-black-500 truncate">
                   {isUploading
-                    ? 'Uploading source screenplay'
+                    ? t('Uploading source screenplay')
                     : storageStatus === 'checking'
-                      ? 'Checking source screenplay'
+                      ? t('Checking source screenplay')
                       : storageStatus === 'found'
-                        ? 'Source screenplay available'
-                        : 'Source screenplay needed'}
+                        ? t('Source screenplay available')
+                        : t('Source screenplay needed')}
                 </p>
                 {uploadEntry?.error && (
                   <p className="text-xs text-red-400 mt-0.5 truncate">{uploadEntry.error}</p>
@@ -708,8 +710,8 @@ export function PdfUploadPanel() {
               {!isUploading && (
                 <button
                   onClick={() => handleRowUpload(screenplay)}
-                  title={storageStatus === 'found' ? 'Re-upload PDF' : 'Upload PDF'}
-                  aria-label={`${storageStatus === 'found' ? 'Re-upload' : 'Upload'} PDF for ${displayTitle}`}
+                  title={t(storageStatus === 'found' ? 'Re-upload PDF' : 'Upload PDF')}
+                  aria-label={t('{{action}} PDF for {{title}}', { action: t(storageStatus === 'found' ? 'Re-upload' : 'Upload'), title: displayTitle })}
                   className={clsx(
                     'settings-file-action settings-file-action--upload shrink-0 p-2 rounded-lg border transition-all',
                     storageStatus === 'found'
@@ -744,11 +746,11 @@ export function PdfUploadPanel() {
                       }}
                       className="px-2 py-1 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-500 transition-all"
                     >
-                      Confirm
+                      {t('Confirm')}
                     </button>
                     <button
                       onClick={() => setConfirmDeleteId(null)}
-                      aria-label={`Cancel deleting ${displayTitle}`}
+                      aria-label={t('Cancel deleting {{title}}', { title: displayTitle })}
                       className="settings-file-cancel px-2 py-1 text-xs rounded-lg transition-all"
                     >
                       ✕
@@ -757,8 +759,8 @@ export function PdfUploadPanel() {
                 ) : (
                   <button
                     onClick={() => setConfirmDeleteId(screenplay.id)}
-                    title="Delete project"
-                    aria-label={`Delete ${displayTitle}`}
+                    title={t('Delete project')}
+                    aria-label={t('Delete {{title}}', { title: displayTitle })}
                     className="settings-file-action settings-file-action--delete shrink-0 p-2 rounded-lg border transition-all"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -779,13 +781,12 @@ export function PdfUploadPanel() {
       {/* Help */}
       <div className="p-4 rounded-lg bg-black-800/50 border border-black-700">
         <p className="text-xs text-black-400 leading-relaxed">
-          <span className="text-gold-400 font-medium">💡 Path convention:</span> Storage path ={' '}
+          <span className="text-gold-400 font-medium">💡 {t('Path convention:')}</span> {t('Storage path =')}{' '}
           <code className="text-xs bg-black-900 px-1 py-0.5 rounded text-black-300">
             screenplays/{'{CATEGORY}'}/{'{TITLE}'}.pdf
           </code>{' '}
-          (matches the modal PDF button). Use{' '}
-          <strong className="text-gold-300">Rescan & Sync</strong> after uploading files directly to
-          Firebase Storage console.
+          {t('(matches the modal PDF button). Use')}{' '}
+          <strong className="text-gold-300">{t('Rescan & Sync')}</strong> {t('after uploading files directly to Firebase Storage console.')}
         </p>
       </div>
     </div>

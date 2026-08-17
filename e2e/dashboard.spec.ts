@@ -5,7 +5,7 @@ test.setTimeout(90_000);
 test.describe('Discovery screenplay presentation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('link', { name: 'Discovery home' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: 'Lemon Screenplay Dashboard home' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/Showing \d+ of \d+ screenplays/)).toBeVisible({ timeout: 30_000 });
   });
 
@@ -21,7 +21,7 @@ test.describe('Discovery screenplay presentation', () => {
   test('preserves the legacy dashboard only at its fallback route', async ({ page }) => {
     await page.goto('/dashboard-classic');
     await expect(page.getByRole('heading', { name: /Screenplay Dashboard/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Discover' })).toHaveAttribute('href', '/');
+    await expect(page.getByRole('link', { name: 'Discovery' })).toHaveAttribute('href', '/');
   });
 
   test('shows one explainable Featured project and returns every runner to the grid', async ({

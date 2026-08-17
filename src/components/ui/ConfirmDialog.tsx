@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export function ConfirmDialog({
   icon,
   isPending = false,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -109,7 +111,7 @@ export function ConfirmDialog({
             disabled={isPending}
             className={`flex-1 px-4 py-2.5 rounded-xl ${colors.bg} border ${colors.border} ${colors.text} ${colors.hover} transition-colors text-sm font-medium disabled:opacity-50`}
           >
-            {isPending ? 'Working...' : confirmLabel}
+            {isPending ? t('Working...') : confirmLabel}
           </button>
         </div>
       </div>

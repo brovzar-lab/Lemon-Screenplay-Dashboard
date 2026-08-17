@@ -205,7 +205,7 @@ describe('ScreenplayFileWorkspace', () => {
     expect(screen.getByRole('button', { name: 'Pitch-deck PDF' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /delete|reanalyze/i })).not.toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Why this landed at Recommend' }),
+      screen.getByRole('heading', { name: 'Why this landed at RECOMMEND' }),
     ).toBeInTheDocument();
     const executiveCopy = screen.getByText(/Atlas Fall is a contained survival drama/);
     expect(executiveCopy.tagName).toBe('P');

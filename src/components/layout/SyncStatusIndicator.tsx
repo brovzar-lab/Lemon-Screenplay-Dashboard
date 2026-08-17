@@ -9,8 +9,10 @@
 import { useEffect } from 'react';
 import { useSyncStatusStore, startSyncStatusPolling } from '@/stores/syncStatusStore';
 import { useSyncRetry } from '@/hooks/useSyncRetry';
+import { useTranslation } from 'react-i18next';
 
 export function SyncStatusIndicator() {
+    const { t } = useTranslation();
     const pendingCount = useSyncStatusStore((s) => s.pendingCount);
     const isRetrying = useSyncStatusStore((s) => s.isRetrying);
     const lastRetryError = useSyncStatusStore((s) => s.lastRetryError);
@@ -29,10 +31,10 @@ export function SyncStatusIndicator() {
     }
 
     const statusText = !isLiveConnected
-        ? 'Live sync disconnected'
+        ? t('Live sync disconnected')
         : isRetrying
-          ? 'Syncing...'
-          : `${pendingCount} pending`;
+          ? t('Syncing...')
+          : t('{{count}} pending', { count: pendingCount });
 
     return (
         <div
@@ -66,9 +68,9 @@ export function SyncStatusIndicator() {
                 <button
                     onClick={retryAll}
                     className="text-xs px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 transition-colors"
-                    aria-label="Retry Now"
+                    aria-label={t('Retry Now')}
                 >
-                    Retry Now
+                    {t('Retry Now')}
                 </button>
             )}
 

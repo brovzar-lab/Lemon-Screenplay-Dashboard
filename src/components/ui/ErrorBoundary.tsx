@@ -4,6 +4,7 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import i18n from '@/i18n';
 
 interface Props {
   children: ReactNode;
@@ -63,17 +64,17 @@ export class ErrorBoundary extends Component<Props, State> {
           className="p-5 bg-red-500/10 border border-red-500/40 rounded-lg text-red-400 max-w-xl"
         >
           <h3 className="font-bold mb-2">
-            {this.props.areaName ? `${this.props.areaName} could not load` : 'Something went wrong'}
+            {this.props.areaName ? i18n.t('{{area}} could not load', { area: this.props.areaName }) : i18n.t('Something went wrong')}
           </h3>
           <p className="text-sm text-black-300 mb-4">
-            Your screenplay data is safe. Retry this section or reload the app to recover.
+            {i18n.t('Your screenplay data is safe. Retry this section or reload the app to recover.')}
           </p>
           <div className="flex flex-wrap gap-2">
             <button onClick={this.reset} className="btn btn-secondary text-sm">
-              Retry Section
+              {i18n.t('Retry Section')}
             </button>
             <button onClick={this.reload} className="btn btn-primary text-sm">
-              Reload App
+              {i18n.t('Reload App')}
             </button>
           </div>
         </div>

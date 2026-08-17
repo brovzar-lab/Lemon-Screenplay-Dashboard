@@ -7,9 +7,14 @@
  * No dashboard imports — fully self-contained.
  */
 
+import { useTranslation } from 'react-i18next';
+import { LanguageControl } from '@/components/layout/LanguageControl';
+
 export function ExpiredLinkPage() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-black-900 flex flex-col items-center justify-center px-4">
+      <div className="absolute right-4 top-4"><LanguageControl /></div>
       <div className="flex flex-col items-center gap-6 text-center max-w-md">
         <img
           src="/lemon-logo-white.png"
@@ -19,10 +24,10 @@ export function ExpiredLinkPage() {
 
         <div className="space-y-3">
           <h1 className="text-2xl font-bold text-gold-200">
-            This link is no longer available
+            {t('This link is no longer available')}
           </h1>
           <p className="text-sm text-black-400">
-            The share link may have been revoked or expired.
+            {t('The share link may have been revoked or expired.')}
           </p>
         </div>
 

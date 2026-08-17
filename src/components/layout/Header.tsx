@@ -13,6 +13,8 @@ import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { UserMenu } from '@/components/auth';
 import { AuthenticatedNavigation } from './AuthenticatedNavigation';
+import { LanguageControl } from './LanguageControl';
+import { useTranslation } from 'react-i18next';
 
 interface StatPillProps {
   label: string;
@@ -53,6 +55,7 @@ function StatPill({ label, value, highlight = false }: StatPillProps) {
 }
 
 export function Header() {
+  const { t } = useTranslation();
   const { data: stats, isLoading } = useScreenplayStats();
   const { filteredCount, totalCount } = useFilteredScreenplays();
   const { isDark } = useThemeStore();
@@ -113,7 +116,7 @@ export function Header() {
           </div>
 
           {/* Stats & Actions */}
-          <div className="flex flex-wrap items-center gap-3" aria-label="Dashboard controls">
+          <div className="flex flex-wrap items-center gap-3" aria-label={t('Dashboard controls')}>
             {isLoading ? (
               <div className="flex gap-3">
                 {[32, 28, 24].map((w) => (
@@ -127,11 +130,11 @@ export function Header() {
             ) : (
               <>
                 <StatPill
-                  label="Showing"
+                  label={t('Showing')}
                   value={`${filteredCount} / ${totalCount}`}
                 />
                 <StatPill
-                  label="Avg Score"
+                  label={t('Avg Score')}
                   value={stats?.avgWeightedScore.toFixed(1) || '—'}
                 />
                 {(stats?.filmNowCount ?? 0) > 0 && (
@@ -146,6 +149,7 @@ export function Header() {
 
             <SyncStatusIndicator />
             <DevExecToggle />
+            <LanguageControl />
 
             {/* Design System Switcher — dropdown with all available themes */}
             <ThemeSwitcher />

@@ -115,7 +115,7 @@ describe('cleaned hybrid Discovery presentation', () => {
   it('uses screenplay Discovery by default and keeps the classic fallback explicit', () => {
     const first = renderPage('/discover');
     expect(screen.getByRole('heading', { name: 'Featured project' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Discovery home' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Lemon Screenplay Dashboard home' })).toHaveAttribute('href', '/');
     first.unmount();
 
     renderPage('/discover?ui=classic');

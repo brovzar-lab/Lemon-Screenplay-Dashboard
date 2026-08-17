@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { testProxyConnection } from '@/lib/proxyClient';
 import { testTmdbKey } from '@/lib/tmdbService';
@@ -12,6 +13,7 @@ import { testTmdbKey } from '@/lib/tmdbService';
 type KeyStatus = 'idle' | 'testing' | 'valid' | 'invalid';
 
 export function ApiConfigPanel() {
+  const { t } = useTranslation();
   const {
     tmdbApiKey,
     isTmdbConfigured,
@@ -100,7 +102,7 @@ export function ApiConfigPanel() {
     <div className="space-y-6">
       {/* AI Proxy Connection Section */}
       <div>
-        <h3 className="text-lg font-display text-gold-200 mb-4">AI Connection</h3>
+        <h3 className="text-lg font-display text-gold-200 mb-4">{t('AI Connection')}</h3>
 
         {/* Proxy status badge */}
         <div className={clsx('p-4 rounded-lg border mb-4', s.bg)}>
@@ -109,8 +111,8 @@ export function ApiConfigPanel() {
               {s.icon}
             </div>
             <div className="flex-1">
-              <p className={clsx('text-sm font-medium', s.labelColor)}>{s.label}</p>
-              <p className={clsx('text-xs', s.sublabelColor)}>{s.sublabel}</p>
+              <p className={clsx('text-sm font-medium', s.labelColor)}>{t(s.label)}</p>
+              <p className={clsx('text-xs', s.sublabelColor)}>{t(s.sublabel)}</p>
             </div>
             <button
               onClick={handleTestProxy}
@@ -121,21 +123,21 @@ export function ApiConfigPanel() {
                 proxyStatus === 'testing' && 'opacity-50 cursor-not-allowed'
               )}
             >
-              {proxyStatus === 'testing' ? 'Testing...' : proxyStatus === 'valid' ? 'Re-test' : 'Test Connection'}
+              {t(proxyStatus === 'testing' ? 'Testing...' : proxyStatus === 'valid' ? 'Re-test' : 'Test Connection')}
             </button>
           </div>
         </div>
 
         <p className="text-xs text-black-500">
-          AI analysis is routed through a secure server proxy. API keys are managed server-side.
+          {t('AI analysis is routed through a secure server proxy. API keys are managed server-side.')}
         </p>
       </div>
 
       {/* TMDB Section */}
       <div className="border-t border-black-700 pt-6">
-        <h3 className="text-lg font-display text-gold-200 mb-1">TMDB (Production Status)</h3>
+        <h3 className="text-lg font-display text-gold-200 mb-1">{t('TMDB (Production Status)')}</h3>
         <p className="text-xs text-black-400 mb-4">
-          Required for automatic produced/unproduced checks after upload.
+          {t('Required for automatic produced/unproduced checks after upload.')}
         </p>
 
         <div className={clsx(
@@ -161,12 +163,12 @@ export function ApiConfigPanel() {
             </div>
             <div>
               <p className={clsx('text-sm font-medium', isTmdbConfigured ? 'text-emerald-300' : 'text-amber-300')}>
-                {isTmdbConfigured ? 'TMDB Key Configured' : 'TMDB Key Not Set'}
+                {t(isTmdbConfigured ? 'TMDB Key Configured' : 'TMDB Key Not Set')}
               </p>
               <p className={clsx('text-xs', isTmdbConfigured ? 'text-emerald-400/70' : 'text-amber-400/70')}>
                 {isTmdbConfigured
-                  ? 'Production status checks enabled'
-                  : 'Add a key to detect if screenplays have been produced'}
+                  ? t('Production status checks enabled')
+                  : t('Add a key to detect if screenplays have been produced')}
               </p>
             </div>
           </div>
@@ -174,11 +176,11 @@ export function ApiConfigPanel() {
 
         <div className="space-y-3">
           <label className="block text-sm font-medium text-black-300">
-            TMDB Key — paste either credential:
+            {t('TMDB Key. Paste either credential:')}
           </label>
           <p className="text-xs text-black-500 -mt-1">
-            <span className="text-black-400">API Key (v3)</span> — short hex string &nbsp;·&nbsp;
-            <span className="text-black-400">Read Access Token</span> — long JWT starting with <code>eyJ</code>
+            <span className="text-black-400">{t('API Key (v3)')}</span> · {t('short hex string')} &nbsp;·&nbsp;
+            <span className="text-black-400">{t('Read Access Token')}</span> · {t('long JWT starting with')} <code>eyJ</code>
           </p>
           <div className="relative">
             <input
@@ -186,7 +188,7 @@ export function ApiConfigPanel() {
               type={showTmdbKey ? 'text' : 'password'}
               value={tmdbApiKey}
               onChange={(e) => setTmdbApiKey(e.target.value)}
-              placeholder="Paste API Key or Read Access Token…"
+              placeholder={t('Paste API Key or Read Access Token…')}
               className="input w-full pr-10 text-sm"
               autoComplete="off"
             />
@@ -219,14 +221,14 @@ export function ApiConfigPanel() {
                 (!isTmdbConfigured || tmdbTestStatus === 'testing') && 'opacity-50 cursor-not-allowed'
               )}
             >
-              {tmdbTestStatus === 'testing' ? 'Testing...' : 'Test Connection'}
+              {t(tmdbTestStatus === 'testing' ? 'Testing...' : 'Test Connection')}
             </button>
             {tmdbTestMessage && (
               <p className={clsx(
                 'text-xs flex-1',
                 tmdbTestStatus === 'valid' ? 'text-emerald-400' : 'text-red-400'
               )}>
-                {tmdbTestMessage}
+                {t(tmdbTestMessage)}
               </p>
             )}
           </div>
@@ -240,19 +242,19 @@ export function ApiConfigPanel() {
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
-            Get a free API key from TMDB
+            {t('Get a free API key from TMDB')}
           </a>
         </div>
       </div>
 
       {/* Budget Controls Section */}
       <div className="border-t border-black-700 pt-6">
-        <h3 className="text-lg font-display text-gold-200 mb-4">Budget Controls</h3>
+        <h3 className="text-lg font-display text-gold-200 mb-4">{t('Budget Controls')}</h3>
 
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-black-300 mb-2">
-              Monthly Budget Limit ($)
+              {t('Monthly Budget Limit ($)')}
             </label>
             <input
               type="number"
@@ -266,7 +268,7 @@ export function ApiConfigPanel() {
 
           <div>
             <label className="block text-sm font-medium text-black-300 mb-2">
-              Daily Request Limit
+              {t('Daily Request Limit')}
             </label>
             <input
               type="number"
@@ -283,7 +285,7 @@ export function ApiConfigPanel() {
         <div className="space-y-4 p-4 bg-black-900/50 rounded-lg">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-black-300">Monthly Spend</span>
+              <span className="text-sm text-black-300">{t('Monthly Spend')}</span>
               <span className="text-sm text-gold-400">
                 ${currentMonthSpend.toFixed(2)} / ${monthlyBudgetLimit.toFixed(2)}
               </span>
@@ -299,12 +301,12 @@ export function ApiConfigPanel() {
                 style={{ width: `${budgetUsedPercent}%` }}
               />
             </div>
-            <p className="text-xs text-black-500 mt-1">${getBudgetRemaining().toFixed(2)} remaining</p>
+            <p className="text-xs text-black-500 mt-1">{t('${{amount}} remaining', { amount: getBudgetRemaining().toFixed(2) })}</p>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-black-300">Daily Requests</span>
+              <span className="text-sm text-black-300">{t('Daily Requests')}</span>
               <span className="text-sm text-gold-400">
                 {currentDayRequests} / {dailyRequestLimit}
               </span>
@@ -320,16 +322,16 @@ export function ApiConfigPanel() {
                 style={{ width: `${dailyUsedPercent}%` }}
               />
             </div>
-            <p className="text-xs text-black-500 mt-1">{getDailyRequestsRemaining()} requests remaining today</p>
+            <p className="text-xs text-black-500 mt-1">{t('{{count}} requests remaining today', { count: getDailyRequestsRemaining() })}</p>
           </div>
         </div>
 
         <div className="flex gap-3 mt-4">
           <button onClick={resetDailyCount} className="btn btn-ghost text-sm">
-            Reset Daily Count
+            {t('Reset Daily Count')}
           </button>
           <button onClick={resetMonthlySpend} className="btn btn-ghost text-sm text-amber-400 hover:text-amber-300">
-            Reset Monthly Spend
+            {t('Reset Monthly Spend')}
           </button>
         </div>
       </div>
@@ -341,10 +343,9 @@ export function ApiConfigPanel() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
           <div>
-            <p className="text-sm text-emerald-200 font-medium">Secure Proxy</p>
+            <p className="text-sm text-emerald-200 font-medium">{t('Secure Proxy')}</p>
             <p className="text-xs text-emerald-300/70 mt-1">
-              AI analysis runs through a secure server-side proxy. Anthropic and Gemini API keys
-              are stored on the server — they are never exposed in your browser.
+              {t('AI analysis runs through a secure server-side proxy. Anthropic and Gemini API keys are stored on the server. They are never exposed in your browser.')}
             </p>
           </div>
         </div>
