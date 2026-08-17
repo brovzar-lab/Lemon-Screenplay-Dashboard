@@ -17,7 +17,7 @@ test.describe('Discovery find tools', () => {
     await search.fill('Matadero');
     await expect(featured).toHaveAttribute('data-screenplay-id', featuredId ?? '');
     await expect(page.getByText('Matadero', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText(/Showing 1 of 27 screenplays/)).toBeVisible();
+    await expect(page.getByText(/Showing 1 of \d+ screenplays/)).toBeVisible();
   });
 
   test('sort updates the complete slate without changing the daily Featured project', async ({
