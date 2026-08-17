@@ -209,4 +209,36 @@ describe('Intake upload presentation', () => {
     expect(await screen.findByRole('button', { name: 'Open analysis' })).toBeInTheDocument();
     expect(useUploadStore.getState().jobs[0].result?.projectId).toBe('reloaded-project');
   });
+
+  it('reconciles a persisted review job when the queue later completes', async () => {
+    const acceptedJob: UploadJob = {
+      id: 'review-job',
+      filename: 'Cosquillitas_Draft_9.pdf',
+      category: 'LEMON',
+      status: 'needs_review',
+      progress: 60,
+      error: 'Synthesis failed after 3 attempts',
+      createdAt: new Date().toISOString(),
+      ingestQueueStoragePath: 'ingest-queue/LEMON/upload/Cosquillitas_Draft_9.pdf',
+    };
+    useUploadStore.setState({ jobs: [acceptedJob], isProcessing: false });
+    renderPanel();
+
+    expect(mockSubscribe).toHaveBeenCalledWith(
+      acceptedJob.ingestQueueStoragePath,
+      expect.any(Function),
+      expect.any(Function),
+    );
+    const onUpdate = mockSubscribe.mock.calls[0][1] as (update: {
+      status: 'complete';
+      screenplayDocId: string;
+    }) => void;
+    act(() => onUpdate({ status: 'complete', screenplayDocId: 'Cosquillitas_Draft_9.pdf' }));
+
+    expect(useUploadStore.getState().jobs[0]).toMatchObject({
+      status: 'complete',
+      error: undefined,
+      result: { projectId: 'Cosquillitas_Draft_9.pdf' },
+    });
+  });
 });
