@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   ci:
-    name: Cross-stack validation
+    name: Lint, Build & Test
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
