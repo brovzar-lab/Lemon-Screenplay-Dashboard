@@ -241,4 +241,21 @@ describe('Intake upload presentation', () => {
       result: { projectId: 'Cosquillitas_Draft_9.pdf' },
     });
   });
+
+  it('does not reconnect settled queue jobs', () => {
+    const completeJob: UploadJob = {
+      id: 'settled-job',
+      filename: 'Finished.pdf',
+      category: 'LEMON',
+      status: 'complete',
+      progress: 100,
+      createdAt: new Date().toISOString(),
+      ingestQueueStoragePath: 'ingest-queue/LEMON/upload/Finished.pdf',
+    };
+    useUploadStore.setState({ jobs: [completeJob], isProcessing: false });
+
+    renderPanel();
+
+    expect(mockSubscribe).not.toHaveBeenCalled();
+  });
 });
