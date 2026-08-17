@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary, LoadingFallback, ToastContainer } from '@/components/ui';
 import { AuthGate } from '@/components/auth';
 import './index.css';
-import App from './App';
 import { importWithReload } from '@/lib/lazyWithReload';
 import '@/i18n';
 
@@ -50,13 +49,7 @@ createRoot(document.getElementById('root')!).render(
               />
               <Route
                 path="/dashboard-classic"
-                element={
-                  <ErrorBoundary fullPage areaName="Classic Dashboard">
-                    <AuthGate>
-                      <App />
-                    </AuthGate>
-                  </ErrorBoundary>
-                }
+                element={<Navigate to="/" replace />}
               />
               <Route
                 path="/settings"

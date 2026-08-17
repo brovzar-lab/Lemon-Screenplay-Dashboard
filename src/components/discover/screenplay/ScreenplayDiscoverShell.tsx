@@ -217,9 +217,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         ) : isError ? (
           <ScreenplayState
             title={t('Discovery is temporarily unavailable')}
-            message={t(
-              'Classic Discovery remains available at ?ui=classic while the live slate reconnects.',
-            )}
+            message={t('Please try again shortly.')}
           />
         ) : totalCount === 0 ? (
           <ScreenplayState

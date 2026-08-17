@@ -106,6 +106,7 @@ const spanish = {
   'Discovery is temporarily unavailable': 'Descubrimiento no está disponible por el momento',
   'Classic Discovery remains available at ?ui=classic while the live slate reconnects.':
     'El modo clásico sigue disponible en ?ui=classic mientras se reconecta la selección.',
+  'Please try again shortly.': 'Inténtalo de nuevo en unos momentos.',
   'No analyzed screenplays yet': 'Aún no hay guiones analizados',
   'Completed analyses will appear here automatically.':
     'Los análisis terminados aparecerán aquí en forma automática.',

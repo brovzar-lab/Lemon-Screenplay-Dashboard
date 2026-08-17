@@ -18,10 +18,10 @@ test.describe('Discovery screenplay presentation', () => {
     await expect(page.getByTestId('screenplay-discovery-result').first()).toBeVisible();
   });
 
-  test('preserves the legacy dashboard only at its fallback route', async ({ page }) => {
+  test('redirects the old dashboard route to the current bilingual home', async ({ page }) => {
     await page.goto('/dashboard-classic');
-    await expect(page.getByRole('heading', { name: /Screenplay Dashboard/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Discovery' })).toHaveAttribute('href', '/');
+    await expect(page).toHaveURL('/');
+    await expect(page.getByRole('heading', { name: 'Continue through the slate' })).toBeVisible();
   });
 
   test('shows one explainable Featured project and returns every runner to the grid', async ({
