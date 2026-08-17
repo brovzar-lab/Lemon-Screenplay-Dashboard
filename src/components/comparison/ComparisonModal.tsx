@@ -8,8 +8,10 @@ import { useScreenplays } from '@/hooks/useScreenplays';
 import { ComparisonSideBySide } from './ComparisonSideBySide';
 import { ComparisonRadar } from './ComparisonRadar';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 export function ComparisonModal() {
+  const { t } = useTranslation();
   const {
     selectedIds,
     isComparing,
@@ -40,9 +42,9 @@ export function ComparisonModal() {
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between p-4 border-b border-black-700 bg-black-900/95 backdrop-blur-sm">
           <div>
-            <h2 className="text-xl font-display text-gold-200">Compare Screenplays</h2>
+            <h2 className="text-xl font-display text-gold-200">{t('Compare Screenplays')}</h2>
             <p className="text-sm text-black-400">
-              Comparing {selectedScreenplays.length} screenplays
+              {t('Comparing {{count}} screenplays', { count: selectedScreenplays.length })}
             </p>
           </div>
 
@@ -62,7 +64,7 @@ export function ComparisonModal() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                   </svg>
-                  Side by Side
+                  {t('Side by Side')}
                 </span>
               </button>
               <button
@@ -79,7 +81,7 @@ export function ComparisonModal() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
                   </svg>
-                  Radar Chart
+                  {t('Radar Chart')}
                 </span>
               </button>
             </div>
@@ -89,12 +91,13 @@ export function ComparisonModal() {
               onClick={clearComparison}
               className="btn btn-ghost text-sm"
             >
-              Clear All
+              {t('Clear All')}
             </button>
 
             {/* Close Button */}
             <button
               onClick={closeComparison}
+              aria-label={t('Close')}
               className="p-2 rounded-lg hover:bg-black-700 text-black-400 hover:text-gold-400"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -123,7 +126,7 @@ export function ComparisonModal() {
         <div className="sticky bottom-0 flex items-center justify-between p-4 border-t border-black-700 bg-black-900/95 backdrop-blur-sm">
           <div className="text-xs text-black-500">
             {selectedScreenplays.length < 3 && (
-              <span>You can compare up to 3 screenplays. Add more from the grid.</span>
+              <span>{t('You can compare up to 3 screenplays. Add more from the grid.')}</span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -131,7 +134,7 @@ export function ComparisonModal() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              Export Comparison
+              {t('Export Comparison')}
             </button>
           </div>
         </div>

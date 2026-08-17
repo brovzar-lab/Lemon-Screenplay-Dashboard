@@ -12,8 +12,8 @@ import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { UserMenu } from '@/components/auth';
-import { AuthenticatedNavigation } from './AuthenticatedNavigation';
-import { LanguageControl } from './LanguageControl';
+import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
+import { LanguageControl } from '@/components/layout/LanguageControl';
 import { useTranslation } from 'react-i18next';
 
 interface StatPillProps {

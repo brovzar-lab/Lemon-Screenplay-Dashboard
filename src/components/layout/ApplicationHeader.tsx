@@ -41,7 +41,9 @@ export function ApplicationHeader() {
         <div className="application-header__actions">
           <SyncStatusIndicator />
           <LanguageControl />
-          <SettingsThemeControl />
+          <div className="max-[520px]:hidden">
+            <SettingsThemeControl />
+          </div>
           <UserMenu />
         </div>
       </div>

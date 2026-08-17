@@ -18,6 +18,7 @@ import { useIsAdmin } from '@/stores/authStore';
 import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 import '@/components/discover/discovery.css';
+import { useTranslation } from 'react-i18next';
 
 interface DiscoverStats {
   total: number;
@@ -52,18 +53,20 @@ export interface DiscoverShellProps {
 }
 
 function DiscoverIntro() {
+  const { t } = useTranslation();
   return (
     <section className="cinema-page-intro">
       <div>
-        <p className="dsc-kicker">Lemon Studios · Development slate</p>
-        <h1>Cinema Browse</h1>
+        <p className="dsc-kicker">{t('Lemon Studios · Development slate')}</p>
+        <h1>{t('Cinema Browse')}</h1>
       </div>
-      <p>Find the strongest story for the moment, then follow the signal through the slate.</p>
+      <p>{t('Find the strongest story for the moment, then follow the signal through the slate.')}</p>
     </section>
   );
 }
 
 function DiscoverLoading() {
+  const { t } = useTranslation();
   return (
     <div className="animate-pulse" role="status">
       <div className="dsc-skeleton mb-7 h-16 w-64 max-w-full" />
@@ -81,7 +84,7 @@ function DiscoverLoading() {
           <div key={index} className="dsc-skeleton dsc-skeleton--card h-72" />
         ))}
       </div>
-      <span className="sr-only">Loading Discovery</span>
+      <span className="sr-only">{t('Loading Discovery')}</span>
     </div>
   );
 }
@@ -106,6 +109,7 @@ export function DiscoverShell({
   isLoading,
   isError,
 }: DiscoverShellProps) {
+  const { t } = useTranslation();
   const [archivePosition, setArchivePosition] = useState({ signature: '', page: 1 });
   const [selectionMode, setSelectionMode] = useState(false);
   const isAdmin = useIsAdmin();
@@ -200,9 +204,9 @@ export function DiscoverShell({
             <DiscoverLoading />
           ) : isError ? (
             <section className="dsc-card p-6 sm:p-8">
-              <h1 className="dsc-display text-3xl">Discovery is temporarily unavailable</h1>
+              <h1 className="dsc-display text-3xl">{t('Discovery is temporarily unavailable')}</h1>
               <p className="mt-3 text-[var(--dsc-ink-2)]">
-                The classic dashboard remains available at /dashboard-classic.
+                {t('The classic dashboard remains available at /dashboard-classic.')}
               </p>
             </section>
           ) : (
@@ -229,43 +233,41 @@ export function DiscoverShell({
 
               {totalCount === 0 ? (
                 <section className="dsc-card p-8 text-center sm:p-10">
-                  <h2 className="dsc-display text-3xl">No analyzed screenplays yet</h2>
+                  <h2 className="dsc-display text-3xl">{t('No analyzed screenplays yet')}</h2>
                   <p className="mt-3 text-[var(--dsc-ink-2)]">
-                    New analyses will appear here through the live data feed.
+                    {t('New analyses will appear here through the live data feed.')}
                   </p>
                 </section>
               ) : screenplays.length === 0 ? (
                 <section className="dsc-card p-8 text-center sm:p-10">
-                  <p className="dsc-kicker">No match</p>
-                  <h2 className="dsc-display mt-3 text-3xl">No scripts match this view</h2>
+                  <p className="dsc-kicker">{t('No match')}</p>
+                  <h2 className="dsc-display mt-3 text-3xl">{t('No scripts match this view')}</h2>
                   <p className="mx-auto mt-3 max-w-md text-[var(--dsc-ink-2)]">
-                    Try a broader search or clear the active filters to reopen the full slate.
+                    {t('Try a broader search or clear the active filters to reopen the full slate.')}
                   </p>
                   <button
                     type="button"
                     onClick={onClearFilters}
                     className="dsc-btn dsc-btn-primary mt-6"
                   >
-                    Clear filters
+                    {t('Clear filters')}
                   </button>
                 </section>
               ) : !featured ? (
                 <>
                   <section className="dsc-card border-amber-500/30 p-8 text-center sm:p-10">
-                    <p className="dsc-kicker">Review required</p>
+                    <p className="dsc-kicker">{t('Review required')}</p>
                     <h2 className="dsc-display mt-3 text-3xl">
-                      These analyses cannot be ranked yet
+                      {t('These analyses cannot be ranked yet')}
                     </h2>
                     <p className="mx-auto mt-3 max-w-xl text-[var(--dsc-ink-2)]">
-                      Their screenplay evidence or specialist reader panel is incomplete. They
-                      remain available below for diagnosis, but Discovery will not promote one as
-                      the best script.
+                      {t('Their screenplay evidence or specialist reader panel is incomplete. They remain available below for diagnosis, but Discovery will not promote one as the best script.')}
                     </p>
                   </section>
                   <section aria-labelledby="discovery-review-only" className="cinema-shelf">
                     <div className="cinema-shelf-head">
-                      <h2 id="discovery-review-only">Needs review</h2>
-                      <span>{reviewOnlyScreenplays.length} unranked</span>
+                      <h2 id="discovery-review-only">{t('Needs review')}</h2>
+                      <span>{t('{{count}} unranked', { count: reviewOnlyScreenplays.length })}</span>
                     </div>
                     <DiscoverGrid
                       screenplays={reviewOnlyScreenplays}
@@ -294,9 +296,9 @@ export function DiscoverShell({
 
                   <section aria-labelledby="discovery-archive" className="cinema-shelf">
                     <div className="cinema-shelf-head">
-                      <h2 id="discovery-archive">Browse the slate</h2>
+                      <h2 id="discovery-archive">{t('Browse the slate')}</h2>
                       <span>
-                        {grid.length} projects · {archivePageSize} per page
+                        {t('{{count}} projects · {{size}} per page', { count: grid.length, size: archivePageSize })}
                       </span>
                     </div>
                     <DiscoverGrid
@@ -306,7 +308,7 @@ export function DiscoverShell({
                       rankOffset={(archivePage - 1) * archivePageSize}
                     />
                     {archivePageCount > 1 && (
-                      <nav className="cinema-pagination" aria-label="Browse the slate pages">
+                      <nav className="cinema-pagination" aria-label={t('Browse the slate pages')}>
                         <button
                           type="button"
                           onClick={() =>
@@ -317,10 +319,10 @@ export function DiscoverShell({
                           }
                           disabled={archivePage === 1}
                         >
-                          ← Previous 50
+                          {t('← Previous 50')}
                         </button>
                         <span>
-                          Page {archivePage} of {archivePageCount}
+                          {t('Page {{page}} of {{count}}', { page: archivePage, count: archivePageCount })}
                         </span>
                         <button
                           type="button"
@@ -332,7 +334,7 @@ export function DiscoverShell({
                           }
                           disabled={archivePage === archivePageCount}
                         >
-                          Next 50 →
+                          {t('Next 50 →')}
                         </button>
                       </nav>
                     )}

@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useToastStore } from '@/stores/toastStore';
@@ -21,6 +22,7 @@ export function AddToFavoritesModal({
   onClose,
   presentation = 'default',
 }: AddToFavoritesModalProps) {
+  const { t } = useTranslation();
   const isDiscovery = presentation === 'discovery';
   const [selectedList, setSelectedList] = useState<string>('quick');
   const lists = useFavoritesStore((s) => s.lists);
@@ -37,7 +39,7 @@ export function AddToFavoritesModal({
         }
       }
       useToastStore.getState().addToast(
-        `Added ${ids.length} to Quick Favorites`,
+        t('Added {{count}} to Quick Favorites', { count: ids.length }),
         'success'
       );
     } else {
@@ -46,7 +48,7 @@ export function AddToFavoritesModal({
       }
       const listName = useFavoritesStore.getState().lists.find((l) => l.id === selectedList)?.name || 'list';
       useToastStore.getState().addToast(
-        `Added ${ids.length} to ${listName}`,
+        t('Added {{count}} to {{list}}', { count: ids.length, list: listName }),
         'success'
       );
     }
@@ -76,11 +78,11 @@ export function AddToFavoritesModal({
         <div className={clsx('px-6 py-4', isDiscovery && 'dsc-modal-header border-b py-5')}>
           {isDiscovery && (
             <p className="dsc-modal-kicker mb-1">
-              Save selection
+              {t('Save selection')}
             </p>
           )}
           <h3 className={isDiscovery ? 'dsc-modal-title text-xl font-semibold' : 'font-heading text-lg font-semibold text-gold-200'}>
-            Add to Favorites
+            {t('Add to Favorites')}
           </h3>
         </div>
 
@@ -118,7 +120,7 @@ export function AddToFavoritesModal({
             <svg className={isDiscovery ? 'w-5 h-5 text-[var(--dsc-accent)]' : 'w-5 h-5 text-gold-400'} fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
-            <span className={isDiscovery ? 'flex-1 text-sm text-[var(--dsc-ink)]' : 'text-sm text-gold-200 flex-1'}>Quick Favorites</span>
+            <span className={isDiscovery ? 'flex-1 text-sm text-[var(--dsc-ink)]' : 'text-sm text-gold-200 flex-1'}>{t('Quick Favorites')}</span>
             <div className={clsx('w-4 h-4 rounded-full', selectedList === 'quick' ? 'dsc-dot-active' : 'dsc-dot')} />
           </div>
 
@@ -156,10 +158,10 @@ export function AddToFavoritesModal({
         {/* Footer */}
         <div className={clsx('flex justify-end gap-3 px-6 py-4', isDiscovery && 'dsc-modal-footer border-t')}>
           <button onClick={onClose} className="btn btn-ghost text-sm">
-            Keep Favorites
+            {t('Keep Favorites')}
           </button>
           <button onClick={handleApply} className="btn btn-primary text-sm">
-            Add to Favorites
+            {t('Add to Favorites')}
           </button>
         </div>
       </div>

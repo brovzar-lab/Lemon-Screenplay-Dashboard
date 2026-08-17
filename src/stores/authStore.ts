@@ -11,6 +11,7 @@ import {
   signOutUser,
 } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { setLanguageUser } from '@/i18n';
 
 export type UserRole = 'admin' | 'reader';
 export type AuthStatus = 'initializing' | 'signed_out' | 'loading_profile' | 'ready';
@@ -97,6 +98,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     authUnsubscribe = onAuthStateChanged(auth, async (user) => {
       const sequence = ++authSequence;
       if (!user) {
+        setLanguageUser(null);
         set({ user: null, profile: null, status: 'signed_out', isSigningIn: false });
         return;
       }
@@ -119,6 +121,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       try {
         const profile = await loadOrCreateProfile(user);
         if (sequence === authSequence) {
+          setLanguageUser(user.uid);
           set({ user, profile, status: 'ready', isSigningIn: false });
         }
       } catch (error) {

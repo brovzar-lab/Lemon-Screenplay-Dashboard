@@ -8,6 +8,8 @@ import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useThemeStore } from '@/stores/themeStore';
 import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
+import { LanguageControl } from '@/components/layout/LanguageControl';
+import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 
 interface HybridHeaderProps {
@@ -23,6 +25,7 @@ export function HybridHeader({
   onOpenScreenplay,
   darkChrome = false,
 }: HybridHeaderProps) {
+  const { t } = useTranslation();
   const [isScrolled, setIsScrolled] = useState(false);
   const sentinelRef = useRef<HTMLSpanElement>(null);
   const isDark = useThemeStore((state) => state.isDark);
@@ -43,7 +46,7 @@ export function HybridHeader({
       <span ref={sentinelRef} className="hybrid-header-sentinel" aria-hidden="true" />
       <header role="banner" className="hybrid-header" data-scrolled={isScrolled ? 'true' : 'false'}>
         <div className="hybrid-header__inner">
-          <NavLink to="/" className="hybrid-brand" aria-label="Discovery home">
+          <NavLink to="/" className="hybrid-brand" aria-label={t('Lemon Screenplay Dashboard home')}>
             <img
               src={isDark || darkChrome ? '/lemon-logo-white.png' : '/lemon-logo-black.png'}
               alt=""
@@ -51,7 +54,7 @@ export function HybridHeader({
             />
             <span>
               <strong>LEMON</strong>
-              <small>Discovery</small>
+              <small>{t('Screenplay Dashboard')}</small>
             </span>
           </NavLink>
 
@@ -68,6 +71,7 @@ export function HybridHeader({
             <DiscoveryFavoritesMenu screenplays={screenplays} onOpen={onOpenScreenplay} />
             <span className="hybrid-header__divider" aria-hidden="true" />
             <SyncStatusIndicator />
+            <LanguageControl />
             <ThemeToggle />
             <UserMenu />
           </div>

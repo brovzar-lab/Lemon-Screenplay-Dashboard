@@ -6,6 +6,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 import { getExistingShareToken, createShareToken } from '@/lib/shareService';
 import { useShareStore } from '@/stores/shareStore';
@@ -32,6 +33,7 @@ export function BulkShareModal({
   screenplayIdentity = 'id',
   presentation = 'default',
 }: BulkShareModalProps) {
+  const { t } = useTranslation();
   const isDiscovery = presentation === 'discovery';
   const [rows, setRows] = useState<Record<string, ShareRow>>(() =>
     Object.fromEntries(screenplays.map((sp) => [sp.id, { status: 'pending' as const }]))
@@ -163,30 +165,30 @@ export function BulkShareModal({
           <div>
             {isDiscovery && (
               <p className="dsc-modal-kicker mb-1">
-                Selected slate
+                {t('Selected slate')}
               </p>
             )}
-            <h3 className={isDiscovery ? 'dsc-modal-title text-2xl' : 'font-display text-lg text-gold-200'}>Generate Share Links</h3>
+            <h3 className={isDiscovery ? 'dsc-modal-title text-2xl' : 'font-display text-lg text-gold-200'}>{t('Generate Share Links')}</h3>
             <p className={isDiscovery ? 'dsc-muted mt-1 text-sm' : 'mt-0.5 text-xs text-black-400'}>
-              {doneCount} of {total} complete
+              {t('{{done}} of {{total}} complete', { done: doneCount, total })}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyAll}
               disabled={doneCount === 0}
-              aria-label="Copy All"
+              aria-label={t('Copy All')}
               className={clsx(
                 'btn btn-secondary text-sm',
                 doneCount === 0 && 'opacity-40 cursor-not-allowed'
               )}
             >
-              {copiedAll ? 'Copied!' : 'Copy All'}
+              {copiedAll ? t('Copied!') : t('Copy All')}
             </button>
             <button
               onClick={onClose}
               className={isDiscovery ? 'rounded p-1 text-[var(--dsc-ink-2)] hover:bg-[var(--dsc-surface-2)] hover:text-[var(--dsc-ink)]' : 'p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400'}
-              aria-label="Close"
+              aria-label={t('Close')}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -212,7 +214,7 @@ export function BulkShareModal({
                 <span className={clsx('flex-1 text-sm text-black-300 truncate', isDiscovery && 'text-[var(--dsc-ink)]')}>{sp.title}</span>
 
                 {row.status === 'pending' && (
-                  <span className={clsx('text-xs text-black-500', isDiscovery && 'dsc-muted-faint')}>Pending</span>
+                  <span className={clsx('text-xs text-black-500', isDiscovery && 'dsc-muted-faint')}>{t('Pending')}</span>
                 )}
                 {row.status === 'generating' && (
                   <svg className={isDiscovery ? 'animate-spin w-4 h-4 text-[var(--dsc-accent)] shrink-0' : 'animate-spin w-4 h-4 text-gold-400 shrink-0'} fill="none" viewBox="0 0 24 24">
@@ -226,9 +228,9 @@ export function BulkShareModal({
                     <button
                       onClick={() => handleCopyOne(sp.id, row.url!)}
                       className={isDiscovery ? 'dsc-muted shrink-0 text-xs hover:text-[var(--dsc-accent)]' : 'text-xs text-black-400 hover:text-gold-400 shrink-0'}
-                      aria-label={`Copy ${sp.title}`}
+                      aria-label={t('Copy {{title}}', { title: sp.title })}
                     >
-                      {copiedId === sp.id ? 'Copied!' : 'Copy'}
+                      {copiedId === sp.id ? t('Copied!') : t('Copy')}
                     </button>
                   </div>
                 )}
@@ -236,9 +238,9 @@ export function BulkShareModal({
                   <button
                     onClick={() => generateForScreenplay(sp)}
                     className={clsx('text-xs text-red-400 hover:text-red-300', isDiscovery && 'dsc-status-error hover:text-[var(--error)]')}
-                    aria-label="Retry"
+                    aria-label={t('Retry')}
                   >
-                    Retry
+                    {t('Retry')}
                   </button>
                 )}
               </div>
@@ -249,7 +251,7 @@ export function BulkShareModal({
         {/* Footer */}
         <div className={clsx('flex justify-end border-t border-black-700 p-4', isDiscovery && 'dsc-modal-footer', !isDiscovery && 'bg-black-900/30')}>
           <button onClick={onClose} className="btn btn-ghost text-sm">
-            Close
+            {t('Close')}
           </button>
         </div>
       </div>

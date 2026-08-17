@@ -4,6 +4,8 @@ import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useThemeStore } from '@/stores/themeStore';
 import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
+import { LanguageControl } from '@/components/layout/LanguageControl';
+import { useTranslation } from 'react-i18next';
 
 interface DiscoverAppHeaderProps {
   total: number;
@@ -35,6 +37,7 @@ export function DiscoverAppHeader({
   isLoading,
   sectionTitle = 'Cinema Browse',
 }: DiscoverAppHeaderProps) {
+  const { t } = useTranslation();
   const isDark = useThemeStore((state) => state.isDark);
 
   return (
@@ -43,7 +46,7 @@ export function DiscoverAppHeader({
         <NavLink
           to="/"
           className="flex min-w-0 items-center gap-3 py-3"
-          aria-label="Discovery home"
+          aria-label={t('Lemon Screenplay Dashboard home')}
         >
           <img
             src={isDark ? '/lemon-logo-white.png' : '/lemon-logo-black.png'}
@@ -52,7 +55,7 @@ export function DiscoverAppHeader({
           />
           <span className="flex min-w-0 flex-col">
             <span className="dsc-brand-name">LEMON</span>
-            <span className="dsc-brand-sub hidden truncate sm:block">Discovery</span>
+            <span className="dsc-brand-sub hidden truncate sm:block">{t('Screenplay Dashboard')}</span>
           </span>
         </NavLink>
 
@@ -65,22 +68,23 @@ export function DiscoverAppHeader({
 
         <div
           className="ml-auto flex items-center gap-1.5 py-2"
-          aria-label="Account and sync controls"
+          aria-label={t('Account and sync controls')}
         >
           <SyncStatusIndicator />
+          <LanguageControl />
           <ThemeToggle />
           <UserMenu />
         </div>
       </div>
 
-      <div className="dsc-statbar" aria-label="Discovery slate statistics">
+      <div className="dsc-statbar" aria-label={t('Discovery slate statistics')}>
         <div className="mx-auto flex max-w-[1800px] overflow-hidden">
-          <LedgerStat value={isLoading ? '—' : String(total)} label="Total scripts" />
+          <LedgerStat value={isLoading ? '—' : String(total)} label={t('Total scripts')} />
           <LedgerStat
             value={isLoading || total === 0 ? '—' : averageScore.toFixed(1)}
-            label="Average score"
+            label={t('Average score')}
           />
-          <LedgerStat value={isLoading ? '—' : String(filmNowCount)} label="Film Now" accent />
+          <LedgerStat value={isLoading ? '—' : String(filmNowCount)} label={t('Film Now')} accent />
         </div>
       </div>
     </header>

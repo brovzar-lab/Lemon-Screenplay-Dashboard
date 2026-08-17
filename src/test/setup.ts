@@ -115,8 +115,9 @@ Object.defineProperty(window, 'localStorage', {
   writable: true,
 });
 
-const { default: i18n } = await import('@/i18n');
+const { default: i18n, setLanguageUser } = await import('@/i18n');
 
 beforeEach(async () => {
+  setLanguageUser(null);
   await i18n.changeLanguage('en');
 });

@@ -10,6 +10,7 @@ import type { Screenplay } from '@/types';
 import { exportToCSV } from './csvExport';
 import { PdfDocument } from './PdfDocument';
 import { useToastStore } from '@/stores/toastStore';
+import { useTranslation } from 'react-i18next';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export function ExportModal({
   showInlineFailure = false,
   presentation = 'default',
 }: ExportModalProps) {
+  const { t } = useTranslation();
   const isDiscovery = presentation === 'discovery';
   const [format, setFormat] = useState<ExportFormat>('pdf');
   const [isExporting, setIsExporting] = useState(false);
@@ -100,8 +102,8 @@ export function ExportModal({
       }
     } catch (error) {
       console.error('Export failed:', error);
-      useToastStore.getState().addToast('Export failed — please try again');
-      setExportError('Pitch-deck PDF generation failed. Please try again.');
+      useToastStore.getState().addToast(t('Export failed. Please try again.'));
+      setExportError(t('Pitch-deck PDF generation failed. Please try again.'));
       setIsExporting(false);
       setExportProgress(0);
     }
@@ -147,19 +149,19 @@ export function ExportModal({
           )}
         >
           <div>
-            {isDiscovery && <p className="dsc-modal-kicker mb-1">Presentation ready</p>}
+            {isDiscovery && <p className="dsc-modal-kicker mb-1">{t('Presentation ready')}</p>}
             <h3
               id="export-screenplays-title"
               className={
                 isDiscovery ? 'dsc-modal-title text-2xl' : 'font-display text-lg text-gold-200'
               }
             >
-              Export Screenplays
+              {t('Export Screenplays')}
             </h3>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close export"
+            aria-label={t('Close export')}
             className={
               isDiscovery
                 ? 'rounded p-1 text-[var(--dsc-ink-2)] hover:bg-[var(--dsc-surface-2)] hover:text-[var(--dsc-ink)]'
@@ -188,15 +190,13 @@ export function ExportModal({
           >
             <p className={isDiscovery ? 'dsc-muted text-sm' : 'text-sm text-black-400'}>
               <strong className={isDiscovery ? 'text-[var(--dsc-accent)]' : 'text-gold-400'}>
-                {mode === 'selected'
-                  ? `Exporting ${screenplays.length} selected ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`
+                {mode === 'selected' || mode === 'multiple'
+                  ? t('Exporting {{count}} selected screenplay', { count: screenplays.length })
                   : mode === 'filtered'
-                    ? `Exporting ${screenplays.length} filtered ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`
+                    ? t('Exporting {{count}} filtered screenplay', { count: screenplays.length })
                     : mode === 'all'
-                      ? `Exporting all ${screenplays.length} ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`
-                      : mode === 'single'
-                        ? `Exporting ${screenplays.length} ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`
-                        : /* 'multiple' */ `Exporting ${screenplays.length} selected ${screenplays.length === 1 ? 'screenplay' : 'screenplays'}`}
+                      ? t('Exporting all {{count}} screenplay', { count: screenplays.length })
+                      : t('Exporting {{count}} screenplay', { count: screenplays.length })}
               </strong>
             </p>
             {screenplays.length <= 5 && (
@@ -232,7 +232,7 @@ export function ExportModal({
                   .slice(0, 3)
                   .map((sp) => sp.title)
                   .join(', ')}{' '}
-                +{screenplays.length - 3} more
+                {t('+{{count}} more', { count: screenplays.length - 3 })}
               </p>
             )}
           </div>
@@ -246,7 +246,7 @@ export function ExportModal({
                   isDiscovery && 'dsc-muted',
                 )}
               >
-                Format
+                {t('Format')}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -279,12 +279,12 @@ export function ExportModal({
                         isDiscovery && 'text-[var(--dsc-ink)]',
                       )}
                     >
-                      PDF Pitch Deck
+                      {t('PDF Pitch Deck')}
                     </span>
                     <span
                       className={clsx('text-xs text-black-500', isDiscovery && 'dsc-muted-faint')}
                     >
-                      Professional format
+                      {t('Professional format')}
                     </span>
                   </div>
                 </button>
@@ -319,12 +319,12 @@ export function ExportModal({
                         isDiscovery && 'text-[var(--dsc-ink)]',
                       )}
                     >
-                      CSV Spreadsheet
+                      {t('CSV Spreadsheet')}
                     </span>
                     <span
                       className={clsx('text-xs text-black-500', isDiscovery && 'dsc-muted-faint')}
                     >
-                      Excel compatible
+                      {t('Excel compatible')}
                     </span>
                   </div>
                 </button>
@@ -349,14 +349,14 @@ export function ExportModal({
                     isDiscovery && 'text-[var(--dsc-ink)]',
                   )}
                 >
-                  PDF Pitch Deck includes:
+                  {t('PDF Pitch Deck includes:')}
                 </p>
                 <ul className="space-y-1 ml-4 list-disc">
-                  <li>Title page with recommendation badge</li>
-                  <li>Core scores and producer metrics</li>
-                  <li>Five-pillar or legacy score breakdown</li>
-                  <li>Strengths, weaknesses, and development notes</li>
-                  <li>Comparable films and production details</li>
+                  <li>{t('Title page with recommendation badge')}</li>
+                  <li>{t('Core scores and producer metrics')}</li>
+                  <li>{t('Five-pillar or legacy score breakdown')}</li>
+                  <li>{t('Strengths, weaknesses, and development notes')}</li>
+                  <li>{t('Comparable films and production details')}</li>
                 </ul>
               </div>
             ) : (
@@ -367,14 +367,14 @@ export function ExportModal({
                     isDiscovery && 'text-[var(--dsc-ink)]',
                   )}
                 >
-                  CSV Export includes:
+                  {t('CSV Export includes:')}
                 </p>
                 <ul className="space-y-1 ml-4 list-disc">
-                  <li>All screenplay metadata and scores</li>
-                  <li>Five specialist pillars or legacy scores, plus CVS factors</li>
-                  <li>Producer metrics</li>
-                  <li>Assessment details</li>
-                  <li>Compatible with Excel, Google Sheets</li>
+                  <li>{t('All screenplay metadata and scores')}</li>
+                  <li>{t('Five specialist pillars or legacy scores, plus CVS factors')}</li>
+                  <li>{t('Producer metrics')}</li>
+                  <li>{t('Assessment details')}</li>
+                  <li>{t('Compatible with Excel, Google Sheets')}</li>
                 </ul>
               </div>
             )}
@@ -384,7 +384,7 @@ export function ExportModal({
           {isExporting && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className={isDiscovery ? 'dsc-muted' : 'text-black-400'}>Exporting...</span>
+                <span className={isDiscovery ? 'dsc-muted' : 'text-black-400'}>{t('Exporting...')}</span>
                 <span className={isDiscovery ? 'text-[var(--dsc-accent)]' : 'text-gold-400'}>
                   {exportProgress}%
                 </span>
@@ -422,14 +422,14 @@ export function ExportModal({
           {isDiscovery && exportComplete && (
             <div
               role="status"
-              aria-label="Pitch deck downloaded"
+              aria-label={t('Pitch deck downloaded')}
               className="rounded-xl border border-[var(--dsc-success)] bg-[var(--dsc-success-soft)] p-4 text-sm text-[var(--dsc-ink)]"
             >
-              <strong className="block">Pitch deck downloaded</strong>
+              <strong className="block">{t('Pitch deck downloaded')}</strong>
               <p className="mt-1 text-[var(--dsc-ink-2)]">
                 {screenplays.length === 1
-                  ? `${screenplays[0].title}_PitchDeck.pdf is in your Downloads folder.`
-                  : `${screenplays.length} pitch-deck PDFs are in your Downloads folder.`}
+                  ? t('{{title}}_PitchDeck.pdf is in your Downloads folder.', { title: screenplays[0].title })
+                  : t('{{count}} pitch-deck PDFs are in your Downloads folder.', { count: screenplays.length })}
               </p>
             </div>
           )}
@@ -445,12 +445,12 @@ export function ExportModal({
         >
           {isDiscovery && exportComplete ? (
             <button onClick={onClose} className="btn btn-primary">
-              Done
+              {t('Done')}
             </button>
           ) : (
             <>
               <button onClick={onClose} className="btn btn-ghost" disabled={isExporting}>
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 onClick={handleExport}
@@ -474,7 +474,7 @@ export function ExportModal({
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       />
                     </svg>
-                    Exporting...
+                    {t('Exporting...')}
                   </>
                 ) : (
                   <>
@@ -486,8 +486,7 @@ export function ExportModal({
                         d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                       />
                     </svg>
-                    Export {screenplays.length} Screenplay
-                    {screenplays.length !== 1 ? 's' : ''}
+                    {t('Export {{count}} Screenplay', { count: screenplays.length })}
                   </>
                 )}
               </button>

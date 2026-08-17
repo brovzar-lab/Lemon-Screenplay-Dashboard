@@ -86,6 +86,41 @@ export function FeaturedProjectPanel() {
       }),
     [policy, producerLookIds, screenplays],
   );
+
+  const featuredDetail = (() => {
+    const screenplay = selection.screenplay;
+    if (!screenplay) return t('The current studio policy excludes every project in the slate.');
+    if (selection.reason.code === 'manual_pin') {
+      return t('This project remains Featured until an administrator removes the pin.');
+    }
+    if (selection.reason.code === 'dust_resurfacing') {
+      return t('It clears the {{score}} minimum and has not been opened within {{count}} days.', {
+        score: policy.dustMinimumScore.toFixed(1),
+        count: policy.dustDays,
+      });
+    }
+    let detail: string;
+    if (policy.priorityMode === 'strongest_structure') {
+      detail = t('Its structure score of {{score}} leads today’s eligible slate.', {
+        score: screenplay.dimensionScores.structure.toFixed(1),
+      });
+    } else if (policy.priorityMode === 'most_commercial') {
+      detail = t('Market potential, commercial viability, and final score place it first under the studio policy.');
+    } else if (policy.priorityMode === 'fastest_read') {
+      detail = Number.isFinite(screenplay.metadata.pageCount) && screenplay.metadata.pageCount > 0
+        ? t('At {{count}} pages, it is the shortest eligible project above the required score.', { count: screenplay.metadata.pageCount })
+        : t('It is the shortest eligible project with a recorded page count above the required score.');
+    } else if (policy.priorityMode === 'development_opportunity') {
+      detail = screenplay.developmentOpportunity?.rationale ?? t('Its upside and fixability make it the most useful project to review now.');
+    } else {
+      detail = t('Its {{score}} final score leads the projects allowed by today’s studio policy.', {
+        score: (screenplay.producerProjection?.finalScore ?? screenplay.weightedScore).toFixed(1),
+      });
+    }
+    if (selection.reason.mandateFallback) return `${t('No current mandate match.')} ${detail}`;
+    if (selection.reason.invalidPin) return `${t('The pinned project is unavailable.')} ${detail}`;
+    return detail;
+  })();
   const options = useMemo(() => {
     const unique = (values: Array<string | undefined>) =>
       [...new Set(values.filter((value): value is string => Boolean(value)))].sort();
@@ -248,11 +283,11 @@ export function FeaturedProjectPanel() {
           <>
             <h3>{getScreenplayDisplayTitle(selection.screenplay.title).title}</h3>
             <strong>{t(selection.reason.headline)}</strong>
-            <p>{t(selection.reason.detail)}</p>
+            <p>{featuredDetail}</p>
             {selection.reason.invalidPin && <p className="featured-policy__warning">{t('The pinned project is unavailable, so the policy fell back safely.')}</p>}
           </>
         ) : (
-          <><h3>{t('No eligible project')}</h3><p>{t(selection.reason.detail)}</p></>
+          <><h3>{t('No eligible project')}</h3><p>{featuredDetail}</p></>
         )}
       </section>
 

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 
 const ExportModal = lazy(() =>
@@ -21,6 +22,7 @@ export function DiscoveryPitchDeckModal({
   screenplays,
   mode,
 }: DiscoveryPitchDeckModalProps) {
+  const { t } = useTranslation();
   if (!isOpen) return null;
   const host = document.querySelector('.discovery-root') ?? document.body;
 
@@ -31,7 +33,7 @@ export function DiscoveryPitchDeckModal({
           role="status"
           className="dsc-drawer-scrim fixed inset-0 z-50 flex items-center justify-center text-sm font-medium text-[oklch(0.94_0.012_250)]"
         >
-          Loading PDF export tools…
+          {t('Loading PDF export tools…')}
         </div>
       }
     >

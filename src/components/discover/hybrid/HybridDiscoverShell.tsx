@@ -20,8 +20,10 @@ import {
 import { useSortStore } from '@/stores/sortStore';
 import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
 import '@/components/discover/hybrid/hybrid-discovery.css';
+import { useTranslation } from 'react-i18next';
 
 function HybridLoading() {
+  const { t } = useTranslation();
   return (
     <div className="hybrid-loading" role="status">
       <div className="hybrid-loading__stage">
@@ -36,7 +38,7 @@ function HybridLoading() {
           <span key={index} />
         ))}
       </div>
-      <span className="sr-only">Loading Discovery</span>
+      <span className="sr-only">{t('Loading Discovery')}</span>
     </div>
   );
 }
@@ -50,6 +52,7 @@ function EmptyDiscovery({
   message: string;
   action?: { label: string; onClick: () => void };
 }) {
+  const { t } = useTranslation();
   return (
     <section className="hybrid-empty-state">
       <span aria-hidden="true">
@@ -57,7 +60,7 @@ function EmptyDiscovery({
           <path d="M5 5h14v14H5zM8 9h8M8 12h5M8 15h6" />
         </svg>
       </span>
-      <p className="hybrid-eyebrow">Discovery</p>
+      <p className="hybrid-eyebrow">{t('Discovery')}</p>
       <h1>{title}</h1>
       <p>{message}</p>
       {action && (
@@ -93,6 +96,7 @@ export function HybridDiscoverShell({
   producerLookActive,
   onToggleProducerLook,
 }: DiscoverShellProps) {
+  const { t } = useTranslation();
   const [archivePosition, setArchivePosition] = useState({ signature: '', page: 1 });
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   const previousSelectionRef = useRef<Screenplay | null>(selectedScreenplay);
@@ -206,33 +210,33 @@ export function HybridDiscoverShell({
           <HybridLoading />
         ) : isError ? (
           <EmptyDiscovery
-            title="Discovery is temporarily unavailable"
-            message="The classic Discovery view remains available while the live slate reconnects."
+            title={t('Discovery is temporarily unavailable')}
+            message={t('The classic Discovery view remains available while the live slate reconnects.')}
           />
         ) : totalCount === 0 ? (
           <EmptyDiscovery
-            title="No analyzed screenplays yet"
-            message="Completed analyses will appear here automatically through the live slate feed."
+            title={t('No analyzed screenplays yet')}
+            message={t('Completed analyses will appear here automatically through the live slate feed.')}
           />
         ) : screenplays.length === 0 ? (
           <EmptyDiscovery
-            title="No screenplays match this view"
-            message="Broaden the search or clear the active filters to reopen the full slate."
-            action={{ label: 'Clear filters', onClick: onClearFilters }}
+            title={t('No screenplays match this view')}
+            message={t('Broaden the search or clear the active filters to reopen the full slate.')}
+            action={{ label: t('Clear filters'), onClick: onClearFilters }}
           />
         ) : !featured ? (
           <>
             <EmptyDiscovery
-              title="These analyses cannot be ranked yet"
-              message="Their screenplay evidence or specialist reader panel is incomplete. They remain available for review without being promoted as the strongest project."
+              title={t('These analyses cannot be ranked yet')}
+              message={t('Their screenplay evidence or specialist reader panel is incomplete. They remain available for review without being promoted as the strongest project.')}
             />
             <section className="hybrid-slate-section" aria-labelledby="hybrid-review-title">
               <header className="hybrid-slate-heading">
                 <div>
-                  <p className="hybrid-eyebrow">Review required</p>
-                  <h2 id="hybrid-review-title">Needs review</h2>
+                  <p className="hybrid-eyebrow">{t('Review required')}</p>
+                  <h2 id="hybrid-review-title">{t('Needs review')}</h2>
                 </div>
-                <span>{reviewOnlyScreenplays.length} unranked</span>
+                <span>{t('{{count}} unranked', { count: reviewOnlyScreenplays.length })}</span>
               </header>
               <HybridSlateGrid
                 screenplays={reviewOnlyScreenplays}
@@ -260,22 +264,21 @@ export function HybridDiscoverShell({
             <section className="hybrid-slate-section" aria-labelledby="hybrid-slate-title">
               <header className="hybrid-slate-heading">
                 <div>
-                  <p className="hybrid-eyebrow">Current view</p>
-                  <h2 id="hybrid-slate-title">The slate</h2>
+                  <p className="hybrid-eyebrow">{t('Current view')}</p>
+                  <h2 id="hybrid-slate-title">{t('The slate')}</h2>
                 </div>
                 <p aria-live="polite">
                   <strong>
-                    Showing {filteredCount} of {totalCount} screenplays
+                    {t('Showing {{filtered}} of {{total}} screenplays', { filtered: filteredCount, total: totalCount })}
                   </strong>
                   {producedHiddenCount > 0 && (
                     <>
                       <span aria-hidden="true">·</span>
                       <span>
-                        {producedHiddenCount} produced{' '}
-                        {producedHiddenCount === 1 ? 'film' : 'films'} hidden
+                        {t('{{count}} produced hidden', { count: producedHiddenCount })}
                       </span>
                       <button type="button" onClick={onRevealProduced}>
-                        Show produced films
+                        {t('Show produced films')}
                       </button>
                     </>
                   )}
@@ -283,12 +286,10 @@ export function HybridDiscoverShell({
                     <>
                       <span aria-hidden="true">·</span>
                       <span>
-                        {nonScreenplayHiddenCount}{' '}
-                        {nonScreenplayHiddenCount === 1 ? 'non-screenplay' : 'non-screenplays'}{' '}
-                        hidden
+                        {t('{{count}} non-screenplays hidden', { count: nonScreenplayHiddenCount })}
                       </span>
                       <button type="button" onClick={onRevealNonScreenplays}>
-                        Show non-screenplays
+                        {t('Show non-screenplays')}
                       </button>
                     </>
                   )}
@@ -305,7 +306,7 @@ export function HybridDiscoverShell({
               />
 
               {archivePageCount > 1 && (
-                <nav className="hybrid-pagination" aria-label="Browse the slate pages">
+                <nav className="hybrid-pagination" aria-label={t('Browse the slate pages')}>
                   <button
                     type="button"
                     onClick={() =>
@@ -316,10 +317,10 @@ export function HybridDiscoverShell({
                     }
                     disabled={archivePage === 1}
                   >
-                    Previous 50
+                    {t('Previous 50')}
                   </button>
                   <span>
-                    Page {archivePage} of {archivePageCount}
+                    {t('Page {{page}} of {{count}}', { page: archivePage, count: archivePageCount })}
                   </span>
                   <button
                     type="button"
@@ -331,7 +332,7 @@ export function HybridDiscoverShell({
                     }
                     disabled={archivePage === archivePageCount}
                   >
-                    Next 50
+                    {t('Next 50')}
                   </button>
                 </nav>
               )}
