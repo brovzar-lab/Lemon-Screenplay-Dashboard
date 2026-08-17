@@ -7,6 +7,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 
 
 import type { Screenplay } from '@/types';
 import { CHART_COLORS } from '@/lib/chartColors';
+import { useTranslation } from 'react-i18next';
 
 interface ScoreDistributionProps {
   screenplays: Screenplay[];
@@ -48,15 +49,16 @@ interface ChartTooltipProps {
 
 // Hoisted to module scope — avoids react-hooks/static-components violation
 function CustomTooltip({ active, payload }: ChartTooltipProps) {
+  const { t } = useTranslation();
   if (active && payload && payload.length) {
     const item = payload[0].payload as ScoreBinItem;
     return (
       <div className="chart-tooltip">
-        <strong>Score: {item.label}</strong>
+        <strong>{t('Score')}: {item.label}</strong>
         <span>
-          <span className="font-bold">{item.count}</span> screenplays
+          {t('{{count}} screenplay', { count: item.count })}
         </span>
-        <span>{item.percentage}% of total</span>
+        <span>{t('{{percentage}}% of total', { percentage: item.percentage })}</span>
       </div>
     );
   }

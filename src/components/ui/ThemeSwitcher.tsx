@@ -4,9 +4,11 @@
  * sun/moon toggle already in the Header.
  */
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useThemeStore, DESIGN_SYSTEMS, type DesignSystem } from '../../stores/themeStore';
 
 export function ThemeSwitcher() {
+  const { t } = useTranslation();
   const { designSystem, setDesignSystem, isDark } = useThemeStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -56,8 +58,8 @@ export function ThemeSwitcher() {
         }}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Switch design system"
-        title="Switch design system"
+        aria-label={t('Switch design system')}
+        title={t('Switch design system')}
       >
         {/* Palette icon */}
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -85,14 +87,14 @@ export function ThemeSwitcher() {
             animation: 'scale-in 150ms cubic-bezier(0.16, 1, 0.3, 1)',
           }}
           role="listbox"
-          aria-label="Design systems"
+          aria-label={t('Design systems')}
         >
           {/* Header */}
           <div
             className="px-4 py-3 text-xs font-semibold uppercase tracking-wider"
             style={{ color: 'var(--sp-text-3)', borderBottom: '1px solid var(--sp-border)' }}
           >
-            Design System
+            {t('Design System')}
           </div>
 
           {/* Options */}
@@ -133,12 +135,12 @@ export function ThemeSwitcher() {
 
                   {/* Label + description */}
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold leading-tight">{ds.label}</div>
+                    <div className="text-sm font-semibold leading-tight">{t(ds.label)}</div>
                     <div
                       className="text-xs leading-tight mt-0.5 truncate"
                       style={{ color: 'var(--sp-text-3)' }}
                     >
-                      {ds.description}
+                      {t(ds.description)}
                     </div>
                   </div>
 
@@ -158,7 +160,7 @@ export function ThemeSwitcher() {
             className="px-4 py-2.5 text-[10px] leading-tight"
             style={{ color: 'var(--sp-text-3)', borderTop: '1px solid var(--sp-border)' }}
           >
-            Use the ☀/🌙 toggle to switch light/dark within any design system
+            {t('Use the light/dark control within any design system')}
           </div>
         </div>
       )}

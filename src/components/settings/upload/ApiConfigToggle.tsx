@@ -4,6 +4,7 @@
  */
 
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { ApiConfigPanel } from '../ApiConfigPanel';
 
 interface ApiConfigToggleProps {
@@ -13,6 +14,7 @@ interface ApiConfigToggleProps {
 }
 
 export function ApiConfigToggle({ isConfigured, showApiConfig, onToggle }: ApiConfigToggleProps) {
+  const { t } = useTranslation();
   return (
     <div className="border border-black-700 rounded-xl overflow-hidden">
       <button
@@ -25,12 +27,12 @@ export function ApiConfigToggle({ isConfigured, showApiConfig, onToggle }: ApiCo
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           <div className="text-left">
-            <span className="font-medium text-gold-200">API Configuration</span>
+            <span className="font-medium text-gold-200">{t('API Configuration')}</span>
             <span className={clsx(
               'ml-2 text-xs px-2 py-0.5 rounded-full',
               isConfigured ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
             )}>
-              {isConfigured ? 'Configured' : 'Not Configured'}
+              {t(isConfigured ? 'Configured' : 'Not Configured')}
             </span>
           </div>
         </div>

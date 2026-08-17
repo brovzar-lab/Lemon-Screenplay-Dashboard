@@ -13,6 +13,7 @@ import {
   type SortField,
   type Screenplay,
 } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 const VERDICTS: RecommendationTier[] = ['film_now', 'recommend', 'consider', 'pass'];
 
@@ -60,6 +61,7 @@ export function DiscoverControls({
   selectionCount = 0,
   onToggleSelectionMode,
 }: DiscoverControlsProps) {
+  const { t } = useTranslation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const filters = useFilterStore();
   const sortConfigs = useSortStore((state) => state.sortConfigs);
@@ -96,11 +98,11 @@ export function DiscoverControls({
   };
 
   return (
-    <section aria-label="Find screenplays" className="dsc-command cinema-command mb-5">
+    <section aria-label={t('Find screenplays')} className="dsc-command cinema-command mb-5">
       <div className="cinema-command-primary flex flex-col gap-3 xl:flex-row xl:items-end">
         <div className="min-w-0 flex-1">
           <label htmlFor="discovery-search" className="dsc-label mb-1.5 block">
-            Search
+            {t('Search')}
           </label>
           <div className="dsc-search">
             <span aria-hidden="true" className="text-lg font-semibold text-[var(--dsc-ink-3)]">
@@ -110,10 +112,10 @@ export function DiscoverControls({
               ref={searchInputRef}
               id="discovery-search"
               type="search"
-              aria-label="Discovery search"
+              aria-label={t('Discovery search')}
               value={filters.searchQuery}
               onChange={(event) => filters.setSearchQuery(event.target.value)}
-              placeholder="Title, writer, logline, theme..."
+              placeholder={t('Title, writer, logline, theme...')}
               className="py-2 text-base"
             />
           </div>
@@ -121,33 +123,33 @@ export function DiscoverControls({
 
         <div className="dsc-compact-filter grid gap-3 md:grid-cols-2 xl:w-[22rem]">
           <MultiSelect
-            label="Genre"
+            label={t('Genre')}
             options={genres}
             selected={filters.genres}
             onChange={filters.setGenres}
-            placeholder="All genres"
+            placeholder={t('All genres')}
           />
           <MultiSelect
-            label="Theme"
+            label={t('Theme')}
             options={themes}
             selected={filters.themes}
             onChange={filters.setThemes}
-            placeholder="All themes"
+            placeholder={t('All themes')}
           />
         </div>
 
         <label className="dsc-label flex flex-col items-start gap-1.5 xl:w-44">
-          Sort
+          {t('Sort')}
           <select
-            aria-label="Sort results"
+            aria-label={t('Sort results')}
             value={activeSort}
             onChange={(event) => handleSort(event.target.value as SortField)}
             className="dsc-select w-full normal-case tracking-normal"
           >
-            <option value="weightedScore">Final score</option>
-            <option value="marketPotential">Market potential</option>
+            <option value="weightedScore">{t('Final score')}</option>
+            <option value="marketPotential">{t('Market potential')}</option>
             <option value="cvsTotal">CVS</option>
-            <option value="title">Title</option>
+            <option value="title">{t('Title')}</option>
           </select>
         </label>
 
@@ -159,7 +161,7 @@ export function DiscoverControls({
               aria-pressed={selectionMode}
               onClick={onToggleSelectionMode}
             >
-              <span>{selectionMode ? 'Done selecting' : 'Select projects'}</span>
+              <span>{t(selectionMode ? 'Done selecting' : 'Select projects')}</span>
               {selectionCount > 0 && <strong>{selectionCount}</strong>}
             </button>
           )}
@@ -169,7 +171,7 @@ export function DiscoverControls({
       </div>
 
       <div className="dsc-command-lower cinema-command-lower flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex flex-wrap gap-2" aria-label="Verdict filters">
+        <div className="flex flex-wrap gap-2" aria-label={t('Verdict filters')}>
           {VERDICTS.map((tier) => {
             const active = filters.recommendationTiers.includes(tier);
 
@@ -181,7 +183,7 @@ export function DiscoverControls({
                 onClick={() => filters.toggleRecommendationTier(tier)}
                 className={clsx('dsc-verdict-chip', VERDICT_STYLES[tier])}
               >
-                {RECOMMENDATION_CONFIG[tier].label}
+                {t(RECOMMENDATION_CONFIG[tier].label)}
               </button>
             );
           })}
@@ -189,7 +191,7 @@ export function DiscoverControls({
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--dsc-ink-2)]">
           <span className="font-semibold text-[var(--dsc-ink)]">
-            Showing {filteredCount} of {totalCount} screenplays
+            {t('Showing {{filtered}} of {{total}} screenplays', { filtered: filteredCount, total: totalCount })}
           </span>
           {producedHiddenCount > 0 && (
             <>
@@ -197,14 +199,14 @@ export function DiscoverControls({
                 ·
               </span>
               <span>
-                {producedHiddenCount} produced {producedHiddenCount === 1 ? 'film' : 'films'} hidden
+                {t('{{count}} produced hidden', { count: producedHiddenCount })}
               </span>
               <button
                 type="button"
                 onClick={onRevealProduced}
                 className="dsc-command-link"
               >
-                Show produced films
+                {t('Show produced films')}
               </button>
             </>
           )}
@@ -214,32 +216,31 @@ export function DiscoverControls({
                 ·
               </span>
               <span>
-                {nonScreenplayHiddenCount}{' '}
-                {nonScreenplayHiddenCount === 1 ? 'non-screenplay' : 'non-screenplays'} hidden
+                {t('{{count}} non-screenplays hidden', { count: nonScreenplayHiddenCount })}
               </span>
               <button
                 type="button"
                 onClick={onRevealNonScreenplays}
                 className="dsc-command-link"
               >
-                Show non-screenplays
+                {t('Show non-screenplays')}
               </button>
             </>
           )}
           {hasActiveFilters && filteredCount > 0 && (
             <button type="button" onClick={onClearFilters} className="dsc-command-link">
-              Clear filters
+              {t('Clear filters')}
             </button>
           )}
         </div>
 
         <details className="dsc-score-details">
           <summary className="dsc-btn dsc-btn-ghost !min-h-10 whitespace-nowrap">
-            Score ranges
+            {t('Score ranges')}
           </summary>
           <div className="dsc-score-popover">
             <RangeSlider
-              label="Final score"
+              label={t('Final score')}
               min={0}
               max={10}
               value={[filters.weightedScoreRange.min, filters.weightedScoreRange.max]}
@@ -249,7 +250,7 @@ export function DiscoverControls({
               onChange={([min, max]) => filters.setWeightedScoreRange({ min, max })}
             />
             <RangeSlider
-              label="Market potential"
+              label={t('Market potential')}
               min={0}
               max={10}
               value={[filters.marketPotentialRange.min, filters.marketPotentialRange.max]}

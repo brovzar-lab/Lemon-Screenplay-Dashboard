@@ -2,6 +2,7 @@ import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 
 import { CHART_COLORS } from '@/lib/chartColors';
 import { getScreenplayFormatInfo } from '@/lib/screenplayDisplay';
 import type { Screenplay } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface FormatChartProps {
   screenplays: Screenplay[];
@@ -31,19 +32,21 @@ function FormatTooltip({
   active?: boolean;
   payload?: ReadonlyArray<{ payload: FormatChartItem }>;
 }) {
+  const { t } = useTranslation();
   if (!active || !payload?.length) return null;
   const item = payload[0].payload;
   return (
     <div className="chart-tooltip">
       <strong>{item.format}</strong>
       <span>
-        {item.count} screenplay{item.count === 1 ? '' : 's'}
+        {t('{{count}} screenplay', { count: item.count })}
       </span>
     </div>
   );
 }
 
 export function FormatChart({ screenplays }: FormatChartProps) {
+  const { t } = useTranslation();
   const counts = screenplays.reduce<Record<string, number>>((accumulator, screenplay) => {
     const format = shortFormatLabel(getScreenplayFormatInfo(screenplay).format ?? 'Other');
     accumulator[format] = (accumulator[format] ?? 0) + 1;
@@ -53,7 +56,7 @@ export function FormatChart({ screenplays }: FormatChartProps) {
     .sort((left, right) => right[1] - left[1])
     .slice(0, 4)
     .map(([format, count], index) => ({
-      format,
+      format: t(format),
       count,
       color: FORMAT_COLORS[index % FORMAT_COLORS.length],
     }));

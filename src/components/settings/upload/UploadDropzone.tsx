@@ -5,6 +5,7 @@
 
 import { useState, useRef } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import type { UploadPresentation } from '@/components/settings/upload/upload.types';
 
 interface UploadDropzoneProps {
@@ -13,6 +14,7 @@ interface UploadDropzoneProps {
 }
 
 export function UploadDropzone({ onFilesSelected, presentation = 'settings' }: UploadDropzoneProps) {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -50,7 +52,7 @@ export function UploadDropzone({ onFilesSelected, presentation = 'settings' }: U
       <input
         ref={fileInputRef}
         type="file"
-        aria-label="Choose screenplay PDFs"
+        aria-label={t('Choose screenplay PDFs')}
         accept=".pdf"
         multiple
         onChange={(e) => onFilesSelected(e.target.files)}
@@ -67,10 +69,10 @@ export function UploadDropzone({ onFilesSelected, presentation = 'settings' }: U
         </div>
         <div>
           <p className={clsx('font-medium', presentation === 'intake' ? 'text-[var(--dsc-ink)]' : 'text-gold-200')}>
-            Drop screenplay PDFs here or choose files
+            {t('Drop screenplay PDFs here or choose files')}
           </p>
           <p className={clsx('mt-1 text-sm', presentation === 'intake' ? 'text-[var(--dsc-ink-3)]' : 'text-black-400')}>
-            Supports multiple PDF screenplays, up to 50 MB each
+            {t('Supports multiple PDF screenplays, up to 50 MB each')}
           </p>
         </div>
       </div>

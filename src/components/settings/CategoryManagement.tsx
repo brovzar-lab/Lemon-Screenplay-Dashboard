@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 interface Category {
   id: string;
@@ -49,6 +50,7 @@ function saveCategories(cats: Category[]) {
 }
 
 export function CategoryManagement() {
+  const { t } = useTranslation();
   const [categories, setCategories] = useState<Category[]>(loadCategories);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [error, setError] = useState('');
@@ -64,24 +66,24 @@ export function CategoryManagement() {
 
     const trimmedName = newCategoryName.trim();
     if (!trimmedName) {
-      setError('Enter a category name');
+      setError(t('Enter a category name'));
       return;
     }
 
     // Auto-generate ID from name
     const id = trimmedName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     if (id.length < 2) {
-      setError('Name too short');
+      setError(t('Name too short'));
       return;
     }
 
     if (id === 'UNCATEGORIZED') {
-      setError('"UNCATEGORIZED" is reserved');
+      setError(t('“UNCATEGORIZED” is reserved'));
       return;
     }
 
     if (categories.some(c => c.id === id)) {
-      setError(`"${id}" already exists`);
+      setError(t('“{{id}}” already exists', { id }));
       return;
     }
 
@@ -107,9 +109,9 @@ export function CategoryManagement() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-display text-gold-200 mb-2">Categories</h2>
+        <h2 className="text-xl font-display text-gold-200 mb-2">{t('Categories')}</h2>
         <p className="text-sm text-black-400">
-          Manage screenplay categories. These are used when uploading and for dashboard filtering.
+          {t('Manage screenplay categories. These are used when uploading and for dashboard filtering.')}
         </p>
       </div>
 
@@ -135,12 +137,12 @@ export function CategoryManagement() {
             {/* Category Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <p className="font-medium text-gold-200">{category.name}</p>
+                <p className="font-medium text-gold-200">{t(category.name)}</p>
                 <span className="px-2 py-0.5 rounded text-xs bg-black-700 text-black-400">
                   {category.id}
                 </span>
               </div>
-              <p className="text-sm text-black-500">{category.description}</p>
+              <p className="text-sm text-black-500">{t(category.description)}</p>
             </div>
 
             {/* Delete Button */}
@@ -153,8 +155,8 @@ export function CategoryManagement() {
                   : 'text-black-400 hover:text-red-400'
               )}
               title={confirmDeleteId === category.id
-                ? 'Click again to confirm — screenplays will move to Uncategorized'
-                : 'Delete category'
+                ? t('Click again to confirm. Screenplays will move to Uncategorized.')
+                : t('Delete category')
               }
             >
               {confirmDeleteId === category.id ? (
@@ -162,7 +164,7 @@ export function CategoryManagement() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  Confirm
+                  {t('Confirm')}
                 </>
               ) : (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -175,46 +177,46 @@ export function CategoryManagement() {
 
         {categories.length === 0 && (
           <div className="text-center py-8 text-black-500 text-sm">
-            No categories defined. Add one below.
+            {t('No categories defined. Add one below.')}
           </div>
         )}
       </div>
 
       {/* Info Box */}
       <div className="p-4 rounded-lg bg-black-800/30 border border-black-700">
-        <h4 className="text-sm font-medium text-gold-300 mb-2">How Categories Work</h4>
+        <h4 className="text-sm font-medium text-gold-300 mb-2">{t('How Categories Work')}</h4>
         <ul className="text-sm text-black-400 space-y-2">
           <li className="flex items-start gap-2">
             <span className="text-gold-500">•</span>
-            <span>Choose a category when you <strong>upload</strong> — it gets saved with the analysis</span>
+            <span>{t('Choose a category when you upload. It is saved with the analysis.')}</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-gold-500">•</span>
-            <span>The <strong>dashboard tabs</strong> match these categories exactly</span>
+            <span>{t('The dashboard tabs match these categories exactly.')}</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-gold-500">•</span>
-            <span>Deleting a category moves its screenplays to <strong>Uncategorized</strong></span>
+            <span>{t('Deleting a category moves its screenplays to Uncategorized.')}</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-gold-500">•</span>
-            <span>Click a tab, then <strong>Export</strong> to get only that category</span>
+            <span>{t('Click a tab, then Export to get only that category.')}</span>
           </li>
         </ul>
       </div>
 
       {/* Add Category Form */}
       <div className="p-4 rounded-lg bg-black-800/50 border border-black-700">
-        <h4 className="text-sm font-medium text-gold-300 mb-4">Add Category</h4>
+        <h4 className="text-sm font-medium text-gold-300 mb-4">{t('Add Category')}</h4>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs text-black-400 mb-1">Category Name</label>
+            <label className="block text-xs text-black-400 mb-1">{t('Category Name')}</label>
             <input
               type="text"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="e.g., Independent Films"
+              placeholder={t('e.g., Independent Films')}
               className="input w-full text-sm"
             />
           </div>
@@ -230,7 +232,7 @@ export function CategoryManagement() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Add Category
+            {t('Add Category')}
           </button>
         </div>
       </div>

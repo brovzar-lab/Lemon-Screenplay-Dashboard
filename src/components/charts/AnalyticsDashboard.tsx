@@ -10,6 +10,7 @@ import { GenreChart } from './GenreChart';
 import { FormatChart } from './FormatChart';
 import { useCountUp } from '../../hooks/useCountUp';
 import type { BudgetCategory, Screenplay, RecommendationTier } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface AnalyticsDashboardProps {
   screenplays: Screenplay[];
@@ -42,6 +43,7 @@ export function AnalyticsDashboard({
   expanded,
   onExpandedChange,
 }: AnalyticsDashboardProps) {
+  const { t } = useTranslation();
   const [internalExpanded, setInternalExpanded] = useState(initiallyExpanded);
   const isExpanded = expanded ?? internalExpanded;
   const contentRef = useRef<HTMLDivElement>(null);
@@ -87,18 +89,18 @@ export function AnalyticsDashboard({
   // Chart cards: each gets a stagger delay offset (100 ms apart)
   const chartCards = [
     {
-      title: 'Score Distribution',
-      hint: onFilterByScoreRange ? 'Click a bar to filter' : null,
+      title: t('Score Distribution'),
+      hint: onFilterByScoreRange ? t('Click a bar to filter') : null,
       content: <ScoreDistribution screenplays={screenplays} onBarClick={onFilterByScoreRange} />,
     },
     {
-      title: 'Recommendation Tiers',
-      hint: onFilterByTier ? 'Click to filter by tier' : null,
+      title: t('Recommendation Tiers'),
+      hint: onFilterByTier ? t('Click to filter by tier') : null,
       content: <TierBreakdown screenplays={screenplays} onTierClick={onFilterByTier} />,
     },
     {
-      title: 'Top Genres',
-      hint: onFilterByGenre ? 'Click to filter by genre' : null,
+      title: t('Top Genres'),
+      hint: onFilterByGenre ? t('Click to filter by genre') : null,
       content: (
         <GenreChart
           screenplays={screenplays}
@@ -108,7 +110,7 @@ export function AnalyticsDashboard({
       ),
     },
     {
-      title: 'Format Mix',
+      title: t('Format Mix'),
       hint: null,
       content: <FormatChart screenplays={screenplays} />,
     },
@@ -148,12 +150,14 @@ export function AnalyticsDashboard({
               <span className="text-gold-400">
                 {isExpanded ? animatedTotal.toFixed(0) : screenplays.length}
               </span>
-              {isFiltered ? ` of ${totalScreenplays.length}` : ''} screenplays
-              {isFiltered && <span className="ml-1 text-gold-500">(filtered)</span>}
+              {isFiltered
+                ? t(' of {{count}} screenplays', { count: totalScreenplays.length })
+                : ` ${t('screenplays')}`}
+              {isFiltered && <span className="ml-1 text-gold-500">({t('filtered')})</span>}
             </span>
             <span aria-hidden="true">·</span>
             <span className="text-black-400">
-              Avg Score:{' '}
+              {t('Avg Score')}:{' '}
               <span className="text-emerald-400">
                 {isExpanded ? animatedAvg.toFixed(1) : avgScoreRaw.toFixed(1)}
               </span>
@@ -163,14 +167,14 @@ export function AnalyticsDashboard({
               <span className="text-gold-400">
                 {isExpanded ? animatedFilmNow.toFixed(0) : filmNowCount}
               </span>{' '}
-              FILM NOW
+              {t('FILM NOW')}
             </span>
             <span aria-hidden="true">·</span>
             <span className="text-black-400">
               <span className="text-emerald-400">
                 {isExpanded ? animatedRecommend.toFixed(0) : recommendCount}
               </span>{' '}
-              Recommend
+              {t('Recommend')}
             </span>
           </div>
         </div>

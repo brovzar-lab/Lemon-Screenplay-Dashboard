@@ -6,6 +6,7 @@
  */
 
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import {
   isUploadJobReady,
   isUploadTerminalStatus,
@@ -50,6 +51,7 @@ export function UploadQueue({
   presentation = 'settings',
   headingId,
 }: UploadQueueProps) {
+  const { t } = useTranslation();
   const pendingJobs = jobs.filter((j) => j.status === 'pending');
   const actionablePending = pendingJobs.filter(isUploadJobReady);
   const activeJobs = jobs.filter((j) => j.status === 'parsing' || j.status === 'analyzing' || j.status === 'promoting');
@@ -69,15 +71,15 @@ export function UploadQueue({
       <div>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="dsc-kicker">Live docket</p>
-            <h2 id={headingId} className="dsc-display mt-2 text-3xl">Intake ledger</h2>
+            <p className="dsc-kicker">{t('Live docket')}</p>
+            <h2 id={headingId} className="dsc-display mt-2 text-3xl">{t('Intake ledger')}</h2>
           </div>
-          <span className="text-sm text-[var(--dsc-ink-3)]">0 projects in motion</span>
+          <span className="text-sm text-[var(--dsc-ink-3)]">{t('0 projects in motion')}</span>
         </div>
         <div className="mt-6 grid min-h-40 place-items-center rounded-[var(--dsc-radius-card)] border border-dashed border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] px-6 py-10 text-center">
           <div>
-            <p className="font-semibold text-[var(--dsc-ink)]">The desk is clear</p>
-            <p className="mt-2 text-sm text-[var(--dsc-ink-3)]">Add screenplay PDFs above. Their status will stay visible here.</p>
+            <p className="font-semibold text-[var(--dsc-ink)]">{t('The desk is clear')}</p>
+            <p className="mt-2 text-sm text-[var(--dsc-ink-3)]">{t('Add screenplay PDFs above. Their status will stay visible here.')}</p>
           </div>
         </div>
       </div>
@@ -88,9 +90,9 @@ export function UploadQueue({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          {isIntake && <p className="dsc-kicker">Live docket</p>}
+          {isIntake && <p className="dsc-kicker">{t('Live docket')}</p>}
           <h3 id={headingId} className={clsx(isIntake ? 'dsc-display mt-2 text-3xl' : 'text-lg font-medium text-gold-200')}>
-            {isIntake ? 'Intake ledger' : 'Upload Queue'}
+            {t(isIntake ? 'Intake ledger' : 'Upload Queue')}
           </h3>
         </div>
         {terminalJobs.length > 0 && (
@@ -101,7 +103,7 @@ export function UploadQueue({
               isIntake ? 'text-[var(--dsc-ink-3)] hover:text-[var(--dsc-accent)]' : 'text-black-400 hover:text-gold-400',
             )}
           >
-            Clear completed
+            {t('Clear completed')}
           </button>
         )}
       </div>
@@ -113,7 +115,7 @@ export function UploadQueue({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <p className="text-xs text-amber-300">
-            <span className="font-medium">{duplicateCount} exact duplicate{duplicateCount > 1 ? 's' : ''}</span> blocked to prevent unnecessary AI spend
+            <span className="font-medium">{t('{{count}} exact duplicate', { count: duplicateCount })}</span> {t('blocked to prevent unnecessary AI spend')}
           </p>
         </div>
       )}
@@ -121,7 +123,7 @@ export function UploadQueue({
       {decisionCount > 0 && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/30">
           <p className="text-sm text-blue-200">
-            <span className="font-medium">{decisionCount} possible match{decisionCount > 1 ? 'es' : ''}</span> need your decision before analysis
+            <span className="font-medium">{t('{{count}} possible match', { count: decisionCount })}</span> {t('need your decision before analysis')}
           </p>
         </div>
       )}
@@ -201,24 +203,24 @@ export function UploadQueue({
           >
             {isConfigured ? (
               <>
-                {isIntake ? 'Review and start analysis' : 'Start Analysis'} ({actionablePending.length} file{actionablePending.length > 1 ? 's' : ''})
+                {t(isIntake ? 'Review and start analysis' : 'Start Analysis')} ({t('{{count}} file', { count: actionablePending.length })})
                 <span className="ml-2 text-xs opacity-70">
-                  using {MODEL_OPTIONS.find(m => m.id === selectedModel)!.name}
+                  {t('using {{model}}', { model: MODEL_OPTIONS.find(m => m.id === selectedModel)!.name })}
                   {batchCostEstimate && ` \u2022 ${batchCostEstimate}`}
                 </span>
               </>
             ) : (
-              'Configure API to Start Analysis'
+              t('Configure API to Start Analysis')
             )}
           </button>
           {duplicateCount > 0 && actionablePending.length > 0 && (
             <p className="text-xs text-amber-400/70 text-center">
-              Exact duplicates are excluded from this analysis run.
+              {t('Exact duplicates are excluded from this analysis run.')}
             </p>
           )}
           {!isConfigured && (
             <p className="text-xs text-amber-400 text-center">
-              Click &quot;API Configuration&quot; above to set up your API key and budget limits
+              {t('Click “API Configuration” above to set up your API key and budget limits')}
             </p>
           )}
         </div>
@@ -232,10 +234,10 @@ export function UploadQueue({
         )}>
           <div className="w-5 h-5 border-2 border-gold-400 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-gold-300">
-            Processing with {MODEL_OPTIONS.find(m => m.id === selectedModel)!.name}... {' '}
-            {selectedModel === 'haiku' ? 'This should be quick (~1 min per script).' :
+            {t('Processing with {{model}}...', { model: MODEL_OPTIONS.find(m => m.id === selectedModel)!.name })}{' '}
+            {t(selectedModel === 'haiku' ? 'This should be quick (~1 min per script).' :
               selectedModel === 'sonnet' ? 'This may take 2-3 minutes per screenplay.' :
-                'Deep analysis in progress — ~5 minutes per screenplay.'}
+                'Deep analysis in progress, about 5 minutes per screenplay.')}
           </p>
         </div>
       )}

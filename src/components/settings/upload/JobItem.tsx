@@ -5,6 +5,7 @@
  */
 
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import type { UploadJob } from '@/stores/uploadStore';
 import type { UploadPresentation } from '@/components/settings/upload/upload.types';
 import { STATUS_LABELS } from './upload.constants';
@@ -30,6 +31,7 @@ export function JobItem({
   onOpenAnalysis,
   presentation = 'settings',
 }: JobItemProps) {
+  const { t } = useTranslation();
   const status = STATUS_LABELS[job.status];
   const isActive = job.status === 'parsing' || job.status === 'analyzing' || job.status === 'promoting';
   const isSkipped = job.status === 'skipped';
@@ -59,11 +61,11 @@ export function JobItem({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <p className="text-sm text-amber-200">
-              <span className="font-medium">Exact duplicate.</span> Already analyzed
+              <span className="font-medium">{t('Exact duplicate.')}</span> {t('Already analyzed')}
               {job.existingTitle && job.existingTitle !== job.filename.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ') && (
-                <> as <span className="font-medium">"{job.existingTitle}"</span></>
+                <> {t('as')} <span className="font-medium">"{job.existingTitle}"</span></>
               )}
-              . This PDF has exactly the same bytes, so the engine will not run or spend AI credits again.
+              . {t('This PDF has exactly the same bytes, so the engine will not run or spend AI credits again.')}
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -72,7 +74,7 @@ export function JobItem({
               onClick={() => onSkip?.(job.id)}
               className="px-2 py-0.5 text-xs text-black-400 hover:text-red-400 border border-black-700 hover:border-red-500/30 rounded transition-all"
             >
-              Skip upload
+              {t('Skip upload')}
             </button>
           </div>
         </div>
@@ -81,8 +83,7 @@ export function JobItem({
       {!job.isDuplicate && job.possibleMatchProjectId && job.status === 'pending' && (
         <div className="px-3 py-3 border-b border-blue-500/20 bg-blue-500/5">
           <p className="text-sm text-blue-100">
-            <span className="font-medium">Possible match:</span> &quot;{job.existingTitle}&quot; already exists.
-            Is this a new draft of that project or a different screenplay with the same title?
+            <span className="font-medium">{t('Possible match:')}</span> &quot;{job.existingTitle}&quot; {t('already exists. Is this a new draft of that project or a different screenplay with the same title?')}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
@@ -96,7 +97,7 @@ export function JobItem({
                   : 'text-blue-200 border-blue-500/40 hover:bg-blue-500/10',
               )}
             >
-              New revision of {job.existingTitle}
+              {t('New revision of {{title}}', { title: job.existingTitle })}
             </button>
             <button
               type="button"
@@ -109,7 +110,7 @@ export function JobItem({
                   : 'text-blue-200 border-blue-500/40 hover:bg-blue-500/10',
               )}
             >
-              Separate project
+              {t('Separate project')}
             </button>
           </div>
         </div>
@@ -118,7 +119,7 @@ export function JobItem({
       {job.status === 'pending' && job.identityCheckComplete === false && (
         <div className="px-3 py-2 border-b border-black-700 bg-black-800/40">
           <p className="text-sm text-black-300">
-            Checking the archive for revisions and exact duplicates...
+            {t('Checking the archive for revisions and exact duplicates...')}
           </p>
         </div>
       )}
@@ -155,25 +156,25 @@ export function JobItem({
         <div className="flex-1 min-w-0">
           <p className={clsx('truncate text-sm font-medium', isIntake ? 'text-[var(--dsc-ink)]' : 'text-gold-200')}>{job.filename}</p>
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            <span className={status.color}>{status.label}</span>
+            <span className={status.color}>{t(status.label)}</span>
             <span className="text-black-500">&middot;</span>
             <span className="text-black-500">{job.category}</span>
             {job.error && (
               <>
                 <span className="text-black-500">&middot;</span>
-                <span className="text-red-400 truncate" title={job.error}>{job.error}</span>
+                <span className="text-red-400 truncate" title={job.error}>{t(job.error)}</span>
               </>
             )}
           </div>
 
           {job.matchResolution === 'revision' && job.status === 'pending' && (
             <p className="mt-1 text-xs text-blue-300">
-              Will be added to {job.existingTitle || job.targetProjectId}
+              {t('Will be added to {{title}}', { title: job.existingTitle || job.targetProjectId })}
             </p>
           )}
           {job.matchResolution === 'separate' && job.status === 'pending' && (
             <p className="mt-1 text-xs text-blue-300">
-              Will create a separate project
+              {t('Will create a separate project')}
             </p>
           )}
 
@@ -183,7 +184,7 @@ export function JobItem({
               {job.tmdbChecking ? (
                 <span className="inline-flex items-center gap-1 text-xs text-black-400">
                   <div className="w-2.5 h-2.5 border border-black-400 border-t-transparent rounded-full animate-spin" />
-                  Checking TMDB…
+                  {t('Checking TMDB…')}
                 </span>
               ) : job.tmdbStatus ? (
                 job.tmdbStatus.isProduced ? (
@@ -193,14 +194,14 @@ export function JobItem({
                       ? 'bg-red-500/15 text-red-300'
                       : 'bg-amber-500/15 text-amber-300'
                   )}>
-                    🎬 Produced
+                    🎬 {t('Produced')}
                     {job.tmdbStatus.tmdbTitle && ` as "${job.tmdbStatus.tmdbTitle}"`}
                     {job.tmdbStatus.releaseDate && ` (${job.tmdbStatus.releaseDate.slice(0, 4)})`}
                     {job.tmdbStatus.confidence === 'medium' && ' ~'}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
-                    ✓ Not yet produced
+                    ✓ {t('Not yet produced')}
                   </span>
                 )
               ) : null}
@@ -224,7 +225,7 @@ export function JobItem({
             onClick={() => onRetry(job.id)}
             className="px-3 py-1 text-xs font-medium text-gold-300 bg-gold-500/10 border border-gold-500/30 rounded-md hover:bg-gold-500/20 hover:border-gold-500/50 transition-all"
           >
-            ↻ Retry
+            ↻ {t('Retry')}
           </button>
         )}
         {job.status === 'complete' && job.result?.projectId && onOpenAnalysis && (
@@ -233,14 +234,14 @@ export function JobItem({
             onClick={() => onOpenAnalysis(job.result!.projectId!)}
             className={isIntake ? 'dsc-btn dsc-btn-primary shrink-0' : 'btn btn-primary shrink-0'}
           >
-            Open analysis
+            {t('Open analysis')}
           </button>
         )}
         {(job.status === 'pending' || job.status === 'complete' || job.status === 'error' || isSkipped || needsReview) && (
           <button
             type="button"
             onClick={() => onRemove(job.id)}
-            aria-label={`Remove ${job.filename} from intake`}
+            aria-label={t('Remove {{filename}} from intake', { filename: job.filename })}
             className="p-1 text-black-500 hover:text-red-400 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

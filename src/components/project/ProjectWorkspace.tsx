@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 import { DiscoverAppHeader } from '@/components/discover/DiscoverAppHeader';
 import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
@@ -83,53 +84,47 @@ function trustLabel(screenplay: Screenplay): string {
   }
 }
 
-function readerLabel(screenplay: Screenplay): string {
-  const quality = screenplay.analysisQuality;
-  return quality
-    ? `${quality.completedReaders}/${quality.expectedReaders} readers complete`
-    : 'Legacy analysis';
-}
-
 function ExecutiveRead({ screenplay }: { screenplay: Screenplay }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       <AnalysisWarnings screenplay={screenplay} />
       <section aria-labelledby="project-executive-read-title">
-        <p className="dsc-kicker">The decision brief</p>
+        <p className="dsc-kicker">{t('The decision brief')}</p>
         <h2 id="project-executive-read-title" className="dsc-display mt-2 text-4xl sm:text-5xl">
-          Executive read
+          {t('Executive read')}
         </h2>
         <div className="mt-7 grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
           <div>
-            <p className="dsc-label dsc-label-faint">Why it received this verdict</p>
+            <p className="dsc-label dsc-label-faint">{t('Why it received this verdict')}</p>
             <p className="mt-3 text-base leading-8 text-[var(--dsc-ink-2)]">
               {screenplay.verdictStatement ||
                 screenplay.recommendationRationale ||
-                'Verdict rationale not yet available.'}
+                t('Verdict rationale not yet available.')}
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
             <div className="border-l-2 border-[var(--dsc-accent)] pl-4">
-              <p className="dsc-label">Strongest signals</p>
+              <p className="dsc-label">{t('Strongest signals')}</p>
               <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
                 {screenplay.strengths.length > 0 ? (
                   screenplay.strengths
                     .slice(0, 3)
                     .map((strength) => <li key={strength}>● {strength}</li>)
                 ) : (
-                  <li>No strengths were recorded in this analysis.</li>
+                  <li>{t('No strengths were recorded in this analysis.')}</li>
                 )}
               </ul>
             </div>
             <div className="border-l-2 border-amber-500 pl-4">
-              <p className="dsc-label">Watch points</p>
+              <p className="dsc-label">{t('Watch points')}</p>
               <ul className="mt-3 space-y-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
                 {[...screenplay.majorWeaknesses, ...screenplay.weaknesses].length > 0 ? (
                   [...screenplay.majorWeaknesses, ...screenplay.weaknesses]
                     .slice(0, 3)
                     .map((weakness) => <li key={weakness}>● {weakness}</li>)
                 ) : (
-                  <li>No watch points were recorded in this analysis.</li>
+                  <li>{t('No watch points were recorded in this analysis.')}</li>
                 )}
               </ul>
             </div>
@@ -138,7 +133,7 @@ function ExecutiveRead({ screenplay }: { screenplay: Screenplay }) {
       </section>
       <section
         className="border-t border-[var(--dsc-line)] pt-8"
-        aria-label="Scores and score lineage"
+        aria-label={t('Scores and score lineage')}
       >
         <ScoresPanel screenplay={screenplay} presentation="workspace" />
       </section>
@@ -153,6 +148,7 @@ function ProjectHeader({
   screenplay: Screenplay;
   producerAssessment?: ProducerAssessmentHead;
 }) {
+  const { t } = useTranslation();
   const quickFavorites = useFavoritesStore((state) => state.quickFavorites);
   const toggleQuickFavorite = useFavoritesStore((state) => state.toggleQuickFavorite);
   const isFavorite = quickFavorites.includes(screenplay.id);
@@ -174,19 +170,19 @@ function ProjectHeader({
         </div>
         <div className="p-5 sm:p-7">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="dsc-kicker">Project workspace</span>
+            <span className="dsc-kicker">{t('Project workspace')}</span>
             <AnalysisTrustBadge screenplay={screenplay} />
             <DiscoveryShareStatus screenplay={screenplay} />
             <ProducerScoreBadge assessment={producerAssessment} />
           </div>
           <h1 className="dsc-display mt-3 text-4xl sm:text-5xl">{displayTitle}</h1>
           {displayAuthor && (
-            <p className="mt-1 text-base text-[var(--dsc-ink-2)]">by {displayAuthor}</p>
+            <p className="mt-1 text-base text-[var(--dsc-ink-2)]">{t('by {{author}}', { author: displayAuthor })}</p>
           )}
           <p className="dsc-label dsc-label-faint mt-4">
             {[
               displayGenre,
-              screenplay.metadata.pageCount ? `${screenplay.metadata.pageCount} pages` : undefined,
+              screenplay.metadata.pageCount ? t('{{count}} pages', { count: screenplay.metadata.pageCount }) : undefined,
               screenplay.analysisModel,
             ]
               .filter(Boolean)
@@ -212,14 +208,14 @@ function ProjectHeader({
               aria-pressed={isFavorite}
             >
               <span aria-hidden="true">{isFavorite ? '★' : '☆'}</span>
-              {isFavorite ? 'Favorited' : 'Favorite'}
+              {isFavorite ? t('Favorited') : t('Favorite')}
             </button>
           </div>
         </div>
         <aside className="col-span-full flex items-center justify-between gap-8 border-t border-[#2a3b54] bg-[#101a29] p-5 text-[#f5f1e8] xl:col-span-1 xl:block xl:border-l xl:border-t-0 xl:p-6">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8290a5]">
-              Final score
+              {t('Final score')}
             </p>
             <strong className="mt-1 block font-mono text-6xl leading-none">
               {screenplay.weightedScore.toFixed(1)}
@@ -230,15 +226,15 @@ function ProjectHeader({
           </div>
           <dl className="min-w-[13rem] space-y-2 border-l border-[#2a3b54] pl-6 text-xs xl:mt-7 xl:border-l-0 xl:border-t xl:pl-0 xl:pt-5">
             <div className="flex justify-between gap-4">
-              <dt className="text-[#8290a5]">Evidence</dt>
-              <dd>{trustLabel(screenplay)}</dd>
+              <dt className="text-[#8290a5]">{t('Evidence')}</dt>
+              <dd>{t(trustLabel(screenplay))}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-[#8290a5]">Readers</dt>
-              <dd>{readerLabel(screenplay)}</dd>
+              <dt className="text-[#8290a5]">{t('Readers')}</dt>
+              <dd>{screenplay.analysisQuality ? t('{{completed}}/{{expected}} readers complete', { completed: screenplay.analysisQuality.completedReaders, expected: screenplay.analysisQuality.expectedReaders }) : t('Legacy analysis')}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-[#8290a5]">Analysis</dt>
+              <dt className="text-[#8290a5]">{t('Analysis')}</dt>
               <dd>{screenplay.analysisVersion}</dd>
             </div>
           </dl>
@@ -255,6 +251,7 @@ export function ProjectWorkspace({
   onSelectTab,
   onBack,
 }: ProjectWorkspaceProps) {
+  const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
   const isAdmin = useIsAdmin();
   const { data: assessmentHeads = [] } = useProducerAssessmentHeads(isAdmin);
@@ -275,9 +272,9 @@ export function ProjectWorkspace({
       case 'story-x-ray':
         return (
           <section aria-labelledby="story-x-ray-title">
-            <p className="dsc-kicker">Inside the material</p>
+            <p className="dsc-kicker">{t('Inside the material')}</p>
             <h2 id="story-x-ray-title" className="dsc-display mt-2 text-4xl sm:text-5xl">
-              Story X-Ray
+              {t('Story X-Ray')}
             </h2>
             <div className="mt-8">
               <ContentDetails screenplay={screenplay} presentation="workspace" />
@@ -293,16 +290,16 @@ export function ProjectWorkspace({
       case 'notes-files':
         return (
           <section aria-labelledby="notes-files-title">
-            <p className="dsc-kicker">Your private working layer</p>
+            <p className="dsc-kicker">{t('Your private working layer')}</p>
             <h2 id="notes-files-title" className="dsc-display mt-2 text-4xl sm:text-5xl">
-              Notes & Files
+              {t('Notes & Files')}
             </h2>
             <div className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
               <NotesSection screenplayId={screenplay.id} presentation="workspace" />
               <aside className="rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] p-5">
-                <p className="dsc-label">Project files</p>
+                <p className="dsc-label">{t('Project files')}</p>
                 <p className="mt-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
-                  Open the source screenplay or create the approved exports from the project header.
+                  {t('Open the source screenplay or create the approved exports from the project header.')}
                 </p>
                 <div className="mt-4">
                   <ScreenplayPdfButton
@@ -335,10 +332,10 @@ export function ProjectWorkspace({
       <main className="px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1680px]">
           <button type="button" onClick={onBack} className="dsc-btn mb-4 bg-[var(--dsc-surface)]">
-            <span aria-hidden="true">←</span> Back to Discovery
+            <span aria-hidden="true">←</span> {t('Back to Discovery')}
           </button>
           <ProjectHeader screenplay={screenplay} producerAssessment={producerAssessment} />
-          <nav aria-label="Project workspace" className="project-tabs mt-4">
+          <nav aria-label={t('Project workspace')} className="project-tabs mt-4">
             {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => (
               <button
                 key={tab.key}
@@ -347,7 +344,7 @@ export function ProjectWorkspace({
                 aria-current={activeTab === tab.key ? 'page' : undefined}
                 className={clsx('project-tab', activeTab === tab.key && 'project-tab--active')}
               >
-                {tab.label}
+                {t(tab.label)}
               </button>
             ))}
           </nav>

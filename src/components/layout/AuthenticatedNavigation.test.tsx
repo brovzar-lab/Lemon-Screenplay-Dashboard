@@ -26,21 +26,21 @@ describe('AuthenticatedNavigation', () => {
     renderNavigation('/');
 
     expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Discover' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'Discover' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute('href', '/');
   });
 
   it('keeps Discover active throughout project workspaces', () => {
     renderNavigation('/projects/matadero/reader-room?workspace=screenplay');
 
-    expect(screen.getByRole('link', { name: 'Discover' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'Discover' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute(
       'href',
       '/',
     );

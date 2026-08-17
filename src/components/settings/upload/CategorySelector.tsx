@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import type { UploadPresentation } from '@/components/settings/upload/upload.types';
 
 interface CategorySelectorProps {
@@ -22,6 +23,7 @@ export function CategorySelector({
   onAddCategory,
   presentation = 'settings',
 }: CategorySelectorProps) {
+  const { t } = useTranslation();
   const [showNewCatForm, setShowNewCatForm] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatError, setNewCatError] = useState('');
@@ -30,7 +32,7 @@ export function CategorySelector({
   return (
     <div>
       <p className={clsx('mb-2 block text-sm font-medium', isIntake ? 'text-[var(--dsc-ink)]' : 'text-gold-300')}>
-        Assign Category
+        {t('Assign Category')}
       </p>
       <div className="flex flex-wrap gap-2">
         {categoryIds.map((cat) => (
@@ -70,7 +72,7 @@ export function CategorySelector({
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            New
+            {t('New')}
           </span>
         </button>
       </div>
@@ -82,12 +84,12 @@ export function CategorySelector({
           isIntake ? 'border-[var(--dsc-line)] bg-[var(--dsc-surface-2)]' : 'border-black-700 bg-black-800/50',
         )}>
           <div>
-            <label className="block text-xs text-black-400 mb-1">Category Name</label>
+            <label className="block text-xs text-black-400 mb-1">{t('Category Name')}</label>
             <input
               type="text"
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
-              placeholder="e.g. Independent Films"
+              placeholder={t('e.g. Independent Films')}
               className="input w-full text-sm"
               autoFocus
               onKeyDown={(e) => {
@@ -104,25 +106,25 @@ export function CategorySelector({
               onClick={() => {
                 setNewCatError('');
                 const name = newCatName.trim();
-                if (!name) { setNewCatError('Enter a category name'); return; }
+                if (!name) { setNewCatError(t('Enter a category name')); return; }
                 // Auto-generate ID from name: uppercase, no spaces, max 10 chars
                 const id = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
-                if (id.length < 2) { setNewCatError('Name too short'); return; }
-                if (categoryIds.includes(id)) { setNewCatError(`"${id}" already exists`); return; }
-                onAddCategory({ id, name, description: `Created during upload` });
+                if (id.length < 2) { setNewCatError(t('Name too short')); return; }
+                if (categoryIds.includes(id)) { setNewCatError(t('“{{id}}” already exists', { id })); return; }
+                onAddCategory({ id, name, description: t('Created during upload') });
                 onSelectCategory(id);
                 setNewCatName('');
                 setShowNewCatForm(false);
               }}
               className="btn btn-primary text-xs"
             >
-              Create & Select
+              {t('Create & Select')}
             </button>
             <button
               onClick={() => { setShowNewCatForm(false); setNewCatName(''); setNewCatError(''); }}
               className="btn text-xs text-black-400 hover:text-white"
             >
-              Cancel
+              {t('Cancel')}
             </button>
           </div>
         </div>

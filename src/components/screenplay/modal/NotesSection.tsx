@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNotesStore, useScreenplayNotes } from '@/stores/notesStore';
 import { SectionHeader } from './SectionHeader';
 
@@ -13,6 +14,7 @@ interface NotesSectionProps {
 }
 
 export function NotesSection({ screenplayId, presentation = 'default' }: NotesSectionProps) {
+    const { t, i18n } = useTranslation();
     const isWorkspace = presentation === 'workspace';
     const notes = useScreenplayNotes(screenplayId);
     const addNote = useNotesStore((s) => s.addNote);
@@ -44,11 +46,11 @@ export function NotesSection({ screenplayId, presentation = 'default' }: NotesSe
         <div className="space-y-3">
             <div className="flex items-center justify-between">
                 <SectionHeader icon={isWorkspace ? undefined : '📝'}>
-                    {isWorkspace ? `Private notes (${notes.length})` : `Notes (${notes.length})`}
+                    {isWorkspace ? t('Private notes ({{count}})', { count: notes.length }) : t('Notes ({{count}})', { count: notes.length })}
                 </SectionHeader>
                 {!isAdding && (
                     <button onClick={() => setIsAdding(true)} className="btn btn-secondary text-sm">
-                        + Add Note
+                        + {t('Add Note')}
                     </button>
                 )}
             </div>
@@ -59,7 +61,7 @@ export function NotesSection({ screenplayId, presentation = 'default' }: NotesSe
                         autoFocus
                         className="input w-full resize-none"
                         rows={3}
-                        placeholder="Write your note..."
+                        placeholder={t('Write your note...')}
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={handleKeyDown}
@@ -69,22 +71,22 @@ export function NotesSection({ screenplayId, presentation = 'default' }: NotesSe
                             onClick={() => { setIsAdding(false); setDraft(''); }}
                             className="btn btn-secondary text-sm"
                         >
-                            Cancel
+                            {t('Cancel')}
                         </button>
                         <button
                             onClick={handleSubmit}
                             disabled={!draft.trim()}
                             className="btn btn-primary text-sm"
                         >
-                            Save Note
+                            {t('Save Note')}
                         </button>
                     </div>
-                    <p className="text-xs text-black-600">Cmd/Ctrl+Enter to save, Esc to cancel</p>
+                    <p className="text-xs text-black-600">{t('Cmd/Ctrl+Enter to save, Esc to cancel')}</p>
                 </div>
             )}
 
             {notes.length === 0 && !isAdding ? (
-                <p className="text-sm text-black-500 italic">No notes yet. Add one to track your thoughts.</p>
+                <p className="text-sm text-black-500 italic">{t('No notes yet. Add one to track your thoughts.')}</p>
             ) : (
                 <div className="space-y-2">
                     {notes.map((note) => (
@@ -93,7 +95,7 @@ export function NotesSection({ screenplayId, presentation = 'default' }: NotesSe
                                 <p className="min-w-0 text-sm text-black-300 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{note.content}</p>
                                 <button
                                     onClick={() => deleteNote(screenplayId, note.id)}
-                                    aria-label={`Delete note from ${new Date(note.createdAt).toLocaleDateString()}`}
+                                    aria-label={t('Delete note from {{date}}', { date: new Date(note.createdAt).toLocaleDateString(i18n.language === 'es' ? 'es-MX' : 'en-US') })}
                                     className={isWorkspace
                                         ? 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 text-red-400 hover:text-red-300 text-xs shrink-0'
                                         : 'opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs shrink-0'}
@@ -102,7 +104,7 @@ export function NotesSection({ screenplayId, presentation = 'default' }: NotesSe
                                 </button>
                             </div>
                             <div className="text-xs text-black-600 mt-1">
-                                {new Date(note.createdAt).toLocaleDateString()}
+                                {new Date(note.createdAt).toLocaleDateString(i18n.language === 'es' ? 'es-MX' : 'en-US')}
                             </div>
                         </div>
                     ))}

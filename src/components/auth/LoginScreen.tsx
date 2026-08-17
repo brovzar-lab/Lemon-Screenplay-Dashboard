@@ -1,7 +1,9 @@
 import { useAuthStore } from '@/stores/authStore';
 import { LocalGoogleSignInButton } from './LocalGoogleSignInButton';
+import { useTranslation } from 'react-i18next';
 
 export function LoginScreen() {
+  const { t } = useTranslation();
   const signIn = useAuthStore((state) => state.signIn);
   const isSigningIn = useAuthStore((state) => state.isSigningIn);
   const error = useAuthStore((state) => state.error);
@@ -14,12 +16,14 @@ export function LoginScreen() {
       <section className="w-full max-w-sm text-center" aria-labelledby="login-title">
         <img src="/lemon-logo-black.png" alt="Lemon Studios" className="w-20 h-20 mx-auto mb-6" />
         <h1 id="login-title" className="text-3xl font-display mb-2" style={{ color: 'var(--sp-text)' }}>
-          Screenplay Dashboard
+          {t('Screenplay Dashboard')}
         </h1>
         <p className="mb-8 text-sm" style={{ color: 'var(--sp-text-3)' }}>
           {isLocalReview
-            ? 'Open the local review build using the verified Lemon Studios account on this Mac.'
-            : 'Sign in with your Lemon Studios account. Google will open securely in this window and return you here.'}
+            ? t('Open the local review build using the verified Lemon Studios account on this Mac.')
+            : t(
+                'Sign in with your Lemon Studios account. Google will open securely in this window and return you here.',
+              )}
         </p>
 
         {isLocalReview ? (
@@ -31,13 +35,13 @@ export function LoginScreen() {
             disabled={isSigningIn}
             className="btn btn-primary w-full min-h-[48px] justify-center"
           >
-            {isSigningIn ? 'Signing in...' : 'Continue with Google'}
+            {isSigningIn ? t('Signing in...') : t('Continue with Google')}
           </button>
         )}
 
         {isLocalReview && isSigningIn && (
           <p className="mt-3 text-sm" style={{ color: 'var(--sp-text-3)' }}>
-            Verifying your Lemon Studios account...
+            {t('Verifying your Lemon Studios account...')}
           </p>
         )}
 

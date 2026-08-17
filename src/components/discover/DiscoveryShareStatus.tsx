@@ -1,14 +1,21 @@
 import { useShareStore } from '@/stores/shareStore';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { Screenplay } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 export function DiscoveryShareStatus({ screenplay }: { screenplay: Screenplay }) {
+  const { t } = useTranslation();
   const hasActiveShare = useShareStore((state) => Boolean(state.tokens[screenplay.sourceFile]));
   const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
 
   return (
     <span
-      aria-label={`${hasActiveShare ? 'Active share link' : 'Not shared'} for ${displayTitle}`}
+      aria-label={t(
+        hasActiveShare
+          ? 'Active share link for {{title}}'
+          : 'Not shared externally for {{title}}',
+        { title: displayTitle },
+      )}
       className={`dsc-label inline-flex items-center gap-1.5 ${
         hasActiveShare ? '!text-[var(--dsc-success)]' : 'dsc-label-faint'
       }`}
@@ -19,7 +26,7 @@ export function DiscoveryShareStatus({ screenplay }: { screenplay: Screenplay })
           hasActiveShare ? 'bg-[var(--dsc-success)]' : 'bg-[var(--dsc-ink-3)]'
         }`}
       />
-      {hasActiveShare ? 'Link active' : 'Private'}
+      {hasActiveShare ? t('Active share link') : t('Not shared externally')}
     </span>
   );
 }

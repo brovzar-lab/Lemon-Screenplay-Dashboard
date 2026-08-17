@@ -14,12 +14,15 @@ import { SharedScoresPanel } from './SharedScoresPanel';
 import { SharedContentDetails } from './SharedContentDetails';
 import type { SharedViewDocument } from '@/lib/shareService';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import { useTranslation } from 'react-i18next';
+import { LanguageControl } from '@/components/layout/LanguageControl';
 
 interface SharedViewLayoutProps {
   data: SharedViewDocument;
 }
 
 export function SharedViewLayout({ data }: SharedViewLayoutProps) {
+  const { t } = useTranslation();
   const { analysis } = data;
   const displayTitle = getScreenplayDisplayTitle(analysis.title).title;
 
@@ -27,8 +30,9 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
     <div className="public-shared-view min-h-screen bg-black-900">
       <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Header with logo */}
-        <header className="flex items-center justify-center mb-8">
+        <header className="relative flex items-center justify-center mb-8">
           <img src="/lemon-logo-white.png" alt="Lemon Studios" className="h-8 w-8" />
+          <div className="absolute right-0"><LanguageControl /></div>
         </header>
 
         {/* Poster */}
@@ -36,7 +40,7 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
           <div className="flex justify-center mb-8">
             <img
               src={data.posterUrl}
-              alt={`${displayTitle} poster`}
+              alt={t('{{title}} poster', { title: displayTitle })}
               className="rounded-xl max-h-80 object-cover shadow-lg"
             />
           </div>
@@ -86,7 +90,7 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
               onClick={() => window.open(data.pdfUrl!, '_blank')}
               className="px-6 py-3 bg-gold-500 hover:bg-gold-400 text-black-900 font-semibold rounded-lg transition-colors"
             >
-              Download Script
+              {t('Download Script')}
             </button>
           </div>
         )}

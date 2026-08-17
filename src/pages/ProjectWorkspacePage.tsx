@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import {
   ProjectWorkspace,
@@ -17,6 +18,7 @@ interface WorkspaceNavigationState {
 }
 
 function ProjectWorkspacePage() {
+  const { t } = useTranslation();
   const { projectId, section } = useParams<{ projectId: string; section?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
@@ -52,8 +54,8 @@ function ProjectWorkspacePage() {
   if (isLoading) {
     return (
       <ProjectWorkspaceState
-        title="Opening the project workspace"
-        message="Loading the latest screenplay decision and its sealed reader evidence."
+        title={t('Opening the project workspace')}
+        message={t('Loading the latest screenplay decision and its sealed reader evidence.')}
         stats={stats}
         loading
       />
@@ -63,8 +65,8 @@ function ProjectWorkspacePage() {
   if (error) {
     return (
       <ProjectWorkspaceState
-        title="The project could not be loaded"
-        message="Discovery still has the last known slate. Return there and try opening this project again."
+        title={t('The project could not be loaded')}
+        message={t('Discovery still has the last known slate. Return there and try opening this project again.')}
         stats={stats}
         onBack={goBack}
       />
@@ -74,8 +76,8 @@ function ProjectWorkspacePage() {
   if (!screenplay) {
     return (
       <ProjectWorkspaceState
-        title="This project is not in the slate"
-        message="It may have been removed, renamed, or linked with an older project address."
+        title={t('This project is not in the slate')}
+        message={t('It may have been removed, renamed, or linked with an older project address.')}
         stats={stats}
         onBack={goBack}
       />

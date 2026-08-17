@@ -16,6 +16,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { isUploadJobReady, useUploadStore } from '@/stores/uploadStore';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
@@ -75,6 +76,7 @@ export function UploadPanel({
   initialModel = 'sonnet',
   onOpenAnalysis,
 }: UploadPanelProps = {}) {
+  const { t } = useTranslation();
   const [selectedCategory, setSelectedCategory] = useState('LEMON');
   const [selectedModel, setSelectedModel] = useState<ModelOption>(initialModel);
   const [showApiConfig, setShowApiConfig] = useState(false);
@@ -352,7 +354,7 @@ export function UploadPanel({
       return;
     }
     if (!canMakeRequest()) {
-      alert('Cannot process: Budget limit reached or daily request limit exceeded. Check API Configuration.');
+      alert(t('Cannot process: Budget limit reached or daily request limit exceeded. Check API Configuration.'));
       return;
     }
     if (presentation === 'intake') {
@@ -373,17 +375,17 @@ export function UploadPanel({
       <div className="space-y-6" data-testid="intake-workbench">
         <section className="dsc-card overflow-hidden" aria-labelledby="intake-routing-heading">
           <div className="border-b border-[var(--dsc-line)] px-5 py-4 sm:px-7">
-            <p className="dsc-kicker">Reading route</p>
+            <p className="dsc-kicker">{t('Reading route')}</p>
             <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2 id="intake-routing-heading" className="dsc-display text-3xl">Choose the level of review</h2>
+                <h2 id="intake-routing-heading" className="dsc-display text-3xl">{t('Choose the level of review')}</h2>
                 <p className="mt-1 text-sm text-[var(--dsc-ink-2)]">
-                  Hybrid is the studio default: complete coverage first, deeper review for the strongest material.
+                  {t('Hybrid is the studio default: complete coverage first, deeper review for the strongest material.')}
                 </p>
               </div>
               {pendingJobs.length > 0 && batchCostEstimate && (
                 <div className="rounded-full border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] px-4 py-2 text-sm text-[var(--dsc-ink-2)]">
-                  {pendingJobs.length} ready · estimated {batchCostEstimate}
+                  {t('{{count}} ready · estimated {{cost}}', { count: pendingJobs.length, cost: batchCostEstimate })}
                 </div>
               )}
             </div>
@@ -409,24 +411,24 @@ export function UploadPanel({
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
           <div className="dsc-card p-5 sm:p-7">
             <div className="mb-5">
-              <p className="dsc-kicker">New screenplay</p>
-              <h2 className="dsc-display mt-2 text-3xl">Place material on the desk</h2>
+              <p className="dsc-kicker">{t('New screenplay')}</p>
+              <h2 className="dsc-display mt-2 text-3xl">{t('Place material on the desk')}</h2>
               <p className="mt-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
-                PDF screenplays only. Identity and exact-byte checks happen before anything can enter paid analysis.
+                {t('PDF screenplays only. Identity and exact-byte checks happen before anything can enter paid analysis.')}
               </p>
             </div>
             <UploadDropzone onFilesSelected={handleFileSelect} presentation="intake" />
           </div>
 
-          <aside className="dsc-card flex flex-col justify-between p-5 sm:p-7" aria-label="Intake safeguards">
+          <aside className="dsc-card flex flex-col justify-between p-5 sm:p-7" aria-label={t('Intake safeguards')}>
             <div>
-              <p className="dsc-kicker">Before the readers begin</p>
-              <h2 className="dsc-display mt-2 text-3xl">Nothing enters silently</h2>
+              <p className="dsc-kicker">{t('Before the readers begin')}</p>
+              <h2 className="dsc-display mt-2 text-3xl">{t('Nothing enters silently')}</h2>
               <ul className="mt-6 space-y-5">
                 {[
-                  ['Identity', 'Exact duplicates stop before any AI spend.'],
-                  ['Revisions', 'Same-title drafts wait for your project decision.'],
-                  ['Authority', 'The five-reader engine runs only after final confirmation.'],
+                  [t('Identity'), t('Exact duplicates stop before any AI spend.')],
+                  [t('Revisions'), t('Same-title drafts wait for your project decision.')],
+                  [t('Authority'), t('The five-reader engine runs only after final confirmation.')],
                 ].map(([label, copy]) => (
                   <li key={label} className="grid grid-cols-[0.75rem_1fr] gap-3">
                     <span className="mt-1.5 h-2 w-2 rounded-full bg-[var(--dsc-accent)]" aria-hidden="true" />
@@ -439,7 +441,7 @@ export function UploadPanel({
               </ul>
             </div>
             <p className="mt-8 border-t border-[var(--dsc-line)] pt-4 text-xs leading-5 text-[var(--dsc-ink-3)]">
-              Adding files is free. Analysis begins only from the confirmation screen.
+              {t('Adding files is free. Analysis begins only from the confirmation screen.')}
             </p>
           </aside>
         </section>
@@ -480,9 +482,9 @@ export function UploadPanel({
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-display text-gold-200 mb-2">Upload Screenplays</h2>
+        <h2 className="text-xl font-display text-gold-200 mb-2">{t('Upload Screenplays')}</h2>
         <p className="text-sm text-black-400">
-          Upload PDF screenplays for AI analysis using the V9 Archaeology Engine (5-reader deep analysis).
+          {t('Upload PDF screenplays for AI analysis using the V9 Archaeology Engine (5-reader deep analysis).')}
         </p>
       </div>
 

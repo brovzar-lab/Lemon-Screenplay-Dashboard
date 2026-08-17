@@ -2,6 +2,7 @@ import type {
   ProducerProjectionWarning,
   Screenplay,
 } from '@/types';
+import { useTranslation } from 'react-i18next';
 import { buildIncompleteReaderWarning } from '@/lib/producerProjection';
 import { formatProducerText } from '@/lib/producerDisplay';
 
@@ -31,6 +32,7 @@ const WARNING_STYLES: Record<
 };
 
 export function AnalysisWarnings({ screenplay }: AnalysisWarningsProps) {
+  const { t } = useTranslation();
   const fallback = buildIncompleteReaderWarning(screenplay.analysisQuality);
   const warnings = screenplay.producerProjection?.warnings ?? (
     fallback ? [fallback] : []
@@ -38,7 +40,7 @@ export function AnalysisWarnings({ screenplay }: AnalysisWarningsProps) {
   if (warnings.length === 0) return null;
 
   return (
-    <section className="space-y-2" aria-label="Analysis trust warnings">
+    <section className="space-y-2" aria-label={t('Analysis trust warnings')}>
       {warnings.map((warning) => {
         const styles = WARNING_STYLES[warning.severity];
         return (
@@ -49,7 +51,7 @@ export function AnalysisWarnings({ screenplay }: AnalysisWarningsProps) {
           >
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className={`text-[0.65rem] font-bold uppercase tracking-[0.16em] ${styles.title}`}>
-                {styles.label}
+                {t(styles.label)}
               </span>
               <h4 className={`text-sm font-semibold ${styles.title}`}>
                 {formatProducerText(warning.title)}

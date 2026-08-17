@@ -10,6 +10,7 @@ import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { PercentileRank } from '@/lib/percentileRanking';
 import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 type ProducerAssessmentMap = ReadonlyMap<string, ProducerAssessmentHead>;
 type PercentileMap = ReadonlyMap<string, PercentileRank>;
@@ -40,18 +41,6 @@ function ordinal(value: number): string {
   if (value % 10 === 2) return `${value}nd`;
   if (value % 10 === 3) return `${value}rd`;
   return `${value}th`;
-}
-
-function readerCompletion(screenplay: Screenplay): string {
-  const quality = screenplay.analysisQuality;
-  return quality
-    ? `${quality.completedReaders} of ${quality.expectedReaders} readers complete`
-    : 'Legacy reader evidence';
-}
-
-function compactReaderCompletion(screenplay: Screenplay): string {
-  const quality = screenplay.analysisQuality;
-  return quality ? `${quality.completedReaders}/${quality.expectedReaders}` : 'Legacy';
 }
 
 function trustLabel(screenplay: Screenplay): string {
@@ -109,6 +98,7 @@ export function HybridFeatureStage({
   producerLookIds?: ReadonlySet<string>;
   percentiles: PercentileMap;
 }) {
+  const { t, i18n } = useTranslation();
   const percentile = percentileFor(percentiles, featured);
   const pillars = getDimensionDisplay(featured).slice(0, 5);
   const displayTitle = getScreenplayDisplayTitle(featured.title).title;
@@ -136,7 +126,7 @@ export function HybridFeatureStage({
       </div>
 
       <div className="hybrid-feature-stage__copy">
-        <p className="hybrid-eyebrow">Featured screenplay</p>
+        <p className="hybrid-eyebrow">{t('Featured screenplay')}</p>
         <h1>{displayTitle}</h1>
         {(featured.genre || displayAuthor) && (
           <p className="hybrid-feature-byline">
@@ -152,13 +142,13 @@ export function HybridFeatureStage({
             assessment={assessmentFor(producerAssessments, featured)}
             routed={producerLookIds?.has(featured.projectId ?? featured.id)}
           />
-          <span>{rankingLabel(sortField)}</span>
+          <span>{t(rankingLabel(sortField))}</span>
           <ProducerScoreBadge assessment={assessmentFor(producerAssessments, featured)} />
         </div>
 
         {surfacedReason && (
           <div className="hybrid-why-surfaced">
-            <strong>Why this surfaced</strong>
+            <strong>{t('Why this surfaced')}</strong>
             <p>{surfacedReason}</p>
           </div>
         )}
@@ -167,9 +157,9 @@ export function HybridFeatureStage({
           type="button"
           className="hybrid-open-project"
           onClick={(event) => onOpen(featured, event.currentTarget)}
-          aria-label={`Open ${displayTitle} project`}
+          aria-label={t('Open {{title}} project', { title: displayTitle })}
         >
-          Open project
+          {t('Open project')}
           <svg aria-hidden="true" viewBox="0 0 24 24">
             <path d="M5 12h14m-5-5 5 5-5 5" />
           </svg>
@@ -178,22 +168,22 @@ export function HybridFeatureStage({
 
       <div className="hybrid-feature-stage__evidence">
         <div className="hybrid-score-stamp">
-          <span>Weighted score</span>
+          <span>{t('Weighted score')}</span>
           <strong>{featured.weightedScore.toFixed(1)}</strong>
           <small>
-            {percentile ? `${ordinal(percentile.overall)} percentile` : 'Slate position pending'}
+            {percentile ? t('{{ordinal}} percentile', { ordinal: i18n.language === 'es' ? percentile.overall : ordinal(percentile.overall) }) : t('Slate position pending')}
           </small>
         </div>
 
-        <div className="hybrid-pillar-list" aria-label="Five screenplay analysis pillars">
-          <span className="hybrid-evidence-label">Pillar scores</span>
+        <div className="hybrid-pillar-list" aria-label={t('Five screenplay analysis pillars')}>
+          <span className="hybrid-evidence-label">{t('Pillar scores')}</span>
           {pillars.map((pillar) => (
             <div key={pillar.key}>
-              <span>{pillar.label}</span>
+              <span>{t(pillar.label)}</span>
               <progress
                 value={Math.max(0, Math.min(10, pillar.score))}
                 max={10}
-                aria-label={`${pillar.label} ${pillar.score.toFixed(1)} out of 10`}
+                aria-label={t('{{label}} {{score}} out of 10', { label: t(pillar.label), score: pillar.score.toFixed(1) })}
               />
               <strong>{pillar.score.toFixed(1)}</strong>
             </div>
@@ -201,26 +191,28 @@ export function HybridFeatureStage({
         </div>
 
         <div className="hybrid-trust-list">
-          <span className="hybrid-evidence-label">Trust and verification</span>
+          <span className="hybrid-evidence-label">{t('Trust and verification')}</span>
           <span>
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="8" />
               <path d="m8.5 12 2.2 2.2 4.8-5" />
             </svg>
-            {trustLabel(featured)}
+            {t(trustLabel(featured))}
           </span>
           <span>
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="8" />
               <path d="m8.5 12 2.2 2.2 4.8-5" />
             </svg>
-            {readerCompletion(featured)}
+            {featured.analysisQuality
+              ? t('{{completed}} of {{expected}} readers complete', { completed: featured.analysisQuality.completedReaders, expected: featured.analysisQuality.expectedReaders })
+              : t('Legacy reader evidence')}
           </span>
           <DiscoveryShareStatus screenplay={featured} />
         </div>
       </div>
 
-      <ol className="hybrid-ranked-folders" aria-label="Next four projects in the current ranking">
+      <ol className="hybrid-ranked-folders" aria-label={t('Next four projects in the current ranking')}>
         {topMatches.map((screenplay, index) => {
           const itemPercentile = percentileFor(percentiles, screenplay);
           const runnerTitle = getScreenplayDisplayTitle(screenplay.title).title;
@@ -236,7 +228,7 @@ export function HybridFeatureStage({
               <button
                 type="button"
                 onClick={(event) => onOpen(screenplay, event.currentTarget)}
-                aria-label={`Open ${runnerTitle} project, ranked ${index + 2}`}
+                aria-label={t('Open {{title}} project, ranked {{rank}}', { title: runnerTitle, rank: index + 2 })}
               >
                 <ScriptCover
                   title={screenplay.title}
@@ -248,7 +240,7 @@ export function HybridFeatureStage({
                 <span className="hybrid-folder-rank">#{index + 2}</span>
                 {itemPercentile && (
                   <span className="hybrid-folder-percentile">
-                    {ordinal(itemPercentile.overall)} percentile
+                    {t('{{ordinal}} percentile', { ordinal: i18n.language === 'es' ? itemPercentile.overall : ordinal(itemPercentile.overall) })}
                   </span>
                 )}
               </button>
@@ -267,16 +259,17 @@ export function HybridFilmNowRail({
   screenplays: Screenplay[];
   onOpen: OpenScreenplay;
 }) {
+  const { t } = useTranslation();
   if (screenplays.length === 0) return null;
 
   return (
     <section className="hybrid-film-now" aria-labelledby="hybrid-film-now-title">
       <header>
         <div>
-          <p className="hybrid-eyebrow">Exceptional finds</p>
+          <p className="hybrid-eyebrow">{t('Exceptional finds')}</p>
           <h2 id="hybrid-film-now-title">FILM NOW</h2>
         </div>
-        <span>{screenplays.length} ready to move</span>
+        <span>{t('{{count}} ready to move', { count: screenplays.length })}</span>
       </header>
       <ul>
         {screenplays.map((screenplay) => {
@@ -286,7 +279,7 @@ export function HybridFilmNowRail({
               <button
                 type="button"
                 onClick={(event) => onOpen(screenplay, event.currentTarget)}
-                aria-label={`Open FILM NOW ${displayTitle} project`}
+                aria-label={t('Open FILM NOW {{title}} project', { title: displayTitle })}
               >
                 <span>
                   <strong>{displayTitle}</strong>
@@ -317,8 +310,9 @@ export function HybridSlateGrid({
   percentiles: PercentileMap;
   rankOffset?: number;
 }) {
+  const { t, i18n } = useTranslation();
   if (screenplays.length === 0) {
-    return <p className="hybrid-slate-empty">Every matching screenplay is shown above.</p>;
+    return <p className="hybrid-slate-empty">{t('Every matching screenplay is shown above.')}</p>;
   }
 
   return (
@@ -341,7 +335,7 @@ export function HybridSlateGrid({
               type="button"
               className="hybrid-slate-card__open"
               onClick={(event) => onOpen(screenplay, event.currentTarget)}
-              aria-label={`Open ${displayTitle} project`}
+              aria-label={t('Open {{title}} project', { title: displayTitle })}
             >
               <ScriptCover
                 title={screenplay.title}
@@ -358,7 +352,7 @@ export function HybridSlateGrid({
                   </span>
                   <span className="hybrid-slate-card__score">
                     <b>{screenplay.weightedScore.toFixed(1)}</b>
-                    <small>{percentile ? `${ordinal(percentile.overall)} percentile` : ''}</small>
+                    <small>{percentile ? t('{{ordinal}} percentile', { ordinal: i18n.language === 'es' ? percentile.overall : ordinal(percentile.overall) }) : ''}</small>
                   </span>
                 </span>
 
@@ -366,9 +360,9 @@ export function HybridSlateGrid({
 
                 <span className="hybrid-slate-card__status">
                   <span>
-                    {isRankable ? trustLabel(screenplay) : `Review · #${rankOffset + index + 6}`}
+                    {isRankable ? t(trustLabel(screenplay)) : t('Review · #{{rank}}', { rank: rankOffset + index + 6 })}
                   </span>
-                  <span>{compactReaderCompletion(screenplay)}</span>
+                  <span>{screenplay.analysisQuality ? `${screenplay.analysisQuality.completedReaders}/${screenplay.analysisQuality.expectedReaders}` : t('Legacy')}</span>
                 </span>
 
                 <span className="hybrid-slate-card__footer">

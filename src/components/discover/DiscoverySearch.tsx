@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useFilterStore } from '@/stores/filterStore';
+import { useTranslation } from 'react-i18next';
 
 interface DiscoverySearchProps {
   id: string;
@@ -8,6 +9,7 @@ interface DiscoverySearchProps {
 }
 
 export function DiscoverySearch({ id, className, shortcutsEnabled }: DiscoverySearchProps) {
+  const { t } = useTranslation();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchQuery = useFilterStore((state) => state.searchQuery);
   const setSearchQuery = useFilterStore((state) => state.setSearchQuery);
@@ -45,10 +47,10 @@ export function DiscoverySearch({ id, className, shortcutsEnabled }: DiscoverySe
         type="search"
         value={searchQuery}
         onChange={(event) => setSearchQuery(event.target.value)}
-        placeholder="Search screenplays, writers, themes"
-        aria-label="Discovery search"
+        placeholder={t('Search screenplays, writers, themes')}
+        aria-label={t('Discovery search')}
       />
-      <kbd aria-label="Keyboard shortcut slash">/</kbd>
+      <kbd aria-label={t('Keyboard shortcut slash')}>/</kbd>
     </label>
   );
 }

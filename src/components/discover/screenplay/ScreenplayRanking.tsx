@@ -17,6 +17,7 @@ import type {
   ProducerAssessmentHead,
   Screenplay,
 } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 function ordinal(value: number): string {
   const lastTwo = value % 100;
@@ -48,6 +49,7 @@ export function ScreenplayRanking({
   producerLookIds,
   onOpen,
 }: ScreenplayRankingProps) {
+  const { t, i18n } = useTranslation();
   const title = getScreenplayDisplayTitle(screenplay.title);
   const format = getScreenplayFormatInfo(screenplay);
   const author = getScreenplayDisplayAuthor(screenplay.author);
@@ -67,10 +69,10 @@ export function ScreenplayRanking({
     >
       <header className="screenplay-ranking__heading">
         <div>
-          <p className="screenplay-ui-eyebrow">Today’s studio focus</p>
-          <h2 id="screenplay-ranking-title">Featured project</h2>
+          <p className="screenplay-ui-eyebrow">{t('Today’s studio focus')}</p>
+          <h2 id="screenplay-ranking-title">{t('Featured project')}</h2>
         </div>
-        <p>Stable for today · based on the studio Featured policy</p>
+        <p>{t('Stable for today · based on the studio Featured policy')}</p>
       </header>
       <article
         className="screenplay-featured__layout"
@@ -82,13 +84,13 @@ export function ScreenplayRanking({
           type="button"
           className="screenplay-featured__open"
           onClick={(event) => onOpen(screenplay, event.currentTarget)}
-          aria-label={`Open ${title.title} screenplay file`}
+          aria-label={t('Open {{title}} screenplay file', { title: title.title })}
         >
           <span className="screenplay-featured__object">
             <BlueSpineScript screenplay={screenplay} featured rank={rank} />
           </span>
           <span className="screenplay-featured__brief">
-            <span className="screenplay-featured__kicker">Featured screenplay</span>
+            <span className="screenplay-featured__kicker">{t('Featured screenplay')}</span>
             <span className="screenplay-featured__title">{title.title}</span>
             {title.qualifier && <span className="screenplay-featured__qualifier">{title.qualifier}</span>}
             <span className="screenplay-featured__meta">{metadata.join(' · ')}</span>
@@ -96,30 +98,34 @@ export function ScreenplayRanking({
               <span className="screenplay-featured__logline">{screenplay.logline}</span>
             )}
             <span className="screenplay-featured__why">
-              <b>Why featured</b>
+              <b>{t('Why featured')}</b>
               <strong>{reason.headline}</strong>
               <small>{reason.detail}</small>
               {outsideCurrentView && (
-                <em>This recommendation sits outside your temporary browse filters.</em>
+                <em>{t('This recommendation sits outside your temporary browse filters.')}</em>
               )}
             </span>
-            <span className="screenplay-featured__action">Open screenplay file →</span>
+            <span className="screenplay-featured__action">{t('Open screenplay file →')}</span>
           </span>
         </button>
-        <aside className="screenplay-featured__decision" aria-label="AI decision">
-          <span>AI verdict</span>
+        <aside className="screenplay-featured__decision" aria-label={t('AI decision')}>
+          <span>{t('AI verdict')}</span>
           <strong>{score.toFixed(1)}</strong>
           <RecommendationBadge tier={screenplay.recommendation} />
           <dl>
             {percentile && (
               <div>
-                <dt>Percentile</dt>
-                <dd>{ordinal(percentile.overall)}</dd>
+                <dt>{t('Percentile')}</dt>
+                <dd>
+                  {i18n.resolvedLanguage === 'es'
+                    ? percentile.overall
+                    : ordinal(percentile.overall)}
+                </dd>
               </div>
             )}
             {confidence && (
               <div>
-                <dt>Confidence</dt>
+                <dt>{t('Confidence')}</dt>
                 <dd>{confidence.replaceAll('_', ' ')}</dd>
               </div>
             )}
@@ -130,7 +136,7 @@ export function ScreenplayRanking({
             routed={producerLookIds?.has(projectKey)}
           />
           <div className="screenplay-featured__selection">
-            <span>Select project</span>
+            <span>{t('Select project')}</span>
             <DiscoverySelectionCheckbox screenplay={screenplay} />
           </div>
         </aside>

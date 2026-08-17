@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { DiscoverAppHeader } from '@/components/discover/DiscoverAppHeader';
 import { UploadPanel } from '@/components/settings/UploadPanel';
@@ -7,6 +8,7 @@ import { getScreenplayStats } from '@/lib/api';
 import '@/components/discover/discovery.css';
 
 function IntakePage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { data: screenplays = [], isLoading } = useScreenplays();
 
@@ -21,24 +23,23 @@ function IntakePage() {
         averageScore={stats.avgWeightedScore}
         filmNowCount={stats.filmNowCount}
         isLoading={isLoading}
-        sectionTitle="Intake Desk"
+        sectionTitle={t('Intake Desk')}
       />
 
       <main className="px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
         <div className="mx-auto max-w-[1800px]">
           <section className="mb-8 grid gap-6 border-b border-[var(--dsc-line)] pb-8 lg:grid-cols-[minmax(0,1fr)_minmax(28rem,0.7fr)] lg:items-end">
             <div>
-              <p className="dsc-kicker">Lemon Studios · New material</p>
+              <p className="dsc-kicker">{t('Lemon Studios · New material')}</p>
               <h1 className="dsc-display mt-3 text-5xl leading-none sm:text-6xl lg:text-7xl">
-                Intake
+                {t('Intake')}
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--dsc-ink-2)] sm:text-lg">
-                Bring a screenplay into the slate, verify its identity, and follow it until
-                the complete five-reader analysis is ready to open.
+                {t('Bring a screenplay into the slate, verify its identity, and follow it until the complete five-reader analysis is ready to open.')}
               </p>
             </div>
 
-            <ol className="grid grid-cols-3 overflow-hidden rounded-[var(--dsc-radius-card)] border border-[var(--dsc-line)] bg-[var(--dsc-surface)] shadow-[var(--dsc-shadow-card)]" aria-label="Intake stages">
+            <ol className="grid grid-cols-3 overflow-hidden rounded-[var(--dsc-radius-card)] border border-[var(--dsc-line)] bg-[var(--dsc-surface)] shadow-[var(--dsc-shadow-card)]" aria-label={t('Intake stages')}>
               {[
                 ['01', 'File verified'],
                 ['02', 'Readers working'],
@@ -52,7 +53,7 @@ function IntakePage() {
                     {number}
                   </span>
                   <span className="mt-2 block text-sm font-semibold text-[var(--dsc-ink)]">
-                    {label}
+                    {t(label)}
                   </span>
                 </li>
               ))}

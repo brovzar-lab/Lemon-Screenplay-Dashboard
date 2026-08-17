@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 import {
   EMPTY_PRODUCER_JUDGMENT,
@@ -50,6 +51,7 @@ function formatSavedAt(value: string | undefined): string {
 }
 
 export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
+  const { t } = useTranslation();
   const projectId = screenplay.projectId ?? screenplay.id;
   const isLocalPreview = isLocalCalibrationPreviewMode();
   const [assessment, setAssessment] = useState<ProducerAssessment | null>(null);
@@ -120,7 +122,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
           return;
         }
         setError(
-          loadError instanceof Error ? loadError.message : 'Producer Take could not be loaded.',
+          loadError instanceof Error ? loadError.message : t('Producer Take could not be loaded.'),
         );
       })
       .finally(() => {
@@ -136,6 +138,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     producerVersionId,
     screenplay.recommendation,
     screenplay.weightedScore,
+    t,
   ]);
 
   useEffect(() => {
@@ -213,7 +216,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
       window.dispatchEvent(new Event(PRODUCER_ASSESSMENT_UPDATED_EVENT));
     } catch (saveError) {
       setError(
-        saveError instanceof Error ? saveError.message : 'Producer Take could not be saved.',
+        saveError instanceof Error ? saveError.message : t('Producer Take could not be saved.'),
       );
     } finally {
       setSaving(false);
@@ -224,9 +227,9 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     return (
       <section
         className="rounded-xl border border-black-700 bg-black-900/35 p-5"
-        aria-label="Loading Producer Take"
+        aria-label={t('Loading Producer Take')}
       >
-        <p className="text-sm text-black-400">Loading Producer Take…</p>
+        <p className="text-sm text-black-400">{t('Loading Producer Take…')}</p>
       </section>
     );
   }
@@ -249,16 +252,16 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#3157d5]">
-              Lemon decision layer
+              {t('Lemon decision layer')}
             </p>
             <h3
               id={`producer-take-${screenplay.id}`}
               className="mt-1 text-xl font-display text-black-100"
             >
-              {isLegacyDraft ? 'Legacy Producer Draft' : 'Producer Take'}
+              {isLegacyDraft ? t('Legacy Producer Draft') : t('Producer Take')}
             </h3>
             <p className="mt-1 text-sm text-black-400">
-              Your judgment stays beside the AI result. It never replaces it.
+              {t('Your judgment stays beside the AI result. It never replaces it.')}
             </p>
           </div>
           {hasSavedTake && !editing && (
@@ -267,7 +270,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               className="btn btn-secondary text-sm"
               onClick={() => setEditing(true)}
             >
-              Revise take
+              {t('Revise take')}
             </button>
           )}
         </div>
@@ -275,14 +278,14 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
         <div className="mt-5 grid overflow-hidden rounded-lg border border-black-700 sm:grid-cols-2">
           <div className="bg-black-950/30 p-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black-500">
-              AI final
+              {t('AI final')}
             </p>
             <div className="mt-2 flex items-end justify-between gap-3">
               <strong className="text-4xl font-display tabular-nums text-black-100">
                 {screenplay.weightedScore.toFixed(1)}
               </strong>
               <span className="text-sm font-semibold text-black-300">
-                {verdictLabel(screenplay.recommendation)}
+                {t(verdictLabel(screenplay.recommendation))}
               </span>
             </div>
           </div>
@@ -295,27 +298,26 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 {judgment.producerScore.toFixed(1)}
               </strong>
               <span className="text-sm font-semibold text-black-200">
-                {verdictLabel(judgment.producerVerdict)}
+                {t(verdictLabel(judgment.producerVerdict))}
               </span>
             </div>
             <p className="mt-2 text-xs text-black-400">
               {scoreDelta >= 0 ? '+' : ''}
-              {scoreDelta.toFixed(1)} from AI
+              {scoreDelta.toFixed(1)} {t('from AI')}
             </p>
           </div>
         </div>
 
         {isPriorVersion && (
           <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-300">
-            Your saved take belongs to an earlier analysis version. Saving now creates a new
-            version-specific assessment.
+            {t('Your saved take belongs to an earlier analysis version. Saving now creates a new version-specific assessment.')}
           </p>
         )}
 
         {!editing && savedJudgment && (
           <div
             role="status"
-            aria-label="Producer Take saved"
+            aria-label={t('Producer Take saved')}
             className="mt-4 rounded-lg border border-emerald-500/35 bg-emerald-500/10 p-4"
           >
             <div className="flex items-start gap-3">
@@ -327,13 +329,13 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               </span>
               <div className="min-w-0">
                 <strong className="block text-sm text-black-100">
-                  {localDraft ? 'Saved on this Mac' : 'Published to calibration evidence'}
+                  {localDraft ? t('Saved on this Mac') : t('Published to calibration evidence')}
                 </strong>
                 <p className="mt-1 text-xs leading-5 text-black-400">
                   {localDraft
-                    ? 'Your review is safely stored on this Mac. It has not changed the AI score, published a production record, or activated calibration.'
-                    : 'Your review is now part of the evidence set. It has not changed the AI score or activated a calibration profile.'}
-                  {savedAt ? ` Saved ${formatSavedAt(savedAt)}.` : ''}
+                    ? t('Your review is safely stored on this Mac. It has not changed the AI score, published a production record, or activated calibration.')
+                    : t('Your review is now part of the evidence set. It has not changed the AI score or activated a calibration profile.')}
+                  {savedAt ? ` ${t('Saved {{date}}.', { date: formatSavedAt(savedAt) })}` : ''}
                 </p>
               </div>
             </div>
@@ -344,40 +346,40 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
           <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black-500">
-                What the AI missed
+                {t('What the AI missed')}
               </p>
               <p className="mt-1 leading-6 text-black-200">
-                {savedJudgment.aiMissed || 'No correction recorded.'}
+                {savedJudgment.aiMissed || t('No correction recorded.')}
               </p>
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black-500">
-                What the AI got right
+                {t('What the AI got right')}
               </p>
               <p className="mt-1 leading-6 text-black-200">
-                {savedJudgment.aiGotRight || 'No confirmation recorded.'}
+                {savedJudgment.aiGotRight || t('No confirmation recorded.')}
               </p>
             </div>
             <p className="text-xs text-black-500 sm:col-span-2">
-              {localDraft ? 'Local preview' : 'Published'} · Revision{' '}
+              {localDraft ? t('Local preview') : t('Published')} · {t('Revision')}{' '}
               {assessment?.revision ?? localDraft?.revision} ·{' '}
-              {isLegacyDraft ? 'Legacy analysis snapshot' : 'Current sealed analysis'} ·{' '}
+              {isLegacyDraft ? t('Legacy analysis snapshot') : t('Current sealed analysis')} ·{' '}
               {localDraft && savedJudgment.includeInCalibration
-                ? 'Marked for calibration if published'
+                ? t('Marked for calibration if published')
                 : savedJudgment.includeInCalibration
-                  ? 'Included in calibration'
-                  : 'Held out of calibration'}
+                  ? t('Included in calibration')
+                  : t('Held out of calibration')}
             </p>
             <p className="text-xs text-black-500 sm:col-span-2">
-              Confidence: {savedJudgment.confidence === 'low'
-                ? 'Tentative'
+              {t('Confidence')}: {savedJudgment.confidence === 'low'
+                ? t('Tentative')
                 : savedJudgment.confidence === 'medium'
-                  ? 'Medium'
-                  : 'High'}
+                  ? t('Medium')
+                  : t('High')}
             </p>
             <div className="sm:col-span-2">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black-500">
-                What happens next
+                {t('What happens next')}
               </p>
               <ol className="mt-3 grid gap-2 sm:grid-cols-4">
                 {[
@@ -425,22 +427,21 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                       >
                         {step.state === 'complete' ? '✓' : index + 1}
                       </span>
-                      <strong className="text-xs text-black-200">{step.label}</strong>
+                      <strong className="text-xs text-black-200">{t(step.label)}</strong>
                     </div>
-                    <p className="mt-2 text-[11px] leading-4 text-black-500">{step.detail}</p>
+                    <p className="mt-2 text-[11px] leading-4 text-black-500">{t(step.detail)}</p>
                   </li>
                 ))}
               </ol>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-xs leading-5 text-black-500">
-                  Historical AI scores stay untouched. A tested profile can influence only future
-                  analyses after you approve activation.
+                  {t('Historical AI scores stay untouched. A tested profile can influence only future analyses after you approve activation.')}
                 </p>
                 <a
                   href="/settings?tab=calibration"
                   className="text-xs font-semibold text-[#3157d5] hover:underline"
                 >
-                  View in Calibration
+                  {t('View in Calibration')}
                 </a>
               </div>
             </div>
@@ -449,22 +450,19 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
           <div className="mt-5 space-y-5">
             {isLocalPreview && (
               <div className="rounded-lg border border-[#3157d5]/30 bg-[#3157d5]/8 p-3 text-sm leading-6 text-black-300">
-                <strong className="block text-black-100">Local review mode</strong>
-                This take will be saved only on this Mac. No production record or calibration
-                profile changes during local review.
+                <strong className="block text-black-100">{t('Local review mode')}</strong>
+                {t('This take will be saved only on this Mac. No production record or calibration profile changes during local review.')}
               </div>
             )}
             {isLegacyDraft && (
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm leading-6 text-black-300">
-                <strong className="block text-black-100">Legacy Producer Draft</strong>
-                You can preserve your judgment now, but this older analysis cannot prove the sealed
-                evidence required for calibration. This draft stays privately on this device and
-                never enters calibration.
+                <strong className="block text-black-100">{t('Legacy Producer Draft')}</strong>
+                {t('You can preserve your judgment now, but this older analysis cannot prove the sealed evidence required for calibration. This draft stays privately on this device and never enters calibration.')}
               </div>
             )}
             {workingDraftRestored && (
               <p role="status" className="rounded-lg border border-[#3157d5]/30 bg-[#3157d5]/8 p-3 text-sm text-black-300">
-                Unpublished draft restored. Your unfinished writing was preserved on this Mac.
+                {t('Unpublished draft restored. Your unfinished writing was preserved on this Mac.')}
               </p>
             )}
             <div>
@@ -473,7 +471,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                   htmlFor={`producer-score-${screenplay.id}`}
                   className="text-xs font-semibold uppercase tracking-wider text-black-400"
                 >
-                  Your score
+                  {t('Your score')}
                 </label>
                 <strong className="text-2xl tabular-nums text-[#3157d5]">
                   {judgment.producerScore.toFixed(1)}
@@ -493,7 +491,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
 
             <fieldset>
               <legend className="text-xs font-semibold uppercase tracking-wider text-black-400">
-                Your verdict
+                {t('Your verdict')}
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
                 {VERDICTS.map((verdict) => (
@@ -509,7 +507,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                         : 'border-black-700 text-black-300 hover:border-black-500',
                     )}
                   >
-                    {verdictLabel(verdict)}
+                    {t(verdictLabel(verdict))}
                   </button>
                 ))}
               </div>
@@ -517,7 +515,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
 
             <fieldset>
               <legend className="text-xs font-semibold uppercase tracking-wider text-black-400">
-                How confident are you in this take?
+                {t('How confident are you in this take?')}
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
                 {([
@@ -537,20 +535,20 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                         : 'border-black-700 text-black-300 hover:border-black-500',
                     )}
                   >
-                    {label}
+                    {t(label)}
                   </button>
                 ))}
               </div>
               <p className="mt-2 text-xs leading-5 text-black-500">
                 {judgment.confidence === 'low'
-                  ? 'Tentative takes are always held out of calibration evidence.'
-                  : 'Only include this take in calibration when your judgment feels settled.'}
+                  ? t('Tentative takes are always held out of calibration evidence.')
+                  : t('Only include this take in calibration when your judgment feels settled.')}
               </p>
             </fieldset>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-black-400">
-                Would you pursue it?
+                {t('Would you pursue it?')}
                 <select
                   value={judgment.pursuit}
                   onChange={(event) =>
@@ -558,13 +556,13 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                   }
                   className="input mt-2 w-full normal-case tracking-normal"
                 >
-                  <option value="yes">Yes</option>
-                  <option value="maybe">Maybe</option>
-                  <option value="no">No</option>
+                  <option value="yes">{t('Yes')}</option>
+                  <option value="maybe">{t('Maybe')}</option>
+                  <option value="no">{t('No')}</option>
                 </select>
               </label>
               <label className="text-xs font-semibold uppercase tracking-wider text-black-400">
-                How fixable are the problems?
+                {t('How fixable are the problems?')}
                 <select
                   value={judgment.fixability}
                   onChange={(event) =>
@@ -572,17 +570,17 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                   }
                   className="input mt-2 w-full normal-case tracking-normal"
                 >
-                  <option value="high">Highly fixable</option>
-                  <option value="medium">Partly fixable</option>
-                  <option value="low">Hard to fix</option>
-                  <option value="not_applicable">No meaningful problem</option>
+                  <option value="high">{t('Highly fixable')}</option>
+                  <option value="medium">{t('Partly fixable')}</option>
+                  <option value="low">{t('Hard to fix')}</option>
+                  <option value="not_applicable">{t('No meaningful problem')}</option>
                 </select>
               </label>
             </div>
 
             <fieldset>
               <legend className="text-xs font-semibold uppercase tracking-wider text-black-400">
-                What moved your decision?
+                {t('What moved your decision?')}
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
                 {(Object.entries(TASTE_SIGNAL_LABELS) as Array<[TasteSignal, string]>).map(
@@ -599,7 +597,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                           : 'border-black-700 text-black-400 hover:border-black-500',
                       )}
                     >
-                      {label}
+                      {t(label)}
                     </button>
                   ),
                 )}
@@ -608,23 +606,23 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-black-400">
-                What did the AI miss?
+                {t('What did the AI miss?')}
                 <textarea
                   value={judgment.aiMissed}
                   onChange={(event) => update('aiMissed', event.target.value)}
                   rows={4}
                   className="input mt-2 w-full resize-y normal-case tracking-normal"
-                  placeholder="Example: It over-penalized passive agency and undervalued the comic engine."
+                  placeholder={t('Example: It over-penalized passive agency and undervalued the comic engine.')}
                 />
               </label>
               <label className="text-xs font-semibold uppercase tracking-wider text-black-400">
-                What did the AI get right?
+                {t('What did the AI get right?')}
                 <textarea
                   value={judgment.aiGotRight}
                   onChange={(event) => update('aiGotRight', event.target.value)}
                   rows={4}
                   className="input mt-2 w-full resize-y normal-case tracking-normal"
-                  placeholder="Example: The protagonist still needs a more active final choice."
+                  placeholder={t('Example: The protagonist still needs a more active final choice.')}
                 />
               </label>
             </div>
@@ -632,16 +630,15 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
             <label className="flex items-start gap-3 rounded-lg border border-black-700 p-3 text-sm text-black-300">
               <input
                 type="checkbox"
-                aria-label="Use this as calibration evidence"
+                aria-label={t('Use this as calibration evidence')}
                 checked={judgment.includeInCalibration && !isLegacyDraft}
                 onChange={(event) => update('includeInCalibration', event.target.checked)}
                 disabled={judgment.confidence === 'low' || isLegacyDraft}
                 className="mt-0.5 accent-[#3157d5]"
               />
               <span>
-                <strong className="block text-black-100">Use this as calibration evidence</strong>
-                Leave this off when your opinion is tentative or the analysis version is not
-                representative.
+                <strong className="block text-black-100">{t('Use this as calibration evidence')}</strong>
+                {t('Leave this off when your opinion is tentative or the analysis version is not representative.')}
               </span>
             </label>
 
@@ -664,7 +661,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                     clearLocalProducerWorkingDraft(projectId);
                   }}
                 >
-                  Cancel
+                  {t('Cancel')}
                 </button>
               )}
               <button
@@ -674,16 +671,16 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 onClick={handleSave}
               >
                 {saving
-                  ? 'Saving…'
+                  ? t('Saving…')
                   : isLegacyDraft
-                    ? 'Save Producer Draft'
+                    ? t('Save Producer Draft')
                   : isLocalPreview && hasSavedTake
-                    ? 'Save local revision'
+                    ? t('Save local revision')
                     : isLocalPreview
-                      ? 'Save local preview'
+                      ? t('Save local preview')
                       : assessment
-                        ? 'Publish new revision'
-                        : 'Publish Producer Take'}
+                        ? t('Publish new revision')
+                        : t('Publish Producer Take')}
               </button>
             </div>
           </div>

@@ -17,6 +17,7 @@ import {
   getDimensionDisplay,
   hasPillarScores,
 } from '@/lib/dimensionDisplay';
+import { useTranslation } from 'react-i18next';
 
 interface ComparisonRadarProps {
   screenplays: Screenplay[];
@@ -62,6 +63,7 @@ function CustomTooltip({ active, payload, label, screenplays }: RadarCustomToolt
 }
 
 export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps) {
+  const { t } = useTranslation();
   const evidenceKinds = new Set(
     screenplays.map((screenplay) =>
       hasPillarScores(screenplay) ? 'pillar' : 'legacy',
@@ -100,6 +102,7 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
             <span className="text-xs text-black-500">({sp.weightedScore.toFixed(1)})</span>
             <button
               onClick={() => onRemove(sp.id)}
+              aria-label={t('Remove {{title}} from comparison', { title: sp.title })}
               className="p-0.5 rounded hover:bg-black-700 text-black-500 hover:text-red-400 ml-1"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -117,12 +120,10 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
           role="status"
         >
           <h4 className="text-sm font-semibold text-amber-300">
-            Mixed analysis generations
+            {t('Mixed analysis generations')}
           </h4>
           <p className="mt-1 text-sm leading-6 text-black-300">
-            Five-pillar reader evidence and legacy dimensions measure different
-            things, so the app will not overlay them on one radar. Use the
-            side-by-side view to see each evidence system under its own labels.
+            {t('Five-pillar reader evidence and legacy dimensions measure different things, so the app will not overlay them on one radar. Use the side-by-side view to see each evidence system under its own labels.')}
           </p>
         </div>
       ) : (
@@ -187,7 +188,7 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
 
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-black-400">Final:</span>
+                <span className="text-black-400">{t('Final')}:</span>
                 <span className="font-bold" style={{ color: 'var(--sp-text)' }}>{sp.weightedScore.toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
@@ -195,21 +196,21 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
                 <span className="font-bold" style={{ color: 'var(--sp-text)' }}>{sp.cvsTotal}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-black-400">Market:</span>
-                <span className="font-bold" style={{ color: 'var(--sp-text)' }}>{sp.producerMetrics.marketPotential ?? 'N/A'}</span>
+                <span className="text-black-400">{t('Market')}:</span>
+                <span className="font-bold" style={{ color: 'var(--sp-text)' }}>{sp.producerMetrics.marketPotential ?? t('N/A')}</span>
               </div>
             </div>
 
             {/* Displayed evidence average */}
             <div className="mt-3 pt-3 border-t border-black-700">
               <div className="text-xs text-black-500">
-                Avg Evidence Score:{' '}
+                {t('Avg Evidence Score')}:{' '}
                 <span style={{ color: 'var(--sp-text)' }}>
                   {(() => {
                     const evidence = getDimensionDisplay(sp);
                     return evidence.length > 0
                       ? (evidence.reduce((total, item) => total + item.score, 0) / evidence.length).toFixed(1)
-                      : 'N/A';
+                      : t('N/A');
                   })()}
                 </span>
               </div>
@@ -224,13 +225,13 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
         <table className="w-full text-sm">
           <thead className="bg-black-800">
             <tr>
-              <th className="px-4 py-3 text-left text-black-400 font-medium">Dimension</th>
+              <th className="px-4 py-3 text-left text-black-400 font-medium">{t('Dimension')}</th>
               {screenplays.map((sp, index) => (
                 <th key={sp.id} className="px-4 py-3 text-center font-medium" style={{ color: COLORS[index]?.stroke }}>
                   {sp.title.length > 15 ? sp.title.slice(0, 15) + '...' : sp.title}
                 </th>
               ))}
-              <th className="px-4 py-3 text-center text-black-500 font-medium">Winner</th>
+              <th className="px-4 py-3 text-center text-black-500 font-medium">{t('Winner')}</th>
             </tr>
           </thead>
           <tbody>
@@ -246,7 +247,7 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
 
               return (
                 <tr key={dim.key} className="border-t border-black-800">
-                  <td className="px-4 py-3 text-black-300">{dim.label}</td>
+                  <td className="px-4 py-3 text-black-300">{t(dim.label)}</td>
                   {scores.map((score, index) => (
                     <td
                       key={screenplays[index].id}
@@ -258,7 +259,7 @@ export function ComparisonRadar({ screenplays, onRemove }: ComparisonRadarProps)
                   ))}
                   <td className="px-4 py-3 text-center">
                     {isTie ? (
-                      <span className="text-black-500 text-xs">Tie</span>
+                      <span className="text-black-500 text-xs">{t('Tie')}</span>
                     ) : (
                       <span style={{ color: COLORS[winnerIndex]?.stroke }} className="text-xs font-medium">
                         {screenplays[winnerIndex]?.title?.slice(0, 10)}...

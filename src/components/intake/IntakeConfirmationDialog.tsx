@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 
 interface IntakeConfirmationDialogProps {
   filenames: string[];
@@ -16,6 +17,7 @@ export function IntakeConfirmationDialog({
   onCancel,
   onConfirm,
 }: IntakeConfirmationDialogProps) {
+  const { t } = useTranslation();
   const dialogRef = useRef<HTMLElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const [paidAnalysisAcknowledged, setPaidAnalysisAcknowledged] = useState(false);
@@ -77,36 +79,35 @@ export function IntakeConfirmationDialog({
       >
         <div className="border-b border-red-500/25 bg-red-500/10 px-6 py-5 sm:px-8">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-600 dark:text-red-300">
-            Paid analysis authorization
+            {t('Paid analysis authorization')}
           </p>
           <h2 id="intake-confirm-title" className="dsc-display mt-2 text-4xl">
-            Authorize paid analysis?
+            {t('Authorize paid analysis?')}
           </h2>
           <p id="intake-confirm-description" className="mt-3 max-w-xl text-sm leading-6 text-[var(--dsc-ink-2)]">
-            This immediately sends the screenplays below to the V9 reader room. Once submitted,
-            an active screenplay cannot be canceled from this screen.
+            {t('This immediately sends the screenplays below to the V9 reader room. Once submitted, an active screenplay cannot be canceled from this screen.')}
           </p>
         </div>
 
         <div className="space-y-6 p-6 sm:p-8">
           <div className="grid gap-px overflow-hidden rounded-xl border border-[var(--dsc-line)] bg-[var(--dsc-line)] sm:grid-cols-3">
             <div className="bg-[var(--dsc-surface-2)] p-4">
-              <p className="text-xs uppercase tracking-wider text-[var(--dsc-ink-3)]">Screenplays</p>
+              <p className="text-xs uppercase tracking-wider text-[var(--dsc-ink-3)]">{t('Screenplays')}</p>
               <p className="mt-1 text-xl font-semibold text-[var(--dsc-ink)]">{projectCount}</p>
             </div>
             <div className="bg-[var(--dsc-surface-2)] p-4">
-              <p className="text-xs uppercase tracking-wider text-[var(--dsc-ink-3)]">Reading route</p>
+              <p className="text-xs uppercase tracking-wider text-[var(--dsc-ink-3)]">{t('Reading route')}</p>
               <p className="mt-1 text-xl font-semibold text-[var(--dsc-ink)]">{modelName}</p>
             </div>
             <div className="bg-[var(--dsc-surface-2)] p-4">
-              <p className="text-xs uppercase tracking-wider text-[var(--dsc-ink-3)]">Estimated batch cost</p>
-              <p className="mt-1 text-xl font-semibold text-[var(--dsc-ink)]">{costEstimate ?? 'Unavailable'}</p>
+              <p className="text-xs uppercase tracking-wider text-[var(--dsc-ink-3)]">{t('Estimated batch cost')}</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--dsc-ink)]">{costEstimate ?? t('Unavailable')}</p>
             </div>
           </div>
 
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--dsc-ink-3)]">
-              Screenplays entering the room
+              {t('Screenplays entering the room')}
             </p>
             <ol className="mt-3 max-h-48 divide-y divide-[var(--dsc-line)] overflow-y-auto rounded-xl border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)]">
               {filenames.map((filename, index) => (
@@ -127,17 +128,17 @@ export function IntakeConfirmationDialog({
             />
             <span>
               <strong className="block text-sm text-[var(--dsc-ink)]">
-                I understand that this starts paid AI analysis now.
+                {t('I understand that this starts paid AI analysis now.')}
               </strong>
               <span className="mt-1 block text-xs leading-5 text-[var(--dsc-ink-3)]">
-                No analysis starts unless you authorize it below. Closing this window or returning to Intake starts nothing.
+                {t('No analysis starts unless you authorize it below. Closing this window or returning to Intake starts nothing.')}
               </span>
             </span>
           </label>
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button ref={cancelRef} type="button" className="dsc-btn" onClick={onCancel}>
-              Return to Intake, start nothing
+              {t('Return to Intake, start nothing')}
             </button>
             <button
               type="button"
@@ -145,7 +146,7 @@ export function IntakeConfirmationDialog({
               disabled={!paidAnalysisAcknowledged}
               onClick={onConfirm}
             >
-              Authorize paid analysis for {projectCount} screenplay{projectCount === 1 ? '' : 's'}
+              {t('Authorize paid analysis for {{count}} screenplay', { count: projectCount })}
             </button>
           </div>
         </div>

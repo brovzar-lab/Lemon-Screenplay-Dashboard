@@ -1,4 +1,5 @@
 import type { Screenplay } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface ScreenplaySlateStatsProps {
   screenplays: Screenplay[];
@@ -13,6 +14,7 @@ export function ScreenplaySlateStats({
   producerLookCount,
   loading = false,
 }: ScreenplaySlateStatsProps) {
+  const { t } = useTranslation();
   const average =
     screenplays.length > 0
       ? screenplays.reduce((sum, screenplay) => sum + screenplay.weightedScore, 0) /
@@ -26,7 +28,7 @@ export function ScreenplaySlateStats({
   return (
     <section
       className="screenplay-slate-stats"
-      aria-label="Current slate statistics"
+      aria-label={t('Current slate statistics')}
       aria-busy={loading}
     >
       {loading ? (
@@ -37,23 +39,23 @@ export function ScreenplaySlateStats({
         <>
           <span>
             <strong>{totalCount}</strong>
-            <small>Total scripts</small>
+            <small>{t('Total scripts')}</small>
           </span>
           <span>
             <strong>{screenplays.length}</strong>
-            <small>Visible</small>
+            <small>{t('Visible')}</small>
           </span>
           <span>
             <strong>{average.toFixed(1)}</strong>
-            <small>Average score</small>
+            <small>{t('Average score')}</small>
           </span>
           <span>
             <strong>{priorityCount}</strong>
-            <small>Film Now + Recommend</small>
+            <small>{t('Film Now + Recommend')}</small>
           </span>
           <span>
             <strong>{producerLookCount}</strong>
-            <small>Producer Look</small>
+            <small>{t('Producer Look')}</small>
           </span>
         </>
       )}

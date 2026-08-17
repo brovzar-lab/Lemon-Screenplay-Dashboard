@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 import type { Screenplay } from '@/types';
 import { fetchReaderReports } from '@/lib/readerReportService';
@@ -12,6 +13,7 @@ export function ReaderEvidencePanel({
   screenplay: Screenplay;
   presentation?: 'default' | 'workspace';
 }) {
+  const { t } = useTranslation();
   const isWorkspace = presentation === 'workspace';
   const reportsQuery = useQuery({
     queryKey: [
@@ -26,11 +28,11 @@ export function ReaderEvidencePanel({
   return (
     <section data-testid="reader-evidence-panel">
       <SectionHeader icon={isWorkspace ? undefined : '🔎'}>
-        {isWorkspace ? 'Specialist evidence' : 'Specialist Reader Evidence'}
+        {t(isWorkspace ? 'Specialist evidence' : 'Specialist Reader Evidence')}
       </SectionHeader>
       {reportsQuery.isPending && (
         <div className="rounded-xl border border-black-700 bg-black-900/30 p-4">
-          <p className="text-sm text-black-400">Loading the sealed reader reports…</p>
+          <p className="text-sm text-black-400">{t('Loading the sealed reader reports…')}</p>
         </div>
       )}
       {reportsQuery.isError && (
@@ -39,21 +41,21 @@ export function ReaderEvidencePanel({
           role="alert"
         >
           <p className="text-sm font-semibold text-red-300">
-            Reader evidence could not be loaded.
+            {t('Reader evidence could not be loaded.')}
           </p>
           <button
             type="button"
             onClick={() => void reportsQuery.refetch()}
             className="mt-2 text-xs font-bold uppercase tracking-wide text-red-200 underline"
           >
-            Try again
+            {t('Try again')}
           </button>
         </div>
       )}
       {reportsQuery.isSuccess && reportsQuery.data.length === 0 && (
         <div className="rounded-xl border border-black-700 border-dashed bg-black-900/30 p-4">
           <p className="text-sm leading-6 text-black-400">
-            Sealed specialist reports are not available for this older analysis.
+            {t('Sealed specialist reports are not available for this older analysis.')}
           </p>
         </div>
       )}
@@ -76,7 +78,7 @@ export function ReaderEvidencePanel({
               )}>
                 <span>
                     <span className={clsx('block font-semibold text-black-100', isWorkspace ? 'text-base' : 'text-sm')}>
-                    {report.label} Reader
+                    {report.label} {t('Reader')}
                   </span>
                   {report.oneSentenceVerdict && (
                     <span className="mt-0.5 block text-xs leading-5 text-black-400">
@@ -101,10 +103,10 @@ export function ReaderEvidencePanel({
                         </strong>
                       </div>
                       <p className="text-xs leading-5 text-black-400">
-                        {subScore.justification || 'No written evidence was preserved.'}
+                        {subScore.justification || t('No written evidence was preserved.')}
                         {subScore.pageCitations.length > 0 && (
                           <span className="ml-1 text-black-500">
-                            Pages {subScore.pageCitations.join(', ')}
+                            {t('Pages {{pages}}', { pages: subScore.pageCitations.join(', ') })}
                           </span>
                         )}
                       </p>
@@ -114,7 +116,7 @@ export function ReaderEvidencePanel({
                 {report.redFlags.length > 0 && (
                   <div className="mt-4 border-t border-black-700 pt-3">
                     <p className="text-xs font-bold uppercase tracking-wide text-amber-300">
-                      Reader flags
+                      {t('Reader flags')}
                     </p>
                     <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-black-300">
                       {report.redFlags.map((flag) => <li key={flag}>{flag}</li>)}
@@ -133,7 +135,7 @@ export function ReaderEvidencePanel({
           isWorkspace ? 'rounded-sm border-l-4' : 'rounded-xl',
         )}>
           <p className="text-xs font-bold uppercase tracking-wide text-amber-300">
-            Roundtable disagreements
+            {t('Roundtable disagreements')}
           </p>
           <div className="mt-3 space-y-3">
             {screenplay.readerDisagreements.map((disagreement, index) => (
@@ -141,7 +143,7 @@ export function ReaderEvidencePanel({
                 <p className="text-sm font-semibold text-black-100">{disagreement.topic}</p>
                 {disagreement.resolution && (
                   <p className="mt-1 text-xs leading-5 text-black-300">
-                    Resolution: {disagreement.resolution}
+                    {t('Resolution:')} {disagreement.resolution}
                   </p>
                 )}
               </div>

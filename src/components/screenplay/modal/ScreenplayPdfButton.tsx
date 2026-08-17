@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { getDownloadURL, ref } from 'firebase/storage';
 
 import { storage, uploadScreenplayPdf } from '@/lib/firebase';
@@ -31,6 +32,7 @@ export function ScreenplayPdfButton({
   presentation = 'default',
   allowReupload = true,
 }: ScreenplayPdfButtonProps) {
+  const { t } = useTranslation();
   const isAdmin = useIsAdmin();
   const [pdfState, setPdfState] = useState<PdfState>('idle');
   const reuploadRef = useRef<HTMLInputElement>(null);
@@ -83,7 +85,7 @@ export function ScreenplayPdfButton({
 
     setPdfState('error');
     if (isWorkspace) {
-      useToastStore.getState().addToast('The source screenplay PDF is not available.', 'warning');
+      useToastStore.getState().addToast(t('The source screenplay PDF is not available.'), 'warning');
     } else {
       resetTimerRef.current = window.setTimeout(() => setPdfState('idle'), 3000);
     }
@@ -96,11 +98,11 @@ export function ScreenplayPdfButton({
     setPdfState('uploading');
     try {
       await uploadScreenplayPdf(file, screenplay.category || 'OTHER', screenplay.title);
-      useToastStore.getState().addToast(`PDF uploaded for "${displayTitle}"`);
+      useToastStore.getState().addToast(t('PDF uploaded for “{{title}}”', { title: displayTitle }));
       setPdfState('idle');
     } catch (error) {
       console.error('[PDF Re-upload]', error);
-      useToastStore.getState().addToast('PDF upload failed — please try again');
+      useToastStore.getState().addToast(t('PDF upload failed. Please try again.'));
       setPdfState('error');
     }
     if (reuploadRef.current) reuploadRef.current.value = '';
@@ -110,15 +112,15 @@ export function ScreenplayPdfButton({
   const unavailable = pdfState === 'error' && !canReupload;
   const label =
     pdfState === 'uploading'
-      ? 'Uploading…'
+      ? t('Uploading…')
       : pdfState === 'loading'
-        ? 'Opening…'
+        ? t('Opening…')
         : pdfState === 'error'
           ? isWorkspace && !canReupload
-            ? 'Source unavailable'
-            : 'Re-Upload PDF'
+            ? t('Source unavailable')
+            : t('Re-Upload PDF')
           : isWorkspace
-            ? 'Open screenplay'
+            ? t('Open screenplay')
             : 'PDF';
 
   return (
@@ -142,19 +144,19 @@ export function ScreenplayPdfButton({
           busy
             ? `${label} ${displayTitle}`
             : unavailable
-              ? `Source screenplay unavailable for ${displayTitle}`
+              ? t('Source screenplay unavailable for {{title}}', { title: displayTitle })
               : isWorkspace
-                ? `Open source screenplay for ${displayTitle}`
+                ? t('Open source screenplay for {{title}}', { title: displayTitle })
                 : undefined
         }
         title={
           pdfState === 'error'
             ? isWorkspace && !canReupload
-              ? 'Source screenplay PDF is unavailable'
-              : 'PDF not found — click to re-upload'
+              ? t('Source screenplay PDF is unavailable')
+              : t('PDF not found. Click to re-upload.')
             : pdfState === 'uploading'
-              ? 'Uploading PDF...'
-              : `${isWorkspace ? 'Open' : 'Download'} ${screenplay.sourceFile || screenplay.title}`
+              ? t('Uploading PDF...')
+              : `${t(isWorkspace ? 'Open' : 'Download')} ${screenplay.sourceFile || screenplay.title}`
         }
       >
         <span aria-hidden="true">{busy ? '◌' : pdfState === 'error' ? '!' : '↗'}</span>

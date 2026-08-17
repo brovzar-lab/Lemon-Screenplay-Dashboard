@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 import { fetchReaderReports } from '@/lib/readerReportService';
 import { privateReaderChatMode } from '@/lib/privateReaderChat';
@@ -123,6 +124,7 @@ function readerChatReadiness(
 }
 
 export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
+  const { t } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<ReaderProfile['key']>('structure');
   const [conversationOpen, setConversationOpen] = useState(false);
   const selectedReaderButtonRef = useRef<HTMLButtonElement>(null);
@@ -146,23 +148,23 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
   const readiness = readerChatReadiness(screenplay, selectedReport, chatMode);
   const canOpenConversation = readiness.ready;
   const chatIntro = !hasExactVersion
-    ? 'This legacy record preserves its roundtable evidence, but it needs a current sealed analysis before private conversations can cite the screenplay.'
+    ? t('This legacy record preserves its roundtable evidence, but it needs a current sealed analysis before private conversations can cite the screenplay.')
     : chatMode === 'live'
-    ? 'Select a reader to start a private conversation. Their sealed report stays one click away.'
+    ? t('Select a reader to start a private conversation. Their sealed report stays one click away.')
     : chatMode === 'local_review'
-      ? 'Select a reader to preview the conversation flow. Local review uses sealed evidence and makes no model call.'
-      : 'Read each sealed report here. Private Reader Chat is not activated in this environment.';
+      ? t('Select a reader to preview the conversation flow. Local review uses sealed evidence and makes no model call.')
+      : t('Read each sealed report here. Private Reader Chat is not activated in this environment.');
 
   function talkButtonLabel(): string {
     const firstName = selectedReader.name.split(' ')[0];
-    if (!hasExactVersion) return 'Reanalyze to create a citable analysis version';
-    if (!selectedReport) return `Reanalyze for ${selectedReader.role} chat`;
+    if (!hasExactVersion) return t('Reanalyze to create a citable analysis version');
+    if (!selectedReport) return t('Reanalyze for {{role}} chat', { role: t(selectedReader.role) });
     if (chatMode === 'live' && (!screenplay.hasPdf || !screenplay.storagePath)) {
-      return 'Restore source screenplay to chat';
+      return t('Restore source screenplay to chat');
     }
-    if (chatMode === 'not_activated') return 'Private Reader Chat not activated';
-    if (chatMode === 'local_review') return `Preview conversation with ${firstName}`;
-    return `Talk privately with ${firstName}`;
+    if (chatMode === 'not_activated') return t('Private Reader Chat not activated');
+    if (chatMode === 'local_review') return t('Preview conversation with {{name}}', { name: firstName });
+    return t('Talk privately with {{name}}', { name: firstName });
   }
 
   function closeConversation() {
@@ -175,17 +177,17 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
       <header className="reader-room__intro">
         <div>
           <p className="dsc-kicker">
-            {hasExactVersion ? 'Five specialist lenses · sealed V9 evidence' : 'Legacy reader evidence · preserved for review'}
+            {t(hasExactVersion ? 'Five specialist lenses · sealed V9 evidence' : 'Legacy reader evidence · preserved for review')}
           </p>
           <h2 id="reader-room-title" className="dsc-display">
-            The Readers Room
+            {t('The Readers Room')}
           </h2>
         </div>
         <p>{chatIntro}</p>
       </header>
 
       <div className="reader-room__stage">
-        <div className="reader-room__rail" aria-label="Specialist readers">
+        <div className="reader-room__rail" aria-label={t('Specialist readers')}>
           {READERS.map((reader) => {
             const report = reportFor(reader, reportsQuery.data ?? []);
             const selected = selectedKey === reader.key;
@@ -200,18 +202,16 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
                   setConversationOpen(readerReadiness.ready);
                 }}
                 aria-pressed={selected}
-                aria-label={`${reader.role}: ${reader.name}. ${
-                  readerReadiness.label
-                }`}
+                aria-label={`${t(reader.role)}: ${reader.name}. ${t(readerReadiness.label)}`}
                 className={clsx('reader-persona', selected && 'reader-persona--active')}
               >
                 <img src={reader.image} alt="" />
                 <span className="reader-persona__copy">
                   <strong>{reader.name}</strong>
-                  <span>{reader.role}</span>
+                  <span>{t(reader.role)}</span>
                 </span>
                 <b>{report ? report.pillarScore.toFixed(1) : '—'}</b>
-                <small>{readerReadiness.ready ? 'Chat ready' : 'Report only'}</small>
+                <small>{t(readerReadiness.ready ? 'Chat ready' : 'Report only')}</small>
               </button>
             );
           })}
@@ -226,7 +226,7 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
             versionId={screenplay.latestVersionId ?? 'latest-parent'}
             reader={selectedReader.key}
             readerName={selectedReader.name}
-            readerRole={selectedReader.role}
+            readerRole={t(selectedReader.role)}
             readerImage={selectedReader.image}
             report={selectedReport}
           />
@@ -235,9 +235,9 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
             <div className="reader-case__header">
               <img src={selectedReader.image} alt="" />
               <div>
-                <span className="dsc-kicker">{selectedReader.role} · Independent report</span>
+                <span className="dsc-kicker">{t(selectedReader.role)} · {t('Independent report')}</span>
                 <h3>{selectedReader.name}</h3>
-                <p>{selectedReader.remit}</p>
+                <p>{t(selectedReader.remit)}</p>
               </div>
               <strong>{selectedReport ? selectedReport.pillarScore.toFixed(1) : '—'}</strong>
             </div>
@@ -249,23 +249,23 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
               )}
               role="status"
             >
-              <strong>{readiness.label}</strong>
-              <span>{readiness.detail}</span>
+              <strong>{t(readiness.label)}</strong>
+              <span>{t(readiness.detail)}</span>
             </div>
 
             {reportsQuery.isPending ? (
-              <p className="reader-case__empty">Opening the sealed reader report…</p>
+              <p className="reader-case__empty">{t('Opening the sealed reader report…')}</p>
             ) : reportsQuery.isError ? (
               <div className="reader-case__empty" role="alert">
-                Reader evidence could not be loaded.
+                {t('Reader evidence could not be loaded.')}
                 <button type="button" onClick={() => void reportsQuery.refetch()}>
-                  Try again
+                  {t('Try again')}
                 </button>
               </div>
             ) : selectedReport ? (
               <>
                 <blockquote>
-                  {formatProducerText(selectedReport.oneSentenceVerdict || 'No summary verdict was preserved.')}
+                  {selectedReport.oneSentenceVerdict ? formatProducerText(selectedReport.oneSentenceVerdict) : t('No summary verdict was preserved.')}
                 </blockquote>
                 <div className="reader-case__evidence">
                   {selectedReport.subScores.map((subScore) => (
@@ -274,16 +274,16 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
                         <h4>{formatProducerTaxonomy(subScore.label)}</h4>
                         <strong>{subScore.score.toFixed(1)}</strong>
                       </header>
-                      <p>{formatProducerText(subScore.justification || 'No written evidence was preserved.')}</p>
+                      <p>{subScore.justification ? formatProducerText(subScore.justification) : t('No written evidence was preserved.')}</p>
                       {subScore.pageCitations.length > 0 && (
-                        <span>Pages {subScore.pageCitations.join(', ')}</span>
+                        <span>{t('Pages {{pages}}', { pages: subScore.pageCitations.join(', ') })}</span>
                       )}
                     </section>
                   ))}
                 </div>
                 {selectedReport.redFlags.length > 0 && (
                   <div className="reader-case__flags">
-                    <span>Watch points</span>
+                    <span>{t('Watch points')}</span>
                     <ul>
                       {selectedReport.redFlags.map((flag) => (
                         <li key={flag}>{formatProducerText(flag)}</li>
@@ -294,13 +294,11 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
               </>
             ) : !hasExactVersion ? (
               <p className="reader-case__empty">
-                This project needs a current sealed analysis version before a private conversation
-                can cite the correct screenplay evidence.
+                {t('This project needs a current sealed analysis version before a private conversation can cite the correct screenplay evidence.')}
               </p>
             ) : (
               <p className="reader-case__empty">
-                This older analysis does not contain a sealed {selectedReader.role.toLowerCase()}{' '}
-                report.
+                {t('This older analysis does not contain a sealed {{role}} report.', { role: t(selectedReader.role).toLocaleLowerCase() })}
               </p>
             )}
 
@@ -318,8 +316,8 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
       </div>
 
       {screenplay.readerDisagreements && screenplay.readerDisagreements.length > 0 && (
-        <section className="reader-room__roundtable" aria-label="Roundtable disagreements">
-          <span className="dsc-kicker">Roundtable disagreements</span>
+        <section className="reader-room__roundtable" aria-label={t('Roundtable disagreements')}>
+          <span className="dsc-kicker">{t('Roundtable disagreements')}</span>
           <div>
             {screenplay.readerDisagreements.map((disagreement, index) => (
               <article key={`${disagreement.topic}-${index}`}>
@@ -335,8 +333,8 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
                   </section>
                 </div>
                 <div className="reader-room__resolution">
-                  <strong>Roundtable resolution</strong>
-                  <p>{formatProducerText(disagreement.resolution || 'No resolution was preserved.')}</p>
+                  <strong>{t('Roundtable resolution')}</strong>
+                  <p>{disagreement.resolution ? formatProducerText(disagreement.resolution) : t('No resolution was preserved.')}</p>
                 </div>
               </article>
             ))}

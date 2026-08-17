@@ -7,6 +7,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recha
 
 import type { Screenplay, RecommendationTier } from '@/types';
 import { TIER_COLORS } from '@/lib/chartColors';
+import { useTranslation } from 'react-i18next';
 
 interface TierBreakdownProps {
   screenplays: Screenplay[];
@@ -47,15 +48,16 @@ interface ChartTooltipProps {
 
 // Hoisted to module scope — avoids react-hooks/static-components violation
 function CustomTooltip({ active, payload }: ChartTooltipProps) {
+  const { t } = useTranslation();
   if (active && payload && payload.length) {
     const item = payload[0].payload as TierChartItem;
     return (
       <div className="chart-tooltip">
         <strong>{item.name}</strong>
         <span>
-          <span className="font-bold">{item.value}</span> screenplays
+          {t('{{count}} screenplay', { count: item.value })}
         </span>
-        <span>{item.percentage}% of total</span>
+        <span>{t('{{percentage}}% of total', { percentage: item.percentage })}</span>
       </div>
     );
   }
@@ -83,6 +85,7 @@ function CustomLegend({ payload, data, onTierClick }: CustomLegendProps) {
 }
 
 export function TierBreakdown({ screenplays, onTierClick }: TierBreakdownProps) {
+  const { t } = useTranslation();
   // Calculate tier distribution
   const tierCounts = screenplays.reduce(
     (acc, sp) => {
@@ -97,7 +100,7 @@ export function TierBreakdown({ screenplays, onTierClick }: TierBreakdownProps) 
   )
     .map(([tier, config]) => ({
       tier,
-      name: config.label,
+      name: t(config.label),
       value: tierCounts[tier] || 0,
       color: config.color,
       percentage:
@@ -148,7 +151,7 @@ export function TierBreakdown({ screenplays, onTierClick }: TierBreakdownProps) 
       {/* Center total label */}
       <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
         <p className="text-2xl font-bold text-black-50">{total}</p>
-        <p className="text-xs text-black-400">Total</p>
+        <p className="text-xs text-black-400">{t('Total')}</p>
       </div>
     </div>
   );

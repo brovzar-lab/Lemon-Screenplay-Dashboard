@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   useScreenplays,
   useDeletedScreenplays,
@@ -21,6 +22,7 @@ import { useToastStore } from '@/stores/toastStore';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 
 export function DataManagement() {
+  const { t } = useTranslation();
   const { data: screenplays = [] } = useScreenplays();
   const resetFilters = useFilterStore((s) => s.resetFilters);
   const { lists, quickFavorites } = useFavoritesStore();
@@ -134,7 +136,7 @@ export function DataManagement() {
   const handleClearCache = () => {
     queryClient.invalidateQueries();
     resetFilters();
-    useToastStore.getState().addToast('Cache cleared — data will refresh');
+    useToastStore.getState().addToast(t('Cache cleared. Data will refresh.'));
     setShowClearCacheConfirm(false);
   };
 
@@ -146,7 +148,7 @@ export function DataManagement() {
       if (key?.startsWith('lemon-')) keysToRemove.push(key);
     }
     keysToRemove.forEach((k) => localStorage.removeItem(k));
-    useToastStore.getState().addToast(`Cleared ${keysToRemove.length} settings keys`);
+    useToastStore.getState().addToast(t('Cleared {{count}} settings keys', { count: keysToRemove.length }));
     setShowResetAllConfirm(false);
     window.location.reload();
   };
@@ -160,7 +162,7 @@ export function DataManagement() {
       setShowDeleteAllConfirm(false);
     } catch (err) {
       console.error('[Lemon] Failed to delete all screenplays:', err);
-      useToastStore.getState().addToast('Failed to delete all screenplays — please try again');
+      useToastStore.getState().addToast(t('Failed to delete all screenplays. Please try again.'));
     } finally {
       setIsDeleting(false);
     }
@@ -169,13 +171,13 @@ export function DataManagement() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-display text-gold-200 mb-2">Data Management</h2>
-        <p className="text-sm text-black-400">Export data, manage cache, and reset settings.</p>
+        <h2 className="text-xl font-display text-gold-200 mb-2">{t('Data Management')}</h2>
+        <p className="text-sm text-black-400">{t('Export data, manage cache, and reset settings.')}</p>
       </div>
 
       {/* Export Section */}
       <div>
-        <h3 className="text-lg font-medium text-gold-200 mb-4">Export Data</h3>
+        <h3 className="text-lg font-medium text-gold-200 mb-4">{t('Export Data')}</h3>
         <div className="grid grid-cols-2 gap-4">
           <button
             onClick={handleExportJSON}
@@ -198,8 +200,8 @@ export function DataManagement() {
                 </svg>
               </div>
               <div>
-                <p className="font-medium text-gold-200">Export JSON</p>
-                <p className="text-xs text-black-500">Full data with all fields</p>
+                <p className="font-medium text-gold-200">{t('Export JSON')}</p>
+                <p className="text-xs text-black-500">{t('Full data with all fields')}</p>
               </div>
             </div>
           </button>
@@ -225,51 +227,51 @@ export function DataManagement() {
                 </svg>
               </div>
               <div>
-                <p className="font-medium text-gold-200">Export CSV</p>
-                <p className="text-xs text-black-500">Spreadsheet compatible</p>
+                <p className="font-medium text-gold-200">{t('Export CSV')}</p>
+                <p className="text-xs text-black-500">{t('Spreadsheet compatible')}</p>
               </div>
             </div>
           </button>
         </div>
 
         {exportStatus === 'success' && (
-          <p className="text-sm text-emerald-400 mt-3">Export completed successfully!</p>
+          <p className="text-sm text-emerald-400 mt-3">{t('Export completed successfully!')}</p>
         )}
         {exportStatus === 'error' && (
-          <p className="text-sm text-red-400 mt-3">Export failed. Please try again.</p>
+          <p className="text-sm text-red-400 mt-3">{t('Export failed. Please try again.')}</p>
         )}
       </div>
 
       {/* Statistics */}
       <div>
-        <h3 className="text-lg font-medium text-gold-200 mb-4">Data Statistics</h3>
+        <h3 className="text-lg font-medium text-gold-200 mb-4">{t('Data Statistics')}</h3>
         <div className="grid grid-cols-3 gap-4">
           <div className="p-4 rounded-lg bg-black-800/50 border border-black-700">
             <p className="text-2xl font-bold text-gold-400">{screenplays.length}</p>
-            <p className="text-sm text-black-500">Screenplays</p>
+            <p className="text-sm text-black-500">{t('Screenplays')}</p>
           </div>
           <div className="p-4 rounded-lg bg-black-800/50 border border-black-700">
             <p className="text-2xl font-bold text-gold-400">{lists.length}</p>
-            <p className="text-sm text-black-500">Custom Lists</p>
+            <p className="text-sm text-black-500">{t('Custom Lists')}</p>
           </div>
           <div className="p-4 rounded-lg bg-black-800/50 border border-black-700">
             <p className="text-2xl font-bold text-gold-400">{quickFavorites.length}</p>
-            <p className="text-sm text-black-500">Quick Favorites</p>
+            <p className="text-sm text-black-500">{t('Quick Favorites')}</p>
           </div>
         </div>
       </div>
 
       {/* Cache Management */}
       <div>
-        <h3 className="text-lg font-medium text-gold-200 mb-4">Cache Management</h3>
+        <h3 className="text-lg font-medium text-gold-200 mb-4">{t('Cache Management')}</h3>
         <div className="space-y-3">
           <button
             onClick={() => resetFilters()}
             className="w-full p-4 rounded-lg bg-black-800/50 border border-black-700 hover:border-gold-500/30 transition-colors text-left flex items-center justify-between"
           >
             <div>
-              <p className="font-medium text-gold-200">Reset Filters</p>
-              <p className="text-sm text-black-500">Clear all active filter selections</p>
+              <p className="font-medium text-gold-200">{t('Reset Filters')}</p>
+              <p className="text-sm text-black-500">{t('Clear all active filter selections')}</p>
             </div>
             <svg
               className="w-5 h-5 text-black-400"
@@ -291,8 +293,8 @@ export function DataManagement() {
             className="w-full p-4 rounded-lg bg-black-800/50 border border-black-700 hover:border-gold-500/30 transition-colors text-left flex items-center justify-between"
           >
             <div>
-              <p className="font-medium text-gold-200">Clear Cache</p>
-              <p className="text-sm text-black-500">Refresh screenplay data from source</p>
+              <p className="font-medium text-gold-200">{t('Clear Cache')}</p>
+              <p className="text-sm text-black-500">{t('Refresh screenplay data from source')}</p>
             </div>
             <svg
               className="w-5 h-5 text-black-400"
@@ -314,7 +316,7 @@ export function DataManagement() {
       {/* Recently Deleted */}
       <div>
         <div className="flex items-center gap-3 mb-4">
-          <h3 className="text-lg font-medium text-gold-200">Recently Deleted</h3>
+          <h3 className="text-lg font-medium text-gold-200">{t('Recently Deleted')}</h3>
           {deletedScreenplays.length > 0 && (
             <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-500/20 text-amber-400">
               {deletedScreenplays.length}
@@ -322,7 +324,7 @@ export function DataManagement() {
           )}
         </div>
         {deletedScreenplays.length === 0 ? (
-          <p className="text-sm text-zinc-500">No recently deleted screenplays</p>
+          <p className="text-sm text-zinc-500">{t('No recently deleted screenplays')}</p>
         ) : (
           <div>
             <button
@@ -330,8 +332,7 @@ export function DataManagement() {
               className="w-full p-3 rounded-lg bg-black-800/50 border border-black-700 hover:border-gold-500/30 transition-colors text-left flex items-center justify-between mb-2"
             >
               <span className="text-sm text-gold-200">
-                {showDeletedList ? 'Hide' : 'Show'} {deletedScreenplays.length} recoverable{' '}
-                {deletedScreenplays.length === 1 ? 'screenplay' : 'screenplays'}
+                {t(showDeletedList ? 'Hide' : 'Show')} {t('{{count}} recoverable screenplay', { count: deletedScreenplays.length })}
               </span>
               <svg
                 className={`w-4 h-4 text-black-400 transition-transform ${showDeletedList ? 'rotate-180' : ''}`}
@@ -351,7 +352,7 @@ export function DataManagement() {
               <div className="mb-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
                 <span className="text-emerald-400 text-sm">✓</span>
                 <span className="text-sm text-emerald-300">
-                  &quot;{restoredName}&quot; restored to dashboard
+                  {t('“{{title}}” restored to dashboard', { title: restoredName })}
                 </span>
               </div>
             )}
@@ -364,7 +365,7 @@ export function DataManagement() {
                     (Date.now() - deletedDate.getTime()) / (1000 * 60 * 60 * 24),
                   );
                   const timeLabel =
-                    daysAgo === 0 ? 'Today' : daysAgo === 1 ? '1 day ago' : `${daysAgo} days ago`;
+                    daysAgo === 0 ? t('Today') : daysAgo === 1 ? t('1 day ago') : t('{{count}} days ago', { count: daysAgo });
 
                   return (
                     <div
@@ -373,7 +374,7 @@ export function DataManagement() {
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gold-200 truncate">{displayTitle}</p>
-                        <p className="text-xs text-zinc-500">Deleted {timeLabel}</p>
+                        <p className="text-xs text-zinc-500">{t('Deleted {{time}}', { time: timeLabel })}</p>
                       </div>
                       <button
                         onClick={() => {
@@ -387,7 +388,7 @@ export function DataManagement() {
                         disabled={restoreScreenplay.isPending}
                         className="ml-3 px-3 py-1 text-sm font-medium text-emerald-400 hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {restoreScreenplay.isPending ? 'Restoring...' : 'Restore'}
+                        {t(restoreScreenplay.isPending ? 'Restoring...' : 'Restore')}
                       </button>
                     </div>
                   );
@@ -415,11 +416,9 @@ export function DataManagement() {
             />
           </svg>
           <div>
-            <p className="text-sm font-medium text-amber-300">Analysis quarantine needs review</p>
+            <p className="text-sm font-medium text-amber-300">{t('Analysis quarantine needs review')}</p>
             <p className="text-sm text-black-300 mt-1">
-              {quarantineCount} {quarantineCount === 1 ? 'document has' : 'documents have'} an
-              unrecognized or malformed analysis format. They are preserved in Firebase and excluded
-              from dashboard scores.
+              {t('{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores.', { count: quarantineCount })}
             </p>
           </div>
         </div>
@@ -427,16 +426,16 @@ export function DataManagement() {
 
       {/* Danger Zone */}
       <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5">
-        <h3 className="text-lg font-medium text-red-400 mb-4">Danger Zone</h3>
+        <h3 className="text-lg font-medium text-red-400 mb-4">{t('Danger Zone')}</h3>
         <div className="space-y-3">
           <button
             onClick={() => setShowDeleteAllConfirm(true)}
             className="w-full p-4 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors text-left flex items-center justify-between"
           >
             <div>
-              <p className="font-medium text-red-400">Delete All Screenplays</p>
+              <p className="font-medium text-red-400">{t('Delete All Screenplays')}</p>
               <p className="text-sm text-red-400/70">
-                Soft-delete all {screenplays.length} screenplays (recoverable for 30 days)
+                {t('Soft-delete all {{count}} screenplays (recoverable for 30 days)', { count: screenplays.length })}
               </p>
             </div>
             <svg
@@ -459,9 +458,9 @@ export function DataManagement() {
             className="w-full p-4 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors text-left flex items-center justify-between"
           >
             <div>
-              <p className="font-medium text-red-400">Reset Everything</p>
+              <p className="font-medium text-red-400">{t('Reset Everything')}</p>
               <p className="text-sm text-red-400/70">
-                Delete all local data, favorites, and settings
+                {t('Delete all local data, favorites, and settings')}
               </p>
             </div>
             <svg
@@ -486,8 +485,8 @@ export function DataManagement() {
         isOpen={showDeleteAllConfirm}
         onConfirm={handleDeleteAllScreenplays}
         onCancel={() => setShowDeleteAllConfirm(false)}
-        title="Delete all screenplays?"
-        message="This will remove all screenplays from the dashboard. They can be recovered from the Recently Deleted section within 30 days."
+        title={t('Delete all screenplays?')}
+        message={t('This will remove all screenplays from the dashboard. They can be recovered from the Recently Deleted section within 30 days.')}
         count={screenplays.length}
         isPending={isDeleting}
       />
@@ -497,9 +496,9 @@ export function DataManagement() {
         isOpen={showClearCacheConfirm}
         onConfirm={handleClearCache}
         onCancel={() => setShowClearCacheConfirm(false)}
-        title="Clear cached data?"
-        message="This will reset all filters and refresh screenplay data from the server. Your screenplays and settings will not be deleted."
-        confirmLabel="Clear Cache"
+        title={t('Clear cached data?')}
+        message={t('This will reset all filters and refresh screenplay data from the server. Your screenplays and settings will not be deleted.')}
+        confirmLabel={t('Clear Cache')}
         variant="warning"
       />
 
@@ -508,9 +507,9 @@ export function DataManagement() {
         isOpen={showResetAllConfirm}
         onConfirm={handleResetAll}
         onCancel={() => setShowResetAllConfirm(false)}
-        title="Reset all settings?"
-        message="This will clear all favorites, custom lists, filter preferences, and locally stored settings. Your screenplays in Firebase will NOT be deleted. The page will reload."
-        confirmLabel="Reset Everything"
+        title={t('Reset all settings?')}
+        message={t('This will clear all favorites, custom lists, filter preferences, and locally stored settings. Your screenplays in Firebase will NOT be deleted. The page will reload.')}
+        confirmLabel={t('Reset Everything')}
         variant="danger"
       />
     </div>

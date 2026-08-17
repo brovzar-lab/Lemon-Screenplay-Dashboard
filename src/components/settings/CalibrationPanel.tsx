@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { TasteMatch } from '@/components/charts/TasteMatch';
 
 import {
@@ -37,6 +38,7 @@ function candidateStatus(candidate: CalibrationCandidate): string {
 }
 
 export function CalibrationPanel() {
+  const { t, i18n } = useTranslation();
   const isLocalPreview = isLocalCalibrationPreviewMode();
   const [assessments, setAssessments] = useState<ProducerAssessmentHead[]>([]);
   const [candidates, setCandidates] = useState<CalibrationCandidate[]>([]);
@@ -91,12 +93,12 @@ export function CalibrationPanel() {
       setError(
         loadError instanceof Error
           ? loadError.message
-          : 'Calibration evidence could not be loaded.',
+          : t('Calibration evidence could not be loaded.'),
       );
     } finally {
       setLoading(false);
     }
-  }, [isLocalPreview]);
+  }, [isLocalPreview, t]);
 
   useEffect(() => {
     void refresh();
@@ -125,7 +127,7 @@ export function CalibrationPanel() {
   const handleBuild = async () => {
     if (!canBuild) return;
     const approved = window.confirm(
-      'Build a calibration candidate from the training set and run it against the sealed holdout set? This uses paid frontier-model calls but does not activate the result.',
+      t('Build a calibration candidate from the training set and run it against the sealed holdout set? This uses paid frontier-model calls but does not activate the result.'),
     );
     if (!approved) return;
 
@@ -141,7 +143,7 @@ export function CalibrationPanel() {
       setError(
         buildError instanceof Error
           ? buildError.message
-          : 'The calibration candidate could not be built.',
+          : t('The calibration candidate could not be built.'),
       );
     } finally {
       setBuilding(false);
@@ -149,9 +151,10 @@ export function CalibrationPanel() {
   };
 
   const publish = async (candidate: CalibrationCandidate, mode: 'activate' | 'rollback') => {
-    const verb = mode === 'activate' ? 'activate' : 'roll back to';
     const approved = window.confirm(
-      `Are you sure you want to ${verb} this calibration profile for future analyses? Existing scores will not change.`,
+      mode === 'activate'
+        ? t('Activate this calibration profile for future analyses? Existing scores will not change.')
+        : t('Roll back to this calibration profile for future analyses? Existing scores will not change.'),
     );
     if (!approved) return;
 
@@ -167,7 +170,7 @@ export function CalibrationPanel() {
       setError(
         publishError instanceof Error
           ? publishError.message
-          : 'The calibration profile could not be published.',
+          : t('The calibration profile could not be published.'),
       );
     } finally {
       setPublishingId('');
@@ -178,7 +181,7 @@ export function CalibrationPanel() {
     return (
       <div className="flex items-center justify-center py-16" role="status">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-black-700 border-t-[#3157d5]" />
-        <span className="ml-3 text-black-400">Loading calibration evidence…</span>
+        <span className="ml-3 text-black-400">{t('Loading calibration evidence…')}</span>
       </div>
     );
   }
@@ -187,88 +190,82 @@ export function CalibrationPanel() {
     <div className="space-y-7">
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--settings-kicker)]">
-          Producer calibration
+          {t('Producer calibration')}
         </p>
         <h2 className="mt-2 text-3xl font-display text-black-100">
-          Teach the system your taste without rewriting history
+          {t('Teach the system your taste without rewriting history')}
         </h2>
         <p className="mt-2 max-w-3xl leading-7 text-black-400">
-          Producer Takes remain separate from the AI scores. A candidate must improve on sealed
-          examples it was not trained on before it can be published for future analyses.
+          {t('Producer Takes remain separate from the AI scores. A candidate must improve on sealed examples it was not trained on before it can be published for future analyses.')}
         </p>
       </header>
 
       {isLocalPreview && (
         <section className="rounded-xl border border-[#3157d5]/30 bg-[#3157d5]/8 p-4 text-sm leading-6 text-black-300">
-          <strong className="block text-black-100">Local review mode</strong>
-          Producer Takes shown here are real saved evidence. Building a candidate uses paid model
-          calls, and activating a profile changes future analyses, so both actions remain disabled
-          during local review. Nothing on this screen changes the production profile.
+          <strong className="block text-black-100">{t('Local review mode')}</strong>
+          {t('Producer Takes shown here are real saved evidence. Building a candidate uses paid model calls, and activating a profile changes future analyses, so both actions remain disabled during local review. Nothing on this screen changes the production profile.')}
         </section>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-3" aria-label="Calibration status">
+      <section className="grid gap-4 sm:grid-cols-3" aria-label={t('Calibration status')}>
         <div className="rounded-xl border border-black-700 bg-black-900/35 p-5">
-          <p className="text-xs uppercase tracking-wider text-black-500">Recorded Producer Takes</p>
+          <p className="text-xs uppercase tracking-wider text-black-500">{t('Recorded Producer Takes')}</p>
           <strong className="mt-2 block text-3xl tabular-nums text-black-100">
             {assessments.length}
           </strong>
-          <span className="text-sm text-black-400">producer decisions saved</span>
+          <span className="text-sm text-black-400">{t('producer decisions saved')}</span>
         </div>
         <div className="rounded-xl border border-black-700 bg-black-900/35 p-5">
-          <p className="text-xs uppercase tracking-wider text-black-500">Evidence confidence</p>
+          <p className="text-xs uppercase tracking-wider text-black-500">{t('Evidence confidence')}</p>
           <strong className="mt-2 block text-2xl text-black-100">
-            {confidenceLabel(eligibleAssessmentCount)}
+            {t(confidenceLabel(eligibleAssessmentCount))}
           </strong>
           <span className="text-sm text-black-400">
-            {eligibleAssessmentCount} eligible calibration example
-            {eligibleAssessmentCount === 1 ? '' : 's'}
+            {t('{{count}} eligible calibration example', { count: eligibleAssessmentCount })}
           </span>
         </div>
         <div className="rounded-xl border border-black-700 bg-black-900/35 p-5">
-          <p className="text-xs uppercase tracking-wider text-black-500">Active profile</p>
+          <p className="text-xs uppercase tracking-wider text-black-500">{t('Active profile')}</p>
           <strong
             className={clsx(
               'mt-2 block text-2xl',
               activeProfile?.enabled ? 'text-emerald-400' : 'text-black-100',
             )}
           >
-            {activeProfile?.enabled ? 'Active' : 'Not active'}
+            {activeProfile?.enabled ? t('Active') : t('Not active')}
           </strong>
           <span className="text-sm text-black-400">
             {activeProfile?.activeVersionId
-              ? `Version ${activeProfile.activeVersionId.slice(0, 12)}…`
-              : 'No calibration profile affects future analyses'}
+              ? t('Version {{version}}…', { version: activeProfile.activeVersionId.slice(0, 12) })
+              : t('No calibration profile affects future analyses')}
           </span>
         </div>
       </section>
 
-      <section aria-label="Producer alignment">
+      <section aria-label={t('Producer alignment')}>
         <TasteMatch />
       </section>
 
       <section className="rounded-xl border border-black-700 bg-black-900/30 p-5 sm:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h3 className="text-xl font-display text-black-100">Evidence split</h3>
+            <h3 className="text-xl font-display text-black-100">{t('Evidence split')}</h3>
             <p className="mt-1 text-sm leading-6 text-black-400">
-              Training teaches the candidate. Holdout is the sealed test it cannot study first. At
-              least four training reads and one holdout read are required. Only takes explicitly
-              marked as calibration evidence are eligible.
+              {t('Training teaches the candidate. Holdout is the sealed test it cannot study first. At least four training reads and one holdout read are required. Only takes explicitly marked as calibration evidence are eligible.')}
             </p>
           </div>
           <div className="flex gap-3 text-sm tabular-nums">
-            <span className="text-black-300">{trainingAssessmentIds.length} training</span>
+            <span className="text-black-300">{t('{{count}} training', { count: trainingAssessmentIds.length })}</span>
             <span className="text-black-500">·</span>
-            <span className="text-black-300">{holdoutAssessmentIds.length} holdout</span>
+            <span className="text-black-300">{t('{{count}} holdout', { count: holdoutAssessmentIds.length })}</span>
           </div>
         </div>
 
         {assessments.length === 0 ? (
           <div className="mt-5 rounded-lg border border-dashed border-black-700 p-6 text-center">
-            <p className="text-black-200">No Producer Takes yet.</p>
+            <p className="text-black-200">{t('No Producer Takes yet.')}</p>
             <p className="mt-1 text-sm text-black-500">
-              Open a sealed screenplay analysis and publish your take first.
+              {t('Open a sealed screenplay analysis and publish your take first.')}
             </p>
           </div>
         ) : (
@@ -282,20 +279,22 @@ export function CalibrationPanel() {
                   <div className="flex flex-wrap items-center gap-2">
                     <strong className="truncate text-black-100">{assessment.title}</strong>
                     <span className="rounded border border-[#3157d5]/30 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[var(--settings-kicker)]">
-                      Billy {assessment.producerScore.toFixed(1)}
+                      {t('Billy')} {assessment.producerScore.toFixed(1)}
                     </span>
                     <span className="text-xs text-black-500">
-                      AI {assessment.aiFinalScore.toFixed(1)}
+                      {t('AI')} {assessment.aiFinalScore.toFixed(1)}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-black-500">
-                    Revision {assessment.revision} · Exact analysis{' '}
-                    {assessment.versionId.slice(0, 12)}…
+                    {t('Revision {{revision}} · Exact analysis {{version}}…', {
+                      revision: assessment.revision,
+                      version: assessment.versionId.slice(0, 12),
+                    })}
                   </p>
                 </div>
                 {assessment.includeInCalibration ? (
                   <select
-                    aria-label={`Evidence role for ${assessment.title}`}
+                    aria-label={t('Evidence role for {{title}}', { title: assessment.title })}
                     value={assignments[assessment.latestAssessmentId] ?? 'exclude'}
                     onChange={(event) =>
                       setAssignments((current) => ({
@@ -305,16 +304,16 @@ export function CalibrationPanel() {
                     }
                     className="input min-w-36 text-sm"
                   >
-                    <option value="training">Training</option>
-                    <option value="holdout">Holdout</option>
-                    <option value="exclude">Exclude</option>
+                    <option value="training">{t('Training')}</option>
+                    <option value="holdout">{t('Holdout')}</option>
+                    <option value="exclude">{t('Exclude')}</option>
                   </select>
                 ) : (
                   <span
                     className="rounded-lg border border-black-700 px-3 py-2 text-xs font-semibold text-black-400"
-                    title="This Producer Take was saved without Use as calibration evidence enabled."
+                    title={t('This Producer Take was saved without Use as calibration evidence enabled.')}
                   >
-                    Not eligible
+                    {t('Not eligible')}
                   </span>
                 )}
               </div>
@@ -324,8 +323,7 @@ export function CalibrationPanel() {
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-black-500">
-            Building uses the frontier compiler and one decision replay per holdout. It never
-            activates the result automatically.
+            {t('Building uses the frontier compiler and one decision replay per holdout. It never activates the result automatically.')}
           </p>
           <button
             type="button"
@@ -334,24 +332,23 @@ export function CalibrationPanel() {
             onClick={handleBuild}
           >
             {building
-              ? 'Building and benchmarking…'
+              ? t('Building and benchmarking…')
               : isLocalPreview
-                ? 'Disabled during local review'
-                : 'Build candidate'}
+                ? t('Disabled during local review')
+                : t('Build candidate')}
           </button>
         </div>
       </section>
 
       <section className="rounded-xl border border-black-700 bg-black-900/30 p-5 sm:p-6">
-        <h3 className="text-xl font-display text-black-100">Candidate history</h3>
+        <h3 className="text-xl font-display text-black-100">{t('Candidate history')}</h3>
         <p className="mt-1 text-sm text-black-400">
-          Every candidate, benchmark, publication, and rollback keeps its exact evidence and model
-          provenance.
+          {t('Every candidate, benchmark, publication, and rollback keeps its exact evidence and model provenance.')}
         </p>
 
         {candidates.length === 0 ? (
           <p className="mt-5 rounded-lg border border-dashed border-black-700 p-5 text-sm text-black-500">
-            No candidate has been built yet.
+            {t('No candidate has been built yet.')}
           </p>
         ) : (
           <div className="mt-5 space-y-4">
@@ -366,7 +363,7 @@ export function CalibrationPanel() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <strong className="text-black-100">
-                          {new Date(candidate.createdAt).toLocaleString()}
+                          {new Date(candidate.createdAt).toLocaleString(i18n.language === 'es' ? 'es-MX' : 'en-US')}
                         </strong>
                         <span
                           className={clsx(
@@ -376,17 +373,17 @@ export function CalibrationPanel() {
                               : 'border-red-500/35 bg-red-500/10 text-red-400',
                           )}
                         >
-                          {candidateStatus(candidate)}
+                          {t(candidateStatus(candidate))}
                         </span>
                         {isActive && (
                           <span className="rounded-full border border-[#3157d5]/35 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[var(--settings-kicker)]">
-                            Active
+                            {t('Active')}
                           </span>
                         )}
                       </div>
                       <p className="mt-1 text-xs text-black-500">
-                        {candidate.sourceAssessmentIds.length} training reads ·{' '}
-                        {candidate.benchmark.holdoutAssessmentIds.length} holdout reads ·{' '}
+                        {t('{{count}} training read', { count: candidate.sourceAssessmentIds.length })} ·{' '}
+                        {t('{{count}} holdout read', { count: candidate.benchmark.holdoutAssessmentIds.length })} ·{' '}
                         {candidate.compilerModelId}
                       </p>
                     </div>
@@ -403,17 +400,17 @@ export function CalibrationPanel() {
                         }
                       >
                         {publishingId === candidate.candidateId
-                          ? 'Publishing…'
+                          ? t('Publishing…')
                           : activeProfile?.activeVersionId
-                            ? 'Roll back to this version'
-                            : 'Activate for future analyses'}
+                            ? t('Roll back to this version')
+                            : t('Activate for future analyses')}
                       </button>
                     )}
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
-                      <span className="text-xs text-black-500">Score error</span>
+                      <span className="text-xs text-black-500">{t('Score error')}</span>
                       <strong className="block text-black-100">
                         {candidate.benchmark.baselineMeanAbsoluteError.toFixed(2)}
                         {' → '}
@@ -421,7 +418,7 @@ export function CalibrationPanel() {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-xs text-black-500">Verdict agreement</span>
+                      <span className="text-xs text-black-500">{t('Verdict agreement')}</span>
                       <strong className="block text-black-100">
                         {percent(candidate.benchmark.baselineVerdictAgreement)}
                         {' → '}
@@ -429,7 +426,7 @@ export function CalibrationPanel() {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-xs text-black-500">False passes</span>
+                      <span className="text-xs text-black-500">{t('False passes')}</span>
                       <strong className="block text-black-100">
                         {candidate.benchmark.baselineFalsePasses}
                         {' → '}
@@ -437,7 +434,7 @@ export function CalibrationPanel() {
                       </strong>
                     </div>
                     <div>
-                      <span className="text-xs text-black-500">False recommendations</span>
+                      <span className="text-xs text-black-500">{t('False recommendations')}</span>
                       <strong className="block text-black-100">
                         {candidate.benchmark.baselineFalseRecommendations}
                         {' → '}
@@ -449,21 +446,21 @@ export function CalibrationPanel() {
                   {candidate.benchmark.reasons.length > 0 && (
                     <ul className="mt-4 space-y-1 text-sm text-red-400">
                       {candidate.benchmark.reasons.map((reason) => (
-                        <li key={reason}>• {reason}</li>
+                        <li key={reason}>• {t(reason)}</li>
                       ))}
                     </ul>
                   )}
 
                   <details className="mt-4 border-t border-black-700 pt-3">
                     <summary className="cursor-pointer text-sm font-semibold text-black-300">
-                      Provenance and policy
+                      {t('Provenance and policy')}
                     </summary>
                     <div className="mt-3 space-y-2 text-xs leading-5 text-black-500">
-                      <p className="break-all">Candidate: {candidate.candidateId}</p>
+                      <p className="break-all">{t('Candidate')}: {candidate.candidateId}</p>
                       <p className="break-all">
-                        Evidence set: {candidate.sourceAssessmentSetSha256}
+                        {t('Evidence set')}: {candidate.sourceAssessmentSetSha256}
                       </p>
-                      <p className="break-all">Prompt seal: {candidate.promptSha256}</p>
+                      <p className="break-all">{t('Prompt seal')}: {candidate.promptSha256}</p>
                       <p>{candidate.policy.thesis}</p>
                     </div>
                   </details>

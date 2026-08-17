@@ -8,6 +8,7 @@ import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 type ProducerAssessmentMap = ReadonlyMap<string, ProducerAssessmentHead>;
 
@@ -26,15 +27,16 @@ function assessmentFor(
 }
 
 function Score({ screenplay, large = false }: { screenplay: Screenplay; large?: boolean }) {
+  const { t } = useTranslation();
   return (
     <div className={large ? 'cinema-score-lockup' : 'cinema-card-score'}>
-      {large && <span className="dsc-label dsc-label-faint block">Final score</span>}
+      {large && <span className="dsc-label dsc-label-faint block">{t('Final score')}</span>}
       <span
         className={clsx(
           'dsc-num block font-semibold leading-none',
           large ? 'text-6xl' : 'text-2xl',
         )}
-        aria-label={`Score ${screenplay.weightedScore.toFixed(1)}`}
+        aria-label={t('Score {{score}}', { score: screenplay.weightedScore.toFixed(1) })}
       >
         {screenplay.weightedScore.toFixed(1)}
       </span>
@@ -43,18 +45,19 @@ function Score({ screenplay, large = false }: { screenplay: Screenplay; large?: 
 }
 
 function PillarReadout({ screenplay }: { screenplay: Screenplay }) {
+  const { t } = useTranslation();
   return (
-    <div className="cinema-pillars" aria-label="Analysis pillars">
+    <div className="cinema-pillars" aria-label={t('Analysis pillars')}>
       {getDimensionDisplay(screenplay)
         .slice(0, 5)
         .map((pillar) => (
           <div key={pillar.key} className="cinema-pillar">
-            <span>{pillar.label}</span>
+            <span>{t(pillar.label)}</span>
             <progress
               className="dsc-pillar-progress"
               value={Math.max(0, Math.min(10, pillar.score))}
               max={10}
-              aria-label={`${pillar.label} ${pillar.score.toFixed(1)} out of 10`}
+              aria-label={t('{{label}} {{score}} out of 10', { label: t(pillar.label), score: pillar.score.toFixed(1) })}
             />
             <strong>{pillar.score.toFixed(1)}</strong>
           </div>
@@ -69,6 +72,7 @@ function RankedCard({
   onOpen,
   producerAssessments,
 }: ResultSurfaceProps & { rank: number }) {
+  const { t } = useTranslation();
   const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
 
   return (
@@ -81,7 +85,7 @@ function RankedCard({
       <DiscoverySelectionCheckbox screenplay={screenplay} />
       <button
         type="button"
-        aria-label={`Open ${displayTitle} details`}
+        aria-label={t('Open {{title}} details', { title: displayTitle })}
         onClick={(event) => onOpen(screenplay, event.currentTarget)}
         className="cinema-poster-button"
       >
@@ -123,6 +127,7 @@ export function DiscoverFeature({
   onOpen: ResultSurfaceProps['onOpen'];
   producerAssessments?: ProducerAssessmentMap;
 }) {
+  const { t } = useTranslation();
   const displayTitle = getScreenplayDisplayTitle(featured.title).title;
   const displayAuthor = getScreenplayDisplayAuthor(featured.author);
 
@@ -136,7 +141,7 @@ export function DiscoverFeature({
       <DiscoverySelectionCheckbox screenplay={featured} />
       <button
         type="button"
-        aria-label={`Open ${displayTitle} details`}
+        aria-label={t('Open {{title}} details', { title: displayTitle })}
         onClick={(event) => onOpen(featured, event.currentTarget)}
         className="cinema-feature-button"
       >
@@ -152,7 +157,7 @@ export function DiscoverFeature({
 
         <div className="cinema-feature-copy">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="dsc-kicker">Featured screenplay</span>
+            <span className="dsc-kicker">{t('Featured screenplay')}</span>
             <AnalysisTrustBadge screenplay={featured} />
             <DiscoveryShareStatus screenplay={featured} />
             <ProducerScoreBadge assessment={assessmentFor(producerAssessments, featured)} />
@@ -164,7 +169,7 @@ export function DiscoverFeature({
           {featured.logline && <p className="cinema-feature-logline">{featured.logline}</p>}
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <span className="dsc-open-analysis">
-              Open analysis
+              {t('Open analysis')}
               <span aria-hidden="true">↗</span>
             </span>
             <RecommendationBadge tier={featured.recommendation} />
@@ -176,14 +181,14 @@ export function DiscoverFeature({
           <PillarReadout screenplay={featured} />
           <div className="cinema-feature-metrics">
             <span>
-              <small>Market</small>
-              <strong>{screenplayMetric(featured.producerMetrics.marketPotential)}</strong>
+              <small>{t('Market')}</small>
+              <strong>{t(screenplayMetric(featured.producerMetrics.marketPotential))}</strong>
             </span>
             <span>
               <small>CVS</small>
               <strong>
                 {featured.commercialViability.cvsAssessed === false
-                  ? 'Not assessed'
+                  ? t('Not assessed')
                   : `${featured.cvsTotal}/18`}
               </strong>
             </span>
@@ -207,13 +212,14 @@ export function DiscoverRankedShelf({
   onOpen: ResultSurfaceProps['onOpen'];
   producerAssessments?: ProducerAssessmentMap;
 }) {
+  const { t } = useTranslation();
   if (screenplays.length === 0) return null;
 
   return (
     <section aria-labelledby="discovery-ranked" className="cinema-shelf">
       <div className="cinema-shelf-head">
-        <h2 id="discovery-ranked">Top Picks</h2>
-        <span>Current sort · best first</span>
+        <h2 id="discovery-ranked">{t('Top Picks')}</h2>
+        <span>{t('Current sort · best first')}</span>
       </div>
       <ol className="cinema-poster-rail">
         {screenplays.map((screenplay, index) => (
@@ -239,16 +245,17 @@ export function DiscoverFilmNowShelf({
   onOpen: ResultSurfaceProps['onOpen'];
   producerAssessments?: ProducerAssessmentMap;
 }) {
+  const { t } = useTranslation();
   if (screenplays.length === 0) return null;
 
   return (
     <section aria-labelledby="discovery-film-now" className="cinema-shelf cinema-film-now">
       <div className="cinema-shelf-head">
         <div>
-          <span className="dsc-kicker">Exceptional finds</span>
+          <span className="dsc-kicker">{t('Exceptional finds')}</span>
           <h2 id="discovery-film-now">FILM NOW</h2>
         </div>
-        <span>{screenplays.length} ready to move</span>
+        <span>{t('{{count}} ready to move', { count: screenplays.length })}</span>
       </div>
       <ul className="cinema-film-rail">
         {screenplays.map((screenplay) => {
@@ -263,7 +270,7 @@ export function DiscoverFilmNowShelf({
               <DiscoverySelectionCheckbox screenplay={screenplay} />
               <button
                 type="button"
-                aria-label={`Open FILM NOW ${displayTitle} details`}
+                aria-label={t('Open FILM NOW {{title}} details', { title: displayTitle })}
                 onClick={(event) => onOpen(screenplay, event.currentTarget)}
               >
                 <ScriptCover
@@ -307,8 +314,9 @@ export function DiscoverGrid({
   producerAssessments,
   rankOffset = 0,
 }: DiscoverGridProps) {
+  const { t } = useTranslation();
   if (screenplays.length === 0) {
-    return <p className="cinema-empty-rail">Every matching screenplay is shown above.</p>;
+    return <p className="cinema-empty-rail">{t('Every matching screenplay is shown above.')}</p>;
   }
 
   return (
@@ -326,7 +334,7 @@ export function DiscoverGrid({
             <DiscoverySelectionCheckbox screenplay={screenplay} />
             <button
               type="button"
-              aria-label={`Open ${displayTitle} details`}
+              aria-label={t('Open {{title}} details', { title: displayTitle })}
               onClick={(event) => onOpen(screenplay, event.currentTarget)}
               className="cinema-poster-button"
             >
@@ -339,7 +347,7 @@ export function DiscoverGrid({
               />
               <span className="cinema-rank">
                 {screenplay.producerProjection?.rankable === false
-                  ? 'Review'
+                  ? t('Review')
                   : `#${rankOffset + index + 6}`}
               </span>
               <span className="cinema-score-chip">{screenplay.weightedScore.toFixed(1)}</span>

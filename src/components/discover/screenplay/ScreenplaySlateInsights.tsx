@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState, type ComponentType } from 'react';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import type { Screenplay } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface AnalyticsProps {
   screenplays: Screenplay[];
@@ -37,6 +38,7 @@ export function ScreenplaySlateInsights({
   allScreenplays,
   AnalyticsComponent = LazyAnalyticsDashboard,
 }: ScreenplaySlateInsightsProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(loadExpandedPreference);
 
   const handleExpandedChange = (next: boolean) => {
@@ -49,15 +51,17 @@ export function ScreenplaySlateInsights({
       <ErrorBoundary
         fallback={
           <p role="status" className="screenplay-insights__error">
-            Slate Insights are temporarily unavailable. Your screenplay results are unaffected.
+            {t(
+              'Slate Insights are temporarily unavailable. Your screenplay results are unaffected.',
+            )}
           </p>
         }
       >
-        <Suspense fallback={<p role="status">Opening Slate Insights…</p>}>
+        <Suspense fallback={<p role="status">{t('Opening Slate Insights…')}</p>}>
           <AnalyticsComponent
             screenplays={screenplays}
             totalScreenplays={allScreenplays}
-            title="Slate Insights"
+            title={t('Slate Insights')}
             initiallyExpanded
             expanded={expanded}
             onExpandedChange={handleExpandedChange}

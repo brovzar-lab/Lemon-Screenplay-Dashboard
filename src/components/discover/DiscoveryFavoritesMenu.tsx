@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { Screenplay } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface DiscoveryFavoritesMenuProps {
   screenplays: Screenplay[];
@@ -12,6 +13,7 @@ interface DiscoveryFavoritesMenuProps {
 type FavoriteSelection = 'quick' | string;
 
 export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavoritesMenuProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedListId, setSelectedListId] = useState<FavoriteSelection>('quick');
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -38,8 +40,8 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
   }, [screenplays, selectedIds]);
   const selectedName =
     selectedListId === 'quick'
-      ? 'Quick Favorites'
-      : (lists.find((list) => list.id === selectedListId)?.name ?? 'Favorites');
+      ? t('Quick Favorites')
+      : (lists.find((list) => list.id === selectedListId)?.name ?? t('Favorites'));
 
   useEffect(() => {
     if (!isOpen) return;
@@ -68,7 +70,7 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
         className="dsc-btn dsc-btn-ghost shrink-0"
         aria-haspopup="dialog"
       >
-        Favorites
+        {t('Favorites')}
         {totalSaved > 0 && (
           <span className="dsc-num rounded-full bg-[var(--dsc-accent)] px-2 py-0.5 text-xs font-bold !text-[var(--dsc-on-accent)]">
             {totalSaved}
@@ -89,16 +91,16 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
           <div className="dsc-card flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden !rounded-b-none sm:!rounded-b-[var(--dsc-radius-card)]">
             <header className="dsc-hairline flex items-center justify-between gap-4 border-b px-5 py-4 sm:px-6">
               <div>
-                <p className="dsc-kicker">Saved slate</p>
+                <p className="dsc-kicker">{t('Saved slate')}</p>
                 <h2 id="discovery-favorites-title" className="dsc-display mt-1 text-2xl">
-                  Favorites
+                  {t('Favorites')}
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
                 className="dsc-btn dsc-btn-ghost !h-11 !min-h-11 !w-11 !min-w-11 !p-0 text-xl"
-                aria-label="Close favorites"
+                aria-label={t('Close favorites')}
               >
                 ×
               </button>
@@ -106,7 +108,7 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
 
             <div className="grid min-h-0 flex-1 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(0,1.3fr)]">
               <nav
-                aria-label="Favorite lists"
+                aria-label={t('Favorite lists')}
                 className="dsc-hairline flex gap-2 overflow-x-auto border-b bg-[var(--dsc-surface-2)] p-3 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-4"
               >
                 <button
@@ -120,7 +122,7 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
                       : 'text-[var(--dsc-ink-2)] hover:bg-[var(--dsc-surface-3)] hover:text-[var(--dsc-ink)]',
                   )}
                 >
-                  Quick Favorites
+                  {t('Quick Favorites')}
                   <span className="dsc-num ml-2 text-xs opacity-70">{quickFavorites.length}</span>
                 </button>
                 {lists.map((list) => (
@@ -157,15 +159,16 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
                       {selectedName}
                     </h3>
                     <p className="mt-1 text-sm text-[var(--dsc-ink-2)]">
-                      {selectedScreenplays.length} available screenplay
-                      {selectedScreenplays.length === 1 ? '' : 's'}
+                      {t('{{count}} available screenplay', {
+                        count: selectedScreenplays.length,
+                      })}
                     </p>
                   </div>
                 </div>
 
                 {selectedScreenplays.length === 0 ? (
                   <p className="dsc-well px-4 py-8 text-center text-sm text-[var(--dsc-ink-2)]">
-                    No screenplays are saved in this list yet.
+                    {t('No screenplays are saved in this list yet.')}
                   </p>
                 ) : (
                   <ul className="space-y-2">
@@ -179,7 +182,9 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
                             onClick={(event) =>
                               handleOpenScreenplay(screenplay, event.currentTarget)
                             }
-                            aria-label={`Open ${displayTitle} from favorites`}
+                            aria-label={t('Open {{title}} from favorites', {
+                              title: displayTitle,
+                            })}
                             className="dsc-card dsc-card-hover group flex min-h-16 w-full items-center justify-between gap-4 px-4 py-3 text-left"
                           >
                             <span className="min-w-0">

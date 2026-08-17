@@ -68,10 +68,6 @@ describe('/discover authentication', () => {
       mainSource.indexOf('path="/"'),
       mainSource.indexOf('path="/dashboard-classic"'),
     );
-    const classicRoute = mainSource.slice(
-      mainSource.indexOf('path="/dashboard-classic"'),
-      mainSource.indexOf('path="/settings"'),
-    );
 
     expect(mainSource).toContain(
       "importWithReload('discover', () => import('./pages/DiscoverPage'))",
@@ -83,8 +79,8 @@ describe('/discover authentication', () => {
     expect(rootRoute).toContain('areaName="Discovery"');
     expect(rootRoute).toContain('<DiscoverPage />');
     expect(rootRoute).not.toContain('<App />');
-    expect(classicRoute).toContain('areaName="Classic Dashboard"');
-    expect(classicRoute).toContain('<App />');
+    expect(mainSource).toMatch(/path="\/dashboard-classic"\s+element=\{<Navigate to="\/" replace \/>\}/);
+    expect(mainSource).not.toContain("import App from './App'");
     expect(mainSource).not.toMatch(/<AuthGate requireAdmin>\s*<DiscoverPage \/>\s*<\/AuthGate>/);
   });
 

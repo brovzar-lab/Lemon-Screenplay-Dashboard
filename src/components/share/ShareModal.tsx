@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -26,12 +27,13 @@ function buildMailtoUrl(recipients: string[], subject: string, body: string): st
 }
 
 export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<ShareTab>('link');
   const [copyFeedback, setCopyFeedback] = useState<'idle' | 'copied' | 'error'>('idle');
 
   // Email form state
   const [recipients, setRecipients] = useState('');
-  const [subject, setSubject] = useState('Screenplay Analysis from Lemon Dashboard');
+  const [subject, setSubject] = useState(() => t('Screenplay Analysis from Lemon Dashboard'));
   const [message, setMessage] = useState('');
   const [emailError, setEmailError] = useState('');
 
@@ -56,20 +58,20 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
       .filter(e => e.length > 0);
 
     if (emailList.length === 0) {
-      setEmailError('Please enter at least one email address');
+      setEmailError(t('Please enter at least one email address'));
       return;
     }
 
     const invalidEmails = emailList.filter(e => !validateEmail(e));
     if (invalidEmails.length > 0) {
-      setEmailError(`Invalid email(s): ${invalidEmails.join(', ')}`);
+      setEmailError(t('Invalid email(s): {{emails}}', { emails: invalidEmails.join(', ') }));
       return;
     }
 
     setEmailError('');
 
     // Build email body with message and link
-    const emailBody = `${message ? message + '\n\n' : ''}View the screenplay analysis:\n${shareableUrl}`;
+    const emailBody = `${message ? message + '\n\n' : ''}${t('View the screenplay analysis:')}\n${shareableUrl}`;
 
     // Open email client
     const mailtoUrl = buildMailtoUrl(emailList, subject, emailBody);
@@ -85,7 +87,7 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
       <div className="relative w-full max-w-lg glass border border-gold-500/20 rounded-xl overflow-hidden animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-black-700">
-          <h3 className="text-lg font-display text-gold-200">Share Dashboard</h3>
+          <h3 className="text-lg font-display text-gold-200">{t('Share Dashboard')}</h3>
           <button
             onClick={onClose}
             className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400"
@@ -111,7 +113,7 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
-              Copy Link
+              {t('Copy Link')}
             </div>
           </button>
           <button
@@ -127,7 +129,7 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              Email
+              {t('Email')}
             </div>
           </button>
         </div>
@@ -137,7 +139,7 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
           {activeTab === 'link' ? (
             <div className="space-y-4">
               <p className="text-sm text-black-400">
-                Copy the link below to share the current dashboard view with your filters applied.
+                {t('Copy the link below to share the current dashboard view with your filters applied.')}
               </p>
 
               {/* URL Preview */}
@@ -158,21 +160,21 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    Copied to Clipboard!
+                    {t('Copied to Clipboard!')}
                   </>
                 ) : copyFeedback === 'error' ? (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                    Failed to Copy
+                    {t('Failed to Copy')}
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                     </svg>
-                    Copy Link
+                    {t('Copy Link')}
                   </>
                 )}
               </button>
@@ -180,13 +182,13 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-black-400">
-                Send the dashboard link via email. Add a personal note to explain why you're sharing this screenplay analysis.
+                {t('Send the dashboard link via email. Add a personal note to explain why you are sharing this screenplay analysis.')}
               </p>
 
               {/* Recipients */}
               <div>
                 <label className="block text-sm font-medium text-black-300 mb-1">
-                  Recipients <span className="text-red-400">*</span>
+                  {t('Recipients')} <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -199,14 +201,14 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
                   className="input"
                 />
                 <p className="text-xs text-black-500 mt-1">
-                  Separate multiple emails with commas
+                  {t('Separate multiple emails with commas')}
                 </p>
               </div>
 
               {/* Subject */}
               <div>
                 <label className="block text-sm font-medium text-black-300 mb-1">
-                  Subject
+                  {t('Subject')}
                 </label>
                 <input
                   type="text"
@@ -219,17 +221,17 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
               {/* Message */}
               <div>
                 <label className="block text-sm font-medium text-black-300 mb-1">
-                  Your Note
+                  {t('Your Note')}
                 </label>
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Here's a screenplay I think you should check out..."
+                  placeholder={t('Here is a screenplay I think you should check out...')}
                   rows={3}
                   className="input resize-none"
                 />
                 <p className="text-xs text-black-500 mt-1">
-                  Explain why you're sending this screenplay analysis
+                  {t('Explain why you are sending this screenplay analysis')}
                 </p>
               </div>
 
@@ -248,11 +250,11 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
-                Open in Email Client
+                {t('Open in Email Client')}
               </button>
 
               <p className="text-xs text-black-500 text-center">
-                This will open your default email application
+                {t('This will open your default email application')}
               </p>
             </div>
           )}
@@ -261,7 +263,7 @@ export function ShareModal({ isOpen, onClose, shareableUrl }: ShareModalProps) {
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 p-4 border-t border-black-700 bg-black-900/30">
           <button onClick={onClose} className="btn btn-ghost">
-            Close
+            {t('Close')}
           </button>
         </div>
       </div>

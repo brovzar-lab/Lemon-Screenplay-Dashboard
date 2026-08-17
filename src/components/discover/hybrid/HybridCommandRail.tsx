@@ -14,6 +14,7 @@ import {
   type SortDirection,
   type SortField,
 } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 const VERDICTS: RecommendationTier[] = ['film_now', 'recommend', 'consider', 'pass'];
 
@@ -50,6 +51,7 @@ export function HybridCommandRail({
   selectionCount = 0,
   onToggleSelectionMode,
 }: HybridCommandRailProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
   const filters = useFilterStore();
@@ -134,14 +136,20 @@ export function HybridCommandRail({
     if (filters.genres.length > 0) {
       chips.push({
         id: 'genres',
-        label: filters.genres.length === 1 ? filters.genres[0] : `${filters.genres.length} genres`,
+        label:
+          filters.genres.length === 1
+            ? filters.genres[0]
+            : t('{{count}} genres', { count: filters.genres.length }),
         remove: () => filters.setGenres([]),
       });
     }
     if (filters.themes.length > 0) {
       chips.push({
         id: 'themes',
-        label: filters.themes.length === 1 ? filters.themes[0] : `${filters.themes.length} themes`,
+        label:
+          filters.themes.length === 1
+            ? filters.themes[0]
+            : t('{{count}} themes', { count: filters.themes.length }),
         remove: () => filters.setThemes([]),
       });
     }
@@ -150,22 +158,28 @@ export function HybridCommandRail({
         id: 'verdicts',
         label:
           filters.recommendationTiers.length === 1
-            ? RECOMMENDATION_CONFIG[filters.recommendationTiers[0]].label
-            : `${filters.recommendationTiers.length} verdicts`,
+            ? t(RECOMMENDATION_CONFIG[filters.recommendationTiers[0]].label)
+            : t('{{count}} verdicts', { count: filters.recommendationTiers.length }),
         remove: () => filters.setRecommendationTiers([]),
       });
     }
     if (filters.weightedScoreRange.enabled) {
       chips.push({
         id: 'score',
-        label: `Score ${filters.weightedScoreRange.min.toFixed(1)}–${filters.weightedScoreRange.max.toFixed(1)}`,
+        label: t('Score {{min}}–{{max}}', {
+          min: filters.weightedScoreRange.min.toFixed(1),
+          max: filters.weightedScoreRange.max.toFixed(1),
+        }),
         remove: () => filters.setWeightedScoreRange({ enabled: false }),
       });
     }
     if (filters.marketPotentialRange.enabled) {
       chips.push({
         id: 'market',
-        label: `Market ${filters.marketPotentialRange.min.toFixed(1)}–${filters.marketPotentialRange.max.toFixed(1)}`,
+        label: t('Market {{min}}–{{max}}', {
+          min: filters.marketPotentialRange.min.toFixed(1),
+          max: filters.marketPotentialRange.max.toFixed(1),
+        }),
         remove: () => filters.setMarketPotentialRange({ enabled: false }),
       });
     }
@@ -179,23 +193,23 @@ export function HybridCommandRail({
     if (filters.showFilmNowOnly) {
       chips.push({
         id: 'film-now',
-        label: 'FILM NOW only',
+        label: t('FILM NOW only'),
         remove: () => filters.setShowFilmNowOnly(false),
       });
     }
     if (filters.hidePassRated) {
       chips.push({
         id: 'hide-pass',
-        label: 'Pass hidden',
+        label: t('Pass hidden'),
         remove: () => filters.setHidePassRated(false),
       });
     }
 
     return chips;
-  }, [filters]);
+  }, [filters, t]);
 
   return (
-    <section className="hybrid-command-rail" aria-label="Current Discovery view">
+    <section className="hybrid-command-rail" aria-label={t('Current Discovery view')}>
       <div className="hybrid-command-rail__inner">
         <button
           type="button"
@@ -203,44 +217,46 @@ export function HybridCommandRail({
           onClick={onToggleProducerLook}
           disabled={!onToggleProducerLook || (producerLookCount === 0 && !producerLookActive)}
           aria-pressed={producerLookActive}
-          title="Show the bounded Producer Look queue"
+          title={t('Show the bounded Producer Look queue')}
         >
           <span>
-            {producerLookActive ? 'Producer Look' : (activeLens?.name ?? 'All screenplays')}
+            {producerLookActive ? t('Producer Look') : (activeLens?.name ?? t('All screenplays'))}
           </span>
           <small>
             {producerLookActive
-              ? `${producerLookCount} routed · built-in view`
+              ? t('{{count}} routed · built-in view', { count: producerLookCount })
               : producerLookCount > 0
-                ? `${producerLookCount} need your look`
+                ? t('{{count}} need your look', { count: producerLookCount })
                 : activeLens
-                  ? 'Saved view'
-                  : 'No pending Producer Looks'}
+                  ? t('Saved view')
+                  : t('No pending Producer Looks')}
           </small>
         </button>
 
-        <div className="hybrid-active-filters" aria-label="Active filters">
+        <div className="hybrid-active-filters" aria-label={t('Active filters')}>
           {activeChips.slice(0, 3).map((chip) => (
             <button key={chip.id} type="button" onClick={chip.remove}>
               <span>{chip.label}</span>
               <span aria-hidden="true">×</span>
-              <span className="sr-only">Remove {chip.label} filter</span>
+              <span className="sr-only">{t('Remove {{label}} filter', { label: chip.label })}</span>
             </button>
           ))}
-          {activeChips.length > 3 && <span>+{activeChips.length - 3} more</span>}
+          {activeChips.length > 3 && (
+            <span>{t('+{{count}} more', { count: activeChips.length - 3 })}</span>
+          )}
         </div>
 
         <label className="hybrid-sort-control">
-          <span>Sort:</span>
+          <span>{t('Sort:')}</span>
           <select
-            aria-label="Sort results"
+            aria-label={t('Sort results')}
             value={activeSort}
             onChange={(event) => handleSort(event.target.value as SortField)}
           >
-            <option value="weightedScore">Weighted score</option>
-            <option value="marketPotential">Market potential</option>
+            <option value="weightedScore">{t('Weighted score')}</option>
+            <option value="marketPotential">{t('Market potential')}</option>
             <option value="cvsTotal">CVS</option>
-            <option value="title">Title</option>
+            <option value="title">{t('Title')}</option>
           </select>
         </label>
 
@@ -254,7 +270,7 @@ export function HybridCommandRail({
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <path d="M5 5h14v14H5zM8 12l2.5 2.5L16 9" />
             </svg>
-            <span>{selectionMode ? 'Done selecting' : 'Select projects'}</span>
+            <span>{selectionMode ? t('Done selecting') : t('Select projects')}</span>
             {selectionCount > 0 && <strong>{selectionCount}</strong>}
           </button>
         )}
@@ -270,7 +286,7 @@ export function HybridCommandRail({
             <svg aria-hidden="true" viewBox="0 0 24 24">
               <path d="M4 6h16M7 12h10M10 18h4" />
             </svg>
-            Filters
+            {t('Filters')}
             {activeChips.length > 0 && <span>{activeChips.length}</span>}
           </button>
 
@@ -280,14 +296,14 @@ export function HybridCommandRail({
               className="hybrid-filter-popover"
               role="dialog"
               aria-modal="false"
-              aria-label="Discovery filters"
+              aria-label={t('Discovery filters')}
             >
               <header>
                 <div>
-                  <p>Refine the slate</p>
-                  <h2>Filters</h2>
+                  <p>{t('Refine the slate')}</p>
+                  <h2>{t('Filters')}</h2>
                 </div>
-                <button type="button" onClick={() => setIsOpen(false)} aria-label="Close filters">
+                <button type="button" onClick={() => setIsOpen(false)} aria-label={t('Close filters')}>
                   ×
                 </button>
               </header>
@@ -295,23 +311,23 @@ export function HybridCommandRail({
               <div className="hybrid-filter-popover__body">
                 <div className="hybrid-filter-popover__selects">
                   <MultiSelect
-                    label="Genre"
+                    label={t('Genre')}
                     options={genres}
                     selected={filters.genres}
                     onChange={filters.setGenres}
-                    placeholder="All genres"
+                    placeholder={t('All genres')}
                   />
                   <MultiSelect
-                    label="Theme"
+                    label={t('Theme')}
                     options={themes}
                     selected={filters.themes}
                     onChange={filters.setThemes}
-                    placeholder="All themes"
+                    placeholder={t('All themes')}
                   />
                 </div>
 
                 <fieldset className="hybrid-verdict-filter">
-                  <legend>Verdict</legend>
+                  <legend>{t('Verdict')}</legend>
                   <div>
                     {VERDICTS.map((tier) => (
                       <button
@@ -320,7 +336,7 @@ export function HybridCommandRail({
                         aria-pressed={filters.recommendationTiers.includes(tier)}
                         onClick={() => filters.toggleRecommendationTier(tier)}
                       >
-                        {RECOMMENDATION_CONFIG[tier].label}
+                        {t(RECOMMENDATION_CONFIG[tier].label)}
                       </button>
                     ))}
                   </div>
@@ -328,7 +344,7 @@ export function HybridCommandRail({
 
                 <div className="hybrid-range-filters">
                   <RangeSlider
-                    label="Weighted score"
+                    label={t('Weighted score')}
                     min={0}
                     max={10}
                     value={[filters.weightedScoreRange.min, filters.weightedScoreRange.max]}
@@ -338,7 +354,7 @@ export function HybridCommandRail({
                     onChange={([min, max]) => filters.setWeightedScoreRange({ min, max })}
                   />
                   <RangeSlider
-                    label="Market potential"
+                    label={t('Market potential')}
                     min={0}
                     max={10}
                     value={[filters.marketPotentialRange.min, filters.marketPotentialRange.max]}
@@ -362,14 +378,14 @@ export function HybridCommandRail({
                 </div>
 
                 <fieldset className="hybrid-toggle-filters">
-                  <legend>Inventory</legend>
+                  <legend>{t('Inventory')}</legend>
                   <label>
                     <input
                       type="checkbox"
                       checked={filters.showFilmNowOnly}
                       onChange={(event) => filters.setShowFilmNowOnly(event.target.checked)}
                     />
-                    FILM NOW only
+                    {t('FILM NOW only')}
                   </label>
                   <label>
                     <input
@@ -377,7 +393,7 @@ export function HybridCommandRail({
                       checked={filters.hidePassRated}
                       onChange={(event) => filters.setHidePassRated(event.target.checked)}
                     />
-                    Hide Pass verdicts
+                    {t('Hide Pass verdicts')}
                   </label>
                   <label>
                     <input
@@ -385,7 +401,7 @@ export function HybridCommandRail({
                       checked={!filters.hideProduced}
                       onChange={(event) => filters.setHideProduced(!event.target.checked)}
                     />
-                    Include produced films
+                    {t('Include produced films')}
                   </label>
                   <label>
                     <input
@@ -393,7 +409,7 @@ export function HybridCommandRail({
                       checked={!filters.hideNonScreenplays}
                       onChange={(event) => filters.setHideNonScreenplays(!event.target.checked)}
                     />
-                    Include non-screenplays
+                    {t('Include non-screenplays')}
                   </label>
                 </fieldset>
               </div>
@@ -405,23 +421,23 @@ export function HybridCommandRail({
                   disabled={!hasActiveFilters}
                   className={clsx(!hasActiveFilters && 'is-disabled')}
                 >
-                  Clear all
+                  {t('Clear all')}
                 </button>
                 <button type="button" onClick={() => setIsOpen(false)}>
-                  View results
+                  {t('View results')}
                 </button>
               </footer>
             </div>
           )}
         </div>
       </div>
-      <nav className="hybrid-quick-verdicts" aria-label="Filter by AI verdict">
+      <nav className="hybrid-quick-verdicts" aria-label={t('Filter by AI verdict')}>
         <button
           type="button"
           aria-pressed={filters.recommendationTiers.length === 0}
           onClick={() => selectVerdict()}
         >
-          <span>All</span><strong>{verdictCounts.all}</strong>
+          <span>{t('All')}</span><strong>{verdictCounts.all}</strong>
         </button>
         {VERDICTS.map((tier) => (
           <button
@@ -434,7 +450,7 @@ export function HybridCommandRail({
             }
             onClick={() => selectVerdict(tier)}
           >
-            <span>{RECOMMENDATION_CONFIG[tier].label}</span>
+            <span>{t(RECOMMENDATION_CONFIG[tier].label)}</span>
             <strong>{verdictCounts[tier]}</strong>
           </button>
         ))}

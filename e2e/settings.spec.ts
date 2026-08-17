@@ -33,7 +33,7 @@ test.describe('Settings administration', () => {
       await nav.getByRole('button', { name: section }).click();
       await expect(page.getByRole('heading', { name: section, exact: true })).toBeVisible();
       await expect(primaryNav.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
-      await expect(primaryNav.getByRole('link', { name: 'Discover' })).toHaveAttribute('href', '/');
+      await expect(primaryNav.getByRole('link', { name: 'Discovery' })).toHaveAttribute('href', '/');
       await expect(primaryNav.getByRole('link', { name: 'Settings' })).toHaveAttribute(
         'aria-current',
         'page',

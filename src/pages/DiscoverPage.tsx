@@ -39,7 +39,8 @@ function DiscoverPage() {
   const { projectId } = useParams<{ projectId?: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const presentation = resolveDiscoveryPresentation(searchParams.get('ui'));
+  const requestedPresentation = resolveDiscoveryPresentation(searchParams.get('ui'));
+  const presentation = import.meta.env.PROD ? 'screenplay' : requestedPresentation;
   const producerLookActive = searchParams.get('view') === 'producer-look';
   const isAdmin = useIsAdmin();
   const { data: producerAssessmentHeads = [] } = useProducerAssessmentHeads(isAdmin);
