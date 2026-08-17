@@ -37,7 +37,7 @@ import { CategorySelector } from './upload/CategorySelector';
 import { UploadDropzone } from './upload/UploadDropzone';
 import { UploadQueue } from './upload/UploadQueue';
 import { UploadInstructions } from './upload/UploadInstructions';
-import { MODEL_OPTIONS } from './upload/upload.constants';
+import { MODEL_OPTIONS, MODEL_PLANNING_COSTS_USD } from './upload/upload.constants';
 import type { ModelOption, UploadPresentation } from './upload/upload.types';
 
 interface UploadPanelProps {
@@ -62,11 +62,8 @@ function inferTitleFromFilename(filename: string): string {
 
 function estimateBatchCost(model: ModelOption, projectCount: number): string | null {
   if (projectCount === 0) return null;
-  const option = MODEL_OPTIONS.find((candidate) => candidate.id === model);
-  const perScriptCosts = option?.costPerScript.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-  if (perScriptCosts.length === 0) return null;
-  const totals = perScriptCosts.map((cost) => (cost * projectCount).toFixed(2));
-  return totals.length === 1 ? `~$${totals[0]}` : `~$${totals[0]}–$${totals[totals.length - 1]}`;
+  const [minimum, maximum] = MODEL_PLANNING_COSTS_USD[model];
+  return `~$${(minimum * projectCount).toFixed(2)}–$${(maximum * projectCount).toFixed(2)}`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────

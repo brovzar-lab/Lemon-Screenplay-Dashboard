@@ -68,7 +68,7 @@ describe('BulkReanalyzeModal — BULK-02', () => {
     );
 
     expect(reanalyzeFromStorage).not.toHaveBeenCalled();
-    expect(screen.getByText(/estimated maximum cost: \$1.00/i)).toBeInTheDocument();
+    expect(screen.getByText(/estimated maximum cost: \$4.50/i)).toBeInTheDocument();
   });
 
   it('stop watching leaves the queued VPS job running and starts no later items', async () => {
@@ -123,7 +123,7 @@ describe('BulkReanalyzeModal — BULK-02', () => {
     });
 
     expect(screen.getByText(/failed/i)).toBeInTheDocument();
-    expect(mockApiConfig.incrementUsage).toHaveBeenCalledWith(1);
+    expect(mockApiConfig.incrementUsage).toHaveBeenCalledWith(4.5);
   });
 
   it('blocks a batch that exceeds the configured budget', () => {
