@@ -508,6 +508,24 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "story-vs-situation verdict"):
             ingest_v9._validate_synthesis_report(candidate)
 
+    def test_synthesis_validator_derives_penalty_from_validated_severity(self):
+        candidate = complete_analysis("Signed Model Penalty")
+        candidate["critical_failures"] = [
+            {
+                "description": "The third act resolves through coincidence.",
+                "severity": "major",
+                "penalty": -0.8,
+            }
+        ]
+
+        validated = ingest_v9._validate_synthesis_report(candidate)
+
+        self.assertEqual(validated["critical_failures"][0]["penalty"], 0.8)
+
+        candidate["critical_failures"][0]["severity"] = ["major"]
+        with self.assertRaisesRegex(ValueError, "invalid severity"):
+            ingest_v9._validate_synthesis_report(candidate)
+
     def test_daily_dollar_limit_is_not_retried_as_a_rate_limit(self):
         response = MagicMock()
         response.status_code = 429

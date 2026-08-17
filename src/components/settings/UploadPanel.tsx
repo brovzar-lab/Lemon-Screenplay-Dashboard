@@ -295,7 +295,11 @@ export function UploadPanel({
   useEffect(() => {
     if (isProcessing) return;
     const resumableJobs = useUploadStore.getState().jobs.filter(
-      (job) => (job.status === 'analyzing' || job.status === 'promoting') && job.ingestQueueStoragePath,
+      (job) => (
+        job.status === 'analyzing'
+        || job.status === 'promoting'
+        || job.status === 'needs_review'
+      ) && job.ingestQueueStoragePath,
     );
     const subscriptions = resumableJobs.map((job) => subscribeToIngestJob(
       job.ingestQueueStoragePath!,

@@ -3248,20 +3248,12 @@ def _validate_synthesis_report(report: Any) -> Dict[str, Any]:
             raise ValueError(
                 f"synthesis critical failure {index} has no description"
             )
-        if failure.get("severity") not in FAILURE_PENALTIES:
+        severity = failure.get("severity")
+        if not isinstance(severity, str) or severity not in FAILURE_PENALTIES:
             raise ValueError(
                 f"synthesis critical failure {index} has invalid severity"
             )
-        penalty = failure.get("penalty")
-        if (
-            isinstance(penalty, bool)
-            or not isinstance(penalty, (int, float))
-            or not math.isfinite(float(penalty))
-            or float(penalty) < 0
-        ):
-            raise ValueError(
-                f"synthesis critical failure {index} has invalid penalty"
-            )
+        failure["penalty"] = FAILURE_PENALTIES[severity]
     return report
 
 
