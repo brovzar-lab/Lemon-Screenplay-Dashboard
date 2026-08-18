@@ -14,12 +14,20 @@ import { persist } from 'zustand/middleware';
 
 /** CSS data-theme attribute value */
 export type ThemeId =
-  | 'light' | 'dark'              // Instrument
-  | 's2s' | 's2s-dark'            // Story to Screen
-  | 'noir' | 'noir-dark'          // Noir Cinema
-  | 'sundance' | 'sundance-dark'  // Sundance
-  | 'neon' | 'neon-dark'          // Neon Terminal
-  | 'arctic' | 'arctic-dark';     // Arctic Studio
+  | 'light'
+  | 'dark' // Instrument
+  | 's2s'
+  | 's2s-dark' // Story to Screen
+  | 'noir'
+  | 'noir-dark' // Noir Cinema
+  | 'sundance'
+  | 'sundance-dark' // Sundance
+  | 'neon'
+  | 'neon-dark' // Neon Terminal
+  | 'arctic'
+  | 'arctic-dark' // Arctic Studio
+  | 'signal'
+  | 'signal-dark'; // Lemon Signal
 
 /** Visual design system identifier */
 export type DesignSystem =
@@ -28,7 +36,8 @@ export type DesignSystem =
   | 'noir'
   | 'sundance'
   | 'neon'
-  | 'arctic';
+  | 'arctic'
+  | 'signal';
 
 /** What the user selects for light/dark preference */
 export type ColorMode = 'light' | 'dark' | 'system';
@@ -61,6 +70,16 @@ export const DESIGN_SYSTEMS: DesignSystemOption[] = [
     accentLight: '#2B54F0',
     accentDark: '#6E8BFF',
     fontHint: 'Playfair Display',
+  },
+  {
+    id: 'signal',
+    label: 'Lemon Signal',
+    description: 'Warm paper, coral action, aqua signal, editorial type',
+    lightThemeId: 'signal',
+    darkThemeId: 'signal-dark',
+    accentLight: '#F45F4F',
+    accentDark: '#5BC4C1',
+    fontHint: 'Iowan Old Style',
   },
   {
     id: 's2s',
@@ -127,7 +146,7 @@ export interface ThemeOption {
 
 export const THEME_OPTIONS: ThemeOption[] = [
   { id: 'light', label: 'Light', family: 'instrument', mode: 'light' },
-  { id: 'dark',  label: 'Dark',  family: 'instrument', mode: 'dark' },
+  { id: 'dark', label: 'Dark', family: 'instrument', mode: 'dark' },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -159,8 +178,7 @@ const resolveThemeId = (ds: DesignSystem, mode: ColorMode): ThemeId => {
   return prefersDark ? opt.darkThemeId : opt.lightThemeId;
 };
 
-const isDarkMode = (themeId: ThemeId): boolean =>
-  themeId === 'dark' || themeId.endsWith('-dark');
+const isDarkMode = (themeId: ThemeId): boolean => themeId === 'dark' || themeId.endsWith('-dark');
 
 const applyTheme = (resolved: ThemeId) => {
   const root = document.documentElement;
@@ -207,6 +225,6 @@ export const useThemeStore = create<ThemeState>()(
           applyTheme(resolved);
         }
       },
-    }
-  )
+    },
+  ),
 );

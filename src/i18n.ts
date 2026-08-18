@@ -580,6 +580,8 @@ const spanish = {
   'Use the light/dark control within any design system': 'Usa el control claro/oscuro con cualquier sistema de diseño',
   Instrument: 'Instrumento',
   'Cool grey-white, cobalt accent, Playfair + Schibsted': 'Blanco gris frío, acento cobalto, Playfair + Schibsted',
+  'Lemon Signal': 'Señal Lemon',
+  'Warm paper, coral action, aqua signal, editorial type': 'Papel cálido, acción coral, señal aqua y tipografía editorial',
   'Story to Screen': 'De historia a pantalla',
   'Warm editorial, burnished gold, serif elegance': 'Editorial cálido, dorado pulido y serif elegante',
   'Noir Cinema': 'Cine negro',

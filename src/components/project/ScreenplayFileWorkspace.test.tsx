@@ -37,6 +37,9 @@ vi.mock('@/components/layout/SyncStatusIndicator', () => ({
 vi.mock('@/components/ui/ThemeToggle', () => ({
   ThemeToggle: () => <button>Toggle theme</button>,
 }));
+vi.mock('@/components/ui/ThemeSwitcher', () => ({
+  ThemeSwitcher: () => <button>Instrument</button>,
+}));
 vi.mock('@/components/discover/screenplay/BlueSpineScript', () => ({
   BlueSpineScript: ({ screenplay }: { screenplay: Screenplay }) => (
     <div>Complete paper script for {screenplay.title}</div>
@@ -75,9 +78,7 @@ import { ScreenplayFileWorkspace } from '@/components/project/ScreenplayFileWork
 
 function renderWorkspace(element: ReactElement) {
   return render(
-    <MemoryRouter initialEntries={['/projects/atlas-project']}>
-      {element}
-    </MemoryRouter>,
+    <MemoryRouter initialEntries={['/projects/atlas-project']}>{element}</MemoryRouter>,
   );
 }
 
