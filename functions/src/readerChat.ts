@@ -1,5 +1,5 @@
 import { onRequest } from "firebase-functions/v2/https";
-import { defineString } from "firebase-functions/params";
+import { defineSecret, defineString } from "firebase-functions/params";
 import { randomUUID } from "node:crypto";
 import cors from "cors";
 import {
@@ -39,7 +39,7 @@ import {
   type ReaderPosition,
 } from "./readerChatCore";
 
-const proxyServiceKey = defineString("PROXY_SERVICE_KEY");
+const proxyServiceKey = defineSecret("PROXY_SERVICE_KEY");
 const readerChatEnabled = defineString("READER_CHAT_ENABLED", { default: "false" });
 
 const corsMiddleware = cors({
@@ -731,6 +731,7 @@ export const readerChat = onRequest(
     timeoutSeconds: 3600,
     memory: "1GiB",
     concurrency: 1,
+    secrets: [proxyServiceKey],
   },
   (req, res) => {
     corsMiddleware(req, res, async () => {

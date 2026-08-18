@@ -1,11 +1,11 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import cors from "cors";
-import { defineString } from "firebase-functions/params";
+import { defineSecret } from "firebase-functions/params";
 import { onRequest } from "firebase-functions/v2/https";
 import { authenticateProxyRequest } from "./proxyAuth";
 
-const googleApiKey = defineString("GOOGLE_API_KEY");
-const proxyServiceKey = defineString("PROXY_SERVICE_KEY");
+const googleApiKey = defineSecret("GEMINI_API_KEY");
+const proxyServiceKey = defineSecret("PROXY_SERVICE_KEY");
 
 const POSTER_MODELS = [
   "gemini-2.5-flash-image",
@@ -33,6 +33,7 @@ export const googleProxy = onRequest(
     timeoutSeconds: 300,
     memory: "512MiB",
     maxInstances: 10,
+    secrets: [googleApiKey, proxyServiceKey],
   },
   (req, res) => {
     corsMiddleware(req, res, async () => {
