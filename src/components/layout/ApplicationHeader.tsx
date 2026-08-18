@@ -4,7 +4,6 @@ import { SettingsThemeControl } from '@/components/settings/SettingsThemeControl
 import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
 import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator';
 import { LanguageControl } from '@/components/layout/LanguageControl';
-import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
 import { useTranslation } from 'react-i18next';
 import '@/components/layout/application-header.css';
 
@@ -35,7 +34,6 @@ export function ApplicationHeader() {
         <div className="application-header__actions">
           <SyncStatusIndicator />
           <LanguageControl />
-          <ThemeSwitcher />
           <SettingsThemeControl />
           <UserMenu />
         </div>

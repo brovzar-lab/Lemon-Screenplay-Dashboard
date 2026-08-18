@@ -25,6 +25,8 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
   const { t } = useTranslation();
   const { analysis } = data;
   const displayTitle = getScreenplayDisplayTitle(analysis.title).title;
+  const posterUrl =
+    analysis.recommendation === 'pass' ? '/pass-poster-archive.jpg' : data.posterUrl;
 
   return (
     <div className="public-shared-view min-h-screen bg-black-900">
@@ -32,15 +34,21 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
         {/* Header with logo */}
         <header className="relative flex items-center justify-center mb-8">
           <img src="/lemon-logo-white.png" alt="Lemon Studios" className="h-8 w-8" />
-          <div className="absolute right-0"><LanguageControl /></div>
+          <div className="absolute right-0">
+            <LanguageControl />
+          </div>
         </header>
 
         {/* Poster */}
-        {data.posterUrl && (
+        {posterUrl && (
           <div className="flex justify-center mb-8">
             <img
-              src={data.posterUrl}
-              alt={t('{{title}} poster', { title: displayTitle })}
+              src={posterUrl}
+              alt={
+                analysis.recommendation === 'pass'
+                  ? t('Poster withheld for a Pass verdict')
+                  : t('{{title}} poster', { title: displayTitle })
+              }
               className="rounded-xl max-h-80 object-cover shadow-lg"
             />
           </div>

@@ -16,7 +16,7 @@ vi.mock('@/stores/themeStore', () => ({
   useThemeStore: (selector: (value: Record<string, unknown>) => unknown) =>
     selector({
       theme: 'system',
-      designSystem: 's2s',
+      designSystem: 'instrument',
       setDesignSystem: state.setDesignSystem,
       setTheme: state.setTheme,
     }),
@@ -26,9 +26,6 @@ vi.mock('@/components/auth', () => ({
 }));
 vi.mock('@/components/layout/SyncStatusIndicator', () => ({
   SyncStatusIndicator: () => <span>Synced</span>,
-}));
-vi.mock('@/components/ui/ThemeSwitcher', () => ({
-  ThemeSwitcher: () => <button type="button">Instrument</button>,
 }));
 
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
@@ -60,7 +57,6 @@ describe('ApplicationHeader', () => {
     expect(screen.getByText('Synced')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Language' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Instrument' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'User menu' })).toBeInTheDocument();
     expect(state.setDesignSystem).not.toHaveBeenCalled();
   });

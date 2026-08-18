@@ -23,7 +23,7 @@ async function callGoogleProxy<T>(body: Record<string, unknown>): Promise<T> {
   if (!response.ok) {
     let detail: GoogleProxyError = {};
     try {
-      detail = await response.json() as GoogleProxyError;
+      detail = (await response.json()) as GoogleProxyError;
     } catch {
       // The status fallback below is sufficient for non-JSON responses.
     }
@@ -32,12 +32,18 @@ async function callGoogleProxy<T>(body: Record<string, unknown>): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function generatePosterImage(prompt: string): Promise<{
-  data: string;
-  mimeType: string;
-  model: string;
+export type PosterModelKey = 'economy' | 'studio' | 'premium';
+
+export function requestPoster(
+  screenplayId: string,
+  model: PosterModelKey,
+): Promise<{
+  status: 'ready' | 'withheld' | 'skipped';
+  model?: string;
+  costMicrousd?: number;
+  url?: string;
 }> {
-  return callGoogleProxy({ action: 'generate-poster', prompt });
+  return callGoogleProxy({ action: 'generate-poster', screenplayId, model });
 }
 
 export function createLiveToken(): Promise<{ token: string; model: string }> {

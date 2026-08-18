@@ -66,10 +66,6 @@ vi.mock('./SyncStatusIndicator', () => ({
   SyncStatusIndicator: () => null,
 }));
 
-// ThemeSwitcher — mock as simple render since it uses the same theme store
-vi.mock('@/components/ui/ThemeSwitcher', () => ({
-  ThemeSwitcher: () => <button aria-label="Switch design system">Instrument</button>,
-}));
 
 describe('Header', () => {
   it('renders the dashboard title', () => {

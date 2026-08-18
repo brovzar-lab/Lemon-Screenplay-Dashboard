@@ -22,10 +22,6 @@ vi.mock('@/hooks/useCategories', () => ({
   default: () => ({ categoryIds: ['LEMON', 'SUBMISSION'], addCategory: vi.fn() }),
 }));
 
-vi.mock('@/stores/apiConfigStore', () => ({
-  useApiConfigStore: () => ({ canMakeRequest: () => true }),
-}));
-
 vi.mock('@/lib/ingestQueueClient', () => ({
   subscribeToIngestJob: (...args: unknown[]) => mockSubscribe(...args),
 }));

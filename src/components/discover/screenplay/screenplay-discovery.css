@@ -820,20 +820,8 @@
   place-items: center;
   overflow: hidden;
   padding: 20px 24px 24px;
-  background: #edf2fb;
+  background: var(--sp-accent-soft);
   transition: background 160ms ease;
-}
-.screenplay-wall__item[data-verdict='film_now'] .screenplay-wall__object-stage {
-  background: #fff7df;
-}
-.screenplay-wall__item[data-verdict='recommend'] .screenplay-wall__object-stage {
-  background: #edf8f2;
-}
-.screenplay-wall__item[data-verdict='consider'] .screenplay-wall__object-stage {
-  background: #eef3ff;
-}
-.screenplay-wall__item[data-verdict='pass'] .screenplay-wall__object-stage {
-  background: #fff1f1;
 }
 .screenplay-wall__item .screenplay-object {
   z-index: 1;

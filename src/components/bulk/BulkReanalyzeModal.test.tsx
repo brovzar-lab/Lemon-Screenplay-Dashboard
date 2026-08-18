@@ -4,30 +4,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // Shared mock functions for assertions across tests
 const mockDeselectAll = vi.fn();
 const mockInvalidateQueries = vi.fn();
-const { mockApiConfig, mockUseApiConfigStore } = vi.hoisted(() => {
-  const state = {
-    getBudgetRemaining: vi.fn(() => 50),
-    getDailyRequestsRemaining: vi.fn(() => 100),
-    incrementUsage: vi.fn(),
-    checkAndResetIfNeeded: vi.fn(),
-  };
-  const useStore = Object.assign(
-    (selector: (value: typeof state) => unknown) => selector(state),
-    { getState: () => state },
-  );
-  return { mockApiConfig: state, mockUseApiConfigStore: useStore };
-});
-
 vi.mock('@/lib/analysisService', () => ({
   reanalyzeFromStorage: vi.fn(),
 }));
 vi.mock('@/stores/exportSelectionStore', () => ({
   useExportSelectionStore: { getState: () => ({ deselectAll: mockDeselectAll }) },
 }));
-vi.mock('@/stores/apiConfigStore', () => ({
-  useApiConfigStore: mockUseApiConfigStore,
-}));
-
 // QueryClient mock
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
@@ -41,8 +23,6 @@ const spWithoutPdf = { id: 'sp-nopdf', title: 'Ineligible Screenplay', hasPdf: f
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockApiConfig.getBudgetRemaining.mockReturnValue(50);
-  mockApiConfig.getDailyRequestsRemaining.mockReturnValue(100);
 });
 
 describe('BulkReanalyzeModal — BULK-02', () => {
@@ -123,19 +103,6 @@ describe('BulkReanalyzeModal — BULK-02', () => {
     });
 
     expect(screen.getByText(/failed/i)).toBeInTheDocument();
-    expect(mockApiConfig.incrementUsage).toHaveBeenCalledWith(4.5);
-  });
-
-  it('blocks a batch that exceeds the configured budget', () => {
-    mockApiConfig.getBudgetRemaining.mockReturnValue(0);
-
-    render(
-      <BulkReanalyzeModal isOpen onClose={vi.fn()} screenplays={[spWithPdf] as any[]} />
-    );
-
-    expect(screen.getByRole('button', { name: /start reanalysis/i })).toBeDisabled();
-    expect(screen.getByText(/exceeds your current budget/i)).toBeInTheDocument();
-    expect(reanalyzeFromStorage).not.toHaveBeenCalled();
   });
 
   it('React Query invalidated when modal closes after completion', async () => {

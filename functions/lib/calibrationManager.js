@@ -10,7 +10,7 @@ const firestore_1 = require("firebase-admin/firestore");
 const cors_1 = __importDefault(require("cors"));
 const proxyAuth_1 = require("./proxyAuth");
 const calibrationCore_1 = require("./calibrationCore");
-const proxyServiceKey = (0, params_1.defineString)("PROXY_SERVICE_KEY");
+const proxyServiceKey = (0, params_1.defineSecret)("PROXY_SERVICE_KEY");
 const corsMiddleware = (0, cors_1.default)({
     origin: [
         "https://lemon-screenplay-dashboard.web.app",
@@ -271,6 +271,7 @@ exports.calibrationManager = (0, https_1.onRequest)({
     timeoutSeconds: 3600,
     memory: "512MiB",
     concurrency: 1,
+    secrets: [proxyServiceKey],
 }, (req, res) => {
     corsMiddleware(req, res, async () => {
         try {

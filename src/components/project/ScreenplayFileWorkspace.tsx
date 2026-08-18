@@ -4,6 +4,7 @@ import { clsx } from 'clsx';
 import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
+import { PosterControls } from '@/components/project/PosterControls';
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import { ReaderRoom } from '@/components/project/ReaderRoom';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
@@ -418,7 +419,10 @@ export function ScreenplayFileWorkspace({
       </div>
 
       <section className="screenplay-file__hero">
-        <BlueSpineScript screenplay={screenplay} featured />
+        <div className="screenplay-file__poster-column">
+          <BlueSpineScript screenplay={screenplay} featured />
+          <PosterControls screenplay={screenplay} />
+        </div>
         <div className="screenplay-file__identity">
           <p className="screenplay-file__micro screenplay-file__micro--blue">
             {t('Screenplay file')}

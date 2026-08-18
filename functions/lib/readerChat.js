@@ -14,7 +14,7 @@ const proxyAuth_1 = require("./proxyAuth");
 const modelRegistry_1 = require("./modelRegistry");
 const readerChatRouting_1 = require("./readerChatRouting");
 const readerChatCore_1 = require("./readerChatCore");
-const proxyServiceKey = (0, params_1.defineString)("PROXY_SERVICE_KEY");
+const proxyServiceKey = (0, params_1.defineSecret)("PROXY_SERVICE_KEY");
 const readerChatEnabled = (0, params_1.defineString)("READER_CHAT_ENABLED", { default: "false" });
 const corsMiddleware = (0, cors_1.default)({
     origin: [
@@ -546,6 +546,7 @@ exports.readerChat = (0, https_1.onRequest)({
     timeoutSeconds: 3600,
     memory: "1GiB",
     concurrency: 1,
+    secrets: [proxyServiceKey],
 }, (req, res) => {
     corsMiddleware(req, res, async () => {
         try {

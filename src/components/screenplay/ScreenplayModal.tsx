@@ -19,7 +19,6 @@ import {
   NotesSection,
   ProducerTake,
   ModalFooter,
-  PosterSection,
   FieldPositionPanel,
   DeferredReaderEvidence,
   SimilarProjects,
@@ -179,8 +178,6 @@ export function ScreenplayModal({
             <ModalFooter screenplay={screenplay} />
           </div>
 
-          {/* 3. Cinematic Poster — generated in background, shown at bottom */}
-          <PosterSection screenplay={screenplay} />
         </div>
       </div>
     </div>

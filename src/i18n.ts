@@ -21,8 +21,10 @@ const english = {
   '{{count}} screenplay selected_other': '{{count}} screenplays selected',
   '{{count}} disagreement_one': '{{count}} disagreement',
   '{{count}} disagreement_other': '{{count}} disagreements',
-  'Authorize paid analysis for {{count}} screenplay_one': 'Authorize paid analysis for {{count}} screenplay',
-  'Authorize paid analysis for {{count}} screenplay_other': 'Authorize paid analysis for {{count}} screenplays',
+  'Authorize paid analysis for {{count}} screenplay_one':
+    'Authorize paid analysis for {{count}} screenplay',
+  'Authorize paid analysis for {{count}} screenplay_other':
+    'Authorize paid analysis for {{count}} screenplays',
   '{{count}} exact duplicate_one': '{{count}} exact duplicate',
   '{{count}} exact duplicate_other': '{{count}} exact duplicates',
   '{{count}} possible match_one': '{{count}} possible match',
@@ -37,8 +39,10 @@ const english = {
   '{{count}} attempt_other': '{{count}} attempts',
   '{{count}} analysis queued._one': '{{count}} analysis queued.',
   '{{count}} analysis queued._other': '{{count}} analyses queued.',
-  'Retry {{count}} analysis using {{model}}? This starts {{count}} paid analysis._one': 'Retry {{count}} analysis using {{model}}? This starts {{count}} paid analysis.',
-  'Retry {{count}} analysis using {{model}}? This starts {{count}} paid analysis._other': 'Retry {{count}} analyses using {{model}}? This starts {{count}} paid analyses.',
+  'Retry {{count}} analysis using {{model}}? This starts {{count}} paid analysis._one':
+    'Retry {{count}} analysis using {{model}}? This starts {{count}} paid analysis.',
+  'Retry {{count}} analysis using {{model}}? This starts {{count}} paid analysis._other':
+    'Retry {{count}} analyses using {{model}}? This starts {{count}} paid analyses.',
   '{{count}} model attempt_one': '{{count}} model attempt',
   '{{count}} model attempt_other': '{{count}} model attempts',
   '{{count}} screenplay_one': '{{count}} screenplay',
@@ -53,12 +57,16 @@ const english = {
   'Exporting {{count}} screenplay_other': 'Exporting {{count}} screenplays',
   'Export {{count}} Screenplay_one': 'Export {{count}} Screenplay',
   'Export {{count}} Screenplay_other': 'Export {{count}} Screenplays',
-  '{{count}} screenplay saved as a quick favorite_one': '{{count}} screenplay saved as a quick favorite',
-  '{{count}} screenplay saved as a quick favorite_other': '{{count}} screenplays saved as quick favorites',
+  '{{count}} screenplay saved as a quick favorite_one':
+    '{{count}} screenplay saved as a quick favorite',
+  '{{count}} screenplay saved as a quick favorite_other':
+    '{{count}} screenplays saved as quick favorites',
   '{{count}} recoverable screenplay_one': '{{count}} recoverable screenplay',
   '{{count}} recoverable screenplay_other': '{{count}} recoverable screenplays',
-  '{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores._one': '{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores.',
-  '{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores._other': '{{count}} documents have an unrecognized or malformed analysis format. They are preserved in Firebase and excluded from dashboard scores.',
+  '{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores._one':
+    '{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores.',
+  '{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores._other':
+    '{{count}} documents have an unrecognized or malformed analysis format. They are preserved in Firebase and excluded from dashboard scores.',
   '{{count}} project selected_one': '{{count}} project selected',
   '{{count}} project selected_other': '{{count}} projects selected',
   'Will run {{count}} analysis slot_one': 'Will run {{count}} analysis slot',
@@ -115,8 +123,7 @@ const spanish = {
     'Amplía la búsqueda o limpia los filtros activos.',
   'Searchable archive': 'Archivo con búsqueda',
   'Continue through the slate': 'Continúa con la selección',
-  'Showing {{filtered}} of {{total}} screenplays':
-    'Mostrando {{filtered}} de {{total}} guiones',
+  'Showing {{filtered}} of {{total}} screenplays': 'Mostrando {{filtered}} de {{total}} guiones',
   '{{count}} produced hidden': '{{count}} producidas ocultas',
   'Show produced films': 'Mostrar películas producidas',
   '{{count}} non-screenplays hidden': '{{count}} archivos que no son guiones ocultos',
@@ -126,7 +133,8 @@ const spanish = {
   'Page {{page}} of {{count}}': 'Página {{page}} de {{count}}',
   'Next 50': '50 siguientes',
   'Mixed analysis generations': 'Generaciones de análisis mezcladas',
-  'Five-pillar reader evidence and legacy dimensions measure different things, so the app will not overlay them on one radar. Use the side-by-side view to see each evidence system under its own labels.': 'La evidencia de cinco lectores y las dimensiones anteriores miden cosas distintas. La app no las pondrá en una sola gráfica radial. Usa la vista lado a lado para ver cada sistema con sus propias etiquetas.',
+  'Five-pillar reader evidence and legacy dimensions measure different things, so the app will not overlay them on one radar. Use the side-by-side view to see each evidence system under its own labels.':
+    'La evidencia de cinco lectores y las dimensiones anteriores miden cosas distintas. La app no las pondrá en una sola gráfica radial. Usa la vista lado a lado para ver cada sistema con sus propias etiquetas.',
   Final: 'Final',
   'Avg Evidence Score': 'Calificación promedio de evidencia',
   Dimension: 'Dimensión',
@@ -154,6 +162,18 @@ const spanish = {
   'Open screenplay file →': 'Abrir archivo del guion →',
   'AI decision': 'Decisión de IA',
   'AI verdict': 'Veredicto de IA',
+  '{{title}} poster': 'Póster de {{title}}',
+  'Poster withheld for a Pass verdict': 'Póster reservado por veredicto PASS',
+  'Poster model': 'Modelo para el póster',
+  'Poster ready': 'Póster listo',
+  'Poster is already being created': 'El póster ya se está creando',
+  'Poster generation failed': 'Falló la creación del póster',
+  'Creating poster…': 'Creando póster…',
+  'Regenerate poster': 'Volver a crear póster',
+  'Generate poster': 'Crear póster',
+  'Economy · $0.034': 'Económico · $0.034',
+  'Studio · $0.067': 'Estudio · $0.067',
+  'Premium · $0.134': 'Premium · $0.134',
   Percentile: 'Percentil',
   'Select project': 'Seleccionar proyecto',
   '{{ordinal}} percentile': 'percentil {{ordinal}}',
@@ -185,14 +205,33 @@ const spanish = {
   'Source screenplay availability': 'Disponibilidad de los guiones originales',
   'Data & Sharing': 'Datos y uso compartido',
   'Exports, links, and favorites': 'Exportaciones, enlaces y favoritos',
-  'Connections & Keys': 'Conexiones y claves',
-  'Protected service connections': 'Conexiones protegidas de servicios',
+  'System Status': 'Estado del sistema',
+  'Services, cost protection, and health': 'Servicios, protección de costos y estado',
   Calibration: 'Calibración',
   'Producer evidence and benchmarks': 'Evidencia del productor y pruebas de referencia',
   Intelligence: 'Inteligencia',
   Workflow: 'Flujo de trabajo',
   Library: 'Biblioteca',
   Administration: 'Administración',
+  'Analysis service': 'Servicio de análisis',
+  'AI connection': 'Conexión de IA',
+  'AI credentials stay on the server and are never entered in this browser.':
+    'Las credenciales de IA permanecen en el servidor y nunca se ingresan en este navegador.',
+  'Production screening': 'Revisión de producción',
+  'The ingestion server checks whether a screenplay has already been produced before analysis starts.':
+    'El servidor de recepción revisa si un guion ya fue producido antes de iniciar el análisis.',
+  'Server managed': 'Administrado por el servidor',
+  'Cost protection': 'Protección de costos',
+  'Today’s AI budget': 'Presupuesto de IA de hoy',
+  'These numbers come from the production server ledger.':
+    'Estas cifras vienen del registro del servidor de producción.',
+  Refresh: 'Actualizar',
+  'Budget status is unavailable. Production protection remains active.':
+    'El estado del presupuesto no está disponible. La protección de producción sigue activa.',
+  'spent of ${{limit}} today': 'gastados de ${{limit}} hoy',
+  Reserved: 'Reservado',
+  'Model calls': 'Llamadas al modelo',
+  'No model spending has been recorded today.': 'Hoy no se ha registrado gasto en modelos.',
   'Shared links': 'Enlaces compartidos',
   'New material': 'Material nuevo',
   'Bring a screenplay into the slate': 'Agregar un guion a la selección',
@@ -359,8 +398,8 @@ const spanish = {
   'Supporting Cast': 'Reparto secundario',
   'Comparable Films': 'Películas comparables',
   'Key divergence:': 'Diferencia clave:',
-  'Three reference points selected by the readers. Poster images are supplied by TMDB and do not affect the analysis.':
-    'Tres referencias seleccionadas por los lectores. TMDB proporciona las imágenes y estas no afectan el análisis.',
+  'Three reference points selected by the readers. They do not affect the analysis score.':
+    'Tres referencias seleccionadas por los lectores. No afectan la calificación del análisis.',
   'Where it differs:': 'Diferencia:',
   'View film details': 'Ver detalles de la película',
   'Standout Scenes': 'Escenas destacadas',
@@ -375,7 +414,8 @@ const spanish = {
   Cancel: 'Cancelar',
   'Save Note': 'Guardar nota',
   'Cmd/Ctrl+Enter to save, Esc to cancel': 'Cmd/Ctrl+Enter para guardar, Esc para cancelar',
-  'No notes yet. Add one to track your thoughts.': 'Aún no hay notas. Agrega una para registrar tus ideas.',
+  'No notes yet. Add one to track your thoughts.':
+    'Aún no hay notas. Agrega una para registrar tus ideas.',
   'Delete note from {{date}}': 'Eliminar nota del {{date}}',
   'Structure Reader': 'Lector de estructura',
   'Character Reader': 'Lector de personajes',
@@ -383,34 +423,51 @@ const spanish = {
   'Concept Reader': 'Lector de concepto',
   'Emotion Reader': 'Lector de emoción',
   'Turns, escalation, causality, and the ending.': 'Giros, escalada, causalidad y final.',
-  'Agency, relationships, contradiction, and change.': 'Decisiones, relaciones, contradicción y cambio.',
-  'Scene construction, dialogue, pace, and execution.': 'Construcción de escenas, diálogo, ritmo y ejecución.',
-  'Premise, originality, genre promise, and market clarity.': 'Premisa, originalidad, promesa de género y claridad comercial.',
-  'Feeling, audience identification, resonance, and payoff.': 'Emoción, identificación del público, resonancia y resultado.',
+  'Agency, relationships, contradiction, and change.':
+    'Decisiones, relaciones, contradicción y cambio.',
+  'Scene construction, dialogue, pace, and execution.':
+    'Construcción de escenas, diálogo, ritmo y ejecución.',
+  'Premise, originality, genre promise, and market clarity.':
+    'Premisa, originalidad, promesa de género y claridad comercial.',
+  'Feeling, audience identification, resonance, and payoff.':
+    'Emoción, identificación del público, resonancia y resultado.',
   'Current sealed analysis required': 'Se necesita un análisis actual cerrado',
-  'Reanalyze this legacy record so the conversation can cite the exact screenplay version.': 'Vuelve a analizar este registro anterior para que la conversación pueda citar la versión exacta del guion.',
+  'Reanalyze this legacy record so the conversation can cite the exact screenplay version.':
+    'Vuelve a analizar este registro anterior para que la conversación pueda citar la versión exacta del guion.',
   'Reader report unavailable': 'Informe del lector no disponible',
-  'This analysis does not contain this reader’s sealed independent report.': 'Este análisis no contiene el informe independiente cerrado de este lector.',
+  'This analysis does not contain this reader’s sealed independent report.':
+    'Este análisis no contiene el informe independiente cerrado de este lector.',
   'Private chat not activated': 'Chat privado no activado',
-  'The sealed report is available, but private conversations are not enabled here.': 'El informe cerrado está disponible, pero las conversaciones privadas no están activadas aquí.',
+  'The sealed report is available, but private conversations are not enabled here.':
+    'El informe cerrado está disponible, pero las conversaciones privadas no están activadas aquí.',
   'Source screenplay required': 'Se necesita el guion original',
-  'Restore the source PDF before starting a live, project-grounded conversation.': 'Restaura el PDF original antes de iniciar una conversación en vivo basada en el proyecto.',
+  'Restore the source PDF before starting a live, project-grounded conversation.':
+    'Restaura el PDF original antes de iniciar una conversación en vivo basada en el proyecto.',
   'Local preview ready': 'Vista previa local lista',
-  'Uses the sealed report to demonstrate the flow. No model call or charge occurs.': 'Usa el informe cerrado para mostrar el proceso. No llama al modelo ni genera cargos.',
+  'Uses the sealed report to demonstrate the flow. No model call or charge occurs.':
+    'Usa el informe cerrado para mostrar el proceso. No llama al modelo ni genera cargos.',
   'Ready for private conversation': 'Listo para una conversación privada',
-  'The sealed report, analysis version, and source screenplay are available.': 'El informe cerrado, la versión del análisis y el guion original están disponibles.',
-  'This legacy record preserves its roundtable evidence, but it needs a current sealed analysis before private conversations can cite the screenplay.': 'Este registro anterior conserva la evidencia de la mesa de lectores, pero necesita un análisis actual cerrado antes de que una conversación privada pueda citar el guion.',
-  'Select a reader to start a private conversation. Their sealed report stays one click away.': 'Selecciona un lector para iniciar una conversación privada. Su informe cerrado queda a un clic.',
-  'Select a reader to preview the conversation flow. Local review uses sealed evidence and makes no model call.': 'Selecciona un lector para ver el proceso de conversación. La revisión local usa evidencia cerrada y no llama al modelo.',
-  'Read each sealed report here. Private Reader Chat is not activated in this environment.': 'Lee aquí cada informe cerrado. El chat privado con lectores no está activado en este entorno.',
-  'Reanalyze to create a citable analysis version': 'Volver a analizar para crear una versión que se pueda citar',
+  'The sealed report, analysis version, and source screenplay are available.':
+    'El informe cerrado, la versión del análisis y el guion original están disponibles.',
+  'This legacy record preserves its roundtable evidence, but it needs a current sealed analysis before private conversations can cite the screenplay.':
+    'Este registro anterior conserva la evidencia de la mesa de lectores, pero necesita un análisis actual cerrado antes de que una conversación privada pueda citar el guion.',
+  'Select a reader to start a private conversation. Their sealed report stays one click away.':
+    'Selecciona un lector para iniciar una conversación privada. Su informe cerrado queda a un clic.',
+  'Select a reader to preview the conversation flow. Local review uses sealed evidence and makes no model call.':
+    'Selecciona un lector para ver el proceso de conversación. La revisión local usa evidencia cerrada y no llama al modelo.',
+  'Read each sealed report here. Private Reader Chat is not activated in this environment.':
+    'Lee aquí cada informe cerrado. El chat privado con lectores no está activado en este entorno.',
+  'Reanalyze to create a citable analysis version':
+    'Volver a analizar para crear una versión que se pueda citar',
   'Reanalyze for {{role}} chat': 'Volver a analizar para el chat con {{role}}',
   'Restore source screenplay to chat': 'Restaurar el guion original para conversar',
   'Private Reader Chat not activated': 'Chat privado con lectores no activado',
   'Preview conversation with {{name}}': 'Ver conversación con {{name}}',
   'Talk privately with {{name}}': 'Hablar en privado con {{name}}',
-  'Five specialist lenses · sealed V9 evidence': 'Cinco enfoques especialistas · evidencia V9 cerrada',
-  'Legacy reader evidence · preserved for review': 'Evidencia anterior de lectores · conservada para revisión',
+  'Five specialist lenses · sealed V9 evidence':
+    'Cinco enfoques especialistas · evidencia V9 cerrada',
+  'Legacy reader evidence · preserved for review':
+    'Evidencia anterior de lectores · conservada para revisión',
   'The Readers Room': 'La sala de lectores',
   'Specialist readers': 'Lectores especialistas',
   'Chat ready': 'Chat listo',
@@ -422,20 +479,25 @@ const spanish = {
   'No summary verdict was preserved.': 'No se guardó un veredicto resumido.',
   'No written evidence was preserved.': 'No se guardó evidencia escrita.',
   'Pages {{pages}}': 'Páginas {{pages}}',
-  'This project needs a current sealed analysis version before a private conversation can cite the correct screenplay evidence.': 'Este proyecto necesita una versión actual y cerrada del análisis antes de que una conversación privada pueda citar la evidencia correcta del guion.',
-  'This older analysis does not contain a sealed {{role}} report.': 'Este análisis anterior no contiene un informe cerrado de {{role}}.',
+  'This project needs a current sealed analysis version before a private conversation can cite the correct screenplay evidence.':
+    'Este proyecto necesita una versión actual y cerrada del análisis antes de que una conversación privada pueda citar la evidencia correcta del guion.',
+  'This older analysis does not contain a sealed {{role}} report.':
+    'Este análisis anterior no contiene un informe cerrado de {{role}}.',
   'Roundtable disagreements': 'Desacuerdos de la mesa de lectores',
   'Roundtable resolution': 'Resolución de la mesa de lectores',
   'No resolution was preserved.': 'No se guardó una resolución.',
   'Choose screenplay PDFs': 'Elegir archivos PDF de guiones',
   'Drop screenplay PDFs here or choose files': 'Suelta aquí los PDF de guiones o elige archivos',
-  'Supports multiple PDF screenplays, up to 50 MB each': 'Permite varios guiones PDF de hasta 50 MB cada uno',
+  'Supports multiple PDF screenplays, up to 50 MB each':
+    'Permite varios guiones PDF de hasta 50 MB cada uno',
   'How It Works': 'Cómo funciona',
   'Choose your analysis model': 'Elige tu modelo de análisis',
   'Drop PDF screenplays into the upload zone': 'Suelta los guiones PDF en la zona de carga',
-  'Click “Start Analysis” and the secure analysis engine handles the rest': 'Haz clic en “Iniciar análisis” y el motor seguro hace el resto',
+  'Click “Start Analysis” and the secure analysis engine handles the rest':
+    'Haz clic en “Iniciar análisis” y el motor seguro hace el resto',
   'Pro Tip: Hybrid Strategy': 'Consejo: estrategia híbrida',
-  'Use Sonnet for routine coverage and Opus when a project needs the deepest review.': 'Usa Sonnet para análisis normales y Opus cuando un proyecto necesite la revisión más profunda.',
+  'Use Sonnet for routine coverage and Opus when a project needs the deepest review.':
+    'Usa Sonnet para análisis normales y Opus cuando un proyecto necesite la revisión más profunda.',
   'Assign Category': 'Asignar categoría',
   New: 'Nueva',
   'Category Name': 'Nombre de la categoría',
@@ -450,44 +512,59 @@ const spanish = {
   'Not Configured': 'Sin configurar',
   'Paid analysis authorization': 'Autorización de análisis con costo',
   'Authorize paid analysis?': '¿Autorizar el análisis con costo?',
-  'This immediately sends the screenplays below to the V9 reader room. Once submitted, an active screenplay cannot be canceled from this screen.': 'Esto envía de inmediato los guiones a la sala de lectores V9. Después del envío, no puedes cancelar un guion activo desde esta pantalla.',
+  'This immediately sends the screenplays below to the V9 reader room. Once submitted, an active screenplay cannot be canceled from this screen.':
+    'Esto envía de inmediato los guiones a la sala de lectores V9. Después del envío, no puedes cancelar un guion activo desde esta pantalla.',
   Screenplays: 'Guiones',
   'Reading route': 'Ruta de lectura',
   'Estimated batch cost': 'Costo estimado del lote',
   Unavailable: 'No disponible',
   'Screenplays entering the room': 'Guiones que entrarán a la sala',
-  'I understand that this starts paid AI analysis now.': 'Entiendo que esto inicia ahora un análisis de IA con costo.',
-  'No analysis starts unless you authorize it below. Closing this window or returning to Intake starts nothing.': 'Ningún análisis inicia sin tu autorización. Cerrar esta ventana o volver a Recepción no inicia nada.',
+  'I understand that this starts paid AI analysis now.':
+    'Entiendo que esto inicia ahora un análisis de IA con costo.',
+  'No analysis starts unless you authorize it below. Closing this window or returning to Intake starts nothing.':
+    'Ningún análisis inicia sin tu autorización. Cerrar esta ventana o volver a Recepción no inicia nada.',
   'Return to Intake, start nothing': 'Volver a Recepción sin iniciar nada',
-  'Authorize paid analysis for {{count}} screenplay_one': 'Autorizar el análisis con costo de {{count}} guion',
-  'Authorize paid analysis for {{count}} screenplay_other': 'Autorizar el análisis con costo de {{count}} guiones',
-  'Cannot process: Budget limit reached or daily request limit exceeded. Check API Configuration.': 'No se puede procesar. Se alcanzó el presupuesto o el límite diario. Revisa la configuración de API.',
+  'Authorize paid analysis for {{count}} screenplay_one':
+    'Autorizar el análisis con costo de {{count}} guion',
+  'Authorize paid analysis for {{count}} screenplay_other':
+    'Autorizar el análisis con costo de {{count}} guiones',
+  'Cannot process: Budget limit reached or daily request limit exceeded. Check API Configuration.':
+    'No se puede procesar. Se alcanzó el presupuesto o el límite diario. Revisa la configuración de API.',
   'Choose the level of review': 'Elige el nivel de revisión',
-  'Hybrid is the studio default: complete coverage first, deeper review for the strongest material.': 'Híbrido es la opción del estudio: análisis completo primero y revisión profunda para el material más fuerte.',
+  'Hybrid is the studio default: complete coverage first, deeper review for the strongest material.':
+    'Híbrido es la opción del estudio: análisis completo primero y revisión profunda para el material más fuerte.',
   '{{count}} ready · estimated {{cost}}': '{{count}} listos · estimado {{cost}}',
   'New screenplay': 'Nuevo guion',
   'Place material on the desk': 'Pon el material sobre la mesa',
-  'PDF screenplays only. Identity and exact-byte checks happen before anything can enter paid analysis.': 'Solo guiones en PDF. La identidad y los archivos idénticos se revisan antes de cualquier análisis con costo.',
+  'PDF screenplays only. Identity and exact-byte checks happen before anything can enter paid analysis.':
+    'Solo guiones en PDF. La identidad y los archivos idénticos se revisan antes de cualquier análisis con costo.',
   'Intake safeguards': 'Protecciones de recepción',
   'Before the readers begin': 'Antes de que empiecen los lectores',
   'Nothing enters silently': 'Nada entra sin aviso',
   Identity: 'Identidad',
-  'Exact duplicates stop before any AI spend.': 'Los duplicados exactos se detienen antes de cualquier gasto de IA.',
+  'Exact duplicates stop before any AI spend.':
+    'Los duplicados exactos se detienen antes de cualquier gasto de IA.',
   Revisions: 'Revisiones',
-  'Same-title drafts wait for your project decision.': 'Los borradores con el mismo título esperan tu decisión.',
+  'Same-title drafts wait for your project decision.':
+    'Los borradores con el mismo título esperan tu decisión.',
   Authority: 'Autorización',
-  'The five-reader engine runs only after final confirmation.': 'El motor de cinco lectores solo inicia después de la confirmación final.',
-  'Adding files is free. Analysis begins only from the confirmation screen.': 'Agregar archivos es gratis. El análisis solo inicia desde la pantalla de confirmación.',
+  'The five-reader engine runs only after final confirmation.':
+    'El motor de cinco lectores solo inicia después de la confirmación final.',
+  'Adding files is free. Analysis begins only from the confirmation screen.':
+    'Agregar archivos es gratis. El análisis solo inicia desde la pantalla de confirmación.',
   'Upload Screenplays': 'Cargar guiones',
-  'Upload PDF screenplays for AI analysis using the V9 Archaeology Engine (5-reader deep analysis).': 'Carga guiones PDF para analizarlos con el motor V9 Archaeology de cinco lectores.',
+  'Upload PDF screenplays for AI analysis using the V9 Archaeology Engine (5-reader deep analysis).':
+    'Carga guiones PDF para analizarlos con el motor V9 Archaeology de cinco lectores.',
   'Analysis Model': 'Modelo de análisis',
-  'Approved routes verified {{date}}. New releases require benchmark approval before scoring changes.': 'Rutas aprobadas verificadas el {{date}}. Las versiones nuevas requieren pruebas antes de cambiar las calificaciones.',
+  'Approved routes verified {{date}}. New releases require benchmark approval before scoring changes.':
+    'Rutas aprobadas verificadas el {{date}}. Las versiones nuevas requieren pruebas antes de cambiar las calificaciones.',
   'Version-pinned': 'Versión fija',
   'Catalog watch:': 'Revisión del catálogo:',
   'Anthropic currently lists': 'Anthropic muestra actualmente',
   and: 'y',
   'Analysis remains pinned to': 'El análisis mantiene las versiones',
-  'until newer routes pass Lemon’s sealed screenplay benchmark.': 'hasta que las rutas nuevas aprueben la prueba cerrada de guiones de Lemon.',
+  'until newer routes pass Lemon’s sealed screenplay benchmark.':
+    'hasta que las rutas nuevas aprueben la prueba cerrada de guiones de Lemon.',
   Cost: 'Costo',
   Speed: 'Velocidad',
   Quality: 'Calidad',
@@ -504,16 +581,22 @@ const spanish = {
   'Smart Two-Pass': 'Dos pasos inteligentes',
   'Approved analysis route': 'Ruta de análisis aprobada',
   'Approved two-pass route': 'Ruta aprobada de dos pasos',
-  'Best for bulk scanning. Great accuracy for structured analysis at a fraction of the cost. Ideal for processing large batches of 100+ screenplays.': 'Ideal para revisar grandes lotes. Ofrece buena precisión a menor costo. Sirve para lotes de más de 100 guiones.',
-  'Best quality-to-cost ratio. Deep character analysis, nuanced genre detection, and reliable scoring. The default choice for professional analysis.': 'La mejor relación entre calidad y costo. Ofrece análisis profundo de personajes, género preciso y calificaciones confiables.',
-  'Deep analysis with nuanced insights. Best for high-priority screenplays where you need every detail. This pinned route remains unchanged until it passes a benchmark review.': 'Análisis profundo con detalles precisos. Ideal para guiones de alta prioridad. Esta ruta no cambia hasta aprobar una prueba.',
-  'Sonnet first pass on all scripts. Recommend & Film Now scripts get a fresh Opus deep analysis automatically. Best value for batches.': 'Sonnet analiza primero todos los guiones. Los guiones RECOMENDAR y FILM NOW reciben después un análisis profundo de Opus.',
-  'Estimated batch cost for {{count}} files with {{model}}:': 'Costo estimado de {{count}} archivos con {{model}}:',
+  'Best for bulk scanning. Great accuracy for structured analysis at a fraction of the cost. Ideal for processing large batches of 100+ screenplays.':
+    'Ideal para revisar grandes lotes. Ofrece buena precisión a menor costo. Sirve para lotes de más de 100 guiones.',
+  'Best quality-to-cost ratio. Deep character analysis, nuanced genre detection, and reliable scoring. The default choice for professional analysis.':
+    'La mejor relación entre calidad y costo. Ofrece análisis profundo de personajes, género preciso y calificaciones confiables.',
+  'Deep analysis with nuanced insights. Best for high-priority screenplays where you need every detail. This pinned route remains unchanged until it passes a benchmark review.':
+    'Análisis profundo con detalles precisos. Ideal para guiones de alta prioridad. Esta ruta no cambia hasta aprobar una prueba.',
+  'Sonnet first pass on all scripts. Recommend & Film Now scripts get a fresh Opus deep analysis automatically. Best value for batches.':
+    'Sonnet analiza primero todos los guiones. Los guiones RECOMENDAR y FILM NOW reciben después un análisis profundo de Opus.',
+  'Estimated batch cost for {{count}} files with {{model}}:':
+    'Costo estimado de {{count}} archivos con {{model}}:',
   'Live docket': 'Registro en vivo',
   'Intake ledger': 'Registro de recepción',
   '0 projects in motion': '0 proyectos en proceso',
   'The desk is clear': 'La mesa está vacía',
-  'Add screenplay PDFs above. Their status will stay visible here.': 'Agrega arriba los PDF de guiones. Su estado aparecerá aquí.',
+  'Add screenplay PDFs above. Their status will stay visible here.':
+    'Agrega arriba los PDF de guiones. Su estado aparecerá aquí.',
   'Upload Queue': 'Cola de carga',
   'Clear completed': 'Limpiar terminados',
   '{{count}} exact duplicate_one': '{{count}} duplicado exacto',
@@ -528,22 +611,28 @@ const spanish = {
   '{{count}} file_other': '{{count}} archivos',
   'using {{model}}': 'con {{model}}',
   'Configure API to Start Analysis': 'Configura la API para iniciar el análisis',
-  'Exact duplicates are excluded from this analysis run.': 'Los duplicados exactos no entrarán en este análisis.',
-  'Click “API Configuration” above to set up your API key and budget limits': 'Abre “Configuración de API” para definir tu clave y límites de presupuesto',
+  'Exact duplicates are excluded from this analysis run.':
+    'Los duplicados exactos no entrarán en este análisis.',
+  'Click “API Configuration” above to set up your API key and budget limits':
+    'Abre “Configuración de API” para definir tu clave y límites de presupuesto',
   'Processing with {{model}}...': 'Procesando con {{model}}...',
   'This should be quick (~1 min per script).': 'Debe ser rápido, cerca de 1 minuto por guion.',
   'This may take 2-3 minutes per screenplay.': 'Puede tardar de 2 a 3 minutos por guion.',
-  'Deep analysis in progress, about 5 minutes per screenplay.': 'Análisis profundo en proceso, cerca de 5 minutos por guion.',
+  'Deep analysis in progress, about 5 minutes per screenplay.':
+    'Análisis profundo en proceso, cerca de 5 minutos por guion.',
   'Exact duplicate.': 'Duplicado exacto.',
   'Already analyzed': 'Ya se analizó',
   as: 'como',
-  'This PDF has exactly the same bytes, so the engine will not run or spend AI credits again.': 'Este PDF tiene exactamente los mismos datos. El motor no volverá a ejecutarse ni a gastar créditos de IA.',
+  'This PDF has exactly the same bytes, so the engine will not run or spend AI credits again.':
+    'Este PDF tiene exactamente los mismos datos. El motor no volverá a ejecutarse ni a gastar créditos de IA.',
   'Skip upload': 'Omitir carga',
   'Possible match:': 'Posible coincidencia:',
-  'already exists. Is this a new draft of that project or a different screenplay with the same title?': 'ya existe. ¿Es un borrador nuevo de ese proyecto o un guion diferente con el mismo título?',
+  'already exists. Is this a new draft of that project or a different screenplay with the same title?':
+    'ya existe. ¿Es un borrador nuevo de ese proyecto o un guion diferente con el mismo título?',
   'New revision of {{title}}': 'Nueva versión de {{title}}',
   'Separate project': 'Proyecto separado',
-  'Checking the archive for revisions and exact duplicates...': 'Revisando versiones y duplicados exactos en el archivo...',
+  'Checking the archive for revisions and exact duplicates...':
+    'Revisando versiones y duplicados exactos en el archivo...',
   'Parsing PDF...': 'Leyendo PDF...',
   'AI Analyzing...': 'IA analizando...',
   '⬆️ Promoted → Opus re-analysis...': '⬆️ Enviado a nuevo análisis con Opus...',
@@ -559,11 +648,12 @@ const spanish = {
   'Remove {{filename}} from intake': 'Quitar {{filename}} de recepción',
   'Intake Desk': 'Mesa de recepción',
   'Lemon Studios · New material': 'Lemon Studios · Material nuevo',
-  'Bring a screenplay into the slate, verify its identity, and follow it until the complete five-reader analysis is ready to open.': 'Agrega un guion a la selección, verifica su identidad y síguelo hasta que el análisis completo de cinco lectores esté listo.',
-  '{{title}} poster': 'Póster de {{title}}',
+  'Bring a screenplay into the slate, verify its identity, and follow it until the complete five-reader analysis is ready to open.':
+    'Agrega un guion a la selección, verifica su identidad y síguelo hasta que el análisis completo de cinco lectores esté listo.',
   'Download Script': 'Descargar guion',
   'This link is no longer available': 'Este enlace ya no está disponible',
-  'The share link may have been revoked or expired.': 'El enlace puede haber sido cancelado o puede haber vencido.',
+  'The share link may have been revoked or expired.':
+    'El enlace puede haber sido cancelado o puede haber vencido.',
   'Link copied to clipboard': 'Enlace copiado',
   'Loading shared links...': 'Cargando enlaces compartidos...',
   'No active share links': 'No hay enlaces compartidos activos',
@@ -578,31 +668,39 @@ const spanish = {
   'Switch design system': 'Cambiar sistema de diseño',
   'Design systems': 'Sistemas de diseño',
   'Design System': 'Sistema de diseño',
-  'Use the light/dark control within any design system': 'Usa el control claro/oscuro con cualquier sistema de diseño',
+  'Use the light/dark control within any design system':
+    'Usa el control claro/oscuro con cualquier sistema de diseño',
   Instrument: 'Instrumento',
-  'Cool grey-white, cobalt accent, Playfair + Schibsted': 'Blanco gris frío, acento cobalto, Playfair + Schibsted',
+  'Cool grey-white, cobalt accent, Playfair + Schibsted':
+    'Blanco gris frío, acento cobalto, Playfair + Schibsted',
   'Lemon Signal': 'Señal Lemon',
-  'Warm paper, coral action, aqua signal, editorial type': 'Papel cálido, acción coral, señal aqua y tipografía editorial',
+  'Warm paper, coral action, aqua signal, editorial type':
+    'Papel cálido, acción coral, señal aqua y tipografía editorial',
   'Story to Screen': 'De historia a pantalla',
-  'Warm editorial, burnished gold, serif elegance': 'Editorial cálido, dorado pulido y serif elegante',
+  'Warm editorial, burnished gold, serif elegance':
+    'Editorial cálido, dorado pulido y serif elegante',
   'Noir Cinema': 'Cine negro',
-  'Classic film noir, crimson accents, silver text': 'Cine negro clásico, acentos carmesí y texto plateado',
+  'Classic film noir, crimson accents, silver text':
+    'Cine negro clásico, acentos carmesí y texto plateado',
   Sundance: 'Sundance',
   'Desert indie warmth, terracotta and sand': 'Calidez independiente, terracota y arena',
   'Neon Terminal': 'Terminal neón',
   'Cyberpunk hacker, electric cyan, monospace': 'Estilo ciberpunk, cian eléctrico y monoespaciado',
   'Arctic Studio': 'Estudio ártico',
-  'Scandinavian minimalism, steel blue, ultra-clean': 'Minimalismo escandinavo, azul acero y muy limpio',
+  'Scandinavian minimalism, steel blue, ultra-clean':
+    'Minimalismo escandinavo, azul acero y muy limpio',
   'Working...': 'Trabajando...',
   '{{count}} screenplay will be removed_one': 'Se quitará {{count}} guion',
   '{{count}} screenplay will be removed_other': 'Se quitarán {{count}} guiones',
-  'You can recover deleted items from Settings > Data within 30 days.': 'Puedes recuperar los elementos eliminados en Configuración > Datos durante 30 días.',
+  'You can recover deleted items from Settings > Data within 30 days.':
+    'Puedes recuperar los elementos eliminados en Configuración > Datos durante 30 días.',
   'Deleting…': 'Eliminando…',
   Delete: 'Eliminar',
   'Loading...': 'Cargando...',
   '{{area}} could not load': 'No se pudo cargar {{area}}',
   'Something went wrong': 'Ocurrió un error',
-  'Your screenplay data is safe. Retry this section or reload the app to recover.': 'Los datos de tus guiones están seguros. Intenta de nuevo o vuelve a cargar la aplicación.',
+  'Your screenplay data is safe. Retry this section or reload the app to recover.':
+    'Los datos de tus guiones están seguros. Intenta de nuevo o vuelve a cargar la aplicación.',
   'Retry Section': 'Intentar sección de nuevo',
   'Reload App': 'Volver a cargar la aplicación',
   'Please enter at least one email address': 'Escribe por lo menos un correo electrónico',
@@ -611,22 +709,27 @@ const spanish = {
   'Share Dashboard': 'Compartir panel',
   'Copy Link': 'Copiar enlace',
   Email: 'Correo',
-  'Copy the link below to share the current dashboard view with your filters applied.': 'Copia este enlace para compartir la vista actual del panel con sus filtros.',
+  'Copy the link below to share the current dashboard view with your filters applied.':
+    'Copia este enlace para compartir la vista actual del panel con sus filtros.',
   'Copied to Clipboard!': '¡Copiado!',
   'Failed to Copy': 'No se pudo copiar',
-  'Send the dashboard link via email. Add a personal note to explain why you are sharing this screenplay analysis.': 'Envía el enlace del panel por correo. Agrega una nota para explicar por qué compartes este análisis.',
+  'Send the dashboard link via email. Add a personal note to explain why you are sharing this screenplay analysis.':
+    'Envía el enlace del panel por correo. Agrega una nota para explicar por qué compartes este análisis.',
   Recipients: 'Destinatarios',
   'Separate multiple emails with commas': 'Separa varios correos con comas',
   Subject: 'Asunto',
   'Your Note': 'Tu nota',
-  'Here is a screenplay I think you should check out...': 'Este es un guion que creo que debes revisar...',
+  'Here is a screenplay I think you should check out...':
+    'Este es un guion que creo que debes revisar...',
   'Explain why you are sending this screenplay analysis': 'Explica por qué envías este análisis',
   'Open in Email Client': 'Abrir en la aplicación de correo',
-  'This will open your default email application': 'Esto abrirá tu aplicación de correo predeterminada',
+  'This will open your default email application':
+    'Esto abrirá tu aplicación de correo predeterminada',
   Close: 'Cerrar',
   'Screenplay Analysis from Lemon Dashboard': 'Análisis de guion de Lemon Screenplay Dashboard',
   'Complete reader panels': 'Paneles de lectores completos',
-  '{{percent}} of the slate has every expected reader': '{{percent}} de la selección tiene todos los lectores esperados',
+  '{{percent}} of the slate has every expected reader':
+    '{{percent}} de la selección tiene todos los lectores esperados',
   'Verified evidence': 'Evidencia verificada',
   '{{percent}} has current evidence lineage': '{{percent}} tiene un origen de evidencia actual',
   'No analysis warnings found': 'No se encontraron alertas de análisis',
@@ -635,7 +738,8 @@ const spanish = {
   '{{percent}} can open the original screenplay': '{{percent}} puede abrir el guion original',
   'Analysis readiness': 'Estado del análisis',
   'Know what can be trusted': 'Conoce qué información es confiable',
-  'This view reports the health of the analyses already in the slate. It does not run a new analysis or alter a score.': 'Esta vista muestra el estado de los análisis existentes. No ejecuta otro análisis ni cambia una calificación.',
+  'This view reports the health of the analyses already in the slate. It does not run a new analysis or alter a score.':
+    'Esta vista muestra el estado de los análisis existentes. No ejecuta otro análisis ni cambia una calificación.',
   'Analysis health summary': 'Resumen del estado del análisis',
   'of {{total}}': 'de {{total}}',
   'Slate snapshot': 'Resumen de la selección',
@@ -648,12 +752,16 @@ const spanish = {
   Consider: 'Considerar',
   Pass: 'Pasar',
   'Attention required': 'Se necesita atención',
-  'Projects with incomplete readers, trust warnings, or legacy evidence.': 'Proyectos con lectores incompletos, alertas de confianza o evidencia anterior.',
+  'Projects with incomplete readers, trust warnings, or legacy evidence.':
+    'Proyectos con lectores incompletos, alertas de confianza o evidencia anterior.',
   '{{count}} open': '{{count}} pendientes',
-  'No analysis-health warnings were found in the current slate.': 'No se encontraron alertas en los análisis de la selección actual.',
-  'Legacy analysis, evidence lineage not verified': 'Análisis anterior, origen de evidencia sin verificar',
+  'No analysis-health warnings were found in the current slate.':
+    'No se encontraron alertas en los análisis de la selección actual.',
+  'Legacy analysis, evidence lineage not verified':
+    'Análisis anterior, origen de evidencia sin verificar',
   'How V9 analysis works': 'Cómo funciona el análisis V9',
-  'Five independent readers examine structure, character, craft and scene, concept, and emotional resonance. Their reports are synthesized into one assessment while reader failures and disagreements remain visible.': 'Cinco lectores independientes revisan estructura, personajes, oficio y escena, concepto y emoción. Sus informes forman una evaluación. Los errores y desacuerdos siguen visibles.',
+  'Five independent readers examine structure, character, craft and scene, concept, and emotional resonance. Their reports are synthesized into one assessment while reader failures and disagreements remain visible.':
+    'Cinco lectores independientes revisan estructura, personajes, oficio y escena, concepto y emoción. Sus informes forman una evaluación. Los errores y desacuerdos siguen visibles.',
   Structure: 'Estructura',
   Character: 'Personajes',
   'Craft & Scene': 'Oficio y escena',
@@ -677,7 +785,8 @@ const spanish = {
   'Specialist evidence': 'Evidencia especialista',
   'Specialist Reader Evidence': 'Evidencia de lectores especialistas',
   'Loading the sealed reader reports…': 'Cargando los informes cerrados de los lectores…',
-  'Sealed specialist reports are not available for this older analysis.': 'Los informes cerrados de especialistas no están disponibles para este análisis anterior.',
+  'Sealed specialist reports are not available for this older analysis.':
+    'Los informes cerrados de especialistas no están disponibles para este análisis anterior.',
   Reader: 'Lector',
   'Reader flags': 'Alertas del lector',
   'Resolution:': 'Resolución:',
@@ -687,7 +796,8 @@ const spanish = {
   'Model not recorded': 'Modelo sin registro',
   'No model call or charge': 'Sin llamada al modelo ni cargo',
   '{{input}} in · {{output}} out · ': '{{input}} entrada · {{output}} salida · ',
-  '{{read}} cache read · {{write}} cache write · ': '{{read}} caché leído · {{write}} caché escrito · ',
+  '{{read}} cache read · {{write}} cache write · ':
+    '{{read}} caché leído · {{write}} caché escrito · ',
   'Cost pending': 'Costo pendiente',
   'Cost unavailable': 'Costo no disponible',
   '${{cost}} recorded': '${{cost}} registrado',
@@ -701,16 +811,22 @@ const spanish = {
   'Reader Chat model': 'Modelo del chat con lectores',
   'Lemon Model Router': 'Selector de modelos Lemon',
   'Choose how deeply this reader should think': 'Elige la profundidad de análisis del lector',
-  'Auto starts with Opus 5 and uses Fable only after an objective safe failure.': 'Auto inicia con Opus 5 y usa Fable solo después de un error seguro y objetivo.',
-  'Opus 5 answers directly at high effort with no model escalation.': 'Opus 5 responde directamente con esfuerzo alto y sin cambiar de modelo.',
-  'Fable 5 performs the deepest review directly at high effort.': 'Fable 5 hace directamente la revisión más profunda con esfuerzo alto.',
+  'Auto starts with Opus 5 and uses Fable only after an objective safe failure.':
+    'Auto inicia con Opus 5 y usa Fable solo después de un error seguro y objetivo.',
+  'Opus 5 answers directly at high effort with no model escalation.':
+    'Opus 5 responde directamente con esfuerzo alto y sin cambiar de modelo.',
+  'Fable 5 performs the deepest review directly at high effort.':
+    'Fable 5 hace directamente la revisión más profunda con esfuerzo alto.',
   'Model selection': 'Selección de modelo',
   Auto: 'Auto',
   Direct: 'Directo',
   Deepest: 'Más profundo',
-  'Local review mode. You can test writing, saved history, citations, and status changes. No model call or charge occurs.': 'Modo de revisión local. Puedes probar la escritura, el historial, las citas y los estados. No hay llamada al modelo ni cargo.',
-  'Private Reader Chat is prepared but not activated. The sealed reader report remains available above.': 'El chat privado con lectores está preparado, pero no está activado. El informe cerrado sigue disponible arriba.',
-  'Previous model attempt stopped safely': 'El intento anterior del modelo se detuvo de forma segura',
+  'Local review mode. You can test writing, saved history, citations, and status changes. No model call or charge occurs.':
+    'Modo de revisión local. Puedes probar la escritura, el historial, las citas y los estados. No hay llamada al modelo ni cargo.',
+  'Private Reader Chat is prepared but not activated. The sealed reader report remains available above.':
+    'El chat privado con lectores está preparado, pero no está activado. El informe cerrado sigue disponible arriba.',
+  'Previous model attempt stopped safely':
+    'El intento anterior del modelo se detuvo de forma segura',
   'Reader Chat route recorded': 'Ruta del chat registrada',
   '{{count}} attempt_one': '{{count}} intento',
   '{{count}} attempt_other': '{{count}} intentos',
@@ -731,17 +847,21 @@ const spanish = {
   'New private view: {{score}}': 'Nueva opinión privada: {{score}}',
   'The sealed score above has not changed.': 'La calificación cerrada de arriba no cambió.',
   'Get Fable 5’s deeper second opinion': 'Obtener una segunda opinión más profunda de Fable 5',
-  'My sealed report is open. What would you like to challenge or explore?': 'Mi informe cerrado está abierto. ¿Qué quieres cuestionar o explorar?',
+  'My sealed report is open. What would you like to challenge or explore?':
+    'Mi informe cerrado está abierto. ¿Qué quieres cuestionar o explorar?',
   Sent: 'Enviado',
   '{{name}} is thinking': '{{name}} está pensando',
   '{{name}} is considering your question': '{{name}} está considerando tu pregunta',
   '{{name}} finished answering.': '{{name}} terminó de responder.',
-  'Ask {{name}} anything about this screenplay': 'Pregunta a {{name}} lo que quieras sobre este guion',
-  'Why did the comedy not work for you? What would change your mind?': '¿Por qué no funcionó la comedia para ti? ¿Qué cambiaría tu opinión?',
+  'Ask {{name}} anything about this screenplay':
+    'Pregunta a {{name}} lo que quieras sobre este guion',
+  'Why did the comedy not work for you? What would change your mind?':
+    '¿Por qué no funcionó la comedia para ti? ¿Qué cambiaría tu opinión?',
   '{{name}} is thinking…': '{{name}} está pensando…',
   Send: 'Enviar',
   'to send': 'para enviar',
-  'for a new line · Answers cite the stored screenplay.': 'para una línea nueva · Las respuestas citan el guion guardado.',
+  'for a new line · Answers cite the stored screenplay.':
+    'para una línea nueva · Las respuestas citan el guion guardado.',
   Standout: 'Destacado',
   'Strong signal': 'Señal fuerte',
   'Needs development': 'Necesita desarrollo',
@@ -753,21 +873,24 @@ const spanish = {
   'Boundary not checked': 'Límite sin revisar',
   'Decision clarity': 'Claridad de la decisión',
   'Development Signal Map': 'Mapa de señales de desarrollo',
-  'One shared scale shows where the screenplay is strongest, where development work concentrates, and how much trust to place in the result.': 'Una escala común muestra las fortalezas del guion, dónde se concentra el trabajo y cuánta confianza merece el resultado.',
+  'One shared scale shows where the screenplay is strongest, where development work concentrates, and how much trust to place in the result.':
+    'Una escala común muestra las fortalezas del guion, dónde se concentra el trabajo y cuánta confianza merece el resultado.',
   'Final score': 'Calificación final',
   Trust: 'Confianza',
   '{{complete}} of {{expected}} readers': '{{complete}} de {{expected}} lectores',
   'Not available': 'No disponible',
   Boundary: 'Límite',
   Roundtable: 'Mesa de lectores',
-  'Five reader scores on a shared one to ten scale': 'Cinco calificaciones de lectores en una escala común del uno al diez',
+  'Five reader scores on a shared one to ten scale':
+    'Cinco calificaciones de lectores en una escala común del uno al diez',
   Strong: 'Fuerte',
   '{{label}}: {{score}} out of 10': '{{label}}: {{score}} de 10',
   'Strongest signal': 'Señal más fuerte',
   'No written strength was preserved.': 'No se guardó una fortaleza escrita.',
   'Primary development risk': 'Principal riesgo de desarrollo',
   'No written development risk was preserved.': 'No se guardó un riesgo de desarrollo escrito.',
-  'Open the Reader Room for the evidence behind these scores': 'Abrir la Sala de lectores para ver la evidencia de estas calificaciones',
+  'Open the Reader Room for the evidence behind these scores':
+    'Abrir la Sala de lectores para ver la evidencia de estas calificaciones',
   'Raw five-reader score': 'Calificación inicial de cinco lectores',
   'Verified deduction': 'Deducción verificada',
   'Final ranking score': 'Calificación final para ordenar',
@@ -784,15 +907,18 @@ const spanish = {
   'Critical-failure issues reported': 'Problemas críticos reportados',
   'Critical-failure deduction applied': 'Deducción crítica aplicada',
   'Final score used for ranking': 'Calificación final usada para ordenar',
-  'This legacy record reports {{points}} points of issues, but it does not prove that deduction was applied. The app does not subtract it again.': 'Este registro anterior reporta {{points}} puntos de problemas, pero no demuestra que se aplicó la deducción. La aplicación no la resta otra vez.',
+  'This legacy record reports {{points}} points of issues, but it does not prove that deduction was applied. The app does not subtract it again.':
+    'Este registro anterior reporta {{points}} puntos de problemas, pero no demuestra que se aplicó la deducción. La aplicación no la resta otra vez.',
   'Verdict gates': 'Reglas del veredicto',
   Applied: 'Aplicada',
   Flagged: 'Marcada',
   'Commercial Viability Score': 'Calificación de viabilidad comercial',
-  'Commercial viability was not assessed for this screenplay (commercial lens was not enabled during analysis).': 'La viabilidad comercial no se evaluó para este guion porque ese enfoque no estaba activo.',
+  'Commercial viability was not assessed for this screenplay (commercial lens was not enabled during analysis).':
+    'La viabilidad comercial no se evaluó para este guion porque ese enfoque no estaba activo.',
   'CVS Total': 'CVS total',
   Categories: 'Categorías',
-  'Manage screenplay categories. These are used when uploading and for dashboard filtering.': 'Administra las categorías de guiones. Se usan para cargar archivos y filtrar el panel.',
+  'Manage screenplay categories. These are used when uploading and for dashboard filtering.':
+    'Administra las categorías de guiones. Se usan para cargar archivos y filtrar el panel.',
   'Black List': 'Black List',
   'Annual Black List selections': 'Selecciones anuales de Black List',
   Lemon: 'Lemon',
@@ -805,28 +931,38 @@ const spanish = {
   'Other sources': 'Otras fuentes',
   'Custom category': 'Categoría personalizada',
   '“UNCATEGORIZED” is reserved': '“UNCATEGORIZED” está reservado',
-  'Click again to confirm. Screenplays will move to Uncategorized.': 'Haz clic de nuevo para confirmar. Los guiones pasarán a Sin categoría.',
+  'Click again to confirm. Screenplays will move to Uncategorized.':
+    'Haz clic de nuevo para confirmar. Los guiones pasarán a Sin categoría.',
   'Delete category': 'Eliminar categoría',
   Confirm: 'Confirmar',
   'No categories defined. Add one below.': 'No hay categorías. Agrega una abajo.',
   'How Categories Work': 'Cómo funcionan las categorías',
-  'Choose a category when you upload. It is saved with the analysis.': 'Elige una categoría al cargar. Se guarda con el análisis.',
-  'The dashboard tabs match these categories exactly.': 'Las pestañas del panel coinciden exactamente con estas categorías.',
-  'Deleting a category moves its screenplays to Uncategorized.': 'Eliminar una categoría mueve sus guiones a Sin categoría.',
-  'Click a tab, then Export to get only that category.': 'Abre una pestaña y después Exportar para obtener solo esa categoría.',
+  'Choose a category when you upload. It is saved with the analysis.':
+    'Elige una categoría al cargar. Se guarda con el análisis.',
+  'The dashboard tabs match these categories exactly.':
+    'Las pestañas del panel coinciden exactamente con estas categorías.',
+  'Deleting a category moves its screenplays to Uncategorized.':
+    'Eliminar una categoría mueve sus guiones a Sin categoría.',
+  'Click a tab, then Export to get only that category.':
+    'Abre una pestaña y después Exportar para obtener solo esa categoría.',
   'Add Category': 'Agregar categoría',
   'e.g., Independent Films': 'por ejemplo, Películas independientes',
-  'Organize your favorite screenplays into custom lists for easy access.': 'Organiza tus guiones favoritos en listas para encontrarlos con facilidad.',
-  '{{count}} screenplay saved as a quick favorite_one': '{{count}} guion guardado como favorito rápido',
-  '{{count}} screenplay saved as a quick favorite_other': '{{count}} guiones guardados como favoritos rápidos',
+  'Organize your favorite screenplays into custom lists for easy access.':
+    'Organiza tus guiones favoritos en listas para encontrarlos con facilidad.',
+  '{{count}} screenplay saved as a quick favorite_one':
+    '{{count}} guion guardado como favorito rápido',
+  '{{count}} screenplay saved as a quick favorite_other':
+    '{{count}} guiones guardados como favoritos rápidos',
   'Unknown screenplay': 'Guion desconocido',
-  'Click the star icon on any screenplay card to add it here.': 'Haz clic en la estrella de cualquier guion para agregarlo aquí.',
+  'Click the star icon on any screenplay card to add it here.':
+    'Haz clic en la estrella de cualquier guion para agregarlo aquí.',
   'Custom Lists': 'Listas personalizadas',
   'New List': 'Nueva lista',
   'List name...': 'Nombre de la lista...',
   Create: 'Crear',
   'No custom lists yet': 'Aún no hay listas personalizadas',
-  'Create a list to organize your favorite screenplays': 'Crea una lista para organizar tus guiones favoritos',
+  'Create a list to organize your favorite screenplays':
+    'Crea una lista para organizar tus guiones favoritos',
   '{{count}} screenplay_one': '{{count}} guion',
   '{{count}} screenplay_other': '{{count}} guiones',
   Updated: 'Actualizada',
@@ -834,18 +970,25 @@ const spanish = {
   'Delete list': 'Eliminar lista',
   'Empty list': 'Lista vacía',
   'How to use lists': 'Cómo usar las listas',
-  'Click the bookmark icon on any screenplay to add it to a list': 'Haz clic en el marcador de cualquier guion para agregarlo a una lista',
-  'Use the filter panel to show only screenplays from a specific list': 'Usa los filtros para mostrar solo los guiones de una lista',
-  'Export lists as CSV or JSON for external use': 'Exporta listas como CSV o JSON para usarlas fuera de la aplicación',
+  'Click the bookmark icon on any screenplay to add it to a list':
+    'Haz clic en el marcador de cualquier guion para agregarlo a una lista',
+  'Use the filter panel to show only screenplays from a specific list':
+    'Usa los filtros para mostrar solo los guiones de una lista',
+  'Export lists as CSV or JSON for external use':
+    'Exporta listas como CSV o JSON para usarlas fuera de la aplicación',
   'Delete “{{name}}”?': '¿Eliminar “{{name}}”?',
-  'This will permanently remove this list and unlink {{count}} screenplays from it. The screenplays themselves will not be deleted.': 'Esto eliminará la lista y quitará {{count}} guiones de ella. Los guiones no se eliminarán.',
-  'This will permanently remove this list. The screenplays themselves will not be deleted.': 'Esto eliminará la lista. Los guiones no se eliminarán.',
+  'This will permanently remove this list and unlink {{count}} screenplays from it. The screenplays themselves will not be deleted.':
+    'Esto eliminará la lista y quitará {{count}} guiones de ella. Los guiones no se eliminarán.',
+  'This will permanently remove this list. The screenplays themselves will not be deleted.':
+    'Esto eliminará la lista. Los guiones no se eliminarán.',
   'Delete List': 'Eliminar lista',
   'Cache cleared. Data will refresh.': 'Caché limpia. Los datos se actualizarán.',
   'Cleared {{count}} settings keys': 'Se borraron {{count}} valores de configuración',
-  'Failed to delete all screenplays. Please try again.': 'No se pudieron eliminar todos los guiones. Intenta de nuevo.',
+  'Failed to delete all screenplays. Please try again.':
+    'No se pudieron eliminar todos los guiones. Intenta de nuevo.',
   'Data Management': 'Administración de datos',
-  'Export data, manage cache, and reset settings.': 'Exporta datos, administra la caché y restablece la configuración.',
+  'Export data, manage cache, and reset settings.':
+    'Exporta datos, administra la caché y restablece la configuración.',
   'Export Data': 'Exportar datos',
   'Export JSON': 'Exportar JSON',
   'Full data with all fields': 'Datos completos con todos los campos',
@@ -873,35 +1016,49 @@ const spanish = {
   'Restoring...': 'Restaurando...',
   Restore: 'Restaurar',
   'Analysis quarantine needs review': 'La cuarentena de análisis necesita revisión',
-  '{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores._one': '{{count}} documento tiene un formato de análisis no reconocido o incorrecto. Se conserva en Firebase y no entra en las calificaciones.',
-  '{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores._other': '{{count}} documentos tienen un formato de análisis no reconocido o incorrecto. Se conservan en Firebase y no entran en las calificaciones.',
+  '{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores._one':
+    '{{count}} documento tiene un formato de análisis no reconocido o incorrecto. Se conserva en Firebase y no entra en las calificaciones.',
+  '{{count}} document has an unrecognized or malformed analysis format. It is preserved in Firebase and excluded from dashboard scores._other':
+    '{{count}} documentos tienen un formato de análisis no reconocido o incorrecto. Se conservan en Firebase y no entran en las calificaciones.',
   'Danger Zone': 'Zona de peligro',
   'Delete All Screenplays': 'Eliminar todos los guiones',
-  'Soft-delete all {{count}} screenplays (recoverable for 30 days)': 'Eliminar {{count}} guiones de forma recuperable durante 30 días',
+  'Soft-delete all {{count}} screenplays (recoverable for 30 days)':
+    'Eliminar {{count}} guiones de forma recuperable durante 30 días',
   'Reset Everything': 'Restablecer todo',
-  'Delete all local data, favorites, and settings': 'Eliminar todos los datos locales, favoritos y configuraciones',
+  'Delete all local data, favorites, and settings':
+    'Eliminar todos los datos locales, favoritos y configuraciones',
   'Delete all screenplays?': '¿Eliminar todos los guiones?',
-  'This will remove all screenplays from the dashboard. They can be recovered from the Recently Deleted section within 30 days.': 'Esto quitará todos los guiones del panel. Puedes recuperarlos en Eliminados recientemente durante 30 días.',
+  'This will remove all screenplays from the dashboard. They can be recovered from the Recently Deleted section within 30 days.':
+    'Esto quitará todos los guiones del panel. Puedes recuperarlos en Eliminados recientemente durante 30 días.',
   'Clear cached data?': '¿Limpiar los datos en caché?',
-  'This will reset all filters and refresh screenplay data from the server. Your screenplays and settings will not be deleted.': 'Esto restablecerá los filtros y actualizará los guiones desde el servidor. No eliminará tus guiones ni configuraciones.',
+  'This will reset all filters and refresh screenplay data from the server. Your screenplays and settings will not be deleted.':
+    'Esto restablecerá los filtros y actualizará los guiones desde el servidor. No eliminará tus guiones ni configuraciones.',
   'Reset all settings?': '¿Restablecer toda la configuración?',
-  'This will clear all favorites, custom lists, filter preferences, and locally stored settings. Your screenplays in Firebase will NOT be deleted. The page will reload.': 'Esto borrará favoritos, listas, filtros y ajustes locales. No eliminará los guiones de Firebase. La página se volverá a cargar.',
+  'This will clear all favorites, custom lists, filter preferences, and locally stored settings. Your screenplays in Firebase will NOT be deleted. The page will reload.':
+    'Esto borrará favoritos, listas, filtros y ajustes locales. No eliminará los guiones de Firebase. La página se volverá a cargar.',
   'Highest overall score': 'Calificación general más alta',
-  'Best final score among eligible projects.': 'Mejor calificación final entre los proyectos permitidos.',
+  'Best final score among eligible projects.':
+    'Mejor calificación final entre los proyectos permitidos.',
   'Strongest structure': 'Estructura más fuerte',
-  'Prioritizes narrative mechanics and execution.': 'Da prioridad a la mecánica narrativa y la ejecución.',
+  'Prioritizes narrative mechanics and execution.':
+    'Da prioridad a la mecánica narrativa y la ejecución.',
   'Most commercial': 'Más comercial',
-  'Uses market potential, CVS, then final score.': 'Usa el potencial de mercado, CVS y después la calificación final.',
+  'Uses market potential, CVS, then final score.':
+    'Usa el potencial de mercado, CVS y después la calificación final.',
   'Fastest qualifying read': 'Lectura permitida más rápida',
-  'Shortest project above the minimum score.': 'Proyecto más corto por encima de la calificación mínima.',
+  'Shortest project above the minimum score.':
+    'Proyecto más corto por encima de la calificación mínima.',
   'Prioritizes upside and fixability.': 'Da prioridad al potencial y a la facilidad de mejora.',
   'Daily development desk': 'Mesa diaria de desarrollo',
-  'Featured uses analysis already stored in the slate. It never rescores a project and never makes a paid model call when you sign in.': 'Destacado usa análisis ya guardados. Nunca vuelve a calificar un proyecto ni hace una llamada con costo al iniciar sesión.',
+  'Featured uses analysis already stored in the slate. It never rescores a project and never makes a paid model call when you sign in.':
+    'Destacado usa análisis ya guardados. Nunca vuelve a calificar un proyecto ni hace una llamada con costo al iniciar sesión.',
   'Local preview only': 'Solo vista previa local',
   Eligibility: 'Requisitos',
-  'Set the decision range the studio wants considered.': 'Define el rango de decisiones que el estudio quiere considerar.',
+  'Set the decision range the studio wants considered.':
+    'Define el rango de decisiones que el estudio quiere considerar.',
   'Include Producer Look passes': 'Incluir PASAR enviados a revisión del productor',
-  'Only Pass projects explicitly routed for producer review qualify.': 'Solo califican los proyectos PASAR enviados en forma explícita a revisión del productor.',
+  'Only Pass projects explicitly routed for producer review qualify.':
+    'Solo califican los proyectos PASAR enviados en forma explícita a revisión del productor.',
   'Exclude produced projects': 'Excluir proyectos producidos',
   'Exclude incomplete analyses': 'Excluir análisis incompletos',
   Priority: 'Prioridad',
@@ -909,45 +1066,62 @@ const spanish = {
   'Minimum final score': 'Calificación final mínima',
   'Dust resurfacing': 'Recuperación de proyectos olvidados',
   'Resurface overlooked projects': 'Volver a mostrar proyectos olvidados',
-  'Bring strong material back after it has gone unopened.': 'Vuelve a mostrar material fuerte que no se ha abierto.',
+  'Bring strong material back after it has gone unopened.':
+    'Vuelve a mostrar material fuerte que no se ha abierto.',
   'Unopened for': 'Sin abrir durante',
   '{{count}} days': '{{count}} días',
   'Minimum score': 'Calificación mínima',
   'Current studio mandate': 'Objetivo actual del estudio',
-  'Leave a group empty to allow every option in that group.': 'Deja un grupo vacío para permitir todas sus opciones.',
+  'Leave a group empty to allow every option in that group.':
+    'Deja un grupo vacío para permitir todas sus opciones.',
   Format: 'Formato',
   Category: 'Categoría',
   'Manual pin': 'Selección manual',
   'Keep one project Featured': 'Mantener un proyecto destacado',
   'No pinned project': 'Ningún proyecto seleccionado',
   'Today’s Featured preview': 'Vista previa del proyecto destacado de hoy',
-  'The pinned project is unavailable, so the policy fell back safely.': 'El proyecto seleccionado no está disponible. La regla eligió otra opción segura.',
+  'The pinned project is unavailable, so the policy fell back safely.':
+    'El proyecto seleccionado no está disponible. La regla eligió otra opción segura.',
   'No eligible project': 'No hay un proyecto permitido',
   'No eligible Featured project today': 'No hay un proyecto destacado permitido hoy',
-  'The current studio policy excludes every project in the slate.': 'La regla actual del estudio excluye todos los proyectos de la selección.',
+  'The current studio policy excludes every project in the slate.':
+    'La regla actual del estudio excluye todos los proyectos de la selección.',
   'Pinned by the studio': 'Seleccionado por el estudio',
-  'This project remains Featured until an administrator removes the pin.': 'Este proyecto seguirá destacado hasta que un administrador quite la selección.',
-  'High-potential project ready for another look': 'Proyecto de alto potencial listo para otra revisión',
-  'Strongest structure among eligible projects': 'Estructura más fuerte entre los proyectos permitidos',
-  'Strongest commercial signal among eligible projects': 'Señal comercial más fuerte entre los proyectos permitidos',
-  'Market potential, commercial viability, and final score place it first under the studio policy.': 'El potencial de mercado, la viabilidad comercial y la calificación final lo colocan primero según la regla del estudio.',
+  'This project remains Featured until an administrator removes the pin.':
+    'Este proyecto seguirá destacado hasta que un administrador quite la selección.',
+  'High-potential project ready for another look':
+    'Proyecto de alto potencial listo para otra revisión',
+  'Strongest structure among eligible projects':
+    'Estructura más fuerte entre los proyectos permitidos',
+  'Strongest commercial signal among eligible projects':
+    'Señal comercial más fuerte entre los proyectos permitidos',
+  'Market potential, commercial viability, and final score place it first under the studio policy.':
+    'El potencial de mercado, la viabilidad comercial y la calificación final lo colocan primero según la regla del estudio.',
   'Strongest development opportunity': 'Mejor oportunidad de desarrollo',
-  'Its upside and fixability make it the most useful project to review now.': 'Su potencial y facilidad de mejora lo hacen el proyecto más útil para revisar ahora.',
+  'Its upside and fixability make it the most useful project to review now.':
+    'Su potencial y facilidad de mejora lo hacen el proyecto más útil para revisar ahora.',
   'Highest-scoring eligible project': 'Proyecto permitido con la calificación más alta',
-  'It clears the {{score}} minimum and has not been opened within {{count}} days.': 'Supera la calificación mínima de {{score}} y no se ha abierto en {{count}} días.',
-  'Its structure score of {{score}} leads today’s eligible slate.': 'Su calificación de estructura de {{score}} encabeza la selección permitida de hoy.',
-  'At {{count}} pages, it is the shortest eligible project above the required score.': 'Con {{count}} páginas, es el proyecto permitido más corto por encima de la calificación requerida.',
-  'It is the shortest eligible project with a recorded page count above the required score.': 'Es el proyecto permitido más corto con un número de páginas registrado y una calificación suficiente.',
-  'Its {{score}} final score leads the projects allowed by today’s studio policy.': 'Su calificación final de {{score}} encabeza los proyectos permitidos por la regla del estudio de hoy.',
+  'It clears the {{score}} minimum and has not been opened within {{count}} days.':
+    'Supera la calificación mínima de {{score}} y no se ha abierto en {{count}} días.',
+  'Its structure score of {{score}} leads today’s eligible slate.':
+    'Su calificación de estructura de {{score}} encabeza la selección permitida de hoy.',
+  'At {{count}} pages, it is the shortest eligible project above the required score.':
+    'Con {{count}} páginas, es el proyecto permitido más corto por encima de la calificación requerida.',
+  'It is the shortest eligible project with a recorded page count above the required score.':
+    'Es el proyecto permitido más corto con un número de páginas registrado y una calificación suficiente.',
+  'Its {{score}} final score leads the projects allowed by today’s studio policy.':
+    'Su calificación final de {{score}} encabeza los proyectos permitidos por la regla del estudio de hoy.',
   'No current mandate match.': 'Ningún proyecto coincide con el objetivo actual.',
   'The pinned project is unavailable.': 'El proyecto seleccionado no está disponible.',
-  'Only an administrator can change the studio Featured policy.': 'Solo un administrador puede cambiar la regla de proyectos destacados.',
+  'Only an administrator can change the studio Featured policy.':
+    'Solo un administrador puede cambiar la regla de proyectos destacados.',
   'Restore defaults': 'Restaurar valores iniciales',
   'Preview saved': 'Vista previa guardada',
   'Save local preview': 'Guardar vista previa local',
   'AI Connection': 'Conexión de IA',
   'AI Proxy — Not Tested': 'Proxy de IA · Sin probar',
-  'Click "Test Connection" to verify the AI proxy is working': 'Haz clic en “Probar conexión” para verificar el proxy de IA',
+  'Click "Test Connection" to verify the AI proxy is working':
+    'Haz clic en “Probar conexión” para verificar el proxy de IA',
   'Testing Connection...': 'Probando conexión...',
   'Sending a test request through the proxy': 'Enviando una solicitud de prueba por el proxy',
   'AI Proxy Connected': 'Proxy de IA conectado',
@@ -955,13 +1129,16 @@ const spanish = {
   'Testing...': 'Probando...',
   'Re-test': 'Probar de nuevo',
   'Test Connection': 'Probar conexión',
-  'AI analysis is routed through a secure server proxy. API keys are managed server-side.': 'El análisis de IA pasa por un proxy seguro. Las claves de API se administran en el servidor.',
+  'AI analysis is routed through a secure server proxy. API keys are managed server-side.':
+    'El análisis de IA pasa por un proxy seguro. Las claves de API se administran en el servidor.',
   'TMDB (Production Status)': 'TMDB (estado de producción)',
-  'Required for automatic produced/unproduced checks after upload.': 'Se necesita para revisar en forma automática si un guion ya se produjo.',
+  'Required for automatic produced/unproduced checks after upload.':
+    'Se necesita para revisar en forma automática si un guion ya se produjo.',
   'TMDB Key Configured': 'Clave de TMDB configurada',
   'TMDB Key Not Set': 'Clave de TMDB sin configurar',
   'Production status checks enabled': 'Revisión de estado de producción activa',
-  'Add a key to detect if screenplays have been produced': 'Agrega una clave para detectar si los guiones ya se produjeron',
+  'Add a key to detect if screenplays have been produced':
+    'Agrega una clave para detectar si los guiones ya se produjeron',
   'TMDB Key. Paste either credential:': 'Clave de TMDB. Pega una de estas credenciales:',
   'API Key (v3)': 'Clave de API (v3)',
   'short hex string': 'texto hexadecimal corto',
@@ -979,7 +1156,8 @@ const spanish = {
   'Reset Daily Count': 'Restablecer conteo diario',
   'Reset Monthly Spend': 'Restablecer gasto mensual',
   'Secure Proxy': 'Proxy seguro',
-  'AI analysis runs through a secure server-side proxy. Anthropic and Gemini API keys are stored on the server. They are never exposed in your browser.': 'El análisis de IA usa un proxy seguro del servidor. Las claves de Anthropic y Gemini se guardan en el servidor. Nunca aparecen en tu navegador.',
+  'AI analysis runs through a secure server-side proxy. Anthropic and Gemini API keys are stored on the server. They are never exposed in your browser.':
+    'El análisis de IA usa un proxy seguro del servidor. Las claves de Anthropic y Gemini se guardan en el servidor. Nunca aparecen en tu navegador.',
   'Upload failed': 'La carga falló',
   'PDF File Management': 'Administración de archivos PDF',
   'Live check against Firebase Storage': 'Revisión en vivo de Firebase Storage',
@@ -1020,10 +1198,12 @@ const spanish = {
   'Path convention:': 'Formato de ruta:',
   'Storage path =': 'Ruta de almacenamiento =',
   '(matches the modal PDF button). Use': '(coincide con el botón PDF). Usa',
-  'after uploading files directly to Firebase Storage console.': 'después de cargar archivos directamente en la consola de Firebase Storage.',
+  'after uploading files directly to Firebase Storage console.':
+    'después de cargar archivos directamente en la consola de Firebase Storage.',
   'Analysis failed': 'El análisis falló',
   'Engine Comparison Lab': 'Laboratorio de comparación de motores',
-  'Compare AI models side-by-side with the V9 Archaeology Engine. Upload a screenplay or pull from your dashboard.': 'Compara modelos de IA lado a lado con el motor V9 Archaeology. Carga un guion o usa uno del panel.',
+  'Compare AI models side-by-side with the V9 Archaeology Engine. Upload a screenplay or pull from your dashboard.':
+    'Compara modelos de IA lado a lado con el motor V9 Archaeology. Carga un guion o usa uno del panel.',
   'Upload New PDF': 'Cargar PDF nuevo',
   'Pull from Dashboard': 'Usar del panel',
   'Click to change': 'Haz clic para cambiar',
@@ -1062,19 +1242,26 @@ const spanish = {
   Tokens: 'Tokens',
   Time: 'Tiempo',
   'N/A': 'N/D',
-  'Fresh analyses are temporary. Use the Upload tab to permanently save results.': 'Los análisis nuevos son temporales. Usa la pestaña Cargar para guardar los resultados.',
+  'Fresh analyses are temporary. Use the Upload tab to permanently save results.':
+    'Los análisis nuevos son temporales. Usa la pestaña Cargar para guardar los resultados.',
   'Calibration evidence could not be loaded.': 'No se pudo cargar la evidencia de calibración.',
-  'Build a calibration candidate from the training set and run it against the sealed holdout set? This uses paid frontier-model calls but does not activate the result.': '¿Crear una calibración con el grupo de entrenamiento y probarla con el grupo reservado? Esto usa llamadas pagadas al modelo, pero no activa el resultado.',
+  'Build a calibration candidate from the training set and run it against the sealed holdout set? This uses paid frontier-model calls but does not activate the result.':
+    '¿Crear una calibración con el grupo de entrenamiento y probarla con el grupo reservado? Esto usa llamadas pagadas al modelo, pero no activa el resultado.',
   'The calibration candidate could not be built.': 'No se pudo crear la calibración.',
-  'Activate this calibration profile for future analyses? Existing scores will not change.': '¿Activar esta calibración para análisis futuros? Las calificaciones actuales no cambiarán.',
-  'Roll back to this calibration profile for future analyses? Existing scores will not change.': '¿Volver a esta calibración para análisis futuros? Las calificaciones actuales no cambiarán.',
+  'Activate this calibration profile for future analyses? Existing scores will not change.':
+    '¿Activar esta calibración para análisis futuros? Las calificaciones actuales no cambiarán.',
+  'Roll back to this calibration profile for future analyses? Existing scores will not change.':
+    '¿Volver a esta calibración para análisis futuros? Las calificaciones actuales no cambiarán.',
   'The calibration profile could not be published.': 'No se pudo publicar la calibración.',
   'Loading calibration evidence…': 'Cargando evidencia de calibración…',
   'Producer calibration': 'Calibración del productor',
-  'Teach the system your taste without rewriting history': 'Enseña tu gusto al sistema sin cambiar el historial',
-  'Producer Takes remain separate from the AI scores. A candidate must improve on sealed examples it was not trained on before it can be published for future analyses.': 'Tus decisiones se mantienen separadas de las calificaciones de IA. Una calibración debe mejorar con ejemplos reservados antes de publicarse para análisis futuros.',
+  'Teach the system your taste without rewriting history':
+    'Enseña tu gusto al sistema sin cambiar el historial',
+  'Producer Takes remain separate from the AI scores. A candidate must improve on sealed examples it was not trained on before it can be published for future analyses.':
+    'Tus decisiones se mantienen separadas de las calificaciones de IA. Una calibración debe mejorar con ejemplos reservados antes de publicarse para análisis futuros.',
   'Local review mode': 'Modo de revisión local',
-  'Producer Takes shown here are real saved evidence. Building a candidate uses paid model calls, and activating a profile changes future analyses, so both actions remain disabled during local review. Nothing on this screen changes the production profile.': 'Las decisiones que ves aquí son evidencia real guardada. Crear una calibración usa llamadas pagadas y activarla cambia los análisis futuros. Por eso, ambas acciones están desactivadas durante la revisión local. Esta pantalla no cambia la calibración de producción.',
+  'Producer Takes shown here are real saved evidence. Building a candidate uses paid model calls, and activating a profile changes future analyses, so both actions remain disabled during local review. Nothing on this screen changes the production profile.':
+    'Las decisiones que ves aquí son evidencia real guardada. Crear una calibración usa llamadas pagadas y activarla cambia los análisis futuros. Por eso, ambas acciones están desactivadas durante la revisión local. Esta pantalla no cambia la calibración de producción.',
   'Calibration status': 'Estado de calibración',
   'Recorded Producer Takes': 'Decisiones del productor guardadas',
   'producer decisions saved': 'decisiones del productor guardadas',
@@ -1088,29 +1275,36 @@ const spanish = {
   'Active profile': 'Calibración activa',
   'Not active': 'No activa',
   'Version {{version}}…': 'Versión {{version}}…',
-  'No calibration profile affects future analyses': 'Ninguna calibración afecta los análisis futuros',
+  'No calibration profile affects future analyses':
+    'Ninguna calibración afecta los análisis futuros',
   'Producer alignment': 'Coincidencia con el productor',
   'Evidence split': 'División de evidencia',
-  'Training teaches the candidate. Holdout is the sealed test it cannot study first. At least four training reads and one holdout read are required. Only takes explicitly marked as calibration evidence are eligible.': 'El grupo de entrenamiento enseña a la calibración. El grupo reservado es una prueba que no puede estudiar antes. Se requieren cuatro lecturas de entrenamiento y una reservada. Solo cuentan las decisiones marcadas como evidencia de calibración.',
+  'Training teaches the candidate. Holdout is the sealed test it cannot study first. At least four training reads and one holdout read are required. Only takes explicitly marked as calibration evidence are eligible.':
+    'El grupo de entrenamiento enseña a la calibración. El grupo reservado es una prueba que no puede estudiar antes. Se requieren cuatro lecturas de entrenamiento y una reservada. Solo cuentan las decisiones marcadas como evidencia de calibración.',
   '{{count}} training': '{{count}} para entrenamiento',
   '{{count}} holdout': '{{count}} reservadas',
   'No Producer Takes yet.': 'Aún no hay decisiones del productor.',
-  'Open a sealed screenplay analysis and publish your take first.': 'Abre un análisis cerrado y publica primero tu decisión.',
+  'Open a sealed screenplay analysis and publish your take first.':
+    'Abre un análisis cerrado y publica primero tu decisión.',
   Billy: 'Billy',
   AI: 'IA',
-  'Revision {{revision}} · Exact analysis {{version}}…': 'Revisión {{revision}} · Análisis exacto {{version}}…',
+  'Revision {{revision}} · Exact analysis {{version}}…':
+    'Revisión {{revision}} · Análisis exacto {{version}}…',
   'Evidence role for {{title}}': 'Uso de evidencia para {{title}}',
   Training: 'Entrenamiento',
   Holdout: 'Reservado',
   Exclude: 'Excluir',
-  'This Producer Take was saved without Use as calibration evidence enabled.': 'Esta decisión se guardó sin activar Usar como evidencia de calibración.',
+  'This Producer Take was saved without Use as calibration evidence enabled.':
+    'Esta decisión se guardó sin activar Usar como evidencia de calibración.',
   'Not eligible': 'No es válida',
-  'Building uses the frontier compiler and one decision replay per holdout. It never activates the result automatically.': 'La creación usa el modelo principal y repite una decisión por cada ejemplo reservado. Nunca activa el resultado en forma automática.',
+  'Building uses the frontier compiler and one decision replay per holdout. It never activates the result automatically.':
+    'La creación usa el modelo principal y repite una decisión por cada ejemplo reservado. Nunca activa el resultado en forma automática.',
   'Building and benchmarking…': 'Creando y probando…',
   'Disabled during local review': 'Desactivado durante la revisión local',
   'Build candidate': 'Crear calibración',
   'Candidate history': 'Historial de calibraciones',
-  'Every candidate, benchmark, publication, and rollback keeps its exact evidence and model provenance.': 'Cada calibración, prueba, publicación y regreso conserva su evidencia y el modelo usado.',
+  'Every candidate, benchmark, publication, and rollback keeps its exact evidence and model provenance.':
+    'Cada calibración, prueba, publicación y regreso conserva su evidencia y el modelo usado.',
   'No candidate has been built yet.': 'Aún no se ha creado una calibración.',
   'Passed benchmark': 'Aprobó la prueba',
   Blocked: 'Bloqueada',
@@ -1130,11 +1324,14 @@ const spanish = {
   'Evidence set': 'Grupo de evidencia',
   'Prompt seal': 'Sello de instrucciones',
   'Opening the project workspace': 'Abriendo el espacio del proyecto',
-  'Loading the latest screenplay decision and its sealed reader evidence.': 'Cargando la decisión más reciente del guion y la evidencia cerrada de los lectores.',
+  'Loading the latest screenplay decision and its sealed reader evidence.':
+    'Cargando la decisión más reciente del guion y la evidencia cerrada de los lectores.',
   'The project could not be loaded': 'No se pudo cargar el proyecto',
-  'Discovery still has the last known slate. Return there and try opening this project again.': 'Descubrimiento conserva la última selección conocida. Regresa e intenta abrir este proyecto de nuevo.',
+  'Discovery still has the last known slate. Return there and try opening this project again.':
+    'Descubrimiento conserva la última selección conocida. Regresa e intenta abrir este proyecto de nuevo.',
   'This project is not in the slate': 'Este proyecto no está en la selección',
-  'It may have been removed, renamed, or linked with an older project address.': 'Puede haberse eliminado, cambiado de nombre o vinculado con una dirección anterior.',
+  'It may have been removed, renamed, or linked with an older project address.':
+    'Puede haberse eliminado, cambiado de nombre o vinculado con una dirección anterior.',
   'Project workspace': 'Espacio del proyecto',
   'Return to Discovery': 'Regresar a Descubrimiento',
   'Notes & Files': 'Notas y archivos',
@@ -1168,7 +1365,8 @@ const spanish = {
   Pending: 'Pendiente',
   'Copy {{title}}': 'Copiar {{title}}',
   Copy: 'Copiar',
-  'Pitch-deck PDF generation failed. Please try again.': 'No se pudo crear el PDF de presentación. Inténtalo de nuevo.',
+  'Pitch-deck PDF generation failed. Please try again.':
+    'No se pudo crear el PDF de presentación. Inténtalo de nuevo.',
   'Presentation ready': 'Presentación lista',
   'Export Screenplays': 'Exportar guiones',
   'Close export': 'Cerrar exportación',
@@ -1192,14 +1390,17 @@ const spanish = {
   'Comparable films and production details': 'Películas comparables y datos de producción',
   'CSV Export includes:': 'La exportación CSV incluye:',
   'All screenplay metadata and scores': 'Todos los datos y calificaciones del guion',
-  'Five specialist pillars or legacy scores, plus CVS factors': 'Cinco pilares especializados o calificaciones anteriores, más factores CVS',
+  'Five specialist pillars or legacy scores, plus CVS factors':
+    'Cinco pilares especializados o calificaciones anteriores, más factores CVS',
   'Producer metrics': 'Datos del productor',
   'Assessment details': 'Datos de la evaluación',
   'Compatible with Excel, Google Sheets': 'Compatible con Excel y Google Sheets',
   'Exporting...': 'Exportando...',
   'Pitch deck downloaded': 'Presentación descargada',
-  '{{title}}_PitchDeck.pdf is in your Downloads folder.': '{{title}}_PitchDeck.pdf está en tu carpeta Descargas.',
-  '{{count}} pitch-deck PDFs are in your Downloads folder.': '{{count}} PDF de presentación están en tu carpeta Descargas.',
+  '{{title}}_PitchDeck.pdf is in your Downloads folder.':
+    '{{title}}_PitchDeck.pdf está en tu carpeta Descargas.',
+  '{{count}} pitch-deck PDFs are in your Downloads folder.':
+    '{{count}} PDF de presentación están en tu carpeta Descargas.',
   'Export {{count}} Screenplay_one': 'Exportar {{count}} guion',
   'Export {{count}} Screenplay_other': 'Exportar {{count}} guiones',
   'Compare Screenplays': 'Comparar guiones',
@@ -1207,7 +1408,8 @@ const spanish = {
   'Side by Side': 'Lado a lado',
   'Radar Chart': 'Gráfica radial',
   'Clear All': 'Limpiar todo',
-  'You can compare up to 3 screenplays. Add more from the grid.': 'Puedes comparar hasta 3 guiones. Agrega más desde la cuadrícula.',
+  'You can compare up to 3 screenplays. Add more from the grid.':
+    'Puedes comparar hasta 3 guiones. Agrega más desde la cuadrícula.',
   'Export Comparison': 'Exportar comparación',
   Screenplay: 'Guion',
   'Remove {{title}} from comparison': 'Quitar {{title}} de la comparación',
@@ -1226,7 +1428,8 @@ const spanish = {
   'Critical Failures': 'Fallas graves',
   'Upload resolution center': 'Centro de resolución de cargas',
   'Upload Resolution Center': 'Centro de resolución de cargas',
-  'Fix failed and skipped uploads without leaving the dashboard.': 'Corrige cargas fallidas u omitidas sin salir del panel.',
+  'Fix failed and skipped uploads without leaving the dashboard.':
+    'Corrige cargas fallidas u omitidas sin salir del panel.',
   'Issue filters': 'Filtros de problemas',
   'Needs Action': 'Necesita acción',
   Failed: 'Falló',
@@ -1238,7 +1441,8 @@ const spanish = {
   'Opus, deepest': 'Opus, más profundo',
   'Retry All Failed': 'Reintentar todos los fallidos',
   'Nothing needs attention here.': 'Nada necesita atención aquí.',
-  'New upload problems will appear automatically.': 'Los nuevos problemas de carga aparecerán en forma automática.',
+  'New upload problems will appear automatically.':
+    'Los nuevos problemas de carga aparecerán en forma automática.',
   'Cannot retry': 'No se puede reintentar',
   'Needs evidence review': 'Necesita revisión de evidencia',
   'Technical details': 'Datos técnicos',
@@ -1247,41 +1451,64 @@ const spanish = {
   'Replace PDF': 'Reemplazar PDF',
   'Analyze Anyway': 'Analizar de todos modos',
   Dismiss: 'Descartar',
-  'Paid analyses always require confirmation. Replacing a PDF queues the new file and clears the old issue.': 'Los análisis con costo siempre necesitan confirmación. Reemplazar un PDF pone el archivo nuevo en la fila y elimina el problema anterior.',
-  'No eligible issues were changed. Refresh and try again.': 'No cambió ningún problema permitido. Actualiza e inténtalo de nuevo.',
+  'Paid analyses always require confirmation. Replacing a PDF queues the new file and clears the old issue.':
+    'Los análisis con costo siempre necesitan confirmación. Reemplazar un PDF pone el archivo nuevo en la fila y elimina el problema anterior.',
+  'No eligible issues were changed. Refresh and try again.':
+    'No cambió ningún problema permitido. Actualiza e inténtalo de nuevo.',
   'Issue dismissed.': 'Problema descartado.',
   '{{count}} analysis queued._one': '{{count}} análisis en la fila.',
   '{{count}} analysis queued._other': '{{count}} análisis en la fila.',
   'The action failed. Please try again.': 'La acción falló. Inténtalo de nuevo.',
-  'Analyze this exact PDF again as a new revision? This starts a paid analysis.': '¿Analizar este mismo PDF como una nueva revisión? Esto inicia un análisis con costo.',
-  'Retry {{count}} analysis using {{model}}? This starts {{count}} paid analysis._one': '¿Reintentar {{count}} análisis con {{model}}? Esto inicia {{count}} análisis con costo.',
-  'Retry {{count}} analysis using {{model}}? This starts {{count}} paid analysis._other': '¿Reintentar {{count}} análisis con {{model}}? Esto inicia {{count}} análisis con costo.',
+  'Analyze this exact PDF again as a new revision? This starts a paid analysis.':
+    '¿Analizar este mismo PDF como una nueva revisión? Esto inicia un análisis con costo.',
+  'Retry {{count}} analysis using {{model}}? This starts {{count}} paid analysis._one':
+    '¿Reintentar {{count}} análisis con {{model}}? Esto inicia {{count}} análisis con costo.',
+  'Retry {{count}} analysis using {{model}}? This starts {{count}} paid analysis._other':
+    '¿Reintentar {{count}} análisis con {{model}}? Esto inicia {{count}} análisis con costo.',
   'Choose a PDF file.': 'Elige un archivo PDF.',
-  'The replacement PDF must be smaller than 50 MB.': 'El PDF de reemplazo debe pesar menos de 50 MB.',
-  'Replacement uploaded and queued for analysis.': 'El reemplazo se cargó y entró en la fila de análisis.',
+  'The replacement PDF must be smaller than 50 MB.':
+    'El PDF de reemplazo debe pesar menos de 50 MB.',
+  'Replacement uploaded and queued for analysis.':
+    'El reemplazo se cargó y entró en la fila de análisis.',
   'The replacement could not be uploaded.': 'No se pudo cargar el reemplazo.',
-  'Ignore the produced-title match and analyze this PDF? This starts a paid analysis.': '¿Ignorar la coincidencia con un título producido y analizar este PDF? Esto inicia un análisis con costo.',
-  'No verdict was saved because the screenplay or its page citations could not be verified. Review the technical details before replacing or dismissing this upload.': 'No se guardó un veredicto porque no se pudo verificar el guion o sus citas de página. Revisa los datos técnicos antes de reemplazar o descartar esta carga.',
-  'This job cannot be retried safely. Dismiss it, then upload the PDF again and choose whether it is a new revision or a separate project.': 'Este trabajo no se puede reintentar en forma segura. Descártalo y vuelve a cargar el PDF como una revisión nueva o un proyecto distinto.',
-  'The analysis service could not finish. Retry when you are ready; this starts a paid analysis.': 'El servicio no pudo terminar. Reintenta cuando quieras. Esto inicia un análisis con costo.',
-  'This is probably a scanned document. Replace it with a searchable OCR PDF.': 'Es probable que sea un documento escaneado. Reemplázalo con un PDF con texto OCR.',
-  'The PDF is damaged, protected, or encoded in a way the parser cannot read. Replace it with a fresh PDF export.': 'El PDF está dañado, protegido o codificado de una forma que no se puede leer. Reemplázalo con una exportación nueva.',
-  'The document did not contain standard screenplay scene headings. Replace it with the screenplay version.': 'El documento no tiene encabezados normales de escenas. Reemplázalo con la versión del guion.',
-  'The file is too long for one analysis. Replace it with the screenplay only, without appendices.': 'El archivo es demasiado largo para un análisis. Reemplázalo solo con el guion, sin anexos.',
-  'A produced title may share this name. Dismiss the match or analyze this PDF anyway.': 'Un título producido puede tener el mismo nombre. Descarta la coincidencia o analiza el PDF de todos modos.',
-  'The exact PDF was analyzed before. Dismiss it, or analyze it again as a new revision.': 'Este mismo PDF ya se analizó. Descártalo o analízalo como una revisión nueva.',
-  'Review the technical details, then dismiss this item or replace the PDF.': 'Revisa los datos técnicos y después descarta el elemento o reemplaza el PDF.',
+  'Ignore the produced-title match and analyze this PDF? This starts a paid analysis.':
+    '¿Ignorar la coincidencia con un título producido y analizar este PDF? Esto inicia un análisis con costo.',
+  'No verdict was saved because the screenplay or its page citations could not be verified. Review the technical details before replacing or dismissing this upload.':
+    'No se guardó un veredicto porque no se pudo verificar el guion o sus citas de página. Revisa los datos técnicos antes de reemplazar o descartar esta carga.',
+  'This job cannot be retried safely. Dismiss it, then upload the PDF again and choose whether it is a new revision or a separate project.':
+    'Este trabajo no se puede reintentar en forma segura. Descártalo y vuelve a cargar el PDF como una revisión nueva o un proyecto distinto.',
+  'The analysis service could not finish. Retry when you are ready; this starts a paid analysis.':
+    'El servicio no pudo terminar. Reintenta cuando quieras. Esto inicia un análisis con costo.',
+  'This is probably a scanned document. Replace it with a searchable OCR PDF.':
+    'Es probable que sea un documento escaneado. Reemplázalo con un PDF con texto OCR.',
+  'The PDF is damaged, protected, or encoded in a way the parser cannot read. Replace it with a fresh PDF export.':
+    'El PDF está dañado, protegido o codificado de una forma que no se puede leer. Reemplázalo con una exportación nueva.',
+  'The document did not contain standard screenplay scene headings. Replace it with the screenplay version.':
+    'El documento no tiene encabezados normales de escenas. Reemplázalo con la versión del guion.',
+  'The file is too long for one analysis. Replace it with the screenplay only, without appendices.':
+    'El archivo es demasiado largo para un análisis. Reemplázalo solo con el guion, sin anexos.',
+  'A produced title may share this name. Dismiss the match or analyze this PDF anyway.':
+    'Un título producido puede tener el mismo nombre. Descarta la coincidencia o analiza el PDF de todos modos.',
+  'The exact PDF was analyzed before. Dismiss it, or analyze it again as a new revision.':
+    'Este mismo PDF ya se analizó. Descártalo o analízalo como una revisión nueva.',
+  'Review the technical details, then dismiss this item or replace the PDF.':
+    'Revisa los datos técnicos y después descarta el elemento o reemplaza el PDF.',
   'Lemon Studios · Development slate': 'Lemon Studios · Selección de desarrollo',
   'Cinema Browse': 'Explorar cine',
-  'Find the strongest story for the moment, then follow the signal through the slate.': 'Encuentra la historia más fuerte para este momento y sigue la señal en la selección.',
+  'Find the strongest story for the moment, then follow the signal through the slate.':
+    'Encuentra la historia más fuerte para este momento y sigue la señal en la selección.',
   'Loading Discovery': 'Cargando Descubrimiento',
-  'The classic dashboard remains available at /dashboard-classic.': 'El panel clásico sigue disponible en /dashboard-classic.',
-  'New analyses will appear here through the live data feed.': 'Los análisis nuevos aparecerán aquí por medio de los datos en vivo.',
+  'The classic dashboard remains available at /dashboard-classic.':
+    'El panel clásico sigue disponible en /dashboard-classic.',
+  'New analyses will appear here through the live data feed.':
+    'Los análisis nuevos aparecerán aquí por medio de los datos en vivo.',
   'No match': 'Sin coincidencias',
   'No scripts match this view': 'Ningún guion coincide con esta vista',
-  'Try a broader search or clear the active filters to reopen the full slate.': 'Amplía la búsqueda o limpia los filtros para abrir toda la selección.',
+  'Try a broader search or clear the active filters to reopen the full slate.':
+    'Amplía la búsqueda o limpia los filtros para abrir toda la selección.',
   'These analyses cannot be ranked yet': 'Estos análisis aún no se pueden clasificar',
-  'Their screenplay evidence or specialist reader panel is incomplete. They remain available below for diagnosis, but Discovery will not promote one as the best script.': 'La evidencia del guion o el grupo de lectores especializados está incompleto. Los proyectos siguen disponibles abajo para revisión, pero Descubrimiento no elegirá uno como el mejor guion.',
+  'Their screenplay evidence or specialist reader panel is incomplete. They remain available below for diagnosis, but Discovery will not promote one as the best script.':
+    'La evidencia del guion o el grupo de lectores especializados está incompleto. Los proyectos siguen disponibles abajo para revisión, pero Descubrimiento no elegirá uno como el mejor guion.',
   'Needs review': 'Necesita revisión',
   '{{count}} unranked': '{{count}} sin clasificar',
   'Browse the slate': 'Explorar la selección',
@@ -1304,9 +1531,11 @@ const spanish = {
   'Evidence verified': 'Evidencia verificada',
   'Evidence incomplete': 'Evidencia incompleta',
   'Analysis complete': 'Análisis completo',
-  '{{completed}} of {{expected}} readers complete': '{{completed}} de {{expected}} lectores completos',
+  '{{completed}} of {{expected}} readers complete':
+    '{{completed}} de {{expected}} lectores completos',
   'Legacy reader evidence': 'Evidencia de lectores anterior',
-  'Next four projects in the current ranking': 'Siguientes cuatro proyectos en la clasificación actual',
+  'Next four projects in the current ranking':
+    'Siguientes cuatro proyectos en la clasificación actual',
   'Open {{title}} project, ranked {{rank}}': 'Abrir proyecto {{title}}, clasificado {{rank}}',
   'Exceptional finds': 'Hallazgos excepcionales',
   '{{count}} ready to move': '{{count}} listos para avanzar',
@@ -1329,9 +1558,12 @@ const spanish = {
   'Current sort · best first': 'Orden actual · mejores primero',
   'Open FILM NOW {{title}} details': 'Abrir detalles de FILM NOW {{title}}',
   Review: 'Revisión',
-  'The classic Discovery view remains available while the live slate reconnects.': 'La vista clásica de Descubrimiento sigue disponible mientras se reconecta la selección.',
-  'Completed analyses will appear here automatically through the live slate feed.': 'Los análisis terminados aparecerán aquí en forma automática por medio de los datos en vivo.',
-  'Their screenplay evidence or specialist reader panel is incomplete. They remain available for review without being promoted as the strongest project.': 'La evidencia del guion o el grupo de lectores especializados está incompleto. Los proyectos siguen disponibles para revisión, pero no se mostrarán como el proyecto más fuerte.',
+  'The classic Discovery view remains available while the live slate reconnects.':
+    'La vista clásica de Descubrimiento sigue disponible mientras se reconecta la selección.',
+  'Completed analyses will appear here automatically through the live slate feed.':
+    'Los análisis terminados aparecerán aquí en forma automática por medio de los datos en vivo.',
+  'Their screenplay evidence or specialist reader panel is incomplete. They remain available for review without being promoted as the strongest project.':
+    'La evidencia del guion o el grupo de lectores especializados está incompleto. Los proyectos siguen disponibles para revisión, pero no se mostrarán como el proyecto más fuerte.',
   'Current view': 'Vista actual',
   'Complete analysis': 'Análisis completo',
   'Evidence status unknown': 'Estado de evidencia desconocido',
@@ -1351,7 +1583,8 @@ const spanish = {
   'Inside the material': 'Dentro del material',
   'Your private working layer': 'Tu espacio privado de trabajo',
   'Project files': 'Archivos del proyecto',
-  'Open the source screenplay or create the approved exports from the project header.': 'Abre el guion original o crea las exportaciones aprobadas desde el encabezado del proyecto.',
+  'Open the source screenplay or create the approved exports from the project header.':
+    'Abre el guion original o crea las exportaciones aprobadas desde el encabezado del proyecto.',
   'Back to Discovery': 'Volver a Descubrimiento',
   Synopsis: 'Sinopsis',
   'Major Weaknesses': 'Debilidades principales',
@@ -1367,42 +1600,51 @@ const spanish = {
   'Producer Notes': 'Notas del productor',
   'Overall Score': 'Calificación general',
   'Legacy stored score': 'Calificación anterior guardada',
-  'This older shared snapshot does not preserve adjusted-score lineage, so the stored score cannot be verified as a final adjusted score.': 'Esta copia compartida anterior no conserva el origen de la calificación ajustada. Por eso, no se puede verificar como calificación final ajustada.',
+  'This older shared snapshot does not preserve adjusted-score lineage, so the stored score cannot be verified as a final adjusted score.':
+    'Esta copia compartida anterior no conserva el origen de la calificación ajustada. Por eso, no se puede verificar como calificación final ajustada.',
   'Commercial Viability': 'Viabilidad comercial',
   'Loading Producer Alignment…': 'Cargando coincidencia con el productor…',
   'Producer Alignment': 'Coincidencia con el productor',
-  'Publish a Producer Take to start comparing producer decisions with AI verdicts.': 'Publica una decisión del productor para compararla con los veredictos de IA.',
-  'Recorded producer decisions compared with AI verdicts': 'Decisiones del productor comparadas con veredictos de IA',
+  'Publish a Producer Take to start comparing producer decisions with AI verdicts.':
+    'Publica una decisión del productor para compararla con los veredictos de IA.',
+  'Recorded producer decisions compared with AI verdicts':
+    'Decisiones del productor comparadas con veredictos de IA',
   'Strong sample': 'Muestra sólida',
   '{{count}} reviewed': '{{count}} revisados',
   'Recorded decisions': 'Decisiones guardadas',
   'Exact agreement': 'Coincidencia exacta',
   'AI too generous': 'IA muy generosa',
   'AI too harsh': 'IA muy estricta',
-  'Alignment includes every recorded Producer Take. Calibration uses only takes explicitly marked as eligible evidence.': 'La coincidencia incluye todas las decisiones guardadas. La calibración solo usa las decisiones marcadas como evidencia válida.',
+  'Alignment includes every recorded Producer Take. Calibration uses only takes explicitly marked as eligible evidence.':
+    'La coincidencia incluye todas las decisiones guardadas. La calibración solo usa las decisiones marcadas como evidencia válida.',
   'Agreement by genre': 'Coincidencia por género',
   '{{genre}} agreement': 'Coincidencia de {{genre}}',
   'Biggest disagreements': 'Mayores diferencias',
   'Every recorded verdict matches.': 'Todos los veredictos guardados coinciden.',
   'Opening Lemon Studios...': 'Abriendo Lemon Studios...',
   'Admin access required': 'Se necesita acceso de administrador',
-  'Your reader account can review, annotate, compare, export, and share screenplays.': 'Tu cuenta de lector puede revisar, anotar, comparar, exportar y compartir guiones.',
+  'Your reader account can review, annotate, compare, export, and share screenplays.':
+    'Tu cuenta de lector puede revisar, anotar, comparar, exportar y compartir guiones.',
   'Producer Take could not be loaded.': 'No se pudo cargar la decisión del productor.',
   'Producer Take could not be saved.': 'No se pudo guardar la decisión del productor.',
   'Loading Producer Take': 'Cargando decisión del productor',
   'Loading Producer Take…': 'Cargando decisión del productor…',
   'Lemon decision layer': 'Capa de decisión de Lemon',
   'Legacy Producer Draft': 'Borrador anterior del productor',
-  'Your judgment stays beside the AI result. It never replaces it.': 'Tu decisión permanece junto al resultado de IA. Nunca lo reemplaza.',
+  'Your judgment stays beside the AI result. It never replaces it.':
+    'Tu decisión permanece junto al resultado de IA. Nunca lo reemplaza.',
   'Revise take': 'Revisar decisión',
   'AI final': 'Resultado final de IA',
   'from AI': 'frente a la IA',
-  'Your saved take belongs to an earlier analysis version. Saving now creates a new version-specific assessment.': 'Tu decisión guardada pertenece a una versión anterior del análisis. Guardar ahora crea una evaluación para esta versión.',
+  'Your saved take belongs to an earlier analysis version. Saving now creates a new version-specific assessment.':
+    'Tu decisión guardada pertenece a una versión anterior del análisis. Guardar ahora crea una evaluación para esta versión.',
   'Producer Take saved': 'Decisión del productor guardada',
   'Saved on this Mac': 'Guardada en esta Mac',
   'Published to calibration evidence': 'Publicada como evidencia de calibración',
-  'Your review is safely stored on this Mac. It has not changed the AI score, published a production record, or activated calibration.': 'Tu revisión está guardada en esta Mac. No cambió la calificación de IA, no publicó un registro de producción y no activó la calibración.',
-  'Your review is now part of the evidence set. It has not changed the AI score or activated a calibration profile.': 'Tu revisión ya es parte de la evidencia. No cambió la calificación de IA ni activó una calibración.',
+  'Your review is safely stored on this Mac. It has not changed the AI score, published a production record, or activated calibration.':
+    'Tu revisión está guardada en esta Mac. No cambió la calificación de IA, no publicó un registro de producción y no activó la calibración.',
+  'Your review is now part of the evidence set. It has not changed the AI score or activated a calibration profile.':
+    'Tu revisión ya es parte de la evidencia. No cambió la calificación de IA ni activó una calibración.',
   'Saved {{date}}.': 'Guardada el {{date}}.',
   'What the AI missed': 'Lo que la IA no vio',
   'No correction recorded.': 'No se guardó una corrección.',
@@ -1429,18 +1671,24 @@ const spanish = {
   'Needs a larger evidence set': 'Necesita más evidencia',
   'Future analyses': 'Análisis futuros',
   'Only after manual activation': 'Solo después de activarla en forma manual',
-  'Historical AI scores stay untouched. A tested profile can influence only future analyses after you approve activation.': 'Las calificaciones históricas de IA no cambian. Una calibración probada solo puede influir en análisis futuros después de que apruebes su activación.',
+  'Historical AI scores stay untouched. A tested profile can influence only future analyses after you approve activation.':
+    'Las calificaciones históricas de IA no cambian. Una calibración probada solo puede influir en análisis futuros después de que apruebes su activación.',
   'View in Calibration': 'Ver en Calibración',
-  'This take will be saved only on this Mac. No production record or calibration profile changes during local review.': 'Esta decisión solo se guardará en esta Mac. La revisión local no cambia registros de producción ni la calibración.',
-  'You can preserve your judgment now, but this older analysis cannot prove the sealed evidence required for calibration. This draft stays privately on this device and never enters calibration.': 'Puedes guardar tu decisión ahora, pero este análisis anterior no puede probar la evidencia cerrada necesaria para calibrar. Este borrador permanece privado en este equipo y nunca entra en la calibración.',
-  'Unpublished draft restored. Your unfinished writing was preserved on this Mac.': 'Se recuperó el borrador sin publicar. Tu texto incompleto se conservó en esta Mac.',
+  'This take will be saved only on this Mac. No production record or calibration profile changes during local review.':
+    'Esta decisión solo se guardará en esta Mac. La revisión local no cambia registros de producción ni la calibración.',
+  'You can preserve your judgment now, but this older analysis cannot prove the sealed evidence required for calibration. This draft stays privately on this device and never enters calibration.':
+    'Puedes guardar tu decisión ahora, pero este análisis anterior no puede probar la evidencia cerrada necesaria para calibrar. Este borrador permanece privado en este equipo y nunca entra en la calibración.',
+  'Unpublished draft restored. Your unfinished writing was preserved on this Mac.':
+    'Se recuperó el borrador sin publicar. Tu texto incompleto se conservó en esta Mac.',
   'Your score': 'Tu calificación',
   'Your verdict': 'Tu veredicto',
   'How confident are you in this take?': '¿Qué tanta confianza tienes en esta decisión?',
   'High confidence': 'Confianza alta',
   'Medium confidence': 'Confianza media',
-  'Tentative takes are always held out of calibration evidence.': 'Las decisiones tentativas siempre quedan fuera de la evidencia de calibración.',
-  'Only include this take in calibration when your judgment feels settled.': 'Incluye esta decisión en la calibración solo cuando tu opinión sea firme.',
+  'Tentative takes are always held out of calibration evidence.':
+    'Las decisiones tentativas siempre quedan fuera de la evidencia de calibración.',
+  'Only include this take in calibration when your judgment feels settled.':
+    'Incluye esta decisión en la calibración solo cuando tu opinión sea firme.',
   'Would you pursue it?': '¿Buscarías desarrollar este proyecto?',
   Yes: 'Sí',
   Maybe: 'Tal vez',
@@ -1463,11 +1711,14 @@ const spanish = {
   'Character agency': 'Iniciativa del personaje',
   'Genre delivery': 'Cumplimiento del género',
   'What did the AI miss?': '¿Qué no vio la IA?',
-  'Example: It over-penalized passive agency and undervalued the comic engine.': 'Ejemplo: Castigó demasiado la falta de iniciativa y valoró poco el motor de comedia.',
+  'Example: It over-penalized passive agency and undervalued the comic engine.':
+    'Ejemplo: Castigó demasiado la falta de iniciativa y valoró poco el motor de comedia.',
   'What did the AI get right?': '¿Qué hizo bien la IA?',
-  'Example: The protagonist still needs a more active final choice.': 'Ejemplo: El protagonista aún necesita una decisión final más activa.',
+  'Example: The protagonist still needs a more active final choice.':
+    'Ejemplo: El protagonista aún necesita una decisión final más activa.',
   'Use this as calibration evidence': 'Usar como evidencia de calibración',
-  'Leave this off when your opinion is tentative or the analysis version is not representative.': 'Déjalo apagado cuando tu opinión sea tentativa o la versión del análisis no sea representativa.',
+  'Leave this off when your opinion is tentative or the analysis version is not representative.':
+    'Déjalo apagado cuando tu opinión sea tentativa o la versión del análisis no sea representativa.',
   'Saving…': 'Guardando…',
   'Save Producer Draft': 'Guardar borrador del productor',
   'Save local revision': 'Guardar revisión local',

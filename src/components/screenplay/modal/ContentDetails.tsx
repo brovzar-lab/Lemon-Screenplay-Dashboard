@@ -4,12 +4,9 @@
  */
 
 import { clsx } from 'clsx';
-import { useQueries } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 import { formatProducerTaxonomy, formatProducerText } from '@/lib/producerDisplay';
-import { searchTmdbComparable } from '@/lib/tmdbService';
-import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { SectionHeader } from './SectionHeader';
 
 interface ContentDetailsProps {
@@ -110,65 +107,30 @@ function ComparableFilmsSection({ films, isWorkspace }: { films: Screenplay['com
 
 function WorkspaceComparableFilms({ films }: { films: Screenplay['comparableFilms'] }) {
     const { t } = useTranslation();
-    const configuredTmdbApiKey = useApiConfigStore((state) => state.tmdbApiKey);
-    const tmdbApiKey = configuredTmdbApiKey
-        || (import.meta.env.VITE_TMDB_API_KEY as string | undefined)
-        || '';
-    const posterQueries = useQueries({
-        queries: films.map((film) => ({
-            queryKey: ['tmdb-comparable-poster', film.title],
-            queryFn: () => searchTmdbComparable(film.title, tmdbApiKey),
-            enabled: Boolean(tmdbApiKey && film.title.trim()),
-            staleTime: Number.POSITIVE_INFINITY,
-            gcTime: Number.POSITIVE_INFINITY,
-            retry: false,
-        })),
-    });
 
     return (
         <section className="screenplay-xray__section screenplay-comparables">
             <SectionHeader>{t('Comparable Films')}</SectionHeader>
             <p className="screenplay-comparables__intro">
-                {t('Three reference points selected by the readers. Poster images are supplied by TMDB and do not affect the analysis.')}
+                {t('Three reference points selected by the readers. They do not affect the analysis score.')}
             </p>
             <div className="screenplay-comparables__grid">
                 {films.map((film, index) => {
-                    const poster = posterQueries[index]?.data;
-                    const isLoading = posterQueries[index]?.isPending && Boolean(tmdbApiKey);
-                    const displayTitle = poster?.releaseYear
-                        ? film.title.replace(new RegExp(`\\s*\\(${poster.releaseYear}\\)\\s*$`), '')
-                        : film.title;
                     return (
                         <article className="screenplay-comparable" key={`${film.title}-${index}`}>
                             <div className="screenplay-comparable__poster" aria-hidden="true">
-                                {poster ? (
-                                    <img src={poster.posterUrl} alt="" loading="lazy" />
-                                ) : isLoading ? (
-                                    <span className="screenplay-comparable__poster-loading" />
-                                ) : (
-                                    <span className="screenplay-comparable__poster-fallback">{film.title.slice(0, 1)}</span>
-                                )}
+                                <span className="screenplay-comparable__poster-fallback">{film.title.slice(0, 1)}</span>
                             </div>
                             <div className="screenplay-comparable__copy">
                                 <span className="screenplay-comparable__lens">
                                     {formatProducerTaxonomy(film.comparisonLens || 'Comparison')}
                                 </span>
-                                <h4>{displayTitle}</h4>
-                                {poster?.releaseYear && <span>{poster.releaseYear}</span>}
+                                <h4>{film.title}</h4>
                                 <p>{formatProducerText(film.similarity)}</p>
                                 {film.keyDivergence && (
                                     <p className="screenplay-comparable__divergence">
                                         <strong>{t('Where it differs:')}</strong> {formatProducerText(film.keyDivergence)}
                                     </p>
-                                )}
-                                {poster && (
-                                    <a
-                                        href={`https://www.themoviedb.org/movie/${poster.tmdbId}`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        {t('View film details')}
-                                    </a>
                                 )}
                             </div>
                         </article>
