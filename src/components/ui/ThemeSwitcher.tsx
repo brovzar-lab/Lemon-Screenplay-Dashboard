@@ -7,6 +7,10 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore, DESIGN_SYSTEMS, type DesignSystem } from '../../stores/themeStore';
 
+const AVAILABLE_DESIGN_SYSTEMS = DESIGN_SYSTEMS.filter(
+  ({ id }) => id === 'instrument' || id === 'signal',
+);
+
 export function ThemeSwitcher() {
   const { t } = useTranslation();
   const { designSystem, setDesignSystem, isDark } = useThemeStore();
@@ -26,12 +30,15 @@ export function ThemeSwitcher() {
   // Close on Escape
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
 
-  const current = DESIGN_SYSTEMS.find((d) => d.id === designSystem) ?? DESIGN_SYSTEMS[0];
+  const current =
+    AVAILABLE_DESIGN_SYSTEMS.find((d) => d.id === designSystem) ?? AVAILABLE_DESIGN_SYSTEMS[0];
 
   return (
     <div ref={ref} className="relative">
@@ -62,15 +69,28 @@ export function ThemeSwitcher() {
         title={t('Switch design system')}
       >
         {/* Palette icon */}
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.88 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.8}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.88 2.88M6.75 17.25h.008v.008H6.75v-.008z"
+          />
         </svg>
         <span className="hidden sm:inline">{current.label}</span>
         {/* Chevron */}
         <svg
           className="w-3 h-3 transition-transform"
           style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2.5}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
@@ -99,7 +119,7 @@ export function ThemeSwitcher() {
 
           {/* Options */}
           <div className="p-1.5 max-h-[400px] overflow-y-auto">
-            {DESIGN_SYSTEMS.map((ds) => {
+            {AVAILABLE_DESIGN_SYSTEMS.map((ds) => {
               const isActive = ds.id === designSystem;
               const swatch = isDark ? ds.accentDark : ds.accentLight;
 
@@ -129,7 +149,9 @@ export function ThemeSwitcher() {
                     className="w-5 h-5 rounded-full flex-shrink-0"
                     style={{
                       background: swatch,
-                      boxShadow: isActive ? `0 0 0 2px var(--sp-surface), 0 0 0 3.5px ${swatch}` : 'none',
+                      boxShadow: isActive
+                        ? `0 0 0 2px var(--sp-surface), 0 0 0 3.5px ${swatch}`
+                        : 'none',
                     }}
                   />
 
@@ -146,7 +168,13 @@ export function ThemeSwitcher() {
 
                   {/* Checkmark for active */}
                   {isActive && (
-                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg
+                      className="w-4 h-4 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   )}

@@ -10,7 +10,7 @@ export function UserMenu() {
   const initial = (profile.displayName || profile.email).charAt(0).toUpperCase();
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="user-menu flex items-center gap-2">
       {profile.photoURL ? (
         <img src={profile.photoURL} alt="" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
       ) : (

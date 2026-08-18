@@ -7,8 +7,8 @@
   --settings-ink: var(--sp-text);
   --settings-ink-2: var(--sp-text-2);
   --settings-muted: var(--sp-text-3);
-  --settings-kicker: #2042c2;
-  --settings-success: #087a55;
+  --settings-kicker: var(--sp-accent);
+  --settings-success: var(--sp-recommend);
   --settings-line: var(--sp-border);
   --settings-line-strong: var(--sp-border-strong);
   --settings-display: var(--sp-display);
@@ -22,7 +22,7 @@
   --dsc-ink-3: var(--settings-muted);
   --dsc-line: var(--settings-line);
   --dsc-accent: var(--settings-cobalt);
-  --dsc-accent-hover: #173bbf;
+  --dsc-accent-hover: var(--sp-accent-strong);
   --dsc-on-accent: var(--sp-accent-text);
   --dsc-radius-card: 12px;
   --dsc-shadow-card: 0 8px 24px rgb(18 24 39 / 0.08);
@@ -33,12 +33,6 @@
   background: var(--settings-bg);
   color: var(--settings-ink);
   font-family: var(--settings-sans);
-}
-[data-theme='dark'] .settings-page,
-[data-theme$='-dark'] .settings-page,
-.dark .settings-page {
-  --settings-kicker: #9bb1ff;
-  --settings-success: #68deb3;
 }
 .settings-main {
   display: grid;
@@ -205,9 +199,9 @@
   color: var(--settings-success) !important;
 }
 .settings-page .settings-model-badge--budget {
-  border-color: #065f46 !important;
-  background: #087a55 !important;
-  color: #f6fffb !important;
+  border-color: var(--sp-recommend) !important;
+  background: var(--sp-recommend-tint) !important;
+  color: var(--on-success) !important;
 }
 .settings-panel [class*='text-gold-300'],
 .settings-panel [class*='text-gold-400'],
@@ -220,7 +214,7 @@
 .settings-panel .input,
 .settings-panel :is(input, select, textarea) {
   border-color: var(--settings-line-strong);
-  background-color: #fff;
+  background-color: var(--settings-paper);
   color: var(--settings-ink);
 }
 .settings-panel :is(input, select, textarea)::placeholder {
@@ -477,19 +471,19 @@
   font-weight: 800;
 }
 .featured-policy__verdicts label:has(input:checked)[data-verdict='film_now'] {
-  border-color: #c49116;
-  background: #fff1b8;
-  color: #704500;
+  border-color: var(--sp-film-now);
+  background: var(--sp-film-now-tint);
+  color: var(--on-warning);
 }
 .featured-policy__verdicts label:has(input:checked)[data-verdict='recommend'] {
-  border-color: #76bd9e;
-  background: #e2f4ec;
-  color: #0c7049;
+  border-color: var(--sp-recommend);
+  background: var(--sp-recommend-tint);
+  color: var(--on-success);
 }
 .featured-policy__verdicts label:has(input:checked)[data-verdict='consider'] {
-  border-color: #8fa5ff;
-  background: #e8edff;
-  color: #2042c2;
+  border-color: var(--sp-consider);
+  background: var(--sp-consider-tint);
+  color: var(--on-soft);
 }
 .featured-policy :is(input[type='checkbox'], input[type='radio']) {
   width: 16px;
@@ -540,7 +534,7 @@
   padding: 0 11px;
   border: 1px solid var(--settings-line-strong);
   border-radius: 8px;
-  background: #fff;
+  background: var(--settings-paper);
   color: var(--settings-ink);
   font-size: 12px;
 }

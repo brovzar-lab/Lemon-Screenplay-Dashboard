@@ -30,9 +30,12 @@ test.describe('Discovery find tools', () => {
     await expect(sort).toHaveValue('title');
     await expect(page.getByTestId('screenplay-discovery-ranking')).toHaveCount(1);
     await expect(featured).toHaveAttribute('data-screenplay-id', featuredId ?? '');
-    await expect(page.getByTestId('screenplay-discovery-result').first()).toContainText(
-      'A Killing on Carnival Row',
-    );
+    const titles = await page
+      .getByTestId('screenplay-discovery-result')
+      .locator('.screenplay-wall__title > strong')
+      .allTextContents();
+    expect(titles.length).toBeGreaterThan(1);
+    expect(titles).toEqual([...titles].sort((left, right) => left.localeCompare(right)));
   });
 
   test('verdict filter can be applied and cleared', async ({ page }) => {

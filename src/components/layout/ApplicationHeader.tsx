@@ -1,21 +1,15 @@
-import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UserMenu } from '@/components/auth';
 import { SettingsThemeControl } from '@/components/settings/SettingsThemeControl';
 import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
 import { SyncStatusIndicator } from '@/components/layout/SyncStatusIndicator';
 import { LanguageControl } from '@/components/layout/LanguageControl';
-import { useThemeStore } from '@/stores/themeStore';
+import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
 import { useTranslation } from 'react-i18next';
 import '@/components/layout/application-header.css';
 
 export function ApplicationHeader() {
   const { t } = useTranslation();
-  const setDesignSystem = useThemeStore((state) => state.setDesignSystem);
-
-  useEffect(() => {
-    setDesignSystem('instrument');
-  }, [setDesignSystem]);
 
   return (
     <header
@@ -41,9 +35,8 @@ export function ApplicationHeader() {
         <div className="application-header__actions">
           <SyncStatusIndicator />
           <LanguageControl />
-          <div className="max-[520px]:hidden">
-            <SettingsThemeControl />
-          </div>
+          <ThemeSwitcher />
+          <SettingsThemeControl />
           <UserMenu />
         </div>
       </div>

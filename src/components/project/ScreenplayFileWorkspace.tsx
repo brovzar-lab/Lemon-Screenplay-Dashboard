@@ -235,8 +235,7 @@ function Overview({
               <div>
                 <dt>{t('Decision status')}</dt>
                 <dd>
-                  {finalScore(screenplay).toFixed(1)} · {recommendationTitle(screenplay)}{' '}
-                  preserved
+                  {finalScore(screenplay).toFixed(1)} · {recommendationTitle(screenplay)} preserved
                 </dd>
               </div>
             </dl>
@@ -246,7 +245,9 @@ function Overview({
           className="screenplay-file__decision-brief"
           aria-labelledby="screenplay-file-decision-heading"
         >
-          <p className="screenplay-file__micro screenplay-file__micro--blue">{t('Executive read')}</p>
+          <p className="screenplay-file__micro screenplay-file__micro--blue">
+            {t('Executive read')}
+          </p>
           <h3 id="screenplay-file-decision-heading">
             {t('Why this landed at {{verdict}}', {
               verdict: t(recommendationLabel(screenplay)),
@@ -406,58 +407,22 @@ export function ScreenplayFileWorkspace({
   return (
     <div className="discovery-root screenplay-file" data-testid="screenplay-file-workspace">
       <ApplicationHeader />
-      <section className="screenplay-file__project-toolbar" aria-label={t('Screenplay file tools')}>
-        <div className="screenplay-file__project-toolbar-inner">
-          <button type="button" onClick={onBack} className="screenplay-file__back">
-            ← {t('Back to slate')}
+      <div className="screenplay-file__context">
+        <nav className="screenplay-file__context-inner" aria-label={t('Breadcrumb')}>
+          <button type="button" onClick={onBack} aria-label={t('Back to slate')}>
+            ← {t('Discovery')}
           </button>
-          <div className="screenplay-file__project-name">
-            <span>{t('Screenplay file')}</span>
-            <strong>{displayTitle}</strong>
-          </div>
-          <div className="screenplay-file__file-actions">
-            <DiscoveryShareStatus screenplay={screenplay} />
-            <ScreenplayPdfButton
-              screenplay={screenplay}
-              presentation="workspace"
-              allowReupload={false}
-            />
-            <ShareButton screenplay={screenplay} waitForExistingLink presentation="discovery" />
-            <DiscoveryExportActions screenplay={screenplay} />
-            <button
-              type="button"
-              onClick={() => toggleQuickFavorite(screenplay.id)}
-              aria-pressed={isFavorite}
-            >
-              {isFavorite ? `★ ${t('Favorited')}` : `☆ ${t('Favorite')}`}
-            </button>
-          </div>
-        </div>
-        <nav aria-label={t('Screenplay file sections')} role="tablist">
-          {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => (
-            <button
-              key={tab.key}
-              id={`screenplay-file-tab-${tab.key}`}
-              data-tab-key={tab.key}
-              type="button"
-              role="tab"
-              tabIndex={activeTab === tab.key ? 0 : -1}
-              onClick={() => onSelectTab(tab.key)}
-              onKeyDown={handleTabKeyDown}
-              aria-selected={activeTab === tab.key}
-              aria-controls="screenplay-file-panel"
-              className={clsx(activeTab === tab.key && 'is-active')}
-            >
-              {t(tab.label)}
-            </button>
-          ))}
+          <span aria-hidden="true">/</span>
+          <strong aria-current="page">{displayTitle}</strong>
         </nav>
-      </section>
+      </div>
 
       <section className="screenplay-file__hero">
         <BlueSpineScript screenplay={screenplay} featured />
         <div className="screenplay-file__identity">
-          <p className="screenplay-file__micro screenplay-file__micro--blue">{t('Screenplay file')}</p>
+          <p className="screenplay-file__micro screenplay-file__micro--blue">
+            {t('Screenplay file')}
+          </p>
           <h1>{displayTitle}</h1>
           <p className="screenplay-file__meta">
             {[
@@ -475,7 +440,24 @@ export function ScreenplayFileWorkspace({
           )}
           <div className="screenplay-file__status">
             <AnalysisTrustBadge screenplay={screenplay} />
+            <DiscoveryShareStatus screenplay={screenplay} />
             <ProducerScoreBadge assessment={producerAssessment} />
+          </div>
+          <div className="screenplay-file__actions">
+            <ScreenplayPdfButton
+              screenplay={screenplay}
+              presentation="workspace"
+              allowReupload={false}
+            />
+            <ShareButton screenplay={screenplay} waitForExistingLink presentation="discovery" />
+            <DiscoveryExportActions screenplay={screenplay} />
+            <button
+              type="button"
+              onClick={() => toggleQuickFavorite(screenplay.id)}
+              aria-pressed={isFavorite}
+            >
+              {isFavorite ? `★ ${t('Favorited')}` : `☆ ${t('Favorite')}`}
+            </button>
           </div>
         </div>
         <div className="screenplay-file__hero-score" data-verdict={screenplay.recommendation}>
@@ -487,6 +469,27 @@ export function ScreenplayFileWorkspace({
 
       <main className="screenplay-file__main">
         <div className="screenplay-file__binder">
+          <div className="screenplay-file__toolbar">
+            <nav aria-label={t('Screenplay file sections')} role="tablist">
+              {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => (
+                <button
+                  key={tab.key}
+                  id={`screenplay-file-tab-${tab.key}`}
+                  data-tab-key={tab.key}
+                  type="button"
+                  role="tab"
+                  tabIndex={activeTab === tab.key ? 0 : -1}
+                  onClick={() => onSelectTab(tab.key)}
+                  onKeyDown={handleTabKeyDown}
+                  aria-selected={activeTab === tab.key}
+                  aria-controls="screenplay-file-panel"
+                  className={clsx(activeTab === tab.key && 'is-active')}
+                >
+                  {t(tab.label)}
+                </button>
+              ))}
+            </nav>
+          </div>
           <div
             ref={panelRef}
             id="screenplay-file-panel"
