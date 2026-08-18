@@ -31,6 +31,9 @@ vi.mock('@/hooks/useProducerAssessments', () => ({
   useProducerAssessmentHeads: () => ({ data: state.assessments, isLoading: false, error: null }),
 }));
 vi.mock('@/components/auth', () => ({ UserMenu: () => <button>User menu</button> }));
+vi.mock('@/components/layout/LanguageControl', () => ({
+  LanguageControl: () => <button>Language</button>,
+}));
 vi.mock('@/components/layout/SyncStatusIndicator', () => ({
   SyncStatusIndicator: () => <span>Synced</span>,
 }));
@@ -199,11 +202,22 @@ describe('ScreenplayFileWorkspace', () => {
     );
     expect(screen.getByTestId('application-header')).toBeInTheDocument();
     expect(screen.getByTestId('screenplay-file-workspace')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
+      'Discovery/Atlas Fall',
+    );
     expect(screen.getByRole('heading', { name: 'Atlas Fall' })).toBeInTheDocument();
     expect(screen.getByText('5/5 complete')).toBeInTheDocument();
     expect(screen.getByText('2 stored')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Pitch-deck PDF' })).toBeInTheDocument();
+    expect(
+      screen
+        .getByRole('tablist', { name: 'Screenplay file sections' })
+        .closest('.screenplay-file__binder'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Share' }).closest('.screenplay-file__identity'),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /delete|reanalyze/i })).not.toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Why this landed at RECOMMEND' }),

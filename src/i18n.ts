@@ -335,6 +335,7 @@ const spanish = {
   'These notes stay on this browser and are not shared with the team.':
     'Estas notas se guardan en este navegador y no se comparten con el equipo.',
   'Screenplay file tools': 'Herramientas del archivo del guion',
+  Breadcrumb: 'Ruta de navegación',
   'Back to slate': 'Volver a la selección',
   'Screenplay file': 'Archivo del guion',
   Favorite: 'Favorito',
