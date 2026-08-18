@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 
-import { DiscoverAppHeader } from '@/components/discover/DiscoverAppHeader';
+import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { ScriptCover } from '@/components/discover/ScriptCover';
@@ -246,7 +246,6 @@ function ProjectHeader({
 
 export function ProjectWorkspace({
   screenplay,
-  stats,
   activeTab,
   onSelectTab,
   onBack,
@@ -323,12 +322,7 @@ export function ProjectWorkspace({
       className="discovery-root min-h-screen bg-[var(--dsc-surface-3)]"
       data-testid="project-workspace"
     >
-      <DiscoverAppHeader
-        total={stats.total}
-        averageScore={stats.avgWeightedScore}
-        filmNowCount={stats.filmNowCount}
-        isLoading={false}
-      />
+      <ApplicationHeader />
       <main className="px-4 py-5 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1680px]">
           <button type="button" onClick={onBack} className="dsc-btn mb-4 bg-[var(--dsc-surface)]">

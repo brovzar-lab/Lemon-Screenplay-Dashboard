@@ -961,27 +961,6 @@
   }
 }
 
-/* ============================================================================
-   CINEMA BROWSE
-   A cover-first producer workspace. The data and controls remain the existing
-   Discovery machinery; only hierarchy, density, and presentation change.
-   ============================================================================ */
-[data-theme='dark'] .discovery-root,
-[data-theme$='-dark'] .discovery-root,
-.dark .discovery-root {
-  --dsc-bg: #07101f;
-  --dsc-surface: #0d192b;
-  --dsc-surface-2: #111f35;
-  --dsc-surface-3: #172842;
-  --dsc-ink: #f3f0e8;
-  --dsc-ink-2: #aeb8c9;
-  --dsc-ink-3: #78859a;
-  --dsc-line: #223451;
-  --dsc-accent: #4c7dff;
-  --dsc-accent-hover: #6992ff;
-  --dsc-accent-soft: #172b58;
-}
-
 .cinema-header-title {
   align-items: center;
   gap: 20px;
@@ -2548,30 +2527,6 @@
   .reader-conversation__composer button {
     justify-self: end;
   }
-}
-
-/* Paper library pass: the light theme uses a cool projection-room gray so the
-   generated ivory manuscript photograph remains the clearest object. */
-[data-theme='light'] .discovery-root,
-.light .discovery-root {
-  --dsc-bg: #c9ced8;
-  --dsc-surface: #f7f7f5;
-  --dsc-surface-2: #e5e8ee;
-  --dsc-surface-3: #d9dee7;
-  --dsc-ink: #121722;
-  --dsc-ink-2: #4f596a;
-  --dsc-ink-3: #747e8f;
-  --dsc-line: #b7beca;
-}
-
-[data-theme='light'] .discovery-root .dsc-header,
-.light .discovery-root .dsc-header {
-  background: #f5f5f2;
-}
-
-[data-theme='light'] .discovery-root .dsc-statbar,
-.light .discovery-root .dsc-statbar {
-  background: #dde1e8;
 }
 
 .dsc-cover,

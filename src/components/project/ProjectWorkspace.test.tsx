@@ -30,8 +30,8 @@ vi.mock('@/hooks/useProducerAssessments', () => ({
   }),
 }));
 
-vi.mock('@/components/discover/DiscoverAppHeader', () => ({
-  DiscoverAppHeader: () => <header>Discovery chrome</header>,
+vi.mock('@/components/layout/ApplicationHeader', () => ({
+  ApplicationHeader: () => <header>Application chrome</header>,
 }));
 
 vi.mock('@/components/discover/ScriptCover', () => ({

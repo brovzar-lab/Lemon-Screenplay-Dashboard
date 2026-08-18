@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-@import './styles/halation.css';
+@import './styles/instrument.css';
 @import './styles/story-to-screen.css';
 @import './styles/noir-cinema.css';
 @import './styles/sundance.css';
@@ -8,10 +8,9 @@
 @import './styles/lemon-signal.css';
 
 /* ============================================================================
-   LEMON SCREENPLAY DASHBOARD — Halation
-   Violet-tinged calm system. Deep violet-black dark, lavender-grey light.
-   Single violet accent. Four verdict hues. Genre-keyed chart colors.
-   The legacy --color-* palette is remapped to Halation tokens so existing
+   LEMON SCREENPLAY DASHBOARD — Instrument
+   Cool grey-white light, Midnight navy dark, cobalt accent.
+   The legacy --color-* palette is remapped to Instrument tokens so existing
    Tailwind utility classes (`bg-black-800`, `text-gold-400`, `text-emerald-500`,
    ...) inherit the new system without JSX changes.
    ============================================================================ */

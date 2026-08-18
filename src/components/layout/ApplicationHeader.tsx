@@ -36,9 +36,7 @@ export function ApplicationHeader() {
           <SyncStatusIndicator />
           <LanguageControl />
           <ThemeSwitcher />
-          <div className="max-[520px]:hidden">
-            <SettingsThemeControl />
-          </div>
+          <SettingsThemeControl />
           <UserMenu />
         </div>
       </div>
