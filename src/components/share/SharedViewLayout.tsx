@@ -26,7 +26,7 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
   const { analysis } = data;
   const displayTitle = getScreenplayDisplayTitle(analysis.title).title;
   const posterUrl =
-    analysis.recommendation === 'pass' ? '/pass-poster-archive.jpg' : data.posterUrl;
+    analysis.recommendation === 'pass' ? '/pass-poster-gallery-drape.jpg' : data.posterUrl;
 
   return (
     <div className="public-shared-view min-h-screen bg-black-900">

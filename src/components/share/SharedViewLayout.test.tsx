@@ -28,7 +28,7 @@ describe('SharedViewLayout poster policy', () => {
 
       expect(
         screen.getByRole('img', { name: 'Poster withheld for a Pass verdict' }),
-      ).toHaveAttribute('src', '/pass-poster-archive.jpg');
+      ).toHaveAttribute('src', '/pass-poster-gallery-drape.jpg');
     },
   );
 });
