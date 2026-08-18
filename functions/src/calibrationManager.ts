@@ -1,5 +1,5 @@
 import { onRequest } from "firebase-functions/v2/https";
-import { defineString } from "firebase-functions/params";
+import { defineSecret } from "firebase-functions/params";
 import {
   FieldValue,
   getFirestore,
@@ -27,7 +27,7 @@ import {
   type ProducerAssessment,
 } from "./calibrationCore";
 
-const proxyServiceKey = defineString("PROXY_SERVICE_KEY");
+const proxyServiceKey = defineSecret("PROXY_SERVICE_KEY");
 
 const corsMiddleware = cors({
   origin: [
@@ -390,6 +390,7 @@ export const calibrationManager = onRequest(
     timeoutSeconds: 3600,
     memory: "512MiB",
     concurrency: 1,
+    secrets: [proxyServiceKey],
   },
   (req, res) => {
     corsMiddleware(req, res, async () => {

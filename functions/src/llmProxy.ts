@@ -16,7 +16,7 @@
  */
 
 import { onRequest } from "firebase-functions/v2/https";
-import { defineString } from "firebase-functions/params";
+import { defineSecret, defineString } from "firebase-functions/params";
 import cors from "cors";
 import { authenticateProxyRequest } from "./proxyAuth";
 import { buildTrustCapability } from "./llmProxyCapability";
@@ -50,13 +50,13 @@ import {
   type ApprovedEffort,
 } from "./llmProxyPolicy";
 
-const anthropicApiKey = defineString("ANTHROPIC_API_KEY");
+const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 const dailyLlmBudgetUsd = defineString("DAILY_LLM_BUDGET_USD", {
   default: String(DEFAULT_DAILY_LLM_BUDGET_USD),
 });
 // Shared secret for the VPS daemon (server-side, no user session). Empty in
 // local dev disables service-key auth; browser ID-token auth still applies.
-const proxyServiceKey = defineString("PROXY_SERVICE_KEY");
+const proxyServiceKey = defineSecret("PROXY_SERVICE_KEY");
 const MAX_OUTPUT_TOKENS = 24_000;
 const MAX_THINKING_TOKENS = 16_000;
 
@@ -233,6 +233,7 @@ export const llmProxy = onRequest(
     timeoutSeconds: 3600,
     memory: "512MiB",
     maxInstances: 50,
+    secrets: [anthropicApiKey, proxyServiceKey],
     // One long-running request per instance keeps the active reservation map
     // bounded while still allowing up to 50 parallel model calls.
     concurrency: 1,
