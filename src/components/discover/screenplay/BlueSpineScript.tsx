@@ -24,7 +24,7 @@ export function BlueSpineScript({
   const displayTitle = getScreenplayDisplayTitle(screenplay.title);
   const isCompact = presentation === 'compact';
   const posterUrl =
-    screenplay.recommendation === 'pass' ? '/pass-poster-archive.jpg' : screenplay.posterUrl;
+    screenplay.recommendation === 'pass' ? '/pass-poster-gallery-drape.jpg' : screenplay.posterUrl;
 
   if (posterUrl) {
     return (

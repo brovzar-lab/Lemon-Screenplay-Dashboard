@@ -37,7 +37,7 @@ describe('BlueSpineScript presentation', () => {
 
     expect(screen.getByRole('img', { name: 'Poster withheld for a Pass verdict' })).toHaveAttribute(
       'src',
-      '/pass-poster-archive.jpg',
+      '/pass-poster-gallery-drape.jpg',
     );
   });
 
