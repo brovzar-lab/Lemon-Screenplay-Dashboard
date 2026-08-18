@@ -13,7 +13,6 @@ import { useState, useRef, useEffect } from 'react';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import type { AnalysisProgress } from '@/lib/analysisService';
-import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToastStore } from '@/stores/toastStore';
 import { getAnalysisVersionLabel } from '@/lib/dimensionDisplay';
@@ -42,8 +41,6 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
     const dropdownRef = useRef<HTMLDivElement>(null);
     const queryClient = useQueryClient();
 
-    const { canMakeRequest, checkAndResetIfNeeded } = useApiConfigStore();
-
     // Detect current analysis engine from screenplay
     const currentVersionLabel = getAnalysisVersionLabel(screenplay);
 
@@ -67,12 +64,6 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
         setError(null);
 
         try {
-            checkAndResetIfNeeded();
-
-            if (!canMakeRequest()) {
-                throw new Error('Budget or request limit reached. Check Settings → API Configuration.');
-            }
-
             const { reanalyzeFromStorage } = await import('@/lib/analysisService');
 
             await reanalyzeFromStorage(

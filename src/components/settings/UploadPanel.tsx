@@ -19,7 +19,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { isUploadJobReady, useUploadStore } from '@/stores/uploadStore';
-import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { useScreenplays, SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
 import { uploadPdfToIngestQueue } from '@/lib/firebase';
 import { subscribeToIngestJob } from '@/lib/ingestQueueClient';
@@ -31,7 +30,6 @@ import { findAnalysisByContentHash } from '@/lib/analysisLookup';
 import { toDocId } from '@/lib/analysisStore';
 import { IntakeConfirmationDialog } from '@/components/intake';
 
-import { ApiConfigToggle } from './upload/ApiConfigToggle';
 import { ModelSelector } from './upload/ModelSelector';
 import { CategorySelector } from './upload/CategorySelector';
 import { UploadDropzone } from './upload/UploadDropzone';
@@ -76,7 +74,6 @@ export function UploadPanel({
   const { t } = useTranslation();
   const [selectedCategory, setSelectedCategory] = useState('LEMON');
   const [selectedModel, setSelectedModel] = useState<ModelOption>(initialModel);
-  const [showApiConfig, setShowApiConfig] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const { categoryIds, addCategory: addCategoryToStore } = useCategories();
 
@@ -92,10 +89,7 @@ export function UploadPanel({
     setProcessing,
     getFile,
   } = useUploadStore();
-  const { canMakeRequest } = useApiConfigStore();
   const { data: screenplays } = useScreenplays();
-  // Proxy is always available (API keys are server-side)
-  const isConfigured = true;
   const queryClient = useQueryClient();
 
   // ─── File selection + duplicate detection ──────────────────────────────────
@@ -346,14 +340,6 @@ export function UploadPanel({
   const batchCostEstimate = estimateBatchCost(selectedModel, pendingJobs.length);
 
   const handleStartProcessing = () => {
-    if (!isConfigured) {
-      setShowApiConfig(true);
-      return;
-    }
-    if (!canMakeRequest()) {
-      alert(t('Cannot process: Budget limit reached or daily request limit exceeded. Check API Configuration.'));
-      return;
-    }
     if (presentation === 'intake') {
       setShowConfirmation(true);
       return;
@@ -447,7 +433,7 @@ export function UploadPanel({
           <UploadQueue
             jobs={jobs}
             isProcessing={isProcessing}
-            isConfigured={isConfigured}
+            isConfigured
             selectedModel={selectedModel}
             batchCostEstimate={batchCostEstimate}
             onRemoveJob={removeJob}
@@ -485,12 +471,6 @@ export function UploadPanel({
         </p>
       </div>
 
-      <ApiConfigToggle
-        isConfigured={isConfigured}
-        showApiConfig={showApiConfig}
-        onToggle={() => setShowApiConfig(!showApiConfig)}
-      />
-
       <ModelSelector
         selectedModel={selectedModel}
         onSelectModel={setSelectedModel}
@@ -510,7 +490,7 @@ export function UploadPanel({
       <UploadQueue
         jobs={jobs}
         isProcessing={isProcessing}
-        isConfigured={isConfigured}
+        isConfigured
         selectedModel={selectedModel}
         batchCostEstimate={batchCostEstimate}
         onRemoveJob={removeJob}

@@ -12,7 +12,6 @@ import { reanalyzeFromStorage } from '@/lib/analysisService';
 import { useExportSelectionStore } from '@/stores/exportSelectionStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
-import { useApiConfigStore } from '@/stores/apiConfigStore';
 import { MODEL_PLANNING_COSTS_USD } from '@/components/settings/upload/upload.constants';
 
 const ESTIMATED_COST_PER_SCREENPLAY = MODEL_PLANNING_COSTS_USD.sonnet[1];
@@ -40,8 +39,6 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
   const queryClient = useQueryClient();
   const pdfStatuses = usePdfStatusStore((s) => s.statuses);
   const hasScanResult = usePdfStatusStore((s) => s.hasScanResult);
-  const budgetRemaining = useApiConfigStore((s) => s.getBudgetRemaining());
-  const requestsRemaining = useApiConfigStore((s) => s.getDailyRequestsRemaining());
 
   // Derived — not stored in state
   // Use live Storage scan results when available; fall back to Firestore hasPdf field.
@@ -50,23 +47,12 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
   );
   const ineligibleCount = screenplays.length - eligible.length;
   const estimatedCost = eligible.length * ESTIMATED_COST_PER_SCREENPLAY;
-  const canAffordBatch = eligible.length <= requestsRemaining && estimatedCost <= budgetRemaining;
 
   function setItemStatus(id: string, status: ReanalyzeItemStatus) {
     setItems((prev) => ({ ...prev, [id]: { status } }));
   }
 
   async function runBulkReanalyze() {
-    const apiConfig = useApiConfigStore.getState();
-    apiConfig.checkAndResetIfNeeded();
-    if (
-      eligible.length > apiConfig.getDailyRequestsRemaining() ||
-      estimatedCost > apiConfig.getBudgetRemaining()
-    ) {
-      setSummary('This batch exceeds the current daily request or monthly budget limit.');
-      return;
-    }
-
     stoppedWatchingRef.current = false;
     setIsProcessing(true);
     let completed = 0;
@@ -110,7 +96,6 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
         if (abortControllerRef.current === abortController) {
           abortControllerRef.current = null;
         }
-        useApiConfigStore.getState().incrementUsage(ESTIMATED_COST_PER_SCREENPLAY);
       }
 
       if (stoppedWatchingRef.current) {
@@ -256,12 +241,7 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
               <p className="text-black-300">
                 Estimated maximum cost: ${estimatedCost.toFixed(2)}
               </p>
-              <p className="text-black-400">
-                Remaining: ${budgetRemaining.toFixed(2)} monthly budget and {requestsRemaining} daily jobs
-              </p>
-              {!canAffordBatch && (
-                <p className="text-red-400">This batch exceeds your current budget or daily job limit.</p>
-              )}
+              <p className="text-black-400">The production server enforces the daily budget.</p>
             </div>
           )}
           {isDone && summary && (
@@ -317,7 +297,6 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
               {!isDone && eligible.length > 0 && (
                 <button
                   onClick={runBulkReanalyze}
-                  disabled={!canAffordBatch}
                   className="btn btn-primary text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Start Reanalysis

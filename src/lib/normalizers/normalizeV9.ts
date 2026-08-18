@@ -44,6 +44,31 @@ const DEVELOPMENT_SIGNALS = new Set<DevelopmentOpportunitySignal>([
   'development_upside',
 ]);
 
+const POSTER_STATUSES = new Set<NonNullable<Screenplay['posterStatus']>>([
+  'pending',
+  'generating',
+  'ready',
+  'error',
+  'withheld',
+  'skipped',
+]);
+
+function normalizePosterStatus(value: unknown): Screenplay['posterStatus'] {
+  return POSTER_STATUSES.has(value as NonNullable<Screenplay['posterStatus']>)
+    ? (value as NonNullable<Screenplay['posterStatus']>)
+    : undefined;
+}
+
+function normalizeTimestamp(value: unknown): string | undefined {
+  if (typeof value === 'string' && !Number.isNaN(Date.parse(value))) return value;
+  if (!value || typeof value !== 'object') return undefined;
+  const timestamp = value as { toDate?: () => Date; seconds?: number };
+  if (typeof timestamp.toDate === 'function') return timestamp.toDate().toISOString();
+  return typeof timestamp.seconds === 'number'
+    ? new Date(timestamp.seconds * 1000).toISOString()
+    : undefined;
+}
+
 function normalizeDevelopmentOpportunity(value: unknown): DevelopmentOpportunity | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const record = value as Record<string, unknown>;
@@ -490,6 +515,17 @@ export function normalizeV9Screenplay(
       typeof (raw as Record<string, unknown>).latest_version_id === 'string'
         ? String((raw as Record<string, unknown>).latest_version_id)
         : undefined,
+    posterUrl:
+      typeof raw.poster_url === 'string' && raw.poster_version_id === raw.latest_version_id
+        ? raw.poster_url
+        : undefined,
+    posterStatus: normalizePosterStatus(raw.poster_status),
+    posterModel: typeof raw.poster_model === 'string' ? raw.poster_model : undefined,
+    posterVersionId: typeof raw.poster_version_id === 'string' ? raw.poster_version_id : undefined,
+    posterCostMicrousd:
+      typeof raw.poster_cost_microusd === 'number' ? raw.poster_cost_microusd : undefined,
+    posterLastError: typeof raw.poster_last_error === 'string' ? raw.poster_last_error : undefined,
+    posterRequestedAt: normalizeTimestamp(raw.poster_requested_at),
     versionCount: Number.isInteger((raw as Record<string, unknown>).version_count)
       ? Number((raw as Record<string, unknown>).version_count)
       : undefined,

@@ -13,10 +13,10 @@
    ============================================================================ */
 :root {
   /* surfaces */
-  --bg: #eaecf1;
-  --surface: #ffffff;
-  --sunken: #eef0f3;
-  --line: #e6e8ec;
+  --bg: oklch(92.5% 0.018 255);
+  --surface: oklch(98% 0.008 255);
+  --sunken: oklch(89.5% 0.022 255);
+  --line: oklch(80% 0.028 255);
 
   /* text */
   --ink: #0b0d12;
@@ -90,7 +90,7 @@
   --sp-surface-2: var(--sunken);
   --sp-sunken: var(--sunken);
   --sp-border: var(--line);
-  --sp-border-strong: #d0d4da;
+  --sp-border-strong: oklch(68% 0.035 255);
 
   --sp-text: var(--ink);
   --sp-text-2: var(--ink-2);

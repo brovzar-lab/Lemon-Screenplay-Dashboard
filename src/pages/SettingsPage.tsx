@@ -10,8 +10,7 @@ import { PdfUploadPanel } from '@/components/settings/PdfUploadPanel';
 import { SharedLinksPanel } from '@/components/settings/SharedLinksPanel';
 import { FavoritesPanel } from '@/components/settings/FavoritesPanel';
 import { AnalysisOverview } from '@/components/settings/AnalysisOverview';
-import { ApiConfigPanel } from '@/components/settings/ApiConfigPanel';
-import { PasswordGate } from '@/components/settings/PasswordGate';
+import { SystemStatusPanel } from '@/components/settings/SystemStatusPanel';
 import { FeaturedProjectPanel } from '@/components/settings/FeaturedProjectPanel';
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import '@/components/discover/discovery.css';
@@ -67,8 +66,8 @@ const TABS: TabConfig[] = [
   },
   {
     id: 'api',
-    label: 'Connections & Keys',
-    description: 'Protected service connections',
+    label: 'System Status',
+    description: 'Services, cost protection, and health',
     group: 'System',
   },
   {
@@ -218,11 +217,7 @@ export function SettingsPage() {
       case 'data':
         return <DataTab />;
       case 'api':
-        return (
-          <PasswordGate storageKey="api">
-            <ApiConfigPanel />
-          </PasswordGate>
-        );
+        return <SystemStatusPanel />;
     }
   };
 

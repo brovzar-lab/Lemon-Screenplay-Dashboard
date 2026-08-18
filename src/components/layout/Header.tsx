@@ -9,7 +9,6 @@ import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
 import { useThemeStore } from '@/stores/themeStore';
 import { DevExecToggle } from '@/components/devexec';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
-import { ThemeSwitcher } from '@/components/ui/ThemeSwitcher';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { UserMenu } from '@/components/auth';
 import { AuthenticatedNavigation } from '@/components/layout/AuthenticatedNavigation';
@@ -150,9 +149,6 @@ export function Header() {
             <SyncStatusIndicator />
             <DevExecToggle />
             <LanguageControl />
-
-            {/* Design System Switcher — dropdown with all available themes */}
-            <ThemeSwitcher />
 
             {/* Theme Toggle — shared with the Discovery shell. */}
             <ThemeToggle />

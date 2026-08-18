@@ -8,7 +8,7 @@ const sections = [
   'Model Comparison',
   'PDF Files',
   'Data & Sharing',
-  'Connections & Keys',
+  'System Status',
   'Calibration',
 ] as const;
 

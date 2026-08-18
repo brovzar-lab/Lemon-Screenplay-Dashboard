@@ -509,7 +509,12 @@ export interface Screenplay {
 
   // Poster Generation
   posterUrl?: string; // URL to the generated poster in Firebase Storage
-  posterStatus?: 'pending' | 'generating' | 'ready' | 'error'; // Status tracking
+  posterStatus?: 'pending' | 'generating' | 'ready' | 'error' | 'withheld' | 'skipped';
+  posterModel?: string;
+  posterVersionId?: string;
+  posterCostMicrousd?: number;
+  posterLastError?: string;
+  posterRequestedAt?: string;
 
   // PDF Storage
   hasPdf?: boolean; // true when the source PDF has been uploaded to Firebase Storage

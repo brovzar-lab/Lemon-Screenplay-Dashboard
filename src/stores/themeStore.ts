@@ -1,7 +1,6 @@
 /**
- * Theme Store — Multi-Design-System Switcher
- * Supports multiple visual design systems (Instrument, Story to Screen, Noir, etc.)
- * each with light/dark mode. Toggles via `data-theme` attribute on <html>.
+ * Theme Store — Instrument light/dark preference.
+ * Toggles via `data-theme` attribute on <html>.
  * Defaults to Instrument + system prefers-color-scheme.
  */
 
@@ -15,29 +14,10 @@ import { persist } from 'zustand/middleware';
 /** CSS data-theme attribute value */
 export type ThemeId =
   | 'light'
-  | 'dark' // Instrument
-  | 's2s'
-  | 's2s-dark' // Story to Screen
-  | 'noir'
-  | 'noir-dark' // Noir Cinema
-  | 'sundance'
-  | 'sundance-dark' // Sundance
-  | 'neon'
-  | 'neon-dark' // Neon Terminal
-  | 'arctic'
-  | 'arctic-dark' // Arctic Studio
-  | 'signal'
-  | 'signal-dark'; // Lemon Signal
+  | 'dark';
 
 /** Visual design system identifier */
-export type DesignSystem =
-  | 'instrument'
-  | 's2s'
-  | 'noir'
-  | 'sundance'
-  | 'neon'
-  | 'arctic'
-  | 'signal';
+export type DesignSystem = 'instrument';
 
 /** What the user selects for light/dark preference */
 export type ColorMode = 'light' | 'dark' | 'system';
@@ -70,66 +50,6 @@ export const DESIGN_SYSTEMS: DesignSystemOption[] = [
     accentLight: '#2B54F0',
     accentDark: '#6E8BFF',
     fontHint: 'Playfair Display',
-  },
-  {
-    id: 'signal',
-    label: 'Lemon Signal',
-    description: 'Warm paper, coral action, aqua signal, editorial type',
-    lightThemeId: 'signal',
-    darkThemeId: 'signal-dark',
-    accentLight: '#F45F4F',
-    accentDark: '#5BC4C1',
-    fontHint: 'Iowan Old Style',
-  },
-  {
-    id: 's2s',
-    label: 'Story to Screen',
-    description: 'Warm editorial, burnished gold, serif elegance',
-    lightThemeId: 's2s',
-    darkThemeId: 's2s-dark',
-    accentLight: '#C8A55C',
-    accentDark: '#E8C870',
-    fontHint: 'Playfair Display',
-  },
-  {
-    id: 'noir',
-    label: 'Noir Cinema',
-    description: 'Classic film noir, crimson accents, silver text',
-    lightThemeId: 'noir',
-    darkThemeId: 'noir-dark',
-    accentLight: '#B91C1C',
-    accentDark: '#EF4444',
-    fontHint: 'Playfair Display',
-  },
-  {
-    id: 'sundance',
-    label: 'Sundance',
-    description: 'Desert indie warmth, terracotta and sand',
-    lightThemeId: 'sundance',
-    darkThemeId: 'sundance-dark',
-    accentLight: '#C2410C',
-    accentDark: '#FB923C',
-    fontHint: 'DM Sans',
-  },
-  {
-    id: 'neon',
-    label: 'Neon Terminal',
-    description: 'Cyberpunk hacker, electric cyan, monospace',
-    lightThemeId: 'neon',
-    darkThemeId: 'neon-dark',
-    accentLight: '#0891B2',
-    accentDark: '#22D3EE',
-    fontHint: 'JetBrains Mono',
-  },
-  {
-    id: 'arctic',
-    label: 'Arctic Studio',
-    description: 'Scandinavian minimalism, steel blue, ultra-clean',
-    lightThemeId: 'arctic',
-    darkThemeId: 'arctic-dark',
-    accentLight: '#2563EB',
-    accentDark: '#60A5FA',
-    fontHint: 'Inter',
   },
 ];
 
@@ -172,9 +92,9 @@ const getSystemPrefersDark = (): boolean => {
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 };
 
-const resolveThemeId = (ds: DesignSystem, mode: ColorMode): ThemeId => {
+const resolveThemeId = (_ds: DesignSystem, mode: ColorMode): ThemeId => {
   const prefersDark = mode === 'dark' || (mode === 'system' && getSystemPrefersDark());
-  const opt = DESIGN_SYSTEMS.find((d) => d.id === ds) ?? DESIGN_SYSTEMS[0];
+  const opt = DESIGN_SYSTEMS[0];
   return prefersDark ? opt.darkThemeId : opt.lightThemeId;
 };
 
@@ -208,10 +128,10 @@ export const useThemeStore = create<ThemeState>()(
         applyTheme(resolved);
       },
 
-      setDesignSystem: (ds) => {
+      setDesignSystem: (_ds) => {
         const mode = get().theme;
-        const resolved = resolveThemeId(ds, mode);
-        set({ designSystem: ds, resolvedTheme: resolved, isDark: isDarkMode(resolved) });
+        const resolved = resolveThemeId('instrument', mode);
+        set({ designSystem: 'instrument', resolvedTheme: resolved, isDark: isDarkMode(resolved) });
         applyTheme(resolved);
       },
     }),
@@ -219,7 +139,8 @@ export const useThemeStore = create<ThemeState>()(
       name: 'lemon-theme',
       onRehydrateStorage: () => (state) => {
         if (state) {
-          const resolved = resolveThemeId(state.designSystem, state.theme);
+          state.designSystem = 'instrument';
+          const resolved = resolveThemeId('instrument', state.theme);
           state.resolvedTheme = resolved;
           state.isDark = isDarkMode(resolved);
           applyTheme(resolved);

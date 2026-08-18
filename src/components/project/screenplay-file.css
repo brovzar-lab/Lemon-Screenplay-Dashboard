@@ -37,7 +37,16 @@ html .discovery-root.screenplay-file {
 .screenplay-file__context-inner button:hover { color: var(--file-shell-text); }
 .screenplay-file__context-inner strong { overflow: hidden; color: var(--file-shell-text); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .screenplay-file__hero { display: grid; grid-template-columns: 280px minmax(0, 1fr) 210px; align-items: center; gap: clamp(30px, 5vw, 76px); max-width: 1570px; min-height: 400px; margin: 0 auto; padding: 42px clamp(26px, 5vw, 80px); background: var(--file-shell); color: var(--file-shell-text); }
-.screenplay-file__hero > .screenplay-object { width: min(100%, 240px); justify-self: center; }
+.screenplay-file__poster-column { display: grid; justify-items: center; gap: 14px; }
+.screenplay-file__poster-column > .screenplay-object { width: min(100%, 240px); }
+.screenplay-file__poster-controls { display: grid; width: min(100%, 240px); gap: 7px; }
+.screenplay-file__poster-controls label { display: grid; gap: 4px; color: var(--file-shell-text-2); font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.screenplay-file__poster-controls select,
+.screenplay-file__poster-controls button { min-height: 44px; border: 1px solid var(--file-shell-line); border-radius: 7px; background: var(--file-shell-action); color: var(--file-shell-text); font-size: 11px; font-weight: 700; }
+.screenplay-file__poster-controls select { padding: 0 9px; }
+.screenplay-file__poster-controls button:hover { border-color: var(--file-shell-accent); color: var(--file-shell-accent); }
+.screenplay-file__poster-controls :disabled { cursor: wait; opacity: .65; }
+.screenplay-file__poster-note { max-width: 220px; color: var(--file-shell-text-3); font-size: 10px; line-height: 1.4; text-align: center; }
 .screenplay-file__micro { margin: 0; color: var(--file-shell-text-3); font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
 .screenplay-file__micro--blue { color: var(--file-shell-accent); }
 .screenplay-file__identity h1 { margin: 12px 0 10px; color: var(--file-shell-text); font-family: var(--dsc-font-display); font-size: clamp(48px, 5vw, 72px); font-weight: 600; line-height: .98; }
@@ -337,7 +346,7 @@ html .discovery-root.screenplay-file {
 @media (max-width: 640px) {
   .screenplay-file__context-inner { min-height: 40px; padding-inline: 12px; }
   .screenplay-file__hero { grid-template-columns: 1fr; gap: 26px; min-height: auto; padding: 30px 18px; }
-  .screenplay-file__hero > .screenplay-object { width: 180px; }
+  .screenplay-file__poster-column > .screenplay-object { width: 180px; }
   .screenplay-file__identity h1 { font-size: clamp(36px, 10vw, 52px); }
   .screenplay-file__logline { font-size: 16px; }
   .screenplay-file__main { padding-right: 8px; padding-left: 8px; }

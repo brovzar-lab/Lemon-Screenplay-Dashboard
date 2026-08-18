@@ -35,13 +35,9 @@ vi.mock('@/components/settings/FavoritesPanel', () => ({
 vi.mock('@/components/settings/AnalysisOverview', () => ({
   AnalysisOverview: () => <div>Analysis overview</div>,
 }));
-vi.mock('@/components/settings/ApiConfigPanel', () => ({
-  ApiConfigPanel: () => <div>API configuration</div>,
+vi.mock('@/components/settings/SystemStatusPanel', () => ({
+  SystemStatusPanel: () => <div>System status workspace</div>,
 }));
-vi.mock('@/components/settings/PasswordGate', () => ({
-  PasswordGate: ({ children }: { children: React.ReactNode }) => children,
-}));
-
 vi.stubGlobal('__APP_VERSION__', 'test');
 
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -102,7 +98,7 @@ describe('Settings deep links', () => {
     renderSettings('/settings?tab=intake');
 
     const sectionButtons = screen.getAllByRole('button').filter((button) =>
-      ['Intake', 'Featured Project', 'Analysis Health', 'Model Comparison', 'PDF Files', 'Data & Sharing', 'Connections & Keys', 'Calibration'].includes(
+      ['Intake', 'Featured Project', 'Analysis Health', 'Model Comparison', 'PDF Files', 'Data & Sharing', 'System Status', 'Calibration'].includes(
         button.getAttribute('aria-label') ?? '',
       ),
     );
@@ -113,7 +109,7 @@ describe('Settings deep links', () => {
       'Featured Project',
       'PDF Files',
       'Data & Sharing',
-      'Connections & Keys',
+      'System Status',
       'Calibration',
     ]);
     expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();
@@ -124,7 +120,7 @@ describe('Settings deep links', () => {
 
   it.each([
     ['/settings?tab=pdf_files', 'PDF files'],
-    ['/settings?tab=api-settings', 'API configuration'],
+    ['/settings?tab=api-settings', 'System status workspace'],
     ['/settings?tab=taste-calibration', 'Calibration workspace'],
   ])('preserves the legacy settings alias %s', (entry, expected) => {
     renderSettings(entry);

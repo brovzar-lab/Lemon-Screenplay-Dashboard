@@ -14,10 +14,8 @@ import { DevExecProvider } from '@/contexts/DevExecContext';
 import { useFilteredScreenplays } from '@/hooks/useFilteredScreenplays';
 import { useScreenplays, useLiveScreenplaySync } from '@/hooks/useScreenplays';
 import { useUrlState } from '@/hooks/useUrlState';
-import { usePosterBackground } from '@/hooks/usePosterBackground';
 import { useFilterStore } from '@/stores/filterStore';
 import type { Screenplay, RecommendationTier, BudgetCategory } from '@/types';
-import { useIsAdmin } from '@/stores/authStore';
 import { usePercentiles } from '@/hooks/usePercentiles';
 
 // Lazy-loaded heavy features (recharts-dependent)
@@ -25,7 +23,6 @@ const AnalyticsDashboard = lazy(() => import('@/components/charts/AnalyticsDashb
 const ComparisonModal = lazy(() => import('@/components/comparison/ComparisonModal').then(m => ({ default: m.ComparisonModal })));
 
 function App() {
-  const isAdmin = useIsAdmin();
   const { screenplays, isLoading, filteredCount, totalCount } = useFilteredScreenplays();
   const { data: allScreenplays = [] } = useScreenplays();
   const percentileRanks = usePercentiles(allScreenplays);
@@ -36,9 +33,6 @@ function App() {
 
   // URL state sync — loads filters from URL on mount
   useUrlState();
-
-  // Background poster generation — start generating when screenplays load
-  usePosterBackground(isAdmin ? screenplays : []);
 
   // Filter store actions for chart click handlers
   const resetFilters = useFilterStore((s) => s.resetFilters);

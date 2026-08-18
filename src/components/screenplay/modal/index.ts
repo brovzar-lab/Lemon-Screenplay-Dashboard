@@ -17,7 +17,6 @@ export { SimilarProjects } from './SimilarProjects';
 export { ProducerMetricsPanel } from './ProducerMetricsPanel';
 export { ContentDetails } from './ContentDetails';
 export { ModalFooter } from './ModalFooter';
-export { PosterSection } from './PosterSection';
 export { FeedbackSection } from './FeedbackSection';
 export { BillysTake } from './BillysTake';
 export { ProducerTake } from './ProducerTake';

@@ -30,13 +30,13 @@ const budgetCounter_1 = require("./budgetCounter");
 const llmCost_1 = require("./llmCost");
 const llmProxyErrors_1 = require("./llmProxyErrors");
 const llmProxyPolicy_1 = require("./llmProxyPolicy");
-const anthropicApiKey = (0, params_1.defineString)("ANTHROPIC_API_KEY");
+const anthropicApiKey = (0, params_1.defineSecret)("ANTHROPIC_API_KEY");
 const dailyLlmBudgetUsd = (0, params_1.defineString)("DAILY_LLM_BUDGET_USD", {
     default: String(llmCost_1.DEFAULT_DAILY_LLM_BUDGET_USD),
 });
 // Shared secret for the VPS daemon (server-side, no user session). Empty in
 // local dev disables service-key auth; browser ID-token auth still applies.
-const proxyServiceKey = (0, params_1.defineString)("PROXY_SERVICE_KEY");
+const proxyServiceKey = (0, params_1.defineSecret)("PROXY_SERVICE_KEY");
 const MAX_OUTPUT_TOKENS = 24_000;
 const MAX_THINKING_TOKENS = 16_000;
 const corsMiddleware = (0, cors_1.default)({
@@ -121,6 +121,7 @@ exports.llmProxy = (0, https_1.onRequest)({
     timeoutSeconds: 3600,
     memory: "512MiB",
     maxInstances: 50,
+    secrets: [anthropicApiKey, proxyServiceKey],
     // One long-running request per instance keeps the active reservation map
     // bounded while still allowing up to 50 parallel model calls.
     concurrency: 1,
