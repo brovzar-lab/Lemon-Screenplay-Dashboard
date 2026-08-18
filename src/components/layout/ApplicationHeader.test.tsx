@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
@@ -27,6 +27,9 @@ vi.mock('@/components/auth', () => ({
 vi.mock('@/components/layout/SyncStatusIndicator', () => ({
   SyncStatusIndicator: () => <span>Synced</span>,
 }));
+vi.mock('@/components/ui/ThemeSwitcher', () => ({
+  ThemeSwitcher: () => <button type="button">Instrument</button>,
+}));
 
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 
@@ -37,7 +40,7 @@ describe('ApplicationHeader', () => {
     state.setTheme.mockClear();
   });
 
-  it('renders the complete canonical signed-in chrome and normalizes the visual system', async () => {
+  it('renders the complete canonical signed-in chrome and preserves the selected visual system', () => {
     render(
       <MemoryRouter initialEntries={['/settings?tab=analysis']}>
         <ApplicationHeader />
@@ -53,15 +56,13 @@ describe('ApplicationHeader', () => {
       '/',
     );
     expect(screen.getByRole('link', { name: 'Discovery' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('Synced')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Language' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Instrument' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'User menu' })).toBeInTheDocument();
-    await waitFor(() => expect(state.setDesignSystem).toHaveBeenCalledWith('instrument'));
+    expect(state.setDesignSystem).not.toHaveBeenCalled();
   });
 
   it('keeps reader navigation free of administration controls', () => {
@@ -72,10 +73,7 @@ describe('ApplicationHeader', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
   });
 

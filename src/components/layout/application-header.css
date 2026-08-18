@@ -148,14 +148,15 @@
     padding-inline: 6px;
   }
 
-  .application-header__brand img {
-    width: 30px;
-    height: 30px;
+  .application-header__brand,
+  .application-header .sync-status-indicator,
+  .application-header .user-menu > :first-child {
+    display: none;
   }
 
   .application-header__navigation .authenticated-navigation__link {
-    padding-inline: 6px;
-    font-size: 12px;
+    padding-inline: 4px;
+    font-size: 11px;
   }
 
   .application-header .settings-theme-control button {
