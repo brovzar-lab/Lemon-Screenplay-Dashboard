@@ -4,7 +4,7 @@ import { defineSecret } from "firebase-functions/params";
 import { onRequest } from "firebase-functions/v2/https";
 import { authenticateProxyRequest } from "./proxyAuth";
 
-const googleApiKey = defineSecret("GOOGLE_API_KEY");
+const googleApiKey = defineSecret("GEMINI_API_KEY");
 const proxyServiceKey = defineSecret("PROXY_SERVICE_KEY");
 
 const POSTER_MODELS = [
