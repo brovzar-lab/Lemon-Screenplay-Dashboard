@@ -1,4 +1,4 @@
-import { DiscoverAppHeader } from '@/components/discover/DiscoverAppHeader';
+import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import { useTranslation } from 'react-i18next';
 import type { ProjectWorkspaceStats } from '@/components/project/ProjectWorkspace';
 
@@ -12,19 +12,13 @@ interface ProjectWorkspaceStateProps {
 export function ProjectWorkspaceState({
   title,
   message,
-  stats,
   onBack,
   loading = false,
 }: ProjectWorkspaceStateProps) {
   const { t } = useTranslation();
   return (
     <div className="discovery-root min-h-screen">
-      <DiscoverAppHeader
-        total={stats.total}
-        averageScore={stats.avgWeightedScore}
-        filmNowCount={stats.filmNowCount}
-        isLoading={loading}
-      />
+      <ApplicationHeader />
       <main className="px-4 py-10 sm:px-6 lg:px-8">
         <section className="dsc-card mx-auto max-w-3xl p-8 text-center sm:p-12" role={loading ? 'status' : undefined}>
           <p className="dsc-kicker">{t('Project workspace')}</p>

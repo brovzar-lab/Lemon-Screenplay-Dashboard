@@ -143,9 +143,16 @@
 }
 
 @media (max-width: 520px) {
+  .application-header {
+    height: auto;
+  }
+
   .application-header__inner {
+    min-height: 64px;
+    height: auto;
+    flex-wrap: wrap;
     gap: 4px;
-    padding-inline: 6px;
+    padding: 6px;
   }
 
   .application-header__brand,
@@ -162,6 +169,12 @@
   .application-header .settings-theme-control button {
     padding-inline: 4px;
     font-size: 8px;
+  }
+
+  .application-header__actions {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    margin-left: 0;
   }
 
   .application-header__actions > div:last-child {

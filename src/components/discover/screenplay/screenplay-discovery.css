@@ -28,24 +28,24 @@
 
 .screenplay-discovery .hybrid-command-rail {
   --hybrid-accent: var(--screenplay-cobalt);
-  --hybrid-accent-strong: #2145cf;
-  --hybrid-accent-soft: #dfe7ff;
-  --hybrid-surface: #0c1729;
-  --hybrid-surface-muted: #111f35;
-  --hybrid-line: #243652;
-  --hybrid-line-strong: #304766;
-  --hybrid-ink: #f4f7fc;
-  --hybrid-ink-muted: #b5c0d2;
-  --hybrid-ink-faint: #8290a7;
+  --hybrid-accent-strong: var(--dsc-accent-hover);
+  --hybrid-accent-soft: var(--dsc-accent-soft);
+  --hybrid-surface: var(--dsc-surface);
+  --hybrid-surface-muted: var(--dsc-surface-2);
+  --hybrid-line: var(--dsc-line);
+  --hybrid-line-strong: var(--sp-border-strong);
+  --hybrid-ink: var(--dsc-ink);
+  --hybrid-ink-muted: var(--dsc-ink-2);
+  --hybrid-ink-faint: var(--dsc-ink-3);
   background: var(--hybrid-surface);
   color: var(--hybrid-ink);
 }
 
 .screenplay-discovery .hybrid-command-rail input,
 .screenplay-discovery .hybrid-command-rail select {
-  border-color: #2b4061;
-  background: #0a1424;
-  color: #f5f7fb;
+  border-color: var(--dsc-line);
+  background: var(--dsc-surface-2);
+  color: var(--dsc-ink);
 }
 
 .screenplay-discovery__findbar :focus-visible,
@@ -55,9 +55,9 @@
 }
 
 .screenplay-discovery__findbar {
-  border-bottom: 1px solid #243652;
-  background: #0c1729;
-  color: #f4f7fc;
+  border-bottom: 1px solid var(--dsc-line);
+  background: var(--dsc-surface);
+  color: var(--dsc-ink);
 }
 
 .screenplay-discovery__findbar-inner {
@@ -79,17 +79,17 @@
   gap: 10px;
   margin: 0 auto;
   padding: 0 12px;
-  border: 1px solid #2b4061;
+  border: 1px solid var(--dsc-line);
   border-radius: 9px;
-  background: #0a1424;
-  color: #f5f7fb;
+  background: var(--dsc-surface-2);
+  color: var(--dsc-ink);
 }
 
 .screenplay-discovery__search svg {
   width: 18px;
   height: 18px;
   fill: none;
-  stroke: #9eabc0;
+  stroke: var(--dsc-ink-2);
   stroke-width: 1.8;
 }
 
@@ -103,15 +103,15 @@
 }
 
 .screenplay-discovery__search input::placeholder {
-  color: #8290a7;
+  color: var(--dsc-ink-3);
 }
 
 .screenplay-discovery__search kbd {
   min-width: 24px;
   padding: 3px 6px;
-  border: 1px solid #304766;
+  border: 1px solid var(--dsc-line);
   border-radius: 5px;
-  color: #9eabc0;
+  color: var(--dsc-ink-2);
   font-size: 10px;
   text-align: center;
 }
@@ -125,15 +125,15 @@
 
 .screenplay-discovery__find-actions > :is(button, .btn, .dsc-btn) {
   min-height: 42px;
-  border-color: #304766;
-  background: #111f35;
-  color: #c5cede;
+  border-color: var(--dsc-line);
+  background: var(--dsc-surface-2);
+  color: var(--dsc-ink-2);
   box-shadow: none;
 }
 
 .screenplay-discovery__find-actions > :is(button, .btn, .dsc-btn):hover {
-  border-color: #6e8bff;
-  color: #fff;
+  border-color: var(--dsc-accent);
+  color: var(--dsc-ink);
 }
 
 @media (max-width: 760px) {
@@ -176,9 +176,9 @@
 .screenplay-slate-stats {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  border-bottom: 1px solid #243652;
-  background: #111f35;
-  color: #f4f7fc;
+  border-bottom: 1px solid var(--dsc-line);
+  background: var(--dsc-surface-2);
+  color: var(--dsc-ink);
 }
 
 .screenplay-slate-stats > span {
@@ -188,7 +188,7 @@
   justify-content: center;
   gap: 8px;
   padding: 7px 12px;
-  border-left: 1px solid #243652;
+  border-left: 1px solid var(--dsc-line);
 }
 
 .screenplay-slate-stats > span:first-child {
@@ -201,7 +201,7 @@
 }
 
 .screenplay-slate-stats small {
-  color: #9eabc0;
+  color: var(--dsc-ink-2);
   font-size: 9px;
   font-weight: 750;
   letter-spacing: 0.08em;
@@ -210,7 +210,7 @@
 
 .screenplay-slate-stats__skeleton {
   min-height: 44px;
-  background: linear-gradient(90deg, #111f35 25%, #1a2b46 50%, #111f35 75%);
+  background: linear-gradient(90deg, var(--dsc-surface-2) 25%, var(--dsc-surface-3) 50%, var(--dsc-surface-2) 75%);
   background-size: 200% 100%;
   animation: screenplay-stats-shimmer 1.4s linear infinite;
 }
@@ -542,15 +542,14 @@
   outline-offset: -4px;
 }
 
-/* The daily Featured project is one deliberate recommendation, not a ranking
-   table. The richer navy treatment connects it to the Screenplay File while
-   preserving ivory paper as the material object. */
+/* Featured and Screenplay File are the same project surface at two depths.
+   Both follow the selected theme; the physical screenplay remains ivory. */
 .screenplay-featured__layout {
   display: grid;
   min-height: 350px;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.3fr);
-  background: linear-gradient(135deg, #0e1b31 0%, #122443 68%, #0b1930 100%);
-  color: #f5f2ea;
+  background: var(--screenplay-panel);
+  color: var(--screenplay-panel-ink);
 }
 
 .screenplay-featured__open {
@@ -584,7 +583,7 @@
 
 .screenplay-featured__kicker,
 .screenplay-featured__meta {
-  color: #9fb2d2;
+  color: var(--screenplay-panel-muted);
   font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.1em;
@@ -593,7 +592,7 @@
 
 .screenplay-featured__title {
   margin-top: 7px;
-  color: #f5f2ea;
+  color: var(--screenplay-panel-ink);
   font-family: var(--dsc-font-display);
   font-size: clamp(34px, 4vw, 58px);
   font-weight: 600;
@@ -602,7 +601,7 @@
 
 .screenplay-featured__qualifier {
   margin-top: 6px;
-  color: #c4cee0;
+  color: var(--screenplay-panel-copy);
   font-size: 12px;
 }
 
@@ -613,7 +612,7 @@
 .screenplay-featured__logline {
   max-width: 780px;
   margin-top: 17px;
-  color: #d7deea;
+  color: var(--screenplay-panel-copy);
   font-size: clamp(14px, 1.25vw, 17px);
   line-height: 1.62;
 }
@@ -624,25 +623,26 @@
   max-width: 760px;
   margin-top: 20px;
   padding: 12px 15px;
-  border-left: 3px solid #6e8bff;
-  background: rgb(255 255 255 / 0.055);
+  border: 0;
+  border-radius: var(--dsc-radius-card);
+  background: var(--screenplay-panel-soft);
 }
 
 .screenplay-featured__why b {
-  color: #9fb2d2;
+  color: var(--screenplay-panel-muted);
   font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .screenplay-featured__why strong {
-  color: #ffffff;
+  color: var(--screenplay-panel-ink);
   font-size: 14px;
 }
 
 .screenplay-featured__why small,
 .screenplay-featured__why em {
-  color: #b8c4d8;
+  color: var(--screenplay-panel-copy);
   font-size: 11px;
   font-style: normal;
   line-height: 1.45;
@@ -650,12 +650,12 @@
 
 .screenplay-featured__why em {
   margin-top: 5px;
-  color: #ffd98b;
+  color: var(--screenplay-panel-accent);
 }
 
 .screenplay-featured__action {
   margin-top: 14px;
-  color: #aebdff;
+  color: var(--screenplay-panel-accent);
   font-size: 12px;
   font-weight: 750;
 }
@@ -666,12 +666,12 @@
   align-items: flex-start;
   justify-content: center;
   padding: 30px;
-  border-left: 1px solid #304766;
-  background: rgb(7 20 38 / 0.46);
+  border-left: 1px solid var(--screenplay-panel-line);
+  background: var(--screenplay-panel-soft);
 }
 
 .screenplay-featured__decision > span:first-child {
-  color: #9fb2d2;
+  color: var(--screenplay-panel-muted);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -680,7 +680,7 @@
 
 .screenplay-featured__decision > strong {
   margin: 8px 0 14px;
-  color: #ffffff;
+  color: var(--screenplay-panel-ink);
   font-family: var(--dsc-font-type);
   font-size: clamp(54px, 6vw, 82px);
   font-weight: 600;
@@ -690,7 +690,7 @@
 .screenplay-featured__decision dl {
   width: 100%;
   margin-top: 22px;
-  border-top: 1px solid #304766;
+  border-top: 1px solid var(--screenplay-panel-line);
 }
 
 .screenplay-featured__decision dl > div {
@@ -698,17 +698,17 @@
   justify-content: space-between;
   gap: 12px;
   padding: 10px 0;
-  border-bottom: 1px solid #304766;
+  border-bottom: 1px solid var(--screenplay-panel-line);
 }
 
 .screenplay-featured__decision dt {
-  color: #9fb2d2;
+  color: var(--screenplay-panel-muted);
   font-size: 10px;
   text-transform: uppercase;
 }
 
 .screenplay-featured__decision dd {
-  color: #f5f2ea;
+  color: var(--screenplay-panel-ink);
   font-size: 11px;
   font-weight: 700;
   text-transform: capitalize;
@@ -726,8 +726,8 @@
   gap: 12px;
   margin-top: auto;
   padding-top: 18px;
-  border-top: 1px solid #304766;
-  color: #c4cee0;
+  border-top: 1px solid var(--screenplay-panel-line);
+  color: var(--screenplay-panel-copy);
   font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.08em;

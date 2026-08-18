@@ -3,6 +3,37 @@ import { test, expect } from './fixtures';
 test.setTimeout(90_000);
 
 test.describe('Project workspace and fallback drawer', () => {
+  test('Screenplay File shell follows the active light or dark theme', async ({ page }) => {
+    await page.goto('/projects/matadero-5ta-version-24052026?workspace=screenplay');
+    const workspace = page.getByTestId('screenplay-file-workspace');
+    await expect(workspace).toBeVisible({ timeout: 30_000 });
+
+    const colors = await workspace.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const hero = element.querySelector<HTMLElement>('.screenplay-file__hero');
+      const binder = element.querySelector<HTMLElement>('.screenplay-file__binder');
+      const probe = (token: string) => {
+        const themeProbe = document.createElement('span');
+        themeProbe.style.background = `var(${token})`;
+        element.appendChild(themeProbe);
+        const value = getComputedStyle(themeProbe).backgroundColor;
+        themeProbe.remove();
+        return value;
+      };
+      return {
+        shell: style.backgroundColor,
+        canvas: probe('--dsc-bg'),
+        surface: probe('--dsc-surface'),
+        hero: hero ? getComputedStyle(hero).backgroundColor : '',
+        binder: binder ? getComputedStyle(binder).backgroundColor : '',
+      };
+    });
+
+    expect(colors.shell).toBe(colors.canvas);
+    expect(colors.hero).toBe(colors.surface);
+    expect(colors.binder).toBe(colors.surface);
+  });
+
   test('all six Screenplay File tabs remain connected', async ({ page }) => {
     await page.goto('/projects/matadero-5ta-version-24052026?workspace=screenplay');
     await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({ timeout: 30_000 });
