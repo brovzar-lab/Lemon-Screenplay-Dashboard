@@ -155,7 +155,7 @@ describe('Intake upload presentation', () => {
 
     const dialog = screen.getByRole('alertdialog', { name: 'Authorize paid analysis?' });
     expect(within(dialog).getByText('Estimated batch cost')).toBeInTheDocument();
-    expect(within(dialog).getByText('~$0.44–$1.04')).toBeInTheDocument();
+    expect(within(dialog).getByText('~$3.20–$24.00')).toBeInTheDocument();
     expect(within(dialog).getByText('First.pdf')).toBeInTheDocument();
     expect(within(dialog).getByText('Second.pdf')).toBeInTheDocument();
     expect(mockUpload).not.toHaveBeenCalled();

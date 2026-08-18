@@ -8,6 +8,17 @@ import type { ModelInfo, ModelOption } from './upload.types';
 
 // ─── Model definitions ───────────────────────────────────────────────────────
 
+// Planning ranges use seven metered production runs ($2.70–$7.33 on Opus)
+// and the approved server-side price ratios. Hybrid includes a Sonnet pass
+// plus the possible Opus promotion. Keep these conservative until the pilot
+// supplies direct Hybrid measurements.
+export const MODEL_PLANNING_COSTS_USD: Record<ModelOption, readonly [number, number]> = {
+  haiku: [0.5, 1.5],
+  sonnet: [1.6, 4.5],
+  opus: [2.7, 7.5],
+  hybrid: [1.6, 12],
+};
+
 export const MODEL_OPTIONS: ModelInfo[] = [
   {
     id: 'haiku',
@@ -15,7 +26,7 @@ export const MODEL_OPTIONS: ModelInfo[] = [
     modelId: modelCatalog.analysisRoutes.haiku.modelId,
     routeLabel: 'Approved analysis route',
     subtitle: 'Fast & Affordable',
-    costPerScript: '~$0.06',
+    costPerScript: '~$0.50–$1.50',
     speed: '~1 min',
     quality: 'Good',
     badge: 'BUDGET',
@@ -29,7 +40,7 @@ export const MODEL_OPTIONS: ModelInfo[] = [
     modelId: modelCatalog.analysisRoutes.sonnet.modelId,
     routeLabel: 'Approved analysis route',
     subtitle: 'Balanced Power',
-    costPerScript: '~$0.22',
+    costPerScript: '~$1.60–$4.50',
     speed: '~3 min',
     quality: 'Excellent',
     badge: 'RECOMMENDED',
@@ -43,7 +54,7 @@ export const MODEL_OPTIONS: ModelInfo[] = [
     modelId: modelCatalog.analysisRoutes.opus.modelId,
     routeLabel: 'Approved analysis route',
     subtitle: 'Maximum Depth',
-    costPerScript: '~$0.30',
+    costPerScript: '~$2.70–$7.50',
     speed: '~5 min',
     quality: 'Premium',
     badge: 'PREMIUM',
@@ -57,7 +68,7 @@ export const MODEL_OPTIONS: ModelInfo[] = [
     modelId: `${modelCatalog.analysisRoutes.sonnet.modelId} + ${modelCatalog.analysisRoutes.opus.modelId}`,
     routeLabel: 'Approved two-pass route',
     subtitle: 'Smart Two-Pass',
-    costPerScript: '~$0.22-$0.52',
+    costPerScript: '~$1.60–$12.00',
     speed: '~3-8 min',
     quality: 'Optimized',
     badge: 'SMART',

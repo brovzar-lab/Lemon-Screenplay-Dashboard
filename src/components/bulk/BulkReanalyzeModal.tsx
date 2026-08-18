@@ -13,8 +13,9 @@ import { useExportSelectionStore } from '@/stores/exportSelectionStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { SCREENPLAYS_QUERY_KEY } from '@/hooks/useScreenplays';
 import { useApiConfigStore } from '@/stores/apiConfigStore';
+import { MODEL_PLANNING_COSTS_USD } from '@/components/settings/upload/upload.constants';
 
-const ESTIMATED_COST_PER_SCREENPLAY = 1;
+const ESTIMATED_COST_PER_SCREENPLAY = MODEL_PLANNING_COSTS_USD.sonnet[1];
 
 type ReanalyzeItemStatus = 'queued' | 'analyzing' | 'continuing' | 'done' | 'failed';
 
