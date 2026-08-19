@@ -1,0 +1,650 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-08-19",
+  "status": "research_snapshot",
+  "territories": [
+    {
+      "id": "mexico",
+      "label": "Mexico",
+      "buyers": [
+        {
+          "id": "netflix",
+          "name": "Netflix",
+          "appetite": "Aggressive local investment: US$1B for 2025-2028, 20+ titles/year. Wants action thrillers, romance, comedy and historical drama made with local partners.",
+          "formats": "Series + features",
+          "signal": "high",
+          "matchQuery": "thriller",
+          "confidence": "high",
+          "evidenceIds": [
+            "MX-NFLX-001",
+            "MX-NFLX-002",
+            "MX-THR-001"
+          ],
+          "notes": "Backed by new 30% EFICA government tax credit; Churubusco Studios upgrade."
+        },
+        {
+          "id": "amazon",
+          "name": "Amazon MGM / Prime Video",
+          "appetite": "Local-obsession hits: romance, true crime, comedy adaptations and courtroom drama. Record Mexico premiere with Mentiras, La Serie; The Office adaptation La Oficina for 2026.",
+          "formats": "Series + films",
+          "signal": "high",
+          "matchQuery": "romance",
+          "confidence": "high",
+          "evidenceIds": [
+            "MX-AMZN-001"
+          ],
+          "notes": "Positions Mexico as a source of globally exportable franchises."
+        },
+        {
+          "id": "hbo-max",
+          "name": "HBO Max",
+          "appetite": "Quality over volume: nostalgia/heritage IP (Chespirito universe), true-crime docuseries and prestige drama. Similar or slightly higher volume than 2025.",
+          "formats": "Series + docuseries",
+          "signal": "rising",
+          "matchQuery": "crime",
+          "confidence": "high",
+          "evidenceIds": [
+            "MX-WBD-001",
+            "MX-WBD-002"
+          ],
+          "notes": "Chespirito: Sin Querer Queriendo is the biggest LatAm title in platform history."
+        },
+        {
+          "id": "warner-bros",
+          "name": "Warner Bros.",
+          "appetite": "Theatrical slate driven by global tentpoles and franchises. Local Mexican scripted commissioning runs mainly through HBO Max rather than a separate theatrical local pipeline.",
+          "formats": "Features (studio tentpoles)",
+          "signal": "selective",
+          "matchQuery": "action",
+          "confidence": "low",
+          "evidenceIds": [
+            "GLBL-WBD-001",
+            "MX-WBD-002"
+          ],
+          "notes": "No Mexico-specific local theatrical production plan disclosed in the last 12 months."
+        },
+        {
+          "id": "apple-tv-plus",
+          "name": "Apple TV+",
+          "appetite": "Selective. Maintains select Spanish-language crime drama (Women in Blue / Las Azules renewed for S2) but is not a volume buyer in Mexico.",
+          "formats": "Series",
+          "signal": "selective",
+          "matchQuery": "crime",
+          "confidence": "medium",
+          "evidenceIds": [
+            "MX-APPL-001",
+            "GLBL-APPL-001"
+          ],
+          "notes": "Company-wide cost discipline limits Mexico output."
+        }
+      ],
+      "demands": [
+        {
+          "id": "true-crime",
+          "label": "True crime and crime drama",
+          "index": 85,
+          "matchQuery": "crime",
+          "confidence": "high",
+          "evidenceIds": [
+            "MX-WBD-002",
+            "MX-AMZN-001",
+            "MX-PARROT-001"
+          ]
+        },
+        {
+          "id": "romance-drama",
+          "label": "Romance and romantic drama (incl. hybrids)",
+          "index": 84,
+          "matchQuery": "romance",
+          "confidence": "high",
+          "evidenceIds": [
+            "MX-SENAL-001",
+            "MX-AMZN-001",
+            "GLBL-NFLX-002"
+          ]
+        },
+        {
+          "id": "elevated-action-thriller",
+          "label": "Elevated action / police thriller",
+          "index": 82,
+          "matchQuery": "thriller",
+          "confidence": "high",
+          "evidenceIds": [
+            "MX-NFLX-001",
+            "MX-NFLX-002",
+            "MX-PARROT-001"
+          ]
+        },
+        {
+          "id": "nostalgia-ip-biopic",
+          "label": "Nostalgia / heritage IP and biographical drama",
+          "index": 76,
+          "matchQuery": "biography",
+          "confidence": "medium",
+          "evidenceIds": [
+            "MX-WBD-001",
+            "MX-AMZN-001"
+          ]
+        },
+        {
+          "id": "comedy",
+          "label": "Comedy (adaptations and stand-up formats)",
+          "index": 70,
+          "matchQuery": "comedy",
+          "confidence": "medium",
+          "evidenceIds": [
+            "MX-AMZN-001",
+            "MX-NFLX-002"
+          ]
+        },
+        {
+          "id": "historical-period-drama",
+          "label": "Historical / period drama",
+          "index": 62,
+          "matchQuery": "drama",
+          "confidence": "medium",
+          "evidenceIds": [
+            "MX-NFLX-002",
+            "MX-PARROT-001"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "us-latino",
+      "label": "US Latino",
+      "buyers": [
+        {
+          "id": "netflix",
+          "name": "Netflix",
+          "appetite": "Serves US Latino via pan-Spanish library plus its Mexico slate; Latinos overindex on Netflix. No US-Latino-exclusive scripted mandate disclosed.",
+          "formats": "Series + films (pan-regional)",
+          "signal": "rising",
+          "matchQuery": "spanish",
+          "confidence": "medium",
+          "evidenceIds": [
+            "USL-NIEL-001",
+            "USL-BEL-001"
+          ],
+          "notes": "Demand is high; segment-specific commissioning is not."
+        },
+        {
+          "id": "amazon",
+          "name": "Amazon MGM / Prime Video",
+          "appetite": "Reaches US Hispanic through pan-regional Spanish hits (Betty la Fea) and Telemundo/free ad-supported channels.",
+          "formats": "Series + films (pan-regional)",
+          "signal": "rising",
+          "matchQuery": "romance",
+          "confidence": "medium",
+          "evidenceIds": [
+            "USL-PARROT-001",
+            "LA-AMZN-001"
+          ],
+          "notes": null
+        },
+        {
+          "id": "hbo-max",
+          "name": "HBO Max",
+          "appetite": "US Hispanic served via LatAm true-crime and prestige IP; no distinct US-Latino original mandate disclosed.",
+          "formats": "Series + docuseries",
+          "signal": "selective",
+          "matchQuery": "crime",
+          "confidence": "low",
+          "evidenceIds": [
+            "USL-PARROT-001"
+          ],
+          "notes": null
+        },
+        {
+          "id": "warner-bros",
+          "name": "Warner Bros.",
+          "appetite": "No US-Latino-specific theatrical commissioning signal identified in the last 12 months.",
+          "formats": "unknown",
+          "signal": "unknown",
+          "matchQuery": "unknown",
+          "confidence": "low",
+          "evidenceIds": [],
+          "notes": "Evidence gap."
+        },
+        {
+          "id": "apple-tv-plus",
+          "name": "Apple TV+",
+          "appetite": "Select Spanish-language crime drama reaches US Hispanic (Las Azules), but selective posture.",
+          "formats": "Series",
+          "signal": "selective",
+          "matchQuery": "crime",
+          "confidence": "low",
+          "evidenceIds": [
+            "MX-APPL-001"
+          ],
+          "notes": null
+        }
+      ],
+      "demands": [
+        {
+          "id": "spanish-bilingual-scripted",
+          "label": "Spanish-language and bilingual scripted",
+          "index": 72,
+          "matchQuery": "spanish",
+          "confidence": "medium",
+          "evidenceIds": [
+            "USL-NIEL-001",
+            "USL-BEL-001",
+            "USL-PLAT-001"
+          ]
+        },
+        {
+          "id": "cross-border-crime-thriller",
+          "label": "Cross-border crime and thriller",
+          "index": 66,
+          "matchQuery": "thriller",
+          "confidence": "medium",
+          "evidenceIds": [
+            "USL-PARROT-001",
+            "MX-PARROT-001"
+          ]
+        },
+        {
+          "id": "telenovela-romance",
+          "label": "Telenovela and romance",
+          "index": 64,
+          "matchQuery": "romance",
+          "confidence": "medium",
+          "evidenceIds": [
+            "USL-PARROT-001",
+            "LA-AMZN-001"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "latin-america",
+      "label": "Latin America",
+      "buyers": [
+        {
+          "id": "netflix",
+          "name": "Netflix",
+          "appetite": "Regional slate anchored in Mexico plus Argentina (19 Argentine titles across 2026-2027). Romance, crime and drama with name directors.",
+          "formats": "Series + features",
+          "signal": "high",
+          "matchQuery": "romance",
+          "confidence": "high",
+          "evidenceIds": [
+            "LA-NFLX-001",
+            "MX-NFLX-001"
+          ],
+          "notes": null
+        },
+        {
+          "id": "amazon",
+          "name": "Amazon MGM / Prime Video",
+          "appetite": "Local-obsession franchises (Betty la Fea, Culpables), courtroom/true-crime drama and competition reality; region positioned as global-export source.",
+          "formats": "Series + films + reality",
+          "signal": "high",
+          "matchQuery": "romance",
+          "confidence": "high",
+          "evidenceIds": [
+            "LA-AMZN-001",
+            "MX-AMZN-001"
+          ],
+          "notes": null
+        },
+        {
+          "id": "hbo-max",
+          "name": "HBO Max",
+          "appetite": "Quality over volume; true-crime docuseries and prestige/heritage IP (City of God, Like Water for Chocolate, Chespirito).",
+          "formats": "Series + docuseries",
+          "signal": "rising",
+          "matchQuery": "crime",
+          "confidence": "high",
+          "evidenceIds": [
+            "MX-WBD-002"
+          ],
+          "notes": null
+        },
+        {
+          "id": "warner-bros",
+          "name": "Warner Bros.",
+          "appetite": "Local commissioning channelled through HBO Max; theatrical is global-tentpole-led.",
+          "formats": "Features (tentpoles)",
+          "signal": "selective",
+          "matchQuery": "action",
+          "confidence": "low",
+          "evidenceIds": [
+            "MX-WBD-002",
+            "GLBL-WBD-001"
+          ],
+          "notes": null
+        },
+        {
+          "id": "apple-tv-plus",
+          "name": "Apple TV+",
+          "appetite": "Selective Spanish-language scripted; not a volume regional buyer.",
+          "formats": "Series",
+          "signal": "selective",
+          "matchQuery": "crime",
+          "confidence": "low",
+          "evidenceIds": [
+            "MX-APPL-001",
+            "GLBL-APPL-001"
+          ],
+          "notes": null
+        }
+      ],
+      "demands": [
+        {
+          "id": "romance-scripted",
+          "label": "Romance (top scripted genre, incl. hybrids)",
+          "index": 86,
+          "matchQuery": "romance",
+          "confidence": "high",
+          "evidenceIds": [
+            "LA-SENAL-001",
+            "LA-PARROT-001"
+          ]
+        },
+        {
+          "id": "crime-drama-true-crime",
+          "label": "Crime drama and true crime",
+          "index": 82,
+          "matchQuery": "crime",
+          "confidence": "high",
+          "evidenceIds": [
+            "LA-PARROT-001",
+            "MX-WBD-002"
+          ]
+        },
+        {
+          "id": "telenovela-hybrid-melodrama",
+          "label": "Modernized telenovela / hybrid melodrama",
+          "index": 74,
+          "matchQuery": "drama",
+          "confidence": "medium",
+          "evidenceIds": [
+            "LA-SENAL-001",
+            "LA-PARROT-001"
+          ]
+        },
+        {
+          "id": "competition-reality",
+          "label": "Competition and talent reality",
+          "index": 70,
+          "matchQuery": "reality",
+          "confidence": "medium",
+          "evidenceIds": [
+            "LA-PARROT-001",
+            "SP-AMZN-001"
+          ]
+        },
+        {
+          "id": "microdrama-shortform",
+          "label": "Microdrama / vertical short-form",
+          "index": 58,
+          "matchQuery": "drama",
+          "confidence": "low",
+          "evidenceIds": [
+            "LA-CNBC-001",
+            "LA-SENAL-001"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "spain",
+      "label": "Spain",
+      "buyers": [
+        {
+          "id": "netflix",
+          "name": "Netflix",
+          "appetite": "EUR 1B+/US$1.2B for 2025-2028 with the Tres Cantos studio hub. Thrillers, heist/crime, YA and event miniseries with a strong hook.",
+          "formats": "Series + features",
+          "signal": "high",
+          "matchQuery": "thriller",
+          "confidence": "high",
+          "evidenceIds": [
+            "SP-NFLX-001"
+          ],
+          "notes": "Spanish titles generated 5B+ viewing hours in the prior year."
+        },
+        {
+          "id": "amazon",
+          "name": "Amazon MGM / Prime Video",
+          "appetite": "Spain is Prime's No. 1 non-English export power. Action + young-adult scripted, romance (Culpables), and big live reality (Operacion Triunfo, LOL).",
+          "formats": "Series + films + reality",
+          "signal": "high",
+          "matchQuery": "action",
+          "confidence": "high",
+          "evidenceIds": [
+            "SP-AMZN-001",
+            "SP-AMZN-002"
+          ],
+          "notes": null
+        },
+        {
+          "id": "hbo-max",
+          "name": "HBO Max",
+          "appetite": "Documentary and true-crime unscripted tied to recent/current affairs and sports figures.",
+          "formats": "Docuseries + unscripted",
+          "signal": "rising",
+          "matchQuery": "crime",
+          "confidence": "medium",
+          "evidenceIds": [
+            "SP-WBD-001"
+          ],
+          "notes": null
+        },
+        {
+          "id": "warner-bros",
+          "name": "Warner Bros.",
+          "appetite": "Local commissioning via HBO Max; theatrical is tentpole-led.",
+          "formats": "Features + docuseries (via HBO Max)",
+          "signal": "selective",
+          "matchQuery": "action",
+          "confidence": "low",
+          "evidenceIds": [
+            "SP-WBD-001",
+            "GLBL-WBD-001"
+          ],
+          "notes": null
+        },
+        {
+          "id": "apple-tv-plus",
+          "name": "Apple TV+",
+          "appetite": "No disclosed Spain-specific originals mandate in the last 12 months.",
+          "formats": "unknown",
+          "signal": "unknown",
+          "matchQuery": "unknown",
+          "confidence": "low",
+          "evidenceIds": [
+            "GLBL-APPL-001"
+          ],
+          "notes": "Evidence gap for Spain specifically."
+        }
+      ],
+      "demands": [
+        {
+          "id": "action-young-adult",
+          "label": "Action and young-adult scripted",
+          "index": 82,
+          "matchQuery": "action",
+          "confidence": "high",
+          "evidenceIds": [
+            "SP-AMZN-001",
+            "SP-AMZN-002"
+          ]
+        },
+        {
+          "id": "thriller-crime-heist",
+          "label": "Thriller / crime / heist",
+          "index": 80,
+          "matchQuery": "thriller",
+          "confidence": "high",
+          "evidenceIds": [
+            "SP-NFLX-001"
+          ]
+        },
+        {
+          "id": "romance-ya",
+          "label": "Romance and YA romance",
+          "index": 78,
+          "matchQuery": "romance",
+          "confidence": "high",
+          "evidenceIds": [
+            "SP-AMZN-002",
+            "GLBL-NFLX-002"
+          ]
+        },
+        {
+          "id": "documentary-true-crime",
+          "label": "Documentary and true crime",
+          "index": 68,
+          "matchQuery": "crime",
+          "confidence": "medium",
+          "evidenceIds": [
+            "SP-WBD-001"
+          ]
+        },
+        {
+          "id": "reality-competition",
+          "label": "Reality and competition",
+          "index": 66,
+          "matchQuery": "reality",
+          "confidence": "medium",
+          "evidenceIds": [
+            "SP-AMZN-001"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "global",
+      "label": "Global",
+      "buyers": [
+        {
+          "id": "netflix",
+          "name": "Netflix",
+          "appetite": "~US$20B content spend in 2026. Non-English local-language originals prioritized; a declared year of romance; unscripted and live events added as new categories.",
+          "formats": "Series + films + live/unscripted",
+          "signal": "high",
+          "matchQuery": "drama",
+          "confidence": "high",
+          "evidenceIds": [
+            "GLBL-NFLX-001",
+            "GLBL-NFLX-002",
+            "GLBL-TREND-001"
+          ],
+          "notes": null
+        },
+        {
+          "id": "amazon",
+          "name": "Amazon MGM / Prime Video",
+          "appetite": "International Originals big bets: Spanish romance, Korean drama and Indian hits engineered to travel (Culpables 100M viewers, 90%+ outside home market).",
+          "formats": "Series + films",
+          "signal": "high",
+          "matchQuery": "romance",
+          "confidence": "high",
+          "evidenceIds": [
+            "GLBL-AMZN-001"
+          ],
+          "notes": null
+        },
+        {
+          "id": "hbo-max",
+          "name": "HBO Max",
+          "appetite": "Expanding international acquisition budget for local-language originals across Europe and Latin America; prestige and true crime.",
+          "formats": "Series + docuseries",
+          "signal": "rising",
+          "matchQuery": "drama",
+          "confidence": "medium",
+          "evidenceIds": [
+            "GLBL-TREND-001",
+            "MX-WBD-002"
+          ],
+          "notes": null
+        },
+        {
+          "id": "warner-bros",
+          "name": "Warner Bros.",
+          "appetite": "Theatrical release count ramping 11 (2025) to 14 (2026) to 18 (2027), led by tentpoles and franchises (Dune, LOTR, DC).",
+          "formats": "Features (tentpoles)",
+          "signal": "rising",
+          "matchQuery": "action",
+          "confidence": "medium",
+          "evidenceIds": [
+            "GLBL-WBD-001"
+          ],
+          "notes": "Franchise-first; limited window for original local features."
+        },
+        {
+          "id": "apple-tv-plus",
+          "name": "Apple TV+",
+          "appetite": "More selective. Content budget trimmed to ~US$4.5B; ~a dozen films/year, most under US$100M. Fewer, prestige bets.",
+          "formats": "Series + features",
+          "signal": "selective",
+          "matchQuery": "drama",
+          "confidence": "medium",
+          "evidenceIds": [
+            "GLBL-APPL-001"
+          ],
+          "notes": null
+        }
+      ],
+      "demands": [
+        {
+          "id": "nonenglish-local-language",
+          "label": "Non-English local-language originals that travel",
+          "index": 84,
+          "matchQuery": "drama",
+          "confidence": "high",
+          "evidenceIds": [
+            "GLBL-TREND-001",
+            "GLBL-NFLX-001",
+            "GLBL-AMZN-001"
+          ]
+        },
+        {
+          "id": "romance-romantasy",
+          "label": "Romance and romantasy",
+          "index": 78,
+          "matchQuery": "romance",
+          "confidence": "medium",
+          "evidenceIds": [
+            "GLBL-NFLX-002",
+            "GLBL-AMZN-001"
+          ]
+        },
+        {
+          "id": "unscripted-reality",
+          "label": "Unscripted and reality",
+          "index": 76,
+          "matchQuery": "reality",
+          "confidence": "medium",
+          "evidenceIds": [
+            "GLBL-TREND-003"
+          ]
+        },
+        {
+          "id": "crime-thriller-evergreen",
+          "label": "Crime and thriller (evergreen)",
+          "index": 74,
+          "matchQuery": "thriller",
+          "confidence": "medium",
+          "evidenceIds": [
+            "GLBL-TREND-003",
+            "MX-PARROT-001"
+          ]
+        },
+        {
+          "id": "live-sports-events",
+          "label": "Live sports and events",
+          "index": 60,
+          "matchQuery": "sports",
+          "confidence": "medium",
+          "evidenceIds": [
+            "GLBL-NFLX-001"
+          ]
+        }
+      ]
+    }
+  ]
+}

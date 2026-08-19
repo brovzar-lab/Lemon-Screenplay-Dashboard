@@ -53,6 +53,7 @@ describe('ApplicationHeader', () => {
       '/',
     );
     expect(screen.getByRole('link', { name: 'Discovery' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('Synced')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Language' })).toBeInTheDocument();
@@ -69,7 +70,7 @@ describe('ApplicationHeader', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
@@ -83,6 +84,7 @@ describe('ApplicationHeader', () => {
 
     await user.click(screen.getByRole('button', { name: 'Spanish' }));
 
+    expect(screen.getByRole('link', { name: 'Inicio' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Descubrimiento' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Idioma' })).toBeInTheDocument();
     expect(document.documentElement).toHaveAttribute('lang', 'es');

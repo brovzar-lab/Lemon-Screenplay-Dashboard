@@ -12,10 +12,9 @@ export function AuthenticatedNavigation({ className = '' }: AuthenticatedNavigat
   const location = useLocation();
   const isAdmin = useIsAdmin();
 
+  const isHome = location.pathname === '/';
   const isDiscovery =
-    location.pathname === '/' ||
-    location.pathname.startsWith('/discover') ||
-    location.pathname.startsWith('/projects/');
+    location.pathname.startsWith('/discover') || location.pathname.startsWith('/projects/');
   const isSettings =
     location.pathname.startsWith('/settings') || location.pathname.startsWith('/intake');
 
@@ -26,6 +25,13 @@ export function AuthenticatedNavigation({ className = '' }: AuthenticatedNavigat
     >
       <Link
         to="/"
+        className={`authenticated-navigation__link ${isHome ? 'authenticated-navigation__link--active' : ''}`}
+        aria-current={isHome ? 'page' : undefined}
+      >
+        {t('Home')}
+      </Link>
+      <Link
+        to="/discover"
         className={`authenticated-navigation__link ${isDiscovery ? 'authenticated-navigation__link--active' : ''}`}
         aria-current={isDiscovery ? 'page' : undefined}
       >

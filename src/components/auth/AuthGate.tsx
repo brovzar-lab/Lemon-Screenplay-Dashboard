@@ -40,7 +40,7 @@ export function AuthGate({ children, requireAdmin = false }: AuthGateProps) {
           <p className="mb-6 text-sm" style={{ color: 'var(--sp-text-3)' }}>
             {t('Your reader account can review, annotate, compare, export, and share screenplays.')}
           </p>
-          <Link to="/" className="btn btn-primary">{t('Back to Discovery')}</Link>
+          <Link to="/discover" className="btn btn-primary">{t('Back to Discovery')}</Link>
         </section>
       </main>
     );
