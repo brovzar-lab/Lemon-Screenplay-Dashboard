@@ -63,7 +63,7 @@ describe('AuthGate', () => {
     mockState.profile = { role: 'reader' };
     renderGate(true);
     expect(screen.getByRole('heading', { name: 'Admin access required' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Back to Discovery' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Back to Discovery' })).toHaveAttribute('href', '/discover');
     expect(screen.queryByText('Protected dashboard')).not.toBeInTheDocument();
   });
 

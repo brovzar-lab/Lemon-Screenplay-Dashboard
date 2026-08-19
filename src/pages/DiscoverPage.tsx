@@ -11,6 +11,7 @@ import {
   useHasActiveFilters,
 } from '@/hooks/useFilteredScreenplays';
 import { useLiveScreenplaySync, useScreenplays } from '@/hooks/useScreenplays';
+import { useUrlState } from '@/hooks/useUrlState';
 import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
 import { getScreenplayStats } from '@/lib/api';
 import { selectProducerLookCandidates } from '@/lib/developmentOpportunity';
@@ -50,6 +51,7 @@ function DiscoverPage() {
   const filters = useFilterStore();
   const pdfStatuses = usePdfStatusStore((state) => state.statuses);
   const hasPdfScanResult = usePdfStatusStore((state) => state.hasScanResult);
+  useUrlState();
 
   // Match the existing dashboard data spine: the query supplies normalized
   // startup data and the live listener replaces it with normalized snapshots.

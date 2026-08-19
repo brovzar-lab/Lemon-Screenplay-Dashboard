@@ -22,15 +22,15 @@ describe('AuthenticatedNavigation', () => {
     authState.isAdmin = true;
   });
 
-  it('uses Discovery as the only primary home', () => {
+  it('uses Studio Pulse as Home and keeps Discovery separate', () => {
     renderNavigation('/');
 
-    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute('href', '/discover');
   });
 
   it('keeps Discover active throughout project workspaces', () => {
@@ -42,7 +42,7 @@ describe('AuthenticatedNavigation', () => {
     );
     expect(screen.getByRole('link', { name: 'Discovery' })).toHaveAttribute(
       'href',
-      '/',
+      '/discover',
     );
   });
 

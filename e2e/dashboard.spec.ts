@@ -4,7 +4,7 @@ test.setTimeout(90_000);
 
 test.describe('Discovery screenplay presentation', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/discover');
     await expect(page.getByRole('link', { name: 'Lemon Screenplay Dashboard home' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/Showing \d+ of \d+ screenplays/)).toBeVisible({ timeout: 30_000 });
   });
@@ -20,7 +20,7 @@ test.describe('Discovery screenplay presentation', () => {
 
   test('redirects the old dashboard route to the current bilingual home', async ({ page }) => {
     await page.goto('/dashboard-classic');
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/discover');
     await expect(page.getByRole('heading', { name: 'Continue through the slate' })).toBeVisible();
   });
 

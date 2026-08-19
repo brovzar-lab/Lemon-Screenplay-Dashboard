@@ -76,10 +76,10 @@ describe('/discover authentication', () => {
     expect(mainSource).toContain('path="/dashboard-classic"');
     expect(mainSource).toContain('areaName="Discovery"');
     expect(mainSource).toMatch(/<AuthGate>\s*<DiscoverPage \/>\s*<\/AuthGate>/);
-    expect(rootRoute).toContain('areaName="Discovery"');
-    expect(rootRoute).toContain('<DiscoverPage />');
+    expect(rootRoute).toContain('areaName="Studio Pulse"');
+    expect(rootRoute).toContain('<StudioPulsePage />');
     expect(rootRoute).not.toContain('<App />');
-    expect(mainSource).toMatch(/path="\/dashboard-classic"\s+element=\{<Navigate to="\/" replace \/>\}/);
+    expect(mainSource).toMatch(/path="\/dashboard-classic"\s+element=\{<Navigate to="\/discover" replace \/>\}/);
     expect(mainSource).not.toContain("import App from './App'");
     expect(mainSource).not.toMatch(/<AuthGate requireAdmin>\s*<DiscoverPage \/>\s*<\/AuthGate>/);
   });

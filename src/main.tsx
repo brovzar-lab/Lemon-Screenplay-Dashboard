@@ -10,6 +10,9 @@ import '@/i18n';
 
 // Lazy-loaded routes — loaded on demand for code splitting
 const SettingsPage = lazy(() => importWithReload('settings', () => import('./pages/SettingsPage')));
+const StudioPulsePage = lazy(() =>
+  importWithReload('studio-pulse', () => import('./pages/StudioPulsePage')),
+);
 const DiscoverPage = lazy(() => importWithReload('discover', () => import('./pages/DiscoverPage')));
 const ProjectWorkspacePage = lazy(() =>
   importWithReload('project-workspace', () => import('@/pages/ProjectWorkspacePage')),
@@ -40,16 +43,16 @@ createRoot(document.getElementById('root')!).render(
               <Route
                 path="/"
                 element={
-                  <ErrorBoundary fullPage areaName="Discovery">
+                  <ErrorBoundary fullPage areaName="Studio Pulse">
                     <AuthGate>
-                      <DiscoverPage />
+                      <StudioPulsePage />
                     </AuthGate>
                   </ErrorBoundary>
                 }
               />
               <Route
                 path="/dashboard-classic"
-                element={<Navigate to="/" replace />}
+                element={<Navigate to="/discover" replace />}
               />
               <Route
                 path="/settings"

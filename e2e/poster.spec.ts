@@ -4,7 +4,7 @@ test.setTimeout(90_000);
 
 test.describe('Screenplay poster policy', () => {
   test('Discovery keeps the screenplay cover and Pass shows the free archive poster inside the project', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/discover');
     const search = page.getByRole('searchbox', { name: 'Discovery search' });
     await expect(search).toBeVisible({ timeout: 30_000 });
     await search.fill('Will');
@@ -23,7 +23,7 @@ test.describe('Screenplay poster policy', () => {
 
   test('an eligible project offers the three approved retry models on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/');
+    await page.goto('/discover');
     const search = page.getByRole('searchbox', { name: 'Discovery search' });
     await expect(search).toBeVisible({ timeout: 30_000 });
     await search.fill('Matadero');
