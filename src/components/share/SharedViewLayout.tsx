@@ -2,7 +2,7 @@
  * SharedViewLayout
  *
  * Full standalone page layout for the shared partner view.
- * Displays branding, poster, title, recommendation, scores,
+ * Displays branding, title, recommendation, scores,
  * analysis content, and download button.
  *
  * BUNDLE ISOLATION: Only imports from @/types, @/components/ui,
@@ -25,8 +25,6 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
   const { t } = useTranslation();
   const { analysis } = data;
   const displayTitle = getScreenplayDisplayTitle(analysis.title).title;
-  const posterUrl =
-    analysis.recommendation === 'pass' ? '/pass-poster-gallery-drape.jpg' : data.posterUrl;
 
   return (
     <div className="public-shared-view min-h-screen bg-black-900">
@@ -38,21 +36,6 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
             <LanguageControl />
           </div>
         </header>
-
-        {/* Poster */}
-        {posterUrl && (
-          <div className="flex justify-center mb-8">
-            <img
-              src={posterUrl}
-              alt={
-                analysis.recommendation === 'pass'
-                  ? t('Poster withheld for a Pass verdict')
-                  : t('{{title}} poster', { title: displayTitle })
-              }
-              className="rounded-xl max-h-80 object-cover shadow-lg"
-            />
-          </div>
-        )}
 
         {/* Title / Author / Genre bar */}
         <div className="text-center mb-6">
