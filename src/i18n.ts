@@ -171,6 +171,20 @@ const spanish = {
   'Creating poster…': 'Creando póster…',
   'Regenerate poster': 'Volver a crear póster',
   'Generate poster': 'Crear póster',
+  Poster: 'Póster',
+  'View the project artwork or create a new poster for this screenplay.':
+    'Consulta el arte del proyecto o crea un nuevo póster para este guion.',
+  'Project poster': 'Póster del proyecto',
+  'No poster has been generated for {{title}}': 'No se ha creado un póster para {{title}}',
+  'Poster not generated yet': 'El póster todavía no se ha creado',
+  'Poster artwork': 'Arte del póster',
+  'Archived for a Pass verdict': 'Archivado por veredicto PASS',
+  'Current project poster': 'Póster actual del proyecto',
+  'Create the first poster': 'Crear el primer póster',
+  'Pass projects keep the screenplay cover and use the archive cloth here.':
+    'Los proyectos PASS conservan la portada del guion y usan aquí la tela de archivo.',
+  'Poster art stays separate from the screenplay cover shown in Discovery.':
+    'El arte del póster se mantiene separado de la portada del guion que aparece en Discovery.',
   'Economy · $0.034': 'Económico · $0.034',
   'Studio · $0.067': 'Estudio · $0.067',
   'Premium · $0.134': 'Premium · $0.134',

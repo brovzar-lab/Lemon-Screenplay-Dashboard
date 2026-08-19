@@ -39,14 +39,14 @@ html .discovery-root.screenplay-file {
 .screenplay-file__hero { display: grid; grid-template-columns: 280px minmax(0, 1fr) 210px; align-items: center; gap: clamp(30px, 5vw, 76px); max-width: 1570px; min-height: 400px; margin: 0 auto; padding: 42px clamp(26px, 5vw, 80px); background: var(--file-shell); color: var(--file-shell-text); }
 .screenplay-file__poster-column { display: grid; justify-items: center; gap: 14px; }
 .screenplay-file__poster-column > .screenplay-object { width: min(100%, 240px); }
-.screenplay-file__poster-controls { display: grid; width: min(100%, 240px); gap: 7px; }
-.screenplay-file__poster-controls label { display: grid; gap: 4px; color: var(--file-shell-text-2); font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.screenplay-file__poster-controls { display: grid; width: min(100%, 420px); gap: 9px; }
+.screenplay-file__poster-controls label { display: grid; gap: 5px; color: var(--file-muted); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .screenplay-file__poster-controls select,
-.screenplay-file__poster-controls button { min-height: 44px; border: 1px solid var(--file-shell-line); border-radius: 7px; background: var(--file-shell-action); color: var(--file-shell-text); font-size: 11px; font-weight: 700; }
+.screenplay-file__poster-controls button { min-height: 44px; border: 1px solid var(--file-line-strong); border-radius: 7px; background: var(--file-paper-2); color: var(--file-ink); font-size: 12px; font-weight: 700; }
 .screenplay-file__poster-controls select { padding: 0 9px; }
-.screenplay-file__poster-controls button:hover { border-color: var(--file-shell-accent); color: var(--file-shell-accent); }
+.screenplay-file__poster-controls button:hover { border-color: var(--file-cobalt); color: var(--file-cobalt); }
 .screenplay-file__poster-controls :disabled { cursor: wait; opacity: .65; }
-.screenplay-file__poster-note { max-width: 220px; color: var(--file-shell-text-3); font-size: 10px; line-height: 1.4; text-align: center; }
+.screenplay-file__poster-note { max-width: 420px; color: var(--file-muted); font-size: 12px; line-height: 1.5; }
 .screenplay-file__micro { margin: 0; color: var(--file-shell-text-3); font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
 .screenplay-file__micro--blue { color: var(--file-shell-accent); }
 .screenplay-file__identity h1 { margin: 12px 0 10px; color: var(--file-shell-text); font-family: var(--dsc-font-display); font-size: clamp(48px, 5vw, 72px); font-weight: 600; line-height: .98; }
@@ -99,6 +99,8 @@ html .discovery-root.screenplay-file {
 .screenplay-file__toolbar button:focus-visible,
 .screenplay-file__context-inner button:focus-visible,
 .screenplay-file__actions button:focus-visible,
+.screenplay-file__poster-controls select:focus-visible,
+.screenplay-file__poster-controls button:focus-visible,
 .screenplay-file__binder .reader-persona:focus-visible,
 .screenplay-file__binder .reader-case__talk:focus-visible { outline: 3px solid rgb(43 84 240 / .32); outline-offset: 2px; }
 .screenplay-file__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -148,6 +150,14 @@ html .discovery-root.screenplay-file {
 .screenplay-file__evidence dd, .screenplay-file__identity h1, .screenplay-file__meta, .screenplay-file__logline { overflow-wrap: anywhere; }
 .screenplay-file__notes { display: grid; gap: 22px; max-width: 900px; }
 .screenplay-file__notes-scope { padding: 14px 16px; border-radius: 8px; background: var(--file-paper-2); color: var(--file-ink-2); font-size: 13px; line-height: 1.55; }
+.screenplay-file__poster-panel { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 520px); align-items: center; gap: clamp(38px, 6vw, 88px); }
+.screenplay-file__poster-frame { display: grid; aspect-ratio: 2 / 3; width: min(100%, 320px); overflow: hidden; place-items: center; border: 1px solid var(--file-line-strong); border-radius: 8px; background: var(--file-paper-2); box-shadow: var(--dsc-shadow-pop); }
+.screenplay-file__poster-frame img { width: 100%; height: 100%; object-fit: cover; }
+.screenplay-file__poster-frame > div { display: grid; width: 100%; height: 100%; place-items: center; padding: 28px; color: var(--file-muted); font-size: 13px; font-weight: 700; text-align: center; }
+.screenplay-file__poster-workbench { display: grid; align-content: center; gap: 12px; }
+.screenplay-file__poster-workbench h3 { color: var(--file-ink); font-family: var(--dsc-font-display); font-size: clamp(27px, 3vw, 38px); font-weight: 600; line-height: 1.1; }
+.screenplay-file__poster-workbench > p:not(.screenplay-file__micro) { max-width: 52ch; color: var(--file-ink-2); font-size: 14px; line-height: 1.65; }
+.screenplay-file__poster-workbench .screenplay-file__poster-controls { margin-top: 12px; }
 .screenplay-file ::selection { background: var(--file-accent-soft); color: var(--file-ink); }
 
 /* Dense analysis is edited like a studio document, not enlarged like a hero. */
@@ -335,6 +345,7 @@ html .discovery-root.screenplay-file {
   .screenplay-file__evidence { padding: 28px 0 0; border-top: 1px solid var(--file-line); border-left: 0; }
   .screenplay-file__signals { grid-template-columns: 1fr; }
   .screenplay-file__opportunity { grid-template-columns: 1fr; }
+  .screenplay-file__poster-panel { grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); }
   .development-map__trust { grid-template-columns: repeat(2, 1fr); }
   .development-map__trust span:nth-child(2) { border-right: 0; }
   .development-map__trust span:nth-child(-n+2) { border-bottom: 1px solid var(--file-line); }
@@ -353,6 +364,9 @@ html .discovery-root.screenplay-file {
   .screenplay-file__toolbar { padding-right: 10px; padding-left: 10px; }
   .screenplay-file__toolbar nav button { padding-right: 14px; padding-left: 14px; }
   .screenplay-file__panel { padding: 30px 20px 84px; }
+  .screenplay-file__poster-panel { grid-template-columns: 1fr; justify-items: center; }
+  .screenplay-file__poster-frame { width: min(100%, 260px); }
+  .screenplay-file__poster-workbench { width: 100%; }
   .screenplay-file__signals, .screenplay-file__priority { grid-template-columns: 1fr; gap: 4px; }
   .screenplay-file__evidence dl div { align-items: flex-start; flex-direction: column; gap: 5px; }
   .screenplay-file__evidence dd { text-align: left; }

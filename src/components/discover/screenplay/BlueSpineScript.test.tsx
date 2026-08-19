@@ -32,16 +32,7 @@ describe('BlueSpineScript presentation', () => {
     expect(screen.queryByText('V9 Archaeology')).not.toBeInTheDocument();
   });
 
-  it('uses the archival cloth placeholder for Pass without a paid poster', () => {
-    render(<BlueSpineScript screenplay={createTestScreenplay({ recommendation: 'pass' })} />);
-
-    expect(screen.getByRole('img', { name: 'Poster withheld for a Pass verdict' })).toHaveAttribute(
-      'src',
-      '/pass-poster-gallery-drape.jpg',
-    );
-  });
-
-  it('uses the generated poster for eligible projects when it is ready', () => {
+  it('always presents a screenplay cover even when poster art exists', () => {
     render(
       <BlueSpineScript
         screenplay={createTestScreenplay({
@@ -52,26 +43,8 @@ describe('BlueSpineScript presentation', () => {
       />,
     );
 
-    const poster = screen.getByRole('img', { name: 'Atlas Fall poster' });
-    expect(poster).toHaveAttribute('src', 'https://example.com/atlas-poster.png');
-    expect(poster).toHaveAttribute('loading', 'lazy');
-    expect(poster).toHaveAttribute('decoding', 'async');
-  });
-
-  it('loads the single Featured poster eagerly', () => {
-    render(
-      <BlueSpineScript
-        featured
-        screenplay={createTestScreenplay({
-          title: 'Atlas Fall',
-          posterUrl: 'https://example.com/atlas-poster.png',
-        })}
-      />,
-    );
-
-    expect(screen.getByRole('img', { name: 'Atlas Fall poster' })).toHaveAttribute(
-      'loading',
-      'eager',
-    );
+    expect(screen.getByText('Atlas Fall')).toBeInTheDocument();
+    expect(screen.getByText('Written by')).toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 });

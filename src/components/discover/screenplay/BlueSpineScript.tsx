@@ -2,7 +2,6 @@ import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { formatAnalysisVersion } from '@/lib/producerDisplay';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
-import { useTranslation } from 'react-i18next';
 import '@/components/discover/screenplay/blue-spine-script.css';
 
 interface BlueSpineScriptProps {
@@ -20,36 +19,8 @@ export function BlueSpineScript({
   rank,
   presentation = 'full',
 }: BlueSpineScriptProps) {
-  const { t } = useTranslation();
   const displayTitle = getScreenplayDisplayTitle(screenplay.title);
   const isCompact = presentation === 'compact';
-  const posterUrl =
-    screenplay.recommendation === 'pass' ? '/pass-poster-gallery-drape.jpg' : screenplay.posterUrl;
-
-  if (posterUrl) {
-    return (
-      <div
-        className={clsx(
-          'screenplay-object screenplay-object--poster',
-          featured && 'screenplay-object--featured',
-          isCompact && 'screenplay-object--compact',
-          className,
-        )}
-      >
-        <img
-          src={posterUrl}
-          loading={featured ? 'eager' : 'lazy'}
-          decoding="async"
-          alt={
-            screenplay.recommendation === 'pass'
-              ? t('Poster withheld for a Pass verdict')
-              : t('{{title}} poster', { title: displayTitle.title })
-          }
-        />
-        {!isCompact && rank && <span className="screenplay-object__rank">#{rank}</span>}
-      </div>
-    );
-  }
 
   return (
     <div

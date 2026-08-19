@@ -93,6 +93,7 @@ function project(): Screenplay {
     sourceFile: 'atlas.pdf',
     latestVersionId: 'v2',
     versionCount: 2,
+    posterUrl: 'https://example.com/atlas-poster.png',
     verdictStatement:
       'Atlas Fall is a contained survival drama with a clear emotional engine, but the second act repeats the same pressure without materially changing the protagonist’s choices. The project remains worth developing because the central relationship and final reversal are both specific and producible.',
     analysisQuality: {
@@ -257,6 +258,13 @@ describe('ScreenplayFileWorkspace', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Story X-Ray' }));
     expect(screen.getByText('Story X-Ray for Atlas Fall')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Poster' }));
+    expect(screen.getByRole('img', { name: 'Atlas Fall poster' })).toHaveAttribute(
+      'src',
+      'https://example.com/atlas-poster.png',
+    );
+    expect(screen.getByRole('combobox', { name: 'Poster model' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Producer Take' }));
     expect(screen.getByText('Producer Take for Atlas Fall')).toBeInTheDocument();

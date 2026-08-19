@@ -131,6 +131,7 @@ function isScreenplayFileTab(value: string | undefined): value is ScreenplayFile
     || value === 'scores'
     || value === 'reader-room'
     || value === 'story-x-ray'
+    || value === 'poster'
     || value === 'producer-take'
     || value === 'notes-files';
 }

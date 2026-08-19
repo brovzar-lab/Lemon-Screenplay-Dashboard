@@ -3,7 +3,7 @@ import { test, expect } from './fixtures';
 test.setTimeout(90_000);
 
 test.describe('Screenplay poster policy', () => {
-  test('Pass uses the free archive placeholder and offers no paid retry', async ({ page }) => {
+  test('Discovery keeps the screenplay cover and Pass shows the free archive poster inside the project', async ({ page }) => {
     await page.goto('/');
     const search = page.getByRole('searchbox', { name: 'Discovery search' });
     await expect(search).toBeVisible({ timeout: 30_000 });
@@ -11,11 +11,12 @@ test.describe('Screenplay poster policy', () => {
 
     const open = page.getByRole('button', { name: 'Open Will screenplay file' });
     await expect(open).toBeVisible();
-    await expect(
-      open.getByRole('img', { name: 'Poster withheld for a Pass verdict' }),
-    ).toBeVisible();
+    await expect(open.locator('.screenplay-object')).toBeVisible();
+    await expect(open.locator('.screenplay-object img')).toHaveCount(0);
     await open.click();
 
+    await expect(page.getByText('Poster withheld for a Pass verdict')).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Poster' }).click();
     await expect(page.getByText('Poster withheld for a Pass verdict')).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Poster model' })).toHaveCount(0);
   });
@@ -26,7 +27,11 @@ test.describe('Screenplay poster policy', () => {
     const search = page.getByRole('searchbox', { name: 'Discovery search' });
     await expect(search).toBeVisible({ timeout: 30_000 });
     await search.fill('Matadero');
-    await page.getByRole('button', { name: 'Open Matadero screenplay file' }).click();
+    const open = page.getByRole('button', { name: 'Open Matadero screenplay file' });
+    await expect(open.locator('.screenplay-object')).toBeVisible();
+    await expect(open.locator('.screenplay-object img')).toHaveCount(0);
+    await open.click();
+    await page.getByRole('tab', { name: 'Poster' }).click();
 
     const model = page.getByRole('combobox', { name: 'Poster model' });
     await expect(model).toBeVisible({ timeout: 30_000 });

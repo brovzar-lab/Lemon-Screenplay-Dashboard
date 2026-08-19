@@ -16,23 +16,6 @@
   width: min(100%, 270px);
   transform: rotate(-1deg);
 }
-.screenplay-object--poster {
-  aspect-ratio: 2 / 3;
-  overflow: hidden;
-  border-radius: 7px;
-  background: #101827;
-  box-shadow: 0 16px 30px rgb(0 0 0 / 0.28);
-}
-.screenplay-object--poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.screenplay-object--poster .screenplay-object__rank {
-  padding: 3px 6px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.9);
-}
 .screenplay-object__spine {
   position: absolute;
   inset: -2px auto -5px -5.75%;
