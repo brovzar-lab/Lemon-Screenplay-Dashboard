@@ -148,6 +148,12 @@ describe('Project Workspace route', () => {
     expect(screen.getByText('File tab: scores')).toBeInTheDocument();
   });
 
+  it('opens the project poster as a screenplay file tab', () => {
+    renderRoute('/projects/atlas-project/poster?workspace=screenplay');
+
+    expect(screen.getByText('File tab: poster')).toBeInTheDocument();
+  });
+
   it('falls back to Overview for an unknown section', () => {
     renderRoute('/projects/atlas-project/not-a-real-tab');
     expect(screen.getByText('Active tab: overview')).toBeInTheDocument();

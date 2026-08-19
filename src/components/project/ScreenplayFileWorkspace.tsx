@@ -37,6 +37,7 @@ export type ScreenplayFileTab =
   | 'scores'
   | 'reader-room'
   | 'story-x-ray'
+  | 'poster'
   | 'producer-take'
   | 'notes-files';
 
@@ -52,6 +53,7 @@ const TABS: Array<{ key: ScreenplayFileTab; label: string; adminOnly?: boolean }
   { key: 'scores', label: 'Scores' },
   { key: 'reader-room', label: 'Reader Room' },
   { key: 'story-x-ray', label: 'Story X-Ray' },
+  { key: 'poster', label: 'Poster' },
   { key: 'producer-take', label: 'Producer Take', adminOnly: true },
   { key: 'notes-files', label: 'Notes' },
 ];
@@ -71,6 +73,10 @@ const TAB_INTROS: Record<
   'story-x-ray': {
     title: 'Story X-Ray',
     description: 'Characters, comparable films, standout scenes, and development priorities.',
+  },
+  poster: {
+    title: 'Poster',
+    description: 'View the project artwork or create a new poster for this screenplay.',
   },
   'producer-take': {
     title: 'Producer Take',
@@ -186,6 +192,54 @@ function PanelIntro({ tab }: { tab: Exclude<ScreenplayFileTab, 'reader-room'> })
       <h2 id={`screenplay-file-section-${tab}`}>{t(intro.title)}</h2>
       <p>{t(intro.description)}</p>
     </header>
+  );
+}
+
+function PosterPanel({ screenplay }: { screenplay: Screenplay }) {
+  const { t } = useTranslation();
+  const title = getScreenplayDisplayTitle(screenplay.title).title;
+  const posterUrl =
+    screenplay.recommendation === 'pass' ? '/pass-poster-gallery-drape.jpg' : screenplay.posterUrl;
+
+  return (
+    <section className="screenplay-file__poster-panel" aria-label={t('Project poster')}>
+      <div className="screenplay-file__poster-frame">
+        {posterUrl ? (
+          <img
+            src={posterUrl}
+            loading="lazy"
+            decoding="async"
+            alt={
+              screenplay.recommendation === 'pass'
+                ? t('Poster withheld for a Pass verdict')
+                : t('{{title}} poster', { title })
+            }
+          />
+        ) : (
+          <div role="img" aria-label={t('No poster has been generated for {{title}}', { title })}>
+            <span>{t('Poster not generated yet')}</span>
+          </div>
+        )}
+      </div>
+      <div className="screenplay-file__poster-workbench">
+        <p className="screenplay-file__micro screenplay-file__micro--blue">
+          {t('Poster artwork')}
+        </p>
+        <h3>
+          {screenplay.recommendation === 'pass'
+            ? t('Archived for a Pass verdict')
+            : posterUrl
+              ? t('Current project poster')
+              : t('Create the first poster')}
+        </h3>
+        <p>
+          {screenplay.recommendation === 'pass'
+            ? t('Pass projects keep the screenplay cover and use the archive cloth here.')
+            : t('Poster art stays separate from the screenplay cover shown in Discovery.')}
+        </p>
+        <PosterControls screenplay={screenplay} />
+      </div>
+    </section>
   );
 }
 
@@ -354,6 +408,7 @@ export function ScreenplayFileWorkspace({
     if (activeTab === 'reader-room') return <ReaderRoom screenplay={screenplay} />;
     if (activeTab === 'story-x-ray')
       return <ContentDetails screenplay={screenplay} presentation="workspace" />;
+    if (activeTab === 'poster') return <PosterPanel screenplay={screenplay} />;
     if (activeTab === 'producer-take')
       return isAdmin ? <ProducerTake screenplay={screenplay} /> : null;
     if (activeTab === 'notes-files')
@@ -421,7 +476,6 @@ export function ScreenplayFileWorkspace({
       <section className="screenplay-file__hero">
         <div className="screenplay-file__poster-column">
           <BlueSpineScript screenplay={screenplay} featured />
-          <PosterControls screenplay={screenplay} />
         </div>
         <div className="screenplay-file__identity">
           <p className="screenplay-file__micro screenplay-file__micro--blue">
