@@ -65,9 +65,11 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
         console.warn(`[onScreenplayUploaded] Ignoring non-PDF content type: ${contentType} (${objectName})`);
         return;
     }
+    const customMeta = event.data.metadata ?? {};
+    const originalFilename = (0, ingestUploadIdentity_1.readOriginalFilename)(customMeta, filename);
     // ── Size guard (warn only — worker will handle actual validation) ──────
     if (sizeMb > 50) {
-        console.warn(`[onScreenplayUploaded] Large PDF (${sizeMb.toFixed(1)} MB): ${filename}. ` +
+        console.warn(`[onScreenplayUploaded] Large PDF (${sizeMb.toFixed(1)} MB): ${originalFilename}. ` +
             `Worker will validate token budget before calling Anthropic.`);
     }
     const storage_path = `gs://${bucket}/${objectName}`;
@@ -76,7 +78,6 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
     // ── Read model preference from Storage metadata (optional) ────────────
     // Upload with: gsutil -h "x-goog-meta-model:haiku" cp ...
     // Or set via Firebase Console / SDK custom metadata
-    const customMeta = event.data.metadata ?? {};
     const requestedModel = customMeta['model'] ?? 'auto';
     const priority = customMeta['priority'] ? Number(customMeta['priority']) : 0;
     const target_project_id = (0, ingestUploadIdentity_1.readTargetProjectId)(customMeta);
@@ -93,7 +94,7 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
     const jobDoc = (0, ingestQueue_1.buildPendingJob)({
         id: jobId,
         collection_id,
-        filename,
+        filename: originalFilename,
         storage_path,
         storage_generation,
         upload_id,
@@ -120,6 +121,6 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
         return;
     }
     console.log(`[onScreenplayUploaded] ✅ Pending job created: ${jobId} ` +
-        `| collection=${collection_id} | file=${filename} | model=${requestedModel}`);
+        `| collection=${collection_id} | file=${originalFilename} | model=${requestedModel}`);
 });
 //# sourceMappingURL=onScreenplayUploaded.js.map

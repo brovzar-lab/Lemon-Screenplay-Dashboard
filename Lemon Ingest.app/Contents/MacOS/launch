@@ -1,13 +1,15 @@
 #!/bin/bash
-# Lemon Ingest — Launch the bulk screenplay analyzer in Terminal
+# Lemon Batch Ingest - native folder choices, then the restart-safe CLI.
 
 PROJECT_DIR="/Users/quantumcode/CODE/LEMON-SCREENPLAY-DASHBOARD"
-SCRIPT="$PROJECT_DIR/scripts/lemon-ingest.mjs"
+PYTHON="/usr/bin/python3"
+CLI_PYTHON="$PROJECT_DIR/ingest/.venv/bin/python"
+SCRIPT="$PROJECT_DIR/ingest/app.py"
 
-# Open Terminal.app and run the script in interactive mode
-osascript -e "
-tell application \"Terminal\"
-    activate
-    set newTab to do script \"cd '$PROJECT_DIR' && clear && node '$SCRIPT'\"
-end tell
-"
+if [ ! -x "$CLI_PYTHON" ]; then
+  osascript -e 'display alert "Lemon Batch Ingest needs setup" message "Run pip install -r ingest/requirements.txt in the project first."'
+  exit 1
+fi
+
+cd "$PROJECT_DIR" || exit 1
+exec "$PYTHON" "$SCRIPT"

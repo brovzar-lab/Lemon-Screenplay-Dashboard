@@ -26,15 +26,12 @@
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
-import {
-  INGEST_QUEUE_COLLECTION,
-  buildPendingJob,
-  type IngestModel,
-} from './ingestQueue';
+import { INGEST_QUEUE_COLLECTION, buildPendingJob, type IngestModel } from './ingestQueue';
 import {
   buildIngestJobId,
   parseIngestPath,
   readBooleanMetadata,
+  readOriginalFilename,
   readSeparateProject,
   readTargetProjectId,
 } from './ingestUploadIdentity';
@@ -84,11 +81,14 @@ export const onScreenplayUploaded = onObjectFinalized(
       return;
     }
 
+    const customMeta = event.data.metadata ?? {};
+    const originalFilename = readOriginalFilename(customMeta, filename);
+
     // ── Size guard (warn only — worker will handle actual validation) ──────
     if (sizeMb > 50) {
       console.warn(
-        `[onScreenplayUploaded] Large PDF (${sizeMb.toFixed(1)} MB): ${filename}. ` +
-        `Worker will validate token budget before calling Anthropic.`,
+        `[onScreenplayUploaded] Large PDF (${sizeMb.toFixed(1)} MB): ${originalFilename}. ` +
+          `Worker will validate token budget before calling Anthropic.`,
       );
     }
 
@@ -99,7 +99,6 @@ export const onScreenplayUploaded = onObjectFinalized(
     // ── Read model preference from Storage metadata (optional) ────────────
     // Upload with: gsutil -h "x-goog-meta-model:haiku" cp ...
     // Or set via Firebase Console / SDK custom metadata
-    const customMeta = event.data.metadata ?? {};
     const requestedModel = (customMeta['model'] as IngestModel | undefined) ?? 'auto';
     const priority = customMeta['priority'] ? Number(customMeta['priority']) : 0;
     const target_project_id = readTargetProjectId(customMeta);
@@ -117,7 +116,7 @@ export const onScreenplayUploaded = onObjectFinalized(
     const jobDoc = buildPendingJob({
       id: jobId,
       collection_id,
-      filename,
+      filename: originalFilename,
       storage_path,
       storage_generation,
       upload_id,
@@ -142,14 +141,14 @@ export const onScreenplayUploaded = onObjectFinalized(
     if (!created) {
       console.log(
         `[onScreenplayUploaded] Skipping duplicate event for ${objectName} ` +
-        `(generation=${storage_generation})`,
+          `(generation=${storage_generation})`,
       );
       return;
     }
 
     console.log(
       `[onScreenplayUploaded] ✅ Pending job created: ${jobId} ` +
-      `| collection=${collection_id} | file=${filename} | model=${requestedModel}`,
+        `| collection=${collection_id} | file=${originalFilename} | model=${requestedModel}`,
     );
   },
 );
