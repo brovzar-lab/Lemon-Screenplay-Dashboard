@@ -7,13 +7,13 @@ test('defaults to English and saves Spanish across pages and reloads', async ({ 
   await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('lemon-ui-language')).forEach((key) => localStorage.removeItem(key)));
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect(page.getByRole('link', { name: 'Discovery', exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('link', { name: 'Screenplays', exact: true })).toBeVisible({ timeout: 30_000 });
 
   await page.getByRole('button', { name: 'Spanish' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'es');
-  await expect(page.getByRole('link', { name: 'Descubrimiento', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Pulso del estudio' })).toBeVisible();
-  await page.getByRole('link', { name: 'Descubrimiento', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Guiones', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Informe del mercado de México' })).toBeVisible();
+  await page.getByRole('link', { name: 'Guiones', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Continúa con la selección' })).toBeVisible();
 
   await page.reload();
@@ -30,6 +30,7 @@ test('keeps the language control usable on a phone-sized screen', async ({ page 
   await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('lemon-ui-language')).forEach((key) => localStorage.removeItem(key)));
   await page.reload();
 
+  await page.getByRole('button', { name: 'Open navigation and preferences' }).click();
   await expect(page.getByRole('button', { name: 'English' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Spanish' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Continue through the slate' })).toBeVisible();
