@@ -91,6 +91,8 @@ const english = {
   '{{count}} holdout read_other': '{{count}} holdout reads',
   '{{count}} pages_one': '{{count}} page',
   '{{count}} pages_other': '{{count}} pages',
+  '{{count}} missing source screenplay_one': '{{count}} missing source screenplay',
+  '{{count}} missing source screenplay_other': '{{count}} missing source screenplays',
 } as const;
 
 const spanish = {
@@ -111,6 +113,8 @@ const spanish = {
   '{{count}} issue needs attention_one': '{{count}} problema requiere atención',
   '{{count}} issue needs attention_other': '{{count}} problemas requieren atención',
   '{{territory}} Market Brief': 'Informe del mercado de {{territory}}',
+  'Market Brief': 'Informe del mercado',
+  'View screenplays': 'Ver guiones',
   'What buyers want now, and where Lemon can compete.':
     'Lo que buscan los compradores ahora y dónde puede competir Lemon.',
   'Research updated {{date}}': 'Investigación actualizada el {{date}}',
@@ -424,10 +428,12 @@ const spanish = {
   'Model Comparison': 'Comparación de modelos',
   'Compare available analysis models': 'Comparar los modelos de análisis disponibles',
   Intake: 'Recepción',
+  'Screenplay Upload System': 'Sistema de carga de guiones',
   'Verify, route, and follow new material': 'Verificar, dirigir y seguir material nuevo',
   'Featured Project': 'Proyecto destacado',
   'Choose what deserves attention today': 'Elegir qué merece atención hoy',
   'PDF Files': 'Archivos PDF',
+  Screenplays: 'Guiones',
   'Source screenplay availability': 'Disponibilidad de los guiones originales',
   'Data & Sharing': 'Datos y uso compartido',
   'Exports, links, and favorites': 'Exportaciones, enlaces y favoritos',
@@ -740,7 +746,6 @@ const spanish = {
   'Authorize paid analysis?': '¿Autorizar el análisis con costo?',
   'This immediately sends the screenplays below to the V9 reader room. Once submitted, an active screenplay cannot be canceled from this screen.':
     'Esto envía de inmediato los guiones a la sala de lectores V9. Después del envío, no puedes cancelar un guion activo desde esta pantalla.',
-  Screenplays: 'Guiones',
   'Reading route': 'Ruta de lectura',
   'Estimated batch cost': 'Costo estimado del lote',
   Unavailable: 'No disponible',
@@ -1386,6 +1391,13 @@ const spanish = {
     'El análisis de IA usa un proxy seguro del servidor. Las claves de Anthropic y Gemini se guardan en el servidor. Nunca aparecen en tu navegador.',
   'Upload failed': 'La carga falló',
   'PDF File Management': 'Administración de archivos PDF',
+  'Screenplay Source Library': 'Biblioteca de guiones',
+  'Screenplay inventory': 'Inventario de guiones',
+  '{{count}} screenplays in Firebase Storage': '{{count}} guiones en Firebase Storage',
+  '{{count}} missing source screenplay_one': 'Falta el original de {{count}} guion',
+  '{{count}} missing source screenplay_other': 'Faltan los originales de {{count}} guiones',
+  'Source found': 'Original disponible',
+  'Source missing': 'Falta el original',
   'Live check against Firebase Storage': 'Revisión en vivo de Firebase Storage',
   'checking {{count}} remaining...': 'revisando, quedan {{count}}...',
   'storage scan complete': 'revisión de almacenamiento terminada',
@@ -1430,6 +1442,12 @@ const spanish = {
   'Engine Comparison Lab': 'Laboratorio de comparación de motores',
   'Compare AI models side-by-side with the V9 Archaeology Engine. Upload a screenplay or pull from your dashboard.':
     'Compara modelos de IA lado a lado con el motor V9 Archaeology. Carga un guion o usa uno del panel.',
+  'Newest available models': 'Modelos disponibles más recientes',
+  'Current comparison candidates': 'Candidatos actuales para comparación',
+  'Availability is separate from approval. Production scoring stays on its benchmark-approved routes.':
+    'La disponibilidad no implica aprobación. La calificación de producción se mantiene en las rutas aprobadas mediante pruebas de referencia.',
+  'Current candidate': 'Candidato actual',
+  'Optional premium': 'Premium opcional',
   'Upload New PDF': 'Cargar PDF nuevo',
   'Pull from Dashboard': 'Usar del panel',
   'Click to change': 'Haz clic para cambiar',
@@ -1443,7 +1461,8 @@ const spanish = {
   'Load "{{title}}" Results': 'Cargar resultados de "{{title}}"',
   'Analysis Engine': 'Motor de análisis',
   'AI Model': 'Modelo de IA',
-  '5-reader pipeline, 5 pillars': 'Proceso de 5 lectores y 5 pilares',
+  'Five specialist readers examine structure, character, craft, concept, and emotion. A final synthesis checks their evidence and produces the Lemon score and verdict.':
+    'Cinco lectores especializados evalúan estructura, personajes, oficio, concepto y emoción. Una síntesis final revisa la evidencia y genera la calificación y el veredicto de Lemon.',
   script: 'guion',
   FASTEST: 'MÁS RÁPIDO',
   BALANCED: 'EQUILIBRADO',

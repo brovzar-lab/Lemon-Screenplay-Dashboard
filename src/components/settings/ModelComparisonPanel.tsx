@@ -16,6 +16,7 @@ import { analyzeScreenplay } from '@/lib/analysisService';
 import type { AnalysisProgress } from '@/lib/analysisService';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import modelCatalog from '@/config/anthropic-model-catalog.json';
 import { MODEL_COSTS, MODEL_OPTIONS } from './upload/upload.constants';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -83,8 +84,21 @@ const MODELS: ModelConfig[] = (['haiku', 'sonnet', 'opus'] as const).map((id) =>
 });
 
 const ENGINES: EngineConfig[] = [
-  { id: 'v9', name: 'V9 Archaeology', badge: 'V9', badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30', description: '5-reader pipeline, 5 pillars' },
+  {
+    id: 'v9',
+    name: 'V9 Archaeology',
+    badge: 'V9',
+    badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    description:
+      'Five specialist readers examine structure, character, craft, concept, and emotion. A final synthesis checks their evidence and produces the Lemon score and verdict.',
+  },
 ];
+
+const COMPARISON_CANDIDATES = [
+  { name: 'Sonnet 5', modelId: modelCatalog.latestObserved.sonnet, label: 'Current candidate' },
+  { name: 'Opus 5', modelId: modelCatalog.latestObserved.opus, label: 'Current candidate' },
+  { name: 'Fable 5', modelId: modelCatalog.latestObserved.fable, label: 'Optional premium' },
+] as const;
 
 const COST_RATES: Record<ModelId, { input: number; output: number }> = Object.fromEntries(
   (['haiku', 'sonnet', 'opus'] as const).map((id) => [
@@ -407,6 +421,29 @@ export function ModelComparisonPanel() {
           {t('Compare AI models side-by-side with the V9 Archaeology Engine. Upload a screenplay or pull from your dashboard.')}
         </p>
       </div>
+
+      <section className="settings-model-candidates" aria-labelledby="comparison-candidates-title">
+        <div>
+          <p className="settings-model-candidates__label">{t('Newest available models')}</p>
+          <h3 id="comparison-candidates-title">{t('Current comparison candidates')}</h3>
+          <p>
+            {t(
+              'Availability is separate from approval. Production scoring stays on its benchmark-approved routes.',
+            )}
+          </p>
+        </div>
+        <ul>
+          {COMPARISON_CANDIDATES.map((candidate) => (
+            <li key={candidate.modelId}>
+              <span>
+                <strong>{candidate.name}</strong>
+                <small>{t(candidate.label)}</small>
+              </span>
+              <code>{candidate.modelId}</code>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {/* ─── Source Selector ─────────────────────────────────────────────── */}
       <div className="flex rounded-xl overflow-hidden border border-black-700">

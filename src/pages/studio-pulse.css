@@ -42,15 +42,16 @@
 .studio-pulse__primary-action,
 .studio-pulse__insight-copy > a {
   display: inline-flex;
-  min-height: 48px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  padding: 0 24px;
+  gap: 10px;
+  padding: 0 18px;
   border: 1px solid var(--sp-accent-strong);
   border-radius: var(--sp-r-sm);
   background: var(--sp-accent);
   color: var(--sp-accent-text);
+  font-size: 14px;
   font-weight: 750;
   text-decoration: none;
   box-shadow: var(--sp-shadow-btn);
@@ -113,9 +114,9 @@
 .studio-pulse__insight {
   display: grid;
   align-items: center;
-  grid-template-columns: minmax(0, 1.2fr) minmax(440px, 0.8fr);
-  gap: clamp(32px, 5vw, 78px);
-  padding: clamp(28px, 4vw, 56px);
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+  gap: clamp(24px, 3vw, 42px);
+  padding: clamp(24px, 2.5vw, 38px);
 }
 
 .studio-pulse__section-label {
@@ -137,15 +138,15 @@
 
 .studio-pulse__insight h2 {
   max-width: 760px;
-  font-size: clamp(34px, 4vw, 58px);
+  font-size: clamp(32px, 3.5vw, 48px);
 }
 
 .studio-pulse__insight-copy > p {
   max-width: 700px;
-  margin: 18px 0 26px;
+  margin: 12px 0 18px;
   color: var(--sp-text-2);
-  font-size: 17px;
-  line-height: 1.65;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 .studio-pulse__insight-facts {
@@ -156,12 +157,12 @@
 
 .studio-pulse__insight-facts div {
   min-width: 0;
-  padding: 8px 22px;
+  padding: 4px 16px;
   border-left: 1px solid var(--sp-border);
 }
 
 .studio-pulse__insight-facts dt {
-  min-height: 32px;
+  min-height: 24px;
   color: var(--sp-text-3);
   font-size: 11px;
   font-weight: 800;
@@ -170,10 +171,10 @@
 }
 
 .studio-pulse__insight-facts dd {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: var(--sp-accent);
   font-family: var(--sp-font);
-  font-size: clamp(34px, 4vw, 52px);
+  font-size: clamp(30px, 3vw, 42px);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -423,14 +424,6 @@
 }
 
 @media (max-width: 1180px) {
-  .studio-pulse__insight {
-    grid-template-columns: 1fr;
-  }
-
-  .studio-pulse__insight-facts {
-    max-width: 700px;
-  }
-
   .studio-pulse__buyer-list > li {
     grid-template-columns: minmax(190px, 0.55fr) minmax(0, 1.45fr);
   }
@@ -438,6 +431,15 @@
   .studio-pulse__buyer-meta {
     grid-column: 1 / -1;
     padding-left: 106px;
+  }
+}
+
+@media (max-width: 900px) {
+  .studio-pulse__insight {
+    grid-template-columns: 1fr;
+  }
+  .studio-pulse__insight-facts {
+    max-width: 700px;
   }
 }
 

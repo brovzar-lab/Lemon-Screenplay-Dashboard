@@ -2,10 +2,7 @@ import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelec
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { DevelopmentOpportunityBadge } from '@/components/discover/DevelopmentOpportunityBadge';
 import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
-import type {
-  OpenScreenplay,
-  PercentileMap,
-} from '@/components/discover/screenplay/screenplayPresentationTypes';
+import type { OpenScreenplay } from '@/components/discover/screenplay/screenplayPresentationTypes';
 import type { RankedScreenplay } from '@/components/discover/screenplay/screenplayRankingProjection';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
@@ -18,24 +15,13 @@ import {
 import type { ProducerAssessmentHead } from '@/types';
 import { useTranslation } from 'react-i18next';
 
-function ordinal(value: number): string {
-  const lastTwo = value % 100;
-  if (lastTwo >= 11 && lastTwo <= 13) return `${value}th`;
-  if (value % 10 === 1) return `${value}st`;
-  if (value % 10 === 2) return `${value}nd`;
-  if (value % 10 === 3) return `${value}rd`;
-  return `${value}th`;
-}
-
 export function ScreenplayGrid({
   entries,
-  percentiles,
   producerAssessments,
   producerLookIds,
   onOpen,
 }: {
   entries: RankedScreenplay[];
-  percentiles: PercentileMap;
   producerAssessments?: ReadonlyMap<string, ProducerAssessmentHead>;
   producerLookIds?: ReadonlySet<string>;
   onOpen: OpenScreenplay;
@@ -44,7 +30,6 @@ export function ScreenplayGrid({
   return (
     <ul className="screenplay-wall" data-testid="screenplay-discovery-grid">
       {entries.map(({ screenplay, rank }) => {
-        const percentile = percentiles.get(screenplay.id);
         const displayTitle = getScreenplayDisplayTitle(screenplay.title);
         const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
         const displayGenre = getScreenplayDisplayGenre(screenplay.genre);
@@ -58,6 +43,7 @@ export function ScreenplayGrid({
             data-screenplay-id={screenplay.id}
             data-verdict={screenplay.recommendation}
           >
+            <DiscoverySelectionCheckbox screenplay={screenplay} />
             <button
               type="button"
               className="screenplay-wall__open"
@@ -73,29 +59,21 @@ export function ScreenplayGrid({
                   {displayTitle.qualifier && <em>{displayTitle.qualifier}</em>}
                   {displayAuthor && <small>{displayAuthor}</small>}
                 </span>
-                <span className="screenplay-wall__score">
-                  <strong>{finalScore.toFixed(1)}</strong>
-                  <small>
-                    {percentile
-                      ? t('{{ordinal}} percentile', {
-                          ordinal: ordinal(percentile.overall),
-                          value: percentile.overall,
-                        })
-                      : ''}
-                  </small>
+                <span className="screenplay-wall__decision">
+                  <span className="screenplay-wall__score">
+                    <strong>{finalScore.toFixed(1)}</strong>
+                    <small>{t('Lemon score')}</small>
+                  </span>
+                  <RecommendationBadge tier={screenplay.recommendation} />
                 </span>
                 <span className="screenplay-wall__meta">
-                  <RecommendationBadge tier={screenplay.recommendation} />
-                  {displayGenre && <span>{displayGenre}</span>}
+                  {formatInfo.format && (
+                    <span className="screenplay-wall__format">{formatInfo.format}</span>
+                  )}
+                  {displayGenre && (
+                    <span className="screenplay-wall__genre">{displayGenre}</span>
+                  )}
                 </span>
-                {formatInfo.format && (
-                  <span
-                    className="screenplay-wall__facts"
-                    aria-label={t('Screenplay format')}
-                  >
-                    <span>{formatInfo.format}</span>
-                  </span>
-                )}
                 {screenplay.logline?.trim() && (
                   <span className="screenplay-wall__logline">{screenplay.logline.trim()}</span>
                 )}
@@ -112,7 +90,6 @@ export function ScreenplayGrid({
                   compact
                 />
               </span>
-              <DiscoverySelectionCheckbox screenplay={screenplay} />
             </footer>
           </li>
         );

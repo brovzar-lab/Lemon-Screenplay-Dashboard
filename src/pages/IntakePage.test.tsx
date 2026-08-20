@@ -75,7 +75,7 @@ describe('Intake page', () => {
   it('presents the existing upload machinery as the quality-first intake desk', () => {
     renderPage();
 
-    expect(screen.getByRole('heading', { name: 'Intake' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Screenplay Upload System' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Intake' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(

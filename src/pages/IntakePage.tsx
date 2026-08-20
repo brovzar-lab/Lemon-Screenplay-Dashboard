@@ -23,7 +23,7 @@ function IntakePage() {
         averageScore={stats.avgWeightedScore}
         filmNowCount={stats.filmNowCount}
         isLoading={isLoading}
-        sectionTitle={t('Intake Desk')}
+        sectionTitle={t('Screenplay Upload System')}
       />
 
       <main className="px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
@@ -32,7 +32,7 @@ function IntakePage() {
             <div>
               <p className="dsc-kicker">{t('Lemon Studios · New material')}</p>
               <h1 className="dsc-display mt-3 text-5xl leading-none sm:text-6xl lg:text-7xl">
-                {t('Intake')}
+                {t('Screenplay Upload System')}
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--dsc-ink-2)] sm:text-lg">
                 {t('Bring a screenplay into the slate, verify its identity, and follow it until the complete five-reader analysis is ready to open.')}
