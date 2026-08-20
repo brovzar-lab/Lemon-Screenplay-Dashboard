@@ -228,7 +228,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   <p className="text-xs text-amber-300 leading-relaxed">
                     {isPdfScanning
                       ? 'Scanning Storage… filter will update automatically.'
-                      : <>Open <strong>Settings → PDF Files</strong> to scan — the filter will activate once the scan completes.</>}
+                      : <>Open <strong>Settings → Screenplays</strong> to scan — the filter will activate once the scan completes.</>}
                   </p>
                 </div>
               )}

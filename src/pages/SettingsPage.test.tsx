@@ -84,7 +84,10 @@ describe('Settings deep links', () => {
     renderSettings('/settings?tab=upload');
 
     expect(screen.getByText('Upload panel')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Intake' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'Screenplay Upload System' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 
   it('opens the calibration workspace from a Producer Take link', () => {
@@ -98,16 +101,16 @@ describe('Settings deep links', () => {
     renderSettings('/settings?tab=intake');
 
     const sectionButtons = screen.getAllByRole('button').filter((button) =>
-      ['Intake', 'Featured Project', 'Analysis Health', 'Model Comparison', 'PDF Files', 'Data & Sharing', 'System Status', 'Calibration'].includes(
+      ['Screenplay Upload System', 'Featured Project', 'Analysis Health', 'Model Comparison', 'Screenplays', 'Data & Sharing', 'System Status', 'Calibration'].includes(
         button.getAttribute('aria-label') ?? '',
       ),
     );
     expect(sectionButtons.map((button) => button.getAttribute('aria-label'))).toEqual([
       'Analysis Health',
       'Model Comparison',
-      'Intake',
+      'Screenplay Upload System',
       'Featured Project',
-      'PDF Files',
+      'Screenplays',
       'Data & Sharing',
       'System Status',
       'Calibration',

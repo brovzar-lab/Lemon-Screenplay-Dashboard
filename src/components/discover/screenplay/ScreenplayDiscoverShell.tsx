@@ -285,7 +285,6 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
               </header>
               <ScreenplayGrid
                 entries={visibleEntries}
-                percentiles={percentiles}
                 producerAssessments={producerAssessments}
                 producerLookIds={producerLookIds}
                 onOpen={handleOpen}

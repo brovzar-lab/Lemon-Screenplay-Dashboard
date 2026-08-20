@@ -42,7 +42,7 @@ const TABS: TabConfig[] = [
   },
   {
     id: 'intake',
-    label: 'Intake',
+    label: 'Screenplay Upload System',
     description: 'Verify, route, and follow new material',
     group: 'Workflow',
   },
@@ -54,7 +54,7 @@ const TABS: TabConfig[] = [
   },
   {
     id: 'pdf',
-    label: 'PDF Files',
+    label: 'Screenplays',
     description: 'Source screenplay availability',
     group: 'Library',
   },

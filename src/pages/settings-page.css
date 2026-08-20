@@ -187,13 +187,13 @@
   color: var(--settings-ink-2) !important;
 }
 .settings-panel [class*='text-black-400'] {
-  color: var(--settings-muted) !important;
+  color: var(--settings-ink-2) !important;
 }
 .settings-panel [class*='text-black-500'] {
-  color: var(--settings-muted) !important;
+  color: var(--settings-ink-2) !important;
 }
 .settings-panel [class*='text-black-600'] {
-  color: var(--settings-muted) !important;
+  color: var(--settings-ink-2) !important;
 }
 .settings-page [class*='text-emerald-'] {
   color: var(--settings-success) !important;
@@ -306,7 +306,7 @@
 .settings-page .text-black-300,
 .settings-page .text-black-400,
 .settings-page .text-black-500 {
-  color: var(--settings-muted) !important;
+  color: var(--settings-ink-2) !important;
 }
 .settings-page .border-gold-500\/10,
 .settings-page .border-gold-500\/20,
@@ -378,6 +378,129 @@
 .settings-file-cancel:hover {
   background: var(--settings-paper-muted);
   color: var(--settings-ink);
+}
+
+.settings-source-library {
+  border: 1px solid var(--settings-line);
+  border-radius: 12px;
+  background: var(--settings-paper-muted);
+}
+.settings-source-library > summary {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 16px;
+  color: var(--settings-ink);
+  cursor: pointer;
+  list-style: none;
+}
+.settings-source-library > summary::-webkit-details-marker {
+  display: none;
+}
+.settings-source-library > summary::after {
+  color: var(--settings-cobalt);
+  content: '+';
+  font-size: 24px;
+  line-height: 1;
+}
+.settings-source-library[open] > summary::after {
+  content: '−';
+}
+.settings-source-library > summary span:first-child {
+  display: grid;
+  gap: 3px;
+}
+.settings-source-library > summary strong {
+  font-size: 14px;
+}
+.settings-source-library > summary small {
+  color: var(--settings-ink-2);
+  font-size: 11px;
+}
+.settings-source-library__warning {
+  margin-left: auto;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in oklch, var(--sp-pass) 40%, var(--settings-line));
+  border-radius: 999px;
+  background: var(--sp-pass-tint);
+  color: var(--sp-pass);
+  font-size: 11px;
+  font-weight: 750;
+}
+.settings-source-library__content {
+  display: grid;
+  gap: 20px;
+  padding: 18px;
+  border-top: 1px solid var(--settings-line);
+  background: var(--settings-paper);
+}
+
+.settings-model-candidates {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  gap: 24px;
+  padding: 18px;
+  border: 1px solid var(--settings-line);
+  border-radius: var(--sp-r-md);
+  background: var(--settings-paper-muted);
+  color: var(--settings-ink);
+}
+.settings-model-candidates h3,
+.settings-model-candidates p {
+  margin: 0;
+}
+.settings-model-candidates h3 {
+  margin-top: 4px;
+  font-family: var(--sp-display);
+  font-size: 22px;
+  line-height: 1.1;
+}
+.settings-model-candidates p:not(.settings-model-candidates__label) {
+  margin-top: 8px;
+  color: var(--settings-ink-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.settings-model-candidates__label {
+  color: var(--settings-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.settings-model-candidates ul {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.settings-model-candidates li {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--settings-line);
+  border-radius: var(--sp-r-sm);
+  background: var(--settings-paper);
+}
+.settings-model-candidates li span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.settings-model-candidates li small,
+.settings-model-candidates code {
+  color: var(--settings-ink-2);
+  font-size: 10px;
+}
+.settings-model-candidates code {
+  overflow-wrap: anywhere;
 }
 
 .featured-policy {
@@ -785,6 +908,10 @@
 }
 
 @media (max-width: 760px) {
+  .settings-model-candidates,
+  .settings-model-candidates ul {
+    grid-template-columns: 1fr;
+  }
   .settings-back-link {
     display: none;
   }

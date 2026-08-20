@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   check-model-catalog:
@@ -16,7 +17,28 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - name: Compare approved routes with Anthropic
-        run: npm run models:check
+      - name: Test catalog selection
+        run: npm run models:test
+      - name: Refresh observed catalog
+        run: npm run models:refresh
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Open draft catalog review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- src/config/anthropic-model-catalog.json; then
+            echo "No catalog change."
+            exit 0
+          fi
+
+          branch="codex/anthropic-model-catalog-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add src/config/anthropic-model-catalog.json
+          git commit -m "chore(models): refresh Anthropic catalog"
+          git push --set-upstream origin "$branch"
+          gh pr create --draft \
+            --title "chore(models): review Anthropic catalog update" \
+            --body "Updates latestObserved from the Anthropic Models API. Approved production scoring routes remain unchanged and still require benchmark approval."

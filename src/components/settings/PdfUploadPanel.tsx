@@ -357,7 +357,7 @@ export function PdfUploadPanel() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-display text-gold-200 mb-1">{t('PDF File Management')}</h2>
+          <h2 className="text-xl font-display text-gold-200 mb-1">{t('Screenplay Source Library')}</h2>
           <p className="text-sm text-black-400">
             {t('Live check against Firebase Storage')}{' · '}
             {checkingCount > 0 ? t('checking {{count}} remaining...', { count: checkingCount }) : t('storage scan complete')}
@@ -385,26 +385,6 @@ export function PdfUploadPanel() {
           )}
           {t(isScanning ? 'Scanning…' : 'Rescan & Sync')}
         </button>
-      </div>
-
-      {/* Stats bar */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="p-4 rounded-xl bg-black-800/60 border border-black-700 text-center">
-          <p className="text-2xl font-bold text-gold-300">{totalCount}</p>
-          <p className="text-xs text-black-500 mt-1">{t('Total')}</p>
-        </div>
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-          <p className="text-2xl font-bold text-emerald-400">
-            {checkingCount > 0 ? <span className="text-lg">…{foundCount}</span> : foundCount}
-          </p>
-          <p className="text-xs text-black-500 mt-1">{t('PDF Found')} ✓</p>
-        </div>
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
-          <p className="text-2xl font-bold text-red-400">
-            {checkingCount > 0 ? <span className="text-lg">…{missingCount}</span> : missingCount}
-          </p>
-          <p className="text-xs text-black-500 mt-1">{t('Missing PDF')} ✗</p>
-        </div>
       </div>
 
       {/* Drag-drop zone */}
@@ -513,6 +493,39 @@ export function PdfUploadPanel() {
           </div>
         </div>
       )}
+
+      <details className="settings-source-library">
+        <summary>
+          <span>
+            <strong>{t('Screenplay inventory')}</strong>
+            <small>{t('{{count}} screenplays in Firebase Storage', { count: totalCount })}</small>
+          </span>
+          {missingCount > 0 && checkingCount === 0 && (
+            <span className="settings-source-library__warning">
+              {t('{{count}} missing source screenplay', { count: missingCount })}
+            </span>
+          )}
+        </summary>
+
+        <div className="settings-source-library__content">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl bg-black-800/60 border border-black-700 text-center">
+              <p className="text-2xl font-bold text-gold-300">{totalCount}</p>
+              <p className="text-xs text-black-500 mt-1">{t('Total')}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+              <p className="text-2xl font-bold text-emerald-400">
+                {checkingCount > 0 ? <span className="text-lg">…{foundCount}</span> : foundCount}
+              </p>
+              <p className="text-xs text-black-500 mt-1">{t('Source found')} ✓</p>
+            </div>
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
+              <p className="text-2xl font-bold text-red-400">
+                {checkingCount > 0 ? <span className="text-lg">…{missingCount}</span> : missingCount}
+              </p>
+              <p className="text-xs text-black-500 mt-1">{t('Source missing')} ✗</p>
+            </div>
+          </div>
 
       {/* Search + filter bar */}
       <div className="flex items-center gap-3">
@@ -789,6 +802,8 @@ export function PdfUploadPanel() {
           <strong className="text-gold-300">{t('Rescan & Sync')}</strong> {t('after uploading files directly to Firebase Storage console.')}
         </p>
       </div>
+        </div>
+      </details>
     </div>
   );
 }

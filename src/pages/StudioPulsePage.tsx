@@ -47,6 +47,7 @@ function BuyerLogo({ buyer }: { buyer: MarketBuyer }) {
 
 function StudioPulsePage() {
   const { t, i18n } = useTranslation();
+  const isSpanish = (i18n.resolvedLanguage ?? i18n.language).startsWith('es');
   const [territoryId, setTerritoryId] = useState<TerritoryId>('mexico');
   const { data: screenplays = [], isLoading, error } = useScreenplays();
   useLiveScreenplaySync();
@@ -73,13 +74,15 @@ function StudioPulsePage() {
         <section className="studio-pulse__masthead" aria-labelledby="studio-pulse-title">
           <div className="studio-pulse__masthead-copy">
             <h1 id="studio-pulse-title">
-              {t('{{territory}} Market Brief', { territory: t(territory.label) })}
+              {isSpanish
+                ? t('Market Brief')
+                : t('{{territory}} Market Brief', { territory: t(territory.label) })}
             </h1>
             <p>{t('What buyers want now, and where Lemon can compete.')}</p>
             <span>{t('Research updated {{date}}', { date: marketAsOf })}</span>
           </div>
           <Link className="studio-pulse__primary-action" to="/discover">
-            {t('Open Screenplay Dashboard')} <span aria-hidden="true">→</span>
+            {t('View screenplays')} <span aria-hidden="true">→</span>
           </Link>
         </section>
 

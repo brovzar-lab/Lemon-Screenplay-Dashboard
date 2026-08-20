@@ -88,7 +88,7 @@ describe('StudioPulsePage', () => {
       screen.getByRole('heading', { name: 'Where demand is strongest in Mexico' }),
     ).toBeInTheDocument();
     expect(document.querySelector('img[src="/brand/buyers/netflix.svg"]')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Open Screenplay Dashboard/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /View screenplays/ })).toHaveAttribute(
       'href',
       '/discover',
     );
@@ -143,8 +143,12 @@ describe('StudioPulsePage', () => {
     renderPage();
 
     expect(
-      screen.getByRole('heading', { name: 'Informe del mercado de México' }),
+      screen.getByRole('heading', { name: 'Informe del mercado' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Ver guiones/ })).toHaveAttribute(
+      'href',
+      '/discover',
+    );
     expect(screen.getByText('Lo más importante ahora')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Compradores activos en México' }),
