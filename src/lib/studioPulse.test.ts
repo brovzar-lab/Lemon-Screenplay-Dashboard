@@ -3,26 +3,41 @@ import { createTestScreenplay } from '@/test/factories';
 import { buildStudioPulse, STUDIO_PULSE_MARKET_SNAPSHOT } from '@/lib/studioPulse';
 
 describe('buildStudioPulse', () => {
-  it('keeps live Lemon status separate from the dated market snapshot', () => {
+  it('combines the dated market snapshot with live match and issue counts', () => {
     const screenplays = [
       createTestScreenplay({
         id: 'thriller',
         analysisVersion: 'V9 Archaeology',
-        analysisQuality: { status: 'complete', completedReaders: 5, expectedReaders: 5, failedReaders: [] },
+        analysisQuality: {
+          status: 'complete',
+          completedReaders: 5,
+          expectedReaders: 5,
+          failedReaders: [],
+        },
         recommendation: 'recommend',
         genre: 'Thriller',
       }),
       createTestScreenplay({
         id: 'comedy',
         analysisVersion: 'V9 Archaeology',
-        analysisQuality: { status: 'partial', completedReaders: 4, expectedReaders: 5, failedReaders: ['emotion'] },
+        analysisQuality: {
+          status: 'partial',
+          completedReaders: 4,
+          expectedReaders: 5,
+          failedReaders: ['emotion'],
+        },
         recommendation: 'consider',
         genre: 'Comedy',
       }),
       createTestScreenplay({
         id: 'pass',
         analysisVersion: 'V9 Archaeology',
-        analysisQuality: { status: 'complete', completedReaders: 5, expectedReaders: 5, failedReaders: [] },
+        analysisQuality: {
+          status: 'complete',
+          completedReaders: 5,
+          expectedReaders: 5,
+          failedReaders: [],
+        },
         recommendation: 'pass',
         genre: 'Drama',
       }),
@@ -31,13 +46,13 @@ describe('buildStudioPulse', () => {
 
     const pulse = buildStudioPulse(screenplays, mexico);
 
-    expect(pulse).toMatchObject({
-      activeProjects: 3,
-      v9Complete: 2,
-      v9CompletePercent: 67,
-      readyForReview: 1,
-      needsAttention: 1,
+    expect(pulse.needsAttention).toBe(1);
+    expect(pulse.highestDemand).toMatchObject({
+      id: 'true-crime',
+      index: 85,
+      fitCount: 0,
     });
+    expect(pulse.supportingBuyerCount).toBeGreaterThan(0);
     expect(STUDIO_PULSE_MARKET_SNAPSHOT).toMatchObject({
       asOf: '2026-08-19',
       status: 'research_snapshot',

@@ -466,7 +466,7 @@ export function ScreenplayFileWorkspace({
       <div className="screenplay-file__context">
         <nav className="screenplay-file__context-inner" aria-label={t('Breadcrumb')}>
           <button type="button" onClick={onBack} aria-label={t('Back to slate')}>
-            ← {t('Discovery')}
+            ← {t('Screenplays')}
           </button>
           <span aria-hidden="true">/</span>
           <strong aria-current="page">{displayTitle}</strong>

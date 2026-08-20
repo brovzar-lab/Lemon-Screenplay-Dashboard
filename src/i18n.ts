@@ -11,6 +11,12 @@ function languageKey(): string {
 }
 
 const english = {
+  'Review {{count}} matching screenplay_one': 'Review {{count}} matching screenplay',
+  'Review {{count}} matching screenplay_other': 'Review {{count}} matching screenplays',
+  '{{count}} matching screenplay_one': '{{count}} matching screenplay',
+  '{{count}} matching screenplay_other': '{{count}} matching screenplays',
+  '{{count}} issue needs attention_one': '{{count}} issue needs attention',
+  '{{count}} issue needs attention_other': '{{count}} issues need attention',
   '{{count}} available screenplay_one': '{{count}} available screenplay',
   '{{count}} available screenplay_other': '{{count}} available screenplays',
   '{{count}} produced hidden_one': '{{count}} produced film hidden',
@@ -95,6 +101,132 @@ const spanish = {
   Discovery: 'Descubrimiento',
   Home: 'Inicio',
   Settings: 'Configuración',
+  'Open navigation and preferences': 'Abrir navegación y preferencias',
+  'Close navigation and preferences': 'Cerrar navegación y preferencias',
+  'Design system': 'Sistema de diseño',
+  'Review {{count}} matching screenplay_one': 'Revisar {{count}} guion que coincide',
+  'Review {{count}} matching screenplay_other': 'Revisar {{count}} guiones que coinciden',
+  '{{count}} matching screenplay_one': '{{count}} guion que coincide',
+  '{{count}} matching screenplay_other': '{{count}} guiones que coinciden',
+  '{{count}} issue needs attention_one': '{{count}} problema requiere atención',
+  '{{count}} issue needs attention_other': '{{count}} problemas requieren atención',
+  '{{territory}} Market Brief': 'Informe del mercado de {{territory}}',
+  'What buyers want now, and where Lemon can compete.':
+    'Lo que buscan los compradores ahora y dónde puede competir Lemon.',
+  'Research updated {{date}}': 'Investigación actualizada el {{date}}',
+  'Lemon match counts are temporarily unavailable. Market research is still visible.':
+    'Las coincidencias de Lemon no están disponibles por el momento. La investigación de mercado sigue visible.',
+  'What matters now': 'Lo más importante ahora',
+  'Demand score': 'Índice de demanda',
+  'Supporting buyers': 'Compradores que respaldan',
+  'Lemon matches': 'Coincidencias Lemon',
+  '{{buyers}} buyers support this signal. Lemon has {{count}} current matches to review.':
+    '{{buyers}} compradores respaldan esta señal. Lemon tiene {{count}} coincidencias para revisar.',
+  '{{buyers}} buyers support this signal. Lemon has no current matches, so this is a clear acquisition opportunity.':
+    '{{buyers}} compradores respaldan esta señal. Lemon no tiene coincidencias actuales, así que es una clara oportunidad de adquisición.',
+  'Explore the opportunity': 'Explorar la oportunidad',
+  'Buyer intelligence': 'Inteligencia de compradores',
+  'Active buyers in {{territory}}': 'Compradores activos en {{territory}}',
+  'Current appetite, preferred formats, and Lemon fit.':
+    'Interés actual, formatos preferidos y coincidencias con Lemon.',
+  'No current matches': 'Sin coincidencias actuales',
+  'Opportunity map': 'Mapa de oportunidades',
+  'Where demand is strongest in {{territory}}': 'Dónde hay más demanda en {{territory}}',
+  'Market demand is scored from 0 to 100. Lemon matches are shown as a separate count.':
+    'La demanda del mercado se califica de 0 a 100. Las coincidencias de Lemon aparecen como una cifra separada.',
+  '{{category}} demand score': 'Índice de demanda de {{category}}',
+  'Lemon matches: {{count}}': 'Coincidencias Lemon: {{count}}',
+  'Lemon matches: none': 'Coincidencias Lemon: ninguna',
+  'Research record': 'Registro de investigación',
+  'Method and sources': 'Método y fuentes',
+  'Market scores combine dated buyer announcements, commissioning signals, audience evidence, source quality, and recency. Lemon match counts use live slate genres, themes, tone, and loglines. Market research never changes screenplay scores or verdicts.':
+    'Los índices de mercado combinan anuncios con fecha, señales de encargos, datos de audiencia, calidad de las fuentes y vigencia. Las coincidencias de Lemon usan géneros, temas, tono y loglines de la selección actual. La investigación de mercado nunca cambia calificaciones ni veredictos.',
+  'Open the full research snapshot': 'Abrir la investigación completa',
+  'Series + films': 'Series y películas',
+  'Series + films (pan-regional)': 'Series y películas (panregionales)',
+  'Series + docuseries': 'Series y docuseries',
+  'Docuseries + unscripted': 'Docuseries y contenido sin guion',
+  'Features (studio tentpoles)': 'Películas de gran estudio',
+  'Features (tentpoles)': 'Películas de gran presupuesto',
+  'Features + docuseries (via HBO Max)': 'Películas y docuseries (por HBO Max)',
+  'Series + films + reality': 'Series, películas y reality',
+  'Series + films + live/unscripted': 'Series, películas, eventos y contenido sin guion',
+  'True crime and crime drama': 'Crimen real y drama criminal',
+  'Romance and romantic drama (incl. hybrids)': 'Romance y drama romántico (incluye híbridos)',
+  'Elevated action / police thriller': 'Acción elevada y thriller policiaco',
+  'Nostalgia / heritage IP and biographical drama':
+    'Nostalgia, propiedad conocida y drama biográfico',
+  'Comedy (adaptations and stand-up formats)': 'Comedia, adaptaciones y stand-up',
+  'Historical / period drama': 'Drama histórico y de época',
+  'Spanish-language and bilingual scripted': 'Ficción en español y bilingüe',
+  'Cross-border crime and thriller': 'Crimen y thriller transfronterizo',
+  'Telenovela and romance': 'Telenovela y romance',
+  'Romance (top scripted genre, incl. hybrids)': 'Romance, incluido en formatos híbridos',
+  'Crime drama and true crime': 'Drama criminal y crimen real',
+  'Modernized telenovela / hybrid melodrama': 'Telenovela moderna y melodrama híbrido',
+  'Competition and talent reality': 'Reality de competencia y talento',
+  'Microdrama / vertical short-form': 'Microdrama y formato vertical corto',
+  'Action and young-adult scripted': 'Acción y ficción juvenil',
+  'Thriller / crime / heist': 'Thriller, crimen y robos',
+  'Romance and YA romance': 'Romance y romance juvenil',
+  'Documentary and true crime': 'Documental y crimen real',
+  'Reality and competition': 'Reality y competencia',
+  'Non-English local-language originals that travel':
+    'Originales locales que viajan fuera de su idioma',
+  'Romance and romantasy': 'Romance y fantasía romántica',
+  'Unscripted and reality': 'Contenido sin guion y reality',
+  'Crime and thriller (evergreen)': 'Crimen y thriller de demanda constante',
+  'Live sports and events': 'Deportes y eventos en vivo',
+  'Aggressive local investment: US$1B for 2025-2028, 20+ titles/year. Wants action thrillers, romance, comedy and historical drama made with local partners.':
+    'Inversión local agresiva: US$1,000 millones para 2025-2028 y más de 20 títulos al año. Busca thrillers de acción, romance, comedia y drama histórico con socios locales.',
+  'Local-obsession hits: romance, true crime, comedy adaptations and courtroom drama. Record Mexico premiere with Mentiras, La Serie; The Office adaptation La Oficina for 2026.':
+    'Éxitos de obsesión local: romance, crimen real, adaptaciones de comedia y drama judicial. Mentiras, La Serie tuvo un estreno récord en México. La Oficina llegará en 2026.',
+  'Quality over volume: nostalgia/heritage IP (Chespirito universe), true-crime docuseries and prestige drama. Similar or slightly higher volume than 2025.':
+    'Calidad sobre volumen: nostalgia y propiedad conocida, como el universo de Chespirito, docuseries de crimen real y drama de prestigio. Volumen similar o algo mayor que en 2025.',
+  'Theatrical slate driven by global tentpoles and franchises. Local Mexican scripted commissioning runs mainly through HBO Max rather than a separate theatrical local pipeline.':
+    'La oferta de cine se concentra en grandes franquicias globales. Los encargos mexicanos de ficción pasan principalmente por HBO Max y no por una línea local separada de cine.',
+  'Selective. Maintains select Spanish-language crime drama (Women in Blue / Las Azules renewed for S2) but is not a volume buyer in Mexico.':
+    'Selectivo. Mantiene algunos dramas criminales en español, como Las Azules, renovada para una segunda temporada, pero no compra gran volumen en México.',
+  'Serves US Latino via pan-Spanish library plus its Mexico slate; Latinos overindex on Netflix. No US-Latino-exclusive scripted mandate disclosed.':
+    'Atiende al público latino de Estados Unidos con su catálogo panhispano y su oferta mexicana. No ha revelado un mandato exclusivo de ficción para ese público.',
+  'Reaches US Hispanic through pan-regional Spanish hits (Betty la Fea) and Telemundo/free ad-supported channels.':
+    'Llega al público hispano de Estados Unidos con éxitos panregionales en español, como Betty la Fea, y con canales gratuitos de Telemundo.',
+  'US Hispanic served via LatAm true-crime and prestige IP; no distinct US-Latino original mandate disclosed.':
+    'Atiende al público hispano de Estados Unidos con crimen real latinoamericano y propiedad de prestigio. No ha revelado un mandato original específico para ese público.',
+  'No US-Latino-specific theatrical commissioning signal identified in the last 12 months.':
+    'No se identificó una señal de encargos de cine específica para el público latino de Estados Unidos en los últimos 12 meses.',
+  'Select Spanish-language crime drama reaches US Hispanic (Las Azules), but selective posture.':
+    'Algunos dramas criminales en español, como Las Azules, llegan al público hispano de Estados Unidos, pero la postura sigue siendo selectiva.',
+  'Regional slate anchored in Mexico plus Argentina (19 Argentine titles across 2026-2027). Romance, crime and drama with name directors.':
+    'La oferta regional se apoya en México y Argentina, con 19 títulos argentinos para 2026-2027. Busca romance, crimen y drama con directores reconocidos.',
+  'Local-obsession franchises (Betty la Fea, Culpables), courtroom/true-crime drama and competition reality; region positioned as global-export source.':
+    'Franquicias de obsesión local, como Betty la Fea y Culpables, drama judicial, crimen real y reality de competencia. La región se presenta como fuente de exportación global.',
+  'Quality over volume; true-crime docuseries and prestige/heritage IP (City of God, Like Water for Chocolate, Chespirito).':
+    'Calidad sobre volumen: docuseries de crimen real y propiedad de prestigio o conocida, como Ciudad de Dios, Como agua para chocolate y Chespirito.',
+  'Local commissioning channelled through HBO Max; theatrical is global-tentpole-led.':
+    'Los encargos locales pasan por HBO Max. El cine se concentra en grandes producciones globales.',
+  'Selective Spanish-language scripted; not a volume regional buyer.':
+    'Ficción selectiva en español. No compra gran volumen en la región.',
+  'EUR 1B+/US$1.2B for 2025-2028 with the Tres Cantos studio hub. Thrillers, heist/crime, YA and event miniseries with a strong hook.':
+    'Más de €1,000 millones para 2025-2028 con el centro de Tres Cantos. Busca thrillers, crimen y robos, ficción juvenil y miniseries-evento con un gancho claro.',
+  "Spain is Prime's No. 1 non-English export power. Action + young-adult scripted, romance (Culpables), and big live reality (Operacion Triunfo, LOL).":
+    'España es la principal potencia de exportación de Prime fuera del inglés. Busca acción, ficción juvenil, romance, como Culpables, y grandes realities en vivo.',
+  'Documentary and true-crime unscripted tied to recent/current affairs and sports figures.':
+    'Documental y crimen real sin guion ligados a hechos recientes, actualidad y figuras del deporte.',
+  'Local commissioning via HBO Max; theatrical is tentpole-led.':
+    'Los encargos locales pasan por HBO Max. El cine se concentra en grandes producciones.',
+  'No disclosed Spain-specific originals mandate in the last 12 months.':
+    'No se ha revelado un mandato de originales específico para España en los últimos 12 meses.',
+  '~US$20B content spend in 2026. Non-English local-language originals prioritized; a declared year of romance; unscripted and live events added as new categories.':
+    'Cerca de US$20,000 millones en contenido en 2026. Da prioridad a originales locales en otros idiomas, declara un año de romance y suma contenido sin guion y eventos en vivo.',
+  'International Originals big bets: Spanish romance, Korean drama and Indian hits engineered to travel (Culpables 100M viewers, 90%+ outside home market).':
+    'Grandes apuestas internacionales: romance español, drama coreano y éxitos de India diseñados para viajar. Culpables llegó a 100 millones de espectadores y más del 90% estaba fuera de su mercado local.',
+  'Expanding international acquisition budget for local-language originals across Europe and Latin America; prestige and true crime.':
+    'Aumenta el presupuesto internacional para adquirir originales locales en Europa y América Latina. Busca prestigio y crimen real.',
+  'Theatrical release count ramping 11 (2025) to 14 (2026) to 18 (2027), led by tentpoles and franchises (Dune, LOTR, DC).':
+    'Aumenta los estrenos de cine de 11 en 2025 a 14 en 2026 y 18 en 2027. Se concentra en grandes franquicias como Dune, El Señor de los Anillos y DC.',
+  'More selective. Content budget trimmed to ~US$4.5B; ~a dozen films/year, most under US$100M. Fewer, prestige bets.':
+    'Más selectivo. Redujo el presupuesto de contenido a cerca de US$4,500 millones. Produce unas 12 películas al año, la mayoría por debajo de US$100 millones. Hace menos apuestas y busca prestigio.',
   'Studio command center': 'Centro de mando del estudio',
   'Studio Pulse': 'Pulso del estudio',
   'Lemon status and industry context': 'Estado de Lemon y contexto de la industria',
@@ -147,9 +279,11 @@ const spanish = {
   'Lemon pipeline vs. buyer demand': 'Proyectos de Lemon frente a la demanda',
   'Market demand': 'Demanda del mercado',
   'Lemon projects': 'Proyectos de Lemon',
-  'View {{count}} matching {{category}} projects': 'Ver {{count}} proyectos que coinciden con {{category}}',
+  'View {{count}} matching {{category}} projects':
+    'Ver {{count}} proyectos que coinciden con {{category}}',
   'Actionable insight': 'Hallazgo útil',
-  '{{territory}} has strong demand for {{category}}.': '{{territory}} tiene alta demanda de {{category}}.',
+  '{{territory}} has strong demand for {{category}}.':
+    '{{territory}} tiene alta demanda de {{category}}.',
   'Lemon has {{count}} possible matches, with {{ready}} ready for producer review.':
     'Lemon tiene {{count}} posibles coincidencias. {{ready}} están listas para revisión del productor.',
   'Review matching projects': 'Revisar proyectos que coinciden',

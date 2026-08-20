@@ -29,9 +29,11 @@ vi.mock('@/components/layout/SyncStatusIndicator', () => ({
 }));
 
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
+import i18n from '@/i18n';
 
 describe('ApplicationHeader', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
     state.isAdmin = true;
     state.setDesignSystem.mockClear();
     state.setTheme.mockClear();
@@ -52,11 +54,12 @@ describe('ApplicationHeader', () => {
       'href',
       '/',
     );
-    expect(screen.getByRole('link', { name: 'Discovery' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Screenplays' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Market' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('Synced')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Language' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Design system: Instrument')).toHaveTextContent('Instrument');
     expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'User menu' })).toBeInTheDocument();
     expect(state.setDesignSystem).not.toHaveBeenCalled();
@@ -70,7 +73,7 @@ describe('ApplicationHeader', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Market' })).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
@@ -84,10 +87,40 @@ describe('ApplicationHeader', () => {
 
     await user.click(screen.getByRole('button', { name: 'Spanish' }));
 
-    expect(screen.getByRole('link', { name: 'Inicio' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Descubrimiento' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mercado' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Guiones' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Idioma' })).toBeInTheDocument();
     expect(document.documentElement).toHaveAttribute('lang', 'es');
     expect(window.localStorage.getItem('lemon-ui-language')).toBe('es');
+  });
+
+  it('opens and closes the compact navigation and only shows real Settings issues', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <MemoryRouter initialEntries={['/']}>
+        <ApplicationHeader settingsIssueCount={0} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByLabelText('0 issues need attention')).not.toBeInTheDocument();
+    const menuButton = screen.getByRole('button', { name: 'Open navigation and preferences' });
+    expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(menuButton);
+    expect(
+      screen.getByRole('button', { name: 'Close navigation and preferences' }),
+    ).toHaveAttribute('aria-expanded', 'true');
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'Open navigation and preferences' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+
+    rerender(
+      <MemoryRouter initialEntries={['/']}>
+        <ApplicationHeader settingsIssueCount={2} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByLabelText('2 issues need attention')).toHaveTextContent('2');
   });
 });

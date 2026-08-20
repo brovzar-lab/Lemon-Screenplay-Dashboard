@@ -111,10 +111,7 @@ describe('Discovery app shell and route state', () => {
   });
 
   it('browser back closes the drawer and leaves Discovery open', async () => {
-    const router = makeRouter(
-      ['/discover?ui=classic', '/discover/bravo?ui=classic'],
-      1,
-    );
+    const router = makeRouter(['/discover?ui=classic', '/discover/bravo?ui=classic'], 1);
     renderRouter(router);
     await screen.findByRole('dialog', { name: 'Bravo Room' });
 
@@ -143,12 +140,10 @@ describe('Discovery app shell and route state', () => {
 
       expect(await screen.findByRole('banner')).toBeInTheDocument();
       expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Discovery' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Screenplays' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Intake' })).not.toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
-      expect(
-        screen.getByRole('button', { name: /^Use (dark|light) theme$/i }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Use (dark|light) theme$/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Account' })).toBeInTheDocument();
     },
   );

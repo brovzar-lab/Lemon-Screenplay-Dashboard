@@ -5,9 +5,13 @@ import './authenticated-navigation.css';
 
 interface AuthenticatedNavigationProps {
   className?: string;
+  settingsIssueCount?: number;
 }
 
-export function AuthenticatedNavigation({ className = '' }: AuthenticatedNavigationProps) {
+export function AuthenticatedNavigation({
+  className = '',
+  settingsIssueCount = 0,
+}: AuthenticatedNavigationProps) {
   const { t } = useTranslation();
   const location = useLocation();
   const isAdmin = useIsAdmin();
@@ -28,14 +32,14 @@ export function AuthenticatedNavigation({ className = '' }: AuthenticatedNavigat
         className={`authenticated-navigation__link ${isHome ? 'authenticated-navigation__link--active' : ''}`}
         aria-current={isHome ? 'page' : undefined}
       >
-        {t('Home')}
+        {t('Market')}
       </Link>
       <Link
         to="/discover"
         className={`authenticated-navigation__link ${isDiscovery ? 'authenticated-navigation__link--active' : ''}`}
         aria-current={isDiscovery ? 'page' : undefined}
       >
-        {t('Discovery')}
+        {t('Screenplays')}
       </Link>
       {isAdmin && (
         <Link
@@ -44,6 +48,14 @@ export function AuthenticatedNavigation({ className = '' }: AuthenticatedNavigat
           aria-current={isSettings ? 'page' : undefined}
         >
           {t('Settings')}
+          {settingsIssueCount > 0 && (
+            <span
+              className="authenticated-navigation__issue-count"
+              aria-label={t('{{count}} issue needs attention', { count: settingsIssueCount })}
+            >
+              {settingsIssueCount}
+            </span>
+          )}
         </Link>
       )}
     </nav>

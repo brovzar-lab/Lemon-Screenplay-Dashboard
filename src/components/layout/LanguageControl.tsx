@@ -11,7 +11,7 @@ export function LanguageControl() {
   const language: UiLanguage = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
 
   return (
-    <fieldset className="inline-flex shrink-0 rounded-lg border border-slate-600 bg-[#0e1d33] p-[3px]" aria-label={t('Language')}>
+    <fieldset className="language-control" aria-label={t('Language')}>
       <legend className="sr-only">{t('Language')}</legend>
       {LANGUAGES.map((option) => (
         <button
@@ -19,7 +19,7 @@ export function LanguageControl() {
           type="button"
           aria-label={t(option.name)}
           aria-pressed={language === option.value}
-          className={`min-h-8 rounded-md px-2 text-[10px] font-bold text-slate-400 hover:text-white ${language === option.value ? 'bg-[#6e8bff] text-[#071222]' : ''}`}
+          className={`language-control__option ${language === option.value ? 'is-active' : ''}`}
           onClick={() => void i18n.changeLanguage(option.value)}
         >
           {option.label}
