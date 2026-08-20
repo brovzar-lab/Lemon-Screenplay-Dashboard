@@ -3,10 +3,10 @@ import { test, expect } from './fixtures';
 test.setTimeout(90_000);
 
 const sections = [
-  'Intake',
+  'Screenplay Upload System',
   'Analysis Health',
   'Model Comparison',
-  'PDF Files',
+  'Screenplays',
   'Data & Sharing',
   'System Status',
   'Calibration',
@@ -15,14 +15,16 @@ const sections = [
 test.describe('Settings administration', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/settings?tab=intake');
-    await expect(page.getByRole('heading', { name: 'Intake', exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByRole('heading', { name: 'Screenplay Upload System', exact: true }),
+    ).toBeVisible({ timeout: 30_000 });
   });
 
-  test('groups every live administrative section and keeps Intake canonical', async ({ page }) => {
+  test('groups every live administrative section and keeps screenplay upload canonical', async ({ page }) => {
     const nav = page.getByRole('navigation', { name: 'Settings sections' });
     for (const section of sections) await expect(nav.getByRole('button', { name: section })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Workflow' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'System' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'System', exact: true })).toBeVisible();
     await expect(page.getByTestId('intake-workbench')).toBeVisible();
   });
 
@@ -45,7 +47,9 @@ test.describe('Settings administration', () => {
     await page.goto('/intake');
     await expect(page).toHaveURL(/\/settings\?tab=intake/);
     await page.goto('/settings?tab=upload');
-    await expect(page.getByRole('heading', { name: 'Intake', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Screenplay Upload System', exact: true }),
+    ).toBeVisible();
     await page.goto('/settings?tab=taste-calibration');
     await expect(page.getByRole('heading', { name: 'Calibration', exact: true })).toBeVisible();
   });

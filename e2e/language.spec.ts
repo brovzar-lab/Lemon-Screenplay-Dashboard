@@ -12,7 +12,7 @@ test('defaults to English and saves Spanish across pages and reloads', async ({ 
   await page.getByRole('button', { name: 'Spanish' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'es');
   await expect(page.getByRole('link', { name: 'Guiones', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Informe del mercado de México' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Informe del mercado' })).toBeVisible();
   await page.getByRole('link', { name: 'Guiones', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Continúa con la selección' })).toBeVisible();
 
@@ -20,8 +20,10 @@ test('defaults to English and saves Spanish across pages and reloads', async ({ 
   await expect(page.locator('html')).toHaveAttribute('lang', 'es');
   await page.getByRole('link', { name: 'Configuración', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Estado del análisis', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: /Recepción/ }).click();
-  await expect(page.getByRole('heading', { name: 'Recepción', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Sistema de carga de guiones/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Sistema de carga de guiones', exact: true }),
+  ).toBeVisible();
 });
 
 test('keeps the language control usable on a phone-sized screen', async ({ page }) => {
