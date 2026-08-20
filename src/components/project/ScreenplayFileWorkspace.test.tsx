@@ -201,7 +201,7 @@ describe('ScreenplayFileWorkspace', () => {
     expect(screen.getByTestId('application-header')).toBeInTheDocument();
     expect(screen.getByTestId('screenplay-file-workspace')).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
-      'Discovery/Atlas Fall',
+      'Screenplays/Atlas Fall',
     );
     expect(screen.getByRole('heading', { name: 'Atlas Fall' })).toBeInTheDocument();
     expect(screen.getByText('5/5 complete')).toBeInTheDocument();
