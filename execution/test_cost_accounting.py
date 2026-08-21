@@ -143,6 +143,95 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         self.assertEqual(post.call_args.kwargs["json"]["job_id"], "queue-job-1")
 
+    def test_candidate_sonnet_and_opus_requests_use_adaptive_high_without_sampling(self):
+        for route, model_id in ingest_v9.CANDIDATE_MODEL_IDS.items():
+            response = MagicMock()
+            response.status_code = 200
+            response.json.return_value = {
+                "text": "ok",
+                "tool_uses": [],
+                "response_id": f"msg_{route}_candidate",
+                "model": model_id,
+                "stop_reason": "end_turn",
+                "usage": {},
+            }
+            with (
+                patch.dict(ingest_v9.MODEL_IDS, {route: model_id}),
+                patch.object(ingest_v9.requests, "post", return_value=response) as post,
+            ):
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key=route,
+                    thinking_budget=8_000,
+                    max_tokens=4_000,
+                    proxy_url="https://proxy.test",
+                    retries=1,
+                )
+            body = post.call_args.kwargs["json"]
+            self.assertEqual(body["model"], model_id)
+            self.assertEqual(body["thinking"], {"type": "adaptive"})
+            self.assertEqual(body["output_config"], {"effort": "high"})
+            self.assertEqual(body["max_tokens"], 12_000)
+            self.assertNotIn("temperature", body)
+            self.assertNotIn("top_p", body)
+            self.assertNotIn("top_k", body)
+
+    def test_haiku_manual_thinking_does_not_inherit_candidate_rules(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "ok",
+            "tool_uses": [],
+            "response_id": "msg_haiku_manual",
+            "model": ingest_v9.MODEL_IDS["haiku"],
+            "stop_reason": "end_turn",
+            "usage": {},
+        }
+        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+            ingest_v9.call_llm(
+                system_blocks=[{"type": "text", "text": "system"}],
+                user_blocks=[{"type": "text", "text": "screenplay"}],
+                model_key="haiku",
+                thinking_budget=8_000,
+                proxy_url="https://proxy.test",
+                retries=1,
+            )
+        body = post.call_args.kwargs["json"]
+        self.assertEqual(body["thinking"], {"type": "enabled", "budget_tokens": 8_000})
+        self.assertEqual(body["temperature"], 1.0)
+        self.assertNotIn("output_config", body)
+
+    def test_unknown_route_and_returned_model_fallback_fail_closed(self):
+        with self.assertRaisesRegex(ingest_v9.LlmRequestRejectedError, "silent fallback"):
+            ingest_v9.call_llm(
+                system_blocks=[],
+                user_blocks=[],
+                model_key="not-a-route",
+                proxy_url="https://proxy.test",
+                retries=1,
+            )
+
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "ok",
+            "tool_uses": [],
+            "response_id": "msg_wrong_model",
+            "model": "claude-opus-4-7",
+            "stop_reason": "end_turn",
+            "usage": {},
+        }
+        with patch.object(ingest_v9.requests, "post", return_value=response):
+            with self.assertRaisesRegex(ingest_v9.LlmProvenanceError, "did not match"):
+                ingest_v9.call_llm(
+                    system_blocks=[],
+                    user_blocks=[],
+                    model_key="sonnet",
+                    proxy_url="https://proxy.test",
+                    retries=1,
+                )
+
     def test_tool_request_uses_a_strict_anthropic_compatible_schema(self):
         response = MagicMock()
         response.status_code = 200

@@ -17,7 +17,9 @@ test('actual cost uses the approved per-model and cache rates', () => {
 
   assert.equal(calculateActualCostMicrousd('claude-haiku-4-5-20251001', usage), 3_760);
   assert.equal(calculateActualCostMicrousd('claude-sonnet-4-6', usage), 11_280);
+  assert.equal(calculateActualCostMicrousd('claude-sonnet-5', usage), 7_520);
   assert.equal(calculateActualCostMicrousd('claude-opus-4-7', usage), 18_800);
+  assert.equal(calculateActualCostMicrousd('claude-opus-4-8', usage), 18_800);
   assert.equal(calculateActualCostMicrousd('claude-opus-5', usage), 18_800);
   assert.equal(calculateActualCostMicrousd('claude-fable-5', usage), 37_600);
 });
@@ -106,6 +108,17 @@ test('reservation is conservative enough to cover the maximum response', () => {
   });
 
   assert.ok(reservation >= maximumRepresentedCost);
+});
+
+test('candidate reservation uses current Sonnet 5 cache and output prices', () => {
+  const reservation = calculateReservationMicrousd('claude-sonnet-5', 100_000, 24_000);
+  const represented = calculateActualCostMicrousd('claude-sonnet-5', {
+    input_tokens: 100_000,
+    output_tokens: 24_000,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+  });
+  assert.ok(reservation >= represented);
 });
 
 test('daily dollar limit rejects malformed or unsafe configuration', () => {

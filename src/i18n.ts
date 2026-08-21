@@ -1467,16 +1467,21 @@ const spanish = {
   Premium: 'Premium',
   Optimized: 'Optimizada',
   BUDGET: 'ECONÓMICO',
+  SAFE: 'SEGURO',
   RECOMMENDED: 'RECOMENDADO',
   SMART: 'INTELIGENTE',
   'Fast & Affordable': 'Rápido y económico',
+  'Cold Read + Full Panel': 'Lectura inicial y panel completo',
   'Balanced Power': 'Potencia equilibrada',
   'Maximum Depth': 'Máxima profundidad',
   'Smart Two-Pass': 'Dos pasos inteligentes',
   'Approved analysis route': 'Ruta de análisis aprobada',
+  'Approved non-binding support route': 'Ruta auxiliar aprobada y no vinculante',
   'Approved two-pass route': 'Ruta aprobada de dos pasos',
   'Best for bulk scanning. Great accuracy for structured analysis at a fraction of the cost. Ideal for processing large batches of 100+ screenplays.':
     'Ideal para revisar grandes lotes. Ofrece buena precisión a menor costo. Sirve para lotes de más de 100 guiones.',
+  'Haiku supplies a cold read and genre signal, then the complete Sonnet panel always runs. A Haiku PASS can never stop full scoring.':
+    'Haiku aporta una lectura inicial y una señal de género. Después siempre se ejecuta el panel completo de Sonnet. Un PASS de Haiku nunca puede detener la calificación completa.',
   'Best quality-to-cost ratio. Deep character analysis, nuanced genre detection, and reliable scoring. The default choice for professional analysis.':
     'La mejor relación entre calidad y costo. Ofrece análisis profundo de personajes, género preciso y calificaciones confiables.',
   'Deep analysis with nuanced insights. Best for high-priority screenplays where you need every detail. This pinned route remains unchanged until it passes a benchmark review.':
@@ -1710,6 +1715,8 @@ const spanish = {
     'Opus 5 responde directamente con esfuerzo alto y sin cambiar de modelo.',
   'Fable 5 performs the deepest review directly at high effort.':
     'Fable 5 hace directamente la revisión más profunda con esfuerzo alto.',
+  'Reader Chat only. Fable 5 requires at least 30 days of provider retention, so do not use it for material that cannot accept that privacy condition.':
+    'Solo para el chat con lectores. Fable 5 requiere al menos 30 días de retención por parte del proveedor. No lo uses con material que no pueda aceptar esa condición de privacidad.',
   'Model selection': 'Selección de modelo',
   Auto: 'Auto',
   Direct: 'Directo',
@@ -2104,9 +2111,26 @@ const spanish = {
   'Compare AI models side-by-side with the V9 Archaeology Engine. Upload a screenplay or pull from your dashboard.':
     'Compara modelos de IA lado a lado con el motor V9 Archaeology. Carga un guion o usa uno del panel.',
   'Newest available models': 'Modelos disponibles más recientes',
+  'Benchmark-pending models': 'Modelos pendientes de prueba',
   'Current comparison candidates': 'Candidatos actuales para comparación',
   'Availability is separate from approval. Production scoring stays on its benchmark-approved routes.':
     'La disponibilidad no implica aprobación. La calificación de producción se mantiene en las rutas aprobadas mediante pruebas de referencia.',
+  'Fable 5 is restricted to Reader Chat and is not a screenplay-scoring candidate.':
+    'Fable 5 está limitado al chat con lectores y no es candidato para calificar guiones.',
+  'Benchmark pending': 'Prueba pendiente',
+  'Approved · $1.60–$4.50': 'Aprobado · $1.60–$4.50',
+  'Approved · $2.70–$7.50': 'Aprobado · $2.70–$7.50',
+  'Approved model selectors': 'Selectores de modelos aprobados',
+  'Re-analysis selector': 'Selector de reanálisis',
+  'Full scoring routes': 'Rutas de calificación completa',
+  'Only benchmark-approved full-panel models can replace permanent coverage.':
+    'Solo los modelos de panel completo aprobados mediante pruebas pueden reemplazar un análisis permanente.',
+  'Reader Chat choices': 'Opciones del chat con lectores',
+  'Conversation-only routes': 'Rutas exclusivas para conversación',
+  'These models answer private Reader Chat questions and never score a screenplay.':
+    'Estos modelos responden preguntas privadas del chat con lectores y nunca califican un guion.',
+  'Opus 5 → safe fallback': 'Opus 5 → alternativa segura',
+  '30-day retention': 'Retención de 30 días',
   'Current candidate': 'Candidato actual',
   'Optional premium': 'Premium opcional',
   'Upload New PDF': 'Cargar PDF nuevo',

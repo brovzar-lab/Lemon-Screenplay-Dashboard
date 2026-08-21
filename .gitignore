@@ -47,6 +47,7 @@ playwright/.auth/
 # Temporary files
 *.tmp
 .tmp/
+benchmark-artifacts/
 .npm-cache/
 __pycache__/
 *.pyc

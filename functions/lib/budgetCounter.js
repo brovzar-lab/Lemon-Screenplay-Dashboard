@@ -247,7 +247,7 @@ async function reserveLlmBudget(params) {
         ...activeReservation,
     };
 }
-async function settleLlmBudget(reservation, usage) {
+async function settleLlmBudget(reservation, usage, returnedModel = reservation.model) {
     const db = (0, firestore_1.getFirestore)();
     const nowMs = Date.now();
     const budgetRef = db.collection(ingestQueue_1.SYSTEM_COLLECTION).doc(reservation.budget_document_id);
@@ -255,7 +255,7 @@ async function settleLlmBudget(reservation, usage) {
     const queueRef = reservation.job_id
         ? db.collection(ingestQueue_1.INGEST_QUEUE_COLLECTION).doc(reservation.job_id)
         : null;
-    const actualCostMicrousd = (0, llmCost_1.calculateActualCostMicrousd)(reservation.model, usage);
+    const actualCostMicrousd = (0, llmCost_1.calculateActualCostMicrousd)(returnedModel, usage);
     return db.runTransaction(async (transaction) => {
         const reservationSnapshot = await transaction.get(reservationRef);
         const budgetSnapshot = await transaction.get(budgetRef);
@@ -283,19 +283,21 @@ async function settleLlmBudget(reservation, usage) {
         if (storedLimit <= 0)
             throw new Error("Daily AI budget ledger is missing its limit.");
         const ledger = normalizeBudgetLedger(budgetSnapshot.data(), reservation.budget_document_id.replace("llm-budget-", ""), storedLimit);
-        const next = settleBudgetReservationInLedger(ledger, reservation.id, reservation.model, usage, actualCostMicrousd, nowMs);
+        const next = settleBudgetReservationInLedger(ledger, reservation.id, returnedModel, usage, actualCostMicrousd, nowMs);
         transaction.set(budgetRef, {
             ...next,
             updated_at: firestore_1.FieldValue.serverTimestamp(),
         });
         transaction.update(reservationRef, {
             status: "settled",
+            requested_model: reservation.model,
+            returned_model: returnedModel,
             actual_cost_microusd: actualCostMicrousd,
             usage,
             settled_at: firestore_1.FieldValue.serverTimestamp(),
         });
         if (queueRef) {
-            const modelPrefix = `llm_models.${reservation.model}`;
+            const modelPrefix = `llm_models.${returnedModel}`;
             transaction.update(queueRef, {
                 llm_call_count: firestore_1.FieldValue.increment(1),
                 llm_input_tokens: firestore_1.FieldValue.increment(usage.input_tokens),

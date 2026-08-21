@@ -176,10 +176,11 @@ exports.llmProxy = (0, https_1.onRequest)({
             res.status(400).json({ error: "Model is not approved.", code: "INVALID_MODEL" });
             return;
         }
+        const modelOutputLimit = (0, llmProxyPolicy_1.approvedMaxOutputTokens)(body.model, MAX_OUTPUT_TOKENS);
         const maxTokens = body.max_tokens ?? 8_096;
-        if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > MAX_OUTPUT_TOKENS) {
+        if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > modelOutputLimit) {
             res.status(400).json({
-                error: `max_tokens must be an integer between 1 and ${MAX_OUTPUT_TOKENS}.`,
+                error: `max_tokens must be an integer between 1 and ${modelOutputLimit}.`,
                 code: "INVALID_INPUT",
             });
             return;
@@ -202,27 +203,17 @@ exports.llmProxy = (0, https_1.onRequest)({
                 });
                 return;
             }
-            if (body.thinking.type === "adaptive" && !body.model.includes("opus")) {
-                res.status(400).json({
-                    error: "Adaptive thinking is approved only for Opus models.",
-                    code: "INVALID_INPUT",
-                });
-                return;
-            }
-        }
-        if (body.temperature !== undefined
-            && (!Number.isFinite(body.temperature)
-                || body.temperature < 0
-                || body.temperature > 1)) {
-            res.status(400).json({
-                error: "temperature must be between 0 and 1.",
-                code: "INVALID_INPUT",
-            });
-            return;
         }
         let outputConfig;
         try {
-            outputConfig = (0, llmProxyPolicy_1.approvedOutputConfig)(body.output_config);
+            outputConfig = (0, llmProxyPolicy_1.validateModelRequest)(body.model, authResult.kind, {
+                thinking: body.thinking,
+                temperature: body.temperature,
+                top_p: body.top_p,
+                top_k: body.top_k,
+                tool_choice: body.tool_choice,
+                output_config: body.output_config,
+            });
         }
         catch (error) {
             res.status(400).json({
@@ -258,6 +249,10 @@ exports.llmProxy = (0, https_1.onRequest)({
             payload.system = system;
         if (typeof body.temperature === "number")
             payload.temperature = body.temperature;
+        if (typeof body.top_p === "number")
+            payload.top_p = body.top_p;
+        if (typeof body.top_k === "number")
+            payload.top_k = body.top_k;
         if (body.tools && body.tools.length > 0)
             payload.tools = body.tools;
         if (body.tool_choice)
@@ -364,7 +359,27 @@ exports.llmProxy = (0, https_1.onRequest)({
                     }
                     : {}),
             };
-            const settlement = await (0, budgetCounter_1.settleLlmBudget)(reservation, usage);
+            const returnedModel = typeof message.model === "string" ? message.model : "";
+            const settlement = await (0, budgetCounter_1.settleLlmBudget)(reservation, usage, returnedModel);
+            if (returnedModel !== body.model) {
+                res.status(502).json({
+                    error: "Anthropic returned a different model than the exact model requested.",
+                    code: "MODEL_PROVENANCE_MISMATCH",
+                    isRetryable: false,
+                    manualReviewRequired: true,
+                    requested_model: body.model,
+                    returned_model: returnedModel,
+                    response_id: message.id,
+                    stop_reason: message.stop_reason,
+                    usage: {
+                        ...usage,
+                        call_count: 1,
+                        actual_cost_microusd: settlement.actual_cost_microusd,
+                        actual_cost_usd: settlement.actual_cost_usd,
+                    },
+                });
+                return;
+            }
             res.status(200).json({
                 text,
                 tool_uses: toolUses,

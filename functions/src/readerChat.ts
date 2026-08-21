@@ -326,8 +326,11 @@ async function callReader(input: {
         // reasoning cannot crowd out the structured grounded answer.
         max_tokens: 24_000,
         output_config: { effort: input.effort },
+        ...(input.modelId === "claude-opus-5"
+          ? { thinking: { type: "adaptive" } }
+          : {}),
         tools: [READER_REPLY_TOOL],
-        tool_choice: { type: "tool", name: READER_REPLY_TOOL.name },
+        tool_choice: { type: "auto" },
       }),
     });
   } catch {

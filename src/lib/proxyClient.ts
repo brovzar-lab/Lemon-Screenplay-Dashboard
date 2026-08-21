@@ -10,6 +10,7 @@
  */
 
 import { authReady, auth } from './firebase';
+import modelCatalog from '@/config/anthropic-model-catalog.json';
 
 // Resolve proxy URL — emulator in dev, hosting rewrite in prod
 const PROXY_URL = import.meta.env.DEV
@@ -38,11 +39,29 @@ export interface CallLLMOptions {
    */
   temperature?: number;
   maxTokens?: number;
+  thinkingBudgetTokens?: number;
+}
+
+export interface CallLLMUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+  actual_cost_microusd?: number;
+  actual_cost_usd?: number;
+}
+
+export interface CallLLMProvenance {
+  responseId: string;
+  requestedModel: string;
+  returnedModel: string;
+  stopReason: string | null;
 }
 
 export interface CallLLMResult {
   text: string;
-  usage?: { input_tokens: number; output_tokens: number };
+  usage: CallLLMUsage;
+  provenance: CallLLMProvenance;
 }
 
 interface ProxyRequestBody {
@@ -50,6 +69,8 @@ interface ProxyRequestBody {
   messages: Array<{ role: string; content: string }>;
   temperature?: number;
   max_tokens?: number;
+  thinking?: { type: 'enabled'; budget_tokens: number } | { type: 'adaptive' };
+  output_config?: { effort: 'high' };
 }
 
 // V9: default temperature for evaluation calls. Matches DEFAULT_TEMPERATURE in
@@ -60,6 +81,67 @@ const DEFAULT_TEMPERATURE = 0.1;
 interface ProxyErrorBody {
   error?: string;
   code?: string;
+  isRetryable?: boolean;
+}
+
+interface ProxySuccessBody {
+  text?: string;
+  response_id?: string;
+  model?: string;
+  stop_reason?: string | null;
+  usage?: Partial<CallLLMUsage> & {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
+}
+
+const activeBrowserModels = new Set(
+  Object.values(modelCatalog.analysisRoutes).map((route) => route.modelId),
+);
+
+export class ProxyCallError extends Error {
+  readonly retryable: boolean;
+
+  constructor(message: string, retryable: boolean) {
+    super(message);
+    this.name = 'ProxyCallError';
+    this.retryable = retryable;
+  }
+}
+
+export function buildProxyRequest(options: CallLLMOptions): ProxyRequestBody {
+  if (!activeBrowserModels.has(options.model)) {
+    throw new ProxyCallError(`${options.model} is not an active browser analysis model.`, false);
+  }
+
+  const profile = modelCatalog.modelProfiles[
+    options.model as keyof typeof modelCatalog.modelProfiles
+  ];
+  if (!profile) {
+    throw new ProxyCallError(`No request profile exists for ${options.model}.`, false);
+  }
+
+  const messages: Array<{ role: string; content: string }> = [];
+  if (options.systemPrompt) messages.push({ role: 'system', content: options.systemPrompt });
+  messages.push({ role: 'user', content: options.prompt });
+
+  const body: ProxyRequestBody = {
+    model: options.model,
+    messages,
+    ...(options.maxTokens !== undefined ? { max_tokens: options.maxTokens } : {}),
+  };
+
+  if (profile.thinking === 'adaptive') {
+    body.thinking = { type: 'adaptive' };
+    if (profile.effort) body.output_config = { effort: 'high' };
+  } else if (options.thinkingBudgetTokens !== undefined) {
+    body.thinking = { type: 'enabled', budget_tokens: options.thinkingBudgetTokens };
+    body.temperature = 1;
+  } else if (profile.sampling === 'supported') {
+    body.temperature = options.temperature ?? DEFAULT_TEMPERATURE;
+  }
+
+  return body;
 }
 
 /**
@@ -69,24 +151,7 @@ interface ProxyErrorBody {
  * format expected by the proxy, which forwards to LiteLLM.
  */
 export async function callLLM(options: CallLLMOptions): Promise<CallLLMResult> {
-  // Build OpenAI-compatible messages array
-  const messages: Array<{ role: string; content: string }> = [];
-
-  if (options.systemPrompt) {
-    messages.push({ role: 'system', content: options.systemPrompt });
-  }
-
-  messages.push({ role: 'user', content: options.prompt });
-
-  // Build the request body. Temperature defaults to DEFAULT_TEMPERATURE (0.1)
-  // so evaluation scores are stable across re-runs — pass an explicit value
-  // to override.
-  const body: ProxyRequestBody = {
-    model: options.model,
-    messages,
-    temperature: options.temperature ?? DEFAULT_TEMPERATURE,
-    ...(options.maxTokens !== undefined ? { max_tokens: options.maxTokens } : {}),
-  };
+  const body = buildProxyRequest(options);
 
   // Send to proxy (with the Firebase ID token so the proxy authorizes us)
   let response: Response;
@@ -97,8 +162,9 @@ export async function callLLM(options: CallLLMOptions): Promise<CallLLMResult> {
       body: JSON.stringify(body),
     });
   } catch {
-    throw new Error(
+    throw new ProxyCallError(
       'Network error connecting to AI proxy. Check your internet connection.'
+      , true
     );
   }
 
@@ -115,43 +181,41 @@ export async function callLLM(options: CallLLMOptions): Promise<CallLLMResult> {
 
     // Preserve retryable vs. non-retryable distinction
     if (response.status === 429) {
-      throw new Error(`Rate limited — please wait a moment and retry. (${message})`);
+      throw new ProxyCallError(`Rate limited — please wait a moment and retry. (${message})`, false);
     }
     if (response.status === 400) {
-      throw new Error(`${message}`);
+      throw new ProxyCallError(message, false);
     }
-    throw new Error(`AI proxy error [${code}]: ${message}`);
+    throw new ProxyCallError(
+      `AI proxy error [${code}]: ${message}`,
+      errorData.isRetryable === true,
+    );
   }
 
-  const data = await response.json();
+  const data = await response.json() as ProxySuccessBody;
+  if (!data.response_id || !data.model || data.model !== options.model) {
+    throw new ProxyCallError('AI proxy returned incomplete or mismatched model provenance.', false);
+  }
 
   return {
     text: data.text ?? '',
-    usage: data.usage
-      ? {
-          input_tokens: data.usage.prompt_tokens ?? data.usage.input_tokens ?? 0,
-          output_tokens: data.usage.completion_tokens ?? data.usage.output_tokens ?? 0,
-        }
-      : undefined,
+    usage: {
+      input_tokens: data.usage?.prompt_tokens ?? data.usage?.input_tokens ?? 0,
+      output_tokens: data.usage?.completion_tokens ?? data.usage?.output_tokens ?? 0,
+      cache_creation_input_tokens: data.usage?.cache_creation_input_tokens ?? 0,
+      cache_read_input_tokens: data.usage?.cache_read_input_tokens ?? 0,
+      ...(data.usage?.actual_cost_microusd !== undefined
+        ? { actual_cost_microusd: data.usage.actual_cost_microusd }
+        : {}),
+      ...(data.usage?.actual_cost_usd !== undefined
+        ? { actual_cost_usd: data.usage.actual_cost_usd }
+        : {}),
+    },
+    provenance: {
+      responseId: data.response_id,
+      requestedModel: options.model,
+      returnedModel: data.model,
+      stopReason: data.stop_reason ?? null,
+    },
   };
-}
-
-/**
- * Health check — validates the proxy is reachable and LiteLLM is responding.
- * Uses a minimal request (1 token) to avoid wasting credits.
- */
-export async function testProxyConnection(): Promise<{ ok: boolean; message: string }> {
-  try {
-    await callLLM({
-      model: 'claude-haiku-4-5-20251001',
-      prompt: 'Hi',
-      maxTokens: 1,
-    });
-    return { ok: true, message: 'Proxy connection is working' };
-  } catch (err) {
-    return {
-      ok: false,
-      message: err instanceof Error ? err.message : 'Unknown error',
-    };
-  }
 }

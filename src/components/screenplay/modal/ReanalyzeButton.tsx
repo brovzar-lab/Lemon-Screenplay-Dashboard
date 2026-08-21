@@ -17,21 +17,31 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useToastStore } from '@/stores/toastStore';
 import { getAnalysisVersionLabel } from '@/lib/dimensionDisplay';
 import { useTranslation } from 'react-i18next';
+import modelCatalog from '@/config/anthropic-model-catalog.json';
+import { MODEL_PLANNING_COSTS_USD } from '@/components/settings/upload/upload.constants';
 
 interface ReanalyzeButtonProps {
   screenplay: Screenplay;
   onComplete?: () => void;
 }
 
-type ModelOption = {
+export type ReanalysisModelOption = {
   id: 'sonnet' | 'opus';
   label: string;
   desc: string;
 };
 
-const MODELS: ModelOption[] = [
-  { id: 'sonnet', label: 'Sonnet', desc: 'Fast · ~$0.50' },
-  { id: 'opus', label: 'Opus', desc: 'Deep · ~$2.00' },
+export const REANALYSIS_MODELS: ReanalysisModelOption[] = [
+  {
+    id: 'sonnet',
+    label: modelCatalog.analysisRoutes.sonnet.displayName,
+    desc: `Approved · $${MODEL_PLANNING_COSTS_USD.sonnet[0].toFixed(2)}–$${MODEL_PLANNING_COSTS_USD.sonnet[1].toFixed(2)}`,
+  },
+  {
+    id: 'opus',
+    label: modelCatalog.analysisRoutes.opus.displayName,
+    desc: `Approved · $${MODEL_PLANNING_COSTS_USD.opus[0].toFixed(2)}–$${MODEL_PLANNING_COSTS_USD.opus[1].toFixed(2)}`,
+  },
 ];
 
 export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps) {
@@ -161,7 +171,7 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
           <div className="px-3 py-1.5 text-[10px] font-semibold text-black-500 uppercase tracking-wider border-t border-black-700">
             {t('Choose Model')}
           </div>
-          {MODELS.map((model) => {
+          {REANALYSIS_MODELS.map((model) => {
             return (
               <button
                 key={model.id}

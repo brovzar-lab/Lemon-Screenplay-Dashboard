@@ -48,7 +48,6 @@ Collections
   OTHER      — Everything else
 
 Required env vars (in .env at project root, or functions/.env):
-  ANTHROPIC_API_KEY    — for direct API mode (bypasses proxy)
   FIREBASE_PROJECT_ID  — lemon-screenplay-dashboard
   GOOGLE_APPLICATION_CREDENTIALS — path to service account JSON (for Firestore writes)
 
@@ -56,6 +55,7 @@ Optional env vars:
   FIREBASE_STORAGE_BUCKET — explicit bucket name (defaults to production bucket)
   TMDB_API_KEY         — for TMDB pre-screening (skip with --skip-tmdb if absent)
   LLM_PROXY_URL        — override default Cloud Function URL
+  PROXY_SERVICE_KEY    — authenticates permanent server calls to the LLM proxy
 """
 
 import argparse
@@ -142,7 +142,7 @@ from development_opportunity import derive_development_opportunity  # noqa: E402
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
-LOG_DIR = Path(".tmp")
+LOG_DIR = Path(os.getenv("LEMON_LOCAL_ARTIFACT_DIR", ".tmp"))
 LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / f"ingest_v9_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
@@ -173,6 +173,42 @@ MODEL_IDS = {
     "sonnet": "claude-sonnet-4-6",
     "haiku":  "claude-haiku-4-5-20251001",
     "opus":   "claude-opus-4-7",
+}
+
+# Benchmark candidates are API-compatible but are not active scoring routes.
+# The local-only benchmark harness may temporarily select these exact IDs in
+# its own process; permanent daemon and CLI defaults continue to use MODEL_IDS.
+CANDIDATE_MODEL_IDS = {
+    "sonnet": "claude-sonnet-5",
+    "opus": "claude-opus-5",
+}
+
+MODEL_REQUEST_PROFILES: Dict[str, Dict[str, Any]] = {
+    "claude-haiku-4-5-20251001": {
+        "thinking": "manual",
+        "sampling": True,
+        "effort": None,
+    },
+    "claude-sonnet-4-6": {
+        "thinking": "manual",
+        "sampling": True,
+        "effort": None,
+    },
+    "claude-opus-4-7": {
+        "thinking": "adaptive",
+        "sampling": False,
+        "effort": None,
+    },
+    "claude-sonnet-5": {
+        "thinking": "adaptive",
+        "sampling": False,
+        "effort": "high",
+    },
+    "claude-opus-5": {
+        "thinking": "adaptive",
+        "sampling": False,
+        "effort": "high",
+    },
 }
 
 # Min words for a valid screenplay
@@ -1266,7 +1302,16 @@ def call_llm(
                per-model totals from the server-side ledger.
     """
     url = proxy_url or os.getenv("LLM_PROXY_URL") or DEFAULT_PROXY_URL
-    model_id = MODEL_IDS.get(model_key, MODEL_IDS["sonnet"])
+    model_id = MODEL_IDS.get(model_key)
+    if not model_id:
+        raise LlmRequestRejectedError(
+            f"Unsupported model route {model_key!r}; refusing silent fallback"
+        )
+    profile = MODEL_REQUEST_PROFILES.get(model_id)
+    if not profile:
+        raise LlmRequestRejectedError(
+            f"No request profile is configured for exact model {model_id}"
+        )
 
     # Combine thinking budget into total max_tokens.
     total_max_tokens = max_tokens + (thinking_budget if thinking_budget > 0 else 0)
@@ -1290,8 +1335,9 @@ def call_llm(
         "system": system_blocks,
         "messages": [{"role": "user", "content": request_user_blocks}],
         "max_tokens": total_max_tokens,
-        "temperature": temperature,
     }
+    if profile["sampling"]:
+        payload["temperature"] = temperature
     if job_id:
         payload["job_id"] = job_id
     if tool and strict_tool is not None:
@@ -1301,7 +1347,7 @@ def call_llm(
         # when tool_choice forces tool use"). When thinking is on, use
         # tool_choice="auto" and rely on the user-prompt instruction to call
         # the tool. When thinking is off, force the tool to guarantee output.
-        if thinking_budget > 0:
+        if thinking_budget > 0 or profile["thinking"] == "adaptive":
             payload["tool_choice"] = {"type": "auto"}
         else:
             payload["tool_choice"] = {
@@ -1309,16 +1355,13 @@ def call_llm(
                 "name": strict_tool["name"],
             }
     if thinking_budget > 0:
-        # Two thinking APIs depending on the model:
-        #   • Opus 4.7+   → adaptive thinking (Anthropic decides effort)
-        #   • Sonnet 4.6  → enabled with explicit budget_tokens
-        # Using the wrong shape returns a 400 with a clear error message.
-        if "opus" in model_id.lower():
+        if profile["thinking"] == "adaptive":
             payload["thinking"] = {"type": "adaptive"}
+            if profile["effort"]:
+                payload["output_config"] = {"effort": profile["effort"]}
         else:
             payload["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
-        # Anthropic requires temperature=1 when extended thinking is enabled.
-        payload["temperature"] = 1.0
+            payload["temperature"] = 1.0
 
     # The proxy authenticates callers: the daemon presents a shared service
     # key (browsers present a Firebase ID token). Set PROXY_SERVICE_KEY in the
@@ -1397,6 +1440,18 @@ def call_llm(
                     raise LlmAccountingError(
                         error_data.get("error", "AI cost accounting failed.")
                     )
+            if resp.status_code == 502:
+                try:
+                    error_data = resp.json()
+                except ValueError:
+                    error_data = {}
+                if error_data.get("code") == "MODEL_PROVENANCE_MISMATCH":
+                    raise LlmProvenanceError(
+                        error_data.get(
+                            "error",
+                            "Anthropic returned a different model than requested.",
+                        )
+                    )
             resp.raise_for_status()
             data = resp.json()
 
@@ -1424,6 +1479,10 @@ def call_llm(
             if not isinstance(response_id, str) or not response_id:
                 raise LlmProvenanceError(
                     "Settled LLM response did not include its immutable response ID"
+                )
+            if response_model != model_id:
+                raise LlmProvenanceError(
+                    "Settled LLM response model did not match the exact requested model ID"
                 )
             successful_history = [
                 *attempt_history,
@@ -4165,6 +4224,7 @@ def run_v9_triage(
     page_count: int,
     word_count: int,
     proxy_url: Optional[str],
+    job_id: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Run a fast single-pass triage (Haiku model).
 
@@ -4189,6 +4249,7 @@ def run_v9_triage(
         model_key="haiku",
         max_tokens=500,
         proxy_url=proxy_url,
+        job_id=job_id,
         stage="triage",
         pipeline_pass="triage",
         boundary_run=1,
@@ -4263,6 +4324,41 @@ def run_v9_triage(
         "_context_policy": context_policy,
     }
     return analysis, usage
+
+
+def run_nonbinding_cold_read(
+    *,
+    text: str,
+    title: str,
+    page_count: int,
+    word_count: int,
+    proxy_url: Optional[str],
+    job_id: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Run one Haiku impression that can inform, but never gate, the full panel."""
+    triage_result, usage = run_v9_triage(
+        text,
+        title,
+        page_count,
+        word_count,
+        proxy_url,
+        job_id=job_id,
+    )
+    evidence = {
+        "triage_score": triage_result.get("weighted_score", 0),
+        "verdict": triage_result.get("verdict", ""),
+        "genre": triage_result.get("genre", ""),
+        "logline": triage_result.get("logline", ""),
+        "non_binding": True,
+    }
+    return {
+        "evidence": evidence,
+        "response_ids": _usage_response_ids(
+            usage,
+            pipeline_pass="triage",
+            boundary_run=1,
+        ),
+    }, usage
 
 
 # ── Raw V9 Document Builder ───────────────────────────────────────────────────
@@ -4463,27 +4559,25 @@ def ingest_one(
             # multiPassAnalysis.ts triage→synthesis handoff).
             log.info("    Running pre-analysis triage (Haiku cold-read)...")
             try:
-                triage_result, triage_usage = run_v9_triage(
-                    text, title, page_count, word_count, proxy_url
+                cold_read, triage_usage = run_nonbinding_cold_read(
+                    text=text,
+                    title=title,
+                    page_count=page_count,
+                    word_count=word_count,
+                    proxy_url=proxy_url,
                 )
-                triage_impression: Optional[Dict[str, Any]] = {
-                    "triage_score": triage_result.get("weighted_score", 0),
-                    "verdict": triage_result.get("verdict", ""),
-                    "genre": triage_result.get("genre", ""),
-                    "logline": triage_result.get("logline", ""),
-                }
-                cold_read = {
-                    "evidence": copy.deepcopy(triage_impression),
-                    "response_ids": _usage_response_ids(
-                        triage_usage,
-                        pipeline_pass="triage",
-                        boundary_run=1,
-                    ),
-                }
+                triage_impression = cold_read["evidence"]
                 log.info(
                     f"    Triage cold-read: {triage_impression['triage_score']}/10 "
                     f"[{triage_impression['verdict']}]"
                 )
+            except (
+                DailyBudgetExceededError,
+                LlmAccountingError,
+                LlmProvenanceError,
+                LlmRequestRejectedError,
+            ):
+                raise
             except Exception as e:
                 log.warning(f"    Triage pre-pass failed (continuing without): {e}")
                 if isinstance(e, V9RunError):
@@ -4550,9 +4644,9 @@ def estimate_cost(word_count: int, model_key: str, mode: str) -> str:
     """Rough cost estimate per script based on token usage patterns."""
     # Rates per million tokens ($ USD)
     rates = {
-        "haiku":  {"in": 0.80,  "out": 4.00},
+        "haiku":  {"in": 1.00,  "out": 5.00},
         "sonnet": {"in": 3.00,  "out": 15.00},
-        "opus":   {"in": 15.00, "out": 75.00},
+        "opus":   {"in": 5.00,  "out": 25.00},
     }
     r = rates.get(model_key, rates["sonnet"])
     chars = max(0, word_count) * 5

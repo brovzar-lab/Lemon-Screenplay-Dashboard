@@ -18,7 +18,7 @@ export type ReaderChatModelChoice = "auto" | keyof typeof READER_CHAT_MODELS;
 export const READER_CHAT_MODEL = READER_CHAT_MODELS.opus;
 export const READER_CHAT_DEFAULT_CHOICE: ReaderChatModelChoice = "auto";
 export const READER_CHAT_EFFORT = "high" as const;
-export const READER_CHAT_MODEL_VERIFIED_AT = "2026-08-02";
+export const READER_CHAT_MODEL_VERIFIED_AT = "2026-08-21";
 
 export const READER_CHAT_MODEL_IDS = new Set<string>([
   ...Object.values(READER_CHAT_MODELS),

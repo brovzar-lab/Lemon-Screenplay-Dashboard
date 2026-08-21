@@ -1465,21 +1465,50 @@ def process_job(job: dict) -> None:
         )
 
         # ── 6. Determine model ────────────────────────────────────────────
-        # Valid: haiku | sonnet | opus | hybrid | auto.
+        # Accepted: haiku | sonnet | opus | hybrid | auto.
+        # Haiku is supporting-only and always continues into the Sonnet panel.
         # Hybrid runs Sonnet first; RECOMMEND/FILM_NOW results re-run on Opus.
         # Auto maps to sonnet for full analysis (matches prior behavior).
-        valid_models = {"haiku", "sonnet", "opus", "hybrid"}
+        valid_models = {"sonnet", "opus", "hybrid"}
         if requested_model in valid_models:
             model_key = requested_model
+        elif requested_model == "haiku":
+            # Haiku is a non-binding supporting read. The complete active
+            # Sonnet panel still runs, regardless of Haiku's verdict.
+            model_key = "sonnet"
         elif requested_model == "auto":
             model_key = "sonnet"
         else:
-            model_key = "sonnet"
+            raise ValueError(
+                f"Unsupported analysis model route {requested_model!r}; refusing silent fallback"
+            )
 
         title = Path(filename).stem.replace("_", " ").replace("-", " ")
 
         # ── 7. Run V9 Archaeology Engine analysis ─────────────────────────
         proxy_url = os.getenv("LLM_PROXY_URL")  # None = production proxy URL
+
+        cold_read = None
+        cold_read_usage = None
+        try:
+            cold_read, cold_read_usage = ingest_v9.run_nonbinding_cold_read(
+                text=text,
+                title=title,
+                page_count=page_count,
+                word_count=word_count,
+                proxy_url=proxy_url,
+                job_id=job_id,
+            )
+        except (
+            ingest_v9.DailyBudgetExceededError,
+            ingest_v9.LlmAccountingError,
+            ingest_v9.LlmProvenanceError,
+            ingest_v9.LlmRequestRejectedError,
+        ):
+            raise
+        except ingest_v9.V9RunError as error:
+            cold_read_usage = error.usage
+            log.warning(f"[analyze] Non-binding Haiku cold read unavailable: {error}")
 
         try:
             if model_key == "hybrid":
@@ -1490,6 +1519,7 @@ def process_job(job: dict) -> None:
                     page_count=page_count,
                     word_count=word_count,
                     proxy_url=proxy_url,
+                    cold_read=cold_read,
                     calibration_prompt=(
                         calibration_profile["prompt"] if calibration_profile else None
                     ),
@@ -1504,11 +1534,14 @@ def process_job(job: dict) -> None:
                     word_count=word_count,
                     model_key=model_key,
                     proxy_url=proxy_url,
+                    cold_read=cold_read,
                     calibration_prompt=(
                         calibration_profile["prompt"] if calibration_profile else None
                     ),
                     job_id=job_id,
                 )
+            if cold_read_usage is not None:
+                usage = ingest_v9.merge_usage(cold_read_usage, usage)
         except ingest_v9.DailyBudgetExceededError as e:
             mark_waiting_for_budget(job_id, e, attempt_count)
             log.warning(f"[budget] Pausing — {e}")

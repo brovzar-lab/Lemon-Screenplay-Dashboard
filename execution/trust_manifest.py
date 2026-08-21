@@ -148,6 +148,18 @@ def _code_fingerprints() -> Dict[str, str]:
     }
 
 
+def benchmark_contract_fingerprints() -> Dict[str, str]:
+    """Expose the sealed engine fingerprints without copying prompt logic."""
+    return {
+        **_code_fingerprints(),
+        "analysis_schema_version": ANALYSIS_SCHEMA_VERSION,
+        "triage_schema_version": TRIAGE_SCHEMA_VERSION,
+        "prompt_contract_version": PROMPT_CONTRACT_VERSION,
+        "scoring_code_version": SCORING_CODE_VERSION,
+        "trust_manifest_version": TRUST_MANIFEST_VERSION,
+    }
+
+
 def _require_sha256(value: Any, label: str) -> str:
     normalized = str(value or "").lower()
     if not _SHA256_PATTERN.fullmatch(normalized):

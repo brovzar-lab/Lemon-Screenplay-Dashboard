@@ -41,7 +41,7 @@ cp .env.example .env
 
 # 4. Start dev server
 npm run dev
-# Open http://localhost:5173
+# Open http://localhost:3000
 ```
 
 ### Environment Variables
@@ -67,6 +67,8 @@ npm run build            # TypeScript check + production build
 npm run test:run         # Unit tests (Vitest)
 npm run test:e2e         # E2E tests (Playwright, needs preview server)
 npm run lint             # ESLint
+npm run models:check:offline # Validate model routes without a network call
+npm run models:benchmark -- --help # Dry-run-first local screenplay benchmark
 npm run deploy:functions # Deploy Cloud Functions only
 ```
 
@@ -162,6 +164,12 @@ cd /opt/lemon-ingest && git pull origin main && sudo systemctl restart lemon-dae
 | Firebase service account | `/opt/lemon-ingest/service-account.json` |
 | `ANTHROPIC_API_KEY` | Environment (set in systemd unit) |
 | Virtual environment | `/opt/lemon-ingest/venv/` |
+
+## Local model work
+
+Normal local ingestion remains pinned to Sonnet 4.6 and Opus 4.7. Haiku 4.5 is a non-binding cold read and genre signal, so its PASS can never stop the complete Sonnet panel. Sonnet 5 and Opus 5 are benchmark-pending candidates. Fable 5 is limited to Reader Chat.
+
+Use the isolated, persistence-free benchmark for candidate work. It defaults to a manifest-only dry run, requires exact SHA-256 approval for every local PDF, writes only under gitignored `benchmark-artifacts/`, and rejects production proxy URLs. It does not archive files or call Firestore or Storage persistence. See [`docs/ANTHROPIC-MODEL-CATALOG.md`](docs/ANTHROPIC-MODEL-CATALOG.md) for the exact safety gates and the proposed paid validation ladder.
 
 ---
 

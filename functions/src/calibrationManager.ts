@@ -53,6 +53,7 @@ interface ToolUse {
 
 interface LlmProxyResult {
   response_id: string;
+  model: string;
   tool_uses: ToolUse[];
 }
 
@@ -119,8 +120,7 @@ async function callCalibrationLlm(input: {
       max_tokens: 8_000,
       thinking: { type: "adaptive" },
       tools: [input.tool],
-      tool_choice: { type: "tool", name: input.tool.name },
-      temperature: 0,
+      tool_choice: { type: "auto" },
     }),
   });
   const body = await response.json() as Partial<LlmProxyResult> & {
@@ -135,6 +135,9 @@ async function callCalibrationLlm(input: {
   }
   if (!body.response_id) {
     throw new Error("Calibration model returned no response identity.");
+  }
+  if (body.model !== CALIBRATION_COMPILER_MODEL) {
+    throw new Error("Calibration compiler returned a different model than requested.");
   }
   return { input: toolUse.input, responseId: body.response_id };
 }

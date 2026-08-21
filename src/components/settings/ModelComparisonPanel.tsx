@@ -18,6 +18,7 @@ import { useScreenplays } from '@/hooks/useScreenplays';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import modelCatalog from '@/config/anthropic-model-catalog.json';
 import { MODEL_COSTS, MODEL_OPTIONS } from './upload/upload.constants';
+import { REANALYSIS_MODELS } from '@/components/screenplay/modal/ReanalyzeButton';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -95,9 +96,8 @@ const ENGINES: EngineConfig[] = [
 ];
 
 const COMPARISON_CANDIDATES = [
-  { name: 'Sonnet 5', modelId: modelCatalog.latestObserved.sonnet, label: 'Current candidate' },
-  { name: 'Opus 5', modelId: modelCatalog.latestObserved.opus, label: 'Current candidate' },
-  { name: 'Fable 5', modelId: modelCatalog.latestObserved.fable, label: 'Optional premium' },
+  { name: 'Sonnet 5', modelId: modelCatalog.latestObserved.sonnet, label: 'Benchmark pending' },
+  { name: 'Opus 5', modelId: modelCatalog.latestObserved.opus, label: 'Benchmark pending' },
 ] as const;
 
 const COST_RATES: Record<ModelId, { input: number; output: number }> = Object.fromEntries(
@@ -424,12 +424,13 @@ export function ModelComparisonPanel() {
 
       <section className="settings-model-candidates" aria-labelledby="comparison-candidates-title">
         <div>
-          <p className="settings-model-candidates__label">{t('Newest available models')}</p>
+          <p className="settings-model-candidates__label">{t('Benchmark-pending models')}</p>
           <h3 id="comparison-candidates-title">{t('Current comparison candidates')}</h3>
           <p>
             {t(
               'Availability is separate from approval. Production scoring stays on its benchmark-approved routes.',
             )}
+            {' '}{t('Fable 5 is restricted to Reader Chat and is not a screenplay-scoring candidate.')}
           </p>
         </div>
         <ul>
@@ -443,6 +444,48 @@ export function ModelComparisonPanel() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2" aria-label={t('Approved model selectors')}>
+        <div className="rounded-xl border border-black-700 bg-black-800/40 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gold-400">
+            {t('Re-analysis selector')}
+          </p>
+          <h3 className="mt-1 font-display text-xl text-gold-200">{t('Full scoring routes')}</h3>
+          <p className="mt-1 text-xs leading-relaxed text-black-400">
+            {t('Only benchmark-approved full-panel models can replace permanent coverage.')}
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {REANALYSIS_MODELS.map((model) => (
+              <div key={model.id} className="rounded-lg border border-black-700 bg-black-900/40 px-3 py-2">
+                <strong className="block text-sm text-black-100">{model.label}</strong>
+                <span className="text-xs text-black-400">{t(model.desc)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-black-700 bg-black-800/40 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gold-400">
+            {t('Reader Chat choices')}
+          </p>
+          <h3 className="mt-1 font-display text-xl text-gold-200">{t('Conversation-only routes')}</h3>
+          <p className="mt-1 text-xs leading-relaxed text-black-400">
+            {t('These models answer private Reader Chat questions and never score a screenplay.')}
+          </p>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {[
+              ['Auto', 'Opus 5 → safe fallback'],
+              ['Opus 5', 'Direct'],
+              ['Fable 5', '30-day retention'],
+            ].map(([label, detail]) => (
+              <div key={label} className="rounded-lg border border-black-700 bg-black-900/40 px-3 py-2">
+                <strong className="block text-sm text-black-100">{t(label)}</strong>
+                <span className="text-xs text-black-400">{t(detail)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ─── Source Selector ─────────────────────────────────────────────── */}

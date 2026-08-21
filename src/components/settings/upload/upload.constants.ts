@@ -13,7 +13,7 @@ import type { ModelInfo, ModelOption } from './upload.types';
 // plus the possible Opus promotion. Keep these conservative until the pilot
 // supplies direct Hybrid measurements.
 export const MODEL_PLANNING_COSTS_USD: Record<ModelOption, readonly [number, number]> = {
-  haiku: [0.5, 1.5],
+  haiku: [1.65, 4.75],
   sonnet: [1.6, 4.5],
   opus: [2.7, 7.5],
   hybrid: [1.6, 12],
@@ -22,16 +22,16 @@ export const MODEL_PLANNING_COSTS_USD: Record<ModelOption, readonly [number, num
 export const MODEL_OPTIONS: ModelInfo[] = [
   {
     id: 'haiku',
-    name: modelCatalog.analysisRoutes.haiku.displayName,
-    modelId: modelCatalog.analysisRoutes.haiku.modelId,
-    routeLabel: 'Approved analysis route',
-    subtitle: 'Fast & Affordable',
-    costPerScript: '~$0.50–$1.50',
-    speed: '~1 min',
-    quality: 'Good',
-    badge: 'BUDGET',
+    name: 'Haiku cold read + Sonnet 4.6',
+    modelId: `${modelCatalog.analysisRoutes.haiku.modelId} + ${modelCatalog.analysisRoutes.sonnet.modelId}`,
+    routeLabel: 'Approved non-binding support route',
+    subtitle: 'Cold Read + Full Panel',
+    costPerScript: '~$1.65–$4.75',
+    speed: '~3-4 min',
+    quality: 'Excellent',
+    badge: 'SAFE',
     badgeColor: 'settings-model-badge--budget',
-    description: 'Best for bulk scanning. Great accuracy for structured analysis at a fraction of the cost. Ideal for processing large batches of 100+ screenplays.',
+    description: 'Haiku supplies a cold read and genre signal, then the complete Sonnet panel always runs. A Haiku PASS can never stop full scoring.',
     icon: '\u26A1',
   },
   {
