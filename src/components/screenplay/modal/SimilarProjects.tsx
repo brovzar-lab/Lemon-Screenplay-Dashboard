@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { findSimilarScreenplays } from '@/lib/screenplaySimilarity';
@@ -11,6 +12,7 @@ interface SimilarProjectsProps {
 }
 
 export function SimilarProjects({ screenplay, allScreenplays, onSelect }: SimilarProjectsProps) {
+  const { t } = useTranslation();
   const matches = useMemo(
     () => findSimilarScreenplays(screenplay, allScreenplays),
     [allScreenplays, screenplay],
@@ -21,7 +23,7 @@ export function SimilarProjects({ screenplay, allScreenplays, onSelect }: Simila
   return (
     <section aria-labelledby="similar-projects-title">
       <SectionHeader icon="⇄">
-        <span id="similar-projects-title">Similar Projects</span>
+        <span id="similar-projects-title">{t('Similar Projects')}</span>
       </SectionHeader>
       <div className="divide-y divide-black-700 border-y border-black-700">
         {matches.map((match) => (

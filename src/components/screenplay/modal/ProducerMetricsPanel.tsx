@@ -6,6 +6,7 @@
  */
 
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 import { getScoreColorClass } from '@/lib/calculations';
 import { SectionHeader } from './SectionHeader';
@@ -15,6 +16,7 @@ interface ProducerMetricsPanelProps {
 }
 
 export function ProducerMetricsPanel({ screenplay }: ProducerMetricsPanelProps) {
+    const { t } = useTranslation();
     if (!screenplay.producerMetrics) return null;
 
     const { producerMetrics } = screenplay;
@@ -22,15 +24,15 @@ export function ProducerMetricsPanel({ screenplay }: ProducerMetricsPanelProps) 
 
     return (
         <div className="rounded-xl p-5 bg-black-900/30">
-            <SectionHeader icon="🎯">AI Market Analysis</SectionHeader>
+            <SectionHeader icon="🎯">{t('AI Market Analysis')}</SectionHeader>
             {!hasAnyData && (
                 <p className="text-sm text-black-500 italic -mt-2">
-                    Not yet analyzed. Re-analyze this screenplay to generate AI market intelligence.
+                    {t('Not yet analyzed. Re-analyze this screenplay to generate AI market intelligence.')}
                 </p>
             )}
             {hasAnyData && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <MetricCard label="Market Potential">
+                    <MetricCard label={t('Market Potential')}>
                         {producerMetrics.marketPotential !== null ? (
                             <>
                                 <span className={clsx('text-2xl font-bold', getScoreColorClass(producerMetrics.marketPotential))}>
@@ -43,10 +45,10 @@ export function ProducerMetricsPanel({ screenplay }: ProducerMetricsPanelProps) 
                                 )}
                             </>
                         ) : (
-                            <span className="text-sm text-black-500 italic">N/A</span>
+                            <span className="text-sm text-black-500 italic">{t('N/A')}</span>
                         )}
                     </MetricCard>
-                    <MetricCard label="USP Strength">
+                    <MetricCard label={t('USP Strength')}>
                         {producerMetrics.uspStrength !== null ? (
                             <>
                                 <span className={clsx(
@@ -55,7 +57,7 @@ export function ProducerMetricsPanel({ screenplay }: ProducerMetricsPanelProps) 
                                     producerMetrics.uspStrength === 'Moderate' && 'text-gold-400',
                                     producerMetrics.uspStrength === 'Weak' && 'text-red-400'
                                 )}>
-                                    {producerMetrics.uspStrength}
+                                    {t(producerMetrics.uspStrength)}
                                 </span>
                                 {producerMetrics.uspStrengthRationale && (
                                     <p className="text-xs text-black-400 mt-2 leading-relaxed">
@@ -64,7 +66,7 @@ export function ProducerMetricsPanel({ screenplay }: ProducerMetricsPanelProps) 
                                 )}
                             </>
                         ) : (
-                            <span className="text-sm text-black-500 italic">N/A</span>
+                            <span className="text-sm text-black-500 italic">{t('N/A')}</span>
                         )}
                     </MetricCard>
                 </div>

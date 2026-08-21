@@ -6,6 +6,7 @@ import type {
   ProducerAssessmentHead,
   Screenplay,
 } from '@/types';
+import type { TFunction } from 'i18next';
 
 export interface ProducerLookCandidate {
   screenplay: Screenplay;
@@ -93,6 +94,7 @@ function emptyOpportunity(): DevelopmentOpportunity {
     evidenceConfidence: 'summary_only',
     strongestSignal: null,
     rationale: 'No exceptional, corroborated development opportunity was identified.',
+    rationaleCode: 'none',
     evidence: [],
     risks: [],
     source: 'legacy_summary',
@@ -123,6 +125,11 @@ function producerOverride(
     label: SIGNAL_LABELS.development_upside,
     score: clampScore(assessment.producerScore),
     detail: `Producer Take scored this ${assessment.producerScore.toFixed(1)} and marked it ${assessment.producerVerdict === 'film_now' ? 'Film Now' : 'Recommend'}.`,
+    messageCode: 'producer_take',
+    messageParams: {
+      score: assessment.producerScore.toFixed(1),
+      verdict: assessment.producerVerdict === 'film_now' ? 'FILM NOW' : 'RECOMMEND',
+    },
     source: 'producer_take',
     pageCitations: [],
   };
@@ -153,6 +160,7 @@ function evidenceFromCommercial(screenplay: Screenplay): DevelopmentOpportunityE
       label: SIGNAL_LABELS.high_concept,
       score: scale(highConcept.score),
       detail: highConcept.note || 'Commercial review identified a strong high-concept premise.',
+      ...(!highConcept.note && { messageCode: 'commercial_high_concept' }),
       source: 'legacy_summary',
       pageCitations: [],
     });
@@ -163,6 +171,7 @@ function evidenceFromCommercial(screenplay: Screenplay): DevelopmentOpportunityE
       label: SIGNAL_LABELS.commercial_hook,
       score: scale(marketingHook.score),
       detail: marketingHook.note || 'Commercial review identified a clear marketing hook.',
+      ...(!marketingHook.note && { messageCode: 'commercial_marketing_hook' }),
       source: 'legacy_summary',
       pageCitations: [],
     });
@@ -173,6 +182,7 @@ function evidenceFromCommercial(screenplay: Screenplay): DevelopmentOpportunityE
       label: SIGNAL_LABELS.actor_appeal,
       score: scale(castAttachability.score),
       detail: castAttachability.note || 'Commercial review identified meaningful cast appeal.',
+      ...(!castAttachability.note && { messageCode: 'commercial_actor_appeal' }),
       source: 'legacy_summary',
       pageCitations: [],
     });
@@ -282,12 +292,41 @@ export function evaluateDevelopmentOpportunity(
       : requiresProducerLook
         ? `${strongest.label} is strong enough to warrant a producer look before this project is dismissed. The AI score and verdict remain unchanged.`
         : 'The upside evidence is not yet strong or corroborated enough for Producer Look routing.',
+    rationaleCode: override
+      ? 'producer_override'
+      : requiresProducerLook
+        ? 'producer_review'
+        : 'watch',
+    rationaleParams: override
+      ? override.messageParams
+      : { signal: strongest.label },
     evidence,
     risks: [...screenplay.weaknesses, ...screenplay.majorWeaknesses].slice(0, 3),
     source,
     requiresProducerLook,
     opportunityScore: clampScore(opportunityScore),
   };
+}
+
+export function localizedOpportunityRationale(
+  opportunity: DevelopmentOpportunity,
+  t: TFunction,
+): string {
+  if (!opportunity.rationaleCode) return opportunity.rationale;
+  return t(`developmentOpportunity.rationale.${opportunity.rationaleCode}`, {
+    ...opportunity.rationaleParams,
+    defaultValue: opportunity.rationale,
+  });
+}
+
+export function localizedOpportunitySignal(
+  signal: DevelopmentOpportunitySignal | null,
+  fallback: string,
+  t: TFunction,
+): string {
+  return signal
+    ? t(`developmentOpportunity.signal.${signal}`, { defaultValue: fallback })
+    : fallback;
 }
 
 export function selectProducerLookCandidates(

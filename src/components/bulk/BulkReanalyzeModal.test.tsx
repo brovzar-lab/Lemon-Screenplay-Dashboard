@@ -17,6 +17,7 @@ vi.mock('@tanstack/react-query', () => ({
 
 import { BulkReanalyzeModal } from './BulkReanalyzeModal';
 import { reanalyzeFromStorage } from '@/lib/analysisService';
+import i18n from '@/i18n';
 
 const spWithPdf = { id: 'sp-pdf', title: 'Eligible Screenplay', hasPdf: true };
 const spWithoutPdf = { id: 'sp-nopdf', title: 'Ineligible Screenplay', hasPdf: false };
@@ -26,6 +27,14 @@ beforeEach(() => {
 });
 
 describe('BulkReanalyzeModal — BULK-02', () => {
+  it('localizes paid bulk-analysis controls in Spanish', async () => {
+    await i18n.changeLanguage('es');
+    render(<BulkReanalyzeModal isOpen onClose={vi.fn()} screenplays={[spWithPdf] as any[]} />);
+
+    expect(screen.getByText(/1 guion disponible para revisar/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Iniciar nuevo análisis' })).toBeInTheDocument();
+  });
+
   it('excludes ineligible items and shows the eligible count before starting', () => {
     render(
       <BulkReanalyzeModal

@@ -39,6 +39,25 @@ test.describe('Discovery screenplay presentation', () => {
     await expect(page.getByTestId('screenplay-discovery-grid')).not.toContainText('SOURCE NOT RECORDED');
   });
 
+  test('uses three substantial cards on desktop, two on tablet, and one on mobile', async ({
+    page,
+  }) => {
+    const grid = page.getByTestId('screenplay-discovery-grid');
+    const columnCount = () =>
+      grid.evaluate((element) =>
+        window.getComputedStyle(element).gridTemplateColumns.split(' ').length,
+      );
+
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await expect.poll(columnCount).toBe(3);
+
+    await page.setViewportSize({ width: 800, height: 1000 });
+    await expect.poll(columnCount).toBe(2);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(columnCount).toBe(1);
+  });
+
   test('opens a screenplay in the complete Screenplay File workspace', async ({ page }) => {
     const firstCard = page.getByTestId('screenplay-discovery-result').first();
     await firstCard.locator('button.screenplay-wall__open').click();

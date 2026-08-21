@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BulkPdfUploadModal } from './BulkPdfUploadModal';
 import type { Screenplay } from '@/types';
+import i18n from '@/i18n';
 
 // Mock data
 const mockScreenplays = [
@@ -139,5 +140,14 @@ describe('BulkPdfUploadModal', () => {
     expect(
       screen.getByText('2 screenplays need PDFs')
     ).toBeInTheDocument();
+  });
+
+  it('localizes the bulk source-file upload dialog in Spanish', async () => {
+    await i18n.changeLanguage('es');
+    render(<BulkPdfUploadModal isOpen={true} onClose={mockOnClose} />);
+
+    expect(screen.getByText('Cargar archivos fuente', { selector: 'h3' })).toBeInTheDocument();
+    expect(screen.getByText('Listo')).toBeInTheDocument();
+    expect(screen.getByText('2 guiones necesitan su archivo fuente')).toBeInTheDocument();
   });
 });

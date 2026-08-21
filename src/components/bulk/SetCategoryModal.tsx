@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCategories } from '@/hooks/useCategories';
 import { useSelectionStore } from '@/stores/selectionStore';
@@ -18,6 +19,7 @@ interface SetCategoryModalProps {
 }
 
 export function SetCategoryModal({ isOpen, onClose }: SetCategoryModalProps) {
+  const { t } = useTranslation();
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const { categories } = useCategories();
   const selectedIds = useSelectionStore((s) => s.selectedIds);
@@ -42,7 +44,10 @@ export function SetCategoryModal({ isOpen, onClose }: SetCategoryModalProps) {
     queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
     const categoryName = categories.find((c) => c.id === selectedCategory)?.name || selectedCategory;
     useToastStore.getState().addToast(
-      `Category set to ${categoryName} for ${screenplays.length} screenplay${screenplays.length !== 1 ? 's' : ''}`,
+      t('Category set to {{category}} for {{count}} screenplay', {
+        category: categoryName,
+        count: screenplays.length,
+      }),
       'success'
     );
     onClose();
@@ -54,20 +59,20 @@ export function SetCategoryModal({ isOpen, onClose }: SetCategoryModalProps) {
       <div className="relative w-full max-w-md glass border border-gold-500/20 rounded-xl overflow-hidden animate-scale-in">
         {/* Header */}
         <div className="px-6 py-4">
-          <h3 className="text-lg font-heading font-semibold text-gold-200">Set Category</h3>
+          <h3 className="text-lg font-heading font-semibold text-gold-200">{t('Set Category')}</h3>
         </div>
 
         {/* Body */}
         <div className="px-6 py-4">
           <label className="text-xs text-black-400">
-            Choose a category for {selectedIds.size} screenplay{selectedIds.size !== 1 ? 's' : ''}
+            {t('Choose a category for {{count}} screenplay', { count: selectedIds.size })}
           </label>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full mt-2 bg-black-800/50 border border-black-600 rounded-lg px-3 py-2 text-sm text-black-200"
           >
-            <option value="">Select a category...</option>
+            <option value="">{t('Select a category...')}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -77,14 +82,14 @@ export function SetCategoryModal({ isOpen, onClose }: SetCategoryModalProps) {
         {/* Footer */}
         <div className="px-6 py-4 flex justify-end gap-3">
           <button onClick={onClose} className="btn btn-ghost text-sm">
-            Keep Categories
+            {t('Keep Categories')}
           </button>
           <button
             disabled={!selectedCategory}
             onClick={handleApply}
             className="btn btn-primary text-sm"
           >
-            Set Category
+            {t('Set Category')}
           </button>
         </div>
       </div>

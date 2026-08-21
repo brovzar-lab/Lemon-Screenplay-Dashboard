@@ -31,6 +31,15 @@ const WARNING_STYLES: Record<
   },
 };
 
+function warningCopy(warning: ProducerProjectionWarning, t: ReturnType<typeof useTranslation>['t']) {
+  const titleKey = `analysis.warning.${warning.code}.title`;
+  const detailKey = `analysis.warning.${warning.code}.detail`;
+  return {
+    title: t(titleKey, { ...warning.params, defaultValue: warning.title }),
+    detail: t(detailKey, { ...warning.params, defaultValue: warning.detail }),
+  };
+}
+
 export function AnalysisWarnings({ screenplay }: AnalysisWarningsProps) {
   const { t } = useTranslation();
   const fallback = buildIncompleteReaderWarning(screenplay.analysisQuality);
@@ -43,6 +52,7 @@ export function AnalysisWarnings({ screenplay }: AnalysisWarningsProps) {
     <section className="space-y-2" aria-label={t('Analysis trust warnings')}>
       {warnings.map((warning) => {
         const styles = WARNING_STYLES[warning.severity];
+        const copy = warningCopy(warning, t);
         return (
           <div
             key={warning.code}
@@ -54,11 +64,11 @@ export function AnalysisWarnings({ screenplay }: AnalysisWarningsProps) {
                 {t(styles.label)}
               </span>
               <h4 className={`text-sm font-semibold ${styles.title}`}>
-                {formatProducerText(warning.title)}
+                {formatProducerText(copy.title)}
               </h4>
             </div>
             <p className="mt-1.5 text-sm leading-6 text-black-200">
-              {formatProducerText(warning.detail)}
+              {formatProducerText(copy.detail)}
             </p>
           </div>
         );

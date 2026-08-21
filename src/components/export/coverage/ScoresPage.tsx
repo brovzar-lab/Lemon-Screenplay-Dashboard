@@ -11,14 +11,17 @@ import type { DimensionDisplayItem } from '@/lib/dimensionDisplay';
 import { CVS_CONFIG, BUDGET_TIERS } from '@/types/screenplay';
 import { s, C, scoreColor } from './shared';
 import { Footer, IntHeader } from './SharedComponents';
+import i18n, { type UiLanguage } from '@/i18n';
 
 interface ScoresPageProps {
   screenplay: Screenplay;
   dims: DimensionDisplayItem[];
   assessed: boolean;
+  language?: UiLanguage;
 }
 
-export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
+export function ScoresPage({ screenplay, dims, assessed, language = 'en' }: ScoresPageProps) {
+  const t = i18n.getFixedT(language);
   const cvs = screenplay.commercialViability ?? ({} as typeof screenplay.commercialViability);
 
   return (
@@ -27,14 +30,14 @@ export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
 
       {/* Dimension deep-dive — justifications as compact paragraphs */}
       <View style={s.section}>
-        <Text style={s.heading}>Quality Dimensions</Text>
+        <Text style={s.heading}>{t('Quality Dimensions')}</Text>
         {dims.map((dim) => (
           <View key={dim.key} style={{ marginBottom: 10 }} wrap={false}>
             <View
               style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}
             >
               <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.grey900 }}>
-                {dim.label}
+                {t(dim.label)}
               </Text>
               <Text
                 style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: scoreColor(dim.score) }}
@@ -54,18 +57,18 @@ export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
       {/* CVS */}
       {assessed ? (
         <View style={s.section}>
-          <Text style={s.heading}>Commercial Viability</Text>
+          <Text style={s.heading}>{t('Commercial Viability')}</Text>
           <View style={s.table}>
             <View style={s.tHead}>
-              <Text style={[s.tHeadText, { flex: 1 }]}>Factor</Text>
-              <Text style={[s.tHeadText, { width: 45, textAlign: 'center' }]}>Score</Text>
-              <Text style={[s.tHeadText, { flex: 2, marginLeft: 6 }]}>Note</Text>
+              <Text style={[s.tHeadText, { flex: 1 }]}>{t('Factor')}</Text>
+              <Text style={[s.tHeadText, { width: 45, textAlign: 'center' }]}>{t('Score')}</Text>
+              <Text style={[s.tHeadText, { flex: 2, marginLeft: 6 }]}>{t('Note')}</Text>
             </View>
             {CVS_CONFIG.map((cfg, i) => {
               const f = cvs[cfg.key];
               return (
                 <View key={cfg.key} style={[s.tRow, i % 2 === 1 ? s.tRowAlt : {}]}>
-                  <Text style={[s.tCell, { flex: 1 }]}>{cfg.label}</Text>
+                  <Text style={[s.tCell, { flex: 1 }]}>{t(cfg.label)}</Text>
                   <Text
                     style={[
                       s.tCellBold,
@@ -83,7 +86,7 @@ export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
               );
             })}
             <View style={s.tTotal}>
-              <Text style={[s.tTotalText, { flex: 1 }]}>Total</Text>
+              <Text style={[s.tTotalText, { flex: 1 }]}>{t('Total')}</Text>
               <Text style={[s.tTotalText, { width: 45, textAlign: 'center' }]}>
                 {screenplay.cvsTotal}/18
               </Text>
@@ -93,34 +96,34 @@ export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
         </View>
       ) : (
         <View style={s.section}>
-          <Text style={s.heading}>Commercial Viability</Text>
+          <Text style={s.heading}>{t('Commercial Viability')}</Text>
           <View style={s.notAssessed}>
-            <Text style={s.naText}>CVS lens was not applied to this analysis.</Text>
+            <Text style={s.naText}>{t('CVS lens was not applied to this analysis.')}</Text>
           </View>
         </View>
       )}
 
       {/* Commercial snapshot */}
       <View style={s.section}>
-        <Text style={s.heading}>Commercial Snapshot</Text>
+        <Text style={s.heading}>{t('Commercial Snapshot')}</Text>
         <View style={s.snapGrid}>
           <View style={s.snapCard}>
-            <Text style={s.snapLabel}>Marketability</Text>
+            <Text style={s.snapLabel}>{t('Marketability')}</Text>
             <Text style={s.snapValue}>{screenplay.marketability.toUpperCase()}</Text>
           </View>
           <View style={s.snapCard}>
-            <Text style={s.snapLabel}>Budget</Text>
+            <Text style={s.snapLabel}>{t('Budget')}</Text>
             <Text style={s.snapValue}>
               {BUDGET_TIERS[screenplay.budgetCategory]?.label ?? screenplay.budgetCategory}
             </Text>
           </View>
           <View style={s.snapCard}>
-            <Text style={s.snapLabel}>USP Strength</Text>
+            <Text style={s.snapLabel}>{t('USP Strength')}</Text>
             <Text style={s.snapValue}>{screenplay.producerMetrics.uspStrength ?? '—'}</Text>
           </View>
           {screenplay.producerMetrics.marketPotential != null && (
             <View style={s.snapCard}>
-              <Text style={s.snapLabel}>Market Potential</Text>
+              <Text style={s.snapLabel}>{t('Market Potential')}</Text>
               <Text
                 style={[
                   s.snapValue,
@@ -134,7 +137,7 @@ export function ScoresPage({ screenplay, dims, assessed }: ScoresPageProps) {
         </View>
       </View>
 
-      <Footer />
+      <Footer language={language} />
     </Page>
   );
 }

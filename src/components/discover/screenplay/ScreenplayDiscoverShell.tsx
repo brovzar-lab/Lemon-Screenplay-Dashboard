@@ -12,7 +12,6 @@ import { ScreenplaySlateStats } from '@/components/discover/screenplay/Screenpla
 import { LensMenu } from '@/components/filters/LensMenu';
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import { useFeaturedProject } from '@/hooks/useFeaturedProject';
-import { usePercentiles } from '@/hooks/usePercentiles';
 import { recordFeaturedEngagement } from '@/lib/featuredProjectSettings';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -95,7 +94,6 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
   const selectionCount = useSelectionCount();
   const deselectAll = useSelectionStore((state) => state.deselectAll);
   const authProfile = useAuthStore((state) => state.profile);
-  const percentiles = usePercentiles(allScreenplays);
   const featured = useFeaturedProject(allScreenplays, producerLookIds);
   const featuredId = featured.screenplay?.id;
   const featuredRank = useMemo(() => {
@@ -239,7 +237,6 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
                 rank={featuredRank}
                 reason={featured.reason}
                 outsideCurrentView={!screenplays.some((item) => item.id === featured.screenplay?.id)}
-                percentiles={percentiles}
                 producerAssessments={producerAssessments}
                 producerLookIds={producerLookIds}
                 onOpen={handleOpen}

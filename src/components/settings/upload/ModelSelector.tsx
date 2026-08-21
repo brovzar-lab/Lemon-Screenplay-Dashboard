@@ -48,7 +48,7 @@ export function ModelSelector({
         <strong className={isIntake ? 'text-[var(--dsc-ink)]' : 'text-black-100'}>{t('Catalog watch:')}</strong>{' '}
         {t('Anthropic currently lists')} <code>{modelCatalog.latestObserved.sonnet}</code> {t('and')}{' '}
         <code>{modelCatalog.latestObserved.opus}</code>. {t('Analysis remains pinned to')}{' '}
-        <code>{modelCatalog.analysisRoutes.sonnet.modelId}</code> and{' '}
+        <code>{modelCatalog.analysisRoutes.sonnet.modelId}</code> {t('and')}{' '}
         <code>{modelCatalog.analysisRoutes.opus.modelId}</code> {t('until newer routes pass Lemon’s sealed screenplay benchmark.')}
       </div>
       <div className={clsx('grid grid-cols-1 gap-3 md:grid-cols-2', isIntake && '2xl:grid-cols-4')}>

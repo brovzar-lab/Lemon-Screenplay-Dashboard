@@ -12,13 +12,14 @@ import {
 import '@/components/discover/discovery.css';
 import { useLiveScreenplaySync, useScreenplays } from '@/hooks/useScreenplays';
 import { getScreenplayStats } from '@/lib/api';
+import { localizedScreenplay } from '@/lib/localizedAnalysis';
 
 interface WorkspaceNavigationState {
   fromDiscovery?: boolean;
 }
 
 function ProjectWorkspacePage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { projectId, section } = useParams<{ projectId: string; section?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,6 +34,12 @@ function ProjectWorkspacePage() {
       (candidate) => candidate.projectId === projectId || candidate.id === projectId,
     ),
     [projectId, screenplays],
+  );
+  const displayedScreenplay = useMemo(
+    () => screenplay
+      ? localizedScreenplay(screenplay, i18n.resolvedLanguage === 'es' ? 'es' : 'en')
+      : undefined,
+    [i18n.resolvedLanguage, screenplay],
   );
   const activeTab: ProjectWorkspaceTab = isProjectWorkspaceTab(section)
     ? section
@@ -73,7 +80,7 @@ function ProjectWorkspacePage() {
     );
   }
 
-  if (!screenplay) {
+  if (!screenplay || !displayedScreenplay) {
     return (
       <ProjectWorkspaceState
         title={t('This project is not in the slate')}
@@ -107,7 +114,7 @@ function ProjectWorkspacePage() {
   if (screenplayFileEnabled) {
     return (
       <ScreenplayFileWorkspace
-        screenplay={screenplay}
+        screenplay={displayedScreenplay}
         activeTab={screenplayFileTab}
         onSelectTab={selectScreenplayFileTab}
         onBack={goBack}
@@ -117,7 +124,7 @@ function ProjectWorkspacePage() {
 
   return (
     <ProjectWorkspace
-      screenplay={screenplay}
+      screenplay={displayedScreenplay}
       stats={stats}
       activeTab={activeTab}
       onSelectTab={selectTab}

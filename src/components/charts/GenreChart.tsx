@@ -80,6 +80,7 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
 }
 
 export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreChartProps) {
+  const { t } = useTranslation();
   // Count genres (canonicalize so "Sci-Fi" and "Science Fiction" merge)
   const genreCounts = new Map<string, { count: number; filterGenre: string }>();
   screenplays.forEach((sp) => {
@@ -97,7 +98,7 @@ export function GenreChart({ screenplays, maxGenres = 8, onGenreClick }: GenreCh
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, maxGenres)
     .map(([genre, entry], index) => ({
-      genre,
+      genre: t(genre),
       filterGenre: entry.filterGenre,
       count: entry.count,
       color: GENRE_COLORS[index % GENRE_COLORS.length],

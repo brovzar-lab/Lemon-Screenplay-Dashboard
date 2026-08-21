@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
+import i18n from '@/i18n';
 
 const uploadPanelMock = vi.hoisted(() => vi.fn());
 
@@ -66,6 +67,19 @@ function renderSettings(initialEntry: string) {
 }
 
 describe('Settings deep links', () => {
+  it('localizes the Settings navigation in Spanish', async () => {
+    await i18n.changeLanguage('es');
+    renderSettings('/settings?tab=intake');
+
+    expect(screen.getByRole('heading', { name: 'Flujo de trabajo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sistema de carga de guiones' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByRole('button', { name: 'Guiones' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Apariencia' })).toBeInTheDocument();
+  });
+
   it('opens the complete Intake desk by default', () => {
     renderSettings('/settings');
 

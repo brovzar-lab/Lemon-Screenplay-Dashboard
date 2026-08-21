@@ -11,6 +11,68 @@ function languageKey(): string {
 }
 
 const english = {
+  'toast.analysis_quarantined_one':
+    '{{count}} malformed analysis was quarantined. Review Settings > Data.',
+  'toast.analysis_quarantined_other':
+    '{{count}} malformed analyses were quarantined. Review Settings > Data.',
+  'toast.analysis_partial_readers':
+    'Analysis needs review: {{completed}} of {{expected}} readers completed. No score or verdict was produced. Missing: {{missing}}.',
+  '{{count}} reader report incomplete_one': '{{count}} reader report incomplete',
+  '{{count}} reader report incomplete_other': '{{count}} reader reports incomplete',
+  'auth.error.account_disabled': 'This account is disabled. Contact an administrator.',
+  'auth.error.generic': 'Sign-in failed. Please try again.',
+  'auth.error.lemon_account_required': 'Use your @lemonfilms.com Google account.',
+  'auth.error.network': 'The network interrupted sign-in. Check your connection and try again.',
+  'auth.error.popup_blocked':
+    'The browser blocked the Google sign-in window. Allow pop-ups and try again.',
+  'auth.error.popup_closed': 'Google sign-in was canceled. Try again when you are ready.',
+  'auth.error.too_many_requests': 'Sign-in is temporarily limited. Wait a moment and try again.',
+  'auth.error.unavailable':
+    'Google sign-in is not available for this site. Contact an administrator.',
+  '{{count}} file could not be matched to any title_one':
+    '{{count}} file could not be matched to any title',
+  '{{count}} file could not be matched to any title_other':
+    '{{count}} files could not be matched to any title',
+  '{{count}} eligible screenplay ready for review_one':
+    '{{count}} eligible screenplay ready for review',
+  '{{count}} eligible screenplay ready for review_other':
+    '{{count}} eligible screenplays ready for review',
+  'Choose a category for {{count}} screenplay_one': 'Choose a category for {{count}} screenplay',
+  'Choose a category for {{count}} screenplay_other': 'Choose a category for {{count}} screenplays',
+  'Comparing {{count}} screenplays_one': 'Comparing {{count}} screenplay',
+  'Comparing {{count}} screenplays_other': 'Comparing {{count}} screenplays',
+  '{{count}} need your look_one': '{{count}} needs your look',
+  '{{count}} need your look_other': '{{count}} need your look',
+  '{{count}} pitch-deck PDFs are in your Downloads folder._one':
+    '{{count}} pitch-deck PDF is in your Downloads folder.',
+  '{{count}} pitch-deck PDFs are in your Downloads folder._other':
+    '{{count}} pitch-deck PDFs are in your Downloads folder.',
+  '{{count}} filters active_one': '{{count}} filter active',
+  '{{count}} filters active_other': '{{count}} filters active',
+  '{{count}} genres_one': '{{count}} genre',
+  '{{count}} genres_other': '{{count}} genres',
+  '{{count}} themes_one': '{{count}} theme',
+  '{{count}} themes_other': '{{count}} themes',
+  '{{count}} verdicts_one': '{{count}} verdict',
+  '{{count}} verdicts_other': '{{count}} verdicts',
+  'Private notes ({{count}})_one': 'Private note ({{count}})',
+  'Private notes ({{count}})_other': 'Private notes ({{count}})',
+  'Notes ({{count}})_one': 'Note ({{count}})',
+  'Notes ({{count}})_other': 'Notes ({{count}})',
+  'Cleared {{count}} settings keys_one': 'Cleared {{count}} settings key',
+  'Cleared {{count}} settings keys_other': 'Cleared {{count}} settings keys',
+  '{{count}} days ago_one': '{{count}} day ago',
+  '{{count}} days ago_other': '{{count}} days ago',
+  '{{count}} screenplays in Firebase Storage_one': '{{count}} screenplay in Firebase Storage',
+  '{{count}} screenplays in Firebase Storage_other': '{{count}} screenplays in Firebase Storage',
+  'Estimated batch cost for {{count}} files with {{model}}:_one':
+    'Estimated batch cost for {{count}} file with {{model}}:',
+  'Estimated batch cost for {{count}} files with {{model}}:_other':
+    'Estimated batch cost for {{count}} files with {{model}}:',
+  '{{buyers}} buyers support this signal. Lemon has {{count}} current matches to review._one':
+    '{{buyers}} buyers support this signal. Lemon has {{count}} current match to review.',
+  '{{buyers}} buyers support this signal. Lemon has {{count}} current matches to review._other':
+    '{{buyers}} buyers support this signal. Lemon has {{count}} current matches to review.',
   'Review {{count}} matching screenplay_one': 'Review {{count}} matching screenplay',
   'Review {{count}} matching screenplay_other': 'Review {{count}} matching screenplays',
   '{{count}} matching screenplay_one': '{{count}} matching screenplay',
@@ -25,6 +87,10 @@ const english = {
   '{{count}} non-screenplays hidden_other': '{{count}} non-screenplays hidden',
   '{{count}} screenplay selected_one': '{{count}} screenplay selected',
   '{{count}} screenplay selected_other': '{{count}} screenplays selected',
+  'Exported {{count}} screenplay as CSV_one': 'Exported {{count}} screenplay as CSV',
+  'Exported {{count}} screenplay as CSV_other': 'Exported {{count}} screenplays as CSV',
+  'Exported {{count}} screenplay as PDF_one': 'Exported {{count}} screenplay as PDF',
+  'Exported {{count}} screenplay as PDF_other': 'Exported {{count}} screenplays as PDF',
   '{{count}} disagreement_one': '{{count}} disagreement',
   '{{count}} disagreement_other': '{{count}} disagreements',
   'Authorize paid analysis for {{count}} screenplay_one':
@@ -93,9 +159,526 @@ const english = {
   '{{count}} pages_other': '{{count}} pages',
   '{{count}} missing source screenplay_one': '{{count}} missing source screenplay',
   '{{count}} missing source screenplay_other': '{{count}} missing source screenplays',
+  'Category set to {{category}} for {{count}} screenplay_one':
+    'Category set to {{category}} for {{count}} screenplay',
+  'Category set to {{category}} for {{count}} screenplay_other':
+    'Category set to {{category}} for {{count}} screenplays',
+  '{{attached}} of {{total}} selected screenplay already have PDFs attached_one':
+    '{{attached}} of {{total}} selected screenplay already has a PDF attached',
+  '{{attached}} of {{total}} selected screenplay already have PDFs attached_other':
+    '{{attached}} of {{total}} selected screenplays already have PDFs attached',
+  '{{count}} screenplay need PDFs_one': '{{count}} screenplay needs a PDF',
+  '{{count}} screenplay need PDFs_other': '{{count}} screenplays need PDFs',
+  'analysis.warning.incomplete_readers.title': 'Incomplete reader panel',
+  'analysis.warning.incomplete_readers.detail':
+    '{{completed}} of {{expected}} readers completed. Missing: {{missing}}. This analysis should not drive a ranking decision.',
+  'analysis.warning.truncated_source.title': 'Screenplay evidence is incomplete',
+  'analysis.warning.truncated_source.detail':
+    'The saved analysis says part of the screenplay was not read. Treat its score and verdict as unfit for ranking.',
+  'analysis.warning.unstable_boundary.title': 'Verdict stability warning',
+  'analysis.warning.unstable_boundary.detail':
+    '{{runs}} scoring runs varied by {{spread}} points, with {{failed}} failed runs. Review the rerun evidence before ranking this project.',
+  'analysis.warning.reader_disagreement.title': 'Specialist readers disagreed',
+  'analysis.warning.reader_disagreement.detail':
+    '{{count}} material disagreements were recorded and should be reviewed in the reader evidence.',
+  'analysis.warning.legacy_unverified.title': 'Legacy analysis',
+  'analysis.warning.legacy_unverified.detail':
+    'This record predates the immutable trust manifest. Its history and model lineage cannot be verified to the current standard.',
+  'analysis.warning.legacy_raw_score.title': 'No recorded adjusted score',
+  'analysis.warning.legacy_raw_score.detail':
+    'The app is showing the stored raw score because this older analysis did not preserve a separate final adjusted score.',
+  'developmentOpportunity.rationale.none':
+    'No exceptional, corroborated development opportunity was identified.',
+  'developmentOpportunity.rationale.producer_override':
+    'Producer Take scored this {{score}} and marked it {{verdict}}. The AI score and verdict remain unchanged.',
+  'developmentOpportunity.rationale.producer_review':
+    '{{signal}} is strong enough to warrant a producer look before this project is dismissed. The AI score and verdict remain unchanged.',
+  'developmentOpportunity.rationale.watch':
+    'The upside evidence is not yet strong or corroborated enough for Producer Look routing.',
+  'developmentOpportunity.signal.high_concept': 'High-concept hook',
+  'developmentOpportunity.signal.narrative_engine': 'Narrative engine',
+  'developmentOpportunity.signal.originality': 'Originality',
+  'developmentOpportunity.signal.voice': 'Distinctive voice',
+  'developmentOpportunity.signal.actor_appeal': 'Actor appeal',
+  'developmentOpportunity.signal.commercial_hook': 'Commercial hook',
+  'developmentOpportunity.signal.cultural_specificity': 'Cultural specificity',
+  'developmentOpportunity.signal.emotional_engine': 'Emotional engine',
+  'developmentOpportunity.signal.development_upside': 'Development upside',
+  'developmentOpportunity.evidence.producer_take':
+    'Producer Take scored this {{score}} and marked it {{verdict}}.',
+  'developmentOpportunity.evidence.commercial_high_concept':
+    'Commercial review identified a strong high-concept premise.',
+  'developmentOpportunity.evidence.commercial_marketing_hook':
+    'Commercial review identified a clear marketing hook.',
+  'developmentOpportunity.evidence.commercial_actor_appeal':
+    'Commercial review identified meaningful cast appeal.',
 } as const;
 
 const spanish = {
+  'toast.analysis_quarantined_one':
+    'Se puso en cuarentena {{count}} análisis con formato incorrecto. Revísalo en Configuración > Datos.',
+  'toast.analysis_quarantined_other':
+    'Se pusieron en cuarentena {{count}} análisis con formato incorrecto. Revísalos en Configuración > Datos.',
+  'toast.analysis_partial_readers':
+    'El análisis requiere revisión: terminaron {{completed}} de {{expected}} lectores. No se generó una calificación ni un veredicto. Faltan: {{missing}}.',
+  '{{count}} reader report incomplete_one': '{{count}} informe de lector incompleto',
+  '{{count}} reader report incomplete_other': '{{count}} informes de lectores incompletos',
+  'auth.error.account_disabled': 'Esta cuenta está deshabilitada. Comunícate con un administrador.',
+  'auth.error.generic': 'No se pudo iniciar sesión. Intenta de nuevo.',
+  'auth.error.lemon_account_required': 'Usa tu cuenta de Google de @lemonfilms.com.',
+  'auth.error.network':
+    'La red interrumpió el inicio de sesión. Revisa tu conexión e intenta de nuevo.',
+  'auth.error.popup_blocked':
+    'El navegador bloqueó la ventana de Google. Permite las ventanas emergentes e intenta de nuevo.',
+  'auth.error.popup_closed':
+    'Se canceló el inicio de sesión con Google. Intenta de nuevo cuando quieras.',
+  'auth.error.too_many_requests':
+    'El inicio de sesión está limitado por el momento. Espera un poco e intenta de nuevo.',
+  'auth.error.unavailable':
+    'Google no está disponible para iniciar sesión en este sitio. Comunícate con un administrador.',
+  'Live screenplay update failed — keeping the last good data':
+    'No se pudo actualizar la lista de guiones. Conservamos los últimos datos correctos.',
+  'Live sync disconnected — reconnecting automatically':
+    'Se perdió la sincronización en vivo. La conexión se restablecerá automáticamente.',
+  'Failed to copy URL to clipboard': 'No se pudo copiar el enlace al portapapeles.',
+  'Failed to save screenplay locally — storage may be full':
+    'No se pudo guardar el guion en este dispositivo. Es posible que el almacenamiento esté lleno.',
+  'Delete saved locally — cloud sync will retry':
+    'La eliminación se guardó en este dispositivo. La sincronización con la nube volverá a intentarlo.',
+  'Change saved locally — cloud sync will retry':
+    'El cambio se guardó en este dispositivo. La sincronización con la nube volverá a intentarlo.',
+  'Deletes saved locally — cloud sync will retry':
+    'Las eliminaciones se guardaron en este dispositivo. La sincronización con la nube volverá a intentarlo.',
+  'Restore saved locally — cloud sync will retry':
+    'La restauración se guardó en este dispositivo. La sincronización con la nube volverá a intentarlo.',
+  'Failed to save to Brain — try again': 'No se pudo guardar en Brain. Intenta de nuevo.',
+  'Failed to save notes — your changes may not be saved':
+    'No se pudieron guardar las notas. Es posible que tus cambios no se hayan guardado.',
+  'Failed to save calibration profile': 'No se pudo guardar el perfil de calibración.',
+  '{{filename}} is not a PDF.': '{{filename}} no es un archivo PDF.',
+  '{{filename}} is larger than the 50 MB upload limit.':
+    '{{filename}} supera el límite de carga de 50 MB.',
+  '{{filename}} is empty.': '{{filename}} está vacío.',
+  'This PDF has too little readable text. It may be scanned or image-only.':
+    'Este PDF contiene muy poco texto legible. Es posible que esté escaneado o que solo contenga imágenes.',
+  'This PDF does not appear to use screenplay formatting.':
+    'Este PDF no parece tener formato de guion.',
+  'Analysis version not recorded': 'Versión del análisis no registrada',
+  'Legacy (no pillar scores)': 'Anterior (sin calificaciones por pilar)',
+  'Sync retry failed. Please try again.':
+    'No se pudo reintentar la sincronización. Intenta de nuevo.',
+  'This intake job could not be completed.': 'No se pudo completar este proceso de carga.',
+  Ascending: 'Ascendente',
+  Descending: 'Descendente',
+  'Minimum {{label}}': 'Mínimo de {{label}}',
+  'Maximum {{label}}': 'Máximo de {{label}}',
+  '#{{position}} of {{total}} overall': 'Puesto {{position}} de {{total}} en general',
+  'Switch to {{mode}} mode': 'Cambiar al modo {{mode}}',
+  'Use {{mode}} theme': 'Usar el tema {{mode}}',
+  light: 'claro',
+  dark: 'oscuro',
+  'Billy {{producerScore}} · AI {{aiScore}}': 'Billy {{producerScore}} · IA {{aiScore}}',
+  PRODUCED: 'PRODUCIDO',
+  'PRODUCED{{year}}': 'PRODUCIDO{{year}}',
+  'Produced as "{{title}}"{{year}}': 'Producido como “{{title}}”{{year}}',
+  'Produced as "{{title}}"': 'Producido como “{{title}}”',
+  ' in {{year}}': ' en {{year}}',
+  Select: 'Seleccionar',
+  Deselect: 'Quitar selección',
+  'View details for {{title}}': 'Ver detalles de {{title}}',
+  'Select screenplay': 'Seleccionar guion',
+  'Deselect screenplay': 'Quitar guion de la selección',
+  'Remove "{{title}}" from the dashboard? You can restore it from Settings > Data.':
+    '¿Quitar “{{title}}” del tablero? Puedes restaurarlo en Configuración > Datos.',
+  'Calibration evidence could not be loaded.': 'No se pudo cargar la evidencia de calibración.',
+  'The calibration candidate could not be built.': 'No se pudo crear el candidato de calibración.',
+  'The calibration profile could not be published.':
+    'No se pudo publicar el perfil de calibración.',
+  'File no longer available. Please re-add.':
+    'El archivo ya no está disponible. Agrégalo de nuevo.',
+  'Waiting for the next daily AI budget window':
+    'Esperando la siguiente ventana diaria de presupuesto de IA',
+  'Daemon analysis failed': 'Falló el análisis del servidor',
+  'Job skipped': 'Trabajo omitido',
+  'The screenplay evidence needs review': 'La evidencia del guion necesita revisión',
+  'Queue connection failed': 'Falló la conexión con la cola',
+  '+ Click cards to add': '+ Haz clic en tarjetas para agregar',
+  'Analyzed with': 'Analizado con',
+  'Choose Model': 'Elegir modelo',
+  'Compatibility estimates for older dashboard filters. They are not independent reader scores. Open a screenplay to see its five specialist pillars.':
+    'Son estimaciones de compatibilidad para filtros anteriores. No son calificaciones independientes de los lectores. Abre un guion para ver sus cinco pilares especializados.',
+  'Continue as Billy': 'Continuar como Billy',
+  Current: 'Actual',
+  'Decision blocked: {{warnings}}': 'Decisión bloqueada: {{warnings}}',
+  'Issues flagged in analysis': 'Problemas señalados en el análisis',
+  'Local review on this Mac only': 'Revisión local solo en esta Mac',
+  'Not rankable': 'No apto para clasificación',
+  'Opening local review...': 'Abriendo la revisión local…',
+  Pages: 'Páginas',
+  'Re-analysis failed. Please try again.': 'No se pudo repetir el análisis. Intenta de nuevo.',
+  'Re-analyze': 'Volver a analizar',
+  'Reanalysis failed — please try again': 'No se pudo repetir el análisis. Intenta de nuevo.',
+  'Review required: {{warnings}}': 'Se requiere revisión: {{warnings}}',
+  'Revision {{version}}{{triage}}': 'Revisión {{version}}{{triage}}',
+  'Showing {{visible}} of {{total}} screenplays': 'Mostrando {{visible}} de {{total}} guiones',
+  Source: 'Origen',
+  'Starting re-analysis...': 'Iniciando el nuevo análisis…',
+  Words: 'Palabras',
+  triage: 'triaje',
+  'Analysis language': 'Idioma del análisis',
+  'Areas for Development': 'Áreas de desarrollo',
+  Author: 'Autor',
+  'Back to top': 'Volver arriba',
+  Budget: 'Presupuesto',
+  'Budget Return Ratio (CVS)': 'Relación de retorno del presupuesto (CVS)',
+  'CVS Assessed': 'CVS evaluado',
+  'CVS lens was not applied to this analysis.': 'Este análisis no aplicó la evaluación CVS.',
+  'Cast Attachability (CVS)': 'Potencial para atraer reparto (CVS)',
+  Collection: 'Colección',
+  'Commercial Snapshot': 'Resumen comercial',
+  'Comparable Success (CVS)': 'Éxito de comparables (CVS)',
+  'Confidential · For Lemon Studios internal use only':
+    'Confidencial · Solo para uso interno de Lemon Studios',
+  'Connecting...': 'Conectando…',
+  'Coverage Report': 'Reporte de cobertura',
+  'Critical-Failure Deduction': 'Deducción por falla crítica',
+  Factor: 'Factor',
+  'Format Quality': 'Calidad del formato',
+  'Gender Skew': 'Sesgo de género',
+  Generated: 'Generado',
+  'High Concept (CVS)': 'Concepto fuerte (CVS)',
+  Hybrid: 'Híbrido',
+  Interests: 'Intereses',
+  'Is Film Now': 'Es FILM NOW',
+  'Key Divergence': 'Diferencia principal',
+  'Marketing Hook (CVS)': 'Gancho de mercadotecnia (CVS)',
+  'Not specified': 'No especificado',
+  Note: 'Nota',
+  Pacing: 'Ritmo',
+  Page: 'Página',
+  'Page Count': 'Número de páginas',
+  'Pages / Words': 'Páginas / palabras',
+  'Primary Demographic': 'Público principal',
+  'Production Details': 'Datos de producción',
+  'Quality Dimensions': 'Dimensiones de calidad',
+  'Raw Five-Pillar Score': 'Calificación bruta de cinco pilares',
+  Saved: 'Guardado',
+  'Saving...': 'Guardando…',
+  'Scores At A Glance': 'Resumen de calificaciones',
+  'Scroll to top': 'Ir al inicio',
+  Subgenres: 'Subgéneros',
+  'Supporting Characters': 'Personajes secundarios',
+  'Target Audience (CVS)': 'Público objetivo (CVS)',
+  'The interface is in Spanish. This saved analysis remains in its original English.':
+    'La interfaz está en español. Este análisis guardado permanece en su inglés original.',
+  Tone: 'Tono',
+  Top: 'Inicio',
+  'Verdict Statement': 'Explicación del veredicto',
+  'Word Count': 'Número de palabras',
+  'Written by': 'Escrito por',
+  pp: 'pp.',
+  words: 'palabras',
+  '{{label}} Score': 'Calificación de {{label}}',
+  'Development Executive AI': 'Ejecutivo de desarrollo con IA',
+  'Toggle Dev Exec chat': 'Abrir o cerrar el chat del ejecutivo de desarrollo',
+  'Exported {{count}} screenplay as CSV_one': 'Se exportó {{count}} guion como CSV',
+  'Exported {{count}} screenplay as CSV_other': 'Se exportaron {{count}} guiones como CSV',
+  'Exported {{count}} screenplay as PDF_one': 'Se exportó {{count}} guion como PDF',
+  'Exported {{count}} screenplay as PDF_other': 'Se exportaron {{count}} guiones como PDF',
+  'PDF export failed. Try selecting fewer screenplays.':
+    'No se pudo exportar el PDF. Selecciona menos guiones e intenta de nuevo.',
+  'Exporting {{current}} of {{total}}...': 'Exportando {{current}} de {{total}}…',
+  'Export PDF': 'Exportar PDF',
+  'Deselect All': 'Quitar toda la selección',
+  'Select 2-3 to compare': 'Selecciona de 2 a 3 guiones para comparar',
+  'Compare selected screenplays': 'Comparar los guiones seleccionados',
+  Compare: 'Comparar',
+  'No scripts match that search': 'Ningún guion coincide con esa búsqueda',
+  'No results for "{{query}}". Try a different search term.':
+    'No hay resultados para “{{query}}”. Prueba con otra búsqueda.',
+  'Clear Search': 'Limpiar búsqueda',
+  'No FILM NOW contenders yet': 'Aún no hay candidatos FILM NOW',
+  'None of the current screenplays have earned top-tier status':
+    'Ninguno de los guiones actuales ha alcanzado el nivel más alto.',
+  'Reset Filters': 'Restablecer filtros',
+  'Nothing made the cut': 'Ningún guion pasó los filtros',
+  'Try adjusting your filters to see more screenplays': 'Ajusta los filtros para ver más guiones.',
+  'Reset All Filters': 'Restablecer todos los filtros',
+  'No screenplays found': 'No se encontraron guiones',
+  'Make sure the analysis data is available and has been uploaded':
+    'Confirma que los análisis estén disponibles y se hayan cargado.',
+  'Screenplay results': 'Resultados de guiones',
+  'Error rendering: {{title}}': 'No se pudo mostrar: {{title}}',
+  Unknown: 'Desconocido',
+  'Coverage PDF generation failed — please try again':
+    'No se pudo generar el PDF de cobertura. Intenta de nuevo.',
+  'Close modal': 'Cerrar ventana',
+  'by {{author}}': 'de {{author}}',
+  'Coverage PDF generation failed': 'No se pudo generar el PDF de cobertura',
+  'Download coverage report as PDF': 'Descargar el reporte de cobertura como PDF',
+  Coverage: 'Cobertura',
+  'Delete this screenplay': 'Eliminar este guion',
+  'Delete screenplay': 'Eliminar guion',
+  'Deselect for deletion': 'Quitar de la selección para eliminar',
+  'Select for deletion': 'Seleccionar para eliminar',
+  'Delete "{{title}}"?': '¿Eliminar “{{title}}”?',
+  'This will permanently remove the analysis for "{{title}}" from your database.':
+    'Esto eliminará de forma permanente el análisis de “{{title}}” de la base de datos.',
+  'Share link created. It has not been sent to anyone.':
+    'El enlace está listo. La aplicación no lo ha enviado a nadie.',
+  'Failed to create share link': 'No se pudo crear el enlace para compartir',
+  'Share link revoked.': 'Se revocó el enlace.',
+  'Failed to revoke share link': 'No se pudo revocar el enlace',
+  "This screenplay hasn't synced to Firestore yet. Wait for sync to complete before sharing.":
+    'Este guion aún no termina de sincronizarse. Espera antes de compartirlo.',
+  'Failed to copy to clipboard': 'No se pudo copiar al portapapeles',
+  'Failed to update notes setting': 'No se pudo actualizar la opción de notas',
+  'Sync pending -- wait for Firestore sync before sharing':
+    'Sincronización pendiente. Espera antes de compartir.',
+  'Checking for an existing share link...': 'Buscando un enlace existente…',
+  'Checking sync status...': 'Revisando la sincronización…',
+  'Share this screenplay': 'Compartir este guion',
+  'Share screenplay': 'Compartir guion',
+  'Link active': 'Enlace activo',
+  'Share Link': 'Enlace para compartir',
+  'Close popover': 'Cerrar menú',
+  'This link is ready, but the app has not sent it to anyone.':
+    'Este enlace está listo, pero la aplicación no lo ha enviado a nadie.',
+  'Copied!': 'Copiado',
+  'Include notes': 'Incluir notas',
+  'Open preview': 'Abrir vista previa',
+  'Manage all links': 'Administrar todos los enlaces',
+  'Revoke this link?': '¿Revocar este enlace?',
+  'Revoking...': 'Revocando…',
+  'Revoke link': 'Revocar enlace',
+  '(+{{count}} more)': '(+{{count}} más)',
+  'Dismiss toast': 'Cerrar aviso',
+  'Add Feedback': 'Agregar comentarios',
+  'AI Market Analysis': 'Análisis de mercado de la IA',
+  'AI verdict:': 'Veredicto de la IA:',
+  'Ask about projects, strategy, or the slate.':
+    'Pregunta por proyectos, estrategia o el catálogo.',
+  "Billy's Take": 'Decisión de Billy',
+  'Career Risk Test': 'Prueba de riesgo profesional',
+  Collapse: 'Contraer',
+  'Connection issue — try again in a moment.':
+    'Hay un problema de conexión. Intenta de nuevo en un momento.',
+  'End Conversation': 'Terminar conversación',
+  'End conversation': 'Terminar conversación',
+  'Error: {{message}}': 'Error: {{message}}',
+  Expand: 'Ampliar',
+  'Failed to send message — please try again': 'No se pudo enviar el mensaje. Intenta de nuevo.',
+  'Field Position': 'Posición en el catálogo',
+  'FILM NOW Qualifiers': 'Criterios para FILM NOW',
+  'Five-Pillar Score Overrides': 'Ajustes de las cinco calificaciones',
+  'from AI': 'frente a la IA',
+  Greenlight: 'Luz verde',
+  'Goosebumps Moments': 'Momentos memorables',
+  'Knows every script in your pipeline.': 'Conoce todos los guiones de tu catálogo.',
+  'Legacy Dimension Score Overrides': 'Ajustes de calificaciones anteriores',
+  'Legacy Potential': 'Potencial de legado',
+  'Lightning Test': 'Prueba relámpago',
+  LIVE: 'EN VIVO',
+  'Live Conversation': 'Conversación en vivo',
+  Minimize: 'Minimizar',
+  'N/A': 'No disponible',
+  'Not yet analyzed. Re-analyze this screenplay to generate AI market intelligence.':
+    'Aún no se analiza. Vuelve a analizar este guion para generar inteligencia de mercado.',
+  'of {{count}}': 'de {{count}}',
+  'Opening specialist evidence…': 'Abriendo la evidencia de los especialistas…',
+  'Or type a message...': 'O escribe un mensaje…',
+  'Overall slate': 'Catálogo completo',
+  '{{label}} overall': '{{label}} en general',
+  'Previously Saved Legacy Dimension Overrides': 'Ajustes anteriores guardados',
+  'Producer Feedback': 'Comentarios del productor',
+  'Quick note — what moved you or killed it? (optional)':
+    'Nota breve: ¿qué te convenció o te hizo descartarlo? (opcional)',
+  'Ranked against the complete screenplay slate': 'Comparado con todo el catálogo de guiones',
+  'Saved to Brain': 'Guardado en el archivo de decisiones',
+  'Setting up voice connection': 'Preparando la conexión de voz',
+  'Similar Projects': 'Proyectos similares',
+  'Speak naturally. Your Dev Exec is listening.':
+    'Habla con naturalidad. Tu ejecutivo de desarrollo te escucha.',
+  'Start live voice conversation': 'Iniciar conversación de voz',
+  'Tap to end': 'Toca para terminar',
+  'Tap to talk': 'Toca para hablar',
+  'Thinking...': 'Pensando…',
+  'USP Strength': 'Fuerza de la propuesta única',
+  'Your Head of Development': 'Tu ejecutivo de desarrollo',
+  'you disagree': 'no coincides',
+  'Your Overall Score': 'Tu calificación general',
+  'Your Score:': 'Tu calificación:',
+  'Your Verdict': 'Tu veredicto',
+  'Would You Greenlight This?': '¿Darías luz verde a este proyecto?',
+  'What the AI Missed': 'Lo que no vio la IA',
+  'What the AI Got Right': 'Lo que hizo bien la IA',
+  'e.g., The protagonist is passive in Act 2...':
+    'Ejemplo: El protagonista es pasivo en el segundo acto…',
+  'e.g., Budget assessment was spot on...': 'Ejemplo: La evaluación del presupuesto fue precisa…',
+  'Feedback trains the Calibration Profile in Settings → Calibration':
+    'Estos comentarios alimentan el perfil de calibración en Configuración → Calibración',
+  'Save Feedback': 'Guardar comentarios',
+  'Edit Feedback': 'Editar comentarios',
+  'These producer corrections belong to the older seven-dimension system. They are preserved as historical feedback and are not relabeled as five-pillar evidence.':
+    'Estas correcciones del productor pertenecen al sistema anterior de siete dimensiones. Se conservan como historial y no se presentan como evidencia de cinco pilares.',
+  '{{label}} legacy override': 'Ajuste anterior de {{label}}',
+  'Slate Overview': 'Resumen del catálogo',
+  'Hidden Gems': 'Joyas ocultas',
+  'Priority Reads': 'Lecturas prioritarias',
+  'Portfolio Gaps': 'Vacíos del catálogo',
+  'Dev Strategy': 'Estrategia de desarrollo',
+  "Give me a high-level read on our current slate. What's the overall quality? How does our pipeline look? Any trends I should know about?":
+    'Dame una lectura general del catálogo actual. ¿Cuál es la calidad general? ¿Cómo se ve nuestro flujo? ¿Hay tendencias que deba conocer?',
+  'Which PASS or CONSIDER scripts have hidden potential that we might be overlooking? What would it take to develop them into something special?':
+    '¿Qué guiones con veredicto PASS o CONSIDER tienen un potencial que podríamos estar ignorando? ¿Qué desarrollo necesitan para convertirse en algo especial?',
+  'From the most recently uploaded scripts, which ones should I prioritize reading first and why? Give me your top 3 with quick reasons.':
+    'De los guiones cargados más recientemente, ¿cuáles debo leer primero y por qué? Dame los tres prioritarios con razones breves.',
+  'What genres, budget tiers, or market segments are we missing in our current slate? Where should we be looking for material?':
+    '¿Qué géneros, niveles de presupuesto o segmentos de mercado faltan en el catálogo? ¿Dónde debemos buscar material?',
+  'Which CONSIDER scripts are closest to being production-ready? What specific development work would elevate them? Give me actionable next steps.':
+    '¿Qué guiones CONSIDER están más cerca de estar listos para producción? ¿Qué trabajo específico de desarrollo los mejoraría? Dame próximos pasos concretos.',
+  Actions: 'Acciones',
+  'Actions menu': 'Menú de acciones',
+  Add: 'Agregar',
+  'Add Sort Column': 'Agregar criterio',
+  Advanced: 'Avanzados',
+  'Advanced Filters': 'Filtros avanzados',
+  'Advanced Sorting': 'Orden avanzado',
+  'All Categories': 'Todas las categorías',
+  'All selected screenplays already have PDFs attached.':
+    'Todos los guiones seleccionados ya tienen un archivo fuente.',
+  'Always show FILM NOW screenplays at the top': 'Mostrar siempre FILM NOW al principio',
+  Apply: 'Aplicar',
+  'Apply Filters': 'Aplicar filtros',
+  Browse: 'Buscar archivo',
+  'Category set to {{category}} for {{count}} screenplay_one':
+    'Se asignó la categoría {{category}} a {{count}} guion',
+  'Category set to {{category}} for {{count}} screenplay_other':
+    'Se asignó la categoría {{category}} a {{count}} guiones',
+  'Choose a category for {{count}} screenplay_one': 'Elige una categoría para {{count}} guion',
+  'Choose a category for {{count}} screenplay_other': 'Elige una categoría para {{count}} guiones',
+  'Clear search': 'Borrar búsqueda',
+  'Close sorting panel': 'Cerrar orden',
+  'Complete — {{completed}} re-analyzed. {{failed}} could not be processed: {{titles}}':
+    'Listo: se volvieron a analizar {{completed}}. No se pudieron procesar {{failed}}: {{titles}}',
+  'Complete — {{count}} re-analyzed': 'Listo: se volvieron a analizar {{count}}',
+  Dimensions: 'Dimensiones',
+  'Display Options': 'Opciones de vista',
+  'Drop multiple PDFs here to auto-match by filename':
+    'Suelta aquí varios PDF para relacionarlos por nombre de archivo',
+  'Estimated maximum cost: ${{cost}}': 'Costo máximo estimado: ${{cost}}',
+  'Exclude screenplays that became movies': 'Ocultar guiones que ya se produjeron',
+  'Exit Reading Room': 'Salir de la sala de lectura',
+  Export: 'Exportar',
+  'Export screenplays': 'Exportar guiones',
+  'FILM NOW First': 'FILM NOW primero',
+  'Filter screenplays': 'Filtrar guiones',
+  'Genre & Theme': 'Género y tema',
+  'Genre Execution': 'Ejecución del género',
+  Genres: 'Géneros',
+  'Has PDF': 'Con archivo fuente',
+  'Hide produced films': 'Ocultar películas producidas',
+  'Keep Categories': 'Conservar categorías',
+  'Legacy Score Estimates': 'Estimaciones de calificaciones anteriores',
+  'Live Storage data active. The filter is accurate.':
+    'La consulta en Storage está activa. El filtro está actualizado.',
+  'Market Analysis': 'Análisis de mercado',
+  'Next screenplay': 'Guion siguiente',
+  'No PDF linked': 'Sin archivo fuente',
+  'No eligible screenplays selected. A source screenplay is required.':
+    'No seleccionaste guiones disponibles. Se requiere el archivo fuente.',
+  'No eligible screenplays — all selected items are missing their PDF.':
+    'No hay guiones disponibles: a todos los seleccionados les falta el archivo fuente.',
+  'No matches': 'No hay coincidencias',
+  'No sort columns. Add one below.': 'No hay criterios de orden. Agrega uno abajo.',
+  'One file per title': 'Un archivo por título',
+  'Open Reading Room': 'Abrir sala de lectura',
+  'Open Settings → Screenplays to scan. The filter will activate when the scan is complete.':
+    'Abre Configuración → Guiones para iniciar la consulta. El filtro se activará cuando termine.',
+  'Previous screenplay': 'Guion anterior',
+  'Producer Metrics': 'Métricas del productor',
+  'Re-Analyze Screenplays': 'Volver a analizar guiones',
+  'Re-analyze Selected': 'Volver a analizar la selección',
+  'Re-analyzing {{completed}} of {{total}}...':
+    'Volviendo a analizar {{completed}} de {{total}}...',
+  'Reading Room': 'Sala de lectura',
+  'Remove from favorites': 'Quitar de favoritos',
+  'Remove {{item}}': 'Quitar {{item}}',
+  'Reset All': 'Restablecer todo',
+  'Reset to Default': 'Volver al orden predeterminado',
+  'Reviewing {{title}}, screenplay {{current}} of {{total}}':
+    'Revisando {{title}}, guion {{current}} de {{total}}',
+  'Scanning Storage… filter will update automatically.':
+    'Consultando Storage… el filtro se actualizará automáticamente.',
+  'Search screenplays': 'Buscar guiones',
+  'Search title, author, genre, logline...': 'Buscar título, autor, género o logline...',
+  'Search {{label}}': 'Buscar {{label}}',
+  'Search...': 'Buscar...',
+  'Select All': 'Seleccionar todo',
+  'Select a category...': 'Selecciona una categoría...',
+  'Select all for export': 'Seleccionar todo para exportar',
+  'Select field...': 'Selecciona un campo...',
+  'Select genres...': 'Selecciona géneros...',
+  'Select sort field': 'Seleccionar criterio de orden',
+  'Select themes...': 'Selecciona temas...',
+  'Set Category': 'Asignar categoría',
+  Share: 'Compartir',
+  'Share dashboard': 'Compartir tablero',
+  'Show only screenplays whose PDF is not in Storage':
+    'Mostrar solo guiones cuyo archivo fuente no está en Storage',
+  'Sort Priority': 'Prioridad del orden',
+  'Sort screenplays by': 'Ordenar guiones por',
+  'Sort: CVS Total': 'Orden: CVS total',
+  'Sort: Final Score': 'Orden: calificación final',
+  'Sort: Market Potential': 'Orden: potencial de mercado',
+  'Sort: Title A-Z': 'Orden: título A-Z',
+  'Source Category': 'Categoría de origen',
+  'Start Reanalysis': 'Iniciar nuevo análisis',
+  'Stop Watching': 'Dejar de observar',
+  'Stopped watching. The current queued analysis continues on the VPS; {{count}} remaining screenplay was not started._one':
+    'Dejaste de observar. El análisis en cola continúa en el servidor; no se inició {{count}} guion restante.',
+  'Stopped watching. The current queued analysis continues on the VPS; {{count}} remaining screenplay was not started._other':
+    'Dejaste de observar. El análisis en cola continúa en el servidor; no se iniciaron {{count}} guiones restantes.',
+  'Stopped watching. This analysis could not be confirmed in the queue; check Upload Issues before retrying. {{count}} remaining screenplay was not started._one':
+    'Dejaste de observar. No se pudo confirmar este análisis en la cola. Revisa Problemas de carga antes de intentarlo otra vez. No se inició {{count}} guion restante.',
+  'Stopped watching. This analysis could not be confirmed in the queue; check Upload Issues before retrying. {{count}} remaining screenplay was not started._other':
+    'Dejaste de observar. No se pudo confirmar este análisis en la cola. Revisa Problemas de carga antes de intentarlo otra vez. No se iniciaron {{count}} guiones restantes.',
+  Text: 'Texto',
+  'The production server enforces the daily budget.':
+    'El servidor de producción aplica el presupuesto diario.',
+  Themes: 'Temas',
+  'Upload Issues': 'Problemas de carga',
+  'Upload PDFs': 'Cargar archivos fuente',
+  Uploaded: 'Cargado',
+  'Uploaded {{done}} of {{total}}': 'Se cargaron {{done}} de {{total}}',
+  by: 'de',
+  '{{attached}} of {{total}} selected screenplay already have PDFs attached_one':
+    '{{attached}} de {{total}} guion seleccionado ya tiene archivo fuente',
+  '{{attached}} of {{total}} selected screenplay already have PDFs attached_other':
+    '{{attached}} de {{total}} guiones seleccionados ya tienen archivo fuente',
+  '{{count}} eligible screenplay ready for review_one': '{{count}} guion disponible para revisar',
+  '{{count}} eligible screenplay ready for review_other':
+    '{{count}} guiones disponibles para revisar',
+  '{{count}} failed_one': '{{count}} falló',
+  '{{count}} failed_other': '{{count}} fallaron',
+  '{{count}} file could not be matched to any title_one':
+    'No se pudo relacionar {{count}} archivo con ningún título',
+  '{{count}} file could not be matched to any title_other':
+    'No se pudieron relacionar {{count}} archivos con ningún título',
+  '{{count}} filters active_one': '{{count}} filtro activo',
+  '{{count}} filters active_other': '{{count}} filtros activos',
+  '{{count}} remaining_one': 'queda {{count}}',
+  '{{count}} remaining_other': 'quedan {{count}}',
+  '{{count}} screenplay need PDFs_one': '{{count}} guion necesita su archivo fuente',
+  '{{count}} screenplay need PDFs_other': '{{count}} guiones necesitan su archivo fuente',
+  '{{current}} of {{total}}': '{{current}} de {{total}}',
+  '{{done}} of {{total}} PDFs uploaded successfully':
+    'Se cargaron correctamente {{done}} de {{total}} archivos fuente',
+  '{{eligible}} of {{total}} selected are eligible. Processing {{eligible}}...':
+    '{{eligible}} de {{total}} seleccionados están disponibles. Procesando {{eligible}}...',
+  'PDF files only': 'Solo se aceptan archivos PDF',
+  'File too large — max 50MB': 'El archivo es demasiado grande. El máximo es 50 MB',
+  '/ to search': '/ para buscar',
   'Primary navigation': 'Navegación principal',
   'Lemon Screenplay Dashboard home': 'Inicio de Lemon Screenplay Dashboard',
   'Account and sync controls': 'Controles de cuenta y sincronización',
@@ -106,6 +689,86 @@ const spanish = {
   'Open navigation and preferences': 'Abrir navegación y preferencias',
   'Close navigation and preferences': 'Cerrar navegación y preferencias',
   'Design system': 'Sistema de diseño',
+  'Analysis available in English': 'Análisis disponible en inglés',
+  'This project meets the resurfacing policy and is ready for another look.':
+    'Este proyecto cumple la política para volver a mostrarse y está listo para otra revisión.',
+  'Feature film': 'Largometraje',
+  'TV pilot': 'Piloto de TV',
+  'Short film': 'Cortometraje',
+  Adaptation: 'Adaptación',
+  'Original screenplay': 'Guion original',
+  Horror: 'Terror',
+  Drama: 'Drama',
+  Thriller: 'Suspenso',
+  Action: 'Acción',
+  Romance: 'Romance',
+  'Romantic Comedy': 'Comedia romántica',
+  'Dark Comedy / Satire': 'Comedia negra / sátira',
+  'Society (Power/Tyranny)': 'Sociedad (poder/tiranía)',
+  'Science Fiction': 'Ciencia ficción',
+  'Sci-Fi': 'Ciencia ficción',
+  Fantasy: 'Fantasía',
+  Western: 'Wéstern',
+  Crime: 'Crimen',
+  Family: 'Familiar',
+  'Other format': 'Otro formato',
+  'Anonymized submission': 'Envío anonimizado',
+  'Uncredited submission': 'Envío sin autor acreditado',
+  'Switch to English to read the original analysis, or return after a Spanish translation is saved.':
+    'Cambia a inglés para leer el análisis original o vuelve cuando se haya guardado la traducción al español.',
+  'Analysis trust summary': 'Resumen de confianza del análisis',
+  'Broaden the search or clear the active filters to reopen the full slate.':
+    'Amplía la búsqueda o quita los filtros activos para volver a ver toda la selección.',
+  Done: 'Listo',
+  'Final Score': 'Calificación final',
+  'Lemon score': 'Calificación Lemon',
+  'Market Potential': 'Potencial de mercado',
+  Model: 'Modelo',
+  None: 'Ninguno',
+  '{{score}} · {{verdict}} preserved': '{{score}} · {{verdict}} sin cambios',
+  'analysis.warning.incomplete_readers.title': 'Panel de lectores incompleto',
+  'analysis.warning.incomplete_readers.detail':
+    'Completaron {{completed}} de {{expected}} lectores. Faltan: {{missing}}. Este análisis no debe usarse para ordenar proyectos.',
+  'analysis.warning.truncated_source.title': 'La evidencia del guion está incompleta',
+  'analysis.warning.truncated_source.detail':
+    'El análisis guardado indica que no se leyó una parte del guion. No uses su calificación ni su veredicto para ordenar proyectos.',
+  'analysis.warning.unstable_boundary.title': 'Advertencia sobre la estabilidad del veredicto',
+  'analysis.warning.unstable_boundary.detail':
+    '{{runs}} corridas de calificación variaron {{spread}} puntos y {{failed}} no terminaron. Revisa la evidencia de las corridas antes de ordenar este proyecto.',
+  'analysis.warning.reader_disagreement.title': 'Los lectores especializados no coincidieron',
+  'analysis.warning.reader_disagreement.detail':
+    'Se registraron {{count}} desacuerdos importantes. Revísalos en la evidencia de los lectores.',
+  'analysis.warning.legacy_unverified.title': 'Análisis anterior',
+  'analysis.warning.legacy_unverified.detail':
+    'Este registro es anterior al manifiesto de confianza inmutable. No se pueden verificar su historial ni el modelo con el estándar actual.',
+  'analysis.warning.legacy_raw_score.title': 'No hay una calificación ajustada registrada',
+  'analysis.warning.legacy_raw_score.detail':
+    'La aplicación muestra la calificación bruta guardada porque este análisis anterior no conservó una calificación final ajustada por separado.',
+  'developmentOpportunity.rationale.none':
+    'No se identificó una oportunidad de desarrollo excepcional respaldada por suficiente evidencia.',
+  'developmentOpportunity.rationale.producer_override':
+    'La opinión del productor dio una calificación de {{score}} y marcó el proyecto como {{verdict}}. La calificación y el veredicto de IA no cambian.',
+  'developmentOpportunity.rationale.producer_review':
+    '{{signal}} es suficientemente fuerte para justificar una revisión del productor antes de descartar el proyecto. La calificación y el veredicto de IA no cambian.',
+  'developmentOpportunity.rationale.watch':
+    'La evidencia favorable todavía no es suficientemente fuerte ni consistente para enviarla a revisión del productor.',
+  'developmentOpportunity.signal.high_concept': 'Premisa de alto concepto',
+  'developmentOpportunity.signal.narrative_engine': 'Motor narrativo',
+  'developmentOpportunity.signal.originality': 'Originalidad',
+  'developmentOpportunity.signal.voice': 'Voz distintiva',
+  'developmentOpportunity.signal.actor_appeal': 'Atractivo para el elenco',
+  'developmentOpportunity.signal.commercial_hook': 'Gancho comercial',
+  'developmentOpportunity.signal.cultural_specificity': 'Especificidad cultural',
+  'developmentOpportunity.signal.emotional_engine': 'Motor emocional',
+  'developmentOpportunity.signal.development_upside': 'Potencial de desarrollo',
+  'developmentOpportunity.evidence.producer_take':
+    'La opinión del productor dio una calificación de {{score}} y marcó el proyecto como {{verdict}}.',
+  'developmentOpportunity.evidence.commercial_high_concept':
+    'La revisión comercial identificó una premisa clara de alto concepto.',
+  'developmentOpportunity.evidence.commercial_marketing_hook':
+    'La revisión comercial identificó un gancho claro para promoción.',
+  'developmentOpportunity.evidence.commercial_actor_appeal':
+    'La revisión comercial identificó un atractivo importante para el elenco.',
   'Review {{count}} matching screenplay_one': 'Revisar {{count}} guion que coincide',
   'Review {{count}} matching screenplay_other': 'Revisar {{count}} guiones que coinciden',
   '{{count}} matching screenplay_one': '{{count}} guion que coincide',
@@ -360,7 +1023,7 @@ const spanish = {
   'Total scripts': 'Total de guiones',
   Visible: 'Visibles',
   'Average score': 'Calificación promedio',
-  'Film Now + Recommend': 'FILM NOW + RECOMENDAR',
+  'Film Now + Recommend': 'FILM NOW + RECOMMEND',
   'Producer Look': 'Revisión del productor',
   'Slate Insights are temporarily unavailable. Your screenplay results are unaffected.':
     'Las estadísticas no están disponibles por el momento. Los resultados de los guiones no cambiaron.',
@@ -420,9 +1083,9 @@ const spanish = {
   'No screenplays are saved in this list yet.': 'Aún no hay guiones guardados en esta lista.',
   'Open {{title}} from favorites': 'Abrir {{title}} desde favoritos',
   'FILM NOW': 'FILM NOW',
-  RECOMMEND: 'RECOMENDAR',
-  CONSIDER: 'CONSIDERAR',
-  PASS: 'PASAR',
+  RECOMMEND: 'RECOMMEND',
+  CONSIDER: 'CONSIDER',
+  PASS: 'PASS',
   'Analysis Health': 'Estado del análisis',
   'Reader coverage and system readiness': 'Cobertura de lectores y estado del sistema',
   'Model Comparison': 'Comparación de modelos',
@@ -494,7 +1157,7 @@ const spanish = {
   'Score {{min}}–{{max}}': 'Calificación {{min}}–{{max}}',
   'Market {{min}}–{{max}}': 'Mercado {{min}}–{{max}}',
   'FILM NOW only': 'Solo FILM NOW',
-  'Pass hidden': 'PASAR ocultos',
+  'Pass hidden': 'PASS ocultos',
   'Current Discovery view': 'Vista actual de descubrimiento',
   'Show the bounded Producer Look queue': 'Mostrar la lista limitada para revisión del productor',
   'All screenplays': 'Todos los guiones',
@@ -523,7 +1186,7 @@ const spanish = {
   'All themes': 'Todos los temas',
   Verdict: 'Veredicto',
   Inventory: 'Inventario',
-  'Hide Pass verdicts': 'Ocultar veredictos PASAR',
+  'Hide Pass verdicts': 'Ocultar veredictos PASS',
   'Include produced films': 'Incluir películas producidas',
   'Include non-screenplays': 'Incluir archivos que no son guiones',
   'Clear all': 'Limpiar todo',
@@ -819,7 +1482,7 @@ const spanish = {
   'Deep analysis with nuanced insights. Best for high-priority screenplays where you need every detail. This pinned route remains unchanged until it passes a benchmark review.':
     'Análisis profundo con detalles precisos. Ideal para guiones de alta prioridad. Esta ruta no cambia hasta aprobar una prueba.',
   'Sonnet first pass on all scripts. Recommend & Film Now scripts get a fresh Opus deep analysis automatically. Best value for batches.':
-    'Sonnet analiza primero todos los guiones. Los guiones RECOMENDAR y FILM NOW reciben después un análisis profundo de Opus.',
+    'Sonnet analiza primero todos los guiones. Los guiones RECOMMEND y FILM NOW reciben después un análisis profundo de Opus.',
   'Estimated batch cost for {{count}} files with {{model}}:':
     'Costo estimado de {{count}} archivos con {{model}}:',
   'Live docket': 'Registro en vivo',
@@ -891,7 +1554,6 @@ const spanish = {
   Created: 'Creado',
   'with notes': 'con notas',
   'Copy share link': 'Copiar enlace',
-  'Revoking...': 'Cancelando...',
   Revoke: 'Cancelar enlace',
   'Dashboard controls': 'Controles del panel',
   Showing: 'Mostrando',
@@ -1229,7 +1891,6 @@ const spanish = {
   'Export failed. Please try again.': 'La exportación falló. Intenta de nuevo.',
   'Data Statistics': 'Estadísticas de datos',
   'Cache Management': 'Administración de caché',
-  'Reset Filters': 'Restablecer filtros',
   'Clear all active filter selections': 'Limpiar todos los filtros activos',
   'Clear Cache': 'Limpiar caché',
   'Refresh screenplay data from source': 'Actualizar los datos de guiones desde el origen',
@@ -1287,9 +1948,9 @@ const spanish = {
   Eligibility: 'Requisitos',
   'Set the decision range the studio wants considered.':
     'Define el rango de decisiones que el estudio quiere considerar.',
-  'Include Producer Look passes': 'Incluir PASAR enviados a revisión del productor',
+  'Include Producer Look passes': 'Incluir PASS enviados a revisión del productor',
   'Only Pass projects explicitly routed for producer review qualify.':
-    'Solo califican los proyectos PASAR enviados en forma explícita a revisión del productor.',
+    'Solo califican los proyectos PASS enviados en forma explícita a revisión del productor.',
   'Exclude produced projects': 'Excluir proyectos producidos',
   'Exclude incomplete analyses': 'Excluir análisis incompletos',
   Priority: 'Prioridad',
@@ -1456,7 +2117,6 @@ const spanish = {
   'Search screenplays by title or author...': 'Buscar guiones por título o autor...',
   'No matches found': 'No se encontraron coincidencias',
   'No screenplays in dashboard': 'No hay guiones en el panel',
-  Unknown: 'Desconocido',
   LEGACY: 'ANTERIOR',
   'Load "{{title}}" Results': 'Cargar resultados de "{{title}}"',
   'Analysis Engine': 'Motor de análisis',
@@ -1486,18 +2146,14 @@ const spanish = {
   'Voice & Tone': 'Voz y tono',
   Tokens: 'Tokens',
   Time: 'Tiempo',
-  'N/A': 'N/D',
   'Fresh analyses are temporary. Use the Upload tab to permanently save results.':
     'Los análisis nuevos son temporales. Usa la pestaña Cargar para guardar los resultados.',
-  'Calibration evidence could not be loaded.': 'No se pudo cargar la evidencia de calibración.',
   'Build a calibration candidate from the training set and run it against the sealed holdout set? This uses paid frontier-model calls but does not activate the result.':
     '¿Crear una calibración con el grupo de entrenamiento y probarla con el grupo reservado? Esto usa llamadas pagadas al modelo, pero no activa el resultado.',
-  'The calibration candidate could not be built.': 'No se pudo crear la calibración.',
   'Activate this calibration profile for future analyses? Existing scores will not change.':
     '¿Activar esta calibración para análisis futuros? Las calificaciones actuales no cambiarán.',
   'Roll back to this calibration profile for future analyses? Existing scores will not change.':
     '¿Volver a esta calibración para análisis futuros? Las calificaciones actuales no cambiarán.',
-  'The calibration profile could not be published.': 'No se pudo publicar la calibración.',
   'Loading calibration evidence…': 'Cargando evidencia de calibración…',
   'Producer calibration': 'Calibración del productor',
   'Teach the system your taste without rewriting history':
@@ -1562,7 +2218,7 @@ const spanish = {
   'Activate for future analyses': 'Activar para análisis futuros',
   'Score error': 'Error de calificación',
   'Verdict agreement': 'Coincidencia de veredicto',
-  'False passes': 'Falsos PASAR',
+  'False passes': 'Falsos PASS',
   'False recommendations': 'Falsas recomendaciones',
   'Provenance and policy': 'Origen y regla',
   Candidate: 'Calibración',
@@ -1606,7 +2262,6 @@ const spanish = {
   'Generate Share Links': 'Crear enlaces para compartir',
   '{{done}} of {{total}} complete': '{{done}} de {{total}} listos',
   'Copy All': 'Copiar todo',
-  'Copied!': '¡Copiado!',
   Pending: 'Pendiente',
   'Copy {{title}}': 'Copiar {{title}}',
   Copy: 'Copiar',
@@ -1659,8 +2314,6 @@ const spanish = {
   Screenplay: 'Guion',
   'Remove {{title}} from comparison': 'Quitar {{title}} de la comparación',
   'Core Scores': 'Calificaciones centrales',
-  'AI Market Analysis': 'Análisis de mercado de IA',
-  'USP Strength': 'Fuerza de la propuesta única',
   Moderate: 'Moderada',
   Weak: 'Débil',
   Production: 'Producción',
@@ -1818,7 +2471,6 @@ const spanish = {
   'No strengths were recorded in this analysis.': 'Este análisis no registró fortalezas.',
   'No watch points were recorded in this analysis.': 'Este análisis no registró puntos a vigilar.',
   'Scores and score lineage': 'Calificaciones y su origen',
-  'by {{author}}': 'por {{author}}',
   '{{count}} pages_one': '{{count}} página',
   '{{count}} pages_other': '{{count}} páginas',
   Evidence: 'Evidencia',
@@ -1880,7 +2532,6 @@ const spanish = {
     'Tu decisión permanece junto al resultado de IA. Nunca lo reemplaza.',
   'Revise take': 'Revisar decisión',
   'AI final': 'Resultado final de IA',
-  'from AI': 'frente a la IA',
   'Your saved take belongs to an earlier analysis version. Saving now creates a new version-specific assessment.':
     'Tu decisión guardada pertenece a una versión anterior del análisis. Guardar ahora crea una evaluación para esta versión.',
   'Producer Take saved': 'Decisión del productor guardada',
@@ -2015,6 +2666,10 @@ export function setLanguageUser(uid: string | null): void {
   if (typeof window === 'undefined') return;
   const saved = window.localStorage.getItem(languageKey());
   void i18n.changeLanguage(saved === 'es' ? 'es' : 'en');
+}
+
+export function currentUiLanguage(): UiLanguage {
+  return i18n.resolvedLanguage === 'es' ? 'es' : 'en';
 }
 
 export default i18n;

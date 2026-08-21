@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestScreenplay } from '@/test/factories';
+import i18n from '@/i18n';
 import type { Screenplay } from '@/types';
 
 const state = vi.hoisted(() => ({
@@ -185,7 +186,7 @@ describe('ScreenplayFileWorkspace', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Producer Look' })).toBeInTheDocument();
-    expect(screen.getByText('4.7 · Pass preserved')).toBeInTheDocument();
+    expect(screen.getByText('4.7 · PASS preserved')).toBeInTheDocument();
     expect(screen.getByText(/Producer Take scored this 7.6/)).toBeInTheDocument();
   });
 
@@ -289,5 +290,28 @@ describe('ScreenplayFileWorkspace', () => {
     expect(scoresTab).toHaveFocus();
     expect(scoresTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tabpanel', { name: 'Scores' })).toBeInTheDocument();
+  });
+
+  it('localizes every project section label and marks original English analysis clearly', async () => {
+    await i18n.changeLanguage('es');
+    renderWorkspace(<WorkspaceHarness />);
+
+    const tablist = screen.getByRole('tablist', { name: 'Secciones del archivo del guion' });
+    for (const label of [
+      'Resumen',
+      'Calificaciones',
+      'Sala de lectores',
+      'Radiografía de la historia',
+      'Póster',
+      'Opinión del productor',
+      'Notas',
+    ]) {
+      expect(tablist).toContainElement(screen.getByRole('tab', { name: label }));
+    }
+    expect(screen.getAllByText('Análisis disponible en inglés')).toHaveLength(2);
+    expect(
+      screen.queryByText('A gripping tale that tests our components.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Real scores for Atlas Fall')).not.toBeInTheDocument();
   });
 });

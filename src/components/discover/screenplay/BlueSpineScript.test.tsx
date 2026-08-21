@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
+import i18n from '@/i18n';
 import { createTestScreenplay } from '@/test/factories';
 
 describe('BlueSpineScript presentation', () => {
@@ -9,6 +10,10 @@ describe('BlueSpineScript presentation', () => {
     title: 'A Story With A Proper Cover',
     author: 'A Writer',
     analysisVersion: 'v9_archaeology',
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
   });
 
   it('keeps the complete title-page treatment as the default', () => {
@@ -46,5 +51,22 @@ describe('BlueSpineScript presentation', () => {
     expect(screen.getByText('Atlas Fall')).toBeInTheDocument();
     expect(screen.getByText('Written by')).toBeInTheDocument();
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
+  it('translates generated fallback labels without changing the title', async () => {
+    await i18n.changeLanguage('es');
+    render(
+      <BlueSpineScript
+        screenplay={createTestScreenplay({
+          title: 'Original Title',
+          author: 'Anonymized submission',
+          analysisVersion: undefined,
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Original Title')).toBeInTheDocument();
+    expect(screen.getByText('Envío anonimizado')).toBeInTheDocument();
+    expect(screen.getByText('Versión del análisis no registrada')).toBeInTheDocument();
   });
 });

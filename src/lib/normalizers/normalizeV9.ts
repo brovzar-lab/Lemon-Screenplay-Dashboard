@@ -26,6 +26,7 @@ import type {
 
 import { createProducerMetrics } from '../calculations';
 import { buildProducerProjection, canonicalCriticalFailurePenalty } from '@/lib/producerProjection';
+import { normalizeLocalizedAnalysis } from '@/lib/normalizeLocalizedAnalysis';
 
 import { collectionToCategoryId } from './collectionMap';
 import { generateId, normalizeRecommendation, normalizeTmdbStatus } from './helpers';
@@ -416,6 +417,7 @@ export function normalizeV9Screenplay(
     analysisModel: String(raw.analysis_model || 'claude-sonnet'),
     analysisVersion: String(raw.analysis_version || 'v9_archaeology'),
     analysisQuality,
+    localizedAnalysis: normalizeLocalizedAnalysis(raw.localized_analysis),
     producerProjection,
     developmentOpportunity: normalizeDevelopmentOpportunity(analysis.development_opportunity),
     weightedScore,

@@ -7,6 +7,8 @@ import { pdf } from '@react-pdf/renderer';
 import { CoverageDocument } from './CoverageDocument';
 import { useNotesStore } from '@/stores/notesStore';
 import type { Screenplay } from '@/types';
+import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
+import { currentUiLanguage } from '@/i18n';
 
 /**
  * Sanitize a string for use as a filename.
@@ -24,10 +26,17 @@ export function sanitizeFilename(title: string): string {
  * Generate a coverage PDF blob and trigger a browser download.
  */
 export async function downloadCoveragePdf(screenplay: Screenplay): Promise<void> {
+  const language = currentUiLanguage();
+  const localized = localizedScreenplay(screenplay, language);
   const notes = useNotesStore.getState().getNotesForScreenplay(screenplay.id);
 
   const blob = await pdf(
-    <CoverageDocument screenplay={screenplay} notes={notes} />
+    <CoverageDocument
+      screenplay={localized}
+      notes={notes}
+      language={language}
+      showEnglishAnalysisNotice={analysisIsEnglishFallback(screenplay, language)}
+    />
   ).toBlob();
 
   const safeName = sanitizeFilename(screenplay.title);

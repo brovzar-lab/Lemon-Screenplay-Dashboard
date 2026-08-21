@@ -11,6 +11,8 @@ import { exportToCSV } from './csvExport';
 import { PdfDocument } from './PdfDocument';
 import { useToastStore } from '@/stores/toastStore';
 import { useTranslation } from 'react-i18next';
+import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
+import { currentUiLanguage } from '@/i18n';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -65,10 +67,17 @@ export function ExportModal({
         exportToCSV(screenplays, filename);
         setExportProgress(100);
       } else {
+        const language = currentUiLanguage();
         // PDF export - generate one PDF per screenplay
         for (let i = 0; i < screenplays.length; i++) {
           const sp = screenplays[i];
-          const blob = await pdf(<PdfDocument screenplay={sp} />).toBlob();
+          const blob = await pdf(
+            <PdfDocument
+              screenplay={localizedScreenplay(sp, language)}
+              language={language}
+              showEnglishAnalysisNotice={analysisIsEnglishFallback(sp, language)}
+            />
+          ).toBlob();
 
           // Create download link
           const url = URL.createObjectURL(blob);

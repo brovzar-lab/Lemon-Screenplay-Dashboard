@@ -36,17 +36,24 @@ function barWidth(value: number, total: number): string {
   return BAR_WIDTHS[bucket];
 }
 
-function issueFor(screenplay: Screenplay): string | null {
+interface AnalysisIssue {
+  key: string;
+  count?: number;
+}
+
+function issueFor(screenplay: Screenplay): AnalysisIssue | null {
   if (screenplay.analysisQuality?.status === 'partial') {
-    const missing = screenplay.analysisQuality.failedReaders.length;
-    return `${missing || 1} reader report${missing === 1 ? '' : 's'} incomplete`;
+    return {
+      key: '{{count}} reader report incomplete',
+      count: screenplay.analysisQuality.failedReaders.length || 1,
+    };
   }
   const blockingWarning = screenplay.producerProjection?.warnings.find(
     (warning) => warning.severity === 'blocking' || warning.severity === 'warning',
   );
-  if (blockingWarning) return blockingWarning.title;
+  if (blockingWarning) return { key: blockingWarning.title };
   if (screenplay.producerProjection?.trustStatus === 'legacy_unverified') {
-    return 'Legacy analysis, evidence lineage not verified';
+    return { key: 'Legacy analysis, evidence lineage not verified' };
   }
   return null;
 }
@@ -69,7 +76,9 @@ export function AnalysisOverview() {
     const pdfReady = screenplays.filter((screenplay) => screenplay.hasPdf).length;
     const attention = screenplays
       .map((screenplay) => ({ screenplay, issue: issueFor(screenplay) }))
-      .filter((item): item is { screenplay: Screenplay; issue: string } => Boolean(item.issue));
+      .filter((item): item is { screenplay: Screenplay; issue: AnalysisIssue } =>
+        Boolean(item.issue),
+      );
     const scoreValues = screenplays
       .map((screenplay) => Number(screenplay.weightedScore))
       .filter(Number.isFinite);
@@ -105,12 +114,16 @@ export function AnalysisOverview() {
     {
       label: t('Complete reader panels'),
       value: health.completePanels,
-      detail: t('{{percent}} of the slate has every expected reader', { percent: percentage(health.completePanels, health.total) }),
+      detail: t('{{percent}} of the slate has every expected reader', {
+        percent: percentage(health.completePanels, health.total),
+      }),
     },
     {
       label: t('Verified evidence'),
       value: health.verified,
-      detail: t('{{percent}} has current evidence lineage', { percent: percentage(health.verified, health.total) }),
+      detail: t('{{percent}} has current evidence lineage', {
+        percent: percentage(health.verified, health.total),
+      }),
     },
     {
       label: t('Needs review'),
@@ -123,7 +136,9 @@ export function AnalysisOverview() {
     {
       label: t('Source PDFs ready'),
       value: health.pdfReady,
-      detail: t('{{percent}} can open the original screenplay', { percent: percentage(health.pdfReady, health.total) }),
+      detail: t('{{percent}} can open the original screenplay', {
+        percent: percentage(health.pdfReady, health.total),
+      }),
     },
   ];
 
@@ -133,9 +148,13 @@ export function AnalysisOverview() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--settings-kicker)]">
           {t('Analysis readiness')}
         </p>
-        <h2 className="mt-2 text-3xl font-display text-black-100">{t('Know what can be trusted')}</h2>
+        <h2 className="mt-2 text-3xl font-display text-black-100">
+          {t('Know what can be trusted')}
+        </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-black-400">
-          {t('This view reports the health of the analyses already in the slate. It does not run a new analysis or alter a score.')}
+          {t(
+            'This view reports the health of the analyses already in the slate. It does not run a new analysis or alter a score.',
+          )}
         </p>
       </header>
 
@@ -153,7 +172,9 @@ export function AnalysisOverview() {
             </p>
             <strong className="mt-2 block text-3xl tabular-nums text-black-100">
               {metric.value}
-              <span className="ml-1 text-sm font-normal text-black-500">{t('of {{total}}', { total: health.total })}</span>
+              <span className="ml-1 text-sm font-normal text-black-500">
+                {t('of {{total}}', { total: health.total })}
+              </span>
             </strong>
             <p className="mt-2 text-sm leading-5 text-black-400">{metric.detail}</p>
           </article>
@@ -177,7 +198,9 @@ export function AnalysisOverview() {
               <strong className="mt-1 block text-base leading-5 text-black-100">
                 {health.topGenre[0]}
               </strong>
-              <small className="text-black-500">{t('{{count}} project', { count: health.topGenre[1] })}</small>
+              <small className="text-black-500">
+                {t('{{count}} project', { count: health.topGenre[1] })}
+              </small>
             </div>
           </div>
         </div>
@@ -238,7 +261,9 @@ export function AnalysisOverview() {
                 <strong className="truncate text-sm text-black-100">
                   {getScreenplayDisplayTitle(screenplay.title).title}
                 </strong>
-                <span className="text-sm text-black-400">{t(issue)}</span>
+                <span className="text-sm text-black-400">
+                  {t(issue.key, issue.count === undefined ? undefined : { count: issue.count })}
+                </span>
               </li>
             ))}
           </ul>
@@ -250,7 +275,9 @@ export function AnalysisOverview() {
           {t('How V9 analysis works')}
         </summary>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-black-400">
-          {t('Five independent readers examine structure, character, craft and scene, concept, and emotional resonance. Their reports are synthesized into one assessment while reader failures and disagreements remain visible.')}
+          {t(
+            'Five independent readers examine structure, character, craft and scene, concept, and emotional resonance. Their reports are synthesized into one assessment while reader failures and disagreements remain visible.',
+          )}
         </p>
         <ol className="mt-4 grid gap-3 sm:grid-cols-5">
           {['Structure', 'Character', 'Craft & Scene', 'Concept', 'Emotion'].map(

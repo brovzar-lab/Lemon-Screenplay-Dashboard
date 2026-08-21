@@ -76,6 +76,11 @@ export function buildIncompleteReaderWarning(
     detail: `${quality.completedReaders} of ${quality.expectedReaders} readers completed${
       missing.length > 0 ? `. Missing: ${missing.join(', ')}` : ''
     }. This analysis should not drive a ranking decision.`,
+    params: {
+      completed: quality.completedReaders,
+      expected: quality.expectedReaders,
+      missing: missing.join(', '),
+    },
   };
 }
 
@@ -332,6 +337,7 @@ export function buildProducerProjection(
       severity: 'blocking',
       title: 'Screenplay evidence is incomplete',
       detail: 'The saved analysis says part of the screenplay was not read. Treat its score and verdict as unfit for ranking.',
+      params: {},
     });
   }
 
@@ -343,6 +349,11 @@ export function buildProducerProjection(
       detail: `${boundary.runCount} scoring runs varied by ${boundary.scoreSpread.toFixed(2)} points${
         boundary.failedRunCount > 0 ? `, with ${boundary.failedRunCount} failed run${boundary.failedRunCount === 1 ? '' : 's'}` : ''
       }. Review the underlying evidence before advancing or passing.`,
+      params: {
+        runs: boundary.runCount,
+        spread: boundary.scoreSpread.toFixed(2),
+        failed: boundary.failedRunCount,
+      },
     });
   }
 
@@ -352,6 +363,7 @@ export function buildProducerProjection(
       severity: 'warning',
       title: 'Specialist readers disagreed',
       detail: `${readerDisagreementCount} material disagreement${readerDisagreementCount === 1 ? '' : 's'} were recorded and should be reviewed in the reader evidence.`,
+      params: { count: readerDisagreementCount },
     });
   }
 
@@ -365,6 +377,7 @@ export function buildProducerProjection(
       severity: 'information',
       title: 'Legacy analysis',
       detail: 'This record predates the immutable trust manifest. Its history and model lineage cannot be verified to the current standard.',
+      params: {},
     });
   }
   if (scoreSource === 'legacy_raw') {
@@ -373,6 +386,7 @@ export function buildProducerProjection(
       severity: 'information',
       title: 'No recorded adjusted score',
       detail: 'The app is showing the stored raw score because this older analysis did not preserve a separate final adjusted score.',
+      params: {},
     });
   }
 

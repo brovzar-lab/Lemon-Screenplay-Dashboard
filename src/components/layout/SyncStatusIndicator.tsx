@@ -77,7 +77,7 @@ export function SyncStatusIndicator() {
             {/* Error message */}
             {lastRetryError && (
                 <span className="text-xs text-red-400">
-                    {lastRetryError}
+                    {t('Sync retry failed. Please try again.')}
                 </span>
             )}
         </div>

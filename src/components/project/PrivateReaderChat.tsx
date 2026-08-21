@@ -90,8 +90,8 @@ export function PrivateReaderChat({
         if (active) setConversation(loaded);
       })
       .catch((reason: unknown) => {
-        if (active)
-          setError(reason instanceof Error ? reason.message : t('Conversation could not be opened.'));
+        console.error('[PrivateReaderChat] Conversation load failed:', reason);
+        if (active) setError(t('Conversation could not be opened.'));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -188,9 +188,10 @@ export function PrivateReaderChat({
       setPendingQuestion(null);
       beginProgressiveReply(updated);
     } catch (reason) {
+      console.error('[PrivateReaderChat] Message send failed:', reason);
       setDraft(question);
       setPendingQuestion(null);
-      setError(reason instanceof Error ? reason.message : t('Message could not be sent.'));
+      setError(t('Message could not be sent.'));
     } finally {
       setSending(false);
       refocusComposer();
@@ -215,7 +216,8 @@ export function PrivateReaderChat({
       setConversation(updated);
       beginProgressiveReply(updated);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t('Deep review could not be requested.'));
+      console.error('[PrivateReaderChat] Deep review failed:', reason);
+      setError(t('Deep review could not be requested.'));
     } finally {
       setSending(false);
       refocusComposer();

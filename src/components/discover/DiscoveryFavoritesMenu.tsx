@@ -193,7 +193,12 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
                               </span>
                               {(screenplay.genre || displayAuthor) && (
                                 <span className="mt-1 block truncate text-xs text-[var(--dsc-ink-3)]">
-                                  {[screenplay.genre, displayAuthor].filter(Boolean).join(' · ')}
+                                  {[
+                                    screenplay.genre && t(screenplay.genre),
+                                    displayAuthor && t(displayAuthor),
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' · ')}
                                 </span>
                               )}
                             </span>

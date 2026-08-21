@@ -90,11 +90,8 @@ export function CalibrationPanel() {
         setError('');
         return;
       }
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : t('Calibration evidence could not be loaded.'),
-      );
+      console.error('[CalibrationPanel] Evidence load failed:', loadError);
+      setError(t('Calibration evidence could not be loaded.'));
     } finally {
       setLoading(false);
     }
@@ -140,11 +137,8 @@ export function CalibrationPanel() {
       });
       await refresh();
     } catch (buildError) {
-      setError(
-        buildError instanceof Error
-          ? buildError.message
-          : t('The calibration candidate could not be built.'),
-      );
+      console.error('[CalibrationPanel] Candidate build failed:', buildError);
+      setError(t('The calibration candidate could not be built.'));
     } finally {
       setBuilding(false);
     }
@@ -167,11 +161,8 @@ export function CalibrationPanel() {
           : await rollbackCalibrationProfile(candidate.candidateId);
       setActiveProfile(profile);
     } catch (publishError) {
-      setError(
-        publishError instanceof Error
-          ? publishError.message
-          : t('The calibration profile could not be published.'),
-      );
+      console.error('[CalibrationPanel] Profile publish failed:', publishError);
+      setError(t('The calibration profile could not be published.'));
     } finally {
       setPublishingId('');
     }
@@ -180,7 +171,7 @@ export function CalibrationPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16" role="status">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-black-700 border-t-[#3157d5]" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-black-700 border-t-[var(--settings-cobalt)]" />
         <span className="ml-3 text-black-400">{t('Loading calibration evidence…')}</span>
       </div>
     );
@@ -201,7 +192,7 @@ export function CalibrationPanel() {
       </header>
 
       {isLocalPreview && (
-        <section className="rounded-xl border border-[#3157d5]/30 bg-[#3157d5]/8 p-4 text-sm leading-6 text-black-300">
+        <section className="rounded-xl border border-[var(--settings-line)] bg-[var(--settings-paper-muted)] p-4 text-sm leading-6 text-black-300">
           <strong className="block text-black-100">{t('Local review mode')}</strong>
           {t('Producer Takes shown here are real saved evidence. Building a candidate uses paid model calls, and activating a profile changes future analyses, so both actions remain disabled during local review. Nothing on this screen changes the production profile.')}
         </section>
@@ -278,7 +269,7 @@ export function CalibrationPanel() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <strong className="truncate text-black-100">{assessment.title}</strong>
-                    <span className="rounded border border-[#3157d5]/30 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[var(--settings-kicker)]">
+                    <span className="rounded border border-[var(--settings-line)] bg-[var(--settings-paper-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--settings-kicker)]">
                       {t('Billy')} {assessment.producerScore.toFixed(1)}
                     </span>
                     <span className="text-xs text-black-500">
@@ -376,7 +367,7 @@ export function CalibrationPanel() {
                           {t(candidateStatus(candidate))}
                         </span>
                         {isActive && (
-                          <span className="rounded-full border border-[#3157d5]/35 bg-[#3157d5]/10 px-2 py-0.5 text-xs font-semibold text-[var(--settings-kicker)]">
+                          <span className="rounded-full border border-[var(--settings-line)] bg-[var(--settings-paper-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--settings-kicker)]">
                             {t('Active')}
                           </span>
                         )}

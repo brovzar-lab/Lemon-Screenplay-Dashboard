@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { DIMENSION_CONFIG, type Screenplay } from '@/types';
 import { SectionHeader } from './SectionHeader';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
@@ -58,6 +59,7 @@ function buildEvidenceOverrides(
 }
 
 export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -140,20 +142,20 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between">
-                <SectionHeader icon="🎯">Producer Feedback</SectionHeader>
+                <SectionHeader icon="🎯">{t('Producer Feedback')}</SectionHeader>
                 <button
                     onClick={() => setIsOpen(!isOpen)}
                     className="btn btn-secondary text-sm"
                 >
-                    {isOpen ? 'Collapse' : hasFeedback ? 'Edit Feedback' : '+ Add Feedback'}
+                    {isOpen ? t('Collapse') : hasFeedback ? t('Edit Feedback') : `+ ${t('Add Feedback')}`}
                 </button>
             </div>
 
             {!isOpen && hasFeedback && (
                 <div className="flex items-center gap-3 text-sm text-black-400">
-                    {userScore !== null && <span>Your Score: <strong className="text-gold-300">{userScore.toFixed(1)}</strong></span>}
-                    {userVerdict && <span className={clsx('px-2 py-0.5 rounded text-xs border', verdictColor(userVerdict))}>{verdictLabel(userVerdict)}</span>}
-                    {greenlight && <span>{greenlight === 'yes' ? '🟢' : greenlight === 'no' ? '🔴' : '🟡'} Greenlight</span>}
+                    {userScore !== null && <span>{t('Your Score:')} <strong className="text-gold-300">{userScore.toFixed(1)}</strong></span>}
+                    {userVerdict && <span className={clsx('px-2 py-0.5 rounded text-xs border', verdictColor(userVerdict))}>{t(verdictLabel(userVerdict))}</span>}
+                    {greenlight && <span>{greenlight === 'yes' ? '🟢' : greenlight === 'no' ? '🔴' : '🟡'} {t('Greenlight')}</span>}
                 </div>
             )}
 
@@ -162,8 +164,8 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                     {/* Your Overall Score */}
                     <div>
                         <label className="text-xs text-black-500 uppercase tracking-wider mb-2 block">
-                            Your Overall Score
-                            <span className="text-black-600 ml-2">(AI: {screenplay.weightedScore.toFixed(1)})</span>
+                            {t('Your Overall Score')}
+                            <span className="text-black-600 ml-2">({t('AI')}: {screenplay.weightedScore.toFixed(1)})</span>
                         </label>
                         <div className="flex items-center gap-4">
                             <input
@@ -186,7 +188,7 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                         </div>
                         {userScore !== null && Math.abs(userScore - screenplay.weightedScore) >= 0.5 && (
                             <p className="text-xs text-amber-400 mt-1">
-                                Δ {(userScore - screenplay.weightedScore) >= 0 ? '+' : ''}{(userScore - screenplay.weightedScore).toFixed(1)} from AI
+                                Δ {(userScore - screenplay.weightedScore) >= 0 ? '+' : ''}{(userScore - screenplay.weightedScore).toFixed(1)} {t('from AI')}
                             </p>
                         )}
                     </div>
@@ -194,8 +196,8 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                     {/* Your Verdict */}
                     <div>
                         <label className="text-xs text-black-500 uppercase tracking-wider mb-2 block">
-                            Your Verdict
-                            <span className="text-black-600 ml-2">(AI: {verdictLabel(screenplay.recommendation)})</span>
+                            {t('Your Verdict')}
+                            <span className="text-black-600 ml-2">({t('AI')}: {t(verdictLabel(screenplay.recommendation))})</span>
                         </label>
                         <div className="flex gap-2">
                             {VERDICTS.map((v) => (
@@ -209,7 +211,7 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                                             : 'bg-black-800 text-black-400 border-black-700 hover:border-black-500',
                                     )}
                                 >
-                                    {verdictLabel(v)}
+                                    {t(verdictLabel(v))}
                                 </button>
                             ))}
                         </div>
@@ -219,8 +221,8 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                     <div>
                         <label className="text-xs text-black-500 uppercase tracking-wider mb-3 block">
                             {screenplay.pillarScores?.length
-                                ? 'Five-Pillar Score Overrides'
-                                : 'Legacy Dimension Score Overrides'}
+                                ? t('Five-Pillar Score Overrides')
+                                : t('Legacy Dimension Score Overrides')}
                         </label>
                         <div className="space-y-2">
                             {evidenceDimensions.map((dim) => {
@@ -229,7 +231,7 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                                 const delta = override.userScore - override.aiScore;
                                 return (
                                     <div key={dim.key} className="flex items-center gap-3">
-                                        <span className="text-xs text-black-400 w-28 shrink-0">{dim.label}</span>
+                                        <span className="text-xs text-black-400 w-28 shrink-0">{t(dim.label)}</span>
                                         <span className="text-xs text-black-600 w-8 text-right">{override.aiScore.toFixed(1)}</span>
                                         <input
                                             type="range"
@@ -262,13 +264,10 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                                 data-testid="preserved-legacy-feedback"
                             >
                                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-300">
-                                    Previously Saved Legacy Dimension Overrides
+                                    {t('Previously Saved Legacy Dimension Overrides')}
                                 </p>
                                 <p className="mb-3 text-xs leading-5 text-black-500">
-                                    These producer corrections belong to the older
-                                    seven-dimension system. They are preserved as
-                                    historical feedback and are not relabeled as
-                                    five-pillar evidence.
+                                    {t('These producer corrections belong to the older seven-dimension system. They are preserved as historical feedback and are not relabeled as five-pillar evidence.')}
                                 </p>
                                 <div className="space-y-2">
                                     {preservedLegacyOverrides.map(([key, override]) => {
@@ -296,7 +295,7 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                                                             parseFloat(event.target.value),
                                                         )}
                                                     className="flex-1 accent-gold-500"
-                                                    aria-label={`${label} legacy override`}
+                                                    aria-label={t('{{label}} legacy override', { label: t(label) })}
                                                 />
                                                 <span className="w-8 text-right text-sm text-black-300">
                                                     {override.userScore.toFixed(1)}
@@ -325,10 +324,10 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                     {/* Greenlight Decision */}
                     <div>
                         <label className="text-xs text-black-500 uppercase tracking-wider mb-2 block">
-                            Would You Greenlight This?
+                            {t('Would You Greenlight This?')}
                         </label>
                         <div className="flex gap-3">
-                            {([['yes', '🟢 Yes'], ['maybe', '🟡 Maybe'], ['no', '🔴 No']] as const).map(([val, label]) => (
+                            {([['yes', '🟢', 'Yes'], ['maybe', '🟡', 'Maybe'], ['no', '🔴', 'No']] as const).map(([val, icon, label]) => (
                                 <button
                                     key={val}
                                     onClick={() => setGreenlight(greenlight === val ? null : val)}
@@ -341,7 +340,7 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                                             : 'bg-black-800 text-black-400 border-black-700 hover:border-black-500',
                                     )}
                                 >
-                                    {label}
+                                    {icon} {t(label)}
                                 </button>
                             ))}
                         </div>
@@ -351,24 +350,24 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs text-black-500 uppercase tracking-wider mb-1 block">
-                                What the AI Missed
+                                {t('What the AI Missed')}
                             </label>
                             <textarea
                                 className="input w-full resize-none text-sm"
                                 rows={3}
-                                placeholder="e.g., The protagonist is passive in Act 2..."
+                                placeholder={t('e.g., The protagonist is passive in Act 2...')}
                                 value={aiMissed}
                                 onChange={(e) => setAiMissed(e.target.value)}
                             />
                         </div>
                         <div>
                             <label className="text-xs text-black-500 uppercase tracking-wider mb-1 block">
-                                What the AI Got Right
+                                {t('What the AI Got Right')}
                             </label>
                             <textarea
                                 className="input w-full resize-none text-sm"
                                 rows={3}
-                                placeholder="e.g., Budget assessment was spot on..."
+                                placeholder={t('e.g., Budget assessment was spot on...')}
                                 value={aiGotRight}
                                 onChange={(e) => setAiGotRight(e.target.value)}
                             />
@@ -378,7 +377,7 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                     {/* Save Button */}
                     <div className="flex items-center justify-between pt-2">
                         <p className="text-xs text-black-600">
-                            Feedback trains the Calibration Profile in Settings → Calibration
+                            {t('Feedback trains the Calibration Profile in Settings → Calibration')}
                         </p>
                         <button
                             onClick={handleSave}
@@ -390,7 +389,7 @@ export function FeedbackSection({ screenplay }: FeedbackSectionProps) {
                                     : 'bg-gradient-to-r from-gold-500/80 to-amber-500/80 text-black-900 hover:from-gold-400 hover:to-amber-400',
                             )}
                         >
-                            {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save Feedback'}
+                            {saving ? t('Saving...') : saved ? `✓ ${t('Saved')}` : t('Save Feedback')}
                         </button>
                     </div>
                 </div>

@@ -229,7 +229,7 @@ describe('PrivateReaderChat', () => {
     const composer = await screen.findByLabelText(/Ask Lena anything/i);
     await user.type(composer, 'Do not lose this question.{Enter}');
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Reader service unavailable.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Message could not be sent.');
     expect(composer).toHaveValue('Do not lose this question.');
     expect(composer).toHaveFocus();
   });

@@ -7,6 +7,7 @@ import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 import type { Screenplay } from '@/types';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import i18n, { type UiLanguage } from '@/i18n';
 
 // PDF Styles — Soft Print on paper. Rose = brand only; sage/sand/clay = status.
 const styles = StyleSheet.create({
@@ -202,6 +203,16 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 12,
   },
+  languageNotice: {
+    fontSize: 9,
+    color: '#645C50',
+    marginBottom: 16,
+    padding: 10,
+    backgroundColor: '#FBF8F2',
+    borderWidth: 1,
+    borderColor: '#D5CBB7',
+    borderRadius: 8,
+  },
   metricBox: {
     width: '30%',
     padding: 12,
@@ -258,9 +269,16 @@ const getRecommendationLabel = (recommendation: string): string => {
 
 interface PdfDocumentProps {
   screenplay: Screenplay;
+  language?: UiLanguage;
+  showEnglishAnalysisNotice?: boolean;
 }
 
-export function PdfDocument({ screenplay }: PdfDocumentProps) {
+export function PdfDocument({
+  screenplay,
+  language = 'en',
+  showEnglishAnalysisNotice = false,
+}: PdfDocumentProps) {
+  const t = i18n.getFixedT(language);
   const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
 
   return (
@@ -269,7 +287,9 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.title}>{displayTitle}</Text>
-          <Text style={styles.subtitle}>by {screenplay.author}</Text>
+          <Text style={styles.subtitle}>
+            {t('by')} {screenplay.author}
+          </Text>
           <Text style={styles.subtitle}>
             {screenplay.genre} • {screenplay.collection}
           </Text>
@@ -280,16 +300,22 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Logline</Text>
-          <Text style={styles.logline}>{screenplay.logline}</Text>
-        </View>
+        {!showEnglishAnalysisNotice && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('Logline')}</Text>
+            <Text style={styles.logline}>{screenplay.logline}</Text>
+          </View>
+        )}
+
+        {showEnglishAnalysisNotice && (
+          <Text style={styles.languageNotice}>{t('Analysis available in English')}</Text>
+        )}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Core Scores</Text>
+          <Text style={styles.sectionTitle}>{t('Core Scores')}</Text>
           <View style={styles.scoreGrid}>
             <View style={styles.scoreItem}>
-              <Text style={styles.scoreLabel}>Final Score</Text>
+              <Text style={styles.scoreLabel}>{t('Final Score')}</Text>
               <Text style={[styles.scoreValue, { color: getScoreColor(screenplay.weightedScore) }]}>
                 {screenplay.weightedScore.toFixed(1)}
               </Text>
@@ -306,10 +332,10 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
               </View>
             </View>
             <View style={styles.scoreItem}>
-              <Text style={styles.scoreLabel}>CVS Total</Text>
+              <Text style={styles.scoreLabel}>{t('CVS Total')}</Text>
               {screenplay.commercialViability.cvsAssessed === false ? (
                 <Text style={[styles.scoreValue, { color: '#64748B', fontSize: 12 }]}>
-                  Not assessed
+                  {t('Not assessed')}
                 </Text>
               ) : (
                 <>
@@ -335,35 +361,40 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>AI Market Analysis</Text>
-          <View style={styles.producerMetrics}>
-            <View style={styles.metricBox}>
-              <Text style={styles.metricValue}>
-                {screenplay.producerMetrics.marketPotential ?? 'N/A'}
-              </Text>
-              <Text style={styles.metricLabel}>Market Potential</Text>
-            </View>
-            <View style={styles.metricBox}>
-              <Text style={styles.metricValue}>
-                {screenplay.producerMetrics.uspStrength ?? 'N/A'}
-              </Text>
-              <Text style={styles.metricLabel}>USP Strength</Text>
+        {!showEnglishAnalysisNotice && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('AI Market Analysis')}</Text>
+            <View style={styles.producerMetrics}>
+              <View style={styles.metricBox}>
+                <Text style={styles.metricValue}>
+                  {screenplay.producerMetrics.marketPotential ?? 'N/A'}
+                </Text>
+                <Text style={styles.metricLabel}>{t('Market Potential')}</Text>
+              </View>
+              <View style={styles.metricBox}>
+                <Text style={styles.metricValue}>
+                  {screenplay.producerMetrics.uspStrength ?? 'N/A'}
+                </Text>
+                <Text style={styles.metricLabel}>{t('USP Strength')}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Verdict</Text>
-          <View style={styles.verdict}>
-            <Text style={styles.verdictText}>{screenplay.verdictStatement}</Text>
+        {!showEnglishAnalysisNotice && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('Verdict')}</Text>
+            <View style={styles.verdict}>
+              <Text style={styles.verdictText}>{screenplay.verdictStatement}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Lemon Screenplay Dashboard • {screenplay.analysisVersion || 'Unknown'} Analysis •
-            Generated {new Date().toLocaleDateString()}
+            Lemon Screenplay Dashboard • {screenplay.analysisVersion || t('Unknown')}{' '}
+            {t('Analysis')} •{t('Generated')}{' '}
+            {new Date().toLocaleDateString(language === 'es' ? 'es-MX' : 'en-US')}
           </Text>
         </View>
       </Page>
@@ -373,13 +404,13 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             {screenplay.pillarScores?.length
-              ? 'Five-Pillar Reader Evidence'
-              : 'Legacy Dimension Scores'}
+              ? t('Five-Pillar Reader Evidence')
+              : t('Legacy Dimension Scores')}
           </Text>
           <View style={styles.scoreGrid}>
             {getDimensionDisplay(screenplay).map((dim) => (
               <View key={dim.key} style={styles.scoreItem}>
-                <Text style={styles.scoreLabel}>{dim.label}</Text>
+                <Text style={styles.scoreLabel}>{t(dim.label)}</Text>
                 <Text style={[styles.scoreValue, { color: getScoreColor(dim.score) }]}>
                   {dim.score.toFixed(1)}
                 </Text>
@@ -399,31 +430,35 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Key Strengths</Text>
-          <View style={styles.list}>
-            {screenplay.strengths.slice(0, 5).map((strength, i) => (
-              <Text key={i} style={[styles.listItem, styles.strengthItem]}>
-                • {strength}
-              </Text>
-            ))}
-          </View>
-        </View>
+        {!showEnglishAnalysisNotice && (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('Key Strengths')}</Text>
+              <View style={styles.list}>
+                {screenplay.strengths.slice(0, 5).map((strength, i) => (
+                  <Text key={i} style={[styles.listItem, styles.strengthItem]}>
+                    • {strength}
+                  </Text>
+                ))}
+              </View>
+            </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Areas for Development</Text>
-          <View style={styles.list}>
-            {screenplay.weaknesses.slice(0, 5).map((weakness, i) => (
-              <Text key={i} style={[styles.listItem, styles.weaknessItem]}>
-                • {weakness}
-              </Text>
-            ))}
-          </View>
-        </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('Areas for Development')}</Text>
+              <View style={styles.list}>
+                {screenplay.weaknesses.slice(0, 5).map((weakness, i) => (
+                  <Text key={i} style={[styles.listItem, styles.weaknessItem]}>
+                    • {weakness}
+                  </Text>
+                ))}
+              </View>
+            </View>
+          </>
+        )}
 
-        {screenplay.criticalFailures.length > 0 && (
+        {!showEnglishAnalysisNotice && screenplay.criticalFailures.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Critical Failures</Text>
+            <Text style={styles.sectionTitle}>{t('Critical Failures')}</Text>
             <View style={styles.list}>
               {screenplay.criticalFailures.map((failure, i) => (
                 <Text key={i} style={[styles.listItem, styles.criticalItem]}>
@@ -435,75 +470,81 @@ export function PdfDocument({ screenplay }: PdfDocumentProps) {
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>{displayTitle} • Page 2</Text>
+          <Text style={styles.footerText}>
+            {displayTitle} • {t('Page')} 2
+          </Text>
         </View>
       </Page>
 
       {/* Comparable Films Page */}
-      <Page size="A4" style={styles.page}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Comparable Films</Text>
-          {screenplay.comparableFilms.map((film, i) => (
-            <View key={i} style={styles.comparableFilm}>
-              <Text style={styles.comparableTitle}>{film.title}</Text>
-              <Text style={styles.comparableSimilarity}>{film.similarity}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Production Details</Text>
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Budget Tier</Text>
-              <Text style={styles.infoValue}>{screenplay.budgetCategory.toUpperCase()}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Marketability</Text>
-              <Text style={styles.infoValue}>{screenplay.marketability.toUpperCase()}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>USP Strength</Text>
-              <Text style={styles.infoValue}>
-                {screenplay.producerMetrics.uspStrength ?? 'N/A'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Target Audience</Text>
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Primary Demographic</Text>
-              <Text style={styles.infoValue}>{screenplay.targetAudience.primaryDemographic}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Gender Skew</Text>
-              <Text style={styles.infoValue}>{screenplay.targetAudience.genderSkew}</Text>
-            </View>
-          </View>
-          <View style={{ marginTop: 8 }}>
-            <Text style={styles.infoLabel}>Interests</Text>
-            <Text style={styles.infoValue}>{screenplay.targetAudience.interests.join(', ')}</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Development Notes</Text>
-          <View style={styles.list}>
-            {screenplay.developmentNotes.slice(0, 5).map((note, i) => (
-              <Text key={i} style={styles.listItem}>
-                • {note}
-              </Text>
+      {!showEnglishAnalysisNotice && (
+        <Page size="A4" style={styles.page}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('Comparable Films')}</Text>
+            {screenplay.comparableFilms.map((film, i) => (
+              <View key={i} style={styles.comparableFilm}>
+                <Text style={styles.comparableTitle}>{film.title}</Text>
+                <Text style={styles.comparableSimilarity}>{film.similarity}</Text>
+              </View>
             ))}
           </View>
-        </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>{displayTitle} • Page 3</Text>
-        </View>
-      </Page>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('Production Details')}</Text>
+            <View style={styles.infoGrid}>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>{t('Budget Tier')}</Text>
+                <Text style={styles.infoValue}>{screenplay.budgetCategory.toUpperCase()}</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>{t('Marketability')}</Text>
+                <Text style={styles.infoValue}>{screenplay.marketability.toUpperCase()}</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>{t('USP Strength')}</Text>
+                <Text style={styles.infoValue}>
+                  {screenplay.producerMetrics.uspStrength ?? 'N/A'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('Target Audience')}</Text>
+            <View style={styles.infoGrid}>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>{t('Primary Demographic')}</Text>
+                <Text style={styles.infoValue}>{screenplay.targetAudience.primaryDemographic}</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>{t('Gender Skew')}</Text>
+                <Text style={styles.infoValue}>{screenplay.targetAudience.genderSkew}</Text>
+              </View>
+            </View>
+            <View style={{ marginTop: 8 }}>
+              <Text style={styles.infoLabel}>{t('Interests')}</Text>
+              <Text style={styles.infoValue}>{screenplay.targetAudience.interests.join(', ')}</Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('Development Notes')}</Text>
+            <View style={styles.list}>
+              {screenplay.developmentNotes.slice(0, 5).map((note, i) => (
+                <Text key={i} style={styles.listItem}>
+                  • {note}
+                </Text>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              {displayTitle} • {t('Page')} 3
+            </Text>
+          </View>
+        </Page>
+      )}
     </Document>
   );
 }

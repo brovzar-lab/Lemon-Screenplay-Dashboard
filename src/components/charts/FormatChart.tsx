@@ -48,7 +48,7 @@ function FormatTooltip({
 export function FormatChart({ screenplays }: FormatChartProps) {
   const { t } = useTranslation();
   const counts = screenplays.reduce<Record<string, number>>((accumulator, screenplay) => {
-    const format = shortFormatLabel(getScreenplayFormatInfo(screenplay).format ?? 'Other');
+    const format = shortFormatLabel(getScreenplayFormatInfo(screenplay).format ?? 'Other format');
     accumulator[format] = (accumulator[format] ?? 0) + 1;
     return accumulator;
   }, {});

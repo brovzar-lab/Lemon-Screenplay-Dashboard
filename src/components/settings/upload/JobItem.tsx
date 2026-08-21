@@ -162,7 +162,9 @@ export function JobItem({
             {job.error && (
               <>
                 <span className="text-black-500">&middot;</span>
-                <span className="text-red-400 truncate" title={job.error}>{t(job.error)}</span>
+                <span className="text-red-400 truncate" title={t('This intake job could not be completed.')}>
+                  {t('This intake job could not be completed.')}
+                </span>
               </>
             )}
           </div>
@@ -194,8 +196,9 @@ export function JobItem({
                       ? 'bg-red-500/15 text-red-300'
                       : 'bg-amber-500/15 text-amber-300'
                   )}>
-                    🎬 {t('Produced')}
-                    {job.tmdbStatus.tmdbTitle && ` as "${job.tmdbStatus.tmdbTitle}"`}
+                    🎬 {job.tmdbStatus.tmdbTitle
+                      ? t('Produced as "{{title}}"', { title: job.tmdbStatus.tmdbTitle })
+                      : t('Produced')}
                     {job.tmdbStatus.releaseDate && ` (${job.tmdbStatus.releaseDate.slice(0, 4)})`}
                     {job.tmdbStatus.confidence === 'medium' && ' ~'}
                   </span>

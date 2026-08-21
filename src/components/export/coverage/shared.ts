@@ -444,9 +444,9 @@ export const recLabel = (r: string): string =>
 export const recColor = (r: string): string =>
   REC_COLORS[r as RecommendationTier] ?? C.grey700;
 
-export const fmtDate = (d: string): string => {
+export const fmtDate = (d: string, locale = 'en-US'): string => {
   try {
-    return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    return new Date(d).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });
   } catch {
     return d;
   }
@@ -466,8 +466,8 @@ export const boLabel = (r: string): { text: string; color: string; bg: string } 
   }
 };
 
-export const today = (): string =>
-  new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+export const today = (locale = 'en-US'): string =>
+  new Date().toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
 
 /** Truncate text at a word boundary. */
 export const truncate = (text: string, maxLen: number): string => {

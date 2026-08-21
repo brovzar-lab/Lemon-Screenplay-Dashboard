@@ -66,14 +66,6 @@ export function ApplicationHeader({ settingsIssueCount = 0 }: ApplicationHeaderP
             <SyncStatusIndicator />
             <div className="application-header__preferences">
               <LanguageControl />
-              <span className="application-header__divider" aria-hidden="true" />
-              <span
-                className="application-header__system-name"
-                aria-label={`${t('Design system')}: Instrument`}
-              >
-                Instrument
-              </span>
-              <span className="application-header__divider" aria-hidden="true" />
               <SettingsThemeControl />
             </div>
             <UserMenu />

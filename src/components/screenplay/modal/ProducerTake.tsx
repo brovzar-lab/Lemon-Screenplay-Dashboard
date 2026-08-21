@@ -121,9 +121,8 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
           applyLocalDraftOrNewTake();
           return;
         }
-        setError(
-          loadError instanceof Error ? loadError.message : t('Producer Take could not be loaded.'),
-        );
+        console.error('[ProducerTake] Load failed:', loadError);
+        setError(t('Producer Take could not be loaded.'));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -215,9 +214,8 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
       clearLocalProducerWorkingDraft(projectId);
       window.dispatchEvent(new Event(PRODUCER_ASSESSMENT_UPDATED_EVENT));
     } catch (saveError) {
-      setError(
-        saveError instanceof Error ? saveError.message : t('Producer Take could not be saved.'),
-      );
+      console.error('[ProducerTake] Save failed:', saveError);
+      setError(t('Producer Take could not be saved.'));
     } finally {
       setSaving(false);
     }

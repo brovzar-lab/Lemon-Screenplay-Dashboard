@@ -5,6 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 interface MultiSelectProps {
   label: string;
@@ -21,6 +22,7 @@ export function MultiSelect({
   onChange,
   placeholder = 'Select...',
 }: MultiSelectProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -89,7 +91,7 @@ export function MultiSelect({
               ? placeholder
               : selected.length === 1
               ? selected[0]
-              : `${selected.length} selected`}
+              : t('{{count}} selected', { count: selected.length })}
           </span>
           <svg
             className={clsx('w-4 h-4 transition-transform', isOpen && 'rotate-180')}
@@ -110,13 +112,13 @@ export function MultiSelect({
                 key={item}
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gold-500/20 text-gold-300 text-xs"
               >
-                {item}
+                {t(item)}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleOption(item);
                   }}
-                  aria-label={`Remove ${item}`}
+                  aria-label={t('Remove {{item}}', { item })}
                   className="hover:text-gold-100"
                 >
                   ×
@@ -125,7 +127,7 @@ export function MultiSelect({
             ))}
             {selected.length > 3 && (
               <span className="px-2 py-0.5 text-xs text-black-500">
-                +{selected.length - 3} more
+                {t('+{{count}} more', { count: selected.length - 3 })}
               </span>
             )}
           </div>
@@ -140,17 +142,17 @@ export function MultiSelect({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search..."
-                aria-label={`Search ${label}`}
+                placeholder={t('Search...')}
+                aria-label={t('Search {{label}}', { label: t(label) })}
                 className="w-full px-2 py-1.5 text-sm bg-black-900 border border-black-700 rounded focus:outline-none focus:border-gold-500"
                 autoFocus
               />
             </div>
 
             {/* Options */}
-            <div className="max-h-40 overflow-y-auto" role="listbox" aria-label={label}>
+            <div className="max-h-40 overflow-y-auto" role="listbox" aria-label={t(label)}>
               {filteredOptions.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-black-500 text-center">No matches</div>
+                <div className="px-3 py-2 text-sm text-black-500 text-center">{t('No matches')}</div>
               ) : (
                 filteredOptions.map((option) => (
                   <label
@@ -163,7 +165,7 @@ export function MultiSelect({
                       onChange={() => toggleOption(option)}
                       className="w-4 h-4 rounded border-black-600 bg-black-900 text-gold-500 focus:ring-gold-500 focus:ring-offset-0"
                     />
-                    <span className="text-sm text-black-200 truncate">{option}</span>
+                    <span className="text-sm text-black-200 truncate">{t(option)}</span>
                   </label>
                 ))
               )}
@@ -176,7 +178,7 @@ export function MultiSelect({
                   onClick={clearAll}
                   className="w-full text-xs text-red-400 hover:text-red-300 py-1"
                 >
-                  Clear all
+                  {t('Clear all')}
                 </button>
               </div>
             )}

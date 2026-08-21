@@ -94,21 +94,6 @@
   background: #0e1d33;
 }
 
-.application-header__divider {
-  width: 1px;
-  height: 22px;
-  margin-inline: 2px;
-  background: #2a3b58;
-}
-
-.application-header__system-name {
-  padding-inline: 8px;
-  color: #c5cede;
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: 0.02em;
-}
-
 .application-header .language-control,
 .application-header .settings-theme-control {
   display: inline-flex;

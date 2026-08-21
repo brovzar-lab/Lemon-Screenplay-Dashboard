@@ -89,7 +89,8 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
         'success',
       );
     } catch (error) {
-      addToast(error instanceof Error ? error.message : t('The action failed. Please try again.'));
+      console.error('[BadFormatModal] Action failed:', error);
+      addToast(t('The action failed. Please try again.'));
     } finally {
       setBusyIds((current) => {
         const next = new Set(current);
@@ -122,7 +123,8 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
       await resolveUploadIssues('dismiss', [job.id]);
       addToast(t('Replacement uploaded and queued for analysis.'), 'success');
     } catch (error) {
-      addToast(error instanceof Error ? error.message : t('The replacement could not be uploaded.'));
+      console.error('[BadFormatModal] Replacement upload failed:', error);
+      addToast(t('The replacement could not be uploaded.'));
     } finally {
       setBusyIds((current) => {
         const next = new Set(current);
@@ -162,7 +164,7 @@ export function BadFormatModal({ open, onClose }: BadFormatModalProps) {
               <option value="haiku">{t('Haiku, faster')}</option>
               <option value="sonnet">{t('Sonnet, standard')}</option>
               <option value="opus">{t('Opus, deepest')}</option>
-              <option value="hybrid">Hybrid</option>
+              <option value="hybrid">{t('Hybrid')}</option>
             </select>
             {retryableFailedIds.length > 1 && (
               <button disabled={busyIds.size > 0} onClick={() => confirmPaidAction(retryableFailedIds)} className="min-h-11 rounded bg-blue-500 px-4 text-sm font-semibold text-black-950 disabled:opacity-50">

@@ -7,6 +7,8 @@
 import { pdf } from '@react-pdf/renderer';
 import { PdfDocument } from './PdfDocument';
 import type { Screenplay } from '@/types';
+import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
+import { currentUiLanguage } from '@/i18n';
 
 export interface BulkPdfProgress {
   current: number;
@@ -35,12 +37,19 @@ export async function bulkExportPdfs(
   // Dynamic import JSZip to keep it out of main bundle
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
+  const language = currentUiLanguage();
 
   for (let i = 0; i < screenplays.length; i++) {
     const sp = screenplays[i];
     onProgress?.({ current: i + 1, total: screenplays.length });
 
-    const blob = await pdf(<PdfDocument screenplay={sp} />).toBlob();
+    const blob = await pdf(
+      <PdfDocument
+        screenplay={localizedScreenplay(sp, language)}
+        language={language}
+        showEnglishAnalysisNotice={analysisIsEnglishFallback(sp, language)}
+      />
+    ).toBlob();
     const safeName = sanitizeForZip(sp.title);
     zip.file(`${safeName}-PitchDeck.pdf`, blob);
 

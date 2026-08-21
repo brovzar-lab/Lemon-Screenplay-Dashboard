@@ -19,6 +19,7 @@ import {
 import { useShareStore } from '@/stores/shareStore';
 import { useNotesStore } from '@/stores/notesStore';
 import { useToastStore } from '@/stores/toastStore';
+import { useTranslation } from 'react-i18next';
 
 interface ShareButtonProps {
     screenplay: Screenplay;
@@ -41,6 +42,7 @@ export function ShareButton({
     waitForExistingLink = false,
     presentation = 'default',
 }: ShareButtonProps) {
+    const { t } = useTranslation();
     const isDiscovery = presentation === 'discovery';
     const screenplayId = screenplay.sourceFile;
 
@@ -143,11 +145,11 @@ export function ShareButton({
             if (isDiscovery) {
                 useToastStore
                     .getState()
-                    .addToast('Share link created. It has not been sent to anyone.', 'success');
+                    .addToast(t('Share link created. It has not been sent to anyone.'), 'success');
             }
         },
         onError: () => {
-            useToastStore.getState().addToast('Failed to create share link');
+            useToastStore.getState().addToast(t('Failed to create share link'));
         },
     });
 
@@ -161,11 +163,11 @@ export function ShareButton({
             setShowPopover(false);
             setConfirmRevoke(false);
             if (isDiscovery) {
-                useToastStore.getState().addToast('Share link revoked.', 'success');
+                useToastStore.getState().addToast(t('Share link revoked.'), 'success');
             }
         },
         onError: () => {
-            useToastStore.getState().addToast('Failed to revoke share link');
+            useToastStore.getState().addToast(t('Failed to revoke share link'));
         },
     });
 
@@ -174,7 +176,7 @@ export function ShareButton({
             useToastStore
                 .getState()
                 .addToast(
-                    "This screenplay hasn't synced to Firestore yet. Wait for sync to complete before sharing.",
+                    t("This screenplay hasn't synced to Firestore yet. Wait for sync to complete before sharing."),
                     'warning',
                 );
             return;
@@ -195,9 +197,9 @@ export function ShareButton({
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch {
-            useToastStore.getState().addToast('Failed to copy to clipboard');
+            useToastStore.getState().addToast(t('Failed to copy to clipboard'));
         }
-    }, [shareUrl]);
+    }, [shareUrl, t]);
 
     const handleNotesToggle = useCallback(async () => {
         const newValue = !currentIncludeNotes;
@@ -214,11 +216,11 @@ export function ShareButton({
                     includeNotes: newValue,
                 });
             } catch {
-                useToastStore.getState().addToast('Failed to update notes setting');
+                useToastStore.getState().addToast(t('Failed to update notes setting'));
                 setIncludeNotes(!newValue); // Revert
             }
         }
-    }, [currentIncludeNotes, cachedToken, screenplayId]);
+    }, [currentIncludeNotes, cachedToken, screenplayId, t]);
 
     const isDisabled =
         synced === false || createMutation.isPending || synced === null || !existingLookupReady;
@@ -238,12 +240,12 @@ export function ShareButton({
                 }`}
                 title={
                     synced === false
-                        ? 'Sync pending -- wait for Firestore sync before sharing'
+                        ? t('Sync pending -- wait for Firestore sync before sharing')
                         : !existingLookupReady
-                          ? 'Checking for an existing share link...'
+                          ? t('Checking for an existing share link...')
                           : synced === null
-                            ? 'Checking sync status...'
-                            : 'Share this screenplay'
+                            ? t('Checking sync status...')
+                            : t('Share this screenplay')
                 }
             >
                 {createMutation.isPending ? (
@@ -273,7 +275,7 @@ export function ShareButton({
                         />
                     </svg>
                 )}
-                Share
+                {t('Share')}
             </button>
 
             {/* Popover */}
@@ -282,7 +284,7 @@ export function ShareButton({
                     <div
                         ref={popoverRef}
                         role={isDiscovery ? 'dialog' : undefined}
-                        aria-label={isDiscovery ? 'Share screenplay' : undefined}
+                        aria-label={isDiscovery ? t('Share screenplay') : undefined}
                         data-testid="share-popover"
                         data-presentation={presentation}
                         className={
@@ -299,7 +301,7 @@ export function ShareButton({
                                         : 'text-sm font-medium text-gold-200'
                                 }
                             >
-                                {isDiscovery ? 'Link active' : 'Share Link'}
+                                {t(isDiscovery ? 'Link active' : 'Share Link')}
                             </span>
                             <button
                                 onClick={() => {
@@ -311,7 +313,7 @@ export function ShareButton({
                                         ? 'dsc-muted p-0.5 hover:text-[var(--dsc-ink)]'
                                         : 'text-black-400 hover:text-black-200 p-0.5'
                                 }
-                                aria-label="Close popover"
+                                aria-label={t('Close popover')}
                             >
                                 <svg
                                     className="w-4 h-4"
@@ -331,7 +333,7 @@ export function ShareButton({
 
                         {isDiscovery && (
                             <p className="mb-3 text-sm leading-5 text-[var(--dsc-ink-2)]">
-                                This link is ready, but the app has not sent it to anyone.
+                                {t('This link is ready, but the app has not sent it to anyone.')}
                             </p>
                         )}
 
@@ -358,7 +360,7 @@ export function ShareButton({
                                           : 'bg-gold-500/20 text-gold-300 border-gold-500/30 hover:bg-gold-500/30'
                                 }`}
                             >
-                                {copied ? 'Copied!' : 'Copy'}
+                                {t(copied ? 'Copied!' : 'Copy')}
                             </button>
                         </div>
 
@@ -380,7 +382,7 @@ export function ShareButton({
                                         : 'w-3.5 h-3.5 rounded border-black-600 bg-black-900 text-gold-500 focus:ring-gold-500/30'
                                 }
                             />
-                            Include notes
+                            {t('Include notes')}
                         </label>
 
                         {isDiscovery && (
@@ -391,13 +393,13 @@ export function ShareButton({
                                     rel="noreferrer"
                                     className="text-[var(--dsc-accent)] hover:underline"
                                 >
-                                    Open preview
+                                    {t('Open preview')}
                                 </a>
                                 <a
                                     href="/settings?tab=data#shared-links"
                                     className="text-[var(--dsc-accent)] hover:underline"
                                 >
-                                    Manage all links
+                                    {t('Manage all links')}
                                 </a>
                             </div>
                         )}
@@ -419,7 +421,7 @@ export function ShareButton({
                                                 : 'text-xs text-red-400'
                                         }
                                     >
-                                        Revoke this link?
+                                        {t('Revoke this link?')}
                                     </span>
                                     <button
                                         onClick={() => revokeMutation.mutate()}
@@ -430,7 +432,7 @@ export function ShareButton({
                                                 : 'text-xs px-2 py-1 rounded bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 font-medium transition-all'
                                         }
                                     >
-                                        {revokeMutation.isPending ? 'Revoking...' : 'Confirm'}
+                                        {t(revokeMutation.isPending ? 'Revoking...' : 'Confirm')}
                                     </button>
                                     <button
                                         onClick={() => setConfirmRevoke(false)}
@@ -440,7 +442,7 @@ export function ShareButton({
                                                 : 'text-xs px-2 py-1 rounded text-black-400 hover:text-black-200 transition-colors'
                                         }
                                     >
-                                        Cancel
+                                        {t('Cancel')}
                                     </button>
                                 </div>
                             ) : (
@@ -452,7 +454,7 @@ export function ShareButton({
                                             : 'text-xs text-red-400 hover:text-red-300 transition-colors'
                                     }
                                 >
-                                    Revoke link
+                                    {t('Revoke link')}
                                 </button>
                             )}
                         </div>
