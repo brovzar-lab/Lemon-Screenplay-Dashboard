@@ -19,6 +19,7 @@ import {
 import type { LensName } from './promptClient';
 import type { ParsedPDF } from './pdfParser';
 import { useToastStore } from '@/stores/toastStore';
+import i18n from '@/i18n';
 import { callLLM } from './proxyClient';
 import {
   attachVerifiedBrowserCitationQuality,
@@ -50,6 +51,17 @@ export interface ReaderResult {
   report: Record<string, unknown>;
   usage: { input_tokens: number; output_tokens: number };
   durationMs: number;
+}
+
+export function notifyIncompleteReaderPanel(
+  completedReaders: number,
+  failedReaders: readonly ReaderName[],
+): void {
+  useToastStore.getState().addToast(i18n.t('toast.analysis_partial_readers', {
+    completed: completedReaders,
+    expected: 5,
+    missing: failedReaders.join(', '),
+  }));
 }
 
 export interface AnalysisResult {
@@ -801,9 +813,7 @@ export async function runMultiReaderAnalysis(
       readerPanelUsage,
     );
   } catch (error) {
-    useToastStore.getState().addToast(
-      `Analysis needs review: ${readerResults.length}/5 readers completed. No score or verdict was produced. Missing: ${failedReaders.join(', ')}.`,
-    );
+    notifyIncompleteReaderPanel(readerResults.length, failedReaders);
     throw error;
   }
 

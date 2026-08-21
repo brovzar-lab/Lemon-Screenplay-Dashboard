@@ -10,25 +10,26 @@
  */
 
 import {
-    collection,
-    doc,
-    setDoc,
-    runTransaction,
-    Timestamp,
-    getDocs,
-    updateDoc,
-    deleteField,
-    query,
-    where,
-    getCountFromServer,
-    onSnapshot,
-    type QuerySnapshot,
-    type DocumentData,
-    type Unsubscribe,
+  collection,
+  doc,
+  setDoc,
+  runTransaction,
+  Timestamp,
+  getDocs,
+  updateDoc,
+  deleteField,
+  query,
+  where,
+  getCountFromServer,
+  onSnapshot,
+  type QuerySnapshot,
+  type DocumentData,
+  type Unsubscribe,
 } from 'firebase/firestore';
 import { authReady, db } from './firebase';
 import { useToastStore } from '@/stores/toastStore';
 import { buildAnalysisVersionIdentity } from './analysisIdentity';
+import i18n from '@/i18n';
 
 const FIRESTORE_COLLECTION = 'uploaded_analyses';
 const _QUARANTINE_COLLECTION = '_unrecognized_analyses';
@@ -37,85 +38,85 @@ const MIGRATION_KEY = 'lemon-migration-v6-done';
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 function isQuarantined(record: Record<string, unknown>): boolean {
-    return Boolean(record._quarantined_at);
+  return Boolean(record._quarantined_at);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Sanitize source_file into a Firestore-safe document ID. */
 export function toDocId(sourceFile: string): string {
-    return (
-        sourceFile
-            .replace(/[/\\]/g, '_')
-            .replace(/[^a-zA-Z0-9_\-. ]/g, '')
-            .trim()
-            .replace(/\s+/g, '_')
-            .slice(0, 200) || `doc_${Date.now()}`
-    );
+  return (
+    sourceFile
+      .replace(/[/\\]/g, '_')
+      .replace(/[^a-zA-Z0-9_\-. ]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .slice(0, 200) || `doc_${Date.now()}`
+  );
 }
 
 function getVersionCount(record: Record<string, unknown>): number {
-    return typeof record.version_count === 'number' &&
-        Number.isInteger(record.version_count) &&
-        record.version_count >= 0
-        ? record.version_count
-        : 0;
+  return typeof record.version_count === 'number' &&
+    Number.isInteger(record.version_count) &&
+    record.version_count >= 0
+    ? record.version_count
+    : 0;
 }
 
 /** Create one immutable version and advance the parent in the same transaction. */
 async function writeVersionedAnalysis(
-    record: Record<string, unknown>,
-    sourceFile: string,
-    projectId: string,
-    queuedAtMs: number,
-    expectedVersionId: string,
+  record: Record<string, unknown>,
+  sourceFile: string,
+  projectId: string,
+  queuedAtMs: number,
+  expectedVersionId: string,
 ): Promise<void> {
-    const identity = buildAnalysisVersionIdentity(record, queuedAtMs);
-    if (identity.version_id !== expectedVersionId) {
-        throw new Error('Queued analysis version identity does not match its payload.');
-    }
+  const identity = buildAnalysisVersionIdentity(record, queuedAtMs);
+  if (identity.version_id !== expectedVersionId) {
+    throw new Error('Queued analysis version identity does not match its payload.');
+  }
 
-    const parentRef = doc(db, FIRESTORE_COLLECTION, projectId);
-    const versionRef = doc(db, FIRESTORE_COLLECTION, projectId, 'versions', identity.version_id);
+  const parentRef = doc(db, FIRESTORE_COLLECTION, projectId);
+  const versionRef = doc(db, FIRESTORE_COLLECTION, projectId, 'versions', identity.version_id);
 
-    await runTransaction(db, async (transaction) => {
-        const parentSnapshot = await transaction.get(parentRef);
-        const versionSnapshot = await transaction.get(versionRef);
+  await runTransaction(db, async (transaction) => {
+    const parentSnapshot = await transaction.get(parentRef);
+    const versionSnapshot = await transaction.get(versionRef);
 
-        // A lost acknowledgement can retry after the first transaction committed.
-        // The deterministic version ID makes that retry a no-op.
-        if (versionSnapshot.exists()) return;
+    // A lost acknowledgement can retry after the first transaction committed.
+    // The deterministic version ID makes that retry a no-op.
+    if (versionSnapshot.exists()) return;
 
-        const parentData = parentSnapshot.exists()
-            ? (parentSnapshot.data() as Record<string, unknown>)
-            : {};
-        const versionNumber = getVersionCount(parentData) + 1;
-        const canonicalSourceFile =
-            typeof parentData.source_file === 'string' && parentData.source_file
-                ? parentData.source_file
-                : sourceFile;
+    const parentData = parentSnapshot.exists()
+      ? (parentSnapshot.data() as Record<string, unknown>)
+      : {};
+    const versionNumber = getVersionCount(parentData) + 1;
+    const canonicalSourceFile =
+      typeof parentData.source_file === 'string' && parentData.source_file
+        ? parentData.source_file
+        : sourceFile;
 
-        transaction.set(versionRef, {
-            ...record,
-            source_file: sourceFile,
-            project_id: projectId,
-            version_id: identity.version_id,
-            version_number: versionNumber,
-            queued_at_ms: identity.queued_at_ms,
-            created_at: Timestamp.fromMillis(identity.queued_at_ms),
-        });
-        transaction.set(parentRef, {
-            ...stripDeferredAnalysisFields(record),
-            source_file: canonicalSourceFile,
-            latest_source_file: sourceFile,
-            project_id: projectId,
-            latest_version_id: identity.version_id,
-            version_count: versionNumber,
-            queued_at_ms: identity.queued_at_ms,
-            _savedAt: new Date(identity.queued_at_ms).toISOString(),
-            _docId: projectId,
-        });
+    transaction.set(versionRef, {
+      ...record,
+      source_file: sourceFile,
+      project_id: projectId,
+      version_id: identity.version_id,
+      version_number: versionNumber,
+      queued_at_ms: identity.queued_at_ms,
+      created_at: Timestamp.fromMillis(identity.queued_at_ms),
     });
+    transaction.set(parentRef, {
+      ...stripDeferredAnalysisFields(record),
+      source_file: canonicalSourceFile,
+      latest_source_file: sourceFile,
+      project_id: projectId,
+      latest_version_id: identity.version_id,
+      version_count: versionNumber,
+      queued_at_ms: identity.queued_at_ms,
+      _savedAt: new Date(identity.queued_at_ms).toISOString(),
+      _docId: projectId,
+    });
+  });
 }
 
 /**
@@ -129,9 +130,9 @@ const HEAVY_FIELDS = ['analysis', 'v9_meta', 'v7_meta', 'triage', 'lenses_enable
 
 /** Return a slimmed copy with heavy fields removed. Exported for tests. */
 export function slimRecord(r: Record<string, unknown>): Record<string, unknown> {
-    const slim = { ...r };
-    for (const f of HEAVY_FIELDS) delete slim[f];
-    return slim;
+  const slim = { ...r };
+  for (const f of HEAVY_FIELDS) delete slim[f];
+  return slim;
 }
 
 /**
@@ -140,18 +141,20 @@ export function slimRecord(r: Record<string, unknown>): Record<string, unknown> 
  * a screenplay detail view opens.
  */
 export function stripDeferredAnalysisFields(
-    record: Record<string, unknown>,
+  record: Record<string, unknown>,
 ): Record<string, unknown> {
-    const analysis = record.analysis;
-    if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) {
-        return record;
-    }
-    const { reader_reports: _deferredReaderReports, ...projection } =
-        analysis as Record<string, unknown>;
-    return {
-        ...record,
-        analysis: projection,
-    };
+  const analysis = record.analysis;
+  if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) {
+    return record;
+  }
+  const { reader_reports: _deferredReaderReports, ...projection } = analysis as Record<
+    string,
+    unknown
+  >;
+  return {
+    ...record,
+    analysis: projection,
+  };
 }
 
 /**
@@ -163,193 +166,191 @@ export function stripDeferredAnalysisFields(
  * @param silent — if true, suppress error toasts (used for background sync).
  */
 function writeToLocal(analyses: Record<string, unknown>[], silent = false): void {
-    const projectionRecords = analyses.map(stripDeferredAnalysisFields);
-    // Level 1 — full write
-    try {
-        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(projectionRecords));
-        return;
-    } catch (err) {
-        const isQuota =
-            err instanceof DOMException &&
-            (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED');
-        if (!isQuota) {
-            console.error('[Lemon] localStorage write failed (non-quota):', err);
-            if (!silent)
-                useToastStore
-                    .getState()
-                    .addToast('Failed to save screenplay locally — storage may be full');
-            return;
-        }
-        console.warn('[Lemon] localStorage quota exceeded — retrying with slim records...');
-    }
-
-    // Level 2 — slim write (strip heavy analysis payloads)
-    try {
-        const slim = projectionRecords.map(slimRecord);
-        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(slim));
-        console.log('[Lemon] Slim write succeeded — heavy fields stripped to fit quota');
-        return;
-    } catch {
-        console.warn(
-            '[Lemon] localStorage slim write also failed — clearing key, using Firestore as source of truth',
-        );
-    }
-
-    // Level 3 — clear so next load uses cold Firestore path
-    try {
-        localStorage.removeItem(LOCAL_CACHE_KEY);
-    } catch {
-        // Nothing more we can do
-    }
-    if (!silent)
+  const projectionRecords = analyses.map(stripDeferredAnalysisFields);
+  // Level 1 — full write
+  try {
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(projectionRecords));
+    return;
+  } catch (err) {
+    const isQuota =
+      err instanceof DOMException &&
+      (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+    if (!isQuota) {
+      console.error('[Lemon] localStorage write failed (non-quota):', err);
+      if (!silent)
         useToastStore
-            .getState()
-            .addToast('Failed to save screenplay locally — storage may be full');
+          .getState()
+          .addToast(i18n.t('Failed to save screenplay locally — storage may be full'));
+      return;
+    }
+    console.warn('[Lemon] localStorage quota exceeded — retrying with slim records...');
+  }
+
+  // Level 2 — slim write (strip heavy analysis payloads)
+  try {
+    const slim = projectionRecords.map(slimRecord);
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(slim));
+    console.log('[Lemon] Slim write succeeded — heavy fields stripped to fit quota');
+    return;
+  } catch {
+    console.warn(
+      '[Lemon] localStorage slim write also failed — clearing key, using Firestore as source of truth',
+    );
+  }
+
+  // Level 3 — clear so next load uses cold Firestore path
+  try {
+    localStorage.removeItem(LOCAL_CACHE_KEY);
+  } catch {
+    // Nothing more we can do
+  }
+  if (!silent)
+    useToastStore
+      .getState()
+      .addToast(i18n.t('Failed to save screenplay locally — storage may be full'));
 }
 
 /** Read from localStorage. */
 function readFromLocal(): Record<string, unknown>[] {
-    try {
-        const stored = localStorage.getItem(LOCAL_CACHE_KEY);
-        if (!stored) return [];
-        const parsed = JSON.parse(stored);
-        if (!Array.isArray(parsed)) return [];
-        return parsed as Record<string, unknown>[];
-    } catch {
-        return [];
-    }
+  try {
+    const stored = localStorage.getItem(LOCAL_CACHE_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as Record<string, unknown>[];
+  } catch {
+    return [];
+  }
 }
 
 /** Track failed Firestore writes for retry. */
 const PENDING_QUEUE_KEY = 'lemon-pending-writes';
 
 type PendingWrite =
-    | {
-          kind: 'versioned-set';
-          sourceFile: string;
-          projectId: string;
-          versionId: string;
-          queuedAtMs: number;
-          data: Record<string, unknown>;
-      }
-    | { kind: 'set'; sourceFile: string; data: Record<string, unknown> }
-    | { kind: 'patch'; sourceFile: string; fields: Record<string, unknown> }
-    | { kind: 'restore'; sourceFile: string };
+  | {
+      kind: 'versioned-set';
+      sourceFile: string;
+      projectId: string;
+      versionId: string;
+      queuedAtMs: number;
+      data: Record<string, unknown>;
+    }
+  | { kind: 'set'; sourceFile: string; data: Record<string, unknown> }
+  | { kind: 'patch'; sourceFile: string; fields: Record<string, unknown> }
+  | { kind: 'restore'; sourceFile: string };
 
 function readPendingWrites(): PendingWrite[] {
-    try {
-        const parsed = JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY) || '[]');
-        if (!Array.isArray(parsed)) return [];
-        return parsed.flatMap((item): PendingWrite[] => {
-            if (!item || typeof item !== 'object') return [];
-            if (
-                item.kind === 'versioned-set' &&
-                typeof item.sourceFile === 'string' &&
-                typeof item.projectId === 'string' &&
-                typeof item.versionId === 'string' &&
-                typeof item.queuedAtMs === 'number' &&
-                item.data &&
-                typeof item.data === 'object'
-            ) {
-                return [item as PendingWrite];
-            }
-            if (item.kind === 'set' || item.kind === 'patch' || item.kind === 'restore') {
-                return [item as PendingWrite];
-            }
-            const legacy = item as Record<string, unknown>;
-            const sourceFile = legacy.source_file;
-            return typeof sourceFile === 'string'
-                ? [{ kind: 'set', sourceFile, data: legacy }]
-                : [];
-        });
-    } catch {
-        return [];
-    }
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY) || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((item): PendingWrite[] => {
+      if (!item || typeof item !== 'object') return [];
+      if (
+        item.kind === 'versioned-set' &&
+        typeof item.sourceFile === 'string' &&
+        typeof item.projectId === 'string' &&
+        typeof item.versionId === 'string' &&
+        typeof item.queuedAtMs === 'number' &&
+        item.data &&
+        typeof item.data === 'object'
+      ) {
+        return [item as PendingWrite];
+      }
+      if (item.kind === 'set' || item.kind === 'patch' || item.kind === 'restore') {
+        return [item as PendingWrite];
+      }
+      const legacy = item as Record<string, unknown>;
+      const sourceFile = legacy.source_file;
+      return typeof sourceFile === 'string' ? [{ kind: 'set', sourceFile, data: legacy }] : [];
+    });
+  } catch {
+    return [];
+  }
 }
 
 function queueForRetry(write: PendingWrite): void {
-    try {
-        const queue = readPendingWrites();
-        queue.push(write);
-        localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(queue));
-    } catch {
-        // Local screenplay cache still preserves the user's visible change.
-    }
+  try {
+    const queue = readPendingWrites();
+    queue.push(write);
+    localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(queue));
+  } catch {
+    // Local screenplay cache still preserves the user's visible change.
+  }
 }
 
 async function applyPendingWrite(write: PendingWrite): Promise<void> {
-    if (write.kind === 'versioned-set') {
-        await writeVersionedAnalysis(
-            write.data,
-            write.sourceFile,
-            write.projectId,
-            write.queuedAtMs,
-            write.versionId,
-        );
-        return;
-    }
+  if (write.kind === 'versioned-set') {
+    await writeVersionedAnalysis(
+      write.data,
+      write.sourceFile,
+      write.projectId,
+      write.queuedAtMs,
+      write.versionId,
+    );
+    return;
+  }
 
-    const docId = toDocId(write.sourceFile);
-    const docRef = doc(db, FIRESTORE_COLLECTION, docId);
-    if (write.kind === 'set') {
-        await setDoc(docRef, {
-            ...write.data,
-            _savedAt: new Date().toISOString(),
-            _docId: docId,
-        });
-    } else if (write.kind === 'patch') {
-        await updateDoc(docRef, write.fields);
-    } else {
-        await updateDoc(docRef, { _deleted_at: deleteField() });
-    }
+  const docId = toDocId(write.sourceFile);
+  const docRef = doc(db, FIRESTORE_COLLECTION, docId);
+  if (write.kind === 'set') {
+    await setDoc(docRef, {
+      ...write.data,
+      _savedAt: new Date().toISOString(),
+      _docId: docId,
+    });
+  } else if (write.kind === 'patch') {
+    await updateDoc(docRef, write.fields);
+  } else {
+    await updateDoc(docRef, { _deleted_at: deleteField() });
+  }
 }
 
 function applyPendingWritesToRecords(
-    records: Record<string, unknown>[],
+  records: Record<string, unknown>[],
 ): Record<string, unknown>[] {
-    const bySourceFile = new Map(
-        records.map((record) => [String(record.source_file ?? ''), { ...record }]),
-    );
-    for (const write of readPendingWrites()) {
-        const current = bySourceFile.get(write.sourceFile) ?? { source_file: write.sourceFile };
-        if (write.kind === 'set' || write.kind === 'versioned-set') {
-            bySourceFile.set(write.sourceFile, { ...write.data });
-        } else if (write.kind === 'patch') {
-            bySourceFile.set(write.sourceFile, { ...current, ...write.fields });
-        } else {
-            const { _deleted_at: _discarded, ...rest } = current;
-            bySourceFile.set(write.sourceFile, rest);
-        }
+  const bySourceFile = new Map(
+    records.map((record) => [String(record.source_file ?? ''), { ...record }]),
+  );
+  for (const write of readPendingWrites()) {
+    const current = bySourceFile.get(write.sourceFile) ?? { source_file: write.sourceFile };
+    if (write.kind === 'set' || write.kind === 'versioned-set') {
+      bySourceFile.set(write.sourceFile, { ...write.data });
+    } else if (write.kind === 'patch') {
+      bySourceFile.set(write.sourceFile, { ...current, ...write.fields });
+    } else {
+      const { _deleted_at: _discarded, ...rest } = current;
+      bySourceFile.set(write.sourceFile, rest);
     }
-    return Array.from(bySourceFile.values());
+  }
+  return Array.from(bySourceFile.values());
 }
 
 /** Flush any pending Firestore writes that failed previously. Non-blocking. */
 export async function flushPendingWrites(): Promise<void> {
-    try {
-        const raw = localStorage.getItem(PENDING_QUEUE_KEY);
-        if (!raw) return;
-        const queue = readPendingWrites();
-        if (queue.length === 0) return;
+  try {
+    const raw = localStorage.getItem(PENDING_QUEUE_KEY);
+    if (!raw) return;
+    const queue = readPendingWrites();
+    if (queue.length === 0) return;
 
-        await authReady;
+    await authReady;
 
-        console.log(`[Lemon] Retrying ${queue.length} pending Firestore writes...`);
-        const remaining: PendingWrite[] = [];
-        for (const write of queue) {
-            try {
-                await applyPendingWrite(write);
-            } catch {
-                remaining.push(write);
-            }
-        }
-        localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(remaining));
-        console.log(
-            `[Lemon] Flushed ${queue.length - remaining.length} pending writes, ${remaining.length} remaining`,
-        );
-    } catch {
-        // Non-critical
+    console.log(`[Lemon] Retrying ${queue.length} pending Firestore writes...`);
+    const remaining: PendingWrite[] = [];
+    for (const write of queue) {
+      try {
+        await applyPendingWrite(write);
+      } catch {
+        remaining.push(write);
+      }
     }
+    localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(remaining));
+    console.log(
+      `[Lemon] Flushed ${queue.length - remaining.length} pending writes, ${remaining.length} remaining`,
+    );
+  } catch {
+    // Non-critical
+  }
 }
 
 /**
@@ -357,13 +358,13 @@ export async function flushPendingWrites(): Promise<void> {
  * Returns 0 if the queue is empty, absent, or corrupt.
  */
 export function getPendingWriteCount(): number {
-    try {
-        const raw = localStorage.getItem(PENDING_QUEUE_KEY);
-        if (!raw) return 0;
-        return readPendingWrites().length;
-    } catch {
-        return 0;
-    }
+  try {
+    const raw = localStorage.getItem(PENDING_QUEUE_KEY);
+    if (!raw) return 0;
+    return readPendingWrites().length;
+  } catch {
+    return 0;
+  }
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -375,11 +376,11 @@ export function getPendingWriteCount(): number {
  * path and replaces this cache as soon as its initial snapshot arrives.
  */
 export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
-    const localData = readFromLocal()
-        .filter((a) => !a._deleted_at && !isQuarantined(a))
-        .map(stripDeferredAnalysisFields);
-    console.log(`[Lemon] Loaded ${localData.length} analyses from startup cache`);
-    return localData;
+  const localData = readFromLocal()
+    .filter((a) => !a._deleted_at && !isQuarantined(a))
+    .map(stripDeferredAnalysisFields);
+  console.log(`[Lemon] Loaded ${localData.length} analyses from startup cache`);
+  return localData;
 }
 
 /**
@@ -397,44 +398,44 @@ export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
  * Returns an Unsubscribe function — call it on cleanup.
  */
 export function subscribeToAnalyses(
-    onChange: (analyses: Record<string, unknown>[]) => void,
-    onError?: (error: Error) => void,
+  onChange: (analyses: Record<string, unknown>[]) => void,
+  onError?: (error: Error) => void,
 ): Unsubscribe {
-    const stripInternals = (data: Record<string, unknown>): Record<string, unknown> =>
-        Object.fromEntries(
-            Object.entries(data).filter(
-                ([k]) =>
-                    k !== '_savedAt' &&
-                    k !== '_docId' &&
-                    k !== '_quarantined_at' &&
-                    k !== '_quarantine_reason' &&
-                    k !== '_original_collection',
-            ),
-        );
-
-    const q = query(collection(db, FIRESTORE_COLLECTION));
-
-    return onSnapshot(
-        q,
-        (snapshot: QuerySnapshot<DocumentData>) => {
-            const cloudRecords = snapshot.docs
-                .map((d) => d.data() as Record<string, unknown>)
-                .filter((data) => !isQuarantined(data))
-                .map((data) => stripDeferredAnalysisFields(stripInternals(data)));
-            const next = applyPendingWritesToRecords(cloudRecords)
-                .filter((d) => !d._deleted_at)
-                .map(stripDeferredAnalysisFields);
-
-            // Mirror to localStorage so the next cold-load is fast.
-            writeToLocal(next, true);
-            console.log(`[Lemon] Live sync: ${next.length} analyses (Firestore snapshot)`);
-            onChange(next);
-        },
-        (err) => {
-            console.warn('[Lemon] Live sync subscription error:', err);
-            onError?.(err);
-        },
+  const stripInternals = (data: Record<string, unknown>): Record<string, unknown> =>
+    Object.fromEntries(
+      Object.entries(data).filter(
+        ([k]) =>
+          k !== '_savedAt' &&
+          k !== '_docId' &&
+          k !== '_quarantined_at' &&
+          k !== '_quarantine_reason' &&
+          k !== '_original_collection',
+      ),
     );
+
+  const q = query(collection(db, FIRESTORE_COLLECTION));
+
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot<DocumentData>) => {
+      const cloudRecords = snapshot.docs
+        .map((d) => d.data() as Record<string, unknown>)
+        .filter((data) => !isQuarantined(data))
+        .map((data) => stripDeferredAnalysisFields(stripInternals(data)));
+      const next = applyPendingWritesToRecords(cloudRecords)
+        .filter((d) => !d._deleted_at)
+        .map(stripDeferredAnalysisFields);
+
+      // Mirror to localStorage so the next cold-load is fast.
+      writeToLocal(next, true);
+      console.log(`[Lemon] Live sync: ${next.length} analyses (Firestore snapshot)`);
+      onChange(next);
+    },
+    (err) => {
+      console.warn('[Lemon] Live sync subscription error:', err);
+      onError?.(err);
+    },
+  );
 }
 
 /**
@@ -442,29 +443,29 @@ export function subscribeToAnalyses(
  * The document is preserved in both stores but hidden from loadAllAnalyses.
  */
 export async function softDeleteAnalysis(sourceFile: string): Promise<void> {
-    const deletedAt = new Date().toISOString();
+  const deletedAt = new Date().toISOString();
 
-    // Set _deleted_at in localStorage immediately
-    const existing = readFromLocal();
-    const updated = existing.map((a) =>
-        a.source_file === sourceFile ? { ...a, _deleted_at: deletedAt } : a,
-    );
-    writeToLocal(updated);
-    console.log(`[Lemon] Soft-deleted from localStorage: ${sourceFile}`);
+  // Set _deleted_at in localStorage immediately
+  const existing = readFromLocal();
+  const updated = existing.map((a) =>
+    a.source_file === sourceFile ? { ...a, _deleted_at: deletedAt } : a,
+  );
+  writeToLocal(updated);
+  console.log(`[Lemon] Soft-deleted from localStorage: ${sourceFile}`);
 
-    // Set _deleted_at in Firestore — never throw, localStorage is the success path
-    const docId = toDocId(sourceFile);
-    try {
-        await authReady;
-        await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { _deleted_at: deletedAt });
-        console.log(`[Lemon] Soft-deleted in Firestore: ${docId}`);
-    } catch (err) {
-        console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
-        queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
-        useToastStore
-            .getState()
-            .addToast('Delete saved locally — cloud sync will retry', 'warning');
-    }
+  // Set _deleted_at in Firestore — never throw, localStorage is the success path
+  const docId = toDocId(sourceFile);
+  try {
+    await authReady;
+    await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { _deleted_at: deletedAt });
+    console.log(`[Lemon] Soft-deleted in Firestore: ${docId}`);
+  } catch (err) {
+    console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
+    queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
+    useToastStore
+      .getState()
+      .addToast(i18n.t('Delete saved locally — cloud sync will retry'), 'warning');
+  }
 }
 
 /**
@@ -478,61 +479,61 @@ export const removeAnalysis = softDeleteAnalysis;
  * Caller must invalidate SCREENPLAYS_QUERY_KEY to refresh UI.
  */
 export async function patchAnalysisField(
-    sourceFile: string,
-    field: string,
-    value: unknown,
+  sourceFile: string,
+  field: string,
+  value: unknown,
 ): Promise<void> {
-    // Step 1: Patch in localStorage immediately
-    const existing = readFromLocal();
-    const updated = existing.map((a) =>
-        a.source_file === sourceFile ? { ...a, [field]: value } : a,
-    );
-    writeToLocal(updated);
+  // Step 1: Patch in localStorage immediately
+  const existing = readFromLocal();
+  const updated = existing.map((a) =>
+    a.source_file === sourceFile ? { ...a, [field]: value } : a,
+  );
+  writeToLocal(updated);
 
-    // Step 2: Patch in Firestore (non-blocking, never throws)
-    const docId = toDocId(sourceFile);
-    try {
-        await authReady;
-        await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { [field]: value });
-    } catch (err) {
-        console.warn(`[Lemon] Firestore patch failed for ${docId}.${field}:`, err);
-        queueForRetry({ kind: 'patch', sourceFile, fields: { [field]: value } });
-        useToastStore
-            .getState()
-            .addToast('Change saved locally — cloud sync will retry', 'warning');
-    }
+  // Step 2: Patch in Firestore (non-blocking, never throws)
+  const docId = toDocId(sourceFile);
+  try {
+    await authReady;
+    await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { [field]: value });
+  } catch (err) {
+    console.warn(`[Lemon] Firestore patch failed for ${docId}.${field}:`, err);
+    queueForRetry({ kind: 'patch', sourceFile, fields: { [field]: value } });
+    useToastStore
+      .getState()
+      .addToast(i18n.t('Change saved locally — cloud sync will retry'), 'warning');
+  }
 }
 
 /**
  * Soft-delete ALL uploaded analyses by setting _deleted_at on every entry.
  */
 export async function softDeleteAllAnalyses(): Promise<void> {
-    const deletedAt = new Date().toISOString();
+  const deletedAt = new Date().toISOString();
 
-    // Set _deleted_at on all localStorage entries
-    const existing = readFromLocal();
-    const updated = existing.map((a) => ({ ...a, _deleted_at: deletedAt }));
-    writeToLocal(updated);
+  // Set _deleted_at on all localStorage entries
+  const existing = readFromLocal();
+  const updated = existing.map((a) => ({ ...a, _deleted_at: deletedAt }));
+  writeToLocal(updated);
 
-    // Set _deleted_at on all Firestore docs — never throw, localStorage is the success path
-    try {
-        await authReady;
-        const q = query(collection(db, FIRESTORE_COLLECTION));
-        const snapshot = await getDocs(q);
-        await Promise.all(snapshot.docs.map((d) => updateDoc(d.ref, { _deleted_at: deletedAt })));
-        console.log(`[Lemon] Soft-deleted ${snapshot.size} analyses in Firestore`);
-    } catch (err) {
-        console.warn('[Lemon] Firestore soft-delete-all failed:', err);
-        for (const item of existing) {
-            const sourceFile = item.source_file;
-            if (typeof sourceFile === 'string') {
-                queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
-            }
-        }
-        useToastStore
-            .getState()
-            .addToast('Deletes saved locally — cloud sync will retry', 'warning');
+  // Set _deleted_at on all Firestore docs — never throw, localStorage is the success path
+  try {
+    await authReady;
+    const q = query(collection(db, FIRESTORE_COLLECTION));
+    const snapshot = await getDocs(q);
+    await Promise.all(snapshot.docs.map((d) => updateDoc(d.ref, { _deleted_at: deletedAt })));
+    console.log(`[Lemon] Soft-deleted ${snapshot.size} analyses in Firestore`);
+  } catch (err) {
+    console.warn('[Lemon] Firestore soft-delete-all failed:', err);
+    for (const item of existing) {
+      const sourceFile = item.source_file;
+      if (typeof sourceFile === 'string') {
+        queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
+      }
     }
+    useToastStore
+      .getState()
+      .addToast(i18n.t('Deletes saved locally — cloud sync will retry'), 'warning');
+  }
 }
 
 /**
@@ -544,43 +545,43 @@ export const clearAllAnalyses = softDeleteAllAnalyses;
  * Restore a soft-deleted analysis by removing its _deleted_at field.
  */
 export async function restoreAnalysis(sourceFile: string): Promise<void> {
-    // Remove _deleted_at from localStorage entry
-    const existing = readFromLocal();
-    const updated = existing.map((a) => {
-        if (a.source_file === sourceFile) {
-            const { _deleted_at: _discarded, ...rest } = a;
-            return rest;
-        }
-        return a;
-    });
-    writeToLocal(updated);
-    console.log(`[Lemon] Restored in localStorage: ${sourceFile}`);
-
-    // Remove _deleted_at from Firestore
-    await authReady;
-    const docId = toDocId(sourceFile);
-    try {
-        await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { _deleted_at: deleteField() });
-        console.log(`[Lemon] Restored in Firestore: ${docId}`);
-    } catch (err) {
-        console.warn(`[Lemon] Firestore restore failed for ${docId}:`, err);
-        queueForRetry({ kind: 'restore', sourceFile });
-        useToastStore
-            .getState()
-            .addToast('Restore saved locally — cloud sync will retry', 'warning');
+  // Remove _deleted_at from localStorage entry
+  const existing = readFromLocal();
+  const updated = existing.map((a) => {
+    if (a.source_file === sourceFile) {
+      const { _deleted_at: _discarded, ...rest } = a;
+      return rest;
     }
+    return a;
+  });
+  writeToLocal(updated);
+  console.log(`[Lemon] Restored in localStorage: ${sourceFile}`);
+
+  // Remove _deleted_at from Firestore
+  await authReady;
+  const docId = toDocId(sourceFile);
+  try {
+    await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), { _deleted_at: deleteField() });
+    console.log(`[Lemon] Restored in Firestore: ${docId}`);
+  } catch (err) {
+    console.warn(`[Lemon] Firestore restore failed for ${docId}:`, err);
+    queueForRetry({ kind: 'restore', sourceFile });
+    useToastStore
+      .getState()
+      .addToast(i18n.t('Restore saved locally — cloud sync will retry'), 'warning');
+  }
 }
 
 /**
  * Get all soft-deleted analyses within the last 30 days.
  */
 export function getDeletedAnalyses(): Record<string, unknown>[] {
-    const cutoff = Date.now() - THIRTY_DAYS_MS;
-    return readFromLocal().filter((a) => {
-        if (!a._deleted_at) return false;
-        const deletedTime = new Date(a._deleted_at as string).getTime();
-        return deletedTime >= cutoff;
-    });
+  const cutoff = Date.now() - THIRTY_DAYS_MS;
+  return readFromLocal().filter((a) => {
+    if (!a._deleted_at) return false;
+    const deletedTime = new Date(a._deleted_at as string).getTime();
+    return deletedTime >= cutoff;
+  });
 }
 
 /**
@@ -589,31 +590,31 @@ export function getDeletedAnalyses(): Record<string, unknown>[] {
  * The source remains intact for Admin SDK/manual recovery and audit purposes.
  */
 export async function quarantineAnalysis(
-    raw: Record<string, unknown>,
-    reason: string,
+  raw: Record<string, unknown>,
+  reason: string,
 ): Promise<void> {
-    const sourceFile = raw.source_file as string | undefined;
-    if (!sourceFile) return;
+  const sourceFile = raw.source_file as string | undefined;
+  if (!sourceFile) return;
 
-    await authReady;
-    const docId = toDocId(sourceFile);
+  await authReady;
+  const docId = toDocId(sourceFile);
 
-    try {
-        await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), {
-            _quarantined_at: new Date().toISOString(),
-            _quarantine_reason: reason,
-            _original_collection: FIRESTORE_COLLECTION,
-        });
+  try {
+    await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), {
+      _quarantined_at: new Date().toISOString(),
+      _quarantine_reason: reason,
+      _original_collection: FIRESTORE_COLLECTION,
+    });
 
-        // Remove from localStorage
-        const existing = readFromLocal();
-        const filtered = existing.filter((a) => a.source_file !== sourceFile);
-        writeToLocal(filtered);
+    // Remove from localStorage
+    const existing = readFromLocal();
+    const filtered = existing.filter((a) => a.source_file !== sourceFile);
+    writeToLocal(filtered);
 
-        console.log(`[Lemon] Soft-quarantined "${sourceFile}": ${reason}`);
-    } catch (err) {
-        console.warn(`[Lemon] Quarantine failed for "${sourceFile}":`, err);
-    }
+    console.log(`[Lemon] Soft-quarantined "${sourceFile}": ${reason}`);
+  } catch (err) {
+    console.warn(`[Lemon] Quarantine failed for "${sourceFile}":`, err);
+  }
 }
 
 /**
@@ -621,91 +622,91 @@ export async function quarantineAnalysis(
  * Returns 0 if the collection is empty or on error.
  */
 export async function getQuarantineCount(): Promise<number> {
-    try {
-        await authReady;
-        const softQuarantineQuery = query(
-            collection(db, FIRESTORE_COLLECTION),
-            where('_quarantined_at', '>', ''),
-        );
-        const [softSnapshot, legacySnapshot] = await Promise.all([
-            getCountFromServer(softQuarantineQuery),
-            getCountFromServer(collection(db, _QUARANTINE_COLLECTION)),
-        ]);
-        return softSnapshot.data().count + legacySnapshot.data().count;
-    } catch {
-        return 0;
-    }
+  try {
+    await authReady;
+    const softQuarantineQuery = query(
+      collection(db, FIRESTORE_COLLECTION),
+      where('_quarantined_at', '>', ''),
+    );
+    const [softSnapshot, legacySnapshot] = await Promise.all([
+      getCountFromServer(softQuarantineQuery),
+      getCountFromServer(collection(db, _QUARANTINE_COLLECTION)),
+    ]);
+    return softSnapshot.data().count + legacySnapshot.data().count;
+  } catch {
+    return 0;
+  }
 }
 
 /**
  * Get count of uploaded analyses.
  */
 export async function getAnalysisCount(): Promise<number> {
-    // Fast path: use localStorage count
-    const localCount = readFromLocal().length;
-    if (localCount > 0) return localCount;
+  // Fast path: use localStorage count
+  const localCount = readFromLocal().length;
+  if (localCount > 0) return localCount;
 
-    // Fallback: query Firestore
-    try {
-        await authReady;
-        const coll = collection(db, FIRESTORE_COLLECTION);
-        const snapshot = await getCountFromServer(coll);
-        return snapshot.data().count;
-    } catch {
-        return 0;
-    }
+  // Fallback: query Firestore
+  try {
+    await authReady;
+    const coll = collection(db, FIRESTORE_COLLECTION);
+    const snapshot = await getCountFromServer(coll);
+    return snapshot.data().count;
+  } catch {
+    return 0;
+  }
 }
 
 /**
  * Soft-delete multiple analyses by source_file keys (batch soft-delete).
  */
 export async function softDeleteMultipleAnalyses(sourceFiles: string[]): Promise<void> {
-    if (sourceFiles.length === 0) return;
-    const deletedAt = new Date().toISOString();
+  if (sourceFiles.length === 0) return;
+  const deletedAt = new Date().toISOString();
 
-    // Set _deleted_at on all matching localStorage entries in one pass
-    const existing = readFromLocal();
-    const sourceFileSet = new Set(sourceFiles);
-    const updated = existing.map((a) =>
-        sourceFileSet.has(a.source_file as string) ? { ...a, _deleted_at: deletedAt } : a,
-    );
-    writeToLocal(updated);
-    console.log(`[Lemon] Soft-deleted ${sourceFiles.length} analyses in localStorage`);
+  // Set _deleted_at on all matching localStorage entries in one pass
+  const existing = readFromLocal();
+  const sourceFileSet = new Set(sourceFiles);
+  const updated = existing.map((a) =>
+    sourceFileSet.has(a.source_file as string) ? { ...a, _deleted_at: deletedAt } : a,
+  );
+  writeToLocal(updated);
+  console.log(`[Lemon] Soft-deleted ${sourceFiles.length} analyses in localStorage`);
 
-    // Soft-delete in Firestore in parallel (batches of 10) — never throw
-    const batchSize = 10;
-    try {
-        await authReady;
-    } catch {
-        for (const sourceFile of sourceFiles) {
-            queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
+  // Soft-delete in Firestore in parallel (batches of 10) — never throw
+  const batchSize = 10;
+  try {
+    await authReady;
+  } catch {
+    for (const sourceFile of sourceFiles) {
+      queueForRetry({ kind: 'patch', sourceFile, fields: { _deleted_at: deletedAt } });
+    }
+    useToastStore
+      .getState()
+      .addToast(i18n.t('Deletes saved locally — cloud sync will retry'), 'warning');
+    return;
+  }
+  for (let i = 0; i < sourceFiles.length; i += batchSize) {
+    const batch = sourceFiles.slice(i, i + batchSize);
+    await Promise.allSettled(
+      batch.map(async (sf) => {
+        const docId = toDocId(sf);
+        try {
+          await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), {
+            _deleted_at: deletedAt,
+          });
+        } catch (err) {
+          console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
+          queueForRetry({
+            kind: 'patch',
+            sourceFile: sf,
+            fields: { _deleted_at: deletedAt },
+          });
         }
-        useToastStore
-            .getState()
-            .addToast('Deletes saved locally — cloud sync will retry', 'warning');
-        return;
-    }
-    for (let i = 0; i < sourceFiles.length; i += batchSize) {
-        const batch = sourceFiles.slice(i, i + batchSize);
-        await Promise.allSettled(
-            batch.map(async (sf) => {
-                const docId = toDocId(sf);
-                try {
-                    await updateDoc(doc(db, FIRESTORE_COLLECTION, docId), {
-                        _deleted_at: deletedAt,
-                    });
-                } catch (err) {
-                    console.warn(`[Lemon] Firestore soft-delete failed for ${docId}:`, err);
-                    queueForRetry({
-                        kind: 'patch',
-                        sourceFile: sf,
-                        fields: { _deleted_at: deletedAt },
-                    });
-                }
-            }),
-        );
-    }
-    console.log(`[Lemon] Soft-deleted ${sourceFiles.length} analyses in Firestore`);
+      }),
+    );
+  }
+  console.log(`[Lemon] Soft-deleted ${sourceFiles.length} analyses in Firestore`);
 }
 
 /**
@@ -717,9 +718,9 @@ export const removeMultipleAnalyses = softDeleteMultipleAnalyses;
  * Reset migration flag (used when clearing all data).
  */
 export function resetMigrationFlag(): void {
-    try {
-        localStorage.removeItem(MIGRATION_KEY);
-    } catch {
-        // ignore
-    }
+  try {
+    localStorage.removeItem(MIGRATION_KEY);
+  } catch {
+    // ignore
+  }
 }

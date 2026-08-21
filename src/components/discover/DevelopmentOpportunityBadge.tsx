@@ -1,4 +1,7 @@
-import { evaluateDevelopmentOpportunity } from '@/lib/developmentOpportunity';
+import {
+  evaluateDevelopmentOpportunity,
+  localizedOpportunityRationale,
+} from '@/lib/developmentOpportunity';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -25,7 +28,7 @@ export function DevelopmentOpportunityBadge({
           ? 'development-opportunity-badge development-opportunity-badge--compact'
           : 'development-opportunity-badge'
       }
-      title={opportunity.rationale}
+      title={localizedOpportunityRationale(opportunity, t)}
       data-testid="development-opportunity-badge"
     >
       <svg aria-hidden="true" viewBox="0 0 24 24">

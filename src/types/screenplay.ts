@@ -54,6 +54,7 @@ export interface ProducerProjectionWarning {
   severity: 'blocking' | 'warning' | 'information';
   title: string;
   detail: string;
+  params?: Record<string, string | number>;
 }
 
 export interface VerdictGateProjection {
@@ -464,6 +465,8 @@ export interface DevelopmentOpportunityEvidence {
   detail: string;
   source: 'structured_v9' | 'legacy_summary' | 'producer_take';
   pageCitations: number[];
+  messageCode?: string;
+  messageParams?: Record<string, string | number>;
 }
 
 export interface DevelopmentOpportunity {
@@ -478,6 +481,57 @@ export interface DevelopmentOpportunity {
   source: 'structured_v9' | 'legacy_summary' | 'producer_take';
   requiresProducerLook: boolean;
   opportunityScore: number;
+  rationaleCode?: string;
+  rationaleParams?: Record<string, string | number>;
+}
+
+// A saved translation overlays narrative text only. Identity, scores, verdicts,
+// model IDs, citations, and source files always come from the original analysis.
+export interface LocalizedAnalysisContent {
+  logline?: string;
+  tone?: string;
+  recommendationRationale?: string;
+  verdictStatement?: string;
+  dimensionJustifications?: Partial<DimensionJustifications>;
+  commercialViabilityNotes?: Partial<Record<keyof Omit<CommercialViability, 'cvsTotal' | 'cvsAssessed'>, string>>;
+  criticalFailures?: string[];
+  criticalFailureDetails?: Array<Pick<CriticalFailureDetail, 'failure' | 'evidence'>>;
+  majorWeaknesses?: string[];
+  strengths?: string[];
+  weaknesses?: string[];
+  developmentNotes?: string[];
+  budgetJustification?: string;
+  characters?: Partial<Characters>;
+  structureAnalysis?: Partial<Pick<StructureAnalysis, 'actBreaks' | 'pacing'>>;
+  comparableFilms?: Array<Pick<ComparableFilm, 'similarity' | 'keyDivergence'>>;
+  standoutScenes?: Array<Pick<StandoutScene, 'scene' | 'why'>>;
+  targetAudience?: Partial<Pick<TargetAudience, 'primaryDemographic' | 'interests'>>;
+  filmNowAssessment?: Partial<Pick<FilmNowAssessment, 'lightningTest' | 'goosebumpsMoments' | 'careerRiskTest' | 'legacyPotential' | 'disqualifyingFactors'>>;
+  producerMetrics?: Partial<Pick<ProducerMetrics, 'marketPotentialRationale' | 'uspStrengthRationale'>>;
+  readerDisagreements?: Array<Pick<ReaderDisagreement, 'topic' | 'readerAPosition' | 'readerBPosition' | 'resolution'>>;
+  readerReports?: Array<{
+    reader: string;
+    label?: string;
+    oneSentenceVerdict?: string;
+    redFlags?: string[];
+    subScores?: Array<Partial<Pick<ReaderSubScoreEvidence, 'label' | 'justification'>>>;
+  }>;
+  developmentOpportunity?: {
+    rationale?: string;
+    evidence?: Array<Partial<Pick<DevelopmentOpportunityEvidence, 'label' | 'detail'>>>;
+    risks?: string[];
+  };
+}
+
+export interface LocalizedAnalysis {
+  sourceVersionId: string;
+  generatedAt: string;
+  model: string;
+  content: LocalizedAnalysisContent;
+}
+
+export interface LocalizedAnalysisMap {
+  es?: LocalizedAnalysis;
 }
 
 // ============================================
@@ -501,6 +555,7 @@ export interface Screenplay {
   analysisModel: string;
   analysisVersion: string;
   analysisQuality?: AnalysisQuality;
+  localizedAnalysis?: LocalizedAnalysisMap;
   producerProjection?: ProducerProjection;
   /** Separate safety-net routing. Never changes the stored score or verdict. */
   developmentOpportunity?: DevelopmentOpportunity;

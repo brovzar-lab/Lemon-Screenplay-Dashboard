@@ -10,12 +10,14 @@
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
 import { AnalysisWarnings } from '@/components/screenplay/modal/AnalysisWarnings';
+import { useTranslation } from 'react-i18next';
 
 interface AlertBannersProps {
     screenplay: Screenplay;
 }
 
 export function AlertBanners({ screenplay }: AlertBannersProps) {
+    const { t } = useTranslation();
     return (
         <>
             <AnalysisWarnings screenplay={screenplay} />
@@ -33,7 +35,7 @@ export function AlertBanners({ screenplay }: AlertBannersProps) {
             {/* Critical Failures */}
             {screenplay.criticalFailures.length > 0 && (
                 <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                    <h4 className="text-amber-400/80 font-semibold mb-2 text-sm">⚑ Issues flagged in analysis</h4>
+                    <h4 className="text-amber-400/80 font-semibold mb-2 text-sm">⚑ {t('Issues flagged in analysis')}</h4>
                     <ul className="list-disc list-inside space-y-1">
                         {screenplay.criticalFailures.map((failure, i) => (
                             <li key={i} className="text-amber-200/60 text-sm">

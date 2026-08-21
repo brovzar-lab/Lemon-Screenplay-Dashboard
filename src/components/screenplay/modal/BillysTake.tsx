@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 import type { RecommendationTier } from '@/types/screenplay';
 import { SectionHeader } from './SectionHeader';
@@ -28,6 +29,7 @@ const VERDICTS: { tier: RecommendationTier; label: string; color: string }[] = [
 ];
 
 export function BillysTake({ screenplay }: BillysTakeProps) {
+  const { t } = useTranslation();
   const [selected, setSelected]   = useState<RecommendationTier | null>(null);
   const [note, setNote]           = useState('');
   const [saving, setSaving]       = useState(false);
@@ -92,13 +94,13 @@ export function BillysTake({ screenplay }: BillysTakeProps) {
 
   return (
     <div className="space-y-3">
-      <SectionHeader icon="🧠">Billy's Take</SectionHeader>
+      <SectionHeader icon="🧠">{t("Billy's Take")}</SectionHeader>
 
       {/* AI verdict reference */}
       <p className="text-xs text-black-400">
-        AI verdict: <span className="text-black-300 font-medium capitalize">{aiVerdict.replace('_', ' ')}</span>
+        {t('AI verdict:')} <span className="text-black-300 font-medium capitalize">{t(aiVerdict.replace('_', ' '))}</span>
         {delta && (
-          <span className="ml-2 text-gold-400/70">← you disagree</span>
+          <span className="ml-2 text-gold-400/70">← {t('you disagree')}</span>
         )}
       </p>
 
@@ -116,7 +118,7 @@ export function BillysTake({ screenplay }: BillysTakeProps) {
               color
             )}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>
@@ -128,7 +130,7 @@ export function BillysTake({ screenplay }: BillysTakeProps) {
           value={note}
           onChange={(e) => { setNote(e.target.value); setSaved(false); }}
           onBlur={handleNoteBlur}
-          placeholder="Quick note — what moved you or killed it? (optional)"
+          placeholder={t('Quick note — what moved you or killed it? (optional)')}
           className={clsx(
             'w-full px-3 py-2 rounded-lg text-sm',
             'bg-black-900/60 border border-black-700/60',
@@ -142,7 +144,7 @@ export function BillysTake({ screenplay }: BillysTakeProps) {
       {/* Save status */}
       {(saving || saved) && (
         <p className="text-xs text-black-500">
-          {saving ? 'Saving…' : '✓ Saved to Brain'}
+          {saving ? t('Saving…') : `✓ ${t('Saved to Brain')}`}
         </p>
       )}
     </div>

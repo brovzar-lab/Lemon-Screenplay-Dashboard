@@ -1,11 +1,13 @@
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '@/i18n';
 import { createTestScreenplay } from '@/test/factories';
 import { useShareStore } from '@/stores/shareStore';
 import { ScreenplayGrid } from './ScreenplayResults';
 
 describe('Discovery screenplay cards', () => {
   beforeEach(() => useShareStore.setState({ tokens: {} }));
+  afterEach(async () => i18n.changeLanguage('en'));
 
   it('shows the decision hierarchy without percentile or inactive-share noise', () => {
     const screenplay = createTestScreenplay({
@@ -46,5 +48,21 @@ describe('Discovery screenplay cards', () => {
     render(<ScreenplayGrid entries={[{ screenplay, rank: 1 }]} onOpen={vi.fn()} />);
 
     expect(screen.getByText('Active share link')).toBeInTheDocument();
+  });
+
+  it('never shows untranslated analysis text silently in Spanish', async () => {
+    await i18n.changeLanguage('es');
+    const screenplay = createTestScreenplay({
+      logline: 'An English analysis logline that must not leak into Spanish.',
+      genre: 'Society (Power/Tyranny)',
+      subgenres: ['TV Pilot'],
+    });
+
+    render(<ScreenplayGrid entries={[{ screenplay, rank: 1 }]} onOpen={vi.fn()} />);
+
+    expect(screen.getByText('Análisis disponible en inglés')).toBeInTheDocument();
+    expect(screen.queryByText(screenplay.logline)).not.toBeInTheDocument();
+    expect(screen.getByText('Sociedad (poder/tiranía)')).toBeInTheDocument();
+    expect(screen.getByText('Piloto de TV')).toBeInTheDocument();
   });
 });

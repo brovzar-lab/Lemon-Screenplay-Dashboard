@@ -40,7 +40,7 @@ describe('ApplicationHeader', () => {
   });
 
   it('renders the complete canonical signed-in chrome and preserves the selected visual system', () => {
-    render(
+    const { container } = render(
       <MemoryRouter initialEntries={['/settings?tab=analysis']}>
         <ApplicationHeader />
       </MemoryRouter>,
@@ -59,7 +59,8 @@ describe('ApplicationHeader', () => {
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('Synced')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Language' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Design system: Instrument')).toHaveTextContent('Instrument');
+    expect(screen.queryByText('Instrument')).not.toBeInTheDocument();
+    expect(container.querySelector('.application-header__divider')).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Appearance' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'User menu' })).toBeInTheDocument();
     expect(state.setDesignSystem).not.toHaveBeenCalled();

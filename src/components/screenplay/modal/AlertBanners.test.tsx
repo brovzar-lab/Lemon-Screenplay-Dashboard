@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createTestScreenplay } from '@/test/factories';
+import i18n from '@/i18n';
 import { AlertBanners } from './AlertBanners';
 
 describe('AlertBanners analysis quality', () => {
@@ -88,5 +89,23 @@ describe('AlertBanners analysis quality', () => {
     expect(screen.getByText('Verdict stability warning')).toBeInTheDocument();
     expect(screen.getByText('Specialist readers disagreed')).toBeInTheDocument();
     expect(screen.getByText('Legacy analysis')).toBeInTheDocument();
+  });
+
+  it('renders application-generated warnings in Spanish from stable codes', async () => {
+    await i18n.changeLanguage('es');
+    const screenplay = createTestScreenplay({
+      analysisQuality: {
+        status: 'partial',
+        completedReaders: 3,
+        expectedReaders: 5,
+        failedReaders: ['concept', 'emotional_resonance'],
+      },
+    });
+
+    render(<AlertBanners screenplay={screenplay} />);
+
+    expect(screen.getByText('Panel de lectores incompleto')).toBeInTheDocument();
+    expect(screen.getByText('Decisión bloqueada')).toBeInTheDocument();
+    expect(screen.getByText(/completaron 3 de 5 lectores/i)).toBeInTheDocument();
   });
 });

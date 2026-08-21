@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 import { formatAnalysisVersion } from '@/lib/producerDisplay';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
@@ -19,7 +20,9 @@ export function BlueSpineScript({
   rank,
   presentation = 'full',
 }: BlueSpineScriptProps) {
+  const { t } = useTranslation();
   const displayTitle = getScreenplayDisplayTitle(screenplay.title);
+  const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
   const isCompact = presentation === 'compact';
 
   return (
@@ -47,15 +50,15 @@ export function BlueSpineScript({
       </div>
       {!isCompact && (
         <>
-          {getScreenplayDisplayAuthor(screenplay.author) && (
+          {displayAuthor && (
             <div className="screenplay-object__byline">
-              <span>Written by</span>
-              <small>{getScreenplayDisplayAuthor(screenplay.author)}</small>
+              <span>{t('Written by')}</span>
+              <small>{t(displayAuthor)}</small>
             </div>
           )}
           <div className="screenplay-object__folio">
             <span>LEMON STUDIOS</span>
-            <span>{formatAnalysisVersion(screenplay.analysisVersion)}</span>
+            <span>{t(formatAnalysisVersion(screenplay.analysisVersion))}</span>
           </div>
         </>
       )}

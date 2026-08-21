@@ -10,13 +10,16 @@ import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { Note } from '@/types/filters';
 import { s, C, boLabel, fmtDate, hasSceneData, hasFilmData } from './shared';
 import { Footer, IntHeader } from './SharedComponents';
+import i18n, { type UiLanguage } from '@/i18n';
 
 interface AppendixPageProps {
   screenplay: Screenplay;
   notes: Note[];
+  language?: UiLanguage;
 }
 
-export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
+export function AppendixPage({ screenplay, notes, language = 'en' }: AppendixPageProps) {
+  const t = i18n.getFixedT(language);
   const comps = (screenplay.comparableFilms ?? []).filter((f) => hasFilmData(f));
   const scenes = (screenplay.standoutScenes ?? []).filter((sc) => hasSceneData(sc));
 
@@ -26,18 +29,18 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
 
       {/* Characters */}
       <View style={s.section}>
-        <Text style={s.heading}>Characters</Text>
+        <Text style={s.heading}>{t('Characters')}</Text>
         <View style={s.charBlock} wrap={false}>
-          <Text style={s.charRole}>Protagonist</Text>
+          <Text style={s.charRole}>{t('Protagonist')}</Text>
           <Text style={s.charDesc}>{screenplay.characters.protagonist || '—'}</Text>
         </View>
         <View style={s.charBlock} wrap={false}>
-          <Text style={s.charRole}>Antagonist</Text>
+          <Text style={s.charRole}>{t('Antagonist')}</Text>
           <Text style={s.charDesc}>{screenplay.characters.antagonist || '—'}</Text>
         </View>
         {(screenplay.characters.supporting?.length ?? 0) > 0 && (
           <View style={s.charBlock}>
-            <Text style={s.charRole}>Supporting Cast</Text>
+            <Text style={s.charRole}>{t('Supporting Cast')}</Text>
             {screenplay.characters.supporting.map((ch, i) => (
               <View key={i} style={s.li} wrap={false}>
                 <Text style={[s.bullet, { color: C.grey500 }]}>-</Text>
@@ -51,7 +54,7 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
       {/* Comparable Films — only if any have real data */}
       {comps.length > 0 && (
         <View style={s.section}>
-          <Text style={s.heading}>Comparable Films</Text>
+          <Text style={s.heading}>{t('Comparable Films')}</Text>
           {comps.map((film, i) => {
             const bo = film.boxOfficeRelevance ? boLabel(film.boxOfficeRelevance) : null;
             return (
@@ -61,13 +64,13 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
                   {film.similarity ? <Text style={s.compSim}>{film.similarity}</Text> : null}
                   {film.keyDivergence ? (
                     <Text style={[s.compSim, { fontStyle: 'italic', marginTop: 2 }]}>
-                      Key Divergence: {film.keyDivergence}
+                    {t('Key Divergence')}: {film.keyDivergence}
                     </Text>
                   ) : null}
                 </View>
                 {bo ? (
                   <Text style={[s.compBadge, { color: bo.color, backgroundColor: bo.bg }]}>
-                    {bo.text}
+                    {t(bo.text)}
                   </Text>
                 ) : film.comparisonLens ? (
                   <Text style={s.compBadge}>{film.comparisonLens.toUpperCase()}</Text>
@@ -80,22 +83,22 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
 
       {/* Target Audience */}
       <View style={s.section}>
-        <Text style={s.heading}>Target Audience</Text>
+        <Text style={s.heading}>{t('Target Audience')}</Text>
         <View style={s.audGrid}>
           <View style={s.audItem}>
-            <Text style={s.audLabel}>Primary Demographic</Text>
+            <Text style={s.audLabel}>{t('Primary Demographic')}</Text>
             <Text style={s.audValue}>
-              {screenplay.targetAudience.primaryDemographic || 'Not specified'}
+              {screenplay.targetAudience.primaryDemographic || t('Not specified')}
             </Text>
           </View>
           <View style={s.audItem}>
-            <Text style={s.audLabel}>Gender Skew</Text>
+            <Text style={s.audLabel}>{t('Gender Skew')}</Text>
             <Text style={s.audValue}>{screenplay.targetAudience.genderSkew}</Text>
           </View>
         </View>
         {(screenplay.targetAudience.interests?.length ?? 0) > 0 && (
           <View>
-            <Text style={s.audLabel}>Interests</Text>
+            <Text style={s.audLabel}>{t('Interests')}</Text>
             <Text style={s.audValue}>{screenplay.targetAudience.interests.join(', ')}</Text>
           </View>
         )}
@@ -104,7 +107,7 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
       {/* Standout Scenes — only if any have real data */}
       {scenes.length > 0 && (
         <View style={s.section}>
-          <Text style={s.heading}>Standout Scenes</Text>
+          <Text style={s.heading}>{t('Standout Scenes')}</Text>
           {scenes.map((sc, i) => {
             const label = [sc.scene, sc.why].filter(Boolean).join(' — ');
             return (
@@ -120,17 +123,17 @@ export function AppendixPage({ screenplay, notes }: AppendixPageProps) {
       {/* Producer Notes */}
       {notes.length > 0 && (
         <View style={s.section}>
-          <Text style={s.heading}>Producer Notes</Text>
+          <Text style={s.heading}>{t('Producer Notes')}</Text>
           {notes.map((note) => (
             <View key={note.id} style={s.noteCard} wrap={false}>
               <Text style={s.noteText}>{note.content}</Text>
-              <Text style={s.noteDate}>{fmtDate(note.createdAt)}</Text>
+              <Text style={s.noteDate}>{fmtDate(note.createdAt, language === 'es' ? 'es-MX' : 'en-US')}</Text>
             </View>
           ))}
         </View>
       )}
 
-      <Footer />
+      <Footer language={language} />
     </Page>
   );
 }

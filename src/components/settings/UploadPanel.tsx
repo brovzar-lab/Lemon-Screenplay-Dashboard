@@ -224,42 +224,45 @@ export function UploadPanel({
               unsub();
               resolve();
             } else if (update.status === 'failed') {
+              if (update.error) console.error('[Upload] Daemon analysis failed:', update.error);
               updateJob(jobId, {
                 status: 'error',
-                error: update.error || 'Daemon analysis failed',
+                error: 'Daemon analysis failed',
               });
               unsub();
               resolve();
             } else if (update.status === 'skipped') {
+              if (update.error) console.warn('[Upload] Job skipped:', update.error);
               updateJob(jobId, {
                 status: 'skipped',
-                error: update.error || 'Job skipped',
+                error: 'Job skipped',
               });
               unsub();
               resolve();
             } else if (update.status === 'needs_review') {
+              if (update.error) console.warn('[Upload] Evidence needs review:', update.error);
               updateJob(jobId, {
                 status: 'needs_review',
-                error: update.error || 'The screenplay evidence needs review',
+                error: 'The screenplay evidence needs review',
               });
               unsub();
               resolve();
             }
           },
           (err) => {
-            updateJob(jobId, { status: 'error', error: `Subscription error: ${err.message}` });
+            console.error('[Upload] Queue subscription failed:', err);
+            updateJob(jobId, { status: 'error', error: 'Queue connection failed' });
             unsub();
             resolve();
           },
         );
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
       console.error('[Upload] Failed to enqueue job:', err);
-      useToastStore.getState().addToast(`Upload failed: ${message}`);
-      updateJob(jobId, { status: 'error', error: message });
+      useToastStore.getState().addToast(t('Upload failed'));
+      updateJob(jobId, { status: 'error', error: 'Upload failed' });
     }
-  }, [getFile, updateJob, queryClient]);
+  }, [getFile, updateJob, queryClient, t]);
 
   const processJobs = useCallback(async () => {
     if (isProcessing) return;
@@ -298,7 +301,11 @@ export function UploadPanel({
       job.ingestQueueStoragePath!,
       (update) => {
         if (update.status === 'pending' || update.status === 'waiting_for_budget') {
-          updateJob(job.id, { status: 'analyzing', progress: 20, error: update.error });
+          updateJob(job.id, {
+            status: 'analyzing',
+            progress: 20,
+            error: update.error ? 'Waiting for the next daily AI budget window' : undefined,
+          });
         } else if (update.status === 'processing') {
           updateJob(job.id, { status: 'analyzing', progress: 60, error: undefined });
         } else if (update.status === 'complete') {
@@ -316,14 +323,23 @@ export function UploadPanel({
           });
           queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
         } else if (update.status === 'failed') {
-          updateJob(job.id, { status: 'error', error: update.error || 'Daemon analysis failed' });
+          if (update.error) console.error('[Upload] Daemon analysis failed:', update.error);
+          updateJob(job.id, { status: 'error', error: 'Daemon analysis failed' });
         } else if (update.status === 'skipped') {
-          updateJob(job.id, { status: 'skipped', error: update.error || 'Job skipped' });
+          if (update.error) console.warn('[Upload] Job skipped:', update.error);
+          updateJob(job.id, { status: 'skipped', error: 'Job skipped' });
         } else if (update.status === 'needs_review') {
-          updateJob(job.id, { status: 'needs_review', error: update.error || 'The screenplay evidence needs review' });
+          if (update.error) console.warn('[Upload] Evidence needs review:', update.error);
+          updateJob(job.id, {
+            status: 'needs_review',
+            error: 'The screenplay evidence needs review',
+          });
         }
       },
-      (err) => updateJob(job.id, { status: 'error', error: `Subscription error: ${err.message}` }),
+      (err) => {
+        console.error('[Upload] Queue subscription failed:', err);
+        updateJob(job.id, { status: 'error', error: 'Queue connection failed' });
+      },
     ));
     return () => subscriptions.forEach((unsubscribe) => unsubscribe());
   }, [isProcessing, queryClient, updateJob]);

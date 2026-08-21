@@ -44,12 +44,10 @@ export function PosterControls({ screenplay }: { screenplay: Screenplay }) {
           result.status === 'skipped' ? 'warning' : 'success',
         );
     } catch (error) {
+      console.error('[PosterControls] Poster generation failed:', error);
       useToastStore
         .getState()
-        .addToast(
-          error instanceof Error ? error.message : t('Poster generation failed'),
-          'warning',
-        );
+        .addToast(t('Poster generation failed'), 'warning');
     } finally {
       setWorking(false);
     }

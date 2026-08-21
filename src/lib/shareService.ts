@@ -39,7 +39,9 @@ import type {
     RecommendationTier,
     PillarScore,
     ProducerProjection,
+    LocalizedAnalysisMap,
 } from '@/types';
+import { savedLocalizedAnalysis } from '@/lib/localizedAnalysis';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -65,6 +67,7 @@ export interface SharedViewDocument {
     expiresAtMillis?: number;
     pdfUrl: string | null;
     posterUrl: string | null;
+    localizedAnalysis?: LocalizedAnalysisMap;
     analysis: {
         title: string;
         author: string;
@@ -238,6 +241,9 @@ export async function createShareToken(
         pdfUrl,
         posterUrl: screenplay.posterUrl || null,
         analysis: buildAnalysisSnapshot(screenplay),
+        ...(savedLocalizedAnalysis(screenplay, 'es') && {
+            localizedAnalysis: { es: savedLocalizedAnalysis(screenplay, 'es') },
+        }),
     };
 
     // Include notes only when requested and available

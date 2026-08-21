@@ -11,6 +11,8 @@ import {
 } from '@/components/screenplay/modal';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
+import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
+import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
 import type { Screenplay } from '@/types';
 import { useIsAdmin } from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +26,10 @@ const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
+  const displayedScreenplay = localizedScreenplay(screenplay, language);
+  const analysisFallback = analysisIsEnglishFallback(screenplay, language);
   const isAdmin = useIsAdmin();
   const drawerRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -113,26 +118,27 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
         <div className="dsc-drawer-body relative z-10 min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-5 lg:p-6">
             <AnalysisWarnings screenplay={screenplay} />
-            <section className="dsc-card p-5 sm:p-6" aria-labelledby="drawer-executive-read">
+            <AnalysisLanguageNotice screenplay={screenplay} />
+            {!analysisFallback && <section className="dsc-card p-5 sm:p-6" aria-labelledby="drawer-executive-read">
               <p className="dsc-kicker">{t('The read')}</p>
               <h3 id="drawer-executive-read" className="dsc-display mt-2 text-3xl">
                 {t('Executive read')}
               </h3>
               <div className="mt-5 grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
                 <div>
-                  {screenplay.logline && (
+                  {displayedScreenplay.logline && (
                     <>
                       <p className="dsc-label dsc-label-faint">{t('Logline')}</p>
                       <p className="mt-2 text-base leading-7 text-[var(--dsc-ink-2)]">
-                        {screenplay.logline}
+                        {displayedScreenplay.logline}
                       </p>
                     </>
                   )}
-                  {screenplay.verdictStatement && (
+                  {displayedScreenplay.verdictStatement && (
                     <div className="dsc-executive-verdict mt-5">
                       <p className="dsc-label">{t('Recommendation')}</p>
                       <p className="mt-2 text-sm leading-6 text-[var(--dsc-ink)]">
-                        {screenplay.verdictStatement}
+                        {displayedScreenplay.verdictStatement}
                       </p>
                     </div>
                   )}
@@ -141,9 +147,9 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
                 <div className="dsc-executive-evidence">
                   <div>
                     <p className="dsc-label">{t('Strengths')}</p>
-                    {screenplay.strengths.length > 0 ? (
+                    {displayedScreenplay.strengths.length > 0 ? (
                       <ul className="mt-3 space-y-2">
-                        {screenplay.strengths.slice(0, 3).map((strength) => (
+                        {displayedScreenplay.strengths.slice(0, 3).map((strength) => (
                           <li
                             key={strength}
                             className="flex gap-2 text-sm leading-5 text-[var(--dsc-ink-2)]"
@@ -162,9 +168,9 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
 
                   <div>
                     <p className="dsc-label">{t('Watch points')}</p>
-                    {screenplay.weaknesses.length > 0 ? (
+                    {displayedScreenplay.weaknesses.length > 0 ? (
                       <ul className="mt-3 space-y-2">
-                        {screenplay.weaknesses.slice(0, 2).map((weakness) => (
+                        {displayedScreenplay.weaknesses.slice(0, 2).map((weakness) => (
                           <li
                             key={weakness}
                             className="flex gap-2 text-sm leading-5 text-[var(--dsc-ink-2)]"
@@ -184,26 +190,26 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
                   </div>
                 </div>
               </div>
-            </section>
+            </section>}
 
-            <section
+            {!analysisFallback && <section
               data-testid="discovery-scores-panel"
               className="dsc-card p-4 sm:p-5"
               aria-label={t('Screenplay scores')}
             >
-              <ScoresPanel screenplay={screenplay} />
-            </section>
+              <ScoresPanel screenplay={displayedScreenplay} />
+            </section>}
             {isAdmin && <ProducerTake screenplay={screenplay} />}
-            <section
+            {!analysisFallback && <section
               data-testid="discovery-content-details"
               className="dsc-card space-y-7 p-4 sm:p-5"
               aria-label={t('Screenplay details')}
             >
-              <ContentDetails screenplay={screenplay} />
-            </section>
-            <section className="dsc-card p-4 sm:p-5" aria-label={t('Specialist reader evidence')}>
-              <DeferredReaderEvidence screenplay={screenplay} />
-            </section>
+              <ContentDetails screenplay={displayedScreenplay} />
+            </section>}
+            {!analysisFallback && <section className="dsc-card p-4 sm:p-5" aria-label={t('Specialist reader evidence')}>
+              <DeferredReaderEvidence screenplay={displayedScreenplay} />
+            </section>}
             <section
               data-testid="discovery-notes-panel"
               className="dsc-card p-4 sm:p-5"

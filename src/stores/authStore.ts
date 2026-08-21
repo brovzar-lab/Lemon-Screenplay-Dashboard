@@ -81,9 +81,18 @@ async function loadOrCreateProfile(user: User): Promise<UserProfile> {
   return profile;
 }
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return 'Sign-in failed. Please try again.';
+export function getAuthErrorKey(error: unknown): string {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+  const keys: Record<string, string> = {
+    'auth/network-request-failed': 'auth.error.network',
+    'auth/popup-blocked': 'auth.error.popup_blocked',
+    'auth/popup-closed-by-user': 'auth.error.popup_closed',
+    'auth/too-many-requests': 'auth.error.too_many_requests',
+    'auth/unauthorized-domain': 'auth.error.unavailable',
+    'auth/user-disabled': 'auth.error.account_disabled',
+  };
+  return keys[code] ?? 'auth.error.generic';
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -111,7 +120,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             profile: null,
             status: 'signed_out',
             isSigningIn: false,
-            error: 'Use your @lemonfilms.com Google account.',
+            error: 'auth.error.lemon_account_required',
           });
         }
         return;
@@ -131,7 +140,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           profile: null,
           status: 'signed_out',
           isSigningIn: false,
-          error: getErrorMessage(error),
+          error: getAuthErrorKey(error),
         });
       }
     });
@@ -142,7 +151,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await signInWithGoogle();
     } catch (error) {
-      set({ isSigningIn: false, error: getErrorMessage(error) });
+      set({ isSigningIn: false, error: getAuthErrorKey(error) });
     }
   },
 
@@ -151,7 +160,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await signInWithGoogleIdToken(idToken);
     } catch (error) {
-      set({ isSigningIn: false, error: getErrorMessage(error) });
+      set({ isSigningIn: false, error: getAuthErrorKey(error) });
     }
   },
 
@@ -160,7 +169,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await signInForLocalReview();
     } catch (error) {
-      set({ isSigningIn: false, error: getErrorMessage(error) });
+      set({ isSigningIn: false, error: getAuthErrorKey(error) });
     }
   },
 

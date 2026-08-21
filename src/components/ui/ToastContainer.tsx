@@ -7,8 +7,10 @@
  */
 
 import { useToastStore, MAX_VISIBLE } from '@/stores/toastStore';
+import { useTranslation } from 'react-i18next';
 
 export function ToastContainer() {
+    const { t } = useTranslation();
     const toasts = useToastStore((s) => s.toasts);
     const removeToast = useToastStore((s) => s.removeToast);
 
@@ -43,14 +45,14 @@ export function ToastContainer() {
                             {toast.message}
                             {showOverflow && (
                                 <span className="text-white/50 ml-1">
-                                    (+{overflowCount} more)
+                                    {t('(+{{count}} more)', { count: overflowCount })}
                                 </span>
                             )}
                         </span>
                         <button
                             onClick={() => removeToast(toast.id)}
                             className="text-white/50 hover:text-white/80 shrink-0 cursor-pointer"
-                            aria-label="Dismiss toast"
+                            aria-label={t('Dismiss toast')}
                         >
                             &#x2715;
                         </button>

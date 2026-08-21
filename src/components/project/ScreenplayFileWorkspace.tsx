@@ -5,6 +5,7 @@ import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportAct
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
 import { PosterControls } from '@/components/project/PosterControls';
+import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import { ReaderRoom } from '@/components/project/ReaderRoom';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
@@ -24,8 +25,13 @@ import {
   formatProducerTaxonomy,
   formatProducerText,
 } from '@/lib/producerDisplay';
-import { evaluateDevelopmentOpportunity } from '@/lib/developmentOpportunity';
+import {
+  evaluateDevelopmentOpportunity,
+  localizedOpportunityRationale,
+  localizedOpportunitySignal,
+} from '@/lib/developmentOpportunity';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import { analysisIsEnglishFallback } from '@/lib/localizedAnalysis';
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
@@ -168,7 +174,7 @@ function EvidenceRail({
         )}
         <div>
           <dt>{t('Analysis version')}</dt>
-          <dd>{formatAnalysisVersion(screenplay.analysisVersion)}</dd>
+          <dd>{t(formatAnalysisVersion(screenplay.analysisVersion))}</dd>
         </div>
         <div>
           <dt>{t('Project versions')}</dt>
@@ -222,9 +228,7 @@ function PosterPanel({ screenplay }: { screenplay: Screenplay }) {
         )}
       </div>
       <div className="screenplay-file__poster-workbench">
-        <p className="screenplay-file__micro screenplay-file__micro--blue">
-          {t('Poster artwork')}
-        </p>
+        <p className="screenplay-file__micro screenplay-file__micro--blue">{t('Poster artwork')}</p>
         <h3>
           {screenplay.recommendation === 'pass'
             ? t('Archived for a Pass verdict')
@@ -272,12 +276,18 @@ function Overview({
             <div>
               <p className="screenplay-file__micro">{t('Development opportunity')}</p>
               <h3 id="screenplay-file-opportunity-heading">{t('Producer Look')}</h3>
-              <p>{formatProducerText(opportunity.rationale)}</p>
+              <p>{formatProducerText(localizedOpportunityRationale(opportunity, t))}</p>
             </div>
             <dl>
               <div>
                 <dt>{t('Strongest upside')}</dt>
-                <dd>{opportunity.evidence[0]?.label ?? t('Development upside')}</dd>
+                <dd>
+                  {localizedOpportunitySignal(
+                    opportunity.strongestSignal,
+                    opportunity.evidence[0]?.label ?? t('Development upside'),
+                    t,
+                  )}
+                </dd>
               </div>
               <div>
                 <dt>{t('Fixability')}</dt>
@@ -290,7 +300,10 @@ function Overview({
               <div>
                 <dt>{t('Decision status')}</dt>
                 <dd>
-                  {finalScore(screenplay).toFixed(1)} · {recommendationTitle(screenplay)} preserved
+                  {t('{{score}} · {{verdict}} preserved', {
+                    score: finalScore(screenplay).toFixed(1),
+                    verdict: recommendationTitle(screenplay).toUpperCase(),
+                  })}
                 </dd>
               </div>
             </dl>
@@ -364,7 +377,9 @@ export function ScreenplayFileWorkspace({
   onSelectTab,
   onBack,
 }: ScreenplayFileWorkspaceProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
+  const analysisFallback = analysisIsEnglishFallback(screenplay, language);
   const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
   const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -397,6 +412,12 @@ export function ScreenplayFileWorkspace({
   }, [activeTab, isAdmin, onSelectTab]);
 
   const renderPanel = () => {
+    if (
+      analysisFallback &&
+      ['overview', 'scores', 'reader-room', 'story-x-ray'].includes(activeTab)
+    ) {
+      return null;
+    }
     if (activeTab === 'scores')
       return (
         <ScoresPanel
@@ -484,8 +505,8 @@ export function ScreenplayFileWorkspace({
           <h1>{displayTitle}</h1>
           <p className="screenplay-file__meta">
             {[
-              formatProducerTaxonomy(screenplay.genre),
-              displayAuthor,
+              t(formatProducerTaxonomy(screenplay.genre)),
+              displayAuthor ? t(displayAuthor) : undefined,
               screenplay.metadata.pageCount
                 ? t('{{count}} pages', { count: screenplay.metadata.pageCount })
                 : undefined,
@@ -493,9 +514,11 @@ export function ScreenplayFileWorkspace({
               .filter(Boolean)
               .join(' · ')}
           </p>
-          {screenplay.logline && (
-            <p className="screenplay-file__logline">{formatProducerText(screenplay.logline)}</p>
-          )}
+          <p className="screenplay-file__logline">
+            {analysisFallback
+              ? t('Analysis available in English')
+              : formatProducerText(screenplay.logline)}
+          </p>
           <div className="screenplay-file__status">
             <AnalysisTrustBadge screenplay={screenplay} />
             <DiscoveryShareStatus screenplay={screenplay} />
@@ -526,6 +549,7 @@ export function ScreenplayFileWorkspace({
       </section>
 
       <main className="screenplay-file__main">
+        <AnalysisLanguageNotice screenplay={screenplay} />
         <div className="screenplay-file__binder">
           <div className="screenplay-file__toolbar">
             <nav aria-label={t('Screenplay file sections')} role="tablist">

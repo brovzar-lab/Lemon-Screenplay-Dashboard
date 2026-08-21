@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ExportModal } from './ExportModal';
+import i18n from '@/i18n';
 
 // Suppress console.error noise from @react-pdf/renderer in test env
 vi.mock('@react-pdf/renderer', () => ({
@@ -38,6 +39,21 @@ const baseProps = {
 };
 
 describe('BULK-03 export scope confirmation', () => {
+  it('localizes export scope and controls in Spanish', async () => {
+    await i18n.changeLanguage('es');
+    render(
+      <ExportModal
+        {...baseProps}
+        mode="selected"
+        screenplays={makeScreenplays(2) as any[]}
+      />
+    );
+
+    expect(screen.getByText('Exportando 2 guiones seleccionados')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Exportar 2 guiones' })).toBeInTheDocument();
+    expect(screen.getByText('Presentación en PDF')).toBeInTheDocument();
+  });
+
   it("'selected' mode shows \"Exporting X selected screenplays\"", () => {
     const fiveScreenplays = makeScreenplays(5);
     render(

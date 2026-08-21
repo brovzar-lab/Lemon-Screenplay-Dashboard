@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SetCategoryModal } from './SetCategoryModal';
+import i18n from '@/i18n';
 
 // Mock useCategories
 const mockCategories = [
@@ -82,6 +83,14 @@ describe('SetCategoryModal', () => {
   it('renders modal title "Set Category"', () => {
     render(<SetCategoryModal isOpen={true} onClose={mockOnClose} />);
     expect(screen.getByText('Set Category', { selector: 'h3' })).toBeInTheDocument();
+  });
+
+  it('localizes the category dialog in Spanish', async () => {
+    await i18n.changeLanguage('es');
+    render(<SetCategoryModal isOpen={true} onClose={mockOnClose} />);
+
+    expect(screen.getByText('Asignar categoría', { selector: 'h3' })).toBeInTheDocument();
+    expect(screen.getByText('Asignar categoría', { selector: 'button' })).toBeInTheDocument();
   });
 
   it('renders category dropdown with options from useCategories', () => {

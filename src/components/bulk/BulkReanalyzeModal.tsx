@@ -5,6 +5,7 @@
  */
 
 import { useRef, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import type { Screenplay } from '@/types';
@@ -29,6 +30,7 @@ interface BulkReanalyzeModalProps {
 }
 
 export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanalyzeModalProps) {
+  const { t } = useTranslation();
   const stoppedWatchingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -77,19 +79,12 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
           stoppedWatchingRef.current = true;
           setItemStatus(sp.id, 'continuing');
           const remaining = eligible.length - index - 1;
-          setSummary(
-            `Stopped watching. The current queued analysis continues on the VPS; `
-              + `${remaining} remaining ${remaining === 1 ? 'screenplay was' : 'screenplays were'} not started.`
-          );
+          setSummary(t('Stopped watching. The current queued analysis continues on the VPS; {{count}} remaining screenplay was not started.', { count: remaining }));
         } else {
           success = false;
           if (stoppedWatchingRef.current) {
             const remaining = eligible.length - index - 1;
-            setSummary(
-              `Stopped watching. This analysis could not be confirmed in the queue; `
-                + `check Upload Issues before retrying. ${remaining} remaining `
-                + `${remaining === 1 ? 'screenplay was' : 'screenplays were'} not started.`
-            );
+            setSummary(t('Stopped watching. This analysis could not be confirmed in the queue; check Upload Issues before retrying. {{count}} remaining screenplay was not started.', { count: remaining }));
           }
         }
       } finally {
@@ -112,9 +107,13 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
 
     if (!stoppedWatchingRef.current) {
       if (failed.length > 0) {
-        setSummary(`Complete — ${completed} re-analyzed. ${failed.length} could not be processed: ${failed.join(', ')}`);
+        setSummary(t('Complete — {{completed}} re-analyzed. {{failed}} could not be processed: {{titles}}', {
+          completed,
+          failed: failed.length,
+          titles: failed.join(', '),
+        }));
       } else {
-        setSummary(`Complete — ${completed} re-analyzed`);
+        setSummary(t('Complete — {{count}} re-analyzed', { count: completed }));
       }
     }
 
@@ -157,10 +156,16 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
   // Header text — only shown in sub-header, summary shown separately once done
   const headerText =
     !isProcessing && !isDone
-      ? `${eligible.length} eligible screenplay${eligible.length === 1 ? '' : 's'} ready for review`
+      ? t('{{count}} eligible screenplay ready for review', { count: eligible.length })
       : ineligibleCount > 0
-      ? `${eligible.length} of ${screenplays.length} selected are eligible. Processing ${eligible.length}...`
-      : `Re-analyzing ${completedCount} of ${eligible.length}...`;
+      ? t('{{eligible}} of {{total}} selected are eligible. Processing {{eligible}}...', {
+          eligible: eligible.length,
+          total: screenplays.length,
+        })
+      : t('Re-analyzing {{completed}} of {{total}}...', {
+          completed: completedCount,
+          total: eligible.length,
+        });
 
   // Status icon per item
   function StatusIcon({ status }: { status: ReanalyzeItemStatus }) {
@@ -217,7 +222,7 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
       <div className="relative w-full max-w-lg glass border border-gold-500/20 rounded-xl overflow-hidden animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-black-700">
-          <h3 className="text-lg font-display text-gold-200">Re-Analyze Screenplays</h3>
+          <h3 className="text-lg font-display text-gold-200">{t('Re-Analyze Screenplays')}</h3>
           <button
             onClick={isProcessing ? undefined : handleClose}
             disabled={isProcessing}
@@ -225,7 +230,7 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
               'p-1 rounded text-black-400',
               isProcessing ? 'opacity-40 cursor-not-allowed' : 'hover:bg-black-700 hover:text-gold-400'
             )}
-            aria-label="Dismiss"
+            aria-label={t('Dismiss')}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -239,9 +244,9 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
           {!isProcessing && !isDone && eligible.length > 0 && (
             <div className="mt-3 space-y-1 text-sm">
               <p className="text-black-300">
-                Estimated maximum cost: ${estimatedCost.toFixed(2)}
+                {t('Estimated maximum cost: ${{cost}}', { cost: estimatedCost.toFixed(2) })}
               </p>
-              <p className="text-black-400">The production server enforces the daily budget.</p>
+              <p className="text-black-400">{t('The production server enforces the daily budget.')}</p>
             </div>
           )}
           {isDone && summary && (
@@ -249,7 +254,7 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
           )}
           {eligible.length === 0 && (
             <p className="text-sm text-amber-400 mt-1">
-              No eligible screenplays — all selected items are missing their PDF.
+              {t('No eligible screenplays — all selected items are missing their PDF.')}
             </p>
           )}
         </div>
@@ -267,7 +272,7 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
                   <StatusIcon status={item.status} />
                   <span className="flex-1 text-sm text-black-300 truncate">{sp.title}</span>
                   <span className="text-xs text-black-500 capitalize">
-                    {item.status === 'continuing' ? 'continues in queue' : item.status}
+                    {t(item.status === 'continuing' ? 'continues in queue' : item.status)}
                   </span>
                 </div>
               );
@@ -284,22 +289,22 @@ export function BulkReanalyzeModal({ isOpen, onClose, screenplays }: BulkReanaly
                 abortControllerRef.current?.abort();
               }}
               className="btn btn-ghost text-sm"
-              aria-label="Stop Watching"
+              aria-label={t('Stop Watching')}
             >
-              Stop Watching
+              {t('Stop Watching')}
             </button>
           )}
           {!isProcessing && (
             <>
-              <button onClick={handleClose} className="btn btn-ghost text-sm" aria-label="Close">
-                Close
+              <button onClick={handleClose} className="btn btn-ghost text-sm" aria-label={t('Close')}>
+                {t('Close')}
               </button>
               {!isDone && eligible.length > 0 && (
                 <button
                   onClick={runBulkReanalyze}
                   className="btn btn-primary text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Start Reanalysis
+                  {t('Start Reanalysis')}
                 </button>
               )}
             </>

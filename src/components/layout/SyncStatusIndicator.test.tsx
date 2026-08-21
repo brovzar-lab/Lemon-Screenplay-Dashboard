@@ -84,7 +84,7 @@ describe('SyncStatusIndicator', () => {
         mockStoreState.pendingCount = 1;
         mockStoreState.lastRetryError = 'Network error';
         render(<SyncStatusIndicator />);
-        expect(screen.getByText('Network error')).toBeDefined();
+        expect(screen.getByText('Sync retry failed. Please try again.')).toBeDefined();
     });
 
     it('keeps a visible warning while live sync is disconnected', () => {

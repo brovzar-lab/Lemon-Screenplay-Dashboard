@@ -20,6 +20,7 @@ import { CoverPage } from './coverage/CoverPage';
 import { ScoresPage } from './coverage/ScoresPage';
 import { AnalysisPage } from './coverage/AnalysisPage';
 import { AppendixPage } from './coverage/AppendixPage';
+import type { UiLanguage } from '@/i18n';
 
 // ─────────────────────────────────────────────
 // PROPS
@@ -28,29 +29,45 @@ import { AppendixPage } from './coverage/AppendixPage';
 interface CoverageDocumentProps {
   screenplay: Screenplay;
   notes: Note[];
+  language?: UiLanguage;
+  showEnglishAnalysisNotice?: boolean;
 }
 
 // ─────────────────────────────────────────────
 // DOCUMENT
 // ─────────────────────────────────────────────
 
-export function CoverageDocument({ screenplay, notes }: CoverageDocumentProps) {
+export function CoverageDocument({
+  screenplay,
+  notes,
+  language = 'en',
+  showEnglishAnalysisNotice = false,
+}: CoverageDocumentProps) {
   const dims = getDimensionDisplay(screenplay);
   const assessed = screenplay.commercialViability?.cvsAssessed ?? false;
 
   return (
     <Document>
       {/* Page 1 — Cover */}
-      <CoverPage screenplay={screenplay} dims={dims} />
+      <CoverPage
+        screenplay={screenplay}
+        dims={dims}
+        language={language}
+        showEnglishAnalysisNotice={showEnglishAnalysisNotice}
+      />
 
       {/* Page 2 — Detailed Scores + Commercial */}
-      <ScoresPage screenplay={screenplay} dims={dims} assessed={assessed} />
+      {!showEnglishAnalysisNotice && (
+        <ScoresPage screenplay={screenplay} dims={dims} assessed={assessed} language={language} />
+      )}
 
       {/* Page 3 — Analysis */}
-      <AnalysisPage screenplay={screenplay} />
+      {!showEnglishAnalysisNotice && <AnalysisPage screenplay={screenplay} language={language} />}
 
       {/* Page 4 — Appendix */}
-      <AppendixPage screenplay={screenplay} notes={notes} />
+      {!showEnglishAnalysisNotice && (
+        <AppendixPage screenplay={screenplay} notes={notes} language={language} />
+      )}
     </Document>
   );
 }

@@ -8,6 +8,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, Legend
 import type { Screenplay, BudgetCategory } from '@/types';
 import { BUDGET_TIERS } from '@/types';
 import { CHART_COLORS } from '@/lib/chartColors';
+import { useTranslation } from 'react-i18next';
 
 interface BudgetChartProps {
   screenplays: Screenplay[];
@@ -39,6 +40,7 @@ interface ChartTooltipProps {
 
 // Hoisted to module scope — avoids react-hooks/static-components violation
 function CustomTooltip({ active, payload }: ChartTooltipProps) {
+  const { t } = useTranslation();
   if (active && payload && payload.length) {
     const item = payload[0].payload as BudgetChartItem;
     return (
@@ -46,9 +48,9 @@ function CustomTooltip({ active, payload }: ChartTooltipProps) {
         <strong>{item.label}</strong>
         <span>{item.range}</span>
         <span>
-          <span className="font-bold">{item.count}</span> screenplays
+          {t('{{count}} screenplay', { count: item.count })}
         </span>
-        <span>{item.percentage}% of total</span>
+        <span>{t('{{percentage}}% of total', { percentage: item.percentage })}</span>
       </div>
     );
   }
@@ -61,6 +63,7 @@ interface CustomLegendProps {
 }
 
 function CustomLegend({ data, onBudgetClick }: CustomLegendProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-wrap justify-center gap-3 mt-2">
       {data.map((item) => (
@@ -70,7 +73,7 @@ function CustomLegend({ data, onBudgetClick }: CustomLegendProps) {
           className="flex items-center gap-1.5 text-xs hover:opacity-80 transition-opacity"
         >
           <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-          <span className="text-black-300">{item.label}</span>
+          <span className="text-black-300">{t(item.label)}</span>
           <span className="text-black-500">({item.count})</span>
         </button>
       ))}

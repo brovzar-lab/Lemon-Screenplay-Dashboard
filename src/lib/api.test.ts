@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18n from '@/i18n';
 import { useToastStore } from '@/stores/toastStore';
 
 const mockQuarantineAnalysis = vi.fn(() => Promise.resolve());
@@ -16,17 +17,39 @@ describe('normalizeAnalyses quarantine visibility', () => {
     useToastStore.getState().clearToasts();
   });
 
-  it('quarantines malformed data and tells the user where to review it', async () => {
-    const result = await normalizeAnalyses([
-      { source_file: 'broken-item-7.pdf', analysis_version: 'v9_archaeology' },
-    ]);
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it.each([
+    {
+      language: 'en',
+      sources: ['broken-item-en.pdf'],
+      expected: '1 malformed analysis was quarantined. Review Settings > Data.',
+    },
+    {
+      language: 'es',
+      sources: ['broken-item-es-1.pdf', 'broken-item-es-2.pdf'],
+      expected:
+        'Se pusieron en cuarentena 2 análisis con formato incorrecto. Revísalos en Configuración > Datos.',
+    },
+  ])('quarantines malformed data and reports it in $language', async ({
+    language,
+    sources,
+    expected,
+  }) => {
+    await i18n.changeLanguage(language);
+    const result = await normalizeAnalyses(sources.map((source_file) => ({
+      source_file,
+      analysis_version: 'v9_archaeology',
+    })));
 
     expect(result).toEqual([]);
-    expect(mockQuarantineAnalysis).toHaveBeenCalledOnce();
+    expect(mockQuarantineAnalysis).toHaveBeenCalledTimes(sources.length);
     expect(useToastStore.getState().toasts[0]).toEqual(
       expect.objectContaining({
         severity: 'warning',
-        message: expect.stringContaining('Review Settings > Data'),
+        message: expected,
       }),
     );
   });

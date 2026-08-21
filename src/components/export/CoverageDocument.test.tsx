@@ -29,7 +29,13 @@ vi.mock('@react-pdf/renderer', () => {
 vi.mock('@/lib/dimensionDisplay', () => ({
   getDimensionDisplay: () => [
     { key: 'concept', label: 'Concept', score: 8, weight: 0.2, justification: 'Good concept' },
-    { key: 'structure', label: 'Structure', score: 7, weight: 0.15, justification: 'Solid structure' },
+    {
+      key: 'structure',
+      label: 'Structure',
+      score: 7,
+      weight: 0.15,
+      justification: 'Solid structure',
+    },
   ],
 }));
 
@@ -62,12 +68,23 @@ function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
     isFilmNow: false,
     filmNowAssessment: null,
     dimensionScores: {
-      concept: 8, structure: 7, protagonist: 8, supportingCast: 6,
-      dialogue: 7, genreExecution: 7, originality: 8, weightedScore: 7.5,
+      concept: 8,
+      structure: 7,
+      protagonist: 8,
+      supportingCast: 6,
+      dialogue: 7,
+      genreExecution: 7,
+      originality: 8,
+      weightedScore: 7.5,
     },
     dimensionJustifications: {
-      concept: '', structure: '', protagonist: '', supportingCast: '',
-      dialogue: '', genreExecution: '', originality: '',
+      concept: '',
+      structure: '',
+      protagonist: '',
+      supportingCast: '',
+      dialogue: '',
+      genreExecution: '',
+      originality: '',
     },
     commercialViability: {
       targetAudience: { score: 2, note: 'Broad appeal' },
@@ -91,11 +108,18 @@ function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
     budgetJustification: 'Limited locations',
     characters: { protagonist: 'Maya', antagonist: 'Time', supporting: ['Sam'] },
     structureAnalysis: { formatQuality: 'professional', actBreaks: 'Standard', pacing: 'Good' },
-    comparableFilms: [{ title: 'Lady Bird', similarity: 'Coming of age drama', boxOfficeRelevance: 'success' }],
+    comparableFilms: [
+      { title: 'Lady Bird', similarity: 'Coming of age drama', boxOfficeRelevance: 'success' },
+    ],
     standoutScenes: [{ scene: 'Beach scene', why: 'Emotional climax' }],
     targetAudience: { primaryDemographic: '18-34', genderSkew: 'female', interests: ['Drama'] },
     metadata: { filename: 'test.pdf', pageCount: 120, wordCount: 25000 },
-    producerMetrics: { marketPotential: 7, marketPotentialRationale: '', uspStrength: 'Strong', uspStrengthRationale: '' },
+    producerMetrics: {
+      marketPotential: 7,
+      marketPotentialRationale: '',
+      uspStrength: 'Strong',
+      uspStrengthRationale: '',
+    },
     tmdbStatus: null,
     ...overrides,
   } as Screenplay;
@@ -116,44 +140,51 @@ function createMockNote(overrides: Partial<Note> = {}): Note {
 describe('CoverageDocument', () => {
   it('renders without crashing given a valid Screenplay and empty notes', () => {
     const screenplay = createMockScreenplay();
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container).toBeTruthy();
   });
 
   it('renders without crashing given a valid Screenplay and non-empty notes', () => {
     const screenplay = createMockScreenplay();
     const notes = [createMockNote()];
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={notes} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={notes} />);
     expect(container).toBeTruthy();
+  });
+
+  it('exports a Spanish fallback without the original English narrative', () => {
+    const screenplay = createMockScreenplay();
+    const { container } = render(
+      <CoverageDocument
+        screenplay={screenplay}
+        notes={[createMockNote()]}
+        language="es"
+        showEnglishAnalysisNotice
+      />,
+    );
+
+    expect(container.textContent).toContain('Análisis disponible en inglés');
+    expect(container.textContent).not.toContain('A young woman discovers herself.');
+    expect(container.textContent).not.toContain('A compelling drama.');
+    expect(container.textContent).not.toContain('Great screenplay, consider for development.');
   });
 
   it('omits the notes section when notes array is empty', () => {
     const screenplay = createMockScreenplay();
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).not.toContain('Producer Notes');
   });
 
   it('includes the notes section when notes have entries', () => {
     const screenplay = createMockScreenplay();
     const notes = [createMockNote()];
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={notes} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={notes} />);
     expect(container.textContent).toContain('Producer Notes');
     expect(container.textContent).toContain('Great screenplay, consider for development.');
   });
 
   it('shows CVS table when cvsAssessed is true', () => {
     const screenplay = createMockScreenplay();
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).toContain('Commercial Viability');
     expect(container.textContent).toContain('Total');
   });
@@ -171,20 +202,20 @@ describe('CoverageDocument', () => {
         cvsAssessed: false,
       },
     });
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).toContain('not applied');
     expect(container.textContent).not.toContain('Total');
   });
 
   it('renders supporting cast as individual items', () => {
     const screenplay = createMockScreenplay({
-      characters: { protagonist: 'Maya', antagonist: 'Time', supporting: ['Sam', 'Alex', 'Jordan'] },
+      characters: {
+        protagonist: 'Maya',
+        antagonist: 'Time',
+        supporting: ['Sam', 'Alex', 'Jordan'],
+      },
     });
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).toContain('Sam');
     expect(container.textContent).toContain('Alex');
     expect(container.textContent).toContain('Jordan');
@@ -194,9 +225,7 @@ describe('CoverageDocument', () => {
     const screenplay = createMockScreenplay({
       targetAudience: { primaryDemographic: '', genderSkew: 'neutral', interests: [] },
     });
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).toContain('Not specified');
   });
 
@@ -204,27 +233,21 @@ describe('CoverageDocument', () => {
     const screenplay = createMockScreenplay({
       criticalFailures: ['Logic hole in Act 3'],
     });
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).toContain('Critical Failures');
     expect(container.textContent).toContain('Logic hole in Act 3');
   });
 
   it('renders standout scenes', () => {
     const screenplay = createMockScreenplay();
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).toContain('Standout Scenes');
     expect(container.textContent).toContain('Beach scene');
   });
 
   it('renders dimension justifications', () => {
     const screenplay = createMockScreenplay();
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     // From the mocked getDimensionDisplay
     expect(container.textContent).toContain('Good concept');
     expect(container.textContent).toContain('Solid structure');
@@ -232,9 +255,7 @@ describe('CoverageDocument', () => {
 
   it('includes metadata grid with genre, tone, budget', () => {
     const screenplay = createMockScreenplay();
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).toContain('Drama');
     expect(container.textContent).toContain('Hopeful');
     expect(container.textContent).toContain('Low');
@@ -242,9 +263,7 @@ describe('CoverageDocument', () => {
 
   it('renders comparable films with title and similarity', () => {
     const screenplay = createMockScreenplay();
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).toContain('Lady Bird');
     expect(container.textContent).toContain('Coming of age drama');
     expect(container.textContent).toContain('Hit');
@@ -257,9 +276,7 @@ describe('CoverageDocument', () => {
         { title: '', similarity: '', boxOfficeRelevance: 'success' },
       ],
     });
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).not.toContain('Comparable Films');
   });
 
@@ -270,18 +287,14 @@ describe('CoverageDocument', () => {
         { scene: '—', why: '—' },
       ],
     });
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     expect(container.textContent).not.toContain('Standout Scenes');
   });
 
   it('truncates very long verdict on cover page', () => {
     const longVerdict = 'A '.repeat(500); // 1000 chars
     const screenplay = createMockScreenplay({ verdictStatement: longVerdict });
-    const { container } = render(
-      <CoverageDocument screenplay={screenplay} notes={[]} />
-    );
+    const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);
     // Should contain truncation ellipsis
     expect(container.textContent).toContain('...');
   });
@@ -289,7 +302,9 @@ describe('CoverageDocument', () => {
   // ── Regression guards ──
 
   it('preserves v6.8 fix: titleText.marginBottom is 8', () => {
-    expect((__coverageDocStyles as Record<string, Record<string, unknown>>).titleText.marginBottom).toBe(8);
+    expect(
+      (__coverageDocStyles as Record<string, Record<string, unknown>>).titleText.marginBottom,
+    ).toBe(8);
   });
 
   it('score/badge gap wrapper has marginTop >= 16', () => {

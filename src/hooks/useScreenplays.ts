@@ -18,6 +18,7 @@ import { useShareStore } from '@/stores/shareStore';
 import { canonicalizeGenre } from '@/lib/calculations';
 import { useToastStore } from '@/stores/toastStore';
 import { useSyncStatusStore } from '@/stores/syncStatusStore';
+import i18n from '@/i18n';
 
 /**
  * Query key for screenplays
@@ -85,7 +86,7 @@ export function useLiveScreenplaySync(): void {
                 useToastStore
                   .getState()
                   .addToast(
-                    'Live screenplay update failed — keeping the last good data',
+                    i18n.t('Live screenplay update failed — keeping the last good data'),
                     'warning',
                   );
                 hasReportedError = true;
@@ -99,7 +100,7 @@ export function useLiveScreenplaySync(): void {
           if (!hasReportedError) {
             useToastStore
               .getState()
-              .addToast('Live sync disconnected — reconnecting automatically', 'warning');
+              .addToast(i18n.t('Live sync disconnected — reconnecting automatically'), 'warning');
             hasReportedError = true;
           }
           retryTimer = setTimeout(connect, 5_000);

@@ -12,6 +12,7 @@ import {
   getScreenplayDisplayTitle,
   getScreenplayFormatInfo,
 } from '@/lib/screenplayDisplay';
+import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
 import type { ProducerAssessmentHead } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -26,7 +27,8 @@ export function ScreenplayGrid({
   producerLookIds?: ReadonlySet<string>;
   onOpen: OpenScreenplay;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
   return (
     <ul className="screenplay-wall" data-testid="screenplay-discovery-grid">
       {entries.map(({ screenplay, rank }) => {
@@ -34,6 +36,7 @@ export function ScreenplayGrid({
         const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
         const displayGenre = getScreenplayDisplayGenre(screenplay.genre);
         const formatInfo = getScreenplayFormatInfo(screenplay);
+        const localized = localizedScreenplayPreview(screenplay, language);
         const finalScore = screenplay.producerProjection?.finalScore ?? screenplay.weightedScore;
         return (
           <li
@@ -57,7 +60,7 @@ export function ScreenplayGrid({
                 <span className="screenplay-wall__title">
                   <strong title={displayTitle.title}>{displayTitle.title}</strong>
                   {displayTitle.qualifier && <em>{displayTitle.qualifier}</em>}
-                  {displayAuthor && <small>{displayAuthor}</small>}
+                  {displayAuthor && <small>{t(displayAuthor)}</small>}
                 </span>
                 <span className="screenplay-wall__decision">
                   <span className="screenplay-wall__score">
@@ -68,14 +71,16 @@ export function ScreenplayGrid({
                 </span>
                 <span className="screenplay-wall__meta">
                   {formatInfo.format && (
-                    <span className="screenplay-wall__format">{formatInfo.format}</span>
+                    <span className="screenplay-wall__format">{t(formatInfo.format)}</span>
                   )}
                   {displayGenre && (
-                    <span className="screenplay-wall__genre">{displayGenre}</span>
+                    <span className="screenplay-wall__genre">{t(displayGenre)}</span>
                   )}
                 </span>
-                {screenplay.logline?.trim() && (
-                  <span className="screenplay-wall__logline">{screenplay.logline.trim()}</span>
+                {(localized?.logline?.trim() || language === 'es') && (
+                  <span className="screenplay-wall__logline">
+                    {localized?.logline?.trim() || t('Analysis available in English')}
+                  </span>
                 )}
               </span>
             </button>

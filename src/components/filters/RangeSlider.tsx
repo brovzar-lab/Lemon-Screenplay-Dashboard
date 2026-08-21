@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 interface RangeSliderProps {
   label: string;
@@ -31,6 +32,7 @@ export function RangeSlider({
   formatValue = (v) => v.toFixed(1),
   syncValue = false,
 }: RangeSliderProps) {
+  const { t } = useTranslation();
   const [localValue, setLocalValue] = useState(value);
   const [externalMin, externalMax] = value;
 
@@ -78,7 +80,7 @@ export function RangeSlider({
           <span
             className={clsx('text-sm font-medium', enabled ? 'text-gold-300' : 'text-black-400')}
           >
-            {label}
+            {t(label)}
           </span>
         </label>
         <span className={clsx('text-xs', enabled ? 'text-gold-400' : 'text-black-500')}>
@@ -108,7 +110,7 @@ export function RangeSlider({
             step={step}
             value={localValue[0]}
             onChange={handleMinChange}
-            aria-label={`Minimum ${label}`}
+            aria-label={t('Minimum {{label}}', { label: t(label) })}
             aria-valuemin={min}
             aria-valuemax={max}
             aria-valuenow={localValue[0]}
@@ -135,7 +137,7 @@ export function RangeSlider({
             step={step}
             value={localValue[1]}
             onChange={handleMaxChange}
-            aria-label={`Maximum ${label}`}
+            aria-label={t('Maximum {{label}}', { label: t(label) })}
             aria-valuemin={min}
             aria-valuemax={max}
             aria-valuenow={localValue[1]}

@@ -357,13 +357,13 @@ export function ModelComparisonPanel() {
                 elapsedMs: elapsed,
               },
             }));
-          } catch (err) {
+          } catch {
             setResults((prev) => ({
               ...prev,
               [key]: {
                 status: 'error',
                 progress: 0,
-                error: err instanceof Error ? err.message : t('Analysis failed'),
+                error: t('Analysis failed'),
               },
             }));
           }

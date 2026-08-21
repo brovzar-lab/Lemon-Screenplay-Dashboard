@@ -18,6 +18,7 @@ import { useIsAdmin } from '@/stores/authStore';
 import type { ReactNode, RefObject } from 'react';
 import { ScreenplayPdfButton } from './ScreenplayPdfButton';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import { useTranslation } from 'react-i18next';
 
 interface ModalHeaderProps {
   screenplay: Screenplay;
@@ -38,11 +39,12 @@ export function ModalHeader({
   onReanalyzeComplete,
   showActions = true,
   titleId = 'modal-title',
-  closeLabel = 'Close modal',
+  closeLabel,
   supplementalActions,
   presentation = 'default',
   authorFallback,
 }: ModalHeaderProps) {
+  const { t } = useTranslation();
   const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
   const displayAuthor = getScreenplayDisplayAuthor(screenplay.author || authorFallback);
   const isDiscovery = presentation === 'discovery';
@@ -63,7 +65,7 @@ export function ModalHeader({
       setCoverageState('idle');
     } catch (error) {
       console.error('[Coverage PDF] Generation failed:', error);
-      useToastStore.getState().addToast('Coverage PDF generation failed — please try again');
+      useToastStore.getState().addToast(t('Coverage PDF generation failed — please try again'));
       setCoverageState('error');
       setTimeout(() => setCoverageState('idle'), 3000);
     }
@@ -103,7 +105,7 @@ export function ModalHeader({
                 ? 'btn btn-ghost !h-11 !min-h-11 !w-11 !min-w-11 !p-0'
                 : 'p-2 hover:bg-white/10',
             )}
-            aria-label={closeLabel}
+            aria-label={closeLabel ?? t('Close modal')}
           >
             <svg
               className="h-5 w-5 shrink-0"
@@ -134,7 +136,9 @@ export function ModalHeader({
           >
             {displayTitle}
           </h2>
-          {displayAuthor && <p className="text-black-400">by {displayAuthor}</p>}
+          {displayAuthor && (
+            <p className="text-black-400">{t('by {{author}}', { author: t(displayAuthor) })}</p>
+          )}
         </div>
 
         {/* Tier 3: Chips (left) + Actions (right) */}
@@ -171,8 +175,8 @@ export function ModalHeader({
                 )}
                 title={
                   coverageState === 'error'
-                    ? 'Coverage PDF generation failed'
-                    : 'Download coverage report as PDF'
+                    ? t('Coverage PDF generation failed')
+                    : t('Download coverage report as PDF')
                 }
               >
                 {coverageState === 'loading' ? (
@@ -216,7 +220,7 @@ export function ModalHeader({
                     />
                   </svg>
                 )}
-                {coverageState === 'error' ? 'Failed' : 'Coverage'}
+                {t(coverageState === 'error' ? 'Failed' : 'Coverage')}
               </button>
               {isAdmin && (
                 <ReanalyzeButton screenplay={screenplay} onComplete={onReanalyzeComplete} />
@@ -226,8 +230,8 @@ export function ModalHeader({
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="modal-delete-btn text-xs flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all border"
-                  title="Delete this screenplay"
-                  aria-label="Delete screenplay"
+                  title={t('Delete this screenplay')}
+                  aria-label={t('Delete screenplay')}
                 >
                   <svg
                     className="w-3.5 h-3.5"
@@ -242,7 +246,7 @@ export function ModalHeader({
                       d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                     />
                   </svg>
-                  Delete
+                  {t('Delete')}
                 </button>
               )}
             </div>
@@ -256,8 +260,11 @@ export function ModalHeader({
           isOpen={showDeleteConfirm}
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
-          title={`Delete "${displayTitle}"?`}
-          message={`This will permanently remove the analysis for "${displayTitle}" from your database.`}
+          title={t('Delete "{{title}}"?', { title: displayTitle })}
+          message={t(
+            'This will permanently remove the analysis for "{{title}}" from your database.',
+            { title: displayTitle },
+          )}
           isPending={deleteMutation.isPending}
         />
       )}

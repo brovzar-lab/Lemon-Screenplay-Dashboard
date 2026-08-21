@@ -6,75 +6,107 @@
 import Papa from 'papaparse';
 import type { Screenplay } from '@/types';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import i18n, { currentUiLanguage } from '@/i18n';
+import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
 
 /**
  * Convert screenplays to CSV and trigger download
  */
 export function exportToCSV(screenplays: Screenplay[], filename: string = 'screenplays') {
+  const language = currentUiLanguage();
+  const t = i18n.getFixedT(language);
   // Flatten screenplay data for CSV
-  const rows = screenplays.map((sp) => ({
-    // Basic Info
-    Title: sp.title,
-    Author: sp.author,
-    Collection: sp.collection,
-    Genre: sp.genre,
-    Subgenres: sp.subgenres.join('; '),
-    Themes: sp.themes.join('; '),
-    Logline: sp.logline,
-    Tone: sp.tone,
+  const rows = screenplays.map((original) => {
+    const sp = localizedScreenplay(original, language);
+    const fallback = analysisIsEnglishFallback(original, language);
+    return {
+      // Basic Info
+      [t('Title')]: sp.title,
+      [t('Author')]: sp.author,
+      [t('Collection')]: sp.collection,
+      [t('Genre')]: t(sp.genre),
+      [t('Subgenres')]: fallback ? '' : sp.subgenres.join('; '),
+      [t('Themes')]: fallback ? '' : sp.themes.join('; '),
+      [t('Logline')]: fallback ? '' : sp.logline,
+      [t('Tone')]: fallback ? '' : sp.tone,
+      [t('Analysis language')]: fallback
+        ? t('English')
+        : t(language === 'es' ? 'Spanish' : 'English'),
 
-    // Recommendation
-    Recommendation: sp.recommendation.toUpperCase().replace('_', ' '),
-    'Is Film Now': sp.isFilmNow ? 'Yes' : 'No',
-    'Verdict Statement': sp.verdictStatement,
+      // Recommendation
+      [t('Recommendation')]: sp.recommendation.toUpperCase().replace('_', ' '),
+      [t('Is Film Now')]: sp.isFilmNow ? t('Yes') : t('No'),
+      [t('Verdict Statement')]: fallback ? '' : sp.verdictStatement,
 
-    // Core Scores
-    'Final Score': sp.weightedScore.toFixed(2),
-    'Raw Five-Pillar Score': sp.producerProjection?.rawScore.toFixed(2) ?? '',
-    'Critical-Failure Deduction': sp.producerProjection?.penaltyApplied.toFixed(2) ?? '',
-    'CVS Total': sp.cvsTotal,
+      // Core Scores
+      [t('Final Score')]: sp.weightedScore.toFixed(2),
+      [t('Raw Five-Pillar Score')]: sp.producerProjection?.rawScore.toFixed(2) ?? '',
+      [t('Critical-Failure Deduction')]: sp.producerProjection?.penaltyApplied.toFixed(2) ?? '',
+      [t('CVS Total')]: sp.cvsTotal,
 
-    // Dimension Scores (version-appropriate labels)
-    ...Object.fromEntries(
-      getDimensionDisplay(sp).map((dim) => [`${dim.label} Score`, dim.score])
-    ),
+      // Dimension Scores (version-appropriate labels)
+      ...Object.fromEntries(
+        getDimensionDisplay(sp).map((dim) => [
+          t('{{label}} Score', { label: t(dim.label) }),
+          dim.score,
+        ]),
+      ),
 
-    // CVS Factors
-    'CVS Assessed': sp.commercialViability.cvsAssessed !== false ? 'Yes' : 'No',
-    'Target Audience (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.targetAudience.score : '',
-    'High Concept (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.highConcept.score : '',
-    'Cast Attachability (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.castAttachability.score : '',
-    'Marketing Hook (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.marketingHook.score : '',
-    'Budget Return Ratio (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.budgetReturnRatio.score : '',
-    'Comparable Success (CVS)': sp.commercialViability.cvsAssessed !== false ? sp.commercialViability.comparableSuccess.score : '',
+      // CVS Factors
+      [t('CVS Assessed')]: sp.commercialViability.cvsAssessed !== false ? t('Yes') : t('No'),
+      [t('Target Audience (CVS)')]:
+        sp.commercialViability.cvsAssessed !== false
+          ? sp.commercialViability.targetAudience.score
+          : '',
+      [t('High Concept (CVS)')]:
+        sp.commercialViability.cvsAssessed !== false
+          ? sp.commercialViability.highConcept.score
+          : '',
+      [t('Cast Attachability (CVS)')]:
+        sp.commercialViability.cvsAssessed !== false
+          ? sp.commercialViability.castAttachability.score
+          : '',
+      [t('Marketing Hook (CVS)')]:
+        sp.commercialViability.cvsAssessed !== false
+          ? sp.commercialViability.marketingHook.score
+          : '',
+      [t('Budget Return Ratio (CVS)')]:
+        sp.commercialViability.cvsAssessed !== false
+          ? sp.commercialViability.budgetReturnRatio.score
+          : '',
+      [t('Comparable Success (CVS)')]:
+        sp.commercialViability.cvsAssessed !== false
+          ? sp.commercialViability.comparableSuccess.score
+          : '',
 
-    // Producer Metrics
-    'Market Potential': sp.producerMetrics.marketPotential ?? 'N/A',
-    'USP Strength': sp.producerMetrics.uspStrength ?? 'N/A',
+      // Producer Metrics
+      [t('Market Potential')]: fallback ? '' : (sp.producerMetrics.marketPotential ?? t('N/A')),
+      [t('USP Strength')]: fallback ? '' : (sp.producerMetrics.uspStrength ?? t('N/A')),
 
-    // Production Details
-    'Budget Category': sp.budgetCategory,
-    Marketability: sp.marketability,
+      // Production Details
+      [t('Budget Category')]: t(sp.budgetCategory),
+      [t('Marketability')]: fallback ? '' : sp.marketability,
 
-    // Characters
-    Protagonist: sp.characters.protagonist,
-    Antagonist: sp.characters.antagonist,
-    'Supporting Characters': sp.characters.supporting.join('; '),
+      // Characters
+      [t('Protagonist')]: fallback ? '' : sp.characters.protagonist,
+      [t('Antagonist')]: fallback ? '' : sp.characters.antagonist,
+      [t('Supporting Characters')]: fallback ? '' : sp.characters.supporting.join('; '),
 
-    // Comparable Films
-    'Comparable Films': sp.comparableFilms.map((f) => f.title).join('; '),
+      // Comparable Films
+      [t('Comparable Films')]: sp.comparableFilms.map((f) => f.title).join('; '),
 
-    // Assessment
-    Strengths: sp.strengths.join('; '),
-    Weaknesses: sp.weaknesses.join('; '),
-    'Development Notes': sp.developmentNotes.join('; '),
-    'Critical Failures': sp.criticalFailures.join('; '),
-    'Major Weaknesses': sp.majorWeaknesses.join('; '),
+      // Assessment
+      [t('Strengths')]: fallback ? '' : sp.strengths.join('; '),
+      [t('Weaknesses')]: fallback ? '' : sp.weaknesses.join('; '),
+      [t('Development Notes')]: fallback ? '' : sp.developmentNotes.join('; '),
+      [t('Critical Failures')]: fallback ? '' : sp.criticalFailures.join('; '),
+      [t('Major Weaknesses')]: fallback ? '' : sp.majorWeaknesses.join('; '),
 
-    // File Metadata
-    'Page Count': sp.metadata.pageCount,
-    'Word Count': sp.metadata.wordCount,
-  }));
+      // File Metadata
+      [t('Page Count')]: sp.metadata.pageCount,
+      [t('Word Count')]: sp.metadata.wordCount,
+    };
+  });
 
   // Convert to CSV
   const csv = Papa.unparse(rows);
@@ -98,6 +130,6 @@ export function exportToCSV(screenplays: Screenplay[], filename: string = 'scree
  * Export comparison data to CSV
  */
 export function exportComparisonToCSV(screenplays: Screenplay[]) {
-  const filename = `comparison_${screenplays.map(sp => sp.title.slice(0, 10).replace(/\s+/g, '_')).join('_vs_')}`;
+  const filename = `comparison_${screenplays.map((sp) => sp.title.slice(0, 10).replace(/\s+/g, '_')).join('_vs_')}`;
   exportToCSV(screenplays, filename);
 }

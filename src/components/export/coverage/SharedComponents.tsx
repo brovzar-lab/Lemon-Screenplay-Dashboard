@@ -4,11 +4,13 @@
 
 import { View, Text, Image } from '@react-pdf/renderer';
 import { s } from './shared';
+import i18n, { type UiLanguage } from '@/i18n';
 
-export function Footer() {
+export function Footer({ language = 'en' }: { language?: UiLanguage }) {
+  const t = i18n.getFixedT(language);
   return (
     <View style={s.footer} fixed>
-      <Text style={s.footerText}>Confidential — For Lemon Studios internal use only</Text>
+      <Text style={s.footerText}>{t('Confidential · For Lemon Studios internal use only')}</Text>
       <Text
         style={s.footerText}
         render={({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) =>

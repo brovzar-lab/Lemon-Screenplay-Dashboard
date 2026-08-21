@@ -5,6 +5,7 @@ import {
 } from './normalize';
 import { loadAllAnalyses, quarantineAnalysis } from './analysisStore';
 import { useToastStore } from '@/stores/toastStore';
+import i18n from '@/i18n';
 
 const reportedQuarantineSources = new Set<string>();
 
@@ -61,11 +62,10 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
         console.log(`[Lemon] Normalized ${loadedCount}/${rawList.length} analyses`);
     }
     if (newlyQuarantinedCount > 0) {
-        const label = newlyQuarantinedCount === 1 ? 'analysis was' : 'analyses were';
         useToastStore
             .getState()
             .addToast(
-                `${newlyQuarantinedCount} malformed ${label} quarantined. Review Settings > Data.`,
+                i18n.t('toast.analysis_quarantined', { count: newlyQuarantinedCount }),
                 'warning',
             );
     }

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { fetchReaderReports } from '@/lib/readerReportService';
 import { privateReaderChatMode } from '@/lib/privateReaderChat';
+import { localizedReaderReports, savedLocalizedAnalysis } from '@/lib/localizedAnalysis';
 import { formatProducerHeading, formatProducerText, formatProducerTaxonomy } from '@/lib/producerDisplay';
 import { PrivateReaderChat } from '@/components/project/PrivateReaderChat';
 import type { ReaderReportEvidence, Screenplay } from '@/types';
@@ -124,7 +125,7 @@ function readerChatReadiness(
 }
 
 export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<ReaderProfile['key']>('structure');
   const [conversationOpen, setConversationOpen] = useState(false);
   const selectedReaderButtonRef = useRef<HTMLButtonElement>(null);
@@ -137,11 +138,16 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
     queryFn: () => fetchReaderReports(screenplay),
     staleTime: Number.POSITIVE_INFINITY,
   });
+  const localizedContent = savedLocalizedAnalysis(
+    screenplay,
+    i18n.resolvedLanguage === 'es' ? 'es' : 'en',
+  )?.content;
+  const reports = localizedReaderReports(reportsQuery.data ?? [], localizedContent);
 
   const selectedReader = READERS.find((reader) => reader.key === selectedKey) ?? READERS[0];
   const selectedReport = useMemo(
-    () => reportFor(selectedReader, reportsQuery.data ?? []),
-    [reportsQuery.data, selectedReader],
+    () => reportFor(selectedReader, reports),
+    [reports, selectedReader],
   );
   const chatMode = privateReaderChatMode();
   const hasExactVersion = Boolean(screenplay.latestVersionId);
@@ -189,7 +195,7 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
       <div className="reader-room__stage">
         <div className="reader-room__rail" aria-label={t('Specialist readers')}>
           {READERS.map((reader) => {
-            const report = reportFor(reader, reportsQuery.data ?? []);
+            const report = reportFor(reader, reports);
             const selected = selectedKey === reader.key;
             const readerReadiness = readerChatReadiness(screenplay, report, chatMode);
             return (

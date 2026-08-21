@@ -253,8 +253,11 @@ export function PdfUploadPanel() {
         setPdfStoreStatus(id, 'found'); // update shared store so filter reacts
         queryClient.invalidateQueries({ queryKey: SCREENPLAYS_QUERY_KEY });
       } catch (err) {
-        const message = err instanceof Error ? err.message : t('Upload failed');
-        setUploadEntries((prev) => ({ ...prev, [id]: { state: 'error', error: message } }));
+        console.error('[PdfUploadPanel] Upload failed:', err);
+        setUploadEntries((prev) => ({
+          ...prev,
+          [id]: { state: 'error', error: t('Upload failed') },
+        }));
         setStorageStatuses((prev) => ({ ...prev, [id]: 'missing' }));
         setPdfStoreStatus(id, 'missing'); // update shared store
       }
@@ -656,7 +659,7 @@ export function PdfUploadPanel() {
                       ? 'bg-red-500 border-red-400 text-white'
                       : 'border-black-600 hover:border-red-400/60',
                   )}
-                  aria-label={isSelected ? 'Deselect' : 'Select'}
+                  aria-label={t(isSelected ? 'Deselect' : 'Select')}
                 >
                   {isSelected && <span className="text-[10px] font-bold">✓</span>}
                 </button>

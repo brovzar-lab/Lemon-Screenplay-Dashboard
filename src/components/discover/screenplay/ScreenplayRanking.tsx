@@ -1,10 +1,7 @@
 import { DevelopmentOpportunityBadge } from '@/components/discover/DevelopmentOpportunityBadge';
 import { DiscoverySelectionCheckbox } from '@/components/discover/DiscoverySelectionCheckbox';
 import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScript';
-import type {
-  OpenScreenplay,
-  PercentileMap,
-} from '@/components/discover/screenplay/screenplayPresentationTypes';
+import type { OpenScreenplay } from '@/components/discover/screenplay/screenplayPresentationTypes';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import {
   getScreenplayDisplayAuthor,
@@ -12,28 +9,15 @@ import {
   getScreenplayDisplayTitle,
   getScreenplayFormatInfo,
 } from '@/lib/screenplayDisplay';
-import type {
-  FeaturedSelectionReason,
-  ProducerAssessmentHead,
-  Screenplay,
-} from '@/types';
+import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
+import type { FeaturedSelectionReason, ProducerAssessmentHead, Screenplay } from '@/types';
 import { useTranslation } from 'react-i18next';
-
-function ordinal(value: number): string {
-  const lastTwo = value % 100;
-  if (lastTwo >= 11 && lastTwo <= 13) return `${value}th`;
-  if (value % 10 === 1) return `${value}st`;
-  if (value % 10 === 2) return `${value}nd`;
-  if (value % 10 === 3) return `${value}rd`;
-  return `${value}th`;
-}
 
 interface ScreenplayRankingProps {
   screenplay: Screenplay;
   rank: number;
   reason: FeaturedSelectionReason;
   outsideCurrentView: boolean;
-  percentiles: PercentileMap;
   producerAssessments: ReadonlyMap<string, ProducerAssessmentHead>;
   producerLookIds?: ReadonlySet<string>;
   onOpen: OpenScreenplay;
@@ -44,7 +28,6 @@ export function ScreenplayRanking({
   rank,
   reason,
   outsideCurrentView,
-  percentiles,
   producerAssessments,
   producerLookIds,
   onOpen,
@@ -54,11 +37,58 @@ export function ScreenplayRanking({
   const format = getScreenplayFormatInfo(screenplay);
   const author = getScreenplayDisplayAuthor(screenplay.author);
   const genre = getScreenplayDisplayGenre(screenplay.genre);
-  const percentile = percentiles.get(screenplay.id);
   const projectKey = screenplay.projectId ?? screenplay.id;
   const score = screenplay.producerProjection?.finalScore ?? screenplay.weightedScore;
   const confidence = screenplay.producerProjection?.trustStatus;
-  const metadata = [format.format, genre, author].filter(Boolean);
+  const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
+  const localized = localizedScreenplayPreview(screenplay, language);
+  const metadata = [
+    format.format && t(format.format),
+    genre && t(genre),
+    author && t(author),
+  ].filter(Boolean);
+  const narrativeFallback = language === 'es' && !localized;
+  const featuredDetail = (() => {
+    if (narrativeFallback) return t('Analysis available in English');
+    if (reason.code === 'manual_pin') {
+      return t('This project remains Featured until an administrator removes the pin.');
+    }
+    if (reason.code === 'dust_resurfacing') {
+      return t('This project meets the resurfacing policy and is ready for another look.');
+    }
+
+    let detail: string;
+    if (reason.headline === 'Strongest structure among eligible projects') {
+      detail = t('Its structure score of {{score}} leads today’s eligible slate.', {
+        score: screenplay.dimensionScores.structure.toFixed(1),
+      });
+    } else if (reason.headline === 'Strongest commercial signal among eligible projects') {
+      detail = t(
+        'Market potential, commercial viability, and final score place it first under the studio policy.',
+      );
+    } else if (reason.headline === 'Fastest qualifying read') {
+      detail =
+        Number.isFinite(screenplay.metadata.pageCount) && screenplay.metadata.pageCount > 0
+          ? t('At {{count}} pages, it is the shortest eligible project above the required score.', {
+              count: screenplay.metadata.pageCount,
+            })
+          : t(
+              'It is the shortest eligible project with a recorded page count above the required score.',
+            );
+    } else if (reason.headline === 'Strongest development opportunity') {
+      detail =
+        localized?.developmentOpportunity?.rationale ||
+        t('Its upside and fixability make it the most useful project to review now.');
+    } else {
+      detail = t('Its {{score}} final score leads the projects allowed by today’s studio policy.', {
+        score: score.toFixed(1),
+      });
+    }
+
+    if (reason.mandateFallback) return `${t('No current mandate match.')} ${detail}`;
+    if (reason.invalidPin) return `${t('The pinned project is unavailable.')} ${detail}`;
+    return detail;
+  })();
 
   return (
     <section
@@ -92,15 +122,19 @@ export function ScreenplayRanking({
           <span className="screenplay-featured__brief">
             <span className="screenplay-featured__kicker">{t('Featured screenplay')}</span>
             <span className="screenplay-featured__title">{title.title}</span>
-            {title.qualifier && <span className="screenplay-featured__qualifier">{title.qualifier}</span>}
+            {title.qualifier && (
+              <span className="screenplay-featured__qualifier">{title.qualifier}</span>
+            )}
             <span className="screenplay-featured__meta">{metadata.join(' · ')}</span>
-            {screenplay.logline && (
-              <span className="screenplay-featured__logline">{screenplay.logline}</span>
+            {(localized?.logline || narrativeFallback) && (
+              <span className="screenplay-featured__logline">
+                {localized?.logline || t('Analysis available in English')}
+              </span>
             )}
             <span className="screenplay-featured__why">
               <b>{t('Why featured')}</b>
-              <strong>{reason.headline}</strong>
-              <small>{reason.detail}</small>
+              <strong>{t(reason.headline)}</strong>
+              <small>{featuredDetail}</small>
               {outsideCurrentView && (
                 <em>{t('This recommendation sits outside your temporary browse filters.')}</em>
               )}
@@ -113,16 +147,6 @@ export function ScreenplayRanking({
           <strong>{score.toFixed(1)}</strong>
           <RecommendationBadge tier={screenplay.recommendation} />
           <dl>
-            {percentile && (
-              <div>
-                <dt>{t('Percentile')}</dt>
-                <dd>
-                  {i18n.resolvedLanguage === 'es'
-                    ? percentile.overall
-                    : ordinal(percentile.overall)}
-                </dd>
-              </div>
-            )}
             {confidence && (
               <div>
                 <dt>{t('Confidence')}</dt>

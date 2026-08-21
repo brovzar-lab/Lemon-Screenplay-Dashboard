@@ -3,18 +3,59 @@
  * Mirrors execution/test_verdict.py — the two implementations must agree.
  */
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect } from 'vitest';
+import i18n from '@/i18n';
+import { useToastStore } from '@/stores/toastStore';
 import {
   computeFailurePenalty,
   computeWeightedScoreFromSynthesis,
   deriveVerdict,
   QualityStageExhaustedError,
   ReaderPanelIncompleteError,
+  notifyIncompleteReaderPanel,
   requireCompleteReaderPanel,
   runQualityStageWithRecovery,
   UnusableQualityOutputError,
   validateBrowserSynthesis,
 } from './multiPassAnalysis';
+
+describe('partial reader notification', () => {
+  beforeEach(() => {
+    useToastStore.getState().clearToasts();
+  });
+
+  afterEach(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  it.each([
+    {
+      language: 'en',
+      completed: 4,
+      missing: ['emotional_resonance'] as const,
+      expected:
+        'Analysis needs review: 4 of 5 readers completed. No score or verdict was produced. Missing: emotional_resonance.',
+    },
+    {
+      language: 'es',
+      completed: 3,
+      missing: ['craft_scene', 'concept'] as const,
+      expected:
+        'El análisis requiere revisión: terminaron 3 de 5 lectores. No se generó una calificación ni un veredicto. Faltan: craft_scene, concept.',
+    },
+  ])('preserves reader identifiers in $language', async ({
+    language,
+    completed,
+    missing,
+    expected,
+  }) => {
+    await i18n.changeLanguage(language);
+
+    notifyIncompleteReaderPanel(completed, missing);
+
+    expect(useToastStore.getState().toasts[0]?.message).toBe(expected);
+  });
+});
 
 describe('Q3 five-reader reliability', () => {
   it('retries only the failed quality stage and returns the recovered result', async () => {

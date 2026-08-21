@@ -6,8 +6,15 @@
 import { useEffect, useRef } from 'react';
 import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
-import type { RecommendationTier, BudgetCategory, Collection, SortDirection, SortField } from '@/types';
+import type {
+  RecommendationTier,
+  BudgetCategory,
+  Collection,
+  SortDirection,
+  SortField,
+} from '@/types';
 import { useToastStore } from '@/stores/toastStore';
+import i18n from '@/i18n';
 
 // URL parameter keys
 const PARAM_KEYS = {
@@ -52,7 +59,7 @@ function parseUrlParams(): Partial<{
   const tiers = params.getAll(PARAM_KEYS.tiers);
   if (tiers.length > 0) {
     result.recommendationTiers = tiers.filter((t): t is RecommendationTier =>
-      ['film_now', 'recommend', 'consider', 'pass'].includes(t)
+      ['film_now', 'recommend', 'consider', 'pass'].includes(t),
     );
   }
 
@@ -60,7 +67,7 @@ function parseUrlParams(): Partial<{
   const budgets = params.getAll(PARAM_KEYS.budgets);
   if (budgets.length > 0) {
     result.budgetCategories = budgets.filter((b): b is BudgetCategory =>
-      ['micro', 'low', 'medium', 'high'].includes(b)
+      ['micro', 'low', 'medium', 'high'].includes(b),
     );
   }
 
@@ -68,7 +75,13 @@ function parseUrlParams(): Partial<{
   const collections = params.getAll(PARAM_KEYS.collections);
   if (collections.length > 0) {
     result.collections = collections.filter((c): c is Collection =>
-      ['2005 Black List', '2006 Black List', '2007 Black List', '2020 Black List', 'Randoms'].includes(c)
+      [
+        '2005 Black List',
+        '2006 Black List',
+        '2007 Black List',
+        '2020 Black List',
+        'Randoms',
+      ].includes(c),
     );
   }
 
@@ -247,7 +260,7 @@ export async function copyShareableUrl(): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('Failed to copy URL:', error);
-    useToastStore.getState().addToast('Failed to copy URL to clipboard', 'warning');
+    useToastStore.getState().addToast(i18n.t('Failed to copy URL to clipboard'), 'warning');
     return false;
   }
 }

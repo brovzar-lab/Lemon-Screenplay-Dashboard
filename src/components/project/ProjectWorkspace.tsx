@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
+import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
 import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { ScriptCover } from '@/components/discover/ScriptCover';
@@ -27,6 +28,7 @@ import {
 } from '@/lib/screenplayDisplay';
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
+import { analysisIsEnglishFallback } from '@/lib/localizedAnalysis';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 
 export type ProjectWorkspaceTab =
@@ -148,7 +150,9 @@ function ProjectHeader({
   screenplay: Screenplay;
   producerAssessment?: ProducerAssessmentHead;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
+  const analysisFallback = analysisIsEnglishFallback(screenplay, language);
   const quickFavorites = useFavoritesStore((state) => state.quickFavorites);
   const toggleQuickFavorite = useFavoritesStore((state) => state.toggleQuickFavorite);
   const isFavorite = quickFavorites.includes(screenplay.id);
@@ -177,22 +181,24 @@ function ProjectHeader({
           </div>
           <h1 className="dsc-display mt-3 text-4xl sm:text-5xl">{displayTitle}</h1>
           {displayAuthor && (
-            <p className="mt-1 text-base text-[var(--dsc-ink-2)]">{t('by {{author}}', { author: displayAuthor })}</p>
+            <p className="mt-1 text-base text-[var(--dsc-ink-2)]">
+              {t('by {{author}}', { author: t(displayAuthor) })}
+            </p>
           )}
           <p className="dsc-label dsc-label-faint mt-4">
             {[
-              displayGenre,
-              screenplay.metadata.pageCount ? t('{{count}} pages', { count: screenplay.metadata.pageCount }) : undefined,
+              displayGenre ? t(displayGenre) : undefined,
+              screenplay.metadata.pageCount
+                ? t('{{count}} pages', { count: screenplay.metadata.pageCount })
+                : undefined,
               screenplay.analysisModel,
             ]
               .filter(Boolean)
               .join(' · ')}
           </p>
-          {screenplay.logline && (
-            <p className="mt-4 max-w-3xl text-sm leading-6 text-[var(--dsc-ink-2)] line-clamp-3">
-              {screenplay.logline}
-            </p>
-          )}
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-[var(--dsc-ink-2)] line-clamp-3">
+            {analysisFallback ? t('Analysis available in English') : screenplay.logline}
+          </p>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <ScreenplayPdfButton
               screenplay={screenplay}
@@ -231,7 +237,14 @@ function ProjectHeader({
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-[#8290a5]">{t('Readers')}</dt>
-              <dd>{screenplay.analysisQuality ? t('{{completed}}/{{expected}} readers complete', { completed: screenplay.analysisQuality.completedReaders, expected: screenplay.analysisQuality.expectedReaders }) : t('Legacy analysis')}</dd>
+              <dd>
+                {screenplay.analysisQuality
+                  ? t('{{completed}}/{{expected}} readers complete', {
+                      completed: screenplay.analysisQuality.completedReaders,
+                      expected: screenplay.analysisQuality.expectedReaders,
+                    })
+                  : t('Legacy analysis')}
+              </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-[#8290a5]">{t('Analysis')}</dt>
@@ -250,7 +263,9 @@ export function ProjectWorkspace({
   onSelectTab,
   onBack,
 }: ProjectWorkspaceProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
+  const analysisFallback = analysisIsEnglishFallback(screenplay, language);
   const panelRef = useRef<HTMLDivElement>(null);
   const isAdmin = useIsAdmin();
   const { data: assessmentHeads = [] } = useProducerAssessmentHeads(isAdmin);
@@ -265,6 +280,9 @@ export function ProjectWorkspace({
   }, [activeTab, screenplay.id]);
 
   const renderActiveTab = () => {
+    if (analysisFallback && ['overview', 'reader-room', 'story-x-ray'].includes(activeTab)) {
+      return null;
+    }
     switch (activeTab) {
       case 'reader-room':
         return <ReaderRoom screenplay={screenplay} />;
@@ -298,7 +316,9 @@ export function ProjectWorkspace({
               <aside className="rounded-lg border border-[var(--dsc-line)] bg-[var(--dsc-surface-2)] p-5">
                 <p className="dsc-label">{t('Project files')}</p>
                 <p className="mt-2 text-sm leading-6 text-[var(--dsc-ink-2)]">
-                  {t('Open the source screenplay or create the approved exports from the project header.')}
+                  {t(
+                    'Open the source screenplay or create the approved exports from the project header.',
+                  )}
                 </p>
                 <div className="mt-4">
                   <ScreenplayPdfButton
@@ -324,6 +344,7 @@ export function ProjectWorkspace({
     >
       <ApplicationHeader />
       <main className="px-4 py-5 sm:px-6 lg:px-8">
+        <AnalysisLanguageNotice screenplay={screenplay} />
         <div className="mx-auto max-w-[1680px]">
           <button type="button" onClick={onBack} className="dsc-btn mb-4 bg-[var(--dsc-surface)]">
             <span aria-hidden="true">←</span> {t('Back to Discovery')}

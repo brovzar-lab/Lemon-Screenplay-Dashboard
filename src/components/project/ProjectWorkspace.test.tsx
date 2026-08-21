@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestScreenplay } from '@/test/factories';
+import i18n from '@/i18n';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 
 const testState = vi.hoisted(() => ({
@@ -16,10 +17,11 @@ vi.mock('@/stores/authStore', () => ({
 }));
 
 vi.mock('@/stores/favoritesStore', () => ({
-  useFavoritesStore: (selector: (state: Record<string, unknown>) => unknown) => selector({
-    quickFavorites: testState.favorites,
-    toggleQuickFavorite: testState.toggleFavorite,
-  }),
+  useFavoritesStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({
+      quickFavorites: testState.favorites,
+      toggleQuickFavorite: testState.toggleFavorite,
+    }),
 }));
 
 vi.mock('@/hooks/useProducerAssessments', () => ({
@@ -44,7 +46,10 @@ vi.mock('@/components/discover/DiscoveryShareStatus', () => ({
 
 vi.mock('@/components/discover/DiscoveryExportActions', () => ({
   DiscoveryExportActions: () => (
-    <div><button>Coverage PDF</button><button>Pitch-deck PDF</button></div>
+    <div>
+      <button>Coverage PDF</button>
+      <button>Pitch-deck PDF</button>
+    </div>
   ),
 }));
 
@@ -55,17 +60,31 @@ vi.mock('@/components/screenplay/modal/ScreenplayPdfButton', () => ({
 }));
 
 vi.mock('@/components/screenplay/modal', () => ({
-  AnalysisWarnings: ({ screenplay }: { screenplay: Screenplay }) => <div>Warnings for {screenplay.title}</div>,
-  ContentDetails: ({ screenplay }: { screenplay: Screenplay }) => <div>Characters for {screenplay.title}</div>,
-  DeferredReaderEvidence: ({ screenplay }: { screenplay: Screenplay }) => <div>Five readers for {screenplay.title}</div>,
-  NotesSection: ({ screenplayId }: { screenplayId: string }) => <button>Add note to {screenplayId}</button>,
-  ProducerTake: ({ screenplay }: { screenplay: Screenplay }) => <div>Producer Take for {screenplay.title}</div>,
-  ScoresPanel: ({ screenplay }: { screenplay: Screenplay }) => <div>Score lineage {screenplay.weightedScore}</div>,
+  AnalysisWarnings: ({ screenplay }: { screenplay: Screenplay }) => (
+    <div>Warnings for {screenplay.title}</div>
+  ),
+  ContentDetails: ({ screenplay }: { screenplay: Screenplay }) => (
+    <div>Characters for {screenplay.title}</div>
+  ),
+  DeferredReaderEvidence: ({ screenplay }: { screenplay: Screenplay }) => (
+    <div>Five readers for {screenplay.title}</div>
+  ),
+  NotesSection: ({ screenplayId }: { screenplayId: string }) => (
+    <button>Add note to {screenplayId}</button>
+  ),
+  ProducerTake: ({ screenplay }: { screenplay: Screenplay }) => (
+    <div>Producer Take for {screenplay.title}</div>
+  ),
+  ScoresPanel: ({ screenplay }: { screenplay: Screenplay }) => (
+    <div>Score lineage {screenplay.weightedScore}</div>
+  ),
   ShareButton: () => <button>Share</button>,
 }));
 
 vi.mock('@/components/project/ReaderRoom', () => ({
-  ReaderRoom: ({ screenplay }: { screenplay: Screenplay }) => <div>Five readers for {screenplay.title}</div>,
+  ReaderRoom: ({ screenplay }: { screenplay: Screenplay }) => (
+    <div>Five readers for {screenplay.title}</div>
+  ),
 }));
 
 import { ProjectWorkspace } from '@/components/project/ProjectWorkspace';
@@ -112,21 +131,24 @@ function project(): Screenplay {
       },
       readerDisagreementCount: 1,
     },
-    readerDisagreements: [{
-      topic: 'Ending agency',
-      readerA: 'character',
-      readerAPosition: 'Strong',
-      readerB: 'structure',
-      readerBPosition: 'Late',
-      resolution: 'Recommend with a targeted ending pass.',
-    }],
+    readerDisagreements: [
+      {
+        topic: 'Ending agency',
+        readerA: 'character',
+        readerAPosition: 'Strong',
+        readerB: 'structure',
+        readerBPosition: 'Late',
+        resolution: 'Recommend with a targeted ending pass.',
+      },
+    ],
   });
 }
 
 const stats = { total: 27, avgWeightedScore: 6.1, filmNowCount: 0 };
 
 describe('ProjectWorkspace', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
     testState.isAdmin = true;
     testState.assessmentHeads = [];
     testState.favorites = [];
@@ -134,7 +156,15 @@ describe('ProjectWorkspace', () => {
   });
 
   it('presents the complete real-analysis workspace as a studio dossier', () => {
-    render(<ProjectWorkspace screenplay={project()} stats={stats} activeTab="overview" onSelectTab={vi.fn()} onBack={vi.fn()} />);
+    render(
+      <ProjectWorkspace
+        screenplay={project()}
+        stats={stats}
+        activeTab="overview"
+        onSelectTab={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole('heading', { name: 'Atlas Fall' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Project workspace' })).toBeInTheDocument();
@@ -154,7 +184,15 @@ describe('ProjectWorkspace', () => {
 
   it('keeps Producer Take admin-only while preserving the analysis for readers', () => {
     testState.isAdmin = false;
-    render(<ProjectWorkspace screenplay={project()} stats={stats} activeTab="overview" onSelectTab={vi.fn()} onBack={vi.fn()} />);
+    render(
+      <ProjectWorkspace
+        screenplay={project()}
+        stats={stats}
+        activeTab="overview"
+        onSelectTab={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole('button', { name: 'Reader Room' })).toBeInTheDocument();
     expect(screen.queryByText('Producer Take for Atlas Fall')).not.toBeInTheDocument();
@@ -164,7 +202,15 @@ describe('ProjectWorkspace', () => {
   it('uses the existing favorite control and returns through the supplied navigation', async () => {
     const user = userEvent.setup();
     const onBack = vi.fn();
-    render(<ProjectWorkspace screenplay={project()} stats={stats} activeTab="overview" onSelectTab={vi.fn()} onBack={onBack} />);
+    render(
+      <ProjectWorkspace
+        screenplay={project()}
+        stats={stats}
+        activeTab="overview"
+        onSelectTab={vi.fn()}
+        onBack={onBack}
+      />,
+    );
 
     await user.click(screen.getByRole('button', { name: 'Favorite' }));
     expect(testState.toggleFavorite).toHaveBeenCalledWith('atlas-file');
@@ -176,7 +222,15 @@ describe('ProjectWorkspace', () => {
   it('shows only the active replacement page and asks the route owner to switch tabs', async () => {
     const user = userEvent.setup();
     const onSelectTab = vi.fn();
-    render(<ProjectWorkspace screenplay={project()} stats={stats} activeTab="reader-room" onSelectTab={onSelectTab} onBack={vi.fn()} />);
+    render(
+      <ProjectWorkspace
+        screenplay={project()}
+        stats={stats}
+        activeTab="reader-room"
+        onSelectTab={onSelectTab}
+        onBack={vi.fn()}
+      />,
+    );
 
     expect(screen.getByText('Five readers for Atlas Fall')).toBeInTheDocument();
     expect(screen.queryByText('Score lineage 8.4')).not.toBeInTheDocument();
@@ -184,5 +238,25 @@ describe('ProjectWorkspace', () => {
 
     await user.click(screen.getByRole('button', { name: 'Story X-Ray' }));
     expect(onSelectTab).toHaveBeenCalledWith('story-x-ray');
+  });
+
+  it('does not mix original English analysis into the Spanish project workspace', async () => {
+    await i18n.changeLanguage('es');
+    const screenplay = project();
+    screenplay.logline = 'Original English logline.';
+
+    render(
+      <ProjectWorkspace
+        screenplay={screenplay}
+        stats={stats}
+        activeTab="overview"
+        onSelectTab={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('Análisis disponible en inglés').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Original English logline.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Score lineage 8.4')).not.toBeInTheDocument();
   });
 });

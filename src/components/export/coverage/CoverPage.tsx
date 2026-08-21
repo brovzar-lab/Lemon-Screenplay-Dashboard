@@ -11,13 +11,22 @@ import { s, scoreColor, recLabel, recColor, budgetLabel, truncate, today } from 
 import { __scoreGapStyle } from './constants';
 import { Footer } from './SharedComponents';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import i18n, { type UiLanguage } from '@/i18n';
 
 interface CoverPageProps {
   screenplay: Screenplay;
   dims: DimensionDisplayItem[];
+  language?: UiLanguage;
+  showEnglishAnalysisNotice?: boolean;
 }
 
-export function CoverPage({ screenplay, dims }: CoverPageProps) {
+export function CoverPage({
+  screenplay,
+  dims,
+  language = 'en',
+  showEnglishAnalysisNotice = false,
+}: CoverPageProps) {
+  const t = i18n.getFixedT(language);
   const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
 
   return (
@@ -28,48 +37,59 @@ export function CoverPage({ screenplay, dims }: CoverPageProps) {
           <Image src="/lemon-logo-black.png" style={s.coverLogo} />
           <View>
             <Text style={s.brandName}>Lemon Studios</Text>
-            <Text style={s.brandSub}>Coverage Report</Text>
+            <Text style={s.brandSub}>{t('Coverage Report')}</Text>
           </View>
         </View>
-        <Text style={s.coverDate}>{today()}</Text>
+        <Text style={s.coverDate}>{today(language === 'es' ? 'es-MX' : 'en-US')}</Text>
       </View>
 
       {/* Title + author on separate lines */}
       <View style={s.titleBlock}>
         <Text style={s.titleText}>{displayTitle}</Text>
-        <Text style={s.authorText}>by {screenplay.author}</Text>
+        <Text style={s.authorText}>
+          {t('by')} {screenplay.author}
+        </Text>
       </View>
 
       {/* Meta grid */}
       <View style={s.metaGrid}>
         <View style={[s.metaCell, s.metaCellAlt]}>
-          <Text style={s.metaLabel}>Genre</Text>
+          <Text style={s.metaLabel}>{t('Genre')}</Text>
           <Text style={s.metaValue}>
-            {screenplay.genre}
-            {(screenplay.subgenres?.length ?? 0) > 0 ? ` / ${screenplay.subgenres.join(', ')}` : ''}
+            {t(screenplay.genre)}
+            {!showEnglishAnalysisNotice && (screenplay.subgenres?.length ?? 0) > 0
+              ? ` / ${screenplay.subgenres.join(', ')}`
+              : ''}
           </Text>
         </View>
+        {!showEnglishAnalysisNotice && (
+          <View style={s.metaCell}>
+            <Text style={s.metaLabel}>{t('Tone')}</Text>
+            <Text style={s.metaValue}>{screenplay.tone || '—'}</Text>
+          </View>
+        )}
         <View style={s.metaCell}>
-          <Text style={s.metaLabel}>Tone</Text>
-          <Text style={s.metaValue}>{screenplay.tone || '—'}</Text>
-        </View>
-        <View style={s.metaCell}>
-          <Text style={s.metaLabel}>Budget Tier</Text>
+          <Text style={s.metaLabel}>{t('Budget Tier')}</Text>
           <Text style={s.metaValue}>{budgetLabel(screenplay.budgetCategory)}</Text>
         </View>
         <View style={[s.metaCell, s.metaCellAlt]}>
-          <Text style={s.metaLabel}>Pages / Words</Text>
+          <Text style={s.metaLabel}>{t('Pages / Words')}</Text>
           <Text style={s.metaValue}>
-            {screenplay.metadata?.pageCount ?? '—'} pp /{' '}
-            {(screenplay.metadata?.wordCount ?? 0).toLocaleString()} words
+            {screenplay.metadata?.pageCount ?? '—'} {t('pp')} /{' '}
+            {(screenplay.metadata?.wordCount ?? 0).toLocaleString(
+              language === 'es' ? 'es-MX' : 'en-US',
+            )}{' '}
+            {t('words')}
           </Text>
         </View>
-        <View style={[s.metaCell, s.metaCellAlt]}>
-          <Text style={s.metaLabel}>Themes</Text>
-          <Text style={s.metaValue}>
-            {(screenplay.themes?.length ?? 0) > 0 ? screenplay.themes.join(', ') : '—'}
-          </Text>
-        </View>
+        {!showEnglishAnalysisNotice && (
+          <View style={[s.metaCell, s.metaCellAlt]}>
+            <Text style={s.metaLabel}>{t('Themes')}</Text>
+            <Text style={s.metaValue}>
+              {(screenplay.themes?.length ?? 0) > 0 ? screenplay.themes.join(', ') : '—'}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Score hero */}
@@ -89,26 +109,36 @@ export function CoverPage({ screenplay, dims }: CoverPageProps) {
             </View>
           </View>
         </View>
-        <View style={s.scoreRight}>
-          <Text style={s.verdictLabel}>Verdict</Text>
-          <Text style={s.verdictText}>{truncate(screenplay.verdictStatement, 600)}</Text>
-        </View>
+        {!showEnglishAnalysisNotice && (
+          <View style={s.scoreRight}>
+            <Text style={s.verdictLabel}>{t('Verdict')}</Text>
+            <Text style={s.verdictText}>{truncate(screenplay.verdictStatement, 600)}</Text>
+          </View>
+        )}
       </View>
 
       {/* Logline */}
-      <View style={s.section}>
-        <Text style={s.heading}>Logline</Text>
-        <View style={s.pq}>
-          <Text style={s.pqText}>{screenplay.logline}</Text>
+      {!showEnglishAnalysisNotice && (
+        <View style={s.section}>
+          <Text style={s.heading}>{t('Logline')}</Text>
+          <View style={s.pq}>
+            <Text style={s.pqText}>{screenplay.logline}</Text>
+          </View>
         </View>
-      </View>
+      )}
+
+      {showEnglishAnalysisNotice && (
+        <View style={s.notAssessed}>
+          <Text style={s.naText}>{t('Analysis available in English')}</Text>
+        </View>
+      )}
 
       {/* Quick dimension summary — bars only, no justifications */}
       <View style={s.section}>
-        <Text style={s.heading}>Scores At A Glance</Text>
+        <Text style={s.heading}>{t('Scores At A Glance')}</Text>
         {dims.map((dim) => (
           <View key={dim.key} style={s.barRow}>
-            <Text style={s.barLabel}>{dim.label}</Text>
+            <Text style={s.barLabel}>{t(dim.label)}</Text>
             <Text style={s.barWeight}>{(dim.weight * 100).toFixed(0)}%</Text>
             <View style={s.barTrack}>
               <View
@@ -126,7 +156,7 @@ export function CoverPage({ screenplay, dims }: CoverPageProps) {
         ))}
       </View>
 
-      <Footer />
+      <Footer language={language} />
     </Page>
   );
 }

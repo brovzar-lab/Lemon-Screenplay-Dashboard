@@ -1,5 +1,7 @@
 import { clsx } from 'clsx';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
 interface ScriptCoverProps {
   title: string;
@@ -25,13 +27,17 @@ function tintFromSeed(seed: string): number {
  * "Written by" author line, binding dots, and a rev footer. Pure presentation,
  * ported from the approved Compact Shelf reference (.script-cover).
  */
-function revisionLabel(analysisVersion?: string): string {
+function revisionLabel(analysisVersion: string | undefined, t: TFunction): string {
   const match = analysisVersion?.match(/^v(\d+)(?:_(triage))?/i);
-  if (!match) return 'Legacy analysis';
-  return `Rev. V${match[1]}${match[2] ? ' triage' : ''}`;
+  if (!match) return t('Legacy analysis');
+  return t('Revision {{version}}{{triage}}', {
+    version: `V${match[1]}`,
+    triage: match[2] ? ` ${t('triage')}` : '',
+  });
 }
 
 export function ScriptCover({ title, author, seed, analysisVersion, className }: ScriptCoverProps) {
+  const { t } = useTranslation();
   const displayTitle = getScreenplayDisplayTitle(title).title;
   const displayAuthor = getScreenplayDisplayAuthor(author);
   return (
@@ -45,12 +51,12 @@ export function ScriptCover({ title, author, seed, analysisVersion, className }:
       <p className="dsc-cover-title">{displayTitle}</p>
       {displayAuthor && (
         <p className="dsc-cover-author">
-          Written by
+          {t('Written by')}
           <br />
-          {displayAuthor}
+          {t(displayAuthor)}
         </p>
       )}
-      <span className="dsc-cover-foot">Lemon Studios · {revisionLabel(analysisVersion)}</span>
+      <span className="dsc-cover-foot">Lemon Studios · {revisionLabel(analysisVersion, t)}</span>
     </div>
   );
 }
