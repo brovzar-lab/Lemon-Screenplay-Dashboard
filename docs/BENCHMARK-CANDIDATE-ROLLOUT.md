@@ -11,7 +11,7 @@ This is an approval-gated runbook. Committing this file does not authorize proje
 - Caller service account: Cloud Run invoker only. The local harness impersonates it for a short-lived identity token.
 - The candidate stores only run and call metadata under `model_benchmark_runs/{runId}/calls/{callId}`. Full inputs, prompts, and outputs stay local.
 
-The Admin SDK bypasses Firestore Security Rules. Isolation therefore depends on the dedicated runtime identity and a per-database IAM condition, not on a separate collection or client rules.
+The Admin SDK bypasses Firestore Security Rules. Isolation therefore depends on the dedicated runtime identity and a per-database IAM condition, not on a separate collection or client rules. The authenticated preflight requires the actual runtime project to match either its approved staging target or the exact production target, binds the runtime service account to that project, then uses explicit Admin SDK apps to test the staging and production default databases separately and tests the exact production Storage bucket. All three denied resource targets and the runtime project are bound into the deployment-configuration hash.
 
 ## Approval sequence
 
@@ -19,7 +19,7 @@ The Admin SDK bypasses Firestore Security Rules. Isolation therefore depends on 
 2. Obtain approval for branch push.
 3. Obtain staging approval for project creation, billing, named database, service accounts, IAM, secret creation, Workload Identity Federation, GitHub staging environment, and candidate deployment.
 4. Deploy only `llmProxyCandidate` from the approved clean Git SHA.
-5. Run the authenticated no-spend preflight. It must report named database `allowed`, default database `denied`, and Storage `denied`.
+5. Run the authenticated no-spend preflight. It must report named database `allowed`, staging default database `denied`, production default database `denied`, and production Storage `denied`, together with the exact checked resource names.
 6. Obtain separate approval for the $1 staging smoke, then prove only the staging named database changed.
 7. Obtain production-infrastructure approval. Record the screenplay, Hosting, Storage, queue, and normal-proxy baseline before changing anything.
 8. Deploy the identical candidate commit only. Obtain separate approval for each paid phase: $1 smoke, $75 three-screenplay pilot, then $300 twelve-screenplay blinded benchmark.
@@ -33,6 +33,8 @@ The candidate preflight returns the full Git SHA, clean-source flag, catalog SHA
 Hosting builds emit `/release.json` with `Cache-Control: no-store`. Verification must use `/release.json?verification=FULL_GIT_SHA` and compare the returned full SHA with the approved commit. A function listing alone is not release proof.
 
 Use GitHub Workload Identity Federation identities dedicated to staging and production. Keep production behind the existing protected `production` environment. Do not add Firebase tokens or service-account JSON keys.
+
+The staging workflow is intentionally stored on the modernization branch for review. GitHub only accepts `workflow_dispatch` events for workflows that exist on the default branch, while this rollout currently forbids merging. Therefore it is not dispatchable yet and must not be represented as active. The smallest safe resolution is one separately reviewed workflow-only commit on `main`; the registered workflow can then be dispatched from `codex/anthropic-model-modernization` and check out the explicitly approved source SHA. This narrow exception requires separate approval and does not merge the model or candidate-function implementation into `main`.
 
 ## Rollback proof
 

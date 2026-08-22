@@ -244,6 +244,13 @@ def _candidate_preflight(
         raise BenchmarkSafetyError("Candidate preflight returned the wrong service or run ID.")
     if data.get("database_id") != "model-benchmarks":
         raise BenchmarkSafetyError("Candidate preflight returned the wrong Firestore database.")
+    runtime_project_id = data.get("runtime_project_id")
+    if runtime_project_id not in {
+        "lemon-screenplay-staging",
+        "lemon-sp-dashboard-stg-493694",
+        "lemon-screenplay-dashboard",
+    }:
+        raise BenchmarkSafetyError("Candidate preflight returned an invalid runtime project.")
     allowed_models = set(data.get("allowed_models") or [])
     if not SMOKE_MODELS.issubset(allowed_models):
         raise BenchmarkSafetyError("Candidate preflight omitted an approved smoke model.")
@@ -264,12 +271,31 @@ def _candidate_preflight(
         raise BenchmarkSafetyError("Candidate catalog hash does not match the approved catalog.")
     if verify_isolation:
         isolation = data.get("isolation") if isinstance(data.get("isolation"), dict) else {}
-        if isolation != {
+        expected_statuses = {
             "named_database": "allowed",
-            "default_database": "denied",
-            "storage": "denied",
-        }:
+            "staging_default_database": "denied",
+            "production_default_database": "denied",
+            "production_storage": "denied",
+        }
+        if any(isolation.get(key) != value for key, value in expected_statuses.items()):
             raise BenchmarkSafetyError("Candidate IAM isolation preflight did not pass.")
+        targets = isolation.get("targets") if isinstance(isolation.get("targets"), dict) else {}
+        staging_default = targets.get("staging_default_database")
+        production_default = targets.get("production_default_database")
+        production_storage = targets.get("production_storage_bucket")
+        if production_default != (
+            "projects/lemon-screenplay-dashboard/databases/(default)"
+        ):
+            raise BenchmarkSafetyError("Candidate preflight targeted the wrong production Firestore database.")
+        if production_storage != "lemon-screenplay-dashboard.firebasestorage.app":
+            raise BenchmarkSafetyError("Candidate preflight targeted the wrong production Storage bucket.")
+        expected_runtime_default = (
+            production_default
+            if runtime_project_id == "lemon-screenplay-dashboard"
+            else staging_default
+        )
+        if expected_runtime_default != f"projects/{runtime_project_id}/databases/(default)":
+            raise BenchmarkSafetyError("Candidate preflight confused staging and production Firestore.")
     return data
 
 

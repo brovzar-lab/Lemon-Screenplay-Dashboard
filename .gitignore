@@ -11,6 +11,9 @@ dist-ssr/
 .env.local
 .env.*.local
 *.local
+/functions/.env.*
+!/functions/.env.example
+gha-creds-*.json
 
 # Logs
 logs/

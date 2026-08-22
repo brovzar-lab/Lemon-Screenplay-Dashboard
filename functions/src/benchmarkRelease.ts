@@ -12,6 +12,14 @@ export const BENCHMARK_RUNTIME_OPTIONS = {
   models: BENCHMARK_MODELS,
 } as const;
 
+export const BENCHMARK_STAGING_PROJECT_IDS = [
+  "lemon-screenplay-staging",
+  "lemon-sp-dashboard-stg-493694",
+] as const;
+export const BENCHMARK_PRODUCTION_FIRESTORE_PROJECT_ID = "lemon-screenplay-dashboard";
+export const BENCHMARK_PRODUCTION_STORAGE_BUCKET =
+  "lemon-screenplay-dashboard.firebasestorage.app";
+
 export interface BenchmarkReleaseIdentity {
   git_sha: string;
   source_clean: boolean;
@@ -29,23 +37,86 @@ export interface BenchmarkDeploymentIdentityInput {
   runId: string;
   capMicrousd: number;
   runtimeServiceAccount: string;
+  runtimeProjectId: string;
+  stagingFirestoreProjectId: string;
+  productionFirestoreProjectId: string;
+  productionStorageBucket: string;
   cloudRunRevision?: string;
+}
+
+export interface BenchmarkIsolationResources {
+  staging_default_database: string;
+  production_default_database: string;
+  production_storage_bucket: string;
 }
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
 const SERVICE_ACCOUNT = /^[a-z0-9][a-z0-9-]{4,28}[a-z0-9]@[a-z0-9-]+\.iam\.gserviceaccount\.com$/;
 
+export function assertBenchmarkRuntimeProject(
+  stagingFirestoreProjectId: string,
+  productionFirestoreProjectId: string,
+  runtimeProjectId: string,
+  runtimeServiceAccount: string,
+): void {
+  if (
+    runtimeProjectId !== stagingFirestoreProjectId
+    && runtimeProjectId !== productionFirestoreProjectId
+  ) {
+    throw new Error("The function runtime project must match an approved isolation target.");
+  }
+  if (!runtimeServiceAccount.endsWith(
+    `@${runtimeProjectId}.iam.gserviceaccount.com`,
+  )) {
+    throw new Error("The benchmark runtime service account must belong to the runtime project.");
+  }
+}
+
+export function benchmarkIsolationResources(
+  stagingFirestoreProjectId: string,
+  productionFirestoreProjectId: string,
+  productionStorageBucket: string,
+): BenchmarkIsolationResources {
+  if (stagingFirestoreProjectId === productionFirestoreProjectId) {
+    throw new Error("Staging and production Firestore projects must be different.");
+  }
+  if (!BENCHMARK_STAGING_PROJECT_IDS.includes(
+    stagingFirestoreProjectId as typeof BENCHMARK_STAGING_PROJECT_IDS[number],
+  )) {
+    throw new Error("BENCHMARK_STAGING_FIRESTORE_PROJECT_ID is invalid.");
+  }
+  if (productionFirestoreProjectId !== BENCHMARK_PRODUCTION_FIRESTORE_PROJECT_ID) {
+    throw new Error("BENCHMARK_PRODUCTION_FIRESTORE_PROJECT_ID is invalid.");
+  }
+  if (productionStorageBucket !== BENCHMARK_PRODUCTION_STORAGE_BUCKET) {
+    throw new Error("BENCHMARK_STORAGE_BUCKET is invalid.");
+  }
+  return {
+    staging_default_database: `projects/${stagingFirestoreProjectId}/databases/(default)`,
+    production_default_database: `projects/${productionFirestoreProjectId}/databases/(default)`,
+    production_storage_bucket: productionStorageBucket,
+  };
+}
+
 export function deploymentConfigSha256(
   runId: string,
   capMicrousd: number,
   runtimeServiceAccount: string,
+  runtimeProjectId: string,
+  stagingFirestoreProjectId: string,
+  productionFirestoreProjectId: string,
+  productionStorageBucket: string,
 ): string {
   return sha256CanonicalJson({
     ...BENCHMARK_RUNTIME_OPTIONS,
     runId,
     capMicrousd,
     runtimeServiceAccount,
+    runtimeProjectId,
+    stagingFirestoreProjectId,
+    productionFirestoreProjectId,
+    productionStorageBucket,
   });
 }
 
@@ -65,6 +136,17 @@ export function buildBenchmarkReleaseIdentity(
   if (!SERVICE_ACCOUNT.test(input.runtimeServiceAccount)) {
     throw new Error("BENCHMARK_RUNTIME_SERVICE_ACCOUNT is invalid.");
   }
+  assertBenchmarkRuntimeProject(
+    input.stagingFirestoreProjectId,
+    input.productionFirestoreProjectId,
+    input.runtimeProjectId,
+    input.runtimeServiceAccount,
+  );
+  benchmarkIsolationResources(
+    input.stagingFirestoreProjectId,
+    input.productionFirestoreProjectId,
+    input.productionStorageBucket,
+  );
   if (!Number.isInteger(input.capMicrousd) || input.capMicrousd <= 0) {
     throw new Error("Benchmark cap must be a positive integer number of micro-USD.");
   }
@@ -77,6 +159,10 @@ export function buildBenchmarkReleaseIdentity(
       input.runId,
       input.capMicrousd,
       input.runtimeServiceAccount,
+      input.runtimeProjectId,
+      input.stagingFirestoreProjectId,
+      input.productionFirestoreProjectId,
+      input.productionStorageBucket,
     ),
     cloud_run_revision: input.cloudRunRevision ?? process.env.K_REVISION ?? "local",
   };

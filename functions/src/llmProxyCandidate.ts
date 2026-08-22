@@ -1,8 +1,8 @@
 import { Buffer } from "node:buffer";
-import { getApps, initializeApp } from "firebase-admin/app";
+import { getApps, initializeApp, type App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
-import { defineSecret, defineString } from "firebase-functions/params";
+import { defineSecret, defineString, projectID } from "firebase-functions/params";
 import { onRequest } from "firebase-functions/v2/https";
 import {
   createAnthropicClient,
@@ -36,6 +36,7 @@ import {
 import { candidateLog } from "./candidateLog";
 import {
   BENCHMARK_RUNTIME_OPTIONS,
+  benchmarkIsolationResources,
   buildBenchmarkReleaseIdentity,
 } from "./benchmarkRelease";
 import { calculateReservationMicrousd, usdToMicrousd } from "./llmCost";
@@ -50,6 +51,12 @@ const benchmarkSourceClean = defineString("BENCHMARK_SOURCE_CLEAN");
 const benchmarkCatalogSha256 = defineString("BENCHMARK_CATALOG_SHA256");
 const benchmarkBuildTimestamp = defineString("BENCHMARK_BUILD_TIMESTAMP");
 const benchmarkRuntimeServiceAccount = defineString("BENCHMARK_RUNTIME_SERVICE_ACCOUNT");
+const benchmarkStagingFirestoreProjectId = defineString(
+  "BENCHMARK_STAGING_FIRESTORE_PROJECT_ID",
+);
+const benchmarkProductionFirestoreProjectId = defineString(
+  "BENCHMARK_PRODUCTION_FIRESTORE_PROJECT_ID",
+);
 const benchmarkStorageBucket = defineString("BENCHMARK_STORAGE_BUCKET");
 
 const MAX_OUTPUT_TOKENS = 24_000;
@@ -63,6 +70,15 @@ function runtimeConfig() {
   const capMicrousd = usdToMicrousd(capUsd);
   const runId = benchmarkRunId.value();
   if (!/^[A-Za-z0-9._-]{1,120}$/.test(runId)) throw new Error("BENCHMARK_RUN_ID is invalid.");
+  const stagingFirestoreProjectId = benchmarkStagingFirestoreProjectId.value();
+  const runtimeProjectId = projectID.value();
+  const productionFirestoreProjectId = benchmarkProductionFirestoreProjectId.value();
+  const productionStorageBucket = benchmarkStorageBucket.value();
+  const isolationResources = benchmarkIsolationResources(
+    stagingFirestoreProjectId,
+    productionFirestoreProjectId,
+    productionStorageBucket,
+  );
   const release = buildBenchmarkReleaseIdentity({
     gitSha: benchmarkGitSha.value(),
     sourceClean: benchmarkSourceClean.value(),
@@ -71,8 +87,22 @@ function runtimeConfig() {
     runId,
     capMicrousd,
     runtimeServiceAccount: benchmarkRuntimeServiceAccount.value(),
+    runtimeProjectId,
+    stagingFirestoreProjectId,
+    productionFirestoreProjectId,
+    productionStorageBucket,
   });
-  return { runId, capUsd, capMicrousd, release };
+  return {
+    runId,
+    capUsd,
+    capMicrousd,
+    release,
+    isolationResources,
+    runtimeProjectId,
+    stagingFirestoreProjectId,
+    productionFirestoreProjectId,
+    productionStorageBucket,
+  };
 }
 
 function permissionCode(error: unknown): unknown {
@@ -93,19 +123,36 @@ async function deniedProbe(operation: () => Promise<unknown>): Promise<"denied" 
   }
 }
 
-async function isolationPreflight(runId: string) {
+export function isolationApp(projectId: string): App {
+  const name = `benchmark-isolation-${projectId}`;
+  return getApps().find((app) => app.name === name)
+    ?? initializeApp({ projectId }, name);
+}
+
+async function isolationPreflight(config: ReturnType<typeof runtimeConfig>) {
   const benchmarkDb = getFirestore(BENCHMARK_DATABASE_ID);
   const namedDatabase = await deniedProbe(
-    () => benchmarkDb.collection("model_benchmark_runs").doc(runId).get(),
+    () => benchmarkDb.collection("model_benchmark_runs").doc(config.runId).get(),
   );
-  const defaultDatabase = await deniedProbe(
-    () => getFirestore().collection("_benchmark_isolation_probe_").doc("default").get(),
+  const stagingDefaultDatabase = await deniedProbe(
+    () => getFirestore(isolationApp(config.stagingFirestoreProjectId))
+      .collection("_benchmark_isolation_probe_").doc("staging-default").get(),
   );
-  const storage = await deniedProbe(
-    () => getStorage().bucket(benchmarkStorageBucket.value())
-      .file("_benchmark_isolation_probe_/storage").exists(),
+  const productionDefaultDatabase = await deniedProbe(
+    () => getFirestore(isolationApp(config.productionFirestoreProjectId))
+      .collection("_benchmark_isolation_probe_").doc("production-default").get(),
   );
-  return { named_database: namedDatabase, default_database: defaultDatabase, storage };
+  const productionStorage = await deniedProbe(
+    () => getStorage().bucket(config.productionStorageBucket)
+      .file("_benchmark_isolation_probe_/production-storage").exists(),
+  );
+  return {
+    named_database: namedDatabase,
+    staging_default_database: stagingDefaultDatabase,
+    production_default_database: productionDefaultDatabase,
+    production_storage: productionStorage,
+    targets: config.isolationResources,
+  };
 }
 
 export const llmProxyCandidate = onRequest(
@@ -133,7 +180,7 @@ export const llmProxyCandidate = onRequest(
       let isolation: Awaited<ReturnType<typeof isolationPreflight>> | undefined;
       try {
         isolation = req.query.isolation === "1"
-          ? await isolationPreflight(config.runId)
+          ? await isolationPreflight(config)
           : undefined;
       } catch {
         candidateLog({
@@ -154,6 +201,7 @@ export const llmProxyCandidate = onRequest(
         run_id: config.runId,
         cap_usd: config.capUsd,
         database_id: BENCHMARK_DATABASE_ID,
+        runtime_project_id: config.runtimeProjectId,
         allowed_models: BENCHMARK_MODELS,
         release: config.release,
         ...(isolation ? { isolation } : {}),

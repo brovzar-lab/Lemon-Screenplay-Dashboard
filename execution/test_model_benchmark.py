@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 from execution.model_benchmark import (
     BenchmarkSafetyError,
+    _candidate_preflight,
     _load_engine,
     _route_configs,
     _run_smoke,
@@ -126,6 +127,110 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(BenchmarkSafetyError, "dedicated"):
             _validate_candidate_proxy(
                 "https://us-central1-project.cloudfunctions.net/llmProxy"
+            )
+
+    def test_candidate_preflight_requires_distinct_production_isolation_targets(self):
+        response = Mock(status_code=200)
+        response.json.return_value = {
+            "service": "llmProxyCandidate",
+            "run_id": "staging-smoke",
+            "cap_usd": 1,
+            "database_id": "model-benchmarks",
+            "runtime_project_id": "lemon-screenplay-staging",
+            "allowed_models": [
+                "claude-haiku-4-5-20251001",
+                "claude-sonnet-5",
+                "claude-opus-5",
+            ],
+            "release": {
+                "source_clean": True,
+                "deployment_config_sha256": "c" * 64,
+                "cloud_run_revision": "llmproxycandidate-00001-abc",
+                "git_sha": "a" * 40,
+                "catalog_sha256": "b" * 64,
+            },
+            "isolation": {
+                "named_database": "allowed",
+                "staging_default_database": "denied",
+                "production_default_database": "denied",
+                "production_storage": "denied",
+                "targets": {
+                    "staging_default_database": (
+                        "projects/lemon-screenplay-staging/databases/(default)"
+                    ),
+                    "production_default_database": (
+                        "projects/lemon-screenplay-dashboard/databases/(default)"
+                    ),
+                    "production_storage_bucket": (
+                        "lemon-screenplay-dashboard.firebasestorage.app"
+                    ),
+                },
+            },
+        }
+        with patch("execution.model_benchmark.requests.get", return_value=response):
+            result = _candidate_preflight(
+                "https://example.run.app/llmProxyCandidate",
+                lambda: "short-lived",
+                "staging-smoke",
+                1,
+                True,
+                "a" * 40,
+                "b" * 64,
+            )
+        self.assertEqual(
+            result["isolation"]["targets"]["production_default_database"],
+            "projects/lemon-screenplay-dashboard/databases/(default)",
+        )
+
+        response.json.return_value["isolation"]["targets"][
+            "production_default_database"
+        ] = "projects/lemon-screenplay-staging/databases/(default)"
+        with patch("execution.model_benchmark.requests.get", return_value=response):
+            with self.assertRaisesRegex(BenchmarkSafetyError, "production Firestore"):
+                _candidate_preflight(
+                    "https://example.run.app/llmProxyCandidate",
+                    lambda: "short-lived",
+                    "staging-smoke",
+                    1,
+                    True,
+                    "a" * 40,
+                    "b" * 64,
+                )
+
+        response.json.return_value["isolation"]["targets"][
+            "production_default_database"
+        ] = "projects/lemon-screenplay-dashboard/databases/(default)"
+        response.json.return_value["isolation"]["targets"][
+            "staging_default_database"
+        ] = "projects/lemon-sp-dashboard-stg-493694/databases/(default)"
+        with patch("execution.model_benchmark.requests.get", return_value=response):
+            with self.assertRaisesRegex(BenchmarkSafetyError, "confused staging"):
+                _candidate_preflight(
+                    "https://example.run.app/llmProxyCandidate",
+                    lambda: "short-lived",
+                    "staging-smoke",
+                    1,
+                    True,
+                    "a" * 40,
+                    "b" * 64,
+                )
+
+        response.json.return_value["runtime_project_id"] = "lemon-screenplay-dashboard"
+        response.json.return_value["isolation"]["targets"][
+            "staging_default_database"
+        ] = "projects/lemon-screenplay-staging/databases/(default)"
+        with patch("execution.model_benchmark.requests.get", return_value=response):
+            self.assertEqual(
+                _candidate_preflight(
+                    "https://example.run.app/llmProxyCandidate",
+                    lambda: "short-lived",
+                    "staging-smoke",
+                    1,
+                    True,
+                    "a" * 40,
+                    "b" * 64,
+                )["runtime_project_id"],
+                "lemon-screenplay-dashboard",
             )
 
     def test_online_transport_uses_stable_call_ids_and_one_http_attempt(self):
