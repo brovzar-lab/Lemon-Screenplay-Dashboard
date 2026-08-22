@@ -3,7 +3,7 @@
  *
  * Orchestrates the full screenplay analysis pipeline:
  *   1. Parse PDF → extract text
- *   2. Call LLM via proxy (Firebase Cloud Function → LiteLLM)
+ *   2. Call Anthropic via the Firebase Cloud Function and official SDK
  *   3. Return raw analysis JSON (V9 Archaeology Engine)
  *
  * All text AI calls route through the proxy client (proxyClient.ts).

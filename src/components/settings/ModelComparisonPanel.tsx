@@ -18,7 +18,7 @@ import { useScreenplays } from '@/hooks/useScreenplays';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import modelCatalog from '@/config/anthropic-model-catalog.json';
 import { MODEL_COSTS, MODEL_OPTIONS } from './upload/upload.constants';
-import { REANALYSIS_MODELS } from '@/components/screenplay/modal/ReanalyzeButton';
+import { REANALYSIS_MODELS } from '@/components/screenplay/modal/reanalysisModels';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

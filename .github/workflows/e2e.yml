@@ -1,5 +1,8 @@
 name: E2E Tests
 
+env:
+  NODE_VERSION: "22.22.3"
+
 on:
   pull_request:
     branches: [main]
@@ -21,7 +24,7 @@ jobs:
       - name: Setup Node 22
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - name: Install dependencies

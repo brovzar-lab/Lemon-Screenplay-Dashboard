@@ -48,9 +48,20 @@ npm run models:benchmark -- --input /absolute/path/to/approved-screenplay.pdf --
 
 Artifacts go only to the gitignored `benchmark-artifacts/` directory. The manifest does not store the source path or calibration prompt text. A paid result stores the analysis locally because blind creative review needs the output. Treat that artifact as confidential screenplay material.
 
-Paid execution is deliberately harder. It additionally requires `--execute`, `--i-understand-paid-inference`, a positive `--max-cost-usd`, and an `http://localhost` or `http://127.0.0.1` proxy URL. The harness rejects production URLs. It calls the existing V9 readers and proxy, and it never imports Firebase Admin, archives a PDF, or calls Firestore or Storage persistence functions. It also calculates a conservative ceiling before every request and stops before a request could exceed the local cap.
+Paid execution is deliberately harder. It additionally requires `--execute`, `--i-understand-paid-inference`, an immutable `--run-id`, a positive `--max-cost-usd`, and the direct URL of `llmProxyCandidate`. Online execution also requires the dedicated caller service account, IAM-isolation verification, and exact Git and catalog hashes. The harness obtains short-lived identity tokens with service-account impersonation. It never accepts `/api/llm`, the normal `llmProxy`, a browser token, or a shared proxy password.
 
-Do not execute a paid run until the exact files, route, and cap receive separate approval. Do not use Claude subscription capacity. The supported paid path is metered API inference through the local Functions emulator.
+Each logical call carries a deterministic call ID over the approved screenplay hash, route generation, stage, reader, correction number, prompt hash, schema hash, exact request hash, and requested model. Candidate transport failures are never retried automatically. A structured-output correction is a new logical call and gets a new ID. Full outputs remain local. The named Firestore database receives operational metadata only, never screenplay text, titles, filenames, prompts, or results.
+
+Approved online example after the staging infrastructure and paid phase are separately approved:
+
+```bash
+cd /Users/quantumcode/CODE/LEMON-SCREENPLAY-DASHBOARD-anthropic-modernization
+npm run models:benchmark -- --input /absolute/path/to/approved-screenplay.pdf --approve-sha256 EXACT_SHA256 --route all --execute --i-understand-paid-inference --run-id staging-smoke-20260821 --proxy-url https://us-central1-lemon-screenplay-staging.cloudfunctions.net/llmProxyCandidate --caller-service-account benchmark-caller@lemon-screenplay-staging.iam.gserviceaccount.com --verify-isolation --expected-git-sha EXACT_40_CHARACTER_GIT_SHA --expected-catalog-sha256 EXACT_CATALOG_SHA256 --max-cost-usd 1
+```
+
+Add `--smoke` for the $1 accessibility phase. It calls Haiku 4.5, Sonnet 5, and Opus 5 once each with a fixed `READY` prompt and sends no screenplay text. The approved screenplay hash still binds the run identity.
+
+Do not execute a paid run until the exact files, route, deployed revision, and cap receive separate approval. Do not use Claude subscription capacity. The supported paid path is metered Anthropic API inference through the isolated candidate function.
 
 ## Proposed validation ladder
 

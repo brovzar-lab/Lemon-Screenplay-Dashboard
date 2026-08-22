@@ -169,7 +169,7 @@ cd /opt/lemon-ingest && git pull origin main && sudo systemctl restart lemon-dae
 
 Normal local ingestion remains pinned to Sonnet 4.6 and Opus 4.7. Haiku 4.5 is a non-binding cold read and genre signal, so its PASS can never stop the complete Sonnet panel. Sonnet 5 and Opus 5 are benchmark-pending candidates. Fable 5 is limited to Reader Chat.
 
-Use the isolated, persistence-free benchmark for candidate work. It defaults to a manifest-only dry run, requires exact SHA-256 approval for every local PDF, writes only under gitignored `benchmark-artifacts/`, and rejects production proxy URLs. It does not archive files or call Firestore or Storage persistence. See [`docs/ANTHROPIC-MODEL-CATALOG.md`](docs/ANTHROPIC-MODEL-CATALOG.md) for the exact safety gates and the proposed paid validation ladder.
+Use the isolated benchmark for candidate work. It defaults to a manifest-only dry run, requires exact SHA-256 approval for every local PDF, and writes full results only under gitignored `benchmark-artifacts/`. Paid online mode accepts only the private `llmProxyCandidate`, uses a short-lived impersonated identity token, makes one transport attempt per logical call, and verifies that its runtime identity can access only the named `model-benchmarks` database. It never archives a PDF or calls production screenplay persistence. See [`docs/ANTHROPIC-MODEL-CATALOG.md`](docs/ANTHROPIC-MODEL-CATALOG.md) and [`docs/BENCHMARK-CANDIDATE-ROLLOUT.md`](docs/BENCHMARK-CANDIDATE-ROLLOUT.md).
 
 ---
 

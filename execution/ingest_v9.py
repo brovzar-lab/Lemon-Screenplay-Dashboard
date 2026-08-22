@@ -75,7 +75,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 # ── Dependency imports with helpful error messages ────────────────────────────
 
@@ -846,6 +846,10 @@ class DailyBudgetExceededError(RuntimeError):
         self.reset_at = reset_at
 
 
+class BenchmarkCapExceededError(RuntimeError):
+    """The immutable benchmark deployment cap rejected a candidate call."""
+
+
 class LlmAccountingError(RuntimeError):
     """A model call may have completed but its server ledger did not settle."""
 
@@ -856,6 +860,45 @@ class LlmProvenanceError(RuntimeError):
 
 class LlmRequestRejectedError(RuntimeError):
     """The upstream API rejected a request before model generation."""
+
+
+_BENCHMARK_TRANSPORT_CONTEXT: Optional[Dict[str, Any]] = None
+_BENCHMARK_ID_TOKEN_PROVIDER: Optional[Callable[[], str]] = None
+
+
+def configure_benchmark_online_transport(
+    context: Dict[str, Any],
+    identity_token_provider: Callable[[], str],
+) -> None:
+    """Attach one local benchmark run to the private candidate proxy."""
+    global _BENCHMARK_TRANSPORT_CONTEXT, _BENCHMARK_ID_TOKEN_PROVIDER
+    _BENCHMARK_TRANSPORT_CONTEXT = dict(context)
+    _BENCHMARK_ID_TOKEN_PROVIDER = identity_token_provider
+
+
+def clear_benchmark_online_transport() -> None:
+    global _BENCHMARK_TRANSPORT_CONTEXT, _BENCHMARK_ID_TOKEN_PROVIDER
+    _BENCHMARK_TRANSPORT_CONTEXT = None
+    _BENCHMARK_ID_TOKEN_PROVIDER = None
+
+
+def _canonical_json_hash(value: Any) -> str:
+    def normalize(item: Any) -> Any:
+        if isinstance(item, float) and item.is_integer():
+            return int(item)
+        if isinstance(item, list):
+            return [normalize(child) for child in item]
+        if isinstance(item, dict):
+            return {key: normalize(child) for key, child in item.items()}
+        return item
+
+    payload = json.dumps(
+        normalize(value),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 class LlmOutputContractError(RuntimeError):
@@ -1276,6 +1319,7 @@ def call_llm(
     pipeline_pass: str = "unspecified",
     boundary_run: int = 0,
     reader_name: Optional[str] = None,
+    logical_retry: int = 0,
 ) -> Tuple[Optional[Dict[str, Any]], str, Dict[str, Any]]:
     """Block-aware LLM call via the Firebase proxy.
 
@@ -1363,18 +1407,39 @@ def call_llm(
             payload["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
             payload["temperature"] = 1.0
 
+    benchmark_context = _BENCHMARK_TRANSPORT_CONTEXT
+    benchmark_token_provider = _BENCHMARK_ID_TOKEN_PROVIDER
+    if benchmark_context is not None:
+        if benchmark_token_provider is None:
+            raise LlmRequestRejectedError("Benchmark identity token provider is missing")
+        request_sha256 = _canonical_json_hash(payload)
+        benchmark = {
+            **benchmark_context,
+            "pipeline_stage": stage,
+            "reader_name": reader_name,
+            "retry_number": logical_retry,
+            "boundary_run": max(1, boundary_run),
+            "request_sha256": request_sha256,
+            "requested_model": model_id,
+        }
+        benchmark["call_id"] = _canonical_json_hash(benchmark)
+        payload["benchmark"] = benchmark
+
     # The proxy authenticates callers: the daemon presents a shared service
     # key (browsers present a Firebase ID token). Set PROXY_SERVICE_KEY in the
     # daemon's environment to match functions/.env. Absent → unauthenticated
     # (will 401 once the proxy gate is deployed).
     proxy_headers = {}
     service_key = os.getenv("PROXY_SERVICE_KEY")
-    if service_key:
+    if benchmark_context is not None and benchmark_token_provider is not None:
+        proxy_headers["Authorization"] = f"Bearer {benchmark_token_provider()}"
+    elif service_key:
         proxy_headers["X-Lemon-Service-Key"] = service_key
 
     last_err: Optional[Exception] = None
     attempt_history: List[Dict[str, Any]] = []
-    for attempt in range(1, retries + 1):
+    effective_retries = 1 if benchmark_context is not None else retries
+    for attempt in range(1, effective_retries + 1):
         try:
             resp = requests.post(url, json=payload, headers=proxy_headers, timeout=540)
             if resp.status_code == 429:
@@ -1387,6 +1452,10 @@ def call_llm(
                         error_data.get("error", "Daily AI dollar budget exhausted."),
                         error_data.get("resetAt"),
                     )
+                if error_data.get("code") == "BENCHMARK_CAP_EXCEEDED":
+                    raise BenchmarkCapExceededError(
+                        error_data.get("error", "Benchmark cost cap exhausted.")
+                    )
                 wait = 30 * attempt
                 attempt_history.append({
                     "attempt": attempt,
@@ -1395,7 +1464,10 @@ def call_llm(
                     "http_status": 429,
                 })
                 last_err = RuntimeError("rate limited")
-                log.warning(f"    Rate limited — waiting {wait}s (attempt {attempt}/{retries})")
+                log.warning(
+                    f"    Rate limited — waiting {wait}s "
+                    f"(attempt {attempt}/{effective_retries})"
+                )
                 time.sleep(wait)
                 continue
             if resp.status_code in (401, 403):
@@ -1432,6 +1504,7 @@ def call_llm(
                 is_retryable = error_data.get("isRetryable") is True
                 if (
                     error_code == "POST_CALL_ACCOUNTING_UNCERTAIN"
+                    or error_code == "BENCHMARK_SPEND_UNCERTAIN"
                     or (
                         error_code == "BUDGET_ACCOUNTING_ERROR"
                         and not is_retryable
@@ -1472,6 +1545,7 @@ def call_llm(
             raw_usage = data.get("usage", {})
             response_model = data.get("model")
             response_id = data.get("response_id")
+            response_release = data.get("release")
             if not isinstance(response_model, str) or not response_model:
                 raise LlmProvenanceError(
                     "Settled LLM response did not include its exact returned model ID"
@@ -1512,6 +1586,10 @@ def call_llm(
                     "pipeline_pass": pipeline_pass,
                     "boundary_run": boundary_run,
                     "reader_name": reader_name,
+                    **({
+                        "call_id": payload["benchmark"]["call_id"],
+                        "release": response_release,
+                    } if benchmark_context is not None else {}),
                     "disposition": "pending",
                 }],
                 "failed_calls": [],
@@ -1572,6 +1650,7 @@ def call_llm(
 
         except (
             DailyBudgetExceededError,
+            BenchmarkCapExceededError,
             LlmAccountingError,
             LlmProvenanceError,
             LlmRequestRejectedError,
@@ -1590,13 +1669,16 @@ def call_llm(
             if isinstance(status_code, int):
                 failure["http_status"] = status_code
             attempt_history.append(failure)
-            if attempt < retries:
+            if attempt < effective_retries:
                 wait = attempt * 5
-                log.warning(f"    LLM call failed (attempt {attempt}/{retries}): {e} — retrying in {wait}s")
+                log.warning(
+                    f"    LLM call failed (attempt {attempt}/{effective_retries}): "
+                    f"{e} — retrying in {wait}s"
+                )
                 time.sleep(wait)
 
     raise LlmCallFailedError(
-        f"LLM call failed after {retries} attempts: {last_err}",
+        f"LLM call failed after {effective_retries} attempts: {last_err}",
         attempt_history=attempt_history,
         requested_model=model_id,
         stage=stage,
@@ -2487,6 +2569,7 @@ def run_genre_detection(
         return detection, usage
     except (
         DailyBudgetExceededError,
+        BenchmarkCapExceededError,
         LlmAccountingError,
         LlmProvenanceError,
         LlmRequestRejectedError,
@@ -3430,12 +3513,14 @@ def run_v9_full(
                     pipeline_pass=pass_name,
                     boundary_run=boundary_run,
                     reader_name=reader,
+                    logical_retry=report_attempt - 1,
                 )
                 if tool_input is None:
                     raise ValueError("no tool_use block")
                 report = _validate_reader_report(reader, tool_input)
             except (
                 DailyBudgetExceededError,
+                BenchmarkCapExceededError,
                 LlmAccountingError,
                 LlmProvenanceError,
                 LlmRequestRejectedError,
@@ -3529,6 +3614,7 @@ def run_v9_full(
                 )
             except (
                 DailyBudgetExceededError,
+                BenchmarkCapExceededError,
                 LlmAccountingError,
                 LlmProvenanceError,
                 LlmRequestRejectedError,
@@ -3624,12 +3710,14 @@ def run_v9_full(
                 stage="synthesis",
                 pipeline_pass=pass_name,
                 boundary_run=boundary_run,
+                logical_retry=attempt - 1,
             )
             if tool_input is None:
                 raise ValueError("synthesis returned no tool_use block")
             candidate = _validate_synthesis_report(tool_input)
         except (
             DailyBudgetExceededError,
+            BenchmarkCapExceededError,
             LlmAccountingError,
             LlmProvenanceError,
             LlmRequestRejectedError,
@@ -3961,6 +4049,7 @@ def run_v9_stable(
         )
     except (
         DailyBudgetExceededError,
+        BenchmarkCapExceededError,
         LlmAccountingError,
         LlmProvenanceError,
         LlmRequestRejectedError,
@@ -4032,6 +4121,7 @@ def run_v9_stable(
             )
         except (
             DailyBudgetExceededError,
+            BenchmarkCapExceededError,
             LlmAccountingError,
             LlmProvenanceError,
             LlmRequestRejectedError,
@@ -4573,6 +4663,7 @@ def ingest_one(
                 )
             except (
                 DailyBudgetExceededError,
+                BenchmarkCapExceededError,
                 LlmAccountingError,
                 LlmProvenanceError,
                 LlmRequestRejectedError,

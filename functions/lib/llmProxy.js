@@ -29,7 +29,7 @@ const anthropicClient_1 = require("./anthropicClient");
 const budgetCounter_1 = require("./budgetCounter");
 const llmCost_1 = require("./llmCost");
 const llmProxyErrors_1 = require("./llmProxyErrors");
-const llmProxyPolicy_1 = require("./llmProxyPolicy");
+const anthropicProxyCore_1 = require("./anthropicProxyCore");
 const anthropicApiKey = (0, params_1.defineSecret)("ANTHROPIC_API_KEY");
 const dailyLlmBudgetUsd = (0, params_1.defineString)("DAILY_LLM_BUDGET_USD", {
     default: String(llmCost_1.DEFAULT_DAILY_LLM_BUDGET_USD),
@@ -47,71 +47,6 @@ const corsMiddleware = (0, cors_1.default)({
         /^http:\/\/127\.0\.0\.1:\d+$/,
     ],
 });
-const EXTENDED_CACHE_TTL_BETA = "extended-cache-ttl-2025-04-11";
-function usesOneHourCache(body) {
-    const systemUsesOneHourCache = Array.isArray(body.system)
-        && body.system.some((block) => block.cache_control?.ttl === "1h");
-    if (systemUsesOneHourCache)
-        return true;
-    return body.messages.some((message) => (Array.isArray(message.content)
-        && message.content.some((block) => ("cache_control" in block && block.cache_control?.ttl === "1h"))));
-}
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-/**
- * Extract a single concatenated system prompt from the request.
- * Accepts:
- *   - body.system as string
- *   - body.system as array of text blocks (preserves cache_control)
- *   - legacy: system-role entries inside body.messages (string content only)
- *
- * Returns the value to pass as Anthropic's `system` field, or undefined.
- */
-function extractSystem(body) {
-    // Preferred: explicit top-level system field
-    if (body.system !== undefined)
-        return body.system;
-    // Legacy: system-role messages embedded in messages[]
-    const systemMessages = body.messages.filter((m) => m.role === "system");
-    if (systemMessages.length === 0)
-        return undefined;
-    // If any system message has block content with cache_control, build a block array.
-    const hasBlocks = systemMessages.some((m) => Array.isArray(m.content) &&
-        m.content.some((b) => b.type === "text" && b.cache_control));
-    if (hasBlocks) {
-        const blocks = [];
-        for (const m of systemMessages) {
-            if (Array.isArray(m.content)) {
-                for (const b of m.content) {
-                    if (b.type === "text") {
-                        blocks.push({
-                            type: "text",
-                            text: b.text,
-                            ...(b.cache_control ? { cache_control: b.cache_control } : {}),
-                        });
-                    }
-                }
-            }
-            else {
-                blocks.push({ type: "text", text: m.content });
-            }
-        }
-        return blocks;
-    }
-    // Plain string concat
-    return systemMessages
-        .map((m) => (typeof m.content === "string" ? m.content : ""))
-        .join("\n");
-}
-/**
- * Strip system messages out, returning the user/assistant messages to send
- * to Anthropic. Content is passed through unchanged — strings stay strings,
- * block arrays stay block arrays.
- */
-function userAssistantMessages(body) {
-    return body.messages
-        .filter((m) => m.role !== "system")
-        .map((m) => ({ role: m.role, content: m.content }));
-}
 // ─── Handler ─────────────────────────────────────────────────────────────────
 exports.llmProxy = (0, https_1.onRequest)({
     region: "us-central1",
@@ -164,103 +99,18 @@ exports.llmProxy = (0, https_1.onRequest)({
             });
             return;
         }
-        const body = req.body;
-        if (!body.model || !body.messages || !Array.isArray(body.messages)) {
-            res.status(400).json({
-                error: "Missing required fields: model, messages",
-                code: "INVALID_INPUT",
-            });
-            return;
-        }
-        if (!(0, llmProxyPolicy_1.isApprovedProxyModel)(body.model, authResult.kind)) {
-            res.status(400).json({ error: "Model is not approved.", code: "INVALID_MODEL" });
-            return;
-        }
-        const modelOutputLimit = (0, llmProxyPolicy_1.approvedMaxOutputTokens)(body.model, MAX_OUTPUT_TOKENS);
-        const maxTokens = body.max_tokens ?? 8_096;
-        if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > modelOutputLimit) {
-            res.status(400).json({
-                error: `max_tokens must be an integer between 1 and ${modelOutputLimit}.`,
-                code: "INVALID_INPUT",
-            });
-            return;
-        }
-        if (body.thinking) {
-            if (body.thinking.type !== "enabled" && body.thinking.type !== "adaptive") {
-                res.status(400).json({
-                    error: "Unsupported thinking mode.",
-                    code: "INVALID_INPUT",
-                });
-                return;
-            }
-            if (body.thinking.type === "enabled"
-                && (!Number.isInteger(body.thinking.budget_tokens)
-                    || body.thinking.budget_tokens < 1
-                    || body.thinking.budget_tokens > MAX_THINKING_TOKENS)) {
-                res.status(400).json({
-                    error: `thinking.budget_tokens must be between 1 and ${MAX_THINKING_TOKENS}.`,
-                    code: "INVALID_INPUT",
-                });
-                return;
-            }
-        }
-        let outputConfig;
+        let built;
         try {
-            outputConfig = (0, llmProxyPolicy_1.validateModelRequest)(body.model, authResult.kind, {
-                thinking: body.thinking,
-                temperature: body.temperature,
-                top_p: body.top_p,
-                top_k: body.top_k,
-                tool_choice: body.tool_choice,
-                output_config: body.output_config,
-            });
+            built = (0, anthropicProxyCore_1.buildAnthropicRequest)(req.body, authResult.kind, MAX_OUTPUT_TOKENS, MAX_THINKING_TOKENS);
         }
         catch (error) {
-            res.status(400).json({
-                error: error instanceof Error ? error.message : "Invalid output_config.",
-                code: "INVALID_INPUT",
-            });
+            const validation = error instanceof anthropicProxyCore_1.ProxyRequestValidationError
+                ? error
+                : new anthropicProxyCore_1.ProxyRequestValidationError("Invalid request.");
+            res.status(400).json({ error: validation.message, code: validation.code });
             return;
         }
-        let jobId;
-        if (authResult.kind === "service" && body.job_id !== undefined) {
-            if (typeof body.job_id !== "string"
-                || body.job_id.length < 1
-                || body.job_id.length > 1_500
-                || body.job_id.includes("/")) {
-                res.status(400).json({
-                    error: "job_id must be a Firestore document ID.",
-                    code: "INVALID_INPUT",
-                    isRetryable: false,
-                });
-                return;
-            }
-            jobId = body.job_id;
-        }
-        const system = extractSystem(body);
-        const messages = userAssistantMessages(body);
-        // Build the request payload with all optional fields forwarded.
-        const payload = {
-            model: body.model,
-            max_tokens: maxTokens,
-            messages,
-        };
-        if (system !== undefined)
-            payload.system = system;
-        if (typeof body.temperature === "number")
-            payload.temperature = body.temperature;
-        if (typeof body.top_p === "number")
-            payload.top_p = body.top_p;
-        if (typeof body.top_k === "number")
-            payload.top_k = body.top_k;
-        if (body.tools && body.tools.length > 0)
-            payload.tools = body.tools;
-        if (body.tool_choice)
-            payload.tool_choice = body.tool_choice;
-        if (body.thinking)
-            payload.thinking = body.thinking;
-        if (outputConfig)
-            payload.output_config = outputConfig;
+        const { body, payload, maxTokens, jobId, requestOptions } = built;
         const client = (0, anthropicClient_1.createAnthropicClient)(anthropicApiKey.value());
         let reservation;
         try {
@@ -299,13 +149,6 @@ exports.llmProxy = (0, https_1.onRequest)({
             // .create() — so the rest of the handler is unchanged.
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             message = await (0, anthropicClient_1.finalMessageWithUncertainSpendProtection)(async () => {
-                const requestOptions = usesOneHourCache(body)
-                    ? {
-                        headers: {
-                            "anthropic-beta": EXTENDED_CACHE_TTL_BETA,
-                        },
-                    }
-                    : undefined;
                 const stream = client.messages.stream(payload, requestOptions);
                 return stream.finalMessage();
             }, async (reason) => {
@@ -325,54 +168,20 @@ exports.llmProxy = (0, https_1.onRequest)({
             return;
         }
         try {
-            // Extract the first text block (back-compat).
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const textBlock = message.content.find((b) => b.type === "text");
-            const text = textBlock?.text ?? "";
-            // Extract tool_use blocks (new path) — the daemon and frontend can
-            // read this directly to get schema-guaranteed JSON without parsing.
-            const toolUses = message.content
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .filter((b) => b.type === "tool_use")
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .map((b) => ({ id: b.id, name: b.name, input: b.input }));
-            // Pull thinking blocks too (informational; useful for debugging).
-            const thinking = message.content
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .filter((b) => b.type === "thinking")
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .map((b) => b.thinking ?? "")
-                .join("\n");
-            // Full usage breakdown (cache hits, thinking, output tokens).
-            const usageWithCache = message.usage;
-            const usage = {
-                input_tokens: message.usage.input_tokens ?? 0,
-                output_tokens: message.usage.output_tokens ?? 0,
-                cache_creation_input_tokens: usageWithCache.cache_creation_input_tokens ?? 0,
-                cache_read_input_tokens: usageWithCache.cache_read_input_tokens ?? 0,
-                ...(usageWithCache.cache_creation
-                    ? {
-                        cache_creation: {
-                            ephemeral_5m_input_tokens: usageWithCache.cache_creation.ephemeral_5m_input_tokens ?? 0,
-                            ephemeral_1h_input_tokens: usageWithCache.cache_creation.ephemeral_1h_input_tokens ?? 0,
-                        },
-                    }
-                    : {}),
-            };
-            const returnedModel = typeof message.model === "string" ? message.model : "";
-            const settlement = await (0, budgetCounter_1.settleLlmBudget)(reservation, usage, returnedModel);
-            if (returnedModel !== body.model) {
+            const parsed = (0, anthropicProxyCore_1.parseAnthropicMessage)(message);
+            const settlement = await (0, budgetCounter_1.settleLlmBudget)(reservation, parsed.usage, parsed.model);
+            if (parsed.model !== body.model) {
                 res.status(502).json({
                     error: "Anthropic returned a different model than the exact model requested.",
                     code: "MODEL_PROVENANCE_MISMATCH",
                     isRetryable: false,
                     manualReviewRequired: true,
                     requested_model: body.model,
-                    returned_model: returnedModel,
-                    response_id: message.id,
-                    stop_reason: message.stop_reason,
+                    returned_model: parsed.model,
+                    response_id: parsed.responseId,
+                    stop_reason: parsed.stopReason,
                     usage: {
-                        ...usage,
+                        ...parsed.usage,
                         call_count: 1,
                         actual_cost_microusd: settlement.actual_cost_microusd,
                         actual_cost_usd: settlement.actual_cost_usd,
@@ -381,15 +190,15 @@ exports.llmProxy = (0, https_1.onRequest)({
                 return;
             }
             res.status(200).json({
-                text,
-                tool_uses: toolUses,
-                thinking,
-                content: message.content, // full block array for advanced callers
-                response_id: message.id,
-                model: message.model,
-                stop_reason: message.stop_reason,
+                text: parsed.text,
+                tool_uses: parsed.toolUses,
+                thinking: parsed.thinking,
+                content: parsed.content,
+                response_id: parsed.responseId,
+                model: parsed.model,
+                stop_reason: parsed.stopReason,
                 usage: {
-                    ...usage,
+                    ...parsed.usage,
                     call_count: 1,
                     actual_cost_microusd: settlement.actual_cost_microusd,
                     actual_cost_usd: settlement.actual_cost_usd,

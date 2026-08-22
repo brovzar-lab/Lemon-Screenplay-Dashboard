@@ -1,5 +1,8 @@
 name: Anthropic model catalog check
 
+env:
+  NODE_VERSION: "22.22.3"
+
 on:
   schedule:
     - cron: '0 15 1 * *'
@@ -16,7 +19,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
       - name: Test catalog selection
         run: npm run models:test
       - name: Refresh observed catalog

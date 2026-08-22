@@ -2,8 +2,8 @@
  * LLM Proxy Client
  *
  * Sends AI requests to the Firebase Cloud Function proxy instead of
- * calling Anthropic/Gemini APIs directly. The proxy forwards to LiteLLM,
- * which routes to the appropriate LLM provider. API keys never touch the browser.
+ * calling Anthropic directly. The proxy uses Anthropic's official SDK.
+ * Google features use their separate Google function. API keys never touch the browser.
  *
  * In dev: points to Firebase Emulator (localhost:5001)
  * In prod: uses Firebase Hosting rewrite (/api/llm → llmProxy function)
@@ -147,8 +147,8 @@ export function buildProxyRequest(options: CallLLMOptions): ProxyRequestBody {
 /**
  * Call the LLM proxy. Returns the response text and optional usage data.
  *
- * Translates our internal request format into the OpenAI-compatible
- * format expected by the proxy, which forwards to LiteLLM.
+ * Translates our internal request format into the Anthropic request shape
+ * accepted by the proxy.
  */
 export async function callLLM(options: CallLLMOptions): Promise<CallLLMResult> {
   const body = buildProxyRequest(options);
