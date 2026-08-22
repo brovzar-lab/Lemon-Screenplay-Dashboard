@@ -1,0 +1,159 @@
+name: Deploy candidate proxy to staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved_source_sha:
+        description: Exact reviewed 40-character source commit
+        required: true
+        type: string
+      run_id:
+        description: Immutable staging benchmark run ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-candidate:
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NODE_VERSION: '22.22.3'
+      NPM_VERSION: '10.9.8'
+      PYTHON_VERSION: '3.13.13'
+      JAVA_VERSION: '21.0.12'
+      FIREBASE_TOOLS_VERSION: '15.14.0'
+      GCLOUD_VERSION: '574.0.0'
+      STAGING_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      PRODUCTION_FIRESTORE_PROJECT_ID: lemon-screenplay-dashboard
+      PRODUCTION_STORAGE_BUCKET: lemon-screenplay-dashboard.firebasestorage.app
+      BENCHMARK_CAP_USD: '1'
+
+    steps:
+      - name: Check out the explicitly approved source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ inputs.approved_source_sha }}
+          fetch-depth: 0
+
+      - name: Refuse an invalid, unreviewed, or dirty source
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          case "${STAGING_PROJECT_ID}" in
+            lemon-screenplay-staging|lemon-sp-dashboard-stg-493694) ;;
+            *) echo "Refusing unapproved staging project." >&2; exit 1 ;;
+          esac
+          [[ "${DEPLOYER_SERVICE_ACCOUNT}" =~ @${STAGING_PROJECT_ID}\.iam\.gserviceaccount\.com$ ]]
+          [[ "${APPROVED_SOURCE_SHA}" =~ ^[a-f0-9]{40}$ ]]
+          [[ "${RUN_ID}" =~ ^[A-Za-z0-9._-]{1,120}$ ]]
+          test "$(git rev-parse HEAD)" = "${APPROVED_SOURCE_SHA}"
+          git merge-base --is-ancestor "${APPROVED_SOURCE_SHA}" origin/codex/anthropic-model-modernization
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Set up Node
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: execution/requirements.txt
+
+      - name: Set up Java
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Install pinned dependencies
+        run: |
+          npm install --global "npm@${NPM_VERSION}"
+          test "$(node --version)" = "v${NODE_VERSION}"
+          test "$(npm --version)" = "${NPM_VERSION}"
+          test "$(python --version)" = "Python ${PYTHON_VERSION}"
+          java -version 2>&1 | grep -F "\"${JAVA_VERSION}\""
+          npm ci
+          npm ci --prefix functions
+          npm install --global "firebase-tools@${FIREBASE_TOOLS_VERSION}"
+          test "$(firebase --version)" = "${FIREBASE_TOOLS_VERSION}"
+          python -m venv .venv
+          .venv/bin/pip install -r execution/requirements.txt
+
+      - name: Run complete offline gates
+        run: |
+          npm run lint
+          npm run models:test
+          npm run models:check:offline
+          npm run build
+          npm run test:run
+          npm --prefix functions run build
+          npm --prefix functions test
+          npm run test:python
+          npm run test:rules
+
+      - name: Recheck the reviewed source
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "${APPROVED_SOURCE_SHA}"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Authenticate through Workload Identity Federation
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          project_id: ${{ env.STAGING_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Set up pinned gcloud
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+        with:
+          version: ${{ env.GCLOUD_VERSION }}
+          project_id: ${{ env.STAGING_PROJECT_ID }}
+
+      - name: Verify pinned gcloud
+        run: gcloud version | grep -F "Google Cloud SDK ${GCLOUD_VERSION}"
+
+      - name: Write non-secret candidate parameters
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          CATALOG_SHA256="$(sha256sum src/config/anthropic-model-catalog.json | awk '{print $1}')"
+          BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          RUNTIME_SERVICE_ACCOUNT="benchmark-runtime@${STAGING_PROJECT_ID}.iam.gserviceaccount.com"
+          umask 077
+          printf '%s\n' \
+            "BENCHMARK_RUN_ID=${RUN_ID}" \
+            "BENCHMARK_CAP_USD=${BENCHMARK_CAP_USD}" \
+            "BENCHMARK_GIT_SHA=${APPROVED_SOURCE_SHA}" \
+            "BENCHMARK_SOURCE_CLEAN=true" \
+            "BENCHMARK_CATALOG_SHA256=${CATALOG_SHA256}" \
+            "BENCHMARK_BUILD_TIMESTAMP=${BUILD_TIMESTAMP}" \
+            "BENCHMARK_RUNTIME_SERVICE_ACCOUNT=${RUNTIME_SERVICE_ACCOUNT}" \
+            "BENCHMARK_STAGING_FIRESTORE_PROJECT_ID=${STAGING_PROJECT_ID}" \
+            "BENCHMARK_PRODUCTION_FIRESTORE_PROJECT_ID=${PRODUCTION_FIRESTORE_PROJECT_ID}" \
+            "BENCHMARK_STORAGE_BUCKET=${PRODUCTION_STORAGE_BUCKET}" \
+            > "functions/.env.${STAGING_PROJECT_ID}"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Deploy only the private candidate function
+        run: |
+          firebase deploy \
+            --project="${STAGING_PROJECT_ID}" \
+            --only="functions:llmProxyCandidate" \
+            --non-interactive
