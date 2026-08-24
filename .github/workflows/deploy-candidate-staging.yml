@@ -129,31 +129,36 @@ jobs:
         run: gcloud version | grep -F "Google Cloud SDK ${GCLOUD_VERSION}"
 
       - name: Write non-secret candidate parameters
-        env:
-          APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
-          RUN_ID: ${{ inputs.run_id }}
         run: |
           CATALOG_SHA256="$(sha256sum src/config/anthropic-model-catalog.json | awk '{print $1}')"
           BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           RUNTIME_SERVICE_ACCOUNT="benchmark-runtime@${STAGING_PROJECT_ID}.iam.gserviceaccount.com"
-          umask 077
           printf '%s\n' \
-            "BENCHMARK_RUN_ID=${RUN_ID}" \
-            "BENCHMARK_CAP_USD=${BENCHMARK_CAP_USD}" \
-            "BENCHMARK_GIT_SHA=${APPROVED_SOURCE_SHA}" \
-            "BENCHMARK_SOURCE_CLEAN=true" \
-            "BENCHMARK_CATALOG_SHA256=${CATALOG_SHA256}" \
-            "BENCHMARK_BUILD_TIMESTAMP=${BUILD_TIMESTAMP}" \
-            "BENCHMARK_RUNTIME_SERVICE_ACCOUNT=${RUNTIME_SERVICE_ACCOUNT}" \
-            "BENCHMARK_STAGING_FIRESTORE_PROJECT_ID=${STAGING_PROJECT_ID}" \
-            "BENCHMARK_PRODUCTION_FIRESTORE_PROJECT_ID=${PRODUCTION_FIRESTORE_PROJECT_ID}" \
-            "BENCHMARK_STORAGE_BUCKET=${PRODUCTION_STORAGE_BUCKET}" \
-            > "functions/.env.${STAGING_PROJECT_ID}"
+            "CATALOG_SHA256=${CATALOG_SHA256}" \
+            "BUILD_TIMESTAMP=${BUILD_TIMESTAMP}" \
+            "RUNTIME_SERVICE_ACCOUNT=${RUNTIME_SERVICE_ACCOUNT}" \
+            >> "${GITHUB_ENV}"
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
       - name: Deploy only the private candidate function
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
+          RUN_ID: ${{ inputs.run_id }}
         run: |
-          firebase deploy \
+          gcloud functions deploy llmProxyCandidate \
             --project="${STAGING_PROJECT_ID}" \
-            --only="functions:llmProxyCandidate" \
-            --non-interactive
+            --gen2 \
+            --region=us-central1 \
+            --runtime=nodejs22 \
+            --source=functions \
+            --entry-point=llmProxyCandidate \
+            --trigger-http \
+            --no-allow-unauthenticated \
+            --service-account="${RUNTIME_SERVICE_ACCOUNT}" \
+            --set-secrets="BENCHMARK_ANTHROPIC_API_KEY=BENCHMARK_ANTHROPIC_API_KEY:latest" \
+            --set-env-vars="BENCHMARK_RUN_ID=${RUN_ID},BENCHMARK_CAP_USD=${BENCHMARK_CAP_USD},BENCHMARK_GIT_SHA=${APPROVED_SOURCE_SHA},BENCHMARK_SOURCE_CLEAN=true,BENCHMARK_CATALOG_SHA256=${CATALOG_SHA256},BENCHMARK_BUILD_TIMESTAMP=${BUILD_TIMESTAMP},BENCHMARK_RUNTIME_SERVICE_ACCOUNT=${RUNTIME_SERVICE_ACCOUNT},BENCHMARK_STAGING_FIRESTORE_PROJECT_ID=${STAGING_PROJECT_ID},BENCHMARK_PRODUCTION_FIRESTORE_PROJECT_ID=${PRODUCTION_FIRESTORE_PROJECT_ID},BENCHMARK_STORAGE_BUCKET=${PRODUCTION_STORAGE_BUCKET}" \
+            --memory=512MiB \
+            --timeout=3600s \
+            --max-instances=5 \
+            --concurrency=1 \
+            --quiet
