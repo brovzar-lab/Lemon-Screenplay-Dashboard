@@ -6,6 +6,7 @@ import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -111,7 +112,7 @@ function RankedCard({
             </span>
           </span>
           <h3 className="cinema-poster-title">{displayTitle}</h3>
-          <span className="cinema-poster-genre">{screenplay.genre}</span>
+          <span className="cinema-poster-genre">{t(screenplay.genre)}</span>
         </span>
       </button>
     </li>
@@ -127,7 +128,9 @@ export function DiscoverFeature({
   onOpen: ResultSurfaceProps['onOpen'];
   producerAssessments?: ProducerAssessmentMap;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
+  const localized = localizedScreenplayPreview(featured, language);
   const displayTitle = getScreenplayDisplayTitle(featured.title).title;
   const displayAuthor = getScreenplayDisplayAuthor(featured.author);
 
@@ -164,9 +167,13 @@ export function DiscoverFeature({
           </div>
           <h2 className="cinema-feature-title">{displayTitle}</h2>
           <p className="cinema-feature-genre">
-            {[featured.genre, displayAuthor].filter(Boolean).join(' · ')}
+            {[t(featured.genre), displayAuthor && t(displayAuthor)].filter(Boolean).join(' · ')}
           </p>
-          {featured.logline && <p className="cinema-feature-logline">{featured.logline}</p>}
+          {(localized?.logline || language === 'es') && (
+            <p className="cinema-feature-logline">
+              {localized?.logline || t('Analysis available in English')}
+            </p>
+          )}
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <span className="dsc-open-analysis">
               {t('Open analysis')}
@@ -245,7 +252,8 @@ export function DiscoverFilmNowShelf({
   onOpen: ResultSurfaceProps['onOpen'];
   producerAssessments?: ProducerAssessmentMap;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
   if (screenplays.length === 0) return null;
 
   return (
@@ -260,6 +268,7 @@ export function DiscoverFilmNowShelf({
       <ul className="cinema-film-rail">
         {screenplays.map((screenplay) => {
           const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+          const localized = localizedScreenplayPreview(screenplay, language);
           return (
             <li
               key={screenplay.id}
@@ -288,7 +297,9 @@ export function DiscoverFilmNowShelf({
                   />
                   <span className="cinema-film-title">{displayTitle}</span>
                   <span className="cinema-film-logline">
-                    {screenplay.recommendationRationale || screenplay.logline}
+                    {localized?.recommendationRationale ||
+                      localized?.logline ||
+                      (language === 'es' ? t('Analysis available in English') : '')}
                   </span>
                 </span>
                 <Score screenplay={screenplay} />
@@ -364,7 +375,7 @@ export function DiscoverGrid({
                   </span>
                 </span>
                 <h3 className="cinema-poster-title">{displayTitle}</h3>
-                <span className="cinema-poster-genre">{screenplay.genre}</span>
+                <span className="cinema-poster-genre">{t(screenplay.genre)}</span>
               </span>
             </button>
           </li>

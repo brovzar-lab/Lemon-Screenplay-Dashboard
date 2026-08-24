@@ -7,6 +7,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ActionsDropdownProps {
   onGenerateShareLinks: () => void;
@@ -25,6 +26,7 @@ export function ActionsDropdown({
   selectionCount,
   showReanalyze = true,
 }: ActionsDropdownProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -104,11 +106,11 @@ export function ActionsDropdown({
         ref={triggerRef}
         onClick={() => setIsOpen((prev) => !prev)}
         className="btn btn-secondary text-sm"
-        aria-label="Actions"
+        aria-label={t('Actions')}
         aria-haspopup="true"
         aria-expanded={isOpen}
       >
-        Actions
+        {t('Actions')}
         {selectionCount > 0 && (
           <span className="px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold">
             {selectionCount}
@@ -123,7 +125,7 @@ export function ActionsDropdown({
         <div
           ref={menuRef}
           role="menu"
-          aria-label="Actions menu"
+          aria-label={t('Actions menu')}
           className="absolute right-0 top-full mt-1 w-52 glass border border-gold-500/20 rounded-lg shadow-xl z-40 overflow-hidden animate-scale-in"
         >
           {/* Generate Share Links */}
@@ -141,7 +143,7 @@ export function ActionsDropdown({
                 d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
               />
             </svg>
-            Generate Share Links
+            {t('Generate Share Links')}
           </button>
 
           {/* Re-analyze Selected */}
@@ -153,7 +155,7 @@ export function ActionsDropdown({
             aria-disabled={!canReanalyze}
             title={
               !canReanalyze
-                ? 'No eligible screenplays selected (hasPdf required)'
+                ? t('No eligible screenplays selected. A source screenplay is required.')
                 : undefined
             }
             className="w-full text-left px-4 py-2.5 text-sm text-black-200 hover:bg-black-700 hover:text-gold-400 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -166,7 +168,7 @@ export function ActionsDropdown({
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            Re-analyze Selected
+            {t('Re-analyze Selected')}
           </button>}
         </div>
       )}

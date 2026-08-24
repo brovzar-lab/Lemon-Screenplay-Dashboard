@@ -9,11 +9,13 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { useDevExec } from '@/contexts/DevExecContext';
 import { QUICK_ACTIONS } from '@/services/devExecService';
 import { useLiveDevExec, type LiveVoiceName } from '@/hooks/useLiveDevExec';
 
 export function DevExecChat() {
+    const { t } = useTranslation();
     const {
         isOpen, isMinimized, messages, isLoading,
         minimizeChat, restoreChat, toggleChat, sendMessage, clearChat,
@@ -117,18 +119,18 @@ export function DevExecChat() {
                         DEV EXEC
                     </span>
                     {isConnected && (
-                        <span className="text-xs text-green-400/70 font-medium">LIVE</span>
+                        <span className="text-xs text-green-400/70 font-medium">{t('LIVE')}</span>
                     )}
                 </div>
                 <div className="flex items-center gap-1">
                     {!isConnected && (
-                        <button onClick={clearChat} className="p-1.5 rounded-lg text-black-500 hover:text-red-400 hover:bg-white/5 transition-colors" title="Clear">
+                        <button onClick={clearChat} className="p-1.5 rounded-lg text-black-500 hover:text-red-400 hover:bg-white/5 transition-colors" title={t('Clear')}>
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                         </button>
                     )}
-                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1.5 rounded-lg text-black-500 hover:text-gold-400 hover:bg-white/5 transition-colors" title={isExpanded ? 'Collapse' : 'Expand'}>
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1.5 rounded-lg text-black-500 hover:text-gold-400 hover:bg-white/5 transition-colors" title={isExpanded ? t('Collapse') : t('Expand')}>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             {isExpanded ? (
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M15 9V4.5M15 9h4.5M9 15v4.5M9 15H4.5M15 15v4.5M15 15h4.5" />
@@ -137,12 +139,12 @@ export function DevExecChat() {
                             )}
                         </svg>
                     </button>
-                    <button onClick={minimizeChat} className="p-1.5 rounded-lg text-black-500 hover:text-gold-400 hover:bg-white/5 transition-colors" title="Minimize">
+                    <button onClick={minimizeChat} className="p-1.5 rounded-lg text-black-500 hover:text-gold-400 hover:bg-white/5 transition-colors" title={t('Minimize')}>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                         </svg>
                     </button>
-                    <button onClick={() => { if (isConnected) disconnect(); toggleChat(); }} className="p-1.5 rounded-lg text-black-500 hover:text-red-400 hover:bg-white/5 transition-colors" title="Close">
+                    <button onClick={() => { if (isConnected) disconnect(); toggleChat(); }} className="p-1.5 rounded-lg text-black-500 hover:text-red-400 hover:bg-white/5 transition-colors" title={t('Close')}>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -157,10 +159,10 @@ export function DevExecChat() {
                     {messages.length === 0 && !isConnected && !isConnecting ? (
                         /* Empty state with quick actions */
                         <div className="flex flex-col items-center justify-center h-full text-center gap-2">
-                            <p className="text-gold-400 font-medium text-sm">Your Head of Development</p>
+                            <p className="text-gold-400 font-medium text-sm">{t('Your Head of Development')}</p>
                             <p className="text-black-500 text-xs">
-                                Knows every script in your pipeline.<br />
-                                Ask about projects, strategy, or the slate.
+                                {t('Knows every script in your pipeline.')}<br />
+                                {t('Ask about projects, strategy, or the slate.')}
                             </p>
 
                             {/* Quick Actions */}
@@ -168,11 +170,11 @@ export function DevExecChat() {
                                 {QUICK_ACTIONS.map((action) => (
                                     <button
                                         key={action.label}
-                                        onClick={() => handleSend(action.prompt)}
+                                        onClick={() => handleSend(t(action.prompt))}
                                         className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left bg-black-900/50 border border-gold-500/10 hover:border-gold-500/30 hover:bg-black-800/50 transition-all text-black-300 hover:text-gold-300"
                                     >
                                         <span>{action.icon}</span>
-                                        <span>{action.label}</span>
+                                        <span>{t(action.label)}</span>
                                     </button>
                                 ))}
                             </div>
@@ -183,12 +185,12 @@ export function DevExecChat() {
                             {/* Status */}
                             <div className="text-center">
                                 <h3 className="text-gold-400 font-bold text-lg">
-                                    {isConnecting ? 'Connecting...' : 'Live Conversation'}
+                                    {isConnecting ? t('Connecting...') : t('Live Conversation')}
                                 </h3>
                                 <p className="text-black-500 text-sm mt-1">
                                     {isConnecting
-                                        ? 'Setting up voice connection'
-                                        : 'Speak naturally. Your Dev Exec is listening.'
+                                        ? t('Setting up voice connection')
+                                        : t('Speak naturally. Your Dev Exec is listening.')
                                     }
                                 </p>
                             </div>
@@ -222,7 +224,7 @@ export function DevExecChat() {
                                     onClick={disconnect}
                                     className="px-6 py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all text-sm font-medium"
                                 >
-                                    End Conversation
+                                    {t('End Conversation')}
                                 </button>
                             )}
                         </div>
@@ -257,7 +259,7 @@ export function DevExecChat() {
                                                 <span className="w-2 h-2 rounded-full bg-gold-400 animate-bounce" style={{ animationDelay: '150ms' }} />
                                                 <span className="w-2 h-2 rounded-full bg-gold-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                                             </div>
-                                            <span className="text-xs text-black-500">Thinking...</span>
+                                            <span className="text-xs text-black-500">{t('Thinking...')}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -303,7 +305,7 @@ export function DevExecChat() {
                                         ? 'bg-gold-500/30 animate-pulse'
                                         : 'bg-gradient-to-br from-gold-500 to-gold-600 shadow-gold-500/20 hover:from-gold-400 hover:to-gold-500',
                             )}
-                            title={isConnected ? 'End conversation' : 'Start live voice conversation'}
+                            title={isConnected ? t('End conversation') : t('Start live voice conversation')}
                         >
                             {isConnected ? (
                                 /* Stop icon */
@@ -321,7 +323,7 @@ export function DevExecChat() {
 
                     {/* Mic label */}
                     <p className="text-black-600 text-[10px] uppercase tracking-wider mb-2">
-                        {isConnected ? 'Tap to end' : isConnecting ? 'Connecting...' : 'Tap to talk'}
+                        {isConnected ? t('Tap to end') : isConnecting ? t('Connecting...') : t('Tap to talk')}
                     </p>
 
                     {/* Text input (below mic) */}
@@ -333,7 +335,7 @@ export function DevExecChat() {
                                     value={input}
                                     onChange={e => setInput(e.target.value)}
                                     onKeyDown={handleKeyDown}
-                                    placeholder="Or type a message..."
+                                    placeholder={t('Or type a message...')}
                                     rows={1}
                                     className="flex-1 resize-none bg-black-800/50 border border-black-700 rounded-xl px-4 py-2 text-sm text-black-200 placeholder-black-600 focus:outline-none focus:border-gold-500/40 transition-colors"
                                     style={{ maxHeight: '80px' }}
@@ -348,7 +350,7 @@ export function DevExecChat() {
                                             ? 'bg-gold-500 text-black-950 hover:bg-gold-400'
                                             : 'bg-black-800 text-black-600 cursor-not-allowed',
                                     )}
-                                    title="Send"
+                                    title={t('Send')}
                                 >
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

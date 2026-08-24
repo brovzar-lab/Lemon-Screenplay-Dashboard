@@ -26,6 +26,7 @@ import { useFilterStore } from '@/stores/filterStore';
 import { useHasActiveFilters } from '@/hooks/useFilteredScreenplays';
 import type { Screenplay } from '@/types';
 import type { PercentileRank } from '@/lib/percentileRanking';
+import { useTranslation } from 'react-i18next';
 
 interface ScreenplayGridProps {
   screenplays: Screenplay[];
@@ -97,6 +98,7 @@ function SkeletonCard() {
  * Context-aware empty state — resolves from Zustand store
  */
 function GridEmptyState() {
+  const { t } = useTranslation();
   const searchQuery = useFilterStore((s) => s.searchQuery);
   const setSearchQuery = useFilterStore((s) => s.setSearchQuery);
   const resetFilters = useFilterStore((s) => s.resetFilters);
@@ -109,11 +111,11 @@ function GridEmptyState() {
     return (
       <EmptyState
         icon={<SearchEmptyIcon />}
-        title="No scripts match that search"
-        description={`No results for "${searchQuery}". Try a different search term.`}
+        title={t('No scripts match that search')}
+        description={t('No results for "{{query}}". Try a different search term.', { query: searchQuery })}
         action={
           <button onClick={() => setSearchQuery('')} className="btn btn-secondary text-sm">
-            Clear Search
+            {t('Clear Search')}
           </button>
         }
       />
@@ -124,11 +126,11 @@ function GridEmptyState() {
     return (
       <EmptyState
         icon={<DimmedStarIcon />}
-        title="No FILM NOW contenders yet"
-        description="None of the current screenplays have earned top-tier status"
+        title={t('No FILM NOW contenders yet')}
+        description={t('None of the current screenplays have earned top-tier status')}
         action={
           <button onClick={resetFilters} className="btn btn-secondary text-sm">
-            Reset Filters
+            {t('Reset Filters')}
           </button>
         }
       />
@@ -139,11 +141,11 @@ function GridEmptyState() {
     return (
       <EmptyState
         icon={<SpotlightIcon />}
-        title="Nothing made the cut"
-        description="Try adjusting your filters to see more screenplays"
+        title={t('Nothing made the cut')}
+        description={t('Try adjusting your filters to see more screenplays')}
         action={
           <button onClick={resetFilters} className="btn btn-primary text-sm">
-            Reset All Filters
+            {t('Reset All Filters')}
           </button>
         }
       />
@@ -153,13 +155,14 @@ function GridEmptyState() {
   return (
     <EmptyState
       icon={<SpotlightIcon />}
-      title="No screenplays found"
-      description="Make sure the analysis data is available and has been uploaded"
+      title={t('No screenplays found')}
+      description={t('Make sure the analysis data is available and has been uploaded')}
     />
   );
 }
 
 export function ScreenplayGrid({ screenplays, isLoading, onCardClick, percentileRanks }: ScreenplayGridProps) {
+  const { t } = useTranslation();
   const parentRef = useRef<HTMLDivElement>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [isInitialRender, setIsInitialRender] = useState(true);
@@ -245,7 +248,7 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick, percentile
         style={{ height: 'calc(100vh - 200px)' }}
         onScroll={handleScroll}
         role="list"
-        aria-label="Screenplay results"
+        aria-label={t('Screenplay results')}
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6 pb-8">
           {visibleScreenplays.map((sp, index) => (
@@ -264,7 +267,7 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick, percentile
               <ErrorBoundary
                 fallback={
                   <div className="card bg-red-500/10 border-red-500/30">
-                    <p className="text-red-400 text-sm">Error rendering: {sp.title || 'Unknown'}</p>
+                    <p className="text-red-400 text-sm">{t('Error rendering: {{title}}', { title: sp.title || t('Unknown') })}</p>
                   </div>
                 }
               >
@@ -278,7 +281,10 @@ export function ScreenplayGrid({ screenplays, isLoading, onCardClick, percentile
           ))}
         </div>
         <span className="sr-only" aria-live="polite">
-          Showing {visibleScreenplays.length} of {screenplays.length} screenplays
+          {t('Showing {{visible}} of {{total}} screenplays', {
+            visible: visibleScreenplays.length,
+            total: screenplays.length,
+          })}
         </span>
       </div>
 

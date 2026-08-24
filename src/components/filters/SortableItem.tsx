@@ -8,6 +8,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { clsx } from 'clsx';
 import type { SortConfig } from '@/types';
 import { SORT_FIELD_CONFIG } from '@/types/filters';
+import { useTranslation } from 'react-i18next';
 
 interface SortableItemProps {
   config: SortConfig;
@@ -17,6 +18,7 @@ interface SortableItemProps {
 }
 
 export function SortableItem({ config, index, onToggleDirection, onRemove }: SortableItemProps) {
+  const { t } = useTranslation();
   const {
     attributes,
     listeners,
@@ -62,13 +64,14 @@ export function SortableItem({ config, index, onToggleDirection, onRemove }: Sor
       </span>
 
       {/* Field Name */}
-      <span className="flex-1 text-sm text-black-200">{label}</span>
+      <span className="flex-1 text-sm text-black-200">{t(label)}</span>
 
       {/* Direction Toggle */}
       <button
         onClick={onToggleDirection}
         className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-gold-400 transition-colors"
-        title={config.direction === 'asc' ? 'Ascending' : 'Descending'}
+        title={t(config.direction === 'asc' ? 'Ascending' : 'Descending')}
+        aria-label={t(config.direction === 'asc' ? 'Ascending' : 'Descending')}
       >
         {config.direction === 'asc' ? (
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -85,6 +88,7 @@ export function SortableItem({ config, index, onToggleDirection, onRemove }: Sor
       <button
         onClick={onRemove}
         className="p-1 rounded hover:bg-red-500/20 text-black-500 hover:text-red-400 transition-colors"
+        aria-label={t('Remove {{item}}', { item: t(label) })}
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
