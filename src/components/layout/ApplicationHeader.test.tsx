@@ -27,7 +27,6 @@ vi.mock('@/components/auth', () => ({
 vi.mock('@/components/layout/SyncStatusIndicator', () => ({
   SyncStatusIndicator: () => <span>Synced</span>,
 }));
-vi.stubGlobal('__APP_VERSION__', 'test');
 
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import i18n from '@/i18n';
@@ -55,7 +54,7 @@ describe('ApplicationHeader', () => {
       'href',
       '/',
     );
-    expect(screen.getByText('vtest')).toBeInTheDocument();
+    expect(screen.getByText('v6.9.1')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Screenplays' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Market' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
