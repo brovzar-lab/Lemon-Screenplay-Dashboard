@@ -54,7 +54,7 @@ describe('ApplicationHeader', () => {
       'href',
       '/',
     );
-    expect(screen.getByText('v6.9.1')).toBeInTheDocument();
+    expect(screen.getByText('v6.9.2')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Screenplays' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Market' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');

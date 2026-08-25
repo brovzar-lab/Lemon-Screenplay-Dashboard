@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFilterStore } from '@/stores/filterStore';
+import { useAuthStore } from '@/stores/authStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useSortStore } from '@/stores/sortStore';
@@ -63,6 +64,7 @@ function renderPage(path = '/discover?ui=screenplay') {
         <Routes>
           <Route path="/discover/:projectId?" element={<DiscoverPage />} />
           <Route path="/projects/:projectId" element={<div>Screenplay File route</div>} />
+          <Route path="/settings" element={<div>Settings route</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -87,6 +89,28 @@ describe('I + G screenplay Discovery presentation', () => {
     useSortStore.getState().setPrioritizeFilmNow(false);
     usePdfStatusStore.getState().clearStatuses();
     useSelectionStore.getState().deselectAll();
+    useAuthStore.setState({ profile: null });
+  });
+
+  it('gives administrators a direct upload action when the slate is empty', async () => {
+    const user = userEvent.setup();
+    hookState.screenplays = [];
+    useAuthStore.setState({
+      profile: {
+        uid: 'admin',
+        email: 'billy@lemonfilms.com',
+        displayName: 'Billy',
+        photoURL: null,
+        role: 'admin',
+        createdAt: '2026-08-25T00:00:00.000Z',
+        lastLoginAt: '2026-08-25T00:00:00.000Z',
+      },
+    });
+
+    renderPage();
+    await user.click(screen.getByRole('button', { name: 'Upload Screenplays' }));
+
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/settings?tab=intake');
   });
 
   it('shows exactly one Featured project and returns every other project to the wall', async () => {

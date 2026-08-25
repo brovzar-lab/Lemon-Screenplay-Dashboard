@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DiscoverDrawer } from '@/components/discover/DiscoverDrawer';
 import type { DiscoverShellProps } from '@/components/discover/DiscoverShell';
 import { DiscoveryFavoritesMenu } from '@/components/discover/DiscoveryFavoritesMenu';
@@ -30,11 +31,13 @@ function ScreenplayState({
   title,
   message,
   action,
+  actionLabel = 'Clear filters',
   loading = false,
 }: {
   title: string;
   message: string;
   action?: () => void;
+  actionLabel?: string;
   loading?: boolean;
 }) {
   const { t } = useTranslation();
@@ -45,7 +48,7 @@ function ScreenplayState({
       <p>{message}</p>
       {action && (
         <button type="button" onClick={action}>
-          {t('Clear filters')}
+          {t(actionLabel)}
         </button>
       )}
       {loading && (
@@ -62,6 +65,7 @@ function ScreenplayState({
 
 export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const {
     screenplays,
     allScreenplays,
@@ -221,6 +225,12 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
           <ScreenplayState
             title={t('No analyzed screenplays yet')}
             message={t('Completed analyses will appear here automatically.')}
+            action={
+              authProfile?.role === 'admin'
+                ? () => navigate('/settings?tab=intake')
+                : undefined
+            }
+            actionLabel="Upload Screenplays"
           />
         ) : screenplays.length === 0 ? (
           <ScreenplayState
