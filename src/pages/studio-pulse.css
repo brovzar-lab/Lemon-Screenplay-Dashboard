@@ -21,16 +21,18 @@
 .studio-pulse__masthead h1 {
   margin: 0;
   font-family: var(--sp-display);
-  font-size: clamp(46px, 5vw, 76px);
-  font-weight: 600;
-  line-height: 0.98;
+  font-size: clamp(38px, 4vw, 56px);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
 }
 
 .studio-pulse__masthead p {
   max-width: 720px;
   margin: 12px 0 8px;
   color: var(--sp-text-2);
-  font-size: clamp(17px, 1.5vw, 21px);
+  font-size: clamp(16px, 1.3vw, 18px);
+  line-height: 1.45;
 }
 
 .studio-pulse__masthead-copy > span {
@@ -52,7 +54,7 @@
   background: var(--sp-accent);
   color: var(--sp-accent-text);
   font-size: 14px;
-  font-weight: 750;
+  font-weight: 650;
   text-decoration: none;
   box-shadow: var(--sp-shadow-btn);
 }
@@ -74,7 +76,7 @@
   color: var(--sp-text-2);
   font: inherit;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -132,13 +134,14 @@
 .studio-pulse__methodology h2 {
   margin: 7px 0 0;
   font-family: var(--sp-display);
-  font-weight: 600;
-  line-height: 1.08;
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.018em;
 }
 
 .studio-pulse__insight h2 {
   max-width: 760px;
-  font-size: clamp(32px, 3.5vw, 48px);
+  font-size: clamp(28px, 3vw, 38px);
 }
 
 .studio-pulse__insight-copy > p {
@@ -203,7 +206,7 @@
 
 .studio-pulse__section h2,
 .studio-pulse__methodology h2 {
-  font-size: clamp(28px, 3vw, 40px);
+  font-size: clamp(26px, 2.5vw, 34px);
 }
 
 .studio-pulse__section-heading > p {
@@ -532,10 +535,10 @@
 
 @media (max-width: 390px) {
   .studio-pulse__masthead h1 {
-    font-size: 42px;
+    font-size: 34px;
   }
 
   .studio-pulse__insight h2 {
-    font-size: 32px;
+    font-size: 28px;
   }
 }

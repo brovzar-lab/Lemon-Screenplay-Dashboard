@@ -97,7 +97,8 @@
   display: inline-flex;
   min-height: 42px;
   align-items: center;
-  padding: 3px;
+  gap: 8px;
+  padding: 3px 5px;
   border: 1px solid #2a3b58;
   border-radius: 10px;
   background: #0e1d33;
@@ -107,9 +108,15 @@
 .application-header .settings-theme-control {
   display: inline-flex;
   flex: 0 0 auto;
+  gap: 2px;
   padding: 0;
   border: 0;
   background: transparent;
+}
+
+.application-header .language-control {
+  padding-right: 8px;
+  border-right: 1px solid #2a3b58;
 }
 
 .application-header .language-control__option,

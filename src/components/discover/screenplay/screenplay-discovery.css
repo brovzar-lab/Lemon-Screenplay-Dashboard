@@ -1228,7 +1228,7 @@
   border-radius: 8px;
   background: var(--screenplay-panel-accent);
   color: var(--sp-accent-text);
-  font-weight: 750;
+  font-weight: 650;
 }
 .screenplay-state button:hover {
   border-color: var(--sp-accent-strong);
@@ -1249,9 +1249,10 @@
   margin-top: 10px;
   color: var(--screenplay-panel-ink);
   font-family: var(--dsc-font-display);
-  font-size: clamp(30px, 3vw, 40px);
-  font-weight: 600;
-  line-height: 1.08;
+  font-size: clamp(27px, 2.5vw, 34px);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.018em;
 }
 .screenplay-state > p:not(.screenplay-ui-eyebrow) {
   max-width: 540px;
