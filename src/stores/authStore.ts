@@ -11,6 +11,7 @@ import {
   signOutUser,
 } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { isLocalE2E } from '@/lib/runtimeMode';
 import { setLanguageUser } from '@/i18n';
 
 export type UserRole = 'admin' | 'reader';
@@ -50,9 +51,22 @@ function roleForEmail(email: string): UserRole {
 
 async function loadOrCreateProfile(user: User): Promise<UserProfile> {
   const email = user.email?.toLowerCase() ?? '';
+  const now = new Date().toISOString();
+
+  if (isLocalE2E()) {
+    return {
+      uid: user.uid,
+      email,
+      displayName: user.displayName ?? email,
+      photoURL: user.photoURL,
+      role: roleForEmail(email),
+      createdAt: now,
+      lastLoginAt: now,
+    };
+  }
+
   const profileRef = doc(db, 'users', user.uid);
   const snapshot = await getDoc(profileRef);
-  const now = new Date().toISOString();
 
   if (snapshot.exists()) {
     const existing = snapshot.data() as UserProfile;

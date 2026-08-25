@@ -29,6 +29,7 @@ import {
 import { authReady, db } from './firebase';
 import { useToastStore } from '@/stores/toastStore';
 import { buildAnalysisVersionIdentity } from './analysisIdentity';
+import { isLocalE2E } from '@/lib/runtimeMode';
 import i18n from '@/i18n';
 
 const FIRESTORE_COLLECTION = 'uploaded_analyses';
@@ -401,6 +402,8 @@ export function subscribeToAnalyses(
   onChange: (analyses: Record<string, unknown>[]) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
+  if (isLocalE2E()) return () => {};
+
   const stripInternals = (data: Record<string, unknown>): Record<string, unknown> =>
     Object.fromEntries(
       Object.entries(data).filter(
