@@ -50,9 +50,9 @@ export default defineConfig({
 
   // Run preview server before starting the tests
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1',
+    command: 'VITE_E2E=true npm run dev -- --host 127.0.0.1',
     url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 60000,
   },
 });
