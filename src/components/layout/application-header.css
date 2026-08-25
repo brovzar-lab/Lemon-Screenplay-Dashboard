@@ -64,6 +64,15 @@
   text-transform: uppercase;
 }
 
+.application-header__version {
+  align-self: flex-end;
+  margin-bottom: 1px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+
 .application-header__menu {
   display: flex;
   min-width: 0;

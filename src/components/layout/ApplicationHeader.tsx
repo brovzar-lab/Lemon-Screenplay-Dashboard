@@ -39,6 +39,7 @@ export function ApplicationHeader({ settingsIssueCount = 0 }: ApplicationHeaderP
             <strong>LEMON</strong>
             <small>Screenplay Dashboard</small>
           </span>
+          <span className="application-header__version">v{__APP_VERSION__}</span>
         </Link>
 
         <button
