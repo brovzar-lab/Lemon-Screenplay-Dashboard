@@ -1,6 +1,8 @@
 """Shared valid V9 fixtures for permanent-write tests."""
 
 import copy
+import json
+from pathlib import Path
 
 from execution.trust_manifest import attach_trust_manifest
 from execution.source_evidence import (
@@ -33,6 +35,46 @@ READER_NAMES = (
     "concept",
     "emotional_resonance",
 )
+_TRAP_CONTRACT = json.loads(
+    Path(__file__).with_name("v9_trap_contract.json").read_text(
+        encoding="utf-8"
+    )
+)
+FALSE_POSITIVE_TRAPS = tuple(
+    (trap["name"], trap["tier"], float(trap["weight"]))
+    for trap in _TRAP_CONTRACT["traps"]
+)
+READER_METRICS = {
+    "structure": (
+        "first_ten_pages", "beginning_hook", "middle_build",
+        "ending_payoff", "inciting_incident", "progressive_complications",
+        "crisis_quality", "climax_delivery", "beat_timing",
+        "first_plot_point", "midpoint", "third_act_turning_point",
+        "scene_necessity",
+    ),
+    "character": (
+        "ghost", "lie", "want_vs_need", "arc_delivery",
+        "moral_blind_spot", "immoral_effect", "active_vs_passive",
+        "opponent_design", "enneagram_consistency",
+        "supporting_cast_function", "star_role_potential",
+    ),
+    "craft_scene": (
+        "beat_question_clarity", "bmoc_architecture", "power_shifts",
+        "suspense_tools", "dialogue_tactic_changes",
+        "dialogue_voice_distinction", "dialogue_subtext",
+        "visual_storytelling", "exposition_handling",
+    ),
+    "concept": (
+        "hook_clarity", "narrative_engine", "freshness",
+        "genre_execution", "genre_promise_delivery", "controlling_idea",
+        "thematic_resonance", "premise_line",
+    ),
+    "emotional_resonance": (
+        "emotional_clarity", "empathy_investment", "emotional_escalation",
+        "catharsis_quality", "truth", "goosebumps_moments",
+        "value_turn_range",
+    ),
+}
 RUN_EVIDENCE_KEYS = (
     "analysis_version",
     "weighted_score",
@@ -139,6 +181,10 @@ def prepare_q2_analysis(analysis, metadata, model_tier="sonnet"):
         analysis,
         metadata,
         metadata["page_count"],
+        join_marked_pages(_q2_page_texts(
+            metadata["page_count"],
+            metadata["word_count"],
+        )),
     )
     return analysis
 
@@ -149,62 +195,130 @@ def complete_analysis(title="Trustworthy Draft"):
             "reader": name,
             "pillar_score": 7.2,
             "sub_scores": {
-                "one": {
-                    "score": 7,
+                metric_name: {
+                    "score": score,
                     "justification": "Evidence on page one.",
                     "page_citations": [1],
-                },
-                "two": {
-                    "score": 7,
-                    "justification": "Evidence on page one.",
-                    "page_citations": [1],
-                },
-                "three": {
-                    "score": 7,
-                    "justification": "Evidence on page one.",
-                    "page_citations": [1],
-                },
-                "four": {
-                    "score": 7,
-                    "justification": "Evidence on page one.",
-                    "page_citations": [1],
-                },
-                "five": {
-                    "score": 8,
-                    "justification": "Evidence on page one.",
-                    "page_citations": [1],
-                },
+                    "citation_evidence": [{
+                        "page": 1,
+                        "excerpt": "INT. HOUSE - DAY",
+                    }],
+                }
+                for metric_name, score in (
+                    (metric_name, 7.2)
+                    for metric_name in READER_METRICS[name]
+                )
             },
+            **({
+                "story_vs_situation": {
+                    "human_condition": True,
+                    "tests_character": True,
+                    "twists_reveal_character": True,
+                    "emotional_shift": True,
+                    "moral_component_driven": True,
+                    "evidence": {
+                        field: {
+                            "page_citations": [1],
+                            "citation_evidence": [{
+                                "page": 1,
+                                "excerpt": "INT. HOUSE - DAY",
+                            }],
+                        }
+                        for field in (
+                            "human_condition",
+                            "tests_character",
+                            "twists_reveal_character",
+                            "emotional_shift",
+                            "moral_component_driven",
+                        )
+                    },
+                    "total": 5,
+                    "verdict": "story",
+                },
+            } if name == "character" else {}),
         }
         for name in READER_NAMES
     }
     analysis = {
         "title": title,
+        "author": "Fixture Writer",
+        "genre": "Drama",
+        "subgenres": [],
+        "themes": ["Trust", "Family"],
+        "tone": "Grounded",
+        "logline": "A family confronts a buried secret.",
         "analysis_version": "v9_archaeology",
         "weighted_score": 7.2,
         "weighted_score_adjusted": 6.9,
         "critical_failure_penalty_applied": 0.3,
         "verdict_model": "RECOMMEND",
-        "verdict_before_adjustments": "RECOMMEND",
+        "verdict_before_adjustments": "CONSIDER",
         "verdict_before_gates": "CONSIDER",
         "verdict_adjustments": [
             "critical_failure_penalty: -0.3 (7.2 → 6.9)",
         ],
         "verdict": "CONSIDER",
         "critical_failures": [{
+            "weakness_index": 0,
+            "reader": "structure",
+            "metric": "ending_payoff",
             "description": "A repairable structural break.",
             "severity": "minor",
             "penalty": 0.3,
         }],
+        "critical_failure_total_penalty": 0.3,
         "story_vs_situation": {
             "score": 4,
             "verdict": "story",
             "gate_applied": False,
+            "evidence": reader_reports["character"]["story_vs_situation"]["evidence"],
         },
         "false_positive_check": {
+            "trap_contract_version": _TRAP_CONTRACT["version"],
             "weighted_trap_score": 0.0,
-            "traps_evaluated": [],
+            "traps_evaluated": [
+                {
+                    "name": name,
+                    "triggered": False,
+                    "tier": tier,
+                    "weight": weight,
+                    "evidence": f"{name} was checked against the reader reports.",
+                }
+                for name, tier, weight in FALSE_POSITIVE_TRAPS
+            ],
             "verdict_adjustment": "none",
+        },
+        "strengths": [
+            "Specific protagonist goal.",
+            "Clear dramatic escalation.",
+            "Distinct central relationship.",
+            "Earned final choice.",
+        ],
+        "weaknesses": [
+            "A repairable structural break.",
+            "The midpoint turn arrives late.",
+        ],
+        "executive_summary": "A complete decision summary.",
+        "comparable_films": {
+            "tone": {"title": "Film A", "similarity": "Grounded tone."},
+            "structure": {"title": "Film B", "similarity": "Parallel build."},
+            "market": {"title": "Film C", "similarity": "Similar audience."},
+        },
+        "characters": {
+            "protagonist": "Not identified",
+            "protagonist_evidence": {
+                "kind": "not_identified",
+                "page_citations": [],
+                "citation_evidence": [],
+            },
+            "antagonist": "Not identified",
+            "antagonist_evidence": {
+                "kind": "not_identified",
+                "page_citations": [],
+                "citation_evidence": [],
+            },
+            "supporting": [],
+            "supporting_evidence": [],
         },
         "_truncation": {
             "truncated": False,
@@ -217,7 +331,16 @@ def complete_analysis(title="Trustworthy Draft"):
         ),
         "reader_reports": reader_reports,
         "pillar_scores": {
-            name: {"score": 7.2}
+            name: {
+                "score": 7.2,
+                "weight": {
+                    "structure": 0.30,
+                    "character": 0.30,
+                    "craft_scene": 0.15,
+                    "concept": 0.15,
+                    "emotional_resonance": 0.10,
+                }[name],
+            }
             for name in READER_NAMES
         },
         "analysis_quality": {
@@ -256,6 +379,33 @@ def complete_analysis(title="Trustworthy Draft"):
 
 
 def complete_usage(model_id=MODEL_ID):
+    def split(total):
+        base, remainder = divmod(total, 6)
+        return [base + (1 if index < remainder else 0) for index in range(6)]
+
+    per_call = [{
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "call_count": 1,
+        "actual_cost_microusd": 0,
+        "actual_cost_usd": 0.0,
+    }]
+    split_fields = {
+        "input_tokens": split(1_000),
+        "output_tokens": split(500),
+        "cache_creation_input_tokens": split(100),
+        "cache_read_input_tokens": split(200),
+        "actual_cost_microusd": split(12_345),
+    }
+    for index in range(6):
+        microusd = split_fields["actual_cost_microusd"][index]
+        per_call.append({
+            **{field: values[index] for field, values in split_fields.items()},
+            "call_count": 1,
+            "actual_cost_usd": microusd / 1_000_000,
+        })
     return {
         "input_tokens": 1_000,
         "output_tokens": 500,
@@ -316,6 +466,7 @@ def complete_usage(model_id=MODEL_ID):
                     else None
                 ),
                 "disposition": "used",
+                "usage": per_call[index - 1],
             }
             for index in range(1, 8)
         ],

@@ -9,13 +9,16 @@ import type {
 
 export const PAGE_EVIDENCE_VERSION = 'lemon-page-evidence-v1';
 export const CONTEXT_POLICY_VERSION = 'lemon-context-policy-v1';
-export const CITATION_EVIDENCE_VERSION = 'lemon-citation-evidence-v1';
+export const CITATION_EVIDENCE_VERSION = 'lemon-citation-evidence-v2';
+export const TITLE_PAGE_AUTHOR_EVIDENCE_VERSION = 'lemon-title-page-author-v1';
+export const AUTHOR_NOT_FOUND = 'Not found on title page';
 
 const MIN_PAGE_WORDS = 3;
 const MIN_PAGE_COVERAGE_RATIO = 0.8;
 const MIN_EDGE_COVERAGE_RATIO = 0.7;
 const EDGE_WINDOW_PAGES = 10;
 const CONSERVATIVE_CHARACTERS_PER_TOKEN = 3;
+const PAGE_MARKER_LINE = /^\[PAGE [1-9][0-9]*\][ \t]*$/m;
 
 const MODEL_CONTEXT_TOKENS = {
   haiku: 200_000,
@@ -55,6 +58,13 @@ export function buildBrowserPageEvidence(pages: string[]): BrowserPageEvidence {
   const normalizedPages = pages.map((page) =>
     String(page ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim(),
   );
+  normalizedPages.forEach((page, index) => {
+    if (PAGE_MARKER_LINE.test(page)) {
+      throw new SourceEvidenceError(
+        `Physical page ${index + 1} contains reserved page-marker text.`,
+      );
+    }
+  });
   const diagnostics = normalizedPages.map((page, index): PageDiagnostic => {
     const words = page.split(/\s+/).filter(Boolean).length;
     return {
@@ -130,6 +140,87 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function normalizeEvidenceText(value: string): string {
+  return value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function markedPageContents(text: string): Map<number, string> {
+  const matches = [...text.matchAll(/^\[PAGE ([1-9][0-9]*)\][ \t]*$/gm)];
+  if (matches.some((match, index) => Number(match[1]) !== index + 1)) {
+    throw new SourceEvidenceError('Screenplay page markers are duplicated or out of sequence.');
+  }
+  return new Map(matches.map((match, index) => {
+    const start = (match.index ?? 0) + match[0].length;
+    const end = matches[index + 1]?.index ?? text.length;
+    return [Number(match[1]), text.slice(start, end).trim()];
+  }));
+}
+
+export interface TitlePageAuthorEvidence {
+  title_page_author_evidence_version: string;
+  status: 'found' | 'not_found';
+  author: string;
+  page: 1;
+  cue: string | null;
+}
+
+const AUTHOR_CUE = /(?:^|\s)(written(?:\s+and\s+directed)?\s+by|screenplay\s+by|script\s+by|gui[oó]n(?:\s+cinematogr[aá]fico)?\s+(?:de|por)|escrit[oa]\s+por|autor(?:a)?(?:es)?\s*:)\s*/iu;
+const AUTHOR_STOP = /\b(?:based\s+on|contact|e-?mail|phone|tel(?:ephone|éfono)?|draft|revision|revised|copyright|all\s+rights\s+reserved)\b|©/iu;
+
+function cleanAuthorCandidate(raw: string): string | null {
+  const candidate = raw
+    .split(AUTHOR_STOP, 1)[0]
+    .replace(/^[\s:,&\-–—]+|[\s:,&\-–—]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const words = candidate.split(/\s+/).filter(Boolean);
+  if (
+    candidate.length === 0
+    || candidate.length > 120
+    || words.length > 12
+    || !/[\p{L}]{2}/u.test(candidate)
+    || /@|https?:|www\.|\d{3}/iu.test(candidate)
+  ) {
+    return null;
+  }
+  return candidate;
+}
+
+/** Conservatively extract only an explicit page-one screenplay byline. */
+export function extractTitlePageAuthor(text: string): TitlePageAuthorEvidence {
+  const lines = (markedPageContents(text).get(1) ?? '')
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const cueMatch = line.match(AUTHOR_CUE);
+    const isBareByline = /^by\s*:?$/i.test(line);
+    if (!cueMatch && !isBareByline) continue;
+    const rawCandidate = cueMatch
+      ? line.slice((cueMatch.index ?? 0) + cueMatch[0].length)
+      : '';
+    const author = cleanAuthorCandidate(rawCandidate)
+      ?? cleanAuthorCandidate(lines[index + 1] ?? '');
+    if (author) {
+      return {
+        title_page_author_evidence_version: TITLE_PAGE_AUTHOR_EVIDENCE_VERSION,
+        status: 'found',
+        author,
+        page: 1,
+        cue: cueMatch?.[1] ?? 'by',
+      };
+    }
+  }
+  return {
+    title_page_author_evidence_version: TITLE_PAGE_AUTHOR_EVIDENCE_VERSION,
+    status: 'not_found',
+    author: AUTHOR_NOT_FOUND,
+    page: 1,
+    cue: null,
+  };
+}
+
 /**
  * Verify that reader scores point to physical pages that were actually
  * extracted. Scores of 7 or above require at least one page citation.
@@ -149,9 +240,12 @@ export function validateBrowserAnalysisCitations(
   const unverifiableCitations: RawCitationIssue[] = [];
   const malformedReaderMetrics: string[] = [];
   const missingRequiredCitations: string[] = [];
+  const unsupportedCitations: RawCitationIssue[] = [];
   const verifiedPages = new Set<number>();
+  const pageContents = markedPageContents(sourceEvidence.text);
   let totalCitations = 0;
   let highScoreItems = 0;
+  let verifiedCitationCount = 0;
 
   const walk = (value: unknown, path: string[]): void => {
     if (Array.isArray(value)) {
@@ -195,6 +289,7 @@ export function validateBrowserAnalysisCitations(
           reason: 'not_an_array',
         });
       } else {
+        const validPages: number[] = [];
         citations.forEach((citation) => {
           totalCitations += 1;
           if (
@@ -219,7 +314,84 @@ export function validateBrowserAnalysisCitations(
             });
             return;
           }
-          verifiedPages.add(citation);
+          if (validPages.includes(citation)) {
+            invalidCitations.push({
+              path: path.join('.'),
+              value: citation,
+              reason: 'duplicate_page_citation',
+            });
+            return;
+          }
+          validPages.push(citation);
+        });
+
+        const declared = value.citation_evidence;
+        const evidenceByPage = new Map<number, string>();
+        if (!Array.isArray(declared)) {
+          unsupportedCitations.push({
+            path: path.join('.'),
+            reason: 'citation_evidence_not_an_array',
+          });
+        } else {
+          declared.forEach((item) => {
+            if (!isRecord(item) || !Number.isInteger(item.page) || typeof item.excerpt !== 'string') {
+              unsupportedCitations.push({
+                path: path.join('.'),
+                reason: 'invalid_citation_evidence',
+              });
+              return;
+            }
+            const page = item.page as number;
+            const excerpt = normalizeEvidenceText(item.excerpt);
+            if (excerpt.split(' ').filter(Boolean).length < 4) {
+              unsupportedCitations.push({
+                path: path.join('.'),
+                page,
+                reason: 'evidence_excerpt_too_short',
+              });
+              return;
+            }
+            if (evidenceByPage.has(page)) {
+              unsupportedCitations.push({
+                path: path.join('.'),
+                page,
+                reason: 'duplicate_citation_evidence',
+              });
+              return;
+            }
+            evidenceByPage.set(page, excerpt);
+          });
+        }
+
+        validPages.forEach((page) => {
+          const excerpt = evidenceByPage.get(page);
+          if (!excerpt) {
+            unsupportedCitations.push({
+              path: path.join('.'),
+              page,
+              reason: 'missing_evidence_excerpt',
+            });
+            return;
+          }
+          if (!normalizeEvidenceText(pageContents.get(page) ?? '').includes(excerpt)) {
+            unsupportedCitations.push({
+              path: path.join('.'),
+              page,
+              reason: 'excerpt_not_found_on_cited_page',
+            });
+            return;
+          }
+          verifiedPages.add(page);
+          verifiedCitationCount += 1;
+        });
+        evidenceByPage.forEach((_excerpt, page) => {
+          if (!validPages.includes(page)) {
+            unsupportedCitations.push({
+              path: path.join('.'),
+              page,
+              reason: 'evidence_page_not_cited',
+            });
+          }
         });
       }
     }
@@ -238,22 +410,21 @@ export function validateBrowserAnalysisCitations(
   if (missingRequiredCitations.length > 0) {
     issues.push('high_scores_missing_page_citations');
   }
+  if (unsupportedCitations.length > 0) issues.push('unsupported_page_citations');
 
   return {
     citation_evidence_version: CITATION_EVIDENCE_VERSION,
     status: issues.length === 0 ? 'verified' : 'needs_review',
     page_count: sourceEvidence.diagnostics.length,
     total_citations: totalCitations,
-    valid_citations: Math.max(
-      0,
-      totalCitations - invalidCitations.length - unverifiableCitations.length,
-    ),
+    valid_citations: verifiedCitationCount,
     verified_page_numbers: [...verifiedPages].sort((left, right) => left - right),
     high_score_items: highScoreItems,
     malformed_reader_metrics: [...malformedReaderMetrics].sort(),
     missing_required_citations: [...missingRequiredCitations].sort(),
     invalid_citations: invalidCitations,
     unverifiable_citations: unverifiableCitations,
+    unsupported_citations: unsupportedCitations,
     issues,
   };
 }

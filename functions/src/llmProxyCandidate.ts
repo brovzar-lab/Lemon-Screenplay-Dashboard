@@ -25,6 +25,7 @@ import {
   reserveBenchmarkCall,
   settleBenchmarkCall,
   type BenchmarkReservation,
+  type BenchmarkSettlement,
 } from "./benchmarkLedger";
 import {
   BENCHMARK_DATABASE_ID,
@@ -61,6 +62,26 @@ const benchmarkStorageBucket = defineString("BENCHMARK_STORAGE_BUCKET");
 
 const MAX_OUTPUT_TOKENS = 24_000;
 const MAX_THINKING_TOKENS = 16_000;
+
+export function benchmarkUncertainAccounting(
+  reservation: BenchmarkReservation,
+  settlement?: BenchmarkSettlement,
+) {
+  const chargedMicrousd = settlement?.actual_cost_microusd ?? 0;
+  const reservedMicrousd = settlement ? 0 : reservation.reserved_microusd;
+  const capMicrousd = chargedMicrousd + reservedMicrousd;
+  return {
+    call_id: reservation.call_id,
+    requested_model: reservation.requested_model,
+    uncertainty_status: settlement ? "charged_reservation" : "reservation_held",
+    charged_cost_microusd: chargedMicrousd,
+    charged_cost_usd: chargedMicrousd / 1_000_000,
+    reserved_cost_microusd: reservedMicrousd,
+    reserved_cost_usd: reservedMicrousd / 1_000_000,
+    cap_cost_microusd: capMicrousd,
+    cap_cost_usd: capMicrousd / 1_000_000,
+  };
+}
 
 function runtimeConfig() {
   const capUsd = Number(benchmarkCapUsd.value());
@@ -290,6 +311,7 @@ export const llmProxyCandidate = onRequest(
 
     const client = createAnthropicClient(benchmarkAnthropicApiKey.value());
     let message: unknown;
+    let uncertainSettlement: BenchmarkSettlement | undefined;
     try {
       message = await finalMessageWithUncertainSpendProtection(
         async () => {
@@ -300,7 +322,12 @@ export const llmProxyCandidate = onRequest(
           return stream.finalMessage();
         },
         async () => {
-          await markBenchmarkCallUncertain(db, immutableRun, reservation, "provider_error");
+          uncertainSettlement = await markBenchmarkCallUncertain(
+            db,
+            immutableRun,
+            reservation,
+            "provider_error",
+          );
         },
         async () => {
           await rejectBenchmarkCallBeforeGeneration(db, immutableRun, reservation);
@@ -323,6 +350,12 @@ export const llmProxyCandidate = onRequest(
         code: rejected ? "UPSTREAM_INVALID_REQUEST" : "BENCHMARK_SPEND_UNCERTAIN",
         isRetryable: false,
         manualReviewRequired: !rejected,
+        ...(!rejected ? {
+          benchmark_accounting: benchmarkUncertainAccounting(
+            reservation,
+            uncertainSettlement,
+          ),
+        } : {}),
       });
       return;
     }
@@ -382,8 +415,14 @@ export const llmProxyCandidate = onRequest(
         release: config.release,
       });
     } catch {
+      let uncertainSettlement: BenchmarkSettlement | undefined;
       try {
-        await markBenchmarkCallUncertain(db, immutableRun, reservation, "settlement_error");
+        uncertainSettlement = await markBenchmarkCallUncertain(
+          db,
+          immutableRun,
+          reservation,
+          "settlement_error",
+        );
       } catch {
         // The permanent in-progress reservation still protects the cap.
       }
@@ -400,6 +439,10 @@ export const llmProxyCandidate = onRequest(
         code: "BENCHMARK_SPEND_UNCERTAIN",
         isRetryable: false,
         manualReviewRequired: true,
+        benchmark_accounting: benchmarkUncertainAccounting(
+          reservation,
+          uncertainSettlement,
+        ),
       });
     }
   },

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.llmProxyCandidate = void 0;
+exports.benchmarkUncertainAccounting = benchmarkUncertainAccounting;
 exports.isPermissionDenied = isPermissionDenied;
 exports.isolationApp = isolationApp;
 const node_buffer_1 = require("node:buffer");
@@ -31,6 +32,22 @@ const benchmarkProductionFirestoreProjectId = (0, params_1.defineString)("BENCHM
 const benchmarkStorageBucket = (0, params_1.defineString)("BENCHMARK_STORAGE_BUCKET");
 const MAX_OUTPUT_TOKENS = 24_000;
 const MAX_THINKING_TOKENS = 16_000;
+function benchmarkUncertainAccounting(reservation, settlement) {
+    const chargedMicrousd = settlement?.actual_cost_microusd ?? 0;
+    const reservedMicrousd = settlement ? 0 : reservation.reserved_microusd;
+    const capMicrousd = chargedMicrousd + reservedMicrousd;
+    return {
+        call_id: reservation.call_id,
+        requested_model: reservation.requested_model,
+        uncertainty_status: settlement ? "charged_reservation" : "reservation_held",
+        charged_cost_microusd: chargedMicrousd,
+        charged_cost_usd: chargedMicrousd / 1_000_000,
+        reserved_cost_microusd: reservedMicrousd,
+        reserved_cost_usd: reservedMicrousd / 1_000_000,
+        cap_cost_microusd: capMicrousd,
+        cap_cost_usd: capMicrousd / 1_000_000,
+    };
+}
 function runtimeConfig() {
     const capUsd = Number(benchmarkCapUsd.value());
     if (!Number.isFinite(capUsd) || capUsd <= 0 || capUsd > 1_000) {
@@ -222,12 +239,13 @@ exports.llmProxyCandidate = (0, https_1.onRequest)({
     }
     const client = (0, anthropicClient_1.createAnthropicClient)(benchmarkAnthropicApiKey.value());
     let message;
+    let uncertainSettlement;
     try {
         message = await (0, anthropicClient_1.finalMessageWithUncertainSpendProtection)(async () => {
             const stream = client.messages.stream(built.payload, built.requestOptions);
             return stream.finalMessage();
         }, async () => {
-            await (0, benchmarkLedger_1.markBenchmarkCallUncertain)(db, immutableRun, reservation, "provider_error");
+            uncertainSettlement = await (0, benchmarkLedger_1.markBenchmarkCallUncertain)(db, immutableRun, reservation, "provider_error");
         }, async () => {
             await (0, benchmarkLedger_1.rejectBenchmarkCallBeforeGeneration)(db, immutableRun, reservation);
         });
@@ -249,6 +267,9 @@ exports.llmProxyCandidate = (0, https_1.onRequest)({
             code: rejected ? "UPSTREAM_INVALID_REQUEST" : "BENCHMARK_SPEND_UNCERTAIN",
             isRetryable: false,
             manualReviewRequired: !rejected,
+            ...(!rejected ? {
+                benchmark_accounting: benchmarkUncertainAccounting(reservation, uncertainSettlement),
+            } : {}),
         });
         return;
     }
@@ -300,8 +321,9 @@ exports.llmProxyCandidate = (0, https_1.onRequest)({
         });
     }
     catch {
+        let uncertainSettlement;
         try {
-            await (0, benchmarkLedger_1.markBenchmarkCallUncertain)(db, immutableRun, reservation, "settlement_error");
+            uncertainSettlement = await (0, benchmarkLedger_1.markBenchmarkCallUncertain)(db, immutableRun, reservation, "settlement_error");
         }
         catch {
             // The permanent in-progress reservation still protects the cap.
@@ -319,6 +341,7 @@ exports.llmProxyCandidate = (0, https_1.onRequest)({
             code: "BENCHMARK_SPEND_UNCERTAIN",
             isRetryable: false,
             manualReviewRequired: true,
+            benchmark_accounting: benchmarkUncertainAccounting(reservation, uncertainSettlement),
         });
     }
 });

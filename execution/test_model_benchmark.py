@@ -3,12 +3,15 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 from execution.model_benchmark import (
     BenchmarkSafetyError,
+    LocalCostCap,
     _candidate_preflight,
     _load_engine,
     _route_configs,
+    _run_paid,
     _run_smoke,
     _smoke_route_configs,
     _validate_candidate_proxy,
@@ -17,6 +20,218 @@ from execution.model_benchmark import (
 
 
 class ModelBenchmarkSafetyTests(unittest.TestCase):
+    def test_local_cap_counts_a_settled_paid_error(self):
+        cap = LocalCostCap(1.0, {
+            "modelProfiles": {
+                "model-1": {
+                    "inputUsdPerMillion": 1,
+                    "outputUsdPerMillion": 1,
+                },
+            },
+        })
+        error = RuntimeError("paid response was unusable")
+        error.usage = {"actual_cost_usd": 0.0125}
+
+        def fail(**_kwargs):
+            raise error
+
+        with self.assertRaisesRegex(RuntimeError, "unusable"):
+            cap.call(
+                fail,
+                {"sonnet": "model-1"},
+                model_key="sonnet",
+                system_blocks=[],
+                user_blocks=[],
+                max_tokens=10,
+            )
+
+        self.assertEqual(cap.spent_usd, 0.0125)
+
+    def test_paid_run_merges_cold_read_usage_into_full_failure(self):
+        from execution import ingest_v9
+
+        cold_usage = ingest_v9.empty_usage()
+        cold_usage.update({
+            "call_count": 1,
+            "actual_cost_microusd": 100,
+            "actual_cost_usd": 0.0001,
+            "calls": [{"response_id": "msg_cold"}],
+        })
+        full_usage = ingest_v9.empty_usage()
+        full_usage.update({
+            "call_count": 1,
+            "actual_cost_microusd": 200,
+            "actual_cost_usd": 0.0002,
+            "calls": [{"response_id": "msg_full"}],
+        })
+        full_error = ingest_v9.V9RunError("full run failed", full_usage)
+        engine = SimpleNamespace(
+            parse_pdf=Mock(return_value={
+                "text": "[PAGE 1]\nINT. HOUSE - DAY",
+                "page_count": 1,
+                "word_count": 4,
+                "metadata": {},
+            }),
+            validate_parsed_source=Mock(),
+            MODEL_IDS={"sonnet": "model-1"},
+            call_llm=Mock(),
+            configure_benchmark_online_transport=Mock(),
+            clear_benchmark_online_transport=Mock(),
+            run_nonbinding_cold_read=Mock(return_value=(
+                {"evidence": {}, "response_ids": ["msg_cold"]},
+                cold_usage,
+            )),
+            run_v9_stable=Mock(side_effect=full_error),
+            merge_usage=ingest_v9.merge_usage,
+            empty_usage=ingest_v9.empty_usage,
+        )
+
+        with self.assertRaises(ingest_v9.V9RunError) as raised:
+            _run_paid(
+                engine,
+                {
+                    "route": "sonnet",
+                    "model_id": "model-1",
+                    "sonnet_model_id": "model-1",
+                    "generation": "old",
+                },
+                {"path": "/tmp/test.pdf", "filename": "test.pdf", "content_sha256": "a" * 64},
+                "https://candidate.example/llmProxyCandidate",
+                None,
+                Mock(),
+                "run-1",
+                {"prompt_bundle_sha256": "b" * 64, "structured_output_schema_sha256": "c" * 64},
+                lambda: "token",
+            )
+
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 300)
+        self.assertEqual(
+            [call["response_id"] for call in raised.exception.usage["calls"]],
+            ["msg_cold", "msg_full"],
+        )
+
+    def test_paid_run_preserves_uncertain_cold_read_cost_and_stops(self):
+        from execution import ingest_v9
+
+        cold_usage = ingest_v9.empty_usage()
+        cold_usage.update({
+            "actual_cost_microusd": 125_000,
+            "actual_cost_usd": 0.125,
+            "failed_calls": [{
+                "call_id": "call-cold-uncertain",
+                "requested_model": "model-1",
+                "uncertainty_status": "charged_reservation",
+            }],
+        })
+        cold_error = ingest_v9.LlmAccountingError("cold read spend uncertain")
+        cold_error.usage = cold_usage
+        engine = SimpleNamespace(
+            parse_pdf=Mock(return_value={
+                "text": "[PAGE 1]\nINT. HOUSE - DAY",
+                "page_count": 1,
+                "word_count": 4,
+                "metadata": {},
+            }),
+            validate_parsed_source=Mock(),
+            MODEL_IDS={"sonnet": "model-1"},
+            call_llm=Mock(),
+            configure_benchmark_online_transport=Mock(),
+            clear_benchmark_online_transport=Mock(),
+            run_nonbinding_cold_read=Mock(side_effect=cold_error),
+            run_v9_stable=Mock(),
+            merge_usage=ingest_v9.merge_usage,
+            empty_usage=ingest_v9.empty_usage,
+        )
+
+        with self.assertRaises(ingest_v9.LlmAccountingError) as raised:
+            _run_paid(
+                engine,
+                {
+                    "route": "sonnet",
+                    "model_id": "model-1",
+                    "sonnet_model_id": "model-1",
+                    "generation": "old",
+                },
+                {"path": "/tmp/test.pdf", "filename": "test.pdf", "content_sha256": "a" * 64},
+                "https://candidate.example/llmProxyCandidate",
+                None,
+                Mock(),
+                "run-1",
+                {"prompt_bundle_sha256": "b" * 64, "structured_output_schema_sha256": "c" * 64},
+                lambda: "token",
+            )
+
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 125_000)
+        self.assertEqual(
+            raised.exception.usage["failed_calls"][0]["call_id"],
+            "call-cold-uncertain",
+        )
+        engine.run_v9_stable.assert_not_called()
+
+    def test_paid_run_preserves_all_usage_when_citation_validation_fails(self):
+        from execution import ingest_v9
+
+        cold_usage = ingest_v9.empty_usage()
+        cold_usage.update({
+            "call_count": 1,
+            "actual_cost_microusd": 100,
+            "actual_cost_usd": 0.0001,
+            "calls": [{"response_id": "msg_cold"}],
+        })
+        full_usage = ingest_v9.empty_usage()
+        full_usage.update({
+            "call_count": 1,
+            "actual_cost_microusd": 200,
+            "actual_cost_usd": 0.0002,
+            "calls": [{"response_id": "msg_full"}],
+        })
+        citation_error = ValueError("citation evidence failed")
+        engine = SimpleNamespace(
+            parse_pdf=Mock(return_value={
+                "text": "[PAGE 1]\nINT. HOUSE - DAY",
+                "page_count": 1,
+                "word_count": 4,
+                "metadata": {},
+            }),
+            validate_parsed_source=Mock(),
+            MODEL_IDS={"sonnet": "model-1"},
+            call_llm=Mock(),
+            configure_benchmark_online_transport=Mock(),
+            clear_benchmark_online_transport=Mock(),
+            run_nonbinding_cold_read=Mock(return_value=(
+                {"evidence": {}, "response_ids": ["msg_cold"]},
+                cold_usage,
+            )),
+            run_v9_stable=Mock(return_value=({}, full_usage)),
+            attach_verified_citation_quality=Mock(side_effect=citation_error),
+            merge_usage=ingest_v9.merge_usage,
+            empty_usage=ingest_v9.empty_usage,
+        )
+
+        with self.assertRaisesRegex(ValueError, "citation evidence") as raised:
+            _run_paid(
+                engine,
+                {
+                    "route": "sonnet",
+                    "model_id": "model-1",
+                    "sonnet_model_id": "model-1",
+                    "generation": "old",
+                },
+                {"path": "/tmp/test.pdf", "filename": "test.pdf", "content_sha256": "a" * 64},
+                "https://candidate.example/llmProxyCandidate",
+                None,
+                Mock(),
+                "run-1",
+                {"prompt_bundle_sha256": "b" * 64, "structured_output_schema_sha256": "c" * 64},
+                lambda: "token",
+            )
+
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 300)
+        self.assertEqual(
+            [call["response_id"] for call in raised.exception.usage["calls"]],
+            ["msg_cold", "msg_full"],
+        )
+
     def test_benchmark_engine_blocks_every_remote_persistence_entry(self):
         from execution import ingest_v9
 

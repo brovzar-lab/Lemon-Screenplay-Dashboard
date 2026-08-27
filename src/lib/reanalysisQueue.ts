@@ -37,7 +37,7 @@ function formatTimeout(timeoutMs: number): string {
 
 export async function queueScreenplayReanalysis(
   screenplayId: string,
-  model: 'sonnet' | 'opus',
+  model: 'sonnet' | 'opus' | 'haiku',
 ): Promise<QueuedReanalysis> {
   const response = await fetch(QUEUE_URL, {
     method: 'POST',

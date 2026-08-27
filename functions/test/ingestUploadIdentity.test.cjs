@@ -8,7 +8,16 @@ const {
   readSeparateProject,
   readTargetProjectId,
 } = require('../lib/ingestUploadIdentity');
-const { buildPendingJob } = require('../lib/ingestQueue');
+const { buildPendingJob, parseIngestModel } = require('../lib/ingestQueue');
+
+test('analysis routes default only when absent and reject present invalid values', () => {
+  assert.equal(parseIngestModel(undefined, 'sonnet'), 'sonnet');
+  assert.equal(parseIngestModel('hybrid', 'sonnet'), 'hybrid');
+  assert.throws(
+    () => parseIngestModel('claude-whatever', 'sonnet'),
+    /model is invalid/i,
+  );
+});
 
 test('same filename revisions create different queue jobs', () => {
   const firstPath = 'ingest-queue/LEMON/upload-one/Same_Draft.pdf';

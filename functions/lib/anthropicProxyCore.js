@@ -162,7 +162,13 @@ function parseAnthropicMessage(message) {
         && typeof usageRecord.cache_creation === "object"
         ? usageRecord.cache_creation
         : undefined;
-    const number = (input) => (typeof input === "number" && Number.isInteger(input) && input >= 0 ? input : 0);
+    const optionalNumber = (input) => (typeof input === "number" && Number.isInteger(input) && input >= 0 ? input : 0);
+    const requiredNumber = (input, field) => {
+        if (typeof input !== "number" || !Number.isInteger(input) || input < 0) {
+            throw new Error(`Anthropic response omitted valid ${field} usage.`);
+        }
+        return input;
+    };
     const responseId = typeof record.id === "string" ? record.id : "";
     const model = typeof record.model === "string" ? record.model : "";
     if (!responseId || !model)
@@ -187,14 +193,14 @@ function parseAnthropicMessage(message) {
         model,
         stopReason: typeof record.stop_reason === "string" ? record.stop_reason : null,
         usage: {
-            input_tokens: number(usageRecord.input_tokens),
-            output_tokens: number(usageRecord.output_tokens),
-            cache_creation_input_tokens: number(usageRecord.cache_creation_input_tokens),
-            cache_read_input_tokens: number(usageRecord.cache_read_input_tokens),
+            input_tokens: requiredNumber(usageRecord.input_tokens, "input_tokens"),
+            output_tokens: requiredNumber(usageRecord.output_tokens, "output_tokens"),
+            cache_creation_input_tokens: optionalNumber(usageRecord.cache_creation_input_tokens),
+            cache_read_input_tokens: optionalNumber(usageRecord.cache_read_input_tokens),
             ...(cacheCreation ? {
                 cache_creation: {
-                    ephemeral_5m_input_tokens: number(cacheCreation.ephemeral_5m_input_tokens),
-                    ephemeral_1h_input_tokens: number(cacheCreation.ephemeral_1h_input_tokens),
+                    ephemeral_5m_input_tokens: optionalNumber(cacheCreation.ephemeral_5m_input_tokens),
+                    ephemeral_1h_input_tokens: optionalNumber(cacheCreation.ephemeral_1h_input_tokens),
                 },
             } : {}),
         },

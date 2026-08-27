@@ -77,7 +77,7 @@ exports.onScreenplayUploaded = (0, storage_1.onObjectFinalized)({
     // Upload with: gsutil -h "x-goog-meta-model:haiku" cp ...
     // Or set via Firebase Console / SDK custom metadata
     const customMeta = event.data.metadata ?? {};
-    const requestedModel = customMeta['model'] ?? 'auto';
+    const requestedModel = (0, ingestQueue_1.parseIngestModel)(customMeta['model'], 'auto');
     const priority = customMeta['priority'] ? Number(customMeta['priority']) : 0;
     const target_project_id = (0, ingestUploadIdentity_1.readTargetProjectId)(customMeta);
     const separate_project = (0, ingestUploadIdentity_1.readSeparateProject)(customMeta);

@@ -63,6 +63,38 @@ test('Fable is rejected and Haiku is non-binding only', () => {
   );
 });
 
+test('long non-binding work permits only generation-matched Sonnet', () => {
+  const longColdRead = contract({
+    route: 'opus',
+    requested_model: 'claude-sonnet-5',
+    pipeline_stage: 'triage',
+    reader_name: null,
+  });
+  assert.doesNotThrow(
+    () => validateBenchmarkContract(
+      longColdRead,
+      sha('d'),
+      longColdRead.run_id,
+      longColdRead.requested_model,
+    ),
+  );
+  const opusColdRead = contract({
+    route: 'opus',
+    requested_model: 'claude-opus-5',
+    pipeline_stage: 'triage',
+    reader_name: null,
+  });
+  assert.throws(
+    () => validateBenchmarkContract(
+      opusColdRead,
+      sha('d'),
+      opusColdRead.run_id,
+      opusColdRead.requested_model,
+    ),
+    /generation-matched Sonnet/,
+  );
+});
+
 test('call IDs bind request hashes and retry numbers', () => {
   assert.notEqual(
     contract({ retry_number: 0 }).call_id,

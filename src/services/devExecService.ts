@@ -10,6 +10,7 @@
 
 import type { Screenplay } from '@/types';
 import { callLLM } from '@/lib/proxyClient';
+import modelCatalog from '@/config/anthropic-model-catalog.json';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -240,7 +241,7 @@ export async function sendDevExecMessage(
 
     // Call via LLM proxy (no API key needed — proxy handles auth)
     const result = await callLLM({
-        model: 'gemini-2.5-flash',
+        model: modelCatalog.analysisRoutes.haiku.modelId,
         prompt: fullPrompt,
         systemPrompt,
         temperature: 0.8,

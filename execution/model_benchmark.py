@@ -124,11 +124,13 @@ def _route_configs(catalog: Mapping[str, Any], route: str) -> List[Dict[str, Any
                     "route": route_name,
                     "generation": "old",
                     "model_id": active[route_name]["modelId"],
+                    "sonnet_model_id": active["sonnet"]["modelId"],
                 },
                 {
                     "route": route_name,
                     "generation": "candidate",
                     "model_id": candidate[route_name]["modelId"],
+                    "sonnet_model_id": candidate["sonnet"]["modelId"],
                 },
             ])
     return result
@@ -329,7 +331,22 @@ class LocalCostCap:
             raise BenchmarkSafetyError(
                 f"Next request ceiling ${ceiling_usd:.4f} exceeds the remaining local cap."
             )
-        result = original(**kwargs)
+        try:
+            result = original(**kwargs)
+        except Exception as error:
+            failure_usage = getattr(error, "usage", None)
+            failure_cost = (
+                failure_usage.get("actual_cost_usd")
+                if isinstance(failure_usage, dict)
+                else None
+            )
+            if (
+                isinstance(failure_cost, (int, float))
+                and not isinstance(failure_cost, bool)
+                and failure_cost >= 0
+            ):
+                self.spent_usd += float(failure_cost)
+            raise
         usage = result[2]
         actual_cost = usage.get("actual_cost_usd")
         if not isinstance(actual_cost, (int, float)) or actual_cost < 0:
@@ -396,6 +413,7 @@ def _run_paid(
             engine.MODEL_IDS["sonnet"] = run["sonnet_model_id"]
             engine.MODEL_IDS["opus"] = run["opus_model_id"]
         else:
+            engine.MODEL_IDS["sonnet"] = run["sonnet_model_id"]
             engine.MODEL_IDS[run["route"]] = run["model_id"]
         engine.configure_benchmark_online_transport(
             {
@@ -412,36 +430,49 @@ def _run_paid(
         )
         engine.call_llm = lambda **kwargs: cap.call(original_call, engine.MODEL_IDS, **kwargs)
 
-        cold_read, cold_usage = engine.run_nonbinding_cold_read(
-            text=parsed["text"],
-            title=Path(str(input_record["filename"])).stem,
-            page_count=parsed["page_count"],
-            word_count=parsed["word_count"],
-            proxy_url=proxy_url,
-        )
-        common = {
-            "text": parsed["text"],
-            "title": Path(str(input_record["filename"])).stem,
-            "page_count": parsed["page_count"],
-            "word_count": parsed["word_count"],
-            "proxy_url": proxy_url,
-            "cold_read": cold_read,
-            "calibration_prompt": calibration_prompt,
-        }
-        if run["route"] == "hybrid":
-            analysis, usage = engine.run_v9_hybrid(**common)
-        else:
-            analysis, usage = engine.run_v9_stable(
-                **common,
-                model_key=run["route"],
-                pipeline_pass=f"benchmark-{run['generation']}-{run['route']}",
+        cold_usage = engine.empty_usage()
+        try:
+            cold_read, cold_usage = engine.run_nonbinding_cold_read(
+                text=parsed["text"],
+                title=Path(str(input_record["filename"])).stem,
+                page_count=parsed["page_count"],
+                word_count=parsed["word_count"],
+                proxy_url=proxy_url,
             )
+            common = {
+                "text": parsed["text"],
+                "title": Path(str(input_record["filename"])).stem,
+                "page_count": parsed["page_count"],
+                "word_count": parsed["word_count"],
+                "proxy_url": proxy_url,
+                "cold_read": cold_read,
+                "calibration_prompt": calibration_prompt,
+            }
+            if run["route"] == "hybrid":
+                analysis, usage = engine.run_v9_hybrid(**common)
+            else:
+                analysis, usage = engine.run_v9_stable(
+                    **common,
+                    model_key=run["route"],
+                    pipeline_pass=f"benchmark-{run['generation']}-{run['route']}",
+                )
+        except Exception as error:
+            error.usage = engine.merge_usage(
+                cold_usage,
+                getattr(error, "usage", engine.empty_usage()),
+            )
+            raise
         usage = engine.merge_usage(cold_usage, usage)
-        engine.attach_verified_citation_quality(
-            analysis,
-            parsed.get("metadata") or {},
-            parsed["page_count"],
-        )
+        try:
+            engine.attach_verified_citation_quality(
+                analysis,
+                parsed.get("metadata") or {},
+                parsed["page_count"],
+                parsed["text"],
+            )
+        except Exception as error:
+            error.usage = usage
+            raise
         run.update({
             "status": "complete",
             "analysis": analysis,

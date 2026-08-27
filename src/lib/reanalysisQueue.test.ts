@@ -19,7 +19,9 @@ describe('queueScreenplayReanalysis', () => {
     mockGetProxyAuthHeaders.mockResolvedValue({ Authorization: 'Bearer test' });
   });
 
-  it('asks the server to requeue the stable project through the VPS', async () => {
+  it.each(['opus', 'haiku'] as const)(
+    'preserves the %s selection while requeueing the stable project',
+    async (model) => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
       queued: [{
         screenplayId: 'Original_Draft.pdf',
@@ -28,7 +30,7 @@ describe('queueScreenplayReanalysis', () => {
       failed: [],
     }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
 
-    const queued = await queueScreenplayReanalysis('Original_Draft.pdf', 'opus');
+    const queued = await queueScreenplayReanalysis('Original_Draft.pdf', model);
 
     expect(queued.storagePath).toContain('/ingest-queue/');
     expect(fetchMock).toHaveBeenCalledWith(
@@ -39,11 +41,12 @@ describe('queueScreenplayReanalysis', () => {
         body: JSON.stringify({
           action: 'reanalyze',
           screenplayIds: ['Original_Draft.pdf'],
-          model: 'opus',
+          model,
         }),
       }),
     );
-  });
+    },
+  );
 
   it('surfaces the server reason when no immutable PDF is available', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({

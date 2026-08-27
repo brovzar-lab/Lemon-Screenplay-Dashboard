@@ -13,11 +13,11 @@
 import { parsePDF, type ParsedPDF } from './pdfParser';
 import type { Screenplay } from '@/types';
 import {
-  runMultiReaderAnalysis,
   runTriage,
   analyzeV9,
   type AnalysisOptions as MultiPassOptions,
   type AnalysisProgress as MultiPassProgress,
+  type TrackedUsage,
 } from './multiPassAnalysis';
 import { loadCalibrationProfile } from './feedbackStore';
 import { buildVerifiedIdentity, computeContentHash } from './analysisIdentity';
@@ -50,7 +50,7 @@ export interface AnalysisResult {
   /** Parsed PDF metadata */
   parsed: ParsedPDF;
   /** Token usage from Anthropic */
-  usage?: { input_tokens: number; output_tokens: number };
+  usage?: TrackedUsage;
 }
 
 // ─── Core public API ─────────────────────────────────────────────────────────
@@ -90,7 +90,11 @@ async function analyzeV9Path(
   onProgress?: (p: AnalysisProgress) => void,
 ): Promise<AnalysisResult> {
   const v9Mode = options.v9Mode ?? 'full';
-  const model = options.model === 'opus' ? 'opus' : 'sonnet';
+  const requestedModel = options.model ?? 'sonnet';
+  if (!['sonnet', 'haiku', 'opus'].includes(requestedModel)) {
+    throw new Error(`Unknown analysis route: ${requestedModel}`);
+  }
+  const model = requestedModel === 'opus' ? 'opus' : 'sonnet';
 
   // Load calibration profile
   let calibrationPrompt: string | undefined;
@@ -112,6 +116,8 @@ async function analyzeV9Path(
     const raw = {
       source_file: parsed.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
       analysis_model: triageResult.provenance.returnedModel,
+      selection_request: requestedModel,
+      pipeline_model_tier: 'haiku',
       analysis_version: 'v9_triage',
       lenses_enabled: [],
       collection: category,
@@ -121,7 +127,14 @@ async function analyzeV9Path(
         word_count: parsed.wordCount,
       },
       triage: triageResult,
-      model_provenance: [triageResult.provenance],
+      model_provenance: [{
+        ...triageResult.provenance,
+        stage: 'triage',
+        reader_name: null,
+        attempt: 1,
+        disposition: 'used',
+        usage: triageResult.usage,
+      }],
       analysis: {
         title: parsed.title,
         triage_score: triageResult.triage_score,
@@ -140,7 +153,7 @@ async function analyzeV9Path(
 
   // Full 5-reader + synthesis
   const v9Options: MultiPassOptions = {
-    mode: options.model === 'haiku' ? 'hybrid' : 'full',
+    mode: 'full',
     model,
     lenses: options.lenses ?? ['commercial'],
     calibrationPrompt,
@@ -153,9 +166,7 @@ async function analyzeV9Path(
       message: p.message,
     });
   };
-  const result = options.model === 'haiku'
-    ? await analyzeV9(parsed, v9Options, progressAdapter)
-    : await runMultiReaderAnalysis(parsed, v9Options, progressAdapter);
+  const result = await analyzeV9(parsed, v9Options, progressAdapter);
   if (!('analysis' in result)) {
     throw new Error('A non-binding Haiku cold read cannot replace the complete Sonnet panel.');
   }
@@ -165,6 +176,8 @@ async function analyzeV9Path(
   const raw = {
     source_file: parsed.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
     analysis_model: v9Result.modelId,
+    selection_request: requestedModel,
+    pipeline_model_tier: model,
     model_provenance: v9Result.provenance,
     analysis_version: 'v9_archaeology',
     lenses_enabled: options.lenses ?? ['commercial'],
@@ -237,7 +250,6 @@ export function reanalyzeFromStorage(
       'Triage-only results cannot replace full V9 coverage. Run a full re-analysis instead.'
     ));
   }
-
   const projectId = screenplay.projectId;
   if (!projectId) {
     return Promise.reject(new Error(
@@ -277,7 +289,7 @@ async function runQueuedReanalysis(
   onProgress?.({ stage: 'parsing', percent: 5, message: 'Queuing archived PDF on the VPS...' });
   const queued = await queueScreenplayReanalysis(
     projectId,
-    model === 'opus' ? 'opus' : 'sonnet',
+    model,
   );
   onProgress?.({ stage: 'analyzing', percent: 15, message: 'Waiting for the VPS analysis engine...' });
   const completed = await waitForQueuedReanalysis(queued.storagePath, (update) => {

@@ -11,11 +11,22 @@
  * SCHEMA VERSION: 3
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SYSTEM_COLLECTION = exports.INGEST_QUEUE_COLLECTION = exports.VALID_COLLECTIONS = void 0;
+exports.SYSTEM_COLLECTION = exports.INGEST_QUEUE_COLLECTION = exports.VALID_INGEST_MODELS = exports.VALID_COLLECTIONS = void 0;
+exports.parseIngestModel = parseIngestModel;
 exports.buildPendingJob = buildPendingJob;
 const firestore_1 = require("firebase-admin/firestore");
 // ── Valid collection IDs ──────────────────────────────────────────────────────
 exports.VALID_COLLECTIONS = ['LEMON', 'SUBMISSION', 'BLKLST', 'CONTEST', 'OTHER'];
+// ── Model selection ───────────────────────────────────────────────────────────
+exports.VALID_INGEST_MODELS = ['haiku', 'sonnet', 'opus', 'hybrid', 'auto'];
+function parseIngestModel(value, fallback) {
+    if (value === undefined || value === null || value === '')
+        return fallback;
+    if (typeof value === 'string' && exports.VALID_INGEST_MODELS.includes(value)) {
+        return value;
+    }
+    throw new Error('Requested analysis model is invalid.');
+}
 // ── Factory: new pending job ──────────────────────────────────────────────────
 function buildPendingJob(params) {
     return {

@@ -12,12 +12,16 @@ import hashlib
 import json
 import math
 import re
-from typing import Any, Dict, Iterable, List, Mapping, Sequence
+import unicodedata
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 
 PAGE_EVIDENCE_VERSION = "lemon-page-evidence-v1"
 CONTEXT_POLICY_VERSION = "lemon-context-policy-v1"
-CITATION_EVIDENCE_VERSION = "lemon-citation-evidence-v1"
+LEGACY_CITATION_EVIDENCE_VERSION = "lemon-citation-evidence-v1"
+CITATION_EVIDENCE_VERSION = "lemon-citation-evidence-v2"
+TITLE_PAGE_AUTHOR_EVIDENCE_VERSION = "lemon-title-page-author-v1"
+AUTHOR_NOT_FOUND = "Not found on title page"
 
 PAGE_MARKER_PATTERN = re.compile(r"(?m)^\[PAGE ([1-9][0-9]*)\][ \t]*$")
 MIN_PAGE_WORDS = 3
@@ -39,6 +43,18 @@ MODEL_SAFE_INPUT_TOKENS = {
     "opus": 800_000,
 }
 CONSERVATIVE_CHARACTERS_PER_TOKEN = 3
+MIN_CITATION_EXCERPT_WORDS = 4
+AUTHOR_CUE_PATTERN = re.compile(
+    r"(?:^|\s)(written(?:\s+and\s+directed)?\s+by|screenplay\s+by|"
+    r"script\s+by|gui[oó]n(?:\s+cinematogr[aá]fico)?\s+(?:de|por)|"
+    r"escrit[oa]\s+por|autor(?:a)?(?:es)?\s*:)\s*",
+    re.IGNORECASE,
+)
+AUTHOR_STOP_PATTERN = re.compile(
+    r"\b(?:based\s+on|contact|e-?mail|phone|tel(?:ephone|éfono)?|draft|"
+    r"revision|revised|copyright|all\s+rights\s+reserved)\b|©",
+    re.IGNORECASE,
+)
 
 
 class SourceEvidenceError(ValueError):
@@ -84,6 +100,54 @@ def _marked_page_contents(text: str) -> tuple[List[int], Dict[int, str]]:
         if page_number not in contents:
             contents[page_number] = text[start:end].strip()
     return marker_numbers, contents
+
+
+def _clean_author_candidate(raw: str) -> Optional[str]:
+    candidate = AUTHOR_STOP_PATTERN.split(raw, maxsplit=1)[0]
+    candidate = re.sub(r"^[\s:,&\-–—]+|[\s:,&\-–—]+$", "", candidate)
+    candidate = re.sub(r"\s+", " ", candidate).strip()
+    words = candidate.split()
+    if (
+        not candidate
+        or len(candidate) > 120
+        or len(words) > 12
+        or re.search(r"[^\W\d_]{2}", candidate, re.UNICODE) is None
+        or re.search(r"@|https?:|www\.|\d{3}", candidate, re.IGNORECASE)
+    ):
+        return None
+    return candidate
+
+
+def extract_title_page_author(text: str) -> Dict[str, Any]:
+    """Conservatively extract only an explicit page-one screenplay byline."""
+    _markers, contents = _marked_page_contents(text)
+    lines = [line.strip() for line in contents.get(1, "").splitlines() if line.strip()]
+    for index, line in enumerate(lines):
+        cue_match = AUTHOR_CUE_PATTERN.search(line)
+        is_bare_byline = re.fullmatch(r"by\s*:?\s*", line, re.IGNORECASE) is not None
+        if cue_match is None and not is_bare_byline:
+            continue
+        raw_candidate = line[cue_match.end():] if cue_match else ""
+        author = _clean_author_candidate(raw_candidate)
+        if author is None and index + 1 < len(lines):
+            author = _clean_author_candidate(lines[index + 1])
+        if author:
+            return {
+                "title_page_author_evidence_version": (
+                    TITLE_PAGE_AUTHOR_EVIDENCE_VERSION
+                ),
+                "status": "found",
+                "author": author,
+                "page": 1,
+                "cue": cue_match.group(1) if cue_match else "by",
+            }
+    return {
+        "title_page_author_evidence_version": TITLE_PAGE_AUTHOR_EVIDENCE_VERSION,
+        "status": "not_found",
+        "author": AUTHOR_NOT_FOUND,
+        "page": 1,
+        "cue": None,
+    }
 
 
 def build_page_evidence(
@@ -362,12 +426,85 @@ def _reader_metric_path(path: Sequence[str]) -> bool:
     )
 
 
+def _normalized_evidence_text(value: str) -> str:
+    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+
+
+def _citation_seal(path: str, page: int, excerpt: str) -> Dict[str, Any]:
+    normalized = _normalized_evidence_text(excerpt)
+    return {
+        "path": path,
+        "page": page,
+        "excerpt_sha256": hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
+    }
+
+
+def _declared_citation_seals(
+    analysis: Mapping[str, Any],
+) -> List[Dict[str, Any]]:
+    seals: List[Dict[str, Any]] = []
+
+    def walk(value: Any, path: List[str]) -> None:
+        if isinstance(value, Mapping):
+            if path and path[-1] == "_citation_quality":
+                return
+            if "page_citations" in value:
+                path_text = ".".join(path)
+                citations = value.get("page_citations")
+                evidence = value.get("citation_evidence")
+                if not isinstance(citations, list) or not isinstance(evidence, list):
+                    raise SourceEvidenceError(
+                        f"Stored citation declaration is incomplete at {path_text}"
+                    )
+                evidence_pages: List[int] = []
+                for item in evidence:
+                    if not isinstance(item, Mapping):
+                        raise SourceEvidenceError(
+                            f"Stored citation evidence is malformed at {path_text}"
+                        )
+                    page = item.get("page")
+                    excerpt = item.get("excerpt")
+                    if (
+                        type(page) is not int
+                        or not isinstance(excerpt, str)
+                        or len(_normalized_evidence_text(excerpt).split())
+                        < MIN_CITATION_EXCERPT_WORDS
+                    ):
+                        raise SourceEvidenceError(
+                            f"Stored citation excerpt is malformed at {path_text}"
+                        )
+                    evidence_pages.append(page)
+                    seals.append(_citation_seal(path_text, page, excerpt))
+                if sorted(citations) != sorted(evidence_pages):
+                    raise SourceEvidenceError(
+                        f"Stored citation pages do not match excerpts at {path_text}"
+                    )
+            for key, nested in value.items():
+                if key != "_citation_quality":
+                    walk(nested, path + [str(key)])
+        elif isinstance(value, list):
+            for index, nested in enumerate(value):
+                walk(nested, path + [str(index)])
+
+    walk(analysis, [])
+    return sorted(
+        seals,
+        key=lambda item: (item["path"], item["page"], item["excerpt_sha256"]),
+    )
+
+
 def validate_analysis_citations(
     analysis: Mapping[str, Any],
     page_diagnostics: Sequence[Mapping[str, Any]],
     page_count: int,
+    source_text: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Verify every model citation and required high-score citation."""
+    """Verify every model citation and required high-score citation.
+
+    New analyses must supply the marked screenplay text so every cited page is
+    backed by a short verbatim excerpt. The no-text mode exists only to verify
+    immutable v1 records created before excerpt evidence was required.
+    """
     diagnostic_by_page = {
         item.get("page"): item
         for item in page_diagnostics
@@ -377,9 +514,16 @@ def validate_analysis_citations(
     unverifiable: List[Dict[str, Any]] = []
     malformed_metrics: List[str] = []
     missing_required: List[str] = []
+    unsupported: List[Dict[str, Any]] = []
+    verified_evidence: List[Dict[str, Any]] = []
     verified_pages: set[int] = set()
     total_citations = 0
     high_score_items = 0
+    page_contents = (
+        _marked_page_contents(source_text)[1]
+        if isinstance(source_text, str)
+        else None
+    )
 
     def walk(value: Any, path: List[str]) -> None:
         nonlocal total_citations, high_score_items
@@ -415,6 +559,7 @@ def validate_analysis_citations(
                         }
                     )
                 else:
+                    valid_page_citations: List[int] = []
                     for citation in citations:
                         total_citations += 1
                         if (
@@ -440,7 +585,90 @@ def validate_analysis_citations(
                                 }
                             )
                             continue
-                        verified_pages.add(citation)
+                        if citation in valid_page_citations:
+                            invalid.append({
+                                "path": ".".join(path),
+                                "value": citation,
+                                "reason": "duplicate_page_citation",
+                            })
+                            continue
+                        valid_page_citations.append(citation)
+                        if page_contents is None:
+                            verified_pages.add(citation)
+
+                    if page_contents is not None:
+                        path_text = ".".join(path)
+                        declared = value.get("citation_evidence")
+                        evidence_by_page: Dict[int, str] = {}
+                        if not isinstance(declared, list):
+                            unsupported.append({
+                                "path": path_text,
+                                "reason": "citation_evidence_not_an_array",
+                            })
+                            declared = []
+                        for item in declared:
+                            if not isinstance(item, Mapping):
+                                unsupported.append({
+                                    "path": path_text,
+                                    "reason": "citation_evidence_not_an_object",
+                                })
+                                continue
+                            evidence_page = item.get("page")
+                            excerpt = item.get("excerpt")
+                            if type(evidence_page) is not int or not isinstance(excerpt, str):
+                                unsupported.append({
+                                    "path": path_text,
+                                    "page": evidence_page,
+                                    "reason": "invalid_citation_evidence",
+                                })
+                                continue
+                            normalized_excerpt = _normalized_evidence_text(excerpt)
+                            if len(normalized_excerpt.split()) < MIN_CITATION_EXCERPT_WORDS:
+                                unsupported.append({
+                                    "path": path_text,
+                                    "page": evidence_page,
+                                    "reason": "evidence_excerpt_too_short",
+                                })
+                                continue
+                            if evidence_page in evidence_by_page:
+                                unsupported.append({
+                                    "path": path_text,
+                                    "page": evidence_page,
+                                    "reason": "duplicate_citation_evidence",
+                                })
+                                continue
+                            evidence_by_page[evidence_page] = excerpt
+
+                        for citation in valid_page_citations:
+                            excerpt = evidence_by_page.get(citation)
+                            if excerpt is None:
+                                unsupported.append({
+                                    "path": path_text,
+                                    "page": citation,
+                                    "reason": "missing_evidence_excerpt",
+                                })
+                                continue
+                            page_text = _normalized_evidence_text(
+                                page_contents.get(citation, "")
+                            )
+                            if _normalized_evidence_text(excerpt) not in page_text:
+                                unsupported.append({
+                                    "path": path_text,
+                                    "page": citation,
+                                    "reason": "excerpt_not_found_on_cited_page",
+                                })
+                                continue
+                            verified_pages.add(citation)
+                            verified_evidence.append(
+                                _citation_seal(path_text, citation, excerpt)
+                            )
+                        for evidence_page in sorted(evidence_by_page):
+                            if evidence_page not in valid_page_citations:
+                                unsupported.append({
+                                    "path": path_text,
+                                    "page": evidence_page,
+                                    "reason": "evidence_page_not_cited",
+                                })
             for key, nested in value.items():
                 if key == "_citation_quality":
                     continue
@@ -459,15 +687,22 @@ def validate_analysis_citations(
         issues.append("malformed_reader_metrics")
     if missing_required:
         issues.append("high_scores_missing_page_citations")
+    if unsupported:
+        issues.append("unsupported_page_citations")
 
     evidence_core = {
-        "citation_evidence_version": CITATION_EVIDENCE_VERSION,
+        "citation_evidence_version": (
+            CITATION_EVIDENCE_VERSION
+            if page_contents is not None
+            else LEGACY_CITATION_EVIDENCE_VERSION
+        ),
         "status": "verified" if not issues else "needs_review",
         "page_count": page_count,
         "total_citations": total_citations,
-        "valid_citations": max(
-            0,
-            total_citations - len(invalid) - len(unverifiable),
+        "valid_citations": (
+            len(verified_evidence)
+            if page_contents is not None
+            else max(0, total_citations - len(invalid) - len(unverifiable))
         ),
         "verified_page_numbers": sorted(verified_pages),
         "high_score_items": high_score_items,
@@ -477,6 +712,21 @@ def validate_analysis_citations(
         "unverifiable_citations": unverifiable,
         "issues": issues,
     }
+    if page_contents is not None:
+        evidence_core.update({
+            "source_text_sha256": hashlib.sha256(
+                source_text.encode("utf-8")
+            ).hexdigest(),
+            "verified_evidence": sorted(
+                verified_evidence,
+                key=lambda item: (
+                    item["path"],
+                    item["page"],
+                    item["excerpt_sha256"],
+                ),
+            ),
+            "unsupported_citations": unsupported,
+        })
     evidence_core["evidence_sha256"] = sha256_json(evidence_core)
     return evidence_core
 
@@ -485,12 +735,27 @@ def attach_verified_citation_quality(
     analysis: Dict[str, Any],
     metadata: Mapping[str, Any],
     page_count: int,
+    source_text: str,
 ) -> Dict[str, Any]:
     evidence = validate_extraction_metadata(metadata, page_count)
+    recomputed = build_page_evidence(
+        source_text,
+        page_count,
+        str(
+            metadata.get("extraction_method")
+            or evidence["extraction_quality"].get("extraction_method")
+            or "unknown"
+        ),
+    )
+    if extraction_evidence_from_metadata(recomputed) != evidence:
+        raise SourceEvidenceError(
+            "Citation source text does not match stored page evidence"
+        )
     quality = validate_analysis_citations(
         analysis,
         evidence["page_diagnostics"],
         page_count,
+        source_text,
     )
     analysis["_citation_quality"] = quality
     if quality["status"] != "verified":
@@ -509,6 +774,56 @@ def validate_stored_citation_quality(
     if not isinstance(stored, dict):
         raise SourceEvidenceError("Permanent analysis is missing citation evidence")
     evidence = validate_extraction_metadata(metadata, page_count)
+    if stored.get("citation_evidence_version") == CITATION_EVIDENCE_VERSION:
+        evidence_hash = stored.get("evidence_sha256")
+        core = {
+            key: value
+            for key, value in stored.items()
+            if key != "evidence_sha256"
+        }
+        if evidence_hash != sha256_json(core):
+            raise SourceEvidenceError("Stored citation evidence integrity check failed")
+        if stored.get("status") != "verified" or stored.get("issues") != []:
+            raise SourceEvidenceError("Permanent analysis citations need review")
+        if stored.get("unsupported_citations") != []:
+            raise SourceEvidenceError("Permanent analysis has unsupported citations")
+        if stored.get("valid_citations") != stored.get("total_citations"):
+            raise SourceEvidenceError("Permanent analysis has unsupported citations")
+        structural = validate_analysis_citations(
+            analysis,
+            evidence["page_diagnostics"],
+            page_count,
+        )
+        if structural.get("status") != "verified":
+            raise SourceEvidenceError(
+                "Permanent analysis citation evidence needs review"
+            )
+        for field in (
+            "page_count",
+            "total_citations",
+            "verified_page_numbers",
+            "high_score_items",
+            "malformed_reader_metrics",
+            "missing_required_citations",
+            "invalid_citations",
+            "unverifiable_citations",
+        ):
+            if stored.get(field) != structural.get(field):
+                raise SourceEvidenceError(
+                    "Stored citation evidence does not match analysis"
+                )
+        if stored.get("verified_evidence") != _declared_citation_seals(analysis):
+            raise SourceEvidenceError(
+                "Stored citation excerpts do not match analysis"
+            )
+        if len(stored["verified_evidence"]) != stored.get("total_citations"):
+            raise SourceEvidenceError("Permanent analysis has unsupported citations")
+        source_hash = stored.get("source_text_sha256")
+        if not isinstance(source_hash, str) or not re.fullmatch(r"[a-f0-9]{64}", source_hash):
+            raise SourceEvidenceError("Permanent analysis lacks source-text provenance")
+        return stored
+    if stored.get("citation_evidence_version") != LEGACY_CITATION_EVIDENCE_VERSION:
+        raise SourceEvidenceError("Permanent analysis has unknown citation evidence")
     recomputed = validate_analysis_citations(
         analysis,
         evidence["page_diagnostics"],

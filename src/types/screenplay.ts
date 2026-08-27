@@ -287,7 +287,7 @@ export interface RawCitationIssue {
 }
 
 export interface RawCitationQuality {
-  citation_evidence_version: 'lemon-citation-evidence-v1';
+  citation_evidence_version: 'lemon-citation-evidence-v1' | 'lemon-citation-evidence-v2';
   status: 'verified' | 'needs_review';
   page_count: number;
   total_citations: number;
@@ -298,6 +298,13 @@ export interface RawCitationQuality {
   missing_required_citations: string[];
   invalid_citations: RawCitationIssue[];
   unverifiable_citations: RawCitationIssue[];
+  unsupported_citations?: RawCitationIssue[];
+  source_text_sha256?: string;
+  verified_evidence?: Array<{
+    path: string;
+    page: number;
+    excerpt_sha256: string;
+  }>;
   issues: string[];
 }
 

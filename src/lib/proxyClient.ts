@@ -82,6 +82,11 @@ interface ProxyErrorBody {
   error?: string;
   code?: string;
   isRetryable?: boolean;
+  requested_model?: string;
+  returned_model?: string;
+  response_id?: string;
+  stop_reason?: string | null;
+  usage?: ProxySuccessBody['usage'];
 }
 
 interface ProxySuccessBody {
@@ -101,12 +106,85 @@ const activeBrowserModels = new Set(
 
 export class ProxyCallError extends Error {
   readonly retryable: boolean;
+  readonly usage?: CallLLMUsage;
+  readonly provenance?: Array<CallLLMProvenance & {
+    disposition: 'discarded_unusable';
+    usage: CallLLMUsage;
+  }>;
 
-  constructor(message: string, retryable: boolean) {
+  constructor(
+    message: string,
+    retryable: boolean,
+    usage?: CallLLMUsage,
+    provenance?: Array<CallLLMProvenance & {
+      disposition: 'discarded_unusable';
+      usage: CallLLMUsage;
+    }>,
+  ) {
     super(message);
     this.name = 'ProxyCallError';
     this.retryable = retryable;
+    this.usage = usage;
+    this.provenance = provenance;
   }
+}
+
+function normalizedUsage(usage?: ProxySuccessBody['usage']): CallLLMUsage | undefined {
+  if (!usage) return undefined;
+  const inputTokens = usage.prompt_tokens ?? usage.input_tokens;
+  const outputTokens = usage.completion_tokens ?? usage.output_tokens;
+  const actualCostMicrousd = usage.actual_cost_microusd;
+  const actualCostUsd = usage.actual_cost_usd;
+  if (
+    typeof inputTokens !== 'number'
+    || !Number.isInteger(inputTokens)
+    || inputTokens < 0
+    || typeof outputTokens !== 'number'
+    || !Number.isInteger(outputTokens)
+    || outputTokens < 0
+    || typeof actualCostMicrousd !== 'number'
+    || !Number.isInteger(actualCostMicrousd)
+    || actualCostMicrousd < 0
+    || typeof actualCostUsd !== 'number'
+    || !Number.isFinite(actualCostUsd)
+    || actualCostUsd < 0
+    || Math.abs(actualCostUsd - actualCostMicrousd / 1_000_000) > 1e-9
+  ) {
+    return undefined;
+  }
+  return {
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
+    cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+    actual_cost_microusd: actualCostMicrousd,
+    actual_cost_usd: actualCostUsd,
+  };
+}
+
+function proxyErrorEvidence(
+  body: ProxyErrorBody,
+  requestedModel: string,
+): Pick<ProxyCallError, 'usage' | 'provenance'> {
+  const usage = normalizedUsage(body.usage);
+  if (
+    !usage
+    || !body.response_id
+    || !body.returned_model
+  ) {
+    return { usage };
+  }
+  return {
+    usage,
+    provenance: [{
+      responseId: body.response_id,
+      requestedModel: body.requested_model ?? requestedModel,
+      returnedModel: body.returned_model,
+      stopReason: body.stop_reason ?? null,
+      disposition: 'discarded_unusable',
+      usage,
+    }],
+  };
 }
 
 export function buildProxyRequest(options: CallLLMOptions): ProxyRequestBody {
@@ -178,39 +256,52 @@ export async function callLLM(options: CallLLMOptions): Promise<CallLLMResult> {
 
     const message = errorData.error || `Proxy error (${response.status})`;
     const code = errorData.code || 'UNKNOWN_ERROR';
+    const evidence = proxyErrorEvidence(errorData, options.model);
 
     // Preserve retryable vs. non-retryable distinction
     if (response.status === 429) {
-      throw new ProxyCallError(`Rate limited — please wait a moment and retry. (${message})`, false);
+      throw new ProxyCallError(
+        `Rate limited — please wait a moment and retry. (${message})`,
+        false,
+        evidence.usage,
+        evidence.provenance,
+      );
     }
     if (response.status === 400) {
-      throw new ProxyCallError(message, false);
+      throw new ProxyCallError(message, false, evidence.usage, evidence.provenance);
     }
     throw new ProxyCallError(
       `AI proxy error [${code}]: ${message}`,
       errorData.isRetryable === true,
+      evidence.usage,
+      evidence.provenance,
     );
   }
 
   const data = await response.json() as ProxySuccessBody;
   if (!data.response_id || !data.model || data.model !== options.model) {
-    throw new ProxyCallError('AI proxy returned incomplete or mismatched model provenance.', false);
+    const evidence = proxyErrorEvidence({
+      requested_model: options.model,
+      returned_model: data.model,
+      response_id: data.response_id,
+      stop_reason: data.stop_reason,
+      usage: data.usage,
+    }, options.model);
+    throw new ProxyCallError(
+      'AI proxy returned incomplete or mismatched model provenance.',
+      false,
+      evidence.usage,
+      evidence.provenance,
+    );
   }
 
+  const usage = normalizedUsage(data.usage);
+  if (!usage) {
+    throw new ProxyCallError('AI proxy returned incomplete settled usage.', false);
+  }
   return {
     text: data.text ?? '',
-    usage: {
-      input_tokens: data.usage?.prompt_tokens ?? data.usage?.input_tokens ?? 0,
-      output_tokens: data.usage?.completion_tokens ?? data.usage?.output_tokens ?? 0,
-      cache_creation_input_tokens: data.usage?.cache_creation_input_tokens ?? 0,
-      cache_read_input_tokens: data.usage?.cache_read_input_tokens ?? 0,
-      ...(data.usage?.actual_cost_microusd !== undefined
-        ? { actual_cost_microusd: data.usage.actual_cost_microusd }
-        : {}),
-      ...(data.usage?.actual_cost_usd !== undefined
-        ? { actual_cost_usd: data.usage.actual_cost_usd }
-        : {}),
-    },
+    usage,
     provenance: {
       responseId: data.response_id,
       requestedModel: options.model,

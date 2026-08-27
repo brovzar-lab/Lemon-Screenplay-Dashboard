@@ -54,3 +54,13 @@ test('shared response parsing keeps exact model, response, cache, and stop prove
   assert.equal(parsed.stopReason, 'end_turn');
   assert.equal(parsed.usage.cache_creation.ephemeral_1h_input_tokens, 2);
 });
+
+test('shared response parsing rejects missing required token usage', () => {
+  assert.throws(() => parseAnthropicMessage({
+    id: 'msg_missing_usage',
+    model: 'claude-sonnet-4-6',
+    stop_reason: 'end_turn',
+    content: [{ type: 'text', text: 'done' }],
+    usage: { input_tokens: 10 },
+  }), /output_tokens usage/);
+});

@@ -1,7 +1,7 @@
 /**
  * Engine Comparison Lab
  *
- * Compare analysis results across AI models (Haiku / Sonnet / Opus).
+ * Compare analysis results across approved V9 routes (Haiku composite / Sonnet / Opus).
  * Supports two source modes:
  *   1. Upload — drop a PDF and run fresh analysis with the V9 Archaeology Engine
  *   2. Dashboard — pull existing analyzed screenplays for instant comparison
@@ -14,10 +14,11 @@ import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { analyzeScreenplay } from '@/lib/analysisService';
 import type { AnalysisProgress } from '@/lib/analysisService';
+import type { TrackedUsage } from '@/lib/multiPassAnalysis';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import modelCatalog from '@/config/anthropic-model-catalog.json';
-import { MODEL_COSTS, MODEL_OPTIONS } from './upload/upload.constants';
+import { MODEL_OPTIONS } from './upload/upload.constants';
 import { REANALYSIS_MODELS } from '@/components/screenplay/modal/reanalysisModels';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -49,7 +50,8 @@ interface SlotResult {
   progress: number;
   error?: string;
   analysis?: Record<string, unknown>;
-  usage?: { input_tokens: number; output_tokens: number };
+  usage?: TrackedUsage;
+  provenance?: Array<Record<string, unknown>>;
   elapsedMs?: number;
   /** If loaded from dashboard, the source screenplay */
   fromDashboard?: boolean;
@@ -99,16 +101,6 @@ const COMPARISON_CANDIDATES = [
   { name: 'Sonnet 5', modelId: modelCatalog.latestObserved.sonnet, label: 'Benchmark pending' },
   { name: 'Opus 5', modelId: modelCatalog.latestObserved.opus, label: 'Benchmark pending' },
 ] as const;
-
-const COST_RATES: Record<ModelId, { input: number; output: number }> = Object.fromEntries(
-  (['haiku', 'sonnet', 'opus'] as const).map((id) => [
-    id,
-    {
-      input: MODEL_COSTS[id].input * 1_000,
-      output: MODEL_COSTS[id].output * 1_000,
-    },
-  ]),
-) as Record<ModelId, { input: number; output: number }>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -162,17 +154,28 @@ function scoreColor(score: number): string {
   return 'text-red-400';
 }
 
-function formatCost(usage: { input_tokens: number; output_tokens: number } | undefined, model: ModelId): string {
-  if (!usage) return '—';
-  const rates = COST_RATES[model];
-  const cost = (usage.input_tokens * rates.input + usage.output_tokens * rates.output) / 1_000_000;
-  return `$${cost.toFixed(2)}`;
+function formatCost(usage: TrackedUsage | undefined): string {
+  return typeof usage?.actual_cost_usd === 'number'
+    ? `$${usage.actual_cost_usd.toFixed(2)}`
+    : '—';
 }
 
-function formatTokens(usage: { input_tokens: number; output_tokens: number } | undefined): string {
+function formatTokens(usage: TrackedUsage | undefined): string {
   if (!usage) return '—';
   const total = usage.input_tokens + usage.output_tokens;
   return `${(total / 1000).toFixed(1)}K`;
+}
+
+function formatProvenance(provenance: SlotResult['provenance']): string {
+  if (!provenance?.length) return '';
+  return provenance.map((call) => {
+    const model = typeof call.returnedModel === 'string'
+      ? call.returnedModel
+      : typeof call.requestedModel === 'string'
+        ? call.requestedModel
+        : 'unknown model';
+    return typeof call.responseId === 'string' ? `${model} (${call.responseId})` : model;
+  }).join(', ');
 }
 
 function slotKey(engine: EngineId, model: ModelId): SlotKey {
@@ -346,6 +349,7 @@ export function ModelComparisonPanel() {
 
             const elapsed = Math.round(performance.now() - startTime);
             const analysis = result.raw.analysis as Record<string, unknown>;
+            const rawProvenance = result.raw.model_provenance;
 
             setResults((prev) => ({
               ...prev,
@@ -354,16 +358,41 @@ export function ModelComparisonPanel() {
                 progress: 100,
                 analysis,
                 usage: result.usage,
+                provenance: Array.isArray(rawProvenance)
+                  ? rawProvenance.filter(
+                    (call): call is Record<string, unknown> => Boolean(
+                      call && typeof call === 'object' && !Array.isArray(call),
+                    ),
+                  )
+                  : [],
                 elapsedMs: elapsed,
               },
             }));
-          } catch {
+          } catch (error) {
+            const evidence = error && typeof error === 'object'
+              ? error as {
+                message?: unknown;
+                usage?: TrackedUsage;
+                provenance?: unknown;
+              }
+              : {};
             setResults((prev) => ({
               ...prev,
               [key]: {
                 status: 'error',
                 progress: 0,
-                error: t('Analysis failed'),
+                error: typeof evidence.message === 'string'
+                  ? evidence.message
+                  : t('Analysis failed'),
+                usage: evidence.usage,
+                provenance: Array.isArray(evidence.provenance)
+                  ? evidence.provenance.filter(
+                    (call): call is Record<string, unknown> => Boolean(
+                      call && typeof call === 'object' && !Array.isArray(call),
+                    ),
+                  )
+                  : [],
+                elapsedMs: Math.round(performance.now() - startTime),
               },
             }));
           }
@@ -833,6 +862,16 @@ export function ModelComparisonPanel() {
                 {r.status === 'error' && (
                   <div className="py-4 text-center">
                     <p className="text-red-400 text-sm">❌ {r.error}</p>
+                    {r.usage?.actual_cost_usd !== undefined && (
+                      <p className="mt-2 text-xs text-black-300">
+                        {t('Recorded cost')}: {formatCost(r.usage)}
+                      </p>
+                    )}
+                    {formatProvenance(r.provenance) && (
+                      <p className="mt-1 text-xs text-black-400">
+                        {t('Recorded calls')}: {formatProvenance(r.provenance)}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -906,7 +945,7 @@ export function ModelComparisonPanel() {
                       <div className="pt-3 border-t border-black-700 grid grid-cols-3 gap-2 text-center">
                         <div>
                           <p className="text-xs text-black-500">{t('Cost')}</p>
-                          <p className="text-sm text-gold-300">{formatCost(r.usage, model.id)}</p>
+                          <p className="text-sm text-gold-300">{formatCost(r.usage)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-black-500">{t('Tokens')}</p>
@@ -919,6 +958,11 @@ export function ModelComparisonPanel() {
                           </p>
                         </div>
                       </div>
+                    )}
+                    {formatProvenance(r.provenance) && (
+                      <p className="text-[10px] text-black-500 break-all">
+                        {t('Recorded calls')}: {formatProvenance(r.provenance)}
+                      </p>
                     )}
                   </div>
                 )}

@@ -12,7 +12,7 @@ import {
   releasePreparingReanalysisLock,
 } from "./reanalysisLock";
 import { canDismissQueueJob, canRetryQueueJob } from "./queueActions";
-import type { IngestModel } from "./ingestQueue";
+import { parseIngestModel } from "./ingestQueue";
 
 const corsMiddleware = cors({
   origin: [
@@ -24,7 +24,6 @@ const corsMiddleware = cors({
 });
 
 type QueueAction = "retry" | "dismiss" | "analyze_anyway" | "reanalyze";
-const MODELS = new Set(["haiku", "sonnet", "opus", "hybrid", "auto"]);
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET
   ?? "lemon-screenplay-dashboard.firebasestorage.app";
 
@@ -55,7 +54,15 @@ export const queueManager = onRequest(
       const jobIds = Array.isArray(body.jobIds)
         ? body.jobIds.filter((id): id is string => typeof id === "string" && id.length > 0).slice(0, 100)
         : [];
-      const model = typeof body.model === "string" && MODELS.has(body.model) ? body.model : "sonnet";
+      let model;
+      try {
+        model = parseIngestModel(body.model, "sonnet");
+      } catch (error) {
+        res.status(400).json({
+          error: error instanceof Error ? error.message : "Requested analysis model is invalid.",
+        });
+        return;
+      }
 
       if (action === "reanalyze") {
         const screenplayIds = Array.isArray(body.screenplayIds)
@@ -86,7 +93,7 @@ export const queueManager = onRequest(
             const plan = buildReanalysisCopyPlan({
               screenplayId: snapshot.id,
               screenplay: snapshot.data() ?? {},
-              requestedModel: model as IngestModel,
+              requestedModel: model,
               uploadId,
               destinationBucket: STORAGE_BUCKET,
             });

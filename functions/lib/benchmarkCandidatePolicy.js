@@ -26,7 +26,7 @@ const SAFE_STAGE = /^[a-z0-9_-]{1,64}$/;
 const READERS = new Set([
     "structure", "character", "craft_scene", "concept", "emotional_resonance",
 ]);
-const NON_BINDING_HAIKU_STAGES = new Set(["triage", "genre_detection", "cold_read"]);
+const NON_BINDING_STAGES = new Set(["triage", "genre_detection", "cold_read"]);
 function requireSha(value, field) {
     if (typeof value !== "string" || !SHA256.test(value)) {
         throw new BenchmarkContractError(`${field} must be a lowercase SHA-256 hash.`);
@@ -108,17 +108,17 @@ function validateBenchmarkContract(value, payloadHash, expectedRunId, requestMod
         throw new BenchmarkContractError("call_id is not the deterministic contract hash.");
     }
     if (requestModel === "claude-haiku-4-5-20251001") {
-        if (!NON_BINDING_HAIKU_STAGES.has(contractWithoutCallId.pipeline_stage)) {
+        if (!NON_BINDING_STAGES.has(contractWithoutCallId.pipeline_stage)) {
             throw new BenchmarkContractError("Haiku 4.5 is restricted to non-binding cold-read work.");
         }
     }
     else {
-        if (NON_BINDING_HAIKU_STAGES.has(contractWithoutCallId.pipeline_stage)) {
-            throw new BenchmarkContractError("Cold-read work must use Haiku 4.5.");
-        }
-        const allowed = expectedRouteModels(contractWithoutCallId.route, contractWithoutCallId.generation);
+        const isNonBinding = NON_BINDING_STAGES.has(contractWithoutCallId.pipeline_stage);
+        const allowed = expectedRouteModels(isNonBinding ? "sonnet" : contractWithoutCallId.route, contractWithoutCallId.generation);
         if (!allowed.has(requestModel)) {
-            throw new BenchmarkContractError("Model does not match the requested route generation.");
+            throw new BenchmarkContractError(isNonBinding
+                ? "Non-binding long-context work must use the generation-matched Sonnet route."
+                : "Model does not match the requested route generation.");
         }
     }
     return { ...contractWithoutCallId, call_id: expectedCallId };

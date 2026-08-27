@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 os.environ.setdefault("DAEMON_LOG_DIR", tempfile.gettempdir())
 
 import daemon
+from execution import ingest_v9 as actual_ingest_v9
 
 
 CONTENT_HASH = "cd" * 32
@@ -122,6 +123,27 @@ class NeedsReviewStateTests(unittest.TestCase):
 
         self.assertFalse(handled)
         mark_needs_review.assert_not_called()
+
+    def test_quality_failure_persists_exact_paid_usage(self):
+        review_error = RuntimeError("genre detection failed")
+        review_error.review_required = True
+        review_error.review_kind = "genre_detection_review"
+        review_error.review_evidence = {"error_type": "ValueError"}
+        review_error.usage = {
+            "input_tokens": 100,
+            "output_tokens": 20,
+            "call_count": 1,
+            "actual_cost_microusd": 725,
+            "calls": [{"response_id": "msg_genre", "returned_model": "exact-model"}],
+            "failed_calls": [],
+        }
+
+        with patch.object(daemon, "mark_needs_review") as mark_needs_review:
+            self.assertTrue(daemon.route_analysis_review_error("genre-job", review_error))
+
+        evidence = mark_needs_review.call_args.kwargs["evidence"]
+        self.assertEqual(evidence["usage"]["actual_cost_microusd"], 725)
+        self.assertEqual(evidence["usage"]["calls"][0]["returned_model"], "exact-model")
 
 
 class CompletedVersionPreflightTests(unittest.TestCase):
@@ -613,6 +635,164 @@ class QuarantineIdempotencyTests(unittest.TestCase):
             "gs://upload-bucket/bad-formats/LEMON/job-1/Draft.pdf",
         )
         bucket.copy_blob.assert_not_called()
+
+
+class OptionalColdReadTests(unittest.TestCase):
+    def test_ambiguous_optional_cold_read_stops_before_full_analysis(self):
+        cold_failure = actual_ingest_v9.LlmCallFailedError(
+            "cold read transport failed",
+            attempt_history=[{
+                "attempt": 1,
+                "outcome": "transport_error",
+                "error_type": "ConnectionError",
+            }],
+            requested_model=actual_ingest_v9.MODEL_IDS["haiku"],
+            stage="genre_detection",
+            pipeline_pass="cold_read",
+            boundary_run=0,
+            reader_name=None,
+        )
+        stable_usage = actual_ingest_v9.empty_usage()
+        stable_usage.update({
+            "input_tokens": 30,
+            "output_tokens": 10,
+            "call_count": 1,
+            "actual_cost_microusd": 500,
+            "actual_cost_usd": 0.0005,
+        })
+        fake_engine = SimpleNamespace(
+            init_firebase=MagicMock(),
+            to_doc_id=MagicMock(return_value="Cold_Read_Draft.pdf"),
+            parse_pdf=MagicMock(return_value={
+                "text": "INT. HOUSE - DAY\nA family confronts a secret.",
+                "page_count": 1,
+                "word_count": 8,
+                "metadata": {},
+            }),
+            run_nonbinding_cold_read=MagicMock(side_effect=cold_failure),
+            run_v9_stable=MagicMock(return_value=(
+                {"analysis_version": "v9_archaeology"},
+                stable_usage,
+            )),
+            run_v9_hybrid=MagicMock(),
+            write_to_firestore=MagicMock(return_value=True),
+            validate_permanent_analysis=MagicMock(),
+            failed_usage=actual_ingest_v9.failed_usage,
+            merge_usage=actual_ingest_v9.merge_usage,
+            empty_usage=actual_ingest_v9.empty_usage,
+            V9RunError=actual_ingest_v9.V9RunError,
+            LlmCallFailedError=actual_ingest_v9.LlmCallFailedError,
+            DailyBudgetExceededError=actual_ingest_v9.DailyBudgetExceededError,
+            BenchmarkCapExceededError=actual_ingest_v9.BenchmarkCapExceededError,
+            LlmAccountingError=actual_ingest_v9.LlmAccountingError,
+            LlmProvenanceError=actual_ingest_v9.LlmProvenanceError,
+            LlmRequestRejectedError=actual_ingest_v9.LlmRequestRejectedError,
+            MODEL_IDS=actual_ingest_v9.MODEL_IDS,
+            PARSER_VERSION=actual_ingest_v9.PARSER_VERSION,
+        )
+        prior_engine = sys.modules.get("ingest_v9")
+        prior_work_dir = daemon.WORK_DIR
+        prior_db = daemon._db
+        sys.modules["ingest_v9"] = fake_engine
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "Cold Read Draft.pdf"
+            pdf_path.write_bytes(b"screenplay bytes")
+            daemon.WORK_DIR = Path(temp_dir) / "work"
+            daemon._db = MagicMock()
+            try:
+                with (
+                    patch.object(daemon, "HeartbeatTask", return_value=MagicMock()),
+                    patch.object(daemon, "download_pdf", return_value=pdf_path),
+                    patch.object(daemon, "compute_content_hash", return_value=CONTENT_HASH),
+                    patch.object(daemon, "is_already_complete", return_value=False),
+                    patch.object(daemon, "resolve_target_project_id", return_value=None),
+                    patch.object(daemon, "get_existing_version", return_value=None),
+                    patch.object(daemon, "validate_screenplay_text", return_value=(True, "")),
+                    patch.object(daemon, "validate_parsed_source"),
+                    patch.object(daemon, "check_tmdb_for_job", return_value=(False, "", None)),
+                    patch.object(daemon, "check_daily_budget_available"),
+                    patch.object(daemon, "load_calibration_profile", return_value=None),
+                    patch.object(
+                        daemon,
+                        "archive_pdf_version",
+                        return_value=("gs://bucket/archive.pdf", "2002"),
+                    ),
+                    patch.object(daemon, "attach_verified_citation_quality"),
+                    patch.object(
+                        daemon,
+                        "build_raw_document",
+                        return_value={"prompt_version": "test-prompt"},
+                    ) as build_raw,
+                    patch.object(daemon, "mark_complete") as mark_complete,
+                    patch.object(daemon, "mark_failed") as mark_failed,
+                    patch.object(daemon, "mark_terminal_failed") as mark_terminal,
+                    patch.object(daemon, "mark_needs_review") as mark_review,
+                ):
+                    daemon.process_job({
+                        "id": "cold-read-job",
+                        "filename": "Cold Read Draft.pdf",
+                        "collection_id": "LEMON",
+                        "storage_path": "gs://bucket/ingest-queue/Cold_Read_Draft.pdf",
+                        "storage_generation": "1001",
+                        "requested_model": "sonnet",
+                        "queued_at": datetime.now(timezone.utc),
+                        "attempt_count": 1,
+                    })
+            finally:
+                daemon.WORK_DIR = prior_work_dir
+                daemon._db = prior_db
+                if prior_engine is None:
+                    sys.modules.pop("ingest_v9", None)
+                else:
+                    sys.modules["ingest_v9"] = prior_engine
+
+        fake_engine.run_v9_stable.assert_not_called()
+        build_raw.assert_not_called()
+        mark_complete.assert_not_called()
+        mark_failed.assert_not_called()
+        mark_terminal.assert_not_called()
+        mark_review.assert_called_once()
+        self.assertEqual(
+            mark_review.call_args.kwargs["failure_kind"],
+            "ambiguous_paid_call",
+        )
+
+
+class ModelRouteTests(unittest.TestCase):
+    def test_invalid_model_route_is_terminal_instead_of_falling_back(self):
+        self.assertEqual(daemon.resolve_model_route("auto"), "sonnet")
+        self.assertEqual(daemon.resolve_model_route("haiku"), "sonnet")
+        for invalid_route in ("claude-mystery", [], {}):
+            with self.subTest(invalid_route=invalid_route), self.assertRaisesRegex(
+                daemon.TerminalJobError,
+                "refusing silent fallback",
+            ):
+                daemon.resolve_model_route(invalid_route)
+
+    def test_invalid_model_route_fails_before_download_or_archive_mutation(self):
+        heartbeat = MagicMock()
+        prior_work_dir = daemon.WORK_DIR
+        with tempfile.TemporaryDirectory() as temp_dir:
+            daemon.WORK_DIR = Path(temp_dir)
+            try:
+                with (
+                    patch.object(daemon, "HeartbeatTask", return_value=heartbeat),
+                    patch.object(daemon, "download_pdf") as download_pdf,
+                    patch.object(daemon, "archive_pdf_version") as archive_pdf,
+                    patch.object(daemon, "mark_terminal_failed") as mark_terminal,
+                ):
+                    daemon.process_job({
+                        "id": "invalid-route-job",
+                        "filename": "Draft.pdf",
+                        "requested_model": "claude-mystery",
+                    })
+            finally:
+                daemon.WORK_DIR = prior_work_dir
+
+        download_pdf.assert_not_called()
+        archive_pdf.assert_not_called()
+        mark_terminal.assert_called_once()
 
 
 if __name__ == "__main__":

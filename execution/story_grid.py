@@ -31,8 +31,8 @@ EXTERNAL_GENRES: Dict[str, Any] = STORY_GRID["external_genres"]
 COMEDY_SUBGENRES: Dict[str, Any] = STORY_GRID["comedy_subgenres"]
 INTERNAL_GENRES: Dict[str, Any] = STORY_GRID["internal_genres"]
 
-# Canonical genre names, lowercased → canonical, for tolerant matching of
-# whatever the detection pass returns.
+# Canonical genre names, lowercased → canonical. Detection may normalize case
+# and whitespace, but it must not invent a different Story Grid genre.
 _CANON = {g.lower(): g for g in EXTERNAL_GENRES}
 _INTERNAL_CANON = {
     name.lower(): (family, name)
@@ -42,23 +42,10 @@ _INTERNAL_CANON = {
 
 
 def canonical_external(name: Optional[str]) -> Optional[str]:
-    """Map a free-text genre to a canonical external genre, or None."""
+    """Normalize a declared external genre without semantic remapping."""
     if not name:
         return None
-    key = name.strip().lower()
-    if key in _CANON:
-        return _CANON[key]
-    # Tolerate common synonyms / adjectival forms.
-    synonyms = {
-        "action/adventure": "Action", "adventure": "Action", "sci-fi": "Action",
-        "science fiction": "Action", "fantasy": "Action", "romance": "Love",
-        "romantic": "Love", "rom-com": "Comedy", "comedy-drama": "Comedy",
-        "dramedy": "Comedy", "dark comedy": "Comedy", "satire": "Comedy",
-        "mystery": "Crime", "noir": "Crime", "detective": "Crime",
-        "suspense": "Thriller", "drama": "Society", "coming-of-age": "Performance",
-        "sports": "Performance", "musical": "Performance",
-    }
-    return synonyms.get(key)
+    return _CANON.get(name.strip().lower())
 
 
 # ─── Genre Detection Prompt ──────────────────────────────────────────────────
@@ -106,17 +93,17 @@ Return ONLY valid JSON."""
 def parse_detection(raw: Dict[str, Any]) -> Dict[str, Any]:
     """Normalise a detection result to canonical genre names + resolved flags."""
     primary = canonical_external(raw.get("external_genre"))
+    if primary is None:
+        raise ValueError("external_genre is missing or unknown")
     is_comedy = bool(raw.get("is_comedy")) or primary == "Comedy"
     paired = canonical_external(raw.get("comedy_paired_genre")) if is_comedy else None
-    # A comedy that failed to name a valid pairing still needs one; default to
-    # Love, the most common commercial pairing, so both spines get checked.
     if is_comedy and paired in (None, "Comedy"):
-        paired = "Love"
+        raise ValueError("comedy_paired_genre is missing or invalid")
     subgenre = raw.get("comedy_subgenre") if is_comedy else None
     if subgenre and subgenre not in COMEDY_SUBGENRES:
-        subgenre = None
+        raise ValueError("comedy_subgenre is missing or invalid")
     return {
-        "external_genre": primary or "Society",  # Society = "drama" fallback
+        "external_genre": primary,
         "is_comedy": is_comedy,
         "comedy_paired_genre": paired,
         "comedy_subgenre": subgenre,

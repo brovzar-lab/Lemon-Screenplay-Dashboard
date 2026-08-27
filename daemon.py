@@ -71,7 +71,7 @@ import time
 import traceback
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import requests
 
@@ -188,6 +188,20 @@ MAX_CALIBRATION_PROMPT_CHARS = 12_000
 
 class TerminalJobError(ValueError):
     """A deterministic queue error that retrying cannot repair."""
+
+
+def resolve_model_route(requested_model: Any) -> str:
+    if not isinstance(requested_model, str):
+        raise TerminalJobError(
+            f"Unsupported analysis model route {requested_model!r}; refusing silent fallback"
+        )
+    if requested_model in {"sonnet", "opus", "hybrid"}:
+        return requested_model
+    if requested_model in {"haiku", "auto"}:
+        return "sonnet"
+    raise TerminalJobError(
+        f"Unsupported analysis model route {requested_model!r}; refusing silent fallback"
+    )
 
 
 _active_job_ids: set[str] = set()
@@ -969,13 +983,17 @@ def mark_complete(job_id: str, screenplay_doc_id: str, telemetry: dict) -> None:
 
 def mark_failed(job_id: str, error: Exception, attempt_count: int) -> None:
     final_status = "failed" if attempt_count >= MAX_ATTEMPTS else "pending"
-    _db.collection(QUEUE_COLLECTION).document(job_id).update({
+    update = {
         "status": final_status,
         "last_error": str(error)[:2000],
         "worker_id": None if final_status == "pending" else WORKER_ID,
         "last_heartbeat_at": None,
         "processing_started_at": None,
-    })
+    }
+    usage_evidence = _analysis_usage_evidence(getattr(error, "usage", None))
+    if usage_evidence is not None:
+        update["failure_usage"] = usage_evidence
+    _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
     if final_status == "failed":
         log.error(f"[job] {job_id} → FAILED after {attempt_count} attempts: {error}")
     else:
@@ -996,6 +1014,32 @@ def next_budget_resume_at(now: Optional[datetime] = None) -> datetime:
     ) + timedelta(days=1)
 
 
+_USAGE_EVIDENCE_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+    "call_count",
+    "actual_cost_microusd",
+    "actual_cost_usd",
+    "finish_reason",
+    "by_model",
+    "calls",
+    "failed_calls",
+)
+
+
+def _analysis_usage_evidence(usage: object) -> Optional[dict]:
+    if not isinstance(usage, dict):
+        return None
+    evidence = {key: usage.get(key) for key in _USAGE_EVIDENCE_FIELDS}
+    for key in ("finish_reason", "by_model", "calls", "failed_calls"):
+        value = usage.get(key)
+        if isinstance(value, (str, dict, list)):
+            evidence[key] = value
+    return evidence
+
+
 def mark_waiting_for_budget(
     job_id: str,
     error: Exception,
@@ -1006,7 +1050,7 @@ def mark_waiting_for_budget(
     """Pause outside the claimable queue without consuming an attempt."""
     attempts_before_claim = max(0, int(attempt_count or 0) - 1)
     resume_at = next_budget_resume_at(now)
-    _db.collection(QUEUE_COLLECTION).document(job_id).update({
+    update = {
         "status": "waiting_for_budget",
         "attempt_count": attempts_before_claim,
         "last_error": str(error)[:2000],
@@ -1016,7 +1060,11 @@ def mark_waiting_for_budget(
         "worker_id": None,
         "last_heartbeat_at": None,
         "processing_started_at": None,
-    })
+    }
+    usage_evidence = _analysis_usage_evidence(getattr(error, "usage", None))
+    if usage_evidence is not None:
+        update["failure_usage"] = usage_evidence
+    _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
     log.warning(
         f"[budget] {job_id} waiting until {resume_at.isoformat()} without using an attempt"
     )
@@ -1064,7 +1112,7 @@ def resume_due_budget_jobs(now: Optional[datetime] = None) -> int:
 
 def mark_terminal_failed(job_id: str, error: Exception) -> None:
     """Fail a deterministic job once; retrying cannot change this outcome."""
-    _db.collection(QUEUE_COLLECTION).document(job_id).update({
+    update = {
         "status": "failed",
         "last_error": str(error)[:2000],
         "failure_kind": "terminal",
@@ -1073,7 +1121,11 @@ def mark_terminal_failed(job_id: str, error: Exception) -> None:
         "last_heartbeat_at": None,
         "processing_started_at": None,
         "processing_completed_at": fb_firestore.SERVER_TIMESTAMP,
-    })
+    }
+    usage_evidence = _analysis_usage_evidence(getattr(error, "usage", None))
+    if usage_evidence is not None:
+        update["failure_usage"] = usage_evidence
+    _db.collection(QUEUE_COLLECTION).document(job_id).update(update)
     log.error(f"[job] {job_id} → FAILED (terminal): {error}")
 
 
@@ -1106,6 +1158,10 @@ def route_analysis_review_error(job_id: str, error: Exception) -> bool:
     if getattr(error, "review_required", False) is not True:
         return False
     evidence = getattr(error, "review_evidence", None)
+    usage = getattr(error, "usage", None)
+    if isinstance(usage, dict):
+        evidence = dict(evidence) if isinstance(evidence, dict) else {}
+        evidence["usage"] = _analysis_usage_evidence(usage)
     failure_kind = str(
         getattr(error, "review_kind", "analysis_quality_review")
     )
@@ -1302,6 +1358,7 @@ def process_job(job: dict) -> None:
 
     log.info(f"━━━ Processing: {filename} [{collection_id}] (attempt {attempt_count}) ━━━")
     start_time = time.time()
+    paid_usage = None
 
     # Register locally before the watchdog can inspect this claimed job.
     register_active_job(job_id)
@@ -1311,6 +1368,7 @@ def process_job(job: dict) -> None:
     workdir = WORK_DIR / job_id
 
     try:
+        model_key = resolve_model_route(requested_model)
         workdir.mkdir(parents=True, exist_ok=True)
         heartbeat.start()
         queued_at_ms = queued_at_millis(job.get("queued_at"))
@@ -1464,25 +1522,7 @@ def process_job(job: dict) -> None:
             content_hash=content_hash,
         )
 
-        # ── 6. Determine model ────────────────────────────────────────────
-        # Accepted: haiku | sonnet | opus | hybrid | auto.
-        # Haiku is supporting-only and always continues into the Sonnet panel.
-        # Hybrid runs Sonnet first; RECOMMEND/FILM_NOW results re-run on Opus.
-        # Auto maps to sonnet for full analysis (matches prior behavior).
-        valid_models = {"sonnet", "opus", "hybrid"}
-        if requested_model in valid_models:
-            model_key = requested_model
-        elif requested_model == "haiku":
-            # Haiku is a non-binding supporting read. The complete active
-            # Sonnet panel still runs, regardless of Haiku's verdict.
-            model_key = "sonnet"
-        elif requested_model == "auto":
-            model_key = "sonnet"
-        else:
-            raise ValueError(
-                f"Unsupported analysis model route {requested_model!r}; refusing silent fallback"
-            )
-
+        # ── 6. Model route was validated before download or archive writes ─
         title = Path(filename).stem.replace("_", " ").replace("-", " ")
 
         # ── 7. Run V9 Archaeology Engine analysis ─────────────────────────
@@ -1490,27 +1530,32 @@ def process_job(job: dict) -> None:
 
         cold_read = None
         cold_read_usage = None
-        try:
-            cold_read, cold_read_usage = ingest_v9.run_nonbinding_cold_read(
-                text=text,
-                title=title,
-                page_count=page_count,
-                word_count=word_count,
-                proxy_url=proxy_url,
-                job_id=job_id,
-            )
-        except (
-            ingest_v9.DailyBudgetExceededError,
-            ingest_v9.LlmAccountingError,
-            ingest_v9.LlmProvenanceError,
-            ingest_v9.LlmRequestRejectedError,
-        ):
-            raise
-        except ingest_v9.V9RunError as error:
-            cold_read_usage = error.usage
-            log.warning(f"[analyze] Non-binding Haiku cold read unavailable: {error}")
+        def include_cold_read_usage(error: Exception) -> None:
+            if cold_read_usage is not None:
+                error.usage = ingest_v9.merge_usage(
+                    cold_read_usage,
+                    getattr(error, "usage", ingest_v9.empty_usage()),
+                )
 
         try:
+            try:
+                cold_read, cold_read_usage = ingest_v9.run_nonbinding_cold_read(
+                    text=text,
+                    title=title,
+                    page_count=page_count,
+                    word_count=word_count,
+                    proxy_url=proxy_url,
+                    job_id=job_id,
+                )
+            except ingest_v9.LlmCallFailedError as error:
+                error.usage = ingest_v9.failed_usage(error)
+                raise
+            except ingest_v9.V9RunError as error:
+                cold_read_usage = error.usage
+                log.warning(
+                    f"[analyze] Non-binding cold read unavailable: {error}"
+                )
+
             if model_key == "hybrid":
                 log.info(f"[analyze] Running V9 HYBRID analysis: '{title}' (Sonnet → maybe Opus)")
                 analysis, usage = ingest_v9.run_v9_hybrid(
@@ -1542,11 +1587,19 @@ def process_job(job: dict) -> None:
                 )
             if cold_read_usage is not None:
                 usage = ingest_v9.merge_usage(cold_read_usage, usage)
+            paid_usage = usage
         except ingest_v9.DailyBudgetExceededError as e:
+            include_cold_read_usage(e)
             mark_waiting_for_budget(job_id, e, attempt_count)
             log.warning(f"[budget] Pausing — {e}")
             return
+        except ingest_v9.BenchmarkCapExceededError as e:
+            include_cold_read_usage(e)
+            mark_terminal_failed(job_id, e)
+            log.error(f"[budget] Benchmark cap blocked analysis: {e}")
+            return
         except ingest_v9.LlmAccountingError as e:
+            include_cold_read_usage(e)
             mark_terminal_failed(job_id, e)
             log.error(
                 "[budget] Cost settlement failed after a possible paid call; "
@@ -1554,6 +1607,7 @@ def process_job(job: dict) -> None:
             )
             return
         except ingest_v9.LlmProvenanceError as e:
+            include_cold_read_usage(e)
             mark_terminal_failed(job_id, e)
             log.error(
                 "[trust] Model response provenance was incomplete; "
@@ -1561,16 +1615,38 @@ def process_job(job: dict) -> None:
             )
             return
         except ingest_v9.LlmRequestRejectedError as e:
+            include_cold_read_usage(e)
             mark_terminal_failed(job_id, e)
             log.error(
                 "[trust] Anthropic rejected the request before generation; "
                 "deployment review required before retrying."
             )
             return
+        except ingest_v9.LlmCallFailedError as e:
+            if not isinstance(getattr(e, "usage", None), dict):
+                e.usage = ingest_v9.failed_usage(e)
+            usage_evidence = _analysis_usage_evidence(e.usage)
+            mark_needs_review(
+                job_id,
+                "A model call may have completed but its response and cost could not "
+                "be reconciled. Manual review is required before retrying.",
+                evidence=(
+                    {"usage": usage_evidence}
+                    if usage_evidence is not None
+                    else None
+                ),
+                failure_kind="ambiguous_paid_call",
+            )
+            log.error(
+                "[trust] Ambiguous model transport stopped the workflow before "
+                "any further paid analysis."
+            )
+            return
         except SourceEvidenceError as e:
             mark_needs_review(job_id, str(e))
             return
         except Exception as e:
+            include_cold_read_usage(e)
             if route_analysis_review_error(job_id, e):
                 return
             raise
@@ -1588,17 +1664,17 @@ def process_job(job: dict) -> None:
                 analysis,
                 parsed.get("metadata") or {},
                 page_count,
+                text,
             )
         except SourceEvidenceError as error:
             citation_quality = analysis.get("_citation_quality")
+            evidence = {"usage": _analysis_usage_evidence(usage)}
+            if isinstance(citation_quality, dict):
+                evidence["citation_quality"] = citation_quality
             mark_needs_review(
                 job_id,
                 str(error),
-                evidence=(
-                    {"citation_quality": citation_quality}
-                    if isinstance(citation_quality, dict)
-                    else None
-                ),
+                evidence=evidence,
             )
             return
 
@@ -1683,6 +1759,8 @@ def process_job(job: dict) -> None:
         log.debug(traceback.format_exc())
         mark_terminal_failed(job_id, e)
     except Exception as e:
+        if paid_usage is not None:
+            e.usage = paid_usage
         log.error(f"[job] ❌ {filename} — {e}")
         log.debug(traceback.format_exc())
         mark_failed(job_id, e, attempt_count)
