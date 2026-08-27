@@ -411,19 +411,22 @@ export function IntelligenceBriefing({
                 <StatusCue value={highestPriority.classification} />
               </div>
             )}
-            <div className="studio-pulse__lead-evidence">
-              <div>
-                <strong>{t('Strongest support')}</strong>
-                <p>{leadSupport ? localizedText(leadSupport.statement, language) : t('Unavailable')}</p>
-                {leadSources.map((source) => (
-                  <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher} ↗</a>
-                ))}
+            <details className="studio-pulse__lead-disclosure">
+              <summary>{copy('Open evidence brief', 'Abrir brief de evidencia')}</summary>
+              <div className="studio-pulse__lead-evidence">
+                <div>
+                  <strong>{t('Strongest support')}</strong>
+                  <p>{leadSupport ? localizedText(leadSupport.statement, language) : t('Unavailable')}</p>
+                  {leadSources.map((source) => (
+                    <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher} ↗</a>
+                  ))}
+                </div>
+                <div>
+                  <strong>{t('Strongest contradiction')}</strong>
+                  <p>{largestRisk ? localizedText(largestRisk.statement, language) : t('None recorded')}</p>
+                </div>
               </div>
-              <div>
-                <strong>{t('Strongest contradiction')}</strong>
-                <p>{largestRisk ? localizedText(largestRisk.statement, language) : t('None recorded')}</p>
-              </div>
-            </div>
+            </details>
             <dl className="studio-pulse__lead-metrics">
               <div><dt>{copy('Ranked moves', 'Movimientos priorizados')}</dt><dd>{rankedActions.length}</dd></div>
               <div><dt>{t('Freshness')}</dt><dd>{t(snapshot.snapshot.freshness.status)}</dd></div>
@@ -457,19 +460,21 @@ export function IntelligenceBriefing({
                       </div>
                     </div>
                     <p>{localizedText(action.whyNow, language)}</p>
-                    <dl className="studio-pulse__move-checkpoints">
-                      <div><dt>{t('Strongest contradiction')}</dt><dd>{contradiction ? localizedText(contradiction.statement, language) : t('None recorded')}</dd></div>
-                      <div><dt>{copy('Next checkpoint', 'Siguiente punto de control')}</dt><dd>{localizedText(action.nextAction, language)}</dd></div>
-                      <div><dt>{t('Reverse when')}</dt><dd>{localizedText(action.reversalCondition, language)}</dd></div>
-                    </dl>
                     <details className="studio-pulse__move-evidence">
-                      <summary>{copy('View supporting evidence', 'Ver evidencia de respaldo')}</summary>
+                      <summary>{copy('Open decision brief', 'Abrir brief de decisión')}</summary>
                       <div>
-                        <strong>{t('Strongest support')}</strong>
-                        <p>{support ? localizedText(support.statement, language) : t('Unavailable')}</p>
-                        {supportSources.map((source) => (
-                          <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher} ↗</a>
-                        ))}
+                        <dl className="studio-pulse__move-checkpoints">
+                          <div><dt>{t('Strongest contradiction')}</dt><dd>{contradiction ? localizedText(contradiction.statement, language) : t('None recorded')}</dd></div>
+                          <div><dt>{copy('Next checkpoint', 'Siguiente punto de control')}</dt><dd>{localizedText(action.nextAction, language)}</dd></div>
+                          <div><dt>{t('Reverse when')}</dt><dd>{localizedText(action.reversalCondition, language)}</dd></div>
+                        </dl>
+                        <div className="studio-pulse__move-support">
+                          <strong>{t('Strongest support')}</strong>
+                          <p>{support ? localizedText(support.statement, language) : t('Unavailable')}</p>
+                          {supportSources.map((source) => (
+                            <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher} ↗</a>
+                          ))}
+                        </div>
                       </div>
                     </details>
                   </div>
@@ -501,7 +506,10 @@ export function IntelligenceBriefing({
             title={t('What we know, and what we do not')}
             note={t('Mexico is the decision territory. Regional, diaspora, Spain, and global evidence stays labeled as context.')}
           />
-          <p>{localizedText(snapshot.snapshot.knowledgeLimits, language)}</p>
+          <details className="studio-pulse__situation-detail">
+            <summary>{copy('View knowledge limits', 'Ver límites del conocimiento')}</summary>
+            <p>{localizedText(snapshot.snapshot.knowledgeLimits, language)}</p>
+          </details>
         </section>
 
         <section className="studio-pulse__section studio-pulse__compact-section" aria-labelledby="mexico-now-title">

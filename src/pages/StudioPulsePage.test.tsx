@@ -147,11 +147,11 @@ describe('Intelligence Briefing page', () => {
 
     expect(container.querySelectorAll('.studio-pulse__move-list > li')).toHaveLength(3);
     expect(screen.getAllByText('Reverse when')).toHaveLength(3);
-    expect(screen.getAllByText('View supporting evidence')).toHaveLength(3);
+    expect(screen.getAllByText('Open decision brief')).toHaveLength(3);
     expect(screen.getAllByText('strong inference').length).toBeGreaterThan(0);
     expect(screen.getAllByText('speculation').length).toBeGreaterThan(0);
 
-    const evidenceSummary = screen.getAllByText('View supporting evidence')[0];
+    const evidenceSummary = screen.getAllByText('Open decision brief')[0];
     const evidenceDetails = evidenceSummary.closest('details');
     expect(evidenceDetails).not.toHaveAttribute('open');
     await user.click(evidenceSummary);
@@ -167,6 +167,9 @@ describe('Intelligence Briefing page', () => {
     expect(screen.getByRole('img', { name: 'Amazon MGM / Prime Video logo' })).toHaveAttribute('src', '/brand/buyers/amazon-mgm.svg');
     expect(screen.getByRole('img', { name: 'HBO Max logo' })).toHaveAttribute('src', '/brand/buyers/hbo-max.svg');
     expect(screen.getAllByRole('link', { name: /Netflix/ }).length).toBeGreaterThan(0);
+
+    expect(screen.getByText('Open evidence brief').closest('details')).not.toHaveAttribute('open');
+    expect(screen.getByText('View knowledge limits').closest('details')).not.toHaveAttribute('open');
   });
 
   it('renders variable action counts and an honest zero-action explanation', () => {
