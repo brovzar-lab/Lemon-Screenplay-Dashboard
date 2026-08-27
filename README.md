@@ -7,6 +7,10 @@
 
 **Live:** https://lemon-screenplay-dashboard.web.app
 
+## Screenshot
+
+![Lemon Screenplay Dashboard main page](report/visual-recon-deploy/02-dashboard-home-viewport.png)
+
 ---
 
 ## Stack
