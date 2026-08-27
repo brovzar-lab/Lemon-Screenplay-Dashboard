@@ -341,7 +341,7 @@ describe('Q3 five-reader reliability', () => {
         messages: Array<{ content: string }>;
       };
       const prompt = body.messages.map((message) => message.content).join('\n');
-      const reader = readers.find((name) => prompt.includes(`\"reader\": \"${name}\"`));
+      const reader = readers.find((name) => prompt.includes(`"reader": "${name}"`));
       const isSynthesis = prompt.includes('SYNTHESIS INSTRUCTIONS');
       const output = body.model.includes('haiku')
         ? triage
