@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import re
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -47,18 +48,40 @@ except ImportError:
 LEGACY_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v1"
 Q2_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v2"
 Q3_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v3"
-TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v4"
+Q4_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v4"
+TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v5"
 SUPPORTED_TRUST_MANIFEST_VERSIONS = {
     LEGACY_TRUST_MANIFEST_VERSION,
     Q2_TRUST_MANIFEST_VERSION,
     Q3_TRUST_MANIFEST_VERSION,
+    Q4_TRUST_MANIFEST_VERSION,
     TRUST_MANIFEST_VERSION,
 }
 READER_RELIABILITY_CONTRACT_VERSION = "lemon-five-reader-panel-v1"
-ANALYSIS_SCHEMA_VERSION = "v9-archaeology-schema-2026-07-29"
+PREVIOUS_ANALYSIS_SCHEMA_VERSION = "v9-archaeology-schema-2026-07-29"
+ANALYSIS_SCHEMA_VERSION = "v9-archaeology-schema-2026-08-27"
+SUPPORTED_ANALYSIS_SCHEMA_VERSIONS = {
+    PREVIOUS_ANALYSIS_SCHEMA_VERSION,
+    ANALYSIS_SCHEMA_VERSION,
+}
 TRIAGE_SCHEMA_VERSION = "v9-triage-schema-2026-07-29"
-PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-07-29"
-SCORING_CODE_VERSION = "v9-verdict-2026-07-29"
+PREVIOUS_PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-07-29"
+PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-27"
+SUPPORTED_PROMPT_CONTRACT_VERSIONS = {
+    PREVIOUS_PROMPT_CONTRACT_VERSION,
+    PROMPT_CONTRACT_VERSION,
+}
+PREVIOUS_SCORING_CODE_VERSION = "v9-verdict-2026-07-29"
+SCORING_CODE_VERSION = "v9-verdict-2026-08-27"
+SUPPORTED_SCORING_CODE_VERSIONS = {
+    PREVIOUS_SCORING_CODE_VERSION,
+    SCORING_CODE_VERSION,
+}
+TRAP_CONTRACT_VERSION = json.loads(
+    (Path(__file__).resolve().parent / "v9_trap_contract.json").read_text(
+        encoding="utf-8"
+    )
+)["version"]
 ANALYSIS_PROVIDER = "anthropic"
 CANONICAL_READER_NAMES = {
     "structure",
@@ -122,6 +145,7 @@ def _code_fingerprints() -> Dict[str, str]:
     story_grid_path = _ROOT / "story_grid.json"
     verdict_contract_path = _ROOT / "verdict_contract.py"
     source_evidence_path = _ROOT / "source_evidence.py"
+    trap_contract_path = _ROOT / "v9_trap_contract.json"
     manifest_path = Path(__file__).resolve()
 
     engine_hash = _sha256_file(engine_path)
@@ -129,6 +153,7 @@ def _code_fingerprints() -> Dict[str, str]:
     story_grid_hash = _sha256_file(story_grid_path)
     verdict_contract_hash = _sha256_file(verdict_contract_path)
     source_evidence_hash = _sha256_file(source_evidence_path)
+    trap_contract_hash = _sha256_file(trap_contract_path)
     return {
         "engine_source_sha256": engine_hash,
         "parser_source_sha256": _sha256_file(parser_path),
@@ -136,15 +161,30 @@ def _code_fingerprints() -> Dict[str, str]:
         "story_grid_sha256": story_grid_hash,
         "verdict_contract_sha256": verdict_contract_hash,
         "source_evidence_sha256": source_evidence_hash,
+        "trap_contract_sha256": trap_contract_hash,
         "manifest_builder_sha256": _sha256_file(manifest_path),
         # Conservative by design: any engine or Story Grid change invalidates
         # this bundle even if the edit was outside a prompt literal.
         "prompt_bundle_sha256": _sha256_bytes(
             (
                 f"{engine_hash}:{story_grid_source_hash}:{story_grid_hash}:"
-                f"{verdict_contract_hash}:{source_evidence_hash}"
+                f"{verdict_contract_hash}:{source_evidence_hash}:"
+                f"{trap_contract_hash}"
             ).encode("utf-8")
         ),
+    }
+
+
+def benchmark_contract_fingerprints() -> Dict[str, str]:
+    """Expose the sealed engine fingerprints without copying prompt logic."""
+    return {
+        **_code_fingerprints(),
+        "analysis_schema_version": ANALYSIS_SCHEMA_VERSION,
+        "triage_schema_version": TRIAGE_SCHEMA_VERSION,
+        "prompt_contract_version": PROMPT_CONTRACT_VERSION,
+        "scoring_code_version": SCORING_CODE_VERSION,
+        "trap_contract_version": TRAP_CONTRACT_VERSION,
+        "trust_manifest_version": TRUST_MANIFEST_VERSION,
     }
 
 
@@ -273,6 +313,8 @@ def _model_lineage(
     pipeline_model_tier: str,
     effective_model_tier: str,
     model_ids: Mapping[str, str],
+    cold_read_model_route: Optional[str] = None,
+    manifest_version: str = TRUST_MANIFEST_VERSION,
 ) -> Dict[str, Any]:
     if not isinstance(usage, dict):
         raise ValueError("usage must be an object")
@@ -304,6 +346,8 @@ def _model_lineage(
     }
     if "haiku" not in model_ids_by_tier:
         raise ValueError("model ID map must include Haiku for routing verification")
+    if cold_read_model_route not in {None, "haiku", "sonnet"}:
+        raise ValueError("cold-read model route must be haiku or sonnet")
 
     if pipeline_tier == "hybrid":
         planned_tiers = [tier for tier in ("sonnet", "opus") if tier in model_ids]
@@ -429,14 +473,51 @@ def _model_lineage(
             raise ValueError(
                 f"usage.calls[{index}] has an unresolved disposition"
             )
+        call_usage = None
+        raw_call_usage = raw_call.get("usage")
+        if manifest_version == TRUST_MANIFEST_VERSION or raw_call_usage is not None:
+            if not isinstance(raw_call_usage, dict):
+                raise ValueError(f"usage.calls[{index}].usage must be an object")
+            call_usage = {}
+            for field in USAGE_COUNTER_FIELDS:
+                value = raw_call_usage.get(field)
+                if type(value) is not int or value < 0:
+                    raise ValueError(
+                        f"usage.calls[{index}].usage.{field} must be non-negative"
+                    )
+                call_usage[field] = value
+            if call_usage["call_count"] != 1:
+                raise ValueError(f"usage.calls[{index}].usage.call_count must equal one")
+            actual_cost_usd = raw_call_usage.get("actual_cost_usd")
+            if (
+                isinstance(actual_cost_usd, bool)
+                or not isinstance(actual_cost_usd, (int, float))
+                or not math.isfinite(float(actual_cost_usd))
+                or float(actual_cost_usd)
+                != call_usage["actual_cost_microusd"] / 1_000_000
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}].usage actual cost mirrors are inconsistent"
+                )
+            call_usage["actual_cost_usd"] = float(actual_cost_usd)
         if stage == "genre_detection":
             expected_models = {
                 model_ids_by_tier[tier]
                 for tier in ("haiku", "sonnet")
                 if tier in model_ids_by_tier
             }
+        elif stage == "triage" and cold_read_model_route is None:
+            expected_models = {
+                model_ids_by_tier[tier]
+                for tier in ("haiku", "sonnet")
+                if tier in model_ids_by_tier
+            }
         else:
-            expected_tier = "haiku" if stage == "triage" else pipeline_pass
+            expected_tier = (
+                cold_read_model_route or "haiku"
+                if stage == "triage"
+                else pipeline_pass
+            )
             expected_model = model_ids_by_tier.get(expected_tier)
             if expected_model is None:
                 raise ValueError(
@@ -453,7 +534,7 @@ def _model_lineage(
 
         response_ids.append(response_id)
         requested_model_ids.add(requested_model)
-        call_records.append({
+        call_record = {
             "response_id": response_id,
             "requested_model": requested_model,
             "returned_model": returned_model,
@@ -465,7 +546,10 @@ def _model_lineage(
             "boundary_run": boundary_run,
             "reader_name": reader_name,
             "disposition": disposition,
-        })
+        }
+        if call_usage is not None:
+            call_record["usage"] = call_usage
+        call_records.append(call_record)
 
     if len(set(response_ids)) != len(response_ids):
         raise ValueError("usage.calls contains duplicate response_id values")
@@ -476,6 +560,15 @@ def _model_lineage(
         if type(value) is not int or value < 0:
             raise ValueError(f"usage.{field} must be a non-negative integer")
         usage_totals[field] = value
+
+    has_per_call_usage = all("usage" in call for call in call_records)
+    if has_per_call_usage:
+        call_usage_totals = {
+            field: sum(call["usage"][field] for call in call_records)
+            for field in USAGE_COUNTER_FIELDS
+        }
+        if call_usage_totals != usage_totals:
+            raise ValueError("usage.calls per-call totals do not match aggregate usage")
 
     by_model_totals = {field: 0 for field in USAGE_COUNTER_FIELDS}
     returned_call_counts: Dict[str, int] = {}
@@ -500,6 +593,21 @@ def _model_lineage(
             raise ValueError(
                 f"usage.by_model[{model}] call count does not match call records"
             )
+        if has_per_call_usage:
+            per_call_model_totals = {
+                field: sum(
+                    call["usage"][field]
+                    for call in call_records
+                    if call["returned_model"] == model
+                )
+                for field in USAGE_COUNTER_FIELDS
+            }
+            if per_call_model_totals != {
+                field: totals[field] for field in USAGE_COUNTER_FIELDS
+            }:
+                raise ValueError(
+                    f"usage.by_model[{model}] totals do not match per-call usage"
+                )
     if by_model_totals != usage_totals:
         raise ValueError("usage.by_model totals do not match aggregate usage")
 
@@ -544,8 +652,18 @@ def _model_lineage(
                 for tier in ("haiku", "sonnet")
                 if tier in model_ids_by_tier
             }
+        elif stage == "triage" and cold_read_model_route is None:
+            expected_models = {
+                model_ids_by_tier[tier]
+                for tier in ("haiku", "sonnet")
+                if tier in model_ids_by_tier
+            }
         else:
-            expected_tier = "haiku" if stage == "triage" else pipeline_pass
+            expected_tier = (
+                cold_read_model_route or "haiku"
+                if stage == "triage"
+                else pipeline_pass
+            )
             expected_model = model_ids_by_tier.get(expected_tier)
             expected_models = {expected_model} if expected_model else set()
         if requested_model not in expected_models:
@@ -579,6 +697,14 @@ def _model_lineage(
             "reader_name": reader_name,
             "attempt_history": copy.deepcopy(attempt_history),
         })
+
+    triage_models = {
+        call["requested_model"]
+        for call in [*call_records, *failed_call_records]
+        if call["stage"] == "triage"
+    }
+    if len(triage_models) > 1:
+        raise ValueError("usage triage attempts changed model route")
 
     return {
         "provider": ANALYSIS_PROVIDER,
@@ -671,6 +797,7 @@ def _manifest_reader_lineage(
         analysis_version == "v9_archaeology"
         and manifest_version in {
             Q3_TRUST_MANIFEST_VERSION,
+            Q4_TRUST_MANIFEST_VERSION,
             TRUST_MANIFEST_VERSION,
         }
     ):
@@ -697,7 +824,11 @@ def _manifest_reader_lineage(
     return lineage
 
 
-def _boundary_provenance(analysis: Dict[str, Any]) -> Dict[str, Any]:
+def _boundary_provenance(
+    analysis: Dict[str, Any],
+    *,
+    enforce_raw_score_verdict: bool = True,
+) -> Dict[str, Any]:
     boundary = analysis.get("_boundary_reruns")
     if not isinstance(boundary, dict):
         raise ValueError("analysis must explicitly record boundary-run provenance")
@@ -777,7 +908,10 @@ def _boundary_provenance(analysis: Dict[str, Any]) -> Dict[str, Any]:
         if evidence.get("analysis_version") != "v9_archaeology":
             raise ValueError(f"boundary-run {run_number} has invalid analysis evidence")
         _reader_lineage(evidence, "v9_archaeology")
-        evidence_core = _recompute_full_analysis_core(evidence)
+        evidence_core = _recompute_full_analysis_core(
+            evidence,
+            enforce_raw_score_verdict=enforce_raw_score_verdict,
+        )
         evidence_verdict = _require_nonempty_string(
             evidence.get("verdict"),
             f"boundary-run {run_number} evidence verdict",
@@ -942,7 +1076,11 @@ def _boundary_provenance(analysis: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _recompute_full_analysis_core(analysis: Dict[str, Any]) -> Dict[str, Any]:
+def _recompute_full_analysis_core(
+    analysis: Dict[str, Any],
+    *,
+    enforce_raw_score_verdict: bool = True,
+) -> Dict[str, Any]:
     adjustments = analysis.get("verdict_adjustments")
     if not isinstance(adjustments, list) or not all(
         isinstance(adjustment, str) for adjustment in adjustments
@@ -1005,6 +1143,13 @@ def _recompute_full_analysis_core(analysis: Dict[str, Any]) -> Dict[str, Any]:
     recomputed_raw_score = round(weighted_total / completed_weight, 2)
     if raw_score != recomputed_raw_score:
         raise ValueError("analysis weighted score was not recomputed correctly")
+    stored_before_adjustments = _require_nonempty_string(
+        analysis.get("verdict_before_adjustments"),
+        "analysis verdict before adjustments",
+    )
+    raw_score_verdict = derive_verdict(weighted_score=raw_score)["verdict"]
+    if enforce_raw_score_verdict and stored_before_adjustments != raw_score_verdict:
+        raise ValueError("analysis raw-score verdict is inconsistent")
 
     situation_verdict = _require_nonempty_string(
         story_vs_situation.get("verdict"),
@@ -1054,10 +1199,16 @@ def _recompute_full_analysis_core(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "stored_penalty": stored_penalty,
         "stored_adjusted": stored_adjusted,
         "stored_before_gates": stored_before_gates,
+        "stored_before_adjustments": stored_before_adjustments,
     }
 
 
-def _score_lineage(analysis: Any, analysis_version: str) -> Dict[str, Any]:
+def _score_lineage(
+    analysis: Any,
+    analysis_version: str,
+    *,
+    scoring_code_version: str = SCORING_CODE_VERSION,
+) -> Dict[str, Any]:
     if not isinstance(analysis, dict):
         raise ValueError("analysis must be an object")
     raw_score = _require_number(analysis.get("weighted_score"), "analysis weighted score")
@@ -1087,7 +1238,11 @@ def _score_lineage(analysis: Any, analysis_version: str) -> Dict[str, Any]:
             },
         }
 
-    core = _recompute_full_analysis_core(analysis)
+    enforce_raw_score_verdict = scoring_code_version == SCORING_CODE_VERSION
+    core = _recompute_full_analysis_core(
+        analysis,
+        enforce_raw_score_verdict=enforce_raw_score_verdict,
+    )
     raw_score = core["raw_score"]
     adjustments = core["adjustments"]
     critical_failures = core["critical_failures"]
@@ -1098,8 +1253,12 @@ def _score_lineage(analysis: Any, analysis_version: str) -> Dict[str, Any]:
     stored_penalty = core["stored_penalty"]
     stored_adjusted = core["stored_adjusted"]
     stored_before_gates = core["stored_before_gates"]
+    stored_before_adjustments = core["stored_before_adjustments"]
 
-    boundary = _boundary_provenance(analysis)
+    boundary = _boundary_provenance(
+        analysis,
+        enforce_raw_score_verdict=enforce_raw_score_verdict,
+    )
     selected_run_number = boundary["selected_run_number"]
     selected_run_verdict = next(
         run["verdict"]
@@ -1113,7 +1272,10 @@ def _score_lineage(analysis: Any, analysis_version: str) -> Dict[str, Any]:
         for run in analysis["_boundary_reruns"]["runs"]
         if run["run_number"] == selected_run_number
     )
-    selected_core = _recompute_full_analysis_core(selected_evidence)
+    selected_core = _recompute_full_analysis_core(
+        selected_evidence,
+        enforce_raw_score_verdict=enforce_raw_score_verdict,
+    )
     for key in (
         "raw_score",
         "critical_failures",
@@ -1124,6 +1286,7 @@ def _score_lineage(analysis: Any, analysis_version: str) -> Dict[str, Any]:
         "stored_penalty",
         "stored_adjusted",
         "stored_before_gates",
+        "stored_before_adjustments",
     ):
         if selected_core[key] != core[key]:
             raise ValueError(
@@ -1157,10 +1320,7 @@ def _score_lineage(analysis: Any, analysis_version: str) -> Dict[str, Any]:
             analysis.get("verdict_model"),
             "analysis model verdict",
         ),
-        "verdict_before_adjustments": _require_nonempty_string(
-            analysis.get("verdict_before_adjustments"),
-            "analysis verdict before adjustments",
-        ),
+        "verdict_before_adjustments": stored_before_adjustments,
         "verdict_before_gates": stored_before_gates,
         "verdict_adjustments": list(adjustments),
         "final_verdict": final_verdict,
@@ -1343,6 +1503,7 @@ def _validate_response_links(
         if (
             manifest_version in {
                 Q3_TRUST_MANIFEST_VERSION,
+                Q4_TRUST_MANIFEST_VERSION,
                 TRUST_MANIFEST_VERSION,
             }
             and len(used_reader_calls) != len(CANONICAL_READER_NAMES)
@@ -1380,6 +1541,7 @@ def _validate_response_links(
         declared_failed_names = set(evidence_readers["failed_readers"])
         if manifest_version in {
             Q3_TRUST_MANIFEST_VERSION,
+            Q4_TRUST_MANIFEST_VERSION,
             TRUST_MANIFEST_VERSION,
         }:
             if declared_failed_names:
@@ -1430,6 +1592,17 @@ def _boundary_response_ids(score_lineage: Dict[str, Any]) -> set[str]:
     }
 
 
+def _cold_read_model_route(analysis: Any) -> Optional[str]:
+    if not isinstance(analysis, dict):
+        return None
+    cold_read = analysis.get("_cold_read")
+    evidence = cold_read.get("evidence") if isinstance(cold_read, dict) else None
+    route = evidence.get("model_route") if isinstance(evidence, dict) else None
+    if route not in {None, "haiku", "sonnet"}:
+        raise ValueError("cold-read model route is invalid")
+    return route
+
+
 def _cold_read_provenance(
     *,
     analysis: Dict[str, Any],
@@ -1445,6 +1618,11 @@ def _cold_read_provenance(
 
     if analysis_version == "v9_triage":
         if len(triage_calls) != 1:
+            raise ValueError("triage analysis requires one used Haiku response")
+        if (
+            triage_calls[0]["requested_model"]
+            != models["model_ids_by_tier"]["haiku"]
+        ):
             raise ValueError("triage analysis requires one used Haiku response")
         if analysis.get("_cold_read") is not None:
             raise ValueError("triage analysis cannot contain a nested cold read")
@@ -1490,6 +1668,18 @@ def _cold_read_provenance(
         "genre": str(evidence.get("genre", "")),
         "logline": str(evidence.get("logline", "")),
     }
+    model_route = evidence.get("model_route")
+    if model_route is not None:
+        if model_route not in {"haiku", "sonnet"}:
+            raise ValueError("cold-read model route is invalid")
+        expected_model = models["model_ids_by_tier"].get(model_route)
+        if expected_model is None or any(
+            call["requested_model"] != expected_model
+            or call["returned_model"] != expected_model
+            for call in triage_calls
+        ):
+            raise ValueError("cold-read model route does not match its response")
+        expected_evidence["model_route"] = model_route
     stored_response_ids = cold_read.get("response_ids")
     if (
         not isinstance(stored_response_ids, list)
@@ -1515,6 +1705,7 @@ def _hybrid_provenance(
     score_lineage: Dict[str, Any],
     cold_read: Optional[Dict[str, Any]],
     manifest_version: str,
+    scoring_code_version: str,
 ) -> Optional[Dict[str, Any]]:
     root_response_ids = _boundary_response_ids(score_lineage)
     cold_read_response_ids = (
@@ -1568,6 +1759,7 @@ def _hybrid_provenance(
     sonnet_score_lineage = _score_lineage(
         sonnet_evidence,
         "v9_archaeology",
+        scoring_code_version=scoring_code_version,
     )
     _validate_response_links(
         models,
@@ -1701,6 +1893,7 @@ def attach_trust_manifest(
         pipeline_model_tier=pipeline_model_tier,
         effective_model_tier=effective_model_tier,
         model_ids=model_ids,
+        cold_read_model_route=_cold_read_model_route(trusted.get("analysis")),
     )
     _validate_cost_mirrors(trusted, trusted["usage"])
     if trusted.get("analysis_model") != models["effective_model_id"]:
@@ -1746,6 +1939,7 @@ def attach_trust_manifest(
             "analysis_schema_version": schema_version,
             "prompt_contract_version": PROMPT_CONTRACT_VERSION,
             "scoring_code_version": SCORING_CODE_VERSION,
+            "trap_contract_version": TRAP_CONTRACT_VERSION,
             "parser_orchestrator_version": parser_version,
             "parser_extractor_version": parser_extractor_version,
             "extraction_method": extraction_method,
@@ -1794,6 +1988,7 @@ def attach_trust_manifest(
         score_lineage=manifest["score_lineage"],
         cold_read=manifest["cold_read"],
         manifest_version=TRUST_MANIFEST_VERSION,
+        scoring_code_version=SCORING_CODE_VERSION,
     )
     manifest["integrity_sha256"] = _sha256_bytes(
         _canonical_json(manifest).encode("utf-8")
@@ -1882,26 +2077,40 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
     analysis_version = str(raw.get("analysis_version", ""))
     expected_versions = {
         "trust_manifest_version": manifest_version,
-        "analysis_schema_version": _schema_version(analysis_version),
-        "prompt_version": PROMPT_CONTRACT_VERSION,
-        "scoring_code_version": SCORING_CODE_VERSION,
         "analysis_provider": ANALYSIS_PROVIDER,
     }
     for key, expected in expected_versions.items():
         if raw.get(key) != expected:
             raise ValueError(f"Permanent analysis has an invalid {key}")
+    scoring_code_version = raw.get("scoring_code_version")
+    if scoring_code_version not in SUPPORTED_SCORING_CODE_VERSIONS:
+        raise ValueError("Permanent analysis has an invalid scoring_code_version")
+    schema_version = raw.get("analysis_schema_version")
+    if analysis_version == "v9_archaeology":
+        if schema_version not in SUPPORTED_ANALYSIS_SCHEMA_VERSIONS:
+            raise ValueError("Permanent analysis has an invalid analysis_schema_version")
+    elif schema_version != TRIAGE_SCHEMA_VERSION:
+        raise ValueError("Permanent analysis has an invalid analysis_schema_version")
+    if raw.get("prompt_version") not in SUPPORTED_PROMPT_CONTRACT_VERSIONS:
+        raise ValueError("Permanent analysis has an invalid prompt_version")
     if engine.get("analysis_version") != raw.get("analysis_version"):
         raise ValueError("Trust manifest analysis version does not match analysis")
     expected_engine_versions = {
-        "analysis_schema_version": _schema_version(analysis_version),
-        "prompt_contract_version": PROMPT_CONTRACT_VERSION,
-        "scoring_code_version": SCORING_CODE_VERSION,
+        "analysis_schema_version": raw.get("analysis_schema_version"),
+        "prompt_contract_version": raw.get("prompt_version"),
+        "scoring_code_version": scoring_code_version,
     }
     for key, expected in expected_engine_versions.items():
         if engine.get(key) != expected:
             raise ValueError(
                 f"Trust manifest engine contract has an invalid {key}"
             )
+    if scoring_code_version == SCORING_CODE_VERSION:
+        false_positive = raw.get("analysis", {}).get("false_positive_check", {})
+        if false_positive.get("trap_contract_version") != TRAP_CONTRACT_VERSION:
+            raise ValueError("Permanent analysis has an invalid trap contract version")
+        if engine.get("trap_contract_version") != TRAP_CONTRACT_VERSION:
+            raise ValueError("Trust manifest engine has an invalid trap contract version")
     expected_parser = {
         "parser_orchestrator_version": raw.get("parser_version"),
         "parser_extractor_version": metadata.get("parser_extractor_version"),
@@ -1913,7 +2122,11 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
     if models.get("effective_model_id") != raw.get("analysis_model"):
         raise ValueError("Trust manifest model identity does not match analysis")
 
-    current_score_lineage = _score_lineage(raw.get("analysis"), analysis_version)
+    current_score_lineage = _score_lineage(
+        raw.get("analysis"),
+        analysis_version,
+        scoring_code_version=str(scoring_code_version),
+    )
     if manifest.get("score_lineage") != current_score_lineage:
         raise ValueError("Trust manifest score lineage does not match analysis")
     current_reader_lineage = _manifest_reader_lineage(
@@ -1931,6 +2144,8 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
         pipeline_model_tier=str(models.get("pipeline_model_tier", "")),
         effective_model_tier=str(models.get("effective_model_tier", "")),
         model_ids=models.get("model_ids_by_tier", {}),
+        cold_read_model_route=_cold_read_model_route(raw.get("analysis")),
+        manifest_version=str(manifest_version),
     )
     if models != current_models:
         raise ValueError("Trust manifest model lineage does not match usage")
@@ -1957,6 +2172,7 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
         score_lineage=current_score_lineage,
         cold_read=current_cold_read,
         manifest_version=str(manifest_version),
+        scoring_code_version=str(scoring_code_version),
     )
     if manifest.get("hybrid") != current_hybrid:
         raise ValueError("Trust manifest hybrid provenance does not match analysis")
@@ -1965,6 +2181,7 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
     if manifest_version in {
         Q2_TRUST_MANIFEST_VERSION,
         Q3_TRUST_MANIFEST_VERSION,
+        Q4_TRUST_MANIFEST_VERSION,
         TRUST_MANIFEST_VERSION,
     }:
         current_evidence = _evidence_provenance(

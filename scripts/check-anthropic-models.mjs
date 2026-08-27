@@ -45,8 +45,13 @@ export function buildCatalogUpdate(catalog, models, verifiedAt) {
 }
 
 function validateCatalog(catalog) {
-  if (catalog.schemaVersion !== 1 || !catalog.verifiedAt || !catalog.source) {
-    throw new Error('Anthropic model catalog is missing its version, verification date, or source.');
+  if (
+    catalog.schemaVersion !== 2
+    || !catalog.verifiedAt
+    || !Array.isArray(catalog.sources)
+    || catalog.sources.length < 3
+  ) {
+    throw new Error('Anthropic model catalog is missing its version, verification date, or sources.');
   }
 
   const requiredRoutes = [
@@ -54,8 +59,31 @@ function validateCatalog(catalog) {
     ...Object.values(catalog.interactiveRoutes),
   ];
   for (const route of requiredRoutes) {
-    if (!route.modelId || !route.displayName) {
+    if (!route.modelId || !route.displayName || !route.status) {
       throw new Error('Anthropic model catalog contains an incomplete approved route.');
+    }
+  }
+  for (const family of ['sonnet', 'opus']) {
+    const route = catalog.candidateAnalysisRoutes?.[family];
+    if (!route?.modelId || route.status !== 'awaiting_benchmark') {
+      throw new Error(`Anthropic model catalog contains an incomplete ${family} candidate route.`);
+    }
+  }
+  for (const route of Object.values(catalog.historicalModels ?? {})) {
+    if (!route.modelId || route.status !== 'historical_read_only') {
+      throw new Error('Anthropic model catalog contains an invalid historical model.');
+    }
+  }
+  for (const [modelId, profile] of Object.entries(catalog.modelProfiles ?? {})) {
+    if (
+      !modelId.startsWith('claude-')
+      || !profile.alias
+      || !Number.isInteger(profile.contextTokens)
+      || !Number.isInteger(profile.maxOutputTokens)
+      || typeof profile.inputUsdPerMillion !== 'number'
+      || typeof profile.outputUsdPerMillion !== 'number'
+    ) {
+      throw new Error(`Anthropic model catalog contains an incomplete profile for ${modelId}.`);
     }
   }
   return requiredRoutes;
@@ -76,6 +104,18 @@ async function main() {
       `Approved Reader Chat routes: ${Object.values(catalog.interactiveRoutes)
         .map((route) => route.modelId)
         .join(', ')}`,
+    );
+    console.log(
+      `Benchmark-pending candidates: ${Object.values(catalog.candidateAnalysisRoutes)
+        .flatMap((route) => [route.modelId, route.sonnetModelId, route.opusModelId])
+        .filter(Boolean)
+        .filter((modelId, index, values) => values.indexOf(modelId) === index)
+        .join(', ')}`,
+    );
+    console.log(
+      `Historical read-only models: ${Object.values(catalog.historicalModels ?? {})
+        .map((route) => route.modelId)
+        .join(', ') || 'none'}`,
     );
     return;
   }

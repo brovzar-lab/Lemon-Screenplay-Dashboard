@@ -3,6 +3,10 @@
   "private": true,
   "version": "6.9.3",
   "type": "module",
+  "packageManager": "npm@10.9.8",
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
     "dev": "vite",
     "dev:full": "bash dev-full.sh",
@@ -28,7 +32,8 @@
     "models:check": "node scripts/check-anthropic-models.mjs",
     "models:check:offline": "node scripts/check-anthropic-models.mjs --offline",
     "models:refresh": "node scripts/check-anthropic-models.mjs --write-observed",
-    "models:test": "node --test scripts/check-anthropic-models.test.mjs"
+    "models:test": "node --test scripts/check-anthropic-models.test.mjs scripts/release-metadata.test.mjs",
+    "models:benchmark": "PYTHONPATH=. .venv/bin/python -m execution.model_benchmark"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -10,6 +10,7 @@
 
 import type { Screenplay } from '@/types';
 import { callLLM } from '@/lib/proxyClient';
+import modelCatalog from '@/config/anthropic-model-catalog.json';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ function buildSlateSummary(screenplays: Screenplay[]): string {
 
 // ─── System Prompt ───────────────────────────────────────────────────────────
 
-function generateSystemPrompt(screenplays: Screenplay[]): string {
+function generateSystemPrompt(screenplays: Screenplay[], language: 'en' | 'es'): string {
     const slateSummary = buildSlateSummary(screenplays);
 
     return `You are the Head of Development at Lemon Studios, a film production company. You've read and analyzed every script in the company's pipeline. You think like a producer — commercial potential, talent attachments, development angles, market positioning, audience appeal.
@@ -183,6 +184,10 @@ SCORING SYSTEM CONTEXT:
 - PASS = doesn't meet current standards (below 6.5)
 - False positive traps = scripts that scored well but have underlying issues (Character Vacuum, Complexity Theater, etc.)
 - Budget tiers: Micro (<$5M), Low ($5-15M), Mid ($15-40M), High ($40-100M), Tentpole ($100M+)
+
+LANGUAGE:
+- ${language === 'es' ? 'Respond in natural Mexican Spanish.' : 'Respond in English.'}
+- Preserve screenplay titles, proper names, scores, verdict values, model identifiers, quotations, and page references exactly as stored.
 
 WHEN DISCUSSING SCRIPTS:
 - Reference specific titles, scores, and verdicts from the slate data
@@ -210,10 +215,11 @@ export async function sendDevExecMessage(
     userMessage: string,
     screenplays: Screenplay[],
     conversationHistory: ChatMessage[],
+    language: 'en' | 'es' = 'en',
 ): Promise<string> {
     if (!userMessage.trim()) throw new Error('Message cannot be empty.');
 
-    const systemPrompt = generateSystemPrompt(screenplays);
+    const systemPrompt = generateSystemPrompt(screenplays, language);
 
     // Build conversation with history
     const parts: string[] = [];
@@ -235,7 +241,7 @@ export async function sendDevExecMessage(
 
     // Call via LLM proxy (no API key needed — proxy handles auth)
     const result = await callLLM({
-        model: 'gemini-2.5-flash',
+        model: modelCatalog.analysisRoutes.haiku.modelId,
         prompt: fullPrompt,
         systemPrompt,
         temperature: 0.8,

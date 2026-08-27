@@ -156,7 +156,7 @@ Firestore → useScreenplays (React Query, 30min stale) + useLiveScreenplaySync 
 `useLiveScreenplaySync` (in `hooks/useScreenplays.ts`) makes daemon-written analyses appear live, no refresh.
 
 ## Cloud Functions (functions/ — separate npm package, Node 22)
-- `src/llmProxy.ts` — exported. Server-side LLM proxy (Anthropic/Google); the API key lives here only. Reached at `/api/llm` in prod (firebase.json rewrite), emulator in dev.
+- `src/llmProxy.ts` — exported. Server-side Anthropic proxy using Anthropic's official SDK; the API key lives here only. Reached at `/api/llm` in prod (firebase.json rewrite), emulator in dev. Google has a separate `googleProxy`.
 - `src/onScreenplayUploaded.ts` — exported. Storage trigger; kicks the VPS daemon on new PDF upload.
 - `src/budgetCounter.ts`, `src/ingestQueue.ts` — supporting logic, NOT exported from `index.ts`.
 - Build: `cd functions && npm run build`. Deploy: `npm run deploy:functions` from repo root.

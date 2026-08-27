@@ -1,29 +1,156 @@
 {
-  "schemaVersion": 1,
-  "verifiedAt": "2026-08-09",
-  "source": "https://platform.claude.com/docs/en/api/models/list",
+  "schemaVersion": 2,
+  "verifiedAt": "2026-08-21",
+  "sources": [
+    "https://platform.claude.com/docs/en/about-claude/models/overview",
+    "https://platform.claude.com/docs/en/about-claude/models/migration-guide",
+    "https://platform.claude.com/docs/en/about-claude/pricing"
+  ],
   "analysisRoutes": {
     "haiku": {
       "modelId": "claude-haiku-4-5-20251001",
-      "displayName": "Haiku 4.5"
+      "displayName": "Haiku 4.5",
+      "status": "active",
+      "purpose": "Current fast analysis route; candidate policy limits Haiku to non-binding cold read and genre detection."
     },
     "sonnet": {
       "modelId": "claude-sonnet-4-6",
-      "displayName": "Sonnet 4.6"
+      "displayName": "Sonnet 4.6",
+      "status": "active",
+      "purpose": "Current approved standard five-reader scoring route."
     },
     "opus": {
       "modelId": "claude-opus-4-7",
-      "displayName": "Opus 4.7"
+      "displayName": "Opus 4.7",
+      "status": "active",
+      "purpose": "Current approved deep five-reader scoring route."
+    }
+  },
+  "activeHybridRoute": {
+    "sonnetModelId": "claude-sonnet-4-6",
+    "opusModelId": "claude-opus-4-7",
+    "promotionVerdicts": ["RECOMMEND", "FILM_NOW"],
+    "status": "active"
+  },
+  "candidateAnalysisRoutes": {
+    "sonnet": {
+      "modelId": "claude-sonnet-5",
+      "displayName": "Sonnet 5",
+      "status": "awaiting_benchmark"
+    },
+    "opus": {
+      "modelId": "claude-opus-5",
+      "displayName": "Opus 5",
+      "status": "awaiting_benchmark"
+    },
+    "hybrid": {
+      "sonnetModelId": "claude-sonnet-5",
+      "opusModelId": "claude-opus-5",
+      "promotionVerdicts": ["RECOMMEND", "FILM_NOW"],
+      "status": "awaiting_benchmark"
     }
   },
   "interactiveRoutes": {
     "readerChatDefault": {
       "modelId": "claude-opus-5",
-      "displayName": "Opus 5"
+      "displayName": "Opus 5",
+      "status": "active",
+      "restriction": "reader_chat_only"
     },
     "readerChatEscalation": {
       "modelId": "claude-fable-5",
-      "displayName": "Fable 5"
+      "displayName": "Fable 5",
+      "status": "active",
+      "restriction": "reader_chat_only",
+      "minimumDataRetentionDays": 30
+    }
+  },
+  "historicalModels": {
+    "opus48": {
+      "modelId": "claude-opus-4-8",
+      "displayName": "Opus 4.8",
+      "status": "historical_read_only"
+    }
+  },
+  "modelProfiles": {
+    "claude-haiku-4-5-20251001": {
+      "alias": "claude-haiku-4-5",
+      "family": "haiku",
+      "contextTokens": 200000,
+      "maxOutputTokens": 64000,
+      "thinking": "manual",
+      "effort": false,
+      "sampling": "supported",
+      "inputUsdPerMillion": 1,
+      "outputUsdPerMillion": 5
+    },
+    "claude-sonnet-4-6": {
+      "alias": "claude-sonnet-4-6",
+      "family": "sonnet",
+      "contextTokens": 200000,
+      "maxOutputTokens": 64000,
+      "thinking": "manual",
+      "effort": false,
+      "sampling": "supported",
+      "inputUsdPerMillion": 3,
+      "outputUsdPerMillion": 15
+    },
+    "claude-opus-4-7": {
+      "alias": "claude-opus-4-7",
+      "family": "opus",
+      "contextTokens": 200000,
+      "maxOutputTokens": 128000,
+      "thinking": "adaptive",
+      "effort": true,
+      "sampling": "omit",
+      "inputUsdPerMillion": 5,
+      "outputUsdPerMillion": 25
+    },
+    "claude-opus-4-8": {
+      "alias": "claude-opus-4-8",
+      "family": "opus",
+      "contextTokens": 200000,
+      "maxOutputTokens": 128000,
+      "thinking": "adaptive",
+      "effort": true,
+      "sampling": "omit",
+      "inputUsdPerMillion": 5,
+      "outputUsdPerMillion": 25
+    },
+    "claude-sonnet-5": {
+      "alias": "claude-sonnet-5",
+      "family": "sonnet",
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "thinking": "adaptive",
+      "effort": true,
+      "sampling": "omit",
+      "inputUsdPerMillion": 2,
+      "outputUsdPerMillion": 10,
+      "tokenizerNote": "May produce approximately 30 percent more tokens than Sonnet 4.6 for equivalent material."
+    },
+    "claude-opus-5": {
+      "alias": "claude-opus-5",
+      "family": "opus",
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "thinking": "adaptive",
+      "effort": true,
+      "sampling": "omit",
+      "inputUsdPerMillion": 5,
+      "outputUsdPerMillion": 25
+    },
+    "claude-fable-5": {
+      "alias": "claude-fable-5",
+      "family": "fable",
+      "contextTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "thinking": "always_on",
+      "effort": true,
+      "sampling": "omit",
+      "inputUsdPerMillion": 10,
+      "outputUsdPerMillion": 50,
+      "minimumDataRetentionDays": 30
     }
   },
   "latestObserved": {

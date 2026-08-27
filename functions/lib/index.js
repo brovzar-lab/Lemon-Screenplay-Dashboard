@@ -3,13 +3,16 @@
  * Firebase Cloud Functions — Lemon Screenplay Dashboard (V9)
  *
  * Active functions:
- *   - llmProxy: Routes all LLM calls server-side (Anthropic/Google)
+ *   - llmProxy: Routes approved Anthropic calls server-side
+ *   - llmProxyCandidate: Private, benchmark-only Anthropic candidate route
  *   - onScreenplayUploaded: Triggers VPS daemon on new PDF upload
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.readerChat = exports.calibrationManager = exports.queueManager = exports.onIngestCompleted = exports.onScreenplayUploaded = exports.googleProxy = exports.llmProxy = void 0;
+exports.readerChat = exports.calibrationManager = exports.queueManager = exports.onIngestCompleted = exports.onScreenplayUploaded = exports.googleProxy = exports.llmProxyCandidate = exports.llmProxy = void 0;
 var llmProxy_1 = require("./llmProxy");
 Object.defineProperty(exports, "llmProxy", { enumerable: true, get: function () { return llmProxy_1.llmProxy; } });
+var llmProxyCandidate_1 = require("./llmProxyCandidate");
+Object.defineProperty(exports, "llmProxyCandidate", { enumerable: true, get: function () { return llmProxyCandidate_1.llmProxyCandidate; } });
 var googleProxy_1 = require("./googleProxy");
 Object.defineProperty(exports, "googleProxy", { enumerable: true, get: function () { return googleProxy_1.googleProxy; } });
 var onScreenplayUploaded_1 = require("./onScreenplayUploaded");

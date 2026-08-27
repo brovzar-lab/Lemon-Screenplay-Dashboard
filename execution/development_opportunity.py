@@ -33,6 +33,13 @@ def _citations(metric: Mapping[str, Any]) -> List[int]:
     return sorted({int(value) for value in values if isinstance(value, int) and value > 0})
 
 
+def _citation_evidence(metric: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    values = metric.get("citation_evidence")
+    if not isinstance(values, list):
+        return []
+    return [dict(value) for value in values if isinstance(value, Mapping)]
+
+
 def _pillar_score(analysis: Mapping[str, Any], name: str) -> float:
     pillars = analysis.get("pillar_scores")
     if not isinstance(pillars, Mapping):
@@ -93,6 +100,7 @@ def derive_development_opportunity(
             "detail": detail,
             "source": "structured_v9",
             "page_citations": _citations(metric),
+            "citation_evidence": _citation_evidence(metric),
         })
 
     evidence.sort(key=lambda item: item["score"], reverse=True)

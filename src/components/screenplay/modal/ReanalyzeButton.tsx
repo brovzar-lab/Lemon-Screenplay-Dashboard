@@ -17,22 +17,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useToastStore } from '@/stores/toastStore';
 import { getAnalysisVersionLabel } from '@/lib/dimensionDisplay';
 import { useTranslation } from 'react-i18next';
+import { REANALYSIS_MODELS } from './reanalysisModels';
 
 interface ReanalyzeButtonProps {
   screenplay: Screenplay;
   onComplete?: () => void;
 }
-
-type ModelOption = {
-  id: 'sonnet' | 'opus';
-  label: string;
-  desc: string;
-};
-
-const MODELS: ModelOption[] = [
-  { id: 'sonnet', label: 'Sonnet', desc: 'Fast · ~$0.50' },
-  { id: 'opus', label: 'Opus', desc: 'Deep · ~$2.00' },
-];
 
 export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps) {
   const { t } = useTranslation();
@@ -161,7 +151,7 @@ export function ReanalyzeButton({ screenplay, onComplete }: ReanalyzeButtonProps
           <div className="px-3 py-1.5 text-[10px] font-semibold text-black-500 uppercase tracking-wider border-t border-black-700">
             {t('Choose Model')}
           </div>
-          {MODELS.map((model) => {
+          {REANALYSIS_MODELS.map((model) => {
             return (
               <button
                 key={model.id}

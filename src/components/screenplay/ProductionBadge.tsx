@@ -4,6 +4,7 @@
  */
 
 import type { TmdbStatus } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface ProductionBadgeProps {
   tmdbStatus: TmdbStatus | null;
@@ -12,6 +13,7 @@ interface ProductionBadgeProps {
 }
 
 export function ProductionBadge({ tmdbStatus, compact = false, className = '' }: ProductionBadgeProps) {
+  const { t } = useTranslation();
   if (!tmdbStatus?.isProduced) return null;
 
   const tmdbUrl = tmdbStatus.tmdbId
@@ -22,10 +24,10 @@ export function ProductionBadge({ tmdbStatus, compact = false, className = '' }:
     ? new Date(tmdbStatus.releaseDate).getFullYear()
     : null;
 
-  const title = tmdbStatus.tmdbTitle || 'Unknown';
+  const title = tmdbStatus.tmdbTitle || t('Unknown');
   const displayText = compact
-    ? 'PRODUCED'
-    : `PRODUCED${releaseYear ? ` (${releaseYear})` : ''}`;
+    ? t('PRODUCED')
+    : t('PRODUCED{{year}}', { year: releaseYear ? ` (${releaseYear})` : '' });
 
   const badge = (
     <span
@@ -35,7 +37,10 @@ export function ProductionBadge({ tmdbStatus, compact = false, className = '' }:
         border border-purple-500/30
         ${className}
       `}
-      title={`Produced as "${title}"${releaseYear ? ` in ${releaseYear}` : ''}`}
+      title={t('Produced as "{{title}}"{{year}}', {
+        title,
+        year: releaseYear ? t(' in {{year}}', { year: releaseYear }) : '',
+      })}
     >
       <svg
         className="w-3 h-3"

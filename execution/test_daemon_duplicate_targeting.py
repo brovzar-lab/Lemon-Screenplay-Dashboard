@@ -295,6 +295,7 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
         fake_engine = SimpleNamespace(
             init_firebase=MagicMock(),
             parse_pdf=MagicMock(return_value=parsed),
+            run_nonbinding_cold_read=MagicMock(return_value=(None, None)),
             run_v9_stable=MagicMock(return_value=(
                 analysis,
                 complete_usage("claude-sonnet-test"),

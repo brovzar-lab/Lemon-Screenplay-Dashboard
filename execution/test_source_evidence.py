@@ -5,6 +5,7 @@ from execution.source_evidence import (
     attach_verified_citation_quality,
     build_context_policy,
     build_page_evidence,
+    extract_title_page_author,
     join_marked_pages,
     validate_analysis_citations,
     validate_stored_context_policy,
@@ -12,6 +13,21 @@ from execution.source_evidence import (
 
 
 class TestPageEvidence(unittest.TestCase):
+    def test_title_page_author_is_source_backed_or_explicitly_absent(self):
+        found = extract_title_page_author(join_marked_pages([
+            "LA HISTORIA\nGuión de\nMaría López",
+            "INT. HOUSE - DAY",
+        ]))
+        missing = extract_title_page_author(join_marked_pages([
+            "UNTITLED DRAFT\nRevision 4",
+            "INT. HOUSE - DAY",
+        ]))
+
+        self.assertEqual(found["author"], "María López")
+        self.assertEqual(found["status"], "found")
+        self.assertEqual(missing["author"], "Not found on title page")
+        self.assertEqual(missing["status"], "not_found")
+
     def test_every_physical_page_keeps_a_deterministic_marker(self):
         text = join_marked_pages(
             [
@@ -107,6 +123,10 @@ class TestCitationEvidence(unittest.TestCase):
                             "score": 8,
                             "justification": "A strong reversal.",
                             "page_citations": [2],
+                            "citation_evidence": [{
+                                "page": 2,
+                                "excerpt": "The midpoint reversal happens here.",
+                            }],
                         }
                     }
                 }
@@ -118,10 +138,25 @@ class TestCitationEvidence(unittest.TestCase):
             self.analysis,
             self.page_evidence["page_diagnostics"],
             3,
+            self.text,
         )
 
         self.assertEqual(quality["status"], "verified")
         self.assertEqual(quality["verified_page_numbers"], [2])
+
+    def test_invented_excerpt_cannot_verify_a_real_page_number(self):
+        metric = self.analysis["reader_reports"]["structure"]["sub_scores"]["midpoint"]
+        metric["citation_evidence"][0]["excerpt"] = "A dragon destroys the house."
+
+        quality = validate_analysis_citations(
+            self.analysis,
+            self.page_evidence["page_diagnostics"],
+            3,
+            self.text,
+        )
+
+        self.assertEqual(quality["status"], "needs_review")
+        self.assertIn("unsupported_page_citations", quality["issues"])
 
     def test_out_of_range_citation_blocks_publication(self):
         self.analysis["reader_reports"]["structure"]["sub_scores"]["midpoint"][
@@ -131,6 +166,7 @@ class TestCitationEvidence(unittest.TestCase):
             self.analysis,
             self.page_evidence["page_diagnostics"],
             3,
+            self.text,
         )
 
         self.assertEqual(quality["status"], "needs_review")
@@ -144,6 +180,7 @@ class TestCitationEvidence(unittest.TestCase):
             self.analysis,
             self.page_evidence["page_diagnostics"],
             3,
+            self.text,
         )
 
         self.assertEqual(quality["status"], "needs_review")
@@ -160,6 +197,7 @@ class TestCitationEvidence(unittest.TestCase):
             self.analysis,
             self.page_evidence["page_diagnostics"],
             3,
+            self.text,
         )
 
         self.assertEqual(quality["status"], "needs_review")
@@ -188,6 +226,7 @@ class TestCitationEvidence(unittest.TestCase):
             nested_analysis,
             self.page_evidence["page_diagnostics"],
             3,
+            self.text,
         )
 
         self.assertEqual(quality["status"], "needs_review")
@@ -202,6 +241,7 @@ class TestCitationEvidence(unittest.TestCase):
             self.analysis,
             metadata,
             3,
+            self.text,
         )
 
         self.assertEqual(quality["status"], "verified")

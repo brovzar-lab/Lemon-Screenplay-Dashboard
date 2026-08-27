@@ -40,7 +40,19 @@ export type SkipReason =
 
 // ── Model selection ───────────────────────────────────────────────────────────
 
-export type IngestModel = 'haiku' | 'sonnet' | 'opus' | 'hybrid' | 'auto';
+export const VALID_INGEST_MODELS = ['haiku', 'sonnet', 'opus', 'hybrid', 'auto'] as const;
+export type IngestModel = typeof VALID_INGEST_MODELS[number];
+
+export function parseIngestModel(
+  value: unknown,
+  fallback: IngestModel,
+): IngestModel {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'string' && VALID_INGEST_MODELS.includes(value as IngestModel)) {
+    return value as IngestModel;
+  }
+  throw new Error('Requested analysis model is invalid.');
+}
 
 // ── Full IngestJob document (Firestore: ingest-queue/{auto-id}) ───────────────
 

@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import fs from 'fs'
+import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import tailwindcss from '@tailwindcss/vite'
 import { createRequire } from 'module'
 import type { IncomingMessage } from 'node:http'
@@ -120,12 +122,44 @@ function localReviewAuth(): Plugin {
   }
 }
 
+function sha256(value: string | Buffer): string {
+  return createHash('sha256').update(value).digest('hex')
+}
+
+function releaseMetadata(): Plugin {
+  return {
+    name: 'release-metadata',
+    generateBundle() {
+      const gitSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+      const sourceClean = execFileSync('git', ['status', '--porcelain'], {
+        encoding: 'utf8',
+      }).trim() === ''
+      const catalog = fs.readFileSync(
+        path.resolve(__dirname, 'src/config/anthropic-model-catalog.json'),
+      )
+      const hostingConfig = fs.readFileSync(path.resolve(__dirname, 'firebase.json'))
+      this.emitFile({
+        type: 'asset',
+        fileName: 'release.json',
+        source: JSON.stringify({
+          git_sha: gitSha,
+          source_clean: sourceClean,
+          catalog_sha256: sha256(catalog),
+          build_timestamp: new Date().toISOString(),
+          hosting_config_sha256: sha256(hostingConfig),
+        }),
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     localReviewAuth(),
+    releaseMetadata(),
     // Skip .DS_Store files during public dir copy (macOS EPERM fix)
     {
       name: 'skip-ds-store',
@@ -196,6 +230,6 @@ export default defineConfig({
       // Previously `['..']` allowed the full parent directory to be served.
       allow: [path.resolve(__dirname, '../.tmp'), __dirname],
     },
-    // Anthropic API proxy removed — all LLM calls now route through Firebase Cloud Function → LiteLLM
+    // Anthropic calls use the Firebase llmProxy, which invokes Anthropic's official SDK directly.
   },
 })

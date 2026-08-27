@@ -11,6 +11,9 @@ dist-ssr/
 .env.local
 .env.*.local
 *.local
+/functions/.env.*
+!/functions/.env.example
+gha-creds-*.json
 
 # Logs
 logs/
@@ -47,6 +50,7 @@ playwright/.auth/
 # Temporary files
 *.tmp
 .tmp/
+benchmark-artifacts/
 .npm-cache/
 __pycache__/
 *.pyc

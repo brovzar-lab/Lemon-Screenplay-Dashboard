@@ -22,6 +22,7 @@ import { useSortStore } from '@/stores/sortStore';
 import { SORT_FIELD_CONFIG } from '@/types/filters';
 import type { SortField } from '@/types';
 import { SortableItem } from './SortableItem';
+import { useTranslation } from 'react-i18next';
 
 interface AdvancedSortPanelProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ interface AdvancedSortPanelProps {
 }
 
 export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
+  const { t } = useTranslation();
   const {
     sortConfigs,
     prioritizeFilmNow,
@@ -82,7 +84,7 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20" role="dialog" aria-modal="true" aria-label="Advanced Sorting">
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20" role="dialog" aria-modal="true" aria-label={t('Advanced Sorting')}>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
@@ -90,10 +92,10 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
       <div className="relative w-full max-w-md glass border border-black-700 rounded-xl overflow-hidden animate-scale-in">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-black-700">
-          <h3 className="text-lg font-display" style={{ color: 'var(--sp-text)' }}>Advanced Sorting</h3>
+          <h3 className="text-lg font-display" style={{ color: 'var(--sp-text)' }}>{t('Advanced Sorting')}</h3>
           <button
             onClick={onClose}
-            aria-label="Close sorting panel"
+            aria-label={t('Close sorting panel')}
             className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-black-200"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -113,20 +115,20 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
               className="w-4 h-4 rounded border-black-600 bg-black-800"
             />
             <div>
-              <span className="text-sm font-medium" style={{ color: 'var(--sp-text)' }}>FILM NOW First</span>
-              <p className="text-xs text-black-500">Always show FILM NOW screenplays at the top</p>
+              <span className="text-sm font-medium" style={{ color: 'var(--sp-text)' }}>{t('FILM NOW First')}</span>
+              <p className="text-xs text-black-500">{t('Always show FILM NOW screenplays at the top')}</p>
             </div>
           </label>
 
           {/* Current Sort Columns */}
           <div>
             <h4 className="text-sm font-medium text-black-400 mb-2">
-              Sort Priority {sortConfigs.length > 0 && `(${sortConfigs.length})`}
+              {t('Sort Priority')} {sortConfigs.length > 0 && `(${sortConfigs.length})`}
             </h4>
 
             {sortConfigs.length === 0 ? (
               <p className="text-sm text-black-500 text-center py-4">
-                No sort columns. Add one below.
+                {t('No sort columns. Add one below.')}
               </p>
             ) : (
               <DndContext
@@ -157,40 +159,40 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
           {/* Add Column */}
           {availableFields.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-black-400 mb-2">Add Sort Column</h4>
+              <h4 className="text-sm font-medium text-black-400 mb-2">{t('Add Sort Column')}</h4>
               <div className="flex gap-2">
                 <select
                   value={selectedField}
                   onChange={(e) => setSelectedField(e.target.value as SortField)}
                   className="flex-1 input py-2 text-sm"
-                  aria-label="Select sort field"
+                  aria-label={t('Select sort field')}
                 >
-                  <option value="">Select field...</option>
+                  <option value="">{t('Select field...')}</option>
                   {groupedFields.score.length > 0 && (
-                    <optgroup label="Scores">
+                    <optgroup label={t('Scores')}>
                       {groupedFields.score.map((f) => (
-                        <option key={f.field} value={f.field}>{f.label}</option>
+                        <option key={f.field} value={f.field}>{t(f.label)}</option>
                       ))}
                     </optgroup>
                   )}
                   {groupedFields.producer.length > 0 && (
-                    <optgroup label="Producer Metrics">
+                    <optgroup label={t('Producer Metrics')}>
                       {groupedFields.producer.map((f) => (
-                        <option key={f.field} value={f.field}>{f.label}</option>
+                        <option key={f.field} value={f.field}>{t(f.label)}</option>
                       ))}
                     </optgroup>
                   )}
                   {groupedFields.dimension.length > 0 && (
-                    <optgroup label="Dimensions">
+                    <optgroup label={t('Dimensions')}>
                       {groupedFields.dimension.map((f) => (
-                        <option key={f.field} value={f.field}>{f.label}</option>
+                        <option key={f.field} value={f.field}>{t(f.label)}</option>
                       ))}
                     </optgroup>
                   )}
                   {groupedFields.text.length > 0 && (
-                    <optgroup label="Text">
+                    <optgroup label={t('Text')}>
                       {groupedFields.text.map((f) => (
-                        <option key={f.field} value={f.field}>{f.label}</option>
+                        <option key={f.field} value={f.field}>{t(f.label)}</option>
                       ))}
                     </optgroup>
                   )}
@@ -200,7 +202,7 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
                   disabled={!selectedField}
                   className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add
+                  {t('Add')}
                 </button>
               </div>
             </div>
@@ -210,10 +212,10 @@ export function AdvancedSortPanel({ isOpen, onClose }: AdvancedSortPanelProps) {
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t border-black-700 bg-black-900/30">
           <button onClick={resetSort} className="btn btn-ghost text-sm">
-            Reset to Default
+            {t('Reset to Default')}
           </button>
           <button onClick={onClose} className="btn btn-primary">
-            Apply
+            {t('Apply')}
           </button>
         </div>
       </div>

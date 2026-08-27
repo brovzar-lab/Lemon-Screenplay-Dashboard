@@ -7,6 +7,7 @@ import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
 import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
+import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { PercentileRank } from '@/lib/percentileRanking';
 import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
@@ -103,7 +104,11 @@ export function HybridFeatureStage({
   const pillars = getDimensionDisplay(featured).slice(0, 5);
   const displayTitle = getScreenplayDisplayTitle(featured.title).title;
   const displayAuthor = getScreenplayDisplayAuthor(featured.author);
-  const surfacedReason = whySurfaced(featured);
+  const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
+  const localized = localizedScreenplayPreview(featured, language);
+  const surfacedReason = localized
+    ? whySurfaced(localized)
+    : t('Analysis available in English');
 
   return (
     <article
@@ -130,10 +135,14 @@ export function HybridFeatureStage({
         <h1>{displayTitle}</h1>
         {(featured.genre || displayAuthor) && (
           <p className="hybrid-feature-byline">
-            {[featured.genre, displayAuthor].filter(Boolean).join(' · ')}
+            {[featured.genre && t(featured.genre), displayAuthor && t(displayAuthor)].filter(Boolean).join(' · ')}
           </p>
         )}
-        {featured.logline && <p className="hybrid-feature-logline">{featured.logline}</p>}
+        {(localized?.logline || language === 'es') && (
+          <p className="hybrid-feature-logline">
+            {localized?.logline || t('Analysis available in English')}
+          </p>
+        )}
 
         <div className="hybrid-feature-decision">
           <RecommendationBadge tier={featured.recommendation} />
@@ -259,7 +268,8 @@ export function HybridFilmNowRail({
   screenplays: Screenplay[];
   onOpen: OpenScreenplay;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
   if (screenplays.length === 0) return null;
 
   return (
@@ -274,6 +284,7 @@ export function HybridFilmNowRail({
       <ul>
         {screenplays.map((screenplay) => {
           const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+          const localized = localizedScreenplayPreview(screenplay, language);
           return (
             <li key={screenplay.id} data-testid="discovery-film-now-result">
               <button
@@ -283,7 +294,11 @@ export function HybridFilmNowRail({
               >
                 <span>
                   <strong>{displayTitle}</strong>
-                  <small>{screenplay.recommendationRationale || screenplay.logline}</small>
+                  <small>
+                    {localized?.recommendationRationale ||
+                      localized?.logline ||
+                      (language === 'es' ? t('Analysis available in English') : '')}
+                  </small>
                 </span>
                 <b>{screenplay.weightedScore.toFixed(1)}</b>
               </button>
@@ -348,7 +363,7 @@ export function HybridSlateGrid({
                 <span className="hybrid-slate-card__title-row">
                   <span>
                     <strong>{displayTitle}</strong>
-                    {displayAuthor && <small>{displayAuthor}</small>}
+                    {displayAuthor && <small>{t(displayAuthor)}</small>}
                   </span>
                   <span className="hybrid-slate-card__score">
                     <b>{screenplay.weightedScore.toFixed(1)}</b>
@@ -356,7 +371,7 @@ export function HybridSlateGrid({
                   </span>
                 </span>
 
-                <span className="hybrid-slate-card__genre">{screenplay.genre}</span>
+                <span className="hybrid-slate-card__genre">{t(screenplay.genre)}</span>
 
                 <span className="hybrid-slate-card__status">
                   <span>

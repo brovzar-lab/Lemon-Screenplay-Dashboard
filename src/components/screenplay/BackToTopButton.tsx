@@ -7,6 +7,7 @@
 
 import { clsx } from 'clsx';
 import { useHasSelection } from '@/stores/selectionStore';
+import { useTranslation } from 'react-i18next';
 
 interface BackToTopButtonProps {
   visible: boolean;
@@ -14,6 +15,7 @@ interface BackToTopButtonProps {
 }
 
 export function BackToTopButton({ visible, onClick }: BackToTopButtonProps) {
+  const { t } = useTranslation();
   const hasSelection = useHasSelection();
 
   return (
@@ -32,8 +34,8 @@ export function BackToTopButton({ visible, onClick }: BackToTopButtonProps) {
           ? 'opacity-100 translate-y-0 pointer-events-auto'
           : 'opacity-0 translate-y-4 pointer-events-none'
       )}
-      aria-label="Scroll to top"
-      title="Back to top"
+      aria-label={t('Scroll to top')}
+      title={t('Back to top')}
     >
       <span className="flex items-center gap-1.5">
         <svg
@@ -49,7 +51,7 @@ export function BackToTopButton({ visible, onClick }: BackToTopButtonProps) {
             d="M5 15l7-7 7 7"
           />
         </svg>
-        Top
+        {t('Top')}
       </span>
     </button>
   );

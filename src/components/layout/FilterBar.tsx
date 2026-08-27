@@ -29,6 +29,7 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { ShortcutHint } from '@/components/ui/ShortcutHint';
 import type { Screenplay, SortField } from '@/types';
 import { useIsAdmin } from '@/stores/authStore';
+import { useTranslation } from 'react-i18next';
 
 const SEARCH_INPUT_ID = 'screenplay-search';
 
@@ -52,6 +53,7 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, onOpenReadingRoom }: FilterBarProps) {
+  const { t } = useTranslation();
   const hasActiveFilters = useHasActiveFilters();
   const isAdmin = useIsAdmin();
 
@@ -231,12 +233,12 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
               data-testid="search-input"
               type="text"
               className={`input pl-10 pr-16 transition-all duration-300 ease-out w-full sm:w-auto ${isSearchFocused ? 'sm:w-[360px]' : 'sm:w-52'}`}
-              placeholder="Search title, author, genre, logline..."
+              placeholder={t('Search title, author, genre, logline...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
-              aria-label="Search screenplays"
+              aria-label={t('Search screenplays')}
             />
             {/* Keyboard shortcut hint */}
             {!searchQuery && (
@@ -251,24 +253,25 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
               <button
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-black-500 hover:text-gold-400 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                aria-label="Clear search"
+                aria-label={t('Clear search')}
               >
                 ✕
               </button>
             )}
-            <ShortcutHint id="search" label="/ to search" position="bottom" />
+            <ShortcutHint id="search" label={t('/ to search')} position="bottom" />
           </div>
 
           {/* Results Count & Actions */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <div className="text-sm text-black-400 shrink-0">
               {isLoading ? (
-                <span>Loading...</span>
+                <span>{t('Loading...')}</span>
               ) : (
                 <span key={filteredCount} className="animate-fade-in">
-                  {'Showing '}
-                  <strong className="text-gold-400">{filteredCount} of {totalCount}</strong>
-                  {' screenplays'}
+                  {t('Showing {{filtered}} of {{total}} screenplays', {
+                    filtered: filteredCount,
+                    total: totalCount,
+                  })}
                 </span>
               )}
             </div>
@@ -279,18 +282,18 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
               <select
                 data-testid="sort-select"
                 className="input py-2 px-3 w-auto text-sm shrink-0 min-h-[44px]"
-                aria-label="Sort screenplays by"
+                aria-label={t('Sort screenplays by')}
                 value={sortConfigs[0]?.field || 'marketPotential'}
                 onChange={(e) => {
                   resetSort();
                   addSortColumn(e.target.value as SortField, 'desc');
                 }}
               >
-                <option value="marketPotential">Sort: Market Potential</option>
-                <option value="weightedScore">Sort: Final Score</option>
-                <option value="cvsTotal">Sort: CVS Total</option>
+                <option value="marketPotential">{t('Sort: Market Potential')}</option>
+                <option value="weightedScore">{t('Sort: Final Score')}</option>
+                <option value="cvsTotal">{t('Sort: CVS Total')}</option>
 
-                <option value="title">Sort: Title A-Z</option>
+                <option value="title">{t('Sort: Title A-Z')}</option>
               </select>
 
               <LensMenu />
@@ -299,7 +302,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
               <button
                 onClick={() => setIsSortPanelOpen(true)}
                 className="btn btn-secondary text-sm shrink-0 min-h-[44px]"
-                title="Advanced Sorting"
+                title={t('Advanced Sorting')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
@@ -315,12 +318,12 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
               <button
                 onClick={() => setIsFilterPanelOpen(true)}
                 className="btn btn-secondary text-sm shrink-0 min-h-[44px]"
-                title="Advanced Filters"
+                title={t('Advanced Filters')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                Filters
+                {t('Filters')}
                 {advancedFilterCount > 0 && (
                   <span className="px-1.5 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-xs font-bold">
                     {advancedFilterCount}
@@ -332,45 +335,45 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
               <button
                 onClick={onOpenReadingRoom}
                 className="btn btn-secondary text-sm shrink-0 min-h-[44px]"
-                title="Open Reading Room"
+                title={t('Open Reading Room')}
                 disabled={screenplays.length === 0 || !onOpenReadingRoom}
               >
-                Reading Room
+                {t('Reading Room')}
               </button>
 
               {/* Share Button */}
               <button
                 onClick={() => setIsShareModalOpen(true)}
                 className="btn btn-secondary text-sm shrink-0 min-h-[44px]"
-                title="Share dashboard"
+                title={t('Share dashboard')}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
-                Share
+                {t('Share')}
               </button>
 
               {/* Select All / Deselect All */}
               <button
                 onClick={() => isAllSelected ? deselectAllExport() : selectAllForExport(screenplays.map((sp) => sp.id))}
                 className="btn btn-secondary text-sm shrink-0 min-h-[44px]"
-                title={isAllSelected ? 'Deselect all' : 'Select all for export'}
+                title={isAllSelected ? t('Deselect all') : t('Select all for export')}
                 disabled={screenplays.length === 0}
               >
-                {isAllSelected ? '☐ Deselect' : '☑ Select All'}
+                {isAllSelected ? `☐ ${t('Deselect')}` : `☑ ${t('Select All')}`}
               </button>
 
               {/* Export Button */}
               <button
                 onClick={() => setIsExportModalOpen(true)}
                 className="btn btn-primary text-sm shrink-0 min-h-[44px]"
-                title="Export screenplays"
+                title={t('Export screenplays')}
                 disabled={screenplays.length === 0}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Export ({hasExportSelection ? `${exportSelectionCount} selected` : screenplays.length})
+                {t('Export')} ({hasExportSelection ? t('{{count}} selected', { count: exportSelectionCount }) : screenplays.length})
               </button>
             </div>
 
@@ -386,7 +389,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
         </div>
 
         {/* Quick Filter Chips — horizontal scroll on mobile, wrap on sm+ */}
-        <nav aria-label="Filter screenplays" className="overflow-x-auto scrollbar-hide mt-4">
+        <nav aria-label={t('Filter screenplays')} className="overflow-x-auto scrollbar-hide mt-4">
         <div ref={chipsContainerRef} className="relative flex flex-nowrap sm:flex-wrap gap-2 pb-1 min-w-max sm:min-w-0">
           {/* Sliding active indicator */}
           <div
@@ -410,7 +413,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
                 }`}
               style={activeFilter === chip.id ? { background: 'var(--sp-accent-soft)', color: 'var(--sp-accent)', fontWeight: 600 } : undefined}
             >
-              {chip.label}
+              {t(chip.label)}
             </button>
           ))}
 
@@ -427,7 +430,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
               )}
               style={missingPdfOnly ? { background: 'var(--sp-consider-tint)', color: 'var(--sp-consider)', fontWeight: 600 } : undefined}
             >
-              Missing PDF
+              {t('Missing PDF')}
               {missingPdfCount > 0 && (
                 <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--sp-consider-tint)', color: 'var(--sp-consider)' }}>
                   {missingPdfCount}
@@ -448,7 +451,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
             )}
             style={hasPdfOnly ? { background: 'var(--sp-recommend-tint)', color: 'var(--sp-recommend)', fontWeight: 600 } : undefined}
           >
-            Has PDF
+            {t('Has PDF')}
             {hasPdfCount > 0 && (
               <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--sp-recommend-tint)', color: 'var(--sp-recommend)' }}>
                 {hasPdfCount}
@@ -464,7 +467,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
             className="chip cursor-pointer transition-all"
             style={{ color: 'var(--sp-pass)' }}
           >
-            Upload Issues
+            {t('Upload Issues')}
             {uploadIssueCount > 0 && (
               <span
                 style={{
@@ -488,7 +491,7 @@ export function FilterBar({ screenplays, isLoading, filteredCount, totalCount, o
               className="chip cursor-pointer min-h-[44px]"
               style={{ color: 'var(--sp-pass)' }}
             >
-              Clear All ✕
+              {t('Clear All')} ✕
             </button>
           )}
         </div>

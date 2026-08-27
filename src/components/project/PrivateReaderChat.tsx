@@ -357,6 +357,9 @@ export function PrivateReaderChat({
             </button>
           ))}
         </div>
+        <small>
+          {t('Reader Chat only. Fable 5 requires at least 30 days of provider retention, so do not use it for material that cannot accept that privacy condition.')}
+        </small>
       </section>}
 
       {mode === 'local_review' && (

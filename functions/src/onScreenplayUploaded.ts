@@ -29,7 +29,7 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import {
   INGEST_QUEUE_COLLECTION,
   buildPendingJob,
-  type IngestModel,
+  parseIngestModel,
 } from './ingestQueue';
 import {
   buildIngestJobId,
@@ -100,7 +100,7 @@ export const onScreenplayUploaded = onObjectFinalized(
     // Upload with: gsutil -h "x-goog-meta-model:haiku" cp ...
     // Or set via Firebase Console / SDK custom metadata
     const customMeta = event.data.metadata ?? {};
-    const requestedModel = (customMeta['model'] as IngestModel | undefined) ?? 'auto';
+    const requestedModel = parseIngestModel(customMeta['model'], 'auto');
     const priority = customMeta['priority'] ? Number(customMeta['priority']) : 0;
     const target_project_id = readTargetProjectId(customMeta);
     const separate_project = readSeparateProject(customMeta);

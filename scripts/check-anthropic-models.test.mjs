@@ -18,8 +18,10 @@ describe('Anthropic model catalog', () => {
 
   it('updates observed models without changing approved scoring routes', () => {
     const catalog = {
+      schemaVersion: 2,
       analysisRoutes: { sonnet: { modelId: 'claude-sonnet-4-6' } },
       interactiveRoutes: { readerChatDefault: { modelId: 'claude-opus-5' } },
+      candidateAnalysisRoutes: { sonnet: { modelId: 'claude-sonnet-5' } },
       latestObserved: {
         haiku: 'claude-haiku-4-5',
         sonnet: 'claude-sonnet-5',
@@ -39,6 +41,7 @@ describe('Anthropic model catalog', () => {
 
     assert.deepEqual(update.catalog.analysisRoutes, catalog.analysisRoutes);
     assert.deepEqual(update.catalog.interactiveRoutes, catalog.interactiveRoutes);
+    assert.deepEqual(update.catalog.candidateAnalysisRoutes, catalog.candidateAnalysisRoutes);
     assert.equal(update.catalog.latestObserved.sonnet, 'claude-sonnet-5-1');
     assert.equal(update.catalog.latestObserved.fable, 'claude-fable-5');
     assert.equal(update.catalog.verifiedAt, '2026-08-20');

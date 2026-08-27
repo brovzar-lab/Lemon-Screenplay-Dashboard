@@ -5,12 +5,14 @@ import unittest
 
 from execution.v9_test_fixtures import (
     CONTENT_HASH,
+    HAIKU_MODEL_ID,
     MODEL_ID,
     MODEL_IDS as TEST_MODEL_IDS,
     PROJECT_ID,
     QUEUED_AT_MS,
     VERSION_ID,
     complete_usage,
+    q2_parsed_source,
     raw_analysis,
     refresh_boundary_evidence,
     trusted_raw,
@@ -19,8 +21,10 @@ from execution.trust_manifest import (
     ANALYSIS_SCHEMA_VERSION,
     LEGACY_TRUST_MANIFEST_VERSION,
     PROMPT_CONTRACT_VERSION,
+    PREVIOUS_SCORING_CODE_VERSION,
     Q2_TRUST_MANIFEST_VERSION,
     Q3_TRUST_MANIFEST_VERSION,
+    Q4_TRUST_MANIFEST_VERSION,
     READER_RELIABILITY_CONTRACT_VERSION,
     SCORING_CODE_VERSION,
     TRUST_MANIFEST_VERSION,
@@ -128,6 +132,71 @@ class TrustManifestTests(unittest.TestCase):
 
         validate_permanent_analysis(prior)
 
+    def test_q4_manifest_without_per_call_usage_remains_readable(self):
+        prior = trusted_raw()
+        for call in prior["usage"]["calls"]:
+            call.pop("usage")
+        manifest = prior["trust_manifest"]
+        for call in manifest["models"]["calls"]:
+            call.pop("usage")
+        manifest["manifest_version"] = Q4_TRUST_MANIFEST_VERSION
+        manifest.pop("integrity_sha256")
+        manifest["integrity_sha256"] = hashlib.sha256(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        prior["trust_manifest_version"] = Q4_TRUST_MANIFEST_VERSION
+
+        validate_permanent_analysis(prior)
+
+    def test_q4_manifest_keeps_its_historical_pre_adjustment_verdict(self):
+        prior = trusted_raw()
+        prior["scoring_code_version"] = PREVIOUS_SCORING_CODE_VERSION
+        prior["analysis"]["verdict_before_adjustments"] = "FILM_NOW"
+        for run in prior["analysis"]["_boundary_reruns"]["runs"]:
+            run["analysis_evidence"]["verdict_before_adjustments"] = "FILM_NOW"
+
+        manifest = prior["trust_manifest"]
+        manifest["manifest_version"] = Q4_TRUST_MANIFEST_VERSION
+        manifest["engine"]["scoring_code_version"] = PREVIOUS_SCORING_CODE_VERSION
+        manifest["score_lineage"]["verdict_before_adjustments"] = "FILM_NOW"
+        for sealed_run, raw_run in zip(
+            manifest["score_lineage"]["boundary_reruns"]["runs"],
+            prior["analysis"]["_boundary_reruns"]["runs"],
+        ):
+            sealed_run["analysis_evidence_sha256"] = hashlib.sha256(
+                json.dumps(
+                    raw_run["analysis_evidence"],
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+            ).hexdigest()
+        manifest["analysis_payload_sha256"] = hashlib.sha256(
+            json.dumps(
+                prior["analysis"],
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        manifest.pop("integrity_sha256")
+        manifest["integrity_sha256"] = hashlib.sha256(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        prior["trust_manifest_version"] = Q4_TRUST_MANIFEST_VERSION
+
+        validate_permanent_analysis(prior)
+
     def test_q5_manifest_seals_exact_calibration_profile_version(self):
         raw = raw_analysis()
         raw["calibration_profile"].update({
@@ -167,10 +236,26 @@ class TrustManifestTests(unittest.TestCase):
 
     def test_invalid_reader_citation_cannot_receive_a_manifest(self):
         raw = raw_analysis()
-        metric = raw["analysis"]["reader_reports"]["structure"]["sub_scores"]["one"]
+        metric = raw["analysis"]["reader_reports"]["structure"]["sub_scores"]["first_ten_pages"]
         metric["page_citations"] = [999]
 
         with self.assertRaisesRegex(ValueError, "citation evidence"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+
+    def test_changed_excerpt_cannot_reuse_sealed_citation_evidence(self):
+        raw = raw_analysis()
+        metric = raw["analysis"]["reader_reports"]["structure"]["sub_scores"]["first_ten_pages"]
+        metric["citation_evidence"][0]["excerpt"] = "A fabricated event appears here"
+
+        with self.assertRaisesRegex(ValueError, "citation excerpts"):
             attach_trust_manifest(
                 raw,
                 selection_request="sonnet",
@@ -277,6 +362,15 @@ class TrustManifestTests(unittest.TestCase):
             "boundary_run": 1,
             "reader_name": None,
             "disposition": "discarded_unusable",
+            "usage": {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "call_count": 1,
+                "actual_cost_microusd": 0,
+                "actual_cost_usd": 0.0,
+            },
         })
 
         trusted = attach_trust_manifest(
@@ -335,6 +429,21 @@ class TrustManifestTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "analysis payload"):
             validate_permanent_analysis(raw)
+
+    def test_raw_score_verdict_must_be_code_derived_before_sealing(self):
+        raw = raw_analysis()
+        raw["analysis"]["verdict_before_adjustments"] = "PASS"
+
+        with self.assertRaisesRegex(ValueError, "raw-score verdict"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
 
     def test_producer_facing_prose_tampering_is_rejected(self):
         for mutation in ("executive_summary", "strengths", "reader_strengths"):
@@ -395,13 +504,26 @@ class TrustManifestTests(unittest.TestCase):
         analysis["failed_reader_errors"] = {
             "emotional_resonance": "model call exhausted retries",
         }
+        removed_call = next(
+            call for call in raw["usage"]["calls"]
+            if call["response_id"] == "msg_6"
+        )
         raw["usage"]["calls"] = [
             call
             for call in raw["usage"]["calls"]
             if call["response_id"] != "msg_6"
         ]
-        raw["usage"]["call_count"] = 6
-        raw["usage"]["by_model"][MODEL_ID]["call_count"] = 5
+        for field in (
+            "input_tokens", "output_tokens", "cache_creation_input_tokens",
+            "cache_read_input_tokens", "call_count", "actual_cost_microusd",
+        ):
+            raw["usage"][field] -= removed_call["usage"][field]
+            raw["usage"]["by_model"][MODEL_ID][field] -= removed_call["usage"][field]
+        raw["usage"]["actual_cost_usd"] = (
+            raw["usage"]["actual_cost_microusd"] / 1_000_000
+        )
+        raw["actual_cost_microusd"] = raw["usage"]["actual_cost_microusd"]
+        raw["actual_cost_usd"] = raw["usage"]["actual_cost_usd"]
         raw["usage"]["failed_calls"] = [{
             "requested_model": MODEL_ID,
             "stage": "reader",
@@ -423,6 +545,7 @@ class TrustManifestTests(unittest.TestCase):
             analysis,
             raw["metadata"],
             raw["metadata"]["page_count"],
+            q2_parsed_source()["text"],
         )
 
         with self.assertRaisesRegex(
@@ -585,6 +708,89 @@ class TrustManifestTests(unittest.TestCase):
             3,
         )
 
+    def test_discarded_sonnet_cold_read_without_evidence_is_sealed(self):
+        raw = raw_analysis()
+        usage = raw["usage"]
+        usage["input_tokens"] += 1
+        usage["output_tokens"] += 1
+        usage["call_count"] += 1
+        usage["by_model"][MODEL_ID]["input_tokens"] += 1
+        usage["by_model"][MODEL_ID]["output_tokens"] += 1
+        usage["by_model"][MODEL_ID]["call_count"] += 1
+        usage["calls"].append({
+            "response_id": "msg_discarded_sonnet_cold_read",
+            "requested_model": MODEL_ID,
+            "returned_model": MODEL_ID,
+            "stop_reason": "end_turn",
+            "successful_attempt": 1,
+            "retry_history": [{
+                "attempt": 1,
+                "outcome": "success",
+                "response_id": "msg_discarded_sonnet_cold_read",
+            }],
+            "stage": "triage",
+            "pipeline_pass": "triage",
+            "boundary_run": 1,
+            "reader_name": None,
+            "disposition": "discarded_unusable",
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "call_count": 1,
+                "actual_cost_microusd": 0,
+                "actual_cost_usd": 0.0,
+            },
+        })
+
+        trusted = attach_trust_manifest(
+            raw,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+            origin_kind="daemon_queue",
+            origin_id="queue-job-1",
+        )
+
+        self.assertIsNone(trusted["trust_manifest"]["cold_read"])
+        self.assertEqual(
+            trusted["trust_manifest"]["models"]["calls"][-1]["disposition"],
+            "discarded_unusable",
+        )
+
+    def test_failed_sonnet_cold_read_without_evidence_is_sealed(self):
+        raw = raw_analysis()
+        raw["usage"]["failed_calls"].append({
+            "requested_model": MODEL_ID,
+            "stage": "triage",
+            "pipeline_pass": "triage",
+            "boundary_run": 1,
+            "reader_name": None,
+            "attempt_history": [{
+                "attempt": 1,
+                "outcome": "failed",
+                "error_type": "TransportUncertain",
+            }],
+        })
+
+        trusted = attach_trust_manifest(
+            raw,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+            origin_kind="daemon_queue",
+            origin_id="queue-job-1",
+        )
+
+        self.assertIsNone(trusted["trust_manifest"]["cold_read"])
+        self.assertEqual(
+            trusted["trust_manifest"]["models"]["failed_calls"][-1]["requested_model"],
+            MODEL_ID,
+        )
+
     def test_recovered_reader_failure_is_sealed_with_completed_evidence(self):
         raw = raw_analysis()
         raw["usage"]["failed_calls"] = [{
@@ -646,6 +852,15 @@ class TrustManifestTests(unittest.TestCase):
             "boundary_run": 1,
             "reader_name": None,
             "disposition": "used",
+            "usage": {
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "call_count": 1,
+                "actual_cost_microusd": 0,
+                "actual_cost_usd": 0.0,
+            },
         })
         raw["analysis"]["_cold_read"] = {
             "used_in_synthesis": True,
@@ -654,6 +869,7 @@ class TrustManifestTests(unittest.TestCase):
                 "verdict": "consider",
                 "genre": "horror",
                 "logline": "A test cold read.",
+                "model_route": "haiku",
             },
             "response_ids": ["msg_pre_triage"],
         }
@@ -667,6 +883,7 @@ class TrustManifestTests(unittest.TestCase):
             raw["analysis"],
             raw["metadata"],
             raw["metadata"]["page_count"],
+            q2_parsed_source()["text"],
         )
 
         trusted = attach_trust_manifest(
@@ -682,6 +899,41 @@ class TrustManifestTests(unittest.TestCase):
         self.assertFalse(
             trusted["trust_manifest"]["hybrid"]["promoted_to_opus"]
         )
+
+        sonnet_raw = copy.deepcopy(raw)
+        sonnet_usage = sonnet_raw["usage"]
+        haiku_usage = sonnet_usage["by_model"][HAIKU_MODEL_ID]
+        haiku_usage["input_tokens"] -= 1
+        haiku_usage["output_tokens"] -= 1
+        haiku_usage["call_count"] -= 1
+        sonnet_model_usage = sonnet_usage["by_model"][MODEL_ID]
+        sonnet_model_usage["input_tokens"] += 1
+        sonnet_model_usage["output_tokens"] += 1
+        sonnet_model_usage["call_count"] += 1
+        sonnet_usage["calls"][-1]["requested_model"] = MODEL_ID
+        sonnet_usage["calls"][-1]["returned_model"] = MODEL_ID
+        sonnet_raw["analysis"]["_cold_read"]["evidence"][
+            "model_route"
+        ] = "sonnet"
+        sonnet_raw["analysis"]["_hybrid_mode"][
+            "sonnet_analysis_evidence"
+        ]["_cold_read"]["evidence"]["model_route"] = "sonnet"
+        sonnet_trusted = attach_trust_manifest(
+            sonnet_raw,
+            selection_request="hybrid",
+            pipeline_model_tier="hybrid",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+            origin_kind="daemon_queue",
+            origin_id="queue-job-1",
+        )
+        self.assertEqual(
+            sonnet_trusted["trust_manifest"]["cold_read"]["evidence"][
+                "model_route"
+            ],
+            "sonnet",
+        )
+
         trusted["analysis"]["_hybrid_mode"]["promoted_to_opus"] = True
         with self.assertRaisesRegex(ValueError, "analysis payload"):
             validate_permanent_analysis(trusted)

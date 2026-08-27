@@ -142,6 +142,36 @@ test('settlement records exact calls, tokens, model, and dollars', () => {
   });
 });
 
+test('settlement can attribute a returned fallback to its exact model', () => {
+  const reserved = admitBudgetReservation(
+    ledger(1_000_000),
+    'fallback-call',
+    {
+      reserved_microusd: 500_000,
+      expires_at_ms: 10_000,
+      model: 'claude-sonnet-5',
+      job_id: null,
+    },
+    1_000,
+  );
+  const usage = {
+    input_tokens: 100,
+    output_tokens: 10,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+  };
+  const settled = settleBudgetReservationInLedger(
+    reserved,
+    'fallback-call',
+    'claude-opus-5',
+    usage,
+    750,
+    2_000,
+  );
+  assert.equal(settled.by_model['claude-sonnet-5'], undefined);
+  assert.equal(settled.by_model['claude-opus-5'].call_count, 1);
+});
+
 test('a mid-stream failure after partial output is charged, not refunded', () => {
   const reserved = admitBudgetReservation(
     ledger(1_000_000),

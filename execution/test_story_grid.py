@@ -45,10 +45,10 @@ class TestCanonicalization(unittest.TestCase):
         self.assertEqual(canonical_external("horror"), "Horror")
         self.assertEqual(canonical_external("  COMEDY "), "Comedy")
 
-    def test_synonyms(self):
-        self.assertEqual(canonical_external("romance"), "Love")
-        self.assertEqual(canonical_external("sci-fi"), "Action")
-        self.assertEqual(canonical_external("mystery"), "Crime")
+    def test_semantic_synonyms_are_not_silently_remapped(self):
+        for genre in ("romance", "sci-fi", "Drama", "mystery"):
+            with self.subTest(genre=genre):
+                self.assertIsNone(canonical_external(genre))
 
     def test_unknown_is_none(self):
         self.assertIsNone(canonical_external("interpretive dance"))
@@ -56,10 +56,9 @@ class TestCanonicalization(unittest.TestCase):
 
 
 class TestParseDetection(unittest.TestCase):
-    def test_comedy_defaults_pairing_when_missing(self):
-        det = parse_detection({"external_genre": "Comedy", "is_comedy": True})
-        self.assertTrue(det["is_comedy"])
-        self.assertEqual(det["comedy_paired_genre"], "Love")  # default
+    def test_comedy_requires_pairing(self):
+        with self.assertRaisesRegex(ValueError, "paired_genre"):
+            parse_detection({"external_genre": "Comedy", "is_comedy": True})
 
     def test_comedy_keeps_valid_pairing(self):
         det = parse_detection({"external_genre": "Comedy", "is_comedy": True,
@@ -68,7 +67,10 @@ class TestParseDetection(unittest.TestCase):
         self.assertEqual(det["comedy_subgenre"], "Buddy Comedy")
 
     def test_primary_comedy_forces_is_comedy(self):
-        det = parse_detection({"external_genre": "comedy"})
+        det = parse_detection({
+            "external_genre": "comedy",
+            "comedy_paired_genre": "Love",
+        })
         self.assertTrue(det["is_comedy"])
 
     def test_dramatic_with_comedic_tone(self):
@@ -77,14 +79,18 @@ class TestParseDetection(unittest.TestCase):
         self.assertTrue(det["comedic_tone"])
         self.assertIsNone(det["comedy_paired_genre"])
 
-    def test_unknown_genre_falls_back_to_society(self):
-        det = parse_detection({"external_genre": "avant-garde nonsense"})
-        self.assertEqual(det["external_genre"], "Society")
+    def test_unknown_genre_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "external_genre"):
+            parse_detection({"external_genre": "avant-garde nonsense"})
 
-    def test_invalid_subgenre_dropped(self):
-        det = parse_detection({"external_genre": "Comedy", "is_comedy": True,
-                               "comedy_subgenre": "Not A Subgenre"})
-        self.assertIsNone(det["comedy_subgenre"])
+    def test_invalid_subgenre_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "comedy_subgenre"):
+            parse_detection({
+                "external_genre": "Comedy",
+                "is_comedy": True,
+                "comedy_paired_genre": "Love",
+                "comedy_subgenre": "Not A Subgenre",
+            })
 
 
 class TestGenreCard(unittest.TestCase):
@@ -114,9 +120,13 @@ class TestGenreCard(unittest.TestCase):
 
     def test_card_accepts_raw_detection(self):
         # build_genre_card should normalise a raw (unparsed) detection too
-        card = build_genre_card({"external_genre": "comedy"})
+        card = build_genre_card({
+            "external_genre": "comedy",
+            "comedy_paired_genre": "Love",
+            "comedy_subgenre": "Rom-Com",
+        })
         self.assertIn("Comedy", card)
-        self.assertIn("PAIRED GENRE", card)  # defaulted to Love
+        self.assertIn("PAIRED GENRE", card)
 
     def test_dramatic_card_has_no_comedy_grading(self):
         card = build_genre_card({"external_genre": "Thriller"})

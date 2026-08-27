@@ -13,6 +13,7 @@ const proxyAuth_1 = require("./proxyAuth");
 const reanalysisQueue_1 = require("./reanalysisQueue");
 const reanalysisLock_1 = require("./reanalysisLock");
 const queueActions_1 = require("./queueActions");
+const ingestQueue_1 = require("./ingestQueue");
 const corsMiddleware = (0, cors_1.default)({
     origin: [
         "https://lemon-screenplay-dashboard.web.app",
@@ -21,7 +22,6 @@ const corsMiddleware = (0, cors_1.default)({
         /^http:\/\/127\.0\.0\.1:\d+$/,
     ],
 });
-const MODELS = new Set(["haiku", "sonnet", "opus", "hybrid", "auto"]);
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET
     ?? "lemon-screenplay-dashboard.firebasestorage.app";
 exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSeconds: 30, memory: "256MiB" }, (req, res) => {
@@ -46,7 +46,16 @@ exports.queueManager = (0, https_1.onRequest)({ region: "us-central1", timeoutSe
         const jobIds = Array.isArray(body.jobIds)
             ? body.jobIds.filter((id) => typeof id === "string" && id.length > 0).slice(0, 100)
             : [];
-        const model = typeof body.model === "string" && MODELS.has(body.model) ? body.model : "sonnet";
+        let model;
+        try {
+            model = (0, ingestQueue_1.parseIngestModel)(body.model, "sonnet");
+        }
+        catch (error) {
+            res.status(400).json({
+                error: error instanceof Error ? error.message : "Requested analysis model is invalid.",
+            });
+            return;
+        }
         if (action === "reanalyze") {
             const screenplayIds = Array.isArray(body.screenplayIds)
                 ? body.screenplayIds

@@ -1,0 +1,143 @@
+{
+  "version": "v9-false-positive-traps-2026-08-27",
+  "traps": [
+    {
+      "name": "character_vacuum",
+      "tier": "fundamental",
+      "weight": 1.0,
+      "description": "Character.star_role_potential < 5 AND Character.supporting_cast_function < 5",
+      "expression": {
+        "all": [
+          { "path": "character.sub_scores.star_role_potential.score", "lt": 5 },
+          { "path": "character.sub_scores.supporting_cast_function.score", "lt": 5 }
+        ]
+      }
+    },
+    {
+      "name": "complexity_theater",
+      "tier": "fundamental",
+      "weight": 1.0,
+      "description": "Structure.scene_necessity < 5 AND Structure.progressive_complications < 5",
+      "expression": {
+        "all": [
+          { "path": "structure.sub_scores.scene_necessity.score", "lt": 5 },
+          { "path": "structure.sub_scores.progressive_complications.score", "lt": 5 }
+        ]
+      }
+    },
+    {
+      "name": "genre_confusion",
+      "tier": "fundamental",
+      "weight": 1.0,
+      "description": "Concept.genre_execution < 5 AND Concept.genre_promise_delivery < 5",
+      "expression": {
+        "all": [
+          { "path": "concept.sub_scores.genre_execution.score", "lt": 5 },
+          { "path": "concept.sub_scores.genre_promise_delivery.score", "lt": 5 }
+        ]
+      }
+    },
+    {
+      "name": "ending_mirage",
+      "tier": "fundamental",
+      "weight": 1.0,
+      "description": "Structure.ending_payoff >= 7 AND Emotional.catharsis_quality < 5",
+      "expression": {
+        "all": [
+          { "path": "structure.sub_scores.ending_payoff.score", "gte": 7 },
+          { "path": "emotional_resonance.sub_scores.catharsis_quality.score", "lt": 5 }
+        ]
+      }
+    },
+    {
+      "name": "premise_execution_gap",
+      "tier": "addressable",
+      "weight": 0.5,
+      "description": "Concept.pillar_score - average(Structure.pillar_score, Craft.pillar_score) >= 2.0",
+      "expression": {
+        "gap_gte": {
+          "left": "concept.pillar_score",
+          "right_average": ["structure.pillar_score", "craft_scene.pillar_score"],
+          "value": 2.0
+        }
+      }
+    },
+    {
+      "name": "first_act_illusion",
+      "tier": "addressable",
+      "weight": 0.5,
+      "description": "Structure.beginning_hook >= 7 AND (Structure.middle_build < 5 OR Structure.ending_payoff < 5)",
+      "expression": {
+        "all": [
+          { "path": "structure.sub_scores.beginning_hook.score", "gte": 7 },
+          {
+            "any": [
+              { "path": "structure.sub_scores.middle_build.score", "lt": 5 },
+              { "path": "structure.sub_scores.ending_payoff.score", "lt": 5 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "originality_inflation",
+      "tier": "addressable",
+      "weight": 0.5,
+      "description": "Concept.freshness >= 7 AND Craft.pillar_score < 5",
+      "expression": {
+        "all": [
+          { "path": "concept.sub_scores.freshness.score", "gte": 7 },
+          { "path": "craft_scene.pillar_score", "lt": 5 }
+        ]
+      }
+    },
+    {
+      "name": "dialogue_disguise",
+      "tier": "addressable",
+      "weight": 0.5,
+      "description": "Craft.dialogue_voice_distinction >= 7 AND Structure.progressive_complications < 5",
+      "expression": {
+        "all": [
+          { "path": "craft_scene.sub_scores.dialogue_voice_distinction.score", "gte": 7 },
+          { "path": "structure.sub_scores.progressive_complications.score", "lt": 5 }
+        ]
+      }
+    },
+    {
+      "name": "tonal_whiplash",
+      "tier": "addressable",
+      "weight": 0.5,
+      "description": "Emotional.emotional_clarity < 5 AND Craft.exposition_handling >= 6",
+      "expression": {
+        "all": [
+          { "path": "emotional_resonance.sub_scores.emotional_clarity.score", "lt": 5 },
+          { "path": "craft_scene.sub_scores.exposition_handling.score", "gte": 6 }
+        ]
+      }
+    },
+    {
+      "name": "sympathy_substitution",
+      "tier": "addressable",
+      "weight": 0.5,
+      "description": "Emotional.empathy_investment >= 7 AND Character.arc_delivery < 5",
+      "expression": {
+        "all": [
+          { "path": "emotional_resonance.sub_scores.empathy_investment.score", "gte": 7 },
+          { "path": "character.sub_scores.arc_delivery.score", "lt": 5 }
+        ]
+      }
+    },
+    {
+      "name": "second_lead_syndrome",
+      "tier": "warning",
+      "weight": 0.0,
+      "description": "Character.supporting_cast_function >= 7 AND Character.star_role_potential < 5",
+      "expression": {
+        "all": [
+          { "path": "character.sub_scores.supporting_cast_function.score", "gte": 7 },
+          { "path": "character.sub_scores.star_role_potential.score", "lt": 5 }
+        ]
+      }
+    }
+  ]
+}
