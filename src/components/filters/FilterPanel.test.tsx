@@ -10,6 +10,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { FilterPanel } from './FilterPanel';
 import { useFilterStore } from '@/stores/filterStore';
 import { DEFAULT_FILTER_STATE } from '@/types/filters';
+import i18n from '@/i18n';
 
 // Mock the data-derived genres/themes hooks
 vi.mock('@/hooks/useScreenplays', () => ({
@@ -56,6 +57,16 @@ describe('FilterPanel', () => {
             render(<FilterPanel isOpen={true} onClose={mockOnClose} />);
             fireEvent.click(screen.getByText('Apply Filters'));
             expect(mockOnClose).toHaveBeenCalledTimes(1);
+        });
+
+        it('renders the filter interface in Spanish', async () => {
+            await i18n.changeLanguage('es');
+            render(<FilterPanel isOpen={true} onClose={mockOnClose} />);
+
+            expect(screen.getByText('Filtros avanzados')).toBeInTheDocument();
+            expect(screen.getByText('Opciones de vista')).toBeInTheDocument();
+            expect(screen.getByText('Género y tema')).toBeInTheDocument();
+            expect(screen.getByText('Aplicar filtros')).toBeInTheDocument();
         });
     });
 

@@ -6,8 +6,10 @@
 import { useComparisonStore, useIsComparisonFull } from '@/stores/comparisonStore';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 export function ComparisonBar() {
+  const { t } = useTranslation();
   const {
     selectedIds,
     removeFromComparison,
@@ -32,7 +34,7 @@ export function ComparisonBar() {
             {/* Left - Selected Items */}
             <div className="flex items-center gap-4">
               <span className="text-sm text-black-400">
-                Compare ({selectedIds.length}/3):
+                {t('Compare')} ({selectedIds.length}/3):
               </span>
 
               <div className="flex items-center gap-2">
@@ -54,6 +56,7 @@ export function ComparisonBar() {
                     </span>
                     <button
                       onClick={() => removeFromComparison(sp.id)}
+                      aria-label={t('Remove {{title}} from comparison', { title: sp.title })}
                       className="p-0.5 rounded hover:bg-black-700 text-black-500 hover:text-red-400"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -66,7 +69,7 @@ export function ComparisonBar() {
                 {/* Add more placeholder */}
                 {!isComparisonFull && (
                   <div className="px-3 py-1.5 rounded-lg border border-dashed border-black-600 text-black-500 text-sm">
-                    + Click cards to add
+                    {t('+ Click cards to add')}
                   </div>
                 )}
               </div>
@@ -78,14 +81,14 @@ export function ComparisonBar() {
                 onClick={clearComparison}
                 className="btn btn-ghost text-sm"
               >
-                Clear
+                {t('Clear')}
               </button>
               <button
                 onClick={() => setIsComparing(true)}
                 disabled={selectedIds.length < 2}
                 className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Compare
+                {t('Compare')}
                 {selectedIds.length >= 2 && (
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />

@@ -25,6 +25,7 @@ import {
 } from './modal';
 import { useIsAdmin } from '@/stores/authStore';
 import type { PercentileRank } from '@/lib/percentileRanking';
+import { useTranslation } from 'react-i18next';
 
 interface ScreenplayModalProps {
   screenplay: Screenplay | null;
@@ -43,6 +44,7 @@ export function ScreenplayModal({
   allScreenplays = [],
   onSelectScreenplay,
 }: ScreenplayModalProps) {
+  const { t } = useTranslation();
   const isAdmin = useIsAdmin();
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -158,7 +160,7 @@ export function ScreenplayModal({
             {/* Logline */}
             <div>
               <h3 className="text-lg font-display text-gold-200 mb-4 flex items-center gap-2">
-                <span>📄</span>Logline
+                <span>📄</span>{t('Logline')}
               </h3>
               <p className="text-black-300 leading-relaxed">{screenplay.logline}</p>
             </div>

@@ -61,7 +61,7 @@ export function DiscoverAppHeader({
 
         <div className="cinema-header-title hidden lg:flex">
           <span aria-hidden="true" />
-          <strong>{sectionTitle}</strong>
+          <strong>{t(sectionTitle)}</strong>
         </div>
 
         <AuthenticatedNavigation className="order-3 w-full lg:order-none lg:w-auto" />

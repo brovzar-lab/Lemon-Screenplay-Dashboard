@@ -3,9 +3,11 @@
  */
 
 import { clsx } from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { useDevExec } from '@/contexts/DevExecContext';
 
 export function DevExecToggle() {
+    const { t } = useTranslation();
     const { toggleChat, isOpen, unreadCount } = useDevExec();
 
     return (
@@ -17,8 +19,8 @@ export function DevExecToggle() {
                     ? 'text-gold-400 bg-gold-500/10 border border-gold-500/30'
                     : 'text-black-400 hover:text-gold-400 hover:bg-black-800/50',
             )}
-            title="Development Executive AI"
-            aria-label="Toggle Dev Exec chat"
+            title={t('Development Executive AI')}
+            aria-label={t('Toggle Dev Exec chat')}
         >
             <span className="text-lg leading-none">🎬</span>
 

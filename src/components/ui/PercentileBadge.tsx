@@ -9,6 +9,7 @@
 
 import { clsx } from 'clsx';
 import type { PercentileRank } from '@/lib/percentileRanking';
+import { useTranslation } from 'react-i18next';
 
 interface PercentileBadgeProps {
   rank: PercentileRank | null | undefined;
@@ -19,6 +20,7 @@ interface PercentileBadgeProps {
 }
 
 export function PercentileBadge({ rank, showLabel = true, showAll = false, className }: PercentileBadgeProps) {
+  const { t } = useTranslation();
   if (!rank) return null;
 
   // Only show badge for elite and strong tiers
@@ -37,7 +39,10 @@ export function PercentileBadge({ rank, showLabel = true, showAll = false, class
             : 'bg-black-700/50 text-black-300 border border-black-600/50',
         className,
       )}
-      title={`#${rank.overallPosition} of ${rank.corpusSize} overall`}
+      title={t('#{{position}} of {{total}} overall', {
+        position: rank.overallPosition,
+        total: rank.corpusSize,
+      })}
     >
       {showLabel && <span>{rank.label}</span>}
     </span>

@@ -1,6 +1,8 @@
 import { useThemeStore } from '@/stores/themeStore';
+import { useTranslation } from 'react-i18next';
 
 export function ThemeToggle() {
+  const { t } = useTranslation();
   const { isDark, setTheme } = useThemeStore();
 
   return (
@@ -8,8 +10,8 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       className="theme-toggle"
-      title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-      aria-label={`Use ${isDark ? 'light' : 'dark'} theme`}
+      title={t('Switch to {{mode}} mode', { mode: t(isDark ? 'light' : 'dark') })}
+      aria-label={t('Use {{mode}} theme', { mode: t(isDark ? 'light' : 'dark') })}
     >
       {isDark ? (
         <svg

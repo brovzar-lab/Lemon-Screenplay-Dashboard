@@ -13,6 +13,9 @@ import {
   ProducerTake,
   ScoresPanel,
 } from './modal';
+import { useTranslation } from 'react-i18next';
+import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
+import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
 
 interface ReadingRoomProps {
   screenplays: Screenplay[];
@@ -27,6 +30,7 @@ export function ReadingRoom({
   percentileRanks,
   onClose,
 }: ReadingRoomProps) {
+  const { t, i18n } = useTranslation();
   const isAdmin = useIsAdmin();
   const [currentId, setCurrentId] = useState(initialScreenplayId ?? screenplays[0]?.id);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -37,8 +41,11 @@ export function ReadingRoom({
     const index = screenplays.findIndex((screenplay) => screenplay.id === currentId);
     return index >= 0 ? index : 0;
   }, [currentId, screenplays]);
-  const screenplay = screenplays[currentIndex];
-  const isFavorite = screenplay ? quickFavorites.includes(screenplay.id) : false;
+  const originalScreenplay = screenplays[currentIndex];
+  const screenplay = originalScreenplay
+    ? localizedScreenplay(originalScreenplay, i18n.resolvedLanguage === 'es' ? 'es' : 'en')
+    : undefined;
+  const isFavorite = originalScreenplay ? quickFavorites.includes(originalScreenplay.id) : false;
 
   const navigate = useCallback(
     (direction: -1 | 1) => {
@@ -105,9 +112,9 @@ export function ReadingRoom({
       <header className="shrink-0 border-b border-black-700 bg-black-900 px-4 md:px-6 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex items-center gap-3">
-            <span className="text-xs font-semibold text-gold-400 uppercase">Reading Room</span>
+            <span className="text-xs font-semibold text-gold-400 uppercase">{t('Reading Room')}</span>
             <span className="text-xs text-black-500 tabular-nums">
-              {currentIndex + 1} of {screenplays.length}
+              {t('{{current}} of {{total}}', { current: currentIndex + 1, total: screenplays.length })}
             </span>
             <RecommendationBadge tier={screenplay.recommendation} />
           </div>
@@ -117,8 +124,8 @@ export function ReadingRoom({
               onClick={() => navigate(-1)}
               disabled={currentIndex === 0}
               className="w-10 h-10 flex items-center justify-center rounded border border-black-600 text-xl disabled:opacity-30"
-              aria-label="Previous screenplay"
-              title="Previous screenplay"
+              aria-label={t('Previous screenplay')}
+              title={t('Previous screenplay')}
             >
               ‹
             </button>
@@ -126,8 +133,8 @@ export function ReadingRoom({
               onClick={() => navigate(1)}
               disabled={currentIndex === screenplays.length - 1}
               className="w-10 h-10 flex items-center justify-center rounded border border-black-600 text-xl disabled:opacity-30"
-              aria-label="Next screenplay"
-              title="Next screenplay"
+              aria-label={t('Next screenplay')}
+              title={t('Next screenplay')}
             >
               ›
             </button>
@@ -138,8 +145,8 @@ export function ReadingRoom({
                   ? 'border-gold-500 bg-gold-500/15 text-gold-300'
                   : 'border-black-600 text-black-400'
               }`}
-              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              aria-label={isFavorite ? t('Remove from favorites') : t('Add to favorites')}
+              title={isFavorite ? t('Remove from favorites') : t('Add to favorites')}
               aria-pressed={isFavorite}
             >
               ★
@@ -147,8 +154,8 @@ export function ReadingRoom({
             <button
               onClick={onClose}
               className="w-10 h-10 flex items-center justify-center rounded border border-black-600 text-xl"
-              aria-label="Exit Reading Room"
-              title="Exit Reading Room"
+              aria-label={t('Exit Reading Room')}
+              title={t('Exit Reading Room')}
             >
               ×
             </button>
@@ -166,19 +173,22 @@ export function ReadingRoom({
               >
                 {displayTitle}
               </h1>
-              {displayAuthor && <p className="text-black-400 mt-1">by {displayAuthor}</p>}
+              {displayAuthor && <p className="text-black-400 mt-1">{t('by')} {t(displayAuthor)}</p>}
               <div className="flex flex-wrap gap-2 mt-4">
                 <span className="chip chip-genre">{screenplay.genre}</span>
                 <span className="chip chip-budget">{screenplay.budgetCategory}</span>
               </div>
             </div>
 
+            {originalScreenplay && analysisIsEnglishFallback(originalScreenplay, i18n.resolvedLanguage === 'es' ? 'es' : 'en') && (
+              <AnalysisLanguageNotice screenplay={originalScreenplay} />
+            )}
             <AlertBanners screenplay={screenplay} />
             <FieldPositionPanel rank={percentileRanks.get(screenplay.id)} />
 
             <section aria-labelledby="reading-room-logline">
               <h2 id="reading-room-logline" className="text-lg font-display text-gold-200 mb-3">
-                Logline
+                {t('Logline')}
               </h2>
               <p className="text-lg text-black-200 leading-relaxed">{screenplay.logline}</p>
             </section>
@@ -197,7 +207,11 @@ export function ReadingRoom({
       </div>
 
       <span className="sr-only" aria-live="polite">
-        Reviewing {displayTitle}, screenplay {currentIndex + 1} of {screenplays.length}
+        {t('Reviewing {{title}}, screenplay {{current}} of {{total}}', {
+          title: displayTitle,
+          current: currentIndex + 1,
+          total: screenplays.length,
+        })}
       </span>
     </div>
   );

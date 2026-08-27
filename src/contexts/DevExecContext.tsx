@@ -6,6 +6,7 @@
  */
 
 import { createContext, useContext, useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 import { sendDevExecMessage, type ChatMessage } from '@/services/devExecService';
 import { useToastStore } from '@/stores/toastStore';
@@ -36,6 +37,7 @@ interface DevExecProviderProps {
 }
 
 export function DevExecProvider({ children, screenplays }: DevExecProviderProps) {
+    const { t, i18n } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -105,6 +107,7 @@ export function DevExecProvider({ children, screenplays }: DevExecProviderProps)
                 content,
                 screenplaysRef.current,
                 messages.slice(-12),
+                i18n.resolvedLanguage === 'es' ? 'es' : 'en',
             );
 
             const assistantMessage: ChatMessage = {
@@ -118,20 +121,18 @@ export function DevExecProvider({ children, screenplays }: DevExecProviderProps)
             if (isMinimized) setUnreadCount(prev => prev + 1);
         } catch (error) {
             console.error('[DevExec] Send error:', error);
-            useToastStore.getState().addToast('Failed to send message — please try again');
+            useToastStore.getState().addToast(t('Failed to send message — please try again'));
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant' as const,
-                content: error instanceof Error
-                    ? `Error: ${error.message}`
-                    : 'Connection issue — try again in a moment.',
+                content: t('Connection issue — try again in a moment.'),
                 timestamp: Date.now(),
             }]);
         } finally {
             setIsLoading(false);
             isLoadingRef.current = false;
         }
-    }, [messages, isMinimized]);
+    }, [i18n.resolvedLanguage, isMinimized, messages, t]);
 
     return (
         <DevExecContext.Provider value={{

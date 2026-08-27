@@ -11,6 +11,7 @@ import { useGenres, useThemes } from '@/hooks/useScreenplays';
 import { RangeSlider } from './RangeSlider';
 import { MultiSelect } from './MultiSelect';
 import { CategoryFilter } from './CategoryFilter';
+import { useTranslation } from 'react-i18next';
 
 // Fallback genres/themes used while data is loading
 const FALLBACK_GENRES = [
@@ -33,6 +34,7 @@ interface FilterPanelProps {
 }
 
 export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
+  const { t } = useTranslation();
   // Data-derived genres/themes (fall back to hardcoded while loading)
   const dataGenres = useGenres();
   const dataThemes = useThemes();
@@ -138,7 +140,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="Advanced Filters">
+    <div className="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label={t('Advanced Filters')}>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black-950/80 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
@@ -147,14 +149,14 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-black-700">
           <div>
-            <h3 className="text-lg font-display" style={{ color: 'var(--sp-text)' }}>Advanced Filters</h3>
+            <h3 className="text-lg font-display" style={{ color: 'var(--sp-text)' }}>{t('Advanced Filters')}</h3>
             {activeFilterCount > 0 && (
-              <p className="text-xs" style={{ color: 'var(--sp-accent)' }}>{activeFilterCount} filters active</p>
+              <p className="text-xs" style={{ color: 'var(--sp-accent)' }}>{t('{{count}} filters active', { count: activeFilterCount })}</p>
             )}
           </div>
           <button
             onClick={onClose}
-            aria-label="Close filters"
+            aria-label={t('Close filters')}
             className="p-1 rounded hover:bg-black-700 text-black-400 hover:text-black-200"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -167,7 +169,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {/* Display Options Section */}
           <Section
-            title="Display Options"
+            title={t('Display Options')}
             isOpen={activeSection === 'display'}
             onToggle={() => toggleSection('display')}
           >
@@ -185,10 +187,10 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                 </div>
                 <div>
                   <span className="text-sm" style={{ color: 'var(--sp-text)' }}>
-                    Hide produced films
+                    {t('Hide produced films')}
                   </span>
                   <p className="text-xs text-black-500">
-                    Exclude screenplays that became movies
+                    {t('Exclude screenplays that became movies')}
                   </p>
                 </div>
               </label>
@@ -207,10 +209,10 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                 </div>
                 <div>
                   <span className="text-sm" style={{ color: 'var(--sp-text)' }}>
-                    No PDF linked
+                    {t('No PDF linked')}
                   </span>
                   <p className="text-xs text-black-500">
-                    Show only screenplays whose PDF is not in Storage
+                    {t('Show only screenplays whose PDF is not in Storage')}
                   </p>
                 </div>
               </label>
@@ -227,8 +229,8 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   )}
                   <p className="text-xs text-amber-300 leading-relaxed">
                     {isPdfScanning
-                      ? 'Scanning Storage… filter will update automatically.'
-                      : <>Open <strong>Settings → Screenplays</strong> to scan — the filter will activate once the scan completes.</>}
+                      ? t('Scanning Storage… filter will update automatically.')
+                      : t('Open Settings → Screenplays to scan. The filter will activate when the scan is complete.')}
                   </p>
                 </div>
               )}
@@ -239,7 +241,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <p className="text-xs text-emerald-300">Live Storage data active — filter is accurate.</p>
+                  <p className="text-xs text-emerald-300">{t('Live Storage data active. The filter is accurate.')}</p>
                 </div>
               )}
             </div>
@@ -247,7 +249,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
 
           {/* Category Section */}
           <Section
-            title="Source Category"
+            title={t('Source Category')}
             isOpen={activeSection === 'category'}
             onToggle={() => toggleSection('category')}
             badge={categories.length > 0 ? `${categories.length}` : undefined}
@@ -259,32 +261,32 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
 
           {/* Genre & Theme Section */}
           <Section
-            title="Genre & Theme"
+            title={t('Genre & Theme')}
             isOpen={activeSection === 'genre'}
             onToggle={() => toggleSection('genre')}
             badge={genres.length + themes.length > 0 ? `${genres.length + themes.length}` : undefined}
           >
             <div className="space-y-4">
               <MultiSelect
-                label="Genres"
+                label={t('Genres')}
                 options={availableGenres}
                 selected={genres}
                 onChange={setGenres}
-                placeholder="Select genres..."
+                placeholder={t('Select genres...')}
               />
               <MultiSelect
-                label="Themes"
+                label={t('Themes')}
                 options={availableThemes}
                 selected={themes}
                 onChange={setThemes}
-                placeholder="Select themes..."
+                placeholder={t('Select themes...')}
               />
             </div>
           </Section>
 
           {/* Core Scores Section */}
           <Section
-            title="Core Scores"
+            title={t('Core Scores')}
             isOpen={activeSection === 'scores'}
             onToggle={() => toggleSection('scores')}
             badge={[weightedScoreRange.enabled, cvsRange.enabled].filter(Boolean).length > 0
@@ -293,7 +295,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
           >
             <div className="space-y-3">
               <RangeSlider
-                label="Final Score"
+                label={t('Final Score')}
                 min={0}
                 max={10}
                 step={0.5}
@@ -318,7 +320,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
 
           {/* Legacy compatibility estimates — wrapped in AdvancedDisclosure (FILTER-02) */}
           <Section
-            title="Legacy Score Estimates"
+            title={t('Legacy Score Estimates')}
             isOpen={activeSection === 'dimensions'}
             onToggle={() => toggleSection('dimensions')}
             badge={[
@@ -338,12 +340,11 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
               onToggle={() => setIsAdvancedOpen((prev) => !prev)}
             >
               <p className="mb-3 text-xs leading-5 text-black-400">
-                Compatibility estimates for older dashboard filters. They are not independent
-                reader scores. Open a screenplay to see its five specialist pillars.
+                {t('Compatibility estimates for older dashboard filters. They are not independent reader scores. Open a screenplay to see its five specialist pillars.')}
               </p>
               <div className="space-y-3">
                 <RangeSlider
-                  label="Concept"
+                  label={t('Concept')}
                   min={0}
                   max={10}
                   step={0.5}
@@ -353,7 +354,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   onEnabledChange={(enabled) => setConceptRange({ enabled })}
                 />
                 <RangeSlider
-                  label="Structure"
+                  label={t('Structure')}
                   min={0}
                   max={10}
                   step={0.5}
@@ -363,7 +364,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   onEnabledChange={(enabled) => setStructureRange({ enabled })}
                 />
                 <RangeSlider
-                  label="Protagonist"
+                  label={t('Protagonist')}
                   min={0}
                   max={10}
                   step={0.5}
@@ -373,7 +374,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   onEnabledChange={(enabled) => setProtagonistRange({ enabled })}
                 />
                 <RangeSlider
-                  label="Supporting Cast"
+                  label={t('Supporting Cast')}
                   min={0}
                   max={10}
                   step={0.5}
@@ -383,7 +384,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   onEnabledChange={(enabled) => setSupportingCastRange({ enabled })}
                 />
                 <RangeSlider
-                  label="Dialogue"
+                  label={t('Dialogue')}
                   min={0}
                   max={10}
                   step={0.5}
@@ -393,7 +394,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   onEnabledChange={(enabled) => setDialogueRange({ enabled })}
                 />
                 <RangeSlider
-                  label="Genre Execution"
+                  label={t('Genre Execution')}
                   min={0}
                   max={10}
                   step={0.5}
@@ -403,7 +404,7 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
                   onEnabledChange={(enabled) => setGenreExecutionRange({ enabled })}
                 />
                 <RangeSlider
-                  label="Originality"
+                  label={t('Originality')}
                   min={0}
                   max={10}
                   step={0.5}
@@ -418,14 +419,14 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
 
           {/* Producer Metrics Section */}
           <Section
-            title="Market Analysis"
+            title={t('Market Analysis')}
             isOpen={activeSection === 'producer'}
             onToggle={() => toggleSection('producer')}
             badge={marketPotentialRange.enabled ? '1' : undefined}
           >
             <div className="space-y-3">
               <RangeSlider
-                label="Market Potential"
+                label={t('Market Potential')}
                 min={0}
                 max={10}
                 step={0.5}
@@ -444,13 +445,13 @@ export function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
             onClick={resetFilters}
             className="btn btn-ghost text-sm"
           >
-            Reset All
+            {t('Reset All')}
           </button>
           <button
             onClick={onClose}
             className="btn btn-primary"
           >
-            Apply Filters
+            {t('Apply Filters')}
           </button>
         </div>
       </div>
@@ -510,6 +511,7 @@ interface AdvancedDisclosureProps {
 }
 
 function AdvancedDisclosure({ isOpen, onToggle, children }: AdvancedDisclosureProps) {
+  const { t } = useTranslation();
   return (
     <div className="border border-black-700 rounded-lg overflow-hidden">
       <button
@@ -517,7 +519,7 @@ function AdvancedDisclosure({ isOpen, onToggle, children }: AdvancedDisclosurePr
         aria-expanded={isOpen}
         className="w-full flex items-center justify-between p-3 text-sm font-medium text-black-200 hover:bg-black-800 transition-colors"
       >
-        <span>Advanced</span>
+        <span>{t('Advanced')}</span>
         <svg
           className={clsx('w-4 h-4 transition-transform', isOpen && 'rotate-180')}
           fill="none"

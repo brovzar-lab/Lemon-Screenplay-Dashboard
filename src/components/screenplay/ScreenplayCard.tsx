@@ -25,6 +25,7 @@ import { PercentileBadge } from '@/components/ui/PercentileBadge';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import type { PercentileRank } from '@/lib/percentileRanking';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import { useTranslation } from 'react-i18next';
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
@@ -37,6 +38,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
   onClick,
   percentileRank,
 }: ScreenplayCardProps) {
+  const { t } = useTranslation();
   const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
   const isAdmin = useIsAdmin();
   const isBulkSelected = useIsSelected(screenplay.id);
@@ -114,7 +116,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
         }}
         tabIndex={0}
         role="button"
-        aria-label={`View details for ${displayTitle}`}
+        aria-label={t('View details for {{title}}', { title: displayTitle })}
         onMouseEnter={handlePeekEnter}
         onMouseLeave={handlePeekLeave}
         className={clsx(
@@ -142,7 +144,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
                 ? 'bg-blue-500 border-blue-400 text-white'
                 : 'border-black-500 bg-black-800/50 hover:border-blue-500/50',
             )}
-            aria-label={isBulkSelected ? 'Deselect screenplay' : 'Select screenplay'}
+            aria-label={t(isBulkSelected ? 'Deselect screenplay' : 'Select screenplay')}
           >
             {isBulkSelected && (
               <svg
@@ -169,7 +171,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
                 ? 'opacity-100 bg-red-500 border-red-400 text-white'
                 : 'opacity-0 group-hover:opacity-100 border-red-400/50 text-transparent hover:border-red-400',
             )}
-            aria-label={isDeleteSelected ? 'Deselect for deletion' : 'Select for deletion'}
+            aria-label={t(isDeleteSelected ? 'Deselect for deletion' : 'Select for deletion')}
           >
             {isDeleteSelected && '✓'}
           </button>
@@ -185,8 +187,8 @@ export const ScreenplayCard = memo(function ScreenplayCard({
               'opacity-0 group-hover:opacity-100',
               'bg-red-600/10 text-red-400 hover:bg-red-600/20 hover:text-red-300 border border-red-500/20',
             )}
-            aria-label="Delete screenplay"
-            title="Delete screenplay"
+            aria-label={t('Delete screenplay')}
+            title={t('Delete screenplay')}
           >
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -275,7 +277,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
                   className="text-[9px] font-medium tracking-widest uppercase block leading-none mb-0.5"
                   style={{ color: 'var(--sp-text-3)' }}
                 >
-                  Score
+                  {t('Score')}
                 </span>
                 <span
                   className={clsx(isPass ? 'text-lg' : 'text-2xl', 'font-bold leading-none')}
@@ -334,8 +336,10 @@ export const ScreenplayCard = memo(function ScreenplayCard({
           isOpen={showDeleteConfirm}
           onConfirm={handleConfirmDelete}
           onCancel={() => setShowDeleteConfirm(false)}
-          title={`Delete "${displayTitle}"?`}
-          message={`Remove "${displayTitle}" from the dashboard? You can restore it from Settings > Data.`}
+          title={t('Delete "{{title}}"?', { title: displayTitle })}
+          message={t('Remove "{{title}}" from the dashboard? You can restore it from Settings > Data.', {
+            title: displayTitle,
+          })}
           isPending={deleteMutation.isPending}
         />
       )}

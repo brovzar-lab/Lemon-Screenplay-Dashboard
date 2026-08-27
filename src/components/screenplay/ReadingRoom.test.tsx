@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createTestScreenplay } from '@/test/factories';
+import i18n from '@/i18n';
 import { ReadingRoom } from './ReadingRoom';
 
 const mockToggleFavorite = vi.fn();
@@ -105,5 +106,16 @@ describe('ReadingRoom', () => {
 
     unmount();
     expect(document.body.style.overflow).toBe('');
+  });
+
+  it('localizes the Reading Room controls without translating screenplay titles', async () => {
+    await i18n.changeLanguage('es');
+    render(<ReadingRoom screenplays={screenplays} percentileRanks={new Map()} onClose={vi.fn()} />);
+
+    expect(screen.getByText('Sala de lectura')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'First Script' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Guion anterior' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Guion siguiente' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Salir de la sala de lectura' })).toBeInTheDocument();
   });
 });

@@ -8,12 +8,14 @@ import { useMemo } from 'react';
 import { useFilterStore } from '@/stores/filterStore';
 import useCategories from '@/hooks/useCategories';
 import type { Screenplay } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface CollectionTabsProps {
   screenplays: Screenplay[];
 }
 
 export function CollectionTabs({ screenplays }: CollectionTabsProps) {
+  const { t } = useTranslation();
   const categories = useFilterStore((s) => s.categories);
   const setCategories = useFilterStore((s) => s.setCategories);
   const { getCategoryById } = useCategories();
@@ -59,9 +61,9 @@ export function CollectionTabs({ screenplays }: CollectionTabsProps) {
         onClick={() => handleTabClick('all')}
         className="px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap"
         style={activeCategory === 'all' ? { background: 'var(--sp-accent-soft)', color: 'var(--sp-accent)', fontWeight: 600 } : { color: 'var(--sp-text-3)' }}
-        title="All Categories"
+        title={t('All Categories')}
       >
-        <span>All</span>
+        <span>{t('All')}</span>
         <span
           className="text-xs px-1.5 py-0.5 rounded-full"
           style={activeCategory === 'all' ? { background: 'var(--sp-accent-soft)', color: 'var(--sp-accent)', fontVariantNumeric: 'tabular-nums' } : { background: 'var(--sp-surface-2)', color: 'var(--sp-text-3)', fontVariantNumeric: 'tabular-nums' }}
