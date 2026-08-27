@@ -28,7 +28,21 @@ const MODEL_PRICING = {
         cacheRead: 0.3,
         output: 15,
     },
+    "claude-sonnet-5": {
+        input: 2,
+        cacheWrite5m: 2.5,
+        cacheWrite1h: 4,
+        cacheRead: 0.2,
+        output: 10,
+    },
     "claude-opus-4-7": {
+        input: 5,
+        cacheWrite5m: 6.25,
+        cacheWrite1h: 10,
+        cacheRead: 0.5,
+        output: 25,
+    },
+    "claude-opus-4-8": {
         input: 5,
         cacheWrite5m: 6.25,
         cacheWrite1h: 10,

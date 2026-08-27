@@ -15,24 +15,30 @@ describe('ModelComparisonPanel model catalog', () => {
   it('separates current comparison candidates from approved scoring routes', () => {
     render(<ModelComparisonPanel />);
 
-    expect(screen.getByRole('heading', { name: 'Current comparison candidates' })).toBeInTheDocument();
-    expect(screen.getByText('Sonnet 5')).toBeInTheDocument();
-    expect(screen.getByText('Opus 5')).toBeInTheDocument();
-    expect(screen.getByText('Fable 5')).toBeInTheDocument();
-    expect(screen.getAllByText('Current candidate')).toHaveLength(2);
-    expect(screen.getByText('Optional premium')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Availability is separate from approval. Production scoring stays on its benchmark-approved routes.',
-      ),
-    ).toBeInTheDocument();
+    const candidateSection = screen
+      .getByRole('heading', { name: 'Current comparison candidates' })
+      .closest('section');
+    expect(candidateSection).toHaveTextContent('Sonnet 5');
+    expect(candidateSection).toHaveTextContent('Opus 5');
+    expect(candidateSection).toHaveTextContent('Benchmark pending');
+    expect(candidateSection).toHaveTextContent(
+      'Availability is separate from approval. Production scoring stays on its benchmark-approved routes.',
+    );
+    expect(candidateSection).toHaveTextContent(
+      'Fable 5 is restricted to Reader Chat and is not a screenplay-scoring candidate.',
+    );
 
-    expect(screen.getByText('Haiku 4.5')).toBeInTheDocument();
-    expect(screen.getByText('Sonnet 4.6')).toBeInTheDocument();
-    expect(screen.getByText('Opus 4.7')).toBeInTheDocument();
-    expect(screen.getByText(/~\$0\.50–\$1\.50\/script/)).toBeInTheDocument();
-    expect(screen.getByText(/~\$1\.60–\$4\.50\/script/)).toBeInTheDocument();
-    expect(screen.getByText(/~\$2\.70–\$7\.50\/script/)).toBeInTheDocument();
+    const selectorSection = screen.getByRole('region', { name: 'Approved model selectors' });
+    expect(selectorSection).toHaveTextContent('Sonnet 4.6');
+    expect(selectorSection).toHaveTextContent('Opus 4.7');
+    expect(selectorSection).toHaveTextContent('Opus 5');
+    expect(selectorSection).toHaveTextContent('Fable 5');
+    expect(selectorSection).toHaveTextContent('30-day retention');
+
+    expect(document.body).toHaveTextContent('Haiku cold read + Sonnet 4.6');
+    expect(document.body).toHaveTextContent('~$1.65–$4.75/script');
+    expect(document.body).toHaveTextContent('~$1.60–$4.50/script');
+    expect(document.body).toHaveTextContent('~$2.70–$7.50/script');
     expect(screen.queryByText('Sonnet 4.5')).not.toBeInTheDocument();
     expect(screen.queryByText('Opus 4.6')).not.toBeInTheDocument();
     expect(screen.queryByText('Opus 4')).not.toBeInTheDocument();

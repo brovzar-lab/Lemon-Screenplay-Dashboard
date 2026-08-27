@@ -62,6 +62,13 @@ beforeEach(() => {
     totalUsage: { input_tokens: 10, output_tokens: 5 },
     totalDurationMs: 1_000,
     mode: 'full',
+    modelId: 'claude-sonnet-4-6',
+    provenance: [{
+      responseId: 'msg_test',
+      requestedModel: 'claude-sonnet-4-6',
+      returnedModel: 'claude-sonnet-4-6',
+      stopReason: 'end_turn',
+    }],
   });
   mockQueueScreenplayReanalysis.mockResolvedValue({
     screenplayId: 'Writer_Parity.pdf',
@@ -90,6 +97,8 @@ describe('browser writer identity', () => {
         content_hash: CONTENT_HASH,
         identity_status: 'verified',
         analysis_version: 'v9_archaeology',
+        analysis_model: 'claude-sonnet-4-6',
+        model_provenance: [expect.objectContaining({ responseId: 'msg_test' })],
         queued_at_ms: QUEUED_AT_MS,
       }),
     );

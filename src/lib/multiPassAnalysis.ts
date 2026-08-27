@@ -20,7 +20,11 @@ import type { LensName } from './promptClient';
 import type { ParsedPDF } from './pdfParser';
 import { useToastStore } from '@/stores/toastStore';
 import i18n from '@/i18n';
-import { callLLM } from './proxyClient';
+import {
+  callLLM,
+  ProxyCallError,
+  type CallLLMProvenance,
+} from './proxyClient';
 import {
   attachVerifiedBrowserCitationQuality,
   buildBrowserContextPolicy,
@@ -29,7 +33,7 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type AnalysisMode = 'full' | 'triage';
+export type AnalysisMode = 'full' | 'triage' | 'hybrid';
 
 export interface AnalysisOptions {
   mode: AnalysisMode;
@@ -51,6 +55,7 @@ export interface ReaderResult {
   report: Record<string, unknown>;
   usage: { input_tokens: number; output_tokens: number };
   durationMs: number;
+  provenance: CallLLMProvenance;
 }
 
 export function notifyIncompleteReaderPanel(
@@ -75,6 +80,8 @@ export interface AnalysisResult {
   totalDurationMs: number;
   /** Analysis mode used */
   mode: AnalysisMode;
+  modelId: string;
+  provenance: CallLLMProvenance[];
 }
 
 export interface TriageResult {
@@ -84,15 +91,22 @@ export interface TriageResult {
   logline: string;
   should_deep_analyze: boolean;
   usage: { input_tokens: number; output_tokens: number };
+  provenance: CallLLMProvenance;
 }
 
 // ─── Model IDs ───────────────────────────────────────────────────────────────
 
-const CLAUDE_MODELS: Record<string, string> = {
+const CLAUDE_MODELS = {
   sonnet: 'claude-sonnet-4-6',
   haiku: 'claude-haiku-4-5-20251001',
   opus: 'claude-opus-4-7',
 };
+
+function modelIdForRoute(model: string): string {
+  const modelId = CLAUDE_MODELS[model as keyof typeof CLAUDE_MODELS];
+  if (!modelId) throw new Error(`Unknown analysis route: ${model}`);
+  return modelId;
+}
 
 const CANONICAL_READERS: readonly ReaderName[] = [
   'structure',
@@ -539,8 +553,12 @@ async function callClaude(
   model: string,
   maxTokens: number = 8000,
   retries: number = 3,
-): Promise<{ text: string; usage: { input_tokens: number; output_tokens: number } }> {
-  const modelId = CLAUDE_MODELS[model] || CLAUDE_MODELS.sonnet;
+): Promise<{
+  text: string;
+  usage: { input_tokens: number; output_tokens: number };
+  provenance: CallLLMProvenance;
+}> {
+  const modelId = modelIdForRoute(model);
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -553,11 +571,13 @@ async function callClaude(
 
       return {
         text: result.text,
-        usage: result.usage ?? { input_tokens: 0, output_tokens: 0 },
+        usage: result.usage,
+        provenance: result.provenance,
       };
     } catch (err: unknown) {
       // Detect server/network errors that are worth retrying
       const isRetryable =
+        (err instanceof ProxyCallError && err.retryable) ||
         err instanceof TypeError ||
         (err instanceof Error && (
           err.message.includes('fetch failed') ||
@@ -565,7 +585,6 @@ async function callClaude(
           err.message.includes('ECONNRESET') ||
           err.message.includes('network') ||
           err.message.includes('500') ||
-          err.message.includes('502') ||
           err.message.includes('503') ||
           err.message.includes('529')
         ));
@@ -649,7 +668,7 @@ export async function runTriage(
     wordCount: parsed.wordCount,
   });
 
-  const { text, usage } = await callClaude(
+  const { text, usage, provenance } = await callClaude(
     'You are a fast script reader doing a quick assessment.',
     prompt,
     'haiku',
@@ -667,6 +686,7 @@ export async function runTriage(
     // Raised from 5 to 6: a 5 is "below average" — spend Sonnet on median or above
     should_deep_analyze: triageScore >= 6.0,
     usage,
+    provenance,
   };
 }
 
@@ -678,7 +698,7 @@ export async function runTriage(
  * Pass 1–5: Five readers execute in parallel (Promise.allSettled).
  * Pass 6: Synthesis roundtable receives all 5 reports and produces consensus.
  *
- * Total: 6 API calls per script (~$1.00 at Sonnet pricing).
+ * Total: 6 API calls per script. The server ledger supplies exact cost.
  */
 export async function runMultiReaderAnalysis(
   parsed: ParsedPDF,
@@ -717,7 +737,7 @@ export async function runMultiReaderAnalysis(
     const recovered = await runQualityStageWithRecovery(
       `${rp.reader} reader`,
       async () => {
-        const { text, usage } = await callClaude(
+        const { text, usage, provenance } = await callClaude(
           rp.systemPrompt,
           rp.userPrompt,
           model,
@@ -734,7 +754,7 @@ export async function runMultiReaderAnalysis(
             throw new Error(`${rp.reader} reader returned no usable score evidence.`);
           }
           report.pillar_score = computedPillar;
-          return { value: report, usage };
+          return { value: { report, provenance }, usage };
         } catch (error) {
           throw new UnusableQualityOutputError(
             error instanceof Error ? error.message : String(error),
@@ -760,9 +780,10 @@ export async function runMultiReaderAnalysis(
 
     return {
       reader: rp.reader,
-      report: recovered.value,
+      report: recovered.value.report,
       usage: recovered.usage,
       durationMs,
+      provenance: recovered.value.provenance,
     } as ReaderResult;
   });
 
@@ -849,7 +870,7 @@ export async function runMultiReaderAnalysis(
   const synthesisRecovery = await runQualityStageWithRecovery(
     'synthesis roundtable',
     async () => {
-      const { text, usage } = await callClaude(
+      const { text, usage, provenance } = await callClaude(
         synthesisInput.systemPrompt,
         synthesisInput.userPrompt,
         model,
@@ -858,7 +879,7 @@ export async function runMultiReaderAnalysis(
       try {
         const report = parseClaudeJSON(text);
         validateBrowserSynthesis(report);
-        return { value: report, usage };
+        return { value: { report, provenance }, usage };
       } catch (error) {
         throw new UnusableQualityOutputError(
           error instanceof Error ? error.message : String(error),
@@ -867,7 +888,8 @@ export async function runMultiReaderAnalysis(
       }
     },
   );
-  const synthesis = synthesisRecovery.value;
+  const synthesis = synthesisRecovery.value.report;
+  const synthesisProvenance = synthesisRecovery.value.provenance;
   const synthesisUsage = synthesisRecovery.usage;
   const synthesisDurationMs = Date.now() - synthesisStart;
 
@@ -965,6 +987,11 @@ export async function runMultiReaderAnalysis(
     totalUsage,
     totalDurationMs,
     mode: options.mode,
+    modelId: modelIdForRoute(model),
+    provenance: [
+      ...readerResults.map((result) => result.provenance),
+      synthesisProvenance,
+    ],
   };
 }
 
@@ -973,12 +1000,11 @@ export async function runMultiReaderAnalysis(
 /**
  * Run V9 analysis with optional triage pre-filter.
  *
- * If mode is 'triage', runs the quick Haiku pass and returns early
- * if the score is below threshold (6.0).
+ * If mode is 'triage', runs only the quick Haiku pass.
  *
  * If mode is 'full', skips triage and runs all 5 readers + synthesis.
- * If mode is 'hybrid' (or default), runs triage first, then if score >= 6.0,
- * passes the triage result to synthesis as a 6th cold-read data point.
+ * The hybrid compatibility path always runs the complete panel. Haiku is a
+ * non-binding cold read and can never gate Sonnet scoring.
  */
 export async function analyzeV9(
   parsed: ParsedPDF,
@@ -994,7 +1020,7 @@ export async function analyzeV9(
     return runMultiReaderAnalysis(parsed, options, onProgress);
   }
 
-  // Default / hybrid mode: run triage first, use result to gate and enrich
+  // Hybrid compatibility mode: run triage first, then always enrich the panel.
   onProgress?.({
     stage: 'triage',
     percent: 2,
@@ -1012,11 +1038,6 @@ export async function analyzeV9(
     throw error;
   }
 
-  if (!triage.should_deep_analyze) {
-    // Below threshold — return triage result only, do not spend Sonnet
-    return triage;
-  }
-
   // Pass triage impression to synthesis as a 6th cold-read data point
   const triageImpression = {
     triage_score: triage.triage_score,
@@ -1025,5 +1046,10 @@ export async function analyzeV9(
     logline: triage.logline,
   };
 
-  return runMultiReaderAnalysis(parsed, options, onProgress, triageImpression);
+  const panel = await runMultiReaderAnalysis(parsed, options, onProgress, triageImpression);
+  return {
+    ...panel,
+    totalUsage: mergeTokenUsage(triage.usage, panel.totalUsage),
+    provenance: [triage.provenance, ...panel.provenance],
+  };
 }

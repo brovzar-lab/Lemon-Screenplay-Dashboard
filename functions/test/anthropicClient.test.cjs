@@ -39,6 +39,22 @@ test('a partial stream failure invokes conservative accounting before it escapes
   assert.equal(releasedReason, '');
 });
 
+test('a timeout after dispatch is uncertain and never releases the reservation', async () => {
+  let accounted = 0;
+  let released = 0;
+  const timeout = Object.assign(new Error('socket timed out'), { code: 'ETIMEDOUT' });
+  await assert.rejects(
+    finalMessageWithUncertainSpendProtection(
+      async () => { throw timeout; },
+      async () => { accounted += 1; },
+      async () => { released += 1; },
+    ),
+    /timed out/,
+  );
+  assert.equal(accounted, 1);
+  assert.equal(released, 0);
+});
+
 test('a definite Anthropic invalid request releases the reservation without charging', async () => {
   let accountedReason = '';
   let releasedReason = '';

@@ -1,5 +1,11 @@
 name: CI
 
+env:
+  NODE_VERSION: "22.22.3"
+  PYTHON_VERSION: "3.13.13"
+  JAVA_VERSION: "21.0.12"
+  FIREBASE_TOOLS_VERSION: "15.14.0"
+
 on:
   pull_request:
     branches: [main]
@@ -21,13 +27,13 @@ jobs:
       - name: Setup Node 22
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - name: Setup Python 3.13
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: execution/requirements.txt
 
@@ -35,7 +41,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Install dependencies
         run: npm ci
@@ -44,7 +50,7 @@ jobs:
         run: npm ci --prefix functions
 
       - name: Install Firebase CLI
-        run: npm install --global firebase-tools@15.14.0
+        run: npm install --global firebase-tools@${{ env.FIREBASE_TOOLS_VERSION }}
 
       - name: Install Python dependencies
         run: |

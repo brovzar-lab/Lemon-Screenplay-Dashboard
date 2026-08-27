@@ -362,6 +362,7 @@ export async function reserveLlmBudget(params: {
 export async function settleLlmBudget(
   reservation: LlmBudgetReservation,
   usage: LlmTokenUsage,
+  returnedModel: string = reservation.model,
 ): Promise<LlmBudgetSettlement> {
   const db = getFirestore();
   const nowMs = Date.now();
@@ -370,7 +371,7 @@ export async function settleLlmBudget(
   const queueRef = reservation.job_id
     ? db.collection(INGEST_QUEUE_COLLECTION).doc(reservation.job_id)
     : null;
-  const actualCostMicrousd = calculateActualCostMicrousd(reservation.model, usage);
+  const actualCostMicrousd = calculateActualCostMicrousd(returnedModel, usage);
 
   return db.runTransaction(async (transaction) => {
     const reservationSnapshot = await transaction.get(reservationRef);
@@ -406,7 +407,7 @@ export async function settleLlmBudget(
     const next = settleBudgetReservationInLedger(
       ledger,
       reservation.id,
-      reservation.model,
+      returnedModel,
       usage,
       actualCostMicrousd,
       nowMs,
@@ -417,13 +418,15 @@ export async function settleLlmBudget(
     });
     transaction.update(reservationRef, {
       status: "settled",
+      requested_model: reservation.model,
+      returned_model: returnedModel,
       actual_cost_microusd: actualCostMicrousd,
       usage,
       settled_at: FieldValue.serverTimestamp(),
     });
 
     if (queueRef) {
-      const modelPrefix = `llm_models.${reservation.model}`;
+      const modelPrefix = `llm_models.${returnedModel}`;
       transaction.update(queueRef, {
         llm_call_count: FieldValue.increment(1),
         llm_input_tokens: FieldValue.increment(usage.input_tokens),

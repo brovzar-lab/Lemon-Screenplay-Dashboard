@@ -3,7 +3,7 @@
  *
  * Orchestrates the full screenplay analysis pipeline:
  *   1. Parse PDF → extract text
- *   2. Call LLM via proxy (Firebase Cloud Function → LiteLLM)
+ *   2. Call Anthropic via the Firebase Cloud Function and official SDK
  *   3. Return raw analysis JSON (V9 Archaeology Engine)
  *
  * All text AI calls route through the proxy client (proxyClient.ts).
@@ -15,6 +15,7 @@ import type { Screenplay } from '@/types';
 import {
   runMultiReaderAnalysis,
   runTriage,
+  analyzeV9,
   type AnalysisOptions as MultiPassOptions,
   type AnalysisProgress as MultiPassProgress,
 } from './multiPassAnalysis';
@@ -89,7 +90,7 @@ async function analyzeV9Path(
   onProgress?: (p: AnalysisProgress) => void,
 ): Promise<AnalysisResult> {
   const v9Mode = options.v9Mode ?? 'full';
-  const model = options.model === 'haiku' ? 'sonnet' : (options.model ?? 'sonnet') as 'sonnet' | 'opus';
+  const model = options.model === 'opus' ? 'opus' : 'sonnet';
 
   // Load calibration profile
   let calibrationPrompt: string | undefined;
@@ -110,7 +111,7 @@ async function analyzeV9Path(
 
     const raw = {
       source_file: parsed.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
-      analysis_model: 'claude-haiku',
+      analysis_model: triageResult.provenance.returnedModel,
       analysis_version: 'v9_triage',
       lenses_enabled: [],
       collection: category,
@@ -120,6 +121,7 @@ async function analyzeV9Path(
         word_count: parsed.wordCount,
       },
       triage: triageResult,
+      model_provenance: [triageResult.provenance],
       analysis: {
         title: parsed.title,
         triage_score: triageResult.triage_score,
@@ -138,24 +140,32 @@ async function analyzeV9Path(
 
   // Full 5-reader + synthesis
   const v9Options: MultiPassOptions = {
-    mode: 'full',
+    mode: options.model === 'haiku' ? 'hybrid' : 'full',
     model,
     lenses: options.lenses ?? ['commercial'],
     calibrationPrompt,
   };
 
-  const v9Result = await runMultiReaderAnalysis(parsed, v9Options, (p: MultiPassProgress) => {
+  const progressAdapter = (p: MultiPassProgress) => {
     onProgress?.({
       stage: p.stage === 'complete' ? 'complete' : 'analyzing',
       percent: p.percent,
       message: p.message,
     });
-  });
+  };
+  const result = options.model === 'haiku'
+    ? await analyzeV9(parsed, v9Options, progressAdapter)
+    : await runMultiReaderAnalysis(parsed, v9Options, progressAdapter);
+  if (!('analysis' in result)) {
+    throw new Error('A non-binding Haiku cold read cannot replace the complete Sonnet panel.');
+  }
+  const v9Result = result;
 
   // Wrap in standard structure for compatibility
   const raw = {
     source_file: parsed.title.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
-    analysis_model: `claude-${model}`,
+    analysis_model: v9Result.modelId,
+    model_provenance: v9Result.provenance,
     analysis_version: 'v9_archaeology',
     lenses_enabled: options.lenses ?? ['commercial'],
     collection: category,
@@ -172,6 +182,7 @@ async function analyzeV9Path(
       reader_durations: Object.fromEntries(
         v9Result.readerResults.map((r) => [r.reader, r.durationMs]),
       ),
+      response_ids: v9Result.provenance.map((call) => call.responseId),
     },
     queued_at_ms: queuedAtMs,
     ...buildVerifiedIdentity(contentHash),

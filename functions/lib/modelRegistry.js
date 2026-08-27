@@ -17,7 +17,7 @@ exports.READER_CHAT_MODELS = {
 exports.READER_CHAT_MODEL = exports.READER_CHAT_MODELS.opus;
 exports.READER_CHAT_DEFAULT_CHOICE = "auto";
 exports.READER_CHAT_EFFORT = "high";
-exports.READER_CHAT_MODEL_VERIFIED_AT = "2026-08-02";
+exports.READER_CHAT_MODEL_VERIFIED_AT = "2026-08-21";
 exports.READER_CHAT_MODEL_IDS = new Set([
     ...Object.values(exports.READER_CHAT_MODELS),
 ]);
