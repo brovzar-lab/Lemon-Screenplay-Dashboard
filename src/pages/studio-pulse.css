@@ -1,5 +1,7 @@
 .studio-pulse {
   --sp-text-3: color-mix(in srgb, var(--sp-text) 76%, var(--sp-bg));
+  --sp-intel-teal: var(--data-teal, #119c8b);
+  --sp-intel-coral: var(--data-coral, #ff6b5c);
   min-height: 100vh;
   color: var(--sp-text);
   background: var(--sp-bg);
@@ -146,8 +148,17 @@
 
 .studio-pulse__signal-strip li {
   min-width: 0;
+  border-top: 3px solid transparent;
   padding-right: 12px;
   border-right: 1px solid color-mix(in srgb, var(--sp-text) 10%, transparent);
+}
+
+.studio-pulse__signal-strip li:nth-child(2n) {
+  border-top-color: var(--sp-intel-teal);
+}
+
+.studio-pulse__signal-strip li:nth-child(3n) {
+  border-top-color: var(--sp-intel-coral);
 }
 
 .studio-pulse__signal-strip li:last-child {
@@ -191,6 +202,7 @@
   min-width: 0;
   flex-direction: column;
   padding: 16px 18px;
+  border-top: 4px solid var(--sp-intel-coral);
   border-radius: var(--radius-lg, 16px);
   background: color-mix(in srgb, var(--sp-accent) 7%, var(--sp-surface));
   box-shadow: var(--shadow-card);
@@ -552,6 +564,10 @@
   background: var(--sp-surface);
 }
 
+.studio-pulse__buyer-board li {
+  border-top: 3px solid var(--sp-intel-teal);
+}
+
 .studio-pulse__buyer-board li > div,
 .studio-pulse__zeitgeist-preview article > div,
 .studio-pulse__opportunity-preview article > div {
@@ -564,6 +580,28 @@
 .studio-pulse__buyer-board strong {
   font-family: var(--font-display);
   font-size: 1rem;
+}
+
+.studio-pulse__buyer-identity {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.studio-pulse__buyer-identity img {
+  width: auto;
+  max-width: 104px;
+  height: 24px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.studio-pulse__buyer-identity img.is-netflix-mexico {
+  max-width: 74px;
+}
+
+[data-theme="dark"] .studio-pulse__buyer-identity img.is-hbo-max-mexico {
+  filter: invert(1) grayscale(1) brightness(1.8);
 }
 
 .studio-pulse__status-cue,
@@ -640,6 +678,15 @@
 
 .studio-pulse__opportunity-preview article > div {
   justify-content: flex-start;
+}
+
+.studio-pulse__opportunity-preview article:nth-child(1),
+.studio-pulse__opportunity-preview article:nth-child(3) {
+  box-shadow: inset 0 3px var(--sp-intel-coral);
+}
+
+.studio-pulse__opportunity-preview article:nth-child(2) {
+  box-shadow: inset 0 3px var(--sp-intel-teal);
 }
 
 .studio-pulse__zeitgeist {

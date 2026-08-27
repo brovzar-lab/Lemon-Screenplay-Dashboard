@@ -100,6 +100,12 @@ const STATUS_ICONS: Record<string, string> = {
   open: '●', limited: '◐', unknown: '?', good: '●', caution: '◆', weak: '△',
 };
 
+const BUYER_LOGOS: Record<string, string> = {
+  'netflix-mexico': '/brand/buyers/netflix.svg',
+  'amazon-mexico': '/brand/buyers/amazon-mgm.svg',
+  'hbo-max-mexico': '/brand/buyers/hbo-max.svg',
+};
+
 function StatusCue({ value }: { value: string }) {
   const { t } = useTranslation();
   return (
@@ -511,7 +517,15 @@ export function IntelligenceBriefing({
               const source = claim ? sources.get(claim.sourceIds[0]) : undefined;
               return (
                 <li key={buyer.id}>
-                  <div><strong>{buyer.name}</strong><StatusCue value={buyer.doorState} /></div>
+                  <div>
+                    <span className="studio-pulse__buyer-identity">
+                      {BUYER_LOGOS[buyer.id] && (
+                        <img src={BUYER_LOGOS[buyer.id]} alt={`${buyer.name} logo`} className={`is-${buyer.id}`} />
+                      )}
+                      <strong>{buyer.name}</strong>
+                    </span>
+                    <StatusCue value={buyer.doorState} />
+                  </div>
                   <p>{localizedText(buyer.appetite, language)}</p>
                   <small>{localizedText(buyer.formats, language)} · {t(buyer.signal)}</small>
                   {source && <a href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher} ↗</a>}

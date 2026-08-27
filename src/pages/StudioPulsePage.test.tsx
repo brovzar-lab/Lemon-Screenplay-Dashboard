@@ -163,6 +163,9 @@ describe('Intelligence Briefing page', () => {
     ).toBe(true);
 
     expect(container.querySelectorAll('.studio-pulse__buyer-board > li')).toHaveLength(3);
+    expect(screen.getByRole('img', { name: 'Netflix logo' })).toHaveAttribute('src', '/brand/buyers/netflix.svg');
+    expect(screen.getByRole('img', { name: 'Amazon MGM / Prime Video logo' })).toHaveAttribute('src', '/brand/buyers/amazon-mgm.svg');
+    expect(screen.getByRole('img', { name: 'HBO Max logo' })).toHaveAttribute('src', '/brand/buyers/hbo-max.svg');
     expect(screen.getAllByRole('link', { name: /Netflix/ }).length).toBeGreaterThan(0);
   });
 
