@@ -335,34 +335,9 @@ export function IntelligenceBriefing({
   const demoPortfolio = demo ? buildDemoPortfolio(snapshot) : undefined;
   const highestPriority = rankedActions[0];
   const largestRisk = snapshot.contradictions.find(({ resolved }) => !resolved);
-  const summary = [
-    {
-      value: highestPriority
-        ? localizedText(highestPriority.title, language)
-        : copy('No supported move', 'Sin movimiento respaldado'),
-      label: copy('Highest-priority opportunity', 'Oportunidad prioritaria'),
-      note: highestPriority
-        ? localizedText(highestPriority.whyNow, language)
-        : copy('Wait for sufficient evidence', 'Esperar evidencia suficiente'),
-    },
-    {
-      value: largestRisk
-        ? localizedText(largestRisk.statement, language)
-        : copy('No unresolved contradiction', 'Sin contradicción pendiente'),
-      label: copy('Largest unresolved risk', 'Mayor riesgo pendiente'),
-      note: copy('Requires human judgment', 'Requiere criterio humano'),
-    },
-    {
-      value: rankedActions.length,
-      label: copy('Decisions for human review', 'Decisiones para revisión humana'),
-      note: copy('Intelligence advises, it does not greenlight', 'La inteligencia asesora, no autoriza'),
-    },
-    {
-      value: copy('First edition', 'Primera edición'),
-      label: copy('Change since prior edition', 'Cambio desde la edición anterior'),
-      note: copy('No reviewed comparison exists yet', 'Aún no existe una comparación revisada'),
-    },
-  ];
+  const changedSignals = snapshot.claims.filter(({ decisionCritical }) => decisionCritical).slice(0, 4);
+  const leadSupport = highestPriority ? claims.get(highestPriority.supportClaimIds[0]) : undefined;
+  const leadSources = leadSupport?.sourceIds.map((id) => sources.get(id)!).filter(Boolean) ?? [];
 
   return (
     <div className="studio-pulse">
@@ -392,17 +367,65 @@ export function IntelligenceBriefing({
           </dl>
         </section>
 
-        <section className="studio-pulse__summary" aria-label={copy('Executive snapshot', 'Resumen ejecutivo')}>
-          {summary.map((item) => (
-            <div key={item.label}>
-              <strong>{item.value}</strong>
-              <span>{item.label}</span>
-              <small>{item.note}</small>
-            </div>
-          ))}
+        <section className="studio-pulse__signal-strip" aria-labelledby="changed-title">
+          <header>
+            <span className="studio-pulse__eyebrow">{copy('What changed', 'Qué cambió')}</span>
+            <h2 id="changed-title">{copy('Signals in this edition', 'Señales de esta edición')}</h2>
+            <p>{copy('No reviewed comparison exists yet. These are decision-critical signals, not measured changes.', 'Todavía no existe una comparación revisada. Estas son señales críticas para decidir, no cambios medidos.')}</p>
+          </header>
+          <ul>
+            {changedSignals.map((claim) => {
+              const source = sources.get(claim.sourceIds[0]);
+              return (
+                <li key={claim.id}>
+                  <StatusCue value={claim.classification} />
+                  <p>{localizedText(claim.statement, language)}</p>
+                  {source && <a href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher} ↗</a>}
+                </li>
+              );
+            })}
+          </ul>
         </section>
 
-        <section className="studio-pulse__section studio-pulse__moves" aria-labelledby="moves-title">
+        <div className="studio-pulse__command-grid">
+          <article className="studio-pulse__lead-story" aria-labelledby="lead-title">
+            <div className="studio-pulse__lead-meta">
+              <span className="studio-pulse__eyebrow">{copy('Editorial lead', 'Nota principal')}</span>
+              <span>{copy('Reviewed edition', 'Edición revisada')}</span>
+            </div>
+            <h2 id="lead-title">{highestPriority ? localizedText(highestPriority.title, language) : copy('No supported lead move', 'No hay movimiento principal respaldado')}</h2>
+            <p className="studio-pulse__lead-deck">
+              {highestPriority
+                ? localizedText(highestPriority.whyNow, language)
+                : copy('This issue does not contain enough evidence to rank a market move.', 'Esta edición no contiene suficiente evidencia para priorizar un movimiento de mercado.')}
+            </p>
+            {highestPriority && (
+              <div className="studio-pulse__lead-cues">
+                <StatusCue value={highestPriority.action!} />
+                <StatusCue value={highestPriority.classification} />
+              </div>
+            )}
+            <div className="studio-pulse__lead-evidence">
+              <div>
+                <strong>{t('Strongest support')}</strong>
+                <p>{leadSupport ? localizedText(leadSupport.statement, language) : t('Unavailable')}</p>
+                {leadSources.map((source) => (
+                  <a key={source.id} href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher} ↗</a>
+                ))}
+              </div>
+              <div>
+                <strong>{t('Strongest contradiction')}</strong>
+                <p>{largestRisk ? localizedText(largestRisk.statement, language) : t('None recorded')}</p>
+              </div>
+            </div>
+            <dl className="studio-pulse__lead-metrics">
+              <div><dt>{copy('Ranked moves', 'Movimientos priorizados')}</dt><dd>{rankedActions.length}</dd></div>
+              <div><dt>{t('Freshness')}</dt><dd>{t(snapshot.snapshot.freshness.status)}</dd></div>
+              <div><dt>{t('Coverage')}</dt><dd>{t(snapshot.snapshot.coverageState)}</dd></div>
+            </dl>
+          </article>
+
+          <section className="studio-pulse__section studio-pulse__moves" aria-labelledby="moves-title">
           <SectionHeading
             id="moves-title"
             eyebrow={t('Three Moves')}
@@ -462,7 +485,8 @@ export function IntelligenceBriefing({
               <small>{localizedText(action.nextAction, language)}</small>
             </div>
           ))}
-        </section>
+          </section>
+        </div>
 
         <section className="studio-pulse__situation" aria-labelledby="situation-title">
           <SectionHeading
@@ -481,18 +505,20 @@ export function IntelligenceBriefing({
             title={t('Open buyer doors')}
             note={t('Public evidence only. A visible strategy signal is not a private buying mandate.')}
           />
-          <details className="studio-pulse__section-disclosure">
-            <summary>{copy(`${snapshot.buyers.length} public buyer signals · View details`, `${snapshot.buyers.length} señales públicas de compradores · Ver detalles`)}</summary>
-            <ul className="studio-pulse__buyer-grid">
-              {snapshot.buyers.map((buyer) => (
+          <ul className="studio-pulse__buyer-board">
+            {snapshot.buyers.map((buyer) => {
+              const claim = claims.get(buyer.claimIds[0]);
+              const source = claim ? sources.get(claim.sourceIds[0]) : undefined;
+              return (
                 <li key={buyer.id}>
                   <div><strong>{buyer.name}</strong><StatusCue value={buyer.doorState} /></div>
                   <p>{localizedText(buyer.appetite, language)}</p>
                   <small>{localizedText(buyer.formats, language)} · {t(buyer.signal)}</small>
+                  {source && <a href={source.url} target="_blank" rel="noopener noreferrer">{source.publisher} ↗</a>}
                 </li>
-              ))}
-            </ul>
-          </details>
+              );
+            })}
+          </ul>
         </section>
 
         <section className="studio-pulse__section studio-pulse__compact-section" aria-labelledby="zeitgeist-title">
@@ -502,6 +528,15 @@ export function IntelligenceBriefing({
             title={t('Conversation beside verified evidence')}
             note={t('Conversation, verified context, and observed outcomes remain separate. No blended truth score is calculated.')}
           />
+          <div className="studio-pulse__zeitgeist-preview">
+            {snapshot.zeitgeistStories.map((story) => (
+              <article key={story.id}>
+                <div><StatusCue value={story.classification} /><span>{t(story.signalClass)}</span></div>
+                <h3>{localizedText(story.title, language)}</h3>
+                <p><strong>{t('Next confirming test')}:</strong> {localizedText(story.nextTest, language)}</p>
+              </article>
+            ))}
+          </div>
           <details className="studio-pulse__section-disclosure">
             <summary>{copy(`${snapshot.zeitgeistStories.length} reviewed themes · View evidence`, `${snapshot.zeitgeistStories.length} temas revisados · Ver evidencia`)}</summary>
             <div className="studio-pulse__section-disclosure-content">
@@ -572,6 +607,16 @@ export function IntelligenceBriefing({
             title={t('Creative quality beside market timing')}
             note={t('Private titles join locally only after team authorization. Paperclip never receives slate data.')}
           />
+          <div className="studio-pulse__opportunity-preview">
+            {snapshot.opportunities.map((opportunity) => (
+              <article key={opportunity.id}>
+                <div><StatusCue value={opportunity.action} /><StatusCue value={opportunity.classification} /></div>
+                <h3>{localizedText(opportunity.label, language)}</h3>
+                <p>{localizedText(opportunity.need, language)}</p>
+                <small>{opportunity.timingBand.map((band) => t(band)).join(` ${t('to')} `)}</small>
+              </article>
+            ))}
+          </div>
           <details className="studio-pulse__section-disclosure">
             <summary>{demo
               ? copy(`${demoPortfolio?.matches.length ?? 0} reviewed matches · View map`, `${demoPortfolio?.matches.length ?? 0} coincidencias revisadas · Ver mapa`)

@@ -128,10 +128,12 @@ describe('Intelligence Briefing page', () => {
     expect(screen.getByText('DEMO DATA')).toBeInTheDocument();
     expect(screen.getByText('El Último Metro')).toBeInTheDocument();
     expect(screen.getByText('Festival de Ceniza')).toBeInTheDocument();
-    expect(screen.getByText('Starting over is becoming a useful emotional frame')).toBeInTheDocument();
+    expect(screen.getAllByText('Starting over is becoming a useful emotional frame')).toHaveLength(2);
     expect(screen.getByRole('heading', { name: 'Prediction accountability' })).toBeInTheDocument();
-    expect(screen.getByText('First edition')).toBeInTheDocument();
-    expect(screen.getByText('No reviewed comparison exists yet')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed edition')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Signals in this edition' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Open buyer doors' })).toBeInTheDocument();
+    expect(screen.getByText(/No reviewed comparison exists yet/)).toBeInTheDocument();
   });
 
   it('shows all three compact moves while supporting evidence and research begin collapsed', async () => {
@@ -160,8 +162,8 @@ describe('Intelligence Briefing page', () => {
         .every((link) => link.getAttribute('rel') === 'noopener noreferrer'),
     ).toBe(true);
 
-    const buyerSummary = screen.getByText('3 public buyer signals · View details');
-    expect(buyerSummary.closest('details')).not.toHaveAttribute('open');
+    expect(container.querySelectorAll('.studio-pulse__buyer-board > li')).toHaveLength(3);
+    expect(screen.getAllByRole('link', { name: /Netflix/ }).length).toBeGreaterThan(0);
   });
 
   it('renders variable action counts and an honest zero-action explanation', () => {
@@ -250,7 +252,7 @@ describe('Intelligence Briefing page', () => {
 
     expect(screen.getByText('The authorized slate query succeeded and returned no projects.')).toBeInTheDocument();
     expect(screen.getByText('Acquisition gaps')).toBeInTheDocument();
-    expect(screen.getByText(/romance-led project with a specific Mexican engine/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/romance-led project with a specific Mexican engine/i)).toHaveLength(2);
   });
 
   it('renders strict bilingual artifact copy without an English fallback', async () => {
