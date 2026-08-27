@@ -32,6 +32,19 @@ export function AuthGate({ children, requireAdmin = false }: AuthGateProps) {
   if (status === 'initializing' || status === 'loading_profile') return <AuthLoading />;
   if (status === 'signed_out') return <LoginScreen />;
 
+  if (role !== 'reader' && role !== 'admin') {
+    return (
+      <main className="min-h-screen flex items-center justify-center px-6">
+        <section className="text-center max-w-md">
+          <h1 className="text-2xl font-display mb-3">{t('Lemon team access required')}</h1>
+          <p className="mb-6 text-sm">
+            {t('This account is signed in but is not authorized to read the private Lemon portfolio.')}
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   if (requireAdmin && role !== 'admin') {
     return (
       <main className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--sp-bg)' }}>

@@ -22,11 +22,11 @@ describe('AuthenticatedNavigation', () => {
     authState.isAdmin = true;
   });
 
-  it('uses Market as home and keeps Screenplays separate', () => {
+  it('uses Intelligence as home and keeps Screenplays separate', () => {
     renderNavigation('/');
 
-    expect(screen.getByRole('link', { name: 'Market' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Market' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Intelligence' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Intelligence' })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: 'Screenplays' })).toHaveAttribute('href', '/discover');
   });
 

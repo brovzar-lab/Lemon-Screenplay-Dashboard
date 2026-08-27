@@ -56,7 +56,7 @@ describe('ApplicationHeader', () => {
     );
     expect(screen.getByText('v6.9.3')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Screenplays' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Market' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Intelligence' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('Synced')).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Language' })).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe('ApplicationHeader', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: 'Market' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Intelligence' })).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
   });
 
@@ -89,7 +89,7 @@ describe('ApplicationHeader', () => {
 
     await user.click(screen.getByRole('button', { name: 'Spanish' }));
 
-    expect(screen.getByRole('link', { name: 'Mercado' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Inteligencia' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Guiones' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Idioma' })).toBeInTheDocument();
     expect(document.documentElement).toHaveAttribute('lang', 'es');

@@ -43,7 +43,7 @@ createRoot(document.getElementById('root')!).render(
               <Route
                 path="/"
                 element={
-                  <ErrorBoundary fullPage areaName="Studio Pulse">
+                  <ErrorBoundary fullPage areaName="Intelligence Briefing">
                     <AuthGate>
                       <StudioPulsePage />
                     </AuthGate>

@@ -241,6 +241,18 @@
     justify-content: space-between;
   }
 
+  .application-header .language-control__option,
+  .application-header .settings-theme-control button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .application-header .user-menu > span,
+  .application-header .user-menu > img {
+    width: 44px;
+    height: 44px;
+  }
+
   .application-header .sync-status-indicator {
     width: 100%;
   }

@@ -14,9 +14,9 @@ test.describe('Discovery find tools', () => {
     const search = page.getByRole('searchbox', { name: 'Discovery search' });
     await page.keyboard.press('/');
     await expect(search).toBeFocused();
-    await search.fill('Matadero');
+    await search.fill('Synthetic Romance');
     await expect(featured).toHaveAttribute('data-screenplay-id', featuredId ?? '');
-    await expect(page.getByText('Matadero', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Synthetic Romance', { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/Showing 1 of \d+ screenplays/)).toBeVisible();
   });
 

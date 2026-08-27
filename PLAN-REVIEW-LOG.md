@@ -165,3 +165,10 @@ I found no remaining material security, privacy, schema, accessibility, observab
 
 VERDICT: APPROVED
 
+## Act 3 — Codex Build and verification
+
+- Codex Build implemented the locked plan in the isolated `codex/market-intelligence-dashboard` worktree without committing, pushing, deploying, calling AI, or accessing production data.
+- Root verification found and corrected the adversarial review's material gaps: build-time publication-hash enforcement, typed conversation/context pairing, rendered conversation evidence, source-ID deduplication before independence-group comparison, unique accessible section headings, bounded connector dates, and the dedicated authorization E2E command.
+- Final proof: `npm run test:run` passed 135 files and 986 tests; `npm run build` passed with the publication-integrity prebuild gate; `npm run lint` passed; Firestore and Storage rules passed 22 tests on temporary local ports; the Intelligence Briefing Playwright contract passed 10 tests; the dedicated authorization command passed 2 tests.
+- English desktop and Spanish mobile were inspected at the fixed local port 3000. Version `v6.9.3` remained visible. No AI request was made.
+- Final independent Codex review: `APPROVED`, with no material security or privacy blocker in the reviewed scope.
