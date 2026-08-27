@@ -22,6 +22,7 @@ test.describe('Intelligence Briefing contract', () => {
 
     await setSyntheticRole(page, 'reader');
     await expect(page.getByRole('heading', { name: 'Intelligence Briefing' })).toBeVisible();
+    await page.locator('summary', { hasText: 'View authorized portfolio map' }).click();
     await expect(page.getByRole('table', { name: 'Authorized portfolio opportunity table' })).toContainText('Synthetic Romance');
   });
 
@@ -44,6 +45,7 @@ test.describe('Intelligence Briefing contract', () => {
 
     const chart = page.getByTestId('portfolio-chart');
     await expect(chart).toHaveAttribute('aria-hidden', 'true');
+    await page.locator('summary', { hasText: 'View authorized portfolio map' }).click();
     const table = page.getByRole('table', { name: 'Authorized portfolio opportunity table' });
     await expect(table).toBeVisible();
     for (const header of [
@@ -67,6 +69,7 @@ test.describe('Intelligence Briefing contract', () => {
       table.getByRole('rowgroup', { name: 'Unmatched projects' }).getByRole('row').nth(1).getByRole('rowheader'),
     ).toHaveText('Synthetic Alpha');
 
+    await page.locator('summary', { hasText: /reviewed themes · View evidence$/ }).click();
     const disclosure = page.locator('summary', { hasText: 'Source receipts and methodology' });
     await disclosure.focus();
     await page.keyboard.press('Enter');
@@ -83,6 +86,7 @@ test.describe('Intelligence Briefing contract', () => {
     expect((await page.locator('.studio-pulse__moves').boundingBox())!.y).toBeLessThan(
       (await page.locator('.studio-pulse__portfolio').boundingBox())!.y,
     );
+    await page.locator('summary', { hasText: 'View authorized portfolio map' }).click();
     await expect(page.getByTestId('portfolio-chart')).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -108,10 +112,15 @@ test.describe('Intelligence Briefing contract', () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Intelligence Briefing' })).toBeVisible();
     await page.getByRole('button', { name: 'Open navigation and preferences' }).click();
     await page.getByRole('button', { name: 'Spanish' }).click();
     await expect(page.getByRole('heading', { name: 'Briefing de Inteligencia' })).toBeVisible();
-    await expect(page.getByText('Investigar la vía de romance local')).toBeVisible();
+    await expect(
+      page.locator('.studio-pulse__lead-story').getByRole('heading', {
+        name: 'Investigar la vía de romance local',
+      }),
+    ).toBeVisible();
     await expect(page.getByRole('heading', { name: 'No hay historial suficiente' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 

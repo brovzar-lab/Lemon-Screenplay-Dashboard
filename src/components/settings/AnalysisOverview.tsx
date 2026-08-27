@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
@@ -60,7 +61,7 @@ function issueFor(screenplay: Screenplay): AnalysisIssue | null {
 
 export function AnalysisOverview() {
   const { t } = useTranslation();
-  const { data: screenplays = [] } = useScreenplays();
+  const { data: screenplays = [], isLoading, isError, refetch } = useScreenplays();
 
   const health = useMemo(() => {
     const total = screenplays.length;
@@ -110,6 +111,39 @@ export function AnalysisOverview() {
     };
   }, [screenplays]);
 
+  if (isLoading) {
+    return (
+      <section className="settings-empty-report">
+        <p className="settings-eyebrow">{t('Analysis readiness')}</p>
+        <p role="status" aria-live="polite">{t('Loading...')}</p>
+      </section>
+    );
+  }
+
+  if (isError) {
+    return (
+      <section className="settings-empty-report" aria-labelledby="analysis-error-title">
+        <p className="settings-eyebrow">{t('Analysis readiness')}</p>
+        <h2 id="analysis-error-title">{t('Analysis data is temporarily unavailable')}</h2>
+        <p>{t('Please try again shortly.')}</p>
+        <button type="button" className="btn btn-primary mt-4" onClick={() => void refetch()}>
+          {t('Try again')}
+        </button>
+      </section>
+    );
+  }
+
+  if (health.total === 0) {
+    return (
+      <section className="settings-empty-report" aria-labelledby="analysis-empty-title">
+        <p className="settings-eyebrow">{t('Analysis readiness')}</p>
+        <h2 id="analysis-empty-title">{t('No analyzed screenplays yet')}</h2>
+        <p>{t('Completed analyses will appear here automatically.')}</p>
+        <Link to="/settings?tab=intake">{t('Upload Screenplays')}</Link>
+      </section>
+    );
+  }
+
   const metrics = [
     {
       label: t('Complete reader panels'),
@@ -148,7 +182,7 @@ export function AnalysisOverview() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--settings-kicker)]">
           {t('Analysis readiness')}
         </p>
-        <h2 className="mt-2 text-3xl font-display text-black-100">
+        <h2 className="mt-2 text-2xl font-display text-black-100">
           {t('Know what can be trusted')}
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-black-400">
@@ -165,7 +199,7 @@ export function AnalysisOverview() {
         {metrics.map((metric) => (
           <article
             key={metric.label}
-            className="rounded-xl border border-black-700 bg-black-900/30 p-5"
+            className="rounded-lg border border-black-700 bg-black-900/30 p-4"
           >
             <p className="text-xs font-semibold uppercase tracking-wider text-black-500">
               {metric.label}

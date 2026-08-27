@@ -4,7 +4,7 @@ test.setTimeout(90_000);
 
 test.describe('Project workspace and fallback drawer', () => {
   test('Screenplay File shell follows the active light or dark theme', async ({ page }) => {
-    await page.goto('/projects/matadero-5ta-version-24052026?workspace=screenplay');
+    await page.goto('/projects/synthetic-romance?workspace=screenplay');
     const workspace = page.getByTestId('screenplay-file-workspace');
     await expect(workspace).toBeVisible({ timeout: 30_000 });
 
@@ -35,7 +35,7 @@ test.describe('Project workspace and fallback drawer', () => {
   });
 
   test('all six Screenplay File tabs remain connected', async ({ page }) => {
-    await page.goto('/projects/matadero-5ta-version-24052026?workspace=screenplay');
+    await page.goto('/projects/synthetic-romance?workspace=screenplay');
     await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible({ timeout: 30_000 });
 
     for (const tab of ['Scores', 'Reader Room', 'Story X-Ray', 'Producer Take', 'Notes']) {

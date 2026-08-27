@@ -153,4 +153,17 @@ describe('Settings deep links', () => {
     expect(screen.getByText('Shared links workspace')).toBeInTheDocument();
     expect(screen.getByLabelText('Current location')).toHaveTextContent('?tab=data');
   });
+
+  it('offers one compact section picker for narrow settings layouts', async () => {
+    await i18n.changeLanguage('en');
+    const user = userEvent.setup();
+    renderSettings('/settings?tab=analysis');
+
+    const picker = screen.getByRole('combobox', { name: 'Settings section' });
+    expect(picker).toHaveValue('analysis');
+    await user.selectOptions(picker, 'data');
+
+    expect(screen.getByText('Shared links workspace')).toBeInTheDocument();
+    expect(screen.getByLabelText('Current location')).toHaveTextContent('?tab=data');
+  });
 });

@@ -2,8 +2,12 @@ import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ErrorBoundary, LoadingFallback, ToastContainer } from '@/components/ui';
+import { ErrorBoundary, ToastContainer } from '@/components/ui';
 import { AuthGate } from '@/components/auth';
+import {
+  ApplicationRouteFallback,
+  SharedRouteFallback,
+} from '@/components/layout/ApplicationRouteFallback';
 import './index.css';
 import { importWithReload } from '@/lib/lazyWithReload';
 import '@/i18n';
@@ -38,15 +42,16 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary fullPage areaName="Application">
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <Suspense fallback={<LoadingFallback />}>
-            <Routes>
+          <Routes>
               <Route
                 path="/"
                 element={
                   <ErrorBoundary fullPage areaName="Intelligence Briefing">
-                    <AuthGate>
-                      <StudioPulsePage />
-                    </AuthGate>
+                    <Suspense fallback={<ApplicationRouteFallback />}>
+                      <AuthGate>
+                        <StudioPulsePage />
+                      </AuthGate>
+                    </Suspense>
                   </ErrorBoundary>
                 }
               />
@@ -58,9 +63,11 @@ createRoot(document.getElementById('root')!).render(
                 path="/settings"
                 element={
                   <ErrorBoundary fullPage areaName="Settings">
-                    <AuthGate requireAdmin>
-                      <SettingsPage />
-                    </AuthGate>
+                    <Suspense fallback={<ApplicationRouteFallback />}>
+                      <AuthGate requireAdmin>
+                        <SettingsPage />
+                      </AuthGate>
+                    </Suspense>
                   </ErrorBoundary>
                 }
               />
@@ -68,9 +75,11 @@ createRoot(document.getElementById('root')!).render(
                 path="/discover/:projectId?"
                 element={
                   <ErrorBoundary fullPage areaName="Discovery">
-                    <AuthGate>
-                      <DiscoverPage />
-                    </AuthGate>
+                    <Suspense fallback={<ApplicationRouteFallback />}>
+                      <AuthGate>
+                        <DiscoverPage />
+                      </AuthGate>
+                    </Suspense>
                   </ErrorBoundary>
                 }
               />
@@ -78,9 +87,11 @@ createRoot(document.getElementById('root')!).render(
                 path="/intake"
                 element={
                   <ErrorBoundary fullPage areaName="Intake">
-                    <AuthGate requireAdmin>
-                      <Navigate to="/settings?tab=intake" replace />
-                    </AuthGate>
+                    <Suspense fallback={<ApplicationRouteFallback />}>
+                      <AuthGate requireAdmin>
+                        <Navigate to="/settings?tab=intake" replace />
+                      </AuthGate>
+                    </Suspense>
                   </ErrorBoundary>
                 }
               />
@@ -88,9 +99,11 @@ createRoot(document.getElementById('root')!).render(
                 path="/projects/:projectId/:section?"
                 element={
                   <ErrorBoundary fullPage areaName="Project Workspace">
-                    <AuthGate>
-                      <ProjectWorkspacePage />
-                    </AuthGate>
+                    <Suspense fallback={<ApplicationRouteFallback />}>
+                      <AuthGate>
+                        <ProjectWorkspacePage />
+                      </AuthGate>
+                    </Suspense>
                   </ErrorBoundary>
                 }
               />
@@ -98,14 +111,15 @@ createRoot(document.getElementById('root')!).render(
                 path="/share/:token"
                 element={
                   <ErrorBoundary fullPage areaName="Shared screenplay">
-                    <SharedViewPage />
+                    <Suspense fallback={<SharedRouteFallback />}>
+                      <SharedViewPage />
+                    </Suspense>
                   </ErrorBoundary>
                 }
               />
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            <ToastContainer />
-          </Suspense>
+          </Routes>
+          <ToastContainer />
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>

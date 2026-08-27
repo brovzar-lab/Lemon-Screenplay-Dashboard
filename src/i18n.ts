@@ -631,6 +631,7 @@ const spanish = {
     'Mostrar solo guiones cuyo archivo fuente no está en Storage',
   'Sort Priority': 'Prioridad del orden',
   'Sort screenplays by': 'Ordenar guiones por',
+  'Sort screenplays': 'Ordenar guiones',
   'Sort: CVS Total': 'Orden: CVS total',
   'Sort: Final Score': 'Orden: calificación final',
   'Sort: Market Potential': 'Orden: potencial de mercado',
@@ -1140,6 +1141,8 @@ const spanish = {
   'Loading the latest screenplay decisions and evidence.':
     'Cargando las decisiones y la evidencia más recientes.',
   'Discovery is temporarily unavailable': 'Descubrimiento no está disponible por el momento',
+  'Analysis data is temporarily unavailable':
+    'Los datos de análisis no están disponibles por el momento',
   'Classic Discovery remains available at ?ui=classic while the live slate reconnects.':
     'El modo clásico sigue disponible en ?ui=classic mientras se reconecta la selección.',
   'Please try again shortly.': 'Inténtalo de nuevo en unos momentos.',
@@ -1697,6 +1700,10 @@ const spanish = {
   'This link is no longer available': 'Este enlace ya no está disponible',
   'The share link may have been revoked or expired.':
     'El enlace puede haber sido cancelado o puede haber vencido.',
+  'Shared screenplay': 'Guion compartido',
+  'Ask the sender for a new link to this screenplay.':
+    'Pide a la persona que lo compartió un nuevo enlace a este guion.',
+  'Settings section': 'Sección de ajustes',
   'Link copied to clipboard': 'Enlace copiado',
   'Loading shared links...': 'Cargando enlaces compartidos...',
   'No active share links': 'No hay enlaces compartidos activos',
