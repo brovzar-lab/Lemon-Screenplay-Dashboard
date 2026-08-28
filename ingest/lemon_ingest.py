@@ -1,392 +1,770 @@
 #!/usr/bin/env python3
+"""Restart-safe folder uploader for the Lemon V9 production queue.
+
+This program never runs analysis locally. It finds PDFs, performs free safety
+checks, uploads accepted files to the current Firebase Storage queue, and then
+lets the production VPS perform the authoritative V9 analysis.
 """
-lemon_ingest.py — Lemon Studios V9 Screenplay Ingest CLI
 
-Uploads screenplay PDFs to Firebase Storage (ingest-queue/) and monitors
-Firestore for real-time analysis progress from the VPS daemon.
-
-This tool is a pure uploader. All analysis runs on the VPS daemon.
-Firebase Firestore is the source of truth.
-
-Usage:
-    python lemon_ingest.py
-    python lemon_ingest.py --folder /path/to/scripts --category LEMON
-    python lemon_ingest.py --dry-run
-"""
+from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
+import re
 import sys
+import time
+import unicodedata
 import uuid
+from datetime import datetime, timezone
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional
 
-# ── Dependency check ──────────────────────────────────────────────────────────
 try:
     import firebase_admin
     from firebase_admin import credentials, firestore, storage
-    from rich.console import Console
-    from rich.panel import Panel
-    from rich.progress import (
-        BarColumn,
-        Progress,
-        SpinnerColumn,
-        TaskProgressColumn,
-        TextColumn,
-        TimeElapsedColumn,
-    )
-    from rich.table import Table
-    from rich.text import Text
-    from rich import box
-except ImportError as e:
-    print(f"\n❌ Missing dependency: {e}")
-    print("Install with:  pip install -r requirements.txt")
-    sys.exit(1)
-
-console = Console()
-
-# ── Constants ─────────────────────────────────────────────────────────────────
-
-INGEST_QUEUE_COLLECTION = "ingest-queue"
-VALID_COLLECTIONS = {"LEMON", "BLACK_LIST", "ARCHIVE", "TEST"}
-MAX_FILE_SIZE_MB = 50
-MODEL_COSTS = {"haiku": 0.06, "sonnet": 0.22, "opus": 0.90, "auto": 0.22}
-
-BANNER = """
-[bold yellow]🍋 Lemon Ingest V9[/bold yellow]  [dim]— Screenplay Upload Tool[/dim]
-[dim]All analysis runs on the VPS daemon. Firebase is the source of truth.[/dim]
-"""
-
-# ── Firebase init ──────────────────────────────────────────────────────────────
+except ImportError:  # Pure helpers and their tests do not require Firebase.
+    firebase_admin = None
+    credentials = firestore = storage = None
 
 
-def init_firebase(service_account_path: Optional[str] = None) -> None:
-    """Initialize Firebase Admin SDK. Uses ADC if no path given."""
-    if firebase_admin._apps:
-        return
+VALID_COLLECTIONS = ("LEMON", "SUBMISSION", "BLKLST", "CONTEST", "OTHER")
+VALID_MODELS = ("haiku", "sonnet", "opus", "hybrid")
+PROJECT_ID = "lemon-screenplay-dashboard"
+STORAGE_BUCKET = "lemon-screenplay-dashboard.firebasestorage.app"
+MODEL_COST_RANGES_USD = {
+    "haiku": (0.50, 1.50),
+    "sonnet": (1.60, 4.50),
+    "opus": (2.70, 7.50),
+    "hybrid": (1.60, 12.00),
+}
+MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024
+MANIFEST_FILENAME = ".lemon_ingest_batch.json"
+MANIFEST_VERSION = 1
+OUTPUT_COLLECTION = "uploaded_analyses"
+QUEUE_COLLECTION = "ingest-queue"
+QUEUE_CONFIRM_TIMEOUT_SECONDS = 60
+FIREBASE_REQUEST_TIMEOUT_SECONDS = 15
+POSTER_COST_USD = 0.0336
+LOCK_FILENAME = ".lemon_ingest_batch.lock"
+MAY_HAVE_UPLOADED = {"uploading", "upload_error", "awaiting_queue", "queue_unconfirmed", "queued"}
+VALID_STATUSES = {
+    "ready",
+    "uploading",
+    "upload_error",
+    "awaiting_queue",
+    "queue_unconfirmed",
+    "queued",
+    "skipped_duplicate",
+    "skipped_existing",
+    "blocked_invalid",
+    "blocked_title",
+    "blocked_changed",
+    "blocked_missing",
+    "blocked_object_conflict",
+}
 
-    if service_account_path:
-        cred = credentials.Certificate(service_account_path)
-    else:
-        # Try GOOGLE_APPLICATION_CREDENTIALS env var (service account JSON path)
-        env_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        if env_path and Path(env_path).exists():
-            cred = credentials.Certificate(env_path)
-        else:
-            # Try the project-bundled service account
-            local_sa = Path(__file__).parent.parent / "lemon-screenplay-dashboard-firebase-adminsdk-fbsvc-2037a834e2.json"
-            if local_sa.exists():
-                cred = credentials.Certificate(str(local_sa))
-            else:
-                # Fall back to Application Default Credentials
-                cred = credentials.ApplicationDefault()
-
-    firebase_admin.initialize_app(cred, {
-        "storageBucket": "lemon-screenplay-dashboard.firebasestorage.app"
-    })
+ProgressCallback = Callable[[str, dict[str, Any]], None]
 
 
-def get_storage_bucket():
-    return storage.bucket()
+class BatchError(RuntimeError):
+    """A safe, user-fixable batch configuration error."""
 
 
-def get_firestore():
-    return firestore.client()
-
-
-# ── File discovery ────────────────────────────────────────────────────────────
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def discover_pdfs(folder: Path) -> list[Path]:
-    """Recursively find all PDFs in a folder."""
-    return sorted(folder.rglob("*.pdf"))
-
-
-def check_file_size(path: Path) -> float:
-    """Return file size in MB."""
-    return path.stat().st_size / (1024 * 1024)
+    """Find PDFs recursively, including files with an upper-case extension."""
+    return sorted(
+        (path for path in folder.rglob("*") if path.is_file() and path.suffix.lower() == ".pdf"),
+        key=lambda path: str(path.relative_to(folder)).casefold(),
+    )
 
 
 def sha256_file(path: Path) -> str:
-    """Compute SHA-256 of file content."""
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
-# ── Upload ────────────────────────────────────────────────────────────────────
+def infer_title(filename: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[_-]", " ", re.sub(r"\.pdf$", "", filename, flags=re.I))).strip()
 
 
-def upload_pdf(
-    path: Path,
-    collection_id: str,
-    model: str = "auto",
-    priority: int = 0,
-) -> dict:
-    """
-    Upload a PDF to Firebase Storage at:
-        ingest-queue/{collection_id}/{uuid}_{filename}.pdf
-
-    Sets custom metadata so onScreenplayUploaded CF picks up model preference.
-
-    Returns the storage path and a local content hash (for dedup detection).
-    """
-    bucket = get_storage_bucket()
-    safe_name = path.name.replace(" ", "_")
-    blob_name = f"ingest-queue/{collection_id}/{uuid.uuid4().hex}_{safe_name}"
-    blob = bucket.blob(blob_name)
-
-    blob.metadata = {
-        "model": model,
-        "priority": str(priority),
-        "original_name": path.name,
-    }
-
-    blob.upload_from_filename(str(path), content_type="application/pdf")
-
-    return {
-        "storage_path": f"gs://{bucket.name}/{blob_name}",
-        "blob_name": blob_name,
-    }
+def normalized_title(value: str) -> str:
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFC", value)).strip().casefold()
 
 
-# ── Firestore job monitoring ──────────────────────────────────────────────────
-
-
-def find_job_by_storage_path(db, storage_path: str) -> Optional[dict]:
-    """Query Firestore for a job doc matching this storage path."""
-    docs = (
-        db.collection(INGEST_QUEUE_COLLECTION)
-        .where("storage_path", "==", storage_path)
-        .limit(1)
-        .get()
-    )
-    if docs:
-        d = docs[0]
-        data = d.to_dict()
-        data["_id"] = d.id
-        return data
+def pdf_file_error(path: Path) -> Optional[str]:
+    size = path.stat().st_size
+    if size == 0:
+        return "The PDF is empty."
+    if size >= MAX_FILE_SIZE_BYTES:
+        return "The PDF is 50 MB or larger."
+    with path.open("rb") as source:
+        if b"%PDF-" not in source.read(1024):
+            return "The file does not have a valid PDF header."
     return None
 
 
-def subscribe_to_job(db, job_id: str, on_update) -> None:
-    """Firestore real-time listener for a single job document."""
-    doc_ref = db.collection(INGEST_QUEUE_COLLECTION).document(job_id)
-
-    def on_snapshot(doc_snapshot, changes, read_time):
-        for doc in doc_snapshot:
-            on_update(doc.to_dict())
-
-    return doc_ref.on_snapshot(on_snapshot)
+def sanitize_for_storage_path(filename: str) -> str:
+    """Mirror sanitizeForStoragePath() in src/lib/firebase.ts."""
+    stem = re.sub(r"\.pdf$", "", filename, flags=re.IGNORECASE)
+    stem = re.sub(r"[^a-zA-Z0-9_\- ]", "", stem).strip()
+    return re.sub(r"\s+", "_", stem) or "screenplay"
 
 
-# ── Interactive prompts ───────────────────────────────────────────────────────
+def manifest_path(folder: Path) -> Path:
+    return folder / MANIFEST_FILENAME
 
 
-def prompt_folder() -> Path:
-    console.print("\n[bold]📁 Folder path[/bold] (drag & drop or type):")
-    raw = input("  > ").strip().strip("'\"").replace("\\ ", " ")
-    folder = Path(raw).expanduser().resolve()
-    if not folder.exists():
-        console.print(f"[red]Path not found:[/red] {folder}")
-        sys.exit(1)
-    if not folder.is_dir():
-        console.print(f"[red]Not a directory:[/red] {folder}")
-        sys.exit(1)
-    return folder
-
-
-def prompt_category() -> str:
-    console.print("\n[bold]🏷  Category override[/bold] (Enter to use folder name):")
-    raw = input("  > ").strip().upper()
-    return raw if raw else ""
-
-
-def prompt_model() -> str:
-    console.print("\n[bold]🤖 Analysis model:[/bold]")
-    console.print("   [cyan]1.[/cyan] auto     — daemon chooses Haiku/Sonnet based on triage score (~$0.06–$0.22)")
-    console.print("   [cyan]2.[/cyan] haiku    — fast & cheap (~$0.06/script)")
-    console.print("   [cyan]3.[/cyan] sonnet   — best balance (~$0.22/script)")
-    console.print("   [cyan]4.[/cyan] opus     — premium quality (~$0.90/script)")
-    choice = input("  > ").strip()
-    return {"1": "auto", "2": "haiku", "3": "sonnet", "4": "opus"}.get(choice, "auto")
-
-
-def prompt_confirm(n: int, model: str, total_mb: float) -> bool:
-    cost = MODEL_COSTS.get(model, 0.22)
-    est = n * cost
-    console.print(
-        Panel(
-            f"[bold]{n} PDFs[/bold] · {total_mb:.1f} MB total\n"
-            f"Estimated cost: [yellow]~${est:.2f}[/yellow] ({model} @ ${cost}/script)\n\n"
-            "[dim]All analysis runs on VPS daemon. Results appear in dashboard automatically.[/dim]",
-            title="[bold yellow]Confirm Upload[/bold yellow]",
-            border_style="yellow",
+def archive_manifest(folder: Path) -> Optional[Path]:
+    """Keep the old audit trail while allowing a fresh batch configuration."""
+    path = manifest_path(folder.expanduser().resolve())
+    if not path.exists():
+        return None
+    manifest = load_manifest(path)
+    if manifest and any(item.get("status") in MAY_HAVE_UPLOADED for item in manifest["files"]):
+        raise BatchError(
+            "This batch may already exist in production. It cannot be replaced with --new-batch. "
+            "Keep using the saved batch so it cannot create a second paid job."
         )
+    archived = path.with_name(f"{path.stem}.{time.time_ns()}{path.suffix}")
+    os.replace(path, archived)
+    return archived
+
+
+def load_manifest(path: Path) -> Optional[dict[str, Any]]:
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise BatchError(f"The saved batch file is damaged: {path.name}") from error
+    if payload.get("version") != MANIFEST_VERSION or not isinstance(payload.get("files"), list):
+        raise BatchError(f"The saved batch file has an unsupported format: {path.name}")
+    validate_manifest(payload, path)
+    return payload
+
+
+def validate_manifest(manifest: dict[str, Any], path: Path) -> None:
+    """Fail closed before a saved local path can reach Firebase Admin."""
+    if manifest.get("version") != MANIFEST_VERSION or not isinstance(manifest.get("files"), list):
+        raise BatchError("The saved batch has an unsupported format.")
+    folder_text = manifest.get("folder")
+    if not isinstance(folder_text, str) or not Path(folder_text).is_absolute():
+        raise BatchError("The saved batch folder is invalid.")
+    folder = Path(folder_text).expanduser().resolve()
+    if path.expanduser().resolve() != manifest_path(folder):
+        raise BatchError("The saved batch folder does not match its location.")
+    category = manifest.get("category")
+    model = manifest.get("model")
+    if category not in VALID_COLLECTIONS or model not in VALID_MODELS:
+        raise BatchError("The saved batch has an invalid category or reading route.")
+    if not re.fullmatch(r"[0-9a-f]{32}", str(manifest.get("batch_id", ""))):
+        raise BatchError("The saved batch ID is invalid.")
+
+    for item in manifest.get("files", []):
+        if not isinstance(item, dict):
+            raise BatchError("The saved batch contains an invalid file record.")
+        relative_text = item.get("relative_path")
+        filename = item.get("filename")
+        upload_id = str(item.get("upload_id", ""))
+        status = item.get("status")
+        if not isinstance(relative_text, str) or not relative_text:
+            raise BatchError("The saved batch contains an invalid relative path.")
+        relative = Path(relative_text)
+        if relative.is_absolute() or ".." in relative.parts or "\\" in relative_text:
+            raise BatchError(f"Unsafe saved path: {relative_text}")
+        if (
+            not isinstance(filename, str)
+            or filename != relative.name
+            or Path(filename).name != filename
+            or len(filename) > 255
+            or re.search(r"[\x00-\x1f\x7f]", filename)
+            or not filename.lower().endswith(".pdf")
+        ):
+            raise BatchError(f"Invalid saved PDF name: {relative_text}")
+        if not re.fullmatch(r"[0-9a-f]{32}", upload_id):
+            raise BatchError(f"Invalid saved upload ID: {relative_text}")
+        if status not in VALID_STATUSES:
+            raise BatchError(f"Invalid saved file status: {relative_text}")
+        if not isinstance(item.get("size_bytes"), int) or item["size_bytes"] < 0:
+            raise BatchError(f"Invalid saved file size: {relative_text}")
+        content_hash = item.get("sha256")
+        if content_hash and not re.fullmatch(r"[0-9a-f]{64}", str(content_hash)):
+            raise BatchError(f"Invalid saved file hash: {relative_text}")
+        if status in MAY_HAVE_UPLOADED | {"ready"} and not content_hash:
+            raise BatchError(f"Missing saved file hash: {relative_text}")
+        expected_object = (
+            f"ingest-queue/{category}/{upload_id}/"
+            f"{sanitize_for_storage_path(filename)}.pdf"
+        )
+        if item.get("object_name") != expected_object:
+            raise BatchError(f"Invalid saved Storage path: {relative_text}")
+
+
+def save_manifest(path: Path, manifest: dict[str, Any]) -> None:
+    """Write atomically so a power loss cannot leave a half-written manifest."""
+    temp_path = path.with_suffix(path.suffix + ".tmp")
+    temp_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.replace(temp_path, path)
+
+
+@contextmanager
+def folder_lock(folder: Path):
+    """Prevent two launchers from changing the same batch manifest."""
+    lock_path = folder.expanduser().resolve() / LOCK_FILENAME
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        try:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise BatchError("This folder is already open in another Lemon Ingest window.") from error
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def init_firebase(service_account_path: Optional[str] = None) -> None:
+    """Use an explicit credential or this Mac's Application Default Credential."""
+    if firebase_admin is None or credentials is None:
+        raise BatchError("Firebase support is missing. Run: pip install -r ingest/requirements.txt")
+    if firebase_admin._apps:
+        return
+    credential = (
+        credentials.Certificate(service_account_path)
+        if service_account_path
+        else credentials.ApplicationDefault()
     )
-    choice = input("  Proceed? [Y/n] > ").strip().lower()
-    return choice in ("", "y", "yes")
+    firebase_admin.initialize_app(
+        credential,
+        {"projectId": PROJECT_ID, "storageBucket": STORAGE_BUCKET},
+    )
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+def get_firestore():
+    if firestore is None:
+        raise BatchError("Firebase support is missing.")
+    client = firestore.client()
+    if getattr(client, "project", None) != PROJECT_ID:
+        raise BatchError(
+            f"Firebase points to {getattr(client, 'project', 'an unknown project')}, "
+            f"not {PROJECT_ID}. No files were scanned or uploaded."
+        )
+    return client
 
 
-def run_upload(
+def get_storage_bucket():
+    if storage is None:
+        raise BatchError("Firebase support is missing.")
+    return storage.bucket()
+
+
+def load_archive_identity(db: Any) -> tuple[dict[str, str], dict[str, str]]:
+    """Load only identity fields so renamed revisions are caught without full reports."""
+    documents = db.collection(OUTPUT_COLLECTION).select(
+        ["content_hash", "analysis.title", "source_file"]
+    ).stream(timeout=FIREBASE_REQUEST_TIMEOUT_SECONDS, retry=None)
+    hashes: dict[str, str] = {}
+    titles: dict[str, str] = {}
+    for document in documents:
+        data = document.to_dict() or {}
+        analysis = data.get("analysis") if isinstance(data.get("analysis"), dict) else {}
+        title = str(analysis.get("title") or infer_title(str(data.get("source_file") or document.id)))
+        content_hash = data.get("content_hash")
+        if isinstance(content_hash, str):
+            hashes.setdefault(content_hash, title)
+        titles.setdefault(normalized_title(title), title)
+    return hashes, titles
+
+
+def find_queue_jobs(
+    db: Any,
+    expected_generations: dict[str, str],
+    *,
+    timeout_seconds: float = FIREBASE_REQUEST_TIMEOUT_SECONDS,
+) -> dict[str, dict[str, str]]:
+    """Fetch queue confirmations in Firestore's 30-value `in` query chunks."""
+    found: dict[str, dict[str, str]] = {}
+    storage_paths = list(expected_generations)
+    for offset in range(0, len(storage_paths), 30):
+        chunk = storage_paths[offset : offset + 30]
+        for document in (
+            db.collection(QUEUE_COLLECTION)
+            .where("storage_path", "in", chunk)
+            .get(timeout=timeout_seconds, retry=None)
+        ):
+            data = document.to_dict() or {}
+            path = data.get("storage_path")
+            generation = str(data.get("storage_generation") or "")
+            if isinstance(path, str) and generation == expected_generations.get(path):
+                found[path] = {
+                    "job_id": str(document.id),
+                    "storage_generation": generation,
+                }
+    return found
+
+
+def wait_for_queue_jobs(
+    db: Any,
+    expected_generations: dict[str, str],
+    *,
+    timeout_seconds: float = QUEUE_CONFIRM_TIMEOUT_SECONDS,
+    sleep: Callable[[float], None] = time.sleep,
+) -> dict[str, dict[str, str]]:
+    """Use one bounded wait for the whole batch, not one minute per file."""
+    unresolved = set(expected_generations)
+    found: dict[str, dict[str, str]] = {}
+    deadline = time.monotonic() + timeout_seconds
+    while unresolved:
+        remaining = deadline - time.monotonic()
+        matches = find_queue_jobs(
+            db,
+            {path: expected_generations[path] for path in unresolved},
+            timeout_seconds=max(0.1, min(FIREBASE_REQUEST_TIMEOUT_SECONDS, remaining)),
+        )
+        found.update(matches)
+        unresolved.difference_update(matches)
+        if not unresolved:
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        sleep(min(2.0, remaining))
+    return found
+
+
+def prepare_batch(
     folder: Path,
     category: str,
     model: str,
-    dry_run: bool,
-    sa_path: Optional[str],
-) -> None:
-    """Main upload flow."""
-
-    # ── Discover PDFs
-    pdfs = discover_pdfs(folder)
-    if not pdfs:
-        console.print("[yellow]No PDF files found in that folder.[/yellow]")
-        return
-
-    # ── Category
-    if not category:
-        category = folder.name.upper().replace(" ", "_").replace("-", "_")
+    *,
+    db: Any = None,
+) -> tuple[dict[str, Any], Path]:
+    """Create or refresh the restart manifest without starting paid work."""
+    folder = folder.expanduser().resolve()
+    category = category.upper()
+    model = model.lower()
+    if not folder.is_dir():
+        raise BatchError(f"Folder not found: {folder}")
     if category not in VALID_COLLECTIONS:
-        console.print(
-            f"[yellow]Warning:[/yellow] '{category}' is not a standard collection. "
-            f"Valid: {', '.join(sorted(VALID_COLLECTIONS))}. Using as-is."
+        raise BatchError(f"Category must be one of: {', '.join(VALID_COLLECTIONS)}")
+    if model not in VALID_MODELS:
+        raise BatchError(f"Model must be one of: {', '.join(VALID_MODELS)}")
+
+    path = manifest_path(folder)
+    prior = load_manifest(path)
+    if prior and (
+        prior.get("folder") != str(folder)
+        or prior.get("category") != category
+        or prior.get("model") != model
+    ):
+        raise BatchError(
+            f"This folder already has a saved batch for {prior.get('category')} / "
+            f"{prior.get('model')}. Move {path.name} aside before starting a different batch."
         )
 
-    # ── Size check
-    oversized = [(p, check_file_size(p)) for p in pdfs if check_file_size(p) > MAX_FILE_SIZE_MB]
-    if oversized:
-        console.print(f"\n[red]Skipping {len(oversized)} oversized files (>{MAX_FILE_SIZE_MB}MB):[/red]")
-        for p, mb in oversized:
-            console.print(f"  ✗ {p.name} ({mb:.1f} MB)")
-        pdfs = [p for p in pdfs if check_file_size(p) <= MAX_FILE_SIZE_MB]
+    manifest: dict[str, Any] = prior or {
+        "version": MANIFEST_VERSION,
+        "batch_id": uuid.uuid4().hex,
+        "folder": str(folder),
+        "category": category,
+        "model": model,
+        "created_at": now_iso(),
+        "files": [],
+    }
+    prior_by_path = {
+        item.get("relative_path"): item
+        for item in manifest["files"]
+        if isinstance(item, dict) and isinstance(item.get("relative_path"), str)
+    }
+    refreshed: list[dict[str, Any]] = []
+    local_hashes: dict[str, str] = {}
+    local_titles: dict[str, str] = {}
+    discovered_paths: set[str] = set()
+    archive_hashes, archive_titles = load_archive_identity(db) if db is not None else ({}, {})
 
-    total_mb = sum(check_file_size(p) for p in pdfs)
+    for item in manifest["files"]:
+        if not isinstance(item, dict) or item.get("status") not in MAY_HAVE_UPLOADED:
+            continue
+        relative_path = str(item["relative_path"])
+        content_hash = item.get("sha256")
+        if isinstance(content_hash, str) and content_hash:
+            local_hashes.setdefault(content_hash, relative_path)
+        local_titles.setdefault(normalized_title(infer_title(str(item["filename"]))), relative_path)
 
-    # ── Confirm
-    if not prompt_confirm(len(pdfs), model, total_mb):
-        console.print("[dim]Aborted.[/dim]")
-        return
-
-    if dry_run:
-        console.print(
-            Panel("[bold green]DRY RUN[/bold green] — no files uploaded.", border_style="green")
+    for pdf in discover_pdfs(folder):
+        relative_path = str(pdf.relative_to(folder))
+        discovered_paths.add(relative_path)
+        size_bytes = pdf.stat().st_size
+        file_error = pdf_file_error(pdf)
+        content_hash = sha256_file(pdf) if file_error is None else ""
+        prior_item = prior_by_path.get(relative_path)
+        same_file = bool(prior_item and prior_item.get("sha256") == content_hash)
+        if prior_item and prior_item.get("status") in MAY_HAVE_UPLOADED:
+            item = dict(prior_item)
+            item["source_present"] = True
+            if not same_file:
+                item["source_changed"] = True
+            local_titles.setdefault(normalized_title(infer_title(pdf.name)), relative_path)
+            refreshed.append(item)
+            continue
+        item: dict[str, Any] = {
+            "relative_path": relative_path,
+            "filename": pdf.name,
+            "size_bytes": size_bytes,
+            "sha256": content_hash,
+            "upload_id": (
+                prior_item.get("upload_id")
+                if same_file and prior_item.get("upload_id")
+                else uuid.uuid4().hex
+            ),
+            "status": prior_item.get("status", "ready") if same_file else "ready",
+            "error": prior_item.get("error") if same_file else None,
+        }
+        item["object_name"] = (
+            f"ingest-queue/{category}/{item['upload_id']}/"
+            f"{sanitize_for_storage_path(pdf.name)}.pdf"
         )
-        for p in pdfs:
-            console.print(f"  Would upload: [cyan]{p.name}[/cyan]")
-        return
+        title_key = normalized_title(infer_title(pdf.name))
+        if file_error:
+            item.update(status="blocked_invalid", error=file_error)
+        elif content_hash in local_hashes:
+            item.update(
+                status="skipped_duplicate",
+                error=f"Exact copy of {local_hashes[content_hash]}",
+            )
+        elif title_key in local_titles:
+            item.update(
+                status="blocked_title",
+                error=f"Same project name as {local_titles[title_key]}",
+            )
+        elif content_hash in archive_hashes:
+            item.update(
+                status="skipped_existing",
+                error=f"Already analyzed as {archive_hashes[content_hash]}",
+            )
+        elif title_key in archive_titles:
+            item.update(
+                status="blocked_title",
+                error=f"Possible revision of {archive_titles[title_key]}. Resolve it in Intake.",
+            )
+        elif item["status"] not in {
+            "queued",
+            "queue_unconfirmed",
+            "skipped_existing",
+            "blocked_title",
+        }:
+            item.update(status="ready", error=None)
 
-    # ── Init Firebase
-    with console.status("[dim]Connecting to Firebase...[/dim]"):
-        init_firebase(sa_path)
+        if content_hash:
+            local_hashes.setdefault(content_hash, relative_path)
+        local_titles.setdefault(title_key, relative_path)
+        refreshed.append(item)
 
-    # ── Upload loop
-    results: list[dict] = []
+    for relative_path, prior_item in prior_by_path.items():
+        if relative_path in discovered_paths:
+            continue
+        preserved = dict(prior_item)
+        preserved["source_present"] = False
+        if preserved.get("status") not in {
+            "queued",
+            "uploading",
+            "upload_error",
+            "awaiting_queue",
+            "queue_unconfirmed",
+            "skipped_existing",
+            "skipped_duplicate",
+            "blocked_invalid",
+            "blocked_title",
+            "blocked_changed",
+            "blocked_object_conflict",
+        }:
+            preserved.update(status="blocked_missing", error="The source PDF is no longer in the folder.")
+        refreshed.append(preserved)
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
-        upload_task = progress.add_task("[cyan]Uploading PDFs...[/cyan]", total=len(pdfs))
+    if not refreshed:
+        raise BatchError("No PDF files were found in that folder.")
 
-        for pdf in pdfs:
-            try:
-                result = upload_pdf(pdf, category, model=model)
-                result["filename"] = pdf.name
-                result["status"] = "queued"
-                results.append(result)
-                progress.advance(upload_task)
-            except Exception as e:
-                results.append({
-                    "filename": pdf.name,
-                    "status": "upload_error",
-                    "error": str(e),
-                })
-                progress.advance(upload_task)
-                console.print(f"  [red]✗ Upload failed:[/red] {pdf.name} — {e}")
+    manifest["files"] = refreshed
+    manifest["updated_at"] = now_iso()
+    save_manifest(path, manifest)
+    return manifest, path
 
-    # ── Summary table
-    uploaded = [r for r in results if r["status"] == "queued"]
-    failed = [r for r in results if r["status"] == "upload_error"]
 
-    table = Table(
-        title="\n[bold]Upload Summary[/bold]",
-        box=box.ROUNDED,
-        border_style="dim",
-        header_style="bold cyan",
+def batch_counts(manifest: dict[str, Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in manifest["files"]:
+        status = str(item["status"])
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def batch_cost_range(manifest: dict[str, Any]) -> tuple[float, float]:
+    counts = batch_counts(manifest)
+    chargeable = sum(counts.get(status, 0) for status in {"ready", "uploading", "upload_error"})
+    minimum, maximum = MODEL_COST_RANGES_USD[manifest["model"]]
+    return chargeable * minimum, chargeable * maximum
+
+
+def actionable_count(manifest: dict[str, Any]) -> int:
+    actionable = {"ready", "uploading", "upload_error", "awaiting_queue", "queue_unconfirmed"}
+    return sum(1 for item in manifest["files"] if item.get("status") in actionable)
+
+
+def existing_blob_error(blob: Any, item: dict[str, Any], manifest: dict[str, Any]) -> Optional[str]:
+    blob.reload()
+    metadata = blob.metadata or {}
+    expected = {
+        "uploadId": item["upload_id"],
+        "contentHash": item["sha256"],
+        "originalFilename": item["filename"],
+        "category": manifest["category"],
+        "model": manifest["model"],
+    }
+    mismatched = [key for key, value in expected.items() if metadata.get(key) != value]
+    return f"Existing Storage object has different identity fields: {', '.join(mismatched)}." if mismatched else None
+
+
+def upload_batch(
+    manifest: dict[str, Any],
+    path: Path,
+    *,
+    bucket: Any = None,
+    db: Any = None,
+    queue_timeout_seconds: float = QUEUE_CONFIRM_TIMEOUT_SECONDS,
+    sleep: Callable[[float], None] = time.sleep,
+    progress: Optional[ProgressCallback] = None,
+) -> dict[str, Any]:
+    """Upload ready files and prove the production queue accepted each one."""
+    validate_manifest(manifest, path)
+    bucket = bucket or get_storage_bucket()
+    db = db or get_firestore()
+    folder = Path(manifest["folder"])
+
+    for item in manifest["files"]:
+        if item["status"] not in {
+            "ready",
+            "uploading",
+            "upload_error",
+            "awaiting_queue",
+            "queue_unconfirmed",
+        }:
+            continue
+        was_waiting_for_queue = item["status"] in {"awaiting_queue", "queue_unconfirmed"}
+        blob = bucket.blob(item["object_name"])
+        try:
+            exists = blob.exists()
+            if exists:
+                identity_error = existing_blob_error(blob, item, manifest)
+                if identity_error:
+                    item.update(status="blocked_object_conflict", error=identity_error)
+                    continue
+            else:
+                if was_waiting_for_queue:
+                    item.update(
+                        status="queue_unconfirmed",
+                        error="The prior uploaded object is missing. Check the queue before any new upload.",
+                    )
+                    continue
+                source_path = folder / item["relative_path"]
+                if not source_path.is_file():
+                    item.update(status="blocked_missing", error="The source PDF is no longer in the folder.")
+                    continue
+                file_error = pdf_file_error(source_path)
+                current_hash = sha256_file(source_path) if file_error is None else None
+                if (
+                    file_error
+                    or source_path.stat().st_size != item["size_bytes"]
+                    or current_hash != item["sha256"]
+                ):
+                    item.update(
+                        status="blocked_changed",
+                        error=file_error or "The PDF changed after review. Start a fresh batch to review it again.",
+                    )
+                    continue
+                item.update(status="uploading", error=None)
+                manifest["updated_at"] = now_iso()
+                save_manifest(path, manifest)
+                blob.metadata = {
+                    "model": manifest["model"],
+                    "priority": "0",
+                    "originalFilename": item["filename"],
+                    "category": manifest["category"],
+                    "uploadedAt": now_iso(),
+                    "uploadId": item["upload_id"],
+                    "contentHash": item["sha256"],
+                }
+                blob.upload_from_filename(
+                    str(folder / item["relative_path"]),
+                    content_type="application/pdf",
+                    if_generation_match=0,
+                )
+                blob.reload()
+            storage_generation = str(getattr(blob, "generation", "") or "").strip()
+            if not storage_generation:
+                raise BatchError("Storage did not return an object generation. Run this batch again.")
+            storage_path = f"gs://{bucket.name}/{item['object_name']}"
+            item.update(
+                status="awaiting_queue",
+                error=None,
+                storage_path=storage_path,
+                storage_generation=storage_generation,
+            )
+        except Exception as error:
+            item.update(status="upload_error", error=str(error))
+            if progress:
+                progress("error", item)
+        finally:
+            manifest["updated_at"] = now_iso()
+            save_manifest(path, manifest)
+
+    awaiting = [item for item in manifest["files"] if item.get("status") == "awaiting_queue"]
+    confirmations = wait_for_queue_jobs(
+        db,
+        {
+            str(item["storage_path"]): str(item["storage_generation"])
+            for item in awaiting
+        },
+        timeout_seconds=queue_timeout_seconds,
+        sleep=sleep,
     )
-    table.add_column("File", style="white", max_width=50)
-    table.add_column("Status", justify="center")
-    table.add_column("Storage Path", style="dim", max_width=60)
+    for item in awaiting:
+        confirmation = confirmations.get(str(item["storage_path"]))
+        if confirmation and confirmation["storage_generation"] == item["storage_generation"]:
+            item.update(
+                status="queued",
+                error=None,
+                queue_job_id=confirmation["job_id"],
+                queued_at=now_iso(),
+            )
+            if progress:
+                progress("queued", item)
+        else:
+            item.update(
+                status="queue_unconfirmed",
+                error=(
+                    "Storage accepted the PDF, but production did not confirm the queue job. "
+                    "Run this tool again to recheck it. The PDF will not upload twice."
+                ),
+            )
+            if progress:
+                progress("unconfirmed", item)
+        manifest["updated_at"] = now_iso()
+        save_manifest(path, manifest)
+    return manifest
 
-    for r in results:
-        status_txt = (
-            Text("✓ queued", style="green")
-            if r["status"] == "queued"
-            else Text("✗ failed", style="red")
-        )
-        table.add_row(
-            r["filename"],
-            status_txt,
-            r.get("blob_name", r.get("error", "")),
-        )
 
-    console.print(table)
-    console.print(
-        f"\n[green]✓ {len(uploaded)} queued[/green] · "
-        f"[red]{len(failed)} failed[/red]\n"
-        f"[dim]VPS daemon will pick up queued scripts automatically.\n"
-        f"Results appear in the Lemon Dashboard as they complete.[/dim]\n"
+def print_manifest(manifest: dict[str, Any], path: Path) -> None:
+    counts = batch_counts(manifest)
+    minimum, maximum = batch_cost_range(manifest)
+    print(f"\nFolder: {manifest['folder']}")
+    print(f"Route: {manifest['category']} / {manifest['model']}")
+    print(f"Ready: {counts.get('ready', 0)}")
+    print(f"Already queued: {counts.get('queued', 0)}")
+    print(f"Waiting for queue confirmation: {counts.get('queue_unconfirmed', 0)}")
+    print(f"Duplicates skipped: {counts.get('skipped_duplicate', 0) + counts.get('skipped_existing', 0)}")
+    print(f"Title conflicts blocked: {counts.get('blocked_title', 0)}")
+    print(f"Invalid files blocked: {counts.get('blocked_invalid', 0)}")
+    print(f"Changed or missing files blocked: {counts.get('blocked_changed', 0) + counts.get('blocked_missing', 0)}")
+    print(f"Storage identity conflicts blocked: {counts.get('blocked_object_conflict', 0)}")
+    print(f"Estimated analysis cost: ${minimum:.2f} to ${maximum:.2f}")
+    chargeable = sum(counts.get(status, 0) for status in {"ready", "uploading", "upload_error"})
+    print(
+        "Automatic poster extra: up to "
+        f"${chargeable * POSTER_COST_USD:.2f} if no chargeable script receives PASS "
+        f"(${POSTER_COST_USD:.4f} each; separate $5/day poster limit)."
     )
-
-    # Persist results to JSON for reference
-    out_path = folder / f".lemon_ingest_{uuid.uuid4().hex[:8]}.json"
-    with open(out_path, "w") as f:
-        json.dump(results, f, indent=2, default=str)
-    console.print(f"[dim]Upload log saved: {out_path}[/dim]")
+    print(f"Resume file: {path}")
+    for item in manifest["files"]:
+        if item.get("error"):
+            print(f"  {item['status']}: {item['relative_path']} ({item['error']})")
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Lemon Studios V9 — Screenplay Upload CLI",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
-    )
-    parser.add_argument("--folder", "-f", type=str, help="Path to folder containing PDFs")
-    parser.add_argument("--category", "-c", type=str, default="", help="Category override (e.g. LEMON)")
-    parser.add_argument("--model", "-m", type=str, default="", help="Model: auto|haiku|sonnet|opus")
-    parser.add_argument("--dry-run", action="store_true", help="Preview without uploading")
-    parser.add_argument("--service-account", type=str, help="Path to Firebase service account JSON")
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Queue a complete folder for Lemon V9 analysis")
+    parser.add_argument("--folder", "-f", help="Folder containing screenplay PDFs")
+    parser.add_argument("--category", "-c", default="LEMON", choices=VALID_COLLECTIONS)
+    parser.add_argument("--model", "-m", default="hybrid", choices=VALID_MODELS)
+    parser.add_argument("--service-account", help="Optional Firebase service-account JSON")
+    parser.add_argument("--dry-run", action="store_true", help="Run all free checks but upload nothing")
+    parser.add_argument("--new-batch", action="store_true", help="Archive the prior manifest first")
+    parser.add_argument("--yes", action="store_true", help="Skip the final upload confirmation")
     args = parser.parse_args()
 
-    console.print(BANNER)
+    folder_text = args.folder
+    if not folder_text:
+        folder_text = input("Folder path (you can drag the folder here): ").strip().strip("'\"")
 
-    folder = Path(args.folder).expanduser().resolve() if args.folder else prompt_folder()
-    category = args.category.upper() if args.category else prompt_category()
-    model = args.model.lower() if args.model in MODEL_COSTS else (
-        "" if not args.model else ""
-    )
-    if not model:
-        model = prompt_model()
+    try:
+        folder = Path(folder_text).expanduser().resolve()
+        if not folder.is_dir():
+            raise BatchError(f"Folder not found: {folder}")
+        with folder_lock(folder):
+            if args.new_batch:
+                archive_manifest(folder)
+            init_firebase(args.service_account)
+            db = get_firestore()
+            manifest, path = prepare_batch(
+                folder,
+                args.category,
+                args.model,
+                db=db,
+            )
+            print_manifest(manifest, path)
+            if args.dry_run or actionable_count(manifest) == 0:
+                print("\nNo uploads started.")
+                return 0
+            needs_upload = any(
+                item.get("status") in {"ready", "uploading", "upload_error"}
+                for item in manifest["files"]
+            )
+            if needs_upload and not args.yes:
+                answer = input("\nQueue the ready screenplays for paid V9 analysis? [y/N] ").strip().lower()
+                if answer not in {"y", "yes"}:
+                    print("No uploads started.")
+                    return 0
 
-    run_upload(
-        folder=folder,
-        category=category,
-        model=model,
-        dry_run=args.dry_run,
-        sa_path=args.service_account,
-    )
+            def report(event: str, item: dict[str, Any]) -> None:
+                symbol = "queued" if event == "queued" else "needs recheck"
+                print(f"  {symbol}: {item['relative_path']}")
+
+            upload_batch(manifest, path, db=db, progress=report)
+            print_manifest(manifest, path)
+            counts = batch_counts(manifest)
+            incomplete = sum(
+                counts.get(status, 0)
+                for status in {
+                    "upload_error",
+                    "queue_unconfirmed",
+                    "blocked_changed",
+                    "blocked_missing",
+                    "blocked_object_conflict",
+                }
+            )
+            if incomplete:
+                print("\nThe batch is incomplete. Fix the listed files, then run the same batch again.")
+            else:
+                print("\nThe production VPS now owns every queued job. You may close this tool.")
+            return 1 if incomplete else 0
+    except (BatchError, OSError) as error:
+        print(f"\nStopped safely: {error}", file=sys.stderr)
+        return 2
+    except KeyboardInterrupt:
+        print("\nStopped safely. Run the same batch again when ready.", file=sys.stderr)
+        return 130
+    except Exception as error:
+        print(f"\nStopped safely before completion: {error}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -5,6 +5,7 @@ const {
   buildIngestJobId,
   parseIngestPath,
   readBooleanMetadata,
+  readOriginalFilename,
   readSeparateProject,
   readTargetProjectId,
 } = require('../lib/ingestUploadIdentity');
@@ -33,18 +34,12 @@ test('same filename revisions create different queue jobs', () => {
     upload_id: 'upload-two',
     filename: 'Same_Draft.pdf',
   });
-  assert.notEqual(
-    buildIngestJobId(firstPath, '1001'),
-    buildIngestJobId(secondPath, '1002'),
-  );
+  assert.notEqual(buildIngestJobId(firstPath, '1001'), buildIngestJobId(secondPath, '1002'));
 });
 
 test('event retries for one object generation are idempotent', () => {
   const path = 'ingest-queue/LEMON/upload-one/Same_Draft.pdf';
-  assert.equal(
-    buildIngestJobId(path, '1001'),
-    buildIngestJobId(path, '1001'),
-  );
+  assert.equal(buildIngestJobId(path, '1001'), buildIngestJobId(path, '1001'));
 });
 
 test('legacy three-segment ingest paths remain accepted', () => {
@@ -69,6 +64,20 @@ test('renamed revision target is accepted only as a Firestore document id', () =
     () => readTargetProjectId({ targetProjectId: 'projects/Original_Draft.pdf' }),
     /targetProjectId/,
   );
+});
+
+test('original Unicode PDF filename survives the ASCII Storage path', () => {
+  assert.equal(
+    readOriginalFilename({ originalFilename: 'Hermanos Márquez.pdf' }, 'Hermanos_Mrquez.pdf'),
+    'Hermanos Márquez.pdf',
+  );
+  assert.equal(readOriginalFilename({}, 'Fallback.pdf'), 'Fallback.pdf');
+  for (const invalid of ['folder/Draft.pdf', 'folder\\Draft.pdf', 'Draft.txt', 'Draft\n.pdf']) {
+    assert.throws(
+      () => readOriginalFilename({ originalFilename: invalid }, 'Fallback.pdf'),
+      /originalFilename/,
+    );
+  }
 });
 
 test('queue document preserves upload identity and renamed revision target', () => {

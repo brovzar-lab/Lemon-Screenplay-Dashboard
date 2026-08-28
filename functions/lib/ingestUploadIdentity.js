@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseIngestPath = parseIngestPath;
 exports.buildIngestJobId = buildIngestJobId;
 exports.readTargetProjectId = readTargetProjectId;
+exports.readOriginalFilename = readOriginalFilename;
 exports.readSeparateProject = readSeparateProject;
 exports.readBooleanMetadata = readBooleanMetadata;
 const node_crypto_1 = require("node:crypto");
@@ -48,12 +49,26 @@ function readTargetProjectId(metadata) {
     if (!raw)
         return null;
     const targetProjectId = raw.trim();
-    if (!targetProjectId ||
-        targetProjectId.length > 200 ||
-        targetProjectId.includes('/')) {
+    if (!targetProjectId || targetProjectId.length > 200 || targetProjectId.includes('/')) {
         throw new Error('Storage metadata targetProjectId is not a valid Firestore document ID.');
     }
     return targetProjectId;
+}
+/** Keep the original Unicode filename carried in trusted upload metadata. */
+function readOriginalFilename(metadata, fallback) {
+    const raw = metadata.originalFilename;
+    if (!raw)
+        return fallback;
+    const filename = raw.trim();
+    if (!filename ||
+        filename.length > 255 ||
+        filename.includes('/') ||
+        filename.includes('\\') ||
+        /[\u0000-\u001f\u007f]/.test(filename) ||
+        !filename.toLowerCase().endsWith('.pdf')) {
+        throw new Error('Storage metadata originalFilename is not a valid PDF filename.');
+    }
+    return filename;
 }
 /** Read the user's explicit choice to keep a title collision separate. */
 function readSeparateProject(metadata) {

@@ -45,27 +45,41 @@ export function buildIngestJobId(objectName: string, storageGeneration: string):
 }
 
 /** Read an optional stable parent ID from trusted upload metadata. */
-export function readTargetProjectId(
-  metadata: Record<string, string | undefined>,
-): string | null {
+export function readTargetProjectId(metadata: Record<string, string | undefined>): string | null {
   const raw = metadata.targetProjectId;
   if (!raw) return null;
 
   const targetProjectId = raw.trim();
-  if (
-    !targetProjectId ||
-    targetProjectId.length > 200 ||
-    targetProjectId.includes('/')
-  ) {
+  if (!targetProjectId || targetProjectId.length > 200 || targetProjectId.includes('/')) {
     throw new Error('Storage metadata targetProjectId is not a valid Firestore document ID.');
   }
   return targetProjectId;
 }
 
-/** Read the user's explicit choice to keep a title collision separate. */
-export function readSeparateProject(
+/** Keep the original Unicode filename carried in trusted upload metadata. */
+export function readOriginalFilename(
   metadata: Record<string, string | undefined>,
-): boolean {
+  fallback: string,
+): string {
+  const raw = metadata.originalFilename;
+  if (!raw) return fallback;
+
+  const filename = raw.trim();
+  if (
+    !filename ||
+    filename.length > 255 ||
+    filename.includes('/') ||
+    filename.includes('\\') ||
+    /[\u0000-\u001f\u007f]/.test(filename) ||
+    !filename.toLowerCase().endsWith('.pdf')
+  ) {
+    throw new Error('Storage metadata originalFilename is not a valid PDF filename.');
+  }
+  return filename;
+}
+
+/** Read the user's explicit choice to keep a title collision separate. */
+export function readSeparateProject(metadata: Record<string, string | undefined>): boolean {
   const raw = metadata.separateProject;
   if (raw == null || raw === 'false') return false;
   if (raw === 'true') return true;
