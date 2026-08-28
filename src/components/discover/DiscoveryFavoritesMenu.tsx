@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
@@ -43,13 +44,17 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
       ? t('Quick Favorites')
       : (lists.find((list) => list.id === selectedListId)?.name ?? t('Favorites'));
 
+  const closeMenu = () => {
+    setIsOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  };
+
   useEffect(() => {
     if (!isOpen) return;
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      setIsOpen(false);
-      window.requestAnimationFrame(() => triggerRef.current?.focus());
+      closeMenu();
     };
 
     document.addEventListener('keydown', handleEscape);
@@ -78,14 +83,15 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
         )}
       </button>
 
-      {isOpen && (
+      {isOpen && createPortal(
         <div
-          className="dsc-drawer-scrim fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4"
+          className="dsc-drawer-scrim fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="discovery-favorites-title"
+          data-discovery-overlay
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setIsOpen(false);
+            if (event.target === event.currentTarget) closeMenu();
           }}
         >
           <div className="dsc-card flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden !rounded-b-none sm:!rounded-b-[var(--dsc-radius-card)]">
@@ -98,7 +104,7 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
               </div>
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={closeMenu}
                 className="dsc-btn dsc-btn-ghost !h-11 !min-h-11 !w-11 !min-w-11 !p-0 text-xl"
                 aria-label={t('Close favorites')}
               >
@@ -214,7 +220,8 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
               </section>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

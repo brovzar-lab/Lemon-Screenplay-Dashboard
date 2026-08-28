@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,600&family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Barlow+Condensed:ital,wght@0,700;0,800;0,900;1,800&family=Archivo:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f0eee9;font-family:system-ui,sans-serif}
+a{color:#2042C2;text-decoration:none}a:hover{color:#2B54F0}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#1a1a1a;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 system-ui,sans-serif;color:#1a1a1a}
+.dv-opts{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 system-ui,sans-serif;color:rgba(0,0,0,.55)}
+.dv-card{max-width:100%;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+.dv-opt:target .dv-oid{background:#2a78d6;color:#fff}
+.dv-next{margin:22px 0 0;font:12px/1.5 system-ui,sans-serif;color:rgba(0,0,0,.5)}
+</style>
+</helmet>
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Alive version of <a class="dv-oid" href="#2a">2a</a> — real buyer wordmarks, editorial lead story, signal ticker, varied card rhythm, and every claim links to its actual article + ledger entry.</span></div>
+<div class="dv-opts">
+<div class="dv-opt" id="3a">
+<div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a>Instrument light · verified-only · brand logos · live editorial rhythm · linked sources</div>
+<div class="dv-card" style="width:1440px;background:#E9ECF3;border:none">
+
+<!-- App header -->
+<div style="background:#FAFBFE;box-shadow:0 1px 2px rgba(16,20,30,.08),0 4px 14px rgba(16,20,30,.06);padding:0 36px;display:flex;align-items:center;gap:36px;height:64px;position:relative;z-index:3">
+  <div style="display:flex;align-items:center;gap:12px">
+    <img src="Lemon Studios Brand/lemon-logo-black-800x800.png" alt="Lemon Studios" style="width:34px;height:34px;object-fit:contain">
+    <span style="font-family:'Playfair Display',Georgia,serif;font-weight:700;font-size:19px;color:#0B0D12">Lemon <span style="font-weight:500;color:#585F6B">Screenplay Dashboard</span></span>
+  </div>
+  <div style="display:flex;gap:4px;font-family:'Schibsted Grotesk',sans-serif;font-size:13.5px;font-weight:600">
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Discover</div>
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Exceptional Finds</div>
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Saved</div>
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Insights</div>
+    <div style="padding:8px 14px;border-radius:10px;background:#EAEEFE;color:#2042C2">Intelligence</div>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:14px;font-family:'Schibsted Grotesk',sans-serif">
+    <span style="background:#E2F4EC;color:#0C7A4E;font-weight:700;padding:4px 10px;border-radius:999px;font-size:11.5px;display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:999px;background:#12A66B"></span>VERIFIED ONLY</span>
+    <span style="font-size:12px;color:#9298A4;font-variant-numeric:tabular-nums">Week 35 · Aug 24–30</span>
+    <div style="width:32px;height:32px;border-radius:999px;background:#EAEEFE;color:#2042C2;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">BR</div>
+  </div>
+</div>
+
+<!-- Signal ticker -->
+<div style="background:#0E1426;padding:9px 36px;display:flex;gap:34px;align-items:center;overflow:hidden;white-space:nowrap;font-family:'Schibsted Grotesk',sans-serif;font-size:12px;font-variant-numeric:tabular-nums">
+  <span style="color:#73819E;font-weight:700;font-size:10.5px;letter-spacing:.08em;flex:none">SIGNALS</span>
+  <span style="color:#EDF1F9"><span style="color:#34C98C;font-weight:700">▲</span> LatAm romance share <b>30%</b> of commissions</span>
+  <span style="color:#EDF1F9"><span style="color:#FF7A72;font-weight:700">▼</span> LatAm scripted volume <b>−13%</b> YoY</span>
+  <span style="color:#EDF1F9"><span style="color:#34C98C;font-weight:700">▲</span> MX incentive <b>EFICA 30%</b> in force</span>
+  <span style="color:#EDF1F9"><span style="color:#34C98C;font-weight:700">▲</span> Culpables <b>100M</b> viewers</span>
+  <span style="color:#EDF1F9"><span style="color:#FFBE57;font-weight:700">◆</span> Apple content spend <b>$4.5B</b> trimmed</span>
+  <span style="color:#EDF1F9"><span style="color:#34C98C;font-weight:700">▲</span> WB theatrical <b>11 → 14 → 18</b></span>
+  <span style="color:#EDF1F9"><span style="color:#34C98C;font-weight:700">▲</span> Non-English originals <b>52%</b></span>
+</div>
+
+<div style="padding:30px 36px 40px;font-family:'Schibsted Grotesk',sans-serif;color:#0B0D12">
+
+<!-- LEAD STORY -->
+<div style="display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch">
+  <div style="background:#0E1426;border-radius:16px;box-shadow:0 2px 4px rgba(16,20,30,.12),0 20px 44px rgba(16,20,30,.2);padding:34px 36px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:-40px;top:-52px;font-family:'Playfair Display',serif;font-weight:700;font-size:230px;line-height:1;color:rgba(110,139,255,.07);pointer-events:none">30</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span style="background:#34C98C;color:#0E1426;font-size:10.5px;font-weight:800;padding:4px 10px;border-radius:6px;letter-spacing:.05em">LEAD · VERIFIED ✓</span>
+      <span style="color:#73819E;font-size:12px">Decree Feb 16 · Guidelines Mar 30, 2026</span>
+    </div>
+    <div style="font-family:'Playfair Display',serif;font-weight:600;font-size:42px;line-height:1.08;color:#EDF1F9;letter-spacing:-.01em;max-width:560px">Mexico just became the cheapest place to make premium Spanish-language film.</div>
+    <div style="font-size:14.5px;line-height:1.65;color:#94A2BE;margin-top:14px;max-width:600px">EFICA's <b style="color:#EDF1F9">30% transferable tax credit</b> is now law, stacking on Netflix's <b style="color:#EDF1F9">US$1B / 20-titles-a-year</b> pledge and the first EFICINE cap raise in a decade (20M → 25M pesos). Every peso of it is on the public record.</div>
+    <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;font-size:12px;font-weight:600">
+      <a href="https://www.thelocationguide.com/industrynews/mexico-unveils-ambitious-30-film-production-incentive-to-boost-national-and-international-projects" style="background:#1B2747;color:#A9BEFF;padding:7px 13px;border-radius:8px;text-decoration:none">The Location Guide ↗</a>
+      <a href="https://variety.com/2025/film/global/netflix-1-billion-dollars-mexico-churubusco-studios-1236313889/" style="background:#1B2747;color:#A9BEFF;padding:7px 13px;border-radius:8px;text-decoration:none">Variety ↗</a>
+      <a href="https://www.hollywoodreporter.com/business/business-news/netflix-mexico-city-office-1236507864/" style="background:#1B2747;color:#A9BEFF;padding:7px 13px;border-radius:8px;text-decoration:none">Hollywood Reporter ↗</a>
+      <span style="color:#73819E;padding:7px 4px">Ledger: MX-GOV-001 · MX-NFLX-001 · MX-THR-001</span>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 22px;display:flex;align-items:center;gap:18px;flex:1">
+      <div style="width:78px;height:78px;border-radius:999px;background:conic-gradient(#FF6B5C 0 108deg,#E2E6EE 108deg 360deg);display:flex;align-items:center;justify-content:center;flex:none">
+        <div style="width:56px;height:56px;border-radius:999px;background:#FAFBFE;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;font-variant-numeric:tabular-nums">30%</div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:14.5px;line-height:1.35">Romance is now LatAm's most-commissioned scripted genre</div>
+        <div style="font-size:12px;color:#9298A4;margin-top:4px">H1 2026 · <a href="https://senalnews.com/en/data/romance-becomes-latin-americas-top-scripted-tv-genre-as-microdramas-drive-new-growth" style="color:#2042C2;font-weight:600">Señal News ↗</a> · LA-SENAL-001</div>
+      </div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 22px;display:flex;align-items:center;gap:18px;flex:1">
+      <div style="flex:none;width:78px;text-align:center">
+        <div style="font-size:30px;font-weight:700;color:#C42B2B;font-variant-numeric:tabular-nums;letter-spacing:-.02em">−13%</div>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:20px;justify-content:center;margin-top:2px">
+          <div style="width:9px;background:#C9D1E0;height:100%;border-radius:2px"></div>
+          <div style="width:9px;background:#C9D1E0;height:88%;border-radius:2px"></div>
+          <div style="width:9px;background:#FF6B5C;height:70%;border-radius:2px"></div>
+        </div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:14.5px;line-height:1.35">…but total scripted commissioning is shrinking. Concentration, not growth.</div>
+        <div style="font-size:12px;color:#9298A4;margin-top:4px">Jan 2026 · <a href="https://www.advanced-television.com/2026/01/22/research-chile-peru-lead-growth-in-latam-content-export/" style="color:#2042C2;font-weight:600">Advanced Television ↗</a> · <span style="background:#FBEDD6;color:#9A6406;font-weight:700;padding:1px 6px;border-radius:4px;font-size:10px">SINGLE SOURCE</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Secondary stories -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:34px">
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px 22px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="background:#101010;color:#fff;font-weight:800;font-size:13px;padding:6px 12px;border-radius:8px;letter-spacing:.02em">HBO <span style="font-weight:500">Max</span></span>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">✓ 2 SOURCES</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.4">Five of six planned 2026 docuseries are true crime; Chespirito universe expands with Don Ramón</div>
+    <div style="font-size:12px;color:#9298A4;margin-top:10px">Nov 25, 2025 · <a href="https://variety.com/2025/tv/news/hbo-max-latin-america-chespirito-don-ramon-the-colorado-1236592044/" style="color:#2042C2;font-weight:600">Variety ↗</a> · MX-WBD-002</div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px 22px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="background:#232F3E;color:#00A8E1;font-weight:800;font-size:13px;padding:6px 12px;border-radius:8px;letter-spacing:.01em">prime video</span>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">✓ 2 SOURCES</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.4">Culpables crosses 100M viewers, 90%+ outside Spain — Spanish content is now Amazon's export engine</div>
+    <div style="font-size:12px;color:#9298A4;margin-top:10px">Feb 12, 2026 · <a href="https://press.amazonmgmstudios.com/us/en/press-release/iculpablesi-movie-franchise-hits-100-million-viewe" style="color:#2042C2;font-weight:600">Amazon MGM press ↗</a> · GLBL-AMZN-001</div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px 22px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="background:#101010;color:#fff;font-weight:700;font-size:13px;padding:6px 12px;border-radius:8px"> tv+</span>
+      <span style="background:#FBEDD6;color:#9A6406;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">✓ TRADE-SOURCED</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.4">Apple trims content spend to ~$4.5B and gets pickier — Las Azules S2 survives the cut</div>
+    <div style="font-size:12px;color:#9298A4;margin-top:10px">2025–26 · <a href="https://www.apple.com/tv-pr/news/2026/03/apple-tvs-spanish-language-crime-drama-women-in-blue-las-azules-returns-for-season-two-on-wednesday-august-12/" style="color:#2042C2;font-weight:600">Apple TV press ↗</a> · GLBL-APPL-001 · MX-APPL-001</div>
+  </div>
+</div>
+
+<!-- BUYER BOARD -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 12px">
+  <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B">Buyer board — Mexico · verified commitments, linked to the record</div>
+  <div style="display:flex;gap:6px;font-size:12.5px;font-weight:600">
+    <span style="padding:6px 13px;border-radius:999px;background:#2B54F0;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(11,13,18,.12),0 6px 16px rgba(43,84,240,.26)">Mexico</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">US Latino</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">Latin America</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">Spain</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">Global</span>
+  </div>
+</div>
+<div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);overflow:hidden;margin-bottom:34px">
+  <div style="display:grid;grid-template-columns:210px 110px 1fr 320px;gap:0;padding:12px 24px;border-bottom:1px solid #E9ECF3;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9298A4;column-gap:20px"><span>Buyer</span><span>Signal</span><span>Verified appetite</span><span>Sources</span></div>
+  <div style="display:grid;grid-template-columns:210px 110px 1fr 320px;column-gap:20px;padding:16px 24px;border-bottom:1px solid #EEF0F5;align-items:center">
+    <div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:12px;background:#000;display:flex;align-items:center;justify-content:center;flex:none"><span style="color:#E50914;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:26px">N</span></div><div><div style="font-weight:700;font-size:14px;color:#E50914;letter-spacing:.04em;font-family:'Barlow Condensed',sans-serif;font-size:17px">NETFLIX</div><div style="font-size:11px;color:#9298A4">Series + features</div></div></div>
+    <span style="justify-self:start;background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px">● HIGH</span>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5">US$1B through 2028 · 20+ titles/yr with local partners · Churubusco upgrade · CDMX hub. Genre mandate not stated — <span style="color:#9A6406;font-weight:600">held in review</span>.</div>
+    <div style="font-size:12px;line-height:1.7"><a href="https://variety.com/2025/film/global/netflix-1-billion-dollars-mexico-churubusco-studios-1236313889/" style="color:#2042C2;font-weight:600">Variety, Feb 20 2025 ↗</a><br><a href="https://www.hollywoodreporter.com/business/business-news/netflix-mexico-city-office-1236507864/" style="color:#2042C2;font-weight:600">THR, 2026 ↗</a> <span style="color:#9298A4">· MX-NFLX-001</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:210px 110px 1fr 320px;column-gap:20px;padding:16px 24px;border-bottom:1px solid #EEF0F5;align-items:center;background:#F7F9FC">
+    <div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:12px;background:#232F3E;display:flex;align-items:center;justify-content:center;flex:none"><span style="color:#00A8E1;font-weight:800;font-size:11px;letter-spacing:0">prime</span></div><div><div style="font-weight:800;font-size:14px;color:#232F3E">prime video</div><div style="font-size:11px;color:#9298A4">Series + films</div></div></div>
+    <span style="justify-self:start;background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px">● HIGH</span>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5">Stated priorities on record: romance, true crime, comedy adaptations, courtroom drama. Mentiras = biggest MX premiere ever; La Oficina dated 2026.</div>
+    <div style="font-size:12px;line-height:1.7"><a href="https://www.forbes.com/sites/veronicavillafane/2025/12/17/how-prime-video-local-obsession-fuels-latin-america-hits-2026-plans/" style="color:#2042C2;font-weight:600">Forbes, Dec 17 2025 ↗</a> <span style="color:#9298A4">· MX-AMZN-001</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:210px 110px 1fr 320px;column-gap:20px;padding:16px 24px;border-bottom:1px solid #EEF0F5;align-items:center">
+    <div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:12px;background:#101010;display:flex;align-items:center;justify-content:center;flex:none"><span style="color:#fff;font-weight:800;font-size:12px">HBO</span></div><div><div style="font-weight:800;font-size:14px">HBO Max</div><div style="font-size:11px;color:#9298A4">Series + docuseries</div></div></div>
+    <span style="justify-self:start;background:#EAEEFE;color:#2042C2;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px">▲ RISING</span>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5">Stated quality-over-volume strategy · 5 true-crime docs of ~6 planned · Chespirito = biggest LatAm title in platform history, Don Ramón greenlit.</div>
+    <div style="font-size:12px;line-height:1.7"><a href="https://variety.com/2025/tv/news/hbo-max-latin-america-chespirito-don-ramon-the-colorado-1236592044/" style="color:#2042C2;font-weight:600">Variety, Nov 25 2025 ↗</a><br><a href="https://publicidad.wbd.com/chespirito-sin-querer-queriendo-arrasa-en-su-estreno-en-max-y-se-convierte-en-un-fenomeno-de-audiencia-en-latinoamerica-y-mas-alla/" style="color:#2042C2;font-weight:600">WBD press ↗</a> <span style="color:#9298A4">· MX-WBD-001/2</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:210px 110px 1fr 320px;column-gap:20px;padding:16px 24px;border-bottom:1px solid #EEF0F5;align-items:center;background:#F7F9FC">
+    <div style="display:flex;align-items:center;gap:12px;opacity:.9"><div style="width:44px;height:44px;border-radius:12px;background:#003DA5;display:flex;align-items:center;justify-content:center;flex:none"><span style="color:#fff;font-family:'Playfair Display',serif;font-weight:700;font-size:17px">WB</span></div><div><div style="font-weight:800;font-size:14px">Warner Bros.</div><div style="font-size:11px;color:#9298A4">Theatrical tentpoles</div></div></div>
+    <span style="justify-self:start;background:#FBEDD6;color:#9A6406;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px">◆ SELECTIVE</span>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5">Release ramp 11 → 14 → 18 (2025–27), franchise-led, per SEC filing. No Mexico-local theatrical plan disclosed — an evidence gap, not a "no."</div>
+    <div style="font-size:12px;line-height:1.7"><a href="https://www.sec.gov/Archives/edgar/data/0001437107/000143710726000055/a992wbd1q26earningsshare.htm" style="color:#2042C2;font-weight:600">SEC 8-K, 2026 ↗</a> <span style="color:#9298A4">· GLBL-WBD-001</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:210px 110px 1fr 320px;column-gap:20px;padding:16px 24px;border-bottom:1px solid #EEF0F5;align-items:center">
+    <div style="display:flex;align-items:center;gap:12px;opacity:.9"><div style="width:44px;height:44px;border-radius:12px;background:#101010;display:flex;align-items:center;justify-content:center;flex:none"><span style="color:#fff;font-weight:700;font-size:13px">tv+</span></div><div><div style="font-weight:800;font-size:14px">Apple TV+</div><div style="font-size:11px;color:#9298A4">Series</div></div></div>
+    <span style="justify-self:start;background:#FBEDD6;color:#9A6406;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px">◆ SELECTIVE</span>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5">Las Azules S2 premiered Aug 12, 2026 (Apple's own press). Budget trimmed to ~$4.5B; ~a dozen films/yr, most under $100M.</div>
+    <div style="font-size:12px;line-height:1.7"><a href="https://www.apple.com/tv-pr/news/2026/03/apple-tvs-spanish-language-crime-drama-women-in-blue-las-azules-returns-for-season-two-on-wednesday-august-12/" style="color:#2042C2;font-weight:600">Apple TV press, Mar 2026 ↗</a> <span style="color:#9298A4">· MX-APPL-001</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:210px 110px 1fr 320px;column-gap:20px;padding:16px 24px;align-items:center;background:#F7F9FC">
+    <div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:12px;background:#13322B;display:flex;align-items:center;justify-content:center;flex:none"><span style="color:#D4C19C;font-weight:800;font-size:11px">gob mx</span></div><div><div style="font-weight:800;font-size:14px">Gobierno de México</div><div style="font-size:11px;color:#9298A4">Incentives</div></div></div>
+    <span style="justify-self:start;background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px">● HIGH</span>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5">EFICA 30% transferable credit in force · EFICINE cap raised to 25M pesos · framed as an economic-pillar policy by the Sheinbaum government.</div>
+    <div style="font-size:12px;line-height:1.7"><a href="https://www.thelocationguide.com/industrynews/mexico-unveils-ambitious-30-film-production-incentive-to-boost-national-and-international-projects" style="color:#2042C2;font-weight:600">The Location Guide ↗</a> <span style="color:#9298A4">· MX-GOV-001</span></div>
+  </div>
+</div>
+
+<!-- NUMBERS -->
+<div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">By the numbers — every figure links to its source</div>
+<div style="display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin-bottom:34px;align-items:stretch">
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px 22px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
+      <div style="font-weight:700;font-size:14.5px">Demand index by territory</div>
+      <span style="font-size:11px;color:#9298A4">0–100 · research signal · "–" = no verified signal · cells open score rationale</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1.5fr repeat(5,1fr);gap:4px;font-size:12px;font-variant-numeric:tabular-nums">
+      <div></div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:#585F6B;text-transform:uppercase;letter-spacing:.04em">MX</div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:#585F6B;text-transform:uppercase;letter-spacing:.04em">US Lat</div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:#585F6B;text-transform:uppercase;letter-spacing:.04em">LatAm</div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:#585F6B;text-transform:uppercase;letter-spacing:.04em">Spain</div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:#585F6B;text-transform:uppercase;letter-spacing:.04em">Global</div>
+      <div style="font-weight:600;padding:7px 0">Romance &amp; hybrids</div>
+      <div style="background:rgba(255,107,92,.72);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">84</div>
+      <div style="background:rgba(255,107,92,.3);color:#0B0D12;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">64</div>
+      <div style="background:rgba(255,107,92,.78);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">86</div>
+      <div style="background:rgba(255,107,92,.55);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">78</div>
+      <div style="background:rgba(255,107,92,.55);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">78</div>
+      <div style="font-weight:600;padding:7px 0">Crime &amp; true crime</div>
+      <div style="background:rgba(110,75,240,.7);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">85</div>
+      <div style="background:rgba(110,75,240,.3);color:#0B0D12;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">66</div>
+      <div style="background:rgba(110,75,240,.62);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">82</div>
+      <div style="background:rgba(110,75,240,.34);color:#0B0D12;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">68</div>
+      <div style="background:rgba(110,75,240,.44);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">74</div>
+      <div style="font-weight:600;padding:7px 0">Thriller / heist</div>
+      <div style="background:rgba(43,84,240,.64);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">82</div>
+      <div style="background:rgba(43,84,240,.3);color:#0B0D12;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">66</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:rgba(43,84,240,.58);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">80</div>
+      <div style="background:rgba(43,84,240,.44);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">74</div>
+      <div style="font-weight:600;padding:7px 0">Action &amp; young-adult</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:rgba(17,156,139,.64);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">82</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="font-weight:600;padding:7px 0">Nostalgia / heritage IP</div>
+      <div style="background:rgba(17,156,139,.5);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">76</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="font-weight:600;padding:7px 0">Local-language originals</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:rgba(43,84,240,.4);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">72</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:rgba(43,84,240,.66);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">84</div>
+    </div>
+    <div style="display:flex;gap:14px;margin-top:12px;font-size:11px;color:#9298A4;flex-wrap:wrap">
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#FF6B5C;vertical-align:-1px"></span> Romance</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#6E4BF0;vertical-align:-1px"></span> Crime</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#2B54F0;vertical-align:-1px"></span> Thriller / language</span>
+      <span><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#119C8B;vertical-align:-1px"></span> Action / heritage</span>
+      <span style="margin-left:auto">Method: authority 35 + recency 25 + breadth 20 + intent 20 · <a href="https://senalnews.com/en/data/romance-becomes-latin-americas-top-scripted-tv-genre-as-microdramas-drive-new-growth" style="color:#2042C2;font-weight:600">key source ↗</a></span>
+    </div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px 22px;display:flex;flex-direction:column">
+    <div style="font-weight:700;font-size:14.5px;margin-bottom:2px">Committed capital · US$B</div>
+    <div style="font-size:11px;color:#9298A4;margin-bottom:16px">On the record, linked</div>
+    <div style="display:flex;flex-direction:column;gap:15px;font-variant-numeric:tabular-nums;flex:1">
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;align-items:center"><span style="font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:20px;height:20px;border-radius:6px;background:#000;color:#E50914;display:inline-flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:13px">N</span>Netflix global, 2026</span><a href="https://variety.com/2026/tv/news/netflix-q4-2025-financial-earnings-subscribers-1236635615/" style="font-weight:700;color:#0B0D12">$20B ↗</a></div>
+        <div style="height:16px;border-radius:6px;background:#E2E6EE"><div style="width:100%;height:100%;border-radius:6px;background:linear-gradient(90deg,#2B54F0,#6E8BFF)"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;align-items:center"><span style="font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:20px;height:20px;border-radius:6px;background:#101010;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:8.5px">tv+</span>Apple TV+ annual, trimmed</span><a href="https://readthejoe.com/tech/apple-to-cut-back-on-spending-for-apple-tv-after-20b-investment-in-original-content/" style="font-weight:700;color:#0B0D12">$4.5B ↗</a></div>
+        <div style="height:16px;border-radius:6px;background:#E2E6EE"><div style="width:22.5%;height:100%;border-radius:6px;background:#6E4BF0"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;align-items:center"><span style="font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:20px;height:20px;border-radius:6px;background:#000;color:#E50914;display:inline-flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:13px">N</span>Netflix → Spain, 2025–28</span><a href="https://variety.com/2025/tv/global/netflix-spain-1-2-billion-ted-sarandos-diego-avalos-1236424549/" style="font-weight:700;color:#0B0D12">$1.2B ↗</a></div>
+        <div style="height:16px;border-radius:6px;background:#E2E6EE"><div style="width:6%;height:100%;border-radius:6px;background:#119C8B"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;align-items:center"><span style="font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:20px;height:20px;border-radius:6px;background:#000;color:#E50914;display:inline-flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:13px">N</span>Netflix → Mexico, 2025–28</span><a href="https://variety.com/2025/film/global/netflix-1-billion-dollars-mexico-churubusco-studios-1236313889/" style="font-weight:700;color:#0B0D12">$1.0B ↗</a></div>
+        <div style="height:16px;border-radius:6px;background:#E2E6EE"><div style="width:5%;height:100%;border-radius:6px;background:#FF6B5C"></div></div>
+        <div style="font-size:11px;color:#9298A4;margin-top:3px">Ring-fenced, local-partner-only, +30% EFICA on top</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;border-top:1px solid #E9ECF3;margin-top:14px;padding-top:14px">
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#9298A4">Non-English originals</div>
+        <div style="font-size:24px;font-weight:700;font-variant-numeric:tabular-nums">52% <span style="font-size:12px;color:#0C7A4E;font-weight:700">▲ from 49%</span></div>
+        <a href="https://www.wordbank.com/blog/global-trends/10-trends-shaping-streaming-and-entertainment-in-2026/" style="font-size:11px;color:#2042C2;font-weight:600">GLBL-TREND-001 ↗</a>
+      </div>
+      <div style="flex:1;border-left:1px solid #E9ECF3;padding-left:12px">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#9298A4">WB theatrical ramp</div>
+        <div style="display:flex;align-items:flex-end;gap:5px;height:26px;margin-top:4px">
+          <div style="width:16px;background:#C9D1E0;border-radius:3px 3px 0 0;height:61%"></div>
+          <div style="width:16px;background:#8FA3D9;border-radius:3px 3px 0 0;height:78%"></div>
+          <div style="width:16px;background:#2B54F0;border-radius:3px 3px 0 0;height:100%"></div>
+          <span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;margin-left:4px">11→14→18</span>
+        </div>
+        <a href="https://www.sec.gov/Archives/edgar/data/0001437107/000143710726000055/a992wbd1q26earningsshare.htm" style="font-size:11px;color:#2042C2;font-weight:600">SEC 8-K ↗</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCORECARD + MOVES + CHAT -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:16px;align-items:start">
+  <div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">Scorecard — graded vs verified outcomes</div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid #E9ECF3">
+        <div style="width:64px;height:64px;border-radius:999px;background:conic-gradient(#12A66B 0 210deg,#F5A524 210deg 300deg,#FF5247 300deg 360deg);display:flex;align-items:center;justify-content:center;flex:none">
+          <div style="width:46px;height:46px;border-radius:999px;background:#FAFBFE;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums">7/12</div>
+        </div>
+        <div style="font-size:12.5px;color:#585F6B;line-height:1.5"><b style="color:#0B0D12">58% hit rate</b> across 12 graded calls.<br><span style="color:#0C7A4E;font-weight:700">7 correct</span> · <span style="color:#9A6406;font-weight:700">3 partial</span> · <span style="color:#C42B2B;font-weight:700">2 wrong</span></div>
+      </div>
+      <div style="padding:4px 0">
+        <div style="display:flex;gap:10px;align-items:center;padding:10px 20px"><span style="background:#E2F4EC;color:#0C7A4E;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:6px;flex:none;width:52px;text-align:center">CORRECT</span><div style="font-size:12.5px;line-height:1.4"><b>Romance overtakes drama in LatAm.</b> <a href="https://senalnews.com/en/data/romance-becomes-latin-americas-top-scripted-tv-genre-as-microdramas-drive-new-growth" style="color:#2042C2;font-weight:600">verified ↗</a></div></div>
+        <div style="display:flex;gap:10px;align-items:center;padding:10px 20px;background:#F4F6FB"><span style="background:#E2F4EC;color:#0C7A4E;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:6px;flex:none;width:52px;text-align:center">CORRECT</span><div style="font-size:12.5px;line-height:1.4"><b>Mexico expands incentives in 2026.</b> <a href="https://www.thelocationguide.com/industrynews/mexico-unveils-ambitious-30-film-production-incentive-to-boost-national-and-international-projects" style="color:#2042C2;font-weight:600">verified ↗</a></div></div>
+        <div style="display:flex;gap:10px;align-items:center;padding:10px 20px"><span style="background:#FBEDD6;color:#9A6406;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:6px;flex:none;width:52px;text-align:center">PARTIAL</span><div style="font-size:12.5px;line-height:1.4"><b>HBO Max grows LatAm volume.</b> Quality-over-volume instead. <a href="https://variety.com/2025/tv/news/hbo-max-latin-america-chespirito-don-ramon-the-colorado-1236592044/" style="color:#2042C2;font-weight:600">↗</a></div></div>
+        <div style="display:flex;gap:10px;align-items:center;padding:10px 20px;background:#F4F6FB"><span style="background:#FCE7E7;color:#C42B2B;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:6px;flex:none;width:52px;text-align:center">WRONG</span><div style="font-size:12.5px;line-height:1.4"><b>Apple raises Mexico output.</b> Opposite — trimmed to $4.5B. <a href="https://readthejoe.com/tech/apple-to-cut-back-on-spending-for-apple-tv-after-20b-investment-in-original-content/" style="color:#2042C2;font-weight:600">↗</a></div></div>
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid #E9ECF3;font-size:11.5px;color:#9298A4">Calls are graded only when the outcome is verifiable. Open calls stay open.</div>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">Moves — small, reversible, this week</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 18px">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="width:34px;height:34px;border-radius:10px;background:#FCEFEA;color:#B4432F;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">♥</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:14px;line-height:1.35">Re-rank slate vs romance-hybrid demand; shortlist top 5</div>
+            <div style="font-size:11.5px;color:#9298A4;margin-top:4px">Query only · Development · this week · LA-SENAL-001, MX-AMZN-001</div>
+          </div>
+          <span style="background:#2B54F0;color:#fff;font-size:11px;font-weight:600;padding:7px 13px;border-radius:10px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(11,13,18,.12),0 6px 16px rgba(43,84,240,.26)">Run</span>
+        </div>
+      </div>
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 18px">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="width:34px;height:34px;border-radius:10px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">%</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:14px;line-height:1.35">EFICA-eligibility memo for 2 Mexico-shootable projects</div>
+            <div style="font-size:11.5px;color:#9298A4;margin-top:4px">Analysis only · Production/Finance · before Sep 15 · MX-GOV-001</div>
+          </div>
+          <span style="background:#FAFBFE;border:1px solid #C9D1E0;color:#0B0D12;font-size:11px;font-weight:600;padding:7px 13px;border-radius:10px;flex:none">Assign</span>
+        </div>
+      </div>
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 18px">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="width:34px;height:34px;border-radius:10px;background:#EFEAFC;color:#5A3BC4;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">▣</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:14px;line-height:1.35">Tier one true-crime doc concept for HBO Max LatAm</div>
+            <div style="font-size:11.5px;color:#9298A4;margin-top:4px">Pitch only · Sales · 2 weeks · MX-WBD-002</div>
+          </div>
+          <span style="background:#FAFBFE;border:1px solid #C9D1E0;color:#0B0D12;font-size:11px;font-weight:600;padding:7px 13px;border-radius:10px;flex:none">Brief</span>
+        </div>
+      </div>
+      <div style="background:#E2E6EE;border-radius:16px;padding:14px 18px;box-shadow:inset 0 1px 2px rgba(11,13,18,.06)">
+        <div style="font-weight:700;font-size:13px;color:#585F6B;display:flex;justify-content:space-between"><span>Review queue — held off the dashboard</span><span style="color:#2042C2">open →</span></div>
+        <div style="font-size:12px;color:#585F6B;line-height:1.65;margin-top:6px">6 items awaiting evidence: Netflix genre mandate · US Latino commissioning · microdrama trend · nostalgia-IP mandate · social chatter · Apple pipeline. Each lists exactly what would promote it.</div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">Ask Pulse — ledger-grounded chat</div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:12px 18px;border-bottom:1px solid #E9ECF3;display:flex;align-items:center;gap:10px">
+        <div style="width:30px;height:30px;border-radius:10px;background:#0E1426;display:flex;align-items:center;justify-content:center;flex:none"><img src="Lemon Studios Brand/lemon-logo-white-800x800.png" alt="" style="width:20px;height:20px;object-fit:contain"></div>
+        <div style="font-weight:700;font-size:13.5px">Pulse</div>
+        <span style="background:#E2F4EC;color:#0C7A4E;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px">33-SOURCE LEDGER ONLY</span>
+      </div>
+      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+        <div style="align-self:flex-end;max-width:80%;background:#2B54F0;color:#fff;border-radius:13px 13px 4px 13px;padding:10px 14px;font-size:13px;line-height:1.5">Which buyers would take a romance-thriller feature shot in Mexico?</div>
+        <div style="align-self:flex-start;max-width:92%;background:#EEF0F5;border-radius:13px 13px 13px 4px;padding:12px 15px;font-size:13px;line-height:1.6;color:#0B0D12">
+          Two with verified appetite: <b>Prime Video</b> — romance is a stated 2026 Mexico priority (<a href="https://www.forbes.com/sites/veronicavillafane/2025/12/17/how-prime-video-local-obsession-fuels-latin-america-hits-2026-plans/" style="color:#2042C2;font-weight:600">Forbes ↗</a>), and <b>Netflix</b> — $1B committed, 20+ titles/yr (<a href="https://variety.com/2025/film/global/netflix-1-billion-dollars-mexico-churubusco-studios-1236313889/" style="color:#2042C2;font-weight:600">Variety ↗</a>), though its genre appetite is slate-inferred, so I won't count it as verified. Shooting in Mexico may qualify for the EFICA 30% credit.
+          <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+            <span style="background:#EAEEFE;color:#2042C2;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px">MX-AMZN-001</span>
+            <span style="background:#EAEEFE;color:#2042C2;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px">MX-NFLX-001</span>
+            <span style="background:#EAEEFE;color:#2042C2;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px">MX-GOV-001</span>
+            <span style="background:#E2E6EE;color:#585F6B;font-size:10px;font-weight:600;padding:3px 8px;border-radius:6px">1 withheld</span>
+          </div>
+        </div>
+        <div style="align-self:flex-start;max-width:92%;background:#EEF0F5;border-radius:13px;padding:12px 15px;font-size:13px;line-height:1.55;color:#0B0D12">Want me to open <b>Discover</b> with matchQuery <i>romance + thriller</i>, verdict ≥ Recommend, Mexico-shootable? <span style="color:#2042C2;font-weight:600">Open →</span></div>
+      </div>
+      <div style="padding:12px 18px;border-top:1px solid #E9ECF3">
+        <div style="display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap;font-size:11.5px;font-weight:600">
+          <span style="background:#E2E6EE;color:#585F6B;padding:4px 11px;border-radius:999px">What changed for HBO Max?</span>
+          <span style="background:#E2E6EE;color:#585F6B;padding:4px 11px;border-radius:999px">Evidence for romance demand</span>
+          <span style="background:#E2E6EE;color:#585F6B;padding:4px 11px;border-radius:999px">Why is thriller in review?</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="flex:1;background:#EEF0F5;border:1px solid #D4DAE6;border-radius:8px;box-shadow:inset 0 1px 2px rgba(11,13,18,.06);padding:10px 13px;font-size:13px;color:#9298A4">Ask about buyers, evidence, past calls…</div>
+          <span style="background:#2B54F0;color:#fff;font-size:12.5px;font-weight:600;padding:10px 18px;border-radius:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(11,13,18,.12),0 6px 16px rgba(43,84,240,.26)">Send</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+<p class="dv-next">Try next: "make <a class="dv-oid" href="#3a">3a</a> a live prototype with working tabs, ticker and chat" · "swap the buyer wordmarks for uploaded logo files" · "apply the dark navy lead-story treatment to more sections"</p>
+</section>
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Verified-only refinement of <a class="dv-oid" href="#1a">1a</a> — nothing unverified renders; excluded signals are counted, not shown. Adds charts + "Ask Pulse" AI chat grounded in the source ledger.</span></div>
+<div class="dv-opts">
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Instrument light · verified-only mode · charts · AI chat</div>
+<div class="dv-card" style="width:1440px;background:#E9ECF3;border:none">
+
+<!-- App header -->
+<div style="background:#FAFBFE;box-shadow:0 1px 2px rgba(16,20,30,.08),0 4px 14px rgba(16,20,30,.06);padding:0 36px;display:flex;align-items:center;gap:36px;height:64px;position:relative;z-index:2">
+  <div style="display:flex;align-items:center;gap:12px">
+    <img src="Lemon Studios Brand/lemon-logo-black-800x800.png" alt="Lemon Studios" style="width:34px;height:34px;object-fit:contain">
+    <span style="font-family:'Playfair Display',Georgia,serif;font-weight:700;font-size:19px;color:#0B0D12">Lemon <span style="font-weight:500;color:#585F6B">Screenplay Dashboard</span></span>
+  </div>
+  <div style="display:flex;gap:4px;font-family:'Schibsted Grotesk',sans-serif;font-size:13.5px;font-weight:600">
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Discover</div>
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Exceptional Finds</div>
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Saved</div>
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Insights</div>
+    <div style="padding:8px 14px;border-radius:10px;background:#EAEEFE;color:#2042C2">Intelligence</div>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:14px;font-family:'Schibsted Grotesk',sans-serif">
+    <span style="font-size:12px;color:#9298A4;font-variant-numeric:tabular-nums">Week 35 · Aug 24–30, 2026</span>
+    <div style="width:32px;height:32px;border-radius:999px;background:#EAEEFE;color:#2042C2;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">BR</div>
+  </div>
+</div>
+
+<div style="padding:32px 36px 40px;font-family:'Schibsted Grotesk',sans-serif;color:#0B0D12">
+
+<!-- Masthead -->
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+  <div>
+    <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9298A4;margin-bottom:8px">Studio Pulse · Weekly decision system</div>
+    <h1 style="font-family:'Playfair Display',Georgia,serif;font-weight:600;font-size:40px;line-height:1.05;margin:0;letter-spacing:-0.01em">Intelligence Briefing</h1>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px">
+      <span style="background:#E2F4EC;color:#0C7A4E;font-weight:700;padding:4px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:999px;background:#12A66B;display:inline-block"></span>VERIFIED ONLY</span>
+      <span style="background:#EAEEFE;color:#2042C2;font-weight:600;padding:4px 10px;border-radius:999px">Snapshot Aug 19, 2026</span>
+      <span style="background:#E2E6EE;color:#585F6B;font-weight:500;padding:4px 10px;border-radius:999px">33-source ledger · every claim dated</span>
+      <span style="color:#9298A4">Signals never change screenplay scores or verdicts.</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px">
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 20px;min-width:145px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9298A4">Verified claims</div>
+      <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums">27</div>
+      <div style="font-size:12px;color:#585F6B">Sourced, dated, ledgered</div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 20px;min-width:145px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9298A4">Held in review</div>
+      <div style="font-size:34px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums;color:#585F6B">6</div>
+      <div style="font-size:12px;color:#585F6B">Excluded until verified</div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 20px;min-width:145px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9298A4">Moves proposed</div>
+      <div style="font-size:34px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums">3</div>
+      <div style="font-size:12px;color:#585F6B">All reversible</div>
+    </div>
+  </div>
+</div>
+
+<!-- Verification bar -->
+<div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:14px 20px;margin:20px 0 30px;display:flex;align-items:center;gap:18px;font-size:12.5px">
+  <div style="width:36px;height:36px;border-radius:10px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">✓</div>
+  <div style="color:#585F6B;line-height:1.5"><b style="color:#0B0D12">Verification standard:</b> a claim renders only with a named source, a publication date inside the 12-month window, and a ledger ID. Single-source claims are marked. Inferences, rumors, and social chatter never appear here — they sit in the review queue until independently confirmed.</div>
+  <span style="margin-left:auto;flex:none;color:#2042C2;font-weight:600">View review queue (6) →</span>
+</div>
+
+<!-- 01 What changed -->
+<div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">01 · What changed — verified</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:34px">
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">▲</div>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">✓ 3 SOURCES</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">EFICA 30% transferable tax credit is law</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Presidential decree Feb 16; guidelines Mar 30, 2026. EFICINE production cap raised 20M → 25M pesos — first increase in a decade.</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:12px;font-variant-numeric:tabular-nums">The Location Guide · Baker McKenzie · Santamarina+Steta · Mar 2026 · <span style="color:#2042C2;font-weight:600">MX-GOV-001</span></div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">▲</div>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">✓ 2 SOURCES</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">Romance = 30% of LatAm scripted commissions, H1 2026</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Now the region's most-commissioned scripted genre. Commissioned form is hybrid: romance+thriller, telenovela+mystery, drama+music.</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:12px;font-variant-numeric:tabular-nums">Señal News · Parrot Analytics · H1 2026 · <span style="color:#2042C2;font-weight:600">LA-SENAL-001</span></div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#FCE7E7;color:#C42B2B;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">▼</div>
+      <span style="background:#FBEDD6;color:#9A6406;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">✓ SINGLE SOURCE</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">LatAm scripted commissioning fell ~13% year over year</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">The romance surge is concentration inside a shrinking pie, not growth. Both facts are verified; hold them together.</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:12px;font-variant-numeric:tabular-nums">Advanced Television (Parrot data) · Jan 22, 2026 · <span style="color:#2042C2;font-weight:600">LA-ADVTV-001</span></div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#EAEEFE;color:#2042C2;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">→</div>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">✓ 2 SOURCES</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">HBO Max LatAm: quality over volume, five true-crime docs of six planned</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Stated strategy on the record. Chespirito: Sin Querer Queriendo (Jun 5, 2025) is the platform's biggest LatAm title ever; Don Ramón extends the universe.</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:12px;font-variant-numeric:tabular-nums">Variety · WBD LATAM press · Nov 25, 2025 · <span style="color:#2042C2;font-weight:600">MX-WBD-002</span></div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">▲</div>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">✓ 2 SOURCES</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">Culpables crossed 100M viewers — 90%+ outside Spain</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Amazon's own press release, Feb 12, 2026. Prime Video's International Originals strategy now treats Spanish-language content as a global export engine, 30+ languages, 240 territories.</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:12px;font-variant-numeric:tabular-nums">Amazon MGM press · Variety · Feb 12, 2026 · <span style="color:#2042C2;font-weight:600">GLBL-AMZN-001</span></div>
+  </div>
+  <!-- Held back -->
+  <div style="background:#E2E6EE;border-radius:16px;padding:20px;box-shadow:inset 0 1px 2px rgba(11,13,18,.06)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#FAFBFE;color:#9298A4;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700">◌</div>
+      <span style="background:#FAFBFE;color:#585F6B;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">HELD — NOT SHOWN</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35;color:#585F6B">6 signals in the review queue</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.6;margin-top:6px">2 single-press-read trends · 2 slate-inferred genre mandates · 2 social-chatter reads. They render here only after independent confirmation — never before.</div>
+    <div style="font-size:11.5px;color:#2042C2;font-weight:600;margin-top:12px">Open review queue →</div>
+  </div>
+</div>
+
+<!-- 02 By the numbers -->
+<div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">02 · By the numbers — every figure sourced</div>
+<div style="display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:16px;margin-bottom:34px;align-items:stretch">
+  <!-- Heatmap -->
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
+      <div style="font-weight:700;font-size:14.5px">Demand index by territory</div>
+      <span style="font-size:11px;color:#9298A4">0–100 · research signal · "–" = no verified signal</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1.5fr repeat(5,1fr);gap:4px;font-size:12px;font-variant-numeric:tabular-nums">
+      <div></div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:#585F6B;text-transform:uppercase;letter-spacing:.04em">MX</div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:#585F6B;text-transform:uppercase;letter-spacing:.04em">US Lat</div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:#585F6B;text-transform:uppercase;letter-spacing:.04em">LatAm</div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:#585F6B;text-transform:uppercase;letter-spacing:.04em">Spain</div>
+      <div style="text-align:center;font-size:10.5px;font-weight:700;color:#585F6B;text-transform:uppercase;letter-spacing:.04em">Global</div>
+
+      <div style="font-weight:600;padding:7px 0">Romance &amp; hybrids</div>
+      <div style="background:rgba(43,84,240,.66);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">84</div>
+      <div style="background:rgba(43,84,240,.28);color:#0B0D12;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">64</div>
+      <div style="background:rgba(43,84,240,.72);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">86</div>
+      <div style="background:rgba(43,84,240,.5);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">78</div>
+      <div style="background:rgba(43,84,240,.5);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">78</div>
+
+      <div style="font-weight:600;padding:7px 0">Crime &amp; true crime</div>
+      <div style="background:rgba(43,84,240,.7);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">85</div>
+      <div style="background:rgba(43,84,240,.3);color:#0B0D12;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">66</div>
+      <div style="background:rgba(43,84,240,.62);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">82</div>
+      <div style="background:rgba(43,84,240,.32);color:#0B0D12;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">68</div>
+      <div style="background:rgba(43,84,240,.42);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">74</div>
+
+      <div style="font-weight:600;padding:7px 0">Thriller / heist</div>
+      <div style="background:rgba(43,84,240,.62);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">82</div>
+      <div style="background:rgba(43,84,240,.3);color:#0B0D12;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">66</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:rgba(43,84,240,.56);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">80</div>
+      <div style="background:rgba(43,84,240,.42);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">74</div>
+
+      <div style="font-weight:600;padding:7px 0">Action &amp; young-adult</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:rgba(43,84,240,.62);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">82</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+
+      <div style="font-weight:600;padding:7px 0">Nostalgia / heritage IP</div>
+      <div style="background:rgba(43,84,240,.46);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">76</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+
+      <div style="font-weight:600;padding:7px 0">Local-language originals</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:rgba(43,84,240,.38);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:600">72</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:#EEF0F5;color:#9298A4;border-radius:8px;display:flex;align-items:center;justify-content:center">–</div>
+      <div style="background:rgba(43,84,240,.66);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700">84</div>
+    </div>
+    <div style="font-size:11px;color:#9298A4;margin-top:12px">Indexes from the Aug 19 snapshot JSON. Method: source authority 35 + recency 25 + breadth 20 + stated intent 20. Click any cell for its score rationale + evidence IDs.</div>
+  </div>
+  <!-- Capital -->
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px;display:flex;flex-direction:column">
+    <div style="font-weight:700;font-size:14.5px;margin-bottom:2px">Committed capital</div>
+    <div style="font-size:11px;color:#9298A4;margin-bottom:16px">US$ billions · on the record</div>
+    <div style="display:flex;flex-direction:column;gap:14px;font-variant-numeric:tabular-nums;flex:1">
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px"><span style="font-weight:600">Netflix global content, 2026</span><span style="font-weight:700">$20B</span></div>
+        <div style="height:14px;border-radius:6px;background:#E2E6EE"><div style="width:100%;height:100%;border-radius:6px;background:#2B54F0"></div></div>
+        <div style="font-size:10.5px;color:#9298A4;margin-top:3px">Variety, Jan 20 2026 · GLBL-NFLX-001</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px"><span style="font-weight:600">Apple TV+ annual (trimmed)</span><span style="font-weight:700">$4.5B</span></div>
+        <div style="height:14px;border-radius:6px;background:#E2E6EE"><div style="width:22.5%;height:100%;border-radius:6px;background:#6E4BF0"></div></div>
+        <div style="font-size:10.5px;color:#9298A4;margin-top:3px">Trade reports 2025–26 · GLBL-APPL-001</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px"><span style="font-weight:600">Netflix → Spain, 2025–28</span><span style="font-weight:700">$1.2B</span></div>
+        <div style="height:14px;border-radius:6px;background:#E2E6EE"><div style="width:6%;height:100%;border-radius:6px;background:#119C8B"></div></div>
+        <div style="font-size:10.5px;color:#9298A4;margin-top:3px">Variety, Jun 10 2025 · SP-NFLX-001</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px"><span style="font-weight:600">Netflix → Mexico, 2025–28</span><span style="font-weight:700">$1.0B</span></div>
+        <div style="height:14px;border-radius:6px;background:#E2E6EE"><div style="width:5%;height:100%;border-radius:6px;background:#FF6B5C"></div></div>
+        <div style="font-size:10.5px;color:#9298A4;margin-top:3px">Variety, Feb 20 2025 · MX-NFLX-001 · +20 titles/yr</div>
+      </div>
+    </div>
+    <div style="border-top:1px solid #E9ECF3;margin-top:14px;padding-top:12px;font-size:12px;color:#585F6B;line-height:1.5"><b>Read:</b> Mexico's $1B is small next to global spend — but it is ring-fenced, local-partner-only, and now stacks with a 30% tax credit.</div>
+  </div>
+  <!-- Stat trio -->
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px;display:flex;align-items:center;gap:16px">
+      <div style="width:74px;height:74px;border-radius:999px;background:conic-gradient(#2B54F0 0 108deg,#E2E6EE 108deg 360deg);display:flex;align-items:center;justify-content:center;flex:none">
+        <div style="width:52px;height:52px;border-radius:999px;background:#FAFBFE;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums">30%</div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:14px;line-height:1.3">of LatAm scripted commissions are romance</div>
+        <div style="font-size:11.5px;color:#9298A4;margin-top:3px">H1 2026 · Señal News · LA-SENAL-001</div>
+      </div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px;display:flex;align-items:center;gap:16px">
+      <div style="width:74px;height:74px;border-radius:999px;background:conic-gradient(#2B54F0 0 187deg,#E2E6EE 187deg 360deg);display:flex;align-items:center;justify-content:center;flex:none">
+        <div style="width:52px;height:52px;border-radius:999px;background:#FAFBFE;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums">52%</div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:14px;line-height:1.3">of streaming originals are non-English, 2025</div>
+        <div style="font-size:11.5px;color:#9298A4;margin-top:3px">Up from 49% in 2024 · GLBL-TREND-001</div>
+      </div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div style="font-weight:700;font-size:14px">WB theatrical ramp</div>
+        <span style="font-size:11px;color:#9298A4">releases/yr · SEC 8-K · GLBL-WBD-001</span>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:14px;margin-top:10px;height:64px">
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;height:100%"><div style="background:#C9D1E0;border-radius:6px 6px 0 0;height:61%"></div><div style="font-size:11px;color:#585F6B;text-align:center;font-variant-numeric:tabular-nums"><b>11</b> '25</div></div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;height:100%"><div style="background:#8FA3D9;border-radius:6px 6px 0 0;height:78%"></div><div style="font-size:11px;color:#585F6B;text-align:center;font-variant-numeric:tabular-nums"><b>14</b> '26</div></div>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;height:100%"><div style="background:#2B54F0;border-radius:6px 6px 0 0;height:100%"></div><div style="font-size:11px;color:#585F6B;text-align:center;font-variant-numeric:tabular-nums"><b>18</b> '27</div></div>
+      </div>
+      <div style="font-size:11.5px;color:#585F6B;margin-top:8px">Franchise-led; local originals still flow via HBO Max.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 03 Buyer board -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 12px">
+  <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B">03 · Buyer board — Mexico · verified commitments only</div>
+  <div style="display:flex;gap:6px;font-size:12.5px;font-weight:600">
+    <span style="padding:6px 13px;border-radius:999px;background:#2B54F0;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(11,13,18,.12),0 6px 16px rgba(43,84,240,.26)">Mexico</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">US Latino</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">Latin America</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">Spain</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">Global</span>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:34px">
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">NF</div>
+      <div><div style="font-weight:700;font-size:14.5px">Netflix</div><div style="font-size:11px;color:#9298A4">Series + features</div></div>
+      <span style="margin-left:auto;background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">HIGH</span>
+    </div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.55;margin-top:10px"><b style="color:#0B0D12">Verified:</b> US$1B for 2025–28, minimum 20 titles/yr with local partners; Churubusco upgrade; expanded CDMX hub (pledged Feb 20, 2025).</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:10px">Variety · THR · <span style="color:#2042C2;font-weight:600">MX-NFLX-001</span> · Genre mandate not stated — held in review</div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">PV</div>
+      <div><div style="font-weight:700;font-size:14.5px">Prime Video</div><div style="font-size:11px;color:#9298A4">Series + films</div></div>
+      <span style="margin-left:auto;background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">HIGH</span>
+    </div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.55;margin-top:10px"><b style="color:#0B0D12">Verified:</b> Mentiras, La Serie = biggest Prime Video Mexico premiere on record; La Oficina (Alazraki) dated 2026; stated priorities on record: romance, true crime, comedy adaptations, courtroom drama.</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:10px">Forbes, Dec 17 2025 · <span style="color:#2042C2;font-weight:600">MX-AMZN-001</span></div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#EAEEFE;color:#2042C2;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">HM</div>
+      <div><div style="font-weight:700;font-size:14.5px">HBO Max</div><div style="font-size:11px;color:#9298A4">Series + docuseries</div></div>
+      <span style="margin-left:auto;background:#EAEEFE;color:#2042C2;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">RISING</span>
+    </div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.55;margin-top:10px"><b style="color:#0B0D12">Verified:</b> stated quality-over-volume strategy; ~6 docuseries planned for 2026, 5 true crime; Chespirito is the biggest LatAm title in platform history; Don Ramón greenlit.</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:10px">Variety, Nov 25 2025 · <span style="color:#2042C2;font-weight:600">MX-WBD-001/002</span></div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px;opacity:.88">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2E6EE;color:#585F6B;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">WB</div>
+      <div><div style="font-weight:700;font-size:14.5px">Warner Bros. theatrical</div><div style="font-size:11px;color:#9298A4">Tentpole features</div></div>
+      <span style="margin-left:auto;background:#FBEDD6;color:#9A6406;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">SELECTIVE</span>
+    </div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.55;margin-top:10px"><b style="color:#0B0D12">Verified:</b> release ramp 11 → 14 → 18 (2025–27, SEC filing), franchise-led. No Mexico-local theatrical plan disclosed in 12 months — treated as an evidence gap, not a "no."</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:10px">SEC 8-K 2026 · <span style="color:#2042C2;font-weight:600">GLBL-WBD-001</span></div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px;opacity:.88">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2E6EE;color:#585F6B;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">AT</div>
+      <div><div style="font-weight:700;font-size:14.5px">Apple TV+</div><div style="font-size:11px;color:#9298A4">Series</div></div>
+      <span style="margin-left:auto;background:#FBEDD6;color:#9A6406;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">SELECTIVE</span>
+    </div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.55;margin-top:10px"><b style="color:#0B0D12">Verified:</b> Las Azules renewed — S2 premiered Aug 12, 2026 (Apple press). Budget trimmed to ~US$4.5B per trade reporting; ~a dozen films/yr, most under US$100M.</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:10px">Apple TV press, Mar 2026 · <span style="color:#2042C2;font-weight:600">MX-APPL-001</span></div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">MX</div>
+      <div><div style="font-weight:700;font-size:14.5px">Government of Mexico</div><div style="font-size:11px;color:#9298A4">Incentives</div></div>
+      <span style="margin-left:auto;background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">HIGH</span>
+    </div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.55;margin-top:10px"><b style="color:#0B0D12">Verified:</b> EFICA 30% transferable credit (decree Feb 16, guidelines Mar 30, 2026); EFICINE cap raised to 25M pesos — first increase in a decade.</div>
+    <div style="font-size:11.5px;color:#9298A4;margin-top:10px">Official decree + law-firm analyses · <span style="color:#2042C2;font-weight:600">MX-GOV-001</span></div>
+  </div>
+</div>
+
+<!-- 04 + 05 -->
+<div style="display:grid;grid-template-columns:1fr 1.15fr;gap:16px;align-items:start;margin-bottom:34px">
+  <div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">04 · Prediction scorecard — graded against verified outcomes</div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);overflow:hidden">
+      <div style="display:flex;border-bottom:1px solid #E9ECF3">
+        <div style="flex:1;padding:14px 18px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#9298A4">Correct</div><div style="font-size:24px;font-weight:700;color:#0C7A4E;font-variant-numeric:tabular-nums">7</div></div>
+        <div style="flex:1;padding:14px 18px;border-left:1px solid #E9ECF3"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#9298A4">Partial</div><div style="font-size:24px;font-weight:700;color:#9A6406;font-variant-numeric:tabular-nums">3</div></div>
+        <div style="flex:1;padding:14px 18px;border-left:1px solid #E9ECF3"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#9298A4">Wrong</div><div style="font-size:24px;font-weight:700;color:#C42B2B;font-variant-numeric:tabular-nums">2</div></div>
+        <div style="flex:1.4;padding:14px 18px;border-left:1px solid #E9ECF3">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#9298A4">Hit rate trend</div>
+          <div style="display:flex;align-items:flex-end;gap:5px;height:30px;margin-top:6px">
+            <div style="flex:1;background:#C9D1E0;border-radius:3px 3px 0 0;height:45%"></div>
+            <div style="flex:1;background:#C9D1E0;border-radius:3px 3px 0 0;height:55%"></div>
+            <div style="flex:1;background:#8FA3D9;border-radius:3px 3px 0 0;height:50%"></div>
+            <div style="flex:1;background:#2B54F0;border-radius:3px 3px 0 0;height:70%"></div>
+          </div>
+          <div style="font-size:10px;color:#9298A4;margin-top:3px;font-variant-numeric:tabular-nums">May → Aug</div>
+        </div>
+      </div>
+      <div style="padding:6px 0">
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 18px">
+          <span style="background:#E2F4EC;color:#0C7A4E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex:none;width:58px;text-align:center">CORRECT</span>
+          <div style="font-size:13px;line-height:1.45"><b>Romance overtakes drama in LatAm commissions by mid-2026.</b> <span style="color:#585F6B">Verified: 30% of H1 commissions · LA-SENAL-001.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 18px;background:#F4F6FB">
+          <span style="background:#E2F4EC;color:#0C7A4E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex:none;width:58px;text-align:center">CORRECT</span>
+          <div style="font-size:13px;line-height:1.45"><b>Mexico expands production incentives in 2026.</b> <span style="color:#585F6B">Verified: EFICA decree Feb 16 · MX-GOV-001.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 18px">
+          <span style="background:#FBEDD6;color:#9A6406;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex:none;width:58px;text-align:center">PARTIAL</span>
+          <div style="font-size:13px;line-height:1.45"><b>HBO Max grows LatAm volume.</b> <span style="color:#585F6B">Verified outcome: quality-over-volume, volume flat · MX-WBD-002.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 18px;background:#F4F6FB">
+          <span style="background:#FCE7E7;color:#C42B2B;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex:none;width:58px;text-align:center">WRONG</span>
+          <div style="font-size:13px;line-height:1.45"><b>Apple TV+ raises Mexico output in 2026.</b> <span style="color:#585F6B">Verified opposite: budget trimmed to ~$4.5B · GLBL-APPL-001.</span></div>
+        </div>
+      </div>
+      <div style="padding:12px 18px;border-top:1px solid #E9ECF3;font-size:12px;color:#9298A4">A call is only graded when the outcome itself is verifiable. Open calls stay open — they are never quietly dropped.</div>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">05 · Recommended moves — small, reversible, this week</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div style="font-weight:700;font-size:15px;line-height:1.35">Re-rank the development slate against romance-hybrid demand; shortlist top 5</div>
+          <span style="background:#2B54F0;color:#fff;font-size:11.5px;font-weight:600;padding:7px 14px;border-radius:12px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(11,13,18,.12),0 6px 16px rgba(43,84,240,.26)">Run shortlist</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Grounded in two verified facts: romance = 30% of commissions (LA-SENAL-001) and Prime's stated romance priority (MX-AMZN-001).</div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:#9298A4"><span><b style="color:#585F6B">Reversible:</b> query only</span><span><b style="color:#585F6B">Owner:</b> Development</span><span><b style="color:#585F6B">Window:</b> this week</span></div>
+      </div>
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div style="font-weight:700;font-size:15px;line-height:1.35">Draft an EFICA-eligibility memo for the two most Mexico-shootable projects</div>
+          <span style="background:#FAFBFE;border:1px solid #C9D1E0;color:#0B0D12;font-size:11.5px;font-weight:600;padding:7px 14px;border-radius:12px;flex:none">Assign memo</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Grounded in the verified EFICA decree (MX-GOV-001). Paperwork before Q4 budget locks; captures the 30% option without committing a peso.</div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:#9298A4"><span><b style="color:#585F6B">Reversible:</b> analysis only</span><span><b style="color:#585F6B">Owner:</b> Production/Finance</span><span><b style="color:#585F6B">Window:</b> before Sep 15</span></div>
+      </div>
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div style="font-weight:700;font-size:15px;line-height:1.35">Tier one true-crime docuseries concept for an HBO Max LatAm pitch</div>
+          <span style="background:#FAFBFE;border:1px solid #C9D1E0;color:#0B0D12;font-size:11.5px;font-weight:600;padding:7px 14px;border-radius:12px;flex:none">Open brief</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Grounded in HBO Max's stated slate: 5 of ~6 planned docuseries are true crime (MX-WBD-002). A pitch costs a deck, not an option.</div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:#9298A4"><span><b style="color:#585F6B">Reversible:</b> pitch only</span><span><b style="color:#585F6B">Owner:</b> Sales</span><span><b style="color:#585F6B">Window:</b> 2 weeks</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 06 Ask Pulse -->
+<div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">06 · Ask Pulse — chat with the briefing</div>
+<div style="display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:stretch">
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:14px 20px;border-bottom:1px solid #E9ECF3;display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:10px;background:#EAEEFE;color:#2042C2;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px">P</div>
+      <div style="font-weight:700;font-size:14px">Pulse</div>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">ANSWERS FROM THE 33-SOURCE LEDGER ONLY</span>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px;flex:1">
+      <div style="align-self:flex-end;max-width:70%;background:#2B54F0;color:#fff;border-radius:14px 14px 4px 14px;padding:11px 15px;font-size:13.5px;line-height:1.5">Which buyers would take a romance-thriller feature shot in Mexico?</div>
+      <div style="align-self:flex-start;max-width:85%;background:#EEF0F5;border-radius:14px 14px 14px 4px;padding:13px 16px;font-size:13.5px;line-height:1.6;color:#0B0D12">
+        Two buyers with verified appetite:<br><br>
+        <b>1 · Prime Video</b> — romance and true crime are stated 2026 priorities for Mexico, on the record from Forbes' Balmaceda interview. Mentiras, La Serie is their biggest Mexican premiere ever.<br>
+        <b>2 · Netflix</b> — US$1B committed to Mexican film/series through 2028, 20+ titles/yr with local partners. Note: Netflix has <i>not</i> stated a genre mandate — its romance appetite is slate-inferred and sits in the review queue, so I won't count it as verified.<br><br>
+        Shooting in Mexico may also qualify for the EFICA 30% transferable credit (decree Feb 16, 2026).
+        <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+          <span style="background:#EAEEFE;color:#2042C2;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px">MX-AMZN-001</span>
+          <span style="background:#EAEEFE;color:#2042C2;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px">MX-NFLX-001</span>
+          <span style="background:#EAEEFE;color:#2042C2;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px">MX-GOV-001</span>
+          <span style="background:#E2E6EE;color:#585F6B;font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:6px">1 claim withheld — unverified</span>
+        </div>
+      </div>
+      <div style="align-self:flex-end;max-width:70%;background:#2B54F0;color:#fff;border-radius:14px 14px 4px 14px;padding:11px 15px;font-size:13.5px;line-height:1.5">Run that against our archive — any Recommend-or-better romance thrillers?</div>
+      <div style="align-self:flex-start;max-width:85%;background:#EEF0F5;border-radius:14px 14px 14px 4px;padding:13px 16px;font-size:13.5px;line-height:1.6;color:#0B0D12">Handing you to <b>Discover</b> with filters pre-set: matchQuery <i>romance + thriller</i>, verdict ≥ Recommend, Mexico-shootable. The market signal shapes the search — it never touches scores or verdicts. <span style="color:#2042C2;font-weight:600">Open in Discover →</span></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #E9ECF3">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;font-size:12px;font-weight:600">
+        <span style="background:#E2E6EE;color:#585F6B;padding:5px 12px;border-radius:999px">What changed for HBO Max since July?</span>
+        <span style="background:#E2E6EE;color:#585F6B;padding:5px 12px;border-radius:999px">Show all evidence for romance demand</span>
+        <span style="background:#E2E6EE;color:#585F6B;padding:5px 12px;border-radius:999px">Why is the thriller index in review?</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div style="flex:1;background:#EEF0F5;border:1px solid #D4DAE6;border-radius:8px;box-shadow:inset 0 1px 2px rgba(11,13,18,.06);padding:11px 14px;font-size:13.5px;color:#9298A4">Ask about buyers, territories, evidence, or past calls…</div>
+        <span style="background:#2B54F0;color:#fff;font-size:13px;font-weight:600;padding:11px 20px;border-radius:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(11,13,18,.12),0 6px 16px rgba(43,84,240,.26)">Send</span>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+      <div style="font-weight:700;font-size:14.5px;margin-bottom:10px">How Pulse answers</div>
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:#585F6B;line-height:1.5">
+        <div style="display:flex;gap:10px"><div style="width:24px;height:24px;border-radius:8px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex:none">1</div>Retrieves only from the current snapshot's 33-source ledger — no open web, no memory.</div>
+        <div style="display:flex;gap:10px"><div style="width:24px;height:24px;border-radius:8px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex:none">2</div>Every claim in an answer carries its evidence ID. No ID, no claim — it says "withheld" instead.</div>
+        <div style="display:flex;gap:10px"><div style="width:24px;height:24px;border-radius:8px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex:none">3</div>Can hand off to Discover with pre-set filters, but never edits scores, verdicts, or analyses.</div>
+      </div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px;flex:1">
+      <div style="font-weight:700;font-size:14.5px;margin-bottom:10px">Review queue (held off the dashboard)</div>
+      <div style="display:flex;flex-direction:column;gap:9px;font-size:12.5px;color:#585F6B;line-height:1.45">
+        <div style="display:flex;justify-content:space-between;gap:10px"><span>Netflix MX genre ranking (slate-inferred)</span><span style="color:#9298A4;flex:none">needs stated mandate</span></div>
+        <div style="display:flex;justify-content:space-between;gap:10px"><span>US Latino commissioning opportunity</span><span style="color:#9298A4;flex:none">needs buyer signal</span></div>
+        <div style="display:flex;justify-content:space-between;gap:10px"><span>Microdrama expansion in LatAm</span><span style="color:#9298A4;flex:none">needs 2nd source</span></div>
+        <div style="display:flex;justify-content:space-between;gap:10px"><span>Nostalgia-IP as standing mandate</span><span style="color:#9298A4;flex:none">one hit ≠ mandate</span></div>
+        <div style="display:flex;justify-content:space-between;gap:10px"><span>Social chatter (Reddit/X/search)</span><span style="color:#9298A4;flex:none">needs listening feed</span></div>
+        <div style="display:flex;justify-content:space-between;gap:10px"><span>Apple Spanish pipeline beyond Las Azules</span><span style="color:#9298A4;flex:none">evidence gap</span></div>
+      </div>
+      <div style="border-top:1px solid #E9ECF3;margin-top:12px;padding-top:10px;font-size:11.5px;color:#9298A4">Each item lists exactly what evidence would promote it to the dashboard.</div>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+<p class="dv-next">Try next: "make <a class="dv-oid" href="#2a">2a</a> a live prototype with working territory tabs and chat" · "show the review-queue page" · "tighten to a 5-min scan version"</p>
+</section>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Intelligence Briefing — two visual languages, same real Aug 19 Studio Pulse data. Exec 15-min read: What changed → Buyer signals → Opportunities → Audience → Scorecard → Moves.</span></div>
+<div class="dv-opts">
+
+<!-- ============ 1a INSTRUMENT LIGHT ============ -->
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Instrument (house system) — light, cobalt, Playfair/Schibsted. New "Intelligence" tab in the dashboard.</div>
+<div class="dv-card" style="width:1440px;background:#E9ECF3;border:none">
+
+<!-- App header -->
+<div style="background:#FAFBFE;box-shadow:0 1px 2px rgba(16,20,30,.08),0 4px 14px rgba(16,20,30,.06);padding:0 36px;display:flex;align-items:center;gap:36px;height:64px;position:relative;z-index:2">
+  <div style="display:flex;align-items:center;gap:12px">
+    <img src="Lemon Studios Brand/lemon-logo-black-800x800.png" alt="Lemon Studios" style="width:34px;height:34px;object-fit:contain">
+    <span style="font-family:'Playfair Display',Georgia,serif;font-weight:700;font-size:19px;color:#0B0D12">Lemon <span style="font-weight:500;color:#585F6B">Screenplay Dashboard</span></span>
+  </div>
+  <div style="display:flex;gap:4px;font-family:'Schibsted Grotesk',sans-serif;font-size:13.5px;font-weight:600">
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Discover</div>
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Exceptional Finds</div>
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Saved</div>
+    <div style="padding:8px 14px;border-radius:10px;color:#585F6B">Insights</div>
+    <div style="padding:8px 14px;border-radius:10px;background:#EAEEFE;color:#2042C2">Intelligence</div>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:14px;font-family:'Schibsted Grotesk',sans-serif">
+    <span style="font-size:12px;color:#9298A4;font-variant-numeric:tabular-nums">Week 35 · Aug 24–30, 2026</span>
+    <div style="width:32px;height:32px;border-radius:999px;background:#EAEEFE;color:#2042C2;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">BR</div>
+  </div>
+</div>
+
+<div style="padding:32px 36px 40px;font-family:'Schibsted Grotesk',sans-serif;color:#0B0D12">
+
+<!-- Masthead -->
+<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:10px">
+  <div>
+    <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9298A4;margin-bottom:8px">Studio Pulse · Weekly decision system</div>
+    <h1 style="font-family:'Playfair Display',Georgia,serif;font-weight:600;font-size:40px;line-height:1.05;margin:0;letter-spacing:-0.01em">Intelligence Briefing</h1>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px">
+      <span style="background:#EAEEFE;color:#2042C2;font-weight:600;padding:4px 10px;border-radius:999px">Snapshot as of Aug 19, 2026</span>
+      <span style="background:#E2E6EE;color:#585F6B;font-weight:500;padding:4px 10px;border-radius:999px">33 sources</span>
+      <span style="background:#E2E6EE;color:#585F6B;font-weight:500;padding:4px 10px;border-radius:999px">5 territories · Mexico deepest</span>
+      <span style="color:#9298A4">Market signals never change screenplay scores or verdicts.</span>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px">
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 20px;min-width:150px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9298A4">Prediction accuracy</div>
+      <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums">58%</div>
+      <div style="font-size:12px;color:#585F6B">7 of 12 calls correct · <a href="#1a">scorecard ↓</a></div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 20px;min-width:150px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9298A4">Moves proposed</div>
+      <div style="font-size:34px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums">3</div>
+      <div style="font-size:12px;color:#585F6B">All reversible · decision this week</div>
+    </div>
+  </div>
+</div>
+
+<!-- Legend -->
+<div style="display:flex;gap:14px;align-items:center;margin:18px 0 26px;font-size:11.5px;font-weight:600">
+  <span style="color:#9298A4;text-transform:uppercase;letter-spacing:.05em;font-size:10.5px">Evidence tiers</span>
+  <span style="background:#E2F4EC;color:#0C7A4E;padding:3px 9px;border-radius:6px">FACT — sourced &amp; dated</span>
+  <span style="background:#EAEEFE;color:#2042C2;padding:3px 9px;border-radius:6px">INFERENCE — analyst read</span>
+  <span style="background:#FBEDD6;color:#9A6406;padding:3px 9px;border-radius:6px">SPECULATIVE — weak evidence</span>
+  <span style="color:#9298A4;font-weight:400">Confidence = source authority · recency · breadth · stated intent</span>
+</div>
+
+<!-- SECTION 1: What changed -->
+<div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">01 · What changed this week</div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:34px">
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">▲</div>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">FACT</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">Mexico's incentive stack is live: EFICA 30% transferable tax credit</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Decree Feb 16, guidelines Mar 30 2026; EFICINE cap raised to 25M pesos. Stacks on Netflix's US$1B pledge — Mexico is now cost-competitive.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11.5px;color:#9298A4;font-variant-numeric:tabular-nums">
+      <div style="flex:none;width:56px;height:5px;border-radius:999px;background:#E2E6EE"><div style="width:90%;height:100%;border-radius:999px;background:#12A66B"></div></div>
+      High · 3 sources · Mar 2026 · MX-GOV-001
+    </div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">▲</div>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">FACT</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">Romance is now LatAm's #1 scripted genre — 30% of H1 2026 commissions</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">And it's mutating into hybrids: romance+thriller, telenovela+mystery, drama+music. The clearest recent shift in buyer behavior.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11.5px;color:#9298A4;font-variant-numeric:tabular-nums">
+      <div style="flex:none;width:56px;height:5px;border-radius:999px;background:#E2E6EE"><div style="width:86%;height:100%;border-radius:999px;background:#12A66B"></div></div>
+      High · 2 sources · H1 2026 · LA-SENAL-001
+    </div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#FCE7E7;color:#C42B2B;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">▼</div>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">FACT</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">LatAm scripted commissioning contracted ~13% year over year</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Spend is concentrating on resilient genres, not growing. Reads against the romance surge — see contradictions panel.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11.5px;color:#9298A4;font-variant-numeric:tabular-nums">
+      <div style="flex:none;width:56px;height:5px;border-radius:999px;background:#E2E6EE"><div style="width:72%;height:100%;border-radius:999px;background:#12A66B"></div></div>
+      High · 1 source · Jan 2026 · LA-ADVTV-001
+    </div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#EAEEFE;color:#2042C2;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">→</div>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">FACT</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">HBO Max LatAm went quality-over-volume, tilted to true crime</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">~6 docuseries planned for 2026, five true crime. Chespirito universe extends with Don Ramón after the biggest LatAm launch in platform history.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11.5px;color:#9298A4;font-variant-numeric:tabular-nums">
+      <div style="flex:none;width:56px;height:5px;border-radius:999px;background:#E2E6EE"><div style="width:85%;height:100%;border-radius:999px;background:#12A66B"></div></div>
+      High · 2 sources · Nov 2025 · MX-WBD-002
+    </div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">▲</div>
+      <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">FACT</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">Prime Video formalized Spanish-language content as a global export engine</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Culpables franchise crossed 100M viewers, 90%+ outside Spain, in 30+ languages. LatAm and Spain are now sources of exportable franchises.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11.5px;color:#9298A4;font-variant-numeric:tabular-nums">
+      <div style="flex:none;width:56px;height:5px;border-radius:999px;background:#E2E6EE"><div style="width:88%;height:100%;border-radius:999px;background:#12A66B"></div></div>
+      High · 2 sources · Feb 2026 · GLBL-AMZN-001
+    </div>
+  </div>
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#FBEDD6;color:#9A6406;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">?</div>
+      <span style="background:#FBEDD6;color:#9A6406;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px">SPECULATIVE</span>
+    </div>
+    <div style="font-weight:700;font-size:15px;line-height:1.35">Chinese microdrama apps are expanding into LatAm</div>
+    <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Vertical short-form with telenovela hooks. Format threat and opportunity — but mostly one press read; no major-buyer mandate yet.</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11.5px;color:#9298A4;font-variant-numeric:tabular-nums">
+      <div style="flex:none;width:56px;height:5px;border-radius:999px;background:#E2E6EE"><div style="width:34%;height:100%;border-radius:999px;background:#F5A524"></div></div>
+      Low · 1 source · Feb 2026 · LA-CNBC-001
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2: Buyer signals -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 12px">
+  <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B">02 · Buyer signals by territory</div>
+  <div style="display:flex;gap:6px;font-size:12.5px;font-weight:600">
+    <span style="padding:6px 13px;border-radius:999px;background:#2B54F0;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(11,13,18,.12),0 6px 16px rgba(43,84,240,.26)">Mexico</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">US Latino</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">Latin America</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">Spain</span>
+    <span style="padding:6px 13px;border-radius:999px;background:#E2E6EE;color:#585F6B">Global</span>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:1.55fr 1fr;gap:16px;margin-bottom:34px;align-items:start">
+  <!-- Buyer rows -->
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 18px;display:flex;gap:14px;align-items:flex-start">
+      <div style="width:42px;height:42px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">NF</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:14.5px">Netflix</span>
+          <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;text-transform:uppercase">High</span>
+          <span style="font-size:11.5px;color:#9298A4">Series + features · conf. high · MX-NFLX-001</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:4px">US$1B for 2025–28, 20+ titles/yr with local partners. Wants action thrillers, romance, comedy, historical drama. <span style="background:#EAEEFE;color:#2042C2;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;vertical-align:1px">GENRE RANK = INFERENCE</span> — read off slate &amp; viewing, not a stated mandate.</div>
+      </div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 18px;display:flex;gap:14px;align-items:flex-start">
+      <div style="width:42px;height:42px;border-radius:12px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">PV</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:14.5px">Amazon MGM / Prime Video</span>
+          <span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;text-transform:uppercase">High</span>
+          <span style="font-size:11.5px;color:#9298A4">Series + films · conf. high · MX-AMZN-001</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:4px">Local-obsession hits: romance, true crime, comedy adaptations, courtroom drama. Mentiras, La Serie = biggest MX premiere ever; La Oficina lands 2026.</div>
+      </div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 18px;display:flex;gap:14px;align-items:flex-start">
+      <div style="width:42px;height:42px;border-radius:12px;background:#EAEEFE;color:#2042C2;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">HM</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:14.5px">HBO Max</span>
+          <span style="background:#EAEEFE;color:#2042C2;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;text-transform:uppercase">Rising</span>
+          <span style="font-size:11.5px;color:#9298A4">Series + docuseries · conf. high · MX-WBD-001/2</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:4px">Quality over volume: nostalgia/heritage IP (Chespirito universe), true-crime docuseries, prestige drama. Volume flat-to-slightly-up vs 2025.</div>
+      </div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 18px;display:flex;gap:14px;align-items:flex-start;opacity:.85">
+      <div style="width:42px;height:42px;border-radius:12px;background:#FBEDD6;color:#9A6406;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">WB</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:14.5px">Warner Bros. (theatrical)</span>
+          <span style="background:#FBEDD6;color:#9A6406;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;text-transform:uppercase">Selective</span>
+          <span style="font-size:11.5px;color:#9298A4">Tentpole features · conf. low · GLBL-WBD-001</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:4px">No Mexico-specific theatrical plan disclosed in 12 months. Local commissioning effectively runs through HBO Max. <span style="background:#FBEDD6;color:#9A6406;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;vertical-align:1px">EVIDENCE GAP</span></div>
+      </div>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:16px 18px;display:flex;gap:14px;align-items:flex-start;opacity:.85">
+      <div style="width:42px;height:42px;border-radius:12px;background:#FBEDD6;color:#9A6406;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)">AT</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:700;font-size:14.5px">Apple TV+</span>
+          <span style="background:#FBEDD6;color:#9A6406;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;text-transform:uppercase">Selective</span>
+          <span style="font-size:11.5px;color:#9298A4">Series · conf. medium · MX-APPL-001</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:4px">Cost-disciplined (budget trimmed to ~US$4.5B). Keeps Las Azules (S2, Aug 12 2026) but is not a volume buyer in Mexico.</div>
+      </div>
+    </div>
+  </div>
+  <!-- Demand index -->
+  <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <div style="font-weight:700;font-size:14.5px">Demand signal index — Mexico</div>
+      <span style="font-size:11px;color:#9298A4">0–100 · research signal, not a forecast</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:13px;margin-top:16px;font-variant-numeric:tabular-nums">
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:600">True crime &amp; crime drama</span><span style="font-weight:700">85</span></div>
+        <div style="height:7px;border-radius:999px;background:#E2E6EE"><div style="width:85%;height:100%;border-radius:999px;background:#2B54F0"></div></div>
+        <div style="font-size:11px;color:#9298A4;margin-top:3px">conf. high · 3 sources · HBO Max slates 5–6 true-crime docs</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:600">Romance &amp; hybrids</span><span style="font-weight:700">84</span></div>
+        <div style="height:7px;border-radius:999px;background:#E2E6EE"><div style="width:84%;height:100%;border-radius:999px;background:#2B54F0"></div></div>
+        <div style="font-size:11px;color:#9298A4;margin-top:3px">conf. high · quantified: 30% of scripted commissions</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:600">Elevated action / police thriller</span><span style="font-weight:700">82</span></div>
+        <div style="height:7px;border-radius:999px;background:#E2E6EE"><div style="width:82%;height:100%;border-radius:999px;background:#6E4BF0"></div></div>
+        <div style="font-size:11px;color:#9298A4;margin-top:3px">conf. high · intent capped — inferred from slate, no stated mandate</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:600">Nostalgia / heritage IP &amp; biopic</span><span style="font-weight:700">76</span></div>
+        <div style="height:7px;border-radius:999px;background:#E2E6EE"><div style="width:76%;height:100%;border-radius:999px;background:#6E4BF0"></div></div>
+        <div style="font-size:11px;color:#9298A4;margin-top:3px">conf. medium · one mega-hit (Chespirito) drives the read</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:600">Comedy (adaptations, stand-up)</span><span style="font-weight:700">70</span></div>
+        <div style="height:7px;border-radius:999px;background:#E2E6EE"><div style="width:70%;height:100%;border-radius:999px;background:#119C8B"></div></div>
+        <div style="font-size:11px;color:#9298A4;margin-top:3px">conf. medium · a few greenlights, not a broad mandate</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="font-weight:600">Historical / period drama</span><span style="font-weight:700">62</span></div>
+        <div style="height:7px;border-radius:999px;background:#E2E6EE"><div style="width:62%;height:100%;border-radius:999px;background:#119C8B"></div></div>
+        <div style="font-size:11px;color:#9298A4;margin-top:3px">conf. medium · present on slates, no strong push</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3 + 4: Opportunities & Audience -->
+<div style="display:grid;grid-template-columns:1.55fr 1fr;gap:16px;margin-bottom:34px;align-items:start">
+  <div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">03 · Emerging opportunities</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px;display:flex;gap:16px">
+        <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:600;color:#2042C2;flex:none;width:34px">1</div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:15px">Romance-hybrid window (romance + thriller / mystery)</span><span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">FACT-BACKED</span></div>
+          <div style="font-size:13px;color:#585F6B;line-height:1.55;margin-top:5px">Highest signal in two territories (LatAm 86, Mexico 84). Netflix declared a "year of romance"; Prime exports Spanish romance globally. Hybrids are the winning formula — pure telenovela is not the play.</div>
+          <div style="font-size:11.5px;color:#9298A4;margin-top:8px">Benefits: romance + genre scripts already in the archive · Buyers: Netflix, Prime Video</div>
+        </div>
+      </div>
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px;display:flex;gap:16px">
+        <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:600;color:#2042C2;flex:none;width:34px">2</div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:15px">Mexico capital stack: EFICA 30% + Netflix US$1B</span><span style="background:#E2F4EC;color:#0C7A4E;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">FACT-BACKED</span></div>
+          <div style="font-size:13px;color:#585F6B;line-height:1.55;margin-top:5px">Government credit + platform pledge makes Mexico the cheapest place to produce premium Spanish-language content in years. Window favors projects that can shoot in Mexico with local partners.</div>
+          <div style="font-size:11.5px;color:#9298A4;margin-top:8px">Benefits: Mexico-shootable features &amp; series · Buyers: Netflix, Prime, HBO Max</div>
+        </div>
+      </div>
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px;display:flex;gap:16px">
+        <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:600;color:#2042C2;flex:none;width:34px">3</div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:700;font-size:15px">US Latino demand / supply gap</span><span style="background:#EAEEFE;color:#2042C2;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px">INFERENCE</span></div>
+          <div style="font-size:13px;color:#585F6B;line-height:1.55;margin-top:5px">Hispanic viewers: 55.8% of TV time on streaming, 7 in 10 watch Spanish-language content — yet ~45% say Spanish content isn't on par, and no buyer runs a US-Latino-specific mandate. The gap is real; the buyer for it is not yet identified.</div>
+          <div style="font-size:11.5px;color:#9298A4;margin-top:8px">Benefits: bilingual / cross-border stories · Buyers: unproven — watch Peacock/Telemundo, Roku</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div style="display:flex;align-items:center;gap:8px;margin:0 0 12px">
+      <span style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B">04 · Audience conversation</span>
+      <span style="background:#FBEDD6;color:#9A6406;font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px">SAMPLE — social feed not yet wired</span>
+    </div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:36px;height:36px;border-radius:10px;background:#EAEEFE;color:#2042C2;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex:none">r/</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Chespirito discourse holding 11 weeks on r/MexicoCine + r/television <span style="color:#0C7A4E;font-weight:700;font-variant-numeric:tabular-nums">+38% WoW</span></div>
+          <div style="font-size:12px;color:#585F6B;line-height:1.5;margin-top:2px">Nostalgia-casting debates dominate; sentiment warm. Supports heritage-IP appetite read.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:36px;height:36px;border-radius:10px;background:#E2E6EE;color:#0B0D12;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex:none">𝕏</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">"La Oficina" adaptation chatter splits ~60/40 excited vs skeptical <span style="background:#FBEDD6;color:#9A6406;font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;vertical-align:1px">SPECULATIVE</span></div>
+          <div style="font-size:12px;color:#585F6B;line-height:1.5;margin-top:2px">Skeptics fear a translation, not an adaptation. Watch premiere reception as a comedy-adaptation bellwether.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:36px;height:36px;border-radius:10px;background:#E2F4EC;color:#0C7A4E;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex:none">⌕</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">MX search: "novela romántica serie" <span style="color:#0C7A4E;font-weight:700;font-variant-numeric:tabular-nums">+24% QoQ</span>; "microdrama" queries doubling from a small base</div>
+          <div style="font-size:12px;color:#585F6B;line-height:1.5;margin-top:2px">Consistent with the romance-commissioning surge; microdrama interest is early and young-skewed.</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #E2E6EE;padding-top:12px;font-size:12px;color:#9298A4;line-height:1.5">This panel needs a real listening pipeline (Reddit, X, Google Trends) before it can carry decisions. Until then it is illustrative only.</div>
+    </div>
+    <!-- Contradictions -->
+    <div style="background:#FCE7E7;border-radius:16px;padding:18px 20px;margin-top:14px;box-shadow:0 1px 2px rgba(16,20,30,.08),0 8px 22px rgba(16,20,30,.08)">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="width:36px;height:36px;border-radius:10px;background:#fff;color:#C42B2B;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex:none">!</div>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:#C42B2B">Contradictions &amp; missing evidence</div>
+          <ul style="margin:8px 0 0;padding-left:16px;font-size:12.5px;color:#7A2A2A;line-height:1.6">
+            <li><b>Romance up, market down.</b> Romance = 30% of commissions while total scripted commissioning fell ~13%. Spend is concentrating, not growing — don't read the surge as an expanding pie.</li>
+            <li><b>Netflix MX genre ranking is inferred</b> from slate + viewing, not a stated mandate. Intent sub-score capped.</li>
+            <li><b>Gaps:</b> per-genre budget ranges (never disclosed) · WB non-HBO-Max theatrical plans · US-Latino-specific commissioning · Apple pipeline beyond Las Azules.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 5 + 6 -->
+<div style="display:grid;grid-template-columns:1fr 1.15fr;gap:16px;align-items:start">
+  <div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">05 · Prediction scorecard — were we right?</div>
+    <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);overflow:hidden">
+      <div style="display:flex;gap:0;border-bottom:1px solid #E9ECF3">
+        <div style="flex:1;padding:14px 18px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#9298A4">Correct</div><div style="font-size:24px;font-weight:700;color:#0C7A4E;font-variant-numeric:tabular-nums">7</div></div>
+        <div style="flex:1;padding:14px 18px;border-left:1px solid #E9ECF3"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#9298A4">Partial</div><div style="font-size:24px;font-weight:700;color:#9A6406;font-variant-numeric:tabular-nums">3</div></div>
+        <div style="flex:1;padding:14px 18px;border-left:1px solid #E9ECF3"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#9298A4">Wrong</div><div style="font-size:24px;font-weight:700;color:#C42B2B;font-variant-numeric:tabular-nums">2</div></div>
+      </div>
+      <div style="padding:6px 0">
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 18px">
+          <span style="background:#E2F4EC;color:#0C7A4E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex:none;width:58px;text-align:center">CORRECT</span>
+          <div style="font-size:13px;line-height:1.45"><b>Romance overtakes drama in LatAm commissions by mid-2026.</b> <span style="color:#585F6B">Confirmed: 30% of H1 commissions (Señal News).</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 18px;background:#F4F6FB">
+          <span style="background:#E2F4EC;color:#0C7A4E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex:none;width:58px;text-align:center">CORRECT</span>
+          <div style="font-size:13px;line-height:1.45"><b>Mexico expands production incentives in 2026.</b> <span style="color:#585F6B">EFICA 30% credit decreed Feb 16.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 18px">
+          <span style="background:#FBEDD6;color:#9A6406;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex:none;width:58px;text-align:center">PARTIAL</span>
+          <div style="font-size:13px;line-height:1.45"><b>HBO Max grows LatAm volume.</b> <span style="color:#585F6B">Strategy is quality-over-volume; volume flat, quality bets bigger.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 18px;background:#F4F6FB">
+          <span style="background:#FBEDD6;color:#9A6406;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex:none;width:58px;text-align:center">PARTIAL</span>
+          <div style="font-size:13px;line-height:1.45"><b>Microdramas stay niche in LatAm through 2026.</b> <span style="color:#585F6B">Still small, but Chinese apps expanding faster than expected (CNBC, Feb).</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;padding:11px 18px">
+          <span style="background:#FCE7E7;color:#C42B2B;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex:none;width:58px;text-align:center">WRONG</span>
+          <div style="font-size:13px;line-height:1.45"><b>Apple TV+ raises Mexico output in 2026.</b> <span style="color:#585F6B">Opposite: budget trimmed to ~US$4.5B, posture more selective.</span></div>
+        </div>
+      </div>
+      <div style="padding:12px 18px;border-top:1px solid #E9ECF3;font-size:12px;color:#9298A4">Every call gets graded in the next briefing. Being wrong in public is the point — it calibrates how much to trust the inferences above.</div>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#585F6B;margin:0 0 12px">06 · Recommended moves — small, reversible, this week</div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div style="font-weight:700;font-size:15px;line-height:1.35">Re-rank the development slate against romance-hybrid demand; shortlist top 5 romance+thriller scripts</div>
+          <span style="background:#2B54F0;color:#fff;font-size:11.5px;font-weight:600;padding:7px 14px;border-radius:12px;flex:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(11,13,18,.12),0 6px 16px rgba(43,84,240,.26)">Run shortlist</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Search-only against the archive's matchQuery: romance. No commitments made; verdicts untouched.</div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:#9298A4"><span><b style="color:#585F6B">Reversible:</b> query only</span><span><b style="color:#585F6B">Owner:</b> Development</span><span><b style="color:#585F6B">Window:</b> this week</span></div>
+      </div>
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div style="font-weight:700;font-size:15px;line-height:1.35">Draft an EFICA-eligibility memo for the two most Mexico-shootable active projects</div>
+          <span style="background:#FAFBFE;border:1px solid #C9D1E0;color:#0B0D12;font-size:11.5px;font-weight:600;padding:7px 14px;border-radius:12px;flex:none">Assign memo</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">Paperwork ahead of Q4 budget locks. Captures the 30% credit option without committing a peso.</div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:#9298A4"><span><b style="color:#585F6B">Reversible:</b> analysis only</span><span><b style="color:#585F6B">Owner:</b> Production/Finance</span><span><b style="color:#585F6B">Window:</b> before Sep 15</span></div>
+      </div>
+      <div style="background:#FAFBFE;border-radius:16px;box-shadow:0 1px 2px rgba(16,20,30,.1),0 2px 4px rgba(16,20,30,.06),0 12px 30px rgba(16,20,30,.11);padding:18px 20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+          <div style="font-weight:700;font-size:15px;line-height:1.35">Tier one true-crime docuseries concept for an HBO Max LatAm pitch</div>
+          <span style="background:#FAFBFE;border:1px solid #C9D1E0;color:#0B0D12;font-size:11.5px;font-weight:600;padding:7px 14px;border-radius:12px;flex:none">Open brief</span>
+        </div>
+        <div style="font-size:13px;color:#585F6B;line-height:1.5;margin-top:6px">HBO Max explicitly slates 5–6 true-crime docs for 2026. A pitch costs a deck, not an option. Drop it if the slate fills.</div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:#9298A4"><span><b style="color:#585F6B">Reversible:</b> pitch only, no option spend</span><span><b style="color:#585F6B">Owner:</b> Sales</span><span><b style="color:#585F6B">Window:</b> 2 weeks</span></div>
+      </div>
+      <div style="font-size:12px;color:#9298A4;line-height:1.55;padding:2px 4px">Deliberately not proposed: any acquisition, option, or greenlight. The briefing narrows attention; humans decide. Signals here never alter screenplay scores or verdicts.</div>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+</div>
+
+<!-- ============ 1b EDITORIAL PUNK ============ -->
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Editorial Punk brand — dark crosshatch, Barlow Condensed, cyan/yellow/coral. Same data, louder read.</div>
+<div class="dv-card" style="width:1440px;background:#0F0F0F;border:none">
+
+<!-- Header -->
+<div style="background:#0F0F0F;border-bottom:1px solid #333;padding:0 40px;display:flex;align-items:center;gap:32px;height:64px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <img src="Lemon Studios Brand/lemon-logo-white-800x800.png" alt="Lemon Studios" style="width:36px;height:36px;object-fit:contain">
+    <span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:21px;letter-spacing:.02em;color:#fff;text-transform:uppercase">Lemon <span style="color:#00E5C8">Intelligence</span></span>
+  </div>
+  <div style="display:flex;gap:26px;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase">
+    <span style="color:#757575">Discover</span>
+    <span style="color:#757575">Exceptional</span>
+    <span style="color:#757575">Saved</span>
+    <span style="color:#757575">Insights</span>
+    <span style="color:#00E5C8;border-bottom:2px solid #00E5C8;padding-bottom:2px">Pulse</span>
+  </div>
+  <span style="margin-left:auto;font-family:'Space Mono',monospace;font-size:11px;color:#757575;letter-spacing:.08em">WK 35 / AUG 24–30 2026</span>
+</div>
+
+<div style="position:relative;overflow:hidden;font-family:'Archivo',sans-serif;color:#C8C8C8">
+<div style="position:absolute;top:-30px;right:-60px;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:340px;line-height:.8;color:rgba(255,255,255,.028);text-transform:uppercase;pointer-events:none;user-select:none">PULSE</div>
+
+<!-- Split masthead -->
+<div style="display:grid;grid-template-columns:1.1fr 1fr;border-bottom:1px solid #333;position:relative">
+  <div style="padding:44px 40px 36px;border-right:1px solid #333;background-image:linear-gradient(0deg,transparent 24%,rgba(255,255,255,.03) 25%,rgba(255,255,255,.03) 26%,transparent 27%,transparent 74%,rgba(255,255,255,.03) 75%,rgba(255,255,255,.03) 76%,transparent 77%,transparent),linear-gradient(90deg,transparent 24%,rgba(255,255,255,.03) 25%,rgba(255,255,255,.03) 26%,transparent 27%,transparent 74%,rgba(255,255,255,.03) 75%,rgba(255,255,255,.03) 76%,transparent 77%,transparent);background-size:50px 50px;background-color:#2A2A2A">
+    <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#757575;margin-bottom:14px">Studio Pulse · Weekly decision system</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:74px;line-height:.92;color:#fff;text-transform:uppercase;letter-spacing:-.01em">The week<br>Mexico got <span style="background:#FFFF00;color:#000;padding:.04em .12em;box-decoration-break:clone;-webkit-box-decoration-break:clone">cheaper.</span></div>
+    <div style="font-size:15px;line-height:1.7;margin-top:18px;max-width:520px">EFICA's 30% credit is law, Netflix's billion is committed, and romance just took a third of every scripted commission in the region. Five signals moved. Three moves on the table.</div>
+  </div>
+  <div style="padding:44px 40px 36px;display:flex;flex-direction:column;gap:0;background:#0F0F0F">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid #333">
+      <div style="padding:18px 20px;border-right:1px solid #333;border-bottom:1px solid #333">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#757575">Snapshot</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:30px;color:#fff;margin-top:2px">AUG 19</div>
+      </div>
+      <div style="padding:18px 20px;border-bottom:1px solid #333">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#757575">Sources</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:30px;color:#fff;margin-top:2px">33</div>
+      </div>
+      <div style="padding:18px 20px;border-right:1px solid #333">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#757575">Calls correct</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:30px;color:#00E5C8;margin-top:2px">7/12</div>
+      </div>
+      <div style="padding:18px 20px">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#757575">Moves</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:30px;color:#fff;margin-top:2px">3 <span style="font-size:16px;color:#757575">reversible</span></div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase">
+      <span style="border:1px solid #00E5C8;color:#00E5C8;padding:4px 10px">FACT = sourced + dated</span>
+      <span style="border:1px solid #FFFF00;color:#FFFF00;padding:4px 10px">INFERENCE = analyst read</span>
+      <span style="border:1px solid #FF6B6B;color:#FF6B6B;padding:4px 10px">SPEC = weak evidence</span>
+    </div>
+    <div style="margin-top:12px;font-family:'Space Mono',monospace;font-size:10.5px;color:#757575;line-height:1.7">SIGNALS NEVER CHANGE SCRIPT SCORES OR VERDICTS.<br>THEY CHANGE WHERE WE LOOK FIRST.</div>
+  </div>
+</div>
+
+<!-- Changed strip -->
+<div style="padding:34px 40px 8px;position:relative">
+  <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#00E5C8;margin-bottom:16px">01 / What changed</div>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#333;border:1px solid #333">
+    <div style="background:#1A1A1A;padding:18px 16px">
+      <div style="display:flex;justify-content:space-between"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:22px;color:#00E5C8">▲</span><span style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;color:#00E5C8;border:1px solid #00E5C8;padding:2px 6px;height:fit-content">FACT</span></div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;line-height:1.05;color:#fff;text-transform:uppercase;margin-top:10px">EFICA 30% credit is law</div>
+      <div style="font-size:12px;line-height:1.55;color:#9E9E9E;margin-top:7px">Decree Feb 16 · guidelines Mar 30. EFICINE cap up to 25M pesos.</div>
+      <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#757575;margin-top:10px">CONF HIGH · 3 SRC · MX-GOV-001</div>
+    </div>
+    <div style="background:#1A1A1A;padding:18px 16px">
+      <div style="display:flex;justify-content:space-between"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:22px;color:#00E5C8">▲</span><span style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;color:#00E5C8;border:1px solid #00E5C8;padding:2px 6px;height:fit-content">FACT</span></div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;line-height:1.05;color:#fff;text-transform:uppercase;margin-top:10px">Romance = 30% of LatAm commissions</div>
+      <div style="font-size:12px;line-height:1.55;color:#9E9E9E;margin-top:7px">Top scripted genre H1 2026. Hybrids win: romance+thriller, novela+mystery.</div>
+      <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#757575;margin-top:10px">CONF HIGH · 2 SRC · LA-SENAL-001</div>
+    </div>
+    <div style="background:#1A1A1A;padding:18px 16px">
+      <div style="display:flex;justify-content:space-between"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:22px;color:#FF6B6B">▼</span><span style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;color:#00E5C8;border:1px solid #00E5C8;padding:2px 6px;height:fit-content">FACT</span></div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;line-height:1.05;color:#fff;text-transform:uppercase;margin-top:10px">LatAm scripted volume −13% YoY</div>
+      <div style="font-size:12px;line-height:1.55;color:#9E9E9E;margin-top:7px">Spend concentrating on resilient genres. Contradicts the romance surge → see 05.</div>
+      <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#757575;margin-top:10px">CONF HIGH · 1 SRC · LA-ADVTV-001</div>
+    </div>
+    <div style="background:#1A1A1A;padding:18px 16px">
+      <div style="display:flex;justify-content:space-between"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:22px;color:#00E5C8">▲</span><span style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;color:#00E5C8;border:1px solid #00E5C8;padding:2px 6px;height:fit-content">FACT</span></div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;line-height:1.05;color:#fff;text-transform:uppercase;margin-top:10px">Prime: Spanish content = export engine</div>
+      <div style="font-size:12px;line-height:1.55;color:#9E9E9E;margin-top:7px">Culpables 100M viewers, 90%+ outside Spain, 30+ languages.</div>
+      <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#757575;margin-top:10px">CONF HIGH · 2 SRC · GLBL-AMZN-001</div>
+    </div>
+    <div style="background:#1A1A1A;padding:18px 16px">
+      <div style="display:flex;justify-content:space-between"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:22px;color:#FF6B6B">?</span><span style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;color:#FF6B6B;border:1px solid #FF6B6B;padding:2px 6px;height:fit-content">SPEC</span></div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;line-height:1.05;color:#fff;text-transform:uppercase;margin-top:10px">Chinese microdrama apps entering LatAm</div>
+      <div style="font-size:12px;line-height:1.55;color:#9E9E9E;margin-top:7px">Telenovela hooks, vertical format. One press read; no major-buyer mandate.</div>
+      <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#757575;margin-top:10px">CONF LOW · 1 SRC · LA-CNBC-001</div>
+    </div>
+  </div>
+</div>
+
+<!-- Buyers -->
+<div style="padding:34px 40px 8px;position:relative">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+    <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#00E5C8">02 / Buyer board — Mexico</div>
+    <div style="display:flex;gap:8px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase">
+      <span style="background:#00E5C8;color:#000;padding:5px 12px;font-weight:700">Mexico</span>
+      <span style="border:1px solid #333;color:#757575;padding:5px 12px">US Latino</span>
+      <span style="border:1px solid #333;color:#757575;padding:5px 12px">LatAm</span>
+      <span style="border:1px solid #333;color:#757575;padding:5px 12px">Spain</span>
+      <span style="border:1px solid #333;color:#757575;padding:5px 12px">Global</span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start">
+    <div style="border:1px solid #333">
+      <div style="display:grid;grid-template-columns:150px 90px 1fr;gap:0;font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#757575;border-bottom:1px solid #333;padding:10px 16px 8px;column-gap:16px"><span>Buyer</span><span>Signal</span><span>Appetite</span></div>
+      <div style="display:grid;grid-template-columns:150px 90px 1fr;column-gap:16px;padding:13px 16px;border-bottom:1px solid #262626;align-items:start">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;color:#fff;text-transform:uppercase">Netflix</span>
+        <span style="font-family:'Space Mono',monospace;font-size:10px;color:#00E5C8;padding-top:4px">● HIGH</span>
+        <span style="font-size:12.5px;line-height:1.55;color:#C8C8C8">US$1B / 2025–28, 20+ titles a year with local partners. Action thriller, romance, comedy, historical. <span style="background:#FFFF00;color:#000;font-family:'Space Mono',monospace;font-size:9px;padding:1px 5px">GENRE RANK = INFERENCE</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:150px 90px 1fr;column-gap:16px;padding:13px 16px;border-bottom:1px solid #262626;align-items:start">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;color:#fff;text-transform:uppercase">Prime Video</span>
+        <span style="font-family:'Space Mono',monospace;font-size:10px;color:#00E5C8;padding-top:4px">● HIGH</span>
+        <span style="font-size:12.5px;line-height:1.55;color:#C8C8C8">Romance, true crime, comedy adaptations, courtroom drama. Mentiras = biggest MX premiere ever. La Oficina in 2026.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:150px 90px 1fr;column-gap:16px;padding:13px 16px;border-bottom:1px solid #262626;align-items:start">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;color:#fff;text-transform:uppercase">HBO Max</span>
+        <span style="font-family:'Space Mono',monospace;font-size:10px;color:#FFFF00;padding-top:4px">▲ RISING</span>
+        <span style="font-size:12.5px;line-height:1.55;color:#C8C8C8">Quality over volume. Chespirito universe + 5 true-crime docuseries of ~6 planned for 2026.</span>
+      </div>
+      <div style="display:grid;grid-template-columns:150px 90px 1fr;column-gap:16px;padding:13px 16px;border-bottom:1px solid #262626;align-items:start">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;color:#9E9E9E;text-transform:uppercase">Warner Bros.</span>
+        <span style="font-family:'Space Mono',monospace;font-size:10px;color:#FF6B6B;padding-top:4px">◆ SELECT</span>
+        <span style="font-size:12.5px;line-height:1.55;color:#9E9E9E">Tentpoles only. Local originals flow through HBO Max. <span style="border:1px solid #FF6B6B;color:#FF6B6B;font-family:'Space Mono',monospace;font-size:9px;padding:1px 5px">EVIDENCE GAP</span></span>
+      </div>
+      <div style="display:grid;grid-template-columns:150px 90px 1fr;column-gap:16px;padding:13px 16px;align-items:start">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;color:#9E9E9E;text-transform:uppercase">Apple TV+</span>
+        <span style="font-family:'Space Mono',monospace;font-size:10px;color:#FF6B6B;padding-top:4px">◆ SELECT</span>
+        <span style="font-size:12.5px;line-height:1.55;color:#9E9E9E">Budget cut to ~US$4.5B. Keeps Las Azules (S2 Aug 12) — not a volume buyer.</span>
+      </div>
+    </div>
+    <div style="border:1px solid #333;padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:20px;color:#fff;text-transform:uppercase">Demand index</span>
+        <span style="font-family:'Space Mono',monospace;font-size:9.5px;color:#757575;letter-spacing:.1em">0–100 / NOT A FORECAST</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#fff;margin-bottom:4px"><span>True crime / crime drama</span><span style="font-family:'Space Mono',monospace;color:#00E5C8">85</span></div>
+          <div style="height:8px;background:#262626"><div style="width:85%;height:100%;background:#00E5C8"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#fff;margin-bottom:4px"><span>Romance &amp; hybrids</span><span style="font-family:'Space Mono',monospace;color:#00E5C8">84</span></div>
+          <div style="height:8px;background:#262626"><div style="width:84%;height:100%;background:#00E5C8"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#fff;margin-bottom:4px"><span>Action / police thriller</span><span style="font-family:'Space Mono',monospace;color:#FFFF00">82</span></div>
+          <div style="height:8px;background:#262626"><div style="width:82%;height:100%;background:#FFFF00"></div></div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:#757575;margin-top:3px;letter-spacing:.06em">INTENT CAPPED — INFERRED FROM SLATE</div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#fff;margin-bottom:4px"><span>Nostalgia IP / biopic</span><span style="font-family:'Space Mono',monospace;color:#FFFF00">76</span></div>
+          <div style="height:8px;background:#262626"><div style="width:76%;height:100%;background:#FFFF00"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#fff;margin-bottom:4px"><span>Comedy</span><span style="font-family:'Space Mono',monospace;color:#9E9E9E">70</span></div>
+          <div style="height:8px;background:#262626"><div style="width:70%;height:100%;background:#757575"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#fff;margin-bottom:4px"><span>Historical / period</span><span style="font-family:'Space Mono',monospace;color:#9E9E9E">62</span></div>
+          <div style="height:8px;background:#262626"><div style="width:62%;height:100%;background:#757575"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Opportunities + scorecard + moves -->
+<div style="padding:34px 40px 40px;position:relative;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+  <div>
+    <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#00E5C8;margin-bottom:16px">03 / Opportunities</div>
+    <div style="display:flex;flex-direction:column;gap:1px;background:#333;border:1px solid #333">
+      <div style="background:#1A1A1A;padding:18px 20px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:24px;color:#fff;text-transform:uppercase;line-height:1">Romance-hybrid <span style="background:#00E5C8;color:#000;padding:.03em .12em">window</span></div>
+        <div style="font-size:12.5px;line-height:1.6;color:#9E9E9E;margin-top:8px">LatAm 86 / MX 84. Netflix's "year of romance" + Prime's export machine. Hybrids win; pure telenovela doesn't.</div>
+        <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#00E5C8;margin-top:10px;letter-spacing:.08em">FACT-BACKED · NETFLIX + PRIME</div>
+      </div>
+      <div style="background:#1A1A1A;padding:18px 20px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:24px;color:#fff;text-transform:uppercase;line-height:1">Mexico capital <span style="background:#00E5C8;color:#000;padding:.03em .12em">stack</span></div>
+        <div style="font-size:12.5px;line-height:1.6;color:#9E9E9E;margin-top:8px">EFICA 30% + Netflix US$1B = cheapest premium Spanish-language production in years. Favors Mexico-shootable projects with local partners.</div>
+        <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#00E5C8;margin-top:10px;letter-spacing:.08em">FACT-BACKED · NETFLIX + PRIME + HBO MAX</div>
+      </div>
+      <div style="background:#1A1A1A;padding:18px 20px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:24px;color:#fff;text-transform:uppercase;line-height:1">US Latino <span style="background:#FFFF00;color:#000;padding:.03em .12em">gap</span></div>
+        <div style="font-size:12.5px;line-height:1.6;color:#9E9E9E;margin-top:8px">55.8% of Hispanic TV time is streaming; 45% say Spanish content isn't on par. Demand is proven — the buyer for it is not. Watch Peacock/Telemundo, Roku.</div>
+        <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#FFFF00;margin-top:10px;letter-spacing:.08em">INFERENCE · BUYER UNPROVEN</div>
+      </div>
+    </div>
+    <!-- Contradictions -->
+    <div style="border:1px solid #FF6B6B;padding:18px 20px;margin-top:20px">
+      <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#FF6B6B;margin-bottom:10px">!! Contradictions &amp; gaps</div>
+      <ul style="margin:0;padding-left:16px;font-size:12.5px;line-height:1.7;color:#C8C8C8">
+        <li>Romance up while total commissions fell 13% — concentration, not growth.</li>
+        <li>Netflix MX genre ranking = inference from slate, not a mandate.</li>
+        <li>Missing: per-genre budgets · WB theatrical plans · US-Latino commissioning · Apple pipeline beyond Las Azules.</li>
+      </ul>
+    </div>
+    <!-- Audience -->
+    <div style="border:1px solid #333;padding:18px 20px;margin-top:20px">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+        <span style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#00E5C8">04 / Audience chatter</span>
+        <span style="font-family:'Space Mono',monospace;font-size:9px;color:#FF6B6B;border:1px solid #FF6B6B;padding:2px 6px;letter-spacing:.08em">SAMPLE — FEED NOT WIRED</span>
+      </div>
+      <div style="font-size:12.5px;line-height:1.75;color:#C8C8C8">
+        <b style="color:#fff">Reddit</b> — Chespirito discourse 11 weeks strong, <span style="color:#00E5C8;font-family:'Space Mono',monospace;font-size:11px">+38% WoW</span>. Heritage-IP read holds.<br>
+        <b style="color:#fff">X</b> — La Oficina split ~60/40 excited/skeptical. Comedy-adaptation bellwether. <span style="border:1px solid #FF6B6B;color:#FF6B6B;font-family:'Space Mono',monospace;font-size:9px;padding:1px 5px">SPEC</span><br>
+        <b style="color:#fff">Search MX</b> — "novela romántica serie" <span style="color:#00E5C8;font-family:'Space Mono',monospace;font-size:11px">+24% QoQ</span>; microdrama queries doubling from a small base.
+      </div>
+    </div>
+  </div>
+  <div>
+    <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#00E5C8;margin-bottom:16px">05 / Scorecard — were we right?</div>
+    <div style="border:1px solid #333">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #333;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase">
+        <div style="padding:14px 18px;border-right:1px solid #333"><div style="font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;color:#757575">Correct</div><div style="font-weight:900;font-size:32px;color:#00E5C8">7</div></div>
+        <div style="padding:14px 18px;border-right:1px solid #333"><div style="font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;color:#757575">Partial</div><div style="font-weight:900;font-size:32px;color:#FFFF00">3</div></div>
+        <div style="padding:14px 18px"><div style="font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;color:#757575">Wrong</div><div style="font-weight:900;font-size:32px;color:#FF6B6B">2</div></div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.5;color:#C8C8C8">
+        <div style="padding:12px 18px;border-bottom:1px solid #262626;display:flex;gap:12px"><span style="font-family:'Space Mono',monospace;font-size:9px;color:#00E5C8;border:1px solid #00E5C8;padding:2px 6px;height:fit-content;flex:none">RIGHT</span><span><b style="color:#fff">Romance overtakes drama in LatAm by mid-2026.</b> Confirmed — 30% of H1 commissions.</span></div>
+        <div style="padding:12px 18px;border-bottom:1px solid #262626;display:flex;gap:12px"><span style="font-family:'Space Mono',monospace;font-size:9px;color:#00E5C8;border:1px solid #00E5C8;padding:2px 6px;height:fit-content;flex:none">RIGHT</span><span><b style="color:#fff">Mexico expands incentives in 2026.</b> EFICA decreed Feb 16.</span></div>
+        <div style="padding:12px 18px;border-bottom:1px solid #262626;display:flex;gap:12px"><span style="font-family:'Space Mono',monospace;font-size:9px;color:#FFFF00;border:1px solid #FFFF00;padding:2px 6px;height:fit-content;flex:none">PART</span><span><b style="color:#fff">HBO Max grows LatAm volume.</b> Quality-over-volume instead; volume flat.</span></div>
+        <div style="padding:12px 18px;border-bottom:1px solid #262626;display:flex;gap:12px"><span style="font-family:'Space Mono',monospace;font-size:9px;color:#FFFF00;border:1px solid #FFFF00;padding:2px 6px;height:fit-content;flex:none">PART</span><span><b style="color:#fff">Microdramas stay niche through 2026.</b> Chinese apps moving faster than expected.</span></div>
+        <div style="padding:12px 18px;display:flex;gap:12px"><span style="font-family:'Space Mono',monospace;font-size:9px;color:#FF6B6B;border:1px solid #FF6B6B;padding:2px 6px;height:fit-content;flex:none">WRONG</span><span><b style="color:#fff">Apple TV+ raises Mexico output.</b> Opposite — budget trimmed, posture selective.</span></div>
+      </div>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#00E5C8;margin:24px 0 16px">06 / Moves — small &amp; reversible</div>
+    <div style="display:flex;flex-direction:column;gap:1px;background:#333;border:1px solid #333">
+      <div style="background:#1A1A1A;padding:16px 20px;display:flex;justify-content:space-between;gap:16px;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:13.5px;color:#fff">Re-rank slate vs romance-hybrid demand; shortlist top 5</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#757575;margin-top:4px;letter-spacing:.06em">REVERSIBLE: QUERY ONLY · DEV · THIS WEEK</div>
+        </div>
+        <span style="background:#00E5C8;color:#000;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:8px 14px;letter-spacing:.08em;flex:none">RUN →</span>
+      </div>
+      <div style="background:#1A1A1A;padding:16px 20px;display:flex;justify-content:space-between;gap:16px;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:13.5px;color:#fff">EFICA-eligibility memo for 2 Mexico-shootable projects</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#757575;margin-top:4px;letter-spacing:.06em">REVERSIBLE: ANALYSIS ONLY · PROD/FIN · SEP 15</div>
+        </div>
+        <span style="border:1px solid #00E5C8;color:#00E5C8;font-family:'Space Mono',monospace;font-size:10px;padding:8px 14px;letter-spacing:.08em;flex:none">ASSIGN →</span>
+      </div>
+      <div style="background:#1A1A1A;padding:16px 20px;display:flex;justify-content:space-between;gap:16px;align-items:center">
+        <div>
+          <div style="font-weight:600;font-size:13.5px;color:#fff">Tier one true-crime doc concept for HBO Max LatAm</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9.5px;color:#757575;margin-top:4px;letter-spacing:.06em">REVERSIBLE: PITCH ONLY · SALES · 2 WEEKS</div>
+        </div>
+        <span style="border:1px solid #00E5C8;color:#00E5C8;font-family:'Space Mono',monospace;font-size:10px;padding:8px 14px;letter-spacing:.08em;flex:none">BRIEF →</span>
+      </div>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:10px;color:#757575;line-height:1.8;margin-top:14px;letter-spacing:.04em">NOT PROPOSED: ACQUISITIONS, OPTIONS, GREENLIGHTS.<br>THE BRIEFING NARROWS ATTENTION. HUMANS DECIDE.</div>
+  </div>
+</div>
+
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "iterate on <a class="dv-oid" href="#1a">1a</a> with the other territories filled in" · "make <a class="dv-oid" href="#1b">1b</a>'s masthead the style for 1a" · "turn the winner into a live prototype with territory switching"</p>
+</section>
+
+</x-dc>
+</body>
+</html>

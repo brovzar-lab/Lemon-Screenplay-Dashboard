@@ -666,7 +666,7 @@
 
 .hybrid-filter-popover > header p {
   color: var(--hybrid-accent);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -699,6 +699,12 @@
   padding: 18px 20px 22px;
 }
 
+.hybrid-filter-popover__saved-tools,
+.hybrid-filter-popover__sort,
+.hybrid-selection-trigger--mobile {
+  display: none;
+}
+
 .hybrid-filter-popover__selects {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -708,7 +714,7 @@
 .hybrid-filter-popover__selects label,
 .hybrid-filter-popover legend {
   color: var(--hybrid-ink-muted) !important;
-  font-size: 10px !important;
+  font-size: 11px !important;
   font-weight: 780 !important;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -742,13 +748,13 @@
 }
 
 .hybrid-verdict-filter button {
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 12px;
   border: 1px solid var(--hybrid-line);
   border-radius: 7px;
   background: var(--hybrid-surface);
   color: var(--hybrid-ink-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 780;
   letter-spacing: 0.05em;
 }
@@ -2012,11 +2018,51 @@
 
   .hybrid-filter-popover {
     position: fixed;
+    top: auto;
     right: 8px;
     bottom: 8px;
     left: 8px;
     width: auto;
     max-height: calc(100dvh - 16px);
+  }
+
+  .hybrid-filter-popover__saved-tools {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .hybrid-filter-popover__saved-tools > :is(button, .btn, .dsc-btn) {
+    min-height: 44px;
+    border: 1px solid var(--hybrid-line);
+    border-radius: 8px;
+    background: var(--hybrid-surface-muted);
+    color: var(--hybrid-ink);
+  }
+
+  .hybrid-filter-popover__sort {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 14px;
+    color: var(--hybrid-ink-muted);
+    font-size: 11px;
+    font-weight: 750;
+  }
+
+  .hybrid-filter-popover__sort select {
+    min-height: 44px;
+    padding: 0 10px;
+    border: 1px solid var(--hybrid-line);
+    border-radius: 8px;
+    background: var(--hybrid-surface-muted);
+    color: var(--hybrid-ink);
+  }
+
+  .hybrid-selection-trigger--mobile {
+    display: inline-flex;
+    width: 100%;
+    margin-bottom: 14px;
   }
 
   .hybrid-filter-popover__selects,

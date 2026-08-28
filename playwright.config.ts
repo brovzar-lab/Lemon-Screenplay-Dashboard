@@ -1,7 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const authState = 'playwright/.auth/lemon-user.json';
-
 /**
  * Playwright E2E Test Configuration
  * See https://playwright.dev/docs/test-configuration
@@ -31,20 +29,14 @@ export default defineConfig({
   // Configure projects for major browsers
   projects: [
     {
-      name: 'auth-setup',
-      testMatch: /auth\.setup\.ts/,
-    },
-    {
       name: 'chromium-light',
       testIgnore: /auth\.setup\.ts/,
-      use: { ...devices['Desktop Chrome'], storageState: authState },
-      dependencies: ['auth-setup'],
+      use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'chromium-dark',
       testIgnore: /auth\.setup\.ts/,
-      use: { ...devices['Desktop Chrome'], storageState: authState },
-      dependencies: ['auth-setup'],
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
 

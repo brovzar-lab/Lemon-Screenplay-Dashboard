@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { clsx } from 'clsx';
 import { MultiSelect } from '@/components/filters/MultiSelect';
 import { RangeSlider } from '@/components/filters/RangeSlider';
+import { LensMenu } from '@/components/filters/LensMenu';
+import { DiscoveryFavoritesMenu } from '@/components/discover/DiscoveryFavoritesMenu';
 import { passesFilters } from '@/hooks/useFilteredScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useLensStore } from '@/stores/lensStore';
@@ -30,6 +32,7 @@ interface HybridCommandRailProps {
   selectionMode?: boolean;
   selectionCount?: number;
   onToggleSelectionMode?: () => void;
+  onOpenScreenplay?: (screenplay: Screenplay, trigger: HTMLButtonElement) => void;
 }
 
 interface ActiveChip {
@@ -50,6 +53,7 @@ export function HybridCommandRail({
   selectionMode = false,
   selectionCount = 0,
   onToggleSelectionMode,
+  onOpenScreenplay,
 }: HybridCommandRailProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -110,9 +114,11 @@ export function HybridCommandRail({
     if (!isOpen) return;
 
     const handlePointerDown = (event: MouseEvent) => {
+      if ((event.target as Element).closest('[data-discovery-overlay]')) return;
       if (!filterPanelRef.current?.contains(event.target as Node)) setIsOpen(false);
     };
     const handleEscape = (event: KeyboardEvent) => {
+      if (document.querySelector('[data-discovery-overlay]')) return;
       if (event.key === 'Escape') setIsOpen(false);
     };
 
@@ -309,6 +315,45 @@ export function HybridCommandRail({
               </header>
 
               <div className="hybrid-filter-popover__body">
+                <div className="hybrid-filter-popover__saved-tools">
+                  <LensMenu presentation="discovery" triggerLabel={t('Saved Views')} />
+                  {onOpenScreenplay && (
+                    <DiscoveryFavoritesMenu
+                      screenplays={allScreenplays}
+                      onOpen={onOpenScreenplay}
+                    />
+                  )}
+                </div>
+
+                <label className="hybrid-filter-popover__sort">
+                  <span>{t('Sort screenplays')}</span>
+                  <select
+                    aria-label={t('Sort screenplays')}
+                    value={activeSort}
+                    onChange={(event) => handleSort(event.target.value as SortField)}
+                  >
+                    <option value="weightedScore">{t('Weighted score')}</option>
+                    <option value="marketPotential">{t('Market potential')}</option>
+                    <option value="cvsTotal">CVS</option>
+                    <option value="title">{t('Title')}</option>
+                  </select>
+                </label>
+
+                {onToggleSelectionMode && (
+                  <button
+                    type="button"
+                    className={clsx(
+                      'hybrid-selection-trigger hybrid-selection-trigger--mobile',
+                      selectionMode && 'is-active',
+                    )}
+                    aria-pressed={selectionMode}
+                    onClick={onToggleSelectionMode}
+                  >
+                    <span>{selectionMode ? t('Done selecting') : t('Select projects')}</span>
+                    {selectionCount > 0 && <strong>{selectionCount}</strong>}
+                  </button>
+                )}
+
                 <div className="hybrid-filter-popover__selects">
                   <MultiSelect
                     label={t('Genre')}

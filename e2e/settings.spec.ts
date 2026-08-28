@@ -61,4 +61,20 @@ test.describe('Settings administration', () => {
       'true',
     );
   });
+
+  test('mobile settings uses one contained section picker', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const picker = page.getByRole('combobox', { name: 'Settings section' });
+    await expect(picker).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Settings sections' })).toBeHidden();
+    await picker.selectOption('analysis');
+    await expect(page.getByRole('heading', { name: 'Analysis Health', exact: true })).toBeVisible();
+    await expect(picker).toHaveValue('analysis');
+
+    const hasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(hasHorizontalOverflow).toBe(false);
+  });
 });

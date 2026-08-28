@@ -15,7 +15,7 @@ import { SharedContentDetails } from './SharedContentDetails';
 import type { SharedViewDocument } from '@/lib/shareService';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { useTranslation } from 'react-i18next';
-import { LanguageControl } from '@/components/layout/LanguageControl';
+import { PublicShareHeader } from '@/components/share/PublicShareHeader';
 import i18n from '@/i18n';
 import type { LocalizedAnalysisContent } from '@/types';
 
@@ -32,36 +32,21 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
   const displayTitle = getScreenplayDisplayTitle(analysis.title).title;
 
   return (
-    <div className="public-shared-view min-h-screen bg-black-900">
-      <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* Header with logo */}
-        <header className="relative flex items-center justify-center mb-8">
-          <img src="/lemon-logo-white.png" alt="Lemon Studios" className="h-8 w-8" />
-          <div className="absolute right-0">
-            <LanguageControl />
-          </div>
-        </header>
+    <div className="public-share-shell public-shared-view">
+      <PublicShareHeader />
+      <div className="public-share-content">
 
         {/* Title / Author / Genre bar */}
-        <div className="text-center mb-6">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gold-200 mb-2">{displayTitle}</h1>
-          <p className="text-lg text-black-300">{analysis.author}</p>
-          <div className="flex items-center justify-center gap-3 mt-3 flex-wrap">
-            <span className="px-3 py-1 text-sm rounded-md bg-black-800 text-black-300 border border-black-700">
-              {t(analysis.genre)}
-            </span>
+        <div className="public-share-title">
+          <h1>{displayTitle}</h1>
+          <p>{analysis.author}</p>
+          <div className="public-share-meta">
+            <span>{t(analysis.genre)}</span>
             {!analysisFallback && analysis.subgenres?.map((sg) => (
-              <span
-                key={sg}
-                className="px-2 py-1 text-xs rounded-md bg-black-800 text-black-400 border border-black-700"
-              >
-                {sg}
-              </span>
+              <span key={sg}>{sg}</span>
             ))}
             {!analysisFallback && analysis.tone && (
-              <span className="px-2 py-1 text-xs rounded-md bg-black-800 text-black-400 border border-black-700">
-                {analysis.tone}
-              </span>
+              <span>{analysis.tone}</span>
             )}
           </div>
         </div>
@@ -80,18 +65,17 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
 
         {/* Verdict Statement */}
         {!analysisFallback && analysis.verdictStatement && (
-          <blockquote className="bg-black-800 border-l-4 border-gold-500/30 rounded-r-xl p-5 mb-8 text-black-200 italic text-sm sm:text-base">
+          <blockquote className="public-share-verdict">
             {analysis.verdictStatement}
           </blockquote>
         )}
 
         {/* Download Script button */}
         {data.pdfUrl && (
-          <div className="flex justify-center mb-8">
+          <div className="public-share-download">
             <button
               type="button"
               onClick={() => window.open(data.pdfUrl!, '_blank')}
-              className="px-6 py-3 bg-gold-500 hover:bg-gold-400 text-black-900 font-semibold rounded-lg transition-colors"
             >
               {t('Download Script')}
             </button>
@@ -107,8 +91,8 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
         {!analysisFallback && <SharedContentDetails analysis={analysis} notes={data.notes} />}
 
         {/* Footer */}
-        <footer className="mt-12 pt-6 border-t border-black-700 text-center">
-          <p className="text-xs text-black-500">Lemon Studios</p>
+        <footer className="public-share-footer">
+          <p>Lemon Studios</p>
         </footer>
       </div>
     </div>

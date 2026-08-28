@@ -32,7 +32,7 @@ export function AuthenticatedNavigation({
         className={`authenticated-navigation__link ${isHome ? 'authenticated-navigation__link--active' : ''}`}
         aria-current={isHome ? 'page' : undefined}
       >
-        {t('Market')}
+        {t('Intelligence')}
       </Link>
       <Link
         to="/discover"

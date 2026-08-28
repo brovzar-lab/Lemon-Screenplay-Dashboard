@@ -7,9 +7,9 @@ test.describe('Screenplay poster policy', () => {
     await page.goto('/discover');
     const search = page.getByRole('searchbox', { name: 'Discovery search' });
     await expect(search).toBeVisible({ timeout: 30_000 });
-    await search.fill('Will');
+    await search.fill('Synthetic Pass');
 
-    const open = page.getByRole('button', { name: 'Open Will screenplay file' });
+    const open = page.getByRole('button', { name: 'Open Synthetic Pass screenplay file' });
     await expect(open).toBeVisible();
     await expect(open.locator('.screenplay-object')).toBeVisible();
     await expect(open.locator('.screenplay-object img')).toHaveCount(0);
@@ -26,8 +26,8 @@ test.describe('Screenplay poster policy', () => {
     await page.goto('/discover');
     const search = page.getByRole('searchbox', { name: 'Discovery search' });
     await expect(search).toBeVisible({ timeout: 30_000 });
-    await search.fill('Matadero');
-    const open = page.getByRole('button', { name: 'Open Matadero screenplay file' });
+    await search.fill('Synthetic Romance');
+    const open = page.getByRole('button', { name: 'Open Synthetic Romance screenplay file' });
     await expect(open.locator('.screenplay-object')).toBeVisible();
     await expect(open.locator('.screenplay-object img')).toHaveCount(0);
     await open.click();

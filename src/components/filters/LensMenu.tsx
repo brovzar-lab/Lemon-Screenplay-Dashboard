@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { DEFAULT_FILTER_STATE, type FilterState, type SortState } from '@/types';
 import { useFilterStore } from '@/stores/filterStore';
@@ -42,6 +43,7 @@ export function LensMenu({
   const isDiscovery = presentation === 'discovery';
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const lenses = useLensStore((state) => state.lenses);
   const activeLensId = useLensStore((state) => state.activeLensId);
   const saveLens = useLensStore((state) => state.saveLens);
@@ -55,12 +57,17 @@ export function LensMenu({
     setName('');
   };
 
+  const closeMenu = () => {
+    setIsOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  };
+
   const handleApply = (id: string) => {
     const lens = lenses.find((item) => item.id === id);
     if (!lens) return;
     applyLensSnapshot(lens.snapshot);
     setActiveLens(id);
-    setIsOpen(false);
+    closeMenu();
   };
 
   useEffect(() => {
@@ -69,7 +76,7 @@ export function LensMenu({
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      setIsOpen(false);
+      closeMenu();
     };
 
     document.addEventListener('keydown', handleEscape);
@@ -79,6 +86,7 @@ export function LensMenu({
   return (
     <>
       <button
+        ref={triggerRef}
         onClick={() => setIsOpen(true)}
         className={clsx(
           'btn btn-secondary shrink-0 text-sm',
@@ -96,10 +104,10 @@ export function LensMenu({
         )}
       </button>
 
-      {isOpen && (
+      {isOpen && createPortal(
         <div
           className={clsx(
-            'fixed inset-0 z-[80] flex justify-center',
+            'fixed inset-0 z-[100] flex justify-center',
             isDiscovery
               ? 'dsc-scrim items-end p-0 sm:items-center sm:p-4'
               : 'items-center bg-black-950/80 p-4',
@@ -107,9 +115,10 @@ export function LensMenu({
           role="dialog"
           aria-modal="true"
           aria-labelledby="lenses-title"
+          data-discovery-overlay
           data-presentation={presentation}
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setIsOpen(false);
+            if (event.target === event.currentTarget) closeMenu();
           }}
         >
           <div
@@ -140,7 +149,7 @@ export function LensMenu({
                 </p>
               </div>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={closeMenu}
                 className={clsx(
                   'text-xl text-black-300',
                   isDiscovery
@@ -235,7 +244,8 @@ export function LensMenu({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
