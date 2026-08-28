@@ -130,6 +130,16 @@ describe('uploaded_analyses lifecycle', () => {
     }));
   });
 
+  it('allows Lemon readers and admins to read while denying public and authenticated outsiders', async () => {
+    const publicDb = testEnv.unauthenticatedContext().firestore();
+    const outsiderDb = testEnv.authenticatedContext('outsider', outsiderClaims).firestore();
+
+    await assertSucceeds(getDoc(doc(readerDb(), 'uploaded_analyses/script-one')));
+    await assertSucceeds(getDoc(doc(adminDb(), 'uploaded_analyses/script-one')));
+    await assertFails(getDoc(doc(publicDb, 'uploaded_analyses/script-one')));
+    await assertFails(getDoc(doc(outsiderDb, 'uploaded_analyses/script-one')));
+  });
+
   it('allows admins to create and soft-update analyses', async () => {
     await assertSucceeds(setDoc(doc(adminDb(), 'uploaded_analyses/script-two'), {
       source_file: 'script-two.pdf',

@@ -85,4 +85,26 @@ describe('HybridCommandRail Producer Look view', () => {
       screen.getByRole('button', { name: /Done selecting 2/i, pressed: true }),
     ).toBeInTheDocument();
   });
+
+  it('keeps secondary slate tools inside the mobile filter sheet', async () => {
+    const user = userEvent.setup();
+    render(
+      <HybridCommandRail
+        allScreenplays={[]}
+        genres={[]}
+        themes={[]}
+        hasActiveFilters={false}
+        onClearFilters={vi.fn()}
+        onOpenScreenplay={vi.fn()}
+        onToggleSelectionMode={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+
+    expect(screen.getByRole('button', { name: 'Saved Views' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Favorites' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Sort screenplays' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Select projects' })).toHaveLength(2);
+  });
 });

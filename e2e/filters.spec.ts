@@ -14,9 +14,9 @@ test.describe('Discovery find tools', () => {
     const search = page.getByRole('searchbox', { name: 'Discovery search' });
     await page.keyboard.press('/');
     await expect(search).toBeFocused();
-    await search.fill('Matadero');
+    await search.fill('Synthetic Romance');
     await expect(featured).toHaveAttribute('data-screenplay-id', featuredId ?? '');
-    await expect(page.getByText('Matadero', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Synthetic Romance', { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/Showing 1 of \d+ screenplays/)).toBeVisible();
   });
 
@@ -47,5 +47,44 @@ test.describe('Discovery find tools', () => {
     await expect(page.getByLabel('Active filters')).toContainText(/Recommend/i);
     await page.getByRole('button', { name: /Remove Recommend filter/i }).click();
     await expect(page.getByLabel('Active filters')).not.toContainText(/Recommend/i);
+  });
+
+  test('mobile filter sheet consolidates the secondary slate tools', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole('button', { name: /^Filters/ }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Discovery filters' });
+    await expect(dialog).toBeVisible();
+    const savedViews = dialog.getByRole('button', { name: 'Saved Views' });
+    const favorites = dialog.getByRole('button', { name: 'Favorites' });
+    await expect(savedViews).toBeVisible();
+    await expect(favorites).toBeVisible();
+    await expect(dialog.getByRole('combobox', { name: 'Sort screenplays' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Select projects' })).toBeVisible();
+
+    const bounds = await dialog.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+
+    await savedViews.click();
+    const lenses = page.getByRole('dialog', { name: 'Lenses' });
+    await expect(lenses).toBeVisible();
+    const lensBounds = await lenses.boundingBox();
+    expect(lensBounds).not.toBeNull();
+    expect(lensBounds!.y).toBeGreaterThanOrEqual(0);
+    expect(lensBounds!.y + lensBounds!.height).toBeLessThanOrEqual(844);
+    await page.keyboard.press('Escape');
+    await expect(lenses).toBeHidden();
+    await expect(dialog).toBeVisible();
+    await expect(savedViews).toBeFocused();
+
+    await favorites.click();
+    const savedSlate = page.getByRole('dialog', { name: 'Favorites' });
+    await expect(savedSlate).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(savedSlate).toBeHidden();
+    await expect(dialog).toBeVisible();
+    await expect(favorites).toBeFocused();
   });
 });

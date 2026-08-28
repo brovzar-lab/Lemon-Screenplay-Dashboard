@@ -1,650 +1,659 @@
 {
-  "schemaVersion": 1,
-  "asOf": "2026-08-19",
-  "status": "research_snapshot",
-  "territories": [
-    {
-      "id": "mexico",
-      "label": "Mexico",
-      "buyers": [
-        {
-          "id": "netflix",
-          "name": "Netflix",
-          "appetite": "Aggressive local investment: US$1B for 2025-2028, 20+ titles/year. Wants action thrillers, romance, comedy and historical drama made with local partners.",
-          "formats": "Series + features",
-          "signal": "high",
-          "matchQuery": "thriller",
-          "confidence": "high",
-          "evidenceIds": [
-            "MX-NFLX-001",
-            "MX-NFLX-002",
-            "MX-THR-001"
-          ],
-          "notes": "Backed by new 30% EFICA government tax credit; Churubusco Studios upgrade."
-        },
-        {
-          "id": "amazon",
-          "name": "Amazon MGM / Prime Video",
-          "appetite": "Local-obsession hits: romance, true crime, comedy adaptations and courtroom drama. Record Mexico premiere with Mentiras, La Serie; The Office adaptation La Oficina for 2026.",
-          "formats": "Series + films",
-          "signal": "high",
-          "matchQuery": "romance",
-          "confidence": "high",
-          "evidenceIds": [
-            "MX-AMZN-001"
-          ],
-          "notes": "Positions Mexico as a source of globally exportable franchises."
-        },
-        {
-          "id": "hbo-max",
-          "name": "HBO Max",
-          "appetite": "Quality over volume: nostalgia/heritage IP (Chespirito universe), true-crime docuseries and prestige drama. Similar or slightly higher volume than 2025.",
-          "formats": "Series + docuseries",
-          "signal": "rising",
-          "matchQuery": "crime",
-          "confidence": "high",
-          "evidenceIds": [
-            "MX-WBD-001",
-            "MX-WBD-002"
-          ],
-          "notes": "Chespirito: Sin Querer Queriendo is the biggest LatAm title in platform history."
-        },
-        {
-          "id": "warner-bros",
-          "name": "Warner Bros.",
-          "appetite": "Theatrical slate driven by global tentpoles and franchises. Local Mexican scripted commissioning runs mainly through HBO Max rather than a separate theatrical local pipeline.",
-          "formats": "Features (studio tentpoles)",
-          "signal": "selective",
-          "matchQuery": "action",
-          "confidence": "low",
-          "evidenceIds": [
-            "GLBL-WBD-001",
-            "MX-WBD-002"
-          ],
-          "notes": "No Mexico-specific local theatrical production plan disclosed in the last 12 months."
-        },
-        {
-          "id": "apple-tv-plus",
-          "name": "Apple TV+",
-          "appetite": "Selective. Maintains select Spanish-language crime drama (Women in Blue / Las Azules renewed for S2) but is not a volume buyer in Mexico.",
-          "formats": "Series",
-          "signal": "selective",
-          "matchQuery": "crime",
-          "confidence": "medium",
-          "evidenceIds": [
-            "MX-APPL-001",
-            "GLBL-APPL-001"
-          ],
-          "notes": "Company-wide cost discipline limits Mexico output."
-        }
-      ],
-      "demands": [
-        {
-          "id": "true-crime",
-          "label": "True crime and crime drama",
-          "index": 85,
-          "matchQuery": "crime",
-          "confidence": "high",
-          "evidenceIds": [
-            "MX-WBD-002",
-            "MX-AMZN-001",
-            "MX-PARROT-001"
-          ]
-        },
-        {
-          "id": "romance-drama",
-          "label": "Romance and romantic drama (incl. hybrids)",
-          "index": 84,
-          "matchQuery": "romance",
-          "confidence": "high",
-          "evidenceIds": [
-            "MX-SENAL-001",
-            "MX-AMZN-001",
-            "GLBL-NFLX-002"
-          ]
-        },
-        {
-          "id": "elevated-action-thriller",
-          "label": "Elevated action / police thriller",
-          "index": 82,
-          "matchQuery": "thriller",
-          "confidence": "high",
-          "evidenceIds": [
-            "MX-NFLX-001",
-            "MX-NFLX-002",
-            "MX-PARROT-001"
-          ]
-        },
-        {
-          "id": "nostalgia-ip-biopic",
-          "label": "Nostalgia / heritage IP and biographical drama",
-          "index": 76,
-          "matchQuery": "biography",
-          "confidence": "medium",
-          "evidenceIds": [
-            "MX-WBD-001",
-            "MX-AMZN-001"
-          ]
-        },
-        {
-          "id": "comedy",
-          "label": "Comedy (adaptations and stand-up formats)",
-          "index": 70,
-          "matchQuery": "comedy",
-          "confidence": "medium",
-          "evidenceIds": [
-            "MX-AMZN-001",
-            "MX-NFLX-002"
-          ]
-        },
-        {
-          "id": "historical-period-drama",
-          "label": "Historical / period drama",
-          "index": 62,
-          "matchQuery": "drama",
-          "confidence": "medium",
-          "evidenceIds": [
-            "MX-NFLX-002",
-            "MX-PARROT-001"
-          ]
-        }
-      ]
+  "schemaVersion": 2,
+  "snapshot": {
+    "id": "lemon-intelligence-2026-08-19",
+    "status": "reviewed_snapshot",
+    "asOf": "2026-08-19",
+    "periodStart": "2025-02-20",
+    "periodEnd": "2026-08-19",
+    "reviewedAt": "2026-08-25T18:00:00Z",
+    "territory": {
+      "scope": "country",
+      "countryCodes": ["MX"],
+      "audienceDefinition": null
     },
-    {
-      "id": "us-latino",
-      "label": "US Latino",
-      "buyers": [
-        {
-          "id": "netflix",
-          "name": "Netflix",
-          "appetite": "Serves US Latino via pan-Spanish library plus its Mexico slate; Latinos overindex on Netflix. No US-Latino-exclusive scripted mandate disclosed.",
-          "formats": "Series + films (pan-regional)",
-          "signal": "rising",
-          "matchQuery": "spanish",
-          "confidence": "medium",
-          "evidenceIds": [
-            "USL-NIEL-001",
-            "USL-BEL-001"
-          ],
-          "notes": "Demand is high; segment-specific commissioning is not."
-        },
-        {
-          "id": "amazon",
-          "name": "Amazon MGM / Prime Video",
-          "appetite": "Reaches US Hispanic through pan-regional Spanish hits (Betty la Fea) and Telemundo/free ad-supported channels.",
-          "formats": "Series + films (pan-regional)",
-          "signal": "rising",
-          "matchQuery": "romance",
-          "confidence": "medium",
-          "evidenceIds": [
-            "USL-PARROT-001",
-            "LA-AMZN-001"
-          ],
-          "notes": null
-        },
-        {
-          "id": "hbo-max",
-          "name": "HBO Max",
-          "appetite": "US Hispanic served via LatAm true-crime and prestige IP; no distinct US-Latino original mandate disclosed.",
-          "formats": "Series + docuseries",
-          "signal": "selective",
-          "matchQuery": "crime",
-          "confidence": "low",
-          "evidenceIds": [
-            "USL-PARROT-001"
-          ],
-          "notes": null
-        },
-        {
-          "id": "warner-bros",
-          "name": "Warner Bros.",
-          "appetite": "No US-Latino-specific theatrical commissioning signal identified in the last 12 months.",
-          "formats": "unknown",
-          "signal": "unknown",
-          "matchQuery": "unknown",
-          "confidence": "low",
-          "evidenceIds": [],
-          "notes": "Evidence gap."
-        },
-        {
-          "id": "apple-tv-plus",
-          "name": "Apple TV+",
-          "appetite": "Select Spanish-language crime drama reaches US Hispanic (Las Azules), but selective posture.",
-          "formats": "Series",
-          "signal": "selective",
-          "matchQuery": "crime",
-          "confidence": "low",
-          "evidenceIds": [
-            "MX-APPL-001"
-          ],
-          "notes": null
-        }
-      ],
-      "demands": [
-        {
-          "id": "spanish-bilingual-scripted",
-          "label": "Spanish-language and bilingual scripted",
-          "index": 72,
-          "matchQuery": "spanish",
-          "confidence": "medium",
-          "evidenceIds": [
-            "USL-NIEL-001",
-            "USL-BEL-001",
-            "USL-PLAT-001"
-          ]
-        },
-        {
-          "id": "cross-border-crime-thriller",
-          "label": "Cross-border crime and thriller",
-          "index": 66,
-          "matchQuery": "thriller",
-          "confidence": "medium",
-          "evidenceIds": [
-            "USL-PARROT-001",
-            "MX-PARROT-001"
-          ]
-        },
-        {
-          "id": "telenovela-romance",
-          "label": "Telenovela and romance",
-          "index": 64,
-          "matchQuery": "romance",
-          "confidence": "medium",
-          "evidenceIds": [
-            "USL-PARROT-001",
-            "LA-AMZN-001"
-          ]
-        }
-      ]
+    "freshness": {
+      "status": "historical",
+      "expiresAt": "2026-09-02"
     },
-    {
-      "id": "latin-america",
-      "label": "Latin America",
-      "buyers": [
-        {
-          "id": "netflix",
-          "name": "Netflix",
-          "appetite": "Regional slate anchored in Mexico plus Argentina (19 Argentine titles across 2026-2027). Romance, crime and drama with name directors.",
-          "formats": "Series + features",
-          "signal": "high",
-          "matchQuery": "romance",
-          "confidence": "high",
-          "evidenceIds": [
-            "LA-NFLX-001",
-            "MX-NFLX-001"
-          ],
-          "notes": null
-        },
-        {
-          "id": "amazon",
-          "name": "Amazon MGM / Prime Video",
-          "appetite": "Local-obsession franchises (Betty la Fea, Culpables), courtroom/true-crime drama and competition reality; region positioned as global-export source.",
-          "formats": "Series + films + reality",
-          "signal": "high",
-          "matchQuery": "romance",
-          "confidence": "high",
-          "evidenceIds": [
-            "LA-AMZN-001",
-            "MX-AMZN-001"
-          ],
-          "notes": null
-        },
-        {
-          "id": "hbo-max",
-          "name": "HBO Max",
-          "appetite": "Quality over volume; true-crime docuseries and prestige/heritage IP (City of God, Like Water for Chocolate, Chespirito).",
-          "formats": "Series + docuseries",
-          "signal": "rising",
-          "matchQuery": "crime",
-          "confidence": "high",
-          "evidenceIds": [
-            "MX-WBD-002"
-          ],
-          "notes": null
-        },
-        {
-          "id": "warner-bros",
-          "name": "Warner Bros.",
-          "appetite": "Local commissioning channelled through HBO Max; theatrical is global-tentpole-led.",
-          "formats": "Features (tentpoles)",
-          "signal": "selective",
-          "matchQuery": "action",
-          "confidence": "low",
-          "evidenceIds": [
-            "MX-WBD-002",
-            "GLBL-WBD-001"
-          ],
-          "notes": null
-        },
-        {
-          "id": "apple-tv-plus",
-          "name": "Apple TV+",
-          "appetite": "Selective Spanish-language scripted; not a volume regional buyer.",
-          "formats": "Series",
-          "signal": "selective",
-          "matchQuery": "crime",
-          "confidence": "low",
-          "evidenceIds": [
-            "MX-APPL-001",
-            "GLBL-APPL-001"
-          ],
-          "notes": null
-        }
-      ],
-      "demands": [
-        {
-          "id": "romance-scripted",
-          "label": "Romance (top scripted genre, incl. hybrids)",
-          "index": 86,
-          "matchQuery": "romance",
-          "confidence": "high",
-          "evidenceIds": [
-            "LA-SENAL-001",
-            "LA-PARROT-001"
-          ]
-        },
-        {
-          "id": "crime-drama-true-crime",
-          "label": "Crime drama and true crime",
-          "index": 82,
-          "matchQuery": "crime",
-          "confidence": "high",
-          "evidenceIds": [
-            "LA-PARROT-001",
-            "MX-WBD-002"
-          ]
-        },
-        {
-          "id": "telenovela-hybrid-melodrama",
-          "label": "Modernized telenovela / hybrid melodrama",
-          "index": 74,
-          "matchQuery": "drama",
-          "confidence": "medium",
-          "evidenceIds": [
-            "LA-SENAL-001",
-            "LA-PARROT-001"
-          ]
-        },
-        {
-          "id": "competition-reality",
-          "label": "Competition and talent reality",
-          "index": 70,
-          "matchQuery": "reality",
-          "confidence": "medium",
-          "evidenceIds": [
-            "LA-PARROT-001",
-            "SP-AMZN-001"
-          ]
-        },
-        {
-          "id": "microdrama-shortform",
-          "label": "Microdrama / vertical short-form",
-          "index": 58,
-          "matchQuery": "drama",
-          "confidence": "low",
-          "evidenceIds": [
-            "LA-CNBC-001",
-            "LA-SENAL-001"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "spain",
-      "label": "Spain",
-      "buyers": [
-        {
-          "id": "netflix",
-          "name": "Netflix",
-          "appetite": "EUR 1B+/US$1.2B for 2025-2028 with the Tres Cantos studio hub. Thrillers, heist/crime, YA and event miniseries with a strong hook.",
-          "formats": "Series + features",
-          "signal": "high",
-          "matchQuery": "thriller",
-          "confidence": "high",
-          "evidenceIds": [
-            "SP-NFLX-001"
-          ],
-          "notes": "Spanish titles generated 5B+ viewing hours in the prior year."
-        },
-        {
-          "id": "amazon",
-          "name": "Amazon MGM / Prime Video",
-          "appetite": "Spain is Prime's No. 1 non-English export power. Action + young-adult scripted, romance (Culpables), and big live reality (Operacion Triunfo, LOL).",
-          "formats": "Series + films + reality",
-          "signal": "high",
-          "matchQuery": "action",
-          "confidence": "high",
-          "evidenceIds": [
-            "SP-AMZN-001",
-            "SP-AMZN-002"
-          ],
-          "notes": null
-        },
-        {
-          "id": "hbo-max",
-          "name": "HBO Max",
-          "appetite": "Documentary and true-crime unscripted tied to recent/current affairs and sports figures.",
-          "formats": "Docuseries + unscripted",
-          "signal": "rising",
-          "matchQuery": "crime",
-          "confidence": "medium",
-          "evidenceIds": [
-            "SP-WBD-001"
-          ],
-          "notes": null
-        },
-        {
-          "id": "warner-bros",
-          "name": "Warner Bros.",
-          "appetite": "Local commissioning via HBO Max; theatrical is tentpole-led.",
-          "formats": "Features + docuseries (via HBO Max)",
-          "signal": "selective",
-          "matchQuery": "action",
-          "confidence": "low",
-          "evidenceIds": [
-            "SP-WBD-001",
-            "GLBL-WBD-001"
-          ],
-          "notes": null
-        },
-        {
-          "id": "apple-tv-plus",
-          "name": "Apple TV+",
-          "appetite": "No disclosed Spain-specific originals mandate in the last 12 months.",
-          "formats": "unknown",
-          "signal": "unknown",
-          "matchQuery": "unknown",
-          "confidence": "low",
-          "evidenceIds": [
-            "GLBL-APPL-001"
-          ],
-          "notes": "Evidence gap for Spain specifically."
-        }
-      ],
-      "demands": [
-        {
-          "id": "action-young-adult",
-          "label": "Action and young-adult scripted",
-          "index": 82,
-          "matchQuery": "action",
-          "confidence": "high",
-          "evidenceIds": [
-            "SP-AMZN-001",
-            "SP-AMZN-002"
-          ]
-        },
-        {
-          "id": "thriller-crime-heist",
-          "label": "Thriller / crime / heist",
-          "index": 80,
-          "matchQuery": "thriller",
-          "confidence": "high",
-          "evidenceIds": [
-            "SP-NFLX-001"
-          ]
-        },
-        {
-          "id": "romance-ya",
-          "label": "Romance and YA romance",
-          "index": 78,
-          "matchQuery": "romance",
-          "confidence": "high",
-          "evidenceIds": [
-            "SP-AMZN-002",
-            "GLBL-NFLX-002"
-          ]
-        },
-        {
-          "id": "documentary-true-crime",
-          "label": "Documentary and true crime",
-          "index": 68,
-          "matchQuery": "crime",
-          "confidence": "medium",
-          "evidenceIds": [
-            "SP-WBD-001"
-          ]
-        },
-        {
-          "id": "reality-competition",
-          "label": "Reality and competition",
-          "index": 66,
-          "matchQuery": "reality",
-          "confidence": "medium",
-          "evidenceIds": [
-            "SP-AMZN-001"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "global",
-      "label": "Global",
-      "buyers": [
-        {
-          "id": "netflix",
-          "name": "Netflix",
-          "appetite": "~US$20B content spend in 2026. Non-English local-language originals prioritized; a declared year of romance; unscripted and live events added as new categories.",
-          "formats": "Series + films + live/unscripted",
-          "signal": "high",
-          "matchQuery": "drama",
-          "confidence": "high",
-          "evidenceIds": [
-            "GLBL-NFLX-001",
-            "GLBL-NFLX-002",
-            "GLBL-TREND-001"
-          ],
-          "notes": null
-        },
-        {
-          "id": "amazon",
-          "name": "Amazon MGM / Prime Video",
-          "appetite": "International Originals big bets: Spanish romance, Korean drama and Indian hits engineered to travel (Culpables 100M viewers, 90%+ outside home market).",
-          "formats": "Series + films",
-          "signal": "high",
-          "matchQuery": "romance",
-          "confidence": "high",
-          "evidenceIds": [
-            "GLBL-AMZN-001"
-          ],
-          "notes": null
-        },
-        {
-          "id": "hbo-max",
-          "name": "HBO Max",
-          "appetite": "Expanding international acquisition budget for local-language originals across Europe and Latin America; prestige and true crime.",
-          "formats": "Series + docuseries",
-          "signal": "rising",
-          "matchQuery": "drama",
-          "confidence": "medium",
-          "evidenceIds": [
-            "GLBL-TREND-001",
-            "MX-WBD-002"
-          ],
-          "notes": null
-        },
-        {
-          "id": "warner-bros",
-          "name": "Warner Bros.",
-          "appetite": "Theatrical release count ramping 11 (2025) to 14 (2026) to 18 (2027), led by tentpoles and franchises (Dune, LOTR, DC).",
-          "formats": "Features (tentpoles)",
-          "signal": "rising",
-          "matchQuery": "action",
-          "confidence": "medium",
-          "evidenceIds": [
-            "GLBL-WBD-001"
-          ],
-          "notes": "Franchise-first; limited window for original local features."
-        },
-        {
-          "id": "apple-tv-plus",
-          "name": "Apple TV+",
-          "appetite": "More selective. Content budget trimmed to ~US$4.5B; ~a dozen films/year, most under US$100M. Fewer, prestige bets.",
-          "formats": "Series + features",
-          "signal": "selective",
-          "matchQuery": "drama",
-          "confidence": "medium",
-          "evidenceIds": [
-            "GLBL-APPL-001"
-          ],
-          "notes": null
-        }
-      ],
-      "demands": [
-        {
-          "id": "nonenglish-local-language",
-          "label": "Non-English local-language originals that travel",
-          "index": 84,
-          "matchQuery": "drama",
-          "confidence": "high",
-          "evidenceIds": [
-            "GLBL-TREND-001",
-            "GLBL-NFLX-001",
-            "GLBL-AMZN-001"
-          ]
-        },
-        {
-          "id": "romance-romantasy",
-          "label": "Romance and romantasy",
-          "index": 78,
-          "matchQuery": "romance",
-          "confidence": "medium",
-          "evidenceIds": [
-            "GLBL-NFLX-002",
-            "GLBL-AMZN-001"
-          ]
-        },
-        {
-          "id": "unscripted-reality",
-          "label": "Unscripted and reality",
-          "index": 76,
-          "matchQuery": "reality",
-          "confidence": "medium",
-          "evidenceIds": [
-            "GLBL-TREND-003"
-          ]
-        },
-        {
-          "id": "crime-thriller-evergreen",
-          "label": "Crime and thriller (evergreen)",
-          "index": 74,
-          "matchQuery": "thriller",
-          "confidence": "medium",
-          "evidenceIds": [
-            "GLBL-TREND-003",
-            "MX-PARROT-001"
-          ]
-        },
-        {
-          "id": "live-sports-events",
-          "label": "Live sports and events",
-          "index": 60,
-          "matchQuery": "sports",
-          "confidence": "medium",
-          "evidenceIds": [
-            "GLBL-NFLX-001"
-          ]
-        }
-      ]
+    "coverageState": "partial",
+    "knowledgeLimits": {
+      "en": "This reviewed snapshot has buyer, trade, government, and reported outcome evidence. It has no licensed current social-conversation feed, private buyer mandates, or Mexico-specific platform engagement data.",
+      "es-MX": "Este corte revisado incluye evidencia de compradores, prensa, gobierno y resultados reportados. No incluye una fuente licenciada y vigente de conversación social, mandatos privados de compradores ni datos de interacción de plataformas específicos de México."
     }
-  ]
+  },
+  "sources": [
+    {
+      "id": "MX-NFLX-001",
+      "title": "Netflix Commits $1 Billion Investment in Mexico's Audiovisual Sector",
+      "publisher": "Variety",
+      "url": "https://variety.com/2025/film/global/netflix-1-billion-dollars-mexico-churubusco-studios-1236313889/",
+      "publishedAt": "2025-02-20",
+      "accessedAt": "2026-08-19",
+      "expiresAt": "2027-02-20",
+      "role": "trade_press",
+      "method": {
+        "collection": "Manual review of a dated trade report carrying a public buyer commitment.",
+        "notes": {
+          "en": "The multi-year commitment remains current through 2028; it does not disclose a private commissioning formula.",
+          "es-MX": "El compromiso plurianual sigue vigente hasta 2028; no revela una fórmula privada de encargos."
+        }
+      },
+      "independenceGroup": "netflix-mexico-investment-announcement",
+      "channel": "buyer",
+      "scope": "country",
+      "countryCodes": ["MX"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "MX-AMZN-001",
+      "title": "How Prime Video Local 'Obsession' Fuels Latin America Hits, 2026 Plans",
+      "publisher": "Forbes",
+      "url": "https://www.forbes.com/sites/veronicavillafane/2025/12/17/how-prime-video-local-obsession-fuels-latin-america-hits-2026-plans/",
+      "publishedAt": "2025-12-17",
+      "accessedAt": "2026-08-19",
+      "expiresAt": "2026-12-17",
+      "role": "trade_press",
+      "method": {
+        "collection": "Manual review of a dated executive interview and reported platform outcomes.",
+        "notes": {
+          "en": "Buyer statements and reported outcomes are separated into distinct claims.",
+          "es-MX": "Las declaraciones del comprador y los resultados reportados se separan en afirmaciones distintas."
+        }
+      },
+      "independenceGroup": "amazon-latam-2026-interview",
+      "channel": "buyer",
+      "scope": "regional",
+      "countryCodes": ["MX", "CO", "BR", "AR"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "MX-WBD-002",
+      "title": "HBO Max Latin America: After Chespirito, Don Ramon, The Colorado",
+      "publisher": "Variety",
+      "url": "https://variety.com/2025/tv/news/hbo-max-latin-america-chespirito-don-ramon-the-colorado-1236592044/",
+      "publishedAt": "2025-11-25",
+      "accessedAt": "2026-08-19",
+      "expiresAt": "2026-11-25",
+      "role": "trade_press",
+      "method": {
+        "collection": "Manual review of a dated trade interview and buyer-reported performance.",
+        "notes": {
+          "en": "The record performance is an observed outcome claim; future appetite remains a separate buyer claim.",
+          "es-MX": "El desempeño récord es una afirmación de resultado observado; el interés futuro permanece como una afirmación separada del comprador."
+        }
+      },
+      "independenceGroup": "wbd-chespirito-strategy-interview",
+      "channel": "outcome",
+      "scope": "regional",
+      "countryCodes": ["MX", "AR", "BR", "CO"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "MX-GOV-001",
+      "title": "Mexico unveils 30% film production incentive",
+      "publisher": "The Location Guide",
+      "url": "https://www.thelocationguide.com/industrynews/mexico-unveils-ambitious-30-film-production-incentive-to-boost-national-and-international-projects",
+      "publishedAt": "2026-03-30",
+      "accessedAt": "2026-08-19",
+      "expiresAt": "2027-03-30",
+      "role": "industry",
+      "method": {
+        "collection": "Manual review of dated industry reporting on published incentive guidance.",
+        "notes": {
+          "en": "Production economics are context, not proof of audience demand or a buyer mandate.",
+          "es-MX": "La economía de producción es contexto, no prueba de demanda de audiencia ni de un mandato de compra."
+        }
+      },
+      "independenceGroup": "mexico-2026-production-incentive",
+      "channel": "government",
+      "scope": "country",
+      "countryCodes": ["MX"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "GLBL-NFLX-001",
+      "title": "Netflix Tops 325M Subscribers, Plans to Boost Content Spending 10% to $20B in 2026",
+      "publisher": "Variety",
+      "url": "https://variety.com/2026/tv/news/netflix-q4-2025-financial-earnings-subscribers-1236635615/",
+      "publishedAt": "2026-01-20",
+      "accessedAt": "2026-08-19",
+      "expiresAt": "2027-01-20",
+      "role": "trade_press",
+      "method": {
+        "collection": "Manual review of trade reporting tied to company financial disclosures.",
+        "notes": {
+          "en": "Global content spending is context and cannot be allocated to Mexico from public evidence.",
+          "es-MX": "El gasto global en contenido es contexto y no puede asignarse a México con evidencia pública."
+        }
+      },
+      "independenceGroup": "netflix-2026-earnings",
+      "channel": "industry",
+      "scope": "global",
+      "countryCodes": [],
+      "audienceDefinition": null
+    },
+    {
+      "id": "SP-AMZN-002",
+      "title": "Culpables Franchise Hits 100M Viewers as Prime Video Unveils 2026 International Original Big Bets",
+      "publisher": "Amazon MGM Studios",
+      "url": "https://press.amazonmgmstudios.com/us/en/press-release/iculpablesi-movie-franchise-hits-100-million-viewe",
+      "publishedAt": "2026-02-12",
+      "accessedAt": "2026-08-19",
+      "expiresAt": "2027-02-12",
+      "role": "official",
+      "method": {
+        "collection": "Manual review of an official studio press release.",
+        "notes": {
+          "en": "The viewing figure is a company statement, not independently audited performance.",
+          "es-MX": "La cifra de audiencia es una declaración de la empresa, no un resultado auditado de manera independiente."
+        }
+      },
+      "independenceGroup": "amazon-culpables-press-release",
+      "channel": "outcome",
+      "scope": "country",
+      "countryCodes": ["ES"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "LA-ADVTV-001",
+      "title": "Research: Chile, Peru lead growth in LatAm content export",
+      "publisher": "Advanced Television",
+      "url": "https://www.advanced-television.com/2026/01/22/research-chile-peru-lead-growth-in-latam-content-export/",
+      "publishedAt": "2026-01-22",
+      "accessedAt": "2026-08-19",
+      "expiresAt": "2027-01-22",
+      "role": "industry",
+      "method": {
+        "collection": "Manual review of industry reporting that cites third-party demand research.",
+        "notes": {
+          "en": "The regional commissioning decline is third-party context, not a Mexico-specific buyer disclosure.",
+          "es-MX": "La caída regional de encargos es contexto de terceros, no una revelación específica de compradores en México."
+        }
+      },
+      "independenceGroup": "parrot-latam-exports-study",
+      "channel": "industry",
+      "scope": "regional",
+      "countryCodes": ["CL", "PE"],
+      "audienceDefinition": null
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-netflix-mexico-investment",
+      "kind": "direct_buyer",
+      "statement": {
+        "en": "Netflix publicly committed US$1 billion to Mexican audiovisual production for 2025-2028, including work with local partners.",
+        "es-MX": "Netflix anunció públicamente una inversión de US$1,000 millones en producción audiovisual mexicana para 2025-2028, incluido trabajo con socios locales."
+      },
+      "classification": "confirmed",
+      "sourceIds": ["MX-NFLX-001"],
+      "decisionCritical": true,
+      "scope": "country",
+      "countryCodes": ["MX"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "claim-amazon-local-priorities",
+      "kind": "direct_buyer",
+      "statement": {
+        "en": "Prime Video executives described locally rooted romance, true crime, comedy adaptations, and courtroom drama among current Latin American priorities.",
+        "es-MX": "Ejecutivos de Prime Video describieron el romance de raíz local, el crimen real, las adaptaciones de comedia y el drama judicial entre sus prioridades actuales en América Latina."
+      },
+      "classification": "confirmed",
+      "sourceIds": ["MX-AMZN-001"],
+      "decisionCritical": true,
+      "scope": "regional",
+      "countryCodes": ["MX", "CO", "BR", "AR"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "claim-mentiras-outcome",
+      "kind": "observed_outcome",
+      "statement": {
+        "en": "Prime Video reported Mentiras, La Serie as its biggest Mexico premiere at the time of the source interview.",
+        "es-MX": "Prime Video reportó que Mentiras, La Serie fue su mayor estreno en México al momento de la entrevista fuente."
+      },
+      "classification": "confirmed",
+      "sourceIds": ["MX-AMZN-001"],
+      "decisionCritical": true,
+      "scope": "country",
+      "countryCodes": ["MX"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "claim-wbd-quality-volume",
+      "kind": "direct_buyer",
+      "statement": {
+        "en": "HBO Max described a quality-over-volume Latin American strategy with true-crime docuseries and heritage intellectual property in the mix.",
+        "es-MX": "HBO Max describió una estrategia latinoamericana de calidad sobre volumen que incluye docuseries de crimen real y propiedad intelectual de legado."
+      },
+      "classification": "confirmed",
+      "sourceIds": ["MX-WBD-002"],
+      "decisionCritical": true,
+      "scope": "regional",
+      "countryCodes": ["MX", "AR", "BR", "CO"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "claim-chespirito-outcome",
+      "kind": "observed_outcome",
+      "statement": {
+        "en": "Warner Bros. Discovery reported Chespirito: Sin Querer Queriendo as HBO Max's largest Latin American title at the time.",
+        "es-MX": "Warner Bros. Discovery reportó que Chespirito: Sin Querer Queriendo era el título latinoamericano más grande de HBO Max en ese momento."
+      },
+      "classification": "confirmed",
+      "sourceIds": ["MX-WBD-002"],
+      "decisionCritical": false,
+      "scope": "regional",
+      "countryCodes": ["MX", "AR", "BR", "CO"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "claim-mexico-incentive",
+      "kind": "verified_context",
+      "statement": {
+        "en": "Mexico introduced a 30% transferable audiovisual production incentive in 2026.",
+        "es-MX": "México introdujo en 2026 un incentivo transferible del 30% para producción audiovisual."
+      },
+      "classification": "confirmed",
+      "sourceIds": ["MX-GOV-001"],
+      "decisionCritical": false,
+      "scope": "country",
+      "countryCodes": ["MX"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "claim-global-netflix-spend",
+      "kind": "verified_context",
+      "statement": {
+        "en": "Netflix said it planned roughly US$20 billion in global content spending for 2026; the public source does not allocate that amount to Mexico.",
+        "es-MX": "Netflix dijo que planeaba alrededor de US$20,000 millones en gasto global de contenido para 2026; la fuente pública no asigna esa cantidad a México."
+      },
+      "classification": "confirmed",
+      "sourceIds": ["GLBL-NFLX-001"],
+      "decisionCritical": false,
+      "scope": "global",
+      "countryCodes": [],
+      "audienceDefinition": null
+    },
+    {
+      "id": "claim-spanish-romance-travel",
+      "kind": "observed_outcome",
+      "statement": {
+        "en": "Amazon reported that the Spain-produced Culpables franchise reached 100 million viewers, with more than 90% outside Spain.",
+        "es-MX": "Amazon reportó que la franquicia Culpables, producida en España, alcanzó 100 millones de espectadores, con más del 90% fuera de España."
+      },
+      "classification": "confirmed",
+      "sourceIds": ["SP-AMZN-002"],
+      "decisionCritical": false,
+      "scope": "country",
+      "countryCodes": ["ES"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "claim-latam-commissions-down",
+      "kind": "verified_context",
+      "statement": {
+        "en": "Third-party research reported Latin American scripted commissions down about 13% year over year while Chile and Peru led export growth.",
+        "es-MX": "Investigación de terceros reportó que los encargos de ficción latinoamericana bajaron alrededor de 13% interanual, mientras Chile y Perú lideraron el crecimiento de exportaciones."
+      },
+      "classification": "strong_inference",
+      "sourceIds": ["LA-ADVTV-001"],
+      "decisionCritical": true,
+      "scope": "regional",
+      "countryCodes": ["CL", "PE"],
+      "audienceDefinition": null
+    }
+  ],
+  "buyers": [
+    {
+      "id": "netflix-mexico",
+      "name": "Netflix",
+      "appetite": {
+        "en": "Sustained Mexican production with local partners is publicly supported; a title-level buying mandate is not public.",
+        "es-MX": "Existe respaldo público para una producción mexicana sostenida con socios locales; no hay un mandato público de compra por tipo de título."
+      },
+      "formats": { "en": "Series and films", "es-MX": "Series y películas" },
+      "signal": "high",
+      "doorState": "open",
+      "claimIds": ["claim-netflix-mexico-investment"],
+      "scope": "country",
+      "countryCodes": ["MX"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "amazon-mexico",
+      "name": "Amazon MGM / Prime Video",
+      "appetite": {
+        "en": "Locally rooted romance, true crime, comedy adaptations, and courtroom drama have current public support.",
+        "es-MX": "El romance de raíz local, el crimen real, las adaptaciones de comedia y el drama judicial tienen respaldo público vigente."
+      },
+      "formats": { "en": "Series and films", "es-MX": "Series y películas" },
+      "signal": "high",
+      "doorState": "open",
+      "claimIds": ["claim-amazon-local-priorities", "claim-mentiras-outcome"],
+      "scope": "country",
+      "countryCodes": ["MX"],
+      "audienceDefinition": null
+    },
+    {
+      "id": "hbo-max-mexico",
+      "name": "HBO Max",
+      "appetite": {
+        "en": "Selective quality-over-volume work, including true crime and heritage intellectual property.",
+        "es-MX": "Trabajo selectivo de calidad sobre volumen, incluido crimen real y propiedad intelectual de legado."
+      },
+      "formats": { "en": "Series and docuseries", "es-MX": "Series y docuseries" },
+      "signal": "rising",
+      "doorState": "limited",
+      "claimIds": ["claim-wbd-quality-volume", "claim-chespirito-outcome"],
+      "scope": "country",
+      "countryCodes": ["MX"],
+      "audienceDefinition": null
+    }
+  ],
+  "zeitgeistStories": [
+    {
+      "id": "zeitgeist-social-unavailable",
+      "state": "unavailable",
+      "title": {
+        "en": "Conversation signal unavailable; verified context remains visible",
+        "es-MX": "Señal de conversación no disponible; el contexto verificado permanece visible"
+      },
+      "signalClass": "connector_unavailable",
+      "window": { "start": "2026-08-13", "end": "2026-08-19" },
+      "conversationClaimIds": [],
+      "contextClaimIds": ["claim-mexico-incentive", "claim-global-netflix-spend"],
+      "outcomeClaimIds": ["claim-mentiras-outcome", "claim-chespirito-outcome"],
+      "sourceFamilies": [
+        { "en": "Trade press", "es-MX": "Prensa especializada" },
+        { "en": "Official buyer press", "es-MX": "Comunicados oficiales de compradores" },
+        { "en": "Industry reporting", "es-MX": "Reportes de la industria" }
+      ],
+      "classification": "unknown_proprietary",
+      "doesNotProve": {
+        "en": "Reported platform outcomes and production investment do not prove current national conversation, viewing intent, or demand for an unmade project.",
+        "es-MX": "Los resultados reportados por plataformas y la inversión en producción no prueban conversación nacional vigente, intención de ver ni demanda por un proyecto no realizado."
+      },
+      "alternativeExplanations": [
+        {
+          "en": "A reported hit may reflect established intellectual property or launch promotion rather than broad genre demand.",
+          "es-MX": "Un éxito reportado puede reflejar propiedad intelectual conocida o promoción de lanzamiento, no demanda amplia por el género."
+        },
+        {
+          "en": "Investment may expand production capacity without increasing the number of projects open to outside acquisition.",
+          "es-MX": "La inversión puede ampliar la capacidad de producción sin aumentar los proyectos abiertos a adquisición externa."
+        }
+      ],
+      "contradictionIds": ["contradiction-volume"],
+      "nextTest": {
+        "en": "Obtain a lawful licensed conversation source, segment it to Mexico, and compare the signal with current search or viewing evidence before changing a decision.",
+        "es-MX": "Obtener una fuente legal y licenciada de conversación, segmentarla para México y comparar la señal con evidencia vigente de búsqueda o consumo antes de cambiar una decisión."
+      },
+      "scope": "country",
+      "countryCodes": ["MX"],
+      "audienceDefinition": null
+    }
+  ],
+  "opportunities": [
+    {
+      "id": "mexico-romance-hybrid",
+      "label": { "en": "Locally rooted romance hybrid", "es-MX": "Híbrido romántico de raíz local" },
+      "need": {
+        "en": "A romance-led project with a specific Mexican engine rather than a generic regional setting.",
+        "es-MX": "Un proyecto liderado por romance con un motor mexicano específico, no un entorno regional genérico."
+      },
+      "timingBand": ["active", "immediate"],
+      "action": "investigate",
+      "classification": "strong_inference",
+      "claimIds": ["claim-amazon-local-priorities", "claim-mentiras-outcome", "claim-spanish-romance-travel"],
+      "match": {
+        "all": [],
+        "any": [
+          { "fields": ["genre", "subgenres", "themes", "logline"], "terms": ["romance", "romantic", "romántico", "romántica", "amor"] }
+        ]
+      },
+      "nextAction": {
+        "en": "Review the verified non-PASS slate for a specific local romance engine, then test the buyer framing with a human executive.",
+        "es-MX": "Revisar la selección verificada que no sea PASS buscando un motor romántico local específico y después probar el enfoque con un ejecutivo humano."
+      }
+    },
+    {
+      "id": "mexico-true-crime",
+      "label": { "en": "True crime or crime docuseries", "es-MX": "Crimen real o docuserie criminal" },
+      "need": {
+        "en": "A fact-grounded Mexican crime story with clear rights and an ethical reporting path.",
+        "es-MX": "Una historia criminal mexicana basada en hechos, con derechos claros y una ruta ética de investigación."
+      },
+      "timingBand": ["active"],
+      "action": "watch",
+      "classification": "confirmed",
+      "claimIds": ["claim-wbd-quality-volume", "claim-amazon-local-priorities"],
+      "match": {
+        "all": [],
+        "any": [
+          { "fields": ["genre", "subgenres", "themes", "logline"], "terms": ["crime", "crimen", "criminal", "true crime"] }
+        ]
+      },
+      "nextAction": {
+        "en": "Confirm rights, reporting access, and a current buyer conversation before advancing.",
+        "es-MX": "Confirmar derechos, acceso de investigación y una conversación vigente con comprador antes de avanzar."
+      }
+    }
+  ],
+  "actions": [
+    {
+      "id": "action-romance-review",
+      "rank": 1,
+      "action": "investigate",
+      "evidenceState": "sufficient",
+      "title": { "en": "Investigate the local romance lane", "es-MX": "Investigar la vía de romance local" },
+      "whyNow": {
+        "en": "A current buyer statement and a reported Mexico outcome support a focused slate review, not an automatic greenlight.",
+        "es-MX": "Una declaración vigente de comprador y un resultado reportado en México respaldan una revisión enfocada de la selección, no una luz verde automática."
+      },
+      "supportClaimIds": ["claim-amazon-local-priorities", "claim-mentiras-outcome"],
+      "strongestContradictionId": "contradiction-volume",
+      "classification": "strong_inference",
+      "nextAction": {
+        "en": "Review only verified non-PASS projects for a Mexican romance engine and take the strongest fit to a human buyer check.",
+        "es-MX": "Revisar únicamente proyectos verificados que no sean PASS buscando un motor romántico mexicano y llevar la mejor coincidencia a una validación humana con comprador."
+      },
+      "reversalCondition": {
+        "en": "Reverse if a current buyer conversation rejects the lane or the local slate has no defensible fit.",
+        "es-MX": "Revertir si una conversación vigente con comprador rechaza la vía o si la selección local no tiene una coincidencia defendible."
+      },
+      "zeitgeistDerived": false
+    },
+    {
+      "id": "action-crime-watch",
+      "rank": 2,
+      "action": "watch",
+      "evidenceState": "sufficient",
+      "title": { "en": "Watch selective true-crime doors", "es-MX": "Vigilar puertas selectivas de crimen real" },
+      "whyNow": {
+        "en": "Two buyers publicly reference the lane, but quality-over-volume language and missing current mandate evidence argue against a stronger action.",
+        "es-MX": "Dos compradores mencionan públicamente la vía, pero el enfoque de calidad sobre volumen y la falta de un mandato vigente impiden una acción más fuerte."
+      },
+      "supportClaimIds": ["claim-wbd-quality-volume", "claim-amazon-local-priorities"],
+      "strongestContradictionId": "contradiction-selectivity",
+      "classification": "confirmed",
+      "nextAction": {
+        "en": "Track one rights-clear Mexican property and request a direct mandate check before acquisition work.",
+        "es-MX": "Dar seguimiento a una propiedad mexicana con derechos claros y solicitar una validación directa del mandato antes de trabajar una adquisición."
+      },
+      "reversalCondition": {
+        "en": "Dismiss the lane if direct buyer checks show no opening or rights access is not viable.",
+        "es-MX": "Descartar la vía si las validaciones directas muestran que no hay apertura o si el acceso a derechos no es viable."
+      },
+      "zeitgeistDerived": false
+    },
+    {
+      "id": "action-zeitgeist-insufficient",
+      "rank": null,
+      "action": null,
+      "evidenceState": "insufficient",
+      "title": { "en": "Do not infer a social zeitgeist move", "es-MX": "No inferir una acción desde el zeitgeist social" },
+      "whyNow": {
+        "en": "No commercially authorized current social-conversation connector was available for this reviewed issue.",
+        "es-MX": "No hubo un conector vigente de conversación social con autorización comercial para esta edición revisada."
+      },
+      "supportClaimIds": [],
+      "strongestContradictionId": null,
+      "classification": "unknown_proprietary",
+      "nextAction": {
+        "en": "Keep this unranked until lawful Mexico-specific conversation evidence is paired with verified context or an observed outcome.",
+        "es-MX": "Mantenerlo sin rango hasta que evidencia legal de conversación específica de México se combine con contexto verificado o un resultado observado."
+      },
+      "reversalCondition": {
+        "en": "A licensed, current, Mexico-segmented signal with an independent confirming source would permit review.",
+        "es-MX": "Una señal licenciada, vigente y segmentada para México con una fuente independiente de confirmación permitiría revisarla."
+      },
+      "zeitgeistDerived": true
+    }
+  ],
+  "contradictions": [
+    {
+      "id": "contradiction-volume",
+      "statement": {
+        "en": "Visible buyer activity coexists with third-party reporting that regional scripted commissions declined year over year.",
+        "es-MX": "La actividad visible de compradores coexiste con reportes de terceros de una caída interanual en los encargos regionales de ficción."
+      },
+      "claimIds": ["claim-amazon-local-priorities", "claim-latam-commissions-down"],
+      "resolved": false
+    },
+    {
+      "id": "contradiction-selectivity",
+      "statement": {
+        "en": "A reported hit and stated true-crime interest do not remove HBO Max's explicit quality-over-volume selectivity.",
+        "es-MX": "Un éxito reportado y el interés declarado en crimen real no eliminan la selectividad explícita de calidad sobre volumen de HBO Max."
+      },
+      "claimIds": ["claim-chespirito-outcome", "claim-wbd-quality-volume"],
+      "resolved": false
+    }
+  ],
+  "gaps": [
+    {
+      "id": "gap-reddit-license",
+      "label": { "en": "Reddit commercial access not confirmed", "es-MX": "Acceso comercial a Reddit no confirmado" },
+      "impact": {
+        "en": "No Reddit volume, sentiment, or audience inference is published.",
+        "es-MX": "No se publica volumen, sentimiento ni inferencia de audiencia de Reddit."
+      },
+      "connectorId": "reddit"
+    },
+    {
+      "id": "gap-social-coverage",
+      "label": { "en": "No licensed current conversation feed", "es-MX": "Sin fuente licenciada de conversación vigente" },
+      "impact": {
+        "en": "Zeitgeist-derived decisions remain unranked and unavailable.",
+        "es-MX": "Las decisiones derivadas del zeitgeist permanecen sin rango y no disponibles."
+      },
+      "connectorId": "social-conversation"
+    },
+    {
+      "id": "gap-private-mandates",
+      "label": { "en": "Private buyer mandates unknown", "es-MX": "Mandatos privados de compradores desconocidos" },
+      "impact": {
+        "en": "Public strategy signals cannot establish whether a specific project is currently buyable.",
+        "es-MX": "Las señales públicas de estrategia no establecen si un proyecto específico puede venderse actualmente."
+      },
+      "connectorId": null
+    }
+  ],
+  "connectors": [
+    {
+      "id": "reddit",
+      "label": "Reddit",
+      "status": "licensing_pending",
+      "lastChecked": "2026-08-19",
+      "notes": {
+        "en": "Commercial permission was not confirmed, so no automated Reddit evidence was collected.",
+        "es-MX": "No se confirmó permiso comercial, por lo que no se recopiló evidencia automatizada de Reddit."
+      }
+    },
+    {
+      "id": "social-conversation",
+      "label": "Licensed social conversation",
+      "status": "unavailable",
+      "lastChecked": "2026-08-19",
+      "notes": {
+        "en": "No lawful licensed connector was available for this issue.",
+        "es-MX": "No hubo un conector legal y licenciado disponible para esta edición."
+      }
+    }
+  ],
+  "evidenceHealth": {
+    "directness": {
+      "status": "caution",
+      "explanation": {
+        "en": "Several claims carry buyer statements through reputable trade reporting, but no private mandate was used.",
+        "es-MX": "Varias afirmaciones recogen declaraciones de compradores mediante prensa confiable, pero no se usó ningún mandato privado."
+      },
+      "sourceIds": ["MX-NFLX-001", "MX-AMZN-001", "MX-WBD-002"],
+      "claimIds": ["claim-netflix-mexico-investment", "claim-amazon-local-priorities", "claim-wbd-quality-volume"]
+    },
+    "provenance": {
+      "status": "good",
+      "explanation": {
+        "en": "Every published claim has a dated source, access date, collection method, expiry, and receipt URL.",
+        "es-MX": "Cada afirmación publicada tiene fuente fechada, fecha de acceso, método de recopilación, vencimiento y URL de comprobante."
+      },
+      "sourceIds": ["MX-NFLX-001", "MX-AMZN-001", "MX-WBD-002", "MX-GOV-001", "GLBL-NFLX-001", "SP-AMZN-002", "LA-ADVTV-001"],
+      "claimIds": []
+    },
+    "independence": {
+      "status": "good",
+      "explanation": {
+        "en": "Decision-critical source receipts resolve to separate originating groups after duplicate source IDs are removed.",
+        "es-MX": "Los comprobantes críticos para decisiones se resuelven en grupos de origen separados después de eliminar identificadores de fuente duplicados."
+      },
+      "sourceIds": ["MX-AMZN-001", "MX-WBD-002", "SP-AMZN-002"],
+      "claimIds": ["claim-mentiras-outcome", "claim-chespirito-outcome", "claim-spanish-romance-travel"]
+    },
+    "coverage": {
+      "status": "weak",
+      "explanation": {
+        "en": "Buyer, trade, government, and reported outcomes are present; licensed current conversation and Mexico platform engagement are absent.",
+        "es-MX": "Hay evidencia de compradores, prensa, gobierno y resultados reportados; faltan conversación vigente licenciada e interacción de plataformas en México."
+      },
+      "sourceIds": [],
+      "claimIds": []
+    },
+    "freshness": {
+      "status": "good",
+      "explanation": {
+        "en": "Decision-critical sources remain within their source-specific review windows as of the snapshot date.",
+        "es-MX": "Las fuentes críticas para decisiones permanecen dentro de sus ventanas específicas de revisión a la fecha del corte."
+      },
+      "sourceIds": ["MX-AMZN-001", "MX-WBD-002", "LA-ADVTV-001"],
+      "claimIds": []
+    },
+    "contradiction": {
+      "status": "caution",
+      "explanation": {
+        "en": "Two unresolved contrary readings remain visible and constrain the recommended actions.",
+        "es-MX": "Dos lecturas contrarias no resueltas permanecen visibles y limitan las acciones recomendadas."
+      },
+      "sourceIds": ["MX-AMZN-001", "MX-WBD-002", "LA-ADVTV-001"],
+      "claimIds": ["claim-amazon-local-priorities", "claim-wbd-quality-volume", "claim-latam-commissions-down"]
+    },
+    "knowledgeLimits": {
+      "status": "weak",
+      "explanation": {
+        "en": "Private buyer mandates, title economics, Mexico engagement data, and licensed social conversation are unknown.",
+        "es-MX": "Se desconocen los mandatos privados, la economía por título, los datos de interacción en México y la conversación social licenciada."
+      },
+      "sourceIds": [],
+      "claimIds": []
+    }
+  },
+  "ledger": {
+    "status": "not_enough_history",
+    "explanation": {
+      "en": "Not enough history. Confidential Lemon decisions and predictions are not stored in public web assets. No sample forecasts ship, and no accuracy is calculated in this release.",
+      "es-MX": "No hay historial suficiente. Las decisiones y predicciones confidenciales de Lemon no se guardan en recursos web públicos. No se incluyen pronósticos de muestra y esta versión no calcula precisión."
+    }
+  }
 }

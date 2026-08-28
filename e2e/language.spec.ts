@@ -12,7 +12,7 @@ test('defaults to English and saves Spanish across pages and reloads', async ({ 
   await page.getByRole('button', { name: 'Spanish' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'es');
   await expect(page.getByRole('link', { name: 'Guiones', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Informe del mercado' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Briefing de Inteligencia' })).toBeVisible();
   await page.getByRole('link', { name: 'Guiones', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Continúa con la selección' })).toBeVisible();
 
@@ -32,13 +32,38 @@ test('keeps the language control usable on a phone-sized screen', async ({ page 
   await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('lemon-ui-language')).forEach((key) => localStorage.removeItem(key)));
   await page.reload();
 
+  await expect(page.getByRole('heading', { name: 'Continue through the slate' })).toBeVisible();
+  await expect(page.getByRole('searchbox', { name: 'Discovery search' })).toBeVisible();
   await page.getByRole('button', { name: 'Open navigation and preferences' }).click();
   await expect(page.getByRole('button', { name: 'English' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Spanish' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Continue through the slate' })).toBeVisible();
-  await expect(page.getByRole('searchbox', { name: 'Discovery search' })).toBeVisible();
   await page.getByRole('button', { name: 'Spanish' }).click();
   await expect(page.getByRole('searchbox', { name: 'Búsqueda de descubrimiento' })).toBeVisible();
+
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(hasHorizontalOverflow).toBe(false);
+});
+
+test('public share recovery is branded, bilingual, and contained on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/share/missing-e2e-token');
+
+  await expect(page.getByText('Lemon Studios', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('.public-share-header img')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'This link is no longer available' })).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByRole('button', { name: 'Spanish' }).click();
+  await expect(page.getByRole('heading', { name: 'Este enlace ya no está disponible' })).toBeVisible();
+
+  const presentation = await page.locator('.public-share-header').evaluate((header) => {
+    const styles = getComputedStyle(header);
+    return { background: styles.backgroundColor, color: styles.color };
+  });
+  expect(presentation.background).not.toBe('rgba(0, 0, 0, 0)');
+  expect(presentation.color).not.toBe(presentation.background);
 
   const hasHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,

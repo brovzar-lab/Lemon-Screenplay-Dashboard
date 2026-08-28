@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "sha256",
+  "artifacts": [
+    {
+      "path": "src/data/studio-pulse-market-snapshot.json",
+      "sha256": "749373bbfdba974804054c916c9df56dc28dd148849d31c75bd40735be8c59dd"
+    },
+    {
+      "path": "public/research/studio-pulse-market-snapshot-2026-08-19.md",
+      "sha256": "15247f762d6c0947df2a38b1cb67c360afa3b22829a6340b496a76cbefc3faa4"
+    }
+  ]
+}

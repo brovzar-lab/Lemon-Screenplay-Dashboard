@@ -118,6 +118,55 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   initialize: () => {
     if (authUnsubscribe) return;
+
+    if (isLocalE2E()) {
+      authUnsubscribe = () => {};
+      const e2eRole = localStorage.getItem('lemon-e2e-role');
+      if (e2eRole === 'reader' || e2eRole === 'admin') {
+        const now = new Date().toISOString();
+        const user = {
+          uid: `synthetic-${e2eRole}`,
+          email: `synthetic-${e2eRole}@lemonfilms.com`,
+          emailVerified: true,
+          displayName: `Synthetic ${e2eRole}`,
+          photoURL: null,
+        } as User;
+        setLanguageUser(`synthetic-${e2eRole}`);
+        set({
+          user,
+          profile: {
+            uid: user.uid,
+            email: user.email!,
+            displayName: user.displayName!,
+            photoURL: null,
+            role: e2eRole,
+            createdAt: now,
+            lastLoginAt: now,
+          },
+          status: 'ready',
+          isSigningIn: false,
+          error: null,
+        });
+      } else if (e2eRole === 'outsider') {
+        set({
+          user: {
+            uid: 'synthetic-outsider',
+            email: 'synthetic-outsider@example.com',
+            emailVerified: true,
+            displayName: 'Synthetic outsider',
+            photoURL: null,
+          } as User,
+          profile: null,
+          status: 'ready',
+          isSigningIn: false,
+          error: null,
+        });
+      } else {
+        set({ user: null, profile: null, status: 'signed_out', isSigningIn: false, error: null });
+      }
+      return;
+    }
+
     authUnsubscribe = onAuthStateChanged(auth, async (user) => {
       const sequence = ++authSequence;
       if (!user) {

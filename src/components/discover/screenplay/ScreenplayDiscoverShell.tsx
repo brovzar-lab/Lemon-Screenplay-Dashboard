@@ -202,6 +202,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         selectionMode={selectionMode}
         selectionCount={selectionCount}
         onToggleSelectionMode={toggleSelectionMode}
+        onOpenScreenplay={handleOpen}
       />
       <main
         className={

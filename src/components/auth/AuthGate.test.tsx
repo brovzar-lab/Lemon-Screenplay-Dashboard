@@ -58,6 +58,14 @@ describe('AuthGate', () => {
     expect(screen.getByText('Protected dashboard')).toBeInTheDocument();
   });
 
+  it('blocks an authenticated account without Lemon team membership', () => {
+    mockState.status = 'ready';
+    mockState.profile = null;
+    renderGate();
+    expect(screen.getByRole('heading', { name: 'Lemon team access required' })).toBeInTheDocument();
+    expect(screen.queryByText('Protected dashboard')).not.toBeInTheDocument();
+  });
+
   it('blocks a reader from an admin-only route', () => {
     mockState.status = 'ready';
     mockState.profile = { role: 'reader' };

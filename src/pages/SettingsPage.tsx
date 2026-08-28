@@ -226,6 +226,22 @@ export function SettingsPage() {
       <ApplicationHeader />
 
       <main className="settings-main">
+        <label className="settings-mobile-picker" htmlFor="settings-section-picker">
+          <span>{t('Settings section')}</span>
+          <select
+            id="settings-section-picker"
+            value={activeTab}
+            onChange={(event) => setActiveTab(event.target.value as Tab)}
+          >
+            {GROUPS.map((group) => (
+              <optgroup key={group} label={t(group)}>
+                {TABS.filter((tab) => tab.group === group).map((tab) => (
+                  <option key={tab.id} value={tab.id}>{t(tab.label)}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
         <aside className="settings-sidebar">
           <nav aria-label={t('Settings sections')}>
             {GROUPS.map((group) => (
