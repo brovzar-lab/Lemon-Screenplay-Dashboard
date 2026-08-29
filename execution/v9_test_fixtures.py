@@ -9,6 +9,7 @@ from execution.trust_manifest import (
     CLAIM_VERIFICATION_BATCH_SIZE,
     PROMPT_CONTRACT_VERSION,
     attach_trust_manifest,
+    claim_verification_target_fields,
     claim_verification_targets,
     runtime_pricing_sha256,
     _transport_canonical_json,
@@ -131,13 +132,7 @@ def refresh_claim_verification(analysis):
     verification["locked_targets_sha256"] = hashlib.sha256(
         _transport_canonical_json([{
             key: target[key]
-            for key in (
-                "claim_id",
-                "claim",
-                "claim_type",
-                "verdict_driving",
-                "story_fact_check_required",
-            )
+            for key in claim_verification_target_fields()
         } for target in targets]).encode("utf-8")
     ).hexdigest()
     factual_count = sum(
@@ -810,13 +805,7 @@ def raw_analysis():
     targets = claim_verification_targets(analysis_for_hash)
     locked_targets = [{
         key: target[key]
-        for key in (
-            "claim_id",
-            "claim",
-            "claim_type",
-            "verdict_driving",
-            "story_fact_check_required",
-        )
+        for key in claim_verification_target_fields()
     } for target in targets]
     factual_count = sum(
         target["story_fact_check_required"] for target in targets
