@@ -43,7 +43,8 @@ jobs:
       NODE_VERSION: '22.22.3'
       NPM_VERSION: '10.9.8'
       PYTHON_VERSION: '3.13.13'
-      JAVA_VERSION: '21.0.12.1+1'
+      JAVA_VERSION: '21.0.12'
+      JAVA_RUNTIME_VERSION: '21.0.12.1+1-LTS'
       FIREBASE_TOOLS_VERSION: '15.14.0'
     steps:
       - name: Check out the requested source without cloud authority
@@ -108,12 +109,13 @@ jobs:
           ACTUAL_PYTHON_VERSION="$(python --version)"
           ACTUAL_JAVA_OUTPUT="$(java -version 2>&1)"
           ACTUAL_JAVA_VERSION="$(sed -nE 's/^(openjdk|java) version \"([^\"]+)\".*/\2/p' <<< "${ACTUAL_JAVA_OUTPUT}" | head -n 1)"
-          EXPECTED_JAVA_RUNTIME_VERSION="${JAVA_VERSION%%+*}"
+          ACTUAL_JAVA_RUNTIME_VERSION="$(sed -nE 's/^JAVA_RUNTIME_VERSION=\"([^\"]+)\"$/\1/p' "${JAVA_HOME}/release")"
+          EXPECTED_JAVA_VERSION="${JAVA_RUNTIME_VERSION%%+*}"
           printf '%s\n' \
             "Resolved Node ${ACTUAL_NODE_VERSION}" \
             "Resolved npm ${ACTUAL_NPM_VERSION}" \
             "Resolved ${ACTUAL_PYTHON_VERSION}" \
-            "Resolved Java ${ACTUAL_JAVA_VERSION}"
+            "Resolved Java ${ACTUAL_JAVA_VERSION} (${ACTUAL_JAVA_RUNTIME_VERSION})"
           test "${ACTUAL_NODE_VERSION}" = "v${NODE_VERSION}" || {
             echo "Node version mismatch: expected v${NODE_VERSION}, received ${ACTUAL_NODE_VERSION}." >&2
             exit 1
@@ -126,8 +128,12 @@ jobs:
             echo "Python version mismatch: expected Python ${PYTHON_VERSION}, received ${ACTUAL_PYTHON_VERSION}." >&2
             exit 1
           }
-          test "${ACTUAL_JAVA_VERSION}" = "${EXPECTED_JAVA_RUNTIME_VERSION}" || {
-            echo "Java version mismatch: expected ${EXPECTED_JAVA_RUNTIME_VERSION}, received ${ACTUAL_JAVA_VERSION}." >&2
+          test "${ACTUAL_JAVA_VERSION}" = "${EXPECTED_JAVA_VERSION}" || {
+            echo "Java version mismatch: expected ${EXPECTED_JAVA_VERSION}, received ${ACTUAL_JAVA_VERSION}." >&2
+            exit 1
+          }
+          test "${ACTUAL_JAVA_RUNTIME_VERSION}" = "${JAVA_RUNTIME_VERSION}" || {
+            echo "Java runtime build mismatch: expected ${JAVA_RUNTIME_VERSION}, received ${ACTUAL_JAVA_RUNTIME_VERSION}." >&2
             exit 1
           }
           npm ci
