@@ -1447,6 +1447,24 @@ function gcloudStorageJson(arguments_, description, allowNoObjects = false) {
   }
 }
 
+export function gcloudIamRoleDescribeArguments(role) {
+  const parts = String(role).split('/');
+  if (parts.length === 2 && parts[0] === 'roles' && parts[1]) {
+    return ['iam', 'roles', 'describe', role, '--format=json'];
+  }
+  if (parts.length === 4
+      && ['projects', 'organizations'].includes(parts[0])
+      && parts[1]
+      && parts[2] === 'roles'
+      && parts[3]) {
+    const parentFlag = parts[0] === 'projects' ? '--project' : '--organization';
+    return [
+      'iam', 'roles', 'describe', parts[3], `${parentFlag}=${parts[1]}`, '--format=json',
+    ];
+  }
+  throw new Error('IAM role name is invalid.');
+}
+
 function runStagingIdentityAudit(expected) {
   const projectResource = gcloudStorageJson(
     ['projects', 'describe', expected.projectId, '--format=json'],
@@ -1492,7 +1510,7 @@ function runStagingIdentityAudit(expected) {
   });
   const roles = [...new Set(normalizedBindings(projectIamPolicy).map((binding) => binding.role))];
   const roleDefinitions = roles.map((role) => gcloudStorageJson(
-    ['iam', 'roles', 'describe', role, '--format=json'],
+    gcloudIamRoleDescribeArguments(role),
     'staging role definition',
   ));
   const stagingStorageResources = gcloudStorageJson(
@@ -2230,11 +2248,9 @@ function main() {
       ),
     }));
     expected.productionAuditorRoleDefinition = gcloudStorageJson(
-      [
-        'iam', 'roles', 'describe', 'v9ProductionMetadataAuditor',
-        `--project=${expected.productionProjectId}`,
-        '--format=json',
-      ],
+      gcloudIamRoleDescribeArguments(
+        `projects/${expected.productionProjectId}/roles/v9ProductionMetadataAuditor`,
+      ),
       'production auditor custom role',
     );
     const proof = buildProductionIsolationProof(
