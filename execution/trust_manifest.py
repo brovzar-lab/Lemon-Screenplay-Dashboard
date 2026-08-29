@@ -99,7 +99,10 @@ PRE_VERIFIED_CITATION_SUBSET_PROMPT_CONTRACT_VERSION = (
 PRE_DIRECT_CORRECTION_PROMPT_CONTRACT_VERSION = (
     "v9-archaeology-prompts-2026-08-29-citation-v6"
 )
-PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-29-citation-v7"
+PRE_EXACT_PAGE_PROMPT_CONTRACT_VERSION = (
+    "v9-archaeology-prompts-2026-08-29-citation-v7"
+)
+PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-29-citation-v8"
 SUPPORTED_PROMPT_CONTRACT_VERSIONS = {
     LEGACY_PROMPT_CONTRACT_VERSION,
     PREVIOUS_PROMPT_CONTRACT_VERSION,
@@ -109,11 +112,16 @@ SUPPORTED_PROMPT_CONTRACT_VERSIONS = {
     PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION,
     PRE_VERIFIED_CITATION_SUBSET_PROMPT_CONTRACT_VERSION,
     PRE_DIRECT_CORRECTION_PROMPT_CONTRACT_VERSION,
+    PRE_EXACT_PAGE_PROMPT_CONTRACT_VERSION,
     PROMPT_CONTRACT_VERSION,
 }
 TARGETED_CORRECTION_PROMPT_CONTRACT_VERSIONS = {
     PRE_VERIFIED_CITATION_SUBSET_PROMPT_CONTRACT_VERSION,
     PRE_DIRECT_CORRECTION_PROMPT_CONTRACT_VERSION,
+    PRE_EXACT_PAGE_PROMPT_CONTRACT_VERSION,
+    PROMPT_CONTRACT_VERSION,
+}
+EXACT_PROVIDED_PAGE_PROMPT_CONTRACT_VERSIONS = {
     PROMPT_CONTRACT_VERSION,
 }
 LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS = {
@@ -187,6 +195,12 @@ SUPPORTED_ANALYSIS_CONTRACTS = {
         TRUST_MANIFEST_VERSION,
         ANALYSIS_SCHEMA_VERSION,
         PRE_DIRECT_CORRECTION_PROMPT_CONTRACT_VERSION,
+        SCORING_CODE_VERSION,
+    ),
+    (
+        TRUST_MANIFEST_VERSION,
+        ANALYSIS_SCHEMA_VERSION,
+        PRE_EXACT_PAGE_PROMPT_CONTRACT_VERSION,
         SCORING_CODE_VERSION,
     ),
     (
@@ -334,7 +348,29 @@ def claim_verification_target_fields(
         PRE_CITATION_PROMPT_CONTRACT_VERSION,
     }:
         fields = (*fields, "score_alignment_required")
+    if prompt_contract_version in EXACT_PROVIDED_PAGE_PROMPT_CONTRACT_VERSIONS:
+        fields = (
+            *fields,
+            "exact_provided_pages_required",
+            "required_page_citations",
+        )
     return fields
+
+
+def claim_requires_exact_provided_pages(
+    target: Mapping[str, Any],
+    *,
+    prompt_contract_version: str = PROMPT_CONTRACT_VERSION,
+) -> bool:
+    """Identify scene claims whose reported physical page is part of the claim."""
+    return (
+        prompt_contract_version in EXACT_PROVIDED_PAGE_PROMPT_CONTRACT_VERSIONS
+        and re.fullmatch(
+            r"reader\.emotional_resonance\.goosebumps_scenes\.\d+\."
+            r"(?:description|why_it_works)",
+            str(target.get("claim_id", "")),
+        ) is not None
+    )
 
 
 def claim_verification_targets(
@@ -407,6 +443,21 @@ def claim_verification_targets(
             target["story_fact_check_required"] = scope != "evaluative"
         if score_bound_contract:
             target["score_alignment_required"] = score_alignment_required
+        if (
+            prompt_contract_version
+            in EXACT_PROVIDED_PAGE_PROMPT_CONTRACT_VERSIONS
+        ):
+            target["exact_provided_pages_required"] = (
+                claim_requires_exact_provided_pages(
+                    target,
+                    prompt_contract_version=prompt_contract_version,
+                )
+            )
+            target["required_page_citations"] = (
+                copy.deepcopy(target["provided_page_citations"])
+                if target["exact_provided_pages_required"]
+                else []
+            )
         targets.append(target)
 
     def add_nested_assertions(
@@ -4346,6 +4397,9 @@ def _claim_verification_provenance(
         analysis_without_verification,
         prompt_contract_version=prompt_contract_version,
     )
+    expected_targets_by_id = {
+        target["claim_id"]: target for target in expected_targets
+    }
     target_fields = claim_verification_target_fields(prompt_contract_version)
     score_alignment_contract = "score_alignment_required" in target_fields
     expected_locked_targets = [
@@ -4378,6 +4432,9 @@ def _claim_verification_provenance(
             claim.get("claim_id"),
             "independent claim verification ID",
         )
+        target = expected_targets_by_id.get(claim_id)
+        if target is None:
+            raise ValueError("independent claim verification changed the target set")
         if claim_id in claim_ids:
             raise ValueError("independent claim verification has duplicate claims")
         claim_ids.add(claim_id)
@@ -4494,6 +4551,17 @@ def _claim_verification_provenance(
             or not evidence
         ):
             raise ValueError("independent claim lacks physical-page evidence")
+        if (
+            claim_requires_exact_provided_pages(
+                target,
+                prompt_contract_version=prompt_contract_version,
+            )
+            and citations != target.get("required_page_citations")
+        ):
+            raise ValueError(
+                "independent goosebumps verification changed the reported "
+                "physical page"
+            )
     if factual_total == 0:
         raise ValueError("independent claim verification lacks factual claims")
     support_rate = factual_supported / factual_total

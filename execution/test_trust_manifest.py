@@ -30,6 +30,7 @@ from execution.trust_manifest import (
     LEGACY_PROMPT_CONTRACT_VERSION,
     LEGACY_TRUST_MANIFEST_VERSION,
     PRE_CITATION_PROMPT_CONTRACT_VERSION,
+    PRE_EXACT_PAGE_PROMPT_CONTRACT_VERSION,
     PRE_FULL_CORRECTION_PROMPT_CONTRACT_VERSION,
     PRE_SOURCE_RECONCILIATION_PROMPT_CONTRACT_VERSION,
     PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION,
@@ -213,6 +214,12 @@ class TrustManifestTests(unittest.TestCase):
             "score_alignment_required": target[
                 "score_alignment_required"
             ],
+            "exact_provided_pages_required": target[
+                "exact_provided_pages_required"
+            ],
+            "required_page_citations": target[
+                "required_page_citations"
+            ],
         } for target in targets]
         factual_count = sum(
             target["story_fact_check_required"] for target in targets
@@ -371,6 +378,72 @@ class TrustManifestTests(unittest.TestCase):
             },
             "authorized_benchmark_cap_microusd": 40_000_000,
         }
+
+    @staticmethod
+    def _retarget_historical_prompt(historical, prompt_version):
+        historical["prompt_version"] = prompt_version
+        manifest = historical["trust_manifest"]
+        manifest["engine"]["prompt_contract_version"] = prompt_version
+        for calls in (
+            historical["usage"]["calls"],
+            historical["usage"]["failed_calls"],
+            manifest["models"]["calls"],
+            manifest["models"]["failed_calls"],
+        ):
+            for call in calls:
+                call["prompt_contract_version"] = prompt_version
+
+        analysis = historical["analysis"]
+        verification = analysis["_claim_verification"]
+        prior_results = {
+            claim["claim_id"]: claim for claim in verification["claims"]
+        }
+        analysis_for_hash = copy.deepcopy(analysis)
+        analysis_for_hash.pop("_citation_quality", None)
+        analysis_for_hash.pop("_claim_verification", None)
+        targets = claim_verification_targets(
+            analysis_for_hash,
+            prompt_contract_version=prompt_version,
+        )
+        target_fields = claim_verification_target_fields(prompt_version)
+        verification["locked_targets_sha256"] = (
+            ingest_v9._canonical_json_hash([{
+                key: target[key] for key in target_fields
+            } for target in targets])
+        )
+        verification["claims"] = [{
+            **target,
+            **{
+                key: copy.deepcopy(prior_results[target["claim_id"]][key])
+                for key in (
+                    "classification",
+                    "story_fact_classification",
+                    "unsupported_story_facts",
+                    "page_citations",
+                    "citation_evidence",
+                )
+            },
+        } for target in targets]
+        manifest["analysis_payload_sha256"] = hashlib.sha256(json.dumps(
+            analysis,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")).hexdigest()
+        manifest["claim_verification"] = _claim_verification_provenance(
+            analysis=analysis,
+            models=manifest["models"],
+            effective_model_tier="sonnet",
+            prompt_contract_version=prompt_version,
+        )
+        manifest.pop("integrity_sha256")
+        manifest["integrity_sha256"] = hashlib.sha256(json.dumps(
+            manifest,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")).hexdigest()
+        return historical
 
     def test_benchmark_seal_rejects_failed_calls_and_unreconciled_cost(self):
         inputs = self._benchmark_seal_inputs()
@@ -1094,6 +1167,40 @@ class TrustManifestTests(unittest.TestCase):
             trust_manifest_module.SUPPORTED_PROMPT_CONTRACT_VERSIONS,
         )
 
+        pre_exact_page = claim_verification_targets(
+            complete_analysis(),
+            prompt_contract_version=PRE_EXACT_PAGE_PROMPT_CONTRACT_VERSION,
+        )
+        self.assertNotIn(
+            "exact_provided_pages_required",
+            pre_exact_page[0],
+        )
+        current_analysis = complete_analysis()
+        current_analysis["reader_reports"]["emotional_resonance"][
+            "goosebumps_scenes"
+        ] = [{
+            "page": 1,
+            "description": "The family chooses truth over safety.",
+            "why_it_works": "The choice resolves the emotional conflict.",
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": FIXTURE_DECISION_EVIDENCE,
+            }],
+        }]
+        current = claim_verification_targets(current_analysis)
+        goosebumps = next(
+            target for target in current
+            if target["claim_id"].endswith(
+                "goosebumps_scenes.0.description"
+            )
+        )
+        self.assertTrue(goosebumps["exact_provided_pages_required"])
+        self.assertEqual(
+            goosebumps["required_page_citations"],
+            goosebumps["provided_page_citations"],
+        )
+
     def test_evidence_scope_contract_survives_a_future_prompt_version_bump(self):
         august_contract = PROMPT_CONTRACT_VERSION
         future_contract = "v9-archaeology-prompts-2026-09-01"
@@ -1324,32 +1431,17 @@ class TrustManifestTests(unittest.TestCase):
         validate_permanent_analysis(historical)
 
     def test_pre_targeted_correction_contract_remains_readable(self):
-        historical = trusted_raw()
-        historical["prompt_version"] = (
-            PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION
+        historical = self._retarget_historical_prompt(
+            trusted_raw(),
+            PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION,
         )
-        manifest = historical["trust_manifest"]
-        manifest["engine"]["prompt_contract_version"] = (
-            PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION
-        )
-        for calls in (
-            historical["usage"]["calls"],
-            historical["usage"]["failed_calls"],
-            manifest["models"]["calls"],
-            manifest["models"]["failed_calls"],
-        ):
-            for call in calls:
-                call["prompt_contract_version"] = (
-                    PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION
-                )
-        manifest.pop("integrity_sha256")
-        manifest["integrity_sha256"] = hashlib.sha256(json.dumps(
-            manifest,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")).hexdigest()
+        validate_permanent_analysis(historical)
 
+    def test_pre_exact_page_contract_remains_readable(self):
+        historical = self._retarget_historical_prompt(
+            trusted_raw(),
+            PRE_EXACT_PAGE_PROMPT_CONTRACT_VERSION,
+        )
         validate_permanent_analysis(historical)
 
     def test_schema_prompt_and_scoring_contract_versions_cannot_be_crossed(self):
