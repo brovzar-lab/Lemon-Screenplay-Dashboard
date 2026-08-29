@@ -1664,6 +1664,151 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertEqual(failed["release"], expected_release)
         self.assertEqual(failed["failure_state"], "pre_call_accounting_unavailable")
 
+    def test_candidate_contract_rejection_is_proven_zero_spend(self):
+        response = MagicMock(status_code=400)
+        expected_release = {
+            "git_sha": "a" * 40,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-29T16:46:30.000Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00012-gos",
+            "inference_geo": "global",
+        }
+        context = {
+            "run_id": "candidate-contract-zero",
+            "screenplay_sha256": "d" * 64,
+            "route": "sonnet",
+            "generation": "candidate",
+            "prompt_bundle_sha256": "e" * 64,
+            "schema_bundle_sha256": "f" * 64,
+        }
+
+        def dispatch(*_args, **kwargs):
+            benchmark = kwargs["json"]["benchmark"]
+            response.json.return_value = {
+                "code": "INVALID_BENCHMARK",
+                "error": (
+                    "pipeline_stage, reader_name, and schema_mode do not match "
+                    "the V9 call matrix."
+                ),
+                "isRetryable": False,
+                "release": expected_release,
+                "benchmark_rejection": {
+                    "call_id": benchmark["call_id"],
+                    "requested_model": MODEL_ID,
+                    "request_sha256": benchmark["request_sha256"],
+                    "disposition": "rejected_before_reservation",
+                    "new_cost_microusd": 0,
+                    "charged_cost_microusd": 0,
+                    "reserved_cost_microusd": 0,
+                    "validation_failure_code": "CANDIDATE_CONTRACT_REJECTED",
+                    "validation_failure_reason": (
+                        "Candidate rejected the request contract before reservation "
+                        "or provider dispatch."
+                    ),
+                },
+            }
+            return response
+
+        ingest_v9.configure_benchmark_online_transport(
+            context,
+            lambda: "short-lived",
+            expected_release,
+        )
+        try:
+            with patch.object(
+                ingest_v9.requests,
+                "post",
+                side_effect=dispatch,
+            ) as post:
+                with self.assertRaises(
+                    ingest_v9.LlmRequestRejectedError
+                ) as raised:
+                    ingest_v9.call_llm(
+                        system_blocks=[{"type": "text", "text": "system"}],
+                        user_blocks=[{"type": "text", "text": "screenplay"}],
+                        model_key="sonnet",
+                        tool=ingest_v9.CRAFT_SCENE_TOOL,
+                        proxy_url="https://candidate.test",
+                        stage="reader",
+                        pipeline_pass="sonnet",
+                        reader_name="craft_scene",
+                        logical_retry=1,
+                    )
+        finally:
+            ingest_v9.clear_benchmark_online_transport()
+
+        self.assertEqual(post.call_count, 1)
+        failed = raised.exception.usage["failed_calls"][0]
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 0)
+        self.assertEqual(
+            failed["failure_state"],
+            "candidate_contract_rejected_before_dispatch",
+        )
+        self.assertEqual(
+            failed["uncertainty_status"],
+            "proven_zero_spend_pre_generation",
+        )
+        self.assertEqual(failed["release"], expected_release)
+        self.assertEqual(failed["usage"]["actual_cost_microusd"], 0)
+
+    def test_successful_candidate_call_preserves_pinned_expected_release(self):
+        expected_release = {
+            "git_sha": "a" * 40,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-29T16:46:30.000Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00013-abc",
+            "inference_geo": "global",
+        }
+        context = {
+            "run_id": "a" * 64,
+            "screenplay_sha256": "d" * 64,
+            "route": "sonnet",
+            "generation": "candidate",
+            "prompt_bundle_sha256": "e" * 64,
+            "schema_bundle_sha256": "f" * 64,
+        }
+        response = MagicMock(status_code=200)
+        response.json.return_value = {
+            "text": "grounded cold read",
+            "tool_uses": [],
+            "model": MODEL_ID,
+            "response_id": "msg_release_bound",
+            "stop_reason": "end_turn",
+            "usage": self._proxy_usage(model_id=MODEL_ID),
+            "release": expected_release,
+        }
+        ingest_v9.configure_benchmark_online_transport(
+            context,
+            lambda: "short-lived",
+            expected_release,
+        )
+        try:
+            with patch.object(
+                ingest_v9.requests,
+                "post",
+                return_value=self._exact_response(response),
+            ):
+                _tool, _text, usage = ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key="sonnet",
+                    proxy_url="https://candidate.test",
+                    stage="cold_read",
+                    pipeline_pass="sonnet",
+                )
+        finally:
+            ingest_v9.clear_benchmark_online_transport()
+
+        call = usage["calls"][0]
+        self.assertEqual(call["release"], expected_release)
+        self.assertEqual(call["expected_release"], expected_release)
+
     def test_candidate_configuration_failure_releases_zero_spend_before_dispatch(self):
         response = MagicMock(status_code=503)
         expected_release = {
@@ -3435,6 +3580,44 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             predispatch_usage["failed_calls"][0],
         )
         sealed_models(ingest_v9.merge_usage(source_usage, predispatch_usage))
+
+    def test_correction_release_lineage_accepts_live_success_record_shape(self):
+        candidate_release = {
+            "git_sha": "a" * 40,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-29T16:46:30.000Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00012-gos",
+            "inference_geo": "global",
+        }
+        source = {
+            "release": copy.deepcopy(candidate_release),
+        }
+        target = {
+            "release": None,
+            "expected_release": copy.deepcopy(candidate_release),
+            "failure_state": "client_result_unsettled",
+        }
+
+        self.assertTrue(
+            ingest_v9.correction_release_lineage_matches(
+                source,
+                target,
+                successful=False,
+            )
+        )
+        target["expected_release"]["cloud_run_revision"] = (
+            "llmproxycandidate-00013-drift"
+        )
+        self.assertFalse(
+            ingest_v9.correction_release_lineage_matches(
+                source,
+                target,
+                successful=False,
+            )
+        )
 
     def test_rejected_artifact_write_failure_stops_all_downstream_dispatch(self):
         fixture_analysis = complete_analysis("Artifact Failure Draft")

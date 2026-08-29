@@ -977,6 +977,7 @@ def _canonical_correction_replay(value: Any, label: str) -> Dict[str, Any]:
 _CORRECTION_PREDISPATCH_FAILURE_STATES = {
     "LlmPreCallRetryableError",
     "benchmark_cap_exceeded",
+    "candidate_contract_rejected_before_dispatch",
     "candidate_provider_configuration_unavailable",
     "duplicate_call_blocked",
     "pre_call_accounting_unavailable",
@@ -1023,14 +1024,24 @@ def correction_release_lineage_matches(
     successful: bool,
 ) -> bool:
     """Allow an uncertain failed target to lack a returned release, never an expected one."""
-    if source.get("expected_release") != target.get("expected_release"):
+    source_release = source.get("release")
+    source_expected_release = source.get("expected_release")
+    target_expected_release = target.get("expected_release")
+    if source_expected_release is None and target_expected_release is not None:
+        source_expected_release = source_release
+    if source_expected_release != target_expected_release:
+        return False
+    if (
+        source_expected_release is not None
+        and source_release != source_expected_release
+    ):
         return False
     if target.get("failure_state") == "candidate_release_mismatch":
         return True
     target_release = target.get("release")
     return (
         not successful and target_release is None
-    ) or source.get("release") == target_release
+    ) or source_release == target_release
 
 
 def correction_call_lineage_matches(

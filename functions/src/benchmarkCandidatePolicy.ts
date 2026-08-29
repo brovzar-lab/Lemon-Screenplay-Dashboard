@@ -205,11 +205,80 @@ export function deriveBenchmarkPayloadEvidence(
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasExactKeys(value: Record<string, unknown>, keys: string[]): boolean {
+  return JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+}
+
+function isTargetedCorrectionPayload(
+  payload: Record<string, unknown>,
+  expectedToolName: string,
+): boolean {
+  const tools = payload.tools;
+  const tool = Array.isArray(tools) && tools.length === 1 && isRecord(tools[0])
+    ? tools[0] : null;
+  const choice = isRecord(payload.tool_choice) ? payload.tool_choice : null;
+  const schema = tool && isRecord(tool.input_schema) ? tool.input_schema : null;
+  const properties = schema && isRecord(schema.properties) ? schema.properties : null;
+  const sourceHash = properties && isRecord(properties.source_report_sha256)
+    ? properties.source_report_sha256 : null;
+  const repairs = properties && isRecord(properties.repairs) ? properties.repairs : null;
+  const repairProperties = repairs && isRecord(repairs.properties)
+    ? repairs.properties : null;
+  const repairKeys = repairProperties ? Object.keys(repairProperties).sort() : [];
+  const requiredRepairs = repairs && Array.isArray(repairs.required)
+    ? [...repairs.required].sort() : [];
+  return Boolean(
+    tool
+    && hasExactKeys(tool, ["name", "description", "strict", "input_schema"])
+    && tool.name === expectedToolName
+    && typeof tool.description === "string"
+    && tool.strict === true
+    && choice
+    && hasExactKeys(choice, ["type", "name"])
+    && choice.type === "tool"
+    && choice.name === expectedToolName
+    && schema
+    && hasExactKeys(schema, ["type", "properties", "required", "additionalProperties"])
+    && schema.type === "object"
+    && schema.additionalProperties === false
+    && Array.isArray(schema.required)
+    && JSON.stringify([...schema.required].sort())
+      === JSON.stringify(["repairs", "source_report_sha256"])
+    && properties
+    && hasExactKeys(properties, ["source_report_sha256", "repairs"])
+    && sourceHash
+    && hasExactKeys(sourceHash, ["type", "enum"])
+    && sourceHash.type === "string"
+    && Array.isArray(sourceHash.enum)
+    && sourceHash.enum.length === 1
+    && typeof sourceHash.enum[0] === "string"
+    && SHA256.test(sourceHash.enum[0])
+    && repairs
+    && hasExactKeys(repairs, ["type", "properties", "required", "additionalProperties"])
+    && repairs.type === "object"
+    && repairs.additionalProperties === false
+    && repairKeys.length > 0
+    && requiredRepairs.length === repairKeys.length
+    && requiredRepairs.every((key, index) => key === repairKeys[index])
+    && repairKeys.every((key) => {
+      const repair = repairProperties?.[key];
+      return isRecord(repair)
+        && hasExactKeys(repair, ["type"])
+        && repair.type === "string";
+    })
+  );
+}
+
 export function validateBenchmarkContract(
   value: unknown,
   evidence: BenchmarkPayloadEvidence,
   expectedRunId: string,
   requestModel: string,
+  payload: Record<string, unknown>,
 ): BenchmarkCallContract {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new BenchmarkContractError("benchmark must be an object.");
@@ -314,21 +383,38 @@ export function validateBenchmarkContract(
   }
 
   const stage = contractWithoutCallId.pipeline_stage;
+  const correctionToolName = stage === "reader"
+    ? `repair_${contractWithoutCallId.reader_name}_report`
+    : "repair_synthesis_report";
   const validStageContract = (
     ((stage === "triage" || stage === "cold_read" || stage === "smoke")
       && contractWithoutCallId.reader_name === null
+      && contractWithoutCallId.retry_number === 0
       && schemaMode === "schema_free")
     || (stage === "genre_detection"
       && contractWithoutCallId.reader_name === null
       && schemaMode === "strict_tool")
     || (stage === "reader"
       && contractWithoutCallId.reader_name !== null
-      && schemaMode === "compact_strict_tool")
+      && schemaMode === (
+        contractWithoutCallId.retry_number === 0
+          ? "compact_strict_tool"
+          : "strict_tool"
+      )
+      && (contractWithoutCallId.retry_number === 0
+        || isTargetedCorrectionPayload(payload, correctionToolName)))
     || (stage === "synthesis"
       && contractWithoutCallId.reader_name === null
-      && schemaMode === "compact_strict_tool")
+      && schemaMode === (
+        contractWithoutCallId.retry_number === 0
+          ? "compact_strict_tool"
+          : "strict_tool"
+      )
+      && (contractWithoutCallId.retry_number === 0
+        || isTargetedCorrectionPayload(payload, correctionToolName)))
     || (stage === "claim_verification"
       && contractWithoutCallId.reader_name !== null
+      && contractWithoutCallId.retry_number === 0
       && schemaMode === "compact_strict_tool")
   );
   if (!validStageContract) {
