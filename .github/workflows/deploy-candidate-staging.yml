@@ -103,7 +103,6 @@ jobs:
 
       - name: Install dependencies without cloud authority
         run: |
-          npm install --global "npm@${NPM_VERSION}"
           test "$(node --version)" = "v${NODE_VERSION}"
           test "$(npm --version)" = "${NPM_VERSION}"
           test "$(python --version)" = "Python ${PYTHON_VERSION}"
