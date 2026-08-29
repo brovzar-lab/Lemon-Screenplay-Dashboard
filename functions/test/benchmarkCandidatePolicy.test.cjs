@@ -10,13 +10,6 @@ const {
 } = require('../lib/benchmarkCandidatePolicy');
 
 const sha = (char) => char.repeat(64);
-const citationExcerptPattern =
-  '^[ \\t]*[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*' +
-  '[ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*' +
-  '[ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*' +
-  '([ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*)*' +
-  '[ \\t]*$';
-
 const schemaFreePayload = () => ({
   model: 'claude-sonnet-5',
   messages: [{ role: 'user', content: 'READY' }],
@@ -78,7 +71,7 @@ const targetedCorrectionPayload = (name = 'repair_structure_report') => ({
                     type: 'object',
                     properties: {
                       page: { type: 'integer' },
-                      excerpt: { type: 'string', pattern: citationExcerptPattern },
+                      excerpt: { type: 'string' },
                     },
                     required: ['page', 'excerpt'],
                     additionalProperties: false,
@@ -339,9 +332,9 @@ test('one reader or synthesis correction uses its exact targeted strict schema',
     })(),
     (() => {
       const value = targetedCorrectionPayload();
-      delete value.tools[0].input_schema.properties.repairs.properties[
+      value.tools[0].input_schema.properties.repairs.properties[
         'sub_scores.active_vs_passive'
-      ].properties.citation_evidence.items.properties.excerpt.pattern;
+      ].properties.citation_evidence.items.properties.excerpt.pattern = '.+';
       return value;
     })(),
     (() => {

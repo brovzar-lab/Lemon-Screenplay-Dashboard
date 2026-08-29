@@ -213,12 +213,6 @@ function hasExactKeys(value: Record<string, unknown>, keys: string[]): boolean {
   return JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 }
 
-const CORRECTION_CITATION_EXCERPT_PATTERN =
-  "^[ \\t]*[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*" +
-  "[ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*" +
-  "[ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*" +
-  "([ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*)*" +
-  "[ \\t]*$";
 const SAFE_SCHEMA_FIELD = /^[a-z][a-z0-9_]*$/;
 const SAFE_REPAIR_TARGET = /^(?:\$|[a-z][a-z0-9_]*(?:\.(?:[a-z][a-z0-9_]*|[0-9]+))*)$/;
 
@@ -235,8 +229,6 @@ function isPrimitiveEnum(values: unknown): boolean {
 
 function isStrictCorrectionSchema(
   value: unknown,
-  fieldName: string | null = null,
-  inCitationEvidence = false,
   depth = 0,
 ): boolean {
   if (!isRecord(value) || depth > 16 || typeof value.type !== "string") return false;
@@ -253,30 +245,18 @@ function isStrictCorrectionSchema(
     if (JSON.stringify([...required].sort()) !== JSON.stringify(propertyNames.sort())) {
       return false;
     }
-    return propertyNames.every((name) => isStrictCorrectionSchema(
-      properties[name],
-      name,
-      inCitationEvidence || name === "citation_evidence",
-      depth + 1,
-    ));
+    return propertyNames.every((name) =>
+      isStrictCorrectionSchema(properties[name], depth + 1));
   }
   if (type === "array") {
     return hasExactKeys(value, ["type", "items"])
-      && isStrictCorrectionSchema(
-        value.items,
-        fieldName,
-        inCitationEvidence,
-        depth + 1,
-      );
+      && isStrictCorrectionSchema(value.items, depth + 1);
   }
   if (!["string", "integer", "number", "boolean"].includes(type)) return false;
   const allowedKeys = ["type"];
   if (value.enum !== undefined) allowedKeys.push("enum");
-  const citationExcerpt = inCitationEvidence && fieldName === "excerpt";
-  if (citationExcerpt) allowedKeys.push("pattern");
   if (!hasExactKeys(value, allowedKeys)) return false;
-  if (value.enum !== undefined && !isPrimitiveEnum(value.enum)) return false;
-  return !citationExcerpt || value.pattern === CORRECTION_CITATION_EXCERPT_PATTERN;
+  return value.enum === undefined || isPrimitiveEnum(value.enum);
 }
 
 function isTargetedCorrectionPayload(
