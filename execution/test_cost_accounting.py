@@ -436,6 +436,24 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         schema = tool["input_schema"]
         target_ids = schema["properties"]["repairs"]["required"]
 
+        def apply_transport_constraints(value, value_schema):
+            if "enum" in value_schema:
+                return copy.deepcopy(value_schema["enum"][0])
+            if value_schema.get("type") == "object" and isinstance(value, dict):
+                return {
+                    field: apply_transport_constraints(
+                        value[field],
+                        value_schema["properties"][field],
+                    )
+                    for field in value_schema.get("required", [])
+                }
+            if value_schema.get("type") == "array" and isinstance(value, list):
+                return [
+                    apply_transport_constraints(item, value_schema["items"])
+                    for item in value
+                ]
+            return copy.deepcopy(value)
+
         def value_at(target_id):
             if target_id == "$":
                 return ingest_v9._schema_projected_value(
@@ -456,8 +474,11 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "source_report_sha256"
             ]["enum"][0],
             "repairs": {
-                target_id: ingest_v9._schema_projected_value(
-                    value_at(target_id),
+                target_id: apply_transport_constraints(
+                    ingest_v9._schema_projected_value(
+                        value_at(target_id),
+                        schema["properties"]["repairs"]["properties"][target_id],
+                    ),
                     schema["properties"]["repairs"]["properties"][target_id],
                 )
                 for target_id in target_ids
@@ -3139,7 +3160,28 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         excerpt_schema = narrative_repair_schema["properties"][
             "citation_evidence"
         ]["items"]["properties"]["excerpt"]
-        self.assertEqual(excerpt_schema, {"type": "string"})
+        self.assertEqual(excerpt_schema["type"], "string")
+        self.assertGreater(len(excerpt_schema["enum"]), 0)
+        self.assertLessEqual(
+            len(excerpt_schema["enum"]),
+            ingest_v9.MAX_TARGETED_CORRECTION_LINE_OPTIONS,
+        )
+        self.assertIn(FIXTURE_DECISION_EVIDENCE, excerpt_schema["enum"])
+        self.assertNotIn(
+            "This fabricated excerpt is absent from every page.",
+            excerpt_schema["enum"],
+        )
+        page_schema = narrative_repair_schema["properties"][
+            "citation_evidence"
+        ]["items"]["properties"]["page"]
+        self.assertEqual(page_schema["enum"], [1])
+        for excerpt in excerpt_schema["enum"]:
+            self.assertTrue(
+                ingest_v9.citation_excerpt_matches_single_source_line(
+                    ingest_v9._physical_source_pages(source_text)[1],
+                    excerpt,
+                )
+            )
         self.assertNotIn(
             '"pattern"',
             json.dumps(plan["tool"]["input_schema"], sort_keys=True),
@@ -3207,13 +3249,26 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 source_text,
             )
 
+        local_validation_plan = copy.deepcopy(plan)
+        local_narrative_schema = local_validation_plan["targets"][
+            "sub_scores.narrative_engine"
+        ]["transport_schema"]
+        local_citation_schema = local_narrative_schema["properties"][
+            "citation_evidence"
+        ]["items"]["properties"]
+        local_citation_schema["page"].pop("enum")
+        local_citation_schema["excerpt"].pop("enum")
+        local_narrative_schema["properties"]["page_citations"][
+            "items"
+        ].pop("enum")
+
         too_short = copy.deepcopy(repairs)
         too_short["sub_scores.narrative_engine"]["citation_evidence"][0][
             "excerpt"
         ] = "Two words"
         with self.assertRaisesRegex(ValueError, "evidence-token validation"):
             ingest_v9._apply_targeted_correction(
-                plan,
+                local_validation_plan,
                 {
                     "source_report_sha256": plan["source_report_sha256"],
                     "repairs": too_short,
@@ -3228,7 +3283,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         ] = "— — —"
         with self.assertRaisesRegex(ValueError, "evidence-token validation"):
             ingest_v9._apply_targeted_correction(
-                plan,
+                local_validation_plan,
                 {
                     "source_report_sha256": plan["source_report_sha256"],
                     "repairs": punctuation_only,
@@ -3243,7 +3298,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         ] = "DAY " + " ".join(FIXTURE_DECISION_EVIDENCE.split()[:2])
         with self.assertRaisesRegex(ValueError, "one unambiguous physical source line"):
             ingest_v9._apply_targeted_correction(
-                plan,
+                local_validation_plan,
                 {
                     "source_report_sha256": plan["source_report_sha256"],
                     "repairs": cross_line,
@@ -4715,7 +4770,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         claim_evidence_by_id["cold_read.genre"] = (
             "Horror genre classification supported by screenplay evidence."
         )
-        claim_evidence = " ".join([
+        claim_evidence = "\n".join([
             FIXTURE_DECISION_EVIDENCE,
             *claim_evidence_by_id.values(),
         ])
@@ -4871,21 +4926,6 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     ingest_v9.SYNTHESIS_TOOL["input_schema"],
                 ),
             )
-            target_id = "material_claims.0.atomic_claims.0"
-            relocated = copy.deepcopy(
-                fixture_analysis["material_claims"][0]["atomic_claims"][0]
-            )
-            relocated["page_citations"] = [2]
-            relocated["citation_evidence"] = [{
-                "page": 2,
-                "excerpt": claim_evidence_by_id["material.0.0"],
-            }]
-            repairs["repairs"][target_id] = ingest_v9._schema_projected_value(
-                relocated,
-                kwargs["tool"]["input_schema"]["properties"]["repairs"][
-                    "properties"
-                ][target_id],
-            )
             return repairs, "", usage
 
         genre_detection = ingest_v9.parse_detection({
@@ -4978,10 +5018,6 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "page_citations"
             ],
             [1],
-        )
-        self.assertIn(
-            "reconciled_unique_citation_pages",
-            calls_by_id["msg_synthesis_2"]["transformations"],
         )
         for source_id, target_id in (
             (
@@ -5819,6 +5855,127 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertEqual(
             raised.exception.review_evidence["completed_reader_names"],
             ["character", "concept", "craft_scene", "structure"],
+        )
+
+    def test_terminal_reader_failure_stops_before_later_paid_readers(self):
+        reader_calls = []
+        synthesis_calls = 0
+
+        def fake_call_llm(**kwargs):
+            nonlocal synthesis_calls
+            if kwargs["stage"] == "synthesis":
+                synthesis_calls += 1
+                raise AssertionError("synthesis must not run")
+            reader_name = kwargs.get("reader_name")
+            reader_calls.append(reader_name)
+            if reader_name != "structure":
+                raise AssertionError("later readers must not run")
+            return (
+                None,
+                "missing tool result",
+                self._successful_call_usage(
+                    "msg_reader_structure_invalid",
+                    stage="reader",
+                    reader_name="structure",
+                ),
+            )
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(ingest_v9.time, "sleep"):
+            with self.assertRaises(
+                ingest_v9.ReaderPanelIncompleteError
+            ) as raised:
+                ingest_v9.run_v9_full(
+                    text=marked_screenplay(),
+                    title="Fail Fast Draft",
+                    page_count=100,
+                    word_count=20_000,
+                    model_key="sonnet",
+                    proxy_url="https://proxy.test",
+                    pipeline_pass="sonnet",
+                )
+
+        self.assertEqual(reader_calls, ["structure"])
+        self.assertEqual(synthesis_calls, 0)
+        self.assertEqual(
+            raised.exception.review_evidence["failed_readers"],
+            ["structure"],
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["not_attempted_readers"],
+            ["character", "concept", "craft_scene", "emotional_resonance"],
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["completed_readers"],
+            0,
+        )
+
+    def test_reader_setup_exception_stops_before_any_later_paid_reader(self):
+        original_system_blocks = ingest_v9._reader_system_blocks
+
+        def fail_first_reader(reader):
+            if reader == "structure":
+                raise RuntimeError("prompt construction failed")
+            return original_system_blocks(reader)
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "_reader_system_blocks",
+            side_effect=fail_first_reader,
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+        ) as call_llm:
+            with self.assertRaises(
+                ingest_v9.ReaderPanelIncompleteError
+            ) as raised:
+                ingest_v9.run_v9_full(
+                    text=marked_screenplay(),
+                    title="Fail Fast Setup Draft",
+                    page_count=100,
+                    word_count=20_000,
+                    model_key="sonnet",
+                    proxy_url="https://proxy.test",
+                    pipeline_pass="sonnet",
+                )
+
+        call_llm.assert_not_called()
+        self.assertEqual(
+            raised.exception.review_evidence["failed_readers"],
+            ["structure"],
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["not_attempted_readers"],
+            ["character", "concept", "craft_scene", "emotional_resonance"],
+        )
+        recovery = raised.exception.review_evidence["reader_attempts"][
+            "structure"
+        ]
+        self.assertEqual(recovery["attempts"], 0)
+        self.assertEqual(recovery["disposition"], "predispatch_setup_failure")
+        self.assertEqual(recovery["failures"][0]["attempt"], 0)
+        self.assertEqual(
+            recovery["failures"][0]["dispatch_state"],
+            "not_dispatched",
         )
 
     def test_exhausted_synthesis_blocks_verdict_after_complete_reader_panel(self):
