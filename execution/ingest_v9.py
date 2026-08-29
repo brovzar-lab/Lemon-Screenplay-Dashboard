@@ -119,6 +119,7 @@ from content_identity import (  # noqa: E402
 from trust_manifest import (  # noqa: E402
     attach_trust_manifest,
     CLAIM_VERIFICATION_BATCH_SIZE,
+    claim_verification_target_fields,
     claim_verification_targets,
     PROMPT_CONTRACT_VERSION,
     validate_permanent_analysis,
@@ -144,6 +145,7 @@ from story_grid import (  # noqa: E402
     build_genre_card,
 )
 from source_evidence import (  # noqa: E402
+    PAGE_MARKER_PATTERN,
     SourceEvidenceError,
     attach_verified_citation_quality,
     build_context_policy,
@@ -2073,6 +2075,31 @@ def _corrective_retry_user_blocks(
     error: BaseException,
 ) -> List[Dict[str, Any]]:
     """Add a precise correction while preserving the cached screenplay prefix."""
+    reason = str(error)[:500]
+    repair_hint = ""
+    if "lacks lexical support" in reason:
+        repair_hint = (
+            " Rewrite the rejected evidence statement so it includes at least "
+            "two significant words copied exactly from its cited excerpts, "
+            "preserving accents, even when the analysis language differs from "
+            "the screenplay."
+        )
+    elif "invalid evidence excerpt" in reason:
+        repair_hint = (
+            " Replace the rejected excerpt with at least four consecutive words "
+            "copied verbatim from its cited physical page."
+        )
+    elif "unexpected field" in reason:
+        repair_hint = (
+            " At the named validation path, use only properties listed for that "
+            "exact object in the contract. Remove convenience notes and fields "
+            "copied from any sibling metric."
+        )
+    elif "missing required field" in reason:
+        repair_hint = (
+            " Add the named required field at the named validation path using "
+            "the exact type declared by the contract."
+        )
     return [
         *user_blocks,
         {
@@ -2080,11 +2107,11 @@ def _corrective_retry_user_blocks(
             "text": (
                 "# STRUCTURED OUTPUT CORRECTION\n"
                 "Your previous response was rejected by the reliability gate: "
-                f"{str(error)[:500]}\n"
+                f"{reason}\n"
                 f"Call `{tool_name}` exactly once. The `report_json` value must "
                 "encode every required V9 report field with the exact names "
                 "and types defined by the complete output contract. Do not "
-                "omit, rename, or add fields."
+                f"omit, rename, or add fields.{repair_hint}"
             ),
         },
     ]
@@ -4481,13 +4508,23 @@ def _sub_score_schema_with(extra: Dict[str, Any]) -> Dict[str, Any]:
     return base
 
 
-PAGE_CITATION_INSTRUCTION = """\
+EVIDENCE_ANCHOR_INSTRUCTION = (
+    "Every evidence-bearing claim or justification MUST include at least two "
+    "significant words copied exactly from its cited excerpts, preserving "
+    "accents. Use names, actions, objects, or outcomes, not articles or "
+    "prepositions. This remains required when the analysis language differs "
+    "from the screenplay."
+)
+
+
+PAGE_CITATION_INSTRUCTION = f"""\
 Every sub-score MUST include `page_citations` using the physical [PAGE N]
 markers in the screenplay text and MUST cite at least one page, regardless of
 score. For every cited page, `citation_evidence` MUST contain one matching object
 with that page number and a verbatim excerpt of at least four words copied from
 that physical page. Never infer a page number or quotation from screenplay
-formatting."""
+formatting.
+{EVIDENCE_ANCHOR_INSTRUCTION}"""
 
 
 # ─── FEW-SHOT ANCHOR (placeholder; REPLACE WITH ACTUAL LEMON EVALUATIONS) ────
@@ -5151,7 +5188,9 @@ CATHARSIS:
 
 PEAK MOMENTS:
 6. goosebumps_moments — Are there 2–3 scenes you'd describe to someone?
-   Identify them with page + reason in `goosebumps_scenes`.
+   Identify them in `goosebumps_scenes` with `page`, `description`,
+   `why_it_works`, and a matching one-page `page_citations` plus verbatim
+   `citation_evidence` block.
 
 VALUE DYNAMICS:
 7. value_turn_range — Story Grid: do scenes shift values (Life→Death,
@@ -5173,8 +5212,30 @@ GOOSEBUMP_ITEM = {
         "page": {"type": "integer"},
         "description": {"type": "string"},
         "why_it_works": {"type": "string"},
+        "page_citations": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 1,
+            "maxItems": 1,
+        },
+        "citation_evidence": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "page": {"type": "integer"},
+                    "excerpt": {"type": "string"},
+                },
+                "required": ["page", "excerpt"],
+            },
+        },
     },
-    "required": ["description", "why_it_works"],
+    "required": [
+        "page", "description", "why_it_works",
+        "page_citations", "citation_evidence",
+    ],
 }
 
 EMOTIONAL_RESONANCE_TOOL: Dict[str, Any] = {
@@ -5292,11 +5353,23 @@ def _reader_user_blocks(
             "cache_control": {"type": "ephemeral"},
         })
 
+    sub_scores = READER_TOOLS[reader]["input_schema"]["properties"][
+        "sub_scores"
+    ]["properties"]
+    shape_lines = [
+        "# EXACT READER FIELD SHAPES",
+        "Use only these fields. Every listed field is required; do not add notes or copy fields between sibling metrics.",
+    ]
+    for metric, schema in sub_scores.items():
+        fields = ", ".join(f"`{field}`" for field in schema["properties"])
+        shape_lines.append(f"- `{metric}`: {fields}")
+
     blocks.append({
         "type": "text",
         "text": (
             f"# METADATA\nTitle: {title}\nPages: {page_count}\n\n"
-            f"# YOUR TASK\n{READER_USER_INSTRUCTIONS[reader]}"
+            f"# YOUR TASK\n{READER_USER_INSTRUCTIONS[reader]}\n\n"
+            + "\n".join(shape_lines)
         ),
     })
     return blocks
@@ -5656,6 +5729,7 @@ You will call `submit_synthesis_report` with:
   text, split it into sentence- or semicolon-level `atomic_claims`, and give
   every atomic claim its own physical-page excerpts. The excerpts must share
   the material names/actions/outcomes asserted by that atomic claim.
+- {EVIDENCE_ANCHOR_INSTRUCTION}
 - Character identity and role evidence. Set role to protagonist, antagonist, or
   supporting and explain why the cited excerpt proves that role using concrete
   terms present in the excerpt. For a named
@@ -6550,9 +6624,10 @@ _EVIDENCE_STOPWORDS = frozenset({
 
 
 def _significant_evidence_tokens(value: str) -> set[str]:
+    normalized = unicodedata.normalize("NFKC", value).casefold()
     return {
         token
-        for token in re.findall(r"\b\w+\b", value.casefold(), flags=re.UNICODE)
+        for token in re.findall(r"\b\w+\b", normalized, flags=re.UNICODE)
         if len(token) >= 3 and token not in _EVIDENCE_STOPWORDS and not token.isdigit()
     }
 
@@ -6606,13 +6681,15 @@ def _validate_character_evidence(
         raise ValueError(f"{label} character evidence has an invalid kind")
     _validate_citation_block(f"{label} character", evidence)
     if kind == "person":
-        name_tokens = re.sub(r"[^\w]+", " ", name.casefold()).split()
+        normalized_name = unicodedata.normalize("NFKC", name).casefold()
+        name_tokens = re.sub(r"[^\w]+", " ", normalized_name).split()
         excerpts = " ".join(
             item["excerpt"]
             for item in evidence["citation_evidence"]
         )
+        normalized_excerpts = unicodedata.normalize("NFKC", excerpts).casefold()
         excerpt_tokens = re.sub(
-            r"[^\w]+", " ", excerpts.casefold()
+            r"[^\w]+", " ", normalized_excerpts
         ).split()
         name_present = bool(name_tokens) and any(
             excerpt_tokens[index:index + len(name_tokens)] == name_tokens
@@ -6832,6 +6909,21 @@ def _validate_reader_report(reader: str, report: Any) -> Dict[str, Any]:
             justification,
             metric,
         )
+    if reader == "emotional_resonance":
+        for index, scene in enumerate(report["goosebumps_scenes"]):
+            label = f"goosebumps scene {index}"
+            _validate_citation_block(label, scene)
+            if scene["page_citations"] != [scene["page"]]:
+                raise ValueError(f"{label} page does not match its citation")
+            for field in ("description", "why_it_works"):
+                value = scene[field]
+                if not isinstance(value, str) or not value.strip():
+                    raise ValueError(f"{label} {field} is empty")
+                _validate_evidence_support(
+                    f"{label} {field}",
+                    value,
+                    scene,
+                )
     report["pillar_score"] = _compute_pillar_score(report)
     if reader == "character":
         report["story_vs_situation"] = _canonical_story_vs_situation(report)
@@ -7369,6 +7461,13 @@ def _validate_claim_verification(
         classification = result["classification"]
         story_fact_classification = result["story_fact_classification"]
         unsupported_story_facts = result["unsupported_story_facts"]
+        evidence_scope = target.get("evidence_scope")
+        if evidence_scope not in {"local", "global", "evaluative"}:
+            raise ValueError("a locked claim has an invalid evidence scope")
+        if target["story_fact_check_required"] != (
+            evidence_scope != "evaluative"
+        ):
+            raise ValueError("a locked claim has inconsistent evidence scope")
         if (
             story_fact_classification == "Partially supported"
             and not unsupported_story_facts
@@ -7399,15 +7498,26 @@ def _validate_claim_verification(
             and story_fact_classification in {"Unsupported", "Contradicted"}
         ):
             raise ValueError("a factual screenplay claim failed independent verification")
-        if target["story_fact_check_required"]:
+        if (
+            not target["story_fact_check_required"]
+            and story_fact_classification != "No concrete story fact"
+        ):
+            raise ValueError("an evaluative claim invented a concrete story-fact check")
+        if evidence_scope == "local":
             _validate_evidence_support(
                 f"claim verification {claim_id}",
                 target["claim"],
                 result,
             )
+        if target["story_fact_check_required"]:
             factual_total += 1
             if story_fact_classification in {"Supported", "Partially supported"}:
                 factual_supported += 1
+        if (
+            target["claim_type"] == "factual"
+            and classification == "Not objectively verifiable"
+        ):
+            raise ValueError("a factual claim was not objectively adjudicated")
         if target["verdict_driving"] and classification in {
             "Unsupported", "Contradicted",
         }:
@@ -7424,6 +7534,7 @@ def _validate_claim_verification(
             "story_fact_check_required": target[
                 "story_fact_check_required"
             ],
+            "evidence_scope": evidence_scope,
         }
     if seen != set(expected):
         raise ValueError("claim verification omitted a locked target")
@@ -7443,13 +7554,7 @@ def _validate_claim_verification(
         "locked_targets_sha256": _canonical_json_hash([
             {
                 key: target[key]
-                for key in (
-                    "claim_id",
-                    "claim",
-                    "claim_type",
-                    "verdict_driving",
-                    "story_fact_check_required",
-                )
+                for key in claim_verification_target_fields()
             }
             for target in targets
         ]),
@@ -7495,13 +7600,7 @@ def run_claim_verification(
             locked_batch = [
                 {
                     key: target[key]
-                    for key in (
-                        "claim_id",
-                        "claim",
-                        "claim_type",
-                        "verdict_driving",
-                        "story_fact_check_required",
-                    )
+                    for key in claim_verification_target_fields()
                 }
                 for target in batch
             ]
@@ -7536,6 +7635,16 @@ def run_claim_verification(
                             "unsupported portion and its kind. Use an empty list for every "
                             "other classification. Return only IDs, classifications, "
                             "unsupported portions, and physical-page evidence.\n\n"
+                            "Follow each locked target's `evidence_scope`. For `local`, "
+                            "the story fact must be adjudicated and the selected excerpt "
+                            "must contain at least two significant words copied exactly "
+                            "from the locked claim, preserving accents. For `global`, "
+                            "adjudicate the story fact across the complete screenplay and "
+                            "cite the most representative physical pages; exact lexical "
+                            "overlap is not required for a global absence. For "
+                            "`evaluative`, use `No concrete story fact`, judge the creative "
+                            "conclusion in `classification`, and cite relevant pages. The "
+                            "locked claim cannot be rewritten.\n\n"
                             + json.dumps(
                                 locked_batch,
                                 ensure_ascii=False,
@@ -7578,6 +7687,31 @@ def run_claim_verification(
             })
             raw["claims"].extend(copy.deepcopy(current_raw.get("claims", [])))
         verified = _validate_claim_verification(raw, targets)
+        marker_pages = [
+            int(match.group(1))
+            for match in PAGE_MARKER_PATTERN.finditer(text)
+        ]
+        if not marker_pages:
+            raise SourceEvidenceError(
+                "claim verification source has no physical-page markers"
+            )
+        page_count = max(marker_pages)
+        claim_page_evidence = build_page_evidence(
+            text,
+            page_count,
+            "claim_verification",
+        )
+        claim_citations = validate_analysis_citations(
+            {"claim_verification": verified},
+            claim_page_evidence["page_diagnostics"],
+            page_count,
+            text,
+        )
+        if claim_citations["status"] != "verified":
+            raise SourceEvidenceError(
+                "claim verification citation evidence needs review: "
+                + ", ".join(claim_citations["issues"])
+            )
     except Exception as error:
         error_usage = getattr(error, "usage", None)
         if isinstance(error, LlmCallFailedError):

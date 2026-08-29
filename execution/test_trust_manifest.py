@@ -2,8 +2,10 @@ import copy
 import hashlib
 import json
 import unittest
+from unittest.mock import patch
 
 from execution import ingest_v9
+from execution import trust_manifest as trust_manifest_module
 from execution.v9_test_fixtures import (
     CONTENT_HASH,
     FIXTURE_DECISION_EVIDENCE,
@@ -24,7 +26,11 @@ from execution.v9_test_fixtures import (
 from execution.trust_manifest import (
     CLAIM_VERIFICATION_BATCH_SIZE,
     ANALYSIS_SCHEMA_VERSION,
+    LEGACY_ANALYSIS_SCHEMA_VERSION,
+    LEGACY_PROMPT_CONTRACT_VERSION,
     LEGACY_TRUST_MANIFEST_VERSION,
+    PREVIOUS_PROMPT_CONTRACT_VERSION,
+    PREVIOUS_ANALYSIS_SCHEMA_VERSION,
     PROMPT_CONTRACT_VERSION,
     PREVIOUS_SCORING_CODE_VERSION,
     Q2_TRUST_MANIFEST_VERSION,
@@ -35,9 +41,12 @@ from execution.trust_manifest import (
     TRUST_MANIFEST_VERSION,
     attach_trust_manifest,
     build_benchmark_trust_seal,
+    claim_verification_target_fields,
     claim_verification_targets,
     runtime_pricing_sha256,
     validate_permanent_analysis,
+    _claim_verification_provenance,
+    _evidence_provenance,
 )
 from execution.source_evidence import (
     attach_verified_citation_quality,
@@ -100,6 +109,25 @@ def call_provenance(response_id, stage, disposition):
     }
 
 
+def use_legacy_engine_contract(raw):
+    raw["analysis_schema_version"] = LEGACY_ANALYSIS_SCHEMA_VERSION
+    raw["prompt_version"] = LEGACY_PROMPT_CONTRACT_VERSION
+    raw["scoring_code_version"] = PREVIOUS_SCORING_CODE_VERSION
+    manifest = raw["trust_manifest"]
+    manifest["engine"].update({
+        "analysis_schema_version": LEGACY_ANALYSIS_SCHEMA_VERSION,
+        "prompt_contract_version": LEGACY_PROMPT_CONTRACT_VERSION,
+        "scoring_code_version": PREVIOUS_SCORING_CODE_VERSION,
+    })
+    for source in (raw["usage"], manifest["models"]):
+        for collection in ("calls", "failed_calls"):
+            for call in source.get(collection, []):
+                call["prompt_contract_version"] = (
+                    LEGACY_PROMPT_CONTRACT_VERSION
+                )
+    return raw
+
+
 def failed_call_provenance(
     requested_model,
     stage,
@@ -155,13 +183,7 @@ class TrustManifestTests(unittest.TestCase):
         targets = claim_verification_targets(analysis)
         locked_targets = [{
             key: target[key]
-            for key in (
-                "claim_id",
-                "claim",
-                "claim_type",
-                "verdict_driving",
-                "story_fact_check_required",
-            )
+            for key in claim_verification_target_fields()
         } for target in targets]
         claim_results = [{
             "claim_id": target["claim_id"],
@@ -182,6 +204,7 @@ class TrustManifestTests(unittest.TestCase):
             }],
             "verdict_driving": target["verdict_driving"],
             "story_fact_check_required": target["story_fact_check_required"],
+            "evidence_scope": target["evidence_scope"],
         } for target in targets]
         factual_count = sum(
             target["story_fact_check_required"] for target in targets
@@ -585,7 +608,13 @@ class TrustManifestTests(unittest.TestCase):
                 "Unsupported" if item is target else "Supported"
             ),
             "story_fact_classification": (
-                "Unsupported" if item is target else "Supported"
+                "Unsupported"
+                if item is target
+                else (
+                    "Supported"
+                    if item["story_fact_check_required"]
+                    else "No concrete story fact"
+                )
             ),
             "unsupported_story_facts": [],
             "page_citations": [1],
@@ -632,7 +661,13 @@ class TrustManifestTests(unittest.TestCase):
                 "Unsupported" if target is false_target else "Supported"
             ),
             "story_fact_classification": (
-                "Unsupported" if target is false_target else "Supported"
+                "Unsupported"
+                if target is false_target
+                else (
+                    "Supported"
+                    if target["story_fact_check_required"]
+                    else "No concrete story fact"
+                )
             ),
             "unsupported_story_facts": [],
             "page_citations": [1],
@@ -761,6 +796,199 @@ class TrustManifestTests(unittest.TestCase):
             == "reader.concept.genre_execution.obligatory_scenes_missing"
         )
         self.assertIn("no obligatory scenes are missing", target["claim"])
+        self.assertEqual(target["evidence_scope"], "evaluative")
+        self.assertFalse(target["story_fact_check_required"])
+
+    def test_global_absence_and_evaluative_claims_do_not_fake_lexical_support(self):
+        targets = claim_verification_targets(complete_analysis())
+        examples = [
+            next(item for item in targets if item["claim_id"] == claim_id)
+            for claim_id in ("character.protagonist", "theme.0")
+        ]
+        self.assertEqual(
+            [item["evidence_scope"] for item in examples],
+            ["global", "evaluative"],
+        )
+        selected = []
+        for index in range(10):
+            target = copy.deepcopy(examples[index % 2])
+            target["claim_id"] = f"scope.{index}"
+            selected.append(target)
+        raw = {"claims": [{
+            "claim_id": target["claim_id"],
+            "classification": "Supported",
+            "story_fact_classification": (
+                "Supported"
+                if target["story_fact_check_required"]
+                else "No concrete story fact"
+            ),
+            "unsupported_story_facts": [],
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": "A family confronts a buried secret together.",
+            }],
+        } for target in selected]}
+
+        verified = _validate_claim_verification(raw, selected)
+        self.assertEqual(verified["factual_claim_count"], 5)
+        self.assertEqual(verified["factual_support_rate"], 1.0)
+
+    def test_reader_verdict_cannot_hide_a_fabricated_central_story_fact(self):
+        analysis = complete_analysis()
+        analysis["reader_reports"]["structure"]["one_sentence_verdict"] = (
+            "A dragon murders Lucía in the finale, proving the ending works."
+        )
+        target = next(
+            item for item in claim_verification_targets(analysis)
+            if item["claim_id"] == "reader.structure.one_sentence_verdict"
+        )
+        self.assertEqual(target["claim_type"], "mixed")
+        self.assertEqual(target["evidence_scope"], "global")
+        self.assertTrue(target["story_fact_check_required"])
+
+        target_set = [target]
+        for index in range(9):
+            filler = copy.deepcopy(target)
+            filler.update({
+                "claim_id": f"evaluative.filler.{index}",
+                "claim": f"Creative judgment {index}",
+                "claim_type": "evaluative",
+                "story_fact_check_required": False,
+                "evidence_scope": "evaluative",
+            })
+            target_set.append(filler)
+        with self.assertRaisesRegex(ValueError, "denied its factual content"):
+            _validate_claim_verification({"claims": [{
+                "claim_id": item["claim_id"],
+                "classification": "Supported",
+                "story_fact_classification": "No concrete story fact",
+                "unsupported_story_facts": [],
+                "page_citations": [1],
+                "citation_evidence": [{
+                    "page": 1,
+                    "excerpt": "A family confronts a buried secret together.",
+                }],
+            } for item in target_set]}, target_set)
+
+    def test_fabricated_goosebumps_event_and_invalid_page_cannot_escape(self):
+        analysis = complete_analysis()
+        emotional = analysis["reader_reports"]["emotional_resonance"]
+        emotional["goosebumps_scenes"] = [{
+            "page": 999,
+            "description": "A nonexistent dragon kills the protagonist.",
+            "why_it_works": "The dragon kills the protagonist without warning.",
+            "page_citations": [999],
+            "citation_evidence": [{
+                "page": 999,
+                "excerpt": "The dragon kills the protagonist without warning.",
+            }],
+        }]
+        _validate_reader_report("emotional_resonance", emotional)
+        citation_quality = ingest_v9.validate_analysis_citations(
+            {"reader_reports": {"emotional_resonance": emotional}},
+            [{"page": 1, "status": "ok"}],
+            1,
+            "[PAGE 1]\nA family confronts a buried secret together.",
+        )
+        self.assertEqual(citation_quality["status"], "needs_review")
+        self.assertEqual(
+            citation_quality["invalid_citations"][0]["reason"],
+            "outside_physical_page_range",
+        )
+
+        target = next(
+            item for item in claim_verification_targets(analysis)
+            if item["claim_id"].endswith("goosebumps_scenes.0.description")
+        )
+        self.assertIn("nonexistent dragon", target["claim"])
+        target_set = [target]
+        for index in range(9):
+            filler = copy.deepcopy(target)
+            filler.update({
+                "claim_id": f"evaluative.filler.{index}",
+                "claim": f"Creative judgment {index}",
+                "claim_type": "evaluative",
+                "story_fact_check_required": False,
+                "evidence_scope": "evaluative",
+            })
+            target_set.append(filler)
+        with self.assertRaisesRegex(ValueError, "factual screenplay claim"):
+            _validate_claim_verification({"claims": [{
+                "claim_id": item["claim_id"],
+                "classification": (
+                    "Contradicted" if item is target else "Supported"
+                ),
+                "story_fact_classification": (
+                    "Contradicted"
+                    if item is target
+                    else "No concrete story fact"
+                ),
+                "unsupported_story_facts": [],
+                "page_citations": [1],
+                "citation_evidence": [{
+                    "page": 1,
+                    "excerpt": "A family confronts a buried secret together.",
+                }],
+            } for item in target_set]}, target_set)
+
+    def test_previous_prompt_contract_keeps_its_original_claim_target_shape(self):
+        targets = claim_verification_targets(
+            complete_analysis(),
+            prompt_contract_version=PREVIOUS_PROMPT_CONTRACT_VERSION,
+        )
+        self.assertNotIn("evidence_scope", targets[0])
+        self.assertTrue(any(
+            target["claim_id"] == "reader.craft_scene.bmoc_failure_scan.craft_warning"
+            for target in targets
+        ))
+
+    def test_evidence_scope_contract_survives_a_future_prompt_version_bump(self):
+        august_contract = PROMPT_CONTRACT_VERSION
+        future_contract = "v9-archaeology-prompts-2026-09-01"
+        with patch.object(
+            trust_manifest_module,
+            "PROMPT_CONTRACT_VERSION",
+            future_contract,
+        ), patch.object(
+            trust_manifest_module,
+            "SUPPORTED_PROMPT_CONTRACT_VERSIONS",
+            {
+                *trust_manifest_module.SUPPORTED_PROMPT_CONTRACT_VERSIONS,
+                future_contract,
+            },
+        ):
+            target = claim_verification_targets(
+                complete_analysis(),
+                prompt_contract_version=august_contract,
+            )[0]
+            self.assertIn("evidence_scope", target)
+            self.assertIn(
+                "evidence_scope",
+                claim_verification_target_fields(august_contract),
+            )
+            self.assertIn(
+                "evidence_scope",
+                claim_verification_target_fields(future_contract),
+            )
+
+    def test_internal_reader_schema_state_is_not_a_screenplay_fact_claim(self):
+        ids = {
+            target["claim_id"]
+            for target in claim_verification_targets(complete_analysis())
+        }
+        self.assertFalse(any(
+            claim_id.startswith("reader.craft_scene.bmoc_failure_scan")
+            for claim_id in ids
+        ))
+        self.assertNotIn(
+            "reader.character.arc_delivery.arc_type",
+            ids,
+        )
+        self.assertIn(
+            "reader.concept.genre_execution.obligatory_scenes_missing",
+            ids,
+        )
 
     def test_manifest_is_complete_deterministic_and_valid(self):
         first = trusted_raw()
@@ -806,6 +1034,215 @@ class TrustManifestTests(unittest.TestCase):
         self.assertNotIn("prompt", first["trust_manifest"]["calibration"])
         validate_permanent_analysis(first)
 
+    def test_previous_prompt_contract_remains_valid_for_its_sealed_calls(self):
+        raw = raw_analysis()
+        raw["usage"]["failed_calls"] = [failed_call_provenance(
+            MODEL_ID,
+            "synthesis",
+            "sonnet",
+        )]
+        historical = attach_trust_manifest(
+            raw,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+            origin_kind="daemon_queue",
+            origin_id="historical-prompt-job",
+        )
+        historical["prompt_version"] = PREVIOUS_PROMPT_CONTRACT_VERSION
+        historical["analysis_schema_version"] = (
+            PREVIOUS_ANALYSIS_SCHEMA_VERSION
+        )
+        manifest = historical["trust_manifest"]
+        manifest["engine"]["prompt_contract_version"] = (
+            PREVIOUS_PROMPT_CONTRACT_VERSION
+        )
+        manifest["engine"]["analysis_schema_version"] = (
+            PREVIOUS_ANALYSIS_SCHEMA_VERSION
+        )
+        for call in historical["usage"]["calls"]:
+            call["prompt_contract_version"] = PREVIOUS_PROMPT_CONTRACT_VERSION
+        for call in historical["usage"]["failed_calls"]:
+            call["prompt_contract_version"] = PREVIOUS_PROMPT_CONTRACT_VERSION
+        for call in manifest["models"]["calls"]:
+            call["prompt_contract_version"] = PREVIOUS_PROMPT_CONTRACT_VERSION
+        for call in manifest["models"]["failed_calls"]:
+            call["prompt_contract_version"] = PREVIOUS_PROMPT_CONTRACT_VERSION
+        analysis = historical["analysis"]
+        analysis_for_hash = copy.deepcopy(analysis)
+        analysis_for_hash.pop("_citation_quality", None)
+        analysis_for_hash.pop("_claim_verification", None)
+        targets = claim_verification_targets(
+            analysis_for_hash,
+            prompt_contract_version=PREVIOUS_PROMPT_CONTRACT_VERSION,
+        )
+        target_fields = claim_verification_target_fields(
+            PREVIOUS_PROMPT_CONTRACT_VERSION
+        )
+        factual_count = sum(
+            target["story_fact_check_required"] for target in targets
+        )
+        response_ids = [
+            call["response_id"]
+            for call in historical["usage"]["calls"]
+            if call["stage"] == "claim_verification"
+        ]
+        analysis["_claim_verification"] = {
+            "status": "passed_independent_model_review",
+            "verification_scope": (
+                "semantic_support_against_full_physical_page_source"
+            ),
+            "claim_count": len(targets),
+            "factual_claim_count": factual_count,
+            "factual_supported_or_partial_count": factual_count,
+            "factual_support_rate": 1.0,
+            "classification_counts": {"Supported": len(targets)},
+            "locked_targets_sha256": ingest_v9._canonical_json_hash([{
+                key: target[key] for key in target_fields
+            } for target in targets]),
+            "analysis_sha256": ingest_v9._canonical_json_hash(
+                analysis_for_hash
+            ),
+            "claims": [{
+                **target,
+                "classification": "Supported",
+                "story_fact_classification": (
+                    "Supported"
+                    if target["story_fact_check_required"]
+                    else "No concrete story fact"
+                ),
+                "unsupported_story_facts": [],
+                "page_citations": [1],
+                "citation_evidence": [{
+                    "page": 1,
+                    "excerpt": FIXTURE_DECISION_EVIDENCE,
+                }],
+            } for target in targets],
+            "response_ids": response_ids,
+            "batch_count": len(response_ids),
+            "batch_size_limit": CLAIM_VERIFICATION_BATCH_SIZE,
+            "batch_target_sha256": [
+                ingest_v9._canonical_json_hash([
+                    target["claim_id"] for target in targets[
+                        index:index + CLAIM_VERIFICATION_BATCH_SIZE
+                    ]
+                ])
+                for index in range(
+                    0, len(targets), CLAIM_VERIFICATION_BATCH_SIZE
+                )
+            ],
+        }
+        source = q2_parsed_source()
+        attach_verified_citation_quality(
+            analysis,
+            historical["metadata"],
+            source["page_count"],
+            source["text"],
+        )
+        manifest["analysis_payload_sha256"] = hashlib.sha256(json.dumps(
+            analysis,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")).hexdigest()
+        manifest["claim_verification"] = _claim_verification_provenance(
+            analysis=analysis,
+            models=manifest["models"],
+            effective_model_tier="sonnet",
+            prompt_contract_version=PREVIOUS_PROMPT_CONTRACT_VERSION,
+        )
+        manifest["evidence"] = _evidence_provenance(
+            metadata=historical["metadata"],
+            analysis=analysis,
+            page_count=source["page_count"],
+            character_count=historical["metadata"]["character_count"],
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+        )
+        manifest.pop("integrity_sha256")
+        manifest["integrity_sha256"] = hashlib.sha256(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+
+        validate_permanent_analysis(historical)
+
+    def test_schema_prompt_and_scoring_contract_versions_cannot_be_crossed(self):
+        cases = (
+            ("analysis_schema_version", PREVIOUS_ANALYSIS_SCHEMA_VERSION),
+            ("prompt_version", PREVIOUS_PROMPT_CONTRACT_VERSION),
+            ("scoring_code_version", PREVIOUS_SCORING_CODE_VERSION),
+        )
+        for root_field, stale_version in cases:
+            with self.subTest(root_field=root_field):
+                raw = trusted_raw()
+                raw[root_field] = stale_version
+                engine_field = (
+                    "analysis_schema_version"
+                    if root_field == "analysis_schema_version"
+                    else (
+                        "prompt_contract_version"
+                        if root_field == "prompt_version"
+                        else "scoring_code_version"
+                    )
+                )
+                manifest = raw["trust_manifest"]
+                manifest["engine"][engine_field] = stale_version
+                manifest.pop("integrity_sha256")
+                manifest["integrity_sha256"] = hashlib.sha256(
+                    json.dumps(
+                        manifest,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    ).encode("utf-8")
+                ).hexdigest()
+
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "manifest and engine contract versions are incompatible",
+                ):
+                    validate_permanent_analysis(raw)
+
+    def test_current_contract_cannot_downgrade_to_skip_claim_verification(self):
+        raw = trusted_raw()
+        raw["analysis"]["themes"][0] = (
+            "Lucía murders a nonexistent dragon in the finale."
+        )
+        manifest = raw["trust_manifest"]
+        manifest["analysis_payload_sha256"] = hashlib.sha256(
+            json.dumps(
+                raw["analysis"],
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        manifest["manifest_version"] = Q4_TRUST_MANIFEST_VERSION
+        manifest.pop("claim_verification")
+        manifest["evidence"].pop("scene_count")
+        raw["trust_manifest_version"] = Q4_TRUST_MANIFEST_VERSION
+        manifest.pop("integrity_sha256")
+        manifest["integrity_sha256"] = hashlib.sha256(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "manifest and engine contract versions are incompatible",
+        ):
+            validate_permanent_analysis(raw)
+
     def test_current_manifest_rejects_missing_call_specific_provenance(self):
         raw = raw_analysis()
         del raw["usage"]["calls"][0]["prompt_sha256"]
@@ -822,7 +1259,7 @@ class TrustManifestTests(unittest.TestCase):
             )
 
     def test_q1_manifest_remains_readable_after_q2_upgrade(self):
-        legacy = trusted_raw()
+        legacy = use_legacy_engine_contract(trusted_raw())
         manifest = legacy["trust_manifest"]
         manifest.pop("evidence")
         manifest["readers"].pop("reliability_contract_version")
@@ -842,7 +1279,7 @@ class TrustManifestTests(unittest.TestCase):
         validate_permanent_analysis(legacy)
 
     def test_q2_manifest_remains_readable_after_q3_upgrade(self):
-        prior = trusted_raw()
+        prior = use_legacy_engine_contract(trusted_raw())
         manifest = prior["trust_manifest"]
         manifest["readers"].pop("reliability_contract_version")
         manifest["readers"].pop("publication_ready")
@@ -862,7 +1299,7 @@ class TrustManifestTests(unittest.TestCase):
         validate_permanent_analysis(prior)
 
     def test_q3_manifest_remains_readable_after_q5_upgrade(self):
-        prior = trusted_raw()
+        prior = use_legacy_engine_contract(trusted_raw())
         manifest = prior["trust_manifest"]
         manifest["manifest_version"] = Q3_TRUST_MANIFEST_VERSION
         manifest["evidence"].pop("scene_count")
@@ -880,7 +1317,7 @@ class TrustManifestTests(unittest.TestCase):
         validate_permanent_analysis(prior)
 
     def test_q4_manifest_without_per_call_usage_remains_readable(self):
-        prior = trusted_raw()
+        prior = use_legacy_engine_contract(trusted_raw())
         for call in prior["usage"]["calls"]:
             call.pop("usage")
         manifest = prior["trust_manifest"]
@@ -902,8 +1339,7 @@ class TrustManifestTests(unittest.TestCase):
         validate_permanent_analysis(prior)
 
     def test_q4_manifest_keeps_its_historical_pre_adjustment_verdict(self):
-        prior = trusted_raw()
-        prior["scoring_code_version"] = PREVIOUS_SCORING_CODE_VERSION
+        prior = use_legacy_engine_contract(trusted_raw())
         prior["analysis"]["verdict_before_adjustments"] = "FILM_NOW"
         for run in prior["analysis"]["_boundary_reruns"]["runs"]:
             run["analysis_evidence"]["verdict_before_adjustments"] = "FILM_NOW"
@@ -911,7 +1347,6 @@ class TrustManifestTests(unittest.TestCase):
         manifest = prior["trust_manifest"]
         manifest["manifest_version"] = Q4_TRUST_MANIFEST_VERSION
         manifest["evidence"].pop("scene_count")
-        manifest["engine"]["scoring_code_version"] = PREVIOUS_SCORING_CODE_VERSION
         manifest["score_lineage"]["verdict_before_adjustments"] = "FILM_NOW"
         for sealed_run, raw_run in zip(
             manifest["score_lineage"]["boundary_reruns"]["runs"],

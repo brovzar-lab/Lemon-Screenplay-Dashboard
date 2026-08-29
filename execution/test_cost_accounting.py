@@ -1886,6 +1886,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "claim_type": "outcome",
             "verdict_driving": True,
             "story_fact_check_required": True,
+            "evidence_scope": "local",
         } for index in range(10)]
         with patch.object(
             ingest_v9,
@@ -1913,6 +1914,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
     def test_claim_verification_records_every_application_transformation(self):
         analysis = complete_analysis()
         targets = ingest_v9.claim_verification_targets(analysis)
+        prompts = []
         raw_claims = [{
             "claim_id": target["claim_id"],
             "classification": "Supported",
@@ -1928,10 +1930,15 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "excerpt": f"Physical page evidence confirms {target['claim']}",
             }],
         } for target in targets]
+        claim_source = join_marked_pages([" ".join(
+            claim["citation_evidence"][0]["excerpt"]
+            for claim in raw_claims
+        )])
         call_index = 0
 
         def respond(**kwargs):
             nonlocal call_index
+            prompts.append(kwargs["user_blocks"][1]["text"])
             start = call_index * ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE
             batch = raw_claims[
                 start:start + ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE
@@ -1950,7 +1957,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             side_effect=respond,
         ):
             _verified, recorded = ingest_v9.run_claim_verification(
-                text=marked_screenplay(2),
+                text=claim_source,
                 analysis=analysis,
                 model_key="sonnet",
                 proxy_url="https://candidate.test",
@@ -1964,6 +1971,12 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "bound_claim_verification_lineage",
         }
         self.assertEqual(len(recorded["calls"]), 4)
+        self.assertTrue(prompts)
+        self.assertTrue(all(
+            "locked claim cannot be rewritten" in prompt
+            and "two significant words copied exactly" in prompt
+            for prompt in prompts
+        ))
         for call in recorded["calls"]:
             self.assertEqual(set(call["transformations"]), expected)
             self.assertEqual(
@@ -1980,6 +1993,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "claim_type": "factual",
             "verdict_driving": True,
             "story_fact_check_required": True,
+            "evidence_scope": "local",
         } for index in range(ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE + 1)]
 
         def respond(**kwargs):
@@ -2046,6 +2060,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "claim_type": "factual",
                 "verdict_driving": True,
                 "story_fact_check_required": True,
+                "evidence_scope": "local",
             } for index in range(10)],
         ), patch.object(ingest_v9, "call_llm", side_effect=failure):
             with self.assertRaises(ingest_v9.ClaimVerificationIncompleteError) as raised:
@@ -2312,6 +2327,243 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         ingest_v9._validate_character_evidence(
             "protagonist", "ANA", evidence, "protagonist"
         )
+
+        evidence.update({
+            "role_justification": 'Lucía "enfrenta" the central conflict.',
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": "Luci\u0301a enfrenta su miedo frente a toda la familia.",
+            }],
+        })
+        ingest_v9._validate_character_evidence(
+            "protagonist", "Lucía", evidence, "protagonist"
+        )
+
+        evidence["role_justification"] = 'Luci\u0301a "enfrenta" the conflict.'
+        evidence["citation_evidence"][0]["excerpt"] = (
+            "Lucía enfrenta su miedo frente a toda la familia."
+        )
+        ingest_v9._validate_character_evidence(
+            "protagonist", "Luci\u0301a", evidence, "protagonist"
+        )
+
+    def test_multilingual_evidence_contract_preserves_strict_lexical_grounding(self):
+        evidence = {
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": "Luci\u0301a enfrenta su miedo frente a toda la familia.",
+            }],
+        }
+
+        ingest_v9._validate_evidence_support(
+            "multilingual reader",
+            'The opening makes Lucía "enfrenta" the central conflict.',
+            evidence,
+        )
+        with self.assertRaisesRegex(ValueError, "lexical support"):
+            ingest_v9._validate_evidence_support(
+                "multilingual reader",
+                "The opening establishes the protagonist's emotional state.",
+                evidence,
+            )
+
+    def test_reader_prompts_make_cross_language_and_nested_shapes_explicit(self):
+        system_text = ingest_v9._reader_system_blocks("concept")[0]["text"]
+        self.assertIn("two significant words copied exactly", system_text)
+        self.assertIn("analysis language differs", system_text)
+
+        blocks = ingest_v9._reader_user_blocks(
+            "concept",
+            {"type": "text", "text": "[PAGE 1]\nScreenplay"},
+            "Spanish Draft",
+            100,
+        )
+        task_text = blocks[-1]["text"]
+        hook_shape = next(
+            line for line in task_text.splitlines()
+            if line.startswith("- `hook_clarity`:")
+        )
+        narrative_shape = next(
+            line for line in task_text.splitlines()
+            if line.startswith("- `narrative_engine`:")
+        )
+        self.assertIn("one_sentence_pitch", hook_shape)
+        self.assertNotIn("one_sentence_pitch", narrative_shape)
+        self.assertIn("Use only these fields", task_text)
+
+    def test_corrective_retry_explains_lexical_and_schema_repairs(self):
+        lexical = ingest_v9._corrective_retry_user_blocks(
+            [],
+            tool_name="submit_structure_report",
+            error=RuntimeError(
+                "reader sub-score first_ten_pages lacks lexical support "
+                "in its cited excerpt"
+            ),
+        )[-1]["text"]
+        self.assertIn("two significant words copied exactly", lexical)
+        self.assertIn("preserving accents", lexical)
+
+        unexpected = ingest_v9._corrective_retry_user_blocks(
+            [],
+            tool_name="submit_concept_report",
+            error=RuntimeError(
+                "report.sub_scores.narrative_engine contains 1 unexpected field(s)"
+            ),
+        )[-1]["text"]
+        self.assertIn("named validation path", unexpected)
+        self.assertIn("sibling metric", unexpected)
+
+        missing = ingest_v9._corrective_retry_user_blocks(
+            [],
+            tool_name="submit_character_report",
+            error=RuntimeError(
+                "report.sub_scores.lie is missing required field identified_lie"
+            ),
+        )[-1]["text"]
+        self.assertIn("named required field", missing)
+
+    def test_synthesis_prompt_retains_multilingual_anchors(self):
+        self.assertIn(
+            "two significant words copied exactly",
+            ingest_v9.SYNTHESIS_SYSTEM,
+        )
+        self.assertIn(
+            "analysis language differs",
+            ingest_v9.SYNTHESIS_SYSTEM,
+        )
+
+    def test_santa_reader_failures_each_recover_once_with_full_accounting(self):
+        def lexical_failure(report):
+            report["sub_scores"]["first_ten_pages"]["justification"] = (
+                "The opening establishes an elegant dramatic foundation."
+            )
+
+        def excerpt_failure(report):
+            report["sub_scores"]["beat_question_clarity"][
+                "citation_evidence"
+            ][0]["excerpt"] = "only three words"
+
+        def unexpected_field(report):
+            report["sub_scores"]["narrative_engine"][
+                "one_sentence_pitch"
+            ] = "This belongs only to hook_clarity."
+
+        def missing_specialized_field(report):
+            report["sub_scores"]["goosebumps_moments"].pop("moments")
+
+        cases = (
+            ("lexical", "structure", lexical_failure),
+            ("invalid_excerpt", "craft_scene", excerpt_failure),
+            ("unexpected_nested_field", "concept", unexpected_field),
+            (
+                "missing_specialized_field",
+                "emotional_resonance",
+                missing_specialized_field,
+            ),
+        )
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+
+        for case_name, failing_reader, mutate in cases:
+            with self.subTest(case=case_name):
+                fixture_analysis = complete_analysis(f"Santa {case_name}")
+                attempts = {}
+
+                def fake_call_llm(**kwargs):
+                    stage = kwargs["stage"]
+                    reader_name = kwargs.get("reader_name")
+                    key = reader_name if stage == "reader" else stage
+                    attempts[key] = attempts.get(key, 0) + 1
+                    response_id = f"msg_{case_name}_{key}_{attempts[key]}"
+                    usage = self._successful_call_usage(
+                        response_id,
+                        stage=stage,
+                        reader_name=reader_name,
+                    )
+                    logical_retry = kwargs.get("logical_retry", 0)
+                    call = usage["calls"][0]
+                    call.update({
+                        "logical_retry": logical_retry,
+                        "attempt_number": logical_retry + 1,
+                        "total_retry_count": logical_retry,
+                        "independent_cost_microusd": 100,
+                        "independent_cost_usd": 0.0001,
+                        "independent_cost_nanousd": 100_000,
+                        "independent_estimated_cost_usd": 0.0001,
+                        "charged_cost_microusd": 100,
+                    })
+                    call["usage"].update({
+                        "actual_cost_microusd": 100,
+                        "actual_cost_usd": 0.0001,
+                        "charged_cost_microusd": 100,
+                        "estimated_cost_nanousd": 100_000,
+                        "estimated_cost_usd": 0.0001,
+                    })
+                    usage.update({
+                        "actual_cost_microusd": 100,
+                        "actual_cost_usd": 0.0001,
+                        "estimated_cost_nanousd": 100_000,
+                        "estimated_cost_usd": 0.0001,
+                    })
+                    usage["by_model"][MODEL_ID]["actual_cost_microusd"] = 100
+                    if stage == "reader":
+                        report = copy.deepcopy(
+                            fixture_analysis["reader_reports"][reader_name]
+                        )
+                        if reader_name == failing_reader and attempts[key] == 1:
+                            mutate(report)
+                        return report, "", usage
+                    self.assertEqual(stage, "synthesis")
+                    return copy.deepcopy(fixture_analysis), "", usage
+
+                with patch.object(
+                    ingest_v9,
+                    "run_genre_detection",
+                    return_value=(genre_detection, ingest_v9.empty_usage()),
+                ), patch.object(
+                    ingest_v9,
+                    "call_llm",
+                    side_effect=fake_call_llm,
+                ), patch.object(
+                    ingest_v9,
+                    "_preserve_local_rejected_output",
+                    return_value={"artifact_sha256": "a" * 64},
+                ), patch.object(ingest_v9.time, "sleep"):
+                    analysis, usage = ingest_v9.run_v9_full(
+                        text=marked_screenplay(),
+                        title=f"Santa {case_name}",
+                        page_count=100,
+                        word_count=20_000,
+                        model_key="sonnet",
+                        proxy_url="https://proxy.test",
+                        pipeline_pass="sonnet",
+                    )
+
+                self.assertEqual(attempts[failing_reader], 2)
+                self.assertTrue(all(
+                    attempts[reader] == (2 if reader == failing_reader else 1)
+                    for reader in ingest_v9.READER_WEIGHTS
+                ))
+                self.assertEqual(attempts["synthesis"], 1)
+                self.assertEqual(usage["call_count"], 7)
+                self.assertEqual(usage["actual_cost_microusd"], 700)
+                failed, recovered = [
+                    call for call in usage["calls"]
+                    if call["reader_name"] == failing_reader
+                ]
+                self.assertEqual(failed["disposition"], "discarded_unusable")
+                self.assertEqual(failed["downstream_consumption"], "not_consumed")
+                self.assertEqual(failed["usage"]["actual_cost_microusd"], 100)
+                self.assertEqual(failed["logical_retry"], 0)
+                self.assertEqual(recovered["disposition"], "used")
+                self.assertEqual(recovered["downstream_consumption"], "consumed")
+                self.assertEqual(recovered["usage"]["actual_cost_microusd"], 100)
+                self.assertEqual(recovered["logical_retry"], 1)
+                self.assertEqual(analysis["analysis_quality"]["status"], "complete")
+                self.assertEqual(analysis["analysis_quality"]["completed_readers"], 5)
 
     def test_reader_and_synthesis_recovery_produce_a_complete_manifest(self):
         synthesis_attempt = 0

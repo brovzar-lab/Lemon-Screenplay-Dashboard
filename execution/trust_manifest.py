@@ -70,24 +70,66 @@ SUPPORTED_TRUST_MANIFEST_VERSIONS = {
     TRUST_MANIFEST_VERSION,
 }
 READER_RELIABILITY_CONTRACT_VERSION = "lemon-five-reader-panel-v1"
-PREVIOUS_ANALYSIS_SCHEMA_VERSION = "v9-archaeology-schema-2026-07-29"
-ANALYSIS_SCHEMA_VERSION = "v9-archaeology-schema-2026-08-27"
+LEGACY_ANALYSIS_SCHEMA_VERSION = "v9-archaeology-schema-2026-07-29"
+PREVIOUS_ANALYSIS_SCHEMA_VERSION = "v9-archaeology-schema-2026-08-27"
+ANALYSIS_SCHEMA_VERSION = "v9-archaeology-schema-2026-08-29"
 SUPPORTED_ANALYSIS_SCHEMA_VERSIONS = {
+    LEGACY_ANALYSIS_SCHEMA_VERSION,
     PREVIOUS_ANALYSIS_SCHEMA_VERSION,
     ANALYSIS_SCHEMA_VERSION,
 }
 TRIAGE_SCHEMA_VERSION = "v9-triage-schema-2026-07-29"
-PREVIOUS_PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-07-29"
-PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-27"
+LEGACY_PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-07-29"
+PREVIOUS_PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-27"
+PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-29"
 SUPPORTED_PROMPT_CONTRACT_VERSIONS = {
+    LEGACY_PROMPT_CONTRACT_VERSION,
     PREVIOUS_PROMPT_CONTRACT_VERSION,
     PROMPT_CONTRACT_VERSION,
+}
+LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS = {
+    LEGACY_PROMPT_CONTRACT_VERSION,
+    PREVIOUS_PROMPT_CONTRACT_VERSION,
 }
 PREVIOUS_SCORING_CODE_VERSION = "v9-verdict-2026-07-29"
 SCORING_CODE_VERSION = "v9-verdict-2026-08-27"
 SUPPORTED_SCORING_CODE_VERSIONS = {
     PREVIOUS_SCORING_CODE_VERSION,
     SCORING_CODE_VERSION,
+}
+SUPPORTED_ANALYSIS_CONTRACTS = {
+    *{
+        (
+            manifest_version,
+            LEGACY_ANALYSIS_SCHEMA_VERSION,
+            LEGACY_PROMPT_CONTRACT_VERSION,
+            PREVIOUS_SCORING_CODE_VERSION,
+        )
+        for manifest_version in {
+            LEGACY_TRUST_MANIFEST_VERSION,
+            Q2_TRUST_MANIFEST_VERSION,
+            Q3_TRUST_MANIFEST_VERSION,
+            Q4_TRUST_MANIFEST_VERSION,
+        }
+    },
+    (
+        Q5_TRUST_MANIFEST_VERSION,
+        PREVIOUS_ANALYSIS_SCHEMA_VERSION,
+        PREVIOUS_PROMPT_CONTRACT_VERSION,
+        SCORING_CODE_VERSION,
+    ),
+    (
+        TRUST_MANIFEST_VERSION,
+        PREVIOUS_ANALYSIS_SCHEMA_VERSION,
+        PREVIOUS_PROMPT_CONTRACT_VERSION,
+        SCORING_CODE_VERSION,
+    ),
+    (
+        TRUST_MANIFEST_VERSION,
+        ANALYSIS_SCHEMA_VERSION,
+        PROMPT_CONTRACT_VERSION,
+        SCORING_CODE_VERSION,
+    ),
 }
 TRAP_CONTRACT_VERSION = json.loads(
     (Path(__file__).resolve().parent / "v9_trap_contract.json").read_text(
@@ -206,14 +248,55 @@ def runtime_pricing_sha256() -> str:
     return hashlib.sha256(_canonical_json(table).encode("utf-8")).hexdigest()
 
 
-def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, Any]]:
+def claim_verification_target_fields(
+    prompt_contract_version: str = PROMPT_CONTRACT_VERSION,
+) -> tuple[str, ...]:
+    """Return the fields locked by the prompt contract that produced a result."""
+    if prompt_contract_version not in SUPPORTED_PROMPT_CONTRACT_VERSIONS:
+        raise ValueError("Unsupported prompt contract version")
+    fields = (
+        "claim_id",
+        "claim",
+        "claim_type",
+        "verdict_driving",
+        "story_fact_check_required",
+    )
+    return (
+        (*fields, "evidence_scope")
+        if prompt_contract_version not in LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS
+        else fields
+    )
+
+
+def claim_verification_targets(
+    analysis: Mapping[str, Any],
+    *,
+    prompt_contract_version: str = PROMPT_CONTRACT_VERSION,
+) -> List[Dict[str, Any]]:
     """Return the complete, deterministic set independently checked before lock."""
+    if prompt_contract_version not in SUPPORTED_PROMPT_CONTRACT_VERSIONS:
+        raise ValueError("Unsupported prompt contract version")
+    current_contract = (
+        prompt_contract_version not in LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS
+    )
     targets: List[Dict[str, Any]] = []
     nested_metadata = {
         "score",
         "page_citations",
         "citation_evidence",
         "justification",
+    }
+    nested_story_fields = {
+        "identified_lie",
+        "want",
+        "need",
+        "identified_blind_spot",
+        "one_sentence_pitch",
+        "obligatory_scenes_present",
+        "obligatory_scenes_missing",
+        "stated_controlling_idea",
+        "four_clause_premise",
+        "moments",
     }
 
     def add(
@@ -222,11 +305,12 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
         claim_type: str,
         verdict_driving: bool,
         evidence: Any = None,
+        evidence_scope: Optional[str] = None,
     ) -> None:
         if not isinstance(claim, str) or not claim.strip():
             return
         evidence = evidence if isinstance(evidence, Mapping) else {}
-        targets.append({
+        target = {
             "claim_id": claim_id,
             "claim": claim,
             "claim_type": claim_type,
@@ -238,13 +322,23 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
             "provided_citation_evidence": copy.deepcopy(
                 evidence.get("citation_evidence", [])
             ),
-        })
+        }
+        if current_contract:
+            scope = evidence_scope or (
+                "evaluative" if claim_type == "evaluative" else "local"
+            )
+            if scope not in {"local", "global", "evaluative"}:
+                raise ValueError("claim evidence scope is invalid")
+            target["evidence_scope"] = scope
+            target["story_fact_check_required"] = scope != "evaluative"
+        targets.append(target)
 
     def add_nested_assertions(
         claim_id: str,
         label: str,
         value: Any,
         evidence: Any,
+        story_field: Optional[str] = None,
     ) -> None:
         if isinstance(value, Mapping):
             inherited_evidence = (
@@ -253,13 +347,16 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
                 else evidence
             )
             for key in sorted(value, key=str):
-                if key in nested_metadata:
+                if key in nested_metadata or (
+                    current_contract and key not in nested_story_fields
+                ):
                     continue
                 add_nested_assertions(
                     f"{claim_id}.{key}",
                     f"{label}.{key}",
                     value[key],
                     inherited_evidence,
+                    key,
                 )
             return
         if isinstance(value, list):
@@ -275,6 +372,11 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
                     "mixed",
                     True,
                     evidence,
+                    (
+                        "evaluative"
+                        if story_field == "obligatory_scenes_missing"
+                        else "global"
+                    ),
                 )
                 return
             for index, item in enumerate(value):
@@ -283,10 +385,25 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
                     f"{label}.{index}",
                     item,
                     evidence,
+                    story_field,
                 )
             return
         if isinstance(value, str):
-            add(claim_id, f"{label}: {value}", "mixed", True, evidence)
+            add(
+                claim_id,
+                f"{label}: {value}",
+                "mixed",
+                True,
+                evidence,
+                (
+                    "evaluative"
+                    if story_field in {
+                        "obligatory_scenes_missing",
+                        "stated_controlling_idea",
+                    }
+                    else "local"
+                ),
+            )
         elif type(value) is bool:
             add(
                 claim_id,
@@ -294,6 +411,7 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
                 "mixed",
                 True,
                 evidence,
+                "local",
             )
 
     add("genre.primary", analysis.get("genre"), "evaluative", True)
@@ -308,13 +426,24 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
             genre_detection.get("one_line_why"),
             "mixed",
             True,
+            evidence_scope="global",
         )
 
     themes = analysis.get("themes")
     if isinstance(themes, list):
         for index, theme in enumerate(themes):
-            add(f"theme.{index}", theme, "mixed", True)
-    add("tone", analysis.get("tone"), "mixed", True)
+            add(
+                f"theme.{index}",
+                theme,
+                "evaluative" if current_contract else "mixed",
+                True,
+            )
+    add(
+        "tone",
+        analysis.get("tone"),
+        "evaluative" if current_contract else "mixed",
+        True,
+    )
 
     comparables = analysis.get("comparable_films")
     if isinstance(comparables, Mapping):
@@ -326,7 +455,7 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
                 add(
                     f"comparable.{kind}.{field}",
                     comparable.get(field),
-                    "mixed",
+                    "evaluative" if current_contract else "mixed",
                     True,
                 )
 
@@ -343,7 +472,7 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
                 add(
                     f"disagreement.{index}.{field}",
                     disagreement.get(field),
-                    "mixed",
+                    "evaluative" if current_contract else "mixed",
                     True,
                 )
 
@@ -355,6 +484,7 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
             cold_evidence.get("logline"),
             "factual",
             True,
+            evidence_scope="global",
         )
         add(
             "cold_read.genre",
@@ -401,7 +531,14 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
                 if kind == "not_identified"
                 else f"{name} functions as the {role}: {justification}"
             )
-            add(f"character.{role}", claim, "factual", True, evidence)
+            add(
+                f"character.{role}",
+                claim,
+                "factual",
+                True,
+                evidence,
+                "global" if current_contract and kind == "not_identified" else None,
+            )
         add(
             "character.protagonist_lie",
             characters.get("protagonist_lie"),
@@ -412,7 +549,7 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
         add(
             "character.protagonist_arc_type",
             characters.get("protagonist_arc_type"),
-            "mixed",
+            "evaluative" if current_contract else "mixed",
             True,
             characters.get("protagonist_evidence"),
         )
@@ -478,16 +615,56 @@ def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, An
                     metric,
                     metric,
                 )
-        for field in sorted(reader):
-            if field in {"reader", "pillar_score", "sub_scores", "story_vs_situation"}:
-                continue
-            add_nested_assertions(
-                f"reader.{reader_name}.{field}",
-                f"{reader_name}.{field}",
-                reader[field],
-                reader,
+        if current_contract and isinstance(reader, Mapping):
+            add(
+                f"reader.{reader_name}.one_sentence_verdict",
+                reader.get("one_sentence_verdict"),
+                "mixed",
+                True,
+                evidence_scope="global",
             )
-
+            red_flags = reader.get("red_flags")
+            if isinstance(red_flags, list):
+                for index, red_flag in enumerate(red_flags):
+                    add(
+                        f"reader.{reader_name}.red_flags.{index}",
+                        red_flag,
+                        "mixed",
+                        True,
+                        evidence_scope="global",
+                    )
+            if reader_name == "emotional_resonance":
+                goosebumps = reader.get("goosebumps_scenes")
+                if isinstance(goosebumps, list):
+                    for index, scene in enumerate(goosebumps):
+                        if not isinstance(scene, Mapping):
+                            continue
+                        add(
+                            f"reader.{reader_name}.goosebumps_scenes.{index}.description",
+                            scene.get("description"),
+                            "factual",
+                            True,
+                            scene,
+                        )
+                        add(
+                            f"reader.{reader_name}.goosebumps_scenes.{index}.why_it_works",
+                            scene.get("why_it_works"),
+                            "mixed",
+                            True,
+                            scene,
+                        )
+        elif not current_contract and isinstance(reader, Mapping):
+            for field in sorted(reader):
+                if field in {
+                    "reader", "pillar_score", "sub_scores", "story_vs_situation",
+                }:
+                    continue
+                add_nested_assertions(
+                    f"reader.{reader_name}.{field}",
+                    f"{reader_name}.{field}",
+                    reader[field],
+                    reader,
+                )
     character_reader = reader_reports.get("character")
     story_gate = (
         character_reader.get("story_vs_situation")
@@ -1104,6 +1281,7 @@ def _model_lineage(
     model_ids: Mapping[str, str],
     cold_read_model_route: Optional[str] = None,
     manifest_version: str = TRUST_MANIFEST_VERSION,
+    prompt_contract_version: str = PROMPT_CONTRACT_VERSION,
 ) -> Dict[str, Any]:
     if not isinstance(usage, dict):
         raise ValueError("usage must be an object")
@@ -1137,6 +1315,12 @@ def _model_lineage(
         raise ValueError("model ID map must include Haiku for routing verification")
     if cold_read_model_route not in {None, "haiku", "sonnet"}:
         raise ValueError("cold-read model route must be haiku or sonnet")
+    expected_prompt_contract_version = _require_nonempty_string(
+        prompt_contract_version,
+        "prompt contract version",
+    )
+    if expected_prompt_contract_version not in SUPPORTED_PROMPT_CONTRACT_VERSIONS:
+        raise ValueError("Unsupported prompt contract version")
 
     if pipeline_tier == "hybrid":
         planned_tiers = [tier for tier in ("sonnet", "opus") if tier in model_ids]
@@ -1654,7 +1838,7 @@ def _model_lineage(
             if call_provenance is not None:
                 if (
                     call_provenance["prompt_contract_version"]
-                    != PROMPT_CONTRACT_VERSION
+                    != expected_prompt_contract_version
                 ):
                     raise ValueError(
                         f"usage.calls[{index}] prompt contract version is stale"
@@ -1941,7 +2125,10 @@ def _model_lineage(
                     raw_call.get(field),
                     f"usage.failed_calls[{index}].{field}",
                 )
-            if raw_call.get("prompt_contract_version") != PROMPT_CONTRACT_VERSION:
+            if (
+                raw_call.get("prompt_contract_version")
+                != expected_prompt_contract_version
+            ):
                 raise ValueError(
                     f"usage.failed_calls[{index}] prompt contract is stale"
                 )
@@ -3456,6 +3643,7 @@ def _claim_verification_provenance(
     analysis: Dict[str, Any],
     models: Dict[str, Any],
     effective_model_tier: str,
+    prompt_contract_version: str = PROMPT_CONTRACT_VERSION,
 ) -> Dict[str, Any]:
     raw = analysis.get("_claim_verification")
     if not isinstance(raw, dict):
@@ -3470,17 +3658,15 @@ def _claim_verification_provenance(
     claim_count = raw.get("claim_count")
     analysis_without_verification = copy.deepcopy(analysis)
     analysis_without_verification.pop("_claim_verification", None)
-    expected_targets = claim_verification_targets(analysis_without_verification)
+    expected_targets = claim_verification_targets(
+        analysis_without_verification,
+        prompt_contract_version=prompt_contract_version,
+    )
+    target_fields = claim_verification_target_fields(prompt_contract_version)
     expected_locked_targets = [
         {
             key: target[key]
-            for key in (
-                "claim_id",
-                "claim",
-                "claim_type",
-                "verdict_driving",
-                "story_fact_check_required",
-            )
+            for key in target_fields
         }
         for target in expected_targets
     ]
@@ -3524,6 +3710,14 @@ def _claim_verification_provenance(
             raise ValueError("independent claim verdict lineage is missing")
         if type(claim.get("story_fact_check_required")) is not bool:
             raise ValueError("independent claim story-fact lineage is missing")
+        if prompt_contract_version not in LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS:
+            evidence_scope = claim.get("evidence_scope")
+            if evidence_scope not in {"local", "global", "evaluative"}:
+                raise ValueError("independent claim evidence scope is invalid")
+            if claim["story_fact_check_required"] != (
+                evidence_scope != "evaluative"
+            ):
+                raise ValueError("independent claim evidence scope is inconsistent")
         if claim["verdict_driving"] and classification in {
             "Unsupported", "Contradicted",
         }:
@@ -3579,6 +3773,17 @@ def _claim_verification_provenance(
             and story_fact_classification in {"Unsupported", "Contradicted"}
         ):
             raise ValueError("a factual claim failed independent verification")
+        if (
+            prompt_contract_version not in LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS
+            and not claim["story_fact_check_required"]
+            and story_fact_classification != "No concrete story fact"
+        ):
+            raise ValueError("an evaluative claim invented a story-fact check")
+        if (
+            claim_type == "factual"
+            and classification == "Not objectively verifiable"
+        ):
+            raise ValueError("a factual claim was not objectively adjudicated")
         if claim["story_fact_check_required"]:
             factual_total += 1
             if story_fact_classification in {"Supported", "Partially supported"}:
@@ -3617,13 +3822,7 @@ def _claim_verification_provenance(
     observed_locked_targets = [
         {
             key: claim[key]
-            for key in (
-                "claim_id",
-                "claim",
-                "claim_type",
-                "verdict_driving",
-                "story_fact_check_required",
-            )
+            for key in target_fields
         }
         for claim in claims
     ]
@@ -4421,8 +4620,21 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
             raise ValueError("Permanent analysis has an invalid analysis_schema_version")
     elif schema_version != TRIAGE_SCHEMA_VERSION:
         raise ValueError("Permanent analysis has an invalid analysis_schema_version")
-    if raw.get("prompt_version") not in SUPPORTED_PROMPT_CONTRACT_VERSIONS:
+    prompt_version = raw.get("prompt_version")
+    if prompt_version not in SUPPORTED_PROMPT_CONTRACT_VERSIONS:
         raise ValueError("Permanent analysis has an invalid prompt_version")
+    if (
+        analysis_version == "v9_archaeology"
+        and (
+            manifest_version,
+            schema_version,
+            prompt_version,
+            scoring_code_version,
+        ) not in SUPPORTED_ANALYSIS_CONTRACTS
+    ):
+        raise ValueError(
+            "Permanent analysis manifest and engine contract versions are incompatible"
+        )
     if engine.get("analysis_version") != raw.get("analysis_version"):
         raise ValueError("Trust manifest analysis version does not match analysis")
     expected_engine_versions = {
@@ -4476,6 +4688,7 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
         model_ids=models.get("model_ids_by_tier", {}),
         cold_read_model_route=_cold_read_model_route(raw.get("analysis")),
         manifest_version=str(manifest_version),
+        prompt_contract_version=str(engine.get("prompt_contract_version", "")),
     )
     if models != current_models:
         raise ValueError("Trust manifest model lineage does not match usage")
@@ -4498,6 +4711,9 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
             analysis=raw["analysis"],
             models=current_models,
             effective_model_tier=str(models.get("effective_model_tier", "")),
+            prompt_contract_version=str(
+                engine.get("prompt_contract_version", "")
+            ),
         )
         if manifest_version == TRUST_MANIFEST_VERSION
         else None

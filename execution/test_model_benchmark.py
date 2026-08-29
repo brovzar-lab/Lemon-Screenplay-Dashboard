@@ -1792,6 +1792,7 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
             "claim_type": "factual" if index == 0 else "evaluative",
             "verdict_driving": True,
             "story_fact_check_required": index == 0,
+            "evidence_scope": "local" if index == 0 else "evaluative",
             "provided_page_citations": [],
             "provided_citation_evidence": [],
         } for index in range(10)]
