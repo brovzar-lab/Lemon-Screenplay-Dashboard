@@ -342,6 +342,12 @@ jobs:
           service_account: ${{ env.PRODUCTION_AUDITOR_SERVICE_ACCOUNT }}
           create_credentials_file: true
 
+      - name: Reconfigure pinned gcloud for the production auditor
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+        with:
+          version: ${{ env.GCLOUD_VERSION }}
+          project_id: ${{ env.PRODUCTION_FIRESTORE_PROJECT_ID }}
+
       - name: Prove the production auditor is active
         run: |
           test "$(gcloud auth list --filter=status:ACTIVE --format='value(account)')" = \
@@ -384,6 +390,12 @@ jobs:
           workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.DEPLOYER_SERVICE_ACCOUNT }}
           create_credentials_file: true
+
+      - name: Reconfigure pinned gcloud for the staging deployer
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+        with:
+          version: ${{ env.GCLOUD_VERSION }}
+          project_id: ${{ env.STAGING_PROJECT_ID }}
 
       - name: Prove only the staging deployer is active
         run: |
