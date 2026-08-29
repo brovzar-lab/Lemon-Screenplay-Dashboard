@@ -9,6 +9,7 @@ from execution.source_evidence import (
     extract_title_page_author,
     join_marked_pages,
     reconcile_unique_citation_pages,
+    retain_verified_citation_subset,
     validate_analysis_citations,
     validate_native_cross_check,
     validate_stored_context_policy,
@@ -254,6 +255,80 @@ class TestCitationEvidence(unittest.TestCase):
         )
 
         self.assertEqual(quality["status"], "verified")
+
+    def test_unverified_surplus_is_removed_only_when_exact_evidence_remains(self):
+        metric = self.analysis["reader_reports"]["structure"]["sub_scores"][
+            "midpoint"
+        ]
+        metric["page_citations"] = [2, 3]
+        metric["citation_evidence"].append({
+            "page": 3,
+            "excerpt": "A fabricated quotation absent from this page.",
+        })
+
+        subset = retain_verified_citation_subset(self.analysis, self.text)
+        quality = validate_analysis_citations(
+            self.analysis,
+            self.page_evidence["page_diagnostics"],
+            3,
+            self.text,
+        )
+
+        self.assertEqual(subset["changed_object_count"], 1)
+        self.assertEqual(subset["removed_page_count"], 1)
+        self.assertEqual(subset["removed_evidence_count"], 1)
+        self.assertEqual(metric["page_citations"], [2])
+        self.assertEqual(len(metric["citation_evidence"]), 1)
+        self.assertEqual(quality["status"], "verified")
+        self.assertNotIn("fabricated quotation", str(subset).lower())
+
+    def test_no_verified_excerpt_remains_a_visible_failure(self):
+        metric = self.analysis["reader_reports"]["structure"]["sub_scores"][
+            "midpoint"
+        ]
+        metric["citation_evidence"] = [{
+            "page": 2,
+            "excerpt": "A fabricated quotation absent from every page.",
+        }]
+        before = copy.deepcopy(metric)
+
+        subset = retain_verified_citation_subset(self.analysis, self.text)
+        quality = validate_analysis_citations(
+            self.analysis,
+            self.page_evidence["page_diagnostics"],
+            3,
+            self.text,
+        )
+
+        self.assertEqual(subset["changed_object_count"], 0)
+        self.assertEqual(metric, before)
+        self.assertEqual(quality["status"], "needs_review")
+        self.assertIn("unsupported_page_citations", quality["issues"])
+        self.assertEqual(
+            subset["unresolved_paths"],
+            ["reader_reports.structure.sub_scores.midpoint"],
+        )
+
+    def test_verified_evidence_order_is_not_reported_as_a_transformation(self):
+        metric = self.analysis["reader_reports"]["structure"]["sub_scores"][
+            "midpoint"
+        ]
+        metric["page_citations"] = [2, 3]
+        metric["citation_evidence"] = [
+            {
+                "page": 3,
+                "excerpt": "The ending resolves the story.",
+            },
+            metric["citation_evidence"][0],
+        ]
+        before = copy.deepcopy(metric)
+
+        subset = retain_verified_citation_subset(self.analysis, self.text)
+
+        self.assertEqual(subset["changed_object_count"], 0)
+        self.assertEqual(subset["removed_page_count"], 0)
+        self.assertEqual(subset["removed_evidence_count"], 0)
+        self.assertEqual(metric, before)
 
     def test_unique_exact_excerpt_reconciles_an_off_by_one_page(self):
         metric = self.analysis["reader_reports"]["structure"]["sub_scores"]["midpoint"]

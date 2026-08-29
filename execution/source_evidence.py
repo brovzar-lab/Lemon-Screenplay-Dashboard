@@ -912,6 +912,112 @@ def reconcile_unique_citation_pages(
     }
 
 
+def retain_verified_citation_subset(
+    analysis: Dict[str, Any],
+    source_text: str,
+) -> Dict[str, Any]:
+    """Drop bad surplus citations only when exact evidence still remains.
+
+    A model often supplies several citations for one metric. One invented or
+    malformed extra must not survive, but it also need not erase other exact
+    evidence. Objects with no verified excerpt are left untouched so the
+    normal validation and one bounded correction still fail closed.
+    """
+    before_sha256 = sha256_json(analysis)
+    page_contents = _marked_page_contents(source_text)[1]
+    changes: List[Dict[str, Any]] = []
+    unresolved_paths: List[str] = []
+
+    def walk(value: Any, path: List[str]) -> None:
+        if isinstance(value, dict):
+            citations = value.get("page_citations")
+            evidence = value.get("citation_evidence")
+            if isinstance(citations, list) and isinstance(evidence, list) and (
+                citations or evidence
+            ):
+                evidence_by_page: Dict[int, Dict[str, Any]] = {}
+                for item in evidence:
+                    if not isinstance(item, dict):
+                        continue
+                    page = item.get("page")
+                    excerpt = item.get("excerpt")
+                    if (
+                        type(page) is int
+                        and page in citations
+                        and page not in evidence_by_page
+                        and isinstance(excerpt, str)
+                        and len(_evidence_words(excerpt))
+                        >= MIN_CITATION_EXCERPT_WORDS
+                        and _evidence_excerpt_match_kind(
+                            page_contents.get(page, ""), excerpt
+                        )
+                        is not None
+                    ):
+                        evidence_by_page[page] = {
+                            "page": page,
+                            "excerpt": excerpt,
+                        }
+
+                retained_pages: List[int] = []
+                for page in citations:
+                    if (
+                        type(page) is int
+                        and page not in retained_pages
+                        and page in evidence_by_page
+                    ):
+                        retained_pages.append(page)
+                retained_page_set = set(retained_pages)
+                retained_evidence = [
+                    item
+                    for page, item in evidence_by_page.items()
+                    if page in retained_page_set
+                ]
+
+                path_text = ".".join(path)
+                if not retained_evidence:
+                    unresolved_paths.append(path_text)
+                elif retained_pages != citations or retained_evidence != evidence:
+                    removed = {
+                        "page_citations": citations,
+                        "citation_evidence": evidence,
+                    }
+                    value["page_citations"] = retained_pages
+                    value["citation_evidence"] = retained_evidence
+                    changes.append({
+                        "path": path_text,
+                        "original_page_count": len(citations),
+                        "retained_page_count": len(retained_pages),
+                        "original_evidence_count": len(evidence),
+                        "retained_evidence_count": len(retained_evidence),
+                        "original_declaration_sha256": sha256_json(removed),
+                    })
+            for key, nested in value.items():
+                if key != "_citation_quality":
+                    walk(nested, path + [str(key)])
+        elif isinstance(value, list):
+            for index, nested in enumerate(value):
+                walk(nested, path + [str(index)])
+
+    walk(analysis, [])
+    after_sha256 = sha256_json(analysis)
+    return {
+        "status": "retained_verified_subset" if changes else "unchanged",
+        "changed_object_count": len(changes),
+        "removed_page_count": sum(
+            item["original_page_count"] - item["retained_page_count"]
+            for item in changes
+        ),
+        "removed_evidence_count": sum(
+            item["original_evidence_count"] - item["retained_evidence_count"]
+            for item in changes
+        ),
+        "changes_sha256": sha256_json(changes),
+        "unresolved_paths": sorted(set(unresolved_paths)),
+        "before_sha256": before_sha256,
+        "after_sha256": after_sha256,
+    }
+
+
 def _citation_seal(path: str, page: int, excerpt: str) -> Dict[str, Any]:
     normalized = _normalized_evidence_text(excerpt)
     return {
