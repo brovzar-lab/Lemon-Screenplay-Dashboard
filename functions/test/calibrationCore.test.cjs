@@ -15,6 +15,7 @@ const {
 
 const CONTENT_HASH = "ab".repeat(32);
 const MANIFEST_HASH = "cd".repeat(32);
+const ANALYSIS_HASH = "ef".repeat(32);
 const VERSION_ID = `${CONTENT_HASH}_1000`;
 
 function rawVersion() {
@@ -23,10 +24,41 @@ function rawVersion() {
     version_id: VERSION_ID,
     content_hash: CONTENT_HASH,
     identity_status: "verified",
-    trust_manifest_version: "lemon-trust-manifest-v4",
+    analysis_version: "v9_archaeology",
+    trust_manifest_version: "lemon-trust-manifest-v6",
     trust_manifest: {
+      manifest_version: "lemon-trust-manifest-v6",
       integrity_sha256: MANIFEST_HASH,
-      score_lineage: { final_verdict: "CONSIDER" },
+      analysis_payload_sha256: ANALYSIS_HASH,
+      source: { content_sha256: CONTENT_HASH },
+      origin: { project_id: "will-2010", version_id: VERSION_ID },
+      engine: { analysis_version: "v9_archaeology" },
+      readers: {
+        quality_status: "complete",
+        expected_specialist_readers: 5,
+        completed_specialist_readers: 5,
+        failed_readers: [],
+        report_names: ["structure", "character", "craft_scene", "concept", "emotional_resonance"],
+      },
+      claim_verification: {
+        status: "passed_independent_model_review",
+        verification_scope: "semantic_support_against_full_physical_page_source",
+        claim_count: 10,
+        factual_support_rate: 1,
+        response_ids: ["msg_claims"],
+        claims_sha256: "12".repeat(32),
+      },
+      models: { calls: [{ response_id: "msg_reader" }] },
+      score_lineage: { adjusted_score: 4.7, final_verdict: "PASS" },
+    },
+    server_trust_attestation: {
+      attestation_version: "lemon-server-trust-attestation-v1",
+      writer: "firebase_admin",
+      project_id: "will-2010",
+      version_id: VERSION_ID,
+      content_sha256: CONTENT_HASH,
+      trust_manifest_integrity_sha256: MANIFEST_HASH,
+      analysis_payload_sha256: ANALYSIS_HASH,
     },
     analysis: {
       title: "WILL 2010",
@@ -34,6 +66,16 @@ function rawVersion() {
       weighted_score_adjusted: 4.7,
       verdict: "PASS",
       genre_classification: { external_genre: "Comedy" },
+      analysis_quality: {
+        status: "complete",
+        expected_readers: 5,
+        completed_readers: 5,
+        failed_readers: [],
+      },
+      reader_reports: Object.fromEntries(
+        ["structure", "character", "craft_scene", "concept", "emotional_resonance"]
+          .map((name) => [name, { pillar_score: 5 }]),
+      ),
       pillar_scores: {
         structure: { score: 5.1 },
         character: { score: 4.4 },
@@ -43,6 +85,18 @@ function rawVersion() {
       },
     },
     calibration_profile: { applied: false },
+  };
+}
+
+function versionAuthority(version = rawVersion()) {
+  return {
+    authorityVersion: "lemon-analysis-version-authority-v1",
+    writer: "firebase_admin",
+    projectId: "will-2010",
+    versionId: VERSION_ID,
+    contentHash: version.content_hash,
+    trustManifestIntegritySha256: version.trust_manifest.integrity_sha256,
+    analysisPayloadSha256: version.trust_manifest.analysis_payload_sha256,
   };
 }
 
@@ -72,6 +126,7 @@ function assessment(id = "assessment-1", revision = 1) {
       "will-2010",
       VERSION_ID,
       rawVersion(),
+      versionAuthority(),
     ),
     nowIso: "2026-07-30T12:00:00.000Z",
     assessmentId: id,
@@ -94,6 +149,61 @@ test("producer assessment binds Billy's take to the exact sealed analysis", () =
   assert.equal(result.analysis.aiFinalScore, 4.7);
   assert.equal(result.judgment.producerScore, 8.5);
   assert.equal(result.judgment.producerVerdict, "recommend");
+});
+
+test("calibration rejects legacy, self-declared, and incomplete analysis versions", () => {
+  const legacy = rawVersion();
+  legacy.trust_manifest_version = "lemon-trust-manifest-v4";
+  assert.throws(
+    () => extractProducerAnalysisSnapshot("will-2010", VERSION_ID, legacy, versionAuthority(legacy)),
+    /current sealed V9/,
+  );
+
+  const selfDeclared = rawVersion();
+  delete selfDeclared.server_trust_attestation;
+  assert.throws(
+    () => extractProducerAnalysisSnapshot(
+      "will-2010",
+      VERSION_ID,
+      selfDeclared,
+      versionAuthority(selfDeclared),
+    ),
+    /server authority receipt/,
+  );
+
+  const incomplete = rawVersion();
+  incomplete.analysis.analysis_quality.completed_readers = 4;
+  assert.throws(
+    () => extractProducerAnalysisSnapshot(
+      "will-2010",
+      VERSION_ID,
+      incomplete,
+      versionAuthority(incomplete),
+    ),
+    /all five validated specialist readers/,
+  );
+});
+
+test("calibration preserves canonical two-decimal V9 scores", () => {
+  const version = rawVersion();
+  version.analysis.weighted_score_adjusted = 6.83;
+  version.trust_manifest.score_lineage.adjusted_score = 6.83;
+  assert.equal(
+    extractProducerAnalysisSnapshot(
+      "will-2010",
+      VERSION_ID,
+      version,
+      versionAuthority(version),
+    ).aiFinalScore,
+    6.83,
+  );
+});
+
+test("a self-consistent historical version cannot calibrate without a server receipt", () => {
+  assert.throws(
+    () => extractProducerAnalysisSnapshot("will-2010", VERSION_ID, rawVersion(), {}),
+    /server authority receipt/,
+  );
 });
 
 test("a changed producer take creates a new revision instead of overwriting history", () => {

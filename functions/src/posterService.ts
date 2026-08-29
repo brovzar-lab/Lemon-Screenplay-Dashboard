@@ -4,6 +4,7 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { buildSimplePosterPrompt } from './posterPrompt';
 import { reservePosterBudget, settlePosterBudget } from './posterBudget';
+import { loadAuthorizedAnalysisVersion } from './analysisVersionAuthority';
 import {
   POSTER_MODELS,
   canClaimPosterRequest,
@@ -56,11 +57,16 @@ export async function generatePosterForProject(
   const snapshot = await projectRef.get();
   if (!snapshot.exists) throw new Error('Screenplay project not found.');
 
-  const document = snapshot.data() ?? {};
+  const parent = snapshot.data() ?? {};
+  const versionId = safePart(String(parent.latest_version_id ?? ''));
+  const { version: document } = await loadAuthorizedAnalysisVersion(
+    db,
+    projectId,
+    versionId,
+  );
   if (!isCurrentV9Analysis(document.analysis_version)) {
     throw new Error('Posters are available only for completed V9 analyses.');
   }
-  const versionId = safePart(String(document.latest_version_id ?? ''));
   const analysis =
     document.analysis && typeof document.analysis === 'object'
       ? (document.analysis as Record<string, unknown>)

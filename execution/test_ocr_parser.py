@@ -1,6 +1,7 @@
 import subprocess
 import os
 import tempfile
+import unicodedata
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -151,7 +152,10 @@ class TestOcrParser(unittest.TestCase):
             result = parser.parse_screenplay(self.pdf_path)
 
         self.assertEqual(result["metadata"]["extraction_method"], "pdfplumber")
-        self.assertEqual(result["metadata"]["parser_version"], "v4-page-evidence")
+        self.assertEqual(
+            result["metadata"]["parser_version"],
+            ingest_v9.PARSER_VERSION,
+        )
         self.assertEqual(result["text"].count("[PAGE "), 3)
         self.assertTrue(result["metadata"]["extraction_quality"]["publication_ready"])
 
@@ -189,6 +193,87 @@ class TestOcrParser(unittest.TestCase):
             "native_extraction_divergence",
             result["metadata"]["extraction_quality"]["issues"],
         )
+
+    def test_native_similarity_ignores_layout_but_preserves_spanish_text(self):
+        left = parser.join_marked_pages([
+            "ÁRBOL, corazón y cigüeña.\nMARÍA: ¿Qué pasó?",
+            "La sazón de mamá continúa.",
+        ])
+        right = parser.join_marked_pages([
+            "  árbol corazón   y cigüeña   MARÍA qué pasó  ",
+            "LA SAZÓN DE MAMÁ\nCONTINÚA",
+        ])
+        unrelated = parser.join_marked_pages([
+            "robot planeta circuito metal nave",
+            "guerra laser órbita motor espacio",
+        ])
+
+        self.assertEqual(parser.normalized_page_token_similarity(left, right), 1.0)
+        self.assertLess(
+            parser.normalized_page_token_similarity(left, unrelated),
+            parser.NATIVE_TEXT_SIMILARITY_MIN,
+        )
+
+    def test_native_similarity_normalizes_diacritics_without_rewriting_selected_text(self):
+        decomposed_page = unicodedata.normalize(
+            "NFD",
+            "INT. CASA - NOCHE corazón cigüeña María acción diálogo " * 60,
+        )
+        decomposed = parser.join_marked_pages([decomposed_page, decomposed_page])
+        composed = unicodedata.normalize("NFC", decomposed)
+
+        self.assertEqual(parser.normalized_page_token_similarity(decomposed, composed), 1.0)
+        with (
+            patch.object(parser, "get_page_count", return_value=2),
+            patch.object(
+                parser,
+                "extract_text_pdfplumber",
+                return_value=(decomposed, "pdfplumber"),
+            ),
+            patch.object(
+                parser,
+                "extract_text_pymupdf",
+                return_value=(composed, "pymupdf"),
+            ),
+            patch.object(
+                parser,
+                "extract_text_pypdf2",
+                return_value=("", "PyPDF2"),
+            ),
+        ):
+            result = parser.parse_screenplay(self.pdf_path)
+
+        self.assertEqual(result["text"], decomposed)
+
+    def test_equal_word_counts_with_different_content_are_divergent(self):
+        family_page = "familia secreto memoria acción diálogo casa " * 40
+        space_page = "robot planeta circuito metal nave órbita " * 40
+        family_text = parser.join_marked_pages([family_page] * 3)
+        space_text = parser.join_marked_pages([space_page] * 3)
+        self.assertEqual(len(family_text.split()), len(space_text.split()))
+
+        with (
+            patch.object(parser, "get_page_count", return_value=3),
+            patch.object(
+                parser,
+                "extract_text_pdfplumber",
+                return_value=(family_text, "pdfplumber"),
+            ),
+            patch.object(
+                parser,
+                "extract_text_pymupdf",
+                return_value=(space_text, "pymupdf"),
+            ),
+            patch.object(
+                parser,
+                "extract_text_pypdf2",
+                return_value=("", "PyPDF2"),
+            ),
+        ):
+            result = parser.parse_screenplay(self.pdf_path)
+
+        self.assertEqual(result["metadata"]["native_cross_check"]["status"], "divergent")
+        self.assertFalse(result["metadata"]["extraction_quality"]["publication_ready"])
 
 
 class TestParserSubprocessGuard(unittest.TestCase):

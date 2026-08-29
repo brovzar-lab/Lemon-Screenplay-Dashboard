@@ -51,9 +51,56 @@ def canonical_external(name: Optional[str]) -> Optional[str]:
 # ─── Genre Detection Prompt ──────────────────────────────────────────────────
 
 
+GENRE_DETECTION_TOOL: Dict[str, Any] = {
+    "name": "submit_story_grid_genre",
+    "description": "Submit the screenplay's validated Story Grid genre classification.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "external_genre": {
+                "type": "string",
+                "enum": list(EXTERNAL_GENRES),
+            },
+            "comedy_paired_genre": {
+                "type": "string",
+                "enum": ["", *[g for g in EXTERNAL_GENRES if g != "Comedy"]],
+            },
+            "comedy_subgenre": {
+                "type": "string",
+                "enum": ["", *COMEDY_SUBGENRES],
+            },
+            "comedic_tone": {"type": "boolean"},
+            "internal_genre": {
+                "type": "string",
+                "enum": [
+                    name
+                    for members in INTERNAL_GENRES.values()
+                    for name in members
+                ],
+            },
+            "confidence": {
+                "type": "string",
+                "enum": ["high", "medium", "low"],
+            },
+            "one_line_why": {"type": "string"},
+        },
+        "required": [
+            "external_genre",
+            "comedy_paired_genre",
+            "comedy_subgenre",
+            "comedic_tone",
+            "internal_genre",
+            "confidence",
+            "one_line_why",
+        ],
+        "additionalProperties": False,
+    },
+}
+
+
 def build_genre_detection_prompt() -> str:
     """User instruction for the cheap detection pass. Pairs with a cached
-    screenplay block. Returns a JSON classification into the Five-Leaf Clover."""
+    screenplay block and the strict genre tool."""
     genre_list = ", ".join(EXTERNAL_GENRES.keys())
     comedy_subs = ", ".join(COMEDY_SUBGENRES.keys())
     internal_list = ", ".join(
@@ -76,18 +123,11 @@ comedic_tone true and still name the primary dramatic genre.
 
 INTERNAL GENRE (the hero's inner change): pick ONE from: {internal_list}.
 
-Return ONLY this JSON:
-{{
-  "external_genre": "",
-  "is_comedy": false,
-  "comedy_paired_genre": "",
-  "comedy_subgenre": "",
-  "comedic_tone": false,
-  "internal_genre": "",
-  "confidence": "high|medium|low",
-  "one_line_why": ""
-}}
-Return ONLY valid JSON."""
+Call `{GENRE_DETECTION_TOOL['name']}` exactly once. `external_genre` is the
+single authoritative comedy classification: the application derives
+`is_comedy` from whether it equals `Comedy`. Never add a redundant comedy flag.
+For a non-comedy, submit empty strings for `comedy_paired_genre` and
+`comedy_subgenre`."""
 
 
 def parse_detection(raw: Dict[str, Any]) -> Dict[str, Any]:
@@ -95,22 +135,42 @@ def parse_detection(raw: Dict[str, Any]) -> Dict[str, Any]:
     primary = canonical_external(raw.get("external_genre"))
     if primary is None:
         raise ValueError("external_genre is missing or unknown")
-    is_comedy = bool(raw.get("is_comedy")) or primary == "Comedy"
+    is_comedy = primary == "Comedy"
     paired = canonical_external(raw.get("comedy_paired_genre")) if is_comedy else None
     if is_comedy and paired in (None, "Comedy"):
         raise ValueError("comedy_paired_genre is missing or invalid")
     subgenre = raw.get("comedy_subgenre") if is_comedy else None
-    if subgenre and subgenre not in COMEDY_SUBGENRES:
+    if is_comedy and subgenre not in COMEDY_SUBGENRES:
         raise ValueError("comedy_subgenre is missing or invalid")
+    if not is_comedy and (
+        raw.get("comedy_paired_genre") or raw.get("comedy_subgenre")
+    ):
+        raise ValueError("non-comedy genres must not declare comedy pairing")
+    comedic_tone = raw.get("comedic_tone", is_comedy)
+    if not isinstance(comedic_tone, bool):
+        raise ValueError("comedic_tone must be a boolean")
+    if is_comedy and not comedic_tone:
+        raise ValueError("Comedy external genre requires comedic_tone true")
+    internal = raw.get("internal_genre", "")
+    if internal and internal.lower() not in _INTERNAL_CANON:
+        raise ValueError("internal_genre is missing or unknown")
+    if internal:
+        internal = _INTERNAL_CANON[internal.lower()][1]
+    confidence = raw.get("confidence", "low")
+    if confidence not in {"high", "medium", "low"}:
+        raise ValueError("confidence is missing or invalid")
+    explanation = raw.get("one_line_why", "")
+    if not isinstance(explanation, str):
+        raise ValueError("one_line_why must be a string")
     return {
         "external_genre": primary,
         "is_comedy": is_comedy,
         "comedy_paired_genre": paired,
         "comedy_subgenre": subgenre,
-        "comedic_tone": bool(raw.get("comedic_tone")) or is_comedy,
-        "internal_genre": raw.get("internal_genre") or "",
-        "confidence": raw.get("confidence") or "low",
-        "one_line_why": raw.get("one_line_why") or "",
+        "comedic_tone": comedic_tone,
+        "internal_genre": internal,
+        "confidence": confidence,
+        "one_line_why": explanation,
     }
 
 

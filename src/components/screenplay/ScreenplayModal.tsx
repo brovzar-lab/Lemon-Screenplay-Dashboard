@@ -26,6 +26,7 @@ import {
 import { useIsAdmin } from '@/stores/authStore';
 import type { PercentileRank } from '@/lib/percentileRanking';
 import { useTranslation } from 'react-i18next';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 interface ScreenplayModalProps {
   screenplay: Screenplay | null;
@@ -107,6 +108,7 @@ export function ScreenplayModal({
   }, [isOpen]);
 
   if (!isOpen || !screenplay) return null;
+  const decisionReady = isDecisionReady(screenplay);
 
   return (
     <div
@@ -153,8 +155,8 @@ export function ScreenplayModal({
           <div className="pointer-events-none sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black-950/80 to-transparent z-30 rounded-b-2xl" aria-hidden="true" />
           <div className="modal-body p-6 space-y-8 bg-black-950/50">
             <AlertBanners screenplay={screenplay} />
-            <FieldPositionPanel rank={percentileRank} />
-            <FilmNowSection screenplay={screenplay} />
+            {decisionReady && <FieldPositionPanel rank={percentileRank} />}
+            {decisionReady && <FilmNowSection screenplay={screenplay} />}
             {isAdmin && <ProducerTake screenplay={screenplay} />}
 
             {/* Logline */}
@@ -166,10 +168,10 @@ export function ScreenplayModal({
             </div>
 
             <ScoresPanel screenplay={screenplay} />
-            <ProducerMetricsPanel screenplay={screenplay} />
+            {decisionReady && <ProducerMetricsPanel screenplay={screenplay} />}
             <ContentDetails screenplay={screenplay} />
             <DeferredReaderEvidence screenplay={screenplay} />
-            {onSelectScreenplay && (
+            {decisionReady && onSelectScreenplay && (
               <SimilarProjects
                 screenplay={screenplay}
                 allScreenplays={allScreenplays}

@@ -12,14 +12,17 @@ const input = {
   gitSha: 'a'.repeat(40),
   sourceClean: 'true',
   catalogSha256: 'b'.repeat(64),
+  pricingSha256: 'c'.repeat(64),
   buildTimestamp: '2026-08-21T12:00:00Z',
   runId: 'staging-smoke',
   capMicrousd: 1_000_000,
+  priorAuditSpendMicrousd: 106_425,
   runtimeServiceAccount: 'benchmark-runtime@lemon-screenplay-staging.iam.gserviceaccount.com',
   runtimeProjectId: 'lemon-screenplay-staging',
   stagingFirestoreProjectId: 'lemon-screenplay-staging',
   productionFirestoreProjectId: 'lemon-screenplay-dashboard',
   productionStorageBucket: 'lemon-screenplay-dashboard.firebasestorage.app',
+  inferenceGeo: 'global',
   cloudRunRevision: 'llmproxycandidate-00001-abc',
 };
 
@@ -36,14 +39,16 @@ test('release identity binds every negative isolation target', () => {
   const hash = (staging, production, storage) => deploymentConfigSha256(
     input.runId,
     input.capMicrousd,
+    input.priorAuditSpendMicrousd,
     input.runtimeServiceAccount,
     input.runtimeProjectId,
     staging,
     production,
     storage,
+    input.inferenceGeo,
   );
   const changedStaging = hash(
-    'lemon-sp-dashboard-stg-493694',
+    'unapproved-staging',
     input.productionFirestoreProjectId,
     input.productionStorageBucket,
   );
@@ -61,6 +66,21 @@ test('release identity binds every negative isolation target', () => {
   assert.notEqual(release.deployment_config_sha256, changedStaging);
   assert.notEqual(release.deployment_config_sha256, changedProduction);
   assert.notEqual(release.deployment_config_sha256, changedStorage);
+});
+
+test('release identity binds and validates the reviewed inference geography', () => {
+  const globalRelease = buildBenchmarkReleaseIdentity(input);
+  const usRelease = buildBenchmarkReleaseIdentity({ ...input, inferenceGeo: 'us' });
+  assert.equal(globalRelease.inference_geo, 'global');
+  assert.equal(usRelease.inference_geo, 'us');
+  assert.notEqual(
+    globalRelease.deployment_config_sha256,
+    usRelease.deployment_config_sha256,
+  );
+  assert.throws(
+    () => buildBenchmarkReleaseIdentity({ ...input, inferenceGeo: 'automatic' }),
+    /global or us/,
+  );
 });
 
 test('staging and production default Firestore targets stay distinct', () => {
@@ -86,13 +106,13 @@ test('staging and production default Firestore targets stay distinct', () => {
   );
 });
 
-test('runtime identity must match either the staging or production isolation target', () => {
+test('runtime identity must match the staging isolation target only', () => {
   assert.throws(
     () => buildBenchmarkReleaseIdentity({
       ...input,
-      runtimeProjectId: 'lemon-sp-dashboard-stg-493694',
+      runtimeProjectId: 'unapproved-staging',
     }),
-    /must match an approved isolation target/,
+    /must match the staging Firestore project/,
   );
   assert.throws(
     () => buildBenchmarkReleaseIdentity({
@@ -101,11 +121,11 @@ test('runtime identity must match either the staging or production isolation tar
     }),
     /must belong to the runtime project/,
   );
-  assert.doesNotThrow(() => buildBenchmarkReleaseIdentity({
+  assert.throws(() => buildBenchmarkReleaseIdentity({
     ...input,
     runtimeProjectId: 'lemon-screenplay-dashboard',
     runtimeServiceAccount: 'benchmark-runtime@lemon-screenplay-dashboard.iam.gserviceaccount.com',
-  }));
+  }), /must match the staging Firestore project/);
 });
 
 test('dirty source is refused and candidate invocation is service-only', () => {
@@ -115,4 +135,7 @@ test('dirty source is refused and candidate invocation is service-only', () => {
   );
   assert.equal(BENCHMARK_RUNTIME_OPTIONS.invoker, 'private');
   assert.equal(BENCHMARK_RUNTIME_OPTIONS.databaseId, 'model-benchmarks');
+  assert.equal(BENCHMARK_RUNTIME_OPTIONS.runtimeUpdatePolicy, 'automatic');
+  assert.equal(BENCHMARK_RUNTIME_OPTIONS.dockerRepository, 'regional-staging-gcf-artifacts');
+  assert.equal(BENCHMARK_RUNTIME_OPTIONS.vpcConnector, 'none');
 });

@@ -5,6 +5,7 @@ import { DiscoveryPitchDeckModal } from '@/components/discover/DiscoveryPitchDec
 import { useHasSelection, useSelectionCount, useSelectionStore } from '@/stores/selectionStore';
 import type { Screenplay } from '@/types';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import { isDecisionReady } from '@/lib/producerProjection';
 import { useTranslation } from 'react-i18next';
 
 interface DiscoverySelectionBarProps {
@@ -38,6 +39,8 @@ export function DiscoverySelectionBar({
     () => visibleScreenplays.filter((screenplay) => selectedIds.has(screenplay.id)),
     [visibleScreenplays, selectedIds],
   );
+  const decisionOutputAllowed =
+    selectedScreenplays.length > 0 && selectedScreenplays.every(isDecisionReady);
 
   useEffect(() => {
     if (!escapeEnabled || !selectionMode) return;
@@ -113,7 +116,9 @@ export function DiscoverySelectionBar({
                   {getScreenplayDisplayTitle(screenplay.title).title}
                 </span>
                 <span className="dsc-num shrink-0 text-lg font-semibold">
-                  {screenplay.weightedScore.toFixed(1)}
+                  {isDecisionReady(screenplay)
+                    ? screenplay.weightedScore.toFixed(1)
+                    : t('Not verified')}
                 </span>
               </div>
             ))}
@@ -130,6 +135,7 @@ export function DiscoverySelectionBar({
             <button
               type="button"
               onClick={() => setShowShareModal(true)}
+              disabled={!decisionOutputAllowed}
               className="dsc-btn dsc-btn-primary shrink-0"
             >
               {t('Bulk share links')}
@@ -144,10 +150,16 @@ export function DiscoverySelectionBar({
             <button
               type="button"
               onClick={() => setShowPitchDeckModal(true)}
+              disabled={!decisionOutputAllowed}
               className="dsc-btn col-span-2 shrink-0 sm:col-span-1"
             >
               {t('Pitch-deck PDFs')}
             </button>
+            {!decisionOutputAllowed && (
+              <span role="status" className="col-span-2 text-xs text-amber-300">
+                {t('Decision data unavailable until verification')}
+              </span>
+            )}
           </div>
         </div>
       </section>

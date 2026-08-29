@@ -25,6 +25,12 @@ vi.mock('@/hooks/useScreenplays', () => ({
   useDeleteScreenplays: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
+vi.mock('@/lib/shareService', () => ({
+  getAllSharedViews: vi.fn().mockResolvedValue([]),
+  getExistingShareToken: vi.fn().mockResolvedValue(null),
+  isScreenplaySynced: vi.fn().mockResolvedValue(true),
+}));
+
 import DiscoverPage from '@/pages/DiscoverPage';
 
 function LocationProbe() {

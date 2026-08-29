@@ -13,13 +13,15 @@ import {
 } from '@/hooks/useScreenplays';
 import { useFilterStore } from '@/stores/filterStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
-import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { softDeleteAllAnalyses, resetMigrationFlag, getQuarantineCount } from '@/lib/analysisStore';
 import { DeleteConfirmDialog } from '@/components/ui/DeleteConfirmDialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToastStore } from '@/stores/toastStore';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import { exportToCSV } from '@/components/export/csvExport';
+import { buildRawScreenplayBackup } from '@/components/export/exportBackup';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 export function DataManagement() {
   const { t } = useTranslation();
@@ -48,24 +50,7 @@ export function DataManagement() {
 
   const handleExportJSON = () => {
     try {
-      const data = {
-        exportedAt: new Date().toISOString(),
-        version: '6.0',
-        screenplays: screenplays.map((sp) => ({
-          id: sp.id,
-          title: sp.title,
-          author: sp.author,
-          genre: sp.genre,
-          subgenres: sp.subgenres,
-          themes: sp.themes,
-          recommendation: sp.recommendation,
-          weightedScore: sp.weightedScore,
-          cvsTotal: sp.cvsTotal,
-          dimensionScores: sp.dimensionScores,
-          producerMetrics: sp.producerMetrics,
-          category: sp.category,
-        })),
-      };
+      const data = buildRawScreenplayBackup(screenplays);
 
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -85,45 +70,21 @@ export function DataManagement() {
 
   const handleExportCSV = () => {
     try {
-      const sampleDims = screenplays.length > 0 ? getDimensionDisplay(screenplays[0]) : [];
-      const dimHeaders = sampleDims.map((d) => d.label);
-
-      const headers = [
-        'Title',
-        'Author',
-        'Genre',
-        'Recommendation',
-        'Final Score',
-        'CVS Total',
-        ...dimHeaders,
-        'Market Potential',
-        'Category',
-      ];
-
-      const rows = screenplays.map((sp) => {
-        const dims = getDimensionDisplay(sp);
-        return [
-          `"${sp.title.replace(/"/g, '""')}"`,
-          `"${sp.author.replace(/"/g, '""')}"`,
-          `"${sp.genre}"`,
-          sp.recommendation,
-          sp.weightedScore.toFixed(2),
-          sp.cvsTotal.toFixed(0),
-          ...dims.map((d) => d.score.toFixed(1)),
-          sp.producerMetrics.marketPotential?.toFixed(1) ?? 'N/A',
-          sp.category || 'BLKLST',
-        ];
-      });
-
-      const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `lemon-screenplays-${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const verified = screenplays.filter(isDecisionReady);
+      if (verified.length === 0) {
+        throw new Error('No verified analyses are available for decision export.');
+      }
+      exportToCSV(verified, 'lemon-screenplays-verified');
+      const omitted = screenplays.length - verified.length;
+      if (omitted > 0) {
+        useToastStore.getState().addToast(
+          t('Exported {{count}} verified analyses. Omitted {{omitted}} unverified records.', {
+            count: verified.length,
+            omitted,
+          }),
+          'warning',
+        );
+      }
 
       setExportStatus('success');
       setTimeout(() => setExportStatus('idle'), 2000);
@@ -201,7 +162,7 @@ export function DataManagement() {
               </div>
               <div>
                 <p className="font-medium text-gold-200">{t('Export JSON')}</p>
-                <p className="text-xs text-black-500">{t('Full data with all fields')}</p>
+                <p className="text-xs text-black-500">{t('Raw backup with explicit trust labels')}</p>
               </div>
             </div>
           </button>
@@ -228,7 +189,7 @@ export function DataManagement() {
               </div>
               <div>
                 <p className="font-medium text-gold-200">{t('Export CSV')}</p>
-                <p className="text-xs text-black-500">{t('Spreadsheet compatible')}</p>
+                <p className="text-xs text-black-500">{t('Verified decision data only')}</p>
               </div>
             </div>
           </button>

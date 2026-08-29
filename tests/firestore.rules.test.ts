@@ -79,32 +79,78 @@ function readerDb() {
 describe('shared_views capability links', () => {
   beforeEach(async () => {
     await seed('shared_views/live-token', {
+      token: 'live-token',
       expiresAtMillis: Date.now() + 60_000,
       title: 'Partner view',
+      sealedVersion: {
+        analysis_version: 'v9_archaeology',
+        trust_manifest_version: 'lemon-trust-manifest-v6',
+        server_trust_attestation: { writer: 'firebase_admin' },
+      },
     });
   });
 
-  it('allows a public fetch for a live token but denies enumeration', async () => {
+  it('denies direct public reads even for a live token', async () => {
     const publicDb = testEnv.unauthenticatedContext().firestore();
-    await assertSucceeds(getDoc(doc(publicDb, 'shared_views/live-token')));
+    await assertFails(getDoc(doc(publicDb, 'shared_views/live-token')));
     await assertFails(getDocs(collection(publicDb, 'shared_views')));
   });
 
   it('denies a public fetch for an expired token', async () => {
     await seed('shared_views/expired-token', {
+      token: 'expired-token',
       expiresAtMillis: Date.now() - 60_000,
       title: 'Expired partner view',
+      sealedVersion: {
+        analysis_version: 'v9_archaeology',
+        trust_manifest_version: 'lemon-trust-manifest-v6',
+        server_trust_attestation: { writer: 'firebase_admin' },
+      },
     });
     const publicDb = testEnv.unauthenticatedContext().firestore();
     await assertFails(getDoc(doc(publicDb, 'shared_views/expired-token')));
   });
 
-  it('allows a team reader to list and create share records', async () => {
+  it('denies public reads of legacy or token-mismatched share snapshots', async () => {
+    await seed('shared_views/legacy-token', {
+      token: 'legacy-token',
+      expiresAtMillis: Date.now() + 60_000,
+      analysis: { recommendation: 'film_now' },
+    });
+    await seed('shared_views/mismatched-token', {
+      token: 'different-token',
+      expiresAtMillis: Date.now() + 60_000,
+      sealedVersion: {
+        analysis_version: 'v9_archaeology',
+        trust_manifest_version: 'lemon-trust-manifest-v6',
+        server_trust_attestation: { writer: 'firebase_admin' },
+      },
+    });
+    const publicDb = testEnv.unauthenticatedContext().firestore();
+    await assertFails(getDoc(doc(publicDb, 'shared_views/legacy-token')));
+    await assertFails(getDoc(doc(publicDb, 'shared_views/mismatched-token')));
+  });
+
+  it('allows a team reader to list but not forge share records', async () => {
     await assertSucceeds(getDocs(collection(readerDb(), 'shared_views')));
-    await assertSucceeds(setDoc(doc(readerDb(), 'shared_views/new-token'), {
+    await assertFails(setDoc(doc(readerDb(), 'shared_views/new-token'), {
       expiresAtMillis: Date.now() + 60_000,
       title: 'Reader share',
     }));
+    await assertFails(deleteDoc(doc(readerDb(), 'shared_views/live-token')));
+  });
+
+  it('keeps share authority receipts server-only', async () => {
+    await seed('share_authorities/live-token', {
+      authorityVersion: 'lemon-share-authority-v1',
+      token: 'live-token',
+    });
+    await assertFails(getDoc(doc(adminDb(), 'share_authorities/live-token')));
+    await assertFails(setDoc(doc(adminDb(), 'share_authorities/forged'), {
+      authorityVersion: 'lemon-share-authority-v1',
+      token: 'forged',
+    }));
+    await assertFails(deleteDoc(doc(adminDb(), 'share_authorities/live-token')));
   });
 
   it('denies a verified non-Lemon account', async () => {
@@ -151,6 +197,55 @@ describe('uploaded_analyses lifecycle', () => {
     }));
   });
 
+  it('prevents browser clients from writing or changing server trust fields', async () => {
+    await assertFails(setDoc(doc(adminDb(), 'uploaded_analyses/forged'), {
+      source_file: 'forged.pdf',
+      analysis_version: 'v9_archaeology',
+      server_trust_attestation: { writer: 'firebase_admin' },
+    }));
+    await assertFails(updateDoc(doc(adminDb(), 'uploaded_analyses/script-one'), {
+      analysis: { verdict: 'RECOMMEND' },
+    }));
+    await assertFails(updateDoc(doc(adminDb(), 'uploaded_analyses/script-one'), {
+      analysis_model: 'claude-fake',
+      usage: { actual_cost_usd: 0 },
+      metadata: { page_count: 1 },
+    }));
+    await assertFails(updateDoc(doc(adminDb(), 'uploaded_analyses/script-one'), {
+      source_file: 'different.pdf',
+    }));
+    await assertFails(updateDoc(doc(adminDb(), 'uploaded_analyses/script-one'), {
+      _trust_authority: 'immutable_server',
+    }));
+    await assertFails(updateDoc(doc(adminDb(), 'uploaded_analyses/script-one'), {
+      poster_url: 'https://example.test/forged.jpg',
+      poster_version_id: 'forged-version',
+    }));
+  });
+
+  it('allows team reads but denies every client write to version authority receipts', async () => {
+    await seed('uploaded_analyses/script-one/version_authorities/version-1', {
+      authorityVersion: 'lemon-analysis-version-authority-v1',
+      writer: 'firebase_admin',
+    });
+    const receipt = doc(
+      readerDb(),
+      'uploaded_analyses/script-one/version_authorities/version-1',
+    );
+    await assertSucceeds(getDoc(receipt));
+    await assertFails(setDoc(
+      doc(adminDb(), 'uploaded_analyses/script-one/version_authorities/forged'),
+      { authorityVersion: 'lemon-analysis-version-authority-v1' },
+    ));
+    await assertFails(updateDoc(
+      doc(adminDb(), 'uploaded_analyses/script-one/version_authorities/version-1'),
+      { writer: 'browser' },
+    ));
+    await assertFails(deleteDoc(
+      doc(adminDb(), 'uploaded_analyses/script-one/version_authorities/version-1'),
+    ));
+  });
+
   it('denies hard-delete even for admins', async () => {
     await assertFails(deleteDoc(doc(adminDb(), 'uploaded_analyses/script-one')));
   });
@@ -175,9 +270,10 @@ describe('immutable analysis versions', () => {
     };
   }
 
-  it('allows an admin to create a valid version and a reader to view it', async () => {
-    await assertSucceeds(setDoc(doc(adminDb(), versionPath), validVersion()));
+  it('allows readers to view Admin-SDK versions but rejects browser creation', async () => {
+    await seed(versionPath, validVersion());
     await assertSucceeds(getDoc(doc(readerDb(), versionPath)));
+    await assertFails(setDoc(doc(adminDb(), `${versionPath}-browser`), validVersion()));
   });
 
   it('rejects an ISO string in place of a Firestore Timestamp', async () => {

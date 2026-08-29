@@ -20,6 +20,7 @@ import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import modelCatalog from '@/config/anthropic-model-catalog.json';
 import { MODEL_OPTIONS } from './upload/upload.constants';
 import { REANALYSIS_MODELS } from '@/components/screenplay/modal/reanalysisModels';
+import { decisionReadyScreenplays } from '@/lib/producerProjection';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,8 @@ const COMPARISON_CANDIDATES = [
   { name: 'Sonnet 5', modelId: modelCatalog.latestObserved.sonnet, label: 'Benchmark pending' },
   { name: 'Opus 5', modelId: modelCatalog.latestObserved.opus, label: 'Benchmark pending' },
 ] as const;
+const FRESH_COMPARISON_DISABLED_MESSAGE =
+  'Fresh browser comparisons are disabled. Use Upload or Re-analyze so the authoritative private V9 pipeline records the complete trust evidence.';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -214,16 +217,17 @@ export function ModelComparisonPanel() {
 
   const filteredScreenplays = useMemo(() => {
     if (!screenplays) return [];
+    const eligible = decisionReadyScreenplays(screenplays);
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return screenplays.slice(0, 20);
-    return screenplays
+    if (!q) return eligible.slice(0, 20);
+    return eligible
       .filter((s) => s.title.toLowerCase().includes(q) || s.author?.toLowerCase().includes(q))
       .slice(0, 20);
   }, [screenplays, searchQuery]);
 
   const selectedScreenplay = useMemo(() => {
     if (!selectedScreenplayId || !screenplays) return null;
-    return screenplays.find((s) => s.id === selectedScreenplayId) ?? null;
+    return decisionReadyScreenplays(screenplays).find((s) => s.id === selectedScreenplayId) ?? null;
   }, [selectedScreenplayId, screenplays]);
 
   // ─── Toggle helpers ──────────────────────────────────────────────────────
@@ -319,7 +323,7 @@ export function ModelComparisonPanel() {
     }
     setResults(initialResults as Record<SlotKey, SlotResult>);
 
-    // Run all selected combinations in parallel
+    // The service also refuses this legacy browser path before parsing or dispatch.
     const promises: Promise<void>[] = [];
 
     for (const engine of selectedEngines) {
@@ -552,6 +556,9 @@ export function ModelComparisonPanel() {
       {/* ─── Upload Source ─────────────────────────────────────────────── */}
       {sourceMode === 'upload' && (
         <>
+          <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+            {t(FRESH_COMPARISON_DISABLED_MESSAGE)}
+          </p>
           {/* Drop Zone */}
           <div
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -766,17 +773,13 @@ export function ModelComparisonPanel() {
           )}
           <button
             onClick={runComparison}
-            disabled={isRunning || activeSlots.length === 0}
+            disabled
             className={clsx(
               'w-full py-4 rounded-xl font-display text-lg transition-all',
-              isRunning || activeSlots.length === 0
-                ? 'bg-black-700 text-black-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-gold-500/80 to-amber-500/80 text-black-900 hover:from-gold-400 hover:to-amber-400 shadow-lg shadow-gold-500/20',
+              'bg-black-700 text-black-400 cursor-not-allowed',
             )}
           >
-            {isRunning
-              ? `⏳ ${t('Running {{count}} slot...', { count: activeSlots.length })}`
-              : `🚀 ${t('Run Comparison ({{count}} slot)', { count: activeSlots.length })}`}
+            {t('Fresh comparison disabled')}
           </button>
         </div>
       )}

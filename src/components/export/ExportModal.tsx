@@ -13,6 +13,7 @@ import { useToastStore } from '@/stores/toastStore';
 import { useTranslation } from 'react-i18next';
 import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
 import { currentUiLanguage } from '@/i18n';
+import { requireDecisionReady } from '@/lib/producerProjection';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export function ExportModal({
     setExportComplete(false);
 
     try {
+      requireDecisionReady(screenplays);
       if (effectiveFormat === 'csv') {
         // CSV export
         const filename =

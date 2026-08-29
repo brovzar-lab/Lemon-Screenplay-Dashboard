@@ -64,7 +64,7 @@ describe('V9 reader citation contract', () => {
 });
 
 describe('V9 synthesis critical-failure contract', () => {
-  it('requests the severity-bearing structure used by verdict arithmetic', () => {
+  it('requests cited weakness links and leaves penalty arithmetic to the engine', () => {
     const reports = Object.fromEntries(
       ([
         'structure',
@@ -82,9 +82,11 @@ describe('V9 synthesis critical-failure contract', () => {
     });
 
     expect(prompt.userPrompt).toContain(
-      '{ "weakness_index": 0, "reader": "structure|character|craft_scene|concept|emotional_resonance", "metric": "", "description": "", "severity": "minor|moderate|major|critical", "penalty": 0.0 }',
+      '{ "weakness_index": 0, "reader": "structure|character|craft_scene|concept|emotional_resonance", "metric": "", "description": "" }',
     );
-    expect(prompt.userPrompt).toContain('minor=0.3, moderate=0.5, major=0.8, critical=1.2');
+    expect(prompt.userPrompt).toContain('The engine derives severity and penalty from that score.');
+    expect(prompt.userPrompt).not.toContain('"severity": "minor|moderate|major|critical"');
+    expect(prompt.userPrompt).not.toContain('"penalty": 0.0');
     expect(prompt.userPrompt).not.toContain('{ "failure": "", "why_structural": "" }');
     expect(prompt.userPrompt).toContain('SOURCE-BACKED TITLE-PAGE AUTHOR: "Source Writer"');
     expect(prompt.systemPrompt).toContain(UNTRUSTED_SCREENPLAY_INSTRUCTION);

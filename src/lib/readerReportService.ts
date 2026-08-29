@@ -1,7 +1,7 @@
 import { doc, getDoc } from 'firebase/firestore';
 
 import type { ReaderReportEvidence, Screenplay } from '@/types';
-import { toDocId } from '@/lib/analysisStore';
+import { bindAuthoritativeVersion, toDocId } from '@/lib/analysisStore';
 import { authReady, db } from '@/lib/firebase';
 
 type UnknownRecord = Record<string, unknown>;
@@ -62,27 +62,36 @@ export function parseReaderReports(raw: unknown): ReaderReportEvidence[] {
 }
 
 export async function fetchReaderReports(
-  screenplay: Pick<
-    Screenplay,
-    'projectId' | 'latestVersionId' | 'sourceFile'
-  >,
+  screenplay: Screenplay,
 ): Promise<ReaderReportEvidence[]> {
   await authReady;
 
+  if (!screenplay.latestVersionId) return [];
   const projectId = screenplay.projectId || toDocId(screenplay.sourceFile);
-  const reference = screenplay.latestVersionId
-    ? doc(
-        db,
-        'uploaded_analyses',
-        projectId,
-        'versions',
-        screenplay.latestVersionId,
-      )
-    : doc(db, 'uploaded_analyses', projectId);
-  const snapshot = await getDoc(reference);
-  if (!snapshot.exists()) return [];
+  const [versionSnapshot, authoritySnapshot] = await Promise.all([
+    getDoc(doc(
+      db,
+      'uploaded_analyses',
+      projectId,
+      'versions',
+      screenplay.latestVersionId,
+    )),
+    getDoc(doc(
+      db,
+      'uploaded_analyses',
+      projectId,
+      'version_authorities',
+      screenplay.latestVersionId,
+    )),
+  ]);
+  if (!versionSnapshot.exists() || !authoritySnapshot.exists()) return [];
 
-  const data = snapshot.data() as UnknownRecord;
+  const data = bindAuthoritativeVersion(
+    { project_id: projectId, latest_version_id: screenplay.latestVersionId },
+    versionSnapshot.data() as UnknownRecord,
+    authoritySnapshot.data() as UnknownRecord,
+  );
+  if (data._trust_authority !== 'immutable_server') return [];
   const analysis = asRecord(data.analysis);
   return parseReaderReports(analysis?.reader_reports);
 }

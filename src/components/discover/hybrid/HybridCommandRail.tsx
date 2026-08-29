@@ -5,6 +5,7 @@ import { RangeSlider } from '@/components/filters/RangeSlider';
 import { LensMenu } from '@/components/filters/LensMenu';
 import { DiscoveryFavoritesMenu } from '@/components/discover/DiscoveryFavoritesMenu';
 import { passesFilters } from '@/hooks/useFilteredScreenplays';
+import { decisionReadyScreenplays } from '@/lib/producerProjection';
 import { useFilterStore } from '@/stores/filterStore';
 import { useLensStore } from '@/stores/lensStore';
 import { useSortStore } from '@/stores/sortStore';
@@ -94,7 +95,8 @@ export function HybridCommandRail({
       missingPdfOnly: filters.missingPdfOnly,
       hasPdfOnly: filters.hasPdfOnly,
     };
-    const base = allScreenplays.filter((screenplay) => passesFilters(screenplay, withoutVerdict));
+    const base = decisionReadyScreenplays(allScreenplays)
+      .filter((screenplay) => passesFilters(screenplay, withoutVerdict));
     return {
       all: base.length,
       film_now: base.filter((screenplay) => screenplay.recommendation === 'film_now').length,

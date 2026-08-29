@@ -14,6 +14,7 @@ import { LensMenu } from '@/components/filters/LensMenu';
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import { useFeaturedProject } from '@/hooks/useFeaturedProject';
 import { recordFeaturedEngagement } from '@/lib/featuredProjectSettings';
+import { decisionReadyScreenplays, isDecisionReady } from '@/lib/producerProjection';
 import { useAuthStore } from '@/stores/authStore';
 import {
   useHasSelection,
@@ -103,7 +104,7 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
   const featuredRank = useMemo(() => {
     if (!featured.screenplay) return 1;
     return (
-      [...allScreenplays]
+      decisionReadyScreenplays(allScreenplays)
         .sort(
           (a, b) =>
             (b.producerProjection?.finalScore ?? b.weightedScore) -
@@ -113,13 +114,15 @@ export function ScreenplayDiscoverShell(props: DiscoverShellProps) {
         .findIndex((item) => item.id === featured.screenplay?.id) + 1
     );
   }, [allScreenplays, featured.screenplay]);
-  const wall = useMemo(
-    () =>
-      screenplays
-        .map((screenplay, index) => ({ screenplay, rank: index + 1 }))
-        .filter((entry) => entry.screenplay.id !== featuredId),
-    [featuredId, screenplays],
-  );
+  const wall = useMemo(() => {
+    let rank = 0;
+    return screenplays
+      .map((screenplay) => ({
+        screenplay,
+        rank: isDecisionReady(screenplay) ? ++rank : 0,
+      }))
+      .filter((entry) => entry.screenplay.id !== featuredId);
+  }, [featuredId, screenplays]);
   const signature = useMemo(
     () => wall.map((entry) => entry.screenplay.id).join('|'),
     [wall],

@@ -9,6 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Screenplay } from '@/types';
+import { createTestScreenplay } from '@/test/factories';
 
 // Mock @react-pdf/renderer
 const mockToBlob = vi.fn().mockResolvedValue(new Blob(['pdf-content']));
@@ -36,7 +37,7 @@ vi.mock('jszip', () => ({
 
 /** Minimal mock screenplay factory */
 function mockScreenplay(id: string, title: string): Screenplay {
-  return { id, title, sourceFile: `${id}.json` } as Screenplay;
+  return createTestScreenplay({ id, title, sourceFile: `${id}.json` });
 }
 
 describe('bulkExportPdfs', () => {

@@ -10,15 +10,19 @@ from unittest.mock import MagicMock, patch
 os.environ.setdefault("DAEMON_LOG_DIR", "/tmp/lemon-daemon-test")
 
 import daemon
+from execution import ingest_v9 as actual_ingest_v9
 from execution.content_identity import build_separate_project_id
 from execution.ingest_v9 import write_analysis_transaction
 from execution.v9_test_fixtures import (
     HAIKU_MODEL_ID,
+    MODEL_ID,
     complete_analysis,
     complete_usage,
     prepare_q2_analysis,
     q2_parsed_source,
     q2_parser_metadata,
+    raw_analysis,
+    refresh_claim_verification,
 )
 
 
@@ -117,7 +121,11 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                     patch.object(daemon, "HeartbeatTask", return_value=heartbeat),
                     patch.object(daemon, "download_pdf", return_value=pdf_path),
                     patch.object(daemon, "compute_content_hash", return_value=CONTENT_HASH),
-                    patch.object(daemon, "is_already_complete", return_value=False),
+                    patch.object(
+                        daemon,
+                        "is_already_complete",
+                        return_value=False,
+                    ) as duplicate_check,
                     patch.object(
                         daemon,
                         "choose_output_project_id",
@@ -149,6 +157,7 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                     separate_project=True,
                     upload_id="separate-upload",
                 )
+                duplicate_check.assert_not_called()
                 mark_failed.assert_not_called()
                 fake_engine.parse_pdf.assert_called_once_with(
                     pdf_path,
@@ -166,6 +175,9 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
     def test_byte_identical_upload_stops_before_budget_or_ai(self):
         heartbeat = MagicMock()
         fake_engine = SimpleNamespace(
+            init_firebase=MagicMock(),
+            to_doc_id=MagicMock(return_value="Duplicate.pdf"),
+            validate_permanent_analysis=MagicMock(),
             run_v9_stable=MagicMock(),
             run_v9_hybrid=MagicMock(),
         )
@@ -187,6 +199,7 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                     patch.object(daemon, "download_pdf", return_value=pdf_path),
                     patch.object(daemon, "compute_content_hash", return_value=CONTENT_HASH),
                     patch.object(daemon, "is_already_complete", return_value=True),
+                    patch.object(daemon, "get_existing_version", return_value=None),
                     patch.object(daemon, "mark_skipped") as mark_skipped,
                     patch.object(daemon, "check_daily_budget_available") as budget,
                 ):
@@ -215,15 +228,74 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                 else:
                     sys.modules["ingest_v9"] = prior_engine
 
+    def test_stale_complete_queue_record_does_not_suppress_analysis(self):
+        stale = MagicMock()
+        stale.to_dict.return_value = {
+            "screenplay_doc_id": "Missing.pdf",
+            "version_id": f"{CONTENT_HASH}_{QUEUED_AT_MS}",
+        }
+        prior_db = daemon._db
+        daemon._db = MagicMock()
+        daemon._db.collection.return_value.where.return_value.where.return_value.stream.return_value = [stale]
+        try:
+            with patch.object(daemon, "get_existing_version", return_value=None):
+                self.assertFalse(
+                    daemon.is_already_complete(CONTENT_HASH, MagicMock())
+                )
+        finally:
+            daemon._db = prior_db
+
+    def test_stale_completion_does_not_hide_a_later_valid_duplicate(self):
+        stale = MagicMock()
+        stale.to_dict.return_value = {
+            "screenplay_doc_id": "Missing.pdf",
+            "version_id": f"{CONTENT_HASH}_1",
+        }
+        valid = MagicMock()
+        valid.to_dict.return_value = {
+            "screenplay_doc_id": "Valid.pdf",
+            "version_id": f"{CONTENT_HASH}_2",
+        }
+        prior_db = daemon._db
+        daemon._db = MagicMock()
+        daemon._db.collection.return_value.where.return_value.where.return_value.stream.return_value = [
+            stale,
+            valid,
+        ]
+        try:
+            with (
+                patch.object(
+                    daemon,
+                    "get_existing_version",
+                    side_effect=[None, {
+                        "storage_path": (
+                            "gs://bucket/screenplays/Valid.pdf/versions/"
+                            f"{CONTENT_HASH}_2.pdf"
+                        ),
+                        "storage_generation": "2002",
+                    }],
+                ),
+                patch.object(daemon, "verify_archived_pdf_version") as verify_archive,
+            ):
+                self.assertTrue(
+                    daemon.is_already_complete(CONTENT_HASH, MagicMock())
+                )
+                verify_archive.assert_called_once()
+        finally:
+            daemon._db = prior_db
+
     def test_renamed_revision_stays_under_the_target_project(self):
-        parser_metadata = q2_parser_metadata(
-            page_count=100,
-            word_count=20_000,
-            character_count=123_456,
-        )
-        analysis = prepare_q2_analysis(
-            complete_analysis("Completely Renamed Draft"),
+        parsed = q2_parsed_source(page_count=100, word_count=20_000)
+        parser_metadata = parsed["metadata"]
+        analysis = raw_analysis()["analysis"]
+        analysis["title"] = "Completely Renamed Draft"
+        prepare_q2_analysis(analysis, parser_metadata)
+        refresh_claim_verification(analysis)
+        actual_ingest_v9.attach_verified_citation_quality(
+            analysis,
             parser_metadata,
+            parser_metadata["page_count"],
+            parsed["text"],
         )
         raw = daemon.build_raw_document(
             filename="Completely Renamed Draft.pdf",
@@ -232,7 +304,7 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
             page_count=100,
             word_count=20_000,
             analysis=analysis,
-            usage=complete_usage("claude-sonnet-test"),
+            usage=complete_usage(MODEL_ID),
             job_id="revision-job",
             content_hash=CONTENT_HASH,
             queued_at_ms=QUEUED_AT_MS,
@@ -243,11 +315,11 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                 f"{CONTENT_HASH}_{QUEUED_AT_MS}.pdf"
             ),
             storage_generation="2002",
-            text_character_count=123_456,
+            text_character_count=len(parsed["text"]),
             parser_metadata=parser_metadata,
             model_ids={
                 "haiku": HAIKU_MODEL_ID,
-                "sonnet": "claude-sonnet-test",
+                "sonnet": MODEL_ID,
             },
             parser_version="parser-test",
         )
@@ -260,10 +332,12 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
             "version_count": 1,
         })
         version_ref = FakeReference()
+        authority_ref = FakeReference()
         version_number = write_analysis_transaction(
             transaction,
             parent_ref,
             version_ref,
+            authority_ref,
             raw,
             project_id=raw["project_id"],
             version_id=f"{CONTENT_HASH}_{QUEUED_AT_MS}",
@@ -272,7 +346,7 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
 
         self.assertEqual(version_number, 2)
         version_document = transaction.operations[0][2]
-        parent_document = transaction.operations[1][2]
+        parent_document = transaction.operations[2][2]
         self.assertEqual(version_document["source_file"], "Completely Renamed Draft.pdf")
         self.assertEqual(version_document["project_id"], "Original_Draft.pdf")
         self.assertEqual(parent_document["source_file"], "Original Draft.pdf")
@@ -298,14 +372,20 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
             run_nonbinding_cold_read=MagicMock(return_value=(None, None)),
             run_v9_stable=MagicMock(return_value=(
                 analysis,
-                complete_usage("claude-sonnet-test"),
+                complete_usage(MODEL_ID),
             )),
             run_v9_hybrid=MagicMock(),
-            write_to_firestore=MagicMock(side_effect=lambda raw: written.append(raw) or True),
+            run_claim_verification=MagicMock(return_value=(
+                {},
+                actual_ingest_v9.empty_usage(),
+            )),
+            merge_usage=actual_ingest_v9.merge_usage,
+            empty_usage=actual_ingest_v9.empty_usage,
+            write_to_firestore=MagicMock(return_value=True),
             to_doc_id=MagicMock(return_value="wrong-new-project"),
             MODEL_IDS={
                 "haiku": HAIKU_MODEL_ID,
-                "sonnet": "claude-sonnet-test",
+                "sonnet": MODEL_ID,
             },
             PARSER_VERSION="parser-test",
         )
@@ -357,6 +437,21 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                         },
                     ),
                     patch.object(daemon, "check_daily_budget_available"),
+                    patch.object(
+                        daemon,
+                        "build_raw_document",
+                        side_effect=lambda **kwargs: (
+                            written.append(kwargs)
+                            or {
+                                "project_id": kwargs["target_project_id"],
+                                "source_file": kwargs["filename"],
+                                "storage_path": kwargs["storage_path"],
+                                "storage_generation": kwargs["storage_generation"],
+                                "calibration_profile": kwargs["calibration_provenance"],
+                                "prompt_version": "test-prompt-version",
+                            }
+                        ),
+                    ),
                     patch.object(daemon, "mark_complete") as mark_complete,
                     patch.object(daemon, "mark_failed") as mark_failed,
                 ):
@@ -378,15 +473,15 @@ class TestDaemonDuplicateAndTargeting(unittest.TestCase):
                 resolve_target.assert_called_once_with("Original_Draft.pdf")
                 mark_failed.assert_not_called()
                 self.assertEqual(len(written), 1)
-                self.assertEqual(written[0]["project_id"], "Original_Draft.pdf")
-                self.assertEqual(written[0]["source_file"], "Completely Renamed Draft.pdf")
+                self.assertEqual(written[0]["target_project_id"], "Original_Draft.pdf")
+                self.assertEqual(written[0]["filename"], "Completely Renamed Draft.pdf")
                 self.assertEqual(written[0]["storage_generation"], "2002")
                 self.assertIn("/versions/", written[0]["storage_path"])
                 self.assertEqual(
-                    written[0]["calibration_profile"]["prompt_sha256"],
+                    written[0]["calibration_provenance"]["prompt_sha256"],
                     "ab" * 32,
                 )
-                self.assertNotIn("prompt", written[0]["calibration_profile"])
+                self.assertNotIn("prompt", written[0]["calibration_provenance"])
                 self.assertEqual(
                     fake_engine.run_v9_stable.call_args.kwargs["calibration_prompt"],
                     "Favor emotional specificity.",

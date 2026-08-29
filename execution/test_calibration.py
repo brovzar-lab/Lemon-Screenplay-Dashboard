@@ -140,12 +140,15 @@ class CalibrationPromptTests(unittest.TestCase):
             usage["call_count"] = 1
             usage["calls"] = [{"disposition": "pending"}]
             if kwargs["stage"] == "genre_detection":
-                return None, (
-                    '{"external_genre":"Society","is_comedy":false,'
-                    '"comedy_paired_genre":"","comedy_subgenre":"",'
-                    '"comedic_tone":false,"internal_genre":"Maturation",'
-                    '"confidence":"high","one_line_why":"A social test."}'
-                ), usage
+                return {
+                    "external_genre": "Society",
+                    "comedy_paired_genre": "",
+                    "comedy_subgenre": "",
+                    "comedic_tone": False,
+                    "internal_genre": "Maturation",
+                    "confidence": "high",
+                    "one_line_why": "A social test.",
+                }, "", usage
             return None, (
                 '{"triage_score":6,"verdict":"CONSIDER","genre":"Drama",'
                 '"logline":"A family faces a test.","should_deep_analyze":true}'
@@ -211,7 +214,35 @@ class CalibrationPromptTests(unittest.TestCase):
         for call in run_full.call_args_list:
             self.assertEqual(call.kwargs["calibration_prompt"], "Lemon profile")
 
-    def test_boundary_rerun_failure_is_preserved_in_provenance(self):
+    def test_boundary_majority_keeps_its_own_complete_run(self):
+        pass_one = {
+            "weighted_score_adjusted": 5.2,
+            "verdict": "PASS",
+            "executive_summary": "PASS on this draft.",
+        }
+        consider = {
+            "weighted_score_adjusted": 5.4,
+            "verdict": "CONSIDER",
+            "executive_summary": "CONSIDER this draft.",
+        }
+        pass_two = {
+            "weighted_score_adjusted": 5.6,
+            "verdict": "PASS",
+            "executive_summary": "PASS after review.",
+        }
+
+        selected = ingest_v9.select_stable_result([
+            (5.2, pass_one),
+            (5.4, consider),
+            (5.6, pass_two),
+        ])
+
+        self.assertIs(selected, pass_one)
+        self.assertEqual(selected["verdict"], "PASS")
+        self.assertEqual(selected["executive_summary"], "PASS on this draft.")
+        self.assertEqual(consider["verdict"], "CONSIDER")
+
+    def test_boundary_rerun_failure_blocks_the_entire_verdict(self):
         first = {
             "weighted_score_adjusted": 7.5,
             "verdict": "RECOMMEND",
@@ -230,23 +261,21 @@ class CalibrationPromptTests(unittest.TestCase):
                 ],
             ),
         ):
-            analysis, _usage = ingest_v9.run_v9_stable(
-                text="INT. HOUSE - DAY",
-                title="Draft",
-                page_count=100,
-                word_count=20_000,
-                model_key="sonnet",
-                proxy_url=None,
-            )
+            with self.assertRaises(
+                ingest_v9.BoundaryStabilityIncompleteError
+            ) as raised:
+                ingest_v9.run_v9_stable(
+                    text="INT. HOUSE - DAY",
+                    title="Draft",
+                    page_count=100,
+                    word_count=20_000,
+                    model_key="sonnet",
+                    proxy_url=None,
+                )
 
-        provenance = analysis["_boundary_reruns"]
-        self.assertTrue(provenance["triggered"])
-        self.assertEqual(provenance["reason"], "reruns_failed")
-        self.assertEqual(provenance["attempted_runs"], 3)
-        self.assertEqual(provenance["completed_runs"], 1)
         self.assertEqual(
-            [failure["error_type"] for failure in provenance["failed_runs"]],
-            ["RuntimeError", "RuntimeError"],
+            raised.exception.review_evidence["failed_runs"][0]["error_type"],
+            "RuntimeError",
         )
 
     def test_boundary_reader_quality_failure_blocks_the_entire_verdict(self):
@@ -314,18 +343,21 @@ class CalibrationPromptTests(unittest.TestCase):
             patch.object(ingest_v9, "_near_boundary", return_value=True),
             patch.object(ingest_v9, "run_v9_full", side_effect=run_full),
         ):
-            analysis, usage = ingest_v9.run_v9_stable(
-                text="INT. HOUSE - DAY",
-                title="Draft",
-                page_count=100,
-                word_count=20_000,
-                model_key="sonnet",
-                proxy_url=None,
-            )
+            with self.assertRaises(
+                ingest_v9.BoundaryStabilityIncompleteError
+            ) as raised:
+                ingest_v9.run_v9_stable(
+                    text="INT. HOUSE - DAY",
+                    title="Draft",
+                    page_count=100,
+                    word_count=20_000,
+                    model_key="sonnet",
+                    proxy_url=None,
+                )
 
-        self.assertEqual(usage["input_tokens"], 52)
+        self.assertEqual(raised.exception.usage["input_tokens"], 51)
         self.assertEqual(
-            analysis["_boundary_reruns"]["failed_runs"][0]["error_type"],
+            raised.exception.review_evidence["failed_runs"][0]["error_type"],
             "ValueError",
         )
 

@@ -11,6 +11,7 @@ const cors_1 = __importDefault(require("cors"));
 const firestore_1 = require("firebase-admin/firestore");
 const storage_1 = require("firebase-admin/storage");
 const proxyAuth_1 = require("./proxyAuth");
+const analysisVersionAuthority_1 = require("./analysisVersionAuthority");
 const modelRegistry_1 = require("./modelRegistry");
 const readerChatRouting_1 = require("./readerChatRouting");
 const readerChatCore_1 = require("./readerChatCore");
@@ -81,19 +82,7 @@ function pageCount(version) {
         : undefined;
 }
 async function loadVersion(projectId, versionId) {
-    const snapshot = await (0, firestore_1.getFirestore)()
-        .collection("uploaded_analyses")
-        .doc(projectId)
-        .collection("versions")
-        .doc(versionId)
-        .get();
-    if (!snapshot.exists)
-        throw new Error("The exact sealed analysis version does not exist.");
-    const version = snapshot.data();
-    if (version.project_id !== projectId || version.version_id !== versionId) {
-        throw new Error("The sealed analysis identity does not match this project.");
-    }
-    return version;
+    return (await (0, analysisVersionAuthority_1.loadAuthorizedAnalysisVersion)((0, firestore_1.getFirestore)(), projectId, versionId)).version;
 }
 async function loadPdf(version) {
     const pointer = (0, readerChatCore_1.screenplayStoragePointer)(version);

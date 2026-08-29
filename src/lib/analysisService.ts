@@ -64,6 +64,10 @@ export async function analyzeScreenplay(
   options: AnalysisOptions,
   onProgress?: (p: AnalysisProgress) => void,
 ): Promise<AnalysisResult> {
+  throw new Error(
+    'Fresh browser comparisons are disabled because they do not use the authoritative V9 trust pipeline. Use Upload or Re-analyze to run the VPS engine.',
+  );
+
   // Stage 1 — Parse PDF
   onProgress?.({ stage: 'parsing', percent: 0, message: 'Parsing PDF...' });
 

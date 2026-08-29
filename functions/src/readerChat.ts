@@ -10,6 +10,7 @@ import {
 import { getStorage } from "firebase-admin/storage";
 
 import { authenticateProxyRequest } from "./proxyAuth";
+import { loadAuthorizedAnalysisVersion } from "./analysisVersionAuthority";
 import { READER_CHAT_MODEL_VERIFIED_AT } from "./modelRegistry";
 import {
   READER_CHAT_ROUTING_POLICY_VERSION,
@@ -165,18 +166,11 @@ function pageCount(version: UnknownRecord): number | undefined {
 }
 
 async function loadVersion(projectId: string, versionId: string): Promise<UnknownRecord> {
-  const snapshot = await getFirestore()
-    .collection("uploaded_analyses")
-    .doc(projectId)
-    .collection("versions")
-    .doc(versionId)
-    .get();
-  if (!snapshot.exists) throw new Error("The exact sealed analysis version does not exist.");
-  const version = snapshot.data() as UnknownRecord;
-  if (version.project_id !== projectId || version.version_id !== versionId) {
-    throw new Error("The sealed analysis identity does not match this project.");
-  }
-  return version;
+  return (await loadAuthorizedAnalysisVersion(
+    getFirestore(),
+    projectId,
+    versionId,
+  )).version;
 }
 
 async function loadPdf(version: UnknownRecord): Promise<Buffer> {

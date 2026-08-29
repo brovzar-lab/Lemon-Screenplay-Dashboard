@@ -1,4 +1,9 @@
+import { sha256CanonicalJson } from "./anthropicProxyCore";
+import pricingTable from "./anthropicPricing.json";
+
 export const MICRO_USD_PER_USD = 1_000_000;
+export const NANO_USD_PER_USD = 1_000_000_000;
+export const NANO_USD_PER_MICRO_USD = 1_000;
 export const DEFAULT_DAILY_LLM_BUDGET_USD = 100;
 export const INPUT_TOKEN_OVERHEAD = 4_096;
 
@@ -7,6 +12,9 @@ export interface LlmTokenUsage {
   output_tokens: number;
   cache_creation_input_tokens: number;
   cache_read_input_tokens: number;
+  inference_geo?: string | null;
+  service_tier?: "standard" | "priority" | "batch" | null;
+  normalizations?: string[];
   cache_creation?: {
     ephemeral_5m_input_tokens?: number;
     ephemeral_1h_input_tokens?: number;
@@ -21,60 +29,14 @@ interface ModelPricing {
   output: number;
 }
 
-// USD per million tokens. Five-minute writes cost 1.25x base input; one-hour
-// writes cost 2x. Cache reads cost 0.1x. The detailed usage breakdown lets us
-// charge the exact TTL instead of treating every cache creation as five-minute.
-const MODEL_PRICING: Record<string, ModelPricing> = {
-  "claude-haiku-4-5-20251001": {
-    input: 1,
-    cacheWrite5m: 1.25,
-    cacheWrite1h: 2,
-    cacheRead: 0.1,
-    output: 5,
-  },
-  "claude-sonnet-4-6": {
-    input: 3,
-    cacheWrite5m: 3.75,
-    cacheWrite1h: 6,
-    cacheRead: 0.3,
-    output: 15,
-  },
-  "claude-sonnet-5": {
-    input: 2,
-    cacheWrite5m: 2.5,
-    cacheWrite1h: 4,
-    cacheRead: 0.2,
-    output: 10,
-  },
-  "claude-opus-4-7": {
-    input: 5,
-    cacheWrite5m: 6.25,
-    cacheWrite1h: 10,
-    cacheRead: 0.5,
-    output: 25,
-  },
-  "claude-opus-4-8": {
-    input: 5,
-    cacheWrite5m: 6.25,
-    cacheWrite1h: 10,
-    cacheRead: 0.5,
-    output: 25,
-  },
-  "claude-opus-5": {
-    input: 5,
-    cacheWrite5m: 6.25,
-    cacheWrite1h: 10,
-    cacheRead: 0.5,
-    output: 25,
-  },
-  "claude-fable-5": {
-    input: 10,
-    cacheWrite5m: 12.5,
-    cacheWrite1h: 20,
-    cacheRead: 1,
-    output: 50,
-  },
-};
+// One committed decimal table is consumed by both runtimes. Deriving rates
+// with floating-point multiplication produced different Python/JS hashes.
+const MODEL_PRICING: Record<string, ModelPricing> = pricingTable;
+export const PRICED_MODELS = Object.freeze(Object.keys(MODEL_PRICING));
+
+export function llmPricingSha256(): string {
+  return sha256CanonicalJson(MODEL_PRICING);
+}
 
 function requireNonNegativeInteger(value: number, field: string): number {
   if (!Number.isInteger(value) || value < 0) {
@@ -90,6 +52,15 @@ export function getModelPricing(model: string): ModelPricing {
 }
 
 export function calculateActualCostMicrousd(
+  model: string,
+  usage: LlmTokenUsage,
+): number {
+  return Math.ceil(
+    calculateEstimatedCostNanousd(model, usage) / NANO_USD_PER_MICRO_USD,
+  );
+}
+
+export function calculateEstimatedCostNanousd(
   model: string,
   usage: LlmTokenUsage,
 ): number {
@@ -120,14 +91,30 @@ export function calculateActualCostMicrousd(
     throw new Error("Detailed cache creation tokens must equal cache_creation_input_tokens.");
   }
 
-  // A $1/M-token rate is exactly 1 micro-USD per token.
-  return Math.ceil(
-    input * pricing.input
-      + output * pricing.output
-      + detailedFiveMinuteWrite * pricing.cacheWrite5m
-      + detailedOneHourWrite * pricing.cacheWrite1h
-      + cacheRead * pricing.cacheRead,
+  const rateNanousd = (rate: number) => {
+    const scaled = rate * NANO_USD_PER_MICRO_USD;
+    if (!Number.isInteger(scaled)) {
+      throw new Error("Pricing must resolve to whole nano-USD per token.");
+    }
+    return scaled;
+  };
+  const baseNanousd = (
+    input * rateNanousd(pricing.input)
+      + output * rateNanousd(pricing.output)
+      + detailedFiveMinuteWrite * rateNanousd(pricing.cacheWrite5m)
+      + detailedOneHourWrite * rateNanousd(pricing.cacheWrite1h)
+      + cacheRead * rateNanousd(pricing.cacheRead)
   );
+  if (usage.inference_geo !== "us") return baseNanousd;
+  const usNanousd = baseNanousd * 11 / 10;
+  if (!Number.isInteger(usNanousd)) {
+    throw new Error("US inference pricing must resolve to whole nano-USD.");
+  }
+  return usNanousd;
+}
+
+export function nanousdToUsd(nanousd: number): number {
+  return nanousd / NANO_USD_PER_USD;
 }
 
 export function calculateReservationMicrousd(
@@ -143,9 +130,21 @@ export function calculateReservationMicrousd(
   // One UTF-8 byte per token is deliberately conservative. Charging the
   // whole possible input at the one-hour cache-write rate also covers the
   // most expensive approved cache miss.
-  return Math.ceil(
+  return Math.ceil(1.1 * (
     inputTokenUpperBound * Math.max(pricing.input, pricing.cacheWrite1h)
-      + output * pricing.output,
+      + output * pricing.output
+  ));
+}
+
+export function calculateHighestAllowedReservationMicrousd(
+  models: readonly string[],
+  requestBytes: number,
+  maxOutputTokens: number,
+): number {
+  if (models.length === 0) throw new Error("At least one allowed model is required.");
+  return Math.max(
+    ...models.map((model) =>
+      calculateReservationMicrousd(model, requestBytes, maxOutputTokens)),
   );
 }
 

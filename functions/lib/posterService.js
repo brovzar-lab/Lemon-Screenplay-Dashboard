@@ -7,6 +7,7 @@ const firestore_1 = require("firebase-admin/firestore");
 const storage_1 = require("firebase-admin/storage");
 const posterPrompt_1 = require("./posterPrompt");
 const posterBudget_1 = require("./posterBudget");
+const analysisVersionAuthority_1 = require("./analysisVersionAuthority");
 const posterCore_1 = require("./posterCore");
 const ANALYSES = 'uploaded_analyses';
 const JOBS = 'poster_jobs';
@@ -28,11 +29,12 @@ async function generatePosterForProject(request) {
     const snapshot = await projectRef.get();
     if (!snapshot.exists)
         throw new Error('Screenplay project not found.');
-    const document = snapshot.data() ?? {};
+    const parent = snapshot.data() ?? {};
+    const versionId = safePart(String(parent.latest_version_id ?? ''));
+    const { version: document } = await (0, analysisVersionAuthority_1.loadAuthorizedAnalysisVersion)(db, projectId, versionId);
     if (!(0, posterCore_1.isCurrentV9Analysis)(document.analysis_version)) {
         throw new Error('Posters are available only for completed V9 analyses.');
     }
-    const versionId = safePart(String(document.latest_version_id ?? ''));
     const analysis = document.analysis && typeof document.analysis === 'object'
         ? document.analysis
         : {};

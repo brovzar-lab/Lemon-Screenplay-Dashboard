@@ -1,506 +1,324 @@
-/**
- * shareService.test.ts
- *
- * Tests for the share token Firestore CRUD operations.
- */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Note, Screenplay } from '@/types';
+import { createTestScreenplay } from '@/test/factories';
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Screenplay, Note } from '@/types';
-
-// Mock firebase/firestore
-const mockSetDoc = vi.fn().mockResolvedValue(undefined);
-const mockDeleteDoc = vi.fn().mockResolvedValue(undefined);
 const mockGetDoc = vi.fn();
-const mockGetDocs = vi.fn();
-const mockDoc = vi.fn((_db: unknown, _col: string, id: string) => ({ id, path: `${_col}/${id}` }));
-const mockCollection = vi.fn((_db: unknown, col: string) => ({ id: col }));
-const mockQuery = vi.fn((...args: unknown[]) => args[0]);
-const mockWhere = vi.fn((...args: unknown[]) => args);
+const mockDoc = vi.fn((_db: unknown, col: string, id: string) => ({ id, path: `${col}/${id}` }));
 
 vi.mock('firebase/firestore', () => ({
-    setDoc: (...args: unknown[]) => mockSetDoc(...args),
-    deleteDoc: (...args: unknown[]) => mockDeleteDoc(...args),
-    getDoc: (...args: unknown[]) => mockGetDoc(...args),
-    getDocs: (...args: unknown[]) => mockGetDocs(...args),
-    doc: (...args: unknown[]) => mockDoc(...args),
-    collection: (...args: unknown[]) => mockCollection(...args),
-    query: (...args: unknown[]) => mockQuery(...args),
-    where: (...args: unknown[]) => mockWhere(...args),
+  getDoc: (...args: unknown[]) => mockGetDoc(...args),
+  doc: (...args: unknown[]) => mockDoc(...args),
 }));
 
-// Mock firebase/storage
-const mockRef = vi.fn((_storage: unknown, path: string) => ({ path }));
-const mockGetDownloadURL = vi.fn();
-
-vi.mock('firebase/storage', () => ({
-    ref: (...args: unknown[]) => mockRef(...args),
-    getDownloadURL: (...args: unknown[]) => mockGetDownloadURL(...args),
+vi.mock('./firebase', () => ({ authReady: Promise.resolve(), db: {} }));
+vi.mock('./proxyClient', () => ({
+  getProxyAuthHeaders: vi.fn(async () => ({ Authorization: 'Bearer test-token' })),
 }));
-
-// Mock firebase
-vi.mock('./firebase', () => ({
-    authReady: Promise.resolve({ uid: 'test-user' }),
-    db: {},
-    storage: {},
-}));
-
-// Mock analysisStore
 vi.mock('./analysisStore', () => ({
-    toDocId: (sourceFile: string) => sourceFile.replace(/[/\\]/g, '_').replace(/[^a-zA-Z0-9_\-. ]/g, '').trim(),
+  toDocId: (value: string) => value.replaceAll('/', '_'),
 }));
-
-// Mock shareStore
 vi.mock('@/stores/shareStore', () => ({
-    useShareStore: {
-        getState: () => ({
-            removeToken: vi.fn(),
-        }),
-    },
+  useShareStore: { getState: () => ({ removeToken: vi.fn() }) },
 }));
 
-// Mock crypto.randomUUID
-vi.stubGlobal('crypto', {
-    randomUUID: () => 'test-uuid-1234-5678-9abc-def012345678',
-});
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
 
 import {
-    createShareToken,
-    revokeShareToken,
-    getExistingShareToken,
-    getAllSharedViews,
-    isScreenplaySynced,
-    resolveShareToken,
+  createShareToken,
+  getAllSharedViews,
+  getExistingShareToken,
+  isScreenplaySynced,
+  resolveShareToken,
+  revokeShareToken,
+  updateShareNotes,
 } from './shareService';
-import type { SharedView, SharedViewDocument } from './shareService';
 
-// ─── Helper: build a mock Screenplay ────────────────────────────────────────
+const sha = 'a'.repeat(64);
+const versionId = 'version-1';
 
-function makeMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
-    return {
-        id: 'sp-001',
-        title: 'My Screenplay',
-        author: 'Test Author',
-        collection: 'V6 Analysis',
-        category: 'LEMON',
-        sourceFile: 'sp-001.pdf',
-        analysisModel: 'claude-3',
-        analysisVersion: '6.0',
-        weightedScore: 7.5,
-        cvsTotal: 22,
-        genre: 'Drama',
-        subgenres: ['Thriller'],
-        themes: ['Redemption'],
-        logline: 'A test logline',
-        tone: 'Dark',
-        recommendation: 'recommend',
-        recommendationRationale: 'Strong concept',
-        verdictStatement: 'Solid script',
-        isFilmNow: false,
-        filmNowAssessment: null,
-        dimensionScores: {
-            concept: 8,
-            structure: 7,
-            protagonist: 7,
-            supportingCast: 6,
-            dialogue: 7,
-            genreExecution: 8,
-            originality: 7,
-            weightedScore: 7.5,
+function trustedScreenplay(overrides: Partial<Screenplay> = {}) {
+  return createTestScreenplay({
+    id: 'sp-001',
+    projectId: 'project-001',
+    latestVersionId: versionId,
+    sourceFile: 'Guión Ñ.pdf',
+    title: 'Guión Ñ',
+    ...overrides,
+  });
+}
+
+function sealedShare(token = 'sealed-token') {
+  return {
+    token,
+    screenplayId: 'Guión Ñ.pdf',
+    screenplayTitle: 'Guión Ñ',
+    includeNotes: false,
+    createdAt: '2026-08-28T12:00:00Z',
+    expiresAt: '2099-09-27T12:00:00Z',
+    expiresAtMillis: Date.parse('2099-09-27T12:00:00Z'),
+    pdfUrl: null,
+    posterUrl: null,
+    sealedVersion: {
+      project_id: 'project-001',
+      version_id: versionId,
+      latest_version_id: versionId,
+      source_file: 'Guión Ñ.pdf',
+      latest_source_file: 'Guión Ñ.pdf',
+      content_hash: sha,
+      identity_status: 'verified',
+      analysis_version: 'v9_archaeology',
+      trust_manifest_version: 'lemon-public-share-manifest-v1',
+      analysis: {
+        title: 'Guión Ñ',
+        weighted_score: 7.5,
+        weighted_score_adjusted: 7.5,
+        verdict: 'RECOMMEND',
+        pillar_scores: {
+          structure: { score: 7.5 },
+          character: { score: 7.5 },
+          craft_scene: { score: 7.5 },
+          concept: { score: 7.5 },
+          emotional_resonance: { score: 7.5 },
         },
-        dimensionJustifications: {
-            concept: 'Good concept',
-            structure: 'Solid structure',
-            protagonist: 'Compelling lead',
-            supportingCast: 'Adequate',
-            dialogue: 'Sharp',
-            genreExecution: 'Well executed',
-            originality: 'Fresh take',
+      },
+      metadata: { page_count: 100, word_count: 20_000 },
+      trust_manifest: {
+        manifest_version: 'lemon-public-share-manifest-v1',
+        integrity_sha256: sha,
+        canonical_manifest_integrity_sha256: sha,
+        canonical_analysis_payload_sha256: sha,
+        public_payload_scope: 'analysis_and_localized_analysis',
+        analysis_payload_sha256: sha,
+        source: { content_sha256: sha, source_file: 'Guión Ñ.pdf' },
+        origin: { project_id: 'project-001', version_id: versionId },
+        engine: { analysis_version: 'v9_archaeology' },
+        models: { call_count: 1, provenance_sha256: sha },
+        readers: {
+          quality_status: 'complete',
+          expected_specialist_readers: 5,
+          completed_specialist_readers: 5,
+          failed_reader_count: 0,
         },
-        commercialViability: {
-            targetAudience: { score: 4, note: 'Wide appeal' },
-            highConcept: { score: 3, note: 'Moderate' },
-            castAttachability: { score: 4, note: 'Strong leads' },
-            marketingHook: { score: 3, note: 'Clear hook' },
-            budgetReturnRatio: { score: 4, note: 'Favorable' },
-            comparableSuccess: { score: 4, note: 'Good comps' },
-            total: 22,
+        claim_verification: {
+          status: 'passed_independent_model_review',
+          verification_scope: 'semantic_support_against_full_physical_page_source',
+          claim_count: 10,
+          factual_support_rate: 1,
+          claims_sha256: sha,
         },
-        criticalFailures: [],
-        criticalFailureDetails: [],
-        criticalFailureTotalPenalty: 0,
-        majorWeaknesses: ['Pacing in Act 2'],
-        strengths: ['Strong dialogue', 'Compelling lead'],
-        weaknesses: ['Minor pacing issues'],
-        developmentNotes: ['Consider tightening Act 2'],
-        marketability: 'medium',
-        budgetCategory: 'medium',
-        budgetJustification: 'Standard production',
-        characters: {
-            protagonist: 'John Doe',
-            antagonist: 'Jane Smith',
-            supportingCast: ['Bob', 'Alice'],
-        },
-        structureAnalysis: {
-            formatQuality: 'professional',
-            actBreaks: 'Clear three-act structure',
-            pacing: 'Good overall',
-        },
-        comparableFilms: [
-            { title: 'Film A', year: 2020, boxOfficeRelevance: 'success', similarity: 'Tone and genre' },
-        ],
-        standoutScenes: [
-            { scene: 'Opening', description: 'Gripping opening', page: 1 },
-        ],
-        targetAudience: {
-            primary: '25-44 male',
-            secondary: '18-24 female',
-            genderSkew: 'neutral',
-        },
-        metadata: {
-            pageCount: 110,
-            wordCount: 22000,
-            analysisTimestamp: '2026-01-01T00:00:00Z',
-            filename: 'sp-001.pdf',
-        },
-        producerMetrics: {
-            greenlight: 72,
-            marketReady: 65,
-        },
-        posterUrl: 'https://storage.example.com/poster.jpg',
-        tmdbStatus: null,
-        ...overrides,
-    } as Screenplay;
+        score_lineage: { adjusted_score: 7.5, final_verdict: 'RECOMMEND' },
+      },
+      server_trust_attestation: {
+        attestation_version: 'lemon-public-share-attestation-v1',
+        writer: 'share_manager',
+        project_id: 'project-001',
+        version_id: versionId,
+        content_sha256: sha,
+        canonical_trust_manifest_integrity_sha256: sha,
+        canonical_analysis_payload_sha256: sha,
+        trust_manifest_integrity_sha256: sha,
+        analysis_payload_sha256: sha,
+        public_payload_scope: 'analysis_and_localized_analysis',
+      },
+    },
+  };
 }
 
 describe('shareService', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        token: 'server-share-token',
+        expiresAt: '2026-09-27T00:00:00.000Z',
+      }),
+    });
+  });
+
+  it('asks the server to create a share from the exact immutable version', async () => {
+    const note: Note = {
+      id: 'note-1',
+      screenplayId: 'sp-001',
+      author: 'Producer',
+      content: 'Producer note',
+      createdAt: '2026-08-28T12:00:00Z',
+      updatedAt: '2026-08-28T12:05:00Z',
+    };
+    const result = await createShareToken('Guión Ñ.pdf', trustedScreenplay(), true, [note]);
+
+    expect(result.token).toBe('server-share-token');
+    expect(result.url).toContain('/share/server-share-token');
+    const request = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toEqual({
+      projectId: 'project-001',
+      versionId,
+      screenplayId: 'Guión Ñ.pdf',
+      includeNotes: true,
+      notes: [{ content: 'Producer note', createdAt: '2026-08-28T12:00:00Z' }],
+    });
+  });
+
+  it('blocks unverified, versionless, failed, or custom-lifetime shares', async () => {
+    await expect(createShareToken('sp', trustedScreenplay({
+      producerProjection: undefined,
+    }), false)).rejects.toThrow(/verified, rankable/);
+    await expect(createShareToken('sp', createTestScreenplay({
+      projectId: undefined,
+      latestVersionId: undefined,
+    }), false)).rejects.toThrow(
+      /exact immutable/,
+    );
+    await expect(createShareToken('sp', trustedScreenplay(), false, undefined, 7)).rejects.toThrow(
+      /30-day/,
+    );
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: 'The exact analysis version does not exist.' }),
+    });
+    await expect(createShareToken('sp', trustedScreenplay(), false)).rejects.toThrow(
+      /does not exist/,
+    );
+  });
+
+  it('resolves only a token-bound Admin-authored sealed share', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => sealedShare(),
+    });
+    const result = await resolveShareToken('sealed-token');
+    expect(result?.analysis.title).toBe('Guión Ñ');
+    expect(result?.analysis.producerProjection).toMatchObject({
+      rankable: true,
+      trustStatus: 'verified',
     });
 
-    describe('createShareToken', () => {
-        it('writes a doc with analysis snapshot and returns token + url', async () => {
-            mockGetDownloadURL.mockResolvedValueOnce('https://storage.example.com/screenplay.pdf');
-            const screenplay = makeMockScreenplay();
-            const result = await createShareToken('sp-001', screenplay, false);
-
-            expect(result.token).toBe('test-uuid-1234-5678-9abc-def012345678');
-            expect(result.url).toContain('/share/test-uuid-1234-5678-9abc-def012345678');
-
-            expect(mockSetDoc).toHaveBeenCalledOnce();
-            const [, docData] = mockSetDoc.mock.calls[0];
-            expect(docData.token).toBe('test-uuid-1234-5678-9abc-def012345678');
-            expect(docData.screenplayId).toBe('sp-001');
-            expect(docData.screenplayTitle).toBe('My Screenplay');
-            expect(docData.includeNotes).toBe(false);
-            expect(docData.createdAt).toBeDefined();
-
-            // Analysis snapshot fields
-            expect(docData.analysis).toBeDefined();
-            expect(docData.analysis.title).toBe('My Screenplay');
-            expect(docData.analysis.dimensionScores).toEqual(screenplay.dimensionScores);
-            expect(docData.analysis.strengths).toEqual(screenplay.strengths);
-            expect(docData.analysis.weaknesses).toEqual(screenplay.weaknesses);
-            expect(docData.analysis.recommendation).toBe('recommend');
-            expect(docData.analysis.logline).toBe('A test logline');
-            expect(docData.analysis.genre).toBe('Drama');
-
-            // pdfUrl resolved
-            expect(docData.pdfUrl).toBe('https://storage.example.com/screenplay.pdf');
-
-            // posterUrl from screenplay
-            expect(docData.posterUrl).toBe('https://storage.example.com/poster.jpg');
-        });
-
-        it('stores null pdfUrl when PDF not found in storage', async () => {
-            mockGetDownloadURL.mockRejectedValueOnce(new Error('Not found'));
-            const screenplay = makeMockScreenplay();
-            const result = await createShareToken('sp-001', screenplay, false);
-
-            expect(result.token).toBeDefined();
-            const [, docData] = mockSetDoc.mock.calls[0];
-            expect(docData.pdfUrl).toBeNull();
-        });
-
-        it('includes notes in snapshot when includeNotes=true and notes provided', async () => {
-            mockGetDownloadURL.mockResolvedValueOnce('https://storage.example.com/sp.pdf');
-            const screenplay = makeMockScreenplay();
-            const notes: Note[] = [
-                {
-                    id: 'n1',
-                    screenplayId: 'sp-001',
-                    content: 'Great opening',
-                    author: 'Producer',
-                    createdAt: '2026-01-01T00:00:00Z',
-                    updatedAt: '2026-01-01T00:00:00Z',
-                },
-            ];
-
-            await createShareToken('sp-001', screenplay, true, notes);
-
-            const [, docData] = mockSetDoc.mock.calls[0];
-            expect(docData.includeNotes).toBe(true);
-            expect(docData.notes).toHaveLength(1);
-            expect(docData.notes[0].content).toBe('Great opening');
-            expect(docData.notes[0].createdAt).toBe('2026-01-01T00:00:00Z');
-            // Should NOT include id, screenplayId, author, updatedAt
-            expect(docData.notes[0].id).toBeUndefined();
-            expect(docData.notes[0].screenplayId).toBeUndefined();
-        });
-
-        it('does NOT include notes when includeNotes=false even if notes provided', async () => {
-            mockGetDownloadURL.mockResolvedValueOnce('https://storage.example.com/sp.pdf');
-            const screenplay = makeMockScreenplay();
-            const notes: Note[] = [
-                {
-                    id: 'n1',
-                    screenplayId: 'sp-001',
-                    content: 'Note',
-                    author: 'Producer',
-                    createdAt: '2026-01-01T00:00:00Z',
-                    updatedAt: '2026-01-01T00:00:00Z',
-                },
-            ];
-
-            await createShareToken('sp-001', screenplay, false, notes);
-
-            const [, docData] = mockSetDoc.mock.calls[0];
-            expect(docData.notes).toBeUndefined();
-        });
-
-        it('stores null posterUrl when screenplay has no posterUrl', async () => {
-            mockGetDownloadURL.mockResolvedValueOnce('https://storage.example.com/sp.pdf');
-            const screenplay = makeMockScreenplay({ posterUrl: undefined });
-
-            await createShareToken('sp-001', screenplay, false);
-
-            const [, docData] = mockSetDoc.mock.calls[0];
-            expect(docData.posterUrl).toBeNull();
-        });
-
-        it('omits optional undefined projection fields from the Firestore snapshot', async () => {
-            mockGetDownloadURL.mockResolvedValueOnce('https://storage.example.com/sp.pdf');
-            const screenplay = makeMockScreenplay({
-                producerProjection: {
-                    rawScore: 6.5,
-                    finalScore: 6.5,
-                    scoreSource: 'triage',
-                    penaltyApplied: 0,
-                    reportedPenalty: 0,
-                    finalVerdict: 'consider',
-                    verdictBeforeGates: undefined,
-                    verdictAdjustments: [],
-                    gates: [],
-                    warnings: [],
-                    rankable: true,
-                    trustStatus: 'legacy_unverified',
-                    trustManifestVersion: undefined,
-                    boundary: {
-                        checked: false,
-                        runCount: 0,
-                        failedRunCount: 0,
-                        scoreSpread: 0,
-                        verdicts: [],
-                        stable: true,
-                    },
-                    readerDisagreementCount: 0,
-                },
-            });
-
-            await createShareToken('sp-001', screenplay, false);
-
-            const [, docData] = mockSetDoc.mock.calls[0];
-            expect(docData.analysis.producerProjection).not.toHaveProperty(
-                'verdictBeforeGates',
-            );
-            expect(docData.analysis.producerProjection).not.toHaveProperty(
-                'trustManifestVersion',
-            );
-        });
+    const staleLocalized = sealedShare();
+    staleLocalized.sealedVersion.localized_analysis = {
+      es: {
+        sourceVersionId: 'older-version',
+        generatedAt: '2026-08-28T12:00:00Z',
+        model: 'claude-sonnet-4-6',
+        content: { strengths: ['Stale translation'] },
+      },
+    };
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => staleLocalized,
+    });
+    await expect(resolveShareToken('sealed-token')).resolves.toMatchObject({
+      localizedAnalysis: undefined,
     });
 
-    describe('resolveShareToken', () => {
-        it('returns SharedViewDocument for existing token', async () => {
-            const mockData: SharedViewDocument = {
-                token: 'valid-token',
-                screenplayId: 'sp-001',
-                screenplayTitle: 'Test',
-                includeNotes: false,
-                createdAt: '2026-01-01T00:00:00Z',
-                pdfUrl: 'https://example.com/sp.pdf',
-                posterUrl: null,
-                analysis: {
-                    title: 'Test',
-                    author: 'Author',
-                    genre: 'Drama',
-                    subgenres: [],
-                    logline: 'A test',
-                    tone: 'Dark',
-                    themes: [],
-                    recommendation: 'recommend',
-                    recommendationRationale: 'Good',
-                    verdictStatement: 'Solid',
-                    isFilmNow: false,
-                    weightedScore: 7,
-                    cvsTotal: 20,
-                    dimensionScores: { concept: 7, structure: 7, protagonist: 7, supportingCast: 7, dialogue: 7, genreExecution: 7, originality: 7, weightedScore: 7 },
-                    dimensionJustifications: { concept: '', structure: '', protagonist: '', supportingCast: '', dialogue: '', genreExecution: '', originality: '' },
-                    commercialViability: { targetAudience: { score: 3, note: '' }, highConcept: { score: 3, note: '' }, castAttachability: { score: 3, note: '' }, marketingHook: { score: 3, note: '' }, budgetReturnRatio: { score: 3, note: '' }, comparableSuccess: { score: 3, note: '' }, total: 18 },
-                    strengths: [],
-                    weaknesses: [],
-                    majorWeaknesses: [],
-                    developmentNotes: [],
-                    characters: { protagonist: '', antagonist: '', supportingCast: [] },
-                    comparableFilms: [],
-                    standoutScenes: [],
-                    targetAudience: { primary: '', secondary: '', genderSkew: 'neutral' },
-                    budgetCategory: 'medium',
-                    budgetJustification: '',
-                    marketability: 'medium',
-                },
-            };
-
-            mockGetDoc.mockResolvedValueOnce({
-                exists: () => true,
-                data: () => mockData,
-            });
-
-            const result = await resolveShareToken('valid-token');
-
-            expect(result).toEqual(mockData);
-            // Should use doc() with the token
-            expect(mockDoc).toHaveBeenCalledWith({}, 'shared_views', 'valid-token');
-        });
-
-        it('returns null for nonexistent token', async () => {
-            mockGetDoc.mockResolvedValueOnce({
-                exists: () => false,
-                data: () => undefined,
-            });
-
-            const result = await resolveShareToken('nonexistent-token');
-            expect(result).toBeNull();
-        });
-
-        it('returns null for an expired token', async () => {
-            const past = new Date(Date.now() - 60_000).toISOString();
-            mockGetDoc.mockResolvedValueOnce({
-                exists: () => true,
-                data: () => ({ token: 'old', expiresAt: past, expiresAtMillis: Date.parse(past) }),
-            });
-
-            const result = await resolveShareToken('old');
-            expect(result).toBeNull();
-        });
-
-        it('returns the doc for a not-yet-expired token', async () => {
-            const future = new Date(Date.now() + 60_000).toISOString();
-            const data = { token: 'fresh', expiresAt: future, expiresAtMillis: Date.parse(future) };
-            mockGetDoc.mockResolvedValueOnce({
-                exists: () => true,
-                data: () => data,
-            });
-
-            const result = await resolveShareToken('fresh');
-            expect(result).toEqual(data);
-        });
-
-        it('grandfathers legacy tokens with no expiry', async () => {
-            const data = { token: 'legacy', createdAt: '2025-01-01T00:00:00Z' };
-            mockGetDoc.mockResolvedValueOnce({
-                exists: () => true,
-                data: () => data,
-            });
-
-            const result = await resolveShareToken('legacy');
-            expect(result).toEqual(data);
-        });
-
-        it('does NOT reference authReady (public read)', async () => {
-            // We verify this structurally: resolveShareToken should work
-            // even without auth by not awaiting authReady.
-            // The mock for authReady is a resolved promise, but we verify
-            // it's not in the call chain by checking that the function
-            // resolves immediately with a getDoc call.
-            mockGetDoc.mockResolvedValueOnce({
-                exists: () => true,
-                data: () => ({ token: 'test' }),
-            });
-
-            await resolveShareToken('test-token');
-
-            // If authReady was awaited, it would still work in tests
-            // because our mock resolves immediately. The real verification
-            // is that the source code does not import/use authReady in resolveShareToken.
-            // This test documents the contract.
-            expect(mockGetDoc).toHaveBeenCalledOnce();
-        });
+    const tampered = sealedShare();
+    tampered.sealedVersion.server_trust_attestation.trust_manifest_integrity_sha256 = 'b'.repeat(64);
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => tampered,
     });
+    await expect(resolveShareToken('sealed-token')).rejects.toThrow(/verified, rankable/);
 
-    describe('revokeShareToken', () => {
-        it('calls deleteDoc for the token doc', async () => {
-            await revokeShareToken('some-token', 'sp-001');
-
-            expect(mockDeleteDoc).toHaveBeenCalledOnce();
-            expect(mockDoc).toHaveBeenCalledWith({}, 'shared_views', 'some-token');
-        });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ token: 'legacy-token', expiresAt: '2099-01-01T00:00:00Z' }),
     });
+    await expect(resolveShareToken('legacy-token')).resolves.toBeNull();
 
-    describe('getExistingShareToken', () => {
-        it('returns SharedView when a matching doc exists', async () => {
-            const mockView: SharedView = {
-                token: 'existing-token',
-                screenplayId: 'sp-001',
-                screenplayTitle: 'Test',
-                includeNotes: false,
-                createdAt: '2026-01-01T00:00:00Z',
-            };
-            mockGetDocs.mockResolvedValueOnce({
-                empty: false,
-                docs: [{ data: () => mockView }],
-            });
-
-            const result = await getExistingShareToken('sp-001');
-            expect(result).toEqual(mockView);
-        });
-
-        it('returns null when no matching doc exists', async () => {
-            mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
-
-            const result = await getExistingShareToken('sp-999');
-            expect(result).toBeNull();
-        });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => sealedShare('other'),
     });
+    await expect(resolveShareToken('sealed-token')).resolves.toBeNull();
+  });
 
-    describe('getAllSharedViews', () => {
-        it('returns all SharedView docs from collection', async () => {
-            const views: SharedView[] = [
-                { token: 't1', screenplayId: 'sp-1', screenplayTitle: 'A', includeNotes: false, createdAt: '2026-01-01' },
-                { token: 't2', screenplayId: 'sp-2', screenplayTitle: 'B', includeNotes: true, createdAt: '2026-01-02' },
-            ];
-            mockGetDocs.mockResolvedValueOnce({
-                docs: views.map((v) => ({ data: () => v })),
-            });
-
-            const result = await getAllSharedViews();
-            expect(result).toHaveLength(2);
-            expect(result[0].screenplayId).toBe('sp-1');
-            expect(result[1].screenplayId).toBe('sp-2');
-        });
+  it('returns null for missing or expired shares', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+    await expect(resolveShareToken('missing')).resolves.toBeNull();
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ...sealedShare('expired'),
+        expiresAt: '2020-01-01T00:00:00Z',
+      }),
     });
+    await expect(resolveShareToken('expired')).resolves.toBeNull();
+  });
 
-    describe('isScreenplaySynced', () => {
-        it('returns true when the doc exists in uploaded_analyses', async () => {
-            mockGetDoc.mockResolvedValueOnce({ exists: () => true });
+  it('revokes and lists share metadata for authenticated dashboard users', async () => {
+    await revokeShareToken('some-token', 'sp-001');
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        method: 'DELETE',
+        body: JSON.stringify({ token: 'some-token', screenplayId: 'sp-001' }),
+      }),
+    );
 
-            const result = await isScreenplaySynced('scripts/my_film.pdf');
-            expect(result).toBe(true);
-        });
-
-        it('returns false when the doc does not exist', async () => {
-            mockGetDoc.mockResolvedValueOnce({ exists: () => false });
-
-            const result = await isScreenplaySynced('scripts/missing.pdf');
-            expect(result).toBe(false);
-        });
+    const view = {
+      authorityVersion: 'lemon-share-authority-v1',
+      token: 'existing-token',
+      screenplayId: 'sp-001',
+      screenplayTitle: 'Test',
+      includeNotes: false,
+      createdAt: '2026-01-01T00:00:00Z',
+    };
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ views: [view] }),
     });
+    await expect(getExistingShareToken('sp-001')).resolves.toEqual(view);
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ views: [view] }),
+    });
+    await expect(getAllSharedViews()).resolves.toEqual([view]);
+  });
+
+  it('updates note exposure through the authenticated server manager', async () => {
+    const note: Note = {
+      id: 'note-1',
+      screenplayId: 'sp-001',
+      author: 'Producer',
+      content: 'Current note',
+      createdAt: '2026-08-28T12:00:00Z',
+      updatedAt: '2026-08-28T12:05:00Z',
+    };
+    await updateShareNotes('sealed-token', 'sp-001', true, [note]);
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          token: 'sealed-token',
+          screenplayId: 'sp-001',
+          includeNotes: true,
+          notes: [{ content: 'Current note', createdAt: '2026-08-28T12:00:00Z' }],
+        }),
+      }),
+    );
+  });
+
+  it('ignores historical browser-authored share documents', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        views: [{ token: 'legacy', screenplayId: 'sp-001' }],
+      }),
+    });
+    await expect(getExistingShareToken('sp-001')).resolves.toBeNull();
+  });
+
+  it('checks whether the source analysis parent exists', async () => {
+    mockGetDoc.mockResolvedValueOnce({ exists: () => true });
+    await expect(isScreenplaySynced('scripts/my_film.pdf')).resolves.toBe(true);
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false });
+    await expect(isScreenplaySynced('scripts/missing.pdf')).resolves.toBe(false);
+  });
 });

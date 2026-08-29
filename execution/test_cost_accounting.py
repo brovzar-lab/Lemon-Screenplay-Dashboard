@@ -1,41 +1,264 @@
 import copy
+import hashlib
 import json
 import os
+import subprocess
 import tempfile
 import unittest
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 os.environ.setdefault("DAEMON_LOG_DIR", tempfile.gettempdir())
 
-from execution import ingest_v9
-from execution.source_evidence import join_marked_pages
-from execution.trust_manifest import attach_trust_manifest
+from execution import ingest_v9, model_benchmark
+from execution.source_evidence import (
+    build_page_evidence,
+    build_scene_count_evidence,
+    join_marked_pages,
+)
+from execution.trust_manifest import attach_trust_manifest, runtime_pricing_sha256
 from execution.v9_test_fixtures import (
+    FIXTURE_DECISION_EVIDENCE,
     HAIKU_MODEL_ID,
     MODEL_ID,
     MODEL_IDS as TEST_MODEL_IDS,
     complete_analysis,
+    material_claim_record,
     q2_parsed_source,
     raw_analysis,
 )
 
 
 def marked_screenplay(page_count=100):
-    return join_marked_pages(["INT. HOUSE - DAY"] * page_count)
+    return join_marked_pages([
+        f"INT. HOUSE - DAY\n{FIXTURE_DECISION_EVIDENCE}"
+    ] * page_count)
 
 
 class ProxyCostTelemetryTests(unittest.TestCase):
     @staticmethod
-    def _proxy_usage(actual_cost_microusd=0, input_tokens=10, output_tokens=5):
-        return {
+    def _exact_response(response):
+        if response.status_code != 200:
+            return response
+        body = response.json.return_value
+        if not isinstance(body, dict):
+            return response
+        content = []
+        if isinstance(body.get("text"), str) and body["text"]:
+            content.append({"type": "text", "text": body["text"]})
+        for index, tool in enumerate(body.get("tool_uses", []), start=1):
+            content.append({
+                "type": "tool_use",
+                "id": tool.get("id", f"toolu_test_{index}"),
+                "name": tool.get("name"),
+                "input": copy.deepcopy(tool.get("input")),
+            })
+        body["content"] = content
+        return response
+
+    def test_adaptive_model_without_thinking_forces_the_genre_tool(self):
+        response = MagicMock(status_code=200)
+        response.json.return_value = {
+            "text": "",
+            "tool_uses": [{
+                "name": ingest_v9.GENRE_DETECTION_TOOL["name"],
+                "input": self._genre_raw(),
+            }],
+            "model": "claude-sonnet-5",
+            "response_id": "msg_forced_genre",
+            "stop_reason": "tool_use",
+            "usage": self._proxy_usage(model_id="claude-sonnet-5"),
+        }
+        original = ingest_v9.MODEL_IDS["sonnet"]
+        ingest_v9.MODEL_IDS["sonnet"] = "claude-sonnet-5"
+        try:
+            with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "long screenplay"}],
+                    model_key="sonnet",
+                    tool=ingest_v9.GENRE_DETECTION_TOOL,
+                    thinking_budget=0,
+                    proxy_url="https://proxy.test",
+                )
+        finally:
+            ingest_v9.MODEL_IDS["sonnet"] = original
+
+        payload = post.call_args.kwargs["json"]
+        self.assertEqual(payload["tool_choice"], {
+            "type": "tool",
+            "name": ingest_v9.GENRE_DETECTION_TOOL["name"],
+        })
+        self.assertNotIn("thinking", payload)
+
+    def test_pricing_table_and_fingerprint_are_identical_across_runtimes(self):
+        root = Path(__file__).resolve().parents[1]
+        pricing = json.loads(
+            (root / "functions/src/anthropicPricing.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        catalog = json.loads(
+            (root / "src/config/anthropic-model-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        for model_id, profile in catalog["modelProfiles"].items():
+            base = Decimal(str(profile["inputUsdPerMillion"]))
+            self.assertEqual(pricing[model_id], {
+                "input": float(base),
+                "cacheWrite5m": float(base * Decimal("1.25")),
+                "cacheWrite1h": float(base * 2),
+                "cacheRead": float(base * Decimal("0.1")),
+                "output": float(Decimal(str(profile["outputUsdPerMillion"]))),
+            })
+        self.assertEqual(pricing["claude-sonnet-5"]["input"], 2)
+        self.assertEqual(pricing["claude-sonnet-5"]["output"], 10)
+
+        python_hashes = {
+            ingest_v9._MODEL_PRICING_SHA256,
+            model_benchmark._runtime_pricing_sha256(),
+            runtime_pricing_sha256(),
+        }
+        self.assertEqual(len(python_hashes), 1)
+        node_hash = subprocess.run(
+            [
+                "node",
+                "-e",
+                "process.stdout.write(require('./functions/lib/llmCost.js').llmPricingSha256())",
+            ],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertEqual(node_hash, python_hashes.pop())
+
+    def test_prompt_and_schema_fingerprints_match_candidate_runtime(self):
+        root = Path(__file__).resolve().parents[1]
+        application_sha = "f" * 64
+        transport_schema = {
+            "type": "object",
+            "properties": {
+                "contract": {"type": "string", "enum": ["submit_report"]},
+                "application_schema_sha256": {
+                    "type": "string",
+                    "enum": [application_sha],
+                },
+                "report_json": {"type": "string"},
+            },
+            "required": [
+                "contract", "application_schema_sha256", "report_json",
+            ],
+            "additionalProperties": False,
+        }
+        payload = {
+            "model": MODEL_ID,
+            "system": [{"type": "text", "text": "system"}],
+            "messages": [{"role": "user", "content": "screenplay"}],
+            "max_tokens": 128,
+            "tools": [{
+                "name": "submit_report",
+                "description": "Return the validated report.",
+                "strict": True,
+                "input_schema": transport_schema,
+            }],
+            "tool_choice": {"type": "auto"},
+            "thinking": {"type": "adaptive"},
+            "output_config": {"effort": "high"},
+        }
+        node = subprocess.run(
+            [
+                "node",
+                "-e",
+                (
+                    "const fs=require('node:fs');"
+                    "const p=JSON.parse(fs.readFileSync(0,'utf8'));"
+                    "process.stdout.write(JSON.stringify("
+                    "require('./functions/lib/benchmarkCandidatePolicy.js')"
+                    ".deriveBenchmarkPayloadEvidence(p)));"
+                ),
+            ],
+            cwd=root,
+            input=json.dumps(payload),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        actual = json.loads(node.stdout)
+        prompt_envelope = {
+            field: payload[field]
+            for field in (
+                "system", "messages", "tools", "tool_choice", "thinking",
+                "output_config",
+            )
+        }
+        self.assertEqual(actual, {
+            "request_sha256": ingest_v9._canonical_json_hash(payload),
+            "prompt_sha256": ingest_v9._canonical_json_hash(prompt_envelope),
+            "schema_mode": "compact_strict_tool",
+            "schema_sha256": application_sha,
+            "transport_schema_sha256": ingest_v9._canonical_json_hash(
+                transport_schema
+            ),
+        })
+
+    @staticmethod
+    def _genre_raw(external_genre="Society", **overrides):
+        raw = {
+            "external_genre": external_genre,
+            "comedy_paired_genre": "Love" if external_genre == "Comedy" else "",
+            "comedy_subgenre": "Rom-Com" if external_genre == "Comedy" else "",
+            "comedic_tone": external_genre == "Comedy",
+            "internal_genre": "Maturation",
+            "confidence": "high",
+            "one_line_why": "The story's central pursuit establishes this spine.",
+        }
+        raw.update(overrides)
+        return raw
+
+    @staticmethod
+    def _proxy_usage(
+        actual_cost_microusd=None,
+        input_tokens=10,
+        output_tokens=5,
+        model_id=MODEL_ID,
+    ):
+        token_usage = {
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "cache_creation_input_tokens": 0,
             "cache_read_input_tokens": 0,
+            "inference_geo": (
+                None if model_id == HAIKU_MODEL_ID else "global"
+            ),
+            "service_tier": "standard",
+        }
+        estimated_cost_nanousd = ingest_v9._independent_cost_nanousd(
+            model_id,
+            token_usage,
+        )
+        if actual_cost_microusd is None:
+            actual_cost_microusd = (estimated_cost_nanousd + 999) // 1_000
+        rounding_variance_nanousd = (
+            actual_cost_microusd * 1_000 - estimated_cost_nanousd
+        )
+        return {
+            **token_usage,
             "call_count": 1,
             "actual_cost_microusd": actual_cost_microusd,
             "actual_cost_usd": actual_cost_microusd / 1_000_000,
+            "charged_cost_microusd": actual_cost_microusd,
+            "estimated_cost_nanousd": estimated_cost_nanousd,
+            "estimated_cost_usd": estimated_cost_nanousd / 1_000_000_000,
+            "rounding_variance_nanousd": rounding_variance_nanousd,
+            "rounding_variance_usd": rounding_variance_nanousd / 1_000_000_000,
+            "rounding_reason": (
+                None
+                if rounding_variance_nanousd == 0
+                else "ceil_to_microusd_for_atomic_budget"
+            ),
         }
 
     @staticmethod
@@ -45,6 +268,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             report.get("reader_reports"),
             "Source Draft",
             "Fixture Writer",
+            ingest_v9.parse_detection({
+                "external_genre": "Society",
+                "confidence": "high",
+            }),
         )
 
     @staticmethod
@@ -85,6 +312,14 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         model_id=MODEL_ID,
         pipeline_pass="sonnet",
     ):
+        schema_mode = (
+            "schema_free"
+            if stage == "triage"
+            else "strict_tool"
+            if stage == "genre_detection"
+            else "compact_strict_tool"
+        )
+        fingerprint = hashlib.sha256(response_id.encode("utf-8")).hexdigest()
         usage = ingest_v9.empty_usage()
         usage["call_count"] = 1
         usage["by_model"] = {
@@ -97,7 +332,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "response_id": response_id,
             "requested_model": model_id,
             "returned_model": model_id,
-            "stop_reason": "end_turn",
+            "stop_reason": "end_turn" if stage == "triage" else "tool_use",
             "successful_attempt": 1,
             "retry_history": [{
                 "attempt": 1,
@@ -109,6 +344,44 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "boundary_run": 1,
             "reader_name": reader_name,
             "disposition": "pending",
+            "request_sha256": fingerprint,
+            "prompt_sha256": fingerprint,
+            "prompt_contract_version": ingest_v9.PROMPT_CONTRACT_VERSION,
+            "schema_mode": schema_mode,
+            "schema_sha256": None if schema_mode == "schema_free" else fingerprint,
+            "transport_schema_sha256": (
+                None if schema_mode == "schema_free" else fingerprint
+            ),
+            "pricing_sha256": ingest_v9._MODEL_PRICING_SHA256,
+            "independent_cost_microusd": 0,
+            "independent_cost_usd": 0.0,
+            "independent_cost_nanousd": 0,
+            "independent_estimated_cost_usd": 0.0,
+            "exact_cost_variance_nanousd": 0,
+            "exact_cost_variance_usd": 0.0,
+            "charged_cost_microusd": 0,
+            "rounding_variance_nanousd": 0,
+            "rounding_variance_usd": 0.0,
+            "rounding_reason": None,
+            "cost_variance_microusd": 0,
+            "cost_variance_reason": None,
+            "latency_ms": 1,
+            "started_at": "2026-08-27T12:00:00Z",
+            "completed_at": "2026-08-27T12:00:01Z",
+            "transport_attempt": 1,
+            "transport_retry_count": 0,
+            "logical_retry": 0,
+            "attempt_number": 1,
+            "retry_count": 0,
+            "total_retry_count": 0,
+            "validation_result": "pending_application_validation",
+            "transformations": [],
+            "transformation_evidence": [],
+            "failure_state": None,
+            "warnings": [],
+            "fallback_used": False,
+            "truncated": False,
+            "downstream_consumption": "pending",
             "usage": {
                 "input_tokens": 0,
                 "output_tokens": 0,
@@ -117,8 +390,16 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "call_count": 1,
                 "actual_cost_microusd": 0,
                 "actual_cost_usd": 0.0,
+                "charged_cost_microusd": 0,
+                "estimated_cost_nanousd": 0,
+                "estimated_cost_usd": 0.0,
+                "rounding_variance_nanousd": 0,
+                "rounding_variance_usd": 0.0,
+                "rounding_reason": None,
             },
         }]
+        usage["estimated_cost_nanousd"] = 0
+        usage["rounding_variance_nanousd"] = 0
         return usage
 
     def test_proxy_call_sends_job_identity_and_returns_exact_cost(self):
@@ -138,10 +419,12 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "call_count": 1,
                 "actual_cost_microusd": 725,
                 "actual_cost_usd": 0.000725,
+                "inference_geo": "global",
+                "service_tier": "standard",
             },
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
             _tool, text, usage = ingest_v9.call_llm(
                 system_blocks=[{"type": "text", "text": "system"}],
                 user_blocks=[{"type": "text", "text": "screenplay"}],
@@ -158,36 +441,61 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             usage["by_model"]["claude-sonnet-4-6"]["input_tokens"],
             100,
         )
-        self.assertEqual(
-            usage["calls"],
-            [{
-                "response_id": "msg_01JTRUST",
-                "requested_model": "claude-sonnet-4-6",
-                "returned_model": "claude-sonnet-4-6",
-                "stop_reason": "end_turn",
-                "successful_attempt": 1,
-                "retry_history": [{
-                    "attempt": 1,
-                    "outcome": "success",
-                    "response_id": "msg_01JTRUST",
-                }],
-                "stage": "unspecified",
-                "pipeline_pass": "unspecified",
-                "boundary_run": 0,
-                "reader_name": None,
-                "disposition": "pending",
-                "usage": {
-                    "input_tokens": 100,
-                    "output_tokens": 20,
-                    "cache_creation_input_tokens": 30,
-                    "cache_read_input_tokens": 40,
-                    "call_count": 1,
-                    "actual_cost_microusd": 725,
-                    "actual_cost_usd": 0.000725,
-                },
-            }],
-        )
+        call = usage["calls"][0]
+        self.assertEqual(call["response_id"], "msg_01JTRUST")
+        self.assertEqual(call["requested_model"], "claude-sonnet-4-6")
+        self.assertEqual(call["returned_model"], "claude-sonnet-4-6")
+        self.assertEqual(call["retry_history"][-1]["outcome"], "success")
+        self.assertEqual(call["disposition"], "pending")
+        self.assertEqual(call["usage"]["actual_cost_microusd"], 725)
         self.assertEqual(post.call_args.kwargs["json"]["job_id"], "queue-job-1")
+
+    def test_call_record_has_exact_schema_free_provenance_and_independent_cost(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "ok",
+            "tool_uses": [],
+            "response_id": "msg_schema_free",
+            "model": "claude-sonnet-4-6",
+            "stop_reason": "end_turn",
+            "usage": {
+                "input_tokens": 100,
+                "output_tokens": 20,
+                "cache_creation_input_tokens": 30,
+                "cache_read_input_tokens": 40,
+                "call_count": 1,
+                "actual_cost_microusd": 725,
+                "actual_cost_usd": 0.000725,
+                "inference_geo": "global",
+                "service_tier": "standard",
+            },
+        }
+
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)):
+            _tool, _text, usage = ingest_v9.call_llm(
+                system_blocks=[{"type": "text", "text": "system"}],
+                user_blocks=[{"type": "text", "text": "screenplay"}],
+                model_key="sonnet",
+                proxy_url="https://proxy.test",
+                retries=1,
+                stage="triage",
+                boundary_run=1,
+            )
+
+        call = usage["calls"][0]
+        self.assertEqual(call["schema_mode"], "schema_free")
+        self.assertIsNone(call["schema_sha256"])
+        self.assertIsNone(call["transport_schema_sha256"])
+        for field in ("request_sha256", "prompt_sha256", "pricing_sha256"):
+            self.assertRegex(call[field], r"^[a-f0-9]{64}$")
+        self.assertEqual(call["independent_cost_microusd"], 725)
+        self.assertEqual(call["cost_variance_microusd"], 0)
+        self.assertGreaterEqual(call["latency_ms"], 0)
+        self.assertEqual(call["transport_retry_count"], 0)
+        self.assertEqual(call["logical_retry"], 0)
+        self.assertFalse(call["fallback_used"])
+        self.assertFalse(call["truncated"])
 
     def test_settled_response_without_exact_usage_is_terminal(self):
         for field, value in (
@@ -214,7 +522,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 with patch.object(
                     ingest_v9.requests,
                     "post",
-                    return_value=response,
+                    return_value=self._exact_response(response),
                 ) as post:
                     with self.assertRaises(ingest_v9.LlmAccountingError):
                         ingest_v9.call_llm(
@@ -237,11 +545,11 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "response_id": f"msg_{route}_candidate",
                 "model": model_id,
                 "stop_reason": "end_turn",
-                "usage": self._proxy_usage(),
+                "usage": self._proxy_usage(model_id=model_id),
             }
             with (
                 patch.dict(ingest_v9.MODEL_IDS, {route: model_id}),
-                patch.object(ingest_v9.requests, "post", return_value=response) as post,
+                patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post,
             ):
                 ingest_v9.call_llm(
                     system_blocks=[{"type": "text", "text": "system"}],
@@ -270,9 +578,9 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "response_id": "msg_haiku_manual",
             "model": ingest_v9.MODEL_IDS["haiku"],
             "stop_reason": "end_turn",
-            "usage": self._proxy_usage(),
+            "usage": self._proxy_usage(model_id=ingest_v9.MODEL_IDS["haiku"]),
         }
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
             ingest_v9.call_llm(
                 system_blocks=[{"type": "text", "text": "system"}],
                 user_blocks=[{"type": "text", "text": "screenplay"}],
@@ -304,9 +612,9 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "response_id": "msg_wrong_model",
             "model": "claude-opus-4-7",
             "stop_reason": "end_turn",
-            "usage": self._proxy_usage(),
+            "usage": self._proxy_usage(model_id="claude-opus-4-7"),
         }
-        with patch.object(ingest_v9.requests, "post", return_value=response):
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)):
             with self.assertRaisesRegex(
                 ingest_v9.LlmProvenanceError,
                 "did not match",
@@ -323,13 +631,16 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     reader_name="structure",
                 )
 
-        settled_call = raised.exception.usage["calls"][0]
+        settled_call = raised.exception.usage["failed_calls"][0]
         self.assertEqual(settled_call["stage"], "reader")
         self.assertEqual(settled_call["pipeline_pass"], "sonnet")
         self.assertEqual(settled_call["boundary_run"], 2)
         self.assertEqual(settled_call["reader_name"], "structure")
         self.assertEqual(settled_call["disposition"], "discarded_unusable")
-        self.assertEqual(settled_call["usage"], self._proxy_usage())
+        self.assertEqual(
+            settled_call["usage"],
+            self._proxy_usage(model_id="claude-opus-4-7"),
+        )
 
     def test_tool_request_uses_a_strict_anthropic_compatible_schema(self):
         response = MagicMock()
@@ -344,10 +655,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "response_id": "msg_strict_craft",
             "model": "claude-opus-4-7",
             "stop_reason": "tool_use",
-            "usage": self._proxy_usage(),
+            "usage": self._proxy_usage(model_id="claude-opus-4-7"),
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
             ingest_v9.call_llm(
                 system_blocks=[{"type": "text", "text": "system"}],
                 user_blocks=[{"type": "text", "text": "screenplay"}],
@@ -411,9 +722,19 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                             "type": "string",
                             "enum": [source_tool["name"]],
                         },
+                        "application_schema_sha256": {
+                            "type": "string",
+                            "enum": [ingest_v9._canonical_json_hash(
+                                source_tool["input_schema"]
+                            )],
+                        },
                         "report_json": {"type": "string"},
                     },
-                    "required": ["contract", "report_json"],
+                    "required": [
+                        "contract",
+                        "application_schema_sha256",
+                        "report_json",
+                    ],
                     "additionalProperties": False,
                 },
             )
@@ -431,16 +752,19 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "name": "submit_craft_scene_report",
                 "input": {
                     "contract": "submit_craft_scene_report",
+                    "application_schema_sha256": ingest_v9._canonical_json_hash(
+                        ingest_v9.CRAFT_SCENE_TOOL["input_schema"]
+                    ),
                     "report_json": json.dumps(report),
                 },
             }],
             "response_id": "msg_compact_craft",
             "model": "claude-opus-4-7",
             "stop_reason": "tool_use",
-            "usage": self._proxy_usage(812),
+            "usage": self._proxy_usage(model_id="claude-opus-4-7"),
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
             tool_input, _text, usage = ingest_v9.call_llm(
                 system_blocks=[{"type": "text", "text": "system"}],
                 user_blocks=[{"type": "text", "text": "screenplay"}],
@@ -452,7 +776,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             )
 
         self.assertEqual(tool_input, report)
-        self.assertEqual(usage["actual_cost_microusd"], 812)
+        expected_cost = self._proxy_usage(
+            model_id="claude-opus-4-7"
+        )["actual_cost_microusd"]
+        self.assertEqual(usage["actual_cost_microusd"], expected_cost)
         payload = post.call_args.kwargs["json"]
         self.assertLess(len(json.dumps(payload["tools"][0])), 1_000)
         full_contract = payload["messages"][0]["content"][-1]["text"]
@@ -465,7 +792,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         response.json.return_value["tool_uses"][0]["input"]["report_json"] = (
             json.dumps(incomplete)
         )
-        with patch.object(ingest_v9.requests, "post", return_value=response):
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)):
             with self.assertRaisesRegex(
                 ingest_v9.LlmOutputContractError,
                 "bmoc_failure_scan",
@@ -479,17 +806,20 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     proxy_url="https://proxy.test",
                     retries=1,
                 )
-        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 812)
+        self.assertEqual(
+            raised.exception.usage["actual_cost_microusd"],
+            expected_cost,
+        )
 
         unexpected = copy.deepcopy(report)
         unexpected["unapproved_score"] = 10
         response.json.return_value["tool_uses"][0]["input"]["report_json"] = (
             json.dumps(unexpected)
         )
-        with patch.object(ingest_v9.requests, "post", return_value=response):
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)):
             with self.assertRaisesRegex(
                 ingest_v9.LlmOutputContractError,
-                "unapproved_score",
+                "unexpected field",
             ):
                 ingest_v9.call_llm(
                     system_blocks=[{"type": "text", "text": "system"}],
@@ -511,16 +841,19 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "name": "submit_structure_report",
                 "input": {
                     "contract": "submit_structure_report",
+                    "application_schema_sha256": ingest_v9._canonical_json_hash(
+                        ingest_v9.STRUCTURE_TOOL["input_schema"]
+                    ),
                     "report_json": '{"reader":"structure"',
                 },
             }],
             "response_id": "msg_bad_json",
             "model": "claude-opus-4-7",
             "stop_reason": "tool_use",
-            "usage": self._proxy_usage(913),
+            "usage": self._proxy_usage(model_id="claude-opus-4-7"),
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response):
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)):
             with self.assertRaisesRegex(
                 ingest_v9.LlmOutputContractError,
                 "valid JSON",
@@ -535,7 +868,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     retries=1,
                 )
 
-        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 913)
+        self.assertEqual(
+            raised.exception.usage["actual_cost_microusd"],
+            self._proxy_usage(model_id="claude-opus-4-7")["actual_cost_microusd"],
+        )
 
     def test_compact_envelope_preserves_and_validates_full_synthesis(self):
         report = self._schema_example(
@@ -551,16 +887,19 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "name": "submit_synthesis_report",
                 "input": {
                     "contract": "submit_synthesis_report",
+                    "application_schema_sha256": ingest_v9._canonical_json_hash(
+                        ingest_v9.SYNTHESIS_TOOL["input_schema"]
+                    ),
                     "report_json": json.dumps(report),
                 },
             }],
             "response_id": "msg_compact_synthesis",
             "model": "claude-opus-4-7",
             "stop_reason": "tool_use",
-            "usage": self._proxy_usage(1_117),
+            "usage": self._proxy_usage(model_id="claude-opus-4-7"),
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response):
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)):
             tool_input, _text, _usage = ingest_v9.call_llm(
                 system_blocks=[{"type": "text", "text": "system"}],
                 user_blocks=[{"type": "text", "text": "reports"}],
@@ -586,13 +925,13 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "response_id": "msg_wrong_tool",
             "model": "claude-opus-4-7",
             "stop_reason": "tool_use",
-            "usage": self._proxy_usage(321),
+            "usage": self._proxy_usage(model_id="claude-opus-4-7"),
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
             with self.assertRaisesRegex(
                 ingest_v9.LlmOutputContractError,
-                "expected submit_craft_scene_report",
+                "wrong tool contract",
             ) as raised:
                 ingest_v9.call_llm(
                     system_blocks=[{"type": "text", "text": "system"}],
@@ -604,7 +943,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 )
 
         self.assertEqual(post.call_count, 1)
-        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 321)
+        self.assertEqual(
+            raised.exception.usage["actual_cost_microusd"],
+            self._proxy_usage(model_id="claude-opus-4-7")["actual_cost_microusd"],
+        )
         self.assertEqual(
             raised.exception.usage["calls"][0]["response_id"],
             "msg_wrong_tool",
@@ -619,10 +961,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "response_id": "msg_truncated_tool",
             "model": "claude-opus-4-7",
             "stop_reason": "max_tokens",
-            "usage": self._proxy_usage(654),
+            "usage": self._proxy_usage(model_id="claude-opus-4-7"),
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
             with self.assertRaisesRegex(
                 ingest_v9.LlmOutputContractError,
                 "max_tokens",
@@ -637,7 +979,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 )
 
         self.assertEqual(post.call_count, 1)
-        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 654)
+        self.assertEqual(
+            raised.exception.usage["actual_cost_microusd"],
+            self._proxy_usage(model_id="claude-opus-4-7")["actual_cost_microusd"],
+        )
 
     def test_missing_tool_input_is_rejected_with_settled_usage(self):
         response = MagicMock()
@@ -651,10 +996,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "response_id": "msg_missing_tool_input",
             "model": "claude-opus-4-7",
             "stop_reason": "tool_use",
-            "usage": self._proxy_usage(777),
+            "usage": self._proxy_usage(model_id="claude-opus-4-7"),
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
             with self.assertRaisesRegex(
                 ingest_v9.LlmOutputContractError,
                 "not an object",
@@ -669,7 +1014,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 )
 
         self.assertEqual(post.call_count, 1)
-        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 777)
+        self.assertEqual(
+            raised.exception.usage["actual_cost_microusd"],
+            self._proxy_usage(model_id="claude-opus-4-7")["actual_cost_microusd"],
+        )
 
     def test_synthesis_validator_rejects_non_numeric_score_before_publication(self):
         candidate = complete_analysis("Malformed Synthesis")
@@ -686,8 +1034,8 @@ class ProxyCostTelemetryTests(unittest.TestCase):
 
         candidate = complete_analysis("Model Verdict Mismatch")
         candidate["verdict_before_adjustments"] = "PASS"
-        validated = self._validate_synthesis(candidate)
-        self.assertEqual(validated["verdict_before_adjustments"], "CONSIDER")
+        with self.assertRaisesRegex(ValueError, "before adjustments contradicts"):
+            self._validate_synthesis(candidate)
 
     def test_synthesis_validator_requires_verdict_gate_inputs(self):
         candidate = complete_analysis("Missing Failures")
@@ -768,6 +1116,8 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "protagonist": "Invented Person",
             "protagonist_evidence": {
                 "kind": "person",
+                "role": "protagonist",
+                "role_justification": "This person drives the central action.",
                 "page_citations": [1],
                 "citation_evidence": [{
                     "page": 1,
@@ -776,6 +1126,112 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             },
         })
         with self.assertRaisesRegex(ValueError, "absent from its evidence"):
+            self._validate_synthesis(candidate)
+
+    def test_synthesis_cannot_lock_unrelated_claim_or_role_evidence(self):
+        for invented_claim in (
+            "Mara secretly marries the villain.",
+            "The hero dies and the villain wins.",
+        ):
+            with self.subTest(invented_claim=invented_claim):
+                candidate = complete_analysis("Invented outcome")
+                candidate["strengths"][2] = invented_claim
+                candidate["material_claims"][4] = material_claim_record(
+                    "strength",
+                    2,
+                    invented_claim,
+                )
+                with self.assertRaisesRegex(ValueError, "lexical support"):
+                    self._validate_synthesis(candidate)
+
+        candidate = complete_analysis("Invented role")
+        candidate["characters"].update({
+            "protagonist": "Family",
+            "protagonist_evidence": {
+                "kind": "person",
+                "role": "protagonist",
+                "role_justification": "Family secretly rules the galaxy.",
+                "page_citations": [1],
+                "citation_evidence": [{
+                    "page": 1,
+                    "excerpt": FIXTURE_DECISION_EVIDENCE,
+                }],
+            },
+        })
+        with self.assertRaisesRegex(ValueError, "character role.*lexical support"):
+            self._validate_synthesis(candidate)
+
+    def test_synthesis_requires_atomic_evidence_for_every_sentence(self):
+        candidate = complete_analysis("Atomic claims")
+        candidate["executive_summary"] = (
+            "A complete decision summary. The family survives the final choice."
+        )
+        candidate["material_claims"][1] = {
+            **material_claim_record(
+                "executive_summary",
+                0,
+                candidate["executive_summary"],
+            ),
+            "atomic_claims": [material_claim_record(
+                "executive_summary",
+                0,
+                "A complete decision summary.",
+            )["atomic_claims"][0]],
+        }
+        with self.assertRaisesRegex(ValueError, "atomic mapping"):
+            self._validate_synthesis(candidate)
+
+    def test_synthesis_requires_deterministic_reader_conflicts(self):
+        candidate = complete_analysis("Reader conflicts")
+        candidate["reader_reports"]["craft_scene"]["sub_scores"][
+            "dialogue_voice_distinction"
+        ]["score"] = 8
+        candidate["reader_reports"]["emotional_resonance"]["sub_scores"][
+            "empathy_investment"
+        ]["score"] = 4
+        with self.assertRaisesRegex(ValueError, "omitted deterministic"):
+            self._validate_synthesis(candidate)
+
+        candidate["reader_disagreements"] = [{
+            "topic": "Voice without soul",
+            "reader_a": "craft_scene",
+            "reader_a_position": "craft_scene.dialogue_voice_distinction=8",
+            "reader_b": "emotional_resonance",
+            "reader_b_position": "emotional_resonance.empathy_investment=4",
+            "resolution": "Treat voice as craft strength, not emotional proof.",
+        }]
+        validated = self._validate_synthesis(candidate)
+        self.assertEqual(
+            validated["reader_disagreements"][0]["topic"],
+            "Voice without soul",
+        )
+
+        untriggered = complete_analysis("Invented conflict")
+        untriggered["reader_disagreements"] = copy.deepcopy(
+            candidate["reader_disagreements"]
+        )
+        with self.assertRaisesRegex(ValueError, "was not triggered"):
+            self._validate_synthesis(untriggered)
+
+    def test_synthesis_rejects_prose_that_contradicts_canonical_verdict(self):
+        candidate = complete_analysis("Contradictory decision prose")
+        for reader in candidate["reader_reports"].values():
+            for metric in reader["sub_scores"].values():
+                metric["score"] = 4
+        candidate["verdict"] = "PASS"
+        candidate["verdict_before_adjustments"] = "PASS"
+        candidate["executive_summary"] = (
+            "FILM NOW, acquire this screenplay immediately and move forward."
+        )
+        candidate["material_claims"][1] = material_claim_record(
+            "executive_summary",
+            0,
+            candidate["executive_summary"],
+        )
+        candidate["material_claims"][1]["atomic_claims"][0][
+            "citation_evidence"
+        ][0]["excerpt"] = candidate["executive_summary"]
+        with self.assertRaisesRegex(ValueError, "executive summary contradicts"):
             self._validate_synthesis(candidate)
 
     def test_synthesis_validator_requires_and_recomputes_all_traps(self):
@@ -790,7 +1246,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         character["sub_scores"]["supporting_cast_function"]["score"] = 4
         concept = candidate["reader_reports"]["concept"]
         for metric in concept["sub_scores"].values():
-            metric["score"] = 9.5
+            metric["score"] = 10
         candidate["false_positive_check"]["weighted_trap_score"] = 0
         candidate["false_positive_check"]["verdict_adjustment"] = "none"
 
@@ -811,6 +1267,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         candidate["reader_reports"]["craft_scene"]["sub_scores"][
             "dialogue_voice_distinction"
         ]["score"] = 6
+        candidate["verdict"] = "PASS"
         validated = self._validate_synthesis(candidate)
         self.assertEqual(
             validated["false_positive_check"]["weighted_trap_score"],
@@ -821,42 +1278,82 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "downgrade_one",
         )
 
-    def test_synthesis_validator_derives_penalty_from_validated_severity(self):
+    def test_synthesis_validator_derives_severity_from_canonical_metric_score(self):
         candidate = complete_analysis("Signed Model Penalty")
         candidate["weaknesses"] = [
             "The third act resolves through coincidence.",
             "The midpoint turn arrives late.",
         ]
+        candidate["material_claims"] = [
+            claim
+            for claim in candidate["material_claims"]
+            if claim["source_field"] != "weakness"
+        ] + [
+            material_claim_record("weakness", index, claim)
+            for index, claim in enumerate(candidate["weaknesses"])
+        ]
         candidate["critical_failures"] = [
             {
                 "weakness_index": 0,
                 "reader": "structure",
-                "metric": "ending_payoff",
+                "metric": "beat_timing",
                 "description": "The third act resolves through coincidence.",
                 "severity": "major",
                 "penalty": -0.8,
             }
         ]
+        candidate["reader_reports"]["structure"]["sub_scores"][
+            "beat_timing"
+        ]["score"] = 2
         candidate["critical_failure_total_penalty"] = 9.0
 
         validated = self._validate_synthesis(candidate)
 
         self.assertEqual(validated["critical_failures"][0]["penalty"], 0.8)
+        self.assertEqual(validated["critical_failures"][0]["severity"], "major")
         self.assertEqual(validated["critical_failure_total_penalty"], 0.8)
 
         equal_set = copy.deepcopy(candidate)
         equal_set["weaknesses"] = [candidate["weaknesses"][0]]
-        with self.assertRaisesRegex(ValueError, "strict subset"):
-            self._validate_synthesis(equal_set)
+        equal_set["material_claims"] = [
+            claim
+            for claim in equal_set["material_claims"]
+            if claim["source_field"] != "weakness"
+            or claim["source_index"] == 0
+        ]
+        equal_validated = self._validate_synthesis(equal_set)
+        self.assertEqual(equal_validated["critical_failure_total_penalty"], 0.8)
+        self.assertEqual(equal_validated["critical_failures"][0]["severity"], "major")
 
         candidate["critical_failures"][0]["description"] = "Invented fatal issue."
         with self.assertRaisesRegex(ValueError, "linked to a unique weakness"):
             self._validate_synthesis(candidate)
         candidate["critical_failures"][0]["description"] = candidate["weaknesses"][0]
 
-        candidate["critical_failures"][0]["severity"] = ["major"]
-        with self.assertRaisesRegex(ValueError, "invalid severity"):
+        candidate["reader_reports"]["structure"]["sub_scores"][
+            "beat_timing"
+        ]["score"] = 7
+        with self.assertRaisesRegex(ValueError, "metric score is above 4"):
             self._validate_synthesis(candidate)
+
+    def test_low_score_is_not_automatically_a_greenlight_blocker(self):
+        candidate = complete_analysis("Ordinary Low Score")
+        candidate["critical_failures"] = []
+        candidate["critical_failure_total_penalty"] = 0
+        candidate["critical_failure_penalty_applied"] = 0
+        candidate["weighted_score_adjusted"] = candidate["weighted_score"]
+        candidate["verdict_adjustments"] = []
+
+        validated = self._validate_synthesis(candidate)
+
+        self.assertEqual(validated["critical_failures"], [])
+        self.assertEqual(validated["critical_failure_total_penalty"], 0)
+        self.assertIn("would block a", ingest_v9.SYNTHESIS_SYSTEM)
+        self.assertIn(
+            "block a greenlight",
+            ingest_v9.SYNTHESIS_TOOL["input_schema"]["properties"]
+            ["critical_failures"]["description"],
+        )
 
     def test_daily_dollar_limit_is_not_retried_as_a_rate_limit(self):
         response = MagicMock()
@@ -867,7 +1364,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "resetAt": "2026-07-22T00:00:00.000Z",
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
             with self.assertRaises(ingest_v9.DailyBudgetExceededError) as raised:
                 ingest_v9.call_llm(
                     system_blocks=[{"type": "text", "text": "system"}],
@@ -890,7 +1387,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "isRetryable": False,
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
             with self.assertRaises(ingest_v9.LlmRequestRejectedError):
                 ingest_v9.call_llm(
                     system_blocks=[{"type": "text", "text": "system"}],
@@ -929,7 +1426,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         with patch.object(
             ingest_v9.requests,
             "post",
-            side_effect=[unavailable, success],
+            side_effect=[unavailable, self._exact_response(success)],
         ) as post, patch.object(ingest_v9.time, "sleep") as sleep:
             _tool, text, usage = ingest_v9.call_llm(
                 system_blocks=[{"type": "text", "text": "system"}],
@@ -955,6 +1452,134 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "response_id": "msg_after_retry",
             },
         ])
+
+    def test_terminal_pre_call_accounting_failure_preserves_zero_spend_provenance(self):
+        response = MagicMock(status_code=503)
+        expected_release = {
+            "git_sha": "a" * 40,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-27T12:00:00Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00001-abc",
+        }
+        response.json.return_value = {
+            "code": "PRE_CALL_ACCOUNTING_UNAVAILABLE",
+            "error": "No provider call was made.",
+            "isRetryable": False,
+            "release": expected_release,
+        }
+        context = {
+            "run_id": "pre-call-zero",
+            "screenplay_sha256": "d" * 64,
+            "route": "sonnet",
+            "generation": "candidate",
+            "prompt_bundle_sha256": "e" * 64,
+            "schema_bundle_sha256": "f" * 64,
+        }
+        ingest_v9.configure_benchmark_online_transport(
+            context,
+            lambda: "short-lived",
+            expected_release,
+        )
+        try:
+            with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
+                with self.assertRaises(
+                    ingest_v9.LlmPreCallAccountingError
+                ) as raised:
+                    ingest_v9.call_llm(
+                        system_blocks=[{"type": "text", "text": "system"}],
+                        user_blocks=[{"type": "text", "text": "screenplay"}],
+                        model_key="sonnet",
+                        proxy_url="https://candidate.test",
+                        stage="claim_verification",
+                        pipeline_pass="sonnet",
+                    )
+        finally:
+            ingest_v9.clear_benchmark_online_transport()
+
+        failed = raised.exception.usage["failed_calls"][0]
+        sent = post.call_args.kwargs["json"]["benchmark"]
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 0)
+        self.assertEqual(failed["call_id"], sent["call_id"])
+        self.assertEqual(failed["request_sha256"], sent["request_sha256"])
+        self.assertEqual(failed["prompt_sha256"], sent["prompt_sha256"])
+        self.assertEqual(failed["release"], expected_release)
+        self.assertEqual(failed["failure_state"], "pre_call_accounting_unavailable")
+
+    def test_candidate_configuration_failure_releases_zero_spend_before_dispatch(self):
+        response = MagicMock(status_code=503)
+        expected_release = {
+            "git_sha": "a" * 40,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-27T12:00:00Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00001-abc",
+            "inference_geo": "global",
+        }
+        context = {
+            "run_id": "provider-config-zero",
+            "screenplay_sha256": "d" * 64,
+            "route": "sonnet",
+            "generation": "candidate",
+            "prompt_bundle_sha256": "e" * 64,
+            "schema_bundle_sha256": "f" * 64,
+        }
+
+        def dispatch(*_args, **kwargs):
+            call_id = kwargs["json"]["benchmark"]["call_id"]
+            response.json.return_value = {
+                "code": "CANDIDATE_PROVIDER_CONFIGURATION_UNAVAILABLE",
+                "error": "Candidate provider configuration is unavailable before dispatch.",
+                "isRetryable": False,
+                "release": expected_release,
+                "benchmark_rejection": {
+                    "call_id": call_id,
+                    "requested_model": MODEL_ID,
+                    "disposition": "released_before_dispatch",
+                    "charged_cost_microusd": 0,
+                    "charged_cost_usd": 0,
+                    "reserved_cost_microusd": 0,
+                    "validation_failure_code": (
+                        "CANDIDATE_PROVIDER_CONFIGURATION_UNAVAILABLE"
+                    ),
+                    "validation_failure_reason": (
+                        "Candidate provider configuration failed before dispatch."
+                    ),
+                    "configuration_error_sha256": "9" * 64,
+                },
+            }
+            return response
+
+        ingest_v9.configure_benchmark_online_transport(
+            context,
+            lambda: "short-lived",
+            expected_release,
+        )
+        try:
+            with patch.object(ingest_v9.requests, "post", side_effect=dispatch) as post:
+                with self.assertRaises(ingest_v9.LlmPreCallAccountingError) as raised:
+                    ingest_v9.call_llm(
+                        system_blocks=[{"type": "text", "text": "system"}],
+                        user_blocks=[{"type": "text", "text": "screenplay"}],
+                        model_key="sonnet",
+                        proxy_url="https://candidate.test",
+                        stage="reader",
+                        pipeline_pass="sonnet",
+                        reader_name="structure",
+                    )
+        finally:
+            ingest_v9.clear_benchmark_online_transport()
+
+        self.assertEqual(post.call_count, 1)
+        failed = raised.exception.usage["failed_calls"][0]
+        self.assertEqual(failed["failure_state"], "candidate_provider_configuration_unavailable")
+        self.assertEqual(failed["usage"]["actual_cost_microusd"], 0)
+        self.assertEqual(failed["configuration_error_sha256"], "9" * 64)
+        self.assertEqual(failed["downstream_consumption"], "not_consumed")
 
     def test_exhausted_call_preserves_every_failed_attempt_and_stage(self):
         unavailable = MagicMock()
@@ -992,8 +1617,15 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             [1, 2, 3],
         )
         usage = ingest_v9.failed_usage(raised.exception)
-        self.assertEqual(usage["failed_calls"][0]["stage"], "reader")
-        self.assertEqual(usage["failed_calls"][0]["boundary_run"], 2)
+        failed = usage["failed_calls"][0]
+        self.assertEqual(failed["stage"], "reader")
+        self.assertEqual(failed["boundary_run"], 2)
+        self.assertEqual(failed["schema_mode"], "schema_free")
+        self.assertRegex(failed["request_sha256"], r"^[a-f0-9]{64}$")
+        self.assertRegex(failed["prompt_sha256"], r"^[a-f0-9]{64}$")
+        self.assertGreaterEqual(failed["latency_ms"], 0)
+        self.assertEqual(failed["validation_result"], "failed_transport")
+        self.assertEqual(failed["downstream_consumption"], "not_consumed")
 
     def test_ambiguous_transport_failure_is_not_retried(self):
         with patch.object(
@@ -1040,13 +1672,387 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     proxy_url=None,
                 )
 
-        self.assertEqual(
-            raised.exception.usage["calls"],
-            [{
-                "response_id": "msg_genre",
-                "disposition": "discarded_unusable",
-            }],
+        call = raised.exception.usage["calls"][0]
+        self.assertEqual(call["response_id"], "msg_genre")
+        self.assertEqual(call["disposition"], "discarded_unusable")
+        self.assertEqual(call["validation_result"], "failed_structural")
+        self.assertEqual(call["downstream_consumption"], "not_consumed")
+
+    def test_genre_uses_strict_call_specific_schema(self):
+        usage = self._successful_call_usage(
+            "msg_genre_schema",
+            stage="genre_detection",
+            model_id=HAIKU_MODEL_ID,
         )
+        with patch.object(
+            ingest_v9,
+            "call_llm",
+            return_value=(self._genre_raw(), "", usage),
+        ) as call_llm:
+            detection, _usage = ingest_v9.run_genre_detection(
+                {"type": "text", "text": "screenplay"},
+                proxy_url="https://proxy.test",
+            )
+
+        self.assertFalse(detection["is_comedy"])
+        kwargs = call_llm.call_args.kwargs
+        self.assertEqual(kwargs["tool"]["name"], "submit_story_grid_genre")
+        self.assertNotIn("is_comedy", kwargs["tool"]["input_schema"]["properties"])
+        self.assertEqual(kwargs["logical_retry"], 0)
+
+    def test_genre_semantic_correction_succeeds_once_and_accounts_both_calls(self):
+        attempts = [
+            self._genre_raw(comedy_paired_genre="Action"),
+            self._genre_raw(),
+        ]
+
+        def respond(**kwargs):
+            index = kwargs["logical_retry"]
+            usage = self._successful_call_usage(
+                f"msg_genre_{index + 1}",
+                stage="genre_detection",
+                model_id=HAIKU_MODEL_ID,
+            )
+            usage["actual_cost_microusd"] = 100 + index
+            usage["actual_cost_usd"] = usage["actual_cost_microusd"] / 1_000_000
+            usage["by_model"][HAIKU_MODEL_ID]["actual_cost_microusd"] = 100 + index
+            usage["calls"][0]["usage"]["actual_cost_microusd"] = 100 + index
+            usage["calls"][0]["usage"]["actual_cost_usd"] = (
+                100 + index
+            ) / 1_000_000
+            return attempts[index], "", usage
+
+        with patch.object(ingest_v9, "call_llm", side_effect=respond) as call_llm:
+            detection, usage = ingest_v9.run_genre_detection(
+                {"type": "text", "text": "screenplay"},
+                proxy_url="https://proxy.test",
+            )
+
+        self.assertEqual(detection["external_genre"], "Society")
+        self.assertEqual(call_llm.call_count, 2)
+        self.assertEqual(usage["call_count"], 2)
+        self.assertEqual(usage["actual_cost_microusd"], 201)
+        self.assertEqual(
+            [call["disposition"] for call in usage["calls"]],
+            ["discarded_unusable", "used"],
+        )
+        self.assertEqual(
+            usage["calls"][1]["transformations"],
+            [
+                "derived_is_comedy_from_external_genre",
+                "normalized_inapplicable_comedy_fields",
+            ],
+        )
+
+    def test_genre_semantic_correction_fails_visibly_after_one_retry(self):
+        def respond(**kwargs):
+            index = kwargs["logical_retry"]
+            usage = self._successful_call_usage(
+                f"msg_genre_bad_{index + 1}",
+                stage="genre_detection",
+                model_id=HAIKU_MODEL_ID,
+            )
+            return self._genre_raw(comedy_paired_genre="Action"), "", usage
+
+        with patch.object(ingest_v9, "call_llm", side_effect=respond) as call_llm:
+            with self.assertRaisesRegex(
+                ingest_v9.GenreDetectionIncompleteError,
+                "non-comedy genres must not declare comedy pairing",
+            ) as raised:
+                ingest_v9.run_genre_detection(
+                    {"type": "text", "text": "screenplay"},
+                    proxy_url="https://proxy.test",
+                )
+
+        self.assertEqual(call_llm.call_count, 2)
+        self.assertEqual(raised.exception.usage["call_count"], 2)
+        self.assertEqual(
+            [call["disposition"] for call in raised.exception.usage["calls"]],
+            ["discarded_unusable", "discarded_unusable"],
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["validation_reason"],
+            "non-comedy genres must not declare comedy pairing",
+        )
+
+    def test_application_validation_recheckpoints_the_final_call_state(self):
+        usage = self._successful_call_usage(
+            "msg_checkpoint_final",
+            stage="genre_detection",
+            model_id=HAIKU_MODEL_ID,
+        )
+        usage["calls"][0]["call_id"] = "a" * 64
+        checkpoints = []
+        ingest_v9.configure_benchmark_online_transport(
+            {"run_id": "checkpoint-final"},
+            lambda: "unused",
+            call_checkpoint=lambda call: checkpoints.append(call),
+        )
+        try:
+            ingest_v9.set_successful_call_disposition(usage, "used")
+            ingest_v9._mark_call_validation(
+                usage,
+                result="passed",
+                consumed=True,
+            )
+        finally:
+            ingest_v9.clear_benchmark_online_transport()
+
+        self.assertEqual(checkpoints[-1]["validation_result"], "passed")
+        self.assertEqual(checkpoints[-1]["disposition"], "used")
+        self.assertEqual(checkpoints[-1]["downstream_consumption"], "consumed")
+
+    def test_claim_verification_preserves_terminal_accounting_failure_usage(self):
+        usage = ingest_v9.empty_usage()
+        usage["actual_cost_microusd"] = 321
+        usage["actual_cost_usd"] = 0.000321
+        usage["failed_calls"] = [{
+            "call_id": "b" * 64,
+            "failure_state": "benchmark_spend_uncertain",
+        }]
+        terminal = ingest_v9.LlmAccountingError("settlement is uncertain")
+        terminal.usage = usage
+        targets = [{
+            "claim_id": f"verdict.{index}",
+            "claim": f"The ending resolves central conflict number {index}.",
+            "claim_type": "outcome",
+            "verdict_driving": True,
+            "story_fact_check_required": True,
+        } for index in range(10)]
+        with patch.object(
+            ingest_v9,
+            "claim_verification_targets",
+            return_value=targets,
+        ), patch.object(ingest_v9, "call_llm", side_effect=terminal):
+            with self.assertRaises(
+                ingest_v9.ClaimVerificationIncompleteError
+            ) as raised:
+                ingest_v9.run_claim_verification(
+                    text=marked_screenplay(2),
+                    analysis={},
+                    model_key="sonnet",
+                    proxy_url="https://candidate.test",
+                    pipeline_pass="sonnet",
+                    boundary_run=1,
+                )
+
+        self.assertEqual(raised.exception.usage["actual_cost_microusd"], 321)
+        self.assertEqual(
+            raised.exception.usage["failed_calls"][0]["call_id"],
+            "b" * 64,
+        )
+
+    def test_claim_verification_records_every_application_transformation(self):
+        analysis = complete_analysis()
+        targets = ingest_v9.claim_verification_targets(analysis)
+        raw_claims = [{
+            "claim_id": target["claim_id"],
+            "classification": "Supported",
+            "story_fact_classification": (
+                "Supported"
+                if target["story_fact_check_required"]
+                else "No concrete story fact"
+            ),
+            "unsupported_story_facts": [],
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": f"Physical page evidence confirms {target['claim']}",
+            }],
+        } for target in targets]
+        call_index = 0
+
+        def respond(**kwargs):
+            nonlocal call_index
+            start = call_index * ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE
+            batch = raw_claims[
+                start:start + ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE
+            ]
+            call_index += 1
+            usage = self._successful_call_usage(
+                f"msg_claim_transformations_{call_index}",
+                stage="claim_verification",
+            )
+            usage["calls"][0]["reader_name"] = kwargs["reader_name"]
+            return {"claims": batch}, "", usage
+
+        with patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=respond,
+        ):
+            _verified, recorded = ingest_v9.run_claim_verification(
+                text=marked_screenplay(2),
+                analysis=analysis,
+                model_key="sonnet",
+                proxy_url="https://candidate.test",
+                pipeline_pass="sonnet",
+                boundary_run=1,
+            )
+
+        expected = {
+            "bound_locked_claim_targets",
+            "recomputed_claim_verification_summary",
+            "bound_claim_verification_lineage",
+        }
+        self.assertEqual(len(recorded["calls"]), 4)
+        for call in recorded["calls"]:
+            self.assertEqual(set(call["transformations"]), expected)
+            self.assertEqual(
+                {item["name"] for item in call["transformation_evidence"]},
+                expected,
+            )
+            self.assertEqual(call["validation_result"], "passed")
+            self.assertEqual(call["downstream_consumption"], "consumed")
+
+    def test_invalid_first_claim_batch_stops_before_a_second_paid_call(self):
+        targets = [{
+            "claim_id": f"claim.{index}",
+            "claim": f"Locked claim {index}.",
+            "claim_type": "factual",
+            "verdict_driving": True,
+            "story_fact_check_required": True,
+        } for index in range(ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE + 1)]
+
+        def respond(**kwargs):
+            claims_schema = kwargs["tool"]["input_schema"]["properties"]["claims"]
+            batch_ids = claims_schema["items"]["properties"]["claim_id"]["enum"]
+            claims = [{
+                "claim_id": claim_id,
+                "classification": "Supported",
+                "story_fact_classification": "Supported",
+                "unsupported_story_facts": [],
+                "page_citations": [1],
+                "citation_evidence": [{
+                    "page": 1,
+                    "excerpt": FIXTURE_DECISION_EVIDENCE,
+                }],
+            } for claim_id in batch_ids]
+            claims[-1]["claim_id"] = claims[0]["claim_id"]
+            usage = self._successful_call_usage(
+                "msg_bad_first_claim_batch",
+                stage="claim_verification",
+            )
+            usage["calls"][0]["reader_name"] = kwargs["reader_name"]
+            return {"claims": claims}, "", usage
+
+        with patch.object(
+            ingest_v9,
+            "claim_verification_targets",
+            return_value=targets,
+        ), patch.object(ingest_v9, "call_llm", side_effect=respond) as call_llm:
+            with self.assertRaises(
+                ingest_v9.ClaimVerificationIncompleteError
+            ):
+                ingest_v9.run_claim_verification(
+                    text=marked_screenplay(2),
+                    analysis={},
+                    model_key="sonnet",
+                    proxy_url="https://candidate.test",
+                    pipeline_pass="sonnet",
+                    boundary_run=1,
+                )
+
+        self.assertEqual(call_llm.call_count, 1)
+        claims_schema = call_llm.call_args.kwargs["tool"]["input_schema"]
+        self.assertEqual(
+            claims_schema["properties"]["claims"]["maxItems"],
+            ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE,
+        )
+
+    def test_claim_output_contract_failure_keeps_structural_reason(self):
+        usage = self._successful_call_usage(
+            "msg_claim_structural",
+            stage="claim_verification",
+        )
+        failure = ingest_v9.LlmOutputContractError(
+            "required submit_claim_verification tool was missing",
+            usage,
+        )
+        with patch.object(
+            ingest_v9,
+            "claim_verification_targets",
+            return_value=[{
+                "claim_id": f"claim.{index}",
+                "claim": f"A locked factual claim number {index}",
+                "claim_type": "factual",
+                "verdict_driving": True,
+                "story_fact_check_required": True,
+            } for index in range(10)],
+        ), patch.object(ingest_v9, "call_llm", side_effect=failure):
+            with self.assertRaises(ingest_v9.ClaimVerificationIncompleteError) as raised:
+                ingest_v9.run_claim_verification(
+                    text=marked_screenplay(2),
+                    analysis={},
+                    model_key="sonnet",
+                    proxy_url="https://candidate.test",
+                    pipeline_pass="sonnet",
+                    boundary_run=1,
+                )
+
+        call = raised.exception.usage["calls"][0]
+        self.assertEqual(call["validation_result"], "failed_structural")
+        self.assertEqual(
+            call["validation_reason"],
+            "required submit_claim_verification tool was missing",
+        )
+
+    def test_rejected_genre_output_is_local_only_and_hash_bound(self):
+        def respond(**kwargs):
+            index = kwargs["logical_retry"]
+            usage = self._successful_call_usage(
+                f"msg_local_rejection_{index + 1}",
+                stage="genre_detection",
+                model_id=HAIKU_MODEL_ID,
+            )
+            usage["calls"][0].update({
+                "logical_retry": index,
+                "request_sha256": f"{index + 1:02x}" * 32,
+                "prompt_sha256": f"{index + 3:02x}" * 32,
+                "schema_sha256": f"{index + 5:02x}" * 32,
+            })
+            return self._genre_raw(comedy_paired_genre="Action"), "", usage
+
+        with tempfile.TemporaryDirectory() as temp_dir, patch.object(
+            ingest_v9,
+            "LOG_DIR",
+            Path(temp_dir) / "engine",
+        ), patch.object(
+            ingest_v9,
+            "_LOCAL_ARTIFACT_ROOT",
+            Path(temp_dir),
+        ), patch.object(ingest_v9, "call_llm", side_effect=respond):
+            ingest_v9.configure_benchmark_online_transport(
+                {"run_id": "local-artifact-test"},
+                lambda: "unused",
+            )
+            try:
+                with self.assertRaises(
+                    ingest_v9.GenreDetectionIncompleteError
+                ) as raised:
+                    ingest_v9.run_genre_detection(
+                        {"type": "text", "text": "screenplay"},
+                        proxy_url="https://proxy.test",
+                    )
+            finally:
+                ingest_v9.clear_benchmark_online_transport()
+
+            rejected = raised.exception.review_evidence["rejected_responses"]
+            self.assertEqual(len(rejected), 2)
+            for record in rejected:
+                self.assertNotIn("rejected_output", record)
+                artifact_path = Path(record["rejected_artifact_path"])
+                self.assertTrue(artifact_path.is_relative_to(Path(temp_dir)))
+                self.assertEqual(
+                    hashlib.sha256(artifact_path.read_bytes()).hexdigest(),
+                    record["rejected_artifact_sha256"],
+                )
+                artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+                self.assertRegex(artifact["request_sha256"], r"^[a-f0-9]{64}$")
+                self.assertEqual(
+                    artifact["rejected_output_sha256"],
+                    record["rejected_output_sha256"],
+                )
 
     def test_semantically_empty_or_unknown_genre_fails_closed(self):
         for raw in ({}, {"external_genre": "interpretive dance"}):
@@ -1071,7 +2077,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "discarded_unusable",
             )
 
-    def test_contradictory_primary_comedy_flags_fail_closed(self):
+    def test_santa_legacy_comedy_contradiction_is_rejected_by_strict_schema(self):
         base = {
             "comedy_paired_genre": "Action",
             "comedy_subgenre": "Buddy Comedy",
@@ -1090,20 +2096,21 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             with patch.object(
                 ingest_v9,
                 "call_llm",
-                return_value=(None, json.dumps({
+                return_value=({
                     **base,
                     "external_genre": external_genre,
                     "is_comedy": is_comedy,
-                }), usage),
-            ):
+                }, "", usage),
+            ) as call_llm:
                 with self.assertRaisesRegex(
                     ingest_v9.GenreDetectionIncompleteError,
-                    "contradicts",
+                    "unexpected field",
                 ):
                     ingest_v9.run_genre_detection(
                         {"type": "text", "text": "screenplay"},
                         proxy_url=None,
                     )
+            self.assertEqual(call_llm.call_count, 1)
 
     def test_genre_failure_prevents_reader_and_synthesis_calls(self):
         error = ingest_v9.GenreDetectionIncompleteError(
@@ -1148,13 +2155,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 )
 
         self.assertIs(raised.exception.usage, usage)
-        self.assertEqual(
-            raised.exception.usage["calls"],
-            [{
-                "response_id": "msg_triage",
-                "disposition": "discarded_unusable",
-            }],
-        )
+        call = raised.exception.usage["calls"][0]
+        self.assertEqual(call["response_id"], "msg_triage")
+        self.assertEqual(call["disposition"], "discarded_unusable")
+        self.assertEqual(call["validation_result"], "failed_application_validation")
 
     def test_triage_semantics_fail_closed_and_threshold_is_code_owned(self):
         base = {
@@ -1217,11 +2221,50 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertEqual(analysis["verdict"], "recommend")
         self.assertIs(analysis["should_deep_analyze"], True)
 
+    def test_character_evidence_requires_name_tokens_not_a_substring(self):
+        evidence = {
+            "kind": "person",
+            "role": "protagonist",
+            "role_justification": "ANA drives the central action.",
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": "Mañana llega el tren de regreso.",
+            }],
+        }
+
+        with self.assertRaisesRegex(ValueError, "name is absent"):
+            ingest_v9._validate_character_evidence(
+                "protagonist", "ANA", evidence, "protagonist"
+            )
+
+        evidence["citation_evidence"][0]["excerpt"] = (
+            "ANA drives the central action and llega mañana en el tren."
+        )
+        ingest_v9._validate_character_evidence(
+            "protagonist", "ANA", evidence, "protagonist"
+        )
+
     def test_reader_and_synthesis_recovery_produce_a_complete_manifest(self):
         synthesis_attempt = 0
         reader_attempts = {}
+        claim_targets = []
         fixture_analysis = complete_analysis("Recovered Draft")
         fixture_analysis.pop("_boundary_reruns")
+        claim_evidence_by_id = {
+            target["claim_id"]: f"{target['claim']} supported by screenplay evidence."
+            for target in ingest_v9.claim_verification_targets(fixture_analysis)
+        }
+        claim_evidence_by_id["cold_read.logline"] = (
+            "A cold read linked to an exact response. Supported by screenplay evidence."
+        )
+        claim_evidence_by_id["cold_read.genre"] = (
+            "Horror genre classification supported by screenplay evidence."
+        )
+        claim_evidence = " ".join([
+            FIXTURE_DECISION_EVIDENCE,
+            *claim_evidence_by_id.values(),
+        ])
 
         def fake_call_llm(**kwargs):
             nonlocal synthesis_attempt, reader_attempts
@@ -1249,6 +2292,32 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     "",
                     usage,
                 )
+
+            if stage == "claim_verification":
+                claims_schema = kwargs["tool"]["input_schema"]["properties"]
+                claims_schema = claims_schema["claims"]["items"]["properties"]
+                batch_ids = set(claims_schema["claim_id"]["enum"])
+                usage = self._successful_call_usage(
+                    f"msg_claim_verification_{kwargs['reader_name']}",
+                    stage=stage,
+                )
+                usage["calls"][0]["reader_name"] = kwargs["reader_name"]
+                return {"claims": [{
+                    "claim_id": target["claim_id"],
+                    "classification": "Supported",
+                    "story_fact_classification": (
+                        "Supported"
+                        if target["story_fact_check_required"]
+                        else "No concrete story fact"
+                    ),
+                    "unsupported_story_facts": [],
+                    "page_citations": [1],
+                    "citation_evidence": [{
+                        "page": 1,
+                        "excerpt": claim_evidence_by_id[target["claim_id"]],
+                    }],
+                } for target in claim_targets
+                    if target["claim_id"] in batch_ids]}, "", usage
 
             self.assertEqual(stage, "synthesis")
             synthesis_attempt += 1
@@ -1282,7 +2351,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             },
             "response_ids": ["msg_triage_cold_read"],
         }
-        screenplay_text = marked_screenplay()
+        screenplay_text = join_marked_pages([
+            f"INT. HOUSE - DAY\n{claim_evidence}",
+            *[f"INT. HOUSE - DAY\n{FIXTURE_DECISION_EVIDENCE}"] * 99,
+        ])
         with patch.object(
             ingest_v9,
             "run_genre_detection",
@@ -1308,6 +2380,19 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 pipeline_pass="sonnet",
                 cold_read=cold_read,
             )
+            claim_targets.extend(
+                ingest_v9.claim_verification_targets(analysis)
+            )
+            claim_verification, claim_usage = ingest_v9.run_claim_verification(
+                text=screenplay_text,
+                analysis=analysis,
+                model_key="sonnet",
+                proxy_url="https://proxy.test",
+                pipeline_pass="sonnet",
+                boundary_run=1,
+            )
+            analysis["_claim_verification"] = claim_verification
+            usage = ingest_v9.merge_usage(usage, claim_usage)
         usage = ingest_v9.merge_usage(triage_usage, usage)
 
         dispositions = {
@@ -1341,16 +2426,59 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         self.assertEqual(analysis["analysis_quality"]["completed_readers"], 5)
         self.assertEqual(analysis["failed_reader_errors"], {})
+        self.assertNotIn("_total_usage", analysis)
 
         raw = raw_analysis()
         raw["analysis"] = analysis
         raw["usage"] = usage
-        raw["metadata"]["character_count"] = len(screenplay_text)
+        page_count = 100
+        page_content_signals = [{
+            "page": page,
+            "content_bearing": True,
+            "image_count": 0,
+            "content_stream_bytes": 100,
+        } for page in range(1, page_count + 1)]
+        page_evidence = build_page_evidence(
+            screenplay_text,
+            page_count,
+            "pdfplumber",
+            page_content_signals,
+        )
+        word_count = sum(
+            item["words"] for item in page_evidence["page_diagnostics"]
+        )
+        raw["metadata"].update({
+            "page_count": page_count,
+            "word_count": word_count,
+            "character_count": len(screenplay_text),
+            "page_evidence_version": page_evidence["page_evidence_version"],
+            "extraction_quality": page_evidence["extraction_quality"],
+            "page_diagnostics": page_evidence["page_diagnostics"],
+            "page_evidence_sha256": page_evidence["evidence_sha256"],
+            "page_content_signals": page_content_signals,
+            "scene_count_evidence": build_scene_count_evidence(screenplay_text),
+            "native_cross_check": {
+                "status": "corroborated",
+                "methods_compared": ["pdfplumber", "pymupdf"],
+                "word_counts": {
+                    "pdfplumber": word_count,
+                    "pymupdf": word_count,
+                },
+                "word_count_agreement_ratio": 1.0,
+                "page_token_similarity_ratio": 1.0,
+                "pairwise_page_token_similarity": [{
+                    "methods": ["pdfplumber", "pymupdf"],
+                    "page_token_similarity_ratio": 1.0,
+                }],
+                "minimum_similarity_required": 0.8,
+                "selected_consensus_method": "pdfplumber",
+            },
+        })
         ingest_v9.attach_verified_citation_quality(
             raw["analysis"],
             raw["metadata"],
             raw["metadata"]["page_count"],
-            q2_parsed_source()["text"],
+            screenplay_text,
         )
         raw["actual_cost_microusd"] = usage["actual_cost_microusd"]
         raw["actual_cost_usd"] = usage["actual_cost_usd"]
@@ -1443,7 +2571,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertEqual(len(craft_user_blocks[0]), 3)
         self.assertEqual(len(craft_user_blocks[1]), 4)
         repair_instruction = craft_user_blocks[1][-1]["text"]
-        self.assertIn("reader identity mismatch", repair_instruction)
+        self.assertIn("missing required field reader", repair_instruction)
         self.assertIn("submit_craft_scene_report", repair_instruction)
         self.assertTrue(compact_flags)
         self.assertTrue(all(compact_flags))
@@ -1484,7 +2612,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
 
         self.assertEqual(
             reader_calls,
-            {reader: 1 for reader in ingest_v9.READER_WEIGHTS},
+            {"structure": 1},
         )
 
     def test_non_enum_genres_fail_before_reader_dispatch(self):
@@ -1651,7 +2779,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
 
         self.assertEqual(
             reader_calls,
-            {reader: 1 for reader in ingest_v9.READER_WEIGHTS},
+            {"structure": 1},
         )
         sleep.assert_not_called()
 
@@ -1777,7 +2905,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 )
 
         self.assertEqual(synthesis_calls, 0)
-        self.assertEqual(reader_attempts["emotional_resonance"], 3)
+        self.assertEqual(reader_attempts["emotional_resonance"], 2)
         self.assertTrue(raised.exception.review_required)
         self.assertEqual(
             raised.exception.review_kind,
@@ -1853,7 +2981,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     pipeline_pass="sonnet",
                 )
 
-        self.assertEqual(synthesis_calls, 3)
+        self.assertEqual(synthesis_calls, 2)
         self.assertEqual(raised.exception.review_kind, "synthesis_review")
         self.assertEqual(
             raised.exception.review_evidence["completed_readers"],
@@ -1875,7 +3003,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         self.assertEqual(
             raised.exception.review_evidence["synthesis_attempts"],
-            3,
+            2,
         )
 
     def test_full_engine_rejects_unlinked_cold_read_before_model_work(self):
@@ -1901,16 +3029,20 @@ class ProxyCostTelemetryTests(unittest.TestCase):
     def test_missing_response_identity_is_terminal_without_retry(self):
         response = MagicMock()
         response.status_code = 200
+        normalized_usage = self._proxy_usage()
+        normalized_usage["normalizations"] = [
+            "normalized_null_cache_creation_input_tokens_to_zero",
+        ]
         response.json.return_value = {
             "text": "settled but untraceable",
             "tool_uses": [],
             "model": "claude-sonnet-4-6",
             "stop_reason": "end_turn",
-            "usage": self._proxy_usage(),
+            "usage": normalized_usage,
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
-            with self.assertRaises(ingest_v9.LlmProvenanceError):
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
+            with self.assertRaises(ingest_v9.LlmProvenanceError) as raised:
                 ingest_v9.call_llm(
                     system_blocks=[{"type": "text", "text": "system"}],
                     user_blocks=[{"type": "text", "text": "screenplay"}],
@@ -1921,6 +3053,72 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 )
 
         self.assertEqual(post.call_count, 1)
+        failed = raised.exception.usage["failed_calls"][0]
+        self.assertEqual(failed["returned_model"], "claude-sonnet-4-6")
+        self.assertIsNone(failed["response_id"])
+        self.assertRegex(failed["request_sha256"], r"^[a-f0-9]{64}$")
+        self.assertEqual(failed["failure_state"], "model_provenance_mismatch")
+        self.assertEqual(failed["transformations"], normalized_usage["normalizations"])
+        self.assertEqual(
+            [item["name"] for item in failed["transformation_evidence"]],
+            normalized_usage["normalizations"],
+        )
+
+    def test_missing_stop_reason_is_never_defaulted(self):
+        response = MagicMock(status_code=200)
+        response.json.return_value = {
+            "text": "settled but missing completion state",
+            "tool_uses": [],
+            "model": MODEL_ID,
+            "response_id": "msg_stop_missing",
+            "usage": self._proxy_usage(),
+        }
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)):
+            with self.assertRaises(ingest_v9.LlmProvenanceError) as raised:
+                ingest_v9.call_llm(
+                    system_blocks=[{"type": "text", "text": "system"}],
+                    user_blocks=[{"type": "text", "text": "screenplay"}],
+                    model_key="sonnet",
+                    proxy_url="https://proxy.test",
+                )
+
+        failed = raised.exception.usage["failed_calls"][0]
+        self.assertIsNone(failed["stop_reason"])
+        self.assertEqual(failed["failure_state"], "missing_stop_reason")
+
+    def test_triage_terminal_stop_never_reaches_downstream(self):
+        for stop_reason, truncated in (
+            ("max_tokens", True),
+            ("pause_turn", False),
+            ("refusal", False),
+            ("stop_sequence", False),
+        ):
+            response = MagicMock(status_code=200)
+            response.json.return_value = {
+                "text": '{"triage_score": 8}',
+                "tool_uses": [],
+                "model": HAIKU_MODEL_ID,
+                "response_id": f"msg_triage_{stop_reason}",
+                "stop_reason": stop_reason,
+                "usage": self._proxy_usage(model_id=HAIKU_MODEL_ID),
+            }
+            with self.subTest(stop_reason=stop_reason), patch.object(
+                ingest_v9.requests,
+                "post",
+                return_value=self._exact_response(response),
+            ):
+                with self.assertRaises(ingest_v9.V9RunError) as raised:
+                    ingest_v9.run_v9_triage(
+                        text=marked_screenplay(2),
+                        title="Stopped triage",
+                        page_count=2,
+                        word_count=10,
+                        proxy_url="https://proxy.test",
+                    )
+            call = raised.exception.usage["calls"][0]
+            self.assertEqual(call["validation_result"], "failed_structural")
+            self.assertEqual(call["downstream_consumption"], "not_consumed")
+            self.assertEqual(call["truncated"], truncated)
 
     def test_missing_returned_model_is_never_guessed(self):
         response = MagicMock()
@@ -1933,8 +3131,8 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "usage": self._proxy_usage(),
         }
 
-        with patch.object(ingest_v9.requests, "post", return_value=response) as post:
-            with self.assertRaises(ingest_v9.LlmProvenanceError):
+        with patch.object(ingest_v9.requests, "post", return_value=self._exact_response(response)) as post:
+            with self.assertRaises(ingest_v9.LlmProvenanceError) as raised:
                 ingest_v9.call_llm(
                     system_blocks=[{"type": "text", "text": "system"}],
                     user_blocks=[{"type": "text", "text": "screenplay"}],
@@ -1945,6 +3143,13 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 )
 
         self.assertEqual(post.call_count, 1)
+        failed = raised.exception.usage["failed_calls"][0]
+        self.assertIsNone(failed["returned_model"])
+        self.assertEqual(failed["response_id"], "msg_model_missing")
+        self.assertEqual(
+            failed["independent_cost_status"],
+            "unavailable_missing_returned_model",
+        )
 
     def test_model_mismatch_requires_exact_settled_usage(self):
         malformed = self._proxy_usage(actual_cost_microusd=725)
@@ -1966,7 +3171,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             with self.subTest(invalid_usage=invalid_usage), patch.object(
                 ingest_v9.requests,
                 "post",
-                return_value=response,
+                    return_value=self._exact_response(response),
             ) as post:
                 with self.assertRaises(ingest_v9.LlmAccountingError) as raised:
                     ingest_v9.call_llm(
@@ -1979,6 +3184,79 @@ class ProxyCostTelemetryTests(unittest.TestCase):
 
             self.assertFalse(hasattr(raised.exception, "usage"))
             self.assertEqual(post.call_count, 1)
+
+    def test_benchmark_model_mismatch_preserves_call_and_release_provenance(self):
+        expected_release = {
+            "git_sha": "a" * 40,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-27T12:00:00Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00001-abc",
+        }
+        returned_release = {
+            **expected_release,
+            "cloud_run_revision": "llmproxycandidate-00002-def",
+        }
+        context = {
+            "run_id": "run-model-mismatch",
+            "screenplay_sha256": "d" * 64,
+            "route": "sonnet",
+            "generation": "candidate",
+            "prompt_bundle_sha256": "e" * 64,
+            "schema_bundle_sha256": "f" * 64,
+        }
+        response = MagicMock(status_code=502)
+
+        def dispatch(*_args, **kwargs):
+            call_id = kwargs["json"]["benchmark"]["call_id"]
+            response.json.return_value = {
+                "code": "MODEL_PROVENANCE_MISMATCH",
+                "error": "Anthropic returned a different model.",
+                "isRetryable": False,
+                "call_id": call_id,
+                "requested_model": MODEL_ID,
+                "returned_model": "claude-opus-4-7",
+                "response_id": "msg_wrong_model",
+                "stop_reason": "end_turn",
+                "usage": self._proxy_usage(model_id="claude-opus-4-7"),
+                "release": returned_release,
+            }
+            return response
+
+        ingest_v9.configure_benchmark_online_transport(
+            context,
+            lambda: "token",
+            expected_release,
+        )
+        try:
+            with patch.object(ingest_v9.requests, "post", side_effect=dispatch) as post:
+                with self.assertRaises(ingest_v9.LlmProvenanceError) as raised:
+                    ingest_v9.call_llm(
+                        system_blocks=[{"type": "text", "text": "system"}],
+                        user_blocks=[{"type": "text", "text": "screenplay"}],
+                        model_key="sonnet",
+                        proxy_url="https://candidate.test",
+                        stage="reader",
+                        pipeline_pass="sonnet",
+                        boundary_run=1,
+                        reader_name="structure",
+                    )
+        finally:
+            ingest_v9.clear_benchmark_online_transport()
+
+        failed = raised.exception.usage["failed_calls"][0]
+        expected_call_id = post.call_args.kwargs["json"]["benchmark"]["call_id"]
+        self.assertEqual(failed["call_id"], expected_call_id)
+        self.assertEqual(failed["expected_call_id"], expected_call_id)
+        self.assertEqual(failed["release"], returned_release)
+        self.assertEqual(failed["expected_release"], expected_release)
+        self.assertEqual(failed["failure_state"], "candidate_release_mismatch")
+        self.assertEqual(failed["transport_attempt"], 1)
+        self.assertEqual(failed["transport_attempts"], 1)
+        self.assertEqual(failed["transport_retry_count"], 0)
+        self.assertEqual(failed["total_retry_count"], 0)
 
     def test_post_call_accounting_uncertainty_is_terminal_without_retry(self):
         uncertain = MagicMock()
@@ -2016,6 +3294,14 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "error": "The provider result is uncertain.",
             "isRetryable": False,
             "manualReviewRequired": True,
+            "validation_failure_code": "PROVIDER_TRANSPORT_UNCERTAIN",
+            "validation_failure_reason": (
+                "Provider transport failed after dispatch; generation and spend are uncertain."
+            ),
+            "provider_error_sha256": "a" * 64,
+            "provider_usage": None,
+            "provider_usage_validation": "unavailable_transport",
+            "rejected_output_status": "unavailable_before_complete_response",
             "benchmark_accounting": {
                 "call_id": "set-by-dispatch",
                 "requested_model": MODEL_ID,
@@ -2035,7 +3321,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "route": "sonnet",
             "generation": "old",
             "prompt_bundle_sha256": "b" * 64,
-            "structured_output_schema_sha256": "c" * 64,
+            "schema_bundle_sha256": "c" * 64,
         }
 
         ingest_v9.configure_benchmark_online_transport(context, lambda: "token")

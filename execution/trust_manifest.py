@@ -15,21 +15,27 @@ import re
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 try:
     from .verdict_contract import (
         BOUNDARY_WINDOW,
+        FAILURE_PENALTIES,
         READER_WEIGHTS,
+        derive_failure_severity,
         derive_verdict,
         near_verdict_boundary,
+        select_boundary_run_index,
     )
 except ImportError:
     from verdict_contract import (
         BOUNDARY_WINDOW,
+        FAILURE_PENALTIES,
         READER_WEIGHTS,
+        derive_failure_severity,
         derive_verdict,
         near_verdict_boundary,
+        select_boundary_run_index,
     )
 
 try:
@@ -37,24 +43,30 @@ try:
         validate_stored_citation_quality,
         validate_stored_context_policy,
         validate_stored_page_evidence,
+        validate_native_cross_check,
+        validate_scene_count_evidence,
     )
 except ImportError:
     from source_evidence import (
         validate_stored_citation_quality,
         validate_stored_context_policy,
         validate_stored_page_evidence,
+        validate_native_cross_check,
+        validate_scene_count_evidence,
     )
 
 LEGACY_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v1"
 Q2_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v2"
 Q3_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v3"
 Q4_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v4"
-TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v5"
+Q5_TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v5"
+TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v6"
 SUPPORTED_TRUST_MANIFEST_VERSIONS = {
     LEGACY_TRUST_MANIFEST_VERSION,
     Q2_TRUST_MANIFEST_VERSION,
     Q3_TRUST_MANIFEST_VERSION,
     Q4_TRUST_MANIFEST_VERSION,
+    Q5_TRUST_MANIFEST_VERSION,
     TRUST_MANIFEST_VERSION,
 }
 READER_RELIABILITY_CONTRACT_VERSION = "lemon-five-reader-panel-v1"
@@ -83,6 +95,7 @@ TRAP_CONTRACT_VERSION = json.loads(
     )
 )["version"]
 ANALYSIS_PROVIDER = "anthropic"
+BENCHMARK_TRUST_SEAL_VERSION = "lemon-benchmark-trust-seal-v1"
 CANONICAL_READER_NAMES = {
     "structure",
     "character",
@@ -99,8 +112,408 @@ USAGE_COUNTER_FIELDS = (
     "actual_cost_microusd",
 )
 
+_PROVIDER_STOP_REASONS = {
+    "end_turn",
+    "max_tokens",
+    "model_context_window_exceeded",
+    "pause_turn",
+    "refusal",
+    "stop_sequence",
+    "tool_use",
+}
+_RELEASE_PROVENANCE_FIELDS = (
+    "git_sha",
+    "source_clean",
+    "catalog_sha256",
+    "pricing_sha256",
+    "build_timestamp",
+    "deployment_config_sha256",
+    "cloud_run_revision",
+    "inference_geo",
+)
+_BUDGET_INTEGER_FIELDS = (
+    "logical_retry",
+    "request_content_bytes",
+    "request_envelope_overhead_bytes",
+    "request_bytes_upper_bound",
+    "input_tokens_upper_bound",
+    "output_tokens_upper_bound",
+    "request_ceiling_microusd",
+    "sequence",
+    "spent_before_microusd",
+    "reserved_before_microusd",
+    "remaining_before_microusd",
+    "settled_cost_microusd",
+    "spent_after_microusd",
+    "reserved_after_microusd",
+)
+_BUDGET_USD_FIELDS = (
+    "request_ceiling_usd",
+    "spent_before_usd",
+    "reserved_before_usd",
+    "remaining_before_usd",
+    "settled_cost_usd",
+    "spent_after_usd",
+    "reserved_after_usd",
+)
+_BUDGET_MONEY_PREFIXES = (
+    "request_ceiling",
+    "spent_before",
+    "reserved_before",
+    "remaining_before",
+    "settled_cost",
+    "spent_after",
+    "reserved_after",
+)
+_BUDGET_DECISIONS = {
+    "charged_conservative_invalid_settlement",
+    "charged_conservative_uncertain_ceiling",
+    "proven_zero_spend_failure",
+    "rejected_before_dispatch",
+    "rejected_platform_drift_before_dispatch",
+    "reserved_before_dispatch",
+    "settled",
+    "settled_exceeds_preflight_ceiling",
+    "settled_failure",
+    "settled_failure_exceeds_preflight_ceiling",
+}
+
 _SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
+_CLAIM_BATCH_PATTERN = re.compile(r"^batch_([0-9]{3})_of_([0-9]{3})$")
 _ROOT = Path(__file__).resolve().parent
+_MODEL_PRICING_PATH = _ROOT.parent / "functions" / "src" / "anthropicPricing.json"
+CLAIM_VERIFICATION_BATCH_SIZE = 25
+
+
+def _valid_stage_reader_name(stage: str, reader_name: Any) -> bool:
+    if stage == "reader":
+        return reader_name in CANONICAL_READER_NAMES
+    if stage != "claim_verification":
+        return reader_name is None
+    if not isinstance(reader_name, str):
+        return False
+    match = _CLAIM_BATCH_PATTERN.fullmatch(reader_name)
+    if match is None:
+        return False
+    index, total = map(int, match.groups())
+    return 1 <= index <= total
+
+
+@lru_cache(maxsize=1)
+def runtime_pricing_sha256() -> str:
+    """Fingerprint the exact catalog pricing table used for cost checks."""
+    table = json.loads(_MODEL_PRICING_PATH.read_text(encoding="utf-8"))
+    return hashlib.sha256(_canonical_json(table).encode("utf-8")).hexdigest()
+
+
+def claim_verification_targets(analysis: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    """Return the complete, deterministic set independently checked before lock."""
+    targets: List[Dict[str, Any]] = []
+    nested_metadata = {
+        "score",
+        "page_citations",
+        "citation_evidence",
+        "justification",
+    }
+
+    def add(
+        claim_id: str,
+        claim: Any,
+        claim_type: str,
+        verdict_driving: bool,
+        evidence: Any = None,
+    ) -> None:
+        if not isinstance(claim, str) or not claim.strip():
+            return
+        evidence = evidence if isinstance(evidence, Mapping) else {}
+        targets.append({
+            "claim_id": claim_id,
+            "claim": claim,
+            "claim_type": claim_type,
+            "verdict_driving": verdict_driving,
+            "story_fact_check_required": claim_type in {"factual", "mixed"},
+            "provided_page_citations": copy.deepcopy(
+                evidence.get("page_citations", [])
+            ),
+            "provided_citation_evidence": copy.deepcopy(
+                evidence.get("citation_evidence", [])
+            ),
+        })
+
+    def add_nested_assertions(
+        claim_id: str,
+        label: str,
+        value: Any,
+        evidence: Any,
+    ) -> None:
+        if isinstance(value, Mapping):
+            inherited_evidence = (
+                value
+                if "page_citations" in value or "citation_evidence" in value
+                else evidence
+            )
+            for key in sorted(value, key=str):
+                if key in nested_metadata:
+                    continue
+                add_nested_assertions(
+                    f"{claim_id}.{key}",
+                    f"{label}.{key}",
+                    value[key],
+                    inherited_evidence,
+                )
+            return
+        if isinstance(value, list):
+            if not value:
+                absence = (
+                    "no obligatory scenes are missing"
+                    if label.endswith(".obligatory_scenes_missing")
+                    else "none"
+                )
+                add(
+                    claim_id,
+                    f"{label}: {absence}",
+                    "mixed",
+                    True,
+                    evidence,
+                )
+                return
+            for index, item in enumerate(value):
+                add_nested_assertions(
+                    f"{claim_id}.{index}",
+                    f"{label}.{index}",
+                    item,
+                    evidence,
+                )
+            return
+        if isinstance(value, str):
+            add(claim_id, f"{label}: {value}", "mixed", True, evidence)
+        elif type(value) is bool:
+            add(
+                claim_id,
+                f"{label}: {str(value).lower()}",
+                "mixed",
+                True,
+                evidence,
+            )
+
+    add("genre.primary", analysis.get("genre"), "evaluative", True)
+    subgenres = analysis.get("subgenres")
+    if isinstance(subgenres, list):
+        for index, subgenre in enumerate(subgenres):
+            add(f"genre.subgenre.{index}", subgenre, "evaluative", True)
+    genre_detection = analysis.get("genre_detection")
+    if isinstance(genre_detection, Mapping):
+        add(
+            "genre.rationale",
+            genre_detection.get("one_line_why"),
+            "mixed",
+            True,
+        )
+
+    themes = analysis.get("themes")
+    if isinstance(themes, list):
+        for index, theme in enumerate(themes):
+            add(f"theme.{index}", theme, "mixed", True)
+    add("tone", analysis.get("tone"), "mixed", True)
+
+    comparables = analysis.get("comparable_films")
+    if isinstance(comparables, Mapping):
+        for kind in sorted(comparables, key=str):
+            comparable = comparables[kind]
+            if not isinstance(comparable, Mapping):
+                continue
+            for field in ("similarity", "divergence"):
+                add(
+                    f"comparable.{kind}.{field}",
+                    comparable.get(field),
+                    "mixed",
+                    True,
+                )
+
+    disagreements = analysis.get("reader_disagreements")
+    if isinstance(disagreements, list):
+        for index, disagreement in enumerate(disagreements):
+            if not isinstance(disagreement, Mapping):
+                continue
+            for field in (
+                "reader_a_position",
+                "reader_b_position",
+                "resolution",
+            ):
+                add(
+                    f"disagreement.{index}.{field}",
+                    disagreement.get(field),
+                    "mixed",
+                    True,
+                )
+
+    cold_read = analysis.get("_cold_read")
+    cold_evidence = cold_read.get("evidence") if isinstance(cold_read, Mapping) else None
+    if isinstance(cold_evidence, Mapping):
+        add(
+            "cold_read.logline",
+            cold_evidence.get("logline"),
+            "factual",
+            True,
+        )
+        add(
+            "cold_read.genre",
+            cold_evidence.get("genre"),
+            "evaluative",
+            False,
+        )
+
+    material_claims = analysis.get("material_claims")
+    if isinstance(material_claims, list):
+        for material_index, material in enumerate(material_claims):
+            if not isinstance(material, Mapping):
+                continue
+            claim_type = (
+                "factual"
+                if material.get("source_field") in {"logline", "executive_summary"}
+                else "mixed"
+            )
+            atomic_claims = material.get("atomic_claims")
+            if not isinstance(atomic_claims, list):
+                continue
+            for atomic_index, atomic in enumerate(atomic_claims):
+                add(
+                    f"material.{material_index}.{atomic_index}",
+                    atomic.get("claim") if isinstance(atomic, Mapping) else None,
+                    claim_type,
+                    True,
+                    atomic,
+                )
+
+    characters = analysis.get("characters")
+    if isinstance(characters, Mapping):
+        for role in ("protagonist", "antagonist"):
+            name = characters.get(role)
+            evidence = characters.get(f"{role}_evidence")
+            justification = (
+                evidence.get("role_justification", "")
+                if isinstance(evidence, Mapping)
+                else ""
+            )
+            kind = evidence.get("kind") if isinstance(evidence, Mapping) else None
+            claim = (
+                f"No {role} is identified: {justification}"
+                if kind == "not_identified"
+                else f"{name} functions as the {role}: {justification}"
+            )
+            add(f"character.{role}", claim, "factual", True, evidence)
+        add(
+            "character.protagonist_lie",
+            characters.get("protagonist_lie"),
+            "mixed",
+            True,
+            characters.get("protagonist_evidence"),
+        )
+        add(
+            "character.protagonist_arc_type",
+            characters.get("protagonist_arc_type"),
+            "mixed",
+            True,
+            characters.get("protagonist_evidence"),
+        )
+        supporting = characters.get("supporting")
+        supporting_evidence = characters.get("supporting_evidence")
+        if isinstance(supporting, list):
+            for index, name in enumerate(supporting):
+                evidence = (
+                    supporting_evidence[index]
+                    if isinstance(supporting_evidence, list)
+                    and index < len(supporting_evidence)
+                    else {}
+                )
+                justification = (
+                    evidence.get("role_justification", "")
+                    if isinstance(evidence, Mapping)
+                    else ""
+                )
+                add(
+                    f"character.supporting.{index}",
+                    f"{name} functions as a supporting character: {justification}",
+                    "factual",
+                    True,
+                    evidence,
+                )
+
+    reader_reports = analysis.get("reader_reports")
+    reader_reports = reader_reports if isinstance(reader_reports, Mapping) else {}
+    critical_failures = analysis.get("critical_failures")
+    if isinstance(critical_failures, list):
+        for index, failure in enumerate(critical_failures):
+            if not isinstance(failure, Mapping):
+                continue
+            reader = reader_reports.get(failure.get("reader"), {})
+            sub_scores = reader.get("sub_scores", {}) if isinstance(reader, Mapping) else {}
+            metric = sub_scores.get(failure.get("metric"), {}) if isinstance(sub_scores, Mapping) else {}
+            add(
+                f"critical_failure.{index}",
+                failure.get("description"),
+                "mixed",
+                True,
+                metric,
+            )
+
+    for reader_name in READER_WEIGHTS:
+        reader = reader_reports.get(reader_name)
+        sub_scores = reader.get("sub_scores") if isinstance(reader, Mapping) else None
+        if not isinstance(sub_scores, Mapping):
+            continue
+        for metric_name in sorted(sub_scores):
+            metric = sub_scores[metric_name]
+            add(
+                f"reader.{reader_name}.{metric_name}",
+                metric.get("justification") if isinstance(metric, Mapping) else None,
+                "mixed",
+                True,
+                metric,
+            )
+            if isinstance(metric, Mapping):
+                add_nested_assertions(
+                    f"reader.{reader_name}.{metric_name}",
+                    f"{reader_name}.{metric_name}",
+                    metric,
+                    metric,
+                )
+        for field in sorted(reader):
+            if field in {"reader", "pillar_score", "sub_scores", "story_vs_situation"}:
+                continue
+            add_nested_assertions(
+                f"reader.{reader_name}.{field}",
+                f"{reader_name}.{field}",
+                reader[field],
+                reader,
+            )
+
+    character_reader = reader_reports.get("character")
+    story_gate = (
+        character_reader.get("story_vs_situation")
+        if isinstance(character_reader, Mapping)
+        else None
+    )
+    story_evidence = story_gate.get("evidence") if isinstance(story_gate, Mapping) else None
+    for field in (
+        "human_condition",
+        "tests_character",
+        "twists_reveal_character",
+        "emotional_shift",
+        "moral_component_driven",
+    ):
+        if isinstance(story_gate, Mapping) and type(story_gate.get(field)) is bool:
+            add(
+                f"story_gate.{field}",
+                f"The screenplay satisfies the story gate '{field}': {story_gate[field]}.",
+                "evaluative",
+                True,
+                story_evidence.get(field) if isinstance(story_evidence, Mapping) else None,
+            )
+
+    if len(targets) < 10:
+        raise ValueError("claim verification requires at least ten material claims")
+    return targets
 
 
 def _schema_version(analysis_version: str) -> str:
@@ -118,6 +531,20 @@ def _canonical_json(value: Any) -> str:
         separators=(",", ":"),
         sort_keys=True,
     )
+
+
+def _transport_canonical_json(value: Any) -> str:
+    """Match the provider/candidate JSON fingerprint across Python and JS."""
+    def normalize(item: Any) -> Any:
+        if isinstance(item, float) and item.is_integer():
+            return int(item)
+        if isinstance(item, list):
+            return [normalize(child) for child in item]
+        if isinstance(item, dict):
+            return {key: normalize(child) for key, child in item.items()}
+        return item
+
+    return _canonical_json(normalize(value))
 
 
 def _sha256_bytes(value: bytes) -> str:
@@ -259,8 +686,12 @@ def _analyzed_source_file(raw: Dict[str, Any]) -> str:
 
 
 def _require_number(value: Any, label: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{label} must be numeric")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+    ):
+        raise ValueError(f"{label} must be a finite number")
     return float(value)
 
 
@@ -304,6 +735,364 @@ def _sanitized_calibration(raw: Any) -> Dict[str, Any]:
                 "calibration source_assessment_set_sha256",
             )
     return result
+
+
+def _canonical_attempt_history(raw_attempts: Any) -> List[Dict[str, Any]]:
+    """Keep only bounded transport identifiers in sealed retry telemetry."""
+    if not isinstance(raw_attempts, list):
+        raise ValueError("attempt history must be a list")
+    result: List[Dict[str, Any]] = []
+    identifier_patterns = {
+        "response_id": r"[A-Za-z0-9._:-]+",
+        "error_type": r"[A-Za-z][A-Za-z0-9_.]*",
+        "failure_state": r"[A-Za-z][A-Za-z0-9_]*",
+        "call_id": r"[A-Za-z0-9._:/-]+",
+        "uncertainty_status": r"[a-z][a-z0-9_]*",
+    }
+    for index, raw_attempt in enumerate(raw_attempts):
+        if not isinstance(raw_attempt, dict):
+            raise ValueError(f"attempt history[{index}] must be an object")
+        attempt_number = raw_attempt.get("attempt")
+        if type(attempt_number) is not int or attempt_number <= 0:
+            raise ValueError(f"attempt history[{index}].attempt must be positive")
+        outcome = raw_attempt.get("outcome")
+        if outcome not in {"failed", "success"}:
+            raise ValueError(f"attempt history[{index}].outcome is invalid")
+        record: Dict[str, Any] = {
+            "attempt": attempt_number,
+            "outcome": outcome,
+        }
+        for field, pattern in identifier_patterns.items():
+            if field not in raw_attempt:
+                continue
+            value = _canonical_optional_identifier(
+                raw_attempt[field],
+                f"attempt history[{index}].{field}",
+            )
+            if value is None or re.fullmatch(pattern, value) is None:
+                raise ValueError(f"attempt history[{index}].{field} is invalid")
+            record[field] = value
+        if "http_status" in raw_attempt:
+            status = raw_attempt["http_status"]
+            if status is not None and (
+                type(status) is not int or not 100 <= status <= 599
+            ):
+                raise ValueError(f"attempt history[{index}].http_status is invalid")
+            record["http_status"] = status
+        if outcome == "failed" and "error_type" not in record:
+            raise ValueError(
+                f"attempt history[{index}] failed attempt lacks error_type"
+            )
+        if outcome == "success":
+            if "response_id" not in record:
+                raise ValueError(
+                    f"attempt history[{index}] success lacks response_id"
+                )
+            failure_only_fields = {
+                "error_type", "failure_state", "http_status", "uncertainty_status",
+            }
+            contradictory = failure_only_fields.intersection(raw_attempt)
+            if contradictory:
+                raise ValueError(
+                    f"attempt history[{index}] success has failure-only fields"
+                )
+        result.append(record)
+    return result
+
+
+def _canonical_transformation_evidence(raw_evidence: Any) -> List[Dict[str, Any]]:
+    """Seal transformation identity and hashes, never raw before/after payloads."""
+    if not isinstance(raw_evidence, list):
+        raise ValueError("transformation evidence must be a list")
+    result: List[Dict[str, Any]] = []
+    for evidence in raw_evidence:
+        if not isinstance(evidence, dict):
+            raise ValueError("transformation evidence entries must be objects")
+        before_sha256 = evidence.get("before_sha256")
+        after_sha256 = evidence.get("after_sha256")
+        if before_sha256 is None or after_sha256 is None:
+            before_sha256 = _sha256_bytes(
+                _canonical_json(evidence.get("before")).encode("utf-8")
+            )
+            after_sha256 = _sha256_bytes(
+                _canonical_json(evidence.get("after")).encode("utf-8")
+            )
+        changed = evidence.get("changed")
+        if type(changed) is not bool:
+            raise ValueError("transformation evidence changed flag must be boolean")
+        before_sha256 = _require_sha256(
+            before_sha256,
+            "transformation before hash",
+        )
+        after_sha256 = _require_sha256(
+            after_sha256,
+            "transformation after hash",
+        )
+        if changed != (before_sha256 != after_sha256):
+            raise ValueError("transformation evidence changed flag contradicts its hashes")
+        result.append({
+            "name": _require_nonempty_string(
+                evidence.get("name"),
+                "transformation evidence name",
+            ),
+            "changed": changed,
+            "before_sha256": before_sha256,
+            "after_sha256": after_sha256,
+        })
+    return result
+
+
+def _canonical_bounded_strings(
+    raw_values: Any,
+    label: str,
+    *,
+    max_length: int,
+) -> List[str]:
+    if not isinstance(raw_values, list):
+        raise ValueError(f"{label} must be a list")
+    result: List[str] = []
+    for index, value in enumerate(raw_values):
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{label}[{index}] must be a non-empty string")
+        normalized = value.strip()
+        if len(normalized) > max_length or "\x00" in normalized:
+            raise ValueError(f"{label}[{index}] exceeds its safe telemetry bound")
+        result.append(normalized)
+    return result
+
+
+def _canonical_optional_identifier(value: Any, label: str) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = _require_nonempty_string(value, label)
+    if len(normalized) > 256 or "\x00" in normalized:
+        raise ValueError(f"{label} exceeds its safe telemetry bound")
+    return normalized
+
+
+def _canonical_stop_reason(value: Any, label: str, *, allow_empty: bool = False) -> str:
+    if allow_empty and value in (None, ""):
+        return ""
+    normalized = _require_nonempty_string(value, label)
+    if normalized not in _PROVIDER_STOP_REASONS:
+        raise ValueError(f"{label} is not a recognized provider stop reason")
+    return normalized
+
+
+def _canonical_release_provenance(raw_release: Any, label: str) -> Optional[Dict[str, Any]]:
+    if raw_release is None:
+        return None
+    if not isinstance(raw_release, dict):
+        raise ValueError(f"{label} must be an object or null")
+    result: Dict[str, Any] = {}
+    if "git_sha" in raw_release:
+        git_sha = _require_nonempty_string(raw_release["git_sha"], f"{label}.git_sha")
+        if re.fullmatch(r"[a-f0-9]{40}", git_sha) is None:
+            raise ValueError(f"{label}.git_sha is invalid")
+        result["git_sha"] = git_sha
+    if "source_clean" in raw_release:
+        if type(raw_release["source_clean"]) is not bool:
+            raise ValueError(f"{label}.source_clean must be boolean")
+        result["source_clean"] = raw_release["source_clean"]
+    for field in ("catalog_sha256", "pricing_sha256", "deployment_config_sha256"):
+        if field in raw_release:
+            result[field] = _require_sha256(raw_release[field], f"{label}.{field}")
+    if "build_timestamp" in raw_release:
+        build_timestamp = _require_nonempty_string(
+            raw_release["build_timestamp"],
+            f"{label}.build_timestamp",
+        )
+        try:
+            parsed = datetime.fromisoformat(build_timestamp.replace("Z", "+00:00"))
+        except ValueError as error:
+            raise ValueError(f"{label}.build_timestamp is invalid") from error
+        if parsed.tzinfo is None:
+            raise ValueError(f"{label}.build_timestamp is invalid")
+        result["build_timestamp"] = build_timestamp
+    if "cloud_run_revision" in raw_release:
+        revision = _require_nonempty_string(
+            raw_release["cloud_run_revision"],
+            f"{label}.cloud_run_revision",
+        )
+        if re.fullmatch(r"llmproxycandidate-[0-9]{5}-[a-z0-9]{3}", revision) is None:
+            raise ValueError(f"{label}.cloud_run_revision is invalid")
+        result["cloud_run_revision"] = revision
+    if "inference_geo" in raw_release:
+        inference_geo = raw_release["inference_geo"]
+        if inference_geo not in {"global", "us"}:
+            raise ValueError(f"{label}.inference_geo is invalid")
+        result["inference_geo"] = inference_geo
+    if raw_release and not result:
+        raise ValueError(f"{label} contains no recognized release provenance")
+    return {
+        field: result[field]
+        for field in _RELEASE_PROVENANCE_FIELDS
+        if field in result
+    }
+
+
+def _canonical_budget_check(raw_check: Any, label: str) -> Optional[Dict[str, Any]]:
+    if raw_check is None:
+        return None
+    if not isinstance(raw_check, dict):
+        raise ValueError(f"{label} must be an object or null")
+    result: Dict[str, Any] = {}
+    for field in ("requested_model", "stage"):
+        if field in raw_check:
+            result[field] = _canonical_optional_identifier(
+                raw_check[field],
+                f"{label}.{field}",
+            )
+    if "decision" in raw_check:
+        decision = raw_check["decision"]
+        if decision not in _BUDGET_DECISIONS:
+            raise ValueError(f"{label}.decision is invalid")
+        result["decision"] = decision
+    for field in _BUDGET_INTEGER_FIELDS:
+        if field not in raw_check:
+            continue
+        value = raw_check[field]
+        if type(value) is not int or value < 0:
+            raise ValueError(f"{label}.{field} must be non-negative")
+        result[field] = value
+    for field in _BUDGET_USD_FIELDS:
+        if field not in raw_check:
+            continue
+        value = raw_check[field]
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            or float(value) < 0
+        ):
+            raise ValueError(f"{label}.{field} must be a non-negative finite number")
+        result[field] = float(value)
+    for prefix in _BUDGET_MONEY_PREFIXES:
+        micros_field = f"{prefix}_microusd"
+        usd_field = f"{prefix}_usd"
+        if (micros_field in raw_check) != (usd_field in raw_check):
+            raise ValueError(f"{label}.{prefix} cost mirrors must both be present")
+        if micros_field in raw_check and abs(
+            result[usd_field] - result[micros_field] / 1_000_000
+        ) > 1e-12:
+            raise ValueError(f"{label}.{prefix} cost mirrors are inconsistent")
+    byte_fields = (
+        "request_content_bytes",
+        "request_envelope_overhead_bytes",
+        "request_bytes_upper_bound",
+    )
+    if any(field in result for field in byte_fields):
+        if not all(field in result for field in byte_fields):
+            raise ValueError(f"{label} request byte accounting is incomplete")
+        if (
+            result["request_content_bytes"]
+            + result["request_envelope_overhead_bytes"]
+            != result["request_bytes_upper_bound"]
+        ):
+            raise ValueError(f"{label} request byte accounting is inconsistent")
+        if (
+            "input_tokens_upper_bound" in result
+            and result["input_tokens_upper_bound"]
+            != result["request_bytes_upper_bound"] + 4_096
+        ):
+            raise ValueError(f"{label} input token ceiling is inconsistent")
+    if "spent_after_microusd" in result or "settled_cost_microusd" in result:
+        if not all(
+            field in result
+            for field in (
+                "spent_before_microusd",
+                "settled_cost_microusd",
+                "spent_after_microusd",
+            )
+        ):
+            raise ValueError(f"{label} spend transition is incomplete")
+        if (
+            result["spent_before_microusd"]
+            + result["settled_cost_microusd"]
+            != result["spent_after_microusd"]
+        ):
+            raise ValueError(f"{label} spend transition is inconsistent")
+    if "reserved_after_microusd" in result:
+        if "reserved_before_microusd" not in result:
+            raise ValueError(f"{label} reservation transition is incomplete")
+        if result["reserved_after_microusd"] != result["reserved_before_microusd"]:
+            raise ValueError(f"{label} reservation transition is inconsistent")
+    if "preflight_ceiling_exceeded" in raw_check:
+        if type(raw_check["preflight_ceiling_exceeded"]) is not bool:
+            raise ValueError(f"{label}.preflight_ceiling_exceeded must be boolean")
+        result["preflight_ceiling_exceeded"] = raw_check[
+            "preflight_ceiling_exceeded"
+        ]
+    settlement_decisions = {
+        "charged_conservative_invalid_settlement",
+        "charged_conservative_uncertain_ceiling",
+        "proven_zero_spend_failure",
+        "settled",
+        "settled_exceeds_preflight_ceiling",
+        "settled_failure",
+        "settled_failure_exceeds_preflight_ceiling",
+    }
+    decision = result.get("decision")
+    if decision in settlement_decisions:
+        if not all(
+            field in result
+            for field in ("settled_cost_microusd", "request_ceiling_microusd")
+        ):
+            raise ValueError(f"{label} settlement decision lacks exact costs")
+        settled_exceeded = (
+            result["settled_cost_microusd"]
+            > result["request_ceiling_microusd"]
+        )
+        decision_reports_exceeded = decision in {
+            "settled_exceeds_preflight_ceiling",
+            "settled_failure_exceeds_preflight_ceiling",
+        }
+        if settled_exceeded != decision_reports_exceeded:
+            raise ValueError(f"{label} settlement decision contradicts its costs")
+        if (
+            "preflight_ceiling_exceeded" in result
+            and result["preflight_ceiling_exceeded"] != settled_exceeded
+        ):
+            raise ValueError(f"{label} preflight ceiling flag contradicts its costs")
+        if decision in {
+            "charged_conservative_invalid_settlement",
+            "charged_conservative_uncertain_ceiling",
+        } and result["settled_cost_microusd"] != result["request_ceiling_microusd"]:
+            raise ValueError(f"{label} conservative charge does not equal its ceiling")
+        if (
+            decision == "proven_zero_spend_failure"
+            and result["settled_cost_microusd"] != 0
+        ):
+            raise ValueError(f"{label} zero-spend decision has a nonzero settlement")
+    if "platform_recheck" in raw_check:
+        result["platform_recheck_sha256"] = _sha256_bytes(
+            _canonical_json(raw_check["platform_recheck"]).encode("utf-8")
+        )
+    platform_failure = raw_check.get("platform_failure")
+    if platform_failure is not None:
+        if not isinstance(platform_failure, dict):
+            raise ValueError(f"{label}.platform_failure must be an object")
+        failure_type = _canonical_optional_identifier(
+            platform_failure.get("type"),
+            f"{label}.platform_failure.type",
+        )
+        if failure_type is None or re.fullmatch(r"[A-Za-z][A-Za-z0-9_.]*", failure_type) is None:
+            raise ValueError(f"{label}.platform_failure.type is invalid")
+        result["platform_failure_type"] = failure_type
+    return result
+
+
+def _canonical_usage_by_model(raw_by_model: Any) -> Dict[str, Dict[str, int]]:
+    if not isinstance(raw_by_model, dict):
+        raise ValueError("usage.by_model must be an object")
+    return {
+        str(model): {
+            field: int(totals[field])
+            for field in USAGE_COUNTER_FIELDS
+        }
+        for model, totals in raw_by_model.items()
+        if isinstance(totals, dict)
+    }
 
 
 def _model_lineage(
@@ -400,7 +1189,7 @@ def _model_lineage(
             raise ValueError(
                 f"usage.calls[{index}].returned_model is absent from usage.by_model"
             )
-        stop_reason = _require_nonempty_string(
+        stop_reason = _canonical_stop_reason(
             raw_call.get("stop_reason"),
             f"usage.calls[{index}].stop_reason",
         )
@@ -439,7 +1228,9 @@ def _model_lineage(
             raw_call.get("stage"),
             f"usage.calls[{index}].stage",
         )
-        if stage not in {"genre_detection", "reader", "synthesis", "triage"}:
+        if stage not in {
+            "claim_verification", "genre_detection", "reader", "synthesis", "triage",
+        }:
             raise ValueError(f"usage.calls[{index}] has an invalid stage")
         pipeline_pass = _require_nonempty_string(
             raw_call.get("pipeline_pass"),
@@ -457,13 +1248,9 @@ def _model_lineage(
             raise ValueError(
                 f"usage.calls[{index}].reader_name must be null or a name"
             )
-        if stage == "reader" and reader_name not in CANONICAL_READER_NAMES:
+        if not _valid_stage_reader_name(stage, reader_name):
             raise ValueError(
-                f"usage.calls[{index}] has an invalid specialist reader"
-            )
-        if stage != "reader" and reader_name is not None:
-            raise ValueError(
-                f"usage.calls[{index}] has a reader outside the reader stage"
+                f"usage.calls[{index}] has invalid stage-specific call lineage"
             )
         disposition = _require_nonempty_string(
             raw_call.get("disposition"),
@@ -473,7 +1260,348 @@ def _model_lineage(
             raise ValueError(
                 f"usage.calls[{index}] has an unresolved disposition"
             )
+        call_provenance = None
+        if (
+            manifest_version == TRUST_MANIFEST_VERSION
+            or raw_call.get("request_sha256") is not None
+        ):
+            schema_mode = _require_nonempty_string(
+                raw_call.get("schema_mode"),
+                f"usage.calls[{index}].schema_mode",
+            )
+            if schema_mode not in {
+                "schema_free",
+                "strict_tool",
+                "compact_strict_tool",
+            }:
+                raise ValueError(
+                    f"usage.calls[{index}].schema_mode is invalid"
+                )
+            schema_sha256 = raw_call.get("schema_sha256")
+            transport_schema_sha256 = raw_call.get("transport_schema_sha256")
+            if schema_mode == "schema_free":
+                if schema_sha256 is not None or transport_schema_sha256 is not None:
+                    raise ValueError(
+                        f"usage.calls[{index}] schema-free call has a schema hash"
+                    )
+            else:
+                schema_sha256 = _require_sha256(
+                    schema_sha256,
+                    f"usage.calls[{index}].schema_sha256",
+                )
+                transport_schema_sha256 = _require_sha256(
+                    transport_schema_sha256,
+                    f"usage.calls[{index}].transport_schema_sha256",
+                )
+            if stage == "triage" and schema_mode != "schema_free":
+                raise ValueError(f"usage.calls[{index}] triage must be schema-free")
+            if stage == "genre_detection" and schema_mode != "strict_tool":
+                raise ValueError(
+                    f"usage.calls[{index}] genre detection must use a strict tool"
+                )
+            if stage in {
+                "claim_verification", "reader", "synthesis",
+            } and schema_mode != "compact_strict_tool":
+                raise ValueError(
+                    f"usage.calls[{index}] scored stages must use compact strict tools"
+                )
+
+            validation_result = _require_nonempty_string(
+                raw_call.get("validation_result"),
+                f"usage.calls[{index}].validation_result",
+            )
+            if disposition == "used" and validation_result != "passed":
+                raise ValueError(
+                    f"usage.calls[{index}] used output did not pass validation"
+                )
+            if disposition == "discarded_unusable" and not validation_result.startswith("failed_"):
+                raise ValueError(
+                    f"usage.calls[{index}] discarded output lacks a failed validation"
+                )
+            validation_reason = raw_call.get("validation_reason")
+            if disposition == "discarded_unusable":
+                validation_reason = _require_nonempty_string(
+                    validation_reason,
+                    f"usage.calls[{index}].validation_reason",
+                )
+            elif validation_reason is not None:
+                raise ValueError(
+                    f"usage.calls[{index}] used output cannot carry a validation reason"
+                )
+            transformations = raw_call.get("transformations")
+            transformation_evidence = raw_call.get("transformation_evidence")
+            warnings = raw_call.get("warnings")
+            if not isinstance(transformations, list) or not all(
+                isinstance(value, str) and value for value in transformations
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}].transformations must be a string list"
+                )
+            if not isinstance(transformation_evidence, list):
+                raise ValueError(
+                    f"usage.calls[{index}].transformation_evidence must be a list"
+                )
+            evidence_names = [
+                evidence.get("name") if isinstance(evidence, dict) else None
+                for evidence in transformation_evidence
+            ]
+            if (
+                len(evidence_names) != len(set(evidence_names))
+                or set(evidence_names) != set(transformations)
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] transformations lack one-to-one evidence"
+                )
+            for evidence_index, evidence in enumerate(transformation_evidence):
+                if (
+                    not isinstance(evidence, dict)
+                    or evidence.get("name") not in transformations
+                    or type(evidence.get("changed")) is not bool
+                    or not (
+                        {"before", "after"}.issubset(evidence)
+                        or {"before_sha256", "after_sha256"}.issubset(evidence)
+                    )
+                ):
+                    raise ValueError(
+                        f"usage.calls[{index}].transformation_evidence[{evidence_index}] "
+                        "is invalid"
+                    )
+                if "before_sha256" in evidence:
+                    _require_sha256(
+                        evidence.get("before_sha256"),
+                        "transformation before hash",
+                    )
+                    _require_sha256(
+                        evidence.get("after_sha256"),
+                        "transformation after hash",
+                    )
+            if not isinstance(warnings, list) or not all(
+                isinstance(value, str) and value for value in warnings
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}].warnings must be a string list"
+                )
+            downstream = _require_nonempty_string(
+                raw_call.get("downstream_consumption"),
+                f"usage.calls[{index}].downstream_consumption",
+            )
+            if downstream != (
+                "consumed" if disposition == "used" else "not_consumed"
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] downstream state contradicts disposition"
+                )
+            failure_state = raw_call.get("failure_state")
+            if disposition == "used" and failure_state is not None:
+                raise ValueError(f"usage.calls[{index}] used output has a failure state")
+            if disposition == "discarded_unusable" and not isinstance(failure_state, str):
+                raise ValueError(
+                    f"usage.calls[{index}] discarded output lacks a failure state"
+                )
+            if disposition == "used" and stop_reason != (
+                "end_turn" if stage == "triage" else "tool_use"
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] used output has an incomplete stop_reason"
+                )
+            if raw_call.get("fallback_used") is not False:
+                raise ValueError(f"usage.calls[{index}] used a model fallback")
+            if not isinstance(raw_call.get("truncated"), bool):
+                raise ValueError(f"usage.calls[{index}].truncated must be boolean")
+            expected_truncated = stop_reason in {
+                "max_tokens",
+                "model_context_window_exceeded",
+            }
+            if raw_call["truncated"] != expected_truncated:
+                raise ValueError(
+                    f"usage.calls[{index}].truncated contradicts stop_reason"
+                )
+            latency_ms = raw_call.get("latency_ms")
+            logical_retry = raw_call.get("logical_retry")
+            attempt_number = raw_call.get("attempt_number")
+            transport_attempt = raw_call.get("transport_attempt")
+            transport_retry_count = raw_call.get("transport_retry_count")
+            retry_count = raw_call.get("retry_count")
+            total_retry_count = raw_call.get("total_retry_count")
+            if type(latency_ms) is not int or latency_ms < 0:
+                raise ValueError(f"usage.calls[{index}].latency_ms must be non-negative")
+            started_at = _require_nonempty_string(
+                raw_call.get("started_at"),
+                f"usage.calls[{index}].started_at",
+            )
+            completed_at = _require_nonempty_string(
+                raw_call.get("completed_at"),
+                f"usage.calls[{index}].completed_at",
+            )
+            try:
+                started_time = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+                completed_time = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+            except ValueError as error:
+                raise ValueError(
+                    f"usage.calls[{index}] timestamps are invalid"
+                ) from error
+            if started_time.tzinfo is None or completed_time.tzinfo is None:
+                raise ValueError(f"usage.calls[{index}] timestamps are invalid")
+            if completed_time < started_time:
+                raise ValueError(
+                    f"usage.calls[{index}] completed before it started"
+                )
+            if type(logical_retry) is not int or logical_retry < 0:
+                raise ValueError(f"usage.calls[{index}].logical_retry must be non-negative")
+            if attempt_number != logical_retry + 1:
+                raise ValueError(f"usage.calls[{index}].attempt_number is inconsistent")
+            if transport_attempt != successful_attempt:
+                raise ValueError(f"usage.calls[{index}].transport_attempt is inconsistent")
+            if transport_retry_count != successful_attempt - 1 or retry_count != transport_retry_count:
+                raise ValueError(f"usage.calls[{index}].retry_count is inconsistent")
+            if total_retry_count != transport_retry_count + logical_retry:
+                raise ValueError(f"usage.calls[{index}].total_retry_count is inconsistent")
+            independent_cost_microusd = raw_call.get("independent_cost_microusd")
+            independent_cost_usd = raw_call.get("independent_cost_usd")
+            independent_cost_nanousd = raw_call.get("independent_cost_nanousd")
+            independent_estimated_cost_usd = raw_call.get(
+                "independent_estimated_cost_usd"
+            )
+            exact_variance_nanousd = raw_call.get("exact_cost_variance_nanousd")
+            exact_variance_usd = raw_call.get("exact_cost_variance_usd")
+            charged_cost_microusd = raw_call.get("charged_cost_microusd")
+            rounding_variance_nanousd = raw_call.get(
+                "rounding_variance_nanousd"
+            )
+            rounding_variance_usd = raw_call.get("rounding_variance_usd")
+            rounding_reason = raw_call.get("rounding_reason")
+            variance = raw_call.get("cost_variance_microusd")
+            variance_reason = raw_call.get("cost_variance_reason")
+            if type(independent_cost_microusd) is not int or independent_cost_microusd < 0:
+                raise ValueError(
+                    f"usage.calls[{index}].independent_cost_microusd is invalid"
+                )
+            if (
+                isinstance(independent_cost_usd, bool)
+                or not isinstance(independent_cost_usd, (int, float))
+                or float(independent_cost_usd) != independent_cost_microusd / 1_000_000
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] independent cost mirrors are inconsistent"
+                )
+            if type(variance) is not int:
+                raise ValueError(f"usage.calls[{index}].cost_variance_microusd is invalid")
+            if (
+                type(independent_cost_nanousd) is not int
+                or independent_cost_nanousd < 0
+                or isinstance(independent_estimated_cost_usd, bool)
+                or not isinstance(independent_estimated_cost_usd, (int, float))
+                or not math.isfinite(float(independent_estimated_cost_usd))
+                or abs(
+                    float(independent_estimated_cost_usd)
+                    - independent_cost_nanousd / 1_000_000_000
+                ) > 1e-15
+                or type(exact_variance_nanousd) is not int
+                or isinstance(exact_variance_usd, bool)
+                or not isinstance(exact_variance_usd, (int, float))
+                or not math.isfinite(float(exact_variance_usd))
+                or abs(
+                    float(exact_variance_usd)
+                    - exact_variance_nanousd / 1_000_000_000
+                ) > 1e-15
+                or type(charged_cost_microusd) is not int
+                or charged_cost_microusd < 0
+                or type(rounding_variance_nanousd) is not int
+                or rounding_variance_nanousd < 0
+                or isinstance(rounding_variance_usd, bool)
+                or not isinstance(rounding_variance_usd, (int, float))
+                or not math.isfinite(float(rounding_variance_usd))
+                or abs(
+                    float(rounding_variance_usd)
+                    - rounding_variance_nanousd / 1_000_000_000
+                ) > 1e-15
+                or rounding_reason
+                != (
+                    None
+                    if rounding_variance_nanousd == 0
+                    else "ceil_to_microusd_for_atomic_budget"
+                )
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] exact cost evidence is invalid"
+                )
+            if exact_variance_nanousd != 0:
+                raise ValueError(
+                    f"usage.calls[{index}] has an unresolved exact cost variance"
+                )
+            if variance == 0 and variance_reason is not None:
+                raise ValueError(f"usage.calls[{index}] zero cost variance has a reason")
+            if variance != 0 and not isinstance(variance_reason, str):
+                raise ValueError(f"usage.calls[{index}] cost variance lacks a reason")
+            if manifest_version == TRUST_MANIFEST_VERSION and variance != 0:
+                raise ValueError(
+                    f"usage.calls[{index}] has an unresolved cost variance"
+                )
+            pricing_sha256 = _require_sha256(
+                raw_call.get("pricing_sha256"),
+                f"usage.calls[{index}].pricing_sha256",
+            )
+            if (
+                manifest_version == TRUST_MANIFEST_VERSION
+                and pricing_sha256 != runtime_pricing_sha256()
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] pricing fingerprint is not the runtime table"
+                )
+            call_provenance = {
+                "request_sha256": _require_sha256(
+                    raw_call.get("request_sha256"),
+                    f"usage.calls[{index}].request_sha256",
+                ),
+                "prompt_sha256": _require_sha256(
+                    raw_call.get("prompt_sha256"),
+                    f"usage.calls[{index}].prompt_sha256",
+                ),
+                "prompt_contract_version": _require_nonempty_string(
+                    raw_call.get("prompt_contract_version"),
+                    f"usage.calls[{index}].prompt_contract_version",
+                ),
+                "schema_mode": schema_mode,
+                "schema_sha256": schema_sha256,
+                "transport_schema_sha256": transport_schema_sha256,
+                "pricing_sha256": pricing_sha256,
+                "independent_cost_microusd": independent_cost_microusd,
+                "independent_cost_usd": float(independent_cost_usd),
+                "independent_cost_nanousd": independent_cost_nanousd,
+                "independent_estimated_cost_usd": float(
+                    independent_estimated_cost_usd
+                ),
+                "exact_cost_variance_nanousd": exact_variance_nanousd,
+                "exact_cost_variance_usd": float(exact_variance_usd),
+                "charged_cost_microusd": charged_cost_microusd,
+                "rounding_variance_nanousd": rounding_variance_nanousd,
+                "rounding_variance_usd": float(rounding_variance_usd),
+                "rounding_reason": rounding_reason,
+                "cost_variance_microusd": variance,
+                "cost_variance_reason": variance_reason,
+                "latency_ms": latency_ms,
+                "started_at": started_at,
+                "completed_at": completed_at,
+                "transport_attempt": transport_attempt,
+                "transport_retry_count": transport_retry_count,
+                "logical_retry": logical_retry,
+                "attempt_number": attempt_number,
+                "retry_count": retry_count,
+                "total_retry_count": total_retry_count,
+                "validation_result": validation_result,
+                "validation_reason": validation_reason,
+                "transformations": copy.deepcopy(transformations),
+                "transformation_evidence": _canonical_transformation_evidence(
+                    transformation_evidence
+                ),
+                "failure_state": failure_state,
+                "warnings": copy.deepcopy(warnings),
+                "fallback_used": False,
+                "truncated": raw_call["truncated"],
+                "downstream_consumption": downstream,
+            }
         call_usage = None
+        canonical_budget_check = None
         raw_call_usage = raw_call.get("usage")
         if manifest_version == TRUST_MANIFEST_VERSION or raw_call_usage is not None:
             if not isinstance(raw_call_usage, dict):
@@ -500,6 +1628,98 @@ def _model_lineage(
                     f"usage.calls[{index}].usage actual cost mirrors are inconsistent"
                 )
             call_usage["actual_cost_usd"] = float(actual_cost_usd)
+            for exact_field in (
+                "charged_cost_microusd",
+                "estimated_cost_nanousd",
+                "rounding_variance_nanousd",
+            ):
+                value = raw_call_usage.get(exact_field)
+                if type(value) is not int or value < 0:
+                    raise ValueError(
+                        f"usage.calls[{index}].usage.{exact_field} is invalid"
+                    )
+                call_usage[exact_field] = value
+            for exact_field in ("estimated_cost_usd", "rounding_variance_usd"):
+                value = raw_call_usage.get(exact_field)
+                if (
+                    isinstance(value, bool)
+                    or not isinstance(value, (int, float))
+                    or not math.isfinite(float(value))
+                ):
+                    raise ValueError(
+                        f"usage.calls[{index}].usage.{exact_field} is invalid"
+                    )
+                call_usage[exact_field] = float(value)
+            call_usage["rounding_reason"] = raw_call_usage.get("rounding_reason")
+            if call_provenance is not None:
+                if (
+                    call_provenance["prompt_contract_version"]
+                    != PROMPT_CONTRACT_VERSION
+                ):
+                    raise ValueError(
+                        f"usage.calls[{index}] prompt contract version is stale"
+                    )
+                if (
+                    call_provenance["cost_variance_microusd"]
+                    != call_usage["actual_cost_microusd"]
+                    - call_provenance["independent_cost_microusd"]
+                ):
+                    raise ValueError(
+                        f"usage.calls[{index}] cost variance is inconsistent"
+                    )
+                if (
+                    call_usage["charged_cost_microusd"]
+                    != call_usage["actual_cost_microusd"]
+                    or call_usage["estimated_cost_nanousd"]
+                    != call_provenance["independent_cost_nanousd"]
+                    or call_usage["estimated_cost_usd"]
+                    != call_usage["estimated_cost_nanousd"] / 1_000_000_000
+                    or call_usage["rounding_variance_nanousd"]
+                    != call_usage["charged_cost_microusd"] * 1_000
+                    - call_usage["estimated_cost_nanousd"]
+                    or call_usage["rounding_variance_usd"]
+                    != call_usage["rounding_variance_nanousd"] / 1_000_000_000
+                    or call_usage["rounding_reason"]
+                    != call_provenance["rounding_reason"]
+                    or call_provenance["charged_cost_microusd"]
+                    != call_usage["charged_cost_microusd"]
+                    or call_provenance["rounding_variance_nanousd"]
+                    != call_usage["rounding_variance_nanousd"]
+                ):
+                    raise ValueError(
+                        f"usage.calls[{index}] exact cost evidence is inconsistent"
+                    )
+            canonical_budget_check = _canonical_budget_check(
+                raw_call.get("budget_check"),
+                f"usage.calls[{index}].budget_check",
+            )
+            if canonical_budget_check is not None:
+                expected_budget_lineage = {
+                    "requested_model": requested_model,
+                    "stage": stage,
+                    "logical_retry": logical_retry,
+                }
+                if any(
+                    canonical_budget_check.get(field) != expected
+                    for field, expected in expected_budget_lineage.items()
+                ):
+                    raise ValueError(
+                        f"usage.calls[{index}] budget receipt does not match its call"
+                    )
+                if canonical_budget_check.get("decision") not in {
+                    "settled",
+                    "settled_exceeds_preflight_ceiling",
+                }:
+                    raise ValueError(
+                        f"usage.calls[{index}] successful call lacks a settled budget decision"
+                    )
+                if (
+                    canonical_budget_check.get("settled_cost_microusd")
+                    != call_usage["actual_cost_microusd"]
+                ):
+                    raise ValueError(
+                        f"usage.calls[{index}] budget settlement does not match its cost"
+                    )
         if stage == "genre_detection":
             expected_models = {
                 model_ids_by_tier[tier]
@@ -540,7 +1760,7 @@ def _model_lineage(
             "returned_model": returned_model,
             "stop_reason": stop_reason,
             "successful_attempt": successful_attempt,
-            "retry_history": copy.deepcopy(retry_history),
+            "retry_history": _canonical_attempt_history(retry_history),
             "stage": stage,
             "pipeline_pass": pipeline_pass,
             "boundary_run": boundary_run,
@@ -549,6 +1769,10 @@ def _model_lineage(
         }
         if call_usage is not None:
             call_record["usage"] = call_usage
+        if canonical_budget_check is not None:
+            call_record["budget_check"] = canonical_budget_check
+        if call_provenance is not None:
+            call_record.update(call_provenance)
         call_records.append(call_record)
 
     if len(set(response_ids)) != len(response_ids):
@@ -561,8 +1785,11 @@ def _model_lineage(
             raise ValueError(f"usage.{field} must be a non-negative integer")
         usage_totals[field] = value
 
+    failed_calls = usage.get("failed_calls", [])
+    if not isinstance(failed_calls, list):
+        raise ValueError("usage.failed_calls must be a list")
     has_per_call_usage = all("usage" in call for call in call_records)
-    if has_per_call_usage:
+    if has_per_call_usage and not failed_calls:
         call_usage_totals = {
             field: sum(call["usage"][field] for call in call_records)
             for field in USAGE_COUNTER_FIELDS
@@ -612,9 +1839,6 @@ def _model_lineage(
         raise ValueError("usage.by_model totals do not match aggregate usage")
 
     failed_call_records = []
-    failed_calls = usage.get("failed_calls", [])
-    if not isinstance(failed_calls, list):
-        raise ValueError("usage.failed_calls must be a list")
     for index, raw_call in enumerate(failed_calls):
         if not isinstance(raw_call, dict):
             raise ValueError(f"usage.failed_calls[{index}] must be an object")
@@ -626,7 +1850,9 @@ def _model_lineage(
             raw_call.get("stage"),
             f"usage.failed_calls[{index}].stage",
         )
-        if stage not in {"genre_detection", "reader", "synthesis", "triage"}:
+        if stage not in {
+            "claim_verification", "genre_detection", "reader", "synthesis", "triage",
+        }:
             raise ValueError(f"usage.failed_calls[{index}] has an invalid stage")
         pipeline_pass = _require_nonempty_string(
             raw_call.get("pipeline_pass"),
@@ -638,13 +1864,9 @@ def _model_lineage(
                 f"usage.failed_calls[{index}].boundary_run must be positive"
             )
         reader_name = raw_call.get("reader_name")
-        if stage == "reader" and reader_name not in CANONICAL_READER_NAMES:
+        if not _valid_stage_reader_name(stage, reader_name):
             raise ValueError(
-                f"usage.failed_calls[{index}] has an invalid specialist reader"
-            )
-        if stage != "reader" and reader_name is not None:
-            raise ValueError(
-                f"usage.failed_calls[{index}] has a reader outside the reader stage"
+                f"usage.failed_calls[{index}] has invalid stage-specific call lineage"
             )
         if stage == "genre_detection":
             expected_models = {
@@ -688,15 +1910,456 @@ def _model_lineage(
                 raise ValueError(
                     f"usage.failed_calls[{index}] cannot contain a success"
                 )
+        canonical_failed_attempt_history = _canonical_attempt_history(attempt_history)
+        if manifest_version == TRUST_MANIFEST_VERSION:
+            required_failure_fields = {
+                "call_id", "returned_model", "response_id", "stop_reason",
+                "request_sha256", "prompt_sha256", "prompt_contract_version",
+                "schema_mode", "schema_sha256", "transport_schema_sha256",
+                "pricing_sha256", "latency_ms", "started_at", "completed_at",
+                "transport_attempts", "transport_retry_count", "logical_retry",
+                "attempt_number", "retry_count", "total_retry_count",
+                "validation_result", "validation_reason", "transformations",
+                "transformation_evidence", "failure_state", "failure_message",
+                "warnings", "fallback_used", "truncated",
+                "downstream_consumption", "disposition", "release",
+                "expected_release", "usage", "independent_cost_status",
+                "independent_cost_microusd", "independent_cost_usd",
+                "cost_variance_microusd", "uncertainty_status",
+                "charged_cost_microusd", "charged_cost_usd",
+                "reserved_cost_microusd", "reserved_cost_usd",
+                "cap_cost_microusd", "cap_cost_usd", "budget_check",
+            }
+            missing = sorted(required_failure_fields - set(raw_call))
+            if missing:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] lacks canonical provenance: "
+                    + ", ".join(missing)
+                )
+            for field in ("request_sha256", "prompt_sha256", "pricing_sha256"):
+                _require_sha256(
+                    raw_call.get(field),
+                    f"usage.failed_calls[{index}].{field}",
+                )
+            if raw_call.get("prompt_contract_version") != PROMPT_CONTRACT_VERSION:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] prompt contract is stale"
+                )
+            schema_mode = raw_call.get("schema_mode")
+            if schema_mode not in {
+                "schema_free", "strict_tool", "compact_strict_tool",
+            }:
+                raise ValueError(f"usage.failed_calls[{index}] schema mode is invalid")
+            if schema_mode == "schema_free":
+                if (
+                    raw_call.get("schema_sha256") is not None
+                    or raw_call.get("transport_schema_sha256") is not None
+                ):
+                    raise ValueError(
+                        f"usage.failed_calls[{index}] schema-free call has a schema hash"
+                    )
+            else:
+                _require_sha256(
+                    raw_call.get("schema_sha256"),
+                    f"usage.failed_calls[{index}].schema_sha256",
+                )
+                _require_sha256(
+                    raw_call.get("transport_schema_sha256"),
+                    f"usage.failed_calls[{index}].transport_schema_sha256",
+                )
+            if stage == "triage" and schema_mode != "schema_free":
+                raise ValueError(f"usage.failed_calls[{index}] triage schema is invalid")
+            if stage == "genre_detection" and schema_mode != "strict_tool":
+                raise ValueError(f"usage.failed_calls[{index}] genre schema is invalid")
+            if stage in {
+                "claim_verification", "reader", "synthesis",
+            } and schema_mode != "compact_strict_tool":
+                raise ValueError(f"usage.failed_calls[{index}] scored schema is invalid")
+            if raw_call.get("pricing_sha256") != runtime_pricing_sha256():
+                raise ValueError(
+                    f"usage.failed_calls[{index}] pricing fingerprint is stale"
+                )
+            canonical_optional_fields = {
+                field: _canonical_optional_identifier(
+                    raw_call.get(field),
+                    f"usage.failed_calls[{index}].{field}",
+                )
+                for field in ("call_id", "returned_model", "response_id")
+            }
+            canonical_stop_reason = (
+                None
+                if raw_call.get("stop_reason") is None
+                else _canonical_stop_reason(
+                    raw_call.get("stop_reason"),
+                    f"usage.failed_calls[{index}].stop_reason",
+                )
+            )
+            if (
+                canonical_failed_attempt_history[-1].get("response_id")
+                != canonical_optional_fields["response_id"]
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] response_id does not match its terminal attempt"
+                )
+            for field in (
+                "latency_ms", "transport_attempts", "transport_retry_count",
+                "logical_retry", "attempt_number", "retry_count",
+                "total_retry_count", "charged_cost_microusd",
+                "reserved_cost_microusd", "cap_cost_microusd",
+            ):
+                value = raw_call.get(field)
+                if type(value) is not int or value < 0:
+                    raise ValueError(
+                        f"usage.failed_calls[{index}].{field} must be non-negative"
+                    )
+            if len(attempt_history) != raw_call["transport_attempts"]:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] attempt history is incomplete"
+                )
+            if raw_call["attempt_number"] != raw_call["logical_retry"] + 1:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] logical attempt is inconsistent"
+                )
+            if raw_call["transport_retry_count"] != max(
+                0, raw_call["transport_attempts"] - 1
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] transport retries are inconsistent"
+                )
+            if raw_call["retry_count"] != raw_call["transport_retry_count"]:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] retry count is inconsistent"
+                )
+            if raw_call["total_retry_count"] != (
+                raw_call["retry_count"] + raw_call["logical_retry"]
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] total retry count is inconsistent"
+                )
+            started_at = _require_nonempty_string(
+                raw_call.get("started_at"),
+                f"usage.failed_calls[{index}].started_at",
+            )
+            completed_at = _require_nonempty_string(
+                raw_call.get("completed_at"),
+                f"usage.failed_calls[{index}].completed_at",
+            )
+            try:
+                started_time = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+                completed_time = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+            except ValueError as error:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] timestamp is invalid"
+                ) from error
+            if started_time.tzinfo is None or completed_time.tzinfo is None:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] timestamp is invalid"
+                )
+            if completed_time < started_time:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] completed before it started"
+                )
+            for field in (
+                "validation_result", "validation_reason", "failure_state",
+                "failure_message", "independent_cost_status", "uncertainty_status",
+            ):
+                _require_nonempty_string(
+                    raw_call.get(field),
+                    f"usage.failed_calls[{index}].{field}",
+                )
+            returned_model_mismatch = (
+                canonical_optional_fields["returned_model"] is not None
+                and canonical_optional_fields["returned_model"] != requested_model
+            )
+            if returned_model_mismatch != (
+                raw_call["failure_state"] == "model_provenance_mismatch"
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] returned model and failure state disagree"
+                )
+            if not raw_call["validation_result"].startswith("failed_"):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] validation did not fail"
+                )
+            transformations = _canonical_bounded_strings(
+                raw_call.get("transformations"),
+                f"usage.failed_calls[{index}].transformations",
+                max_length=128,
+            )
+            if any(
+                re.fullmatch(r"[a-z][a-z0-9_]*", value) is None
+                for value in transformations
+            ) or len(transformations) != len(set(transformations)):
+                raise ValueError(
+                    f"usage.failed_calls[{index}].transformations are invalid"
+                )
+            transformation_evidence = raw_call.get("transformation_evidence")
+            if not isinstance(transformation_evidence, list):
+                raise ValueError(
+                    f"usage.failed_calls[{index}].transformation_evidence is invalid"
+                )
+            evidence_names = [
+                evidence.get("name") if isinstance(evidence, dict) else None
+                for evidence in transformation_evidence
+            ]
+            if (
+                len(evidence_names) != len(set(evidence_names))
+                or evidence_names != transformations
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] transformations lack one-to-one evidence"
+                )
+            for evidence_index, evidence in enumerate(transformation_evidence):
+                if (
+                    not isinstance(evidence, dict)
+                    or type(evidence.get("changed")) is not bool
+                    or not (
+                        {"before", "after"}.issubset(evidence)
+                        or {"before_sha256", "after_sha256"}.issubset(evidence)
+                    )
+                ):
+                    raise ValueError(
+                        f"usage.failed_calls[{index}].transformation_evidence"
+                        f"[{evidence_index}] is invalid"
+                    )
+            canonical_transformation_evidence = _canonical_transformation_evidence(
+                transformation_evidence
+            )
+            warnings = _canonical_bounded_strings(
+                raw_call.get("warnings"),
+                f"usage.failed_calls[{index}].warnings",
+                max_length=2_048,
+            )
+            canonical_release = _canonical_release_provenance(
+                raw_call.get("release"),
+                f"usage.failed_calls[{index}].release",
+            )
+            canonical_expected_release = _canonical_release_provenance(
+                raw_call.get("expected_release"),
+                f"usage.failed_calls[{index}].expected_release",
+            )
+            canonical_budget_check = _canonical_budget_check(
+                raw_call.get("budget_check"),
+                f"usage.failed_calls[{index}].budget_check",
+            )
+            if canonical_budget_check is not None:
+                expected_budget_lineage = {
+                    "requested_model": requested_model,
+                    "stage": stage,
+                    "logical_retry": raw_call["logical_retry"],
+                }
+                if any(
+                    canonical_budget_check.get(field) != expected
+                    for field, expected in expected_budget_lineage.items()
+                ):
+                    raise ValueError(
+                        f"usage.failed_calls[{index}] budget receipt does not match its call"
+                    )
+            if raw_call.get("fallback_used") is not False:
+                raise ValueError(f"usage.failed_calls[{index}] used a fallback")
+            if type(raw_call.get("truncated")) is not bool:
+                raise ValueError(f"usage.failed_calls[{index}] truncation is unknown")
+            expected_truncated = canonical_stop_reason in {
+                "max_tokens",
+                "model_context_window_exceeded",
+            }
+            if raw_call["truncated"] != expected_truncated:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] truncation contradicts stop_reason"
+                )
+            if (
+                raw_call.get("downstream_consumption") != "not_consumed"
+                or raw_call.get("disposition") != "discarded_unusable"
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] was consumed downstream"
+                )
+            call_usage = raw_call.get("usage")
+            if not isinstance(call_usage, dict):
+                raise ValueError(f"usage.failed_calls[{index}] usage is invalid")
+            for field in USAGE_COUNTER_FIELDS:
+                value = call_usage.get(field)
+                if type(value) is not int or value < 0:
+                    raise ValueError(
+                        f"usage.failed_calls[{index}].usage.{field} is invalid"
+                    )
+            for micros, usd in (
+                ("charged_cost_microusd", "charged_cost_usd"),
+                ("reserved_cost_microusd", "reserved_cost_usd"),
+                ("cap_cost_microusd", "cap_cost_usd"),
+            ):
+                usd_value = raw_call.get(usd)
+                if (
+                    isinstance(usd_value, bool)
+                    or not isinstance(usd_value, (int, float))
+                    or not math.isfinite(float(usd_value))
+                    or abs(float(usd_value) - raw_call[micros] / 1_000_000)
+                    > 1e-12
+                ):
+                    raise ValueError(
+                        f"usage.failed_calls[{index}] cost mirrors are inconsistent"
+                    )
+            independent_cost_microusd = raw_call.get("independent_cost_microusd")
+            independent_cost_usd = raw_call.get("independent_cost_usd")
+            if independent_cost_microusd is None:
+                if independent_cost_usd is not None:
+                    raise ValueError(
+                        f"usage.failed_calls[{index}] independent cost is inconsistent"
+                    )
+            elif (
+                type(independent_cost_microusd) is not int
+                or independent_cost_microusd < 0
+                or isinstance(independent_cost_usd, bool)
+                or not isinstance(independent_cost_usd, (int, float))
+                or float(independent_cost_usd)
+                != independent_cost_microusd / 1_000_000
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] independent cost is invalid"
+                )
+            cost_variance_microusd = raw_call.get("cost_variance_microusd")
+            if cost_variance_microusd is not None and type(
+                cost_variance_microusd
+            ) is not int:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] cost variance is invalid"
+                )
+            actual_cost_microusd = call_usage["actual_cost_microusd"]
+            charged_cost_microusd = raw_call["charged_cost_microusd"]
+            reserved_cost_microusd = raw_call["reserved_cost_microusd"]
+            cap_cost_microusd = raw_call["cap_cost_microusd"]
+            if (
+                actual_cost_microusd != cap_cost_microusd
+                or charged_cost_microusd + reserved_cost_microusd
+                != cap_cost_microusd
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] cost evidence does not reconcile"
+                )
+            if independent_cost_microusd is None:
+                if cost_variance_microusd is not None:
+                    raise ValueError(
+                        f"usage.failed_calls[{index}] cost variance lacks an independent cost"
+                    )
+            elif cost_variance_microusd != (
+                cap_cost_microusd - independent_cost_microusd
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] cost variance does not reconcile"
+                )
+            if (
+                canonical_budget_check is not None
+                and "settled_cost_microusd" in canonical_budget_check
+                and canonical_budget_check["settled_cost_microusd"]
+                != cap_cost_microusd
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] budget settlement does not match its cost"
+                )
         requested_model_ids.add(requested_model)
-        failed_call_records.append({
+        failed_record = {
             "requested_model": requested_model,
             "stage": stage,
             "pipeline_pass": pipeline_pass,
             "boundary_run": boundary_run,
             "reader_name": reader_name,
-            "attempt_history": copy.deepcopy(attempt_history),
-        })
+            "attempt_history": canonical_failed_attempt_history,
+        }
+        for field in (
+            "call_id",
+            "returned_model",
+            "response_id",
+            "stop_reason",
+            "request_sha256",
+            "prompt_sha256",
+            "prompt_contract_version",
+            "schema_mode",
+            "schema_sha256",
+            "transport_schema_sha256",
+            "pricing_sha256",
+            "latency_ms",
+            "started_at",
+            "completed_at",
+            "transport_attempts",
+            "transport_retry_count",
+            "logical_retry",
+            "attempt_number",
+            "retry_count",
+            "total_retry_count",
+            "validation_result",
+            "validation_reason",
+            "transformations",
+            "transformation_evidence",
+            "failure_state",
+            "failure_message",
+            "warnings",
+            "fallback_used",
+            "truncated",
+            "downstream_consumption",
+            "disposition",
+            "release",
+            "expected_release",
+            "usage",
+            "independent_cost_status",
+            "independent_cost_microusd",
+            "independent_cost_usd",
+            "cost_variance_microusd",
+            "uncertainty_status",
+            "charged_cost_microusd",
+            "charged_cost_usd",
+            "reserved_cost_microusd",
+            "reserved_cost_usd",
+            "cap_cost_microusd",
+            "cap_cost_usd",
+            "budget_check",
+        ):
+            if field in raw_call:
+                if (
+                    manifest_version == TRUST_MANIFEST_VERSION
+                    and field in canonical_optional_fields
+                ):
+                    failed_record[field] = canonical_optional_fields[field]
+                elif manifest_version == TRUST_MANIFEST_VERSION and field == "stop_reason":
+                    failed_record[field] = canonical_stop_reason
+                elif manifest_version == TRUST_MANIFEST_VERSION and field == "transformations":
+                    failed_record[field] = transformations
+                elif (
+                    manifest_version == TRUST_MANIFEST_VERSION
+                    and field == "transformation_evidence"
+                ):
+                    failed_record[field] = canonical_transformation_evidence
+                elif manifest_version == TRUST_MANIFEST_VERSION and field == "warnings":
+                    failed_record[field] = warnings
+                elif manifest_version == TRUST_MANIFEST_VERSION and field == "release":
+                    failed_record[field] = canonical_release
+                elif (
+                    manifest_version == TRUST_MANIFEST_VERSION
+                    and field == "expected_release"
+                ):
+                    failed_record[field] = canonical_expected_release
+                elif manifest_version == TRUST_MANIFEST_VERSION and field == "budget_check":
+                    failed_record[field] = canonical_budget_check
+                elif field == "usage":
+                    failed_record[field] = {
+                        counter: raw_call[field][counter]
+                        for counter in USAGE_COUNTER_FIELDS
+                    }
+                else:
+                    failed_record[field] = copy.deepcopy(raw_call[field])
+        failed_call_records.append(failed_record)
+
+    if manifest_version == TRUST_MANIFEST_VERSION and has_per_call_usage:
+        combined_usage_totals = {
+            field: sum(
+                call["usage"][field]
+                for call in [*call_records, *failed_call_records]
+            )
+            for field in USAGE_COUNTER_FIELDS
+        }
+        if combined_usage_totals != usage_totals:
+            raise ValueError(
+                "usage successful and failed per-call totals do not match aggregate usage"
+            )
 
     triage_models = {
         call["requested_model"]
@@ -798,6 +2461,7 @@ def _manifest_reader_lineage(
         and manifest_version in {
             Q3_TRUST_MANIFEST_VERSION,
             Q4_TRUST_MANIFEST_VERSION,
+            Q5_TRUST_MANIFEST_VERSION,
             TRUST_MANIFEST_VERSION,
         }
     ):
@@ -842,7 +2506,6 @@ def _boundary_provenance(
         "disabled_by_environment",
         "outside_boundary_window",
         "near_boundary",
-        "reruns_failed",
     }:
         raise ValueError("boundary-run reason is invalid")
     boundary_window = _require_number(
@@ -997,8 +2660,6 @@ def _boundary_provenance(
     expected_median_score, expected_selected_run = ordered_runs[
         len(ordered_runs) // 2
     ]
-    if selected_run_number != expected_selected_run:
-        raise ValueError("boundary-run selected result is not the median-score run")
     median = _require_number(
         boundary.get("median_adjusted_score"),
         "boundary-run median adjusted score",
@@ -1013,21 +2674,18 @@ def _boundary_provenance(
     if spread != expected_spread:
         raise ValueError("boundary-run score spread was not recomputed correctly")
 
-    verdict_counts: Dict[str, int] = {}
-    for verdict in verdicts:
-        verdict_counts[verdict] = verdict_counts.get(verdict, 0) + 1
-    majority_verdict, majority_count = max(
-        verdict_counts.items(),
-        key=lambda item: item[1],
-    )
+    expected_selected_index = select_boundary_run_index(run_scores, verdicts)
+    expected_selected_run = runs[expected_selected_index]["run_number"]
+    if selected_run_number != expected_selected_run:
+        raise ValueError(
+            "boundary-run selected result does not match the stability contract"
+        )
     selected_verdict = next(
         str(run["verdict"])
         for run in runs
         if run["run_number"] == selected_run_number
     )
-    expected_final_verdict = (
-        majority_verdict if majority_count >= 2 else selected_verdict
-    )
+    expected_final_verdict = selected_verdict
     if boundary.get("final_verdict") != expected_final_verdict:
         raise ValueError("boundary-run final verdict was not recomputed correctly")
     if boundary.get("final_verdict") != analysis.get("verdict"):
@@ -1043,13 +2701,12 @@ def _boundary_provenance(
     )
     triggered = boundary["triggered"]
     if triggered:
-        if reason not in {"near_boundary", "reruns_failed"}:
+        if reason != "near_boundary":
             raise ValueError("triggered boundary provenance has the wrong reason")
         if not near_verdict_boundary(initial_score, boundary_window):
             raise ValueError("boundary re-runs require an initial near-boundary score")
-        expected_reason = "near_boundary" if completed > 1 else "reruns_failed"
-        if reason != expected_reason:
-            raise ValueError("boundary-run outcome reason is inconsistent")
+        if completed != attempted or failed_runs:
+            raise ValueError("boundary-run failures cannot produce a trusted verdict")
     else:
         if reason not in {
             "disabled_by_environment",
@@ -1061,6 +2718,13 @@ def _boundary_provenance(
             and near_verdict_boundary(initial_score, boundary_window)
         ):
             raise ValueError("near-boundary score cannot be marked outside the window")
+        if (
+            reason == "disabled_by_environment"
+            and near_verdict_boundary(initial_score, boundary_window)
+        ):
+            raise ValueError(
+                "near-boundary score cannot be trusted with stability runs disabled"
+            )
     return {
         "triggered": triggered,
         "reason": reason,
@@ -1102,6 +2766,33 @@ def _recompute_full_analysis_core(
     pillar_scores = analysis.get("pillar_scores")
     if not isinstance(reports, dict) or not isinstance(pillar_scores, dict):
         raise ValueError("analysis must retain reports and pillar scores")
+
+    for index, failure in enumerate(critical_failures):
+        if not isinstance(failure, dict):
+            raise ValueError(f"analysis critical failure {index} is invalid")
+        reader = reports.get(failure.get("reader"))
+        sub_scores = reader.get("sub_scores") if isinstance(reader, dict) else None
+        metric = (
+            sub_scores.get(failure.get("metric"))
+            if isinstance(sub_scores, dict)
+            else None
+        )
+        if not isinstance(metric, dict):
+            raise ValueError(
+                f"analysis critical failure {index} has no canonical metric"
+            )
+        severity = derive_failure_severity(metric.get("score"))
+        if severity is None:
+            raise ValueError(
+                f"analysis critical failure {index} metric score is above 4"
+            )
+        if (
+            failure.get("severity") != severity
+            or failure.get("penalty") != FAILURE_PENALTIES[severity]
+        ):
+            raise ValueError(
+                f"analysis critical failure {index} severity is not code-derived"
+            )
 
     weighted_total = 0.0
     completed_weight = 0.0
@@ -1337,6 +3028,11 @@ def _score_lineage(
 def _usage_summary(usage: Any) -> Dict[str, Any]:
     if not isinstance(usage, dict):
         raise ValueError("usage must be an object")
+    finish_reason = _canonical_stop_reason(
+        usage.get("finish_reason"),
+        "usage.finish_reason",
+        allow_empty=True,
+    )
     return {
         "input_tokens": int(usage.get("input_tokens", 0)),
         "output_tokens": int(usage.get("output_tokens", 0)),
@@ -1346,9 +3042,18 @@ def _usage_summary(usage: Any) -> Dict[str, Any]:
         "cache_read_input_tokens": int(usage.get("cache_read_input_tokens", 0)),
         "call_count": int(usage.get("call_count", 0)),
         "actual_cost_microusd": int(usage.get("actual_cost_microusd", 0)),
-        "finish_reason": str(usage.get("finish_reason", "")),
-        "by_model": copy.deepcopy(usage.get("by_model", {})),
-        "failed_calls": copy.deepcopy(usage.get("failed_calls", [])),
+        "estimated_cost_nanousd": int(
+            usage.get("estimated_cost_nanousd", 0)
+        ),
+        "estimated_cost_usd": float(usage.get("estimated_cost_usd", 0.0)),
+        "rounding_variance_nanousd": int(
+            usage.get("rounding_variance_nanousd", 0)
+        ),
+        "rounding_variance_usd": float(
+            usage.get("rounding_variance_usd", 0.0)
+        ),
+        "finish_reason": finish_reason,
+        "by_model": _canonical_usage_by_model(usage.get("by_model", {})),
     }
 
 
@@ -1359,12 +3064,15 @@ def _evidence_provenance(
     page_count: int,
     character_count: int,
     effective_model_tier: str,
+    model_ids: Mapping[str, str],
+    require_scene_count: bool = True,
 ) -> Dict[str, Any]:
     page_evidence = validate_stored_page_evidence(metadata, page_count)
     context_policy = validate_stored_context_policy(
         analysis,
         character_count,
         effective_model_tier,
+        model_ids=model_ids,
     )
     citation_quality = validate_stored_citation_quality(
         analysis,
@@ -1372,7 +3080,7 @@ def _evidence_provenance(
         page_count,
     )
     extraction_quality = page_evidence["extraction_quality"]
-    return {
+    result = {
         "page_extraction": {
             "version": page_evidence["page_evidence_version"],
             "evidence_sha256": metadata.get("page_evidence_sha256"),
@@ -1382,28 +3090,74 @@ def _evidence_provenance(
             "coverage_ratio": extraction_quality["coverage_ratio"],
             "opening_coverage_ratio": extraction_quality["opening_coverage_ratio"],
             "ending_coverage_ratio": extraction_quality["ending_coverage_ratio"],
-            "native_cross_check": copy.deepcopy(
-                metadata.get("native_cross_check")
+            "native_cross_check": validate_native_cross_check(
+                metadata.get("native_cross_check"),
+                str(metadata.get("extraction_method") or ""),
             ),
         },
         "context": copy.deepcopy(context_policy),
         "citations": copy.deepcopy(citation_quality),
     }
+    if require_scene_count:
+        result["scene_count"] = copy.deepcopy(validate_scene_count_evidence(
+            metadata.get("scene_count_evidence")
+        ))
+    return result
+
+
+def _validate_usage_cost_mirrors(usage: Dict[str, Any]) -> None:
+    canonical_cost_microusd = usage.get("actual_cost_microusd")
+    if (
+        type(canonical_cost_microusd) is not int
+        or canonical_cost_microusd < 0
+    ):
+        raise ValueError("Usage actual cost must be a non-negative integer")
+    expected_cost_usd = canonical_cost_microusd / 1_000_000
+    raw_cost_usd = usage.get("actual_cost_usd")
+    if (
+        isinstance(raw_cost_usd, bool)
+        or not isinstance(raw_cost_usd, (int, float))
+        or not math.isfinite(float(raw_cost_usd))
+        or abs(float(raw_cost_usd) - expected_cost_usd) > 1e-12
+    ):
+        raise ValueError("Usage actual dollar cost does not match microusd")
+    estimated_nanousd = usage.get("estimated_cost_nanousd")
+    estimated_usd = usage.get("estimated_cost_usd")
+    rounding_nanousd = usage.get("rounding_variance_nanousd")
+    rounding_usd = usage.get("rounding_variance_usd")
+    if (
+        type(estimated_nanousd) is not int
+        or estimated_nanousd < 0
+        or isinstance(estimated_usd, bool)
+        or not isinstance(estimated_usd, (int, float))
+        or not math.isfinite(float(estimated_usd))
+        or float(estimated_usd) != estimated_nanousd / 1_000_000_000
+        or type(rounding_nanousd) is not int
+        or rounding_nanousd < 0
+        or rounding_nanousd
+        != canonical_cost_microusd * 1_000 - estimated_nanousd
+        or isinstance(rounding_usd, bool)
+        or not isinstance(rounding_usd, (int, float))
+        or not math.isfinite(float(rounding_usd))
+        or float(rounding_usd) != rounding_nanousd / 1_000_000_000
+    ):
+        raise ValueError("Usage exact cost evidence is inconsistent")
 
 
 def _validate_cost_mirrors(raw: Dict[str, Any], usage: Dict[str, Any]) -> None:
-    canonical_cost_microusd = usage.get("actual_cost_microusd")
+    _validate_usage_cost_mirrors(usage)
+    canonical_cost_microusd = usage["actual_cost_microusd"]
     if (
         type(raw.get("actual_cost_microusd")) is not int
         or raw.get("actual_cost_microusd") != canonical_cost_microusd
     ):
         raise ValueError("Permanent analysis cost mirror does not match usage")
-    expected_cost_usd = canonical_cost_microusd / 1_000_000
     raw_cost_usd = raw.get("actual_cost_usd")
     if (
         isinstance(raw_cost_usd, bool)
         or not isinstance(raw_cost_usd, (int, float))
-        or abs(float(raw_cost_usd) - expected_cost_usd) > 1e-12
+        or not math.isfinite(float(raw_cost_usd))
+        or abs(float(raw_cost_usd) - canonical_cost_microusd / 1_000_000) > 1e-12
     ):
         raise ValueError("Permanent analysis dollar cost does not match usage")
 
@@ -1504,6 +3258,7 @@ def _validate_response_links(
             manifest_version in {
                 Q3_TRUST_MANIFEST_VERSION,
                 Q4_TRUST_MANIFEST_VERSION,
+                Q5_TRUST_MANIFEST_VERSION,
                 TRUST_MANIFEST_VERSION,
             }
             and len(used_reader_calls) != len(CANONICAL_READER_NAMES)
@@ -1542,6 +3297,7 @@ def _validate_response_links(
         if manifest_version in {
             Q3_TRUST_MANIFEST_VERSION,
             Q4_TRUST_MANIFEST_VERSION,
+            Q5_TRUST_MANIFEST_VERSION,
             TRUST_MANIFEST_VERSION,
         }:
             if declared_failed_names:
@@ -1695,6 +3451,251 @@ def _cold_read_provenance(
     }
 
 
+def _claim_verification_provenance(
+    *,
+    analysis: Dict[str, Any],
+    models: Dict[str, Any],
+    effective_model_tier: str,
+) -> Dict[str, Any]:
+    raw = analysis.get("_claim_verification")
+    if not isinstance(raw, dict):
+        raise ValueError("benchmark analysis lacks independent claim verification")
+    if raw.get("status") != "passed_independent_model_review":
+        raise ValueError("independent claim verification did not pass")
+    if raw.get("verification_scope") != (
+        "semantic_support_against_full_physical_page_source"
+    ):
+        raise ValueError("independent claim verification scope is invalid")
+    claims = raw.get("claims")
+    claim_count = raw.get("claim_count")
+    analysis_without_verification = copy.deepcopy(analysis)
+    analysis_without_verification.pop("_claim_verification", None)
+    expected_targets = claim_verification_targets(analysis_without_verification)
+    expected_locked_targets = [
+        {
+            key: target[key]
+            for key in (
+                "claim_id",
+                "claim",
+                "claim_type",
+                "verdict_driving",
+                "story_fact_check_required",
+            )
+        }
+        for target in expected_targets
+    ]
+    if (
+        not isinstance(claims, list)
+        or type(claim_count) is not int
+        or claim_count < 10
+        or len(claims) != claim_count
+        or claim_count != len(expected_locked_targets)
+    ):
+        raise ValueError("independent claim verification is incomplete")
+    claim_ids = set()
+    factual_total = 0
+    factual_supported = 0
+    counts: Dict[str, int] = {}
+    allowed = {
+        "Supported", "Partially supported", "Unsupported", "Contradicted",
+        "Not objectively verifiable",
+    }
+    for claim in claims:
+        if not isinstance(claim, dict):
+            raise ValueError("independent claim verification contains an invalid claim")
+        claim_id = _require_nonempty_string(
+            claim.get("claim_id"),
+            "independent claim verification ID",
+        )
+        if claim_id in claim_ids:
+            raise ValueError("independent claim verification has duplicate claims")
+        claim_ids.add(claim_id)
+        _require_nonempty_string(
+            claim.get("claim"),
+            "independent claim verification text",
+        )
+        claim_type = claim.get("claim_type")
+        if claim_type not in {"factual", "evaluative", "mixed"}:
+            raise ValueError("independent claim verification type is invalid")
+        classification = claim.get("classification")
+        if classification not in allowed:
+            raise ValueError("independent claim classification is invalid")
+        if type(claim.get("verdict_driving")) is not bool:
+            raise ValueError("independent claim verdict lineage is missing")
+        if type(claim.get("story_fact_check_required")) is not bool:
+            raise ValueError("independent claim story-fact lineage is missing")
+        if claim["verdict_driving"] and classification in {
+            "Unsupported", "Contradicted",
+        }:
+            raise ValueError("a verdict-driving claim failed independent verification")
+        story_fact_classification = claim.get("story_fact_classification")
+        if story_fact_classification not in {
+            "Supported",
+            "Partially supported",
+            "Unsupported",
+            "Contradicted",
+            "No concrete story fact",
+        }:
+            raise ValueError("independent story-fact classification is invalid")
+        unsupported_story_facts = claim.get("unsupported_story_facts")
+        if not isinstance(unsupported_story_facts, list) or any(
+            not isinstance(fact, dict)
+            or not isinstance(fact.get("claim"), str)
+            or not fact["claim"].strip()
+            or fact.get("kind") not in {
+                "character",
+                "relationship",
+                "event",
+                "quotation",
+                "outcome",
+                "citation",
+                "minor_detail",
+            }
+            for fact in unsupported_story_facts
+        ):
+            raise ValueError("independent unsupported story-fact detail is invalid")
+        if (
+            story_fact_classification == "Partially supported"
+            and not unsupported_story_facts
+        ):
+            raise ValueError("partial story-fact support lacks unsupported detail")
+        if (
+            story_fact_classification != "Partially supported"
+            and unsupported_story_facts
+        ):
+            raise ValueError("unsupported story facts contradict their classification")
+        if any(
+            fact["kind"] != "minor_detail"
+            for fact in unsupported_story_facts
+        ):
+            raise ValueError("a central story fact failed independent verification")
+        if (
+            claim["story_fact_check_required"]
+            and story_fact_classification == "No concrete story fact"
+        ):
+            raise ValueError("a required story-fact check denied its factual content")
+        if (
+            claim["story_fact_check_required"]
+            and story_fact_classification in {"Unsupported", "Contradicted"}
+        ):
+            raise ValueError("a factual claim failed independent verification")
+        if claim["story_fact_check_required"]:
+            factual_total += 1
+            if story_fact_classification in {"Supported", "Partially supported"}:
+                factual_supported += 1
+        counts[classification] = counts.get(classification, 0) + 1
+        citations = claim.get("page_citations")
+        evidence = claim.get("citation_evidence")
+        if (
+            not isinstance(citations, list)
+            or not citations
+            or not isinstance(evidence, list)
+            or not evidence
+        ):
+            raise ValueError("independent claim lacks physical-page evidence")
+    if factual_total == 0:
+        raise ValueError("independent claim verification lacks factual claims")
+    support_rate = factual_supported / factual_total
+    if support_rate < 0.95:
+        raise ValueError("independent factual claim support is below 95 percent")
+    expected_summaries = {
+        "factual_claim_count": factual_total,
+        "factual_supported_or_partial_count": factual_supported,
+        "factual_support_rate": round(support_rate, 4),
+        "classification_counts": counts,
+    }
+    if any(raw.get(key) != value for key, value in expected_summaries.items()):
+        raise ValueError("independent claim verification summary is inconsistent")
+    locked_targets_sha256 = _require_sha256(
+        raw.get("locked_targets_sha256"),
+        "independent claim target fingerprint",
+    )
+    if locked_targets_sha256 != _sha256_bytes(
+        _canonical_json(expected_locked_targets).encode("utf-8")
+    ):
+        raise ValueError("independent claim target fingerprint is inconsistent")
+    observed_locked_targets = [
+        {
+            key: claim[key]
+            for key in (
+                "claim_id",
+                "claim",
+                "claim_type",
+                "verdict_driving",
+                "story_fact_check_required",
+            )
+        }
+        for claim in claims
+    ]
+    if observed_locked_targets != expected_locked_targets:
+        raise ValueError("independent claim verification changed the target set")
+    analysis_for_hash = copy.deepcopy(analysis)
+    analysis_for_hash.pop("_citation_quality", None)
+    analysis_for_hash.pop("_claim_verification", None)
+    analysis_sha256 = _require_sha256(
+        raw.get("analysis_sha256"),
+        "independent claim analysis fingerprint",
+    )
+    if analysis_sha256 != _sha256_bytes(
+        _transport_canonical_json(analysis_for_hash).encode("utf-8")
+    ):
+        raise ValueError("independent claim verification targets a different analysis")
+    verification_calls = [
+        call
+        for call in models["calls"]
+        if call["stage"] == "claim_verification"
+        and call["disposition"] == "used"
+    ]
+    response_ids = raw.get("response_ids")
+    expected_response_ids = [call["response_id"] for call in verification_calls]
+    expected_batch_count = math.ceil(
+        claim_count / CLAIM_VERIFICATION_BATCH_SIZE
+    )
+    expected_batch_names = [
+        f"batch_{index:03d}_of_{expected_batch_count:03d}"
+        for index in range(1, expected_batch_count + 1)
+    ]
+    expected_batch_hashes = [
+        _sha256_bytes(_canonical_json([
+            target["claim_id"]
+            for target in expected_targets[
+                index:index + CLAIM_VERIFICATION_BATCH_SIZE
+            ]
+        ]).encode("utf-8"))
+        for index in range(0, claim_count, CLAIM_VERIFICATION_BATCH_SIZE)
+    ]
+    if (
+        response_ids != expected_response_ids
+        or len(response_ids) != expected_batch_count
+        or [call.get("reader_name") for call in verification_calls]
+        != expected_batch_names
+        or raw.get("batch_count") != expected_batch_count
+        or raw.get("batch_size_limit") != CLAIM_VERIFICATION_BATCH_SIZE
+        or raw.get("batch_target_sha256") != expected_batch_hashes
+    ):
+        raise ValueError(
+            "independent claim verification batch lineage is invalid"
+        )
+    if any(
+        call["pipeline_pass"] != effective_model_tier
+        for call in verification_calls
+    ):
+        raise ValueError("independent claim verification used the wrong model tier")
+    return {
+        **expected_summaries,
+        "status": raw["status"],
+        "verification_scope": raw["verification_scope"],
+        "claim_count": claim_count,
+        "locked_targets_sha256": raw["locked_targets_sha256"],
+        "analysis_sha256": analysis_sha256,
+        "response_ids": list(response_ids),
+        "batch_count": expected_batch_count,
+        "batch_size_limit": CLAIM_VERIFICATION_BATCH_SIZE,
+        "batch_target_sha256": expected_batch_hashes,
+        "claims_sha256": _sha256_bytes(_canonical_json(claims).encode("utf-8")),
+    }
+
+
 def _hybrid_provenance(
     *,
     analysis: Dict[str, Any],
@@ -1706,12 +3707,24 @@ def _hybrid_provenance(
     cold_read: Optional[Dict[str, Any]],
     manifest_version: str,
     scoring_code_version: str,
+    claim_verification: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     root_response_ids = _boundary_response_ids(score_lineage)
     cold_read_response_ids = (
         set(cold_read["response_ids"])
         if isinstance(cold_read, dict)
         else set()
+    )
+    claim_response_ids = (
+        set(claim_verification["response_ids"])
+        if isinstance(claim_verification, dict)
+        else {
+            call["response_id"]
+            for call in models["calls"]
+            if manifest_version != TRUST_MANIFEST_VERSION
+            and call["stage"] == "claim_verification"
+            and call["disposition"] == "used"
+        }
     )
     calls_by_id = {
         call["response_id"]: call
@@ -1732,7 +3745,9 @@ def _hybrid_provenance(
             for call in models["calls"]
             if call["disposition"] == "used"
         }
-        if used_response_ids != root_response_ids | cold_read_response_ids:
+        if used_response_ids != (
+            root_response_ids | cold_read_response_ids | claim_response_ids
+        ):
             raise ValueError("model calls are not linked to analysis evidence")
         return None
 
@@ -1807,7 +3822,10 @@ def _hybrid_provenance(
             raise ValueError("unpromoted Sonnet evidence must match final analysis")
 
     accounted_response_ids = (
-        root_response_ids | sonnet_response_ids | cold_read_response_ids
+        root_response_ids
+        | sonnet_response_ids
+        | cold_read_response_ids
+        | claim_response_ids
     )
     used_response_ids = {
         call["response_id"]
@@ -1826,6 +3844,311 @@ def _hybrid_provenance(
         "sonnet_response_ids": sorted(sonnet_response_ids),
         "final_response_ids": sorted(root_response_ids),
     }
+
+
+def build_benchmark_trust_seal(
+    *,
+    analysis: Dict[str, Any],
+    usage: Dict[str, Any],
+    source: Mapping[str, Any],
+    parser_metadata: Mapping[str, Any],
+    route: str,
+    effective_model_tier: str,
+    model_ids: Mapping[str, str],
+    contracts: Mapping[str, str],
+    release: Mapping[str, Any],
+    local_source_proof: Mapping[str, Any],
+    authorized_benchmark_cap_microusd: int,
+) -> Dict[str, Any]:
+    """Build and validate a persistence-free seal for one paid benchmark result."""
+    if usage.get("failed_calls"):
+        raise ValueError("Paid benchmark cannot lock with unresolved failed calls")
+    if (
+        type(authorized_benchmark_cap_microusd) is not int
+        or authorized_benchmark_cap_microusd <= 0
+    ):
+        raise ValueError("Paid benchmark requires its positive authorized cap")
+    release_git_sha = _require_nonempty_string(
+        release.get("git_sha"),
+        "benchmark release Git SHA",
+    )
+    if re.fullmatch(r"[a-f0-9]{40}", release_git_sha) is None:
+        raise ValueError("benchmark release Git SHA is invalid")
+    _require_sha256(
+        release.get("catalog_sha256"),
+        "benchmark release catalog SHA-256",
+    )
+    _require_sha256(
+        release.get("deployment_config_sha256"),
+        "benchmark release deployment configuration SHA-256",
+    )
+    release_pricing_sha256 = _require_sha256(
+        release.get("pricing_sha256"),
+        "benchmark release pricing SHA-256",
+    )
+    if release_pricing_sha256 != runtime_pricing_sha256():
+        raise ValueError("benchmark release pricing fingerprint is not the runtime table")
+    cloud_run_revision = _require_nonempty_string(
+        release.get("cloud_run_revision"),
+        "benchmark Cloud Run revision",
+    )
+    if re.fullmatch(r"llmproxycandidate-[0-9]{5}-[a-z0-9]{3}", cloud_run_revision) is None:
+        raise ValueError("Paid benchmark requires a deployed Cloud Run revision")
+    build_timestamp = _require_nonempty_string(
+        release.get("build_timestamp"),
+        "benchmark release build timestamp",
+    )
+    try:
+        parsed_build_timestamp = datetime.fromisoformat(
+            build_timestamp.replace("Z", "+00:00")
+        )
+    except ValueError as error:
+        raise ValueError("benchmark release build timestamp is invalid") from error
+    if parsed_build_timestamp.tzinfo is None:
+        raise ValueError("benchmark release build timestamp is invalid")
+    analysis_version = _require_nonempty_string(
+        analysis.get("analysis_version"),
+        "benchmark analysis version",
+    )
+    if analysis_version != "v9_archaeology":
+        raise ValueError("Paid V9 benchmark requires a complete archaeology analysis")
+    effective_tier = _require_nonempty_string(
+        effective_model_tier,
+        "benchmark effective model tier",
+    )
+    models = _model_lineage(
+        usage=usage,
+        selection_request=route,
+        pipeline_model_tier=route,
+        effective_model_tier=effective_tier,
+        model_ids=model_ids,
+        cold_read_model_route=_cold_read_model_route(analysis),
+    )
+    _validate_usage_cost_mirrors(usage)
+    if (
+        usage["estimated_cost_nanousd"]
+        != sum(call["usage"]["estimated_cost_nanousd"] for call in models["calls"])
+        or usage["rounding_variance_nanousd"]
+        != sum(
+            call["usage"]["rounding_variance_nanousd"]
+            for call in models["calls"]
+        )
+    ):
+        raise ValueError("Paid benchmark root exact cost does not match call ledger")
+    required_budget_fields = {
+        "requested_model",
+        "stage",
+        "logical_retry",
+        "decision",
+        "request_content_bytes",
+        "request_envelope_overhead_bytes",
+        "request_bytes_upper_bound",
+        "input_tokens_upper_bound",
+        "output_tokens_upper_bound",
+        "request_ceiling_microusd",
+        "request_ceiling_usd",
+        "sequence",
+        "spent_before_microusd",
+        "spent_before_usd",
+        "reserved_before_microusd",
+        "reserved_before_usd",
+        "remaining_before_microusd",
+        "remaining_before_usd",
+        "settled_cost_microusd",
+        "settled_cost_usd",
+        "spent_after_microusd",
+        "spent_after_usd",
+        "reserved_after_microusd",
+        "reserved_after_usd",
+        "preflight_ceiling_exceeded",
+        "platform_recheck_sha256",
+    }
+    previous_budget_check = None
+    for index, call in enumerate(models["calls"]):
+        budget_check = call.get("budget_check")
+        if (
+            not isinstance(budget_check, dict)
+            or not required_budget_fields.issubset(budget_check)
+        ):
+            raise ValueError(
+                f"paid benchmark call {index} lacks its complete budget receipt"
+            )
+        if (
+            budget_check["decision"] != "settled"
+            or budget_check["preflight_ceiling_exceeded"] is not False
+            or budget_check["request_ceiling_microusd"]
+            > budget_check["remaining_before_microusd"]
+        ):
+            raise ValueError(
+                f"paid benchmark call {index} did not settle inside its admitted ceiling"
+            )
+        inferred_cap = (
+            budget_check["spent_before_microusd"]
+            + budget_check["reserved_before_microusd"]
+            + budget_check["remaining_before_microusd"]
+        )
+        if inferred_cap != authorized_benchmark_cap_microusd:
+            raise ValueError(
+                f"paid benchmark call {index} does not bind the authorized cap"
+            )
+        if previous_budget_check is None:
+            if budget_check["sequence"] <= 0:
+                raise ValueError("paid benchmark budget sequence must be positive")
+        elif (
+            budget_check["sequence"] != previous_budget_check["sequence"] + 1
+            or budget_check["spent_before_microusd"]
+            != previous_budget_check["spent_after_microusd"]
+            or budget_check["reserved_before_microusd"]
+            != previous_budget_check["reserved_after_microusd"]
+        ):
+            raise ValueError(
+                f"paid benchmark call {index} breaks budget ledger continuity"
+            )
+        previous_budget_check = budget_check
+    readers = _manifest_reader_lineage(
+        analysis,
+        analysis_version,
+        TRUST_MANIFEST_VERSION,
+    )
+    score_lineage = _score_lineage(analysis, analysis_version)
+    _validate_response_links(
+        models,
+        readers,
+        score_lineage,
+        analysis,
+        TRUST_MANIFEST_VERSION,
+    )
+    cold_read = _cold_read_provenance(
+        analysis=analysis,
+        analysis_version=analysis_version,
+        models=models,
+    )
+    claim_verification = _claim_verification_provenance(
+        analysis=analysis,
+        models=models,
+        effective_model_tier=effective_tier,
+    )
+    hybrid = _hybrid_provenance(
+        analysis=analysis,
+        pipeline_model_tier=route,
+        effective_model_tier=effective_tier,
+        models=models,
+        readers=readers,
+        score_lineage=score_lineage,
+        cold_read=cold_read,
+        claim_verification=claim_verification,
+        manifest_version=TRUST_MANIFEST_VERSION,
+        scoring_code_version=SCORING_CODE_VERSION,
+    )
+    page_count = source.get("physical_page_count")
+    word_count = source.get("word_count")
+    if type(page_count) is not int or page_count <= 0:
+        raise ValueError("benchmark source page count must be positive")
+    if type(word_count) is not int or word_count <= 0:
+        raise ValueError("benchmark source word count must be positive")
+    content_sha256 = _require_sha256(
+        source.get("source_sha256"),
+        "benchmark source SHA-256",
+    )
+    page_evidence_sha256 = _require_sha256(
+        source.get("page_evidence_sha256"),
+        "benchmark page-evidence SHA-256",
+    )
+    scene_count = validate_scene_count_evidence(
+        source.get("scene_count_evidence")
+    )
+    if source.get("scene_heading_count") != scene_count["scene_heading_count"]:
+        raise ValueError("benchmark source scene count is inconsistent")
+    for phase in ("before", "after"):
+        proof = local_source_proof.get(phase)
+        if not isinstance(proof, Mapping) or proof.get("clean") is not True:
+            raise ValueError(f"benchmark local source proof {phase} must be clean")
+        local_git_sha = _require_nonempty_string(
+            proof.get("git_sha"),
+            f"benchmark local Git SHA {phase}",
+        )
+        if local_git_sha != release.get("git_sha"):
+            raise ValueError("benchmark local and deployed Git revisions differ")
+    if release.get("source_clean") is not True:
+        raise ValueError("benchmark release source was not clean")
+    if any(
+        call.get("pricing_sha256") != release_pricing_sha256
+        for call in models["calls"]
+    ):
+        raise ValueError("benchmark calls and release pricing fingerprints differ")
+
+    seal: Dict[str, Any] = {
+        "seal_version": BENCHMARK_TRUST_SEAL_VERSION,
+        "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "analysis_payload_sha256": _analysis_payload_sha256(analysis),
+        "usage_sha256": _sha256_bytes(_canonical_json(usage).encode("utf-8")),
+        "budget": {
+            "authorized_cap_microusd": authorized_benchmark_cap_microusd,
+            "authorized_cap_usd": authorized_benchmark_cap_microusd / 1_000_000,
+            "first_sequence": models["calls"][0]["budget_check"]["sequence"],
+            "last_sequence": models["calls"][-1]["budget_check"]["sequence"],
+            "spent_before_microusd": models["calls"][0]["budget_check"][
+                "spent_before_microusd"
+            ],
+            "spent_after_microusd": models["calls"][-1]["budget_check"][
+                "spent_after_microusd"
+            ],
+        },
+        "source": {
+            "content_sha256": content_sha256,
+            "source_file": _require_nonempty_string(
+                source.get("filename"),
+                "benchmark source filename",
+            ),
+            "page_count": page_count,
+            "word_count": word_count,
+            "page_evidence_sha256": page_evidence_sha256,
+            "scene_heading_count": scene_count["scene_heading_count"],
+            "scene_count_evidence_sha256": scene_count["evidence_sha256"],
+        },
+        "engine": {
+            "analysis_version": analysis_version,
+            **_code_fingerprints(),
+            "contracts": copy.deepcopy(dict(contracts)),
+            "local_source_proof": copy.deepcopy(dict(local_source_proof)),
+            "release": copy.deepcopy(dict(release)),
+        },
+        "models": models,
+        "readers": readers,
+        "score_lineage": score_lineage,
+        "cold_read": cold_read,
+        "claim_verification": claim_verification,
+        "hybrid": hybrid,
+        "usage": _usage_summary(usage),
+        "evidence": _evidence_provenance(
+            metadata=dict(parser_metadata),
+            analysis=analysis,
+            page_count=page_count,
+            character_count=parser_metadata.get("character_count"),
+            effective_model_tier=effective_tier,
+            model_ids=models["model_ids_by_tier"],
+        ),
+    }
+    seal["integrity_sha256"] = _sha256_bytes(
+        _canonical_json(seal).encode("utf-8")
+    )
+    return seal
+
+
+def validate_benchmark_trust_seal(
+    seal: Dict[str, Any],
+    **inputs: Any,
+) -> None:
+    """Reject an altered or incomplete local benchmark seal."""
+    expected = build_benchmark_trust_seal(**inputs)
+    expected["created_at"] = seal.get("created_at")
+    unsigned = copy.deepcopy(expected)
+    unsigned.pop("integrity_sha256", None)
+    expected["integrity_sha256"] = _sha256_bytes(
+        _canonical_json(unsigned).encode("utf-8")
+    )
+    if seal != expected:
+        raise ValueError("Benchmark trust seal does not match its analysis evidence")
 
 
 def attach_trust_manifest(
@@ -1859,8 +4182,8 @@ def attach_trust_manifest(
         trusted.get("analysis_version"),
         "analysis_version",
     )
-    if analysis_version not in {"v9_archaeology", "v9_triage"}:
-        raise ValueError("Only V9 analyses can receive this trust manifest")
+    if analysis_version != "v9_archaeology":
+        raise ValueError("Only complete V9 archaeology can receive a trust manifest")
     schema_version = _schema_version(analysis_version)
     metadata = trusted.get("metadata")
     if not isinstance(metadata, dict):
@@ -1965,6 +4288,7 @@ def attach_trust_manifest(
             page_count=page_count,
             character_count=character_count,
             effective_model_tier=effective_model_tier,
+            model_ids=models["model_ids_by_tier"],
         ),
     }
     _validate_response_links(
@@ -1979,6 +4303,11 @@ def attach_trust_manifest(
         analysis_version=analysis_version,
         models=manifest["models"],
     )
+    manifest["claim_verification"] = _claim_verification_provenance(
+        analysis=trusted["analysis"],
+        models=manifest["models"],
+        effective_model_tier=effective_model_tier,
+    )
     manifest["hybrid"] = _hybrid_provenance(
         analysis=trusted["analysis"],
         pipeline_model_tier=pipeline_model_tier,
@@ -1987,6 +4316,7 @@ def attach_trust_manifest(
         readers=manifest["readers"],
         score_lineage=manifest["score_lineage"],
         cold_read=manifest["cold_read"],
+        claim_verification=manifest["claim_verification"],
         manifest_version=TRUST_MANIFEST_VERSION,
         scoring_code_version=SCORING_CODE_VERSION,
     )
@@ -2163,6 +4493,21 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
     )
     if manifest.get("cold_read") != current_cold_read:
         raise ValueError("Trust manifest cold-read provenance does not match analysis")
+    current_claim_verification = (
+        _claim_verification_provenance(
+            analysis=raw["analysis"],
+            models=current_models,
+            effective_model_tier=str(models.get("effective_model_tier", "")),
+        )
+        if manifest_version == TRUST_MANIFEST_VERSION
+        else None
+    )
+    if manifest_version == TRUST_MANIFEST_VERSION and (
+        manifest.get("claim_verification") != current_claim_verification
+    ):
+        raise ValueError(
+            "Trust manifest claim verification does not match analysis"
+        )
     current_hybrid = _hybrid_provenance(
         analysis=raw.get("analysis"),
         pipeline_model_tier=str(models.get("pipeline_model_tier", "")),
@@ -2171,6 +4516,7 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
         readers=current_reader_lineage,
         score_lineage=current_score_lineage,
         cold_read=current_cold_read,
+        claim_verification=current_claim_verification,
         manifest_version=str(manifest_version),
         scoring_code_version=str(scoring_code_version),
     )
@@ -2182,6 +4528,7 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
         Q2_TRUST_MANIFEST_VERSION,
         Q3_TRUST_MANIFEST_VERSION,
         Q4_TRUST_MANIFEST_VERSION,
+        Q5_TRUST_MANIFEST_VERSION,
         TRUST_MANIFEST_VERSION,
     }:
         current_evidence = _evidence_provenance(
@@ -2190,6 +4537,8 @@ def validate_permanent_analysis(raw: Dict[str, Any]) -> None:
             page_count=metadata.get("page_count"),
             character_count=metadata.get("character_count"),
             effective_model_tier=str(models.get("effective_model_tier", "")),
+            model_ids=models.get("model_ids_by_tier", {}),
+            require_scene_count=manifest_version == TRUST_MANIFEST_VERSION,
         )
         if manifest.get("evidence") != current_evidence:
             raise ValueError(

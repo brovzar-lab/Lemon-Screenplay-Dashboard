@@ -44,6 +44,7 @@ export interface ToolDefinition {
   name: string;
   description: string;
   input_schema: Record<string, unknown>;
+  strict?: true;
 }
 
 export interface ProxyRequestBody {
@@ -81,7 +82,31 @@ export interface BuiltAnthropicRequest {
   payload: Record<string, unknown>;
   requestOptions?: { headers: { "anthropic-beta": string } };
   maxTokens: number;
+  requiresCacheUsage: boolean;
+  providerRouting: ProviderRoutingContract;
   jobId?: string;
+}
+
+export interface ProviderRoutingContract {
+  inference_geo: "global" | "us" | null | undefined;
+  service_tier: "standard_only";
+  expected_inference_geo: "global" | "us" | null | undefined;
+  expected_service_tier: "standard";
+}
+
+export function providerRoutingContract(
+  model: string,
+  configuredInferenceGeo?: "global" | "us",
+): ProviderRoutingContract {
+  const inferenceGeo = model === "claude-haiku-4-5-20251001"
+    ? null
+    : configuredInferenceGeo;
+  return {
+    inference_geo: inferenceGeo,
+    service_tier: "standard_only",
+    expected_inference_geo: inferenceGeo,
+    expected_service_tier: "standard",
+  };
 }
 
 const EXTENDED_CACHE_TTL_BETA = "extended-cache-ttl-2025-04-11";
@@ -94,6 +119,18 @@ function usesOneHourCache(body: ProxyRequestBody): boolean {
     Array.isArray(message.content)
     && message.content.some((block) => (
       "cache_control" in block && block.cache_control?.ttl === "1h"
+    ))
+  ));
+}
+
+function usesCacheControl(body: ProxyRequestBody): boolean {
+  const systemUsesCache = Array.isArray(body.system)
+    && body.system.some((block) => block.cache_control !== undefined);
+  if (systemUsesCache) return true;
+  return body.messages.some((message) => (
+    Array.isArray(message.content)
+    && message.content.some((block) => (
+      "cache_control" in block && block.cache_control !== undefined
     ))
   ));
 }
@@ -137,6 +174,7 @@ export function buildAnthropicRequest(
   caller: ProxyCallerKind,
   operationalOutputCap: number,
   thinkingTokenCap: number,
+  configuredInferenceGeo?: "global" | "us",
 ): BuiltAnthropicRequest {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new ProxyRequestValidationError("Request body must be an object.");
@@ -197,6 +235,12 @@ export function buildAnthropicRequest(
     max_tokens: maxTokens,
     messages: userAssistantMessages(body),
   };
+  const providerRouting = providerRoutingContract(body.model, configuredInferenceGeo);
+  if (providerRouting.inference_geo !== null
+      && providerRouting.inference_geo !== undefined) {
+    payload.inference_geo = providerRouting.inference_geo;
+  }
+  payload.service_tier = providerRouting.service_tier;
   const system = extractSystem(body);
   if (system !== undefined) payload.system = system;
   if (typeof body.temperature === "number") payload.temperature = body.temperature;
@@ -210,6 +254,8 @@ export function buildAnthropicRequest(
     body,
     payload,
     maxTokens,
+    requiresCacheUsage: usesCacheControl(body),
+    providerRouting,
     jobId,
     ...(usesOneHourCache(body)
       ? { requestOptions: { headers: { "anthropic-beta": EXTENDED_CACHE_TTL_BETA } } }
@@ -242,10 +288,94 @@ export interface ParsedAnthropicMessage {
   usage: LlmTokenUsage;
 }
 
-export function parseAnthropicMessage(message: unknown): ParsedAnthropicMessage {
+export interface AnthropicResponseEvidence {
+  returned_model?: string;
+  response_id?: string;
+  stop_reason?: string | null;
+  provider_usage: Record<string, unknown>;
+  provider_usage_validation: "unverified";
+}
+
+export function extractAnthropicResponseEvidence(
+  message: unknown,
+): AnthropicResponseEvidence {
+  const record = message && typeof message === "object" && !Array.isArray(message)
+    ? message as Record<string, unknown>
+    : {};
+  const rawUsage = record.usage && typeof record.usage === "object"
+    && !Array.isArray(record.usage)
+    ? record.usage as Record<string, unknown>
+    : {};
+  const integerUsage = Object.fromEntries(
+    [
+      "input_tokens",
+      "output_tokens",
+      "cache_creation_input_tokens",
+      "cache_read_input_tokens",
+    ].flatMap((field) => (
+      typeof rawUsage[field] === "number"
+        && Number.isInteger(rawUsage[field])
+        && Number(rawUsage[field]) >= 0
+        ? [[field, rawUsage[field]]]
+        : []
+    )),
+  );
+  const cacheCreation = rawUsage.cache_creation
+    && typeof rawUsage.cache_creation === "object"
+    && !Array.isArray(rawUsage.cache_creation)
+    ? rawUsage.cache_creation as Record<string, unknown>
+    : undefined;
+  const cacheDetail = cacheCreation
+    ? Object.fromEntries(
+      ["ephemeral_5m_input_tokens", "ephemeral_1h_input_tokens"].flatMap(
+        (field) => (
+          typeof cacheCreation[field] === "number"
+            && Number.isInteger(cacheCreation[field])
+            && Number(cacheCreation[field]) >= 0
+            ? [[field, cacheCreation[field]]]
+            : []
+        ),
+      ),
+    )
+    : undefined;
+  return {
+    ...(typeof record.model === "string" && record.model
+      ? { returned_model: record.model }
+      : {}),
+    ...(typeof record.id === "string" && record.id
+      ? { response_id: record.id }
+      : {}),
+    ...(typeof record.stop_reason === "string" || record.stop_reason === null
+      ? { stop_reason: record.stop_reason as string | null }
+      : {}),
+    provider_usage: {
+      ...integerUsage,
+      ...(cacheDetail ? { cache_creation: cacheDetail } : {}),
+      ...(Object.hasOwn(rawUsage, "inference_geo")
+        && (typeof rawUsage.inference_geo === "string" || rawUsage.inference_geo === null)
+        ? { inference_geo: rawUsage.inference_geo }
+        : {}),
+      ...(Object.hasOwn(rawUsage, "service_tier")
+        && (typeof rawUsage.service_tier === "string" || rawUsage.service_tier === null)
+        ? { service_tier: rawUsage.service_tier }
+        : {}),
+    },
+    provider_usage_validation: "unverified",
+  };
+}
+
+export function parseAnthropicMessage(
+  message: unknown,
+  _requireCacheUsage: boolean,
+  requestedModel: string,
+  configuredInferenceGeo?: "global" | "us",
+): ParsedAnthropicMessage {
   if (!message || typeof message !== "object") throw new Error("Invalid Anthropic response.");
   const record = message as Record<string, unknown>;
-  const content = Array.isArray(record.content) ? record.content : [];
+  if (!Array.isArray(record.content)) {
+    throw new Error("Anthropic response omitted its exact content blocks.");
+  }
+  const content = record.content;
   const blocks = content.filter(
     (block): block is Record<string, unknown> => Boolean(block && typeof block === "object"),
   );
@@ -256,18 +386,63 @@ export function parseAnthropicMessage(message: unknown): ParsedAnthropicMessage 
     && typeof usageRecord.cache_creation === "object"
     ? usageRecord.cache_creation as Record<string, unknown>
     : undefined;
-  const optionalNumber = (input: unknown): number => (
-    typeof input === "number" && Number.isInteger(input) && input >= 0 ? input : 0
-  );
   const requiredNumber = (input: unknown, field: string): number => {
     if (typeof input !== "number" || !Number.isInteger(input) || input < 0) {
       throw new Error(`Anthropic response omitted valid ${field} usage.`);
     }
     return input;
   };
+  const normalizations: string[] = [];
+  const cacheTotal = (field: string): number => {
+    if (!Object.hasOwn(usageRecord, field)) {
+      throw new Error(`Anthropic response omitted valid ${field} usage.`);
+    }
+    if (usageRecord[field] === null) {
+      normalizations.push(`normalized_null_${field}_to_zero`);
+      return 0;
+    }
+    return requiredNumber(usageRecord[field], field);
+  };
   const responseId = typeof record.id === "string" ? record.id : "";
   const model = typeof record.model === "string" ? record.model : "";
   if (!responseId || !model) throw new Error("Anthropic response omitted exact provenance.");
+  const inputTokens = requiredNumber(usageRecord.input_tokens, "input_tokens");
+  const outputTokens = requiredNumber(usageRecord.output_tokens, "output_tokens");
+  const cacheCreationTotal = cacheTotal("cache_creation_input_tokens");
+  const cacheReadTotal = cacheTotal("cache_read_input_tokens");
+  const fiveMinuteCacheWrite = cacheCreation
+    ? requiredNumber(
+      cacheCreation.ephemeral_5m_input_tokens,
+      "cache_creation.ephemeral_5m_input_tokens",
+    )
+    : 0;
+  const oneHourCacheWrite = cacheCreation
+    ? requiredNumber(
+      cacheCreation.ephemeral_1h_input_tokens,
+      "cache_creation.ephemeral_1h_input_tokens",
+    )
+    : 0;
+  if (
+    (cacheCreationTotal > 0 && !cacheCreation)
+    || (cacheCreation && fiveMinuteCacheWrite + oneHourCacheWrite !== cacheCreationTotal)
+  ) {
+    throw new Error("Anthropic cache-creation usage detail does not reconcile.");
+  }
+  const routing = providerRoutingContract(requestedModel, configuredInferenceGeo);
+  const returnedInferenceGeo = usageRecord.inference_geo;
+  const legacyGeoNotApplicable = requestedModel === "claude-haiku-4-5-20251001";
+  const geoMatches = legacyGeoNotApplicable
+    ? returnedInferenceGeo === null || returnedInferenceGeo === "not_available"
+    : routing.expected_inference_geo === undefined
+      ? returnedInferenceGeo === "global" || returnedInferenceGeo === "us"
+      : returnedInferenceGeo === routing.expected_inference_geo;
+  if (!Object.hasOwn(usageRecord, "inference_geo") || !geoMatches) {
+    throw new Error("Anthropic response inference geography did not match the pinned request.");
+  }
+  if (!Object.hasOwn(usageRecord, "service_tier")
+      || usageRecord.service_tier !== routing.expected_service_tier) {
+    throw new Error("Anthropic response service tier did not match the pinned request.");
+  }
   return {
     text: String(blocks.find((block) => block.type === "text")?.text ?? ""),
     toolUses: blocks
@@ -288,14 +463,17 @@ export function parseAnthropicMessage(message: unknown): ParsedAnthropicMessage 
     model,
     stopReason: typeof record.stop_reason === "string" ? record.stop_reason : null,
     usage: {
-      input_tokens: requiredNumber(usageRecord.input_tokens, "input_tokens"),
-      output_tokens: requiredNumber(usageRecord.output_tokens, "output_tokens"),
-      cache_creation_input_tokens: optionalNumber(usageRecord.cache_creation_input_tokens),
-      cache_read_input_tokens: optionalNumber(usageRecord.cache_read_input_tokens),
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cache_creation_input_tokens: cacheCreationTotal,
+      cache_read_input_tokens: cacheReadTotal,
+      inference_geo: returnedInferenceGeo as "global" | "us" | "not_available" | null,
+      service_tier: routing.expected_service_tier,
+      ...(normalizations.length ? { normalizations } : {}),
       ...(cacheCreation ? {
         cache_creation: {
-          ephemeral_5m_input_tokens: optionalNumber(cacheCreation.ephemeral_5m_input_tokens),
-          ephemeral_1h_input_tokens: optionalNumber(cacheCreation.ephemeral_1h_input_tokens),
+          ephemeral_5m_input_tokens: fiveMinuteCacheWrite,
+          ephemeral_1h_input_tokens: oneHourCacheWrite,
         },
       } : {}),
     },

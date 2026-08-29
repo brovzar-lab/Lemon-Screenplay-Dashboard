@@ -628,8 +628,6 @@ CRITICAL OUTPUT RULES:
 - TONE: One-phrase tone descriptor derived from craft reader's dialogue_voice + emotion reader's emotional_clarity.
 - LOGLINE: Must encode the protagonist's flaw/wound, the external situation forcing confrontation, and the transformation at stake. A plot-only logline is insufficient.
 - COMPARABLE FILMS: For each comp, specify what structural/tonal element makes it useful AND what key difference separates it from this screenplay. "Mixed" as a standalone label is not acceptable.
-- STANDOUT SCENES: Each must include what character arc or thematic argument the scene serves, not just why it's viscerally effective.
-- DELIBERATE AMBIGUITIES: Flag open endings, unresolved mysteries, or sequel hooks. These affect structural reading, commercial scoring, and franchise potential.
 - COMMERCIAL VIABILITY: Each factor MUST have a non-empty note. If you cannot assess a factor, set note to "Requires human input: [reason]". Zeroes with blank notes are NEVER acceptable.
 - PRODUCER INTELLIGENCE: development_trajectory MUST be one of "polish", "restructure", or "reconception". why_now MUST be 1-2 sentences on current cultural/market timing. best_talent_match MUST describe a director sensibility category (not a specific name).
 
@@ -721,10 +719,9 @@ Return ONLY this JSON:
   "strengths": [],
   "weaknesses": [],
   "critical_failures": [
-    { "weakness_index": 0, "reader": "structure|character|craft_scene|concept|emotional_resonance", "metric": "", "description": "", "severity": "minor|moderate|major|critical", "penalty": 0.0 }
+    { "weakness_index": 0, "reader": "structure|character|craft_scene|concept|emotional_resonance", "metric": "", "description": "" }
   ],
   "critical_failure_total_penalty": 0.0,
-  "development_notes": [],
   "verdict": "PASS",
   "verdict_before_adjustments": "PASS",
   "executive_summary": "",
@@ -734,12 +731,6 @@ Return ONLY this JSON:
     "market": { "title": "", "structural_match": "", "key_divergence": "" }
   },
   "reader_disagreements": [],
-  "goosebumps_moments": [
-    { "page": 0, "description": "", "why_it_works": "", "arc_connection": "", "thematic_work": "" }
-  ],
-  "deliberate_ambiguities": [
-    { "description": "", "structural_impact": "", "franchise_potential": "" }
-  ],
   "characters": {
     "protagonist": "Not identified",
     "protagonist_evidence": { "kind": "not_identified|person|non_person_force", "page_citations": [], "citation_evidence": [] },
@@ -768,7 +759,7 @@ Return ONLY this JSON:
 
 IMPORTANT:
 - strengths MUST have minimum 4 items. Empty strengths array is NEVER acceptable.
-- critical_failures must be a STRICT SUBSET of weaknesses. weakness_index MUST point to the exact matching weaknesses item and description MUST copy that item exactly. reader and metric MUST point to the cited reader sub-score that proves the failure. Severity and penalty must match: minor=0.3, moderate=0.5, major=0.8, critical=1.2.
+- critical_failures must be a STRICT SUBSET of weaknesses. weakness_index MUST point to the exact matching weaknesses item and description MUST copy that item exactly. reader and metric MUST point to a cited reader sub-score of 4 or lower. The engine derives severity and penalty from that score.
 - themes MUST have minimum 2 items.
 - tone MUST be non-empty.
 - author MUST exactly match SOURCE-BACKED TITLE-PAGE AUTHOR.

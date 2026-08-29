@@ -26,6 +26,7 @@ import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import type { PercentileRank } from '@/lib/percentileRanking';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { useTranslation } from 'react-i18next';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
@@ -48,6 +49,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
   const isDeleteSelected = useIsSelectedForDelete(screenplay.id);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
+  const decisionReady = isDecisionReady(screenplay);
 
   // Hover peek: swap logline ↔ top-3 dimension pills (card height stays locked)
   const [isPeeking, setIsPeeking] = useState(false);
@@ -86,6 +88,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
 
   // Tier highlight class
   const tierClass = (() => {
+    if (!decisionReady) return '';
     const rec = screenplay.recommendation;
     if (rec === 'film_now') return 'card-film-now';
     if (rec === 'recommend') return 'card-recommend';
@@ -93,7 +96,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
     return '';
   })();
 
-  const isPass = screenplay.recommendation === 'pass';
+  const isPass = decisionReady && screenplay.recommendation === 'pass';
 
   // Top-3 dimensions by score (for hover swap and bottom strip)
   const allDims = getDimensionDisplay(screenplay);
@@ -204,8 +207,8 @@ export const ScreenplayCard = memo(function ScreenplayCard({
         {/* ── HEADER: badge + title ───────────────────────────────────────── */}
         <div className="pl-8 pr-8 mb-2 flex-shrink-0">
           <div className="mb-2 flex items-center gap-2 min-w-0">
-            <RecommendationBadge tier={screenplay.recommendation} />
-            <PercentileBadge rank={percentileRank} showAll />
+            {decisionReady && <RecommendationBadge tier={screenplay.recommendation} />}
+            {decisionReady && <PercentileBadge rank={percentileRank} showAll />}
             <AnalysisTrustBadge screenplay={screenplay} />
           </div>
           {/* Title: always 1 line, truncated */}
@@ -247,7 +250,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
               isPeeking ? 'opacity-100' : 'opacity-0',
             )}
           >
-            {top3Dims.map((dim) => (
+            {decisionReady && top3Dims.map((dim) => (
               <span
                 key={dim.key}
                 className="text-[10px] px-2 py-0.5 rounded-full"
@@ -272,7 +275,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-baseline gap-3">
               {/* Weighted score — the primary number */}
-              <div>
+              {decisionReady ? <div>
                 <span
                   className="text-[9px] font-medium tracking-widest uppercase block leading-none mb-0.5"
                   style={{ color: 'var(--sp-text-3)' }}
@@ -290,10 +293,14 @@ export const ScreenplayCard = memo(function ScreenplayCard({
                 >
                   {weightedScore}
                 </span>
-              </div>
+              </div> : (
+                <span className="text-xs" style={{ color: 'var(--sp-text-3)' }}>
+                  {t('Decision data unavailable until verification')}
+                </span>
+              )}
 
               {/* CVS — secondary, smaller */}
-              {cvsAssessed && (
+              {decisionReady && cvsAssessed && (
                 <div>
                   <span
                     className="text-[9px] font-medium tracking-widest uppercase block leading-none mb-0.5"
@@ -314,7 +321,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
 
           {/* Top-3 dimension mini pills — always visible */}
           <div className="flex gap-1.5 flex-wrap">
-            {top3Dims.map((dim) => (
+            {decisionReady && top3Dims.map((dim) => (
               <span
                 key={dim.key}
                 className="text-[9px] px-1.5 py-0.5 rounded"

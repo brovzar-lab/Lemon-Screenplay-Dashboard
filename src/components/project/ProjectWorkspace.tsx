@@ -29,6 +29,7 @@ import {
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { analysisIsEnglishFallback } from '@/lib/localizedAnalysis';
+import { isDecisionReady } from '@/lib/producerProjection';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 
 export type ProjectWorkspaceTab =
@@ -88,6 +89,7 @@ function trustLabel(screenplay: Screenplay): string {
 
 function ExecutiveRead({ screenplay }: { screenplay: Screenplay }) {
   const { t } = useTranslation();
+  const decisionReady = isDecisionReady(screenplay);
   return (
     <div className="space-y-6">
       <AnalysisWarnings screenplay={screenplay} />
@@ -98,7 +100,14 @@ function ExecutiveRead({ screenplay }: { screenplay: Screenplay }) {
         </h2>
         <div className="mt-7 grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
           <div>
-            <p className="dsc-label dsc-label-faint">{t('Why it received this verdict')}</p>
+            <p className="dsc-label dsc-label-faint">
+              {t(decisionReady ? 'Why it received this verdict' : 'Trust')}
+            </p>
+            {!decisionReady && (
+              <p className="mt-3 font-semibold text-amber-300">
+                {t('Decision data unavailable until verification')}
+              </p>
+            )}
             <p className="mt-3 text-base leading-8 text-[var(--dsc-ink-2)]">
               {screenplay.verdictStatement ||
                 screenplay.recommendationRationale ||
@@ -159,6 +168,7 @@ function ProjectHeader({
   const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
   const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
   const displayGenre = getScreenplayDisplayGenre(screenplay.genre);
+  const decisionReady = isDecisionReady(screenplay);
 
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--dsc-line)] bg-[var(--dsc-surface)] shadow-2xl">
@@ -220,15 +230,21 @@ function ProjectHeader({
         </div>
         <aside className="col-span-full flex items-center justify-between gap-8 border-t border-[#2a3b54] bg-[#101a29] p-5 text-[#f5f1e8] xl:col-span-1 xl:block xl:border-l xl:border-t-0 xl:p-6">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8290a5]">
-              {t('Final score')}
-            </p>
-            <strong className="mt-1 block font-mono text-6xl leading-none">
-              {screenplay.weightedScore.toFixed(1)}
-            </strong>
-            <div className="mt-4">
-              <RecommendationBadge tier={screenplay.recommendation} size="lg" />
-            </div>
+            {decisionReady ? <>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8290a5]">
+                {t('Final score')}
+              </p>
+              <strong className="mt-1 block font-mono text-6xl leading-none">
+                {screenplay.weightedScore.toFixed(1)}
+              </strong>
+              <div className="mt-4">
+                <RecommendationBadge tier={screenplay.recommendation} size="lg" />
+              </div>
+            </> : (
+              <strong className="text-base text-amber-200">
+                {t('Not verified / not rankable')}
+              </strong>
+            )}
           </div>
           <dl className="min-w-[13rem] space-y-2 border-l border-[#2a3b54] pl-6 text-xs xl:mt-7 xl:border-l-0 xl:border-t xl:pl-0 xl:pt-5">
             <div className="flex justify-between gap-4">

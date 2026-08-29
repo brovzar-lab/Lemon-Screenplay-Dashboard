@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import type { Screenplay } from '@/types';
+import { createTestScreenplay } from '@/test/factories';
 
 const shareStoreState = vi.hoisted(() => ({
   tokens: {} as Record<string, { token: string; url?: string }>,
@@ -19,8 +19,8 @@ vi.mock('@/stores/shareStore', () => ({
 import { BulkShareModal } from './BulkShareModal';
 import { getExistingShareToken, createShareToken } from '@/lib/shareService';
 
-const sp1 = { id: 'sp1', title: 'The Great Heist', hasPdf: false } as Screenplay;
-const sp2 = { id: 'sp2', title: 'Ocean of Stars', hasPdf: false } as Screenplay;
+const sp1 = createTestScreenplay({ id: 'sp1', title: 'The Great Heist', hasPdf: false });
+const sp2 = createTestScreenplay({ id: 'sp2', title: 'Ocean of Stars', hasPdf: false });
 
 beforeEach(() => {
   vi.clearAllMocks();

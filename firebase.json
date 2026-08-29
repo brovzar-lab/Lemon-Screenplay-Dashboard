@@ -80,6 +80,10 @@
         "function": "readerChat"
       },
       {
+        "source": "/api/share",
+        "function": "shareManager"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

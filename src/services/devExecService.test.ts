@@ -5,6 +5,7 @@ vi.mock('@/lib/proxyClient', () => ({
 }));
 
 import { callLLM } from '@/lib/proxyClient';
+import { createTestScreenplay } from '@/test/factories';
 import { sendDevExecMessage } from './devExecService';
 
 describe('sendDevExecMessage', () => {
@@ -31,11 +32,18 @@ describe('sendDevExecMessage', () => {
       },
     });
 
-    await expect(sendDevExecMessage('What should I do?', [], [])).resolves.toBe(
+    await expect(sendDevExecMessage('What should I do?', [createTestScreenplay()], [])).resolves.toBe(
       'Read the draft again after the rewrite.',
     );
     expect(callLLM).toHaveBeenCalledWith(expect.objectContaining({
       model: 'claude-haiku-4-5-20251001',
     }));
+  });
+
+  it('does not call a model when no verified analysis can ground the answer', async () => {
+    await expect(sendDevExecMessage('What should I do?', [], [])).rejects.toThrow(
+      /No verified, rankable analyses/,
+    );
+    expect(callLLM).not.toHaveBeenCalled();
   });
 });

@@ -7,6 +7,21 @@ vi.mock('@/stores/authStore', () => ({ useIsAdmin: () => true }));
 vi.mock('@/lib/googleProxyClient', () => ({ requestPoster: vi.fn() }));
 
 describe('PosterControls', () => {
+  it('blocks every paid control when the analysis is not verified', () => {
+    render(
+      <PosterControls
+        screenplay={createTestScreenplay({
+          producerProjection: undefined,
+          recommendation: 'recommend',
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Decision data unavailable until verification')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Poster model' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Generate poster' })).not.toBeInTheDocument();
+  });
+
   it('blocks every paid control for a Pass verdict', () => {
     render(<PosterControls screenplay={createTestScreenplay({ recommendation: 'pass' })} />);
 

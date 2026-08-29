@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sanitizeCandidateLog = sanitizeCandidateLog;
 exports.candidateLog = candidateLog;
+const node_crypto_1 = require("node:crypto");
 const TOP_LEVEL_FIELDS = new Set([
     "event", "call_id", "run_id", "model", "status_code", "response_id",
     "usage", "cost_microusd", "release",
@@ -36,7 +37,10 @@ function sanitizeCandidateLog(value) {
     for (const [key, item] of Object.entries(record)) {
         if (!TOP_LEVEL_FIELDS.has(key) || key === "event")
             continue;
-        if (key === "usage") {
+        if (key === "run_id" && typeof item === "string") {
+            result.run_id_sha256 = (0, node_crypto_1.createHash)("sha256").update(item).digest("hex");
+        }
+        else if (key === "usage") {
             const usage = sanitizedRecord(item, USAGE_FIELDS);
             if (usage)
                 result.usage = usage;

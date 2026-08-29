@@ -10,6 +10,7 @@ import { getScoreColorClass } from '@/lib/calculations';
 import { getDimensionDisplay, hasPillarScores } from '@/lib/dimensionDisplay';
 import { toNumber } from '@/lib/utils';
 import { formatProducerHeading, formatProducerText } from '@/lib/producerDisplay';
+import { isDecisionReady } from '@/lib/producerProjection';
 import { ScoreBar } from '@/components/ui/ScoreBar';
 import { SectionHeader } from './SectionHeader';
 import { CVSFactor } from './CVSFactor';
@@ -35,6 +36,7 @@ function DevelopmentSignalMap({
     onOpenReaderRoom?: () => void;
 }) {
     const { t } = useTranslation();
+    const decisionReady = isDecisionReady(screenplay);
     const dimensions = getDimensionDisplay(screenplay);
     const ranked = [...dimensions].sort((left, right) => right.score - left.score);
     const strongest = ranked[0];
@@ -61,14 +63,18 @@ function DevelopmentSignalMap({
         <section className="development-map" aria-labelledby="development-signal-map-title">
             <header className="development-map__header">
                 <div>
-                    <p className="development-map__kicker">{t('Decision clarity')}</p>
-                    <h3 id="development-signal-map-title">{t('Development Signal Map')}</h3>
+                    <p className="development-map__kicker">{t(decisionReady ? 'Decision clarity' : 'Trust')}</p>
+                    <h3 id="development-signal-map-title">
+                        {t(decisionReady ? 'Development Signal Map' : 'Decision data unavailable until verification')}
+                    </h3>
                     <p>{t('One shared scale shows where the screenplay is strongest, where development work concentrates, and how much trust to place in the result.')}</p>
                 </div>
                 <div className="development-map__decision">
-                    <span>{t('Final score')}</span>
-                    <strong>{screenplay.weightedScore.toFixed(1)}</strong>
-                    <b>{t(screenplay.recommendation === 'film_now' ? 'Film Now' : formatProducerHeading(screenplay.recommendation))}</b>
+                    {decisionReady ? <>
+                        <span>{t('Final score')}</span>
+                        <strong>{screenplay.weightedScore.toFixed(1)}</strong>
+                        <b>{t(screenplay.recommendation === 'film_now' ? 'Film Now' : formatProducerHeading(screenplay.recommendation))}</b>
+                    </> : <b>{t('Not verified / not rankable')}</b>}
                 </div>
             </header>
 
@@ -119,7 +125,7 @@ function DevelopmentSignalMap({
                 </button>
             )}
 
-            {projection && (
+            {projection && decisionReady && (
                 <div className="development-map__lineage" data-testid="score-lineage">
                     <span><b>{t('Raw five-reader score')}</b>{projection.rawScore.toFixed(2)}</span>
                     <span><b>{t('Verified deduction')}</b>{projection.penaltyApplied > 0 ? `−${projection.penaltyApplied.toFixed(2)}` : '0.00'}</span>
@@ -148,6 +154,7 @@ export function ScoresPanel({ screenplay, presentation = 'default', onOpenReader
     const { t } = useTranslation();
     const isWorkspace = presentation === 'workspace';
     const projection = screenplay.producerProjection;
+    const decisionReady = isDecisionReady(screenplay);
     const scoreLabel = projection?.scoreSource === 'adjusted'
         ? 'Final adjusted score'
         : projection?.scoreSource === 'triage'
@@ -168,8 +175,15 @@ export function ScoresPanel({ screenplay, presentation = 'default', onOpenReader
         )}>
             {/* Analysis evidence */}
             <div>
+                {!decisionReady && (
+                    <p role="status" className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+                        {t('Decision data unavailable until verification')}
+                    </p>
+                )}
                 <SectionHeader icon={isWorkspace ? undefined : '📊'}>
-                    {hasPillarScores(screenplay)
+                    {!decisionReady
+                        ? t('Decision data unavailable until verification')
+                        : hasPillarScores(screenplay)
                         ? t('Five-Pillar Reader Evidence')
                         : t('Legacy Dimension Scores')}
                 </SectionHeader>
@@ -184,7 +198,7 @@ export function ScoresPanel({ screenplay, presentation = 'default', onOpenReader
                         />
                     ))}
                     <div className="pt-4 border-t border-black-700">
-                        {(!isWorkspace || !projection) && (
+                        {decisionReady && (!isWorkspace || !projection) && (
                             <div className="flex justify-between items-center">
                                 <span className="text-lg font-medium text-gold-200">
                                     {t(scoreLabel)}
@@ -197,7 +211,7 @@ export function ScoresPanel({ screenplay, presentation = 'default', onOpenReader
                                 </span>
                             </div>
                         )}
-                        {projection && (
+                        {projection && decisionReady && (
                             <div
                                 className={clsx(
                                     'mt-4 space-y-2 border border-black-700 p-3',
@@ -240,7 +254,7 @@ export function ScoresPanel({ screenplay, presentation = 'default', onOpenReader
                                 )}
                             </div>
                         )}
-                        {projection && projection.gates.some((gate) => gate.triggered) && (
+                        {projection && decisionReady && projection.gates.some((gate) => gate.triggered) && (
                             <div className="mt-3 space-y-2" aria-label={t('Verdict gates')}>
                                 {projection.gates.filter((gate) => gate.triggered).map((gate) => (
                                     <div

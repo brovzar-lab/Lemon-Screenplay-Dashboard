@@ -9,6 +9,7 @@ import { useNotesStore } from '@/stores/notesStore';
 import type { Screenplay } from '@/types';
 import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
 import { currentUiLanguage } from '@/i18n';
+import { requireDecisionReady } from '@/lib/producerProjection';
 
 /**
  * Sanitize a string for use as a filename.
@@ -26,6 +27,7 @@ export function sanitizeFilename(title: string): string {
  * Generate a coverage PDF blob and trigger a browser download.
  */
 export async function downloadCoveragePdf(screenplay: Screenplay): Promise<void> {
+  requireDecisionReady([screenplay]);
   const language = currentUiLanguage();
   const localized = localizedScreenplay(screenplay, language);
   const notes = useNotesStore.getState().getNotesForScreenplay(screenplay.id);

@@ -15,3 +15,4 @@ export { onIngestCompleted } from './onIngestCompleted';
 export { queueManager } from './queueManager';
 export { calibrationManager } from './calibrationManager';
 export { readerChat } from './readerChat';
+export { shareManager } from './shareManager';

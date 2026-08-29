@@ -27,7 +27,7 @@ Historical records remain readable by their stored exact model ID. Historical pr
 These commands make no model call:
 
 ```bash
-cd /Users/quantumcode/CODE/LEMON-SCREENPLAY-DASHBOARD-anthropic-modernization
+cd /Users/quantumcode/CODE/LEMON-SCREENPLAY-DASHBOARD
 npm run models:test
 npm run models:check:offline
 ```
@@ -41,9 +41,9 @@ The benchmark defaults to a dry run. It requires an explicit local PDF path and 
 Dry-run example:
 
 ```bash
-cd /Users/quantumcode/CODE/LEMON-SCREENPLAY-DASHBOARD-anthropic-modernization
+cd /Users/quantumcode/CODE/LEMON-SCREENPLAY-DASHBOARD
 shasum -a 256 /absolute/path/to/approved-screenplay.pdf
-npm run models:benchmark -- --input /absolute/path/to/approved-screenplay.pdf --approve-sha256 EXACT_SHA256_FROM_THE_PREVIOUS_COMMAND --route all
+npm run models:benchmark -- --input /absolute/path/to/approved-screenplay.pdf --approve-sha256 EXACT_SHA256_FROM_THE_PREVIOUS_COMMAND --route sonnet --generation candidate
 ```
 
 Artifacts go only to the gitignored `benchmark-artifacts/` directory. The manifest does not store the source path or calibration prompt text. A paid result stores the analysis locally because blind creative review needs the output. Treat that artifact as confidential screenplay material.
@@ -52,24 +52,20 @@ Paid execution is deliberately harder. It additionally requires `--execute`, `--
 
 Each logical call carries a deterministic call ID over the approved screenplay hash, route generation, stage, reader, correction number, prompt hash, schema hash, exact request hash, and requested model. Candidate transport failures are never retried automatically. A structured-output correction is a new logical call and gets a new ID. Full outputs remain local. The named Firestore database receives operational metadata only, never screenplay text, titles, filenames, prompts, or results.
 
-Approved online example after the staging infrastructure and paid phase are separately approved:
+Authorized online form, run for one screenplay at a time only after the exact merged commit is deployed to the private candidate:
 
 ```bash
-cd /Users/quantumcode/CODE/LEMON-SCREENPLAY-DASHBOARD-anthropic-modernization
-npm run models:benchmark -- --input /absolute/path/to/approved-screenplay.pdf --approve-sha256 EXACT_SHA256 --route all --execute --i-understand-paid-inference --run-id staging-smoke-20260821 --proxy-url https://us-central1-lemon-screenplay-staging.cloudfunctions.net/llmProxyCandidate --caller-service-account benchmark-caller@lemon-screenplay-staging.iam.gserviceaccount.com --verify-isolation --expected-git-sha EXACT_40_CHARACTER_GIT_SHA --expected-catalog-sha256 EXACT_CATALOG_SHA256 --max-cost-usd 1
+cd /Users/quantumcode/CODE/LEMON-SCREENPLAY-DASHBOARD
+npm run models:benchmark -- --input /absolute/path/to/approved-screenplay.pdf --approve-sha256 EXACT_SHA256 --route sonnet --generation candidate --execute --i-understand-paid-inference --run-id IMMUTABLE_RUN_ID --proxy-url https://us-central1-lemon-screenplay-staging.cloudfunctions.net/llmProxyCandidate --caller-service-account benchmark-caller@lemon-screenplay-staging.iam.gserviceaccount.com --verify-isolation --expected-git-sha EXACT_40_CHARACTER_GIT_SHA --expected-catalog-sha256 EXACT_CATALOG_SHA256 --max-cost-usd BOUNDED_RUN_CAP --prior-audit-spend-usd EXACT_SETTLED_AND_UNCERTAIN_PRIOR_SPEND
 ```
 
-Add `--smoke` for the $1 accessibility phase. It calls Haiku 4.5, Sonnet 5, and Opus 5 once each with a fixed `READY` prompt and sends no screenplay text. The approved screenplay hash still binds the run identity.
+Paid `--smoke` is intentionally refused because it does not produce the full trust evidence. The authorized ceiling for this V9 audit is cumulative USD 40, including the settled USD 0.106425 pilot. Every new run must declare the exact settled and uncertain prior spend, use a conservative bounded cap, and run sequentially.
 
 Do not execute a paid run until the exact files, route, deployed revision, and cap receive separate approval. Do not use Claude subscription capacity. The supported paid path is metered Anthropic API inference through the isolated candidate function.
 
-## Proposed validation ladder
+## Authorized validation order
 
-The next approvals should be separate:
-
-1. Smoke: one schema-valid call on Haiku 4.5, Sonnet 5, and Opus 5, maximum total spend $1.00. This proves request compatibility and exact provenance, not creative quality.
-2. Pilot: three explicitly approved screenplays, old versus candidate Sonnet and Opus routes, maximum total spend $75.00. Review failures, score movement, citations, latency, tokenizer change, and cost before continuing.
-3. Blinded benchmark: twelve explicitly approved screenplays, old versus candidate routes with titles hidden from the reviewer, maximum total spend $300.00. Activation still requires a human creative-quality decision.
+Run Santa mi Amor first through the candidate Sonnet route. Stop on any systemic defect. Once Santa passes, run four preselected diverse screenplays sequentially, locking and hashing each machine result before Billy sees only the five filenames for calibration. Production activation remains a separate approval.
 
 The remaining risks are creative and privacy based. API correctness cannot prove that a candidate understands comedy, Mexican cultural specificity, emotional payoff, or Lemon's producer taste. Full scripts and locally stored outputs are sensitive. Fable's retention policy makes it unsuitable for material that cannot accept at least 30 days of provider retention.
 

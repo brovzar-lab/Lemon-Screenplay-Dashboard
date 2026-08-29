@@ -7,15 +7,50 @@ function createAnalysisFixture(
   verdict: string,
   genre = 'Drama',
 ) {
+  const sourceFile = `${title}.pdf`;
+  const versionId = `${projectId}-version-1`;
+  const contentHash = 'a'.repeat(64);
+  const integrityHash = 'b'.repeat(64);
+  const analysisHash = 'c'.repeat(64);
   const pillar = { score, weight: 0.2, evidence: `${title} synthetic E2E evidence.` };
   return {
     project_id: projectId,
-    source_file: `${title}.pdf`,
+    source_file: sourceFile,
+    latest_source_file: sourceFile,
+    latest_version_id: versionId,
+    version_id: versionId,
+    content_hash: contentHash,
+    identity_status: 'verified',
+    _trust_authority: 'immutable_server',
     analysis_model: 'claude-sonnet-4-6',
     analysis_version: 'v9_archaeology',
-    trust_manifest_version: 'lemon-trust-manifest-v3',
+    trust_manifest_version: 'lemon-trust-manifest-v6',
+    trust_manifest: {
+      manifest_version: 'lemon-trust-manifest-v6',
+      integrity_sha256: integrityHash,
+      analysis_payload_sha256: analysisHash,
+      source: { content_sha256: contentHash, source_file: sourceFile },
+      origin: { project_id: projectId, version_id: versionId },
+      engine: { analysis_version: 'v9_archaeology' },
+      models: {
+        calls: [{
+          response_id: `e2e-${projectId}`,
+          requested_model: 'claude-sonnet-4-6',
+          returned_model: 'claude-sonnet-4-6',
+        }],
+      },
+    },
+    server_trust_attestation: {
+      attestation_version: 'lemon-server-trust-attestation-v1',
+      writer: 'firebase_admin',
+      project_id: projectId,
+      version_id: versionId,
+      content_sha256: contentHash,
+      trust_manifest_integrity_sha256: integrityHash,
+      analysis_payload_sha256: analysisHash,
+    },
     collection: 'LEMON',
-    metadata: { filename: `${title}.pdf`, page_count: 110, word_count: 20_000 },
+    metadata: { filename: sourceFile, page_count: 110, word_count: 20_000 },
     analysis: {
       title,
       author: 'E2E Writer',
@@ -26,7 +61,7 @@ function createAnalysisFixture(
       tone: 'Tense',
       verdict,
       weighted_score: score,
-      adjusted_score: score,
+      weighted_score_adjusted: score,
       executive_summary: `${title} has a clear synthetic E2E verdict.`,
       analysis_quality: {
         status: 'complete',

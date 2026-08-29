@@ -11,6 +11,7 @@
 
 import type { Screenplay } from '@/types';
 import { canonicalizeGenre } from './calculations';
+import { decisionReadyScreenplays, isDecisionReady } from './producerProjection';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,7 @@ function genreKey(screenplay: Screenplay): string {
 export function computeAllPercentiles(
   screenplays: Screenplay[],
 ): Map<string, PercentileRank> {
+  screenplays = decisionReadyScreenplays(screenplays);
   if (screenplays.length === 0) return new Map();
 
   // Collect all scores
@@ -174,6 +176,10 @@ export function computeSinglePercentile(
   screenplay: Screenplay,
   allScreenplays: Screenplay[],
 ): PercentileRank {
+  if (!isDecisionReady(screenplay)) {
+    throw new Error('Percentile ranking requires a verified, rankable analysis.');
+  }
+  allScreenplays = decisionReadyScreenplays(allScreenplays);
   const allScores = allScreenplays.map((s) => normalizeScore(s.weightedScore)).sort((a, b) => a - b);
   const cat = screenplay.category ?? 'OTHER';
   const catScores = allScreenplays

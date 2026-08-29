@@ -15,6 +15,7 @@ from ingest_v9 import (  # noqa: E402
     derive_verdict,
     select_stable_result,
 )
+from verdict_contract import select_boundary_run_index  # noqa: E402
 
 
 def failures(*severities):
@@ -159,6 +160,15 @@ def run(score, verdict, model="RECOMMEND"):
 
 
 class TestSelectStableResult(unittest.TestCase):
+    def test_shared_contract_selects_outer_majority_run_over_median_verdict(self):
+        self.assertEqual(
+            select_boundary_run_index(
+                [5.2, 5.4, 5.6],
+                ["PASS", "CONSIDER", "PASS"],
+            ),
+            0,
+        )
+
     def test_majority_verdict_and_median_run(self):
         runs = [run(7.3, "CONSIDER"), run(7.6, "RECOMMEND"), run(7.4, "CONSIDER")]
         final = select_stable_result(runs)

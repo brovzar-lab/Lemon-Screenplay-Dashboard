@@ -6,22 +6,15 @@
  * that enable partner access via shareable URLs.
  *
  * - createShareToken: authenticated — snapshots full analysis into shared_views doc
- * - resolveShareToken: public — reads shared_views without authReady gate
+ * - resolveShareToken: public — resolves through the server authority receipt
  * - Other functions gate on `authReady` before Firestore access.
  */
 
 import {
     doc,
-    setDoc,
-    deleteDoc,
     getDoc,
-    getDocs,
-    collection,
-    query,
-    where,
 } from 'firebase/firestore';
-import { ref, getDownloadURL } from 'firebase/storage';
-import { authReady, db, storage } from './firebase';
+import { authReady, db } from './firebase';
 import { toDocId } from './analysisStore';
 import { useShareStore } from '@/stores/shareStore';
 import type {
@@ -41,11 +34,14 @@ import type {
     ProducerProjection,
     LocalizedAnalysisMap,
 } from '@/types';
-import { savedLocalizedAnalysis } from '@/lib/localizedAnalysis';
+import { normalizeV9Screenplay } from '@/lib/normalizers/normalizeV9';
+import { getProxyAuthHeaders } from '@/lib/proxyClient';
+import { requireDecisionReady } from '@/lib/producerProjection';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface SharedView {
+    authorityVersion?: string;
     token: string;
     screenplayId: string;
     screenplayTitle: string;
@@ -68,6 +64,7 @@ export interface SharedViewDocument {
     pdfUrl: string | null;
     posterUrl: string | null;
     localizedAnalysis?: LocalizedAnalysisMap;
+    sealedVersion?: Record<string, unknown>;
     analysis: {
         title: string;
         author: string;
@@ -104,7 +101,7 @@ export interface SharedViewDocument {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SHARED_VIEWS_COLLECTION = 'shared_views';
+const SHARE_AUTHORITY_VERSION = 'lemon-share-authority-v1';
 
 /** Default share-link lifetime. Confidential coverage should not live at a
  *  public URL forever; a forwarded link goes stale on its own. */
@@ -112,6 +109,12 @@ export const DEFAULT_SHARE_TTL_DAYS = 30;
 
 function getShareBaseUrl(): string {
     return `${window.location.origin}/share`;
+}
+
+function getShareEndpoint(): string {
+    return import.meta.env.DEV
+        ? 'http://127.0.0.1:5001/lemon-screenplay-dashboard/us-central1/shareManager'
+        : '/api/share';
 }
 
 /** True when a share doc carries an expiry that is now in the past. Docs with
@@ -123,20 +126,6 @@ function isExpired(doc: { expiresAt?: string }): boolean {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Construct the Firebase Storage path for a screenplay PDF.
- * Mirrors the logic in ModalHeader.tsx.
- */
-function buildPdfStoragePath(screenplay: Screenplay): string {
-    const category = screenplay.category || 'OTHER';
-    const safeName = (screenplay.title || screenplay.sourceFile || 'untitled')
-        .replace(/\.pdf$/i, '')
-        .replace(/[^a-zA-Z0-9_\- ]/g, '')
-        .trim()
-        .replace(/\s+/g, '_');
-    return `screenplays/${category}/${safeName}.pdf`;
-}
 
 /**
  * Build the analysis snapshot from a Screenplay object.
@@ -212,55 +201,43 @@ export async function createShareToken(
     notes?: Note[],
     ttlDays: number = DEFAULT_SHARE_TTL_DAYS,
 ): Promise<{ token: string; url: string; expiresAt: string }> {
+    requireDecisionReady([screenplay]);
+    if (!screenplay.projectId || !screenplay.latestVersionId) {
+        throw new Error('Sharing requires the exact immutable analysis version.');
+    }
     await authReady;
-
-    const token = crypto.randomUUID();
-    const now = new Date();
-    const expiresAtMillis = now.getTime() + ttlDays * 24 * 60 * 60 * 1000;
-    const expiresAt = new Date(expiresAtMillis).toISOString();
-
-    // Resolve pdfUrl at creation time
-    let pdfUrl: string | null = null;
-    try {
-        const storagePath = buildPdfStoragePath(screenplay);
-        const fileRef = ref(storage, storagePath);
-        pdfUrl = await getDownloadURL(fileRef);
-    } catch {
-        // PDF not found in storage — store null
-        pdfUrl = null;
+    if (ttlDays !== DEFAULT_SHARE_TTL_DAYS) {
+        throw new Error('The server enforces the 30-day share lifetime.');
     }
-
-    const sharedViewDoc: SharedViewDocument = {
-        token,
-        screenplayId,
-        screenplayTitle: screenplay.title,
-        includeNotes,
-        createdAt: now.toISOString(),
-        expiresAt,
-        expiresAtMillis,
-        pdfUrl,
-        posterUrl: screenplay.posterUrl || null,
-        analysis: buildAnalysisSnapshot(screenplay),
-        ...(savedLocalizedAnalysis(screenplay, 'es') && {
-            localizedAnalysis: { es: savedLocalizedAnalysis(screenplay, 'es') },
+    const response = await fetch(getShareEndpoint(), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(await getProxyAuthHeaders()),
+        },
+        body: JSON.stringify({
+            projectId: screenplay.projectId,
+            versionId: screenplay.latestVersionId,
+            screenplayId,
+            includeNotes,
+            notes: includeNotes
+                ? notes?.map((note) => ({ content: note.content, createdAt: note.createdAt }))
+                : undefined,
         }),
+    });
+    const result = await response.json() as {
+        token?: string;
+        expiresAt?: string;
+        error?: string;
     };
-
-    // Include notes only when requested and available
-    if (includeNotes && notes?.length) {
-        sharedViewDoc.notes = notes.map((n) => ({
-            content: n.content,
-            createdAt: n.createdAt,
-        }));
+    if (!response.ok || !result.token || !result.expiresAt) {
+        throw new Error(result.error || 'Failed to create a trusted share link.');
     }
-
-    const docRef = doc(db, SHARED_VIEWS_COLLECTION, token);
-    await setDoc(docRef, sharedViewDoc);
 
     return {
-        token,
-        url: `${getShareBaseUrl()}/${token}`,
-        expiresAt,
+        token: result.token,
+        url: `${getShareBaseUrl()}/${result.token}`,
+        expiresAt: result.expiresAt,
     };
 }
 
@@ -271,14 +248,11 @@ export async function createShareToken(
 export async function resolveShareToken(
     token: string,
 ): Promise<SharedViewDocument | null> {
-    const docRef = doc(db, SHARED_VIEWS_COLLECTION, token);
-    const snapshot = await getDoc(docRef);
-
-    if (!snapshot.exists()) {
-        return null;
-    }
-
-    const data = snapshot.data() as SharedViewDocument;
+    const response = await fetch(`${getShareEndpoint()}?token=${encodeURIComponent(token)}`);
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error('The trusted share could not be resolved.');
+    const data = await response.json() as SharedViewDocument;
+    if (data.token !== token) return null;
 
     // Expired links resolve to null — the SharedViewPage renders ExpiredLinkPage,
     // exactly as it does for a missing/revoked token.
@@ -286,11 +260,61 @@ export async function resolveShareToken(
         return null;
     }
 
-    return data;
+    if (data.sealedVersion) {
+        const normalized = normalizeV9Screenplay({
+            ...data.sealedVersion,
+            _trust_authority: 'immutable_public_share',
+        }, 'Analysis');
+        requireDecisionReady([normalized]);
+        const localizedAnalysis = normalized.localizedAnalysis?.es?.sourceVersionId
+            === normalized.latestVersionId
+            ? normalized.localizedAnalysis
+            : undefined;
+        return {
+            ...data,
+            analysis: buildAnalysisSnapshot(normalized),
+            localizedAnalysis,
+        };
+    }
+
+    return null;
 }
 
 /**
- * Revoke a share token by deleting its Firestore doc.
+ * Update whether an existing share exposes current producer notes. The server
+ * rebuilds the snapshot from the immutable analysis version; the browser never
+ * writes the capability document directly.
+ */
+export async function updateShareNotes(
+    token: string,
+    screenplayId: string,
+    includeNotes: boolean,
+    notes?: Note[],
+): Promise<void> {
+    await authReady;
+    const response = await fetch(getShareEndpoint(), {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(await getProxyAuthHeaders()),
+        },
+        body: JSON.stringify({
+            token,
+            screenplayId,
+            includeNotes,
+            notes: includeNotes
+                ? notes?.map((note) => ({ content: note.content, createdAt: note.createdAt }))
+                : undefined,
+        }),
+    });
+    if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(result.error || 'Failed to update the trusted share link.');
+    }
+}
+
+/**
+ * Revoke a share token through the authenticated server manager.
  * Also clears the session cache via shareStore.
  */
 export async function revokeShareToken(
@@ -298,9 +322,18 @@ export async function revokeShareToken(
     screenplayId: string,
 ): Promise<void> {
     await authReady;
-
-    const docRef = doc(db, SHARED_VIEWS_COLLECTION, token);
-    await deleteDoc(docRef);
+    const response = await fetch(getShareEndpoint(), {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(await getProxyAuthHeaders()),
+        },
+        body: JSON.stringify({ token, screenplayId }),
+    });
+    if (!response.ok) {
+        const result = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(result.error || 'Failed to revoke the trusted share link.');
+    }
 
     // Centralize cache invalidation (per research pitfall 3)
     useShareStore.getState().removeToken(screenplayId);
@@ -314,19 +347,15 @@ export async function getExistingShareToken(
     screenplayId: string,
 ): Promise<SharedView | null> {
     await authReady;
-
-    const colRef = collection(db, SHARED_VIEWS_COLLECTION);
-    const q = query(colRef, where('screenplayId', '==', screenplayId));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-        return null;
-    }
-
-    // Ignore expired tokens so the UI offers a fresh link instead of a dead one.
-    const live = snapshot.docs
-        .map((d) => d.data() as SharedView)
-        .find((v) => !isExpired(v));
+    const response = await fetch(
+        `${getShareEndpoint()}?screenplayId=${encodeURIComponent(screenplayId)}`,
+        { headers: await getProxyAuthHeaders() },
+    );
+    if (!response.ok) throw new Error('Failed to verify existing share links.');
+    const result = await response.json() as { views?: SharedView[] };
+    const live = (result.views ?? []).find(
+        (view) => view.authorityVersion === SHARE_AUTHORITY_VERSION && !isExpired(view),
+    );
 
     return live ?? null;
 }
@@ -336,11 +365,14 @@ export async function getExistingShareToken(
  */
 export async function getAllSharedViews(): Promise<SharedView[]> {
     await authReady;
-
-    const colRef = collection(db, SHARED_VIEWS_COLLECTION);
-    const snapshot = await getDocs(colRef);
-
-    return snapshot.docs.map((d) => d.data() as SharedView);
+    const response = await fetch(getShareEndpoint(), {
+        headers: await getProxyAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to verify active share links.');
+    const result = await response.json() as { views?: SharedView[] };
+    return (result.views ?? []).filter(
+        (view) => view.authorityVersion === SHARE_AUTHORITY_VERSION && !isExpired(view),
+    );
 }
 
 /**

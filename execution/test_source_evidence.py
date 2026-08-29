@@ -1,3 +1,4 @@
+import copy
 import unittest
 
 from execution.source_evidence import (
@@ -8,11 +9,56 @@ from execution.source_evidence import (
     extract_title_page_author,
     join_marked_pages,
     validate_analysis_citations,
+    validate_native_cross_check,
     validate_stored_context_policy,
 )
 
 
 class TestPageEvidence(unittest.TestCase):
+    def test_native_extractor_cross_check_is_schema_closed_and_finite(self):
+        valid = {
+            "status": "corroborated",
+            "methods_compared": ["pdfplumber", "pymupdf"],
+            "word_counts": {"pdfplumber": 1_000, "pymupdf": 980},
+            "word_count_agreement_ratio": 0.98,
+            "page_token_similarity_ratio": 0.95,
+            "pairwise_page_token_similarity": [{
+                "methods": ["pdfplumber", "pymupdf"],
+                "page_token_similarity_ratio": 0.95,
+            }],
+            "minimum_similarity_required": 0.8,
+            "selected_consensus_method": "pdfplumber",
+        }
+        self.assertEqual(
+            validate_native_cross_check(valid, "pdfplumber"),
+            valid,
+        )
+
+        mutations = []
+        for invalid_ratio in (float("nan"), float("inf")):
+            mutated = copy.deepcopy(valid)
+            mutated["word_count_agreement_ratio"] = invalid_ratio
+            mutations.append(mutated)
+        mutated = copy.deepcopy(valid)
+        mutated["status"] = "success-ish"
+        mutations.append(mutated)
+        mutated = copy.deepcopy(valid)
+        mutated["word_counts"]["pdfplumber"] = -1
+        mutations.append(mutated)
+        mutated = copy.deepcopy(valid)
+        mutated["unexpected_private_payload"] = "SECRET-SENTINEL"
+        mutations.append(mutated)
+        mutated = copy.deepcopy(valid)
+        mutated["pairwise_page_token_similarity"][0][
+            "page_token_similarity_ratio"
+        ] = 0.7
+        mutations.append(mutated)
+
+        for mutated in mutations:
+            with self.subTest(mutation=mutated):
+                with self.assertRaises(SourceEvidenceError):
+                    validate_native_cross_check(mutated, "pdfplumber")
+
     def test_title_page_author_is_source_backed_or_explicitly_absent(self):
         found = extract_title_page_author(join_marked_pages([
             "LA HISTORIA\nGuión de\nMaría López",
@@ -60,6 +106,53 @@ class TestPageEvidence(unittest.TestCase):
         self.assertIn(
             "missing_page_markers",
             evidence["extraction_quality"]["issues"],
+        )
+
+    def test_sparse_text_from_a_large_content_stream_requires_ocr(self):
+        text = join_marked_pages([
+            "TITLE",
+            "INT.",
+            "FADE OUT.",
+        ])
+        signals = [
+            {"content_bearing": True, "content_stream_bytes": 80, "image_count": 0},
+            {"content_bearing": True, "content_stream_bytes": 4_000, "image_count": 0},
+            {"content_bearing": True, "content_stream_bytes": 90, "image_count": 0},
+        ]
+
+        evidence = build_page_evidence(text, 3, "pdfplumber", signals)
+
+        self.assertFalse(evidence["extraction_quality"]["publication_ready"])
+        self.assertEqual(
+            evidence["extraction_quality"]["unreadable_content_pages"],
+            [2],
+        )
+        self.assertEqual(evidence["page_diagnostics"][0]["status"], "sparse")
+        self.assertEqual(evidence["page_diagnostics"][2]["status"], "sparse")
+
+    def test_ocr_corroborates_a_legitimate_sparse_page(self):
+        text = join_marked_pages(["TITLE", "FADE OUT."])
+        signals = [
+            {
+                "content_bearing": True,
+                "content_stream_bytes": 4_000,
+                "image_count": 0,
+                "ocr_corroborated": True,
+            },
+            {
+                "content_bearing": True,
+                "content_stream_bytes": 3_000,
+                "image_count": 0,
+                "ocr_corroborated": True,
+            },
+        ]
+
+        evidence = build_page_evidence(text, 2, "v9_runtime", signals)
+
+        self.assertTrue(evidence["extraction_quality"]["publication_ready"])
+        self.assertEqual(
+            [page["status"] for page in evidence["page_diagnostics"]],
+            ["sparse", "sparse"],
         )
 
 
@@ -143,6 +236,10 @@ class TestCitationEvidence(unittest.TestCase):
 
         self.assertEqual(quality["status"], "verified")
         self.assertEqual(quality["verified_page_numbers"], [2])
+        self.assertEqual(
+            quality["verification_scope"],
+            "physical_page_and_exact_excerpt_location",
+        )
 
     def test_invented_excerpt_cannot_verify_a_real_page_number(self):
         metric = self.analysis["reader_reports"]["structure"]["sub_scores"]["midpoint"]

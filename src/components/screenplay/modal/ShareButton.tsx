@@ -7,12 +7,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation } from '@tanstack/react-query';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import type { Screenplay } from '@/types';
 import {
     createShareToken,
     revokeShareToken,
+    updateShareNotes,
     getExistingShareToken,
     isScreenplaySynced,
 } from '@/lib/shareService';
@@ -20,6 +19,7 @@ import { useShareStore } from '@/stores/shareStore';
 import { useNotesStore } from '@/stores/notesStore';
 import { useToastStore } from '@/stores/toastStore';
 import { useTranslation } from 'react-i18next';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 interface ShareButtonProps {
     screenplay: Screenplay;
@@ -45,11 +45,13 @@ export function ShareButton({
     const { t } = useTranslation();
     const isDiscovery = presentation === 'discovery';
     const screenplayId = screenplay.sourceFile;
+    const decisionReady = isDecisionReady(screenplay);
 
     const [showPopover, setShowPopover] = useState(false);
     const [copied, setCopied] = useState(false);
     const [synced, setSynced] = useState<boolean | null>(null);
     const [confirmRevoke, setConfirmRevoke] = useState(false);
+    const [notesUpdatePending, setNotesUpdatePending] = useState(false);
 
     const popoverRef = useRef<HTMLDivElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
@@ -172,6 +174,13 @@ export function ShareButton({
     });
 
     const handleClick = () => {
+        if (!decisionReady && !cachedToken) {
+            useToastStore.getState().addToast(
+                t('Decision data unavailable until verification'),
+                'warning',
+            );
+            return;
+        }
         if (synced === false) {
             useToastStore
                 .getState()
@@ -202,15 +211,19 @@ export function ShareButton({
     }, [shareUrl, t]);
 
     const handleNotesToggle = useCallback(async () => {
+        if (notesUpdatePending) return;
         const newValue = !currentIncludeNotes;
         setIncludeNotes(newValue);
 
         if (cachedToken) {
-            // Update Firestore doc
+            setNotesUpdatePending(true);
             try {
-                const docRef = doc(db, 'shared_views', cachedToken.token);
-                await setDoc(docRef, { includeNotes: newValue }, { merge: true });
-                // Update cache
+                await updateShareNotes(
+                    cachedToken.token,
+                    screenplayId,
+                    newValue,
+                    useNotesStore.getState().notes[screenplayId],
+                );
                 useShareStore.getState().setToken(screenplayId, {
                     ...cachedToken,
                     includeNotes: newValue,
@@ -218,11 +231,14 @@ export function ShareButton({
             } catch {
                 useToastStore.getState().addToast(t('Failed to update notes setting'));
                 setIncludeNotes(!newValue); // Revert
+            } finally {
+                setNotesUpdatePending(false);
             }
         }
-    }, [currentIncludeNotes, cachedToken, screenplayId, t]);
+    }, [notesUpdatePending, currentIncludeNotes, cachedToken, screenplayId, t]);
 
     const isDisabled =
+        (!decisionReady && !cachedToken) ||
         synced === false || createMutation.isPending || synced === null || !existingLookupReady;
 
     return (
@@ -239,7 +255,9 @@ export function ShareButton({
                           : 'bg-gold-500/90 hover:bg-gold-400 text-black-900 border-gold-400/50 shadow-sm shadow-gold-500/20'
                 }`}
                 title={
-                    synced === false
+                    !decisionReady && !cachedToken
+                        ? t('Decision data unavailable until verification')
+                        : synced === false
                         ? t('Sync pending -- wait for Firestore sync before sharing')
                         : !existingLookupReady
                           ? t('Checking for an existing share link...')
@@ -376,6 +394,7 @@ export function ShareButton({
                                 type="checkbox"
                                 checked={currentIncludeNotes}
                                 onChange={handleNotesToggle}
+                                disabled={notesUpdatePending}
                                 className={
                                     isDiscovery
                                         ? 'w-3.5 h-3.5 rounded border-[var(--dsc-line)] bg-[var(--dsc-surface)] text-[var(--dsc-accent)] focus:ring-[var(--dsc-accent)]/30'

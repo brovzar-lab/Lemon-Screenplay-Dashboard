@@ -42,6 +42,7 @@ vi.mock('@/lib/shareService', () => ({
   isScreenplaySynced: vi.fn().mockResolvedValue(true),
   createShareToken: vi.fn(),
   revokeShareToken: vi.fn(),
+  updateShareNotes: vi.fn(),
 }));
 
 import DiscoverPage from '@/pages/DiscoverPage';

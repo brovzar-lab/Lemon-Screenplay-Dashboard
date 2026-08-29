@@ -9,6 +9,7 @@ import { ComparisonSideBySide } from './ComparisonSideBySide';
 import { ComparisonRadar } from './ComparisonRadar';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 export function ComparisonModal() {
   const { t } = useTranslation();
@@ -25,7 +26,9 @@ export function ComparisonModal() {
   const { data: allScreenplays } = useScreenplays();
 
   // Get selected screenplays
-  const selectedScreenplays = allScreenplays?.filter((sp) => selectedIds.includes(sp.id)) || [];
+  const selectedScreenplays = allScreenplays?.filter(
+    (sp) => selectedIds.includes(sp.id) && isDecisionReady(sp),
+  ) || [];
 
   if (!isComparing || selectedScreenplays.length < 2) return null;
 
