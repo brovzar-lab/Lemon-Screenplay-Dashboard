@@ -1868,6 +1868,18 @@ class LocalCostCap:
                 if isinstance(failure_usage, dict)
                 else None
             )
+            failed_calls = (
+                failure_usage.get("failed_calls")
+                if isinstance(failure_usage, dict)
+                else None
+            )
+            release_mismatch = isinstance(failed_calls, list) and any(
+                isinstance(call, dict)
+                and call.get("failure_state") == "candidate_release_mismatch"
+                for call in failed_calls
+            )
+            if release_mismatch:
+                failure_cost_microusd = None
             if (
                 type(failure_cost_microusd) is int
                 and failure_cost_microusd >= 0
@@ -1909,18 +1921,25 @@ class LocalCostCap:
             else:
                 attempt_history = getattr(error, "attempt_history", None)
                 proven_zero_spend = (
-                    isinstance(attempt_history, list)
-                    and bool(attempt_history)
-                    and all(
-                        isinstance(attempt, dict)
-                        and attempt.get("error_type") == "LlmPreCallRetryableError"
-                        for attempt in attempt_history
+                    not release_mismatch
+                    and (
+                        (
+                            isinstance(attempt_history, list)
+                            and bool(attempt_history)
+                            and all(
+                                isinstance(attempt, dict)
+                                and attempt.get("error_type")
+                                == "LlmPreCallRetryableError"
+                                for attempt in attempt_history
+                            )
+                        )
+                        or type(error).__name__ in {
+                            "BenchmarkCapExceededError",
+                            "DailyBudgetExceededError",
+                            "LlmRequestRejectedError",
+                        }
                     )
-                ) or type(error).__name__ in {
-                    "BenchmarkCapExceededError",
-                    "DailyBudgetExceededError",
-                    "LlmRequestRejectedError",
-                }
+                )
                 if proven_zero_spend:
                     with self._lock:
                         self.reserved_microusd -= ceiling_microusd

@@ -44,6 +44,7 @@ import {
   validateBenchmarkContract,
   validateCandidateEnvelope,
   type BenchmarkCallContract,
+  type BenchmarkPayloadEvidence,
 } from "./benchmarkCandidatePolicy";
 import { candidateLog } from "./candidateLog";
 import {
@@ -80,6 +81,33 @@ const benchmarkInferenceGeo = defineString("BENCHMARK_INFERENCE_GEO");
 
 export const CANDIDATE_MAX_OUTPUT_TOKENS = 32_000;
 const MAX_THINKING_TOKENS = 16_000;
+
+export function candidateContractRejection(
+  value: unknown,
+  evidence: BenchmarkPayloadEvidence | undefined,
+  requestedModel: string | undefined,
+): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+      || !evidence || !requestedModel) return undefined;
+  const benchmark = value as Record<string, unknown>;
+  if (typeof benchmark.call_id !== "string"
+      || !/^[a-f0-9]{64}$/.test(benchmark.call_id)
+      || benchmark.requested_model !== requestedModel
+      || benchmark.request_sha256 !== evidence.request_sha256) return undefined;
+  return {
+    call_id: benchmark.call_id,
+    requested_model: requestedModel,
+    request_sha256: evidence.request_sha256,
+    disposition: "rejected_before_reservation",
+    new_cost_microusd: 0,
+    charged_cost_microusd: 0,
+    reserved_cost_microusd: 0,
+    validation_failure_code: "CANDIDATE_CONTRACT_REJECTED",
+    validation_failure_reason: (
+      "Candidate rejected the request contract before reservation or provider dispatch."
+    ),
+  };
+}
 
 export function candidateSettlementFailure(
   error: unknown,
@@ -476,6 +504,8 @@ export const llmProxyCandidate = onRequest(
 
     let built: BuiltAnthropicRequest;
     let contract: BenchmarkCallContract;
+    let evidence: BenchmarkPayloadEvidence | undefined;
+    let requestedModel: string | undefined;
     try {
       validateCandidateEnvelope(req.body);
       built = buildAnthropicRequest(
@@ -486,8 +516,9 @@ export const llmProxyCandidate = onRequest(
         config.inferenceGeo,
         true,
       );
+      requestedModel = built.body.model;
       const body = req.body as Record<string, unknown>;
-      const evidence = deriveBenchmarkPayloadEvidence(
+      evidence = deriveBenchmarkPayloadEvidence(
         built.payload as Record<string, unknown>,
       );
       contract = validateBenchmarkContract(
@@ -495,15 +526,24 @@ export const llmProxyCandidate = onRequest(
         evidence,
         config.runId,
         built.body.model,
+        built.payload as Record<string, unknown>,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid benchmark request.";
       const code = error instanceof ProxyRequestValidationError ? error.code : "INVALID_BENCHMARK";
+      const body = req.body && typeof req.body === "object" && !Array.isArray(req.body)
+        ? req.body as Record<string, unknown> : {};
+      const rejection = candidateContractRejection(
+        body.benchmark,
+        evidence,
+        requestedModel,
+      );
       res.status(400).json({
         error: message,
         code,
         isRetryable: false,
         release: config.release,
+        ...(rejection ? { benchmark_rejection: rejection } : {}),
       });
       return;
     }

@@ -4057,7 +4057,9 @@ def _benchmark_pre_dispatch_failure_usage(
             "attempt": 1,
             "outcome": "failed",
             "error_type": error_type,
-            "provider_generation": "not_started",
+            "provider_generation": (
+                "not_started" if release_matches else "unknown"
+            ),
         }],
         "request_sha256": request_sha256,
         "prompt_sha256": prompt_sha256,
@@ -4099,8 +4101,16 @@ def _benchmark_pre_dispatch_failure_usage(
             "actual_cost_microusd": 0,
             "actual_cost_usd": 0.0,
         },
-        "independent_cost_status": "not_generated",
-        "uncertainty_status": "proven_zero_spend_pre_generation",
+        "independent_cost_status": (
+            "not_generated"
+            if release_matches
+            else "unavailable_untrusted_candidate_release"
+        ),
+        "uncertainty_status": (
+            "proven_zero_spend_pre_generation"
+            if release_matches
+            else "candidate_release_untrusted"
+        ),
         "charged_cost_microusd": 0,
         "charged_cost_usd": 0.0,
         "reserved_cost_microusd": 0,
@@ -4108,6 +4118,9 @@ def _benchmark_pre_dispatch_failure_usage(
         "cap_cost_microusd": 0,
         "cap_cost_usd": 0.0,
     }, aggregate_cost_microusd=0)]
+    if not release_matches:
+        usage.pop("actual_cost_microusd", None)
+        usage.pop("actual_cost_usd", None)
     return usage
 
 
@@ -4424,6 +4437,62 @@ def call_llm(
                     error_data = resp.json()
                 except ValueError:
                     error_data = {}
+                if (
+                    benchmark_context is not None
+                    and error_data.get("code") == "INVALID_BENCHMARK"
+                    and error_data.get("isRetryable") is False
+                ):
+                    rejection = error_data.get("benchmark_rejection")
+                    expected_call_id = payload["benchmark"]["call_id"]
+                    if (
+                        isinstance(rejection, dict)
+                        and rejection.get("call_id") == expected_call_id
+                        and rejection.get("requested_model") == model_id
+                        and rejection.get("request_sha256") == request_sha256
+                        and rejection.get("disposition")
+                        == "rejected_before_reservation"
+                        and rejection.get("new_cost_microusd") == 0
+                        and rejection.get("charged_cost_microusd") == 0
+                        and rejection.get("reserved_cost_microusd") == 0
+                        and rejection.get("validation_failure_code")
+                        == "CANDIDATE_CONTRACT_REJECTED"
+                    ):
+                        failure_message = error_data.get("error")
+                        if not isinstance(failure_message, str):
+                            failure_message = (
+                                "Candidate contract rejected before provider dispatch"
+                            )
+                        error = LlmRequestRejectedError(failure_message)
+                        error.usage = _benchmark_pre_dispatch_failure_usage(
+                            error_data,
+                            requested_model=model_id,
+                            expected_call_id=expected_call_id,
+                            stage=stage,
+                            pipeline_pass=pipeline_pass,
+                            boundary_run=boundary_run,
+                            reader_name=reader_name,
+                            request_sha256=request_sha256,
+                            prompt_sha256=prompt_sha256,
+                            schema_mode=schema_mode,
+                            schema_sha256=schema_sha256,
+                            transport_schema_sha256=transport_schema_sha256,
+                            logical_retry=logical_retry,
+                            started_at=call_started_timestamp,
+                            latency_ms=max(
+                                0,
+                                round(
+                                    (time.perf_counter() - call_started_at)
+                                    * 1_000
+                                ),
+                            ),
+                            expected_release=_BENCHMARK_EXPECTED_RELEASE,
+                            error_type="CandidateContractError",
+                            failure_state=(
+                                "candidate_contract_rejected_before_dispatch"
+                            ),
+                            failure_message=failure_message,
+                        )
+                        raise error
                 if (
                     error_data.get("code") == "UPSTREAM_INVALID_REQUEST"
                     and error_data.get("isRetryable") is False
@@ -4967,6 +5036,9 @@ def call_llm(
                     **({
                         "call_id": payload["benchmark"]["call_id"],
                         "release": response_release,
+                        "expected_release": copy.deepcopy(
+                            _BENCHMARK_EXPECTED_RELEASE
+                        ),
                     } if benchmark_context is not None else {}),
                     "disposition": "pending",
                 }],

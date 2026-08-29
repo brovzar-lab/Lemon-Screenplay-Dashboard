@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.llmProxyCandidate = exports.CANDIDATE_MAX_OUTPUT_TOKENS = void 0;
+exports.candidateContractRejection = candidateContractRejection;
 exports.candidateSettlementFailure = candidateSettlementFailure;
 exports.providerRejectionFailure = providerRejectionFailure;
 exports.providerTransportFailure = providerTransportFailure;
@@ -40,6 +41,28 @@ const benchmarkStorageBucket = (0, params_1.defineString)("BENCHMARK_STORAGE_BUC
 const benchmarkInferenceGeo = (0, params_1.defineString)("BENCHMARK_INFERENCE_GEO");
 exports.CANDIDATE_MAX_OUTPUT_TOKENS = 32_000;
 const MAX_THINKING_TOKENS = 16_000;
+function candidateContractRejection(value, evidence, requestedModel) {
+    if (!value || typeof value !== "object" || Array.isArray(value)
+        || !evidence || !requestedModel)
+        return undefined;
+    const benchmark = value;
+    if (typeof benchmark.call_id !== "string"
+        || !/^[a-f0-9]{64}$/.test(benchmark.call_id)
+        || benchmark.requested_model !== requestedModel
+        || benchmark.request_sha256 !== evidence.request_sha256)
+        return undefined;
+    return {
+        call_id: benchmark.call_id,
+        requested_model: requestedModel,
+        request_sha256: evidence.request_sha256,
+        disposition: "rejected_before_reservation",
+        new_cost_microusd: 0,
+        charged_cost_microusd: 0,
+        reserved_cost_microusd: 0,
+        validation_failure_code: "CANDIDATE_CONTRACT_REJECTED",
+        validation_failure_reason: ("Candidate rejected the request contract before reservation or provider dispatch."),
+    };
+}
 function candidateSettlementFailure(error, phase) {
     const message = error instanceof Error ? error.message : "";
     let evidence;
@@ -392,21 +415,28 @@ exports.llmProxyCandidate = (0, https_1.onRequest)({
     }
     let built;
     let contract;
+    let evidence;
+    let requestedModel;
     try {
         (0, benchmarkCandidatePolicy_1.validateCandidateEnvelope)(req.body);
         built = (0, anthropicProxyCore_1.buildAnthropicRequest)(req.body, "service", exports.CANDIDATE_MAX_OUTPUT_TOKENS, MAX_THINKING_TOKENS, config.inferenceGeo, true);
+        requestedModel = built.body.model;
         const body = req.body;
-        const evidence = (0, benchmarkCandidatePolicy_1.deriveBenchmarkPayloadEvidence)(built.payload);
-        contract = (0, benchmarkCandidatePolicy_1.validateBenchmarkContract)(body.benchmark, evidence, config.runId, built.body.model);
+        evidence = (0, benchmarkCandidatePolicy_1.deriveBenchmarkPayloadEvidence)(built.payload);
+        contract = (0, benchmarkCandidatePolicy_1.validateBenchmarkContract)(body.benchmark, evidence, config.runId, built.body.model, built.payload);
     }
     catch (error) {
         const message = error instanceof Error ? error.message : "Invalid benchmark request.";
         const code = error instanceof anthropicProxyCore_1.ProxyRequestValidationError ? error.code : "INVALID_BENCHMARK";
+        const body = req.body && typeof req.body === "object" && !Array.isArray(req.body)
+            ? req.body : {};
+        const rejection = candidateContractRejection(body.benchmark, evidence, requestedModel);
         res.status(400).json({
             error: message,
             code,
             isRetryable: false,
             release: config.release,
+            ...(rejection ? { benchmark_rejection: rejection } : {}),
         });
         return;
     }

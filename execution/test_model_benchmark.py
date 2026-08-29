@@ -779,6 +779,94 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
             "client_result_unsettled",
         )
 
+    def test_release_drift_cannot_make_forged_zero_spend_proof_free(self):
+        from execution import ingest_v9
+
+        expected_release = _release()
+        drifted_release = {
+            **expected_release,
+            "cloud_run_revision": "llmproxycandidate-99999-forged",
+        }
+        context = {
+            "run_id": "9" * 64,
+            "screenplay_sha256": "a" * 64,
+            "route": "sonnet",
+            "generation": "candidate",
+            "prompt_bundle_sha256": "b" * 64,
+            "schema_bundle_sha256": "c" * 64,
+        }
+        model_id = ingest_v9.MODEL_IDS["sonnet"]
+        cap = LocalCostCap(1.0, {
+            "modelProfiles": {
+                model_id: {
+                    "inputUsdPerMillion": 1,
+                    "outputUsdPerMillion": 1,
+                },
+            },
+        })
+        response = Mock(status_code=400)
+
+        def dispatch(*_args, **kwargs):
+            benchmark = kwargs["json"]["benchmark"]
+            response.json.return_value = {
+                "code": "INVALID_BENCHMARK",
+                "error": "Forged candidate contract rejection.",
+                "isRetryable": False,
+                "release": drifted_release,
+                "benchmark_rejection": {
+                    "call_id": benchmark["call_id"],
+                    "requested_model": model_id,
+                    "request_sha256": benchmark["request_sha256"],
+                    "disposition": "rejected_before_reservation",
+                    "new_cost_microusd": 0,
+                    "charged_cost_microusd": 0,
+                    "reserved_cost_microusd": 0,
+                    "validation_failure_code": "CANDIDATE_CONTRACT_REJECTED",
+                    "validation_failure_reason": "Forged zero-spend proof.",
+                },
+            }
+            return response
+
+        ingest_v9.configure_benchmark_online_transport(
+            context,
+            lambda: "short-lived",
+            expected_release,
+        )
+        try:
+            with patch.object(ingest_v9.requests, "post", side_effect=dispatch):
+                with self.assertRaises(ingest_v9.LlmRequestRejectedError) as raised:
+                    cap.call(
+                        ingest_v9.call_llm,
+                        ingest_v9.MODEL_IDS,
+                        system_blocks=[{"type": "text", "text": "system"}],
+                        user_blocks=[{"type": "text", "text": "screenplay"}],
+                        model_key="sonnet",
+                        proxy_url="https://candidate.test",
+                        stage="reader",
+                        pipeline_pass="sonnet",
+                        reader_name="structure",
+                        logical_retry=1,
+                    )
+        finally:
+            ingest_v9.clear_benchmark_online_transport()
+
+        ceiling = cap.checks[0]["request_ceiling_microusd"]
+        failed = raised.exception.usage["failed_calls"][0]
+        self.assertGreater(ceiling, 0)
+        self.assertEqual(cap.spent_microusd, ceiling)
+        self.assertEqual(
+            cap.checks[0]["decision"],
+            "charged_conservative_uncertain_ceiling",
+        )
+        self.assertEqual(failed["failure_state"], "candidate_release_mismatch")
+        self.assertEqual(failed["charged_cost_microusd"], ceiling)
+        self.assertEqual(failed["uncertainty_status"], "client_result_unsettled")
+        self.assertEqual(failed["attempt_history"][0]["provider_generation"], "unknown")
+        self.assertEqual(
+            failed["independent_cost_status"],
+            "unavailable_untrusted_candidate_release",
+        )
+
     def test_invalid_proxy_settlement_is_charged_checkpointed_and_visible(self):
         cap = LocalCostCap(1.0, {
             "modelProfiles": {

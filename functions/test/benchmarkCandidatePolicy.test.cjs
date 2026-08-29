@@ -49,6 +49,30 @@ const compactPayload = () => ({
   }],
 });
 
+const targetedCorrectionPayload = (name = 'repair_structure_report') => ({
+  ...schemaFreePayload(),
+  tools: [{
+    name,
+    description: 'Return only declared repairs.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        source_report_sha256: { type: 'string', enum: [sha('e')] },
+        repairs: {
+          type: 'object',
+          properties: { reader: { type: 'string' } },
+          required: ['reader'],
+          additionalProperties: false,
+        },
+      },
+      required: ['source_report_sha256', 'repairs'],
+      additionalProperties: false,
+    },
+  }],
+  tool_choice: { type: 'tool', name },
+});
+
 function contract(overrides = {}, payload = compactPayload()) {
   const evidence = deriveBenchmarkPayloadEvidence(payload);
   const base = {
@@ -67,7 +91,11 @@ function contract(overrides = {}, payload = compactPayload()) {
     requested_model: payload.model,
     ...overrides,
   };
-  return { value: { ...base, call_id: deriveBenchmarkCallId(base) }, evidence };
+  return {
+    value: { ...base, call_id: deriveBenchmarkCallId(base) },
+    evidence,
+    payload,
+  };
 }
 
 function validate(entry) {
@@ -76,6 +104,7 @@ function validate(entry) {
     entry.evidence,
     entry.value.run_id,
     entry.value.requested_model,
+    entry.payload,
   );
 }
 
@@ -213,6 +242,24 @@ test('stage, reader, retry, boundary, prompt, and schemas are derived and fail c
     /call matrix/,
   );
   assert.throws(() => validate(contract({ retry_number: 2 })), /0 or 1/);
+  for (const stage of ['triage', 'cold_read', 'smoke']) {
+    assert.throws(
+      () => validate(contract({
+        pipeline_stage: stage,
+        reader_name: null,
+        retry_number: 1,
+      }, schemaFreePayload())),
+      /call matrix/,
+    );
+  }
+  assert.throws(
+    () => validate(contract({
+      pipeline_stage: 'claim_verification',
+      reader_name: 'batch_001_of_004',
+      retry_number: 1,
+    })),
+    /call matrix/,
+  );
   assert.throws(() => validate(contract({ boundary_run: 4 })), /between 1 and 3/);
   assert.throws(() => validate(contract({ pipeline_pass: 'Sonnet pass' })), /pipeline_pass/);
   assert.throws(() => validate(contract({ prompt_sha256: sha('1') })), /prompt_sha256/);
@@ -220,6 +267,61 @@ test('stage, reader, retry, boundary, prompt, and schemas are derived and fail c
     () => validate(contract({ transport_schema_sha256: sha('2') })),
     /Schema fingerprints/,
   );
+});
+
+test('one reader or synthesis correction uses its exact targeted strict schema', () => {
+  assert.doesNotThrow(() => validate(contract(
+    { retry_number: 1 },
+    targetedCorrectionPayload(),
+  )));
+  assert.doesNotThrow(() => validate(contract(
+    { pipeline_stage: 'synthesis', reader_name: null, retry_number: 1 },
+    targetedCorrectionPayload('repair_synthesis_report'),
+  )));
+  assert.throws(
+    () => validate(contract({}, strictPayload())),
+    /call matrix/,
+  );
+  assert.throws(
+    () => validate(contract({ retry_number: 1 }, compactPayload())),
+    /call matrix/,
+  );
+  const invalidPayloads = [
+    strictPayload(),
+    { ...targetedCorrectionPayload(), tool_choice: { type: 'auto' } },
+    (() => {
+      const value = targetedCorrectionPayload('repair_character_report');
+      value.tool_choice.name = 'repair_structure_report';
+      return value;
+    })(),
+    (() => {
+      const value = targetedCorrectionPayload();
+      value.tools[0].input_schema.properties.source_report_sha256.enum = ['not-a-hash'];
+      return value;
+    })(),
+    (() => {
+      const value = targetedCorrectionPayload();
+      value.tools[0].input_schema.properties.repairs.properties = {};
+      value.tools[0].input_schema.properties.repairs.required = [];
+      return value;
+    })(),
+    (() => {
+      const value = targetedCorrectionPayload();
+      value.tools[0].input_schema.properties.repairs.additionalProperties = true;
+      return value;
+    })(),
+    (() => {
+      const value = targetedCorrectionPayload();
+      value.tools[0].input_schema.properties.repairs.properties.reader.type = 'object';
+      return value;
+    })(),
+  ];
+  for (const payload of invalidPayloads) {
+    assert.throws(
+      () => validate(contract({ retry_number: 1 }, payload)),
+      /call matrix/,
+    );
+  }
 });
 
 test('schema-free calls cannot carry forged schema fingerprints', () => {

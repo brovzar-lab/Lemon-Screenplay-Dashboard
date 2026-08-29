@@ -5,6 +5,7 @@ const {
   CANDIDATE_MAX_OUTPUT_TOKENS,
   benchmarkUncertainAccounting,
   benchmarkRequestFailureState,
+  candidateContractRejection,
   candidateSettlementFailure,
   isolationApp,
   isPermissionDenied,
@@ -14,6 +15,7 @@ const {
   providerTransportFailure,
 } = require('../lib/llmProxyCandidate');
 const { buildAnthropicRequest } = require('../lib/anthropicProxyCore');
+const { deriveBenchmarkPayloadEvidence } = require('../lib/benchmarkCandidatePolicy');
 
 test('candidate-only controls accept the exact 32k adaptive strict-tool request', () => {
   const request = {
@@ -116,6 +118,40 @@ test('candidate-only controls explicitly disable default thinking for small call
     ),
     /restricted to the candidate benchmark/,
   );
+});
+
+test('candidate contract rejection proves zero spend before reservation', () => {
+  const payload = {
+    model: 'claude-sonnet-5',
+    messages: [{ role: 'user', content: 'screenplay' }],
+    max_tokens: 32_000,
+  };
+  const evidence = deriveBenchmarkPayloadEvidence(payload);
+  assert.deepEqual(
+    candidateContractRejection({
+      call_id: 'a'.repeat(64),
+      requested_model: payload.model,
+      request_sha256: evidence.request_sha256,
+    }, evidence, payload.model),
+    {
+      call_id: 'a'.repeat(64),
+      requested_model: payload.model,
+      request_sha256: evidence.request_sha256,
+      disposition: 'rejected_before_reservation',
+      new_cost_microusd: 0,
+      charged_cost_microusd: 0,
+      reserved_cost_microusd: 0,
+      validation_failure_code: 'CANDIDATE_CONTRACT_REJECTED',
+      validation_failure_reason: (
+        'Candidate rejected the request contract before reservation or provider dispatch.'
+      ),
+    },
+  );
+  assert.equal(candidateContractRejection({
+    call_id: 'a'.repeat(64),
+    requested_model: payload.model,
+    request_sha256: 'b'.repeat(64),
+  }, evidence, payload.model), undefined);
 });
 
 test('online isolation probes recognize Firestore and Storage IAM denial codes', () => {
