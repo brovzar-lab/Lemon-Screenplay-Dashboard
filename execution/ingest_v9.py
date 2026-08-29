@@ -120,6 +120,7 @@ from content_identity import (  # noqa: E402
 from trust_manifest import (  # noqa: E402
     attach_trust_manifest,
     CLAIM_VERIFICATION_BATCH_SIZE,
+    claim_requires_exact_provided_pages,
     claim_verification_target_fields,
     claim_verification_targets,
     correction_call_lineage_matches,
@@ -2017,8 +2018,9 @@ def _correction_source_line_options(
         if isinstance(node, dict):
             page = node.get("page")
             excerpt = node.get("excerpt")
-            if type(page) is int and isinstance(excerpt, str):
+            if type(page) is int:
                 page_hints.add(page)
+            if type(page) is int and isinstance(excerpt, str):
                 text_hints.append(excerpt)
                 evidence_hints.append((page, excerpt))
             for key, nested in node.items():
@@ -2136,15 +2138,12 @@ def _bind_correction_source_line_options(
         if isinstance(properties, dict):
             page = properties.get("page")
             excerpt = properties.get("excerpt")
-            if (
-                isinstance(page, dict)
-                and page.get("type") == "integer"
-                and isinstance(excerpt, dict)
-                and excerpt.get("type") == "string"
-            ):
+            if isinstance(page, dict) and page.get("type") == "integer":
                 page["enum"] = pages
+                bound_fields += 1
+            if isinstance(excerpt, dict) and excerpt.get("type") == "string":
                 excerpt["enum"] = excerpts
-                bound_fields += 2
+                bound_fields += 1
             page_citations = properties.get("page_citations")
             if isinstance(page_citations, dict):
                 items = page_citations.get("items")
@@ -3199,6 +3198,37 @@ def _targeted_correction_request(
             ]
             add_target(root, allowed, reason)
 
+    if reader_name == "emotional_resonance":
+        scenes = rejected_report.get("goosebumps_scenes")
+        if isinstance(scenes, list):
+            for index, scene in enumerate(scenes):
+                if not isinstance(scene, dict):
+                    continue
+                citations = scene.get("page_citations")
+                if (
+                    type(scene.get("page")) is not int
+                    or not isinstance(citations, list)
+                    or len(citations) != 1
+                    or type(citations[0]) is not int
+                    or scene["page"] == citations[0]
+                ):
+                    continue
+                root = ("goosebumps_scenes", str(index))
+                properties = _schema_node_at_path(schema, root).get(
+                    "properties", {}
+                )
+                add_target(
+                    root,
+                    [
+                        (*root, field_name)
+                        for field_name in (
+                            "page", "page_citations", "citation_evidence",
+                        )
+                        if field_name in properties
+                    ],
+                    "goosebumps_page_citation_mismatch",
+                )
+
     if not targets:
         raise ValueError(
             "No schema-approved targeted correction is available for this failure"
@@ -3224,7 +3254,8 @@ def _targeted_correction_request(
             relative_allowed,
         )
         citation_repair = any(
-            path and path[-1] in {"page_citations", "citation_evidence"}
+            path
+            and path[-1] in {"page", "page_citations", "citation_evidence"}
             for path in allowed
         )
         source_line_options: List[Dict[str, Any]] = []
@@ -8973,6 +9004,18 @@ def _validate_claim_verification(
             "Supported", "Partially supported",
         }:
             raise ValueError("a reader score alignment was not independently supported")
+        if claim_requires_exact_provided_pages(target):
+            expected_pages = target.get("required_page_citations")
+            if (
+                not isinstance(expected_pages, list)
+                or len(expected_pages) != 1
+                or type(expected_pages[0]) is not int
+                or result["page_citations"] != expected_pages
+            ):
+                raise ValueError(
+                    "goosebumps claim verification did not confirm its "
+                    "reported physical page"
+                )
         sealed_results[claim_id] = {
             **{
                 key: copy.deepcopy(value)
@@ -8987,6 +9030,10 @@ def _validate_claim_verification(
             ],
             "evidence_scope": evidence_scope,
             "score_alignment_required": score_alignment_required,
+            "exact_provided_pages_required": target[
+                "exact_provided_pages_required"
+            ],
+            "required_page_citations": target["required_page_citations"],
         }
     if seen != set(expected):
         raise ValueError("claim verification omitted a locked target")
@@ -9026,6 +9073,14 @@ def run_claim_verification(
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Run bounded independent semantic adjudication after final selection."""
     targets = claim_verification_targets(analysis)
+    for target in targets:
+        exact_pages_required = claim_requires_exact_provided_pages(target)
+        target["exact_provided_pages_required"] = exact_pages_required
+        target["required_page_citations"] = (
+            copy.deepcopy(target.get("provided_page_citations", []))
+            if exact_pages_required
+            else []
+        )
     if len(targets) < 10:
         raise ClaimVerificationIncompleteError(
             "Independent claim verification has fewer than ten locked targets.",
@@ -9121,6 +9176,13 @@ def run_claim_verification(
                             "the story fact must be adjudicated and the selected excerpt "
                             "must substantively support it on the cited physical page; "
                             "exact word overlap is not required when the languages differ. "
+                            "When `exact_provided_pages_required` is true, treat the "
+                            "reported page as a location constraint, not as proof: verify "
+                            "the claim on exactly the supplied `required_page_citations`, "
+                            "find your own exact excerpt there, and cite only that page. "
+                            "If that page does not support the claim, mark it Unsupported "
+                            "or Contradicted; never substitute an adjacent or different "
+                            "page. "
                             "For `global`, "
                             "adjudicate the story fact across the complete screenplay and "
                             "cite the most representative physical pages. For "

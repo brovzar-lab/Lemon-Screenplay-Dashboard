@@ -2526,6 +2526,8 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertTrue(all(
             "locked claim cannot be rewritten" in prompt
             and "exact word overlap is not required" in prompt
+            and "exact_provided_pages_required" in prompt
+            and "never substitute an adjacent or different page" in prompt
             for prompt in prompts
         ))
         self.assertEqual(verified["claims"][0]["page_citations"], [1])
@@ -4760,6 +4762,18 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         claim_targets = []
         fixture_analysis = complete_analysis("Recovered Draft")
         fixture_analysis.pop("_boundary_reruns")
+        fixture_analysis["reader_reports"]["emotional_resonance"][
+            "goosebumps_scenes"
+        ] = [{
+            "page": 52,
+            "description": "The family chooses truth over safety.",
+            "why_it_works": "The choice resolves the central emotional conflict.",
+            "page_citations": [52],
+            "citation_evidence": [{
+                "page": 52,
+                "excerpt": FIXTURE_DECISION_EVIDENCE,
+            }],
+        }]
         claim_evidence_by_id = {
             target["claim_id"]: f"{target['claim']} supported by screenplay evidence."
             for target in ingest_v9.claim_verification_targets(fixture_analysis)
@@ -4817,6 +4831,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     report = copy.deepcopy(
                         fixture_analysis["reader_reports"][reader_name]
                     )
+                    report["goosebumps_scenes"][0]["page"] = 53
                     report["sub_scores"]["goosebumps_moments"].pop("moments")
                     report["sub_scores"][
                         "PRIVATE-SCREENPLAY-SENTINEL"
@@ -4836,6 +4851,17 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                         retry_text,
                     )
                     self.assertIn("source_response_id", retry_text)
+                    repair_schema = kwargs["tool"]["input_schema"][
+                        "properties"
+                    ]["repairs"]["properties"]["goosebumps_scenes.0"]
+                    self.assertEqual(
+                        set(repair_schema["properties"]),
+                        {"page", "page_citations", "citation_evidence"},
+                    )
+                    self.assertEqual(
+                        repair_schema["properties"]["page"]["enum"],
+                        [52, 53],
+                    )
                     return (
                         self._targeted_repair_input(
                             kwargs["tool"],
@@ -4859,22 +4885,31 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     stage=stage,
                 )
                 usage["calls"][0]["reader_name"] = kwargs["reader_name"]
-                return {"claims": [{
-                    "claim_id": target["claim_id"],
-                    "classification": "Supported",
-                    "story_fact_classification": (
-                        "Supported"
-                        if target["story_fact_check_required"]
-                        else "No concrete story fact"
-                    ),
-                    "unsupported_story_facts": [],
-                    "page_citations": [1],
-                    "citation_evidence": [{
-                        "page": 1,
-                        "excerpt": claim_evidence_by_id[target["claim_id"]],
-                    }],
-                } for target in claim_targets
-                    if target["claim_id"] in batch_ids]}, "", usage
+                claims = []
+                for target in claim_targets:
+                    if target["claim_id"] not in batch_ids:
+                        continue
+                    page = 1
+                    excerpt = claim_evidence_by_id[target["claim_id"]]
+                    if ingest_v9.claim_requires_exact_provided_pages(target):
+                        page = target["required_page_citations"][0]
+                        excerpt = FIXTURE_DECISION_EVIDENCE
+                    claims.append({
+                        "claim_id": target["claim_id"],
+                        "classification": "Supported",
+                        "story_fact_classification": (
+                            "Supported"
+                            if target["story_fact_check_required"]
+                            else "No concrete story fact"
+                        ),
+                        "unsupported_story_facts": [],
+                        "page_citations": [page],
+                        "citation_evidence": [{
+                            "page": page,
+                            "excerpt": excerpt,
+                        }],
+                    })
+                return {"claims": claims}, "", usage
 
             self.assertEqual(stage, "synthesis")
             synthesis_attempt += 1
@@ -5014,6 +5049,12 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             call["response_id"]: call for call in usage["calls"]
         }
         self.assertEqual(
+            analysis["reader_reports"]["emotional_resonance"][
+                "goosebumps_scenes"
+            ][0]["page"],
+            52,
+        )
+        self.assertEqual(
             analysis["material_claims"][0]["atomic_claims"][0][
                 "page_citations"
             ],
@@ -5145,6 +5186,38 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertTrue(
             trusted["trust_manifest"]["readers"]["publication_ready"]
         )
+        wrong_goosebumps_page = copy.deepcopy(raw)
+        wrong_claim = next(
+            claim
+            for claim in wrong_goosebumps_page["analysis"][
+                "_claim_verification"
+            ]["claims"]
+            if claim["claim_id"].endswith("goosebumps_scenes.0.description")
+        )
+        wrong_claim["page_citations"] = [1]
+        wrong_claim["citation_evidence"] = [{
+            "page": 1,
+            "excerpt": FIXTURE_DECISION_EVIDENCE,
+        }]
+        ingest_v9.attach_verified_citation_quality(
+            wrong_goosebumps_page["analysis"],
+            wrong_goosebumps_page["metadata"],
+            page_count,
+            screenplay_text,
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "goosebumps verification changed the reported physical page",
+        ):
+            attach_trust_manifest(
+                wrong_goosebumps_page,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-goosebumps-wrong-page",
+            )
         sealed_calls = {
             call["response_id"]: call
             for call in trusted["trust_manifest"]["models"]["calls"]
