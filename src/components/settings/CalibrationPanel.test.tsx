@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/producerCalibration', () => mocks);
+vi.mock('@/components/charts/TasteMatch', () => ({
+  TasteMatch: () => <div data-testid="taste-match" />,
+}));
 
 function head(index: number): ProducerAssessmentHead {
   return {
