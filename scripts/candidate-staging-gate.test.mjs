@@ -203,6 +203,7 @@ function stagingIdentityProof({
   extraProvider,
   userManagedKeyEmail,
   poolPolicy,
+  openIdOnlyRole,
 } = {}) {
   const projectId = 'lemon-screenplay-staging';
   const projectNumber = '549848020392';
@@ -235,9 +236,19 @@ function stagingIdentityProof({
     'roles/editor',
     'roles/owner',
     'roles/cloudfunctions.serviceAgent',
+    'roles/cloudfunctions.standardServiceAgent',
     'roles/run.serviceAgent',
   ]);
+  const tokenMintPermissions = (role) => [
+    ...(role === openIdOnlyRole ? [] : ['iam.serviceAccounts.getAccessToken']),
+    'iam.serviceAccounts.getOpenIdToken',
+  ];
   const runtimePermissions = {
+    'roles/cloudbuild.serviceAgent': tokenMintPermissions('roles/cloudbuild.serviceAgent'),
+    'roles/cloudfunctions.serviceAgent': tokenMintPermissions('roles/cloudfunctions.serviceAgent'),
+    'roles/cloudfunctions.standardServiceAgent': tokenMintPermissions(
+      'roles/cloudfunctions.standardServiceAgent',
+    ),
     'roles/datastore.user': [
       'datastore.entities.get',
       'datastore.entities.list',
@@ -246,7 +257,11 @@ function stagingIdentityProof({
       'datastore.entities.delete',
     ],
     'roles/logging.logWriter': ['logging.logEntries.create'],
-    'roles/iam.serviceAccountTokenCreator': ['iam.serviceAccounts.getAccessToken'],
+    'roles/iam.serviceAccountTokenCreator': tokenMintPermissions(
+      'roles/iam.serviceAccountTokenCreator',
+    ),
+    'roles/pubsub.serviceAgent': tokenMintPermissions('roles/pubsub.serviceAgent'),
+    'roles/run.serviceAgent': tokenMintPermissions('roles/run.serviceAgent'),
   };
   const bucketPolicy = { bindings: reviewedStorageBindings(projectId, true) };
   const workloadIdentitySubject = (
@@ -689,16 +704,41 @@ test('staging identity proof rejects indirect principals and provider drift', ()
   );
 });
 
-test('staging identity proof inventories the Firebase Admin caller impersonation path', () => {
+test('staging identity proof inventories all reviewed caller impersonation paths', () => {
   const proof = stagingIdentityProof();
   const firebaseAdmin = (
     'firebase-adminsdk-fbsvc@lemon-screenplay-staging.iam.gserviceaccount.com'
   );
   assert.ok(proof.reviewed_effective_invokers.includes(`serviceAccount:${firebaseAdmin}`));
   assert.ok(proof.privileged_service_accounts.includes(firebaseAdmin));
+  for (const agent of [
+    'service-549848020392@gcp-sa-cloudbuild.iam.gserviceaccount.com',
+    'service-549848020392@gcf-admin-robot.iam.gserviceaccount.com',
+    'service-549848020392@gcp-sa-pubsub.iam.gserviceaccount.com',
+    'service-549848020392@serverless-robot-prod.iam.gserviceaccount.com',
+  ]) {
+    assert.ok(proof.reviewed_effective_invokers.includes(`serviceAccount:${agent}`));
+    assert.ok(proof.provider_managed_invoker_service_agents.includes(agent));
+  }
   assert.throws(
     () => stagingIdentityProof({ userManagedKeyEmail: firebaseAdmin }),
     /unreviewed key/,
+  );
+  const openIdOnlyProof = stagingIdentityProof({
+    openIdOnlyRole: 'roles/cloudbuild.serviceAgent',
+  });
+  assert.ok(openIdOnlyProof.reviewed_effective_invokers.includes(
+    'serviceAccount:service-549848020392@gcp-sa-cloudbuild.iam.gserviceaccount.com',
+  ));
+  assert.throws(
+    () => stagingIdentityProof({
+      openIdOnlyRole: 'roles/cloudbuild.serviceAgent',
+      extraProjectBinding: {
+        role: 'roles/cloudbuild.serviceAgent',
+        members: ['serviceAccount:unreviewed@lemon-screenplay-staging.iam.gserviceaccount.com'],
+      },
+    }),
+    /reviewed contract/,
   );
 });
 

@@ -557,7 +557,9 @@ function reviewedEffectiveInvokers(expected) {
     `serviceAccount:firebase-adminsdk-fbsvc@${expected.projectId}.iam.gserviceaccount.com`,
     `serviceAccount:${expected.projectNumber}-compute@developer.gserviceaccount.com`,
     `serviceAccount:${expected.projectId}@appspot.gserviceaccount.com`,
+    `serviceAccount:service-${expected.projectNumber}@gcp-sa-cloudbuild.iam.gserviceaccount.com`,
     `serviceAccount:service-${expected.projectNumber}@gcf-admin-robot.iam.gserviceaccount.com`,
+    `serviceAccount:service-${expected.projectNumber}@gcp-sa-pubsub.iam.gserviceaccount.com`,
     `serviceAccount:service-${expected.projectNumber}@serverless-robot-prod.iam.gserviceaccount.com`,
     REVIEWED_STAGING_OWNER,
   ].sort();
@@ -565,7 +567,9 @@ function reviewedEffectiveInvokers(expected) {
 
 function reviewedProviderManagedInvokerServiceAgents(expected) {
   return [
+    `service-${expected.projectNumber}@gcp-sa-cloudbuild.iam.gserviceaccount.com`,
     `service-${expected.projectNumber}@gcf-admin-robot.iam.gserviceaccount.com`,
+    `service-${expected.projectNumber}@gcp-sa-pubsub.iam.gserviceaccount.com`,
     `service-${expected.projectNumber}@serverless-robot-prod.iam.gserviceaccount.com`,
   ].sort();
 }
@@ -868,9 +872,13 @@ export function buildStagingIdentityProof(resources, expected) {
     }
     for (const member of binding.members) effectiveInvokers.add(member);
   }
-  // A project-level token minter can impersonate the directly bound benchmark caller.
+  // A project-level OAuth or OIDC token minter can impersonate the directly bound caller.
   for (const binding of projectBindings) {
-    if (!permissionsByRole.get(binding.role).has('iam.serviceAccounts.getAccessToken')) continue;
+    const permissions = permissionsByRole.get(binding.role);
+    if (![
+      'iam.serviceAccounts.getAccessToken',
+      'iam.serviceAccounts.getOpenIdToken',
+    ].some((permission) => permissions.has(permission))) continue;
     if (binding.condition) {
       throw new Error('Effective candidate impersonation binding contains a condition.');
     }
