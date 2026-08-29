@@ -75,7 +75,7 @@ test('staging candidate workflow is WIF-only and deploys only the candidate', ()
   assert.match(workflow, /NODE_VERSION: '22\.22\.3'/);
   assert.match(workflow, /NPM_VERSION: '10\.9\.8'/);
   assert.match(workflow, /PYTHON_VERSION: '3\.13\.13'/);
-  assert.match(workflow, /JAVA_VERSION: '21\.0\.12'/);
+  assert.match(workflow, /JAVA_VERSION: '21\.0\.12\.1\+1'/);
   assert.match(workflow, /FIREBASE_TOOLS_VERSION: '15\.14\.0'/);
   for (const tool of ['Node', 'npm', 'Python', 'Java']) {
     assert.match(workflow, new RegExp(`${tool} version mismatch`));
@@ -88,7 +88,8 @@ test('staging candidate workflow is WIF-only and deploys only the candidate', ()
   });
   assert.equal(javaProbe.status, 0);
   assert.equal(javaProbe.stdout.trim(), '17.0.12');
-  assert.match(workflow, /test "\$\{ACTUAL_JAVA_VERSION\}" = "\$\{JAVA_VERSION\}"/);
+  assert.match(workflow, /EXPECTED_JAVA_RUNTIME_VERSION="\$\{JAVA_VERSION%%\+\*\}"/);
+  assert.match(workflow, /test "\$\{ACTUAL_JAVA_VERSION\}" = "\$\{EXPECTED_JAVA_RUNTIME_VERSION\}"/);
   assert.match(workflow, /GCLOUD_VERSION: '574\.0\.0'/);
   assert.match(workflow, /gcloud functions deploy llmProxyCandidate/);
   for (const flag of ['--min-instances=0', '--cpu=0.3333']) {

@@ -43,7 +43,7 @@ jobs:
       NODE_VERSION: '22.22.3'
       NPM_VERSION: '10.9.8'
       PYTHON_VERSION: '3.13.13'
-      JAVA_VERSION: '21.0.12'
+      JAVA_VERSION: '21.0.12.1+1'
       FIREBASE_TOOLS_VERSION: '15.14.0'
     steps:
       - name: Check out the requested source without cloud authority
@@ -108,6 +108,7 @@ jobs:
           ACTUAL_PYTHON_VERSION="$(python --version)"
           ACTUAL_JAVA_OUTPUT="$(java -version 2>&1)"
           ACTUAL_JAVA_VERSION="$(sed -nE 's/^(openjdk|java) version \"([^\"]+)\".*/\2/p' <<< "${ACTUAL_JAVA_OUTPUT}" | head -n 1)"
+          EXPECTED_JAVA_RUNTIME_VERSION="${JAVA_VERSION%%+*}"
           printf '%s\n' \
             "Resolved Node ${ACTUAL_NODE_VERSION}" \
             "Resolved npm ${ACTUAL_NPM_VERSION}" \
@@ -125,8 +126,8 @@ jobs:
             echo "Python version mismatch: expected Python ${PYTHON_VERSION}, received ${ACTUAL_PYTHON_VERSION}." >&2
             exit 1
           }
-          test "${ACTUAL_JAVA_VERSION}" = "${JAVA_VERSION}" || {
-            echo "Java version mismatch: expected ${JAVA_VERSION}, received ${ACTUAL_JAVA_VERSION}." >&2
+          test "${ACTUAL_JAVA_VERSION}" = "${EXPECTED_JAVA_RUNTIME_VERSION}" || {
+            echo "Java version mismatch: expected ${EXPECTED_JAVA_RUNTIME_VERSION}, received ${ACTUAL_JAVA_VERSION}." >&2
             exit 1
           }
           npm ci
