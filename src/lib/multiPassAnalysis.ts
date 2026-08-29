@@ -32,6 +32,7 @@ import {
   attachVerifiedBrowserCitationQuality,
   buildBrowserContextPolicy,
   extractTitlePageAuthor,
+  MIN_CITATION_EXCERPT_WORDS,
   SourceContextError,
 } from '@/lib/sourceEvidence';
 import {
@@ -437,7 +438,8 @@ function validateCitationBlock(label: string, value: unknown): void {
       const excerpt = item && typeof item === 'object' && !Array.isArray(item)
         ? (item as Record<string, unknown>).excerpt
         : undefined;
-      return typeof excerpt !== 'string' || excerpt.trim().split(/\s+/).length < 4;
+      return typeof excerpt !== 'string'
+        || excerpt.trim().split(/\s+/).length < MIN_CITATION_EXCERPT_WORDS;
     })
   ) {
     throw new Error(`${label} returned invalid citation evidence.`);

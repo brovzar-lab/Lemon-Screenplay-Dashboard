@@ -24,7 +24,10 @@ import {
   validateBrowserSynthesis,
   validateBrowserTriage,
 } from './multiPassAnalysis';
-import { buildBrowserPageEvidence } from './sourceEvidence';
+import {
+  attachVerifiedBrowserCitationQuality,
+  buildBrowserPageEvidence,
+} from './sourceEvidence';
 import {
   READER_METRICS,
   type ReaderName,
@@ -251,6 +254,24 @@ describe('Q3 five-reader reliability', () => {
       total: 2,
       verdict: 'situation',
     });
+  });
+
+  it('accepts an exact three-word excerpt through final physical validation', () => {
+    const reports = completeReaderReports();
+    const structure = reports.structure.sub_scores as Record<string, Record<string, unknown>>;
+    structure.first_ten_pages.citation_evidence = [{
+      page: 1,
+      excerpt: 'ANA enters quietly',
+    }];
+
+    validateBrowserReaderReport('structure', reports.structure);
+    const analysis: Record<string, unknown> = { reader_reports: reports };
+    const sourceEvidence = buildBrowserPageEvidence([
+      'ANA enters quietly. INT. HOUSE - DAY. LUIS waits beside the window.',
+    ]);
+
+    expect(attachVerifiedBrowserCitationQuality(analysis, sourceEvidence).status)
+      .toBe('verified');
   });
 
   it('rejects a semantically empty browser genre read', () => {

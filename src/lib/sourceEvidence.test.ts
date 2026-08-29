@@ -134,6 +134,35 @@ describe('browser source evidence', () => {
     expect(quality.issues).toContain('unsupported_page_citations');
   });
 
+  it('rejects word-prefix collisions and punctuation-only excerpts', () => {
+    const source = buildBrowserPageEvidence([
+      'She ran homesick before dawn.',
+      'The family waits at home.',
+    ]);
+    const analysis = {
+      note: {
+        page_citations: [1],
+        citation_evidence: [{ page: 1, excerpt: 'he ran home' }],
+      },
+    };
+
+    expect(validateBrowserAnalysisCitations(analysis, source).status)
+      .toBe('needs_review');
+    analysis.note.citation_evidence = [{ page: 1, excerpt: '— — —' }];
+    const punctuation = validateBrowserAnalysisCitations(analysis, source);
+    expect(punctuation.unsupported_citations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ reason: 'evidence_excerpt_too_short' }),
+    ]));
+
+    const commaSource = buildBrowserPageEvidence([
+      'No, mata a Carlos antes del amanecer.',
+      'La familia espera noticias.',
+    ]);
+    analysis.note.citation_evidence = [{ page: 1, excerpt: 'No mata a Carlos' }];
+    expect(validateBrowserAnalysisCitations(analysis, commaSource).status)
+      .toBe('needs_review');
+  });
+
   it('blocks a fabricated central character even when its local shape is valid', () => {
     const source = buildBrowserPageEvidence([
       'TITLE PAGE screenplay by writer',

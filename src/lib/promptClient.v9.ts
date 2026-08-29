@@ -185,7 +185,7 @@ You are evaluating CRAFT QUALITY ONLY. Not commercial potential. Not cultural fi
 
 Score anchors: 10 = masterpiece structure (Parasite), 9 = exceptional (Get Out), 8 = excellent, 7 = genuinely good, 6 = median produced film, 5 = below average, 4 = needs structural rewrite, 1-3 = amateur.
 
-Score each sub-criterion 1-10 with a one-sentence justification. Every sub-score MUST cite at least one physical [PAGE N] marker, regardless of score. Every cited page MUST also have exactly one citation_evidence item containing the page number and a verbatim excerpt of at least four words copied from that physical page.`;
+Score each sub-criterion 1-10 with a one-sentence justification. Every sub-score MUST cite at least one physical [PAGE N] marker, regardless of score. Every cited page MUST also have exactly one citation_evidence item containing the page number and a verbatim excerpt of at least three words copied from that physical page.`;
 
   const userPrompt = `Analyze this screenplay's STRUCTURE:
 
@@ -271,7 +271,7 @@ You are evaluating CHARACTER QUALITY ONLY. Not commercial potential. Not structu
 
 Score anchors: 10 = masterpiece characterization (There Will Be Blood), 9 = exceptional (Parasite), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = underdeveloped, 1-3 = amateur.
 
-Score each sub-criterion 1-10. Every sub-score MUST cite at least one physical [PAGE N] marker, regardless of score. Every cited page MUST also have exactly one citation_evidence item containing the page number and a verbatim excerpt of at least four words copied from that physical page.`;
+Score each sub-criterion 1-10. Every sub-score MUST cite at least one physical [PAGE N] marker, regardless of score. Every cited page MUST also have exactly one citation_evidence item containing the page number and a verbatim excerpt of at least three words copied from that physical page.`;
 
   const userPrompt = `Analyze this screenplay's CHARACTERS:
 
@@ -377,7 +377,7 @@ Evaluate SCENE CRAFT ONLY. Not macro-structure, not character arcs, not concept.
 
 Score anchors: 10 = masterpiece scene craft (No Country for Old Men), 9 = exceptional (Sicario), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = flat, 1-3 = amateur.
 
-Every sub-score MUST cite at least one physical [PAGE N] marker, regardless of score. Every cited page MUST also have exactly one citation_evidence item containing the page number and a verbatim excerpt of at least four words copied from that physical page.
+Every sub-score MUST cite at least one physical [PAGE N] marker, regardless of score. Every cited page MUST also have exactly one citation_evidence item containing the page number and a verbatim excerpt of at least three words copied from that physical page.
 
 Sample 8 scenes distributed across the script: opening (pages 1-5), inciting incident area, Act 1 turning point, Act 2 early, midpoint, Act 2 late/dark night, pre-climax, and the climax scene.`;
 
@@ -483,7 +483,7 @@ Evaluate THE IDEA, not the execution. A brilliant concept with mediocre executio
 
 Score anchors: 10 = masterpiece concept (The Matrix premise), 9 = exceptional (Get Out), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = derivative, 1-3 = no concept.
 
-Every sub-score MUST cite at least one physical [PAGE N] marker, regardless of score. Every cited page MUST also have exactly one citation_evidence item containing the page number and a verbatim excerpt of at least four words copied from that physical page.`;
+Every sub-score MUST cite at least one physical [PAGE N] marker, regardless of score. Every cited page MUST also have exactly one citation_evidence item containing the page number and a verbatim excerpt of at least three words copied from that physical page.`;
 
   const userPrompt = `Analyze this screenplay's CONCEPT:
 
@@ -546,7 +546,7 @@ Evaluate EMOTIONAL POWER, not craft competence or structural correctness. A stru
 
 Score anchors: 10 = devastating (Schindler's List), 9 = exceptional (Moonlight), 8 = excellent, 7 = genuinely good, 6 = median, 5 = below average, 4 = flat, 1-3 = no engagement.
 
-Every sub-score MUST cite at least one physical [PAGE N] marker, regardless of score. Every cited page MUST also have exactly one citation_evidence item containing the page number and a verbatim excerpt of at least four words copied from that physical page.`;
+Every sub-score MUST cite at least one physical [PAGE N] marker, regardless of score. Every cited page MUST also have exactly one citation_evidence item containing the page number and a verbatim excerpt of at least three words copied from that physical page.`;
 
   const userPrompt = `Analyze this screenplay's EMOTIONAL RESONANCE:
 

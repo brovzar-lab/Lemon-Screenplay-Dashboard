@@ -8,6 +8,7 @@ from execution.source_evidence import (
     build_page_evidence,
     extract_title_page_author,
     join_marked_pages,
+    reconcile_unique_citation_pages,
     validate_analysis_citations,
     validate_native_cross_check,
     validate_stored_context_policy,
@@ -240,6 +241,122 @@ class TestCitationEvidence(unittest.TestCase):
             quality["verification_scope"],
             "physical_page_and_exact_excerpt_location",
         )
+
+    def test_three_word_exact_excerpt_is_verified(self):
+        metric = self.analysis["reader_reports"]["structure"]["sub_scores"]["midpoint"]
+        metric["citation_evidence"][0]["excerpt"] = "The midpoint reversal"
+
+        quality = validate_analysis_citations(
+            self.analysis,
+            self.page_evidence["page_diagnostics"],
+            3,
+            self.text,
+        )
+
+        self.assertEqual(quality["status"], "verified")
+
+    def test_unique_exact_excerpt_reconciles_an_off_by_one_page(self):
+        metric = self.analysis["reader_reports"]["structure"]["sub_scores"]["midpoint"]
+        metric["page_citations"] = [1]
+        metric["citation_evidence"][0]["page"] = 1
+
+        reconciliation = reconcile_unique_citation_pages(
+            self.analysis,
+            self.text,
+        )
+        quality = validate_analysis_citations(
+            self.analysis,
+            self.page_evidence["page_diagnostics"],
+            3,
+            self.text,
+        )
+
+        self.assertEqual(reconciliation["status"], "reconciled_unique_exact_matches")
+        self.assertEqual(reconciliation["changed_citation_count"], 1)
+        self.assertEqual(metric["page_citations"], [2])
+        self.assertEqual(metric["citation_evidence"][0]["page"], 2)
+        self.assertEqual(quality["status"], "verified")
+
+    def test_ambiguous_or_invented_excerpt_is_never_relocated(self):
+        ambiguous_text = join_marked_pages([
+            "The same exact evidence appears here.",
+            "The same exact evidence appears here.",
+            "A different ending appears here.",
+        ])
+        ambiguous = copy.deepcopy(self.analysis)
+        metric = ambiguous["reader_reports"]["structure"]["sub_scores"]["midpoint"]
+        metric["page_citations"] = [3]
+        metric["citation_evidence"] = [{
+            "page": 3,
+            "excerpt": "The same exact evidence",
+        }]
+        self.assertEqual(
+            reconcile_unique_citation_pages(ambiguous, ambiguous_text)[
+                "changed_citation_count"
+            ],
+            0,
+        )
+
+        metric["citation_evidence"][0]["excerpt"] = "A dragon destroys the house."
+        self.assertEqual(
+            reconcile_unique_citation_pages(ambiguous, ambiguous_text)[
+                "changed_citation_count"
+            ],
+            0,
+        )
+
+    def test_word_prefix_collision_and_punctuation_are_not_exact_evidence(self):
+        collision_text = join_marked_pages([
+            "She ran homesick before dawn.",
+            "The family waits at home.",
+        ])
+        collision = copy.deepcopy(self.analysis)
+        metric = collision["reader_reports"]["structure"]["sub_scores"]["midpoint"]
+        metric["page_citations"] = [2]
+        metric["citation_evidence"] = [{"page": 2, "excerpt": "he ran home"}]
+
+        self.assertEqual(
+            reconcile_unique_citation_pages(collision, collision_text)[
+                "changed_citation_count"
+            ],
+            0,
+        )
+        quality = validate_analysis_citations(
+            collision,
+            build_page_evidence(collision_text, 2, "test")["page_diagnostics"],
+            2,
+            collision_text,
+        )
+        self.assertEqual(quality["status"], "needs_review")
+
+        metric["citation_evidence"] = [{"page": 2, "excerpt": "— — —"}]
+        quality = validate_analysis_citations(
+            collision,
+            build_page_evidence(collision_text, 2, "test")["page_diagnostics"],
+            2,
+            collision_text,
+        )
+        self.assertIn(
+            "evidence_excerpt_too_short",
+            {item["reason"] for item in quality["unsupported_citations"]},
+        )
+
+        punctuation_text = join_marked_pages([
+            "No, mata a Carlos antes del amanecer.",
+            "La familia espera noticias.",
+        ])
+        metric["page_citations"] = [1]
+        metric["citation_evidence"] = [{
+            "page": 1,
+            "excerpt": "No mata a Carlos",
+        }]
+        quality = validate_analysis_citations(
+            collision,
+            build_page_evidence(punctuation_text, 2, "test")["page_diagnostics"],
+            2,
+            punctuation_text,
+        )
+        self.assertEqual(quality["status"], "needs_review")
 
     def test_invented_excerpt_cannot_verify_a_real_page_number(self):
         metric = self.analysis["reader_reports"]["structure"]["sub_scores"]["midpoint"]

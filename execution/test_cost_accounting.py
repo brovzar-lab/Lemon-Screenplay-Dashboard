@@ -1227,7 +1227,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "absent from its evidence"):
             self._validate_synthesis(candidate)
 
-    def test_synthesis_cannot_lock_unrelated_claim_or_role_evidence(self):
+    def test_synthesis_defers_semantic_truth_to_independent_claim_review(self):
         for invented_claim in (
             "Mara secretly marries the villain.",
             "The hero dies and the villain wins.",
@@ -1240,8 +1240,11 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     2,
                     invented_claim,
                 )
-                with self.assertRaisesRegex(ValueError, "lexical support"):
-                    self._validate_synthesis(candidate)
+                validated = self._validate_synthesis(candidate)
+                self.assertTrue(any(
+                    target["claim"] == invented_claim
+                    for target in ingest_v9.claim_verification_targets(validated)
+                ))
 
         candidate = complete_analysis("Invented role")
         candidate["characters"].update({
@@ -1257,8 +1260,12 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 }],
             },
         })
-        with self.assertRaisesRegex(ValueError, "character role.*lexical support"):
-            self._validate_synthesis(candidate)
+        validated = self._validate_synthesis(candidate)
+        self.assertTrue(any(
+            target["claim_id"] == "character.protagonist"
+            and "secretly rules the galaxy" in target["claim"]
+            for target in ingest_v9.claim_verification_targets(validated)
+        ))
 
     def test_synthesis_requires_atomic_evidence_for_every_sentence(self):
         candidate = complete_analysis("Atomic claims")
@@ -1963,6 +1970,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "verdict_driving": True,
             "story_fact_check_required": True,
             "evidence_scope": "local",
+            "score_alignment_required": False,
         } for index in range(10)]
         with patch.object(
             ingest_v9,
@@ -1995,6 +2003,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "verdict_driving": True,
             "story_fact_check_required": True,
             "evidence_scope": "local",
+            "score_alignment_required": False,
         } for index in range(ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE * 2 + 1)]
         dispatches = 0
 
@@ -2098,6 +2107,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "verdict_driving": True,
             "story_fact_check_required": True,
             "evidence_scope": "local",
+            "score_alignment_required": False,
         } for index in range(ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE * 2 + 1)]
         dispatches = 0
 
@@ -2177,6 +2187,8 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "excerpt": f"Physical page evidence confirms {target['claim']}",
             }],
         } for target in targets]
+        raw_claims[0]["page_citations"] = [2]
+        raw_claims[0]["citation_evidence"][0]["page"] = 2
         claim_source = join_marked_pages([" ".join(
             claim["citation_evidence"][0]["excerpt"]
             for claim in raw_claims
@@ -2203,7 +2215,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "call_llm",
             side_effect=respond,
         ):
-            _verified, recorded = ingest_v9.run_claim_verification(
+            verified, recorded = ingest_v9.run_claim_verification(
                 text=claim_source,
                 analysis=analysis,
                 model_key="sonnet",
@@ -2221,14 +2233,18 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertTrue(prompts)
         self.assertTrue(all(
             "locked claim cannot be rewritten" in prompt
-            and "two significant words copied exactly" in prompt
+            and "exact word overlap is not required" in prompt
             for prompt in prompts
         ))
-        for call in recorded["calls"]:
-            self.assertEqual(set(call["transformations"]), expected)
+        self.assertEqual(verified["claims"][0]["page_citations"], [1])
+        for index, call in enumerate(recorded["calls"]):
+            call_expected = set(expected)
+            if index == 0:
+                call_expected.add("reconciled_unique_exact_citation_pages")
+            self.assertEqual(set(call["transformations"]), call_expected)
             self.assertEqual(
                 {item["name"] for item in call["transformation_evidence"]},
-                expected,
+                call_expected,
             )
             self.assertEqual(call["validation_result"], "passed")
             self.assertEqual(call["downstream_consumption"], "consumed")
@@ -2241,6 +2257,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "verdict_driving": True,
             "story_fact_check_required": True,
             "evidence_scope": "local",
+            "score_alignment_required": False,
         } for index in range(ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE + 1)]
 
         def respond(**kwargs):
@@ -2289,6 +2306,88 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE,
         )
 
+    def test_failed_claim_batch_records_a_page_reconciliation_before_rejection(self):
+        targets = [{
+            "claim_id": f"claim.{index}",
+            "claim": f"Locked claim {index}.",
+            "claim_type": "factual",
+            "verdict_driving": True,
+            "story_fact_check_required": True,
+            "evidence_scope": "local",
+            "score_alignment_required": False,
+        } for index in range(10)]
+        unique_excerpt = "Unique relocated claim evidence appears here."
+
+        def respond(**kwargs):
+            claims = [{
+                "claim_id": target["claim_id"],
+                "classification": "Supported",
+                "story_fact_classification": "Supported",
+                "unsupported_story_facts": [],
+                "page_citations": [1],
+                "citation_evidence": [{
+                    "page": 1,
+                    "excerpt": FIXTURE_DECISION_EVIDENCE,
+                }],
+            } for target in targets]
+            claims[0].update({
+                "page_citations": [2],
+                "citation_evidence": [{"page": 2, "excerpt": unique_excerpt}],
+            })
+            claims[1]["citation_evidence"] = [{
+                "page": 1,
+                "excerpt": "A fabricated dragon destroys the ending.",
+            }]
+            usage = self._successful_call_usage(
+                "msg_mixed_claim_citations",
+                stage="claim_verification",
+            )
+            usage["calls"][0]["reader_name"] = kwargs["reader_name"]
+            return {"claims": claims}, "", usage
+
+        source = join_marked_pages([
+            f"{unique_excerpt} {FIXTURE_DECISION_EVIDENCE}",
+            FIXTURE_DECISION_EVIDENCE,
+        ])
+        with patch.object(
+            ingest_v9,
+            "claim_verification_targets",
+            return_value=targets,
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=respond,
+        ), patch.object(
+            ingest_v9,
+            "_preserve_local_rejected_output",
+            return_value={"rejected_artifact_sha256": "a" * 64},
+        ):
+            with self.assertRaises(
+                ingest_v9.ClaimVerificationIncompleteError
+            ) as raised:
+                ingest_v9.run_claim_verification(
+                    text=source,
+                    analysis={},
+                    model_key="sonnet",
+                    proxy_url="https://candidate.test",
+                    pipeline_pass="sonnet",
+                    boundary_run=1,
+                )
+
+        call = raised.exception.usage["calls"][0]
+        self.assertEqual(
+            call["transformations"],
+            ["reconciled_unique_exact_citation_pages"],
+        )
+        self.assertEqual(
+            call["transformation_evidence"][0]["name"],
+            "reconciled_unique_exact_citation_pages",
+        )
+        self.assertEqual(
+            raised.exception.review_evidence["completed_batch_count"],
+            0,
+        )
+
     def test_claim_output_contract_failure_keeps_structural_reason(self):
         usage = self._successful_call_usage(
             "msg_claim_structural",
@@ -2308,6 +2407,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "verdict_driving": True,
                 "story_fact_check_required": True,
                 "evidence_scope": "local",
+                "score_alignment_required": False,
             } for index in range(10)],
         ), patch.object(ingest_v9, "call_llm", side_effect=failure):
             with self.assertRaises(ingest_v9.ClaimVerificationIncompleteError) as raised:
@@ -2594,30 +2694,29 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "protagonist", "Luci\u0301a", evidence, "protagonist"
         )
 
-    def test_multilingual_evidence_contract_preserves_strict_lexical_grounding(self):
-        evidence = {
+    def test_multilingual_reader_does_not_require_cross_language_word_overlap(self):
+        report = copy.deepcopy(
+            complete_analysis("Spanish Evidence")["reader_reports"]["structure"]
+        )
+        report["sub_scores"]["first_ten_pages"].update({
+            "justification": (
+                "The opening establishes the protagonist's emotional state."
+            ),
             "page_citations": [1],
             "citation_evidence": [{
                 "page": 1,
-                "excerpt": "Luci\u0301a enfrenta su miedo frente a toda la familia.",
+                "excerpt": "Lucía enfrenta su miedo frente a toda la familia.",
             }],
-        }
+        })
 
-        ingest_v9._validate_evidence_support(
-            "multilingual reader",
-            'The opening makes Lucía "enfrenta" the central conflict.',
-            evidence,
-        )
-        with self.assertRaisesRegex(ValueError, "lexical support"):
-            ingest_v9._validate_evidence_support(
-                "multilingual reader",
-                "The opening establishes the protagonist's emotional state.",
-                evidence,
-            )
+        validated = ingest_v9._validate_reader_report("structure", report)
+
+        self.assertEqual(validated["reader"], "structure")
 
     def test_reader_prompts_make_cross_language_and_nested_shapes_explicit(self):
         system_text = ingest_v9._reader_system_blocks("concept")[0]["text"]
-        self.assertIn("two significant words copied exactly", system_text)
+        self.assertIn("substantively supported", system_text)
+        self.assertIn("semantic support is independently adjudicated", system_text)
         self.assertIn("analysis language differs", system_text)
 
         blocks = ingest_v9._reader_user_blocks(
@@ -2639,7 +2738,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertNotIn("one_sentence_pitch", narrative_shape)
         self.assertIn("Use only these fields", task_text)
 
-    def test_corrective_retry_explains_lexical_and_schema_repairs(self):
+    def test_corrective_retry_explains_citation_and_schema_repairs(self):
         rejected_report = {
             "reader": "structure",
             "sub_scores": {"first_ten_pages": {"score": 7}},
@@ -2655,18 +2754,18 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 rejected_report
             ),
         }
-        lexical = ingest_v9._corrective_retry_user_blocks(
+        citation = ingest_v9._corrective_retry_user_blocks(
             [],
             tool_name="submit_structure_report",
             error=RuntimeError(
-                "reader sub-score first_ten_pages lacks lexical support "
-                "in its cited excerpt"
+                "reader citation evidence needs review: "
+                "unsupported_page_citations"
             ),
             rejected_report=rejected_report,
             correction_source=correction_source,
         )
-        rejected_block = lexical[-2]["text"]
-        lexical = lexical[-1]["text"]
+        rejected_block = citation[-2]["text"]
+        citation = citation[-1]["text"]
         self.assertIn("REJECTED PRIOR OUTPUT", rejected_block)
         self.assertIn("untrusted data", rejected_block)
         self.assertIn(
@@ -2689,8 +2788,9 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             ),
             rejected_block,
         )
-        self.assertIn("two significant words copied exactly", lexical)
-        self.assertIn("preserving accents", lexical)
+        self.assertIn("Recheck every page_citations", citation)
+        self.assertIn("exact cited [PAGE N]", citation)
+        self.assertIn("replace every paraphrase", citation)
         mismatched_source = copy.deepcopy(correction_source)
         mismatched_source["replay_report_sha256"] = "f" * 64
         with self.assertRaisesRegex(ValueError, "does not match the replayed report"):
@@ -3194,7 +3294,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
 
     def test_synthesis_prompt_retains_multilingual_anchors(self):
         self.assertIn(
-            "two significant words copied exactly",
+            "substantively supported",
             ingest_v9.SYNTHESIS_SYSTEM,
         )
         self.assertIn(
@@ -3203,10 +3303,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
 
     def test_santa_reader_failures_each_recover_once_with_full_accounting(self):
-        def lexical_failure(report):
-            report["sub_scores"]["first_ten_pages"]["justification"] = (
-                "The opening establishes an elegant dramatic foundation."
-            )
+        def paraphrased_excerpt(report):
+            report["sub_scores"]["first_ten_pages"]["citation_evidence"][0][
+                "excerpt"
+            ] = "This paraphrase does not occur on the physical page."
 
         def excerpt_failure(report):
             report["sub_scores"]["beat_question_clarity"][
@@ -3222,7 +3322,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             report["sub_scores"]["goosebumps_moments"].pop("moments")
 
         cases = (
-            ("lexical", "structure", lexical_failure),
+            ("paraphrased_excerpt", "structure", paraphrased_excerpt),
             ("invalid_excerpt", "craft_scene", excerpt_failure),
             ("unexpected_nested_field", "concept", unexpected_field),
             (
@@ -3537,7 +3637,11 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             })
             if synthesis_attempt == 1:
                 report = copy.deepcopy(fixture_analysis)
-                report.pop("themes")
+                report["material_claims"][0]["atomic_claims"][0][
+                    "citation_evidence"
+                ][0]["excerpt"] = (
+                    "This paraphrase does not occur on the physical page."
+                )
                 return report, "", usage
             retry_text = "\n".join(
                 block.get("text", "")
@@ -3546,7 +3650,15 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             )
             self.assertIn("REJECTED PRIOR OUTPUT", retry_text)
             self.assertIn("source_response_id", retry_text)
-            return copy.deepcopy(fixture_analysis), "", usage
+            self.assertIn("Recheck every page_citations", retry_text)
+            report = copy.deepcopy(fixture_analysis)
+            relocated = report["material_claims"][0]["atomic_claims"][0]
+            relocated["page_citations"] = [2]
+            relocated["citation_evidence"] = [{
+                "page": 2,
+                "excerpt": claim_evidence_by_id["material.0.0"],
+            }]
+            return report, "", usage
 
         genre_detection = ingest_v9.parse_detection({
             "external_genre": "Society",
@@ -3633,6 +3745,16 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         calls_by_id = {
             call["response_id"]: call for call in usage["calls"]
         }
+        self.assertEqual(
+            analysis["material_claims"][0]["atomic_claims"][0][
+                "page_citations"
+            ],
+            [1],
+        )
+        self.assertIn(
+            "reconciled_unique_exact_citation_pages",
+            calls_by_id["msg_synthesis_2"]["transformations"],
+        )
         for source_id, target_id in (
             (
                 "msg_reader_emotional_resonance_1",

@@ -61,7 +61,7 @@ _DEFAULT_MODEL_IDS = {
     "opus": _MODEL_CATALOG["candidateAnalysisRoutes"]["opus"]["modelId"],
 }
 CONSERVATIVE_CHARACTERS_PER_TOKEN = 3
-MIN_CITATION_EXCERPT_WORDS = 4
+MIN_CITATION_EXCERPT_WORDS = 3
 AUTHOR_CUE_PATTERN = re.compile(
     r"(?:^|\s)(written(?:\s+and\s+directed)?\s+by|screenplay\s+by|"
     r"script\s+by|gui[oó]n(?:\s+cinematogr[aá]fico)?\s+(?:de|por)|"
@@ -753,6 +753,105 @@ def _normalized_evidence_text(value: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
 
 
+def _evidence_words(value: str) -> List[str]:
+    return re.findall(r"\w+", _normalized_evidence_text(value), flags=re.UNICODE)
+
+
+def _contains_evidence_excerpt(page_text: str, excerpt: str) -> bool:
+    if len(_evidence_words(excerpt)) < MIN_CITATION_EXCERPT_WORDS:
+        return False
+    normalized_page = _normalized_evidence_text(page_text)
+    normalized_excerpt = _normalized_evidence_text(excerpt)
+    start = 0
+    while (index := normalized_page.find(normalized_excerpt, start)) >= 0:
+        end = index + len(normalized_excerpt)
+        before = normalized_page[index - 1] if index else ""
+        after = normalized_page[end] if end < len(normalized_page) else ""
+        if (
+            (not before or not (before.isalnum() or before == "_"))
+            and (not after or not (after.isalnum() or after == "_"))
+        ):
+            return True
+        start = index + 1
+    return False
+
+
+def reconcile_unique_citation_pages(
+    analysis: Dict[str, Any],
+    source_text: str,
+) -> Dict[str, Any]:
+    """Move an exact excerpt to its one unambiguous physical page."""
+    before_sha256 = sha256_json(analysis)
+    page_contents = _marked_page_contents(source_text)[1]
+    changes: List[Dict[str, Any]] = []
+
+    def walk(value: Any, path: List[str]) -> None:
+        if isinstance(value, dict):
+            citations = value.get("page_citations")
+            evidence = value.get("citation_evidence")
+            if (
+                isinstance(citations, list)
+                and isinstance(evidence, list)
+                and len(citations) == len(evidence)
+                and all(type(page) is int for page in citations)
+                and all(
+                    isinstance(item, dict)
+                    and type(item.get("page")) is int
+                    and isinstance(item.get("excerpt"), str)
+                    for item in evidence
+                )
+            ):
+                original_pages = [item["page"] for item in evidence]
+                if (
+                    len(set(original_pages)) == len(original_pages)
+                    and sorted(citations) == sorted(original_pages)
+                ):
+                    replacements: Dict[int, int] = {}
+                    for index, item in enumerate(evidence):
+                        excerpt = item["excerpt"]
+                        matching_pages = [
+                            page
+                            for page, page_text in page_contents.items()
+                            if _contains_evidence_excerpt(page_text, excerpt)
+                        ]
+                        original_page = item["page"]
+                        if original_page in matching_pages or len(matching_pages) != 1:
+                            continue
+                        resolved_page = matching_pages[0]
+                        replacements[original_page] = resolved_page
+                        item["page"] = resolved_page
+                        changes.append({
+                            "path": ".".join(path + ["citation_evidence", str(index)]),
+                            "original_page": original_page,
+                            "resolved_page": resolved_page,
+                            "excerpt_sha256": hashlib.sha256(
+                                _normalized_evidence_text(excerpt).encode("utf-8")
+                            ).hexdigest(),
+                        })
+                    if replacements:
+                        value["page_citations"] = [
+                            replacements.get(page, page) for page in citations
+                        ]
+            for key, nested in value.items():
+                if key != "_citation_quality":
+                    walk(nested, path + [str(key)])
+        elif isinstance(value, list):
+            for index, nested in enumerate(value):
+                walk(nested, path + [str(index)])
+
+    walk(analysis, [])
+    after_sha256 = sha256_json(analysis)
+    return {
+        "status": (
+            "reconciled_unique_exact_matches" if changes else "unchanged"
+        ),
+        "changed_citation_count": len(changes),
+        "changes": changes,
+        "before_sha256": before_sha256,
+        "after_sha256": after_sha256,
+    }
+
+
 def _citation_seal(path: str, page: int, excerpt: str) -> Dict[str, Any]:
     normalized = _normalized_evidence_text(excerpt)
     return {
@@ -790,7 +889,7 @@ def _declared_citation_seals(
                     if (
                         type(page) is not int
                         or not isinstance(excerpt, str)
-                        or len(_normalized_evidence_text(excerpt).split())
+                        or len(_evidence_words(excerpt))
                         < MIN_CITATION_EXCERPT_WORDS
                     ):
                         raise SourceEvidenceError(
@@ -945,8 +1044,7 @@ def validate_analysis_citations(
                                     "reason": "invalid_citation_evidence",
                                 })
                                 continue
-                            normalized_excerpt = _normalized_evidence_text(excerpt)
-                            if len(normalized_excerpt.split()) < MIN_CITATION_EXCERPT_WORDS:
+                            if len(_evidence_words(excerpt)) < MIN_CITATION_EXCERPT_WORDS:
                                 unsupported.append({
                                     "path": path_text,
                                     "page": evidence_page,
@@ -971,10 +1069,10 @@ def validate_analysis_citations(
                                     "reason": "missing_evidence_excerpt",
                                 })
                                 continue
-                            page_text = _normalized_evidence_text(
-                                page_contents.get(citation, "")
-                            )
-                            if _normalized_evidence_text(excerpt) not in page_text:
+                            if not _contains_evidence_excerpt(
+                                page_contents.get(citation, ""),
+                                excerpt,
+                            ):
                                 unsupported.append({
                                     "path": path_text,
                                     "page": citation,

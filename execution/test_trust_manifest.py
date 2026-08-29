@@ -29,6 +29,7 @@ from execution.trust_manifest import (
     LEGACY_ANALYSIS_SCHEMA_VERSION,
     LEGACY_PROMPT_CONTRACT_VERSION,
     LEGACY_TRUST_MANIFEST_VERSION,
+    PRE_CITATION_PROMPT_CONTRACT_VERSION,
     PREVIOUS_PROMPT_CONTRACT_VERSION,
     PREVIOUS_ANALYSIS_SCHEMA_VERSION,
     PROMPT_CONTRACT_VERSION,
@@ -205,6 +206,9 @@ class TrustManifestTests(unittest.TestCase):
             "verdict_driving": target["verdict_driving"],
             "story_fact_check_required": target["story_fact_check_required"],
             "evidence_scope": target["evidence_scope"],
+            "score_alignment_required": target[
+                "score_alignment_required"
+            ],
         } for target in targets]
         factual_count = sum(
             target["story_fact_check_required"] for target in targets
@@ -920,6 +924,66 @@ class TrustManifestTests(unittest.TestCase):
                 }],
             } for item in target_set]}, target_set)
 
+    def test_every_reader_score_is_bound_to_independent_alignment_review(self):
+        analysis = complete_analysis()
+        structure = analysis["reader_reports"]["structure"]["sub_scores"]
+        structure["first_ten_pages"].update({
+            "score": 10,
+            "justification": "The opening fails to establish a dramatic foundation.",
+        })
+        targets = claim_verification_targets(analysis)
+        score_targets = [
+            target for target in targets
+            if target["claim_id"].startswith("reader.")
+            and target["score_alignment_required"]
+        ]
+        expected_score_count = sum(
+            len(report["sub_scores"])
+            for report in analysis["reader_reports"].values()
+        )
+        self.assertEqual(len(score_targets), expected_score_count)
+        target = next(
+            item for item in score_targets
+            if item["claim_id"] == "reader.structure.first_ten_pages"
+        )
+        self.assertIn("10/10", target["claim"])
+        self.assertIn("fails to establish", target["claim"])
+
+        selected = [target, *[
+            item for item in targets
+            if item is not target
+        ][:9]]
+        raw = {"claims": [{
+            "claim_id": item["claim_id"],
+            "classification": (
+                "Not objectively verifiable" if item is target else "Supported"
+            ),
+            "story_fact_classification": (
+                "Supported"
+                if item["story_fact_check_required"]
+                else "No concrete story fact"
+            ),
+            "unsupported_story_facts": [],
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": "A family confronts a buried secret together.",
+            }],
+        } for item in selected]}
+        with self.assertRaisesRegex(ValueError, "score alignment"):
+            _validate_claim_verification(raw, selected)
+
+        zero_analysis = complete_analysis()
+        zero_analysis["reader_reports"]["character"]["sub_scores"]["ghost"][
+            "score"
+        ] = 0
+        zero_target = next(
+            item for item in claim_verification_targets(zero_analysis)
+            if item["claim_id"] == "reader.character.ghost"
+        )
+        self.assertIn("0/10", zero_target["claim"])
+        self.assertTrue(zero_target["score_alignment_required"])
+
     def test_fabricated_goosebumps_event_and_invalid_page_cannot_escape(self):
         analysis = complete_analysis()
         emotional = analysis["reader_reports"]["emotional_resonance"]
@@ -991,6 +1055,17 @@ class TrustManifestTests(unittest.TestCase):
             target["claim_id"] == "reader.craft_scene.bmoc_failure_scan.craft_warning"
             for target in targets
         ))
+
+        pre_citation = claim_verification_targets(
+            complete_analysis(),
+            prompt_contract_version=PRE_CITATION_PROMPT_CONTRACT_VERSION,
+        )
+        old_reader_target = next(
+            target for target in pre_citation
+            if target["claim_id"] == "reader.structure.first_ten_pages"
+        )
+        self.assertNotIn("score_alignment_required", old_reader_target)
+        self.assertNotIn("scored criterion", old_reader_target["claim"])
 
     def test_evidence_scope_contract_survives_a_future_prompt_version_bump(self):
         august_contract = PROMPT_CONTRACT_VERSION

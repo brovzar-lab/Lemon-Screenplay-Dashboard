@@ -81,10 +81,12 @@ SUPPORTED_ANALYSIS_SCHEMA_VERSIONS = {
 TRIAGE_SCHEMA_VERSION = "v9-triage-schema-2026-07-29"
 LEGACY_PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-07-29"
 PREVIOUS_PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-27"
-PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-29"
+PRE_CITATION_PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-29"
+PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-29-citation-v2"
 SUPPORTED_PROMPT_CONTRACT_VERSIONS = {
     LEGACY_PROMPT_CONTRACT_VERSION,
     PREVIOUS_PROMPT_CONTRACT_VERSION,
+    PRE_CITATION_PROMPT_CONTRACT_VERSION,
     PROMPT_CONTRACT_VERSION,
 }
 LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS = {
@@ -122,6 +124,12 @@ SUPPORTED_ANALYSIS_CONTRACTS = {
         TRUST_MANIFEST_VERSION,
         PREVIOUS_ANALYSIS_SCHEMA_VERSION,
         PREVIOUS_PROMPT_CONTRACT_VERSION,
+        SCORING_CODE_VERSION,
+    ),
+    (
+        TRUST_MANIFEST_VERSION,
+        ANALYSIS_SCHEMA_VERSION,
+        PRE_CITATION_PROMPT_CONTRACT_VERSION,
         SCORING_CODE_VERSION,
     ),
     (
@@ -261,11 +269,15 @@ def claim_verification_target_fields(
         "verdict_driving",
         "story_fact_check_required",
     )
-    return (
-        (*fields, "evidence_scope")
-        if prompt_contract_version not in LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS
-        else fields
-    )
+    if prompt_contract_version not in LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS:
+        fields = (*fields, "evidence_scope")
+    if prompt_contract_version not in {
+        LEGACY_PROMPT_CONTRACT_VERSION,
+        PREVIOUS_PROMPT_CONTRACT_VERSION,
+        PRE_CITATION_PROMPT_CONTRACT_VERSION,
+    }:
+        fields = (*fields, "score_alignment_required")
+    return fields
 
 
 def claim_verification_targets(
@@ -278,6 +290,10 @@ def claim_verification_targets(
         raise ValueError("Unsupported prompt contract version")
     current_contract = (
         prompt_contract_version not in LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS
+    )
+    score_bound_contract = (
+        current_contract
+        and prompt_contract_version != PRE_CITATION_PROMPT_CONTRACT_VERSION
     )
     targets: List[Dict[str, Any]] = []
     nested_metadata = {
@@ -306,6 +322,7 @@ def claim_verification_targets(
         verdict_driving: bool,
         evidence: Any = None,
         evidence_scope: Optional[str] = None,
+        score_alignment_required: bool = False,
     ) -> None:
         if not isinstance(claim, str) or not claim.strip():
             return
@@ -331,6 +348,8 @@ def claim_verification_targets(
                 raise ValueError("claim evidence scope is invalid")
             target["evidence_scope"] = scope
             target["story_fact_check_required"] = scope != "evaluative"
+        if score_bound_contract:
+            target["score_alignment_required"] = score_alignment_required
         targets.append(target)
 
     def add_nested_assertions(
@@ -601,12 +620,27 @@ def claim_verification_targets(
             continue
         for metric_name in sorted(sub_scores):
             metric = sub_scores[metric_name]
+            justification = (
+                metric.get("justification") if isinstance(metric, Mapping) else None
+            )
+            score = metric.get("score") if isinstance(metric, Mapping) else None
+            claim = justification
+            if (
+                score_bound_contract
+                and not isinstance(score, bool)
+                and isinstance(score, (int, float))
+            ):
+                claim = (
+                    f"Reader {reader_name} scored criterion {metric_name} "
+                    f"{score}/10. Justification: {justification}"
+                )
             add(
                 f"reader.{reader_name}.{metric_name}",
-                metric.get("justification") if isinstance(metric, Mapping) else None,
+                claim,
                 "mixed",
                 True,
                 metric,
+                score_alignment_required=True,
             )
             if isinstance(metric, Mapping):
                 add_nested_assertions(
@@ -4136,6 +4170,7 @@ def _claim_verification_provenance(
         prompt_contract_version=prompt_contract_version,
     )
     target_fields = claim_verification_target_fields(prompt_contract_version)
+    score_alignment_contract = "score_alignment_required" in target_fields
     expected_locked_targets = [
         {
             key: target[key]
@@ -4183,6 +4218,11 @@ def _claim_verification_provenance(
             raise ValueError("independent claim verdict lineage is missing")
         if type(claim.get("story_fact_check_required")) is not bool:
             raise ValueError("independent claim story-fact lineage is missing")
+        if (
+            score_alignment_contract
+            and type(claim.get("score_alignment_required")) is not bool
+        ):
+            raise ValueError("independent claim score-alignment lineage is missing")
         if prompt_contract_version not in LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS:
             evidence_scope = claim.get("evidence_scope")
             if evidence_scope not in {"local", "global", "evaluative"}:
@@ -4195,6 +4235,12 @@ def _claim_verification_provenance(
             "Unsupported", "Contradicted",
         }:
             raise ValueError("a verdict-driving claim failed independent verification")
+        if (
+            score_alignment_contract
+            and claim["score_alignment_required"]
+            and classification not in {"Supported", "Partially supported"}
+        ):
+            raise ValueError("a reader score alignment was not independently supported")
         story_fact_classification = claim.get("story_fact_classification")
         if story_fact_classification not in {
             "Supported",

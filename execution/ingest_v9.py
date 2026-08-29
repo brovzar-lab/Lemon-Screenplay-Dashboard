@@ -147,12 +147,14 @@ from story_grid import (  # noqa: E402
     build_genre_card,
 )
 from source_evidence import (  # noqa: E402
+    MIN_CITATION_EXCERPT_WORDS,
     PAGE_MARKER_PATTERN,
     SourceEvidenceError,
     attach_verified_citation_quality,
     build_context_policy,
     build_page_evidence,
     extract_title_page_author,
+    reconcile_unique_citation_pages,
     validate_analysis_citations,
     validate_parsed_source,
 )
@@ -2312,16 +2314,22 @@ def _corrective_retry_user_blocks(
     """Add a precise correction while preserving the cached screenplay prefix."""
     reason = str(error)[:500]
     repair_hint = ""
-    if "lacks lexical support" in reason:
+    if (
+        "citation evidence needs review" in reason
+        or "unsupported_page_citations" in reason
+        or "invalid_page_citations" in reason
+    ):
         repair_hint = (
-            " Rewrite the rejected evidence statement so it includes at least "
-            "two significant words copied exactly from its cited excerpts, "
-            "preserving accents, even when the analysis language differs from "
-            "the screenplay."
+            " Recheck every page_citations and citation_evidence item in the "
+            "entire rejected report, not only the first reported failure. Every "
+            "excerpt must contain at least three consecutive words copied "
+            "verbatim from the exact cited [PAGE N]. Fix the page number when "
+            "the exact quotation belongs to a different physical page, and "
+            "replace every paraphrase with source text."
         )
     elif "invalid evidence excerpt" in reason:
         repair_hint = (
-            " Replace the rejected excerpt with at least four consecutive words "
+            " Replace the rejected excerpt with at least three consecutive words "
             "copied verbatim from its cited physical page."
         )
     elif "unexpected field" in reason:
@@ -4784,11 +4792,11 @@ def _sub_score_schema_with(extra: Dict[str, Any]) -> Dict[str, Any]:
 
 
 EVIDENCE_ANCHOR_INSTRUCTION = (
-    "Every evidence-bearing claim or justification MUST include at least two "
-    "significant words copied exactly from its cited excerpts, preserving "
-    "accents. Use names, actions, objects, or outcomes, not articles or "
-    "prepositions. This remains required when the analysis language differs "
-    "from the screenplay."
+    "Every evidence-bearing claim or justification MUST be substantively "
+    "supported by its cited excerpts. The excerpts themselves must be copied "
+    "verbatim from the cited physical pages. Exact word overlap with the "
+    "analysis is not required when the analysis language differs from the "
+    "screenplay; semantic support is independently adjudicated before lock."
 )
 
 
@@ -4796,7 +4804,7 @@ PAGE_CITATION_INSTRUCTION = f"""\
 Every sub-score MUST include `page_citations` using the physical [PAGE N]
 markers in the screenplay text and MUST cite at least one page, regardless of
 score. For every cited page, `citation_evidence` MUST contain one matching object
-with that page number and a verbatim excerpt of at least four words copied from
+with that page number and a verbatim excerpt of at least three words copied from
 that physical page. Never infer a page number or quotation from screenplay
 formatting.
 {EVIDENCE_ANCHOR_INSTRUCTION}"""
@@ -6011,8 +6019,9 @@ You will call `submit_synthesis_report` with:
 - A `material_claims` evidence entry for the exact logline, executive summary,
   every strength, and every weakness. Each entry must repeat the exact display
   text, split it into sentence- or semicolon-level `atomic_claims`, and give
-  every atomic claim its own physical-page excerpts. The excerpts must share
-  the material names/actions/outcomes asserted by that atomic claim.
+  every atomic claim its own physical-page excerpts. Each excerpt must contain
+  at least three consecutive words copied verbatim from the cited page and
+  substantively support the atomic claim.
 - {EVIDENCE_ANCHOR_INSTRUCTION}
 - Character identity and role evidence. Set role to protagonist, antagonist, or
   supporting and explain why the cited excerpt proves that role using concrete
@@ -6892,38 +6901,10 @@ def _validate_citation_block(label: str, metric: Any) -> None:
         raise ValueError(f"{label} citation evidence does not match its pages")
     if any(
         not isinstance(item.get("excerpt"), str)
-        or len(item["excerpt"].split()) < 4
+        or len(item["excerpt"].split()) < MIN_CITATION_EXCERPT_WORDS
         for item in evidence
     ):
         raise ValueError(f"{label} has an invalid evidence excerpt")
-
-
-_EVIDENCE_STOPWORDS = frozenset({
-    "the", "and", "that", "this", "with", "from", "into", "when", "where",
-    "what", "which", "while", "their", "there", "then", "than", "because",
-    "para", "pero", "por", "que", "con", "como", "cuando", "donde", "desde",
-    "una", "uno", "unos", "unas", "del", "las", "los", "sus", "este", "esta",
-    "int", "ext", "day", "night", "dia", "noche", "scene", "page", "escena",
-})
-
-
-def _significant_evidence_tokens(value: str) -> set[str]:
-    normalized = unicodedata.normalize("NFKC", value).casefold()
-    return {
-        token
-        for token in re.findall(r"\b\w+\b", normalized, flags=re.UNICODE)
-        if len(token) >= 3 and token not in _EVIDENCE_STOPWORDS and not token.isdigit()
-    }
-
-
-def _validate_evidence_support(label: str, claim: str, evidence: Dict[str, Any]) -> None:
-    claim_tokens = _significant_evidence_tokens(claim)
-    excerpt_tokens = _significant_evidence_tokens(" ".join(
-        item["excerpt"] for item in evidence["citation_evidence"]
-    ))
-    required_overlap = min(2, len(claim_tokens))
-    if required_overlap == 0 or len(claim_tokens & excerpt_tokens) < required_overlap:
-        raise ValueError(f"{label} lacks lexical support in its cited excerpt")
 
 
 def _atomic_claims(value: str) -> List[str]:
@@ -6981,11 +6962,6 @@ def _validate_character_evidence(
         )
         if not name_present:
             raise ValueError(f"{label} character name is absent from its evidence")
-    _validate_evidence_support(
-        f"{label} character role",
-        evidence["role_justification"],
-        evidence,
-    )
 
 
 def _trap_numeric_path(
@@ -7188,11 +7164,6 @@ def _validate_reader_report(reader: str, report: Any) -> Dict[str, Any]:
             raise ValueError(
                 f"reader sub-score {metric_name} has no evidence justification"
             )
-        _validate_evidence_support(
-            f"reader sub-score {metric_name}",
-            justification,
-            metric,
-        )
     if reader == "emotional_resonance":
         for index, scene in enumerate(report["goosebumps_scenes"]):
             label = f"goosebumps scene {index}"
@@ -7203,11 +7174,6 @@ def _validate_reader_report(reader: str, report: Any) -> Dict[str, Any]:
                 value = scene[field]
                 if not isinstance(value, str) or not value.strip():
                     raise ValueError(f"{label} {field} is empty")
-                _validate_evidence_support(
-                    f"{label} {field}",
-                    value,
-                    scene,
-                )
     report["pillar_score"] = _compute_pillar_score(report)
     if reader == "character":
         report["story_vs_situation"] = _canonical_story_vs_situation(report)
@@ -7354,11 +7320,6 @@ def _validate_synthesis_report(
         for atomic_index, atomic_claim in enumerate(atomic_evidence):
             label = f"synthesis material claim {index}.{atomic_index}"
             _validate_citation_block(label, atomic_claim)
-            _validate_evidence_support(
-                label,
-                atomic_claim["claim"],
-                atomic_claim,
-            )
         seen_claims.add(key)
     if seen_claims != set(expected_claims):
         raise ValueError("synthesis material claims do not cover final decision prose")
@@ -7787,12 +7748,6 @@ def _validate_claim_verification(
             and story_fact_classification != "No concrete story fact"
         ):
             raise ValueError("an evaluative claim invented a concrete story-fact check")
-        if evidence_scope == "local":
-            _validate_evidence_support(
-                f"claim verification {claim_id}",
-                target["claim"],
-                result,
-            )
         if target["story_fact_check_required"]:
             factual_total += 1
             if story_fact_classification in {"Supported", "Partially supported"}:
@@ -7806,6 +7761,13 @@ def _validate_claim_verification(
             "Unsupported", "Contradicted",
         }:
             raise ValueError("a verdict-driving claim failed independent verification")
+        score_alignment_required = target.get("score_alignment_required")
+        if type(score_alignment_required) is not bool:
+            raise ValueError("a locked claim lacks score-alignment lineage")
+        if score_alignment_required and classification not in {
+            "Supported", "Partially supported",
+        }:
+            raise ValueError("a reader score alignment was not independently supported")
         sealed_results[claim_id] = {
             **{
                 key: copy.deepcopy(value)
@@ -7819,6 +7781,7 @@ def _validate_claim_verification(
                 "story_fact_check_required"
             ],
             "evidence_scope": evidence_scope,
+            "score_alignment_required": score_alignment_required,
         }
     if seen != set(expected):
         raise ValueError("claim verification omitted a locked target")
@@ -7874,10 +7837,25 @@ def run_claim_verification(
         targets[index:index + CLAIM_VERIFICATION_BATCH_SIZE]
         for index in range(0, len(targets), CLAIM_VERIFICATION_BATCH_SIZE)
     ]
+    marker_pages = [
+        int(match.group(1))
+        for match in PAGE_MARKER_PATTERN.finditer(text)
+    ]
+    if not marker_pages:
+        raise SourceEvidenceError(
+            "claim verification source has no physical-page markers"
+        )
+    page_count = max(marker_pages)
+    claim_page_evidence = build_page_evidence(
+        text,
+        page_count,
+        "claim_verification",
+    )
     batch_records: List[Dict[str, Any]] = []
     current_usage = empty_usage()
     current_raw: Any = None
     current_raw_response: Dict[str, Any] = {}
+    current_citation_reconciliation: Optional[Dict[str, Any]] = None
     raw: Dict[str, Any] = {"claims": []}
     try:
         for batch_index, batch in enumerate(batches, start=1):
@@ -7891,6 +7869,7 @@ def run_claim_verification(
             current_usage = empty_usage()
             current_raw = None
             current_raw_response = {}
+            current_citation_reconciliation = None
             current_raw, _text, current_usage = call_llm(
                 system_blocks=[{
                     "type": "text",
@@ -7915,17 +7894,27 @@ def run_claim_verification(
                             "judgments, adjudicate every factual story assertion; do not "
                             "use Not objectively verifiable to avoid checking facts. Do "
                             "not treat shared names or words as semantic support.\n\n"
+                            "For every reader criterion target, adjudicate its criterion, "
+                            "numeric score, and justification together. Scores run from "
+                            "0 to 10, where 0 means absent or no demonstrated merit when "
+                            "the criterion permits it, 1 is poor, and 10 is outstanding. "
+                            "Mark the target Unsupported or "
+                            "Contradicted when the score direction conflicts with the "
+                            "grounded justification or screenplay evidence.\n\n"
                             "For every Partially supported story-fact result, list each "
                             "unsupported portion and its kind. Use an empty list for every "
                             "other classification. Return only IDs, classifications, "
                             "unsupported portions, and physical-page evidence.\n\n"
+                            "Every citation_evidence excerpt must contain at least "
+                            "three consecutive words copied verbatim from its cited "
+                            "physical [PAGE N]. Never paraphrase a quotation.\n\n"
                             "Follow each locked target's `evidence_scope`. For `local`, "
                             "the story fact must be adjudicated and the selected excerpt "
-                            "must contain at least two significant words copied exactly "
-                            "from the locked claim, preserving accents. For `global`, "
+                            "must substantively support it on the cited physical page; "
+                            "exact word overlap is not required when the languages differ. "
+                            "For `global`, "
                             "adjudicate the story fact across the complete screenplay and "
-                            "cite the most representative physical pages; exact lexical "
-                            "overlap is not required for a global absence. For "
+                            "cite the most representative physical pages. For "
                             "`evaluative`, use `No concrete story fact`, judge the creative "
                             "conclusion in `classification`, and cite relevant pages. The "
                             "locked claim cannot be rewritten.\n\n"
@@ -7963,28 +7952,30 @@ def run_claim_verification(
                 raise ValueError(
                     "claim verification batch changed, duplicated, or omitted a locked target"
                 )
+            current_citation_reconciliation = reconcile_unique_citation_pages(
+                {"claim_verification": current_raw},
+                text,
+            )
+            batch_citations = validate_analysis_citations(
+                {"claim_verification": current_raw},
+                claim_page_evidence["page_diagnostics"],
+                page_count,
+                text,
+            )
+            if batch_citations["status"] != "verified":
+                raise SourceEvidenceError(
+                    "claim verification citation evidence needs review: "
+                    + ", ".join(batch_citations["issues"])
+                )
             batch_records.append({
                 "targets": batch,
                 "raw": current_raw,
                 "raw_response": current_raw_response,
                 "usage": current_usage,
+                "citation_reconciliation": current_citation_reconciliation,
             })
             raw["claims"].extend(copy.deepcopy(current_raw.get("claims", [])))
         verified = _validate_claim_verification(raw, targets)
-        marker_pages = [
-            int(match.group(1))
-            for match in PAGE_MARKER_PATTERN.finditer(text)
-        ]
-        if not marker_pages:
-            raise SourceEvidenceError(
-                "claim verification source has no physical-page markers"
-            )
-        page_count = max(marker_pages)
-        claim_page_evidence = build_page_evidence(
-            text,
-            page_count,
-            "claim_verification",
-        )
         claim_citations = validate_analysis_citations(
             {"claim_verification": verified},
             claim_page_evidence["page_diagnostics"],
@@ -8017,6 +8008,7 @@ def run_claim_verification(
                 "raw": current_raw,
                 "raw_response": current_raw_response,
                 "usage": current_usage,
+                "citation_reconciliation": current_citation_reconciliation,
             })
         rejected_evidence: List[Dict[str, Any]] = []
         discarded_usages: List[Dict[str, Any]] = []
@@ -8031,6 +8023,22 @@ def run_claim_verification(
                 isinstance(error, LlmOutputContractError)
                 and record is batch_records[-1]
             )
+            record_transformations: List[str] = []
+            transformation_evidence: List[Dict[str, Any]] = []
+            citation_reconciliation = record.get("citation_reconciliation")
+            if (
+                isinstance(citation_reconciliation, dict)
+                and citation_reconciliation.get("changed_citation_count")
+            ):
+                record_transformations.append(
+                    "reconciled_unique_exact_citation_pages"
+                )
+                transformation_evidence.append({
+                    "name": "reconciled_unique_exact_citation_pages",
+                    "before_sha256": citation_reconciliation["before_sha256"],
+                    "after_sha256": citation_reconciliation["after_sha256"],
+                    "changed": True,
+                })
             _mark_call_validation(
                 attempt_usage,
                 result=(
@@ -8039,6 +8047,8 @@ def run_claim_verification(
                     else "failed_application_validation"
                 ),
                 reason=str(error),
+                transformations=record_transformations,
+                transformation_evidence=transformation_evidence,
             )
             if structural:
                 attempt_usage["calls"][0]["failure_state"] = "output_contract_failed"
@@ -8077,7 +8087,9 @@ def run_claim_verification(
                 "validation_reason": str(error),
                 "error_type": type(error).__name__,
                 "target_count": len(targets),
-                "completed_batch_count": len(batch_records),
+                "completed_batch_count": sum(
+                    1 for record in batch_records if record["targets"]
+                ),
                 "rejected_responses": rejected_evidence,
                 "offending_claims": _rejected_claim_summary(raw),
             },
@@ -8113,7 +8125,8 @@ def run_claim_verification(
             sealed_by_id[target["claim_id"]]
             for target in record["targets"]
         ]
-        transformation_evidence = (
+        record_transformations = list(transformations)
+        transformation_evidence = [
             _transformation_hash_evidence(
                 transformations[0], raw_batch_claims, sealed_batch,
             ),
@@ -8130,13 +8143,28 @@ def run_claim_verification(
                     "analysis_sha256": verified["analysis_sha256"],
                 },
             ),
-        )
+        ]
+        citation_reconciliation = record.get("citation_reconciliation")
+        if (
+            isinstance(citation_reconciliation, dict)
+            and citation_reconciliation.get("changed_citation_count")
+        ):
+            record_transformations.insert(
+                0,
+                "reconciled_unique_exact_citation_pages",
+            )
+            transformation_evidence.insert(0, {
+                "name": "reconciled_unique_exact_citation_pages",
+                "before_sha256": citation_reconciliation["before_sha256"],
+                "after_sha256": citation_reconciliation["after_sha256"],
+                "changed": True,
+            })
         set_successful_call_disposition(attempt_usage, "used")
         _mark_call_validation(
             attempt_usage,
             result="passed",
             consumed=True,
-            transformations=transformations,
+            transformations=record_transformations,
             transformation_evidence=transformation_evidence,
         )
     usage = merge_usage(*(record["usage"] for record in batch_records))
@@ -8300,6 +8328,23 @@ def run_v9_full(
                 original_story_vs_situation = copy.deepcopy(
                     tool_input.get("story_vs_situation")
                 )
+                citation_reconciliation = reconcile_unique_citation_pages(
+                    {"reader_reports": {reader: tool_input}},
+                    text,
+                )
+                if citation_reconciliation["changed_citation_count"]:
+                    application_transformations.append(
+                        "reconciled_unique_exact_citation_pages"
+                    )
+                    transformation_evidence.append({
+                        "name": "reconciled_unique_exact_citation_pages",
+                        "before_sha256": citation_reconciliation["before_sha256"],
+                        "after_sha256": citation_reconciliation["after_sha256"],
+                        "changed": True,
+                    })
+                    transformation_warnings.append(
+                        "Model citation pages were corrected from unique exact excerpts"
+                    )
                 report = _validate_reader_report(reader, tool_input)
                 application_transformations.append("recomputed_pillar_score")
                 transformation_evidence.append({
@@ -8673,6 +8718,23 @@ def run_v9_full(
             if tool_input is None:
                 raise ValueError("synthesis returned no tool_use block")
             synthesis_before = copy.deepcopy(tool_input)
+            citation_reconciliation = reconcile_unique_citation_pages(
+                tool_input,
+                text,
+            )
+            if citation_reconciliation["changed_citation_count"]:
+                application_transformations.append(
+                    "reconciled_unique_exact_citation_pages"
+                )
+                transformation_evidence.append({
+                    "name": "reconciled_unique_exact_citation_pages",
+                    "before_sha256": citation_reconciliation["before_sha256"],
+                    "after_sha256": citation_reconciliation["after_sha256"],
+                    "changed": True,
+                })
+                transformation_warnings.append(
+                    "Model citation pages were corrected from unique exact excerpts"
+                )
             candidate = _validate_synthesis_report(
                 tool_input,
                 reader_reports,
@@ -8680,6 +8742,17 @@ def run_v9_full(
                 author_evidence["author"],
                 genre_detection,
             )
+            citation_quality = validate_analysis_citations(
+                candidate,
+                runtime_page_evidence["page_diagnostics"],
+                page_count,
+                text,
+            )
+            if citation_quality["status"] != "verified":
+                raise SourceEvidenceError(
+                    "synthesis citation evidence needs review: "
+                    + ", ".join(citation_quality["issues"])
+                )
             application_transformations.extend((
                 "bound_source_identity",
                 "bound_canonical_genre",
@@ -8750,6 +8823,8 @@ def run_v9_full(
                 },
             }
             for transformation in application_transformations:
+                if transformation == "reconciled_unique_exact_citation_pages":
+                    continue
                 before_value = before_values[transformation]
                 after_value = after_values[transformation]
                 changed = before_value != after_value

@@ -12,6 +12,7 @@ export const CONTEXT_POLICY_VERSION = 'lemon-context-policy-v1';
 export const CITATION_EVIDENCE_VERSION = 'lemon-citation-evidence-v2';
 export const TITLE_PAGE_AUTHOR_EVIDENCE_VERSION = 'lemon-title-page-author-v1';
 export const AUTHOR_NOT_FOUND = 'Not found on title page';
+export const MIN_CITATION_EXCERPT_WORDS = 3;
 
 const MIN_PAGE_WORDS = 3;
 const MIN_PAGE_COVERAGE_RATIO = 0.8;
@@ -142,6 +143,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function normalizeEvidenceText(value: string): string {
   return value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function evidenceWords(value: string): string[] {
+  return normalizeEvidenceText(value).match(/[\p{L}\p{N}_]+/gu) ?? [];
+}
+
+function containsEvidenceExcerpt(pageText: string, excerpt: string): boolean {
+  if (evidenceWords(excerpt).length < MIN_CITATION_EXCERPT_WORDS) return false;
+  const normalizedPage = normalizeEvidenceText(pageText);
+  const normalizedExcerpt = normalizeEvidenceText(excerpt);
+  const wordCharacter = /[\p{L}\p{N}_]/u;
+  let start = 0;
+  while (start <= normalizedPage.length - normalizedExcerpt.length) {
+    const index = normalizedPage.indexOf(normalizedExcerpt, start);
+    if (index < 0) return false;
+    const end = index + normalizedExcerpt.length;
+    const before = normalizedPage[index - 1] ?? '';
+    const after = normalizedPage[end] ?? '';
+    if (!wordCharacter.test(before) && !wordCharacter.test(after)) return true;
+    start = index + 1;
+  }
+  return false;
 }
 
 function markedPageContents(text: string): Map<number, string> {
@@ -342,8 +365,8 @@ export function validateBrowserAnalysisCitations(
               return;
             }
             const page = item.page as number;
-            const excerpt = normalizeEvidenceText(item.excerpt);
-            if (excerpt.split(' ').filter(Boolean).length < 4) {
+            const excerpt = item.excerpt;
+            if (evidenceWords(excerpt).length < MIN_CITATION_EXCERPT_WORDS) {
               unsupportedCitations.push({
                 path: path.join('.'),
                 page,
@@ -373,7 +396,7 @@ export function validateBrowserAnalysisCitations(
             });
             return;
           }
-          if (!normalizeEvidenceText(pageContents.get(page) ?? '').includes(excerpt)) {
+            if (!containsEvidenceExcerpt(pageContents.get(page) ?? '', excerpt)) {
             unsupportedCitations.push({
               path: path.join('.'),
               page,
