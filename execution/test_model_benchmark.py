@@ -203,7 +203,9 @@ def _deployment_receipt_fixture(
         ),
         "serviceAccount:549848020392-compute@developer.gserviceaccount.com",
         "serviceAccount:lemon-screenplay-staging@appspot.gserviceaccount.com",
+        "serviceAccount:service-549848020392@gcp-sa-cloudbuild.iam.gserviceaccount.com",
         "serviceAccount:service-549848020392@gcf-admin-robot.iam.gserviceaccount.com",
+        "serviceAccount:service-549848020392@gcp-sa-pubsub.iam.gserviceaccount.com",
         "serviceAccount:service-549848020392@serverless-robot-prod.iam.gserviceaccount.com",
         "user:billyrovzar@gmail.com",
     ])
@@ -266,7 +268,9 @@ def _deployment_receipt_fixture(
     identity_contract.update({
         "privileged_service_accounts": privileged_emails,
         "provider_managed_invoker_service_agents": sorted([
+            "service-549848020392@gcp-sa-cloudbuild.iam.gserviceaccount.com",
             "service-549848020392@gcf-admin-robot.iam.gserviceaccount.com",
+            "service-549848020392@gcp-sa-pubsub.iam.gserviceaccount.com",
             "service-549848020392@serverless-robot-prod.iam.gserviceaccount.com",
         ]),
     })

@@ -1181,7 +1181,15 @@ def _reviewed_effective_invokers(project_number: str) -> List[str]:
         f"serviceAccount:{project_number}-compute@developer.gserviceaccount.com",
         f"serviceAccount:{STAGING_PROJECT_ID}@appspot.gserviceaccount.com",
         (
+            f"serviceAccount:service-{project_number}@gcp-sa-cloudbuild."
+            "iam.gserviceaccount.com"
+        ),
+        (
             f"serviceAccount:service-{project_number}@gcf-admin-robot."
+            "iam.gserviceaccount.com"
+        ),
+        (
+            f"serviceAccount:service-{project_number}@gcp-sa-pubsub."
             "iam.gserviceaccount.com"
         ),
         (
@@ -1234,7 +1242,9 @@ def _validate_staging_identity_proof(
         f"{STAGING_PROJECT_ID}@appspot.gserviceaccount.com",
     ])
     provider_managed_agents = sorted([
+        f"service-{project_number}@gcp-sa-cloudbuild.iam.gserviceaccount.com",
         f"service-{project_number}@gcf-admin-robot.iam.gserviceaccount.com",
+        f"service-{project_number}@gcp-sa-pubsub.iam.gserviceaccount.com",
         f"service-{project_number}@serverless-robot-prod.iam.gserviceaccount.com",
     ])
     contract = {
