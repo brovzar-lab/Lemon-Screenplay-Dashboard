@@ -13,6 +13,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPcmBlob, decode, decodeAudioData } from '@/utils/audioUtils';
 import type { Screenplay } from '@/types';
 import { createLiveToken } from '@/lib/googleProxyClient';
+import { decisionReadyScreenplays } from '@/lib/producerProjection';
 
 export type LiveVoiceName = 'Kore' | 'Puck' | 'Charon' | 'Aoede' | 'Fenrir' | 'Zephyr';
 
@@ -21,7 +22,13 @@ const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativel
 
 // ─── System Instruction ──────────────────────────────────────────────────────
 
-function buildSystemInstruction(screenplays: Screenplay[]): string {
+export function buildSystemInstruction(screenplays: Screenplay[]): string {
+    const allCount = screenplays.length;
+    screenplays = decisionReadyScreenplays(screenplays);
+    if (screenplays.length === 0) {
+        throw new Error('No verified, rankable analyses are available for the Development Executive.');
+    }
+    const omitted = allCount - screenplays.length;
     const total = screenplays.length;
     const filmNow = screenplays.filter(s => s.recommendation === 'film_now');
     const recommend = screenplays.filter(s => s.recommendation === 'recommend');
@@ -56,6 +63,7 @@ VOICE STYLE:
 
 YOUR SLATE:
 - Total scripts: ${total}
+- Unverified analyses omitted: ${omitted}
 - FILM NOW: ${filmNow.length} | STRONG CONSIDER: ${recommend.length} | CONSIDER: ${consider.length} | PASS: ${pass.length}
 - Top genres: ${genreList}
 
@@ -137,6 +145,7 @@ export function useLiveDevExec() {
         setError(null);
 
         try {
+            const systemText = buildSystemInstruction(screenplays);
             const { token, model } = await createLiveToken();
 
             // Get microphone
@@ -154,8 +163,6 @@ export function useLiveDevExec() {
             const outputNode = outputCtx.createGain();
             outputNode.connect(outputCtx.destination);
             outputNodeRef.current = outputNode;
-
-            const systemText = buildSystemInstruction(screenplays);
 
             // ─── CONNECT VIA RAW WEBSOCKET ───
             // Format verified against @google/genai SDK v1.41.0 source code

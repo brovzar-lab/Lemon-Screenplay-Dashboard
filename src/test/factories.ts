@@ -11,6 +11,8 @@ import type { Screenplay } from '@/types';
  * Every required field is populated — override only what your test cares about.
  */
 export function createTestScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
+    const weightedScore = overrides.weightedScore ?? 7.5;
+    const recommendation = overrides.recommendation ?? 'recommend';
     return {
         id: 'test-id',
         title: 'Test Screenplay',
@@ -22,11 +24,36 @@ export function createTestScreenplay(overrides: Partial<Screenplay> = {}): Scree
         tone: 'Atmospheric',
         collection: '2020 Black List',
         sourceFile: 'test.pdf',
-        analysisModel: 'gemini-2.0-flash',
-        analysisVersion: 'v5',
-        weightedScore: 7.5,
+        projectId: 'test-project',
+        latestVersionId: 'test-version-v9',
+        analysisModel: 'claude-sonnet-4-5-20250929',
+        analysisVersion: 'v9_archaeology',
+        producerProjection: {
+            rawScore: weightedScore,
+            finalScore: weightedScore,
+            scoreSource: 'adjusted',
+            penaltyApplied: 0,
+            reportedPenalty: 0,
+            finalVerdict: recommendation,
+            verdictAdjustments: [],
+            gates: [],
+            warnings: [],
+            rankable: true,
+            trustStatus: 'verified',
+            trustManifestVersion: 'lemon-trust-manifest-v6',
+            boundary: {
+                checked: false,
+                runCount: 0,
+                failedRunCount: 0,
+                scoreSpread: 0,
+                verdicts: [],
+                stable: true,
+            },
+            readerDisagreementCount: 0,
+        },
+        weightedScore,
         cvsTotal: 12,
-        recommendation: 'recommend',
+        recommendation,
         recommendationRationale: 'Strong execution with clear market potential.',
         verdictStatement: 'A solid screenplay with potential.',
         isFilmNow: false,

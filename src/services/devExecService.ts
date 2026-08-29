@@ -11,6 +11,7 @@
 import type { Screenplay } from '@/types';
 import { callLLM } from '@/lib/proxyClient';
 import modelCatalog from '@/config/anthropic-model-catalog.json';
+import { decisionReadyScreenplays } from '@/lib/producerProjection';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -71,10 +72,16 @@ function tierLabel(tier: string): string {
 
 // ─── Slate Summary Builder ───────────────────────────────────────────────────
 
-function buildSlateSummary(screenplays: Screenplay[]): string {
+export function buildSlateSummary(screenplays: Screenplay[]): string {
     if (!screenplays || screenplays.length === 0) {
-        return 'No screenplays in the current slate.';
+        throw new Error('No verified, rankable analyses are available for the Development Executive.');
     }
+    const verified = decisionReadyScreenplays(screenplays);
+    if (verified.length === 0) {
+        throw new Error('No verified, rankable analyses are available for the Development Executive.');
+    }
+    const omitted = screenplays.length - verified.length;
+    screenplays = verified;
 
     // Group by recommendation
     const filmNow = screenplays.filter(s => s.recommendation === 'film_now');
@@ -105,6 +112,7 @@ function buildSlateSummary(screenplays: Screenplay[]): string {
     const sections: string[] = [];
 
     sections.push(`SLATE OVERVIEW: ${screenplays.length} total screenplays`);
+    if (omitted > 0) sections.push(`UNVERIFIED ANALYSES OMITTED: ${omitted}`);
     sections.push(`FILM NOW: ${filmNow.length} | STRONG CONSIDER: ${strongConsider.length} | CONSIDER: ${consider.length} | PASS: ${pass.length}`);
 
     sections.push(`\nGENRE MIX:\n${Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).map(([g, c]) => `  ${g}: ${c}`).join('\n')}`);

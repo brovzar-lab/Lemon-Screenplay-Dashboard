@@ -10,6 +10,7 @@ import {
   getScreenplayFormatInfo,
 } from '@/lib/screenplayDisplay';
 import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
+import { isDecisionReady } from '@/lib/producerProjection';
 import type { FeaturedSelectionReason, ProducerAssessmentHead, Screenplay } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -42,6 +43,7 @@ export function ScreenplayRanking({
   const confidence = screenplay.producerProjection?.trustStatus;
   const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
   const localized = localizedScreenplayPreview(screenplay, language);
+  const decisionReady = isDecisionReady(screenplay);
   const metadata = [
     format.format && t(format.format),
     genre && t(genre),
@@ -49,6 +51,9 @@ export function ScreenplayRanking({
   ].filter(Boolean);
   const narrativeFallback = language === 'es' && !localized;
   const featuredDetail = (() => {
+    if (!decisionReady) {
+      return t('Decision data unavailable until verification');
+    }
     if (narrativeFallback) return t('Analysis available in English');
     if (reason.code === 'manual_pin') {
       return t('This project remains Featured until an administrator removes the pin.');
@@ -95,7 +100,7 @@ export function ScreenplayRanking({
       className="screenplay-ranking screenplay-featured"
       data-testid="screenplay-discovery-ranking"
       aria-labelledby="screenplay-ranking-title"
-      data-verdict={screenplay.recommendation}
+      data-verdict={decisionReady ? screenplay.recommendation : 'unverified'}
     >
       <header className="screenplay-ranking__heading">
         <div>
@@ -108,7 +113,7 @@ export function ScreenplayRanking({
         className="screenplay-featured__layout"
         data-testid="screenplay-featured-project"
         data-screenplay-id={screenplay.id}
-        data-verdict={screenplay.recommendation}
+        data-verdict={decisionReady ? screenplay.recommendation : 'unverified'}
       >
         <button
           type="button"
@@ -117,7 +122,7 @@ export function ScreenplayRanking({
           aria-label={t('Open {{title}} screenplay file', { title: title.title })}
         >
           <span className="screenplay-featured__object">
-            <BlueSpineScript screenplay={screenplay} featured rank={rank} />
+            <BlueSpineScript screenplay={screenplay} featured rank={decisionReady ? rank : undefined} />
           </span>
           <span className="screenplay-featured__brief">
             <span className="screenplay-featured__kicker">{t('Featured screenplay')}</span>
@@ -133,7 +138,11 @@ export function ScreenplayRanking({
             )}
             <span className="screenplay-featured__why">
               <b>{t('Why featured')}</b>
-              <strong>{t(reason.headline)}</strong>
+              <strong>
+                {decisionReady
+                  ? t(reason.headline)
+                  : t('Decision data unavailable until verification')}
+              </strong>
               <small>{featuredDetail}</small>
               {outsideCurrentView && (
                 <em>{t('This recommendation sits outside your temporary browse filters.')}</em>
@@ -144,8 +153,10 @@ export function ScreenplayRanking({
         </button>
         <aside className="screenplay-featured__decision" aria-label={t('AI decision')}>
           <span>{t('AI verdict')}</span>
-          <strong>{score.toFixed(1)}</strong>
-          <RecommendationBadge tier={screenplay.recommendation} />
+          {decisionReady ? <>
+            <strong>{score.toFixed(1)}</strong>
+            <RecommendationBadge tier={screenplay.recommendation} />
+          </> : <strong>{t('Not verified / not rankable')}</strong>}
           <dl>
             {confidence && (
               <div>

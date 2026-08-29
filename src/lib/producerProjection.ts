@@ -8,6 +8,9 @@ import type {
 
 type UnknownRecord = Record<string, unknown>;
 
+const PUBLIC_SHARE_MANIFEST_VERSION = 'lemon-public-share-manifest-v1';
+const PUBLIC_SHARE_ATTESTATION_VERSION = 'lemon-public-share-attestation-v1';
+
 function asRecord(value: unknown): UnknownRecord | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as UnknownRecord
@@ -34,6 +37,28 @@ export function canonicalCriticalFailurePenalty(
     critical: 1.2,
   };
   return penalties[normalized];
+}
+
+/** The only analyses that may drive scores, verdicts, rankings, or exports. */
+export function isDecisionReady(
+  screenplay: { producerProjection?: { rankable?: boolean; trustStatus?: string } },
+): boolean {
+  return screenplay.producerProjection?.rankable === true
+    && screenplay.producerProjection.trustStatus === 'verified';
+}
+
+export function decisionReadyScreenplays<T extends {
+  producerProjection?: { rankable?: boolean; trustStatus?: string };
+}>(screenplays: T[]): T[] {
+  return screenplays.filter(isDecisionReady);
+}
+
+export function requireDecisionReady(
+  screenplays: Array<{ producerProjection?: { rankable?: boolean; trustStatus?: string } }>,
+): void {
+  if (screenplays.length === 0 || screenplays.some((screenplay) => !isDecisionReady(screenplay))) {
+    throw new Error('Only verified, rankable analyses can drive this decision output.');
+  }
 }
 
 function penaltyFromCriticalFailures(value: unknown): number {
@@ -390,10 +415,100 @@ export function buildProducerProjection(
     });
   }
 
-  const rankable = !incomplete && !sourceTruncated;
-  const trustStatus = !rankable
+  const source = asRecord(trustManifest?.source);
+  const origin = asRecord(trustManifest?.origin);
+  const engine = asRecord(trustManifest?.engine);
+  const models = asRecord(trustManifest?.models);
+  const attestation = asRecord(raw.server_trust_attestation);
+  const versionId = raw.latest_version_id ?? raw.version_id;
+  const currentServerSealedAnalysis = raw.analysis_version === 'v9_archaeology'
+    && raw._trust_authority === 'immutable_server'
+    && trustManifestVersion === 'lemon-trust-manifest-v6'
+    && trustManifest?.manifest_version === trustManifestVersion
+    && /^[a-f0-9]{64}$/.test(String(trustManifest.integrity_sha256 ?? ''))
+    && /^[a-f0-9]{64}$/.test(String(trustManifest.analysis_payload_sha256 ?? ''))
+    && source?.content_sha256 === raw.content_hash
+    && source?.source_file === (raw.latest_source_file ?? raw.source_file)
+    && origin?.project_id === raw.project_id
+    && origin?.version_id === (raw.latest_version_id ?? raw.version_id)
+    && engine?.analysis_version === raw.analysis_version
+    && Array.isArray(models?.calls)
+    && models.calls.length > 0
+    && attestation?.attestation_version === 'lemon-server-trust-attestation-v1'
+    && attestation.writer === 'firebase_admin'
+    && attestation.project_id === raw.project_id
+    && attestation.version_id === versionId
+    && attestation.content_sha256 === raw.content_hash
+    && attestation.trust_manifest_integrity_sha256
+      === trustManifest.integrity_sha256
+    && attestation.analysis_payload_sha256
+      === trustManifest.analysis_payload_sha256;
+  const claims = asRecord(trustManifest?.claim_verification);
+  const readers = asRecord(trustManifest?.readers);
+  const scoreLineage = asRecord(trustManifest?.score_lineage);
+  const currentPublicSharedAnalysis = raw.analysis_version === 'v9_archaeology'
+    && raw._trust_authority === 'immutable_public_share'
+    && trustManifestVersion === PUBLIC_SHARE_MANIFEST_VERSION
+    && trustManifest?.manifest_version === trustManifestVersion
+    && /^[a-f0-9]{64}$/.test(String(trustManifest.integrity_sha256 ?? ''))
+    && /^[a-f0-9]{64}$/.test(String(
+      trustManifest.canonical_manifest_integrity_sha256 ?? '',
+    ))
+    && /^[a-f0-9]{64}$/.test(String(
+      trustManifest.canonical_analysis_payload_sha256 ?? '',
+    ))
+    && /^[a-f0-9]{64}$/.test(String(trustManifest.analysis_payload_sha256 ?? ''))
+    && trustManifest.public_payload_scope === 'analysis_and_localized_analysis'
+    && source?.content_sha256 === raw.content_hash
+    && source?.source_file === (raw.latest_source_file ?? raw.source_file)
+    && origin?.project_id === raw.project_id
+    && origin?.version_id === versionId
+    && engine?.analysis_version === raw.analysis_version
+    && typeof models?.call_count === 'number'
+    && models.call_count > 0
+    && /^[a-f0-9]{64}$/.test(String(models.provenance_sha256 ?? ''))
+    && readers?.quality_status === 'complete'
+    && readers.expected_specialist_readers === 5
+    && readers.completed_specialist_readers === 5
+    && readers.failed_reader_count === 0
+    && claims?.status === 'passed_independent_model_review'
+    && claims.verification_scope
+      === 'semantic_support_against_full_physical_page_source'
+    && typeof claims.claim_count === 'number'
+    && claims.claim_count >= 10
+    && typeof claims.factual_support_rate === 'number'
+    && claims.factual_support_rate >= 0.95
+    && /^[a-f0-9]{64}$/.test(String(claims.claims_sha256 ?? ''))
+    && scoreLineage?.adjusted_score === finalScore
+    && normalizeTier(scoreLineage.final_verdict, finalScore) === finalVerdict
+    && attestation?.attestation_version === PUBLIC_SHARE_ATTESTATION_VERSION
+    && attestation.writer === 'share_manager'
+    && attestation.project_id === raw.project_id
+    && attestation.version_id === versionId
+    && attestation.content_sha256 === raw.content_hash
+    && attestation.canonical_trust_manifest_integrity_sha256
+      === trustManifest.canonical_manifest_integrity_sha256
+    && attestation.canonical_analysis_payload_sha256
+      === trustManifest.canonical_analysis_payload_sha256
+    && attestation.trust_manifest_integrity_sha256
+      === trustManifest.integrity_sha256
+    && attestation.analysis_payload_sha256
+      === trustManifest.analysis_payload_sha256
+    && attestation.public_payload_scope === trustManifest.public_payload_scope;
+  const currentSealedAnalysis = currentServerSealedAnalysis || currentPublicSharedAnalysis;
+  if (raw.analysis_version === 'v9_archaeology' && !currentSealedAnalysis) {
+    warnings.push({
+      code: 'unsealed_current_analysis',
+      severity: 'blocking',
+      title: 'Current analysis is not server-verified',
+      detail: 'This V9 result was not reconstructed from its immutable server version. Its score and verdict must not drive a decision.',
+      params: {},
+    });
+  }
+  const rankable = !incomplete && !sourceTruncated && currentSealedAnalysis;
+  const trustStatus = incomplete || sourceTruncated
     ? 'incomplete' as const
-    : trustManifestVersion
+    : currentSealedAnalysis
       ? 'verified' as const
       : 'legacy_unverified' as const;
 

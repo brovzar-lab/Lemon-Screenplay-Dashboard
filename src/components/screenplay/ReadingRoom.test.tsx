@@ -57,6 +57,19 @@ describe('ReadingRoom', () => {
     expect(screen.getByText('1 of 3')).toBeInTheDocument();
   });
 
+  it('does not present an unverified verdict as decision-ready', () => {
+    const unverified = createTestScreenplay({
+      id: 'legacy',
+      title: 'Legacy Script',
+      recommendation: 'film_now',
+      producerProjection: undefined,
+    });
+    render(<ReadingRoom screenplays={[unverified]} percentileRanks={new Map()} onClose={vi.fn()} />);
+
+    expect(screen.getByText('Decision data unavailable until verification')).toBeInTheDocument();
+    expect(screen.queryByText('FILM NOW')).not.toBeInTheDocument();
+  });
+
   it('moves through screenplays with controls and arrow keys', () => {
     render(<ReadingRoom screenplays={screenplays} percentileRanks={new Map()} onClose={vi.fn()} />);
 

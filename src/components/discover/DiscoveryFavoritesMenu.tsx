@@ -4,6 +4,7 @@ import { clsx } from 'clsx';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { Screenplay } from '@/types';
+import { isDecisionReady } from '@/lib/producerProjection';
 import { useTranslation } from 'react-i18next';
 
 interface DiscoveryFavoritesMenuProps {
@@ -208,8 +209,10 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
                                 </span>
                               )}
                             </span>
-                            <span className="dsc-num shrink-0 text-lg font-semibold">
-                              {screenplay.weightedScore.toFixed(1)}
+                            <span className="dsc-num shrink-0 text-sm font-semibold">
+                              {isDecisionReady(screenplay)
+                                ? screenplay.weightedScore.toFixed(1)
+                                : t('Not verified')}
                             </span>
                           </button>
                         </li>

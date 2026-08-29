@@ -9,38 +9,56 @@ before a producer-facing verdict can be saved.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import math
 import re
 import unicodedata
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 
 PAGE_EVIDENCE_VERSION = "lemon-page-evidence-v1"
+SCENE_COUNT_VERSION = "lemon-scene-heading-count-v1"
 CONTEXT_POLICY_VERSION = "lemon-context-policy-v1"
 LEGACY_CITATION_EVIDENCE_VERSION = "lemon-citation-evidence-v1"
 CITATION_EVIDENCE_VERSION = "lemon-citation-evidence-v2"
 TITLE_PAGE_AUTHOR_EVIDENCE_VERSION = "lemon-title-page-author-v1"
 AUTHOR_NOT_FOUND = "Not found on title page"
+NATIVE_TEXT_SIMILARITY_MIN = 0.80
+NATIVE_EXTRACTION_METHODS = {"pdfplumber", "pymupdf", "PyPDF2"}
 
 PAGE_MARKER_PATTERN = re.compile(r"(?m)^\[PAGE ([1-9][0-9]*)\][ \t]*$")
 MIN_PAGE_WORDS = 3
+SPARSE_CONTENT_STREAM_MIN_BYTES = 512
+SPARSE_CONTENT_STREAM_TO_TEXT_RATIO = 8
 MIN_PAGE_COVERAGE_RATIO = 0.80
 MIN_EDGE_COVERAGE_RATIO = 0.70
 EDGE_WINDOW_PAGES = 10
+SCENE_HEADING_PATTERN = re.compile(
+    r"^\s*(?:(?P<number>\d+[A-Z]?)\s*[.)-]?\s+)?"
+    r"(?:INT(?:ERIOR)?\.?|EXT(?:ERIOR)?\.?|"
+    r"INT\.?\s*/\s*EXT\.?|EXT\.?\s*/\s*INT\.?|I\s*/\s*E\.?|E\s*/\s*I\.?)"
+    r"\s+\S",
+    re.IGNORECASE,
+)
 
-# Anthropic documents a 200k-token context window for Haiku 4.5 and 1M for
-# Sonnet 4.6 / Opus 4.7. These input budgets intentionally reserve substantial
-# room for system prompts, tools, thinking, and output.
+_MODEL_CATALOG = json.loads(
+    (Path(__file__).resolve().parents[1] / "src" / "config" / "anthropic-model-catalog.json")
+    .read_text(encoding="utf-8")
+)
 MODEL_CONTEXT_TOKENS = {
-    "haiku": 200_000,
-    "sonnet": 1_000_000,
-    "opus": 1_000_000,
+    model_id: int(profile["contextTokens"])
+    for model_id, profile in _MODEL_CATALOG["modelProfiles"].items()
 }
 MODEL_SAFE_INPUT_TOKENS = {
-    "haiku": 150_000,
-    "sonnet": 800_000,
-    "opus": 800_000,
+    model_id: 150_000 if context_tokens == 200_000 else 800_000
+    for model_id, context_tokens in MODEL_CONTEXT_TOKENS.items()
+}
+_DEFAULT_MODEL_IDS = {
+    "haiku": _MODEL_CATALOG["analysisRoutes"]["haiku"]["modelId"],
+    "sonnet": _MODEL_CATALOG["candidateAnalysisRoutes"]["sonnet"]["modelId"],
+    "opus": _MODEL_CATALOG["candidateAnalysisRoutes"]["opus"]["modelId"],
 }
 CONSERVATIVE_CHARACTERS_PER_TOKEN = 3
 MIN_CITATION_EXCERPT_WORDS = 4
@@ -87,6 +105,50 @@ def join_marked_pages(page_texts: Sequence[str]) -> str:
         normalized = str(raw_text or "").replace("\r\n", "\n").replace("\r", "\n")
         blocks.append(f"{page_marker(page_number)}\n{normalized.strip()}")
     return "\n\n".join(blocks)
+
+
+def build_scene_count_evidence(text: str) -> Dict[str, Any]:
+    """Count explicit English/Spanish scene headings without model inference."""
+    headings = []
+    numbered = 0
+    for line_number, line in enumerate(text.splitlines(), 1):
+        if PAGE_MARKER_PATTERN.fullmatch(line.strip()):
+            continue
+        match = SCENE_HEADING_PATTERN.match(line)
+        if match is None:
+            continue
+        headings.append({"line": line_number, "heading": line.strip()})
+        if match.group("number"):
+            numbered += 1
+    evidence = {
+        "scene_count_version": SCENE_COUNT_VERSION,
+        "scene_heading_count": len(headings),
+        "numbered_scene_heading_count": numbered,
+        "method": "anchored_scene_heading_regex_en_es",
+        "headings_sha256": sha256_json(headings),
+    }
+    evidence["evidence_sha256"] = sha256_json(evidence)
+    return evidence
+
+
+def validate_scene_count_evidence(value: Any) -> Dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise SourceEvidenceError("Scene count evidence is missing")
+    evidence = dict(value)
+    stored_hash = evidence.pop("evidence_sha256", None)
+    if (
+        evidence.get("scene_count_version") != SCENE_COUNT_VERSION
+        or evidence.get("method") != "anchored_scene_heading_regex_en_es"
+        or type(evidence.get("scene_heading_count")) is not int
+        or evidence["scene_heading_count"] < 0
+        or type(evidence.get("numbered_scene_heading_count")) is not int
+        or evidence["numbered_scene_heading_count"] < 0
+        or evidence["numbered_scene_heading_count"] > evidence["scene_heading_count"]
+        or not re.fullmatch(r"[a-f0-9]{64}", str(evidence.get("headings_sha256", "")))
+        or stored_hash != sha256_json(evidence)
+    ):
+        raise SourceEvidenceError("Scene count evidence is invalid")
+    return dict(value)
 
 
 def _marked_page_contents(text: str) -> tuple[List[int], Dict[int, str]]:
@@ -154,6 +216,7 @@ def build_page_evidence(
     text: str,
     expected_page_count: int,
     extraction_method: str,
+    page_content_signals: Optional[Sequence[Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Measure whether marked text represents the complete physical PDF."""
     if type(expected_page_count) is not int or expected_page_count <= 0:
@@ -173,6 +236,9 @@ def build_page_evidence(
 
     diagnostics: List[Dict[str, Any]] = []
     readable_pages: List[int] = []
+    accounted_pages: List[int] = []
+    unreadable_content_pages: List[int] = []
+    unverified_empty_pages: List[int] = []
     for page_number in expected_numbers:
         if page_number not in contents:
             diagnostics.append(
@@ -186,29 +252,82 @@ def build_page_evidence(
             continue
         content = contents[page_number]
         word_count = len(content.split())
+        signal = (
+            page_content_signals[page_number - 1]
+            if isinstance(page_content_signals, Sequence)
+            and len(page_content_signals) == expected_page_count
+            and isinstance(page_content_signals[page_number - 1], Mapping)
+            else None
+        )
         if word_count == 0:
-            status = "empty"
+            if signal is None:
+                status = "empty"
+                unverified_empty_pages.append(page_number)
+            elif signal.get("content_bearing") is True:
+                status = "unreadable_content"
+                unreadable_content_pages.append(page_number)
+            else:
+                status = "verified_blank"
+                accounted_pages.append(page_number)
         elif word_count < MIN_PAGE_WORDS:
-            status = "sparse"
+            stream_bytes = (
+                int(signal.get("content_stream_bytes", 0))
+                if signal is not None
+                else 0
+            )
+            extracted_bytes = len(content.encode("utf-8"))
+            needs_corroboration = signal is not None and (
+                int(signal.get("image_count", 0)) > 0
+                or (
+                    signal.get("content_bearing") is True
+                    and stream_bytes >= SPARSE_CONTENT_STREAM_MIN_BYTES
+                    and stream_bytes
+                    >= max(1, extracted_bytes)
+                    * SPARSE_CONTENT_STREAM_TO_TEXT_RATIO
+                )
+            )
+            ocr_corroborated = (
+                "ocr" in str(extraction_method).casefold()
+                or (
+                    signal is not None
+                    and signal.get("ocr_corroborated") is True
+                )
+            )
+            if needs_corroboration and not ocr_corroborated:
+                status = "unreadable_content"
+                unreadable_content_pages.append(page_number)
+            else:
+                status = "sparse"
+                accounted_pages.append(page_number)
         else:
             status = "readable"
             readable_pages.append(page_number)
+            accounted_pages.append(page_number)
         diagnostics.append(
             {
                 "page": page_number,
                 "status": status,
                 "characters": len(content),
                 "words": word_count,
+                "content_signal": (
+                    {
+                        key: value
+                        for key, value in signal.items()
+                        if key != "ocr_corroborated"
+                    }
+                    if signal is not None
+                    else None
+                ),
             }
         )
 
-    coverage_ratio = len(readable_pages) / expected_page_count
+    coverage_ratio = len(accounted_pages) / expected_page_count
     edge_size = min(EDGE_WINDOW_PAGES, expected_page_count)
     first_pages = set(range(1, edge_size + 1))
     final_pages = set(range(expected_page_count - edge_size + 1, expected_page_count + 1))
-    readable_set = set(readable_pages)
-    first_coverage = len(first_pages & readable_set) / edge_size
-    final_coverage = len(final_pages & readable_set) / edge_size
+    accounted_set = set(accounted_pages)
+    first_coverage = len(first_pages & accounted_set) / edge_size
+    final_coverage = len(final_pages & accounted_set) / edge_size
 
     issues: List[str] = []
     if missing_pages:
@@ -219,11 +338,15 @@ def build_page_evidence(
         issues.append("duplicate_page_markers")
     if not marker_order_valid:
         issues.append("page_marker_sequence_mismatch")
+    if unreadable_content_pages:
+        issues.append("unreadable_content_pages")
+    if unverified_empty_pages:
+        issues.append("unverified_empty_pages")
     if coverage_ratio < MIN_PAGE_COVERAGE_RATIO:
         issues.append("insufficient_overall_page_text")
     if first_coverage < MIN_EDGE_COVERAGE_RATIO:
         issues.append("insufficient_opening_page_text")
-    if final_coverage < MIN_EDGE_COVERAGE_RATIO:
+    if final_coverage < 1.0:
         issues.append("insufficient_ending_page_text")
 
     quality = {
@@ -232,12 +355,18 @@ def build_page_evidence(
         "expected_page_count": expected_page_count,
         "marker_count": len(marker_numbers),
         "readable_page_count": len(readable_pages),
+        "accounted_page_count": len(accounted_pages),
         "empty_page_count": sum(
             1 for page in diagnostics if page["status"] == "empty"
         ),
         "sparse_page_count": sum(
             1 for page in diagnostics if page["status"] == "sparse"
         ),
+        "verified_blank_page_count": sum(
+            1 for page in diagnostics if page["status"] == "verified_blank"
+        ),
+        "unreadable_content_pages": unreadable_content_pages,
+        "unverified_empty_pages": unverified_empty_pages,
         "coverage_ratio": round(coverage_ratio, 4),
         "opening_coverage_ratio": round(first_coverage, 4),
         "ending_coverage_ratio": round(final_coverage, 4),
@@ -309,6 +438,167 @@ def validate_extraction_metadata(
     return evidence
 
 
+def validate_native_cross_check(
+    raw: Any,
+    selected_extraction_method: str,
+) -> Dict[str, Any]:
+    """Return the schema-closed extractor agreement proof or fail closed."""
+    required_fields = {
+        "status",
+        "methods_compared",
+        "word_counts",
+        "word_count_agreement_ratio",
+        "page_token_similarity_ratio",
+        "pairwise_page_token_similarity",
+        "minimum_similarity_required",
+        "selected_consensus_method",
+    }
+    if not isinstance(raw, dict) or set(raw) != required_fields:
+        raise SourceEvidenceError("Native extractor cross-check schema is invalid")
+    status = raw["status"]
+    if status not in {
+        "corroborated", "divergent", "single_native_method", "ocr_only",
+    }:
+        raise SourceEvidenceError("Native extractor cross-check status is invalid")
+    methods = raw["methods_compared"]
+    if (
+        not isinstance(methods, list)
+        or len(methods) != len(set(methods))
+        or any(method not in NATIVE_EXTRACTION_METHODS for method in methods)
+    ):
+        raise SourceEvidenceError("Native extractor method inventory is invalid")
+    word_counts = raw["word_counts"]
+    if (
+        not isinstance(word_counts, dict)
+        or set(word_counts) != set(methods)
+        or any(type(count) is not int or count <= 0 for count in word_counts.values())
+    ):
+        raise SourceEvidenceError("Native extractor word counts are invalid")
+
+    def ratio(value: Any, label: str, *, allow_none: bool = False) -> float | None:
+        if allow_none and value is None:
+            return None
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            or not 0 <= float(value) <= 1
+        ):
+            raise SourceEvidenceError(f"Native extractor {label} is invalid")
+        return float(value)
+
+    minimum = ratio(raw["minimum_similarity_required"], "minimum similarity")
+    if minimum != NATIVE_TEXT_SIMILARITY_MIN:
+        raise SourceEvidenceError("Native extractor similarity threshold is invalid")
+    word_agreement = ratio(
+        raw["word_count_agreement_ratio"],
+        "word-count agreement ratio",
+        allow_none=True,
+    )
+    page_similarity = ratio(
+        raw["page_token_similarity_ratio"],
+        "page-token similarity ratio",
+        allow_none=True,
+    )
+    pairwise = raw["pairwise_page_token_similarity"]
+    if not isinstance(pairwise, list):
+        raise SourceEvidenceError("Native extractor pairwise evidence is invalid")
+    canonical_pairs: List[Dict[str, Any]] = []
+    seen_pairs = set()
+    for item in pairwise:
+        if not isinstance(item, dict) or set(item) != {
+            "methods", "page_token_similarity_ratio",
+        }:
+            raise SourceEvidenceError("Native extractor pairwise evidence is invalid")
+        pair_methods = item["methods"]
+        if (
+            not isinstance(pair_methods, list)
+            or len(pair_methods) != 2
+            or pair_methods[0] == pair_methods[1]
+            or any(method not in methods for method in pair_methods)
+        ):
+            raise SourceEvidenceError("Native extractor pairwise methods are invalid")
+        pair_key = frozenset(pair_methods)
+        if pair_key in seen_pairs:
+            raise SourceEvidenceError("Native extractor pairwise evidence is duplicated")
+        seen_pairs.add(pair_key)
+        canonical_pairs.append({
+            "methods": list(pair_methods),
+            "page_token_similarity_ratio": ratio(
+                item["page_token_similarity_ratio"],
+                "pairwise page-token similarity ratio",
+            ),
+        })
+    expected_pairs = {
+        frozenset(pair)
+        for pair in itertools.combinations(methods, 2)
+    }
+    if seen_pairs != expected_pairs:
+        raise SourceEvidenceError("Native extractor pairwise inventory is incomplete")
+
+    selected_method = raw["selected_consensus_method"]
+    if (
+        not isinstance(selected_method, str)
+        or not selected_method
+        or selected_method != selected_extraction_method
+    ):
+        raise SourceEvidenceError("Native extractor selected method is invalid")
+    if len(methods) >= 2:
+        expected_word_agreement = round(
+            min(word_counts.values()) / max(word_counts.values()),
+            4,
+        )
+        expected_similarity = min(
+            item["page_token_similarity_ratio"] for item in canonical_pairs
+        )
+        expected_status = (
+            "corroborated"
+            if expected_similarity >= NATIVE_TEXT_SIMILARITY_MIN
+            else "divergent"
+        )
+        if (
+            word_agreement != expected_word_agreement
+            or page_similarity != expected_similarity
+            or status != expected_status
+            or selected_method not in methods
+        ):
+            raise SourceEvidenceError("Native extractor agreement semantics are invalid")
+    elif len(methods) == 1:
+        if (
+            status != "single_native_method"
+            or word_agreement != 1.0
+            or page_similarity != 1.0
+            or canonical_pairs
+            or selected_method != methods[0]
+        ):
+            raise SourceEvidenceError("Single native extractor evidence is invalid")
+    elif (
+        status != "ocr_only"
+        or word_agreement is not None
+        or page_similarity is not None
+        or canonical_pairs
+        or not (
+            selected_method == "OCR"
+            or re.fullmatch(
+                r"(?:pdfplumber|pymupdf|PyPDF2)\+OCR_sparse_pages",
+                selected_method,
+            )
+        )
+    ):
+        raise SourceEvidenceError("OCR-only extractor evidence is invalid")
+
+    return {
+        "status": status,
+        "methods_compared": list(methods),
+        "word_counts": {method: word_counts[method] for method in methods},
+        "word_count_agreement_ratio": word_agreement,
+        "page_token_similarity_ratio": page_similarity,
+        "pairwise_page_token_similarity": canonical_pairs,
+        "minimum_similarity_required": minimum,
+        "selected_consensus_method": selected_method,
+    }
+
+
 def validate_parsed_source(parsed: Mapping[str, Any]) -> Dict[str, Any]:
     """Recompute page evidence from parser text before any paid model call."""
     text = parsed.get("text")
@@ -320,14 +610,25 @@ def validate_parsed_source(parsed: Mapping[str, Any]) -> Dict[str, Any]:
         **metadata,
         "word_count": parsed.get("word_count"),
     }
+    validate_native_cross_check(
+        metadata.get("native_cross_check"),
+        str(metadata.get("extraction_method") or ""),
+    )
     stored = validate_stored_page_evidence(validation_metadata, page_count)
     recomputed = build_page_evidence(
         text,
         page_count,
         str(metadata.get("extraction_method") or "unknown"),
+        metadata.get("page_content_signals"),
     )
     if stored != extraction_evidence_from_metadata(recomputed):
         raise SourceEvidenceError("Stored page evidence does not match extracted text")
+    stored_scene_count = validate_scene_count_evidence(
+        metadata.get("scene_count_evidence")
+    )
+    recomputed_scene_count = build_scene_count_evidence(text)
+    if stored_scene_count != recomputed_scene_count:
+        raise SourceEvidenceError("Stored scene count does not match extracted text")
     return stored
 
 
@@ -345,19 +646,32 @@ def estimate_input_tokens(text: str) -> int:
     return max(1, math.ceil(len(text) / CONSERVATIVE_CHARACTERS_PER_TOKEN))
 
 
-def build_context_policy(text: str, primary_model: str) -> Dict[str, Any]:
+def build_context_policy(
+    text: str,
+    primary_model: str,
+    *,
+    model_ids: Optional[Mapping[str, str]] = None,
+) -> Dict[str, Any]:
     """Choose models without ever slicing the screenplay."""
-    return build_context_policy_for_length(len(text), primary_model)
+    return build_context_policy_for_length(
+        len(text),
+        primary_model,
+        model_ids=model_ids,
+    )
 
 
 def build_context_policy_for_length(
     character_count: int,
     primary_model: str,
+    *,
+    model_ids: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
     if type(character_count) is not int or character_count <= 0:
         raise SourceEvidenceError("Screenplay character count is missing or invalid")
     normalized = str(primary_model or "").lower()
-    primary_models = ["sonnet", "opus"] if normalized == "hybrid" else [normalized]
+    resolved_ids = dict(_DEFAULT_MODEL_IDS if model_ids is None else model_ids)
+    primary_tiers = ["sonnet", "opus"] if normalized == "hybrid" else [normalized]
+    primary_models = [resolved_ids.get(tier, "") for tier in primary_tiers]
     if not primary_models or any(model not in MODEL_SAFE_INPUT_TOKENS for model in primary_models):
         raise SourceEvidenceError(f"Unsupported screenplay model: {primary_model}")
 
@@ -374,10 +688,11 @@ def build_context_policy_for_length(
 
     genre_model = (
         "haiku"
-        if estimated_tokens <= MODEL_SAFE_INPUT_TOKENS["haiku"]
+        if estimated_tokens <= MODEL_SAFE_INPUT_TOKENS[resolved_ids["haiku"]]
         else "sonnet"
     )
-    if estimated_tokens > MODEL_SAFE_INPUT_TOKENS[genre_model]:
+    genre_model_id = resolved_ids[genre_model]
+    if estimated_tokens > MODEL_SAFE_INPUT_TOKENS[genre_model_id]:
         raise SourceEvidenceError(
             "Screenplay exceeds the safe context budget for genre verification"
         )
@@ -388,12 +703,14 @@ def build_context_policy_for_length(
         "input_characters": character_count,
         "estimated_input_tokens": estimated_tokens,
         "primary_model": normalized,
+        "primary_model_ids": primary_models,
         "primary_model_safe_input_tokens": primary_budget,
         "genre_model": genre_model,
-        "genre_model_safe_input_tokens": MODEL_SAFE_INPUT_TOKENS[genre_model],
+        "genre_model_id": genre_model_id,
+        "genre_model_safe_input_tokens": MODEL_SAFE_INPUT_TOKENS[genre_model_id],
         "model_context_tokens": {
             model: MODEL_CONTEXT_TOKENS[model]
-            for model in sorted(set(primary_models + [genre_model]))
+            for model in sorted(set(primary_models + [genre_model_id]))
         },
     }
 
@@ -402,11 +719,17 @@ def validate_stored_context_policy(
     analysis: Mapping[str, Any],
     character_count: int,
     primary_model: str,
+    *,
+    model_ids: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
     stored = analysis.get("_context_policy")
     if not isinstance(stored, dict):
         raise SourceEvidenceError("Permanent analysis is missing its context policy")
-    expected = build_context_policy_for_length(character_count, primary_model)
+    expected = build_context_policy_for_length(
+        character_count,
+        primary_model,
+        model_ids=model_ids,
+    )
     if stored != expected:
         raise SourceEvidenceError(
             "Stored context policy does not match the analyzed screenplay"
@@ -697,6 +1020,10 @@ def validate_analysis_citations(
             else LEGACY_CITATION_EVIDENCE_VERSION
         ),
         "status": "verified" if not issues else "needs_review",
+        "verification_scope": "physical_page_and_exact_excerpt_location",
+        "semantic_support_scope": (
+            "independent_claim_verification_required_for_benchmark"
+        ),
         "page_count": page_count,
         "total_citations": total_citations,
         "valid_citations": (
@@ -746,6 +1073,7 @@ def attach_verified_citation_quality(
             or evidence["extraction_quality"].get("extraction_method")
             or "unknown"
         ),
+        metadata.get("page_content_signals"),
     )
     if extraction_evidence_from_metadata(recomputed) != evidence:
         raise SourceEvidenceError(

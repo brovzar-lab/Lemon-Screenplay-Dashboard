@@ -3,6 +3,7 @@ const test = require('node:test');
 
 const {
   calculateActualCostMicrousd,
+  calculateHighestAllowedReservationMicrousd,
   calculateReservationMicrousd,
   parseDailyBudgetUsd,
 } = require('../lib/llmCost');
@@ -22,6 +23,25 @@ test('actual cost uses the approved per-model and cache rates', () => {
   assert.equal(calculateActualCostMicrousd('claude-opus-4-8', usage), 18_800);
   assert.equal(calculateActualCostMicrousd('claude-opus-5', usage), 18_800);
   assert.equal(calculateActualCostMicrousd('claude-fable-5', usage), 37_600);
+});
+
+test('US-only inference applies the documented ten-percent premium', () => {
+  const usage = {
+    input_tokens: 1_000,
+    output_tokens: 500,
+    cache_creation_input_tokens: 200,
+    cache_read_input_tokens: 100,
+  };
+  const globalCost = calculateActualCostMicrousd('claude-sonnet-5', {
+    ...usage,
+    inference_geo: 'global',
+  });
+  const usCost = calculateActualCostMicrousd('claude-sonnet-5', {
+    ...usage,
+    inference_geo: 'us',
+  });
+  assert.equal(globalCost, 7_520);
+  assert.equal(usCost, 8_272);
 });
 
 test('one-hour cache creation is charged at the exact higher write rate', () => {
@@ -119,6 +139,23 @@ test('candidate reservation uses current Sonnet 5 cache and output prices', () =
     cache_read_input_tokens: 0,
   });
   assert.ok(reservation >= represented);
+});
+
+test('candidate reservation covers a more expensive returned-model mismatch', () => {
+  const requestBytes = 100_000;
+  const maxOutputTokens = 24_000;
+  const reservation = calculateHighestAllowedReservationMicrousd(
+    ['claude-sonnet-5', 'claude-fable-5'],
+    requestBytes,
+    maxOutputTokens,
+  );
+  const returnedFableMaximum = calculateActualCostMicrousd('claude-fable-5', {
+    input_tokens: requestBytes + 4_096,
+    output_tokens: maxOutputTokens,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+  });
+  assert.ok(reservation >= returnedFableMaximum);
 });
 
 test('daily dollar limit rejects malformed or unsafe configuration', () => {

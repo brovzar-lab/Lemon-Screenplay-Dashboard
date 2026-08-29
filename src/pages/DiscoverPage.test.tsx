@@ -3,10 +3,13 @@ import { act, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockOnSnapshot, mockUnsubscribe } = vi.hoisted(() => ({
+const { mockOnSnapshot, mockUnsubscribe, mockGetDocFromServer } = vi.hoisted(() => ({
   mockOnSnapshot: vi.fn(),
   mockUnsubscribe: vi.fn(),
+  mockGetDocFromServer: vi.fn(),
 }));
+
+const immutableRecords = new Map<string, Record<string, unknown>>();
 
 let emitSnapshot:
   | ((snapshot: { docs: Array<{ data: () => Record<string, unknown> }> }) => void)
@@ -17,11 +20,18 @@ vi.mock('@/lib/firebase', () => ({
   db: {},
 }));
 
+vi.mock('@/lib/shareService', () => ({
+  getAllSharedViews: vi.fn().mockResolvedValue([]),
+  getExistingShareToken: vi.fn().mockResolvedValue(null),
+  isScreenplaySynced: vi.fn().mockResolvedValue(true),
+}));
+
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn(() => 'uploaded-analyses'),
   query: vi.fn((reference: unknown) => reference),
   onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
-  doc: vi.fn(),
+  doc: vi.fn((...segments: unknown[]) => segments),
+  getDocFromServer: (...args: unknown[]) => mockGetDocFromServer(...args),
   setDoc: vi.fn(),
   runTransaction: vi.fn(),
   Timestamp: { fromMillis: vi.fn() },
@@ -35,9 +45,34 @@ vi.mock('firebase/firestore', () => ({
 import DiscoverPage from '@/pages/DiscoverPage';
 
 function rawAnalysis(title: string, score: number, sourceFile: string, verdict = 'RECOMMEND') {
-  return {
-    project_id: sourceFile.replace('.pdf', '').toLowerCase(),
+  const contentHash = 'a'.repeat(64);
+  const projectId = sourceFile.replace('.pdf', '').toLowerCase();
+  const versionId = `${projectId}-version-1`;
+  const result = {
+    project_id: projectId,
+    version_id: versionId,
     source_file: sourceFile,
+    content_hash: contentHash,
+    _trust_authority: 'immutable_server',
+    trust_manifest_version: 'lemon-trust-manifest-v6',
+    trust_manifest: {
+      manifest_version: 'lemon-trust-manifest-v6',
+      integrity_sha256: contentHash,
+      analysis_payload_sha256: contentHash,
+      source: { content_sha256: contentHash, source_file: sourceFile },
+      origin: { project_id: projectId, version_id: versionId },
+      engine: { analysis_version: 'v9_archaeology' },
+      models: { calls: [{ response_id: 'msg_1' }] },
+    },
+    server_trust_attestation: {
+      attestation_version: 'lemon-server-trust-attestation-v1',
+      writer: 'firebase_admin',
+      project_id: projectId,
+      version_id: versionId,
+      content_sha256: contentHash,
+      trust_manifest_integrity_sha256: contentHash,
+      analysis_payload_sha256: contentHash,
+    },
     analysis_model: 'claude-sonnet-4',
     analysis_version: 'v9_archaeology',
     collection: 'LEMON',
@@ -70,6 +105,8 @@ function rawAnalysis(title: string, score: number, sourceFile: string, verdict =
       red_flags: [],
     },
   };
+  immutableRecords.set(projectId, result);
+  return result;
 }
 
 function renderPage() {
@@ -95,10 +132,28 @@ describe('DiscoverPage', () => {
     );
 
     emitSnapshot = undefined;
+    immutableRecords.clear();
     mockUnsubscribe.mockReset();
     mockOnSnapshot.mockReset().mockImplementation((_query, onChange) => {
       emitSnapshot = onChange;
       return mockUnsubscribe;
+    });
+    mockGetDocFromServer.mockReset().mockImplementation(async (reference: unknown[]) => {
+      const projectId = String(reference[2]);
+      const collectionName = String(reference[3]);
+      const version = immutableRecords.get(projectId);
+      const manifest = version?.trust_manifest as Record<string, unknown> | undefined;
+      const authority = version && manifest ? {
+        authorityVersion: 'lemon-analysis-version-authority-v1',
+        writer: 'firebase_admin',
+        projectId,
+        versionId: version.version_id,
+        contentHash: version.content_hash,
+        trustManifestIntegritySha256: manifest.integrity_sha256,
+        analysisPayloadSha256: manifest.analysis_payload_sha256,
+      } : undefined;
+      const data = collectionName === 'version_authorities' ? authority : version;
+      return { exists: () => Boolean(data), data: () => data };
     });
   });
 
@@ -121,7 +176,7 @@ describe('DiscoverPage', () => {
     expect(await screen.findByRole('heading', { name: 'Midnight Orchard' })).toBeInTheDocument();
     expect(screen.getAllByText('8.8').length).toBeGreaterThan(0);
     expect(
-      within(screen.getByTestId('discovery-featured')).getByText('FILM NOW'),
+      within(await screen.findByTestId('discovery-featured')).getByText('FILM NOW'),
     ).toBeInTheDocument();
     expect(screen.queryByText('Cactus Season')).not.toBeInTheDocument();
   });

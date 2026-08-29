@@ -8,11 +8,13 @@ import type { Screenplay } from '@/types';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import i18n, { currentUiLanguage } from '@/i18n';
 import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
+import { requireDecisionReady } from '@/lib/producerProjection';
 
 /**
  * Convert screenplays to CSV and trigger download
  */
 export function exportToCSV(screenplays: Screenplay[], filename: string = 'screenplays') {
+  requireDecisionReady(screenplays);
   const language = currentUiLanguage();
   const t = i18n.getFixedT(language);
   // Flatten screenplay data for CSV

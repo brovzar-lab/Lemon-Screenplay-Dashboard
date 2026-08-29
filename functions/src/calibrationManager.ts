@@ -7,6 +7,7 @@ import {
 import cors from "cors";
 
 import { authenticateProxyRequest } from "./proxyAuth";
+import { loadAuthorizedAnalysisVersion } from "./analysisVersionAuthority";
 import {
   CALIBRATION_COMPILER_MODEL,
   CALIBRATION_POLICY_TOOL,
@@ -183,15 +184,21 @@ async function submitAssessment(
     .doc(projectId)
     .collection("versions")
     .doc(versionId);
+  const authorityRef = db
+    .collection("uploaded_analyses")
+    .doc(projectId)
+    .collection("version_authorities")
+    .doc(versionId);
   const headRef = db
     .collection("producer_assessment_heads")
     .doc(assessmentHeadId(producer.uid, projectId));
   return db.runTransaction(async (transaction) => {
-    const [versionSnapshot, headSnapshot] = await Promise.all([
+    const [versionSnapshot, authoritySnapshot, headSnapshot] = await Promise.all([
       transaction.get(versionRef),
+      transaction.get(authorityRef),
       transaction.get(headRef),
     ]);
-    if (!versionSnapshot.exists) {
+    if (!versionSnapshot.exists || !authoritySnapshot.exists) {
       throw new Error("The exact trusted analysis version does not exist.");
     }
 
@@ -219,6 +226,7 @@ async function submitAssessment(
         projectId,
         versionId,
         versionSnapshot.data(),
+        authoritySnapshot.data(),
       ),
       prior,
       nowIso: new Date().toISOString(),
@@ -294,21 +302,37 @@ async function buildCandidate(
     loadAssessments(trainingIds, producer.uid),
     loadAssessments(holdoutIds, producer.uid),
   ]);
+  const db = getFirestore();
+  const authorizedVersions = new Map<string, UnknownRecord>();
+  await Promise.all([...training, ...holdouts].map(async (assessment) => {
+    const { projectId, versionId } = assessment.analysis;
+    const authorized = await loadAuthorizedAnalysisVersion(db, projectId, versionId);
+    const current = extractProducerAnalysisSnapshot(
+      projectId,
+      versionId,
+      authorized.version,
+      authorized.authority,
+    );
+    if (
+      current.contentHash !== assessment.analysis.contentHash
+      || current.trustManifestIntegritySha256
+        !== assessment.analysis.trustManifestIntegritySha256
+    ) {
+      throw new Error("A calibration assessment no longer matches its authorized analysis.");
+    }
+    authorizedVersions.set(`${projectId}\n${versionId}`, authorized.version);
+  }));
   const compilation = await callCalibrationLlm({
     prompt: buildCompilerPrompt(training),
     tool: CALIBRATION_POLICY_TOOL,
   });
   const policy = parseCalibrationPolicy(compilation.input);
-  const db = getFirestore();
   const replayResults = [];
   for (const assessment of holdouts) {
-    const versionSnapshot = await db
-      .collection("uploaded_analyses")
-      .doc(assessment.analysis.projectId)
-      .collection("versions")
-      .doc(assessment.analysis.versionId)
-      .get();
-    if (!versionSnapshot.exists) {
+    const version = authorizedVersions.get(
+      `${assessment.analysis.projectId}\n${assessment.analysis.versionId}`,
+    );
+    if (!version) {
       throw new Error(
         `Holdout evidence for ${assessment.analysis.title} is missing.`,
       );
@@ -317,7 +341,7 @@ async function buildCandidate(
       prompt: buildDecisionReplayPrompt(
         policy,
         assessment,
-        versionSnapshot.data(),
+        version,
       ),
       tool: DECISION_REPLAY_TOOL,
     });

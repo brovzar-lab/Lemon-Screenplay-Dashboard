@@ -1,6 +1,7 @@
 """Pure, shared V9 verdict rules used by analysis and trust validation."""
 
-from typing import Any, Dict, List
+import math
+from typing import Any, Dict, List, Sequence
 
 
 VERDICT_TIERS = ["PASS", "CONSIDER", "RECOMMEND", "FILM_NOW"]
@@ -22,12 +23,59 @@ BOUNDARY_WINDOW = 0.5
 VERDICT_BOUNDARIES = (5.5, 7.5, 8.5)
 
 
+def derive_failure_severity(metric_score: Any) -> str | None:
+    """Derive penalty severity from the cited canonical reader metric."""
+    if (
+        isinstance(metric_score, bool)
+        or not isinstance(metric_score, (int, float))
+        or not math.isfinite(float(metric_score))
+        or not 0 <= float(metric_score) <= 10
+    ):
+        raise ValueError("critical-failure metric score is invalid")
+    score = float(metric_score)
+    if score > 4:
+        return None
+    if score > 3:
+        return "minor"
+    if score > 2:
+        return "moderate"
+    if score > 1:
+        return "major"
+    return "critical"
+
+
 def near_verdict_boundary(
     score: float,
     window: float = BOUNDARY_WINDOW,
 ) -> bool:
     """Return whether a score is inside the mandatory stability window."""
     return any(abs(score - boundary) < window for boundary in VERDICT_BOUNDARIES)
+
+
+def select_boundary_run_index(
+    scores: Sequence[float],
+    verdicts: Sequence[str],
+) -> int:
+    """Select the intact boundary run used by execution and trust sealing."""
+    if not scores or len(scores) != len(verdicts):
+        raise ValueError("boundary scores and verdicts must be nonempty and aligned")
+    ordered = sorted(range(len(scores)), key=lambda index: (scores[index], index))
+    median_index = ordered[len(ordered) // 2]
+    median_score = scores[median_index]
+    counts: Dict[str, int] = {}
+    for verdict in verdicts:
+        counts[verdict] = counts.get(verdict, 0) + 1
+    majority, count = max(counts.items(), key=lambda item: item[1])
+    if count < 2:
+        return median_index
+    return min(
+        (index for index, verdict in enumerate(verdicts) if verdict == majority),
+        key=lambda index: (
+            round(abs(scores[index] - median_score), 9),
+            scores[index],
+            index,
+        ),
+    )
 
 
 def compute_failure_penalty(critical_failures: Any) -> float:

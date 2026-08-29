@@ -17,6 +17,10 @@ function share(recommendation: 'pass' | 'consider', posterUrl: string | null): S
       genre: 'Romantic Comedy',
       subgenres: [],
       recommendation,
+      producerProjection: {
+        rankable: true,
+        trustStatus: 'verified',
+      },
       verdictStatement: 'Original English analysis.',
     },
   } as unknown as SharedViewDocument;
@@ -67,5 +71,14 @@ describe('SharedViewLayout poster policy', () => {
     expect(screen.getByRole('heading', { name: 'Will' })).toBeInTheDocument();
     expect(screen.getByText('Análisis guardado en español.')).toBeInTheDocument();
     expect(screen.queryByText('Análisis disponible en inglés')).not.toBeInTheDocument();
+  });
+
+  it('suppresses every decision field for an unverified snapshot', () => {
+    const data = share('consider', null);
+    data.analysis.producerProjection = undefined;
+    render(<SharedViewLayout data={data} />);
+    expect(screen.getByRole('alert')).toHaveTextContent(/not server-verified/i);
+    expect(screen.queryByText('CONSIDER')).not.toBeInTheDocument();
+    expect(screen.queryByText('Original English analysis.')).not.toBeInTheDocument();
   });
 });

@@ -16,6 +16,7 @@ import {
   runTransaction,
   Timestamp,
   getDocs,
+  getDocFromServer,
   updateDoc,
   deleteField,
   query,
@@ -37,6 +38,29 @@ const _QUARANTINE_COLLECTION = '_unrecognized_analyses';
 const LOCAL_CACHE_KEY = 'lemon-local-analyses';
 const MIGRATION_KEY = 'lemon-migration-v6-done';
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const TRUST_AUTHORITY_FIELD = '_trust_authority';
+const SERVER_TRUST_ATTESTATION_VERSION = 'lemon-server-trust-attestation-v1';
+const ANALYSIS_VERSION_AUTHORITY_VERSION = 'lemon-analysis-version-authority-v1';
+const MUTABLE_PARENT_FIELDS = [
+  '_deleted_at',
+  '_quarantined_at',
+  '_quarantine_reason',
+  '_original_collection',
+  'collection',
+  'category',
+  'hasPdf',
+] as const;
+const VERSION_BOUND_POSTER_FIELDS = [
+  'poster_url',
+  'poster_status',
+  'poster_model',
+  'poster_version_id',
+  'poster_cost_microusd',
+  'poster_generated_at',
+  'poster_requested_at',
+  'poster_request_id',
+  'poster_last_error',
+] as const;
 
 function isQuarantined(record: Record<string, unknown>): boolean {
   return Boolean(record._quarantined_at);
@@ -46,14 +70,24 @@ function isQuarantined(record: Record<string, unknown>): boolean {
 
 /** Sanitize source_file into a Firestore-safe document ID. */
 export function toDocId(sourceFile: string): string {
-  return (
-    sourceFile
-      .replace(/[/\\]/g, '_')
-      .replace(/[^a-zA-Z0-9_\-. ]/g, '')
-      .trim()
-      .replace(/\s+/g, '_')
-      .slice(0, 200) || `doc_${Date.now()}`
-  );
+  const canonical = sourceFile.normalize('NFC');
+  const asciiName = canonical.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{ASCII}]/gu, '');
+  const sanitized = asciiName.replace(/[/\\]/g, '_')
+    .replace(/[^a-zA-Z0-9_\-. ]/g, '').trim().replace(/\s+/g, '_');
+  if (canonical !== asciiName) {
+    const suffix = `-u${fnv1aUtf8(canonical)}`;
+    return `${sanitized.slice(0, 200 - suffix.length) || 'doc'}${suffix}`;
+  }
+  return sanitized.slice(0, 200) || `doc_${fnv1aUtf8(canonical)}`;
+}
+
+function fnv1aUtf8(value: string): string {
+  let hash = 0x811c9dc5;
+  for (const byte of new TextEncoder().encode(value)) {
+    hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
 }
 
 function getVersionCount(record: Record<string, unknown>): number {
@@ -167,7 +201,11 @@ export function stripDeferredAnalysisFields(
  * @param silent — if true, suppress error toasts (used for background sync).
  */
 function writeToLocal(analyses: Record<string, unknown>[], silent = false): void {
-  const projectionRecords = analyses.map(stripDeferredAnalysisFields);
+  const projectionRecords = analyses.map((analysis) => {
+    const record = { ...stripDeferredAnalysisFields(analysis) };
+    delete record[TRUST_AUTHORITY_FIELD];
+    return record;
+  });
   // Level 1 — full write
   try {
     localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(projectionRecords));
@@ -218,7 +256,12 @@ function readFromLocal(): Record<string, unknown>[] {
     if (!stored) return [];
     const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed)) return [];
-    return parsed as Record<string, unknown>[];
+    return parsed.flatMap((value): Record<string, unknown>[] => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+      const untrusted = { ...value } as Record<string, unknown>;
+      if (!isLocalE2E()) delete untrusted[TRUST_AUTHORITY_FIELD];
+      return [untrusted];
+    });
   } catch {
     return [];
   }
@@ -309,21 +352,90 @@ async function applyPendingWrite(write: PendingWrite): Promise<void> {
 function applyPendingWritesToRecords(
   records: Record<string, unknown>[],
 ): Record<string, unknown>[] {
+  const untrusted = (value: Record<string, unknown>) => {
+    const copy = { ...value };
+    delete copy[TRUST_AUTHORITY_FIELD];
+    return copy;
+  };
   const bySourceFile = new Map(
     records.map((record) => [String(record.source_file ?? ''), { ...record }]),
   );
   for (const write of readPendingWrites()) {
     const current = bySourceFile.get(write.sourceFile) ?? { source_file: write.sourceFile };
     if (write.kind === 'set' || write.kind === 'versioned-set') {
-      bySourceFile.set(write.sourceFile, { ...write.data });
+      bySourceFile.set(write.sourceFile, untrusted({ ...write.data }));
     } else if (write.kind === 'patch') {
-      bySourceFile.set(write.sourceFile, { ...current, ...write.fields });
+      bySourceFile.set(write.sourceFile, untrusted({
+        ...current,
+        ...write.fields,
+      }));
     } else {
       const { _deleted_at: _discarded, ...rest } = current;
-      bySourceFile.set(write.sourceFile, rest);
+      bySourceFile.set(write.sourceFile, untrusted(rest));
     }
   }
   return Array.from(bySourceFile.values());
+}
+
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+/** Use only fields fetched from the immutable server version for ranking trust. */
+export function bindAuthoritativeVersion(
+  parent: Record<string, unknown>,
+  version: Record<string, unknown>,
+  authority: Record<string, unknown>,
+): Record<string, unknown> {
+  const attestation = record(version.server_trust_attestation);
+  const manifest = record(version.trust_manifest);
+  const projectId = String(parent.project_id ?? '');
+  const versionId = String(parent.latest_version_id ?? parent.version_id ?? '');
+  const valid = attestation?.attestation_version === SERVER_TRUST_ATTESTATION_VERSION
+    && attestation.writer === 'firebase_admin'
+    && attestation.project_id === projectId
+    && attestation.version_id === versionId
+    && version.project_id === projectId
+    && version.version_id === versionId
+    && attestation.content_sha256 === version.content_hash
+    && attestation.trust_manifest_integrity_sha256 === manifest?.integrity_sha256
+    && attestation.analysis_payload_sha256 === manifest?.analysis_payload_sha256;
+  const authorityValid = authority.authorityVersion === ANALYSIS_VERSION_AUTHORITY_VERSION
+    && authority.writer === 'firebase_admin'
+    && authority.projectId === projectId
+    && authority.versionId === versionId
+    && authority.contentHash === version.content_hash
+    && authority.trustManifestIntegritySha256 === manifest?.integrity_sha256
+    && authority.analysisPayloadSha256 === manifest?.analysis_payload_sha256;
+  if (!valid || !authorityValid) {
+    const unverified = { ...parent };
+    delete unverified[TRUST_AUTHORITY_FIELD];
+    return unverified;
+  }
+  const authoritative = { ...version };
+  for (const field of MUTABLE_PARENT_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(parent, field)) {
+      authoritative[field] = parent[field];
+    }
+  }
+  if (parent.poster_version_id === versionId) {
+    for (const field of VERSION_BOUND_POSTER_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(parent, field)) {
+        authoritative[field] = parent[field];
+      }
+    }
+  }
+  return {
+    ...authoritative,
+    latest_version_id: versionId,
+    version_count: parent.version_count,
+    latest_source_file: version.source_file,
+    _savedAt: parent._savedAt,
+    _docId: projectId,
+    [TRUST_AUTHORITY_FIELD]: 'immutable_server',
+  };
 }
 
 /** Flush any pending Firestore writes that failed previously. Non-blocking. */
@@ -412,33 +524,98 @@ export function subscribeToAnalyses(
           k !== '_docId' &&
           k !== '_quarantined_at' &&
           k !== '_quarantine_reason' &&
-          k !== '_original_collection',
+          k !== '_original_collection' &&
+          k !== TRUST_AUTHORITY_FIELD,
       ),
     );
 
   const q = query(collection(db, FIRESTORE_COLLECTION));
+  let snapshotGeneration = 0;
+  let active = true;
 
-  return onSnapshot(
+  const publish = (cloudRecords: Record<string, unknown>[]) => {
+    const next = applyPendingWritesToRecords(cloudRecords)
+      .filter((d) => !d._deleted_at)
+      .map(stripDeferredAnalysisFields);
+
+    writeToLocal(next, true);
+    console.log(`[Lemon] Live sync: ${next.length} analyses (Firestore snapshot)`);
+    onChange(next);
+  };
+
+  const unsubscribe = onSnapshot(
     q,
     (snapshot: QuerySnapshot<DocumentData>) => {
-      const cloudRecords = snapshot.docs
+      const generation = ++snapshotGeneration;
+      const parentRecords = snapshot.docs
         .map((d) => d.data() as Record<string, unknown>)
         .filter((data) => !isQuarantined(data))
-        .map((data) => stripDeferredAnalysisFields(stripInternals(data)));
-      const next = applyPendingWritesToRecords(cloudRecords)
-        .filter((d) => !d._deleted_at)
-        .map(stripDeferredAnalysisFields);
-
-      // Mirror to localStorage so the next cold-load is fast.
-      writeToLocal(next, true);
-      console.log(`[Lemon] Live sync: ${next.length} analyses (Firestore snapshot)`);
-      onChange(next);
+        .map((data) => stripInternals(data));
+      const needsImmutableRead = parentRecords.some((parent) => (
+        record(parent.server_trust_attestation)?.attestation_version
+          === SERVER_TRUST_ATTESTATION_VERSION
+        && typeof parent.project_id === 'string'
+        && typeof (parent.latest_version_id ?? parent.version_id) === 'string'
+      ));
+      if (!needsImmutableRead) {
+        if (active && generation === snapshotGeneration) publish(parentRecords);
+        return;
+      }
+      void Promise.all(parentRecords.map(async (parent) => {
+        const projectId = parent.project_id;
+        const versionId = parent.latest_version_id ?? parent.version_id;
+        if (
+          record(parent.server_trust_attestation)?.attestation_version
+            !== SERVER_TRUST_ATTESTATION_VERSION
+          || typeof projectId !== 'string'
+          || typeof versionId !== 'string'
+        ) {
+          return { ...parent };
+        }
+        try {
+          const [versionSnapshot, authoritySnapshot] = await Promise.all([
+            getDocFromServer(
+              doc(db, FIRESTORE_COLLECTION, projectId, 'versions', versionId),
+            ),
+            getDocFromServer(
+              doc(
+                db,
+                FIRESTORE_COLLECTION,
+                projectId,
+                'version_authorities',
+                versionId,
+              ),
+            ),
+          ]);
+          return versionSnapshot.exists() && authoritySnapshot.exists()
+            ? bindAuthoritativeVersion(
+              parent,
+              versionSnapshot.data() as Record<string, unknown>,
+              authoritySnapshot.data() as Record<string, unknown>,
+            )
+            : { ...parent };
+        } catch {
+          console.warn('[Lemon] Immutable trust verification unavailable');
+          return { ...parent };
+        }
+      })).then((records) => {
+        if (active && generation === snapshotGeneration) publish(records);
+      }).catch((error: unknown) => {
+        if (active && generation === snapshotGeneration) {
+          onError?.(error instanceof Error ? error : new Error('Immutable trust verification failed'));
+        }
+      });
     },
     (err) => {
       console.warn('[Lemon] Live sync subscription error:', err);
       onError?.(err);
     },
   );
+  return () => {
+    active = false;
+    snapshotGeneration += 1;
+    unsubscribe();
+  };
 }
 
 /**

@@ -17,6 +17,7 @@ import { DEFAULT_FILTER_STATE } from '@/types/filters';
 import { useFilterStore } from '@/stores/filterStore';
 import type { Screenplay } from '@/types';
 import type { FilterState, SortConfig } from '@/types/filters';
+import { createTestScreenplay } from '@/test/factories';
 
 // Module-level mock so Vitest hoisting works correctly
 vi.mock('@/hooks/useScreenplays', () => ({
@@ -26,8 +27,7 @@ vi.mock('@/hooks/useScreenplays', () => ({
 // ─── Mock Factory ───────────────────────────────────────────
 
 function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
-    return {
-        id: 'test-id',
+    return createTestScreenplay({
         title: 'Test Screenplay',
         author: 'Test Author',
         logline: 'A detective hunts a clever serial killer.',
@@ -36,22 +36,6 @@ function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
         themes: ['Justice', 'Morality'],
         budgetCategory: 'medium',
         collection: '2020 Black List',
-        recommendation: 'recommend',
-        isFilmNow: false,
-        weightedScore: 7.5,
-        cvsTotal: 12,
-        marketability: 'medium',
-        criticalFailures: [],
-        dimensionScores: {
-            concept: 7,
-            structure: 7,
-            protagonist: 8,
-            supportingCast: 6,
-            dialogue: 7,
-            genreExecution: 7,
-            originality: 7,
-            weightedScore: 7.5,
-        },
         cvsFactors: {
             targetAudience: { score: 2, note: '' },
             highConcept: { score: 2, note: '' },
@@ -60,23 +44,10 @@ function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
             budgetReturn: { score: 2, note: '' },
             comparableSuccess: { score: 2, note: '' },
         },
-        producerMetrics: {
-            marketPotential: 7,
-            marketPotentialRationale: 'Good commercial potential.',
-            uspStrength: 'Moderate',
-            uspStrengthRationale: 'Decent originality.',
-        },
-        strengths: [],
-        weaknesses: [],
-        comparableFilms: [],
-        standoutScenes: [],
-        developmentNotes: [],
         characters: [],
-        verdictStatement: '',
         metadata: { sourceFile: 'test.pdf', pageCount: 110, wordCount: 20000, analysisVersion: 'v5' },
-        sourceFile: 'test.pdf',
         ...overrides,
-    } as Screenplay;
+    });
 }
 
 function filtersFrom(partial: Partial<FilterState>): FilterState {
@@ -430,16 +401,16 @@ describe('sortScreenplays', () => {
         expect(all).toEqual(original);
     });
 
-    it('keeps incomplete analyses visible without corrupting the requested sort', () => {
+    it('keeps unverified analyses visible after verified results without ranking them', () => {
         const incomplete = createMockScreenplay({
             id: 'incomplete',
+            title: 'Alpha unverified',
             weightedScore: 9.9,
-            producerProjection: {
-                rankable: false,
-            } as Screenplay['producerProjection'],
+            producerProjection: undefined,
         });
         const trusted = createMockScreenplay({
             id: 'trusted',
+            title: 'Zulu verified',
             weightedScore: 6.5,
         });
 
@@ -450,9 +421,32 @@ describe('sortScreenplays', () => {
         );
 
         expect(sorted.map((screenplay) => screenplay.id)).toEqual([
-            'incomplete',
             'trusted',
+            'incomplete',
         ]);
+    });
+
+    it('orders multiple unverified analyses alphabetically, never by AI score', () => {
+        const zulu = createMockScreenplay({
+            id: 'zulu',
+            title: 'Zulu',
+            weightedScore: 9.9,
+            producerProjection: undefined,
+        });
+        const alpha = createMockScreenplay({
+            id: 'alpha',
+            title: 'Alpha',
+            weightedScore: 1,
+            producerProjection: undefined,
+        });
+
+        const sorted = sortScreenplays(
+            [zulu, alpha],
+            [{ field: 'weightedScore', direction: 'desc' }],
+            false,
+        );
+
+        expect(sorted.map((screenplay) => screenplay.id)).toEqual(['alpha', 'zulu']);
     });
 
     it('handles multi-column sort (tiebreaker)', () => {

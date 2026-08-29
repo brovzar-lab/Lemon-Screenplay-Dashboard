@@ -9,6 +9,7 @@ import { PdfDocument } from './PdfDocument';
 import type { Screenplay } from '@/types';
 import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
 import { currentUiLanguage } from '@/i18n';
+import { requireDecisionReady } from '@/lib/producerProjection';
 
 export interface BulkPdfProgress {
   current: number;
@@ -34,6 +35,7 @@ export async function bulkExportPdfs(
   screenplays: Screenplay[],
   onProgress?: (progress: BulkPdfProgress) => void
 ): Promise<void> {
+  requireDecisionReady(screenplays);
   // Dynamic import JSZip to keep it out of main bundle
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();

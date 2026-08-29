@@ -51,6 +51,10 @@ class TestParseCache(unittest.TestCase):
                     "word_count": 600,
                     "page_count": 90,
                     "text": marker,
+                    "metadata": {
+                        "parser_version": ingest_v9.PARSER_VERSION,
+                        "source_content_sha256": marker,
+                    },
                 }
             ),
             encoding="utf-8",
@@ -88,6 +92,20 @@ class TestParseCache(unittest.TestCase):
                 ingest_v9.parse_pdf(pdf_path)
             with patch.object(ingest_v9, "PARSER_VERSION", "parser-b", create=True):
                 ingest_v9.parse_pdf(pdf_path)
+
+        self.assertEqual(run.call_count, 2)
+
+    def test_cached_parse_for_different_source_hash_is_reparsed(self):
+        payload = b"screenplay bytes"
+        pdf_path = self._pdf("source", "Draft.pdf", payload)
+
+        with patch("subprocess.run", side_effect=self._fake_parser) as run:
+            ingest_v9.parse_pdf(pdf_path)
+            cache_path = next((self.root / "parsed_v9").rglob("*.json"))
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            cached["metadata"]["source_content_sha256"] = "0" * 64
+            cache_path.write_text(json.dumps(cached), encoding="utf-8")
+            ingest_v9.parse_pdf(pdf_path)
 
         self.assertEqual(run.call_count, 2)
 

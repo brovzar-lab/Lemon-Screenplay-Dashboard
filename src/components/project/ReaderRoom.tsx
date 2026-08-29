@@ -9,6 +9,7 @@ import { localizedReaderReports, savedLocalizedAnalysis } from '@/lib/localizedA
 import { formatProducerHeading, formatProducerText, formatProducerTaxonomy } from '@/lib/producerDisplay';
 import { PrivateReaderChat } from '@/components/project/PrivateReaderChat';
 import type { ReaderReportEvidence, Screenplay } from '@/types';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 interface ReaderProfile {
   key: 'structure' | 'character' | 'craft' | 'concept' | 'emotion';
@@ -83,7 +84,7 @@ function readerChatReadiness(
   report: ReaderReportEvidence | undefined,
   mode: ReturnType<typeof privateReaderChatMode>,
 ): ReaderChatReadiness {
-  if (!screenplay.latestVersionId) {
+  if (!screenplay.latestVersionId || !isDecisionReady(screenplay)) {
     return {
       ready: false,
       label: 'Current sealed analysis required',
@@ -136,6 +137,7 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
       screenplay.latestVersionId ?? 'latest-parent',
     ],
     queryFn: () => fetchReaderReports(screenplay),
+    enabled: Boolean(screenplay.latestVersionId) && isDecisionReady(screenplay),
     staleTime: Number.POSITIVE_INFINITY,
   });
   const localizedContent = savedLocalizedAnalysis(
@@ -150,7 +152,7 @@ export function ReaderRoom({ screenplay }: { screenplay: Screenplay }) {
     [reports, selectedReader],
   );
   const chatMode = privateReaderChatMode();
-  const hasExactVersion = Boolean(screenplay.latestVersionId);
+  const hasExactVersion = Boolean(screenplay.latestVersionId) && isDecisionReady(screenplay);
   const readiness = readerChatReadiness(screenplay, selectedReport, chatMode);
   const canOpenConversation = readiness.ready;
   const chatIntro = !hasExactVersion

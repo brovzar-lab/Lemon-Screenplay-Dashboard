@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
+
 export interface CandidateLogFields {
   call_id?: string;
-  run_id?: string;
+  run_id_sha256?: string;
   model?: string;
   status_code?: number;
   response_id?: string;
@@ -46,7 +48,9 @@ export function sanitizeCandidateLog(value: unknown): CandidateLogFields {
   const result: Record<string, unknown> = { event };
   for (const [key, item] of Object.entries(record)) {
     if (!TOP_LEVEL_FIELDS.has(key) || key === "event") continue;
-    if (key === "usage") {
+    if (key === "run_id" && typeof item === "string") {
+      result.run_id_sha256 = createHash("sha256").update(item).digest("hex");
+    } else if (key === "usage") {
       const usage = sanitizedRecord(item, USAGE_FIELDS);
       if (usage) result.usage = usage;
     } else if (key === "release") {

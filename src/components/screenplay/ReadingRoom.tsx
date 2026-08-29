@@ -16,6 +16,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
 import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 interface ReadingRoomProps {
   screenplays: Screenplay[];
@@ -116,7 +117,13 @@ export function ReadingRoom({
             <span className="text-xs text-black-500 tabular-nums">
               {t('{{current}} of {{total}}', { current: currentIndex + 1, total: screenplays.length })}
             </span>
-            <RecommendationBadge tier={screenplay.recommendation} />
+            {isDecisionReady(screenplay) ? (
+              <RecommendationBadge tier={screenplay.recommendation} />
+            ) : (
+              <span className="text-xs font-semibold text-amber-300">
+                {t('Decision data unavailable until verification')}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">

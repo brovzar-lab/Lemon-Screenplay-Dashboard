@@ -69,11 +69,14 @@ describe('ScoresPanel producer projection', () => {
     expect(screen.getByText('Applied')).toBeInTheDocument();
   });
 
-  it('labels pre-V9 dimensions as legacy', () => {
-    render(<ScoresPanel screenplay={createTestScreenplay()} />);
+  it('keeps pre-V9 dimension evidence visible without presenting a decision score', () => {
+    render(<ScoresPanel screenplay={createTestScreenplay({ producerProjection: undefined })} />);
 
-    expect(screen.getByText('Legacy Dimension Scores')).toBeInTheDocument();
-    expect(screen.getByText('Stored score')).toBeInTheDocument();
+    expect(screen.getAllByText('Decision data unavailable until verification').length).toBeGreaterThan(0);
+    expect(screen.getByText('Concept (20%)')).toBeInTheDocument();
+    expect(screen.queryByText('Legacy Dimension Scores')).not.toBeInTheDocument();
+    expect(screen.queryByText('Stored score')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('score-lineage')).not.toBeInTheDocument();
   });
 
   it('labels a triage score without claiming five-reader scoring', () => {
@@ -90,7 +93,7 @@ describe('ScoresPanel producer projection', () => {
         verdictAdjustments: [],
         gates: [],
         warnings: [],
-        rankable: true,
+        rankable: false,
         trustStatus: 'legacy_unverified',
         boundary: {
           checked: false,
@@ -106,9 +109,11 @@ describe('ScoresPanel producer projection', () => {
 
     render(<ScoresPanel screenplay={screenplay} />);
 
-    expect(screen.getByText('Triage score')).toBeInTheDocument();
-    expect(screen.getByText('Raw triage score')).toBeInTheDocument();
+    expect(screen.getAllByText('Decision data unavailable until verification').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Triage score')).not.toBeInTheDocument();
+    expect(screen.queryByText('Raw triage score')).not.toBeInTheDocument();
     expect(screen.queryByText('Raw five-pillar score')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('score-lineage')).not.toBeInTheDocument();
   });
 
   it('turns workspace scores into a decision-focused Development Signal Map', () => {

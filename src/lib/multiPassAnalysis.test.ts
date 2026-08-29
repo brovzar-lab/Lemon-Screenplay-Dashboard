@@ -759,7 +759,7 @@ describe('Q3 five-reader reliability', () => {
       critical_failures: [{
         weakness_index: 0,
         reader: 'structure',
-        metric: 'ending_payoff',
+        metric: 'beat_timing',
         description: 'Act three breaks causality.',
         severity: 'major',
         penalty: 99,
@@ -790,6 +790,7 @@ describe('Q3 five-reader reliability', () => {
     );
     const readerReports = completeReaderReports({
       ...conceptOverrides,
+      'structure.beat_timing': 2,
       'character.star_role_potential': 4,
       'character.supporting_cast_function': 4,
     });

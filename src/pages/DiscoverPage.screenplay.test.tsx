@@ -19,6 +19,12 @@ vi.mock('@/hooks/useScreenplays', () => ({
   useDeleteScreenplays: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
+vi.mock('@/lib/shareService', () => ({
+  getAllSharedViews: vi.fn().mockResolvedValue([]),
+  getExistingShareToken: vi.fn().mockResolvedValue(null),
+  isScreenplaySynced: vi.fn().mockResolvedValue(true),
+}));
+
 vi.mock('@/components/discover/screenplay/ScreenplaySlateInsights', () => ({
   ScreenplaySlateInsights: () => <section data-testid="screenplay-insights" />,
 }));

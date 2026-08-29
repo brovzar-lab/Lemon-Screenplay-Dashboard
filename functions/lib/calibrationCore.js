@@ -18,6 +18,7 @@ exports.confidenceForAssessmentCount = confidenceForAssessmentCount;
 exports.buildCalibrationCandidate = buildCalibrationCandidate;
 exports.buildActiveCalibrationProfile = buildActiveCalibrationProfile;
 const node_crypto_1 = require("node:crypto");
+const analysisVersionAuthority_1 = require("./analysisVersionAuthority");
 exports.PRODUCER_ASSESSMENT_SCHEMA_VERSION = "lemon-producer-assessment-v1";
 exports.CALIBRATION_PROFILE_SCHEMA_VERSION = "lemon-calibration-profile-v1";
 exports.CALIBRATION_COMPILER_MODEL = "claude-opus-4-7";
@@ -45,6 +46,8 @@ const PILLARS = [
     "concept",
     "emotional_resonance",
 ];
+const TRUST_MANIFEST_VERSION = "lemon-trust-manifest-v6";
+const SERVER_TRUST_ATTESTATION_VERSION = "lemon-server-trust-attestation-v1";
 function asRecord(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value)
         ? value
@@ -61,6 +64,15 @@ function finiteScore(value, label) {
         throw new Error(`${label} must be between 1 and 10.`);
     }
     return Math.round(value * 10) / 10;
+}
+function finiteAnalysisScore(value, label) {
+    if (typeof value !== "number"
+        || !Number.isFinite(value)
+        || value < 1
+        || value > 10) {
+        throw new Error(`${label} must be between 1 and 10.`);
+    }
+    return value;
 }
 function enumValue(value, allowed, label) {
     if (typeof value !== "string" || !allowed.includes(value)) {
@@ -125,35 +137,108 @@ function normalizeVerdict(value) {
     const normalized = text(value).toLowerCase().replaceAll(" ", "_");
     return enumValue(normalized, VERDICTS, "AI verdict");
 }
-function extractProducerAnalysisSnapshot(projectIdValue, versionIdValue, rawVersion) {
+function extractProducerAnalysisSnapshot(projectIdValue, versionIdValue, rawVersion, rawAuthority) {
     const projectId = documentId(projectIdValue, "Project");
     const versionId = documentId(versionIdValue, "Analysis version");
     const version = asRecord(rawVersion);
+    (0, analysisVersionAuthority_1.validateAnalysisVersionAuthority)(projectId, versionId, version, rawAuthority);
     if (version.project_id !== projectId || version.version_id !== versionId) {
         throw new Error("The stored analysis identity does not match the request.");
     }
     if (version.identity_status !== "verified") {
         throw new Error("Producer calibration requires a verified analysis.");
     }
+    if (version.analysis_version !== "v9_archaeology"
+        || version.trust_manifest_version !== TRUST_MANIFEST_VERSION) {
+        throw new Error("Producer calibration requires a current sealed V9 analysis.");
+    }
     const contentHash = text(version.content_hash, 64);
     if (!/^[a-f0-9]{64}$/.test(contentHash)) {
         throw new Error("Producer calibration requires a verified content hash.");
     }
     const manifest = asRecord(version.trust_manifest);
+    if (manifest.manifest_version !== TRUST_MANIFEST_VERSION) {
+        throw new Error("Producer calibration requires a V6 trust manifest.");
+    }
     const integrity = text(manifest.integrity_sha256, 64);
     if (!/^[a-f0-9]{64}$/.test(integrity)) {
         throw new Error("Producer calibration requires a sealed trust manifest.");
     }
     const analysis = asRecord(version.analysis);
+    const analysisHash = text(manifest.analysis_payload_sha256, 64);
+    const attestation = asRecord(version.server_trust_attestation);
+    if (!/^[a-f0-9]{64}$/.test(analysisHash)
+        || attestation.attestation_version !== SERVER_TRUST_ATTESTATION_VERSION
+        || attestation.writer !== "firebase_admin"
+        || attestation.project_id !== projectId
+        || attestation.version_id !== versionId
+        || attestation.content_sha256 !== contentHash
+        || attestation.trust_manifest_integrity_sha256 !== integrity
+        || attestation.analysis_payload_sha256 !== analysisHash) {
+        throw new Error("Producer calibration requires an Admin-attested analysis version.");
+    }
+    const source = asRecord(manifest.source);
+    const origin = asRecord(manifest.origin);
+    const engine = asRecord(manifest.engine);
+    if (source.content_sha256 !== contentHash
+        || origin.project_id !== projectId
+        || origin.version_id !== versionId
+        || engine.analysis_version !== "v9_archaeology") {
+        throw new Error("Producer calibration trust lineage does not match the analysis.");
+    }
+    const readerNames = [...PILLARS].sort();
+    const readers = asRecord(manifest.readers);
+    const quality = asRecord(analysis.analysis_quality);
+    const reports = asRecord(analysis.reader_reports);
+    const manifestReportNames = Array.isArray(readers.report_names)
+        ? readers.report_names.map(String).sort()
+        : [];
+    if (readers.quality_status !== "complete"
+        || readers.expected_specialist_readers !== PILLARS.length
+        || readers.completed_specialist_readers !== PILLARS.length
+        || !Array.isArray(readers.failed_readers)
+        || readers.failed_readers.length !== 0
+        || JSON.stringify(manifestReportNames) !== JSON.stringify(readerNames)
+        || quality.status !== "complete"
+        || quality.expected_readers !== PILLARS.length
+        || quality.completed_readers !== PILLARS.length
+        || !Array.isArray(quality.failed_readers)
+        || quality.failed_readers.length !== 0
+        || JSON.stringify(Object.keys(reports).sort()) !== JSON.stringify(readerNames)) {
+        throw new Error("Producer calibration requires all five validated specialist readers.");
+    }
+    const claimVerification = asRecord(manifest.claim_verification);
+    if (claimVerification.status !== "passed_independent_model_review"
+        || claimVerification.verification_scope
+            !== "semantic_support_against_full_physical_page_source"
+        || typeof claimVerification.claim_count !== "number"
+        || claimVerification.claim_count < 10
+        || typeof claimVerification.factual_support_rate !== "number"
+        || claimVerification.factual_support_rate < 0.95
+        || !Array.isArray(claimVerification.response_ids)
+        || claimVerification.response_ids.length === 0
+        || !/^[a-f0-9]{64}$/.test(text(claimVerification.claims_sha256, 64))) {
+        throw new Error("Producer calibration requires passed independent claim verification.");
+    }
+    const modelCalls = asRecord(manifest.models).calls;
+    if (!Array.isArray(modelCalls) || modelCalls.length === 0) {
+        throw new Error("Producer calibration requires complete model provenance.");
+    }
     const metadata = asRecord(version.metadata);
     const rawPillars = asRecord(analysis.pillar_scores);
     const pillarScores = PILLARS.map((name) => {
         const raw = asRecord(rawPillars[name]);
-        const score = finiteScore(raw.score, `${name} score`);
+        const score = finiteAnalysisScore(raw.score, `${name} score`);
         return { name, score, weight: 0.2 };
     });
-    const rawScore = finiteScore(analysis.weighted_score, "Raw reader score");
-    const finalScore = finiteScore(analysis.weighted_score_adjusted ?? analysis.weighted_score, "Final score");
+    const rawScore = finiteAnalysisScore(analysis.weighted_score, "Raw reader score");
+    const finalScore = finiteAnalysisScore(analysis.weighted_score_adjusted ?? analysis.weighted_score, "Final score");
+    const scoreLineage = asRecord(manifest.score_lineage);
+    if (scoreLineage.adjusted_score !== finalScore
+        || normalizeVerdict(scoreLineage.final_verdict)
+            !== normalizeVerdict(analysis.verdict)) {
+        throw new Error("Producer calibration score lineage does not match the analysis.");
+    }
     const calibration = asRecord(version.calibration_profile);
     return {
         projectId,

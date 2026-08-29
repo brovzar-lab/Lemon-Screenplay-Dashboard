@@ -127,6 +127,8 @@ export interface GoosebumpsMoment {
   page: number;
   description: string;
   why_it_works: string;
+  arc_connection?: string;
+  thematic_work?: string;
 }
 
 /** Extended Screenplay type with Archaeology Engine fields */
@@ -293,15 +295,8 @@ export function normalizeV9Screenplay(
       }))
     : [];
 
-  // Goosebumps moments
-  const rawGoosebumps = analysis.goosebumps_moments as Array<Record<string, unknown>> | undefined;
-  const goosebumpsMoments = (rawGoosebumps || []).map((g) => ({
-    page: typeof g.page === 'number' ? g.page : 0,
-    description: String(g.description || ''),
-    why_it_works: String(g.why_it_works || ''),
-    arc_connection: String(g.arc_connection || ''),
-    thematic_work: String(g.thematic_work || ''),
-  }));
+  // Top-level synthesis highlights were never independently grounded.
+  const goosebumpsMoments: GoosebumpsMoment[] = [];
 
   // Story vs. situation
   const storyVsSituation = analysis.story_vs_situation as
@@ -410,8 +405,8 @@ export function normalizeV9Screenplay(
     })(),
     collection,
     category: collectionToCategoryId(
-      String((raw as Record<string, unknown>).collection_id || raw.collection || ''),
-      String((raw as Record<string, unknown>).collection_id || raw.collection || ''),
+      String(raw.collection || (raw as Record<string, unknown>).collection_id || ''),
+      String(raw.category || (raw as Record<string, unknown>).collection_id || ''),
     ),
     sourceFile,
     analysisModel: String(raw.analysis_model || 'claude-sonnet'),
@@ -464,7 +459,7 @@ export function normalizeV9Screenplay(
     majorWeaknesses: (analysis.weaknesses as string[]) || redFlags || [],
     strengths: (analysis.strengths as string[]) || [],
     weaknesses: (analysis.weaknesses as string[]) || redFlags || [],
-    developmentNotes: (analysis.development_notes as string[]) || [],
+    developmentNotes: [],
     marketability: 'medium',
     budgetCategory: 'unknown',
     budgetJustification: '',

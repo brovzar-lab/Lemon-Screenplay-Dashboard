@@ -1,5 +1,6 @@
 import type { Screenplay } from '@/types';
 import { useTranslation } from 'react-i18next';
+import { decisionReadyScreenplays } from '@/lib/producerProjection';
 
 interface ScreenplaySlateStatsProps {
   screenplays: Screenplay[];
@@ -15,12 +16,13 @@ export function ScreenplaySlateStats({
   loading = false,
 }: ScreenplaySlateStatsProps) {
   const { t } = useTranslation();
+  const decisionReady = decisionReadyScreenplays(screenplays);
   const average =
-    screenplays.length > 0
-      ? screenplays.reduce((sum, screenplay) => sum + screenplay.weightedScore, 0) /
-        screenplays.length
+    decisionReady.length > 0
+      ? decisionReady.reduce((sum, screenplay) => sum + screenplay.weightedScore, 0) /
+        decisionReady.length
       : 0;
-  const priorityCount = screenplays.filter(
+  const priorityCount = decisionReady.filter(
     (screenplay) =>
       screenplay.recommendation === 'film_now' || screenplay.recommendation === 'recommend',
   ).length;
@@ -53,6 +55,12 @@ export function ScreenplaySlateStats({
             <strong>{priorityCount}</strong>
             <small>{t('Film Now + Recommend')}</small>
           </span>
+          {decisionReady.length !== screenplays.length && (
+            <span>
+              <strong>{screenplays.length - decisionReady.length}</strong>
+              <small>{t('Unverified omitted')}</small>
+            </span>
+          )}
           <span>
             <strong>{producerLookCount}</strong>
             <small>{t('Producer Look')}</small>

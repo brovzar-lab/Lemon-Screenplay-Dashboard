@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { RecommendationTier, Screenplay } from '@/types';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 const VERDICTS: Array<{ id: RecommendationTier; label: string; color: string }> = [
   { id: 'film_now', label: 'Film Now', color: 'bg-amber-400' },
@@ -65,29 +66,29 @@ export function AnalysisOverview() {
 
   const health = useMemo(() => {
     const total = screenplays.length;
+    const decisionReady = screenplays.filter(isDecisionReady);
+    const decisionTotal = decisionReady.length;
     const completePanels = screenplays.filter((screenplay) => {
       const quality = screenplay.analysisQuality;
       return quality
         ? quality.status === 'complete' && quality.completedReaders >= quality.expectedReaders
         : false;
     }).length;
-    const verified = screenplays.filter(
-      (screenplay) => screenplay.producerProjection?.trustStatus === 'verified',
-    ).length;
+    const verified = decisionTotal;
     const pdfReady = screenplays.filter((screenplay) => screenplay.hasPdf).length;
     const attention = screenplays
       .map((screenplay) => ({ screenplay, issue: issueFor(screenplay) }))
       .filter((item): item is { screenplay: Screenplay; issue: AnalysisIssue } =>
         Boolean(item.issue),
       );
-    const scoreValues = screenplays
+    const scoreValues = decisionReady
       .map((screenplay) => Number(screenplay.weightedScore))
       .filter(Number.isFinite);
     const averageScore = scoreValues.length
       ? scoreValues.reduce((sum, score) => sum + score, 0) / scoreValues.length
       : 0;
     const genreCounts = new Map<string, number>();
-    screenplays.forEach((screenplay) => {
+    decisionReady.forEach((screenplay) => {
       const genre = screenplay.genre?.trim() || 'Unclassified';
       genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1);
     });
@@ -95,12 +96,13 @@ export function AnalysisOverview() {
     const verdictCounts = Object.fromEntries(
       VERDICTS.map(({ id }) => [
         id,
-        screenplays.filter((screenplay) => screenplay.recommendation === id).length,
+        decisionReady.filter((screenplay) => screenplay.recommendation === id).length,
       ]),
     ) as Record<RecommendationTier, number>;
 
     return {
       total,
+      decisionTotal,
       completePanels,
       verified,
       pdfReady,
@@ -220,11 +222,17 @@ export function AnalysisOverview() {
           <p className="text-xs font-semibold uppercase tracking-wider text-black-500">
             {t('Slate snapshot')}
           </p>
+          <p className="mt-1 text-xs text-black-500">
+            {t('Based on {{count}} verified analyses. {{omitted}} unverified records excluded.', {
+              count: health.decisionTotal,
+              omitted: health.total - health.decisionTotal,
+            })}
+          </p>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-black-700 bg-black-950/20 p-4">
               <span className="text-xs text-black-500">{t('Average score')}</span>
               <strong className="mt-1 block text-2xl tabular-nums text-black-100">
-                {health.averageScore.toFixed(1)}
+                {health.decisionTotal > 0 ? health.averageScore.toFixed(1) : '—'}
               </strong>
             </div>
             <div className="rounded-lg border border-black-700 bg-black-950/20 p-4">
@@ -254,12 +262,12 @@ export function AnalysisOverview() {
                   <span className="text-sm text-black-300">{t(verdict.label)}</span>
                   <div className="h-2 overflow-hidden rounded-full bg-black-700" aria-hidden="true">
                     <div
-                      className={`h-full rounded-full ${verdict.color} ${barWidth(count, health.total)}`}
+                      className={`h-full rounded-full ${verdict.color} ${barWidth(count, health.decisionTotal)}`}
                     />
                   </div>
                   <span className="text-right text-sm tabular-nums text-black-300">
                     {count}{' '}
-                    <span className="text-black-500">{percentage(count, health.total)}</span>
+                    <span className="text-black-500">{percentage(count, health.decisionTotal)}</span>
                   </span>
                 </div>
               );

@@ -10,6 +10,7 @@ import { useFilterStore } from '@/stores/filterStore';
 import { useSortStore } from '@/stores/sortStore';
 import { usePdfStatusStore } from '@/stores/pdfStatusStore';
 import { canonicalizeGenre } from '@/lib/calculations';
+import { isDecisionReady } from '@/lib/producerProjection';
 import type { Screenplay, FilterState, SortConfig, RecommendationTier } from '@/types';
 
 /**
@@ -46,6 +47,23 @@ export function passesFilters(
 ): boolean {
   // Search
   if (!matchesSearch(screenplay, filters.searchQuery)) return false;
+
+  const usesDecisionEvidence =
+    filters.recommendationTiers.length > 0 ||
+    filters.weightedScoreRange.enabled ||
+    filters.cvsRange.enabled ||
+    filters.conceptRange.enabled ||
+    filters.structureRange.enabled ||
+    filters.protagonistRange.enabled ||
+    filters.supportingCastRange.enabled ||
+    filters.dialogueRange.enabled ||
+    filters.genreExecutionRange.enabled ||
+    filters.originalityRange.enabled ||
+    filters.marketPotentialRange.enabled ||
+    filters.showFilmNowOnly ||
+    filters.hidePassRated ||
+    filters.hasCriticalFailures !== null;
+  if (usesDecisionEvidence && !isDecisionReady(screenplay)) return false;
 
   // Recommendation tiers
   if (
@@ -273,6 +291,13 @@ export function sortScreenplays(
   prioritizeFilmNow: boolean
 ): Screenplay[] {
   return [...screenplays].sort((a, b) => {
+    const aDecisionReady = isDecisionReady(a);
+    const bDecisionReady = isDecisionReady(b);
+    if (aDecisionReady !== bDecisionReady) return aDecisionReady ? -1 : 1;
+    if (!aDecisionReady) {
+      return (a.title || '').localeCompare(b.title || '') || a.id.localeCompare(b.id);
+    }
+
     // Film Now priority
     if (prioritizeFilmNow) {
       if (a.isFilmNow && !b.isFilmNow) return -1;

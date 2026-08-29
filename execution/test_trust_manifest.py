@@ -3,21 +3,26 @@ import hashlib
 import json
 import unittest
 
+from execution import ingest_v9
 from execution.v9_test_fixtures import (
     CONTENT_HASH,
+    FIXTURE_DECISION_EVIDENCE,
     HAIKU_MODEL_ID,
     MODEL_ID,
     MODEL_IDS as TEST_MODEL_IDS,
     PROJECT_ID,
     QUEUED_AT_MS,
     VERSION_ID,
+    complete_analysis,
     complete_usage,
     q2_parsed_source,
     raw_analysis,
     refresh_boundary_evidence,
+    refresh_claim_verification,
     trusted_raw,
 )
 from execution.trust_manifest import (
+    CLAIM_VERIFICATION_BATCH_SIZE,
     ANALYSIS_SCHEMA_VERSION,
     LEGACY_TRUST_MANIFEST_VERSION,
     PROMPT_CONTRACT_VERSION,
@@ -29,14 +34,734 @@ from execution.trust_manifest import (
     SCORING_CODE_VERSION,
     TRUST_MANIFEST_VERSION,
     attach_trust_manifest,
+    build_benchmark_trust_seal,
+    claim_verification_targets,
+    runtime_pricing_sha256,
     validate_permanent_analysis,
 )
 from execution.source_evidence import (
     attach_verified_citation_quality,
     build_context_policy_for_length,
 )
+from execution.ingest_v9 import (
+    canonical_failed_call,
+    _validate_claim_verification,
+    _validate_reader_report,
+)
+
+
+def call_provenance(response_id, stage, disposition):
+    fingerprint = hashlib.sha256(response_id.encode("utf-8")).hexdigest()
+    schema_mode = "schema_free" if stage == "triage" else "compact_strict_tool"
+    used = disposition == "used"
+    return {
+        "request_sha256": fingerprint,
+        "prompt_sha256": fingerprint,
+        "prompt_contract_version": PROMPT_CONTRACT_VERSION,
+        "schema_mode": schema_mode,
+        "schema_sha256": None if schema_mode == "schema_free" else fingerprint,
+        "transport_schema_sha256": None if schema_mode == "schema_free" else fingerprint,
+        "pricing_sha256": runtime_pricing_sha256(),
+        "independent_cost_microusd": 0,
+        "independent_cost_usd": 0.0,
+        "independent_cost_nanousd": 0,
+        "independent_estimated_cost_usd": 0.0,
+        "exact_cost_variance_nanousd": 0,
+        "exact_cost_variance_usd": 0.0,
+        "charged_cost_microusd": 0,
+        "rounding_variance_nanousd": 0,
+        "rounding_variance_usd": 0.0,
+        "rounding_reason": None,
+        "cost_variance_microusd": 0,
+        "cost_variance_reason": None,
+        "latency_ms": 1,
+        "started_at": "2026-08-27T12:00:00Z",
+        "completed_at": "2026-08-27T12:00:01Z",
+        "transport_attempt": 1,
+        "transport_retry_count": 0,
+        "logical_retry": 0,
+        "attempt_number": 1,
+        "retry_count": 0,
+        "total_retry_count": 0,
+        "validation_result": "passed" if used else "failed_application_validation",
+        "validation_reason": None if used else "Structured output was unusable",
+        "transformations": [] if stage == "triage" else ["decoded_compact_json_envelope"],
+        "transformation_evidence": [] if stage == "triage" else [{
+            "name": "decoded_compact_json_envelope",
+            "changed": True,
+            "before_sha256": fingerprint,
+            "after_sha256": "ab" * 32,
+        }],
+        "failure_state": None if used else "output_validation_failed",
+        "warnings": [],
+        "fallback_used": False,
+        "truncated": False,
+        "downstream_consumption": "consumed" if used else "not_consumed",
+    }
+
+
+def failed_call_provenance(
+    requested_model,
+    stage,
+    pipeline_pass,
+    *,
+    reader_name=None,
+    attempts=1,
+):
+    return canonical_failed_call({
+        **call_provenance(f"failed-{stage}-{reader_name}", stage, "discarded_unusable"),
+        "requested_model": requested_model,
+        "stage": stage,
+        "pipeline_pass": pipeline_pass,
+        "boundary_run": 1,
+        "reader_name": reader_name,
+        "attempt_history": [{
+            "attempt": attempt,
+            "outcome": "failed",
+            "error_type": "Timeout",
+        } for attempt in range(1, attempts + 1)],
+        "transport_attempts": attempts,
+        "transport_retry_count": attempts - 1,
+        "retry_count": attempts - 1,
+        "total_retry_count": attempts - 1,
+        "validation_result": "failed_transport",
+        "validation_reason": "Provider result was unavailable",
+        "transformations": [],
+        "transformation_evidence": [],
+        "failure_state": "Timeout",
+        "failure_message": "Provider result was unavailable",
+    })
 
 class TrustManifestTests(unittest.TestCase):
+    @staticmethod
+    def _benchmark_seal_inputs():
+        raw = raw_analysis()
+        metadata = raw["metadata"]
+        analysis = raw["analysis"]
+        usage = raw["usage"]
+        analysis.pop("_claim_verification", None)
+        prior_claim_call_count = sum(
+            call.get("stage") == "claim_verification"
+            for call in usage["calls"]
+        )
+        usage["calls"] = [
+            call for call in usage["calls"]
+            if call.get("stage") != "claim_verification"
+        ]
+        usage["call_count"] -= prior_claim_call_count
+        usage["by_model"][MODEL_ID]["call_count"] -= prior_claim_call_count
+        analysis_for_hash = copy.deepcopy(analysis)
+        analysis_for_hash.pop("_citation_quality", None)
+        targets = claim_verification_targets(analysis)
+        locked_targets = [{
+            key: target[key]
+            for key in (
+                "claim_id",
+                "claim",
+                "claim_type",
+                "verdict_driving",
+                "story_fact_check_required",
+            )
+        } for target in targets]
+        claim_results = [{
+            "claim_id": target["claim_id"],
+            "claim": target["claim"],
+            "claim_type": target["claim_type"],
+            "classification": "Supported",
+            "story_fact_classification": (
+                "Supported"
+                if target["story_fact_check_required"]
+                else "No concrete story fact"
+            ),
+            "unsupported_story_facts": [],
+            "explanation": "The cited physical page supports the locked claim.",
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": FIXTURE_DECISION_EVIDENCE,
+            }],
+            "verdict_driving": target["verdict_driving"],
+            "story_fact_check_required": target["story_fact_check_required"],
+        } for target in targets]
+        factual_count = sum(
+            target["story_fact_check_required"] for target in targets
+        )
+        batch_count = (
+            len(targets) + CLAIM_VERIFICATION_BATCH_SIZE - 1
+        ) // CLAIM_VERIFICATION_BATCH_SIZE
+        response_ids = [
+            f"msg_claim_{index}"
+            for index in range(1, batch_count + 1)
+        ]
+        batch_hashes = [
+            ingest_v9._canonical_json_hash([
+                target["claim_id"] for target in targets[
+                    index:index + CLAIM_VERIFICATION_BATCH_SIZE
+                ]
+            ])
+            for index in range(
+                0, len(targets), CLAIM_VERIFICATION_BATCH_SIZE
+            )
+        ]
+        analysis["_claim_verification"] = {
+            "status": "passed_independent_model_review",
+            "verification_scope": "semantic_support_against_full_physical_page_source",
+            "claim_count": len(targets),
+            "factual_claim_count": factual_count,
+            "factual_supported_or_partial_count": factual_count,
+            "factual_support_rate": 1.0,
+            "classification_counts": {"Supported": len(targets)},
+            "locked_targets_sha256": ingest_v9._canonical_json_hash(
+                locked_targets
+            ),
+            "analysis_sha256": ingest_v9._canonical_json_hash(
+                analysis_for_hash
+            ),
+            "claims": claim_results,
+            "response_ids": response_ids,
+            "batch_count": batch_count,
+            "batch_size_limit": CLAIM_VERIFICATION_BATCH_SIZE,
+            "batch_target_sha256": batch_hashes,
+        }
+        parsed = q2_parsed_source()
+        attach_verified_citation_quality(
+            analysis,
+            metadata,
+            metadata["page_count"],
+            parsed["text"],
+        )
+        zero_usage = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "call_count": 1,
+            "actual_cost_microusd": 0,
+            "actual_cost_usd": 0.0,
+            "charged_cost_microusd": 0,
+            "estimated_cost_nanousd": 0,
+            "estimated_cost_usd": 0.0,
+            "rounding_variance_nanousd": 0,
+            "rounding_variance_usd": 0.0,
+            "rounding_reason": None,
+        }
+        usage["call_count"] += batch_count
+        usage["by_model"][MODEL_ID]["call_count"] += batch_count
+        usage["calls"].extend({
+            "response_id": response_id,
+            "requested_model": MODEL_ID,
+            "returned_model": MODEL_ID,
+            "stop_reason": "tool_use",
+            "successful_attempt": 1,
+            "retry_history": [{
+                "attempt": 1,
+                "outcome": "success",
+                "response_id": response_id,
+            }],
+            "stage": "claim_verification",
+            "pipeline_pass": "sonnet",
+            "boundary_run": 1,
+            "reader_name": f"batch_{index:03d}_of_{batch_count:03d}",
+            "disposition": "used",
+            "usage": copy.deepcopy(zero_usage),
+            **call_provenance(response_id, "claim_verification", "used"),
+        } for index, response_id in enumerate(response_ids, start=1))
+        spent_microusd = 0
+        for sequence, call in enumerate(usage["calls"], start=1):
+            actual_microusd = call["usage"]["actual_cost_microusd"]
+            request_ceiling_microusd = max(1_000, actual_microusd)
+            remaining_microusd = 40_000_000 - spent_microusd
+            spent_after_microusd = spent_microusd + actual_microusd
+            call["budget_check"] = {
+                "requested_model": call["requested_model"],
+                "stage": call["stage"],
+                "logical_retry": call["logical_retry"],
+                "decision": "settled",
+                "request_content_bytes": 100,
+                "request_envelope_overhead_bytes": 20,
+                "request_bytes_upper_bound": 120,
+                "input_tokens_upper_bound": 4_216,
+                "output_tokens_upper_bound": 500,
+                "request_ceiling_microusd": request_ceiling_microusd,
+                "request_ceiling_usd": request_ceiling_microusd / 1_000_000,
+                "sequence": sequence,
+                "spent_before_microusd": spent_microusd,
+                "spent_before_usd": spent_microusd / 1_000_000,
+                "reserved_before_microusd": 0,
+                "reserved_before_usd": 0.0,
+                "remaining_before_microusd": remaining_microusd,
+                "remaining_before_usd": remaining_microusd / 1_000_000,
+                "settled_cost_microusd": actual_microusd,
+                "settled_cost_usd": actual_microusd / 1_000_000,
+                "spent_after_microusd": spent_after_microusd,
+                "spent_after_usd": spent_after_microusd / 1_000_000,
+                "reserved_after_microusd": 0,
+                "reserved_after_usd": 0.0,
+                "preflight_ceiling_exceeded": False,
+                "platform_recheck": {"sequence": sequence, "status": "passed"},
+            }
+            spent_microusd = spent_after_microusd
+        git_sha = "a" * 40
+        return {
+            "analysis": analysis,
+            "usage": usage,
+            "source": {
+                "source_sha256": CONTENT_HASH,
+                "page_evidence_sha256": metadata["page_evidence_sha256"],
+                "filename": raw["source_file"],
+                "physical_page_count": metadata["page_count"],
+                "word_count": metadata["word_count"],
+                "scene_heading_count": metadata[
+                    "scene_count_evidence"
+                ]["scene_heading_count"],
+                "scene_count_evidence": metadata["scene_count_evidence"],
+            },
+            "parser_metadata": metadata,
+            "route": "sonnet",
+            "effective_model_tier": "sonnet",
+            "model_ids": TEST_MODEL_IDS,
+            "contracts": {"prompt_sha256": "d" * 64},
+            "release": {
+                "git_sha": git_sha,
+                "source_clean": True,
+                "catalog_sha256": "b" * 64,
+                "pricing_sha256": runtime_pricing_sha256(),
+                "build_timestamp": "2026-08-27T12:00:00Z",
+                "deployment_config_sha256": "c" * 64,
+                "cloud_run_revision": "llmproxycandidate-00001-abc",
+            },
+            "local_source_proof": {
+                phase: {"git_sha": git_sha, "clean": True}
+                for phase in ("before", "after")
+            },
+            "authorized_benchmark_cap_microusd": 40_000_000,
+        }
+
+    def test_benchmark_seal_rejects_failed_calls_and_unreconciled_cost(self):
+        inputs = self._benchmark_seal_inputs()
+        inputs["usage"]["failed_calls"].append({"stage": "reader"})
+        with self.assertRaisesRegex(ValueError, "unresolved failed calls"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["usage"]["calls"][0]["cost_variance_microusd"] = 1
+        inputs["usage"]["calls"][0]["cost_variance_reason"] = "provider mismatch"
+        with self.assertRaisesRegex(ValueError, "unresolved cost variance"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["usage"]["actual_cost_usd"] = 999.0
+        with self.assertRaisesRegex(ValueError, "actual dollar cost"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["usage"]["estimated_cost_nanousd"] = str(
+            inputs["usage"]["estimated_cost_nanousd"]
+        )
+        with self.assertRaisesRegex(ValueError, "exact cost evidence"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["usage"]["estimated_cost_nanousd"] -= 123
+        inputs["usage"]["estimated_cost_usd"] = (
+            inputs["usage"]["estimated_cost_nanousd"] / 1_000_000_000
+        )
+        inputs["usage"]["rounding_variance_nanousd"] += 123
+        inputs["usage"]["rounding_variance_usd"] = 123 / 1_000_000_000
+        with self.assertRaisesRegex(ValueError, "root exact cost"):
+            build_benchmark_trust_seal(**inputs)
+
+        for field in (
+            "independent_estimated_cost_usd",
+            "exact_cost_variance_usd",
+            "rounding_variance_usd",
+        ):
+            inputs = self._benchmark_seal_inputs()
+            inputs["usage"]["calls"][0][field] = float("nan")
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ValueError, "exact cost evidence"):
+                    build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["analysis"]["weighted_score"] = float("nan")
+        with self.assertRaisesRegex(ValueError, "finite number"):
+            build_benchmark_trust_seal(**inputs)
+
+        for invalid_ratio in (float("nan"), float("inf")):
+            inputs = self._benchmark_seal_inputs()
+            inputs["parser_metadata"]["native_cross_check"][
+                "word_count_agreement_ratio"
+            ] = invalid_ratio
+            with self.subTest(native_ratio=invalid_ratio):
+                with self.assertRaisesRegex(ValueError, "agreement ratio"):
+                    build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["parser_metadata"]["native_cross_check"][
+            "unexpected_private_payload"
+        ] = "SECRET-SENTINEL"
+        with self.assertRaisesRegex(ValueError, "schema"):
+            build_benchmark_trust_seal(**inputs)
+
+    def test_benchmark_seal_binds_calls_to_release_pricing(self):
+        inputs = self._benchmark_seal_inputs()
+        seal = build_benchmark_trust_seal(**inputs)
+        self.assertEqual(
+            seal["engine"]["release"]["pricing_sha256"],
+            runtime_pricing_sha256(),
+        )
+
+        inputs["release"]["pricing_sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "runtime table"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["release"]["cloud_run_revision"] = "local-emulator"
+        with self.assertRaisesRegex(ValueError, "deployed Cloud Run"):
+            build_benchmark_trust_seal(**inputs)
+
+    def test_benchmark_seal_requires_exact_successful_call_budget_receipts(self):
+        inputs = self._benchmark_seal_inputs()
+        inputs["usage"]["calls"][0]["budget_check"][
+            "unexpected_private_payload"
+        ] = "SYNTHETIC-SECRET-MARKER"
+        seal = build_benchmark_trust_seal(**inputs)
+        self.assertNotIn("SYNTHETIC-SECRET-MARKER", json.dumps(seal))
+        self.assertTrue(all(
+            call["budget_check"]["decision"] == "settled"
+            for call in seal["models"]["calls"]
+        ))
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["usage"]["calls"][0].pop("budget_check")
+        with self.assertRaisesRegex(ValueError, "complete budget receipt"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["usage"]["calls"][0]["budget_check"]["stage"] = "synthesis"
+        with self.assertRaisesRegex(ValueError, "budget receipt does not match"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["usage"]["calls"][0]["budget_check"][
+            "request_bytes_upper_bound"
+        ] = 999_999
+        with self.assertRaisesRegex(ValueError, "request byte accounting"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["usage"]["calls"][0]["budget_check"][
+            "settled_cost_microusd"
+        ] = 1
+        inputs["usage"]["calls"][0]["budget_check"]["settled_cost_usd"] = 0.000001
+        inputs["usage"]["calls"][0]["budget_check"]["spent_after_microusd"] = 1
+        inputs["usage"]["calls"][0]["budget_check"]["spent_after_usd"] = 0.000001
+        with self.assertRaisesRegex(ValueError, "budget settlement does not match"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        for call in inputs["usage"]["calls"]:
+            call["budget_check"]["sequence"] = 1
+        with self.assertRaisesRegex(ValueError, "budget ledger continuity"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        second_call = inputs["usage"]["calls"][1]
+        second = second_call["budget_check"]
+        second_actual = second_call["usage"]["actual_cost_microusd"]
+        second["spent_before_microusd"] = 777
+        second["spent_before_usd"] = 0.000777
+        second["spent_after_microusd"] = 777 + second_actual
+        second["spent_after_usd"] = (777 + second_actual) / 1_000_000
+        second["remaining_before_microusd"] = 39_999_223
+        second["remaining_before_usd"] = 39.999223
+        with self.assertRaisesRegex(ValueError, "budget ledger continuity"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["authorized_benchmark_cap_microusd"] = 39_000_000
+        with self.assertRaisesRegex(ValueError, "authorized cap"):
+            build_benchmark_trust_seal(**inputs)
+
+    def test_benchmark_seal_rejects_unbound_transformations(self):
+        inputs = self._benchmark_seal_inputs()
+        transformed_call = next(
+            call for call in inputs["usage"]["calls"]
+            if call["transformations"]
+        )
+        transformed_call["transformation_evidence"] = []
+        with self.assertRaisesRegex(ValueError, "one-to-one evidence"):
+            build_benchmark_trust_seal(**inputs)
+
+    def test_benchmark_seal_rejects_incomplete_structured_provider_stops(self):
+        for stop_reason in (
+            "end_turn",
+            "max_tokens",
+            "model_context_window_exceeded",
+            "pause_turn",
+            "refusal",
+            "stop_sequence",
+        ):
+            inputs = self._benchmark_seal_inputs()
+            inputs["usage"]["calls"][0]["stop_reason"] = stop_reason
+            inputs["usage"]["calls"][0]["truncated"] = stop_reason in {
+                "max_tokens",
+                "model_context_window_exceeded",
+            }
+            with self.subTest(stop_reason=stop_reason):
+                with self.assertRaisesRegex(ValueError, "incomplete stop_reason"):
+                    build_benchmark_trust_seal(**inputs)
+
+    def test_benchmark_seal_requires_a_hash_bound_supported_claim_ledger(self):
+        inputs = self._benchmark_seal_inputs()
+        inputs["analysis"].pop("_claim_verification")
+        with self.assertRaisesRegex(ValueError, "lacks independent claim"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["analysis"]["_claim_verification"]["claims"][0][
+            "classification"
+        ] = "Contradicted"
+        with self.assertRaisesRegex(ValueError, "verdict-driving claim"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["analysis"]["_claim_verification"]["analysis_sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "different analysis"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        inputs["analysis"]["_claim_verification"]["claims"][0][
+            "claim_id"
+        ] = "invented.target"
+        with self.assertRaisesRegex(ValueError, "target set"):
+            build_benchmark_trust_seal(**inputs)
+
+    def test_claim_targets_include_genre_absent_roles_and_character_details(self):
+        analysis = complete_analysis()
+        analysis["subgenres"] = ["Family Drama"]
+        analysis["characters"]["protagonist_lie"] = "Safety is more important than truth."
+        analysis["characters"]["protagonist_arc_type"] = "Positive change arc"
+        analysis["characters"]["supporting"] = ["Mara"]
+        analysis["characters"]["supporting_evidence"] = [{
+            "name": "Mara",
+            "kind": "person",
+            "role": "supporting",
+            "role_justification": "Mara forces the final choice.",
+            "page_citations": [1],
+            "citation_evidence": [{"page": 1, "excerpt": "INT. HOUSE - DAY"}],
+        }]
+        ids = {
+            target["claim_id"]
+            for target in claim_verification_targets(analysis)
+        }
+        self.assertTrue({
+            "genre.primary",
+            "genre.subgenre.0",
+            "character.protagonist",
+            "character.antagonist",
+            "character.protagonist_lie",
+            "character.protagonist_arc_type",
+            "character.supporting.0",
+        }.issubset(ids))
+
+    def test_nested_reader_story_assertion_cannot_escape_verification(self):
+        analysis = complete_analysis()
+        invented = "The nonexistent dragon kills the protagonist on page 80."
+        analysis["reader_reports"]["concept"]["sub_scores"][
+            "genre_execution"
+        ]["obligatory_scenes_present"] = [invented]
+        targets = claim_verification_targets(analysis)
+        target = next(
+            item for item in targets
+            if item["claim_id"]
+            == "reader.concept.genre_execution.obligatory_scenes_present.0"
+        )
+        self.assertIn(invented, target["claim"])
+
+        raw = {"claims": [{
+            "claim_id": item["claim_id"],
+            "classification": (
+                "Unsupported" if item is target else "Supported"
+            ),
+            "story_fact_classification": (
+                "Unsupported" if item is target else "Supported"
+            ),
+            "unsupported_story_facts": [],
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": f"Physical page evidence confirms {item['claim']}",
+            }],
+        } for item in targets]}
+        with self.assertRaisesRegex(ValueError, "factual screenplay claim"):
+            _validate_claim_verification(raw, targets)
+
+    def test_compound_story_fact_is_split_and_false_outcome_fails(self):
+        analysis = complete_analysis()
+        compound = "María rescues her brother but kills him in the finale"
+        parts = ingest_v9._atomic_claims(compound)
+        self.assertEqual(
+            parts,
+            ["María rescues her brother", "kills him in the finale"],
+        )
+        material = next(
+            item
+            for item in analysis["material_claims"]
+            if item["source_field"] == "weakness" and item["source_index"] == 0
+        )
+        analysis["weaknesses"][0] = compound
+        material["claim"] = compound
+        material["atomic_claims"] = [{
+            "claim": part,
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": "María rescues her brother in the finale.",
+            }],
+        } for part in parts]
+        targets = claim_verification_targets(analysis)
+        false_target = next(
+            target for target in targets
+            if target["claim"] == "kills him in the finale"
+        )
+        self.assertEqual(false_target["claim_type"], "mixed")
+        raw = {"claims": [{
+            "claim_id": target["claim_id"],
+            "classification": (
+                "Unsupported" if target is false_target else "Supported"
+            ),
+            "story_fact_classification": (
+                "Unsupported" if target is false_target else "Supported"
+            ),
+            "unsupported_story_facts": [],
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": (
+                    "María rescues her brother in the finale."
+                    if target is false_target
+                    else f"Physical page evidence confirms {target['claim']}"
+                ),
+            }],
+        } for target in targets]}
+        with self.assertRaisesRegex(ValueError, "factual screenplay claim"):
+            _validate_claim_verification(raw, targets)
+
+    def test_mixed_story_claim_cannot_deny_its_factual_content(self):
+        targets = claim_verification_targets(complete_analysis())
+        mixed_target = next(
+            target for target in targets if target["claim_type"] == "mixed"
+        )
+        raw = {"claims": [{
+            "claim_id": target["claim_id"],
+            "classification": (
+                "Not objectively verifiable"
+                if target is mixed_target
+                else "Supported"
+            ),
+            "story_fact_classification": (
+                "No concrete story fact"
+                if target is mixed_target
+                else (
+                    "Supported"
+                    if target["story_fact_check_required"]
+                    else "No concrete story fact"
+                )
+            ),
+            "unsupported_story_facts": [],
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": f"Physical page evidence confirms {target['claim']}",
+            }],
+        } for target in targets]}
+        with self.assertRaisesRegex(ValueError, "required story-fact check"):
+            _validate_claim_verification(raw, targets)
+
+    def test_partial_compound_cannot_hide_fabricated_central_event(self):
+        analysis = complete_analysis()
+        compound = "Ana loves Carlos and kills him in the finale"
+        self.assertEqual(ingest_v9._atomic_claims(compound), [compound])
+        material = next(
+            item
+            for item in analysis["material_claims"]
+            if item["source_field"] == "weakness" and item["source_index"] == 0
+        )
+        analysis["weaknesses"][0] = compound
+        material["claim"] = compound
+        material["atomic_claims"] = [{
+            "claim": compound,
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": "Ana clearly loves Carlos deeply.",
+            }],
+        }]
+        targets = claim_verification_targets(analysis)
+        compound_target = next(
+            target for target in targets if target["claim"] == compound
+        )
+        raw = {"claims": [{
+            "claim_id": target["claim_id"],
+            "classification": (
+                "Partially supported" if target is compound_target else "Supported"
+            ),
+            "story_fact_classification": (
+                "Partially supported"
+                if target is compound_target
+                else (
+                    "Supported"
+                    if target["story_fact_check_required"]
+                    else "No concrete story fact"
+                )
+            ),
+            "unsupported_story_facts": ([{
+                "claim": "Ana kills Carlos in the finale",
+                "kind": "event",
+            }] if target is compound_target else []),
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": (
+                    "Ana clearly loves Carlos deeply."
+                    if target is compound_target
+                    else f"Physical page evidence confirms {target['claim']}"
+                ),
+            }],
+        } for target in targets]}
+        with self.assertRaisesRegex(ValueError, "central story fact"):
+            _validate_claim_verification(raw, targets)
+
+    def test_reader_specific_story_evidence_is_required(self):
+        concept = complete_analysis()["reader_reports"]["concept"]
+        self.assertEqual(
+            _validate_reader_report("concept", copy.deepcopy(concept))["reader"],
+            "concept",
+        )
+        for metric, field in (
+            ("hook_clarity", "one_sentence_pitch"),
+            ("genre_execution", "genre"),
+            ("genre_execution", "obligatory_scenes_present"),
+            ("genre_execution", "obligatory_scenes_missing"),
+            ("controlling_idea", "stated_controlling_idea"),
+            ("premise_line", "four_clause_premise"),
+        ):
+            incomplete = copy.deepcopy(concept)
+            del incomplete["sub_scores"][metric][field]
+            with self.subTest(metric=metric, field=field):
+                with self.assertRaisesRegex(ValueError, "missing required field"):
+                    _validate_reader_report("concept", incomplete)
+
+    def test_empty_missing_obligations_list_is_a_locked_claim(self):
+        targets = claim_verification_targets(complete_analysis())
+        target = next(
+            item for item in targets
+            if item["claim_id"]
+            == "reader.concept.genre_execution.obligatory_scenes_missing"
+        )
+        self.assertIn("no obligatory scenes are missing", target["claim"])
+
     def test_manifest_is_complete_deterministic_and_valid(self):
         first = trusted_raw()
         second = trusted_raw()
@@ -54,7 +779,12 @@ class TrustManifestTests(unittest.TestCase):
         )
         self.assertEqual(
             first["trust_manifest"]["models"]["response_ids"],
-            [f"msg_{index}" for index in range(1, 8)],
+            [
+                f"msg_{index}"
+                for index in range(
+                    1, len(first["usage"]["calls"]) + 1
+                )
+            ],
         )
         self.assertEqual(
             first["trust_manifest"]["score_lineage"]["final_verdict"],
@@ -75,6 +805,21 @@ class TrustManifestTests(unittest.TestCase):
         )
         self.assertNotIn("prompt", first["trust_manifest"]["calibration"])
         validate_permanent_analysis(first)
+
+    def test_current_manifest_rejects_missing_call_specific_provenance(self):
+        raw = raw_analysis()
+        del raw["usage"]["calls"][0]["prompt_sha256"]
+
+        with self.assertRaisesRegex(ValueError, "prompt_sha256"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
 
     def test_q1_manifest_remains_readable_after_q2_upgrade(self):
         legacy = trusted_raw()
@@ -102,6 +847,7 @@ class TrustManifestTests(unittest.TestCase):
         manifest["readers"].pop("reliability_contract_version")
         manifest["readers"].pop("publication_ready")
         manifest["manifest_version"] = Q2_TRUST_MANIFEST_VERSION
+        manifest["evidence"].pop("scene_count")
         manifest.pop("integrity_sha256")
         manifest["integrity_sha256"] = hashlib.sha256(
             json.dumps(
@@ -119,6 +865,7 @@ class TrustManifestTests(unittest.TestCase):
         prior = trusted_raw()
         manifest = prior["trust_manifest"]
         manifest["manifest_version"] = Q3_TRUST_MANIFEST_VERSION
+        manifest["evidence"].pop("scene_count")
         manifest.pop("integrity_sha256")
         manifest["integrity_sha256"] = hashlib.sha256(
             json.dumps(
@@ -140,6 +887,7 @@ class TrustManifestTests(unittest.TestCase):
         for call in manifest["models"]["calls"]:
             call.pop("usage")
         manifest["manifest_version"] = Q4_TRUST_MANIFEST_VERSION
+        manifest["evidence"].pop("scene_count")
         manifest.pop("integrity_sha256")
         manifest["integrity_sha256"] = hashlib.sha256(
             json.dumps(
@@ -162,6 +910,7 @@ class TrustManifestTests(unittest.TestCase):
 
         manifest = prior["trust_manifest"]
         manifest["manifest_version"] = Q4_TRUST_MANIFEST_VERSION
+        manifest["evidence"].pop("scene_count")
         manifest["engine"]["scoring_code_version"] = PREVIOUS_SCORING_CODE_VERSION
         manifest["score_lineage"]["verdict_before_adjustments"] = "FILM_NOW"
         for sealed_run, raw_run in zip(
@@ -286,18 +1035,9 @@ class TrustManifestTests(unittest.TestCase):
         raw = raw_analysis()
         extra_model = "claude-opus-4-7"
         usage = complete_usage()
-        usage["failed_calls"].append({
-            "requested_model": extra_model,
-            "stage": "synthesis",
-            "pipeline_pass": "opus",
-            "boundary_run": 1,
-            "reader_name": None,
-            "attempt_history": [{
-                "attempt": 1,
-                "outcome": "failed",
-                "error_type": "UpstreamTimeout",
-            }],
-        })
+        usage["failed_calls"].append(failed_call_provenance(
+            extra_model, "synthesis", "opus",
+        ))
         raw["usage"] = usage
         trusted = attach_trust_manifest(
             raw,
@@ -316,15 +1056,24 @@ class TrustManifestTests(unittest.TestCase):
 
     def test_long_source_genre_detection_is_sealed_to_sonnet(self):
         raw = raw_analysis()
+        candidate_ids = {**TEST_MODEL_IDS, "sonnet": "claude-sonnet-5"}
+        raw["analysis_model"] = "claude-sonnet-5"
         raw["metadata"]["character_count"] = 500_000
         raw["analysis"]["_context_policy"] = build_context_policy_for_length(
             500_000,
             "sonnet",
+            model_ids=candidate_ids,
         )
-        genre_call = raw["usage"]["calls"][0]
-        genre_call["requested_model"] = MODEL_ID
-        genre_call["returned_model"] = MODEL_ID
-        raw["usage"]["by_model"][MODEL_ID]["call_count"] = 7
+        refresh_claim_verification(raw["analysis"])
+        for call in raw["usage"]["calls"]:
+            call["requested_model"] = "claude-sonnet-5"
+            call["returned_model"] = "claude-sonnet-5"
+        raw["usage"]["by_model"]["claude-sonnet-5"] = raw["usage"][
+            "by_model"
+        ].pop(MODEL_ID)
+        raw["usage"]["by_model"]["claude-sonnet-5"]["call_count"] = len(
+            raw["usage"]["calls"]
+        )
         raw["usage"]["by_model"].pop("claude-haiku-4-5-20251001")
 
         trusted = attach_trust_manifest(
@@ -332,7 +1081,7 @@ class TrustManifestTests(unittest.TestCase):
             selection_request="sonnet",
             pipeline_model_tier="sonnet",
             effective_model_tier="sonnet",
-            model_ids=TEST_MODEL_IDS,
+            model_ids=candidate_ids,
             origin_kind="daemon_queue",
             origin_id="queue-job-1",
         )
@@ -362,6 +1111,11 @@ class TrustManifestTests(unittest.TestCase):
             "boundary_run": 1,
             "reader_name": None,
             "disposition": "discarded_unusable",
+            **call_provenance(
+                "msg_discarded_synthesis",
+                "synthesis",
+                "discarded_unusable",
+            ),
             "usage": {
                 "input_tokens": 0,
                 "output_tokens": 0,
@@ -370,6 +1124,12 @@ class TrustManifestTests(unittest.TestCase):
                 "call_count": 1,
                 "actual_cost_microusd": 0,
                 "actual_cost_usd": 0.0,
+                "charged_cost_microusd": 0,
+                "estimated_cost_nanousd": 0,
+                "estimated_cost_usd": 0.0,
+                "rounding_variance_nanousd": 0,
+                "rounding_variance_usd": 0.0,
+                "rounding_reason": None,
             },
         })
 
@@ -519,26 +1279,28 @@ class TrustManifestTests(unittest.TestCase):
         ):
             raw["usage"][field] -= removed_call["usage"][field]
             raw["usage"]["by_model"][MODEL_ID][field] -= removed_call["usage"][field]
+        for field in (
+            "estimated_cost_nanousd", "rounding_variance_nanousd",
+        ):
+            raw["usage"][field] -= removed_call["usage"][field]
         raw["usage"]["actual_cost_usd"] = (
             raw["usage"]["actual_cost_microusd"] / 1_000_000
         )
+        raw["usage"]["estimated_cost_usd"] = (
+            raw["usage"]["estimated_cost_nanousd"] / 1_000_000_000
+        )
+        raw["usage"]["rounding_variance_usd"] = (
+            raw["usage"]["rounding_variance_nanousd"] / 1_000_000_000
+        )
         raw["actual_cost_microusd"] = raw["usage"]["actual_cost_microusd"]
         raw["actual_cost_usd"] = raw["usage"]["actual_cost_usd"]
-        raw["usage"]["failed_calls"] = [{
-            "requested_model": MODEL_ID,
-            "stage": "reader",
-            "pipeline_pass": "sonnet",
-            "boundary_run": 1,
-            "reader_name": "emotional_resonance",
-            "attempt_history": [
-                {
-                    "attempt": attempt,
-                    "outcome": "failed",
-                    "error_type": "Timeout",
-                }
-                for attempt in range(1, 4)
-            ],
-        }]
+        raw["usage"]["failed_calls"] = [failed_call_provenance(
+            MODEL_ID,
+            "reader",
+            "sonnet",
+            reader_name="emotional_resonance",
+            attempts=3,
+        )]
         analysis["_boundary_reruns"]["runs"][0]["response_ids"].remove("msg_6")
         refresh_boundary_evidence(analysis)
         attach_verified_citation_quality(
@@ -637,6 +1399,7 @@ class TrustManifestTests(unittest.TestCase):
         raw["analysis"]["_boundary_reruns"]["runs"][0][
             "analysis_evidence"
         ]["reader_reports"]["structure"]["strengths"] = [marker]
+        refresh_claim_verification(raw["analysis"])
 
         trusted = attach_trust_manifest(
             raw,
@@ -673,21 +1436,9 @@ class TrustManifestTests(unittest.TestCase):
 
     def test_all_failed_attempts_are_sealed(self):
         raw = raw_analysis()
-        raw["usage"]["failed_calls"] = [{
-            "requested_model": MODEL_ID,
-            "stage": "synthesis",
-            "pipeline_pass": "sonnet",
-            "boundary_run": 1,
-            "reader_name": None,
-            "attempt_history": [
-                {
-                    "attempt": attempt,
-                    "outcome": "failed",
-                    "error_type": "Timeout",
-                }
-                for attempt in range(1, 4)
-            ],
-        }]
+        raw["usage"]["failed_calls"] = [failed_call_provenance(
+            MODEL_ID, "synthesis", "sonnet", attempts=3,
+        )]
 
         trusted = attach_trust_manifest(
             raw,
@@ -707,6 +1458,85 @@ class TrustManifestTests(unittest.TestCase):
             ),
             3,
         )
+
+        sparse = raw_analysis()
+        sparse["usage"]["failed_calls"] = [{
+            "requested_model": MODEL_ID,
+            "stage": "synthesis",
+            "pipeline_pass": "sonnet",
+            "boundary_run": 1,
+            "reader_name": None,
+            "attempt_history": [{
+                "attempt": 1,
+                "outcome": "failed",
+                "error_type": "Timeout",
+            }],
+        }]
+        with self.assertRaisesRegex(ValueError, "lacks canonical provenance"):
+            attach_trust_manifest(
+                sparse,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+
+    def test_retry_histories_require_failure_identity_and_consistent_outcomes(self):
+        raw = raw_analysis()
+        call = raw["usage"]["calls"][0]
+        call["successful_attempt"] = 2
+        call["transport_attempt"] = 2
+        call["transport_retry_count"] = 1
+        call["retry_count"] = 1
+        call["total_retry_count"] = 1
+        call["retry_history"] = [
+            {"attempt": 1, "outcome": "failed"},
+            {
+                "attempt": 2,
+                "outcome": "success",
+                "response_id": call["response_id"],
+            },
+        ]
+        with self.assertRaisesRegex(ValueError, "failed attempt lacks error_type"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+
+        call["retry_history"][0]["error_type"] = "LlmPreCallRetryableError"
+        call["retry_history"][1]["failure_state"] = "timeout"
+        with self.assertRaisesRegex(ValueError, "success has failure-only fields"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+
+        raw = raw_analysis()
+        failed = failed_call_provenance(MODEL_ID, "synthesis", "sonnet")
+        failed["attempt_history"][0].pop("error_type")
+        raw["usage"]["failed_calls"] = [failed]
+        with self.assertRaisesRegex(ValueError, "failed attempt lacks error_type"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
 
     def test_discarded_sonnet_cold_read_without_evidence_is_sealed(self):
         raw = raw_analysis()
@@ -733,6 +1563,11 @@ class TrustManifestTests(unittest.TestCase):
             "boundary_run": 1,
             "reader_name": None,
             "disposition": "discarded_unusable",
+            **call_provenance(
+                "msg_discarded_sonnet_cold_read",
+                "triage",
+                "discarded_unusable",
+            ),
             "usage": {
                 "input_tokens": 1,
                 "output_tokens": 1,
@@ -741,6 +1576,12 @@ class TrustManifestTests(unittest.TestCase):
                 "call_count": 1,
                 "actual_cost_microusd": 0,
                 "actual_cost_usd": 0.0,
+                "charged_cost_microusd": 0,
+                "estimated_cost_nanousd": 0,
+                "estimated_cost_usd": 0.0,
+                "rounding_variance_nanousd": 0,
+                "rounding_variance_usd": 0.0,
+                "rounding_reason": None,
             },
         })
 
@@ -762,18 +1603,9 @@ class TrustManifestTests(unittest.TestCase):
 
     def test_failed_sonnet_cold_read_without_evidence_is_sealed(self):
         raw = raw_analysis()
-        raw["usage"]["failed_calls"].append({
-            "requested_model": MODEL_ID,
-            "stage": "triage",
-            "pipeline_pass": "triage",
-            "boundary_run": 1,
-            "reader_name": None,
-            "attempt_history": [{
-                "attempt": 1,
-                "outcome": "failed",
-                "error_type": "TransportUncertain",
-            }],
-        })
+        raw["usage"]["failed_calls"].append(failed_call_provenance(
+            MODEL_ID, "triage", "triage",
+        ))
 
         trusted = attach_trust_manifest(
             raw,
@@ -793,18 +1625,9 @@ class TrustManifestTests(unittest.TestCase):
 
     def test_recovered_reader_failure_is_sealed_with_completed_evidence(self):
         raw = raw_analysis()
-        raw["usage"]["failed_calls"] = [{
-            "requested_model": MODEL_ID,
-            "stage": "reader",
-            "pipeline_pass": "sonnet",
-            "boundary_run": 1,
-            "reader_name": "structure",
-            "attempt_history": [{
-                "attempt": 1,
-                "outcome": "failed",
-                "error_type": "Timeout",
-            }],
-        }]
+        raw["usage"]["failed_calls"] = [failed_call_provenance(
+            MODEL_ID, "reader", "sonnet", reader_name="structure",
+        )]
 
         trusted = attach_trust_manifest(
             raw,
@@ -826,6 +1649,480 @@ class TrustManifestTests(unittest.TestCase):
             trusted["trust_manifest"]["readers"]["quality_status"],
             "complete",
         )
+
+    def test_manifest_telemetry_is_schema_closed(self):
+        raw = raw_analysis()
+        marker = "SYNTHETIC-SECRET-MARKER"
+        usage = raw["usage"]
+        first_model = next(iter(usage["by_model"]))
+        usage["by_model"][first_model]["unexpected_private_payload"] = marker
+        usage["calls"][0]["retry_history"][0][
+            "unexpected_private_payload"
+        ] = marker
+        transformed = next(
+            call for call in usage["calls"]
+            if call["transformation_evidence"]
+        )
+        transformed["transformation_evidence"][0][
+            "unexpected_private_payload"
+        ] = marker
+        transformed["transformation_evidence"][0]["before"] = {
+            "private": marker,
+        }
+
+        failed = failed_call_provenance(
+            MODEL_ID,
+            "reader",
+            "sonnet",
+            reader_name="structure",
+        )
+        failed["unexpected_private_payload"] = marker
+        failed["attempt_history"][0]["unexpected_private_payload"] = marker
+        failed["usage"]["unexpected_private_payload"] = marker
+        failed["transformations"] = ["synthetic_normalization"]
+        failed["transformation_evidence"] = [{
+            "name": "synthetic_normalization",
+            "changed": True,
+            "before": {"private": marker},
+            "after": {"private": "removed"},
+            "unexpected_private_payload": marker,
+        }]
+        release = {
+            "git_sha": "a" * 40,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-27T12:00:00Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00001-abc",
+            "inference_geo": "global",
+        }
+        failed["release"] = {**release, "unexpected_private_payload": marker}
+        failed["expected_release"] = {
+            **release,
+            "unexpected_private_payload": marker,
+        }
+        failed["budget_check"] = {
+            "requested_model": MODEL_ID,
+            "stage": "reader",
+            "logical_retry": 0,
+            "decision": "settled_failure",
+            "request_content_bytes": 100,
+            "request_envelope_overhead_bytes": 20,
+            "request_bytes_upper_bound": 120,
+            "input_tokens_upper_bound": 4_216,
+            "output_tokens_upper_bound": 500,
+            "request_ceiling_microusd": 1_000,
+            "request_ceiling_usd": 0.001,
+            "spent_before_microusd": 0,
+            "spent_before_usd": 0.0,
+            "reserved_before_microusd": 0,
+            "reserved_before_usd": 0.0,
+            "settled_cost_microusd": 0,
+            "settled_cost_usd": 0.0,
+            "spent_after_microusd": 0,
+            "spent_after_usd": 0.0,
+            "reserved_after_microusd": 0,
+            "reserved_after_usd": 0.0,
+            "platform_recheck": {"private": marker},
+            "unexpected_private_payload": marker,
+        }
+        usage["failed_calls"] = [failed]
+
+        failed["warnings"] = [{"unexpected_private_payload": marker}]
+        with self.assertRaisesRegex(ValueError, "warnings"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["warnings"] = []
+        failed["transformations"] = [{"unexpected_private_payload": marker}]
+        with self.assertRaisesRegex(ValueError, "transformations"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["transformations"] = ["synthetic_normalization"]
+        usage["finish_reason"] = {"unexpected_private_payload": marker}
+        with self.assertRaisesRegex(ValueError, "finish_reason"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        usage["finish_reason"] = "end_turn"
+        usage["calls"][0]["stop_reason"] = marker
+        with self.assertRaisesRegex(ValueError, "stop_reason"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        usage["calls"][0]["stop_reason"] = "tool_use"
+        usage["calls"][0]["retry_history"][0]["error_type"] = {
+            "unexpected_private_payload": marker,
+        }
+        with self.assertRaisesRegex(ValueError, "error_type"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        usage["calls"][0]["retry_history"][0].pop("error_type")
+        failed["attempt_history"][0]["error_type"] = {
+            "unexpected_private_payload": marker,
+        }
+        with self.assertRaisesRegex(ValueError, "error_type"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["attempt_history"][0]["error_type"] = "Timeout"
+        failed["transformation_evidence"][0]["changed"] = {
+            "unexpected_private_payload": marker,
+        }
+        with self.assertRaisesRegex(ValueError, "transformation_evidence"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["transformation_evidence"][0]["changed"] = True
+        failed["transformation_evidence"][0]["changed"] = False
+        with self.assertRaisesRegex(ValueError, "changed flag contradicts"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["transformation_evidence"][0]["changed"] = True
+        failed["budget_check"]["request_ceiling_usd"] = 99.0
+        with self.assertRaisesRegex(ValueError, "cost mirrors"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["budget_check"]["request_ceiling_usd"] = 0.001
+        failed["budget_check"]["requested_model"] = HAIKU_MODEL_ID
+        with self.assertRaisesRegex(ValueError, "budget receipt does not match"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["budget_check"]["requested_model"] = MODEL_ID
+        for field, value in (("stage", "synthesis"), ("logical_retry", 1)):
+            original = failed["budget_check"][field]
+            failed["budget_check"][field] = value
+            with self.subTest(budget_lineage_field=field):
+                with self.assertRaisesRegex(ValueError, "budget receipt does not match"):
+                    attach_trust_manifest(
+                        raw,
+                        selection_request="sonnet",
+                        pipeline_model_tier="sonnet",
+                        effective_model_tier="sonnet",
+                        model_ids=TEST_MODEL_IDS,
+                        origin_kind="daemon_queue",
+                        origin_id="queue-job-1",
+                    )
+            failed["budget_check"][field] = original
+        failed["budget_check"]["request_bytes_upper_bound"] = 121
+        with self.assertRaisesRegex(ValueError, "request byte accounting"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["budget_check"]["request_bytes_upper_bound"] = 120
+        failed["budget_check"]["spent_after_microusd"] = 1
+        failed["budget_check"]["spent_after_usd"] = 0.000001
+        with self.assertRaisesRegex(ValueError, "spend transition"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["budget_check"]["spent_after_microusd"] = 0
+        failed["budget_check"]["spent_after_usd"] = 0.0
+        failed["budget_check"]["decision"] = (
+            "settled_failure_exceeds_preflight_ceiling"
+        )
+        failed["budget_check"]["preflight_ceiling_exceeded"] = False
+        with self.assertRaisesRegex(ValueError, "settlement decision contradicts"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["budget_check"]["decision"] = "settled_failure"
+        failed["budget_check"].pop("preflight_ceiling_exceeded")
+        failed["started_at"] = "2026-08-27T12:00:02Z"
+        with self.assertRaisesRegex(ValueError, "completed before it started"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["started_at"] = "2026-08-27T12:00:00Z"
+        failed["stop_reason"] = "max_tokens"
+        with self.assertRaisesRegex(ValueError, "truncation contradicts"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["stop_reason"] = None
+        failed["response_id"] = "msg_unlinked"
+        with self.assertRaisesRegex(ValueError, "response_id does not match"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["response_id"] = None
+        failed["attempt_history"][-1]["response_id"] = "msg_terminal"
+        with self.assertRaisesRegex(ValueError, "response_id does not match"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["attempt_history"][-1].pop("response_id")
+        failed["returned_model"] = HAIKU_MODEL_ID
+        with self.assertRaisesRegex(ValueError, "returned model and failure state"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["returned_model"] = MODEL_ID
+        failed["failure_state"] = "model_provenance_mismatch"
+        with self.assertRaisesRegex(ValueError, "returned model and failure state"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["returned_model"] = None
+        failed["failure_state"] = "Timeout"
+        failed["usage"]["actual_cost_microusd"] = 1
+        with self.assertRaisesRegex(ValueError, "cost evidence does not reconcile"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["usage"]["actual_cost_microusd"] = 0
+        failed["independent_cost_microusd"] = 0
+        failed["independent_cost_usd"] = 0.0
+        failed["cost_variance_microusd"] = 1
+        with self.assertRaisesRegex(ValueError, "cost variance does not reconcile"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["independent_cost_microusd"] = None
+        failed["independent_cost_usd"] = None
+        failed["cost_variance_microusd"] = None
+        failed["usage"]["actual_cost_microusd"] = 1
+        failed["charged_cost_microusd"] = 1
+        failed["charged_cost_usd"] = 0.000001
+        failed["cap_cost_microusd"] = 1
+        failed["cap_cost_usd"] = 0.000001
+        failed["budget_check"]["settled_cost_microusd"] = 1
+        failed["budget_check"]["settled_cost_usd"] = 0.000001
+        failed["budget_check"]["spent_after_microusd"] = 1
+        failed["budget_check"]["spent_after_usd"] = 0.000001
+        with self.assertRaisesRegex(ValueError, "failed per-call totals"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["usage"]["actual_cost_microusd"] = 0
+        failed["charged_cost_microusd"] = 0
+        failed["charged_cost_usd"] = 0.0
+        failed["cap_cost_microusd"] = 0
+        failed["cap_cost_usd"] = 0.0
+        failed["budget_check"]["settled_cost_microusd"] = 0
+        failed["budget_check"]["settled_cost_usd"] = 0.0
+        failed["budget_check"]["spent_after_microusd"] = 0
+        failed["budget_check"]["spent_after_usd"] = 0.0
+        failed["transport_attempts"] = 3
+        failed["transport_retry_count"] = 2
+        failed["retry_count"] = 2
+        failed["total_retry_count"] = 2
+        with self.assertRaisesRegex(ValueError, "attempt history is incomplete"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+        failed["transport_attempts"] = 1
+        failed["transport_retry_count"] = 0
+        failed["retry_count"] = 0
+        failed["total_retry_count"] = 0
+
+        trusted = attach_trust_manifest(
+            raw,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+            origin_kind="daemon_queue",
+            origin_id="queue-job-1",
+        )
+        manifest = trusted["trust_manifest"]
+
+        self.assertNotIn(marker, json.dumps(manifest, ensure_ascii=False))
+        self.assertNotIn("failed_calls", manifest["usage"])
+        self.assertNotIn(
+            "unexpected_private_payload",
+            manifest["usage"]["by_model"][first_model],
+        )
+        self.assertEqual(
+            set(manifest["models"]["calls"][0]["retry_history"][0]),
+            {"attempt", "outcome", "response_id"},
+        )
+        self.assertEqual(
+            set(manifest["models"]["failed_calls"][0]["attempt_history"][0]),
+            {"attempt", "outcome", "error_type"},
+        )
+        failed_manifest = manifest["models"]["failed_calls"][0]
+        self.assertEqual(set(failed_manifest["release"]), set(release))
+        self.assertEqual(set(failed_manifest["expected_release"]), set(release))
+        self.assertEqual(
+            set(failed_manifest["budget_check"]),
+            {
+                "requested_model",
+                "stage",
+                "logical_retry",
+                "decision",
+                "request_content_bytes",
+                "request_envelope_overhead_bytes",
+                "request_bytes_upper_bound",
+                "input_tokens_upper_bound",
+                "output_tokens_upper_bound",
+                "request_ceiling_microusd",
+                "request_ceiling_usd",
+                "spent_before_microusd",
+                "spent_before_usd",
+                "reserved_before_microusd",
+                "reserved_before_usd",
+                "settled_cost_microusd",
+                "settled_cost_usd",
+                "spent_after_microusd",
+                "spent_after_usd",
+                "reserved_after_microusd",
+                "reserved_after_usd",
+                "platform_recheck_sha256",
+            },
+        )
+        for evidence in (
+            manifest["models"]["calls"][0]["transformation_evidence"]
+            + manifest["models"]["failed_calls"][0]["transformation_evidence"]
+        ):
+            self.assertEqual(
+                set(evidence),
+                {"name", "changed", "before_sha256", "after_sha256"},
+            )
 
     def test_unpromoted_hybrid_decision_is_sealed_and_validated(self):
         raw = raw_analysis()
@@ -852,6 +2149,7 @@ class TrustManifestTests(unittest.TestCase):
             "boundary_run": 1,
             "reader_name": None,
             "disposition": "used",
+            **call_provenance("msg_pre_triage", "triage", "used"),
             "usage": {
                 "input_tokens": 1,
                 "output_tokens": 1,
@@ -860,6 +2158,12 @@ class TrustManifestTests(unittest.TestCase):
                 "call_count": 1,
                 "actual_cost_microusd": 0,
                 "actual_cost_usd": 0.0,
+                "charged_cost_microusd": 0,
+                "estimated_cost_nanousd": 0,
+                "estimated_cost_usd": 0.0,
+                "rounding_variance_nanousd": 0,
+                "rounding_variance_usd": 0.0,
+                "rounding_reason": None,
             },
         })
         raw["analysis"]["_cold_read"] = {
@@ -879,6 +2183,40 @@ class TrustManifestTests(unittest.TestCase):
             "final_model": "sonnet",
             "sonnet_analysis_evidence": copy.deepcopy(raw["analysis"]),
         }
+        refresh_claim_verification(raw["analysis"])
+        verification = raw["analysis"]["_claim_verification"]
+        claim_calls = [
+            call for call in usage["calls"]
+            if call["stage"] == "claim_verification"
+        ]
+        if len(claim_calls) < verification["batch_count"]:
+            for index, call in enumerate(claim_calls, start=1):
+                call["reader_name"] = (
+                    f"batch_{index:03d}_of_"
+                    f"{verification['batch_count']:03d}"
+                )
+            response_id = verification["response_ids"][-1]
+            extra_call = copy.deepcopy(claim_calls[-1])
+            extra_call.update({
+                "response_id": response_id,
+                "reader_name": (
+                    f"batch_{verification['batch_count']:03d}_of_"
+                    f"{verification['batch_count']:03d}"
+                ),
+                "retry_history": [{
+                    "attempt": 1,
+                    "outcome": "success",
+                    "response_id": response_id,
+                }],
+                **call_provenance(
+                    response_id,
+                    "claim_verification",
+                    "used",
+                ),
+            })
+            usage["calls"].append(extra_call)
+            usage["call_count"] += 1
+            usage["by_model"][MODEL_ID]["call_count"] += 1
         attach_verified_citation_quality(
             raw["analysis"],
             raw["metadata"],
@@ -910,14 +2248,25 @@ class TrustManifestTests(unittest.TestCase):
         sonnet_model_usage["input_tokens"] += 1
         sonnet_model_usage["output_tokens"] += 1
         sonnet_model_usage["call_count"] += 1
-        sonnet_usage["calls"][-1]["requested_model"] = MODEL_ID
-        sonnet_usage["calls"][-1]["returned_model"] = MODEL_ID
+        triage_call = next(
+            call for call in sonnet_usage["calls"]
+            if call["response_id"] == "msg_pre_triage"
+        )
+        triage_call["requested_model"] = MODEL_ID
+        triage_call["returned_model"] = MODEL_ID
         sonnet_raw["analysis"]["_cold_read"]["evidence"][
             "model_route"
         ] = "sonnet"
         sonnet_raw["analysis"]["_hybrid_mode"][
             "sonnet_analysis_evidence"
         ]["_cold_read"]["evidence"]["model_route"] = "sonnet"
+        refresh_claim_verification(sonnet_raw["analysis"])
+        attach_verified_citation_quality(
+            sonnet_raw["analysis"],
+            sonnet_raw["metadata"],
+            sonnet_raw["metadata"]["page_count"],
+            q2_parsed_source()["text"],
+        )
         sonnet_trusted = attach_trust_manifest(
             sonnet_raw,
             selection_request="hybrid",
@@ -1065,6 +2414,31 @@ class TrustManifestTests(unittest.TestCase):
         raw["analysis"]["_boundary_reruns"]["reason"] = "near_boundary"
 
         with self.assertRaisesRegex(ValueError, "reason"):
+            attach_trust_manifest(
+                raw,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-job-1",
+            )
+
+    def test_near_boundary_result_cannot_disable_required_stability_runs(self):
+        raw = raw_analysis()
+        analysis = raw["analysis"]
+        analysis["critical_failures"] = []
+        analysis["critical_failure_penalty_applied"] = 0.0
+        analysis["critical_failure_total_penalty"] = 0.0
+        analysis["weighted_score_adjusted"] = analysis["weighted_score"]
+        analysis["verdict_adjustments"] = []
+        boundary = analysis["_boundary_reruns"]
+        boundary["reason"] = "disabled_by_environment"
+        boundary["runs"][0]["adjusted_score"] = analysis["weighted_score"]
+        boundary["median_adjusted_score"] = analysis["weighted_score"]
+        refresh_boundary_evidence(analysis)
+
+        with self.assertRaisesRegex(ValueError, "stability runs disabled"):
             attach_trust_manifest(
                 raw,
                 selection_request="sonnet",

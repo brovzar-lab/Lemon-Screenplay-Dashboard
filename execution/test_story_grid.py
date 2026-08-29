@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from story_grid import (  # noqa: E402
     EXTERNAL_GENRES,
     COMEDY_SUBGENRES,
+    GENRE_DETECTION_TOOL,
     build_genre_card,
     build_genre_detection_prompt,
     canonical_external,
@@ -61,20 +62,54 @@ class TestParseDetection(unittest.TestCase):
             parse_detection({"external_genre": "Comedy", "is_comedy": True})
 
     def test_comedy_keeps_valid_pairing(self):
-        det = parse_detection({"external_genre": "Comedy", "is_comedy": True,
-                               "comedy_paired_genre": "Action", "comedy_subgenre": "Buddy Comedy"})
+        det = parse_detection({
+            "external_genre": "Comedy",
+            "is_comedy": False,
+            "comedy_paired_genre": "Action",
+            "comedy_subgenre": "Buddy Comedy",
+            "comedic_tone": True,
+            "internal_genre": "Maturation",
+            "confidence": "high",
+            "one_line_why": "Escalating comic conflict drives the story.",
+        })
         self.assertEqual(det["comedy_paired_genre"], "Action")
         self.assertEqual(det["comedy_subgenre"], "Buddy Comedy")
+        self.assertTrue(det["is_comedy"])
+
+    def test_comedy_cannot_silently_override_a_false_comedic_tone(self):
+        with self.assertRaisesRegex(ValueError, "comedic_tone"):
+            parse_detection({
+                "external_genre": "Comedy",
+                "comedy_paired_genre": "Love",
+                "comedy_subgenre": "Rom-Com",
+                "comedic_tone": False,
+                "internal_genre": "Maturation",
+                "confidence": "high",
+                "one_line_why": "The comic pursuit carries a love-story spine.",
+            })
 
     def test_primary_comedy_forces_is_comedy(self):
         det = parse_detection({
             "external_genre": "comedy",
             "comedy_paired_genre": "Love",
+            "comedy_subgenre": "Rom-Com",
+            "comedic_tone": True,
+            "internal_genre": "Maturation",
+            "confidence": "medium",
+            "one_line_why": "The comic pursuit carries a love-story spine.",
         })
         self.assertTrue(det["is_comedy"])
 
     def test_dramatic_with_comedic_tone(self):
-        det = parse_detection({"external_genre": "Crime", "comedic_tone": True})
+        det = parse_detection({
+            "external_genre": "Crime",
+            "comedy_paired_genre": "",
+            "comedy_subgenre": "",
+            "comedic_tone": True,
+            "internal_genre": "Education",
+            "confidence": "low",
+            "one_line_why": "The central pursuit is the exposure of a crime.",
+        })
         self.assertFalse(det["is_comedy"])
         self.assertTrue(det["comedic_tone"])
         self.assertIsNone(det["comedy_paired_genre"])
@@ -135,13 +170,22 @@ class TestGenreCard(unittest.TestCase):
 
 
 class TestDetectionPrompt(unittest.TestCase):
-    def test_prompt_lists_all_genres_and_returns_json_shape(self):
+    def test_prompt_lists_all_genres_and_uses_the_strict_tool(self):
         p = build_genre_detection_prompt()
         for g in ["Action", "Horror", "Comedy"]:
             self.assertIn(g, p)
-        self.assertIn("external_genre", p)
-        self.assertIn("comedy_paired_genre", p)
-        self.assertIn("Return ONLY valid JSON", p)
+        self.assertIn(GENRE_DETECTION_TOOL["name"], p)
+        self.assertNotIn('"is_comedy"', p)
+
+    def test_tool_schema_has_one_authoritative_comedy_field(self):
+        schema = GENRE_DETECTION_TOOL["input_schema"]
+        self.assertFalse(schema["additionalProperties"])
+        self.assertEqual(set(schema["required"]), set(schema["properties"]))
+        self.assertNotIn("is_comedy", schema["properties"])
+        self.assertEqual(
+            schema["properties"]["external_genre"]["enum"],
+            list(EXTERNAL_GENRES),
+        )
 
 
 if __name__ == "__main__":

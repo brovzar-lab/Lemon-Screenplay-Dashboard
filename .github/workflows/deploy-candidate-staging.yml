@@ -11,53 +11,76 @@ on:
         description: Immutable staging benchmark run ID
         required: true
         type: string
+      benchmark_cap_usd:
+        description: Immutable cap for this run, excluding already-settled audit spend
+        required: true
+        default: '8'
+        type: string
+      prior_audit_spend_usd:
+        description: Settled and uncertain audit spend before this run
+        required: true
+        default: '0.106425'
+        type: string
+      inference_geo:
+        description: Reviewed Anthropic workspace inference geography, global or us
+        required: true
+        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: lemon-v9-candidate-staging
+  cancel-in-progress: false
+
 jobs:
-  deploy-candidate:
-    environment: staging
+  validate-source:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:
       contents: read
-      id-token: write
     env:
       NODE_VERSION: '22.22.3'
       NPM_VERSION: '10.9.8'
       PYTHON_VERSION: '3.13.13'
       JAVA_VERSION: '21.0.12'
       FIREBASE_TOOLS_VERSION: '15.14.0'
-      GCLOUD_VERSION: '574.0.0'
-      STAGING_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
-      PRODUCTION_FIRESTORE_PROJECT_ID: lemon-screenplay-dashboard
-      PRODUCTION_STORAGE_BUCKET: lemon-screenplay-dashboard.firebasestorage.app
-      BENCHMARK_CAP_USD: '1'
-
     steps:
-      - name: Check out the explicitly approved source
+      - name: Check out the requested source without cloud authority
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           ref: ${{ inputs.approved_source_sha }}
           fetch-depth: 0
 
-      - name: Refuse an invalid, unreviewed, or dirty source
+      - name: Trusted inline source authorization gate
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
+          GITHUB_REF_PROTECTED: ${{ github.ref_protected }}
+        run: |
+          test "${GITHUB_REF}" = 'refs/heads/main'
+          test "${GITHUB_REF_PROTECTED}" = 'true'
+          case "${APPROVED_SOURCE_SHA}" in
+            *[!0-9a-f]*|'') echo "Approved source is not a lowercase Git SHA." >&2; exit 1 ;;
+          esac
+          test "${#APPROVED_SOURCE_SHA}" -eq 40
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse HEAD)" = "${APPROVED_SOURCE_SHA}"
+          test "$(git rev-parse origin/main)" = "${APPROVED_SOURCE_SHA}"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Run the repository source gate without cloud authority
         env:
           APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
           RUN_ID: ${{ inputs.run_id }}
+          STAGING_PROJECT_ID: lemon-screenplay-staging
+          DEPLOYER_SERVICE_ACCOUNT: benchmark-deployer@lemon-screenplay-staging.iam.gserviceaccount.com
+          WORKLOAD_IDENTITY_PROVIDER: projects/549848020392/locations/global/workloadIdentityPools/github-staging/providers/github-lemon-screenplay
+          PRODUCTION_AUDITOR_SERVICE_ACCOUNT: v9-production-auditor@lemon-screenplay-dashboard.iam.gserviceaccount.com
+          BENCHMARK_CAP_USD: ${{ inputs.benchmark_cap_usd }}
+          BENCHMARK_PRIOR_AUDIT_SPEND_USD: ${{ inputs.prior_audit_spend_usd }}
+          BENCHMARK_INFERENCE_GEO: ${{ inputs.inference_geo }}
         run: |
-          case "${STAGING_PROJECT_ID}" in
-            lemon-screenplay-staging|lemon-sp-dashboard-stg-493694) ;;
-            *) echo "Refusing unapproved staging project." >&2; exit 1 ;;
-          esac
-          [[ "${DEPLOYER_SERVICE_ACCOUNT}" =~ @${STAGING_PROJECT_ID}\.iam\.gserviceaccount\.com$ ]]
-          [[ "${APPROVED_SOURCE_SHA}" =~ ^[a-f0-9]{40}$ ]]
-          [[ "${RUN_ID}" =~ ^[A-Za-z0-9._-]{1,120}$ ]]
-          test "$(git rev-parse HEAD)" = "${APPROVED_SOURCE_SHA}"
-          git merge-base --is-ancestor "${APPROVED_SOURCE_SHA}" origin/codex/anthropic-model-modernization
-          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          node scripts/candidate-staging-gate.mjs
 
       - name: Set up Node
         uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903
@@ -78,7 +101,7 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Install pinned dependencies
+      - name: Install dependencies without cloud authority
         run: |
           npm install --global "npm@${NPM_VERSION}"
           test "$(node --version)" = "v${NODE_VERSION}"
@@ -92,7 +115,7 @@ jobs:
           python -m venv .venv
           .venv/bin/pip install -r execution/requirements.txt
 
-      - name: Run complete offline gates
+      - name: Run complete offline gates without cloud authority
         run: |
           npm run lint
           npm run models:test
@@ -104,18 +127,77 @@ jobs:
           npm run test:python
           npm run test:rules
 
-      - name: Recheck the reviewed source
+      - name: Recheck the reviewed source after offline validation
         env:
           APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
+          RUN_ID: ${{ inputs.run_id }}
+          STAGING_PROJECT_ID: lemon-screenplay-staging
+          DEPLOYER_SERVICE_ACCOUNT: benchmark-deployer@lemon-screenplay-staging.iam.gserviceaccount.com
+          WORKLOAD_IDENTITY_PROVIDER: projects/549848020392/locations/global/workloadIdentityPools/github-staging/providers/github-lemon-screenplay
+          PRODUCTION_AUDITOR_SERVICE_ACCOUNT: v9-production-auditor@lemon-screenplay-dashboard.iam.gserviceaccount.com
+          BENCHMARK_CAP_USD: ${{ inputs.benchmark_cap_usd }}
+          BENCHMARK_PRIOR_AUDIT_SPEND_USD: ${{ inputs.prior_audit_spend_usd }}
+          BENCHMARK_INFERENCE_GEO: ${{ inputs.inference_geo }}
         run: |
+          node scripts/candidate-staging-gate.mjs
+
+  deploy-candidate:
+    if: github.ref == 'refs/heads/main' && github.ref_protected == true
+    needs: validate-source
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCLOUD_VERSION: '574.0.0'
+      STAGING_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOYER_SERVICE_ACCOUNT }}
+      WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      PRODUCTION_AUDITOR_SERVICE_ACCOUNT: ${{ vars.GCP_PRODUCTION_AUDITOR_SERVICE_ACCOUNT }}
+      PRODUCTION_FIRESTORE_PROJECT_ID: lemon-screenplay-dashboard
+      PRODUCTION_STORAGE_BUCKET: lemon-screenplay-dashboard.firebasestorage.app
+      BENCHMARK_CAP_USD: ${{ inputs.benchmark_cap_usd }}
+      BENCHMARK_PRIOR_AUDIT_SPEND_USD: ${{ inputs.prior_audit_spend_usd }}
+      BENCHMARK_INFERENCE_GEO: ${{ inputs.inference_geo }}
+
+    steps:
+      - name: Check out the explicitly approved source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ inputs.approved_source_sha }}
+          fetch-depth: 0
+
+      - name: Repeat the trusted inline source authorization gate
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
+          GITHUB_REF_PROTECTED: ${{ github.ref_protected }}
+        run: |
+          test "${GITHUB_REF}" = 'refs/heads/main'
+          test "${GITHUB_REF_PROTECTED}" = 'true'
+          case "${APPROVED_SOURCE_SHA}" in
+            *[!0-9a-f]*|'') echo "Approved source is not a lowercase Git SHA." >&2; exit 1 ;;
+          esac
+          test "${#APPROVED_SOURCE_SHA}" -eq 40
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
           test "$(git rev-parse HEAD)" = "${APPROVED_SOURCE_SHA}"
+          test "$(git rev-parse origin/main)" = "${APPROVED_SOURCE_SHA}"
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
-      - name: Authenticate through Workload Identity Federation
+      - name: Run the repository source gate as defense in depth
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          git fetch origin main
+          node scripts/candidate-staging-gate.mjs
+
+      - name: Authenticate as the staging deployer through Workload Identity Federation
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
         with:
           project_id: ${{ env.STAGING_PROJECT_ID }}
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.DEPLOYER_SERVICE_ACCOUNT }}
           create_credentials_file: true
 
@@ -128,17 +210,167 @@ jobs:
       - name: Verify pinned gcloud
         run: gcloud version | grep -F "Google Cloud SDK ${GCLOUD_VERSION}"
 
+      - name: Prove the existing candidate is private and staging-only
+        run: |
+          DESCRIBE_ERROR="${RUNNER_TEMP}/llmproxycandidate-predeploy-describe.err"
+          set +e
+          EXISTING_SERVICE_RESOURCE="$(gcloud functions describe llmProxyCandidate --project="${STAGING_PROJECT_ID}" --gen2 --region=us-central1 --format='value(serviceConfig.service)' 2>"${DESCRIBE_ERROR}")"
+          DESCRIBE_STATUS=$?
+          set -e
+          if test "${DESCRIBE_STATUS}" -ne 0; then
+            if grep -Eq 'status=\[404\]|code=\[404\]|NOT_FOUND' "${DESCRIBE_ERROR}"; then
+              echo "Candidate bootstrap is not authorized without an existing private service." >&2
+              exit 1
+            else
+              cat "${DESCRIBE_ERROR}" >&2
+              exit "${DESCRIBE_STATUS}"
+            fi
+          fi
+          if test -z "${EXISTING_SERVICE_RESOURCE}"; then
+            echo "Candidate describe returned no service resource." >&2
+            exit 1
+          fi
+          if test -n "${EXISTING_SERVICE_RESOURCE}"; then
+            EXISTING_SERVICE="${EXISTING_SERVICE_RESOURCE##*/}"
+            PREDEPLOY_FUNCTION_FILE="${RUNNER_TEMP}/llmproxycandidate-predeploy-function.json"
+            PREDEPLOY_PROJECT_NUMBER="$(gcloud projects describe "${STAGING_PROJECT_ID}" --format='value(projectNumber)')"
+            gcloud functions describe llmProxyCandidate \
+              --project="${STAGING_PROJECT_ID}" \
+              --gen2 \
+              --region=us-central1 \
+              --format=json > "${PREDEPLOY_FUNCTION_FILE}"
+            node scripts/candidate-staging-gate.mjs --assert-predeploy-platform \
+              "${PREDEPLOY_FUNCTION_FILE}" "${PREDEPLOY_PROJECT_NUMBER}"
+            EXISTING_SERVICE_URI="$(gcloud functions describe llmProxyCandidate --project="${STAGING_PROJECT_ID}" --gen2 --region=us-central1 --format='value(serviceConfig.uri)')"
+            test -n "${EXISTING_SERVICE_URI}"
+            PREDEPLOY_ANONYMOUS_BODY="${RUNNER_TEMP}/llmproxycandidate-predeploy-anonymous.txt"
+            PREDEPLOY_HTTP_STATUS="$(curl --silent --show-error --output "${PREDEPLOY_ANONYMOUS_BODY}" --write-out '%{http_code}' "${EXISTING_SERVICE_URI}")"
+            case "${PREDEPLOY_HTTP_STATUS}" in
+              401|403) ;;
+              *) echo "Existing candidate accepted anonymous invocation." >&2; exit 1 ;;
+            esac
+            IAM_POLICY_FILE="${RUNNER_TEMP}/llmproxycandidate-predeploy-iam.json"
+            gcloud run services get-iam-policy "${EXISTING_SERVICE}" \
+              --project="${STAGING_PROJECT_ID}" \
+              --region=us-central1 \
+              --format=json > "${IAM_POLICY_FILE}"
+            node scripts/candidate-staging-gate.mjs --assert-private-iam "${IAM_POLICY_FILE}"
+          fi
+
       - name: Write non-secret candidate parameters
         run: |
           CATALOG_SHA256="$(sha256sum src/config/anthropic-model-catalog.json | awk '{print $1}')"
           BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          STAGING_PROJECT_NUMBER="$(gcloud projects describe "${STAGING_PROJECT_ID}" --format='value(projectNumber)')"
           RUNTIME_SERVICE_ACCOUNT="benchmark-runtime@${STAGING_PROJECT_ID}.iam.gserviceaccount.com"
+          BENCHMARK_SECRET_RESOURCE="$(gcloud secrets versions describe latest \
+            --secret=BENCHMARK_ANTHROPIC_API_KEY \
+            --project="${STAGING_PROJECT_ID}" \
+            --format='value(name)')"
+          BENCHMARK_SECRET_VERSION="${BENCHMARK_SECRET_RESOURCE##*/}"
+          test -n "${STAGING_PROJECT_NUMBER}"
+          case "${BENCHMARK_SECRET_VERSION}" in
+            ''|*[!0-9]*) echo "Benchmark secret did not resolve to a numeric version." >&2; exit 1 ;;
+          esac
+          test "$(gcloud secrets versions describe "${BENCHMARK_SECRET_VERSION}" \
+            --secret=BENCHMARK_ANTHROPIC_API_KEY \
+            --project="${STAGING_PROJECT_ID}" \
+            --format='value(state)')" = "ENABLED"
           printf '%s\n' \
             "CATALOG_SHA256=${CATALOG_SHA256}" \
             "BUILD_TIMESTAMP=${BUILD_TIMESTAMP}" \
+            "STAGING_PROJECT_NUMBER=${STAGING_PROJECT_NUMBER}" \
+            "BENCHMARK_SECRET_VERSION=${BENCHMARK_SECRET_VERSION}" \
             "RUNTIME_SERVICE_ACCOUNT=${RUNTIME_SERVICE_ACCOUNT}" \
             >> "${GITHUB_ENV}"
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Write the complete predeployment staging identity proof
+        run: |
+          STAGING_IDENTITY_VERIFIED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          STAGING_IDENTITY_PROOF_FILE="${RUNNER_TEMP}/llmproxycandidate-predeploy-staging-identity-proof.json"
+          STAGING_FIRESTORE_INVENTORY_FILE="${RUNNER_TEMP}/staging-firestore-databases.json"
+          STAGING_STORAGE_INVENTORY_FILE="${RUNNER_TEMP}/staging-storage-buckets.json"
+          export STAGING_IDENTITY_VERIFIED_AT
+          node scripts/candidate-staging-gate.mjs --write-staging-identity-proof \
+            "${STAGING_IDENTITY_PROOF_FILE}"
+          gcloud firestore databases list \
+            --project="${STAGING_PROJECT_ID}" --format=json \
+            > "${STAGING_FIRESTORE_INVENTORY_FILE}"
+          gcloud storage buckets list \
+            --project="${STAGING_PROJECT_ID}" --format=json \
+            > "${STAGING_STORAGE_INVENTORY_FILE}"
+          printf '%s\n' \
+            "STAGING_IDENTITY_PROOF_FILE=${STAGING_IDENTITY_PROOF_FILE}" \
+            "STAGING_FIRESTORE_INVENTORY_FILE=${STAGING_FIRESTORE_INVENTORY_FILE}" \
+            "STAGING_STORAGE_INVENTORY_FILE=${STAGING_STORAGE_INVENTORY_FILE}" \
+            >> "${GITHUB_ENV}"
+
+      - name: Authenticate as the production metadata auditor
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          project_id: ${{ env.PRODUCTION_FIRESTORE_PROJECT_ID }}
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.PRODUCTION_AUDITOR_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Prove the production auditor is active
+        run: |
+          test "$(gcloud auth list --filter=status:ACTIVE --format='value(account)')" = \
+            "${PRODUCTION_AUDITOR_SERVICE_ACCOUNT}"
+          PRODUCTION_PROJECT_NUMBER="$(gcloud projects describe "${PRODUCTION_FIRESTORE_PROJECT_ID}" --format='value(projectNumber)')"
+          test -n "${PRODUCTION_PROJECT_NUMBER}"
+          printf '%s\n' "PRODUCTION_PROJECT_NUMBER=${PRODUCTION_PROJECT_NUMBER}" \
+            >> "${GITHUB_ENV}"
+
+      - name: Prove the runtime identity has no production write permission
+        run: |
+          PROBE_DIR="${RUNNER_TEMP}/candidate-production-isolation"
+          install -d -m 700 "${PROBE_DIR}"
+          ISOLATION_VERIFIED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          PRODUCTION_ISOLATION_PROOF_FILE="${PROBE_DIR}/production-isolation-proof.json"
+          export ISOLATION_VERIFIED_AT
+          node scripts/candidate-staging-gate.mjs --write-production-isolation-proof \
+            "${PRODUCTION_ISOLATION_PROOF_FILE}"
+          printf '%s\n' \
+            "PRODUCTION_ISOLATION_PROOF_FILE=${PRODUCTION_ISOLATION_PROOF_FILE}" \
+            >> "${GITHUB_ENV}"
+
+      - name: Prove production Storage ACLs do not grant the runtime write access
+        run: |
+          PROBE_DIR="${RUNNER_TEMP}/candidate-production-storage-acls"
+          install -d -m 700 "${PROBE_DIR}"
+          STORAGE_ACL_VERIFIED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          PRODUCTION_STORAGE_ACL_PROOF_FILE="${PROBE_DIR}/production-storage-acl-proof.json"
+          export STORAGE_ACL_VERIFIED_AT
+          node scripts/candidate-staging-gate.mjs --write-production-storage-acl-proof \
+            "${PRODUCTION_STORAGE_ACL_PROOF_FILE}"
+          printf '%s\n' \
+            "PRODUCTION_STORAGE_ACL_PROOF_FILE=${PRODUCTION_STORAGE_ACL_PROOF_FILE}" \
+            >> "${GITHUB_ENV}"
+
+      - name: Restore the staging deployer identity
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          project_id: ${{ env.STAGING_PROJECT_ID }}
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      - name: Prove only the staging deployer is active
+        run: |
+          test "$(gcloud auth list --filter=status:ACTIVE --format='value(account)')" = \
+            "${DEPLOYER_SERVICE_ACCOUNT}"
+
+      - name: Prove the candidate upload contains only reviewed source inputs
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
+        run: |
+          node scripts/candidate-staging-gate.mjs --assert-source-tree functions
+          UPLOAD_LIST="${RUNNER_TEMP}/candidate-upload-files.txt"
+          gcloud meta list-files-for-upload functions > "${UPLOAD_LIST}"
+          node scripts/candidate-staging-gate.mjs --assert-upload-list \
+            "${UPLOAD_LIST}" "${APPROVED_SOURCE_SHA}"
 
       - name: Deploy only the private candidate function
         env:
@@ -153,11 +385,78 @@ jobs:
             --source=functions \
             --entry-point=llmProxyCandidate \
             --trigger-http \
+            --serve-all-traffic-latest-revision \
             --service-account="${RUNTIME_SERVICE_ACCOUNT}" \
-            --set-secrets="BENCHMARK_ANTHROPIC_API_KEY=BENCHMARK_ANTHROPIC_API_KEY:latest" \
-            --set-env-vars="FIREBASE_CONFIG={\"projectId\":\"${STAGING_PROJECT_ID}\"},BENCHMARK_RUN_ID=${RUN_ID},BENCHMARK_CAP_USD=${BENCHMARK_CAP_USD},BENCHMARK_GIT_SHA=${APPROVED_SOURCE_SHA},BENCHMARK_SOURCE_CLEAN=true,BENCHMARK_CATALOG_SHA256=${CATALOG_SHA256},BENCHMARK_BUILD_TIMESTAMP=${BUILD_TIMESTAMP},BENCHMARK_RUNTIME_SERVICE_ACCOUNT=${RUNTIME_SERVICE_ACCOUNT},BENCHMARK_STAGING_FIRESTORE_PROJECT_ID=${STAGING_PROJECT_ID},BENCHMARK_PRODUCTION_FIRESTORE_PROJECT_ID=${PRODUCTION_FIRESTORE_PROJECT_ID},BENCHMARK_STORAGE_BUCKET=${PRODUCTION_STORAGE_BUCKET}" \
+            --set-secrets="BENCHMARK_ANTHROPIC_API_KEY=BENCHMARK_ANTHROPIC_API_KEY:${BENCHMARK_SECRET_VERSION}" \
+            --set-env-vars="FIREBASE_CONFIG={\"projectId\":\"${STAGING_PROJECT_ID}\"},BENCHMARK_RUN_ID=${RUN_ID},BENCHMARK_CAP_USD=${BENCHMARK_CAP_USD},BENCHMARK_PRIOR_AUDIT_SPEND_USD=${BENCHMARK_PRIOR_AUDIT_SPEND_USD},BENCHMARK_INFERENCE_GEO=${BENCHMARK_INFERENCE_GEO},BENCHMARK_GIT_SHA=${APPROVED_SOURCE_SHA},BENCHMARK_SOURCE_CLEAN=true,BENCHMARK_CATALOG_SHA256=${CATALOG_SHA256},BENCHMARK_BUILD_TIMESTAMP=${BUILD_TIMESTAMP},BENCHMARK_RUNTIME_SERVICE_ACCOUNT=${RUNTIME_SERVICE_ACCOUNT},BENCHMARK_STAGING_FIRESTORE_PROJECT_ID=${STAGING_PROJECT_ID},BENCHMARK_PRODUCTION_FIRESTORE_PROJECT_ID=${PRODUCTION_FIRESTORE_PROJECT_ID},BENCHMARK_STORAGE_BUCKET=${PRODUCTION_STORAGE_BUCKET}" \
             --memory=512MiB \
+            --cpu=0.3333 \
             --timeout=3600s \
             --max-instances=5 \
+            --min-instances=0 \
             --concurrency=1 \
             --quiet
+
+      - name: Prove the deployed candidate remains private
+        env:
+          APPROVED_SOURCE_SHA: ${{ inputs.approved_source_sha }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          SERVICE_URI="$(gcloud functions describe llmProxyCandidate --project="${STAGING_PROJECT_ID}" --gen2 --region=us-central1 --format='value(serviceConfig.uri)')"
+          CLOUD_RUN_SERVICE_RESOURCE="$(gcloud functions describe llmProxyCandidate --project="${STAGING_PROJECT_ID}" --gen2 --region=us-central1 --format='value(serviceConfig.service)')"
+          CLOUD_RUN_SERVICE="${CLOUD_RUN_SERVICE_RESOURCE##*/}"
+          test -n "${SERVICE_URI}"
+          test -n "${CLOUD_RUN_SERVICE}"
+          IAM_POLICY_FILE="${RUNNER_TEMP}/llmproxycandidate-iam.json"
+          ANONYMOUS_BODY_FILE="${RUNNER_TEMP}/llmproxycandidate-anonymous.txt"
+          gcloud run services get-iam-policy "${CLOUD_RUN_SERVICE}" \
+            --project="${STAGING_PROJECT_ID}" \
+            --region=us-central1 \
+            --format=json > "${IAM_POLICY_FILE}"
+          node scripts/candidate-staging-gate.mjs --assert-private-iam "${IAM_POLICY_FILE}"
+          HTTP_STATUS="$(curl --silent --show-error --output "${ANONYMOUS_BODY_FILE}" --write-out '%{http_code}' "${SERVICE_URI}")"
+          case "${HTTP_STATUS}" in
+            401|403) ;;
+            *) echo "Anonymous invocation was not rejected." >&2; exit 1 ;;
+          esac
+          FUNCTION_RESOURCE_FILE="${RUNNER_TEMP}/llmproxycandidate-function.json"
+          gcloud functions describe llmProxyCandidate \
+            --project="${STAGING_PROJECT_ID}" \
+            --gen2 \
+            --region=us-central1 \
+            --format=json > "${FUNCTION_RESOURCE_FILE}"
+          CLOUD_RUN_REVISION="$(gcloud functions describe llmProxyCandidate --project="${STAGING_PROJECT_ID}" --gen2 --region=us-central1 --format='value(serviceConfig.revision)')"
+          test -n "${CLOUD_RUN_REVISION}"
+          CLOUD_RUN_REVISION="${CLOUD_RUN_REVISION##*/}"
+          REVISION_RESOURCE_FILE="${RUNNER_TEMP}/llmproxycandidate-revision.json"
+          gcloud run revisions describe "${CLOUD_RUN_REVISION}" \
+            --project="${STAGING_PROJECT_ID}" \
+            --region=us-central1 \
+            --format=json > "${REVISION_RESOURCE_FILE}"
+          STAGING_IDENTITY_VERIFIED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          STAGING_IDENTITY_PROOF_FILE="${RUNNER_TEMP}/llmproxycandidate-postdeploy-staging-identity-proof.json"
+          export STAGING_IDENTITY_VERIFIED_AT STAGING_IDENTITY_PROOF_FILE
+          node scripts/candidate-staging-gate.mjs --write-staging-identity-proof \
+            "${STAGING_IDENTITY_PROOF_FILE}"
+          DEPLOYMENT_RECEIPT_FILE="${RUNNER_TEMP}/llmproxycandidate-deployment-receipt.json"
+          export SERVICE_URI
+          node scripts/candidate-staging-gate.mjs --write-deployment-receipt \
+            "${FUNCTION_RESOURCE_FILE}" \
+            "${REVISION_RESOURCE_FILE}" \
+            "${DEPLOYMENT_RECEIPT_FILE}"
+          cat "${DEPLOYMENT_RECEIPT_FILE}"
+          {
+            echo '### Candidate deployment receipt'
+            echo '```json'
+            cat "${DEPLOYMENT_RECEIPT_FILE}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          printf '%s\n' "CLOUD_RUN_REVISION=${CLOUD_RUN_REVISION}" >> "${GITHUB_ENV}"
+
+      - name: Upload immutable candidate deployment receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: candidate-deployment-receipt-${{ inputs.run_id }}
+          path: ${{ runner.temp }}/llmproxycandidate-deployment-receipt.json
+          if-no-files-found: error
+          retention-days: 30

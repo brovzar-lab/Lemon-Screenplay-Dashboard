@@ -9,6 +9,7 @@ import type {
   FeaturedSelectionReason,
   Screenplay,
 } from '@/types';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 export const DEFAULT_FEATURED_POLICY: FeaturedPolicy = {
   schemaVersion: 1,
@@ -47,7 +48,7 @@ function isScreenplay(screenplay: Screenplay): boolean {
 }
 
 function isComplete(screenplay: Screenplay): boolean {
-  if (screenplay.producerProjection?.rankable === false) return false;
+  if (!isDecisionReady(screenplay)) return false;
   if (screenplay.analysisQuality?.status === 'partial') return false;
   if (
     screenplay.analysisQuality &&

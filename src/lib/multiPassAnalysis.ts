@@ -776,12 +776,6 @@ export function validateBrowserSynthesis(
   if (!Array.isArray(report.critical_failures)) {
     throw new Error('Synthesis critical failures must be a list.');
   }
-  const validFailureSeverities = new Set([
-    'minor',
-    'moderate',
-    'major',
-    'critical',
-  ]);
   const linkedWeaknesses = new Set<number>();
   const weaknesses = report.weaknesses as string[];
   if (report.critical_failures.length >= weaknesses.length) {
@@ -824,10 +818,13 @@ export function validateBrowserSynthesis(
       throw new Error(`Synthesis critical failure ${index} has no canonical reader metric.`);
     }
     validateCitationBlock(`Synthesis critical failure ${index}`, failureEvidence);
-    if (typeof record.severity !== 'string' || !validFailureSeverities.has(record.severity)) {
-      throw new Error(`Synthesis critical failure ${index} has invalid severity.`);
+    const evidenceRecord = failureEvidence as Record<string, unknown>;
+    const severity = deriveFailureSeverity(evidenceRecord.score);
+    if (!severity) {
+      throw new Error(`Synthesis critical failure ${index} metric score is above 4.`);
     }
-    record.penalty = FAILURE_PENALTIES[record.severity];
+    record.severity = severity;
+    record.penalty = FAILURE_PENALTIES[severity];
   }
   report.critical_failure_total_penalty = computeFailurePenalty(report.critical_failures);
   applyCanonicalReaderPillars(report, readerReports);
@@ -926,6 +923,22 @@ const FAILURE_PENALTIES: Record<string, number> = {
   critical: 1.2,
 };
 const MAX_FAILURE_PENALTY = 3.0;
+
+function deriveFailureSeverity(metricScore: unknown): string | null {
+  if (
+    typeof metricScore !== 'number'
+    || !Number.isFinite(metricScore)
+    || metricScore < 0
+    || metricScore > 10
+  ) {
+    throw new Error('Critical-failure metric score is invalid.');
+  }
+  if (metricScore > 4) return null;
+  if (metricScore > 3) return 'minor';
+  if (metricScore > 2) return 'moderate';
+  if (metricScore > 1) return 'major';
+  return 'critical';
+}
 
 export function computeFailurePenalty(criticalFailures: unknown): number {
   if (!Array.isArray(criticalFailures)) return 0;

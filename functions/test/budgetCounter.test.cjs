@@ -3,6 +3,7 @@ const test = require('node:test');
 
 const {
   DailyBudgetExceededError,
+  buildQueueLlmReservationMarker,
   admitBudgetReservation,
   chargeUncertainBudgetReservationInLedger,
   normalizeBudgetLedger,
@@ -10,6 +11,30 @@ const {
   reservationExpiresAtMs,
   settleBudgetReservationInLedger,
 } = require('../lib/budgetCounter');
+
+test('a queue marker binds the paid hold before provider dispatch', () => {
+  assert.deepEqual(
+    buildQueueLlmReservationMarker(
+      'reservation-1',
+      'llm-budget-2026-08-28',
+      {
+        reserved_microusd: 700_000,
+        expires_at_ms: 2_000,
+        model: 'claude-sonnet-5',
+        job_id: 'job-1',
+      },
+      1_000,
+    ),
+    {
+      reservation_id: 'reservation-1',
+      budget_document_id: 'llm-budget-2026-08-28',
+      model: 'claude-sonnet-5',
+      reserved_microusd: 700_000,
+      reserved_at_ms: 1_000,
+      state: 'reserved_before_provider_dispatch',
+    },
+  );
+});
 
 function ledger(limit = 1_000_000) {
   return normalizeBudgetLedger(undefined, '2026-07-21', limit);

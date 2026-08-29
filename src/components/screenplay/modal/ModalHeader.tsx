@@ -18,6 +18,7 @@ import { useIsAdmin } from '@/stores/authStore';
 import type { ReactNode, RefObject } from 'react';
 import { ScreenplayPdfButton } from './ScreenplayPdfButton';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import { isDecisionReady } from '@/lib/producerProjection';
 import { useTranslation } from 'react-i18next';
 
 interface ModalHeaderProps {
@@ -50,6 +51,7 @@ export function ModalHeader({
   const isDiscovery = presentation === 'discovery';
   const isAdmin = useIsAdmin();
   const budgetInfo = BUDGET_TIERS[screenplay.budgetCategory];
+  const decisionReady = isDecisionReady(screenplay);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
 
@@ -95,7 +97,13 @@ export function ModalHeader({
       >
         {/* Tier 1: Verdict Badge (top-left) + Close (top-right) */}
         <div className="flex items-start justify-between mb-3">
-          <RecommendationBadge tier={screenplay.recommendation} size="lg" />
+          {decisionReady ? (
+            <RecommendationBadge tier={screenplay.recommendation} size="lg" />
+          ) : (
+            <span className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-200">
+              {t('Not verified / not rankable')}
+            </span>
+          )}
           <button
             ref={closeButtonRef}
             onClick={onClose}

@@ -107,7 +107,9 @@ test.describe('Intelligence Briefing contract', () => {
       if (message.type() === 'error') consoleErrors.push(message.text());
     });
     page.on('request', (request) => {
-      if (/\/api\/llm|anthropic|generativelanguage/i.test(request.url())) aiRequests.push(request.url());
+      if (/\/api\/llm(?:[/?]|$)|\/llmProxy(?:[/?]|$)|api\.anthropic\.com|generativelanguage\.googleapis\.com/i.test(request.url())) {
+        aiRequests.push(request.url());
+      }
     });
 
     await page.setViewportSize({ width: 390, height: 844 });

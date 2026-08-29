@@ -143,7 +143,9 @@ export const llmProxy = onRequest(
         res.status(400).json({ error: validation.message, code: validation.code });
         return;
       }
-      const { body, payload, maxTokens, jobId, requestOptions } = built;
+      const {
+        body, payload, maxTokens, jobId, requestOptions, requiresCacheUsage,
+      } = built;
 
       const client = createAnthropicClient(anthropicApiKey.value());
       let reservation: LlmBudgetReservation;
@@ -191,15 +193,23 @@ export const llmProxy = onRequest(
             return stream.finalMessage();
           },
           async (reason) => {
-            await settleUncertainLlmBudget(reservation, reason);
+            await settleUncertainLlmBudget(
+              reservation,
+              "provider_transport_or_stream_failure",
+              reason,
+            );
           },
           async (reason) => {
-            await releaseLlmBudget(reservation, reason);
+            await releaseLlmBudget(
+              reservation,
+              "provider_invalid_request_before_generation",
+              reason,
+            );
           },
         );
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
-        console.error("[llmProxy] Error:", error);
+        console.error("[llmProxy] provider_call_failed");
         if (isDefiniteAnthropicRequestRejection(error)) {
           res.status(400).json(upstreamInvalidRequestResponse());
           return;
@@ -209,7 +219,7 @@ export const llmProxy = onRequest(
       }
 
       try {
-        const parsed = parseAnthropicMessage(message);
+        const parsed = parseAnthropicMessage(message, requiresCacheUsage, body.model);
         const settlement = await settleLlmBudget(reservation, parsed.usage, parsed.model);
 
         if (parsed.model !== body.model) {
@@ -225,8 +235,7 @@ export const llmProxy = onRequest(
             usage: {
               ...parsed.usage,
               call_count: 1,
-              actual_cost_microusd: settlement.actual_cost_microusd,
-              actual_cost_usd: settlement.actual_cost_usd,
+              ...settlement,
             },
           });
           return;
@@ -243,15 +252,21 @@ export const llmProxy = onRequest(
           usage: {
             ...parsed.usage,
             call_count: 1,
-            actual_cost_microusd: settlement.actual_cost_microusd,
-            actual_cost_usd: settlement.actual_cost_usd,
+            ...settlement,
           },
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
-        // The Anthropic call happened, so leave the reservation in place. It
-        // must never be released as though no money was spent.
-        console.error("[llmProxy] Budget settlement failed:", error);
+        console.error("[llmProxy] post_response_validation_or_settlement_failed");
+        try {
+          await settleUncertainLlmBudget(
+            reservation,
+            "post_response_validation_or_settlement_failure",
+            error instanceof Error ? error.message : String(error),
+          );
+        } catch {
+          console.error("[llmProxy] uncertain_spend_settlement_failed");
+        }
         res.status(503).json(postCallAccountingUncertainResponse());
       }
     });

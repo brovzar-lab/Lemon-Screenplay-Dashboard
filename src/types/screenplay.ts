@@ -46,6 +46,7 @@ export type ProducerProjectionWarningCode =
   | 'truncated_source'
   | 'unstable_boundary'
   | 'reader_disagreement'
+  | 'unsealed_current_analysis'
   | 'legacy_unverified'
   | 'legacy_raw_score';
 

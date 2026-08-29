@@ -13,6 +13,7 @@ import {
   getScreenplayFormatInfo,
 } from '@/lib/screenplayDisplay';
 import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
+import { isDecisionReady } from '@/lib/producerProjection';
 import type { ProducerAssessmentHead } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -38,13 +39,14 @@ export function ScreenplayGrid({
         const formatInfo = getScreenplayFormatInfo(screenplay);
         const localized = localizedScreenplayPreview(screenplay, language);
         const finalScore = screenplay.producerProjection?.finalScore ?? screenplay.weightedScore;
+        const decisionReady = isDecisionReady(screenplay);
         return (
           <li
             key={screenplay.id}
             className="screenplay-wall__item"
             data-testid="screenplay-discovery-result"
             data-screenplay-id={screenplay.id}
-            data-verdict={screenplay.recommendation}
+            data-verdict={decisionReady ? screenplay.recommendation : 'unverified'}
           >
             <DiscoverySelectionCheckbox screenplay={screenplay} />
             <button
@@ -54,7 +56,7 @@ export function ScreenplayGrid({
               aria-label={t('Open {{title}} screenplay file', { title: displayTitle.title })}
             >
               <span className="screenplay-wall__object-stage">
-                <BlueSpineScript screenplay={screenplay} rank={rank} />
+                <BlueSpineScript screenplay={screenplay} rank={decisionReady ? rank : undefined} />
               </span>
               <span className="screenplay-wall__copy">
                 <span className="screenplay-wall__title">
@@ -63,11 +65,18 @@ export function ScreenplayGrid({
                   {displayAuthor && <small>{t(displayAuthor)}</small>}
                 </span>
                 <span className="screenplay-wall__decision">
+                  {decisionReady ? <>
                   <span className="screenplay-wall__score">
                     <strong>{finalScore.toFixed(1)}</strong>
                     <small>{t('Lemon score')}</small>
                   </span>
                   <RecommendationBadge tier={screenplay.recommendation} />
+                  </> : (
+                    <span className="screenplay-wall__score">
+                      <strong>{t('Not verified')}</strong>
+                      <small>{t('Not rankable')}</small>
+                    </span>
+                  )}
                 </span>
                 <span className="screenplay-wall__meta">
                   {formatInfo.format && (

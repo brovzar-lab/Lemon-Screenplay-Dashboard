@@ -39,6 +39,15 @@ const mockGetDocs = vi.fn().mockImplementation(() => {
   callOrder.push('getDocs');
   return Promise.resolve({ docs: [], size: 0 });
 });
+const mockGetDocFromServer = vi.fn(async (reference: unknown) => {
+  const data = reference === 'mock-authority-doc-ref'
+    ? mockAuthoritySnapshotData
+    : mockVersionSnapshotData;
+  return {
+    exists: () => data !== undefined,
+    data: () => data,
+  };
+});
 const mockSetDoc = vi.fn().mockImplementation(() => {
   callOrder.push('setDoc');
   return Promise.resolve();
@@ -46,6 +55,7 @@ const mockSetDoc = vi.fn().mockImplementation(() => {
 const mockTransactionSet = vi.fn();
 let mockParentSnapshotData: Record<string, unknown> | undefined;
 let mockVersionSnapshotData: Record<string, unknown> | undefined;
+let mockAuthoritySnapshotData: Record<string, unknown> | undefined;
 const mockTransactionGet = vi.fn(async (reference: unknown) => {
   const data =
     reference === 'mock-version-doc-ref' ? mockVersionSnapshotData : mockParentSnapshotData;
@@ -115,12 +125,14 @@ const mockOnSnapshot = vi.fn(
 
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn(() => 'mock-collection-ref'),
-  doc: vi.fn((...args: unknown[]) =>
-    args.includes('versions') ? 'mock-version-doc-ref' : 'mock-doc-ref',
-  ),
+  doc: vi.fn((...args: unknown[]) => {
+    if (args.includes('version_authorities')) return 'mock-authority-doc-ref';
+    return args.includes('versions') ? 'mock-version-doc-ref' : 'mock-doc-ref';
+  }),
   query: vi.fn((ref: unknown) => ref),
   where: vi.fn(() => 'mock-where-constraint'),
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
+  getDocFromServer: (...args: unknown[]) => mockGetDocFromServer(...args),
   setDoc: (...args: unknown[]) => mockSetDoc(...args),
   runTransaction: (...args: unknown[]) => mockRunTransaction(...args),
   Timestamp: MockTimestamp,
@@ -209,6 +221,15 @@ describe('analysisStore authReady gates', () => {
     await expect(loadAllAnalyses()).resolves.toEqual([{ source_file: 'seed.pdf', title: 'Seed' }]);
     expect(mockGetDocs).not.toHaveBeenCalled();
     expect(callOrder).not.toContain('getDocs');
+  });
+
+  it('strips self-declared trust authority from the ordinary local cache', async () => {
+    localStore['lemon-local-analyses'] = JSON.stringify([
+      { source_file: 'claimed.pdf', _trust_authority: 'immutable_server' },
+    ]);
+    const { loadAllAnalyses } = await import('./analysisStore');
+
+    await expect(loadAllAnalyses()).resolves.toEqual([{ source_file: 'claimed.pdf' }]);
   });
 
   it('pending write recovery awaits authReady before calling Firestore', async () => {
@@ -744,6 +765,18 @@ describe('subscribeToAnalyses', () => {
   beforeEach(() => {
     mockOnSnapshot.mockClear();
     mockUnsubscribe.mockClear();
+    mockGetDocFromServer.mockReset();
+    mockVersionSnapshotData = undefined;
+    mockAuthoritySnapshotData = undefined;
+    mockGetDocFromServer.mockImplementation(async (reference: unknown) => {
+      const data = reference === 'mock-authority-doc-ref'
+        ? mockAuthoritySnapshotData
+        : mockVersionSnapshotData;
+      return {
+        exists: () => data !== undefined,
+        data: () => data,
+      };
+    });
     snapshotSuccess = undefined;
     snapshotError = undefined;
     Object.keys(localStore).forEach((k) => delete localStore[k]);
@@ -761,6 +794,7 @@ describe('subscribeToAnalyses', () => {
           data: () => ({
             source_file: 'visible.pdf',
             title: 'Visible',
+            _trust_authority: 'immutable_server',
             _savedAt: 'now',
             _docId: 'visible',
           }),
@@ -776,6 +810,45 @@ describe('subscribeToAnalyses', () => {
 
     unsubscribe();
     expect(mockUnsubscribe).toHaveBeenCalledOnce();
+  });
+
+  it('does not preserve a parent trust claim when the external receipt is missing', async () => {
+    mockVersionSnapshotData = {
+      project_id: 'forged',
+      version_id: 'version-1',
+      content_hash: 'content',
+      trust_manifest: { integrity_sha256: 'integrity', analysis_payload_sha256: 'payload' },
+      server_trust_attestation: {
+        attestation_version: 'lemon-server-trust-attestation-v1',
+        writer: 'firebase_admin',
+        project_id: 'forged',
+        version_id: 'version-1',
+        content_sha256: 'content',
+        trust_manifest_integrity_sha256: 'integrity',
+        analysis_payload_sha256: 'payload',
+      },
+    };
+    mockAuthoritySnapshotData = undefined;
+    const onChange = vi.fn();
+    const { subscribeToAnalyses } = await import('./analysisStore');
+    subscribeToAnalyses(onChange);
+
+    snapshotSuccess?.({
+      docs: [{
+        data: () => ({
+          source_file: 'forged.pdf',
+          project_id: 'forged',
+          latest_version_id: 'version-1',
+          _trust_authority: 'immutable_server',
+          server_trust_attestation: {
+            attestation_version: 'lemon-server-trust-attestation-v1',
+          },
+        }),
+      }],
+    });
+
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalledOnce());
+    expect(onChange.mock.calls[0][0][0]).not.toHaveProperty('_trust_authority');
   });
 
   it('preserves queued edits and deletes over a stale Firestore snapshot', async () => {
@@ -819,6 +892,86 @@ describe('subscribeToAnalyses', () => {
     snapshotError?.(error);
 
     expect(onError).toHaveBeenCalledWith(error);
+  });
+
+  it('never publishes an older verified snapshot after a newer one', async () => {
+    const deferred = () => {
+      let resolve!: (value: { exists: () => boolean; data: () => Record<string, unknown> }) => void;
+      const promise = new Promise<{ exists: () => boolean; data: () => Record<string, unknown> }>(
+        (done) => { resolve = done; },
+      );
+      return { promise, resolve };
+    };
+    const first = deferred();
+    const firstAuthority = deferred();
+    const second = deferred();
+    const secondAuthority = deferred();
+    mockGetDocFromServer
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => firstAuthority.promise)
+      .mockImplementationOnce(() => second.promise)
+      .mockImplementationOnce(() => secondAuthority.promise);
+    const version = (versionId: string) => {
+      const contentHash = `hash-${versionId}`;
+      const integrity = `integrity-${versionId}`;
+      const payloadHash = `payload-${versionId}`;
+      return {
+        source_file: 'latest.pdf',
+        project_id: 'project-1',
+        version_id: versionId,
+        content_hash: contentHash,
+        identity_status: 'verified',
+        analysis_version: 'v9_archaeology',
+        analysis: { verdict: versionId },
+        trust_manifest_version: 'v9',
+        trust_manifest: {
+          integrity_sha256: integrity,
+          analysis_payload_sha256: payloadHash,
+        },
+        server_trust_attestation: {
+          attestation_version: 'lemon-server-trust-attestation-v1',
+          writer: 'firebase_admin',
+          project_id: 'project-1',
+          version_id: versionId,
+          content_sha256: contentHash,
+          trust_manifest_integrity_sha256: integrity,
+          analysis_payload_sha256: payloadHash,
+        },
+      };
+    };
+    const parent = (versionId: string) => ({
+      source_file: 'latest.pdf',
+      project_id: 'project-1',
+      latest_version_id: versionId,
+      server_trust_attestation: {
+        attestation_version: 'lemon-server-trust-attestation-v1',
+      },
+    });
+    const authority = (versionId: string) => ({
+      authorityVersion: 'lemon-analysis-version-authority-v1',
+      writer: 'firebase_admin',
+      projectId: 'project-1',
+      versionId,
+      contentHash: `hash-${versionId}`,
+      trustManifestIntegritySha256: `integrity-${versionId}`,
+      analysisPayloadSha256: `payload-${versionId}`,
+    });
+    const onChange = vi.fn();
+    const { subscribeToAnalyses } = await import('./analysisStore');
+    subscribeToAnalyses(onChange);
+
+    snapshotSuccess?.({ docs: [{ data: () => parent('version-1') }] });
+    snapshotSuccess?.({ docs: [{ data: () => parent('version-2') }] });
+    second.resolve({ exists: () => true, data: () => version('version-2') });
+    secondAuthority.resolve({ exists: () => true, data: () => authority('version-2') });
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalledOnce());
+    first.resolve({ exists: () => true, data: () => version('version-1') });
+    firstAuthority.resolve({ exists: () => true, data: () => authority('version-1') });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange.mock.calls[0][0][0].version_id).toBe('version-2');
   });
 });
 
@@ -883,5 +1036,137 @@ describe('stripDeferredAnalysisFields', () => {
       },
     });
     expect((record.analysis as Record<string, unknown>).reader_reports).toBeDefined();
+  });
+});
+
+describe('bindAuthoritativeVersion', () => {
+  it('takes all analysis, model, usage, cost, and metadata from the immutable version', async () => {
+    const { bindAuthoritativeVersion } = await import('./analysisStore');
+    const version = {
+      source_file: 'Evidence.pdf',
+      project_id: 'evidence',
+      version_id: 'version-1',
+      analysis: { verdict: 'CONSIDER' },
+      analysis_version: 'v9_archaeology',
+      analysis_model: 'claude-sonnet-5',
+      usage: { actual_cost_microusd: 123 },
+      actual_cost_microusd: 123,
+      metadata: { page_count: 107 },
+      content_hash: 'content',
+      identity_status: 'verified',
+      trust_manifest_version: 'lemon-v9-trust-manifest-v2',
+      trust_manifest: {
+        integrity_sha256: 'integrity',
+        analysis_payload_sha256: 'payload',
+      },
+      server_trust_attestation: {
+        attestation_version: 'lemon-server-trust-attestation-v1',
+        writer: 'firebase_admin',
+        project_id: 'evidence',
+        version_id: 'version-1',
+        content_sha256: 'content',
+        trust_manifest_integrity_sha256: 'integrity',
+        analysis_payload_sha256: 'payload',
+      },
+    };
+    const result = bindAuthoritativeVersion({
+      project_id: 'evidence',
+      latest_version_id: 'version-1',
+      analysis: { verdict: 'RECOMMEND' },
+      analysis_model: 'claude-fake',
+      usage: { actual_cost_microusd: 0 },
+      actual_cost_microusd: 0,
+      metadata: { page_count: 1 },
+      collection: 'LEMON',
+      category: 'ACTIVE_DEVELOPMENT',
+      hasPdf: true,
+      poster_version_id: 'version-1',
+      poster_url: 'https://example.test/poster.jpg',
+      poster_status: 'ready',
+    }, version, {
+      authorityVersion: 'lemon-analysis-version-authority-v1',
+      writer: 'firebase_admin',
+      projectId: 'evidence',
+      versionId: 'version-1',
+      contentHash: 'content',
+      trustManifestIntegritySha256: 'integrity',
+      analysisPayloadSha256: 'payload',
+    });
+
+    expect(result).toMatchObject({
+      analysis: { verdict: 'CONSIDER' },
+      analysis_model: 'claude-sonnet-5',
+      usage: { actual_cost_microusd: 123 },
+      actual_cost_microusd: 123,
+      metadata: { page_count: 107 },
+      collection: 'LEMON',
+      category: 'ACTIVE_DEVELOPMENT',
+      hasPdf: true,
+      poster_version_id: 'version-1',
+      poster_url: 'https://example.test/poster.jpg',
+      poster_status: 'ready',
+      _trust_authority: 'immutable_server',
+    });
+  });
+
+  it('does not attach a poster generated for another analysis version', async () => {
+    const { bindAuthoritativeVersion } = await import('./analysisStore');
+    const parent = {
+      project_id: 'evidence',
+      latest_version_id: 'version-1',
+      poster_version_id: 'version-old',
+      poster_url: 'https://example.test/stale.jpg',
+    };
+    const version = {
+      project_id: 'evidence',
+      version_id: 'version-1',
+      source_file: 'Evidence.pdf',
+      content_hash: 'content',
+      trust_manifest: { integrity_sha256: 'integrity', analysis_payload_sha256: 'payload' },
+      server_trust_attestation: {
+        attestation_version: 'lemon-server-trust-attestation-v1',
+        writer: 'firebase_admin',
+        project_id: 'evidence',
+        version_id: 'version-1',
+        content_sha256: 'content',
+        trust_manifest_integrity_sha256: 'integrity',
+        analysis_payload_sha256: 'payload',
+      },
+    };
+    expect(bindAuthoritativeVersion(parent, version, {
+      authorityVersion: 'lemon-analysis-version-authority-v1',
+      writer: 'firebase_admin',
+      projectId: 'evidence',
+      versionId: 'version-1',
+      contentHash: 'content',
+      trustManifestIntegritySha256: 'integrity',
+      analysisPayloadSha256: 'payload',
+    }).poster_url).toBeUndefined();
+  });
+
+  it('does not trust a self-consistent immutable version without the server receipt', async () => {
+    const { bindAuthoritativeVersion } = await import('./analysisStore');
+    const parent = {
+      project_id: 'evidence',
+      latest_version_id: 'version-1',
+      _trust_authority: 'immutable_server',
+    };
+    const version = {
+      project_id: 'evidence',
+      version_id: 'version-1',
+      content_hash: 'content',
+      trust_manifest: { integrity_sha256: 'integrity', analysis_payload_sha256: 'payload' },
+      server_trust_attestation: {
+        attestation_version: 'lemon-server-trust-attestation-v1',
+        writer: 'firebase_admin',
+        project_id: 'evidence',
+        version_id: 'version-1',
+        content_sha256: 'content',
+        trust_manifest_integrity_sha256: 'integrity',
+        analysis_payload_sha256: 'payload',
+      },
+    };
+
+    expect(bindAuthoritativeVersion(parent, version, {})).not.toHaveProperty('_trust_authority');
   });
 });

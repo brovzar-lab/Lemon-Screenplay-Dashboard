@@ -32,7 +32,7 @@
     "models:check": "node scripts/check-anthropic-models.mjs",
     "models:check:offline": "node scripts/check-anthropic-models.mjs --offline",
     "models:refresh": "node scripts/check-anthropic-models.mjs --write-observed",
-    "models:test": "node --test scripts/check-anthropic-models.test.mjs scripts/release-metadata.test.mjs",
+    "models:test": "node --test scripts/candidate-staging-gate.test.mjs scripts/check-anthropic-models.test.mjs scripts/release-metadata.test.mjs",
     "models:benchmark": "PYTHONPATH=. .venv/bin/python -m execution.model_benchmark"
   },
   "dependencies": {

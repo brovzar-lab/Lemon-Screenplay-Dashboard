@@ -110,6 +110,15 @@ describe('ReaderRoom', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('does not treat a claimed version id as sealed without verified decision lineage', async () => {
+    renderRoom({ producerProjection: undefined });
+
+    expect(await screen.findByText(/Current sealed analysis required/i)).toBeInTheDocument();
+    expect(screen.getByText(/Legacy reader evidence/i)).toBeInTheDocument();
+    expect(screen.queryByText('Pages 48, 51')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('shows both reader positions before the roundtable resolution', async () => {
     renderRoom({
       readerDisagreements: [

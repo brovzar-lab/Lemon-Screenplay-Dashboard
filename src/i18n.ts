@@ -185,6 +185,9 @@ const english = {
   'analysis.warning.reader_disagreement.title': 'Specialist readers disagreed',
   'analysis.warning.reader_disagreement.detail':
     '{{count}} material disagreements were recorded and should be reviewed in the reader evidence.',
+  'analysis.warning.unsealed_current_analysis.title': 'Current analysis is not server-verified',
+  'analysis.warning.unsealed_current_analysis.detail':
+    'This V9 result was not reconstructed from its immutable server version. Its score and verdict must not drive a decision.',
   'analysis.warning.legacy_unverified.title': 'Legacy analysis',
   'analysis.warning.legacy_unverified.detail':
     'This record predates the immutable trust manifest. Its history and model lineage cannot be verified to the current standard.',
@@ -725,6 +728,13 @@ const spanish = {
     'Amplía la búsqueda o quita los filtros activos para volver a ver toda la selección.',
   Done: 'Listo',
   'Final Score': 'Calificación final',
+  'Decision data unavailable until verification': 'Datos de decisión no disponibles hasta completar la verificación',
+  '{{count}} unverified omitted': '{{count}} sin verificar omitidos',
+  'Not verified': 'No verificado',
+  'Not verified / not rankable': 'No verificado / no se puede clasificar',
+  'Unverified omitted': 'Sin verificar omitidos',
+  'This shared analysis is not server-verified and cannot be used for a screenplay decision.':
+    'Este análisis compartido no está verificado por el servidor y no puede usarse para tomar una decisión sobre el guion.',
   'Lemon score': 'Calificación Lemon',
   'Market Potential': 'Potencial de mercado',
   Model: 'Modelo',
@@ -742,6 +752,9 @@ const spanish = {
   'analysis.warning.reader_disagreement.title': 'Los lectores especializados no coincidieron',
   'analysis.warning.reader_disagreement.detail':
     'Se registraron {{count}} desacuerdos importantes. Revísalos en la evidencia de los lectores.',
+  'analysis.warning.unsealed_current_analysis.title': 'El análisis actual no está verificado por el servidor',
+  'analysis.warning.unsealed_current_analysis.detail':
+    'Este resultado V9 no se reconstruyó desde su versión inmutable del servidor. Su calificación y veredicto no deben guiar una decisión.',
   'analysis.warning.legacy_unverified.title': 'Análisis anterior',
   'analysis.warning.legacy_unverified.detail':
     'Este registro es anterior al manifiesto de confianza inmutable. No se pueden verificar su historial ni el modelo con el estándar actual.',

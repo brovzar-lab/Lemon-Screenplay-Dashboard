@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { PublicShareHeader } from '@/components/share/PublicShareHeader';
 import i18n from '@/i18n';
 import type { LocalizedAnalysisContent } from '@/types';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 interface SharedViewLayoutProps {
   data: SharedViewDocument;
@@ -30,6 +31,9 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
   const analysis = content ? localizeSharedAnalysis(data.analysis, content) : data.analysis;
   const analysisFallback = isSpanish && !content;
   const displayTitle = getScreenplayDisplayTitle(analysis.title).title;
+  const decisionReady = isDecisionReady({
+    producerProjection: analysis.producerProjection,
+  });
 
   return (
     <div className="public-share-shell public-shared-view">
@@ -51,10 +55,10 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
           </div>
         </div>
 
-        {/* Recommendation Badge */}
-        <div className="flex justify-center mb-6">
-          <RecommendationBadge tier={analysis.recommendation} size="lg" />
-        </div>
+        {decisionReady ? <>
+          <div className="flex justify-center mb-6">
+            <RecommendationBadge tier={analysis.recommendation} size="lg" />
+          </div>
 
         {analysisFallback && (
           <div role="status" className="mb-6 rounded-lg border border-black-700 bg-black-800 px-4 py-3 text-sm text-black-200">
@@ -89,6 +93,11 @@ export function SharedViewLayout({ data }: SharedViewLayoutProps) {
 
         {/* Content Details */}
         {!analysisFallback && <SharedContentDetails analysis={analysis} notes={data.notes} />}
+        </> : (
+          <div role="alert" className="mb-8 rounded-lg border border-red-500/40 bg-red-950/20 px-4 py-4 text-sm text-red-100">
+            {t('This shared analysis is not server-verified and cannot be used for a screenplay decision.')}
+          </div>
+        )}
 
         {/* Footer */}
         <footer className="public-share-footer">

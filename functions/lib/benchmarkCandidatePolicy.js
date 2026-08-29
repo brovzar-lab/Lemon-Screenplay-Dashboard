@@ -1,11 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BenchmarkContractError = exports.BENCHMARK_MODELS = exports.BENCHMARK_DATABASE_ID = void 0;
+exports.BenchmarkContractError = exports.BENCHMARK_MODELS = exports.BENCHMARK_AUDIT_LIMIT_MICROUSD = exports.BENCHMARK_AUDIT_ID = exports.PRIOR_AUDIT_SPEND_MICROUSD = exports.MAX_BENCHMARK_CAP_USD = exports.BENCHMARK_DATABASE_ID = void 0;
+exports.parseBenchmarkCapUsd = parseBenchmarkCapUsd;
+exports.assertBenchmarkAuditBudget = assertBenchmarkAuditBudget;
+exports.isOpaqueBenchmarkRunId = isOpaqueBenchmarkRunId;
 exports.deriveBenchmarkCallId = deriveBenchmarkCallId;
+exports.deriveBenchmarkPayloadEvidence = deriveBenchmarkPayloadEvidence;
 exports.validateBenchmarkContract = validateBenchmarkContract;
 exports.validateCandidateEnvelope = validateCandidateEnvelope;
 const anthropicProxyCore_1 = require("./anthropicProxyCore");
 exports.BENCHMARK_DATABASE_ID = "model-benchmarks";
+exports.MAX_BENCHMARK_CAP_USD = 40;
+exports.PRIOR_AUDIT_SPEND_MICROUSD = 106_425;
+exports.BENCHMARK_AUDIT_ID = "v9-trust-remediation-20260827";
+exports.BENCHMARK_AUDIT_LIMIT_MICROUSD = 40_000_000;
 exports.BENCHMARK_MODELS = [
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-6",
@@ -20,13 +28,52 @@ class BenchmarkContractError extends Error {
     }
 }
 exports.BenchmarkContractError = BenchmarkContractError;
+function parseBenchmarkCapUsd(value) {
+    if (!/^[0-9]+(?:\.[0-9]{1,6})?$/.test(value)) {
+        throw new BenchmarkContractError(`BENCHMARK_CAP_USD must be between 0 and ${exports.MAX_BENCHMARK_CAP_USD}.`);
+    }
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > exports.MAX_BENCHMARK_CAP_USD) {
+        throw new BenchmarkContractError(`BENCHMARK_CAP_USD must be between 0 and ${exports.MAX_BENCHMARK_CAP_USD}.`);
+    }
+    return parsed;
+}
+function assertBenchmarkAuditBudget(capMicrousd, priorSpendMicrousd) {
+    if (!Number.isInteger(priorSpendMicrousd)
+        || priorSpendMicrousd < exports.PRIOR_AUDIT_SPEND_MICROUSD) {
+        throw new BenchmarkContractError("Prior audit spend must include the settled pilot cost.");
+    }
+    if (!Number.isInteger(capMicrousd) || capMicrousd <= 0
+        || capMicrousd + priorSpendMicrousd > exports.BENCHMARK_AUDIT_LIMIT_MICROUSD) {
+        throw new BenchmarkContractError("Prior spend plus this run cap exceeds the authorized audit ceiling.");
+    }
+}
 const SHA256 = /^[a-f0-9]{64}$/;
-const SAFE_ID = /^[A-Za-z0-9._-]{1,120}$/;
+const OPAQUE_RUN_ID = /^(?:[a-f0-9]{64}|[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$/;
 const SAFE_STAGE = /^[a-z0-9_-]{1,64}$/;
+const CLAIM_BATCH = /^batch_([0-9]{3})_of_([0-9]{3})$/;
 const READERS = new Set([
     "structure", "character", "craft_scene", "concept", "emotional_resonance",
 ]);
-const NON_BINDING_STAGES = new Set(["triage", "genre_detection", "cold_read"]);
+const NON_BINDING_STAGES = new Set(["triage", "genre_detection", "cold_read", "smoke"]);
+function isOpaqueBenchmarkRunId(value) {
+    return typeof value === "string" && OPAQUE_RUN_ID.test(value);
+}
+function validCallLineage(stage, readerName) {
+    if (stage === "reader") {
+        return typeof readerName === "string" && READERS.has(readerName);
+    }
+    if (stage !== "claim_verification")
+        return readerName === null;
+    if (typeof readerName !== "string")
+        return false;
+    const match = CLAIM_BATCH.exec(readerName);
+    if (!match)
+        return false;
+    const index = Number(match[1]);
+    const total = Number(match[2]);
+    return index >= 1 && index <= total;
+}
 function requireSha(value, field) {
     if (typeof value !== "string" || !SHA256.test(value)) {
         throw new BenchmarkContractError(`${field} must be a lowercase SHA-256 hash.`);
@@ -45,13 +92,77 @@ function expectedRouteModels(route, generation) {
 function deriveBenchmarkCallId(contract) {
     return (0, anthropicProxyCore_1.sha256CanonicalJson)(contract);
 }
-function validateBenchmarkContract(value, payloadHash, expectedRunId, requestModel) {
+function deriveBenchmarkPayloadEvidence(payload) {
+    const requestSha256 = (0, anthropicProxyCore_1.sha256CanonicalJson)(payload);
+    const promptEnvelope = {};
+    for (const field of [
+        "system", "messages", "tools", "tool_choice", "thinking", "output_config",
+    ]) {
+        if (payload[field] !== undefined)
+            promptEnvelope[field] = payload[field];
+    }
+    const promptSha256 = (0, anthropicProxyCore_1.sha256CanonicalJson)(promptEnvelope);
+    const tools = payload.tools;
+    if (tools === undefined) {
+        return {
+            request_sha256: requestSha256,
+            prompt_sha256: promptSha256,
+            schema_mode: "schema_free",
+            schema_sha256: null,
+            transport_schema_sha256: null,
+        };
+    }
+    if (!Array.isArray(tools) || tools.length !== 1) {
+        throw new BenchmarkContractError("Benchmark requests must use exactly one strict tool.");
+    }
+    const tool = tools[0];
+    if (!tool || typeof tool !== "object" || Array.isArray(tool)) {
+        throw new BenchmarkContractError("Benchmark tool definition is invalid.");
+    }
+    const record = tool;
+    if (record.strict !== true
+        || !record.input_schema
+        || typeof record.input_schema !== "object"
+        || Array.isArray(record.input_schema)) {
+        throw new BenchmarkContractError("Benchmark tool must carry a strict input schema.");
+    }
+    const transportSchema = record.input_schema;
+    const transportSchemaSha256 = (0, anthropicProxyCore_1.sha256CanonicalJson)(transportSchema);
+    const properties = transportSchema.properties;
+    const applicationBinding = properties
+        && typeof properties === "object"
+        && !Array.isArray(properties)
+        ? properties.application_schema_sha256
+        : undefined;
+    if (applicationBinding !== undefined) {
+        const binding = applicationBinding;
+        const values = binding && Array.isArray(binding.enum) ? binding.enum : [];
+        if (values.length !== 1 || typeof values[0] !== "string" || !SHA256.test(values[0])) {
+            throw new BenchmarkContractError("Compact benchmark schema must bind one application schema fingerprint.");
+        }
+        return {
+            request_sha256: requestSha256,
+            prompt_sha256: promptSha256,
+            schema_mode: "compact_strict_tool",
+            schema_sha256: values[0],
+            transport_schema_sha256: transportSchemaSha256,
+        };
+    }
+    return {
+        request_sha256: requestSha256,
+        prompt_sha256: promptSha256,
+        schema_mode: "strict_tool",
+        schema_sha256: transportSchemaSha256,
+        transport_schema_sha256: transportSchemaSha256,
+    };
+}
+function validateBenchmarkContract(value, evidence, expectedRunId, requestModel) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
         throw new BenchmarkContractError("benchmark must be an object.");
     }
     const raw = value;
-    if (typeof raw.run_id !== "string" || !SAFE_ID.test(raw.run_id)) {
-        throw new BenchmarkContractError("run_id is invalid.");
+    if (!isOpaqueBenchmarkRunId(raw.run_id)) {
+        throw new BenchmarkContractError("run_id must be an opaque UUIDv4 or SHA-256 value.");
     }
     if (raw.run_id !== expectedRunId) {
         throw new BenchmarkContractError("run_id does not match this immutable deployment.");
@@ -65,19 +176,21 @@ function validateBenchmarkContract(value, payloadHash, expectedRunId, requestMod
     if (typeof raw.pipeline_stage !== "string" || !SAFE_STAGE.test(raw.pipeline_stage)) {
         throw new BenchmarkContractError("pipeline_stage is invalid.");
     }
-    if (raw.reader_name !== null
-        && (typeof raw.reader_name !== "string" || !READERS.has(raw.reader_name))) {
-        throw new BenchmarkContractError("reader_name is invalid.");
+    if (typeof raw.pipeline_pass !== "string" || !SAFE_STAGE.test(raw.pipeline_pass)) {
+        throw new BenchmarkContractError("pipeline_pass is invalid.");
+    }
+    if (!validCallLineage(raw.pipeline_stage, raw.reader_name)) {
+        throw new BenchmarkContractError("reader_name is invalid for pipeline_stage.");
     }
     if (!Number.isInteger(raw.retry_number)
         || Number(raw.retry_number) < 0
-        || Number(raw.retry_number) > 10) {
-        throw new BenchmarkContractError("retry_number must be an integer between 0 and 10.");
+        || Number(raw.retry_number) > 1) {
+        throw new BenchmarkContractError("retry_number must be 0 or 1.");
     }
     if (!Number.isInteger(raw.boundary_run)
         || Number(raw.boundary_run) < 1
-        || Number(raw.boundary_run) > 10) {
-        throw new BenchmarkContractError("boundary_run must be an integer between 1 and 10.");
+        || Number(raw.boundary_run) > 3) {
+        throw new BenchmarkContractError("boundary_run must be an integer between 1 and 3.");
     }
     if (typeof raw.requested_model !== "string" || raw.requested_model !== requestModel) {
         throw new BenchmarkContractError("requested_model does not match the proxy request.");
@@ -86,8 +199,37 @@ function validateBenchmarkContract(value, payloadHash, expectedRunId, requestMod
         throw new BenchmarkContractError("Model is not approved for screenplay benchmarks.");
     }
     const requestSha = requireSha(raw.request_sha256, "request_sha256");
-    if (requestSha !== payloadHash) {
+    if (requestSha !== evidence.request_sha256) {
         throw new BenchmarkContractError("request_sha256 does not match the provider payload.");
+    }
+    if (raw.schema_mode !== "schema_free"
+        && raw.schema_mode !== "strict_tool"
+        && raw.schema_mode !== "compact_strict_tool") {
+        throw new BenchmarkContractError("schema_mode is invalid.");
+    }
+    const schemaMode = raw.schema_mode;
+    if (schemaMode !== evidence.schema_mode) {
+        throw new BenchmarkContractError("schema_mode does not match the provider payload.");
+    }
+    if (raw.prompt_sha256 !== evidence.prompt_sha256) {
+        throw new BenchmarkContractError("prompt_sha256 does not match the provider payload.");
+    }
+    let schemaSha256;
+    let transportSchemaSha256;
+    if (schemaMode === "schema_free") {
+        if (raw.schema_sha256 !== null || raw.transport_schema_sha256 !== null) {
+            throw new BenchmarkContractError("A schema-free call cannot carry schema fingerprints.");
+        }
+        schemaSha256 = null;
+        transportSchemaSha256 = null;
+    }
+    else {
+        schemaSha256 = requireSha(raw.schema_sha256, "schema_sha256");
+        transportSchemaSha256 = requireSha(raw.transport_schema_sha256, "transport_schema_sha256");
+    }
+    if (schemaSha256 !== evidence.schema_sha256
+        || transportSchemaSha256 !== evidence.transport_schema_sha256) {
+        throw new BenchmarkContractError("Schema fingerprints do not match the provider payload.");
     }
     const contractWithoutCallId = {
         run_id: raw.run_id,
@@ -95,17 +237,41 @@ function validateBenchmarkContract(value, payloadHash, expectedRunId, requestMod
         route: raw.route,
         generation: raw.generation,
         pipeline_stage: raw.pipeline_stage,
+        pipeline_pass: raw.pipeline_pass,
         reader_name: raw.reader_name,
         retry_number: Number(raw.retry_number),
         boundary_run: Number(raw.boundary_run),
         prompt_bundle_sha256: requireSha(raw.prompt_bundle_sha256, "prompt_bundle_sha256"),
-        structured_output_schema_sha256: requireSha(raw.structured_output_schema_sha256, "structured_output_schema_sha256"),
+        schema_bundle_sha256: requireSha(raw.schema_bundle_sha256, "schema_bundle_sha256"),
+        prompt_sha256: requireSha(raw.prompt_sha256, "prompt_sha256"),
+        schema_mode: schemaMode,
+        schema_sha256: schemaSha256,
+        transport_schema_sha256: transportSchemaSha256,
         request_sha256: requestSha,
         requested_model: requestModel,
     };
     const expectedCallId = deriveBenchmarkCallId(contractWithoutCallId);
     if (raw.call_id !== expectedCallId) {
         throw new BenchmarkContractError("call_id is not the deterministic contract hash.");
+    }
+    const stage = contractWithoutCallId.pipeline_stage;
+    const validStageContract = (((stage === "triage" || stage === "cold_read" || stage === "smoke")
+        && contractWithoutCallId.reader_name === null
+        && schemaMode === "schema_free")
+        || (stage === "genre_detection"
+            && contractWithoutCallId.reader_name === null
+            && schemaMode === "strict_tool")
+        || (stage === "reader"
+            && contractWithoutCallId.reader_name !== null
+            && schemaMode === "compact_strict_tool")
+        || (stage === "synthesis"
+            && contractWithoutCallId.reader_name === null
+            && schemaMode === "compact_strict_tool")
+        || (stage === "claim_verification"
+            && contractWithoutCallId.reader_name !== null
+            && schemaMode === "compact_strict_tool"));
+    if (!validStageContract) {
+        throw new BenchmarkContractError("pipeline_stage, reader_name, and schema_mode do not match the V9 call matrix.");
     }
     if (requestModel === "claude-haiku-4-5-20251001") {
         if (!NON_BINDING_STAGES.has(contractWithoutCallId.pipeline_stage)) {
@@ -114,7 +280,7 @@ function validateBenchmarkContract(value, payloadHash, expectedRunId, requestMod
     }
     else {
         const isNonBinding = NON_BINDING_STAGES.has(contractWithoutCallId.pipeline_stage);
-        const allowed = expectedRouteModels(isNonBinding ? "sonnet" : contractWithoutCallId.route, contractWithoutCallId.generation);
+        const allowed = expectedRouteModels(isNonBinding && stage !== "smoke" ? "sonnet" : contractWithoutCallId.route, contractWithoutCallId.generation);
         if (!allowed.has(requestModel)) {
             throw new BenchmarkContractError(isNonBinding
                 ? "Non-binding long-context work must use the generation-matched Sonnet route."

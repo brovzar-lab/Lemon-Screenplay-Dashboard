@@ -1,14 +1,43 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildProducerProjection } from '@/lib/producerProjection';
+import { buildProducerProjection, isDecisionReady } from '@/lib/producerProjection';
+
+const sha = 'a'.repeat(64);
+function sealedRaw(overrides: Record<string, unknown> = {}) {
+  return {
+    analysis_version: 'v9_archaeology',
+    trust_manifest_version: 'lemon-trust-manifest-v6',
+    content_hash: sha,
+    source_file: 'Test.pdf',
+    project_id: 'Test.pdf',
+    version_id: 'version-1',
+    _trust_authority: 'immutable_server',
+    trust_manifest: {
+      manifest_version: 'lemon-trust-manifest-v6',
+      integrity_sha256: sha,
+      analysis_payload_sha256: sha,
+      source: { content_sha256: sha, source_file: 'Test.pdf' },
+      origin: { project_id: 'Test.pdf', version_id: 'version-1' },
+      engine: { analysis_version: 'v9_archaeology' },
+      models: { calls: [{ response_id: 'msg_1' }] },
+    },
+    server_trust_attestation: {
+      attestation_version: 'lemon-server-trust-attestation-v1',
+      writer: 'firebase_admin',
+      project_id: 'Test.pdf',
+      version_id: 'version-1',
+      content_sha256: sha,
+      trust_manifest_integrity_sha256: sha,
+      analysis_payload_sha256: sha,
+    },
+    ...overrides,
+  };
+}
 
 describe('buildProducerProjection', () => {
   it('uses the recorded adjusted score as the producer-facing score', () => {
     const result = buildProducerProjection(
-      {
-        analysis_version: 'v9_archaeology',
-        trust_manifest_version: 'lemon-trust-manifest-v3',
-      },
+      sealedRaw(),
       {
         weighted_score: 5.22,
         weighted_score_adjusted: 4.72,
@@ -55,12 +84,57 @@ describe('buildProducerProjection', () => {
     );
   });
 
+  it('keeps triage and self-declared manifest versions out of rankings', () => {
+    for (const raw of [
+      { analysis_version: 'v9_triage', trust_manifest_version: 'lemon-trust-manifest-v6' },
+      { analysis_version: 'v9_archaeology', trust_manifest_version: 'lemon-trust-manifest-v6' },
+    ]) {
+      const result = buildProducerProjection(raw, {
+        weighted_score: 8.8,
+        weighted_score_adjusted: 8.8,
+        verdict: 'FILM NOW',
+      });
+      expect(result.projection.rankable).toBe(false);
+      expect(result.projection.trustStatus).toBe('legacy_unverified');
+    }
+  });
+
+  it('keeps cached or self-declared attestations out of rankings', () => {
+    for (const raw of [
+      { ...sealedRaw(), _trust_authority: 'local_cache' },
+      { ...sealedRaw(), _trust_authority: 'pending_overlay' },
+      { ...sealedRaw(), server_trust_attestation: undefined },
+    ]) {
+      const result = buildProducerProjection(raw, {
+        weighted_score: 8.8,
+        weighted_score_adjusted: 8.8,
+        verdict: 'RECOMMEND',
+      });
+      expect(result.projection.rankable).toBe(false);
+      expect(result.projection.trustStatus).toBe('legacy_unverified');
+      expect(result.projection.warnings).toContainEqual(expect.objectContaining({
+        code: 'unsealed_current_analysis',
+        severity: 'blocking',
+      }));
+    }
+  });
+
+  it('exposes one strict decision-ready predicate', () => {
+    expect(isDecisionReady({
+      producerProjection: { rankable: true, trustStatus: 'verified' },
+    })).toBe(true);
+    expect(isDecisionReady({
+      producerProjection: { rankable: true, trustStatus: 'legacy_unverified' },
+    })).toBe(false);
+    expect(isDecisionReady({
+      producerProjection: { rankable: false, trustStatus: 'verified' },
+    })).toBe(false);
+    expect(isDecisionReady({})).toBe(false);
+  });
+
   it('blocks ranking when the specialist reader panel is incomplete', () => {
     const result = buildProducerProjection(
-      {
-        analysis_version: 'v9_archaeology',
-        trust_manifest_version: 'lemon-trust-manifest-v3',
-      },
+      sealedRaw(),
       {
         weighted_score: 7,
         weighted_score_adjusted: 6.5,
@@ -86,10 +160,7 @@ describe('buildProducerProjection', () => {
 
   it('blocks ranking when the source was truncated', () => {
     const result = buildProducerProjection(
-      {
-        analysis_version: 'v9_archaeology',
-        trust_manifest_version: 'lemon-trust-manifest-v3',
-      },
+      sealedRaw(),
       {
         weighted_score: 7,
         weighted_score_adjusted: 7,
@@ -109,10 +180,7 @@ describe('buildProducerProjection', () => {
 
   it('warns when boundary reruns do not agree', () => {
     const result = buildProducerProjection(
-      {
-        analysis_version: 'v9_archaeology',
-        trust_manifest_version: 'lemon-trust-manifest-v3',
-      },
+      sealedRaw(),
       {
         weighted_score: 7,
         weighted_score_adjusted: 6.8,
@@ -142,10 +210,7 @@ describe('buildProducerProjection', () => {
 
   it('surfaces recorded reader disagreements', () => {
     const result = buildProducerProjection(
-      {
-        analysis_version: 'v9_archaeology',
-        trust_manifest_version: 'lemon-trust-manifest-v3',
-      },
+      sealedRaw(),
       {
         weighted_score: 6,
         weighted_score_adjusted: 6,
@@ -171,10 +236,9 @@ describe('buildProducerProjection', () => {
 
   it('reads quality from the immutable trust manifest when needed', () => {
     const result = buildProducerProjection(
-      {
-        analysis_version: 'v9_archaeology',
-        trust_manifest_version: 'lemon-trust-manifest-v3',
+      sealedRaw({
         trust_manifest: {
+          ...sealedRaw().trust_manifest as Record<string, unknown>,
           readers: {
             quality_status: 'complete',
             completed_specialist_readers: 5,
@@ -182,7 +246,7 @@ describe('buildProducerProjection', () => {
             failed_readers: [],
           },
         },
-      },
+      }),
       {
         weighted_score: 6,
         weighted_score_adjusted: 6,

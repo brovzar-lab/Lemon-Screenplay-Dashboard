@@ -6,6 +6,7 @@ from execution.ingest_v9 import (
     PERMANENT_DOCUMENT_GUARD_BYTES,
     _analysis_run_evidence,
     assert_permanent_document_size,
+    build_version_authority_document,
     build_version_document,
     encoded_firestore_document_size,
     write_analysis_transaction,
@@ -134,11 +135,13 @@ class TestImmutableVersionStorage(unittest.TestCase):
         transaction = FakeTransaction()
         parent_ref = FakeReference("parent")
         version_ref = FakeReference("version")
+        authority_ref = FakeReference("authority")
 
         version_number = write_analysis_transaction(
             transaction,
             parent_ref,
             version_ref,
+            authority_ref,
             raw_analysis(),
             project_id=PROJECT_ID,
             version_id=VERSION_ID,
@@ -146,20 +149,26 @@ class TestImmutableVersionStorage(unittest.TestCase):
         )
 
         self.assertEqual(version_number, 1)
-        self.assertEqual([operation[0] for operation in transaction.operations], ["create", "set"])
+        self.assertEqual(
+            [operation[0] for operation in transaction.operations],
+            ["create", "create", "set"],
+        )
         self.assertIs(transaction.operations[0][1], version_ref)
-        self.assertIs(transaction.operations[1][1], parent_ref)
+        self.assertIs(transaction.operations[1][1], authority_ref)
+        self.assertIs(transaction.operations[2][1], parent_ref)
         self.assertTrue(all(tx is transaction for tx in parent_ref.read_transactions))
         self.assertTrue(all(tx is transaction for tx in version_ref.read_transactions))
+        self.assertTrue(all(tx is transaction for tx in authority_ref.read_transactions))
         self.assertEqual(transaction.operations[0][2]["version_id"], VERSION_ID)
-        self.assertEqual(transaction.operations[1][2]["latest_version_id"], VERSION_ID)
+        self.assertEqual(transaction.operations[1][2]["versionId"], VERSION_ID)
+        self.assertEqual(transaction.operations[2][2]["latest_version_id"], VERSION_ID)
         self.assertIn(
             "reader_reports",
             transaction.operations[0][2]["analysis"],
         )
         self.assertNotIn(
             "reader_reports",
-            transaction.operations[1][2]["analysis"],
+            transaction.operations[2][2]["analysis"],
         )
 
     def test_renamed_revision_produces_two_self_validating_documents(self):
@@ -172,12 +181,14 @@ class TestImmutableVersionStorage(unittest.TestCase):
             },
         )
         version_ref = FakeReference("version")
+        authority_ref = FakeReference("authority")
         raw = raw_analysis()
 
         write_analysis_transaction(
             transaction,
             parent_ref,
             version_ref,
+            authority_ref,
             raw,
             project_id=PROJECT_ID,
             version_id=VERSION_ID,
@@ -185,7 +196,7 @@ class TestImmutableVersionStorage(unittest.TestCase):
         )
 
         version_document = transaction.operations[0][2]
-        parent_document = transaction.operations[1][2]
+        parent_document = transaction.operations[2][2]
         self.assertEqual(
             parent_document["source_file"],
             "Original Project Name.pdf",
@@ -200,17 +211,27 @@ class TestImmutableVersionStorage(unittest.TestCase):
     def test_retrying_an_existing_version_does_not_advance_the_parent(self):
         transaction = FakeTransaction()
         parent_ref = FakeReference("parent", {"version_count": 1})
-        existing_version = raw_analysis()
-        existing_version["version_number"] = 1
+        existing_version = build_version_document(
+            raw_analysis(),
+            project_id=PROJECT_ID,
+            version_id=VERSION_ID,
+            version_number=1,
+            queued_at_ms=QUEUED_AT_MS,
+        )
         version_ref = FakeReference(
             "version",
             existing_version,
+        )
+        authority_ref = FakeReference(
+            "authority",
+            build_version_authority_document(existing_version),
         )
 
         version_number = write_analysis_transaction(
             transaction,
             parent_ref,
             version_ref,
+            authority_ref,
             raw_analysis(),
             project_id=PROJECT_ID,
             version_id=VERSION_ID,
@@ -218,6 +239,31 @@ class TestImmutableVersionStorage(unittest.TestCase):
         )
 
         self.assertEqual(version_number, 1)
+        self.assertEqual(transaction.operations, [])
+
+    def test_existing_self_attested_version_without_authority_receipt_is_rejected(self):
+        transaction = FakeTransaction()
+        parent_ref = FakeReference("parent", {"version_count": 1})
+        existing_version = build_version_document(
+            raw_analysis(),
+            project_id=PROJECT_ID,
+            version_id=VERSION_ID,
+            version_number=1,
+            queued_at_ms=QUEUED_AT_MS,
+        )
+
+        with self.assertRaisesRegex(ValueError, "no server authority receipt"):
+            write_analysis_transaction(
+                transaction,
+                parent_ref,
+                FakeReference("version", existing_version),
+                FakeReference("authority"),
+                raw_analysis(),
+                project_id=PROJECT_ID,
+                version_id=VERSION_ID,
+                queued_at_ms=QUEUED_AT_MS,
+            )
+
         self.assertEqual(transaction.operations, [])
 
 

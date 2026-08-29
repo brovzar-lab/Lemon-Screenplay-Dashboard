@@ -470,6 +470,15 @@ describe('normalizeV9Screenplay', () => {
         expect(result.category).toBe('BLACK_LIST');
     });
 
+    it('lets the mutable parent category override the immutable collection id', () => {
+        const raw = createMockV9Raw({
+            collection_id: 'BLACK_LIST',
+            collection: 'LEMON',
+            category: 'ACTIVE_DEVELOPMENT',
+        });
+        expect(normalizeV9Screenplay(raw, 'Analysis').category).toBe('ACTIVE_DEVELOPMENT');
+    });
+
     it('normalizes tmdb_status when present on V9 data', () => {
         const raw = createMockV9Raw({
             tmdb_status: {
@@ -506,13 +515,11 @@ describe('normalizeV9Screenplay', () => {
         expect(pillarNames).toEqual(['character', 'concept', 'craft_scene', 'emotional_resonance', 'structure']);
     });
 
-    it('preserves goosebumpsMomentDetails', () => {
+    it('does not display legacy ungrounded goosebumpsMomentDetails', () => {
         const raw = createMockV9Raw();
         const result = normalizeV9Screenplay(raw, 'Analysis');
 
-        expect(result.goosebumpsMomentDetails).toHaveLength(2);
-        expect(result.goosebumpsMomentDetails![0].page).toBe(42);
-        expect(result.goosebumpsMomentDetails![0].description).toContain('cove dance');
+        expect(result.goosebumpsMomentDetails).toEqual([]);
     });
 
     it('preserves storyVsSituation', () => {

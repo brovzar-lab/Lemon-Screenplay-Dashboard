@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { DiscoveryPitchDeckModal } from '@/components/discover/DiscoveryPitchDeckModal';
 import { useToastStore } from '@/stores/toastStore';
 import type { Screenplay } from '@/types';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 type CoverageState = 'idle' | 'loading' | 'error';
 
@@ -12,6 +13,7 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
   const [coverageState, setCoverageState] = useState<CoverageState>('idle');
   const [showPitchDeckModal, setShowPitchDeckModal] = useState(false);
   const pitchDeckButtonRef = useRef<HTMLButtonElement>(null);
+  const decisionReady = isDecisionReady(screenplay);
 
   const closePitchDeck = () => {
     setShowPitchDeckModal(false);
@@ -19,7 +21,7 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
   };
 
   const downloadCoverage = async () => {
-    if (coverageState === 'loading') return;
+    if (coverageState === 'loading' || !decisionReady) return;
 
     setCoverageState('loading');
     try {
@@ -41,7 +43,7 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
             ref={pitchDeckButtonRef}
             type="button"
             onClick={downloadCoverage}
-            disabled={coverageState === 'loading'}
+            disabled={coverageState === 'loading' || !decisionReady}
             aria-label={
               coverageState === 'loading'
                 ? t('Generating coverage PDF')
@@ -65,6 +67,7 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
           <button
             type="button"
             onClick={() => setShowPitchDeckModal(true)}
+            disabled={!decisionReady}
             className="dsc-btn !px-3"
           >
             {t('Pitch-deck PDF')}
@@ -76,6 +79,11 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
             className="rounded-md bg-[var(--dsc-pass-soft)] px-2 py-1 text-xs text-[var(--dsc-pass)]"
           >
             {t('Coverage PDF failed. Please try again.')}
+          </span>
+        )}
+        {!decisionReady && (
+          <span role="status" className="text-xs text-amber-300">
+            {t('Decision data unavailable until verification')}
           </span>
         )}
       </div>

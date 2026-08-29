@@ -43,9 +43,8 @@ function warningCopy(warning: ProducerProjectionWarning, t: ReturnType<typeof us
 export function AnalysisWarnings({ screenplay }: AnalysisWarningsProps) {
   const { t } = useTranslation();
   const fallback = buildIncompleteReaderWarning(screenplay.analysisQuality);
-  const warnings = screenplay.producerProjection?.warnings ?? (
-    fallback ? [fallback] : []
-  );
+  const projected = screenplay.producerProjection?.warnings;
+  const warnings = projected?.length ? projected : fallback ? [fallback] : [];
   if (warnings.length === 0) return null;
 
   return (

@@ -72,10 +72,12 @@ import time
 import uuid
 import logging
 import traceback
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 # ── Dependency imports with helpful error messages ────────────────────────────
 
@@ -116,21 +118,27 @@ from content_identity import (  # noqa: E402
 )
 from trust_manifest import (  # noqa: E402
     attach_trust_manifest,
+    CLAIM_VERIFICATION_BATCH_SIZE,
+    claim_verification_targets,
+    PROMPT_CONTRACT_VERSION,
     validate_permanent_analysis,
 )
 from verdict_contract import (  # noqa: E402
     BOUNDARY_WINDOW,
+    derive_failure_severity,
     FAILURE_PENALTIES,
     compute_failure_penalty,
     derive_verdict,
     near_verdict_boundary,
     READER_WEIGHTS,
+    select_boundary_run_index,
     VERDICT_BOUNDARIES,
 )
 from story_grid import (  # noqa: E402
     build_genre_detection_prompt,
     canonical_external,
     COMEDY_SUBGENRES,
+    GENRE_DETECTION_TOOL,
     INTERNAL_GENRES,
     parse_detection,
     build_genre_card,
@@ -145,12 +153,28 @@ from source_evidence import (  # noqa: E402
     validate_parsed_source,
 )
 from development_opportunity import derive_development_opportunity  # noqa: E402
+from local_artifacts import secure_local_path  # noqa: E402
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
-LOG_DIR = Path(os.getenv("LEMON_LOCAL_ARTIFACT_DIR", ".tmp"))
-LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / f"ingest_v9_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+_RAW_LOG_DIR = Path(os.getenv("LEMON_LOCAL_ARTIFACT_DIR", ".tmp"))
+_LOCAL_ARTIFACT_ROOT = Path(os.getenv(
+    "LEMON_LOCAL_ARTIFACT_ROOT",
+    str(Path.cwd() if not _RAW_LOG_DIR.is_absolute() else _RAW_LOG_DIR.parent),
+))
+LOG_DIR = secure_local_path(_RAW_LOG_DIR, _LOCAL_ARTIFACT_ROOT)
+LOG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+LOG_DIR.chmod(0o700)
+_LOG_STREAM = tempfile.NamedTemporaryFile(
+    mode="a",
+    encoding="utf-8",
+    dir=LOG_DIR,
+    prefix=f"ingest_v9_{datetime.now().strftime('%Y%m%d_%H%M%S')}_",
+    suffix=".log",
+    delete=False,
+)
+LOG_FILE = secure_local_path(Path(_LOG_STREAM.name), _LOCAL_ARTIFACT_ROOT)
+LOG_FILE.chmod(0o600)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -158,7 +182,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        logging.StreamHandler(_LOG_STREAM),
     ],
 )
 log = logging.getLogger("lemon")
@@ -167,6 +191,8 @@ log = logging.getLogger("lemon")
 
 # Firestore collection (must match src/lib/analysisStore.ts)
 FIRESTORE_COLLECTION = "uploaded_analyses"
+SERVER_TRUST_ATTESTATION_VERSION = "lemon-server-trust-attestation-v1"
+ANALYSIS_VERSION_AUTHORITY_VERSION = "lemon-analysis-version-authority-v1"
 FIRESTORE_MAX_DOCUMENT_BYTES = 1_048_576
 # Leave ~148 KB for document-name/index/protobuf overhead and SDK variation.
 PERMANENT_DOCUMENT_GUARD_BYTES = 900_000
@@ -217,12 +243,39 @@ MODEL_REQUEST_PROFILES: Dict[str, Dict[str, Any]] = {
     },
 }
 
+
+def provider_routing_contract(
+    model_id: str,
+    configured_inference_geo: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Mirror the proxy routing fields used in the provider request hash."""
+    if configured_inference_geo not in {None, "global", "us"}:
+        raise LlmAccountingError("Configured inference geography is invalid")
+    inference_geo = (
+        None
+        if model_id == "claude-haiku-4-5-20251001"
+        else configured_inference_geo
+    )
+    return {
+        "inference_geo": inference_geo,
+        "service_tier": "standard_only",
+        "expected_inference_geo": inference_geo,
+        "expected_service_tier": "standard",
+        "endpoint_category": (
+            "anthropic_messages_standard_haiku_geo_not_applicable"
+            if model_id == "claude-haiku-4-5-20251001"
+            else f"anthropic_messages_{configured_inference_geo}_standard"
+            if configured_inference_geo is not None
+            else "anthropic_messages_workspace_default_standard"
+        ),
+    }
+
 # Min words for a valid screenplay
 MIN_WORDS = 500
 
 # Parsed screenplay cache. The parser version is part of the key so extraction
 # changes cannot silently reuse output from an older parser implementation.
-PARSER_VERSION = "v4-page-evidence"
+PARSER_VERSION = "v5-scene-content-evidence"
 PARSER_SUBPROCESS_TIMEOUT_SECONDS = 15 * 60
 PARSE_CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
 PARSE_CACHE_MAX_BYTES = 512 * 1024 * 1024
@@ -245,17 +298,19 @@ DEFAULT_TEMPERATURE = 0.1
 # trap evaluation, weighted score computation, executive summary.
 THINKING_BUDGET_READER = 8_000
 THINKING_BUDGET_SYNTHESIS = 16_000
+THINKING_BUDGET_CLAIM_VERIFICATION = 8_000
 
 # Output token budgets (separate from thinking budget; both contribute to
 # total max_tokens passed to the API).
 OUTPUT_BUDGET_READER = 4_000
 OUTPUT_BUDGET_SYNTHESIS = 6_000
+OUTPUT_BUDGET_CLAIM_VERIFICATION = 16_000
 
-# Q3 fail-closed reader policy. A report-level attempt sits above call_llm's
-# transport retries, so malformed successful responses can recover without
-# rerunning readers that already produced usable evidence.
-MAX_READER_REPORT_ATTEMPTS = 3
-READER_REPORT_RETRY_DELAYS = (5, 10)
+# Q3 fail-closed output policy. One bounded corrective attempt may recover a
+# malformed paid response; a second failure stops visibly without a third call.
+MAX_READER_REPORT_ATTEMPTS = 2
+MAX_SYNTHESIS_ATTEMPTS = 2
+READER_REPORT_RETRY_DELAYS = (5,)
 READER_RELIABILITY_CONTRACT_VERSION = "lemon-five-reader-panel-v1"
 
 # ── Firebase Init ─────────────────────────────────────────────────────────────
@@ -314,18 +369,92 @@ def init_firebase() -> bool:
 
 # ── Firestore Write ───────────────────────────────────────────────────────────
 
+def _fnv1a_utf8(value: str) -> int:
+    """Small synchronous UTF-8 hash shared with the browser ID helper."""
+    result = 0x811C9DC5
+    for byte in value.encode("utf-8"):
+        result ^= byte
+        result = (result * 0x01000193) & 0xFFFFFFFF
+    return result
+
+
 def to_doc_id(source_file: str) -> str:
-    """Sanitize filename into a Firestore document ID.
-    Mirrors toDocId() in src/lib/analysisStore.ts.
-    """
-    return (
-        re.sub(r"[/\\]", "_", source_file)
-        .translate(str.maketrans("", "", "".join(c for c in map(chr, range(256))
-                                                 if not re.match(r"[a-zA-Z0-9_\-. ]", c))))
-        .strip()
-        .replace(" ", "_")[:200]
-        or f"doc_{int(time.time())}"
+    """Return the browser-compatible, normalization-stable Firestore ID."""
+    canonical = unicodedata.normalize("NFC", source_file)
+    ascii_name = unicodedata.normalize("NFKD", canonical).encode(
+        "ascii", "ignore"
+    ).decode("ascii")
+    sanitized = re.sub(
+        r"\s+",
+        "_",
+        re.sub(
+            r"[^a-zA-Z0-9_\-. ]",
+            "",
+            re.sub(r"[/\\]", "_", ascii_name),
+        ).strip(),
     )
+    if canonical != ascii_name:
+        suffix = f"-u{_fnv1a_utf8(canonical):08x}"
+        return f"{sanitized[:200 - len(suffix)] or 'doc'}{suffix}"
+    return sanitized[:200] or f"doc_{_fnv1a_utf8(canonical):08x}"
+
+
+def build_server_trust_attestation(raw: Dict[str, Any]) -> Dict[str, str]:
+    """Bind a validated permanent result to its Admin-SDK immutable version."""
+    validate_permanent_analysis(raw)
+    manifest = raw["trust_manifest"]
+    fields = {
+        "project_id": raw.get("project_id"),
+        "version_id": raw.get("version_id"),
+        "content_sha256": raw.get("content_hash"),
+        "trust_manifest_integrity_sha256": manifest.get("integrity_sha256"),
+        "analysis_payload_sha256": manifest.get("analysis_payload_sha256"),
+    }
+    if not all(isinstance(value, str) and value for value in fields.values()):
+        raise ValueError("Server trust attestation requires immutable string identities")
+    return {
+        "attestation_version": SERVER_TRUST_ATTESTATION_VERSION,
+        **fields,
+        "writer": "firebase_admin",
+    }
+
+
+def attach_server_trust_attestation(raw: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        **raw,
+        "server_trust_attestation": build_server_trust_attestation(raw),
+    }
+
+
+def validate_server_trust_attestation(raw: Dict[str, Any]) -> None:
+    if raw.get("server_trust_attestation") != build_server_trust_attestation(raw):
+        raise ValueError("Server trust attestation does not match the immutable result")
+
+
+def build_version_authority_document(version: Dict[str, Any]) -> Dict[str, Any]:
+    """Create the separate Admin-only receipt that proves who wrote a version."""
+    validate_server_trust_attestation(version)
+    manifest = version["trust_manifest"]
+    return {
+        "authorityVersion": ANALYSIS_VERSION_AUTHORITY_VERSION,
+        "writer": "firebase_admin",
+        "projectId": version["project_id"],
+        "versionId": version["version_id"],
+        "contentHash": version["content_hash"],
+        "trustManifestIntegritySha256": manifest["integrity_sha256"],
+        "analysisPayloadSha256": manifest["analysis_payload_sha256"],
+        "createdAt": version["created_at"],
+    }
+
+
+def validate_version_authority_document(
+    version: Dict[str, Any],
+    authority: Dict[str, Any],
+) -> None:
+    """Reject self-attested or historical versions without the server receipt."""
+    expected = build_version_authority_document(version)
+    if any(authority.get(key) != value for key, value in expected.items()):
+        raise ValueError("Immutable analysis version has no valid server authority receipt")
 
 
 def build_version_document(
@@ -336,7 +465,8 @@ def build_version_document(
     queued_at_ms: int,
 ) -> Dict[str, Any]:
     """Build an immutable analysis snapshot with Firestore-native field types."""
-    validate_permanent_analysis(raw)
+    raw = attach_server_trust_attestation(raw)
+    validate_server_trust_attestation(raw)
     if raw.get("project_id") != project_id:
         raise ValueError("Permanent analysis project_id does not match write target")
     if raw.get("version_id") != version_id:
@@ -369,6 +499,8 @@ def build_parent_document(
     existing_parent: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build the backward-compatible latest projection for one immutable version."""
+    raw = attach_server_trust_attestation(raw)
+    validate_server_trust_attestation(raw)
     source_file = str(raw.get("source_file", ""))
     existing_source = (existing_parent or {}).get("source_file")
     canonical_source = existing_source if isinstance(existing_source, str) and existing_source else source_file
@@ -426,23 +558,34 @@ def write_analysis_transaction(
     transaction: Any,
     parent_ref: Any,
     version_ref: Any,
+    authority_ref: Any,
     raw: Dict[str, Any],
     project_id: str,
     version_id: str,
     queued_at_ms: int,
 ) -> int:
     """Create history and advance latest using one Firestore transaction."""
+    if raw.get("analysis_version") != "v9_archaeology":
+        raise ValueError("Only complete V9 archaeology may advance permanent coverage")
     validate_permanent_analysis(raw)
     parent_snapshot = parent_ref.get(transaction=transaction)
     version_snapshot = version_ref.get(transaction=transaction)
+    authority_snapshot = authority_ref.get(transaction=transaction)
 
     if version_snapshot.exists:
         existing_version = version_snapshot.to_dict() or {}
         validate_permanent_analysis(existing_version)
+        validate_server_trust_attestation(existing_version)
         if existing_version.get("project_id") != project_id:
             raise ValueError("Existing immutable version has the wrong project_id")
         if existing_version.get("version_id") != version_id:
             raise ValueError("Existing immutable version has the wrong version_id")
+        if not authority_snapshot.exists:
+            raise ValueError("Existing immutable version has no server authority receipt")
+        validate_version_authority_document(
+            existing_version,
+            authority_snapshot.to_dict() or {},
+        )
         version_number = existing_version.get("version_number")
         if type(version_number) is not int or version_number <= 0:
             raise ValueError("Existing immutable version has an invalid version_number")
@@ -466,14 +609,18 @@ def write_analysis_transaction(
     )
     assert_permanent_document_size(version_document, "Immutable version document")
     assert_permanent_document_size(parent_document, "Latest parent document")
+    authority_document = build_version_authority_document(version_document)
 
     transaction.create(version_ref, version_document)
+    transaction.create(authority_ref, authority_document)
     transaction.set(parent_ref, parent_document)
     return version_number
 
 
 def write_to_firestore(raw: Dict[str, Any]) -> bool:
     """Atomically create an immutable version and advance its latest parent."""
+    if raw.get("analysis_version") != "v9_archaeology":
+        raise ValueError("Only complete V9 archaeology may be persisted")
     validate_permanent_analysis(raw)
     if _db is None:
         return False
@@ -499,6 +646,7 @@ def write_to_firestore(raw: Dict[str, Any]) -> bool:
 
         parent_ref = _db.collection(FIRESTORE_COLLECTION).document(project_id)
         version_ref = parent_ref.collection("versions").document(version_id)
+        authority_ref = parent_ref.collection("version_authorities").document(version_id)
 
         @firestore.transactional
         def commit(transaction: Any) -> int:
@@ -506,6 +654,7 @@ def write_to_firestore(raw: Dict[str, Any]) -> bool:
                 transaction,
                 parent_ref,
                 version_ref,
+                authority_ref,
                 raw,
                 project_id,
                 version_id,
@@ -711,7 +860,10 @@ def _record_parse_cache_write(cache_dir: Path, previous_size: int, new_size: int
         _maybe_cleanup_parse_cache(cache_dir, force=True)
 
 
-def _read_valid_parse(path: Path) -> Optional[Dict[str, Any]]:
+def _read_valid_parse(
+    path: Path,
+    expected_content_hash: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     try:
         with open(path, encoding="utf-8") as parsed_file:
             data = json.load(parsed_file)
@@ -719,6 +871,15 @@ def _read_valid_parse(path: Path) -> Optional[Dict[str, Any]]:
         return None
 
     if not isinstance(data, dict) or data.get("word_count", 0) < MIN_WORDS:
+        return None
+    metadata = data.get("metadata")
+    if (
+        expected_content_hash is not None
+        and (
+            not isinstance(metadata, dict)
+            or metadata.get("source_content_sha256") != expected_content_hash
+        )
+    ):
         return None
     return data
 
@@ -735,23 +896,29 @@ def parse_pdf(pdf_path: Path, content_hash: Optional[str] = None) -> Optional[Di
 
     import subprocess
 
+    actual_content_hash = compute_content_hash(pdf_path)
     if content_hash is None:
-        content_hash = compute_content_hash(pdf_path)
+        content_hash = actual_content_hash
     content_hash = content_hash.lower()
     if not re.fullmatch(r"[a-f0-9]{64}", content_hash):
         log.error(f"Invalid PDF content hash for {pdf_path.name}")
         return None
+    if actual_content_hash != content_hash:
+        log.error(f"PDF bytes changed after content approval: {pdf_path.name}")
+        return None
 
     cache_root = LOG_DIR / "parsed_v9"
     cache_dir = cache_root / PARSER_VERSION
-    cache_root.mkdir(parents=True, exist_ok=True)
+    cache_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    cache_root.chmod(0o700)
     _maybe_cleanup_parse_cache(cache_root)
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    cache_dir.chmod(0o700)
     output_path = cache_dir / f"{content_hash}.json"
 
     # Reuse cached parse result
     if output_path.exists():
-        cached = _read_valid_parse(output_path)
+        cached = _read_valid_parse(output_path, content_hash)
         if cached is not None:
             word_count = cached.get("word_count", 0)
             log.info(f"  Reusing cached parse: {pdf_path.name} ({word_count:,} words)")
@@ -785,13 +952,14 @@ def parse_pdf(pdf_path: Path, content_hash: Optional[str] = None) -> Optional[Di
                 log.error(f"    {result.stderr.strip()[-500:]}")
             return None
 
-        data = _read_valid_parse(parser_output)
+        data = _read_valid_parse(parser_output, content_hash)
         if data is None:
             log.error(f"  ✗ Parse output invalid or insufficient: {pdf_path.name}")
             return None
 
         previous_size = output_path.stat().st_size if output_path.exists() else 0
         os.replace(parser_output, output_path)
+        output_path.chmod(0o600)
         _record_parse_cache_write(cache_root, previous_size, output_path.stat().st_size)
 
     word_count = data.get("word_count", 0)
@@ -842,6 +1010,10 @@ USAGE_COUNTER_FIELDS = (
     "call_count",
     "actual_cost_microusd",
 )
+EXACT_COST_COUNTER_FIELDS = (
+    "estimated_cost_nanousd",
+    "rounding_variance_nanousd",
+)
 
 
 class DailyBudgetExceededError(RuntimeError):
@@ -872,24 +1044,79 @@ class LlmPreCallRetryableError(RuntimeError):
     """The trusted proxy proves no provider call occurred, so retry is safe."""
 
 
+class LlmPreCallAccountingError(RuntimeError):
+    """The candidate could not reserve spend and proved no provider dispatch."""
+
+
 _BENCHMARK_TRANSPORT_CONTEXT: Optional[Dict[str, Any]] = None
 _BENCHMARK_ID_TOKEN_PROVIDER: Optional[Callable[[], str]] = None
+_BENCHMARK_EXPECTED_RELEASE: Optional[Dict[str, Any]] = None
+_BENCHMARK_CALL_CHECKPOINT: Optional[Callable[[Dict[str, Any]], None]] = None
+_BENCHMARK_RELEASE_FIELDS = (
+    "git_sha",
+    "source_clean",
+    "catalog_sha256",
+    "pricing_sha256",
+    "build_timestamp",
+    "deployment_config_sha256",
+    "cloud_run_revision",
+    "inference_geo",
+)
 
 
 def configure_benchmark_online_transport(
     context: Dict[str, Any],
     identity_token_provider: Callable[[], str],
+    expected_release: Optional[Dict[str, Any]] = None,
+    call_checkpoint: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> None:
     """Attach one local benchmark run to the private candidate proxy."""
     global _BENCHMARK_TRANSPORT_CONTEXT, _BENCHMARK_ID_TOKEN_PROVIDER
+    global _BENCHMARK_EXPECTED_RELEASE, _BENCHMARK_CALL_CHECKPOINT
     _BENCHMARK_TRANSPORT_CONTEXT = dict(context)
     _BENCHMARK_ID_TOKEN_PROVIDER = identity_token_provider
+    _BENCHMARK_EXPECTED_RELEASE = (
+        copy.deepcopy(expected_release)
+        if expected_release is not None
+        else None
+    )
+    _BENCHMARK_CALL_CHECKPOINT = call_checkpoint
 
 
 def clear_benchmark_online_transport() -> None:
     global _BENCHMARK_TRANSPORT_CONTEXT, _BENCHMARK_ID_TOKEN_PROVIDER
+    global _BENCHMARK_EXPECTED_RELEASE, _BENCHMARK_CALL_CHECKPOINT
     _BENCHMARK_TRANSPORT_CONTEXT = None
     _BENCHMARK_ID_TOKEN_PROVIDER = None
+    _BENCHMARK_EXPECTED_RELEASE = None
+    _BENCHMARK_CALL_CHECKPOINT = None
+
+
+def checkpoint_benchmark_usage(usage: Any) -> None:
+    """Persist privacy-safe call records while a paid run is still in flight."""
+    if _BENCHMARK_CALL_CHECKPOINT is None or not isinstance(usage, dict):
+        return
+    for collection in ("calls", "failed_calls"):
+        records = usage.get(collection)
+        if not isinstance(records, list):
+            continue
+        for record in records:
+            if isinstance(record, dict) and isinstance(record.get("call_id"), str):
+                _BENCHMARK_CALL_CHECKPOINT(copy.deepcopy(record))
+
+
+def _benchmark_release_matches(
+    response_release: Any,
+    expected_release: Any,
+) -> bool:
+    return (
+        isinstance(response_release, dict)
+        and isinstance(expected_release, dict)
+        and all(
+            response_release.get(field) == expected_release.get(field)
+            for field in _BENCHMARK_RELEASE_FIELDS
+        )
+    )
 
 
 def _canonical_json_hash(value: Any) -> str:
@@ -911,12 +1138,89 @@ def _canonical_json_hash(value: Any) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _untrusted_value_summary(value: Any) -> str:
+    try:
+        payload = json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            default=lambda item: f"<{type(item).__name__}>",
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        payload = type(value).__name__.encode("utf-8")
+    return (
+        f"type={type(value).__name__},bytes={len(payload)},"
+        f"sha256={hashlib.sha256(payload).hexdigest()}"
+    )
+
+
+_MODEL_CATALOG_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "config"
+    / "anthropic-model-catalog.json"
+)
+_MODEL_CATALOG = json.loads(_MODEL_CATALOG_PATH.read_text(encoding="utf-8"))
+_MODEL_PRICING_PATH = _MODEL_CATALOG_PATH.parents[2] / "functions/src/anthropicPricing.json"
+_MODEL_PRICING_TABLE = json.loads(
+    _MODEL_PRICING_PATH.read_text(encoding="utf-8")
+)
+_MODEL_PRICING_SHA256 = _canonical_json_hash(_MODEL_PRICING_TABLE)
+
+
+def _independent_cost_microusd(
+    model_id: str,
+    usage: Dict[str, Any],
+) -> int:
+    return math.ceil(_independent_cost_nanousd(model_id, usage) / 1_000)
+
+
+def _independent_cost_nanousd(
+    model_id: str,
+    usage: Dict[str, Any],
+) -> int:
+    profile = _MODEL_PRICING_TABLE.get(model_id)
+    if not isinstance(profile, dict):
+        raise LlmAccountingError(
+            f"No independent pricing profile is configured for {model_id}"
+        )
+    cache_creation = usage.get("cache_creation")
+    if isinstance(cache_creation, dict):
+        five_minute = int(cache_creation.get("ephemeral_5m_input_tokens", 0))
+        one_hour = int(cache_creation.get("ephemeral_1h_input_tokens", 0))
+    else:
+        five_minute = int(usage["cache_creation_input_tokens"])
+        one_hour = 0
+    micro_usd = (
+        Decimal(int(usage["input_tokens"])) * Decimal(str(profile["input"]))
+        + Decimal(int(usage["output_tokens"])) * Decimal(str(profile["output"]))
+        + Decimal(five_minute) * Decimal(str(profile["cacheWrite5m"]))
+        + Decimal(one_hour) * Decimal(str(profile["cacheWrite1h"]))
+        + Decimal(int(usage["cache_read_input_tokens"]))
+        * Decimal(str(profile["cacheRead"]))
+    )
+    if usage.get("inference_geo") == "us":
+        micro_usd *= Decimal("1.1")
+    nanousd = micro_usd * 1_000
+    if nanousd != nanousd.to_integral_value():
+        raise LlmAccountingError(
+            f"Pricing for {model_id} does not resolve to whole nano-USD"
+        )
+    return int(nanousd)
+
+
 class LlmOutputContractError(RuntimeError):
     """A paid response settled but violated its requested output contract."""
 
-    def __init__(self, message: str, usage: Dict[str, Any]):
+    def __init__(
+        self,
+        message: str,
+        usage: Dict[str, Any],
+        rejected_output: Any = None,
+    ):
         super().__init__(message)
         self.usage = usage
+        self.rejected_output = rejected_output
 
 
 class LlmCallFailedError(RuntimeError):
@@ -932,6 +1236,7 @@ class LlmCallFailedError(RuntimeError):
         pipeline_pass: str,
         boundary_run: int,
         reader_name: Optional[str],
+        call_evidence: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(message)
         self.attempt_history = attempt_history
@@ -940,6 +1245,7 @@ class LlmCallFailedError(RuntimeError):
         self.pipeline_pass = pipeline_pass
         self.boundary_run = boundary_run
         self.reader_name = reader_name
+        self.call_evidence = copy.deepcopy(call_evidence or {})
 
 
 class V9RunError(RuntimeError):
@@ -1022,10 +1328,49 @@ class GenreDetectionIncompleteError(QualityReviewRequiredError):
         )
 
 
+class ClaimVerificationIncompleteError(QualityReviewRequiredError):
+    """Independent claim adjudication failed, so no benchmark lock is valid."""
+
+    def __init__(
+        self,
+        message: str,
+        usage: Dict[str, Any],
+        *,
+        review_evidence: Dict[str, Any],
+    ):
+        super().__init__(
+            message,
+            usage,
+            review_kind="claim_verification_review",
+            review_evidence=review_evidence,
+        )
+
+
+class BoundaryStabilityIncompleteError(QualityReviewRequiredError):
+    """A required near-boundary repeat failed, so no stable verdict exists."""
+
+    def __init__(
+        self,
+        message: str,
+        usage: Dict[str, Any],
+        *,
+        review_evidence: Dict[str, Any],
+    ):
+        super().__init__(
+            message,
+            usage,
+            review_kind="boundary_stability_review",
+            review_evidence=review_evidence,
+        )
+
+
 def empty_usage() -> Dict[str, Any]:
     return {
         **{field: 0 for field in USAGE_COUNTER_FIELDS},
+        **{field: 0 for field in EXACT_COST_COUNTER_FIELDS},
         "actual_cost_usd": 0.0,
+        "estimated_cost_usd": 0.0,
+        "rounding_variance_usd": 0.0,
         "finish_reason": "end_turn",
         "by_model": {},
         "calls": [],
@@ -1033,16 +1378,173 @@ def empty_usage() -> Dict[str, Any]:
     }
 
 
+def canonical_failed_call(
+    record: Dict[str, Any],
+    *,
+    aggregate_cost_microusd: int = 0,
+) -> Dict[str, Any]:
+    """Return one explicit, privacy-safe terminal call record."""
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    result = copy.deepcopy(record)
+    attempts = result.get("attempt_history")
+    if not isinstance(attempts, list) or not attempts:
+        default_attempt = {
+            "attempt": 1,
+            "outcome": "failed",
+            "error_type": str(result.get("failure_state") or "UnknownError"),
+        }
+        if isinstance(result.get("response_id"), str) and result["response_id"]:
+            default_attempt["response_id"] = result["response_id"]
+        attempts = [default_attempt]
+    result["attempt_history"] = attempts
+    logical_retry = result.get("logical_retry")
+    logical_retry = logical_retry if type(logical_retry) is int and logical_retry >= 0 else 0
+    transport_attempts = result.get("transport_attempts")
+    transport_attempts = (
+        transport_attempts
+        if type(transport_attempts) is int and transport_attempts >= 0
+        else len(attempts)
+    )
+    transport_retries = max(0, transport_attempts - 1)
+    cost = (
+        aggregate_cost_microusd
+        if type(aggregate_cost_microusd) is int and aggregate_cost_microusd >= 0
+        else 0
+    )
+    call_usage = result.get("usage")
+    if not isinstance(call_usage, dict):
+        call_usage = {}
+    normalized_usage = {
+        field: (
+            call_usage.get(field)
+            if type(call_usage.get(field)) is int and call_usage[field] >= 0
+            else 0
+        )
+        for field in USAGE_COUNTER_FIELDS
+    }
+    if normalized_usage["actual_cost_microusd"] == 0 and cost:
+        normalized_usage["actual_cost_microusd"] = cost
+    normalized_usage["actual_cost_usd"] = (
+        normalized_usage["actual_cost_microusd"] / 1_000_000
+    )
+    for field in EXACT_COST_COUNTER_FIELDS:
+        value = call_usage.get(field)
+        if type(value) is int and value >= 0:
+            normalized_usage[field] = value
+    if "estimated_cost_nanousd" in normalized_usage:
+        normalized_usage["estimated_cost_usd"] = (
+            normalized_usage["estimated_cost_nanousd"] / 1_000_000_000
+        )
+    if "rounding_variance_nanousd" in normalized_usage:
+        normalized_usage["rounding_variance_usd"] = (
+            normalized_usage["rounding_variance_nanousd"] / 1_000_000_000
+        )
+    if "rounding_reason" in call_usage:
+        normalized_usage["rounding_reason"] = call_usage["rounding_reason"]
+    if "charged_cost_microusd" in call_usage:
+        normalized_usage["charged_cost_microusd"] = call_usage[
+            "charged_cost_microusd"
+        ]
+    if isinstance(call_usage.get("cache_creation"), dict):
+        normalized_usage["cache_creation"] = copy.deepcopy(
+            call_usage["cache_creation"]
+        )
+    for field in ("inference_geo", "service_tier", "normalizations"):
+        if field in call_usage:
+            normalized_usage[field] = copy.deepcopy(call_usage[field])
+    result.update({
+        "call_id": result.get("call_id"),
+        "expected_call_id": result.get("expected_call_id"),
+        "returned_model": result.get("returned_model"),
+        "response_id": result.get("response_id"),
+        "stop_reason": result.get("stop_reason"),
+        "request_sha256": result.get("request_sha256"),
+        "prompt_sha256": result.get("prompt_sha256"),
+        "prompt_contract_version": result.get(
+            "prompt_contract_version", PROMPT_CONTRACT_VERSION
+        ),
+        "schema_mode": result.get("schema_mode"),
+        "schema_sha256": result.get("schema_sha256"),
+        "transport_schema_sha256": result.get("transport_schema_sha256"),
+        "pricing_sha256": result.get("pricing_sha256", _MODEL_PRICING_SHA256),
+        "latency_ms": result.get("latency_ms", 0),
+        "started_at": result.get("started_at", now),
+        "completed_at": result.get("completed_at", now),
+        "transport_attempts": transport_attempts,
+        "transport_attempt": result.get("transport_attempt", transport_attempts),
+        "transport_retry_count": result.get(
+            "transport_retry_count", transport_retries
+        ),
+        "logical_retry": logical_retry,
+        "attempt_number": result.get("attempt_number", logical_retry + 1),
+        "retry_count": result.get("retry_count", transport_retries),
+        "total_retry_count": result.get(
+            "total_retry_count", transport_retries + logical_retry
+        ),
+        "validation_result": result.get("validation_result", "failed_transport"),
+        "validation_reason": result.get(
+            "validation_reason", "Provider result was unavailable"
+        ),
+        "transformations": result.get("transformations", []),
+        "transformation_evidence": result.get("transformation_evidence", []),
+        "failure_state": result.get("failure_state", "provider_result_unavailable"),
+        "failure_message": result.get(
+            "failure_message", result.get("validation_reason", "Provider result was unavailable")
+        ),
+        "warnings": result.get("warnings", []),
+        "fallback_used": result.get("fallback_used", False),
+        "truncated": result.get("truncated", False),
+        "downstream_consumption": result.get(
+            "downstream_consumption", "not_consumed"
+        ),
+        "disposition": result.get("disposition", "discarded_unusable"),
+        "release": result.get("release"),
+        "expected_release": result.get("expected_release"),
+        "usage": normalized_usage,
+        "independent_cost_status": result.get(
+            "independent_cost_status", "unavailable_provider_result"
+        ),
+        "independent_cost_microusd": result.get("independent_cost_microusd"),
+        "independent_cost_usd": result.get("independent_cost_usd"),
+        "cost_variance_microusd": result.get("cost_variance_microusd"),
+        "uncertainty_status": result.get("uncertainty_status", "unknown"),
+        "charged_cost_microusd": result.get("charged_cost_microusd", cost),
+        "charged_cost_usd": result.get("charged_cost_usd", cost / 1_000_000),
+        "reserved_cost_microusd": result.get("reserved_cost_microusd", 0),
+        "reserved_cost_usd": result.get("reserved_cost_usd", 0.0),
+        "cap_cost_microusd": result.get("cap_cost_microusd", cost),
+        "cap_cost_usd": result.get("cap_cost_usd", cost / 1_000_000),
+        "budget_check": result.get("budget_check"),
+    })
+    return result
+
+
 def failed_usage(error: LlmCallFailedError) -> Dict[str, Any]:
     usage = empty_usage()
-    usage["failed_calls"] = [{
+    failed_call = {
         "requested_model": error.requested_model,
         "stage": error.stage,
         "pipeline_pass": error.pipeline_pass,
         "boundary_run": error.boundary_run,
         "reader_name": error.reader_name,
         "attempt_history": error.attempt_history,
-    }]
+        **error.call_evidence,
+    }
+    uncertain = getattr(error, "usage", None)
+    if isinstance(uncertain, dict):
+        microusd = uncertain.get("actual_cost_microusd")
+        if type(microusd) is int and microusd >= 0:
+            usage["actual_cost_microusd"] = microusd
+            usage["actual_cost_usd"] = microusd / 1_000_000
+        uncertain_calls = uncertain.get("failed_calls")
+        if isinstance(uncertain_calls, list) and uncertain_calls:
+            uncertainty = uncertain_calls[-1]
+            if isinstance(uncertainty, dict):
+                failed_call.update(copy.deepcopy(uncertainty))
+    usage["failed_calls"] = [canonical_failed_call(
+        failed_call,
+        aggregate_cost_microusd=usage["actual_cost_microusd"],
+    )]
     return usage
 
 
@@ -1053,6 +1555,10 @@ def merge_usage(*usages: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(usage, dict):
             continue
         for field in USAGE_COUNTER_FIELDS:
+            value = usage.get(field, 0)
+            if isinstance(value, (int, float)) and value >= 0:
+                merged[field] += int(value)
+        for field in EXACT_COST_COUNTER_FIELDS:
             value = usage.get(field, 0)
             if isinstance(value, (int, float)) and value >= 0:
                 merged[field] += int(value)
@@ -1086,6 +1592,12 @@ def merge_usage(*usages: Dict[str, Any]) -> Dict[str, Any]:
                     current[field] += int(value)
 
     merged["actual_cost_usd"] = merged["actual_cost_microusd"] / 1_000_000
+    merged["estimated_cost_usd"] = (
+        merged["estimated_cost_nanousd"] / 1_000_000_000
+    )
+    merged["rounding_variance_usd"] = (
+        merged["rounding_variance_nanousd"] / 1_000_000_000
+    )
     return merged
 
 
@@ -1099,13 +1611,214 @@ def set_successful_call_disposition(
     calls = usage.get("calls")
     if not isinstance(calls, list) or len(calls) != 1:
         raise ValueError("One model call must produce exactly one call record")
-    calls[0]["disposition"] = disposition
+    call = calls[0]
+    call["disposition"] = disposition
+    if call.get("validation_result") in {None, "pending_application_validation"}:
+        call["validation_result"] = (
+            "passed" if disposition == "used" else "failed_application_validation"
+        )
+    call.setdefault("transformations", [])
+    call["downstream_consumption"] = (
+        "consumed" if disposition == "used" else "not_consumed"
+    )
+    call["failure_state"] = (
+        None if disposition == "used" else "output_validation_failed"
+    )
+
+
+def _mark_call_validation(
+    usage: Dict[str, Any],
+    *,
+    result: str,
+    reason: Optional[str] = None,
+    consumed: bool = False,
+    transformations: Sequence[str] = (),
+    transformation_evidence: Sequence[Dict[str, Any]] = (),
+    warnings: Sequence[str] = (),
+) -> None:
+    calls = usage.get("calls")
+    if not isinstance(calls, list) or len(calls) != 1:
+        raise ValueError("One model call must produce exactly one call record")
+    calls[0]["validation_result"] = result
+    applied = calls[0].setdefault("transformations", [])
+    for transformation in transformations:
+        if transformation not in applied:
+            applied.append(transformation)
+    evidence = calls[0].setdefault("transformation_evidence", [])
+    evidence.extend(copy.deepcopy(list(transformation_evidence)))
+    evidence_names = [
+        item.get("name") if isinstance(item, dict) else None
+        for item in evidence
+    ]
+    if len(evidence_names) != len(set(evidence_names)) or set(evidence_names) != set(applied):
+        raise ValueError("Every recorded transformation needs exactly one evidence record")
+    recorded_warnings = calls[0].setdefault("warnings", [])
+    for warning in warnings:
+        if warning not in recorded_warnings:
+            recorded_warnings.append(warning)
+    calls[0]["downstream_consumption"] = "consumed" if consumed else "not_consumed"
+    if reason:
+        calls[0]["validation_reason"] = reason[:500]
+    checkpoint_benchmark_usage(usage)
+
+
+def _transformation_hash_evidence(
+    name: str,
+    before: Any,
+    after: Any,
+) -> Dict[str, Any]:
+    before_sha256 = _canonical_json_hash(before)
+    after_sha256 = _canonical_json_hash(after)
+    return {
+        "name": name,
+        "changed": before_sha256 != after_sha256,
+        "before_sha256": before_sha256,
+        "after_sha256": after_sha256,
+    }
+
+
+def _preserve_local_rejected_output(
+    stage: str,
+    raw: Any,
+    usage: Dict[str, Any],
+    reason: str,
+) -> Dict[str, Any]:
+    """Keep rejected paid output only inside an explicit local benchmark run."""
+    output_sha256 = _canonical_json_hash(raw)
+    evidence: Dict[str, Any] = {
+        "rejected_output_sha256": output_sha256,
+        "validation_reason": reason[:500],
+    }
+    if _BENCHMARK_TRANSPORT_CONTEXT is None:
+        return evidence
+
+    records = usage.get("calls")
+    if not isinstance(records, list) or not records:
+        records = usage.get("failed_calls")
+    if not isinstance(records, list) or not records or not isinstance(records[0], dict):
+        raise ValueError("Rejected output requires one settled call record")
+    call = records[0]
+    call["rejected_output_status"] = "available"
+    artifact = {
+        "stage": stage,
+        "attempt": call.get("logical_retry", 0) + 1,
+        "request_sha256": call.get("request_sha256"),
+        "prompt_sha256": call.get("prompt_sha256"),
+        "schema_sha256": call.get("schema_sha256"),
+        "response_id": call.get("response_id"),
+        "requested_model": call.get("requested_model"),
+        "returned_model": call.get("returned_model"),
+        "validation_rule": reason[:500],
+        "disposition": "discarded_unusable",
+        "rejected_output_sha256": output_sha256,
+        "rejected_output": raw,
+    }
+    encoded = (
+        json.dumps(
+            artifact,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode("utf-8")
+    artifact_sha256 = hashlib.sha256(encoded).hexdigest()
+    artifact_dir = LOG_DIR / "rejected-responses"
+    secure_local_path(LOG_DIR, _LOCAL_ARTIFACT_ROOT)
+    secure_local_path(artifact_dir, _LOCAL_ARTIFACT_ROOT)
+    artifact_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    artifact_dir.chmod(0o700)
+    artifact_path = artifact_dir / f"{stage}-{artifact_sha256}.json"
+    secure_local_path(artifact_path, _LOCAL_ARTIFACT_ROOT)
+    temporary: Optional[Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "wb",
+            dir=artifact_dir,
+            prefix=f".{artifact_path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            os.chmod(handle.name, 0o600)
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, artifact_path)
+        temporary = None
+        artifact_path.chmod(0o600)
+        directory_fd = os.open(artifact_dir, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    evidence.update({
+        "rejected_artifact_sha256": artifact_sha256,
+        "rejected_artifact_path": str(artifact_path),
+        "rejected_artifact_stage": stage,
+        "rejected_artifact_attempt": artifact["attempt"],
+        "rejected_artifact_request_sha256": artifact["request_sha256"],
+        "rejected_artifact_response_id": artifact["response_id"],
+        "rejected_artifact_requested_model": artifact["requested_model"],
+        "rejected_artifact_returned_model": artifact["returned_model"],
+        "rejected_artifact_validation_rule": artifact["validation_rule"],
+        "rejected_artifact_disposition": artifact["disposition"],
+    })
+    call.update(evidence)
+    checkpoint_benchmark_usage(usage)
+    return evidence
+
+
+def _preserve_local_rejected_genre_output(
+    raw: Any,
+    usage: Dict[str, Any],
+    reason: str,
+) -> Dict[str, Any]:
+    return _preserve_local_rejected_output(
+        "genre_detection",
+        raw,
+        usage,
+        reason,
+    )
+
+
+def _rejected_claim_summary(raw: Any) -> List[Dict[str, Any]]:
+    if not isinstance(raw, dict) or not isinstance(raw.get("claims"), list):
+        return []
+    summary: List[Dict[str, Any]] = []
+    for claim in raw["claims"]:
+        if not isinstance(claim, dict):
+            continue
+        classification = claim.get("classification")
+        story_classification = claim.get("story_fact_classification")
+        unsupported = claim.get("unsupported_story_facts")
+        kinds = sorted({
+            str(item.get("kind"))
+            for item in unsupported
+            if isinstance(item, dict) and isinstance(item.get("kind"), str)
+        }) if isinstance(unsupported, list) else []
+        if (
+            classification in {"Unsupported", "Contradicted"}
+            or story_classification in {"Unsupported", "Contradicted"}
+            or kinds
+        ):
+            summary.append({
+                "claim_id": claim.get("claim_id"),
+                "classification": classification,
+                "story_fact_classification": story_classification,
+                "unsupported_kinds": kinds,
+            })
+    return summary
 
 
 _STRICT_SCHEMA_UNSUPPORTED_KEYWORDS = {
     "minimum",
     "maximum",
     "minItems",
+    "maxItems",
 }
 
 
@@ -1153,6 +1866,7 @@ def _strict_json_envelope_definition(
     is enforced locally after the envelope is decoded.
     """
     tool_name = tool["name"]
+    application_schema_sha256 = _canonical_json_hash(tool["input_schema"])
     return {
         "name": tool_name,
         "description": tool["description"],
@@ -1164,9 +1878,17 @@ def _strict_json_envelope_definition(
                     "type": "string",
                     "enum": [tool_name],
                 },
+                "application_schema_sha256": {
+                    "type": "string",
+                    "enum": [application_schema_sha256],
+                },
                 "report_json": {"type": "string"},
             },
-            "required": ["contract", "report_json"],
+            "required": [
+                "contract",
+                "application_schema_sha256",
+                "report_json",
+            ],
             "additionalProperties": False,
         },
     }
@@ -1186,7 +1908,9 @@ def _json_envelope_contract_block(
         "text": (
             "# COMPLETE V9 OUTPUT CONTRACT\n"
             f"Call `{tool['name']}` exactly once. Set `contract` to "
-            f"`{tool['name']}`. Set `report_json` to a valid JSON string "
+            f"`{tool['name']}`. Set `application_schema_sha256` to "
+            f"`{_canonical_json_hash(tool['input_schema'])}`. Set `report_json` "
+            "to a valid JSON string "
             "encoding the complete report described by the schema below. "
             "The decoded report is validated locally before it can influence "
             "a score. Include every required field with the exact names and "
@@ -1204,7 +1928,8 @@ def _validate_json_schema_value(
     """Validate the JSON Schema subset used by all V9 output contracts."""
     if "enum" in schema and value not in schema["enum"]:
         raise ValueError(
-            f"{path} must be one of {schema['enum']}; got {value!r}"
+            f"{path} violates its enum constraint; "
+            f"{_untrusted_value_summary(value)}"
         )
 
     expected_type = schema.get("type")
@@ -1225,8 +1950,8 @@ def _validate_json_schema_value(
             unexpected = sorted(set(value) - set(properties))
             if unexpected:
                 raise ValueError(
-                    f"{path} contains unexpected fields: "
-                    + ", ".join(unexpected)
+                    f"{path} contains {len(unexpected)} unexpected field(s); "
+                    f"{_untrusted_value_summary(unexpected)}"
                 )
         for field, field_value in value.items():
             field_schema = properties.get(field)
@@ -1245,6 +1970,11 @@ def _validate_json_schema_value(
         if isinstance(minimum_items, int) and len(value) < minimum_items:
             raise ValueError(
                 f"{path} must contain at least {minimum_items} items"
+            )
+        maximum_items = schema.get("maxItems")
+        if isinstance(maximum_items, int) and len(value) > maximum_items:
+            raise ValueError(
+                f"{path} must contain at most {maximum_items} items"
             )
         item_schema = schema.get("items")
         if isinstance(item_schema, dict):
@@ -1290,9 +2020,12 @@ def _decode_json_envelope(
     expected_contract = tool["name"]
     if tool_input.get("contract") != expected_contract:
         raise ValueError(
-            "structured output contract mismatch: "
-            f"expected {expected_contract}, got {tool_input.get('contract')}"
+            "structured output contract mismatch; "
+            f"{_untrusted_value_summary(tool_input.get('contract'))}"
         )
+    expected_schema_sha256 = _canonical_json_hash(tool["input_schema"])
+    if tool_input.get("application_schema_sha256") != expected_schema_sha256:
+        raise ValueError("structured output application schema fingerprint mismatch")
     report_json = tool_input.get("report_json")
     if not isinstance(report_json, str) or not report_json.strip():
         raise ValueError("report_json must be a non-empty JSON string")
@@ -1330,7 +2063,13 @@ def _corrective_retry_user_blocks(
     ]
 
 
-def _validated_settled_usage(raw_usage: Any) -> Dict[str, Any]:
+def _validated_settled_usage(
+    raw_usage: Any,
+    *,
+    require_exact_estimate: bool = False,
+    expected_model: str,
+    configured_inference_geo: Optional[str],
+) -> Dict[str, Any]:
     if not isinstance(raw_usage, dict) or any(
         type(raw_usage.get(field)) is not int or raw_usage[field] < 0
         for field in USAGE_COUNTER_FIELDS
@@ -1349,15 +2088,112 @@ def _validated_settled_usage(raw_usage: Any) -> Dict[str, Any]:
         raise LlmAccountingError(
             "Settled LLM response omitted exact token usage or cost"
         )
-    return {
+    validated = {
         **{field: raw_usage[field] for field in USAGE_COUNTER_FIELDS},
         "actual_cost_usd": float(cost_usd),
     }
+    exact_fields = (
+        "charged_cost_microusd",
+        "estimated_cost_nanousd",
+        "estimated_cost_usd",
+        "rounding_variance_nanousd",
+        "rounding_variance_usd",
+        "rounding_reason",
+    )
+    exact_present = any(field in raw_usage for field in exact_fields)
+    if require_exact_estimate and not all(field in raw_usage for field in exact_fields):
+        raise LlmAccountingError(
+            "Candidate response omitted its exact estimated cost and rounding evidence"
+        )
+    if exact_present:
+        charged = raw_usage.get("charged_cost_microusd")
+        estimated = raw_usage.get("estimated_cost_nanousd")
+        variance = raw_usage.get("rounding_variance_nanousd")
+        estimated_usd = raw_usage.get("estimated_cost_usd")
+        variance_usd = raw_usage.get("rounding_variance_usd")
+        reason = raw_usage.get("rounding_reason")
+        if (
+            type(charged) is not int
+            or charged != raw_usage["actual_cost_microusd"]
+            or type(estimated) is not int
+            or estimated < 0
+            or type(variance) is not int
+            or variance < 0
+            or variance != charged * 1_000 - estimated
+            or isinstance(estimated_usd, bool)
+            or not isinstance(estimated_usd, (int, float))
+            or not math.isfinite(float(estimated_usd))
+            or abs(float(estimated_usd) - estimated / 1_000_000_000) > 1e-15
+            or isinstance(variance_usd, bool)
+            or not isinstance(variance_usd, (int, float))
+            or not math.isfinite(float(variance_usd))
+            or abs(float(variance_usd) - variance / 1_000_000_000) > 1e-15
+            or reason
+            != (None if variance == 0 else "ceil_to_microusd_for_atomic_budget")
+        ):
+            raise LlmAccountingError(
+                "Candidate response contained inconsistent exact cost evidence"
+            )
+        validated.update({field: raw_usage[field] for field in exact_fields})
+    cache_creation = raw_usage.get("cache_creation")
+    if cache_creation is not None:
+        if not isinstance(cache_creation, dict):
+            raise LlmAccountingError("Cache-creation usage detail is invalid")
+        five_minute = cache_creation.get("ephemeral_5m_input_tokens", 0)
+        one_hour = cache_creation.get("ephemeral_1h_input_tokens", 0)
+        if (
+            type(five_minute) is not int
+            or five_minute < 0
+            or type(one_hour) is not int
+            or one_hour < 0
+            or five_minute + one_hour
+            != raw_usage["cache_creation_input_tokens"]
+        ):
+            raise LlmAccountingError("Cache-creation usage detail is invalid")
+        validated["cache_creation"] = {
+            "ephemeral_5m_input_tokens": five_minute,
+            "ephemeral_1h_input_tokens": one_hour,
+        }
+    routing = provider_routing_contract(expected_model, configured_inference_geo)
+    returned_inference_geo = raw_usage.get("inference_geo", object())
+    if expected_model == "claude-haiku-4-5-20251001":
+        geo_matches = returned_inference_geo in (None, "not_available")
+    elif configured_inference_geo is None:
+        geo_matches = returned_inference_geo in ("global", "us")
+    else:
+        geo_matches = returned_inference_geo == routing["expected_inference_geo"]
+    if (
+        not geo_matches
+        or raw_usage.get("service_tier")
+        != routing["expected_service_tier"]
+    ):
+        raise LlmAccountingError(
+            "Candidate response did not prove the pinned inference geography and service tier"
+        )
+    validated["inference_geo"] = returned_inference_geo
+    validated["service_tier"] = raw_usage["service_tier"]
+    normalizations = raw_usage.get("normalizations", [])
+    allowed_normalizations = {
+        "normalized_null_cache_creation_input_tokens_to_zero",
+        "normalized_null_cache_read_input_tokens_to_zero",
+    }
+    if (
+        not isinstance(normalizations, list)
+        or any(item not in allowed_normalizations for item in normalizations)
+        or len(normalizations) != len(set(normalizations))
+    ):
+        raise LlmAccountingError(
+            "Candidate response contained invalid usage normalization telemetry"
+        )
+    if normalizations:
+        validated["normalizations"] = list(normalizations)
+    return validated
 
 
 def _settled_provenance_failure_usage(
     data: Dict[str, Any],
     requested_model: str,
+    expected_call_id: Optional[str],
     attempt: int,
     attempt_history: List[Dict[str, Any]],
     *,
@@ -1365,16 +2201,35 @@ def _settled_provenance_failure_usage(
     pipeline_pass: str,
     boundary_run: int,
     reader_name: Optional[str],
+    expected_release: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    raw_usage = _validated_settled_usage(data.get("usage"))
+    raw_usage = _validated_settled_usage(
+        data.get("usage"),
+        require_exact_estimate=expected_call_id is not None,
+        expected_model=requested_model,
+        configured_inference_geo=(
+            expected_release.get("inference_geo")
+            if isinstance(expected_release, dict)
+            else None
+        ),
+    )
     returned_model = data.get("returned_model", data.get("model"))
     response_id = data.get("response_id")
-    stop_reason = data.get("stop_reason") or "end_turn"
+    stop_reason = data.get("stop_reason")
     usage = empty_usage()
     for field in USAGE_COUNTER_FIELDS:
         usage[field] = raw_usage[field]
     usage["actual_cost_usd"] = raw_usage["actual_cost_usd"]
-    usage["finish_reason"] = stop_reason
+    for field in EXACT_COST_COUNTER_FIELDS:
+        if field in raw_usage:
+            usage[field] = raw_usage[field]
+    usage["estimated_cost_usd"] = raw_usage.get("estimated_cost_usd", 0.0)
+    usage["rounding_variance_usd"] = raw_usage.get(
+        "rounding_variance_usd",
+        0.0,
+    )
+    if isinstance(stop_reason, str) and stop_reason:
+        usage["finish_reason"] = stop_reason
     if isinstance(returned_model, str) and returned_model:
         usage["by_model"][returned_model] = {
             field: usage[field]
@@ -1387,33 +2242,78 @@ def _settled_provenance_failure_usage(
         },
         "actual_cost_usd": usage["actual_cost_usd"],
     }
-    if (
-        isinstance(returned_model, str)
-        and returned_model
-        and isinstance(response_id, str)
-        and response_id
+    for field in (
+        "charged_cost_microusd",
+        "estimated_cost_nanousd",
+        "estimated_cost_usd",
+        "rounding_variance_nanousd",
+        "rounding_variance_usd",
+        "rounding_reason",
     ):
-        usage["calls"] = [{
-            "response_id": response_id,
-            "requested_model": requested_model,
-            "returned_model": returned_model,
-            "stop_reason": stop_reason,
-            "successful_attempt": attempt,
-            "retry_history": [
-                *attempt_history,
-                {
-                    "attempt": attempt,
-                    "outcome": "provenance_mismatch",
-                    "response_id": response_id,
-                },
-            ],
-            "stage": stage,
-            "pipeline_pass": pipeline_pass,
-            "boundary_run": boundary_run,
-            "reader_name": reader_name,
-            "usage": settled_call_usage,
-            "disposition": "discarded_unusable",
-        }]
+        if field in raw_usage:
+            settled_call_usage[field] = raw_usage[field]
+    for field in ("inference_geo", "service_tier", "normalizations"):
+        if field in raw_usage:
+            settled_call_usage[field] = copy.deepcopy(raw_usage[field])
+    call_id = data.get("call_id")
+    release = data.get("release")
+    routing = provider_routing_contract(
+        requested_model,
+        expected_release.get("inference_geo")
+        if isinstance(expected_release, dict)
+        else None,
+    )
+    usage["failed_calls"] = [canonical_failed_call({
+        "call_id": call_id if isinstance(call_id, str) and call_id else None,
+        "expected_call_id": expected_call_id,
+        "requested_model": requested_model,
+        "returned_model": (
+            returned_model
+            if isinstance(returned_model, str) and returned_model
+            else None
+        ),
+        "response_id": (
+            response_id
+            if isinstance(response_id, str) and response_id
+            else None
+        ),
+        "stop_reason": stop_reason,
+        "stage": stage,
+        "pipeline_pass": pipeline_pass,
+        "boundary_run": boundary_run,
+        "reader_name": reader_name,
+        "endpoint_category": routing["endpoint_category"],
+        "requested_inference_geo": routing["inference_geo"],
+        "returned_inference_geo": raw_usage["inference_geo"],
+        "requested_service_tier": routing["service_tier"],
+        "returned_service_tier": raw_usage["service_tier"],
+        "attempt_history": [
+            *attempt_history,
+            {
+                "attempt": attempt,
+                "outcome": "failed",
+                "error_type": "LlmProvenanceError",
+                "response_id": (
+                    response_id
+                    if isinstance(response_id, str) and response_id
+                    else None
+                ),
+            },
+        ],
+        "transport_attempt": attempt,
+        "transport_attempts": attempt,
+        "transport_retry_count": max(0, attempt - 1),
+        "retry_count": max(0, attempt - 1),
+        "release": copy.deepcopy(release) if isinstance(release, dict) else None,
+        "expected_release": copy.deepcopy(expected_release),
+        "usage": settled_call_usage,
+        "transformations": list(raw_usage.get("normalizations", [])),
+        "transformation_evidence": [
+            _transformation_hash_evidence(name, None, 0)
+            for name in raw_usage.get("normalizations", [])
+        ],
+        "disposition": "discarded_unusable",
+    }, aggregate_cost_microusd=usage["actual_cost_microusd"])]
     return usage
 
 
@@ -1428,7 +2328,105 @@ def _benchmark_uncertain_failure_usage(
     pipeline_pass: str,
     boundary_run: int,
     reader_name: Optional[str],
+    request_sha256: str,
+    prompt_sha256: str,
+    schema_mode: str,
+    schema_sha256: Optional[str],
+    transport_schema_sha256: Optional[str],
+    logical_retry: int,
+    started_at: str,
+    latency_ms: int,
+    expected_release: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
+    failure_reasons = {
+        "PROVIDER_CACHE_TOTALS_MISSING": (
+            "Cached provider response omitted required aggregate cache usage."
+        ),
+        "PROVIDER_CACHE_DETAIL_MISSING": (
+            "Provider response omitted required cache-write TTL detail."
+        ),
+        "PROVIDER_CACHE_DETAIL_MISMATCH": (
+            "Provider cache-write totals and TTL detail do not reconcile."
+        ),
+        "PROVIDER_CORE_USAGE_MISSING": (
+            "Provider response omitted required input or output token usage."
+        ),
+        "PROVIDER_PROVENANCE_MISSING": (
+            "Provider response omitted its exact model or response ID."
+        ),
+        "PROVIDER_RESPONSE_INVALID": (
+            "Provider response did not satisfy the declared response contract."
+        ),
+        "RETURNED_MODEL_PRICING_MISSING": (
+            "Returned provider model has no committed benchmark pricing."
+        ),
+        "RESERVATION_CEILING_EXCEEDED": (
+            "Settled provider cost exceeded the conservative server reservation."
+        ),
+        "FIRESTORE_SETTLEMENT_FAILED": (
+            "Provider response was valid but its atomic cost settlement failed."
+        ),
+        "PROVIDER_TRANSPORT_UNCERTAIN": (
+            "Provider transport failed after dispatch; generation and spend are uncertain."
+        ),
+        "PROVIDER_REJECTION_RELEASE_UNCERTAIN": (
+            "Provider rejected before generation, but the zero-spend release did not settle."
+        ),
+        "CANDIDATE_PROVIDER_CONFIGURATION_UNAVAILABLE": (
+            "Candidate provider configuration failed before dispatch."
+        ),
+    }
+    failure_code = data.get("validation_failure_code")
+    failure_reason = data.get("validation_failure_reason")
+    if failure_reasons.get(failure_code) != failure_reason:
+        raise LlmAccountingError(
+            "Candidate uncertainty response omitted its exact finite validation failure"
+        )
+    provider_error_sha256 = data.get("provider_error_sha256")
+    configuration_error_sha256 = data.get("configuration_error_sha256")
+    settlement_error_sha256 = data.get("settlement_error_sha256")
+    rejected_output_status = data.get("rejected_output_status")
+    raw_provider_content_available = (
+        rejected_output_status == "available" and "rejected_output" in data
+    )
+    if failure_code == "PROVIDER_TRANSPORT_UNCERTAIN":
+        if rejected_output_status != "unavailable_before_complete_response":
+            raise LlmAccountingError(
+                "Candidate transport uncertainty omitted rejected-output availability"
+            )
+    elif failure_code in {
+        "PROVIDER_REJECTION_RELEASE_UNCERTAIN",
+        "CANDIDATE_PROVIDER_CONFIGURATION_UNAVAILABLE",
+    }:
+        if rejected_output_status != "unavailable_before_complete_response":
+            raise LlmAccountingError(
+                "Candidate pre-generation rejection omitted rejected-output availability"
+            )
+    elif not raw_provider_content_available:
+        raise LlmAccountingError(
+            "Candidate post-response failure omitted its exact rejected output"
+        )
+    if failure_code in {
+        "PROVIDER_TRANSPORT_UNCERTAIN",
+        "PROVIDER_REJECTION_RELEASE_UNCERTAIN",
+    } and not re.fullmatch(
+        r"[a-f0-9]{64}", str(provider_error_sha256 or "")
+    ):
+        raise LlmAccountingError(
+            "Candidate transport uncertainty omitted its provider error hash"
+        )
+    if failure_code == "CANDIDATE_PROVIDER_CONFIGURATION_UNAVAILABLE" and not re.fullmatch(
+        r"[a-f0-9]{64}", str(configuration_error_sha256 or "")
+    ):
+        raise LlmAccountingError(
+            "Candidate configuration uncertainty omitted its configuration error hash"
+        )
+    if failure_code != "PROVIDER_TRANSPORT_UNCERTAIN" and not re.fullmatch(
+        r"[a-f0-9]{64}", str(settlement_error_sha256 or "")
+    ):
+        raise LlmAccountingError(
+            "Candidate uncertainty response omitted its settlement error hash"
+        )
     accounting = data.get("benchmark_accounting")
     if not isinstance(accounting, dict):
         raise LlmAccountingError(
@@ -1444,7 +2442,11 @@ def _benchmark_uncertain_failure_usage(
     if (
         call_id != expected_call_id
         or accounting.get("requested_model") != requested_model
-        or uncertainty_status not in {"charged_reservation", "reservation_held"}
+        or uncertainty_status not in {
+            "charged_reservation",
+            "reservation_held",
+            "settled_after_ambiguous_ack",
+        }
         or any(
             type(accounting.get(field)) is not int or accounting[field] < 0
             for field in integer_fields
@@ -1461,6 +2463,10 @@ def _benchmark_uncertain_failure_usage(
         or charged + reserved != cap_cost
         or (uncertainty_status == "charged_reservation" and (charged != cap_cost or reserved != 0))
         or (uncertainty_status == "reservation_held" and (reserved != cap_cost or charged != 0))
+        or (
+            uncertainty_status == "settled_after_ambiguous_ack"
+            and (charged != cap_cost or reserved != 0)
+        )
     ):
         raise LlmAccountingError(
             "Candidate uncertainty response did not reconcile its cap charge"
@@ -1488,25 +2494,660 @@ def _benchmark_uncertain_failure_usage(
         "call_id": call_id,
         "uncertainty_status": uncertainty_status,
     }
+    returned_model = data.get("returned_model")
+    response_id = data.get("response_id")
+    if isinstance(response_id, str) and response_id:
+        failure["response_id"] = response_id
+    stop_reason = data.get("stop_reason")
+    provider_usage = data.get("provider_usage")
+    provider_usage_validation = data.get("provider_usage_validation")
+    if failure_code == "PROVIDER_TRANSPORT_UNCERTAIN":
+        if (
+            provider_usage is not None
+            or provider_usage_validation != "unavailable_transport"
+        ):
+            raise LlmAccountingError(
+                "Candidate transport uncertainty did not mark provider usage unavailable"
+            )
+    elif provider_usage_validation not in {"unverified", None}:
+        raise LlmAccountingError(
+            "Candidate uncertainty response has an invalid provider usage state"
+        )
+    configured_inference_geo = (
+        expected_release.get("inference_geo")
+        if isinstance(expected_release, dict)
+        else None
+    )
+    routing = provider_routing_contract(
+        returned_model if isinstance(returned_model, str) and returned_model else requested_model,
+        configured_inference_geo,
+    )
+    call_usage: Dict[str, Any] = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "call_count": 0,
+        "actual_cost_microusd": cap_cost,
+        "actual_cost_usd": cap_cost / 1_000_000,
+    }
+    independent_cost_microusd: Optional[int] = None
+    independent_cost_nanousd: Optional[int] = None
+    if isinstance(provider_usage, dict):
+        usage_fields = (
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+        )
+        routing_fields = {
+            "inference_geo",
+            "service_tier",
+            "normalizations",
+        }
+        for field, value in provider_usage.items():
+            if field == "cache_creation":
+                if not isinstance(value, dict) or any(
+                    type(token_count) is not int or token_count < 0
+                    for token_count in value.values()
+                ):
+                    raise LlmAccountingError(
+                        "Candidate uncertainty response contained invalid provider usage"
+                    )
+                continue
+            if field == "inference_geo":
+                if value not in {None, "global", "us", "not_available"}:
+                    raise LlmAccountingError(
+                        "Candidate uncertainty response contained invalid provider usage"
+                    )
+                continue
+            if field == "service_tier":
+                if value not in {None, "standard"}:
+                    raise LlmAccountingError(
+                        "Candidate uncertainty response contained invalid provider usage"
+                    )
+                continue
+            if field == "normalizations":
+                if (
+                    not isinstance(value, list)
+                    or any(not isinstance(item, str) or not item for item in value)
+                    or len(value) != len(set(value))
+                ):
+                    raise LlmAccountingError(
+                        "Candidate uncertainty response contained invalid provider usage"
+                    )
+                continue
+            if field not in usage_fields or type(value) is not int or value < 0:
+                raise LlmAccountingError(
+                    "Candidate uncertainty response contained invalid provider usage"
+                )
+        complete_provider_usage = all(field in provider_usage for field in usage_fields)
+        for field in routing_fields:
+            if field in provider_usage:
+                call_usage[field] = copy.deepcopy(provider_usage[field])
+        if (
+            "inference_geo" in provider_usage
+            and (
+                provider_usage["inference_geo"]
+                not in {None, "not_available"}
+                if (returned_model or requested_model)
+                == "claude-haiku-4-5-20251001"
+                else provider_usage["inference_geo"]
+                != routing["expected_inference_geo"]
+            )
+        ):
+            raise LlmAccountingError(
+                "Candidate uncertainty response inference geography did not reconcile"
+            )
+        if (
+            "service_tier" in provider_usage
+            and provider_usage["service_tier"] != routing["expected_service_tier"]
+        ):
+            raise LlmAccountingError(
+                "Candidate uncertainty response service tier did not reconcile"
+            )
+        if complete_provider_usage:
+            for field in usage_fields:
+                call_usage[field] = provider_usage[field]
+            call_usage["call_count"] = 1
+            cache_creation = provider_usage.get("cache_creation")
+            if isinstance(cache_creation, dict):
+                call_usage["cache_creation"] = copy.deepcopy(cache_creation)
+        if (
+            complete_provider_usage
+            and isinstance(returned_model, str)
+            and returned_model
+        ):
+            independent_cost_microusd = _independent_cost_microusd(
+                returned_model,
+                call_usage,
+            )
+            independent_cost_nanousd = _independent_cost_nanousd(
+                returned_model,
+                call_usage,
+            )
+    if uncertainty_status == "settled_after_ambiguous_ack" and (
+        independent_cost_microusd is None
+        or not isinstance(returned_model, str)
+        or not returned_model
+        or not isinstance(response_id, str)
+        or not response_id
+    ):
+        raise LlmAccountingError(
+            "Settled acknowledgement ambiguity lacks exact provider accounting"
+        )
+    if independent_cost_nanousd is not None:
+        exact_settlement = uncertainty_status == "settled_after_ambiguous_ack"
+        estimated_nanousd = (
+            independent_cost_nanousd if exact_settlement else cap_cost * 1_000
+        )
+        rounding_nanousd = cap_cost * 1_000 - estimated_nanousd
+        call_usage.update({
+            "charged_cost_microusd": cap_cost,
+            "estimated_cost_nanousd": estimated_nanousd,
+            "rounding_variance_nanousd": rounding_nanousd,
+            "rounding_reason": (
+                None
+                if rounding_nanousd == 0
+                else "ceil_to_microusd_for_atomic_budget"
+            ),
+        })
+    completed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     usage = empty_usage()
     usage["actual_cost_microusd"] = cap_cost
     usage["actual_cost_usd"] = cap_cost / 1_000_000
-    usage["failed_calls"] = [{
+    usage["failed_calls"] = [canonical_failed_call({
         "call_id": call_id,
         "requested_model": requested_model,
+        "returned_model": returned_model if isinstance(returned_model, str) else None,
+        "response_id": response_id if isinstance(response_id, str) else None,
+        "stop_reason": stop_reason if isinstance(stop_reason, str) else None,
         "stage": stage,
         "pipeline_pass": pipeline_pass,
         "boundary_run": max(1, boundary_run),
         "reader_name": reader_name,
+        "endpoint_category": routing["endpoint_category"],
+        "requested_inference_geo": routing["inference_geo"],
+        "returned_inference_geo": provider_usage.get("inference_geo")
+        if isinstance(provider_usage, dict) else None,
+        "requested_service_tier": routing["service_tier"],
+        "returned_service_tier": provider_usage.get("service_tier")
+        if isinstance(provider_usage, dict) else None,
         "attempt_history": [*attempt_history, failure],
+        "request_sha256": request_sha256,
+        "prompt_sha256": prompt_sha256,
+        "prompt_contract_version": PROMPT_CONTRACT_VERSION,
+        "schema_mode": schema_mode,
+        "schema_sha256": schema_sha256,
+        "transport_schema_sha256": transport_schema_sha256,
+        "pricing_sha256": _MODEL_PRICING_SHA256,
+        "latency_ms": latency_ms,
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "logical_retry": logical_retry,
+        "attempt_number": logical_retry + 1,
+        "retry_count": max(0, attempt - 1),
+        "total_retry_count": max(0, attempt - 1) + logical_retry,
+        "validation_result": "failed_accounting",
+        "validation_reason": failure_reason,
+        "validation_failure_code": failure_code,
+        "provider_error_sha256": provider_error_sha256,
+        "configuration_error_sha256": configuration_error_sha256,
+        "settlement_error_sha256": settlement_error_sha256,
+        "transformations": list(
+            provider_usage.get("normalizations", [])
+            if isinstance(provider_usage, dict)
+            else []
+        ),
+        "transformation_evidence": [
+            _transformation_hash_evidence(name, None, 0)
+            for name in (
+                provider_usage.get("normalizations", [])
+                if isinstance(provider_usage, dict)
+                else []
+            )
+        ],
+        "failure_state": "benchmark_spend_uncertain",
+        "failure_message": failure_reason,
+        "warnings": [],
+        "fallback_used": False,
+        "truncated": stop_reason in {
+            "max_tokens",
+            "model_context_window_exceeded",
+        },
+        "downstream_consumption": "not_consumed",
+        "disposition": "discarded_unusable",
+        "release": copy.deepcopy(data.get("release")),
+        "expected_release": copy.deepcopy(expected_release),
+        "usage": call_usage,
+        "independent_cost_status": (
+            "calculated"
+            if independent_cost_microusd is not None
+            and uncertainty_status == "settled_after_ambiguous_ack"
+            else "calculated_unverified_provider_usage"
+            if independent_cost_microusd is not None
+            else "unavailable"
+        ),
+        "independent_cost_microusd": independent_cost_microusd,
+        "independent_cost_usd": (
+            independent_cost_microusd / 1_000_000
+            if independent_cost_microusd is not None
+            else None
+        ),
+        "independent_cost_nanousd": independent_cost_nanousd,
+        "independent_estimated_cost_usd": (
+            independent_cost_nanousd / 1_000_000_000
+            if independent_cost_nanousd is not None
+            else None
+        ),
+        "cost_variance_microusd": (
+            cap_cost - independent_cost_microusd
+            if independent_cost_microusd is not None
+            else None
+        ),
+        "cost_variance_reason": (
+            "uncertain_reservation_charge_minus_unverified_provider_estimate"
+            if independent_cost_microusd is not None
+            and uncertainty_status != "settled_after_ambiguous_ack"
+            and cap_cost != independent_cost_microusd
+            else None
+        ),
         "uncertainty_status": uncertainty_status,
+        "provider_usage_unverified": copy.deepcopy(provider_usage),
+        "provider_usage_validation": provider_usage_validation,
+        "rejected_output_status": rejected_output_status,
+        "usage_accounting_state": (
+            "exact_settled_provider_usage"
+            if uncertainty_status == "settled_after_ambiguous_ack"
+            else "unverified_provider_usage"
+            if isinstance(provider_usage, dict)
+            else "cap_charge_placeholder_provider_usage_unavailable"
+        ),
         "charged_cost_microusd": charged,
         "charged_cost_usd": charged / 1_000_000,
         "reserved_cost_microusd": reserved,
         "reserved_cost_usd": reserved / 1_000_000,
         "cap_cost_microusd": cap_cost,
         "cap_cost_usd": cap_cost / 1_000_000,
-    }]
+    }, aggregate_cost_microusd=cap_cost)]
+    if raw_provider_content_available:
+        _preserve_local_rejected_output(
+            stage,
+            copy.deepcopy(data["rejected_output"]),
+            usage,
+            failure_reason,
+        )
+    return usage
+
+
+def _enrich_settled_provenance_failure(
+    usage: Dict[str, Any],
+    *,
+    request_sha256: str,
+    prompt_sha256: str,
+    schema_mode: str,
+    schema_sha256: Optional[str],
+    transport_schema_sha256: Optional[str],
+    logical_retry: int,
+    started_at: str,
+    latency_ms: int,
+    failure_state: str,
+    failure_message: str,
+) -> Dict[str, Any]:
+    completed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    records = [
+        record
+        for collection in (usage.get("calls"), usage.get("failed_calls"))
+        if isinstance(collection, list)
+        for record in collection
+        if isinstance(record, dict)
+    ]
+    for record in records:
+        record_failure_state = failure_state
+        record_failure_message = failure_message
+        expected_call_id = record.get("expected_call_id")
+        if (
+            isinstance(expected_call_id, str)
+            and record.get("call_id") != expected_call_id
+        ):
+            record_failure_state = "candidate_call_id_mismatch"
+            record_failure_message = (
+                "Settled response did not match the deterministic benchmark call ID"
+            )
+        elif isinstance(record.get("expected_release"), dict) and not (
+            _benchmark_release_matches(
+                record.get("release"),
+                record.get("expected_release"),
+            )
+        ):
+            record_failure_state = "candidate_release_mismatch"
+            record_failure_message = (
+                "Settled response did not prove the preflight candidate release"
+            )
+        record.update({
+            "request_sha256": request_sha256,
+            "prompt_sha256": prompt_sha256,
+            "prompt_contract_version": PROMPT_CONTRACT_VERSION,
+            "schema_mode": schema_mode,
+            "schema_sha256": schema_sha256,
+            "transport_schema_sha256": transport_schema_sha256,
+            "pricing_sha256": _MODEL_PRICING_SHA256,
+            "latency_ms": latency_ms,
+            "started_at": started_at,
+            "completed_at": completed_at,
+            "logical_retry": logical_retry,
+            "attempt_number": logical_retry + 1,
+            "validation_result": "failed_provenance",
+            "validation_reason": record_failure_message,
+            "failure_state": record_failure_state,
+            "failure_message": record_failure_message,
+            "warnings": [],
+            "fallback_used": False,
+            "truncated": False,
+            "downstream_consumption": "not_consumed",
+        })
+        returned_model = record.get("returned_model")
+        call_usage = record.get("usage")
+        if (
+            isinstance(returned_model, str)
+            and returned_model in _MODEL_CATALOG["modelProfiles"]
+            and isinstance(call_usage, dict)
+        ):
+            independent = _independent_cost_microusd(returned_model, call_usage)
+            independent_nanousd = _independent_cost_nanousd(
+                returned_model,
+                call_usage,
+            )
+            recorded = int(call_usage["actual_cost_microusd"])
+            recorded_estimate = call_usage.get(
+                "estimated_cost_nanousd",
+                independent_nanousd,
+            )
+            record.update({
+                "independent_cost_status": "calculated",
+                "independent_cost_microusd": independent,
+                "independent_cost_usd": independent / 1_000_000,
+                "independent_cost_nanousd": independent_nanousd,
+                "independent_estimated_cost_usd": (
+                    independent_nanousd / 1_000_000_000
+                ),
+                "exact_cost_variance_nanousd": (
+                    recorded_estimate - independent_nanousd
+                ),
+                "exact_cost_variance_usd": (
+                    recorded_estimate - independent_nanousd
+                ) / 1_000_000_000,
+                "charged_cost_microusd": call_usage.get(
+                    "charged_cost_microusd",
+                    recorded,
+                ),
+                "rounding_variance_nanousd": call_usage.get(
+                    "rounding_variance_nanousd",
+                    recorded * 1_000 - independent_nanousd,
+                ),
+                "rounding_variance_usd": call_usage.get(
+                    "rounding_variance_usd",
+                    (recorded * 1_000 - independent_nanousd) / 1_000_000_000,
+                ),
+                "rounding_reason": call_usage.get("rounding_reason"),
+                "cost_variance_microusd": recorded - independent,
+                "cost_variance_reason": (
+                    None
+                    if recorded == independent
+                    else "recorded_server_cost_differs_from_local_catalog"
+                ),
+            })
+        else:
+            record["independent_cost_status"] = (
+                "unavailable_missing_returned_model"
+            )
+    failed_calls = usage.get("failed_calls")
+    if isinstance(failed_calls, list):
+        usage["failed_calls"] = [
+            canonical_failed_call(
+                record,
+                aggregate_cost_microusd=usage.get("actual_cost_microusd", 0),
+            )
+            for record in failed_calls
+            if isinstance(record, dict)
+        ]
+    return usage
+
+
+def _benchmark_rejected_failure_usage(
+    data: Dict[str, Any],
+    *,
+    requested_model: str,
+    expected_call_id: str,
+    stage: str,
+    pipeline_pass: str,
+    boundary_run: int,
+    reader_name: Optional[str],
+    request_sha256: str,
+    prompt_sha256: str,
+    schema_mode: str,
+    schema_sha256: Optional[str],
+    transport_schema_sha256: Optional[str],
+    logical_retry: int,
+    started_at: str,
+    latency_ms: int,
+    expected_release: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    rejection = data.get("benchmark_rejection")
+    expected_reason = "Anthropic rejected the request before model generation."
+    if (
+        not isinstance(rejection, dict)
+        or rejection.get("call_id") != expected_call_id
+        or rejection.get("requested_model") != requested_model
+        or rejection.get("disposition") != "released_before_generation"
+        or rejection.get("charged_cost_microusd") != 0
+        or rejection.get("validation_failure_code")
+        != "PROVIDER_INVALID_REQUEST_BEFORE_GENERATION"
+        or rejection.get("validation_failure_reason") != expected_reason
+        or not re.fullmatch(
+            r"[a-f0-9]{64}", str(rejection.get("provider_error_sha256", ""))
+        )
+    ):
+        raise LlmAccountingError(
+            "Candidate rejection omitted proof that no provider generation occurred"
+        )
+    completed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    response_release = data.get("release")
+    release_matches = _benchmark_release_matches(
+        response_release,
+        expected_release,
+    )
+    failure_state = (
+        "provider_rejected_before_generation"
+        if release_matches
+        else "candidate_release_mismatch"
+    )
+    validation_result = (
+        "failed_pre_generation" if release_matches else "failed_provenance"
+    )
+    validation_reason = (
+        "Provider rejected the request before generation"
+        if release_matches
+        else "Rejected response did not prove the preflight candidate release"
+    )
+    usage = empty_usage()
+    usage["failed_calls"] = [canonical_failed_call({
+        "call_id": expected_call_id,
+        "requested_model": requested_model,
+        "returned_model": None,
+        "response_id": None,
+        "stop_reason": None,
+        "stage": stage,
+        "pipeline_pass": pipeline_pass,
+        "boundary_run": max(1, boundary_run),
+        "reader_name": reader_name,
+        "attempt_history": [{
+            "attempt": 1,
+            "outcome": "failed",
+            "error_type": "LlmRequestRejectedError",
+            "provider_generation": "not_started",
+        }],
+        "request_sha256": request_sha256,
+        "prompt_sha256": prompt_sha256,
+        "prompt_contract_version": PROMPT_CONTRACT_VERSION,
+        "schema_mode": schema_mode,
+        "schema_sha256": schema_sha256,
+        "transport_schema_sha256": transport_schema_sha256,
+        "pricing_sha256": _MODEL_PRICING_SHA256,
+        "latency_ms": latency_ms,
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "logical_retry": logical_retry,
+        "attempt_number": logical_retry + 1,
+        "retry_count": 0,
+        "total_retry_count": logical_retry,
+        "validation_result": validation_result,
+        "validation_reason": expected_reason if release_matches else validation_reason,
+        "validation_failure_code": rejection.get("validation_failure_code"),
+        "validation_failure_reason": rejection.get("validation_failure_reason"),
+        "provider_error_sha256": rejection.get("provider_error_sha256"),
+        "transformations": [],
+        "transformation_evidence": [],
+        "failure_state": failure_state,
+        "failure_message": expected_reason if release_matches else validation_reason,
+        "warnings": [],
+        "fallback_used": False,
+        "truncated": False,
+        "downstream_consumption": "not_consumed",
+        "disposition": "discarded_unusable",
+        "rejected_output_status": "unavailable_before_complete_response",
+        "release": copy.deepcopy(response_release),
+        "expected_release": copy.deepcopy(expected_release),
+        "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "call_count": 0,
+            "actual_cost_microusd": 0,
+            "actual_cost_usd": 0.0,
+        },
+        "independent_cost_status": "not_generated",
+    }, aggregate_cost_microusd=0)]
+    return usage
+
+
+def _benchmark_pre_dispatch_failure_usage(
+    data: Dict[str, Any],
+    *,
+    requested_model: str,
+    expected_call_id: str,
+    stage: str,
+    pipeline_pass: str,
+    boundary_run: int,
+    reader_name: Optional[str],
+    request_sha256: str,
+    prompt_sha256: str,
+    schema_mode: str,
+    schema_sha256: Optional[str],
+    transport_schema_sha256: Optional[str],
+    logical_retry: int,
+    started_at: str,
+    latency_ms: int,
+    expected_release: Optional[Dict[str, Any]],
+    error_type: str,
+    failure_state: str,
+    failure_message: str,
+) -> Dict[str, Any]:
+    """Record a locally-known call contract when the candidate never dispatched."""
+    response_release = data.get("release")
+    release_matches = _benchmark_release_matches(
+        response_release,
+        expected_release,
+    )
+    if not release_matches:
+        failure_state = "candidate_release_mismatch"
+        failure_message = (
+            "Pre-dispatch response did not prove the preflight candidate release"
+        )
+    completed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    usage = empty_usage()
+    rejection = data.get("benchmark_rejection")
+    rejection_evidence = (
+        {
+            key: rejection[key]
+            for key in (
+                "validation_failure_code",
+                "validation_failure_reason",
+                "configuration_error_sha256",
+                "settlement_error_sha256",
+            )
+            if key in rejection
+        }
+        if isinstance(rejection, dict)
+        else {}
+    )
+    usage["failed_calls"] = [canonical_failed_call({
+        "call_id": expected_call_id,
+        "expected_call_id": expected_call_id,
+        "requested_model": requested_model,
+        "returned_model": None,
+        "response_id": None,
+        "stop_reason": None,
+        "stage": stage,
+        "pipeline_pass": pipeline_pass,
+        "boundary_run": max(1, boundary_run),
+        "reader_name": reader_name,
+        "attempt_history": [{
+            "attempt": 1,
+            "outcome": "failed",
+            "error_type": error_type,
+            "provider_generation": "not_started",
+        }],
+        "request_sha256": request_sha256,
+        "prompt_sha256": prompt_sha256,
+        "prompt_contract_version": PROMPT_CONTRACT_VERSION,
+        "schema_mode": schema_mode,
+        "schema_sha256": schema_sha256,
+        "transport_schema_sha256": transport_schema_sha256,
+        "pricing_sha256": _MODEL_PRICING_SHA256,
+        "latency_ms": latency_ms,
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "logical_retry": logical_retry,
+        "attempt_number": logical_retry + 1,
+        "retry_count": 0,
+        "total_retry_count": logical_retry,
+        "validation_result": (
+            "failed_pre_generation" if release_matches else "failed_provenance"
+        ),
+        "validation_reason": failure_message,
+        "transformations": [],
+        "transformation_evidence": [],
+        "failure_state": failure_state,
+        "failure_message": failure_message,
+        **rejection_evidence,
+        "warnings": [],
+        "fallback_used": False,
+        "truncated": False,
+        "downstream_consumption": "not_consumed",
+        "disposition": "discarded_unusable",
+        "rejected_output_status": "unavailable_before_complete_response",
+        "release": copy.deepcopy(response_release),
+        "expected_release": copy.deepcopy(expected_release),
+        "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "call_count": 0,
+            "actual_cost_microusd": 0,
+            "actual_cost_usd": 0.0,
+        },
+        "independent_cost_status": "not_generated",
+        "uncertainty_status": "proven_zero_spend_pre_generation",
+        "charged_cost_microusd": 0,
+        "charged_cost_usd": 0.0,
+        "reserved_cost_microusd": 0,
+        "reserved_cost_usd": 0.0,
+        "cap_cost_microusd": 0,
+        "cap_cost_usd": 0.0,
+    }, aggregate_cost_microusd=0)]
     return usage
 
 
@@ -1528,6 +3169,7 @@ def call_llm(
     boundary_run: int = 0,
     reader_name: Optional[str] = None,
     logical_retry: int = 0,
+    raw_response_sink: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Optional[Dict[str, Any]], str, Dict[str, Any]]:
     """Block-aware LLM call via the Firebase proxy.
 
@@ -1545,6 +3187,8 @@ def call_llm(
       retries: transport retry count.
       proxy_url: override the default Cloud Function URL.
       job_id: ingest-queue document ID for exact server-side job telemetry.
+      raw_response_sink: optional local-only mutable sink for the provider's exact
+            content blocks. It is never added to durable cloud telemetry.
 
     Returns:
       (tool_input, text, usage)
@@ -1599,7 +3243,7 @@ def call_llm(
         # when tool_choice forces tool use"). When thinking is on, use
         # tool_choice="auto" and rely on the user-prompt instruction to call
         # the tool. When thinking is off, force the tool to guarantee output.
-        if thinking_budget > 0 or profile["thinking"] == "adaptive":
+        if thinking_budget > 0:
             payload["tool_choice"] = {"type": "auto"}
         else:
             payload["tool_choice"] = {
@@ -1615,19 +3259,61 @@ def call_llm(
             payload["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
             payload["temperature"] = 1.0
 
+    prompt_sha256 = _canonical_json_hash({
+        field: payload[field]
+        for field in (
+            "system", "messages", "tools", "tool_choice", "thinking",
+            "output_config",
+        )
+        if field in payload
+    })
+    schema_mode = (
+        "schema_free"
+        if tool is None
+        else "compact_strict_tool"
+        if compact_json_envelope
+        else "strict_tool"
+    )
+    schema_sha256 = (
+        _canonical_json_hash(tool["input_schema"])
+        if tool is not None
+        else None
+    )
+    transport_schema_sha256 = (
+        _canonical_json_hash(strict_tool["input_schema"])
+        if strict_tool is not None
+        else None
+    )
     benchmark_context = _BENCHMARK_TRANSPORT_CONTEXT
     benchmark_token_provider = _BENCHMARK_ID_TOKEN_PROVIDER
+    configured_inference_geo = (
+        _BENCHMARK_EXPECTED_RELEASE.get("inference_geo")
+        if benchmark_context is not None
+        and isinstance(_BENCHMARK_EXPECTED_RELEASE, dict)
+        else None
+    )
+    routing = provider_routing_contract(model_id, configured_inference_geo)
+    provider_payload = copy.deepcopy(payload)
+    if routing["inference_geo"] is not None:
+        provider_payload["inference_geo"] = routing["inference_geo"]
+    provider_payload["service_tier"] = routing["service_tier"]
+    request_sha256 = _canonical_json_hash(provider_payload)
+
     if benchmark_context is not None:
         if benchmark_token_provider is None:
             raise LlmRequestRejectedError("Benchmark identity token provider is missing")
-        request_sha256 = _canonical_json_hash(payload)
         benchmark = {
             **benchmark_context,
             "pipeline_stage": stage,
+            "pipeline_pass": pipeline_pass,
             "reader_name": reader_name,
             "retry_number": logical_retry,
             "boundary_run": max(1, boundary_run),
             "request_sha256": request_sha256,
+            "prompt_sha256": prompt_sha256,
+            "schema_mode": schema_mode,
+            "schema_sha256": schema_sha256,
+            "transport_schema_sha256": transport_schema_sha256,
             "requested_model": model_id,
         }
         benchmark["call_id"] = _canonical_json_hash(benchmark)
@@ -1645,11 +3331,27 @@ def call_llm(
         proxy_headers["X-Lemon-Service-Key"] = service_key
 
     last_err: Optional[Exception] = None
+    terminal_failure_state: Optional[str] = None
     attempt_history: List[Dict[str, Any]] = []
     effective_retries = 1 if benchmark_context is not None else retries
+    call_started_at = time.perf_counter()
+    call_started_timestamp = datetime.now(timezone.utc).isoformat().replace(
+        "+00:00",
+        "Z",
+    )
     for attempt in range(1, effective_retries + 1):
         try:
-            resp = requests.post(url, json=payload, headers=proxy_headers, timeout=540)
+            resp = requests.post(
+                url,
+                json=payload,
+                headers=proxy_headers,
+                timeout=(30, 3_660) if benchmark_context is not None else 540,
+                allow_redirects=False,
+            )
+            if 300 <= resp.status_code < 400:
+                raise requests.RequestException(
+                    f"Candidate route refused HTTP redirect {resp.status_code}."
+                )
             if resp.status_code == 429:
                 try:
                     error_data = resp.json()
@@ -1661,17 +3363,95 @@ def call_llm(
                         error_data.get("resetAt"),
                     )
                 if error_data.get("code") == "BENCHMARK_CAP_EXCEEDED":
-                    raise BenchmarkCapExceededError(
+                    error = BenchmarkCapExceededError(
                         error_data.get("error", "Benchmark cost cap exhausted.")
                     )
+                    if benchmark_context is not None:
+                        benchmark_call_id = payload["benchmark"]["call_id"]
+                        error.usage = _benchmark_pre_dispatch_failure_usage(
+                            error_data,
+                            requested_model=model_id,
+                            expected_call_id=benchmark_call_id,
+                            stage=stage,
+                            pipeline_pass=pipeline_pass,
+                            boundary_run=boundary_run,
+                            reader_name=reader_name,
+                            request_sha256=request_sha256,
+                            prompt_sha256=prompt_sha256,
+                            schema_mode=schema_mode,
+                            schema_sha256=schema_sha256,
+                            transport_schema_sha256=transport_schema_sha256,
+                            logical_retry=logical_retry,
+                            started_at=call_started_timestamp,
+                            latency_ms=max(
+                                0,
+                                round((time.perf_counter() - call_started_at) * 1_000),
+                            ),
+                            expected_release=_BENCHMARK_EXPECTED_RELEASE,
+                            error_type="BenchmarkCapExceededError",
+                            failure_state="benchmark_cap_exceeded",
+                            failure_message="Benchmark cap rejected the call before dispatch",
+                        )
+                    raise error
                 raise RuntimeError("Proxy rate limit did not prove zero spend")
             if resp.status_code in (401, 403):
                 # Either the daemon's PROXY_SERVICE_KEY is missing/wrong, or the
                 # upstream Anthropic key is invalid. Both are non-retryable.
                 raise RuntimeError(
                     f"Proxy auth rejected ({resp.status_code}). Check PROXY_SERVICE_KEY "
-                    f"matches functions/.env. Body: {resp.text[:200]}"
+                    "matches functions/.env."
                 )
+            if resp.status_code == 409:
+                try:
+                    error_data = resp.json()
+                except ValueError:
+                    error_data = {}
+                rejection = error_data.get("benchmark_rejection")
+                expected_call_id = (
+                    payload.get("benchmark", {}).get("call_id")
+                    if isinstance(payload.get("benchmark"), dict)
+                    else None
+                )
+                if (
+                    benchmark_context is None
+                    or not isinstance(rejection, dict)
+                    or rejection.get("call_id") != expected_call_id
+                    or rejection.get("requested_model") != model_id
+                    or rejection.get("request_sha256") != request_sha256
+                    or rejection.get("disposition") != "no_new_dispatch"
+                    or rejection.get("new_cost_microusd") != 0
+                ):
+                    raise LlmAccountingError(
+                        "Candidate duplicate rejection omitted zero-dispatch proof"
+                    )
+                error = LlmRequestRejectedError(
+                    error_data.get("error", "Benchmark call was already recorded.")
+                )
+                error.usage = _benchmark_pre_dispatch_failure_usage(
+                    error_data,
+                    requested_model=model_id,
+                    expected_call_id=expected_call_id,
+                    stage=stage,
+                    pipeline_pass=pipeline_pass,
+                    boundary_run=boundary_run,
+                    reader_name=reader_name,
+                    request_sha256=request_sha256,
+                    prompt_sha256=prompt_sha256,
+                    schema_mode=schema_mode,
+                    schema_sha256=schema_sha256,
+                    transport_schema_sha256=transport_schema_sha256,
+                    logical_retry=logical_retry,
+                    started_at=call_started_timestamp,
+                    latency_ms=max(
+                        0,
+                        round((time.perf_counter() - call_started_at) * 1_000),
+                    ),
+                    expected_release=_BENCHMARK_EXPECTED_RELEASE,
+                    error_type="BenchmarkDuplicateCallError",
+                    failure_state="duplicate_call_blocked",
+                    failure_message="Server proved that no new provider dispatch occurred",
+                )
+                raise error
             if resp.status_code == 400:
                 try:
                     error_data = resp.json()
@@ -1681,14 +3461,53 @@ def call_llm(
                     error_data.get("code") == "UPSTREAM_INVALID_REQUEST"
                     and error_data.get("isRetryable") is False
                 ):
-                    raise LlmRequestRejectedError(
+                    error = LlmRequestRejectedError(
                         error_data.get(
                             "error",
                             "Anthropic rejected the request before generation.",
                         )
                     )
+                    benchmark_call_id = (
+                        payload.get("benchmark", {}).get("call_id")
+                        if isinstance(payload.get("benchmark"), dict)
+                        else None
+                    )
+                    if benchmark_context is not None:
+                        if not isinstance(benchmark_call_id, str):
+                            raise LlmAccountingError(
+                                "Candidate request omitted its benchmark call ID"
+                            )
+                        error.usage = _benchmark_rejected_failure_usage(
+                            error_data,
+                            requested_model=model_id,
+                            expected_call_id=benchmark_call_id,
+                            stage=stage,
+                            pipeline_pass=pipeline_pass,
+                            boundary_run=boundary_run,
+                            reader_name=reader_name,
+                            request_sha256=request_sha256,
+                            prompt_sha256=prompt_sha256,
+                            schema_mode=schema_mode,
+                            schema_sha256=schema_sha256,
+                            transport_schema_sha256=transport_schema_sha256,
+                            logical_retry=logical_retry,
+                            started_at=call_started_timestamp,
+                            latency_ms=max(
+                                0,
+                                round((time.perf_counter() - call_started_at) * 1_000),
+                            ),
+                            expected_release=_BENCHMARK_EXPECTED_RELEASE,
+                        )
+                        if error_data.get("rejected_output_status") == "available":
+                            raw_provider_content = copy.deepcopy(
+                                error_data.get("rejected_output")
+                            )
+                            if raw_response_sink is not None:
+                                raw_response_sink.clear()
+                                raw_response_sink["content"] = raw_provider_content
+                    raise error
                 raise RuntimeError(
-                    f"Proxy rejected the request (400). Body: {resp.text[:500]}"
+                    "Proxy rejected the request before a safe response contract was available"
                 )
             if resp.status_code == 503:
                 try:
@@ -1697,6 +3516,62 @@ def call_llm(
                     error_data = {}
                 error_code = error_data.get("code")
                 is_retryable = error_data.get("isRetryable") is True
+                if error_code == "CANDIDATE_PROVIDER_CONFIGURATION_UNAVAILABLE":
+                    rejection = error_data.get("benchmark_rejection")
+                    benchmark_call_id = (
+                        payload.get("benchmark", {}).get("call_id")
+                        if isinstance(payload.get("benchmark"), dict)
+                        else None
+                    )
+                    if (
+                        benchmark_context is None
+                        or not isinstance(benchmark_call_id, str)
+                        or not isinstance(rejection, dict)
+                        or rejection.get("call_id") != benchmark_call_id
+                        or rejection.get("requested_model") != model_id
+                        or rejection.get("disposition") != "released_before_dispatch"
+                        or rejection.get("charged_cost_microusd") != 0
+                        or rejection.get("reserved_cost_microusd") != 0
+                        or rejection.get("validation_failure_code")
+                        != "CANDIDATE_PROVIDER_CONFIGURATION_UNAVAILABLE"
+                        or re.fullmatch(
+                            r"[a-f0-9]{64}",
+                            str(rejection.get("configuration_error_sha256", "")),
+                        ) is None
+                    ):
+                        raise LlmAccountingError(
+                            "Candidate configuration failure omitted zero-dispatch proof"
+                        )
+                    error = LlmPreCallAccountingError(
+                        "Candidate provider configuration failed before dispatch."
+                    )
+                    error.usage = _benchmark_pre_dispatch_failure_usage(
+                        error_data,
+                        requested_model=model_id,
+                        expected_call_id=benchmark_call_id,
+                        stage=stage,
+                        pipeline_pass=pipeline_pass,
+                        boundary_run=boundary_run,
+                        reader_name=reader_name,
+                        request_sha256=request_sha256,
+                        prompt_sha256=prompt_sha256,
+                        schema_mode=schema_mode,
+                        schema_sha256=schema_sha256,
+                        transport_schema_sha256=transport_schema_sha256,
+                        logical_retry=logical_retry,
+                        started_at=call_started_timestamp,
+                        latency_ms=max(
+                            0,
+                            round((time.perf_counter() - call_started_at) * 1_000),
+                        ),
+                        expected_release=_BENCHMARK_EXPECTED_RELEASE,
+                        error_type="CandidateProviderConfigurationError",
+                        failure_state="candidate_provider_configuration_unavailable",
+                        failure_message=(
+                            "Candidate provider configuration failed before dispatch"
+                        ),
+                    )
+                    raise error
                 if (
                     error_code == "POST_CALL_ACCOUNTING_UNCERTAIN"
                     or error_code == "BENCHMARK_SPEND_UNCERTAIN"
@@ -1728,21 +3603,73 @@ def call_llm(
                             pipeline_pass=pipeline_pass,
                             boundary_run=boundary_run,
                             reader_name=reader_name,
+                            request_sha256=request_sha256,
+                            prompt_sha256=prompt_sha256,
+                            schema_mode=schema_mode,
+                            schema_sha256=schema_sha256,
+                            transport_schema_sha256=transport_schema_sha256,
+                            logical_retry=logical_retry,
+                            started_at=call_started_timestamp,
+                            latency_ms=max(
+                                0,
+                                round((time.perf_counter() - call_started_at) * 1_000),
+                            ),
+                            expected_release=_BENCHMARK_EXPECTED_RELEASE,
                         )
+                        if error_data.get("rejected_output_status") == "available":
+                            raw_provider_content = copy.deepcopy(
+                                error_data.get("rejected_output")
+                            )
+                            if raw_response_sink is not None:
+                                raw_response_sink.clear()
+                                raw_response_sink["content"] = raw_provider_content
                     raise error
-                if (
-                    error_code == "PRE_CALL_ACCOUNTING_UNAVAILABLE"
-                    and is_retryable
-                ):
-                    raise LlmPreCallRetryableError(
+                if error_code == "PRE_CALL_ACCOUNTING_UNAVAILABLE":
+                    if is_retryable:
+                        raise LlmPreCallRetryableError(
+                            error_data.get("error", "Pre-call accounting unavailable.")
+                        )
+                    error = LlmPreCallAccountingError(
                         error_data.get("error", "Pre-call accounting unavailable.")
                     )
+                    if benchmark_context is not None:
+                        error.usage = _benchmark_pre_dispatch_failure_usage(
+                            error_data,
+                            requested_model=model_id,
+                            expected_call_id=payload["benchmark"]["call_id"],
+                            stage=stage,
+                            pipeline_pass=pipeline_pass,
+                            boundary_run=boundary_run,
+                            reader_name=reader_name,
+                            request_sha256=request_sha256,
+                            prompt_sha256=prompt_sha256,
+                            schema_mode=schema_mode,
+                            schema_sha256=schema_sha256,
+                            transport_schema_sha256=transport_schema_sha256,
+                            logical_retry=logical_retry,
+                            started_at=call_started_timestamp,
+                            latency_ms=max(
+                                0,
+                                round((time.perf_counter() - call_started_at) * 1_000),
+                            ),
+                            expected_release=_BENCHMARK_EXPECTED_RELEASE,
+                            error_type="LlmPreCallAccountingError",
+                            failure_state="pre_call_accounting_unavailable",
+                            failure_message="Pre-call accounting failed before provider dispatch",
+                        )
+                    raise error
             if resp.status_code == 502:
                 try:
                     error_data = resp.json()
                 except ValueError:
                     error_data = {}
                 if error_data.get("code") == "MODEL_PROVENANCE_MISMATCH":
+                    raw_provider_content = copy.deepcopy(
+                        error_data.get("rejected_output", error_data.get("content"))
+                    )
+                    if raw_response_sink is not None:
+                        raw_response_sink.clear()
+                        raw_response_sink["content"] = raw_provider_content
                     error = LlmProvenanceError(
                         error_data.get(
                             "error",
@@ -1752,22 +3679,87 @@ def call_llm(
                     error.usage = _settled_provenance_failure_usage(
                         error_data,
                         model_id,
+                        (
+                            payload["benchmark"]["call_id"]
+                            if benchmark_context is not None
+                            else None
+                        ),
                         attempt,
                         attempt_history,
                         stage=stage,
                         pipeline_pass=pipeline_pass,
                         boundary_run=boundary_run,
                         reader_name=reader_name,
+                        expected_release=_BENCHMARK_EXPECTED_RELEASE,
+                    )
+                    error.usage = _enrich_settled_provenance_failure(
+                        error.usage,
+                        request_sha256=request_sha256,
+                        prompt_sha256=prompt_sha256,
+                        schema_mode=schema_mode,
+                        schema_sha256=schema_sha256,
+                        transport_schema_sha256=transport_schema_sha256,
+                        logical_retry=logical_retry,
+                        started_at=call_started_timestamp,
+                        latency_ms=max(
+                            0,
+                            round((time.perf_counter() - call_started_at) * 1_000),
+                        ),
+                        failure_state="model_provenance_mismatch",
+                        failure_message=(
+                            "Settled response returned a different exact model"
+                        ),
+                    )
+                    _preserve_local_rejected_output(
+                        stage,
+                        raw_provider_content,
+                        error.usage,
+                        "Settled response returned a different exact model",
                     )
                     raise error
             resp.raise_for_status()
             data = resp.json()
 
-            raw_usage = _validated_settled_usage(data.get("usage"))
+            raw_usage = _validated_settled_usage(
+                data.get("usage"),
+                require_exact_estimate=benchmark_context is not None,
+                expected_model=model_id,
+                configured_inference_geo=(
+                    _BENCHMARK_EXPECTED_RELEASE.get("inference_geo")
+                    if isinstance(_BENCHMARK_EXPECTED_RELEASE, dict)
+                    else None
+                ),
+            )
 
-            text = data.get("text", "")
-            raw_tool_uses = data.get("tool_uses", [])
-            tool_uses = raw_tool_uses if isinstance(raw_tool_uses, list) else []
+            raw_provider_content = copy.deepcopy(data.get("content"))
+            if raw_response_sink is not None:
+                raw_response_sink.clear()
+                raw_response_sink["content"] = raw_provider_content
+            provider_content_valid = isinstance(raw_provider_content, list)
+            provider_blocks = (
+                [block for block in raw_provider_content if isinstance(block, dict)]
+                if provider_content_valid
+                else []
+            )
+            text_block = next(
+                (
+                    block
+                    for block in provider_blocks
+                    if block.get("type") == "text"
+                ),
+                None,
+            )
+            text = (
+                text_block.get("text")
+                if isinstance(text_block, dict)
+                and isinstance(text_block.get("text"), str)
+                else ""
+            )
+            tool_uses = [
+                block
+                for block in provider_blocks
+                if block.get("type") == "tool_use"
+            ]
             first_tool_use = (
                 tool_uses[0]
                 if tool_uses and isinstance(tool_uses[0], dict)
@@ -1783,6 +3775,7 @@ def call_llm(
             response_id = data.get("response_id")
             response_release = data.get("release")
             provenance_error = None
+            provenance_failure_state = "model_provenance_mismatch"
             if not isinstance(response_model, str) or not response_model:
                 provenance_error = (
                     "Settled LLM response did not include its exact returned model ID"
@@ -1791,21 +3784,67 @@ def call_llm(
                 provenance_error = (
                     "Settled LLM response did not include its immutable response ID"
                 )
+            elif not isinstance(data.get("stop_reason"), str) or not data[
+                "stop_reason"
+            ].strip():
+                provenance_error = (
+                    "Settled LLM response did not include its exact stop reason"
+                )
+                provenance_failure_state = "missing_stop_reason"
             elif response_model != model_id:
                 provenance_error = (
                     "Settled LLM response model did not match the exact requested model ID"
                 )
+            elif benchmark_context is not None:
+                expected_release = _BENCHMARK_EXPECTED_RELEASE
+                if not _benchmark_release_matches(
+                    response_release,
+                    expected_release,
+                ):
+                    provenance_error = (
+                        "Settled LLM response release did not match the exact "
+                        "candidate preflight release"
+                    )
+                    provenance_failure_state = "candidate_release_mismatch"
             if provenance_error is not None:
                 error = LlmProvenanceError(provenance_error)
                 error.usage = _settled_provenance_failure_usage(
                     data,
                     model_id,
+                    (
+                        payload["benchmark"]["call_id"]
+                        if benchmark_context is not None
+                        else None
+                    ),
                     attempt,
                     attempt_history,
                     stage=stage,
                     pipeline_pass=pipeline_pass,
                     boundary_run=boundary_run,
                     reader_name=reader_name,
+                    expected_release=_BENCHMARK_EXPECTED_RELEASE,
+                )
+                error.usage = _enrich_settled_provenance_failure(
+                    error.usage,
+                    request_sha256=request_sha256,
+                    prompt_sha256=prompt_sha256,
+                    schema_mode=schema_mode,
+                    schema_sha256=schema_sha256,
+                    transport_schema_sha256=transport_schema_sha256,
+                    logical_retry=logical_retry,
+                    started_at=call_started_timestamp,
+                    latency_ms=max(
+                        0,
+                        round((time.perf_counter() - call_started_at) * 1_000),
+                    ),
+                    failure_state=provenance_failure_state,
+                    failure_message=provenance_error,
+                )
+                _preserve_local_rejected_output(
+                    stage,
+                    raw_provider_content,
+                    error.usage,
+                    provenance_error,
                 )
                 raise error
             successful_history = [
@@ -1816,6 +3855,7 @@ def call_llm(
                     "response_id": response_id,
                 },
             ]
+            stop_reason = data["stop_reason"]
             settled_call_usage = {
                 "input_tokens": int(raw_usage.get("input_tokens", 0)),
                 "output_tokens": int(raw_usage.get("output_tokens", 0)),
@@ -1825,14 +3865,50 @@ def call_llm(
                 "actual_cost_microusd": int(raw_usage.get("actual_cost_microusd", 0)),
                 "actual_cost_usd": float(raw_usage.get("actual_cost_usd", 0.0)),
             }
+            for field in (
+                "charged_cost_microusd",
+                "estimated_cost_nanousd",
+                "estimated_cost_usd",
+                "rounding_variance_nanousd",
+                "rounding_variance_usd",
+                "rounding_reason",
+            ):
+                if field in raw_usage:
+                    settled_call_usage[field] = raw_usage[field]
+            if isinstance(raw_usage.get("cache_creation"), dict):
+                settled_call_usage["cache_creation"] = copy.deepcopy(
+                    raw_usage["cache_creation"]
+                )
+            for field in ("inference_geo", "service_tier", "normalizations"):
+                if field in raw_usage:
+                    settled_call_usage[field] = copy.deepcopy(raw_usage[field])
+            independent_cost_microusd = _independent_cost_microusd(
+                response_model,
+                raw_usage,
+            )
+            independent_cost_nanousd = _independent_cost_nanousd(
+                response_model,
+                raw_usage,
+            )
+            cost_variance_microusd = (
+                settled_call_usage["actual_cost_microusd"]
+                - independent_cost_microusd
+            )
+            exact_cost_variance_nanousd = (
+                settled_call_usage.get(
+                    "estimated_cost_nanousd",
+                    independent_cost_nanousd,
+                )
+                - independent_cost_nanousd
+            )
             usage = {
                 **settled_call_usage,
-                "finish_reason": data.get("stop_reason") or "end_turn",
+                "finish_reason": stop_reason,
                 "calls": [{
                     "response_id": response_id,
                     "requested_model": model_id,
                     "returned_model": response_model,
-                    "stop_reason": data.get("stop_reason") or "end_turn",
+                    "stop_reason": stop_reason,
                     "successful_attempt": attempt,
                     "retry_history": successful_history,
                     "stage": stage,
@@ -1840,6 +3916,87 @@ def call_llm(
                     "boundary_run": boundary_run,
                     "reader_name": reader_name,
                     "usage": copy.deepcopy(settled_call_usage),
+                    "request_sha256": request_sha256,
+                    "prompt_sha256": prompt_sha256,
+                    "prompt_contract_version": PROMPT_CONTRACT_VERSION,
+                    "schema_mode": schema_mode,
+                    "schema_sha256": schema_sha256,
+                    "transport_schema_sha256": transport_schema_sha256,
+                    "pricing_sha256": _MODEL_PRICING_SHA256,
+                    "endpoint_category": routing["endpoint_category"],
+                    "requested_inference_geo": routing["inference_geo"],
+                    "returned_inference_geo": raw_usage["inference_geo"],
+                    "requested_service_tier": routing["service_tier"],
+                    "returned_service_tier": raw_usage["service_tier"],
+                    "independent_cost_microusd": independent_cost_microusd,
+                    "independent_cost_usd": independent_cost_microusd / 1_000_000,
+                    "independent_cost_nanousd": independent_cost_nanousd,
+                    "independent_estimated_cost_usd": (
+                        independent_cost_nanousd / 1_000_000_000
+                    ),
+                    "exact_cost_variance_nanousd": exact_cost_variance_nanousd,
+                    "exact_cost_variance_usd": (
+                        exact_cost_variance_nanousd / 1_000_000_000
+                    ),
+                    "charged_cost_microusd": settled_call_usage.get(
+                        "charged_cost_microusd",
+                        settled_call_usage["actual_cost_microusd"],
+                    ),
+                    "rounding_variance_nanousd": settled_call_usage.get(
+                        "rounding_variance_nanousd",
+                        settled_call_usage["actual_cost_microusd"] * 1_000
+                        - independent_cost_nanousd,
+                    ),
+                    "rounding_variance_usd": settled_call_usage.get(
+                        "rounding_variance_usd",
+                        (
+                            settled_call_usage["actual_cost_microusd"] * 1_000
+                            - independent_cost_nanousd
+                        ) / 1_000_000_000,
+                    ),
+                    "rounding_reason": settled_call_usage.get("rounding_reason"),
+                    "cost_variance_microusd": cost_variance_microusd,
+                    "cost_variance_reason": (
+                        None
+                        if cost_variance_microusd == 0
+                        else "recorded_server_cost_differs_from_local_catalog"
+                    ),
+                    "latency_ms": max(
+                        0,
+                        round((time.perf_counter() - call_started_at) * 1_000),
+                    ),
+                    "started_at": call_started_timestamp,
+                    "completed_at": datetime.now(timezone.utc).isoformat().replace(
+                        "+00:00",
+                        "Z",
+                    ),
+                    "transport_attempt": attempt,
+                    "transport_retry_count": attempt - 1,
+                    "logical_retry": logical_retry,
+                    "attempt_number": logical_retry + 1,
+                    "retry_count": attempt - 1,
+                    "total_retry_count": attempt - 1 + logical_retry,
+                    "validation_result": "pending_application_validation",
+                    "transformations": [
+                        *list(raw_usage.get("normalizations", [])),
+                        *( ["parsed_exact_provider_content"]
+                            if provider_content_valid else [] ),
+                    ],
+                    "transformation_evidence": [
+                        _transformation_hash_evidence(name, None, 0)
+                        for name in raw_usage.get("normalizations", [])
+                    ] + ([
+                        _transformation_hash_evidence(
+                            "parsed_exact_provider_content",
+                            raw_provider_content,
+                            {"text": text, "tool_uses": tool_uses},
+                        )
+                    ] if provider_content_valid else []),
+                    "failure_state": None,
+                    "warnings": [],
+                    "fallback_used": False,
+                    "truncated": False,
+                    "downstream_consumption": "pending",
                     **({
                         "call_id": payload["benchmark"]["call_id"],
                         "release": response_release,
@@ -1858,23 +4015,81 @@ def call_llm(
                     },
                 },
             }
-            if tool:
-                stop_reason = data.get("stop_reason") or "end_turn"
-                if stop_reason in {
+            checkpoint_benchmark_usage(usage)
+            if cost_variance_microusd != 0 or exact_cost_variance_nanousd != 0:
+                call = usage["calls"][0]
+                call.update({
+                    "disposition": "discarded_unusable",
+                    "validation_result": "failed_accounting",
+                    "validation_reason": (
+                        "Recorded server cost did not match the independently "
+                        "calculated cost under the identical pricing contract"
+                    ),
+                    "failure_state": "cost_reconciliation_mismatch",
+                    "failure_message": "Exact call cost did not reconcile",
+                    "downstream_consumption": "not_consumed",
+                })
+                error = LlmAccountingError(
+                    "Settled response cost did not reconcile with the exact pricing contract"
+                )
+                _preserve_local_rejected_output(
+                    stage,
+                    raw_provider_content,
+                    usage,
+                    call["validation_reason"],
+                )
+                error.usage = usage
+                raise error
+            if not provider_content_valid:
+                call = usage["calls"][0]
+                call.update({
+                    "disposition": "discarded_unusable",
+                    "validation_result": "failed_structural",
+                    "validation_reason": (
+                        "Settled provider response omitted its exact content blocks"
+                    ),
+                    "failure_state": "output_contract_failed",
+                    "downstream_consumption": "not_consumed",
+                })
+                checkpoint_benchmark_usage(usage)
+                raise LlmOutputContractError(
+                    "Settled provider response omitted its exact content blocks",
+                    usage,
+                    raw_provider_content,
+                )
+            if stop_reason in {
+                "max_tokens",
+                "model_context_window_exceeded",
+                "pause_turn",
+                "refusal",
+                "stop_sequence",
+            }:
+                call = usage["calls"][0]
+                call["truncated"] = stop_reason in {
                     "max_tokens",
                     "model_context_window_exceeded",
-                    "refusal",
-                }:
-                    raise LlmOutputContractError(
-                        "Structured output stopped before a trustworthy tool "
-                        f"result was available: {stop_reason}",
-                        usage,
-                    )
+                }
+                call["validation_result"] = "failed_structural"
+                call["validation_reason"] = (
+                    "Provider stopped before a trustworthy response was available: "
+                    f"{stop_reason}"
+                )
+                call["failure_state"] = "incomplete_provider_response"
+                call["downstream_consumption"] = "not_consumed"
+                checkpoint_benchmark_usage(usage)
+                raise LlmOutputContractError(
+                    "Provider stopped before a trustworthy response was available: "
+                    f"{stop_reason}",
+                    usage,
+                    raw_provider_content,
+                )
+            if tool:
                 if len(tool_uses) != 1:
                     raise LlmOutputContractError(
                         "Structured output must contain exactly one tool call; "
                         f"received {len(tool_uses)}",
                         usage,
+                        raw_provider_content,
                     )
                 returned_tool_name = (
                     first_tool_use.get("name")
@@ -1883,23 +4098,37 @@ def call_llm(
                 )
                 if returned_tool_name != tool["name"]:
                     raise LlmOutputContractError(
-                        "Structured output used the wrong tool: "
-                        f"expected {tool['name']}, got {returned_tool_name}",
+                        "Structured output used the wrong tool contract; "
+                        f"{_untrusted_value_summary(returned_tool_name)}",
                         usage,
+                        raw_provider_content,
                     )
                 if not isinstance(tool_input, dict):
                     raise LlmOutputContractError(
                         "Structured tool input is not an object",
                         usage,
+                        raw_provider_content,
                     )
                 if compact_json_envelope:
+                    envelope_input = copy.deepcopy(tool_input)
                     try:
                         tool_input = _decode_json_envelope(tool, tool_input)
                     except ValueError as error:
                         raise LlmOutputContractError(
                             str(error),
                             usage,
+                            raw_provider_content,
                         ) from error
+                    usage["calls"][0]["transformations"].append(
+                        "decoded_compact_json_envelope"
+                    )
+                    usage["calls"][0]["transformation_evidence"].append(
+                        _transformation_hash_evidence(
+                            "decoded_compact_json_envelope",
+                            envelope_input,
+                            tool_input,
+                        )
+                    )
             return tool_input, text, usage
 
         except (
@@ -1908,6 +4137,7 @@ def call_llm(
             LlmAccountingError,
             LlmProvenanceError,
             LlmRequestRejectedError,
+            LlmPreCallAccountingError,
             LlmOutputContractError,
         ):
             raise
@@ -1925,12 +4155,25 @@ def call_llm(
             attempt_history.append(failure)
             if attempt < effective_retries:
                 wait = attempt * 5
+                status_suffix = (
+                    f" HTTP {status_code}" if isinstance(status_code, int) else ""
+                )
                 log.warning(
                     f"    LLM call failed (attempt {attempt}/{effective_retries}): "
-                    f"{e} — retrying in {wait}s"
+                    f"{type(e).__name__}{status_suffix}; retrying in {wait}s"
                 )
                 time.sleep(wait)
                 continue
+        except requests.Timeout as e:
+            last_err = e
+            terminal_failure_state = "post_dispatch_timeout"
+            attempt_history.append({
+                "attempt": attempt,
+                "outcome": "failed",
+                "error_type": type(e).__name__,
+                "failure_state": terminal_failure_state,
+            })
+            break
         except Exception as e:
             last_err = e
             failure: Dict[str, Any] = {
@@ -1945,14 +4188,64 @@ def call_llm(
             attempt_history.append(failure)
             break
 
+    failure_message = (
+        f"{type(last_err).__name__ if last_err else 'UnknownError'}; "
+        f"{_untrusted_value_summary(str(last_err))}"
+    )
     raise LlmCallFailedError(
-        f"LLM call failed after {len(attempt_history)} attempts: {last_err}",
+        f"LLM call failed after {len(attempt_history)} attempts: {failure_message}",
         attempt_history=attempt_history,
         requested_model=model_id,
         stage=stage,
         pipeline_pass=pipeline_pass,
         boundary_run=boundary_run,
         reader_name=reader_name,
+        call_evidence={
+            "call_id": (
+                payload.get("benchmark", {}).get("call_id")
+                if isinstance(payload.get("benchmark"), dict)
+                else None
+            ),
+            "returned_model": None,
+            "response_id": None,
+            "stop_reason": None,
+            "request_sha256": request_sha256,
+            "prompt_sha256": prompt_sha256,
+            "prompt_contract_version": PROMPT_CONTRACT_VERSION,
+            "schema_mode": schema_mode,
+            "schema_sha256": schema_sha256,
+            "transport_schema_sha256": transport_schema_sha256,
+            "pricing_sha256": _MODEL_PRICING_SHA256,
+            "release": None,
+            "expected_release": copy.deepcopy(_BENCHMARK_EXPECTED_RELEASE),
+            "latency_ms": max(
+                0,
+                round((time.perf_counter() - call_started_at) * 1_000),
+            ),
+            "started_at": call_started_timestamp,
+            "completed_at": datetime.now(timezone.utc).isoformat().replace(
+                "+00:00", "Z"
+            ),
+            "transport_attempts": len(attempt_history),
+            "transport_retry_count": max(0, len(attempt_history) - 1),
+            "logical_retry": logical_retry,
+            "attempt_number": logical_retry + 1,
+            "retry_count": max(0, len(attempt_history) - 1),
+            "total_retry_count": max(0, len(attempt_history) - 1) + logical_retry,
+            "validation_result": "failed_transport",
+            "validation_reason": failure_message,
+            "transformations": [],
+            "transformation_evidence": [],
+            "failure_state": terminal_failure_state or (
+                type(last_err).__name__ if last_err else "unknown"
+            ),
+            "failure_message": failure_message,
+            "warnings": [],
+            "fallback_used": False,
+            "truncated": False,
+            "downstream_consumption": "not_consumed",
+            "disposition": "discarded_unusable",
+        },
     )
 
 
@@ -2002,7 +4295,10 @@ def extract_json(text: str) -> Dict[str, Any]:
                 except json.JSONDecodeError:
                     pass
 
-    raise ValueError(f"No valid JSON found in LLM response (first 200 chars): {text[:200]}")
+    raise ValueError(
+        "No valid JSON found in LLM response; "
+        f"{_untrusted_value_summary(text)}"
+    )
 
 
 # ── Code-Side Verdict Derivation ─────────────────────────────────────────────
@@ -2025,7 +4321,7 @@ SUB_SCORE_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "properties": {
         "score": {"type": "integer", "minimum": 0, "maximum": 10},
-        "justification": {"type": "string"},
+        "justification": {"type": "string", "minLength": 1},
         "page_citations": {
             "type": "array",
             "items": {"type": "integer"},
@@ -2067,6 +4363,11 @@ CHARACTER_EVIDENCE_SCHEMA: Dict[str, Any] = {
             "type": "string",
             "enum": ["person", "non_person_force", "not_identified"],
         },
+        "role": {
+            "type": "string",
+            "enum": ["protagonist", "antagonist", "supporting"],
+        },
+        "role_justification": {"type": "string"},
         "page_citations": {"type": "array", "items": {"type": "integer"}},
         "citation_evidence": {
             "type": "array",
@@ -2080,7 +4381,61 @@ CHARACTER_EVIDENCE_SCHEMA: Dict[str, Any] = {
             },
         },
     },
-    "required": ["kind", "page_citations", "citation_evidence"],
+    "required": [
+        "kind",
+        "role",
+        "role_justification",
+        "page_citations",
+        "citation_evidence",
+    ],
+}
+
+ATOMIC_CLAIM_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "claim": {"type": "string"},
+        "page_citations": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "minItems": 1,
+        },
+        "citation_evidence": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "page": {"type": "integer"},
+                    "excerpt": {"type": "string"},
+                },
+                "required": ["page", "excerpt"],
+            },
+            "minItems": 1,
+        },
+    },
+    "required": ["claim", "page_citations", "citation_evidence"],
+}
+
+MATERIAL_CLAIM_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "source_field": {
+            "type": "string",
+            "enum": ["logline", "executive_summary", "strength", "weakness"],
+        },
+        "source_index": {"type": "integer", "minimum": 0},
+        "claim": {"type": "string"},
+        "atomic_claims": {
+            "type": "array",
+            "items": ATOMIC_CLAIM_SCHEMA,
+            "minItems": 1,
+        },
+    },
+    "required": [
+        "source_field",
+        "source_index",
+        "claim",
+        "atomic_claims",
+    ],
 }
 
 
@@ -2088,6 +4443,7 @@ def _sub_score_schema_with(extra: Dict[str, Any]) -> Dict[str, Any]:
     """Sub-score schema with reader-specific extra fields (e.g. arc_type)."""
     base = json.loads(json.dumps(SUB_SCORE_SCHEMA))  # deep copy
     base["properties"].update(extra)
+    base["required"].extend(extra)
     return base
 
 
@@ -2921,87 +5277,212 @@ def run_genre_detection(
     model_key: str = "haiku",
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Classify the script into the Five-Leaf Clover using a context-safe model."""
-    usage = empty_usage()
-    try:
-        _tool_input, text, usage = call_llm(
-            system_blocks=[{
-                "type": "text",
-                "text": (
-                    f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n"
-                    "You are a Story Grid genre analyst. Classify precisely."
+    system_blocks = [{
+        "type": "text",
+        "text": (
+            f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n"
+            "You are a Story Grid genre analyst. Classify precisely."
+        ),
+    }]
+    base_user_blocks = [
+        screenplay_block,
+        {"type": "text", "text": build_genre_detection_prompt()},
+    ]
+    total_usage = empty_usage()
+    rejection_evidence: List[Dict[str, Any]] = []
+    last_error: Optional[BaseException] = None
+
+    for semantic_attempt in range(2):
+        raw_response: Dict[str, Any] = {}
+        user_blocks = base_user_blocks
+        if last_error is not None:
+            user_blocks = [
+                *base_user_blocks,
+                {
+                    "type": "text",
+                    "text": (
+                        "# ONE PERMITTED SEMANTIC CORRECTION\n"
+                        "The prior classification passed its JSON contract but "
+                        f"failed this semantic rule: {str(last_error)[:500]}\n"
+                        f"Call `{GENRE_DETECTION_TOOL['name']}` exactly once with "
+                        "a classification that satisfies that rule."
+                    ),
+                },
+            ]
+        try:
+            raw, _text, attempt_usage = call_llm(
+                system_blocks=system_blocks,
+                user_blocks=user_blocks,
+                model_key=model_key,
+                tool=GENRE_DETECTION_TOOL,
+                max_tokens=400,
+                proxy_url=proxy_url,
+                job_id=job_id,
+                stage="genre_detection",
+                pipeline_pass=pipeline_pass,
+                boundary_run=boundary_run,
+                logical_retry=semantic_attempt,
+                raw_response_sink=raw_response,
+            )
+        except (
+            DailyBudgetExceededError,
+            BenchmarkCapExceededError,
+            LlmAccountingError,
+            LlmProvenanceError,
+            LlmRequestRejectedError,
+        ) as error:
+            error.usage = merge_usage(
+                total_usage,
+                getattr(error, "usage", empty_usage()),
+            )
+            raise
+        except LlmOutputContractError as error:
+            total_usage = merge_usage(total_usage, error.usage)
+            if error.usage.get("calls"):
+                set_successful_call_disposition(error.usage, "discarded_unusable")
+                _mark_call_validation(
+                    error.usage,
+                    result="failed_structural",
+                    reason=str(error),
+                )
+                has_exact_content = "content" in raw_response
+                rejected_raw = (
+                    raw_response.get("content")
+                    if has_exact_content
+                    else error.rejected_output
+                )
+                if has_exact_content or rejected_raw is not None:
+                    rejection_evidence.append(
+                        _preserve_local_rejected_genre_output(
+                            rejected_raw,
+                            error.usage,
+                            str(error),
+                        )
+                    )
+            last_error = error
+            break
+        except LlmCallFailedError as error:
+            total_usage = merge_usage(total_usage, failed_usage(error))
+            last_error = error
+            break
+        except Exception as error:
+            last_error = error
+            break
+
+        total_usage = merge_usage(total_usage, attempt_usage)
+        try:
+            if not isinstance(raw, dict):
+                raise LlmOutputContractError(
+                    "Genre structured output is not an object",
+                    attempt_usage,
+                )
+            _validate_json_schema_value(
+                raw,
+                GENRE_DETECTION_TOOL["input_schema"],
+                "genre_detection",
+            )
+        except (ValueError, LlmOutputContractError) as error:
+            set_successful_call_disposition(attempt_usage, "discarded_unusable")
+            _mark_call_validation(
+                attempt_usage,
+                result="failed_structural",
+                reason=str(error),
+            )
+            rejection_evidence.append(
+                _preserve_local_rejected_genre_output(
+                    raw_response.get("content", raw),
+                    attempt_usage,
+                    str(error),
+                )
+            )
+            last_error = error
+            break
+
+        try:
+            detection = parse_detection(raw)
+            if not detection["one_line_why"].strip():
+                raise ValueError("one_line_why is empty")
+        except ValueError as error:
+            derived_genre = {
+                **raw,
+                "is_comedy": raw.get("external_genre") == "Comedy",
+            }
+            set_successful_call_disposition(attempt_usage, "discarded_unusable")
+            _mark_call_validation(
+                attempt_usage,
+                result="failed_semantic",
+                reason=str(error),
+                transformations=("derived_is_comedy_from_external_genre",),
+                transformation_evidence=(
+                    _transformation_hash_evidence(
+                        "derived_is_comedy_from_external_genre",
+                        raw,
+                        derived_genre,
+                    ),
                 ),
-            }],
-            user_blocks=[
-                screenplay_block,
-                {"type": "text", "text": build_genre_detection_prompt()},
-            ],
-            model_key=model_key,
-            max_tokens=400,
-            proxy_url=proxy_url,
-            job_id=job_id,
-            stage="genre_detection",
-            pipeline_pass=pipeline_pass,
-            boundary_run=boundary_run,
-        )
-        raw = extract_json(text)
-        primary = canonical_external(raw.get("external_genre"))
-        internal_genres = {
-            name
-            for members in INTERNAL_GENRES.values()
-            for name in members
+            )
+            rejection_evidence.append(
+                _preserve_local_rejected_genre_output(
+                    raw_response.get("content", raw),
+                    attempt_usage,
+                    str(error),
+                )
+            )
+            last_error = error
+            if semantic_attempt == 0:
+                continue
+            break
+
+        set_successful_call_disposition(attempt_usage, "used")
+        derived_genre = {
+            **raw,
+            "is_comedy": raw.get("external_genre") == "Comedy",
         }
-        if primary is None:
-            raise ValueError("external_genre is missing or unknown")
-        if not isinstance(raw.get("is_comedy"), bool):
-            raise ValueError("is_comedy must be a boolean")
-        if raw["is_comedy"] != (primary == "Comedy"):
-            raise ValueError("is_comedy contradicts external_genre")
-        if not isinstance(raw.get("comedic_tone"), bool):
-            raise ValueError("comedic_tone must be a boolean")
-        if raw.get("internal_genre") not in internal_genres:
-            raise ValueError("internal_genre is missing or unknown")
-        if raw.get("confidence") not in {"high", "medium", "low"}:
-            raise ValueError("confidence is missing or invalid")
-        if not isinstance(raw.get("one_line_why"), str) or not raw["one_line_why"].strip():
-            raise ValueError("one_line_why is empty")
-        if primary == "Comedy" or raw["is_comedy"]:
-            paired = canonical_external(raw.get("comedy_paired_genre"))
-            if paired in {None, "Comedy"}:
-                raise ValueError("comedy_paired_genre is missing or invalid")
-            if raw.get("comedy_subgenre") not in COMEDY_SUBGENRES:
-                raise ValueError("comedy_subgenre is missing or invalid")
-        detection = parse_detection(raw)
-        set_successful_call_disposition(usage, "used")
-        return detection, usage
-    except (
-        DailyBudgetExceededError,
-        BenchmarkCapExceededError,
-        LlmAccountingError,
-        LlmProvenanceError,
-        LlmRequestRejectedError,
-    ) as error:
-        if not hasattr(error, "usage"):
-            error.usage = merge_usage(usage)
-        raise
-    except Exception as e:
-        if isinstance(e, LlmCallFailedError):
-            usage = failed_usage(e)
-        elif usage.get("calls"):
-            set_successful_call_disposition(usage, "discarded_unusable")
-        raise GenreDetectionIncompleteError(
-            f"Genre detection failed; no specialist readers or verdict were run: {e}",
-            usage,
-            review_evidence={
-                "error_type": type(e).__name__,
-                "error": str(e)[:500],
-                "response_ids": [
-                    call["response_id"]
-                    for call in usage.get("calls", [])
-                    if isinstance(call, dict)
-                    and isinstance(call.get("response_id"), str)
-                ],
-            },
-        ) from e
+        transformations = ["derived_is_comedy_from_external_genre"]
+        transformation_evidence = [
+            _transformation_hash_evidence(
+                "derived_is_comedy_from_external_genre",
+                raw,
+                derived_genre,
+            )
+        ]
+        if not detection["is_comedy"]:
+            transformations.append("normalized_inapplicable_comedy_fields")
+            transformation_evidence.append(
+                _transformation_hash_evidence(
+                    "normalized_inapplicable_comedy_fields",
+                    derived_genre,
+                    detection,
+                )
+            )
+        _mark_call_validation(
+            attempt_usage,
+            result="passed",
+            consumed=True,
+            transformations=transformations,
+            transformation_evidence=transformation_evidence,
+        )
+        return detection, total_usage
+
+    assert last_error is not None
+    validation_reason = str(last_error)[:500]
+    raise GenreDetectionIncompleteError(
+        "Genre detection failed; no specialist readers or verdict were run: "
+        f"{validation_reason}",
+        total_usage,
+        review_evidence={
+            "error_type": type(last_error).__name__,
+            "error": validation_reason,
+            "validation_reason": validation_reason,
+            "rejected_responses": rejection_evidence,
+            "response_ids": [
+                call["response_id"]
+                for call in total_usage.get("calls", [])
+                if isinstance(call, dict)
+                and isinstance(call.get("response_id"), str)
+            ],
+        },
+    ) from last_error
 
 
 # ─── SYNTHESIS ───────────────────────────────────────────────────────────────
@@ -3019,6 +5500,53 @@ FALSE_POSITIVE_TRAP_INSTRUCTIONS = "\n".join(
     f"{index}. {trap['name']} ({trap['tier']}, {trap['weight']}) — "
     f"{trap['description']}"
     for index, trap in enumerate(V9_TRAP_CONTRACT["traps"], start=1)
+)
+
+CROSS_READER_CONFLICTS = (
+    {
+        "topic": "Voice without soul",
+        "reader_a": "craft_scene",
+        "metric_a": "dialogue_voice_distinction",
+        "operator_a": "gte",
+        "threshold_a": 7.0,
+        "reader_b": "emotional_resonance",
+        "metric_b": "empathy_investment",
+        "operator_b": "lt",
+        "threshold_b": 5.0,
+    },
+    {
+        "topic": "Ending Mirage",
+        "reader_a": "structure",
+        "metric_a": "beginning_hook",
+        "operator_a": "gte",
+        "threshold_a": 8.0,
+        "reader_b": "structure",
+        "metric_b": "ending_payoff",
+        "operator_b": "lt",
+        "threshold_b": 5.0,
+    },
+    {
+        "topic": "Brilliant concept, poor execution",
+        "reader_a": "concept",
+        "metric_a": "freshness",
+        "operator_a": "gte",
+        "threshold_a": 8.0,
+        "reader_b": "craft_scene",
+        "metric_b": "pillar_score",
+        "operator_b": "lt",
+        "threshold_b": 5.0,
+    },
+    {
+        "topic": "Flashy role, no arc",
+        "reader_a": "character",
+        "metric_a": "star_role_potential",
+        "operator_a": "gte",
+        "threshold_a": 7.0,
+        "reader_b": "character",
+        "metric_b": "arc_delivery",
+        "operator_b": "lt",
+        "threshold_b": 5.0,
+    },
 )
 
 SYNTHESIS_SYSTEM = f"""\
@@ -3059,8 +5587,11 @@ Sum weights of triggered traps:
 final_score = (structure × 0.30) + (character × 0.30) + (craft_scene × 0.15)
             + (concept × 0.15) + (emotional_resonance × 0.10)
 
-Apply critical_failure_penalty (sum of severities, capped at -3.0):
-MINOR=-0.3, MODERATE=-0.5, MAJOR=-0.8, CRITICAL=-1.2.
+Critical failures are the strict subset of weaknesses that would block a
+greenlight if unaddressed. A low score alone does not make a weakness critical.
+They may reference only canonical reader metrics scoring 4 or lower.
+The engine derives severity and penalty from that score: (3,4] MINOR=-0.3,
+(2,3] MODERATE=-0.5, (1,2] MAJOR=-0.8, [0,1] CRITICAL=-1.2.
 
 ### Step 6: Verdict
 PASS <5.5, CONSIDER 5.5–7.4, RECOMMEND 7.5–8.4, FILM NOW ≥8.5.
@@ -3086,8 +5617,15 @@ You will call `submit_synthesis_report` with:
 - Story-vs-Situation block carried from Character reader, plus `gate_applied`.
 - Both `verdict_before_adjustments` and final `verdict`.
 - Reader disagreement log (only conflicts that diverged ≥2 points).
-- Character identity evidence. For a named person, cite an excerpt that contains
-  the exact name. For a non-person antagonistic force, use kind
+- A `material_claims` evidence entry for the exact logline, executive summary,
+  every strength, and every weakness. Each entry must repeat the exact display
+  text, split it into sentence- or semicolon-level `atomic_claims`, and give
+  every atomic claim its own physical-page excerpts. The excerpts must share
+  the material names/actions/outcomes asserted by that atomic claim.
+- Character identity and role evidence. Set role to protagonist, antagonist, or
+  supporting and explain why the cited excerpt proves that role using concrete
+  terms present in the excerpt. For a named
+  person, cite an excerpt that contains the exact name. For a non-person force, use kind
   `non_person_force` with a supporting excerpt. If the screenplay does not make
   the role identifiable, return exactly `Not identified`, kind
   `not_identified`, and empty citation arrays. Supporting characters require
@@ -3255,6 +5793,8 @@ SYNTHESIS_TOOL: Dict[str, Any] = {
                 "description": (
                     "Strict subset of weaknesses. weakness_index must point to "
                     "the exact matching weakness and description must copy it. "
+                    "Include only issues that would block a greenlight if "
+                    "unaddressed; a low metric score alone is insufficient. "
                     "reader and metric must point to a cited canonical reader sub-score."
                 ),
             },
@@ -3275,25 +5815,12 @@ SYNTHESIS_TOOL: Dict[str, Any] = {
                 "minItems": 1,
                 "description": "At least one specific, evidence-based weakness. NEVER empty.",
             },
-            "development_notes": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Optional notes on how to develop this script further.",
-            },
-            "deliberate_ambiguities": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "description": {"type": "string"},
-                        "structural_impact": {"type": "string"},
-                        "franchise_potential": {"type": "string"},
-                    },
-                    "required": ["description"],
-                },
-                "description": "Open endings, unresolved mysteries, or sequel hooks.",
-            },
             "executive_summary": {"type": "string"},
+            "material_claims": {
+                "type": "array",
+                "items": MATERIAL_CLAIM_SCHEMA,
+                "minItems": 1,
+            },
 
             "comparable_films": {
                 "type": "object",
@@ -3345,7 +5872,7 @@ SYNTHESIS_TOOL: Dict[str, Any] = {
                                 "name": {"type": "string"},
                             },
                             "required": [
-                                "name", "kind", "page_citations",
+                                "name", "kind", "role", "role_justification", "page_citations",
                                 "citation_evidence",
                             ],
                         },
@@ -3370,22 +5897,13 @@ SYNTHESIS_TOOL: Dict[str, Any] = {
                         "reader_b_position": {"type": "string"},
                         "resolution": {"type": "string"},
                     },
-                    "required": ["topic", "reader_a", "reader_b", "resolution"],
+                    "required": [
+                        "topic", "reader_a", "reader_a_position",
+                        "reader_b", "reader_b_position", "resolution",
+                    ],
                 },
             },
 
-            "goosebumps_moments": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "page": {"type": "integer"},
-                        "description": {"type": "string"},
-                        "why_it_works": {"type": "string"},
-                    },
-                    "required": ["description", "why_it_works"],
-                },
-            },
         },
         "required": [
             "analysis_version", "title", "author", "genre", "subgenres",
@@ -3395,10 +5913,117 @@ SYNTHESIS_TOOL: Dict[str, Any] = {
             "critical_failures", "critical_failure_total_penalty",
             "verdict", "verdict_before_adjustments",
             "strengths", "weaknesses", "executive_summary",
+            "material_claims",
             "comparable_films", "characters",
+            "reader_disagreements",
         ],
     },
 }
+
+CLAIM_VERIFICATION_TOOL: Dict[str, Any] = {
+    "name": "submit_claim_verification",
+    "description": (
+        "Independently adjudicate final screenplay claims against the full "
+        "physical-page source."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "claims": {
+                "type": "array",
+                "minItems": 10,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "claim_id": {"type": "string"},
+                        "classification": {
+                            "type": "string",
+                            "enum": [
+                                "Supported",
+                                "Partially supported",
+                                "Unsupported",
+                                "Contradicted",
+                                "Not objectively verifiable",
+                            ],
+                        },
+                        "story_fact_classification": {
+                            "type": "string",
+                            "enum": [
+                                "Supported",
+                                "Partially supported",
+                                "Unsupported",
+                                "Contradicted",
+                                "No concrete story fact",
+                            ],
+                        },
+                        "unsupported_story_facts": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "claim": {"type": "string"},
+                                    "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                            "character",
+                                            "relationship",
+                                            "event",
+                                            "quotation",
+                                            "outcome",
+                                            "citation",
+                                            "minor_detail",
+                                        ],
+                                    },
+                                },
+                                "required": ["claim", "kind"],
+                            },
+                        },
+                        "page_citations": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "minItems": 1,
+                        },
+                        "citation_evidence": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "page": {"type": "integer"},
+                                    "excerpt": {"type": "string"},
+                                },
+                                "required": ["page", "excerpt"],
+                            },
+                        },
+                    },
+                    "required": [
+                        "claim_id", "classification",
+                        "story_fact_classification",
+                        "unsupported_story_facts",
+                        "page_citations", "citation_evidence",
+                    ],
+                },
+            },
+        },
+        "required": ["claims"],
+    },
+}
+
+
+def _claim_verification_batch_tool(
+    targets: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Bind a paid claim-audit call to one exact, bounded target batch."""
+    if not targets or len(targets) > CLAIM_VERIFICATION_BATCH_SIZE:
+        raise ValueError("claim verification batch size is invalid")
+    tool = copy.deepcopy(CLAIM_VERIFICATION_TOOL)
+    claims_schema = tool["input_schema"]["properties"]["claims"]
+    claims_schema["minItems"] = len(targets)
+    claims_schema["maxItems"] = len(targets)
+    claims_schema["items"]["properties"]["claim_id"]["enum"] = [
+        target["claim_id"] for target in targets
+    ]
+    return tool
 
 
 def _synthesis_system_blocks() -> List[Dict[str, Any]]:
@@ -3431,6 +6056,25 @@ def _synthesis_user_blocks(
     consistent with the obligatory-scene analysis rather than re-guessed.
     """
     reports_json = json.dumps(reader_reports, indent=2)
+    triggered_conflicts = _triggered_cross_reader_conflicts(reader_reports)
+    conflict_contract = [
+        {
+            "topic": topic,
+            "reader_a": contract["reader_a"],
+            "reader_a_position": _conflict_position(
+                reader_reports,
+                contract["reader_a"],
+                contract["metric_a"],
+            ),
+            "reader_b": contract["reader_b"],
+            "reader_b_position": _conflict_position(
+                reader_reports,
+                contract["reader_b"],
+                contract["metric_b"],
+            ),
+        }
+        for topic, contract in triggered_conflicts.items()
+    ]
 
     genre_block = ""
     if genre_detection:
@@ -3485,6 +6129,10 @@ def _synthesis_user_blocks(
                 f"{triage_block}"
                 f"{calibration_block}"
                 f"# READER REPORTS\n```json\n{reports_json}\n```\n\n"
+                "# DETERMINISTIC READER DISAGREEMENTS\n"
+                f"{json.dumps(conflict_contract, ensure_ascii=False)}\n"
+                "Return exactly these disagreement topics, readers, and position "
+                "strings, with your resolution added. Return no other disagreement.\n\n"
                 f"# YOUR TASK\nSynthesise these reports into a final verdict.\n"
                 f"Call `submit_synthesis_report` exactly once.\n"
                 f"The reader pillar scores are CANONICAL — carry them through to "
@@ -3858,14 +6506,60 @@ def _validate_citation_block(label: str, metric: Any) -> None:
         raise ValueError(f"{label} has an invalid evidence excerpt")
 
 
+_EVIDENCE_STOPWORDS = frozenset({
+    "the", "and", "that", "this", "with", "from", "into", "when", "where",
+    "what", "which", "while", "their", "there", "then", "than", "because",
+    "para", "pero", "por", "que", "con", "como", "cuando", "donde", "desde",
+    "una", "uno", "unos", "unas", "del", "las", "los", "sus", "este", "esta",
+    "int", "ext", "day", "night", "dia", "noche", "scene", "page", "escena",
+})
+
+
+def _significant_evidence_tokens(value: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"\b\w+\b", value.casefold(), flags=re.UNICODE)
+        if len(token) >= 3 and token not in _EVIDENCE_STOPWORDS and not token.isdigit()
+    }
+
+
+def _validate_evidence_support(label: str, claim: str, evidence: Dict[str, Any]) -> None:
+    claim_tokens = _significant_evidence_tokens(claim)
+    excerpt_tokens = _significant_evidence_tokens(" ".join(
+        item["excerpt"] for item in evidence["citation_evidence"]
+    ))
+    required_overlap = min(2, len(claim_tokens))
+    if required_overlap == 0 or len(claim_tokens & excerpt_tokens) < required_overlap:
+        raise ValueError(f"{label} lacks lexical support in its cited excerpt")
+
+
+def _atomic_claims(value: str) -> List[str]:
+    return [
+        part.strip()
+        for part in re.split(
+            r"(?<=[.!?])\s+|;\s*|\s+(?:but|pero|and then|y luego|while|mientras)\s+",
+            value.strip(),
+            flags=re.IGNORECASE,
+        )
+        if part.strip()
+    ]
+
+
 def _validate_character_evidence(
     label: str,
     name: Any,
     evidence: Any,
+    expected_role: str,
 ) -> None:
     if not isinstance(name, str) or not name.strip() or not isinstance(evidence, dict):
         raise ValueError(f"{label} character evidence is incomplete")
     kind = evidence.get("kind")
+    if (
+        evidence.get("role") != expected_role
+        or not isinstance(evidence.get("role_justification"), str)
+        or not evidence["role_justification"].strip()
+    ):
+        raise ValueError(f"{label} character role evidence is invalid")
     if kind == "not_identified":
         if (
             name != CHARACTER_NOT_IDENTIFIED
@@ -3878,16 +6572,25 @@ def _validate_character_evidence(
         raise ValueError(f"{label} character evidence has an invalid kind")
     _validate_citation_block(f"{label} character", evidence)
     if kind == "person":
-        normalized_name = re.sub(r"[^\w]+", " ", name.casefold()).strip()
+        name_tokens = re.sub(r"[^\w]+", " ", name.casefold()).split()
         excerpts = " ".join(
             item["excerpt"]
             for item in evidence["citation_evidence"]
         )
-        normalized_excerpts = re.sub(
+        excerpt_tokens = re.sub(
             r"[^\w]+", " ", excerpts.casefold()
-        ).strip()
-        if not normalized_name or normalized_name not in normalized_excerpts:
+        ).split()
+        name_present = bool(name_tokens) and any(
+            excerpt_tokens[index:index + len(name_tokens)] == name_tokens
+            for index in range(len(excerpt_tokens) - len(name_tokens) + 1)
+        )
+        if not name_present:
             raise ValueError(f"{label} character name is absent from its evidence")
+    _validate_evidence_support(
+        f"{label} character role",
+        evidence["role_justification"],
+        evidence,
+    )
 
 
 def _trap_numeric_path(
@@ -3986,13 +6689,77 @@ def _trap_evidence(
     )
 
 
+def _triggered_cross_reader_conflicts(
+    reader_reports: Dict[str, Any],
+) -> Dict[str, Dict[str, Any]]:
+    def score(reader: str, metric: str) -> Optional[float]:
+        report = reader_reports.get(reader)
+        if not isinstance(report, dict):
+            return None
+        if metric == "pillar_score":
+            if "pillar_score" not in report:
+                return None
+            raw = report["pillar_score"]
+        else:
+            sub_scores = report.get("sub_scores")
+            if not isinstance(sub_scores, dict) or metric not in sub_scores:
+                return None
+            raw = sub_scores[metric].get("score")
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            raise ValueError("reader disagreement contract has no numeric input")
+        return float(raw)
+
+    triggered: Dict[str, Dict[str, Any]] = {}
+    for contract in CROSS_READER_CONFLICTS:
+        if (
+            contract["reader_a"] not in reader_reports
+            or contract["reader_b"] not in reader_reports
+        ):
+            continue
+        left = score(contract["reader_a"], contract["metric_a"])
+        right = score(contract["reader_b"], contract["metric_b"])
+        if left is None or right is None:
+            continue
+        left_matches = (
+            left >= contract["threshold_a"]
+            if contract["operator_a"] == "gte"
+            else left < contract["threshold_a"]
+        )
+        right_matches = (
+            right >= contract["threshold_b"]
+            if contract["operator_b"] == "gte"
+            else right < contract["threshold_b"]
+        )
+        if left_matches and right_matches:
+            triggered[contract["topic"]] = contract
+    return triggered
+
+
+def _conflict_position(
+    reader_reports: Dict[str, Any],
+    reader: str,
+    metric: str,
+) -> str:
+    report = reader_reports[reader]
+    raw = (
+        report.get("pillar_score")
+        if metric == "pillar_score"
+        else report.get("sub_scores", {}).get(metric, {}).get("score")
+    )
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise ValueError("reader disagreement contract has no numeric input")
+    return f"{reader}.{metric}={float(raw):g}"
+
+
 def _validate_reader_report(reader: str, report: Any) -> Dict[str, Any]:
     """Reject a reader response that cannot support score arithmetic."""
     if not isinstance(report, dict):
         raise ValueError("structured reader report is not an object")
+    _validate_json_schema_value(report, READER_TOOLS[reader]["input_schema"])
     if report.get("reader") != reader:
         raise ValueError(
-            f"reader identity mismatch: expected {reader}, got {report.get('reader')}"
+            f"reader identity mismatch for {reader}; "
+            f"{_untrusted_value_summary(report.get('reader'))}"
         )
     sub_scores = report.get("sub_scores")
     if not isinstance(sub_scores, dict) or not sub_scores:
@@ -4021,6 +6788,16 @@ def _validate_reader_report(reader: str, report: Any) -> Dict[str, Any]:
                 f"reader sub-score {metric_name} has an invalid score"
             )
         _validate_citation_block(f"reader sub-score {metric_name}", metric)
+        justification = metric.get("justification")
+        if not isinstance(justification, str) or not justification.strip():
+            raise ValueError(
+                f"reader sub-score {metric_name} has no evidence justification"
+            )
+        _validate_evidence_support(
+            f"reader sub-score {metric_name}",
+            justification,
+            metric,
+        )
     report["pillar_score"] = _compute_pillar_score(report)
     if reader == "character":
         report["story_vs_situation"] = _canonical_story_vs_situation(report)
@@ -4032,6 +6809,7 @@ def _validate_synthesis_report(
     reader_reports: Optional[Dict[str, Any]],
     source_title: str,
     source_author: str,
+    genre_detection: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Reject synthesis that lacks material decision evidence."""
     if not isinstance(report, dict):
@@ -4080,8 +6858,10 @@ def _validate_synthesis_report(
         "strengths",
         "weaknesses",
         "executive_summary",
+        "material_claims",
         "comparable_films",
         "characters",
+        "reader_disagreements",
     )
     missing = [field for field in required_fields if field not in report]
     if missing:
@@ -4091,6 +6871,18 @@ def _validate_synthesis_report(
         )
     if report.get("analysis_version") != "v9_archaeology":
         raise ValueError("synthesis has an invalid analysis version")
+    canonical_genre, canonical_subgenres = _canonical_genre_output(
+        genre_detection
+    )
+    if (
+        report.get("genre") != canonical_genre
+        or report.get("subgenres") != canonical_subgenres
+    ):
+        raise ValueError(
+            "synthesis genre lineage contradicts authoritative genre detection"
+        )
+    report["genre"] = canonical_genre
+    report["subgenres"] = canonical_subgenres
     for field in (
         "title",
         "author",
@@ -4110,6 +6902,56 @@ def _validate_synthesis_report(
             or any(not isinstance(value, str) or not value.strip() for value in values)
         ):
             raise ValueError(f"synthesis {field} lacks material evidence")
+    expected_claims = {
+        ("logline", 0): report["logline"],
+        ("executive_summary", 0): report["executive_summary"],
+        **{
+            ("strength", index): claim
+            for index, claim in enumerate(report["strengths"])
+        },
+        **{
+            ("weakness", index): claim
+            for index, claim in enumerate(report["weaknesses"])
+        },
+    }
+    material_claims = report.get("material_claims")
+    if not isinstance(material_claims, list):
+        raise ValueError("synthesis material claim evidence is missing")
+    seen_claims = set()
+    for index, claim_evidence in enumerate(material_claims):
+        if not isinstance(claim_evidence, dict):
+            raise ValueError("synthesis material claim evidence is invalid")
+        key = (
+            claim_evidence.get("source_field"),
+            claim_evidence.get("source_index"),
+        )
+        if key not in expected_claims or key in seen_claims:
+            raise ValueError("synthesis material claim mapping is invalid")
+        if claim_evidence.get("claim") != expected_claims[key]:
+            raise ValueError("synthesis material claim does not match display prose")
+        atomic_evidence = claim_evidence.get("atomic_claims")
+        expected_atomic_claims = _atomic_claims(expected_claims[key])
+        if (
+            not isinstance(atomic_evidence, list)
+            or [
+                item.get("claim") if isinstance(item, dict) else None
+                for item in atomic_evidence
+            ] != expected_atomic_claims
+        ):
+            raise ValueError(
+                "synthesis material claim atomic mapping is invalid"
+            )
+        for atomic_index, atomic_claim in enumerate(atomic_evidence):
+            label = f"synthesis material claim {index}.{atomic_index}"
+            _validate_citation_block(label, atomic_claim)
+            _validate_evidence_support(
+                label,
+                atomic_claim["claim"],
+                atomic_claim,
+            )
+        seen_claims.add(key)
+    if seen_claims != set(expected_claims):
+        raise ValueError("synthesis material claims do not cover final decision prose")
     comparables = report.get("comparable_films")
     if not isinstance(comparables, dict):
         raise ValueError("synthesis comparable films are not an object")
@@ -4128,11 +6970,13 @@ def _validate_synthesis_report(
         "protagonist",
         characters.get("protagonist"),
         characters.get("protagonist_evidence"),
+        "protagonist",
     )
     _validate_character_evidence(
         "antagonist",
         characters.get("antagonist"),
         characters.get("antagonist_evidence"),
+        "antagonist",
     )
     supporting = characters.get("supporting")
     supporting_evidence = characters.get("supporting_evidence")
@@ -4146,7 +6990,67 @@ def _validate_synthesis_report(
     for index, (name, evidence) in enumerate(zip(supporting, supporting_evidence)):
         if not isinstance(evidence, dict) or evidence.get("name") != name:
             raise ValueError("synthesis supporting character evidence does not match names")
-        _validate_character_evidence(f"supporting character {index}", name, evidence)
+        _validate_character_evidence(
+            f"supporting character {index}",
+            name,
+            evidence,
+            "supporting",
+        )
+    disagreements = report.get("reader_disagreements")
+    if not isinstance(disagreements, list):
+        raise ValueError("synthesis reader disagreements must be a list")
+    triggered_conflicts = _triggered_cross_reader_conflicts(canonical_readers)
+    seen_topics = set()
+    for index, disagreement in enumerate(disagreements):
+        if not isinstance(disagreement, dict):
+            raise ValueError(f"synthesis reader disagreement {index} is invalid")
+        topic = disagreement.get("topic")
+        if not isinstance(topic, str) or not topic.strip() or topic in seen_topics:
+            raise ValueError("synthesis reader disagreements contain an invalid topic")
+        seen_topics.add(topic)
+        if any(
+            not isinstance(disagreement.get(field), str)
+            or not disagreement[field].strip()
+            for field in (
+                "reader_a", "reader_a_position", "reader_b",
+                "reader_b_position", "resolution",
+            )
+        ):
+            raise ValueError(f"synthesis reader disagreement {index} is incomplete")
+        if (
+            disagreement["reader_a"] not in canonical_readers
+            or disagreement["reader_b"] not in canonical_readers
+        ):
+            raise ValueError(f"synthesis reader disagreement {index} names an unknown reader")
+        contract = triggered_conflicts.get(topic)
+        if contract is None:
+            raise ValueError("synthesis reader disagreement was not triggered")
+        if (
+            disagreement["reader_a"] != contract["reader_a"]
+            or disagreement["reader_b"] != contract["reader_b"]
+        ):
+            raise ValueError("synthesis reader disagreement has wrong lineage")
+        if (
+            disagreement["reader_a_position"]
+            != _conflict_position(
+                canonical_readers,
+                contract["reader_a"],
+                contract["metric_a"],
+            )
+            or disagreement["reader_b_position"]
+            != _conflict_position(
+                canonical_readers,
+                contract["reader_b"],
+                contract["metric_b"],
+            )
+        ):
+            raise ValueError("synthesis reader disagreement position changed canonical scores")
+    missing_conflicts = sorted(set(triggered_conflicts) - seen_topics)
+    if missing_conflicts:
+        raise ValueError(
+            "synthesis omitted deterministic reader disagreement: "
+            + ", ".join(missing_conflicts)
+        )
     pillar_scores = report.get("pillar_scores")
     if not isinstance(pillar_scores, dict):
         raise ValueError("synthesis pillar scores are not an object")
@@ -4187,11 +7091,13 @@ def _validate_synthesis_report(
         for reader_name, weight in READER_WEIGHTS.items()
     ), 2)
     verdict = report.get("verdict")
-    if not isinstance(verdict, str) or not verdict.strip():
+    declared_before_adjustments = report.get("verdict_before_adjustments")
+    if verdict not in {"PASS", "CONSIDER", "RECOMMEND", "FILM_NOW"}:
         raise ValueError("synthesis verdict is invalid")
-    report["verdict_before_adjustments"] = derive_verdict(
-        weighted_score=report["weighted_score"],
-    )["verdict"]
+    if declared_before_adjustments not in {
+        "PASS", "CONSIDER", "RECOMMEND", "FILM_NOW",
+    }:
+        raise ValueError("synthesis verdict before adjustments is invalid")
     story_vs_situation = report.get("story_vs_situation")
     if not isinstance(story_vs_situation, dict):
         raise ValueError("synthesis story_vs_situation is not an object")
@@ -4273,10 +7179,6 @@ def _validate_synthesis_report(
     critical_failures = report.get("critical_failures")
     if not isinstance(critical_failures, list):
         raise ValueError("synthesis critical failures must be a list")
-    if len(critical_failures) >= len(report["weaknesses"]):
-        raise ValueError(
-            "synthesis critical failures must be a strict subset of weaknesses"
-        )
     linked_weaknesses = set()
     for index, failure in enumerate(critical_failures):
         if not isinstance(failure, dict):
@@ -4310,19 +7212,67 @@ def _validate_synthesis_report(
             raise ValueError(
                 f"synthesis critical failure {index} has no canonical reader metric"
             )
+        failure_evidence = canonical_readers[failure_reader]["sub_scores"][
+            failure_metric
+        ]
         _validate_citation_block(
             f"synthesis critical failure {index}",
-            canonical_readers[failure_reader]["sub_scores"][failure_metric],
+            failure_evidence,
         )
-        severity = failure.get("severity")
-        if not isinstance(severity, str) or severity not in FAILURE_PENALTIES:
+        severity = derive_failure_severity(failure_evidence.get("score"))
+        if severity is None:
             raise ValueError(
-                f"synthesis critical failure {index} has invalid severity"
+                f"synthesis critical failure {index} metric score is above 4"
             )
+        failure["severity"] = severity
         failure["penalty"] = FAILURE_PENALTIES[severity]
     report["critical_failure_total_penalty"] = compute_failure_penalty(
         critical_failures
     )
+    canonical = derive_verdict(
+        weighted_score=report["weighted_score"],
+        critical_failures=critical_failures,
+        situation_verdict=story_vs_situation["verdict"],
+        weighted_trap_score=computed_trap_score,
+        truncated=False,
+    )
+    canonical_before_adjustments = derive_verdict(
+        weighted_score=report["weighted_score"],
+    )["verdict"]
+    if declared_before_adjustments != canonical_before_adjustments:
+        raise ValueError("synthesis verdict before adjustments contradicts its score")
+    if verdict != canonical["verdict"]:
+        raise ValueError("synthesis final verdict contradicts validated score and gates")
+    normalized_summary = re.sub(
+        r"[\s_-]+",
+        " ",
+        report["executive_summary"].casefold(),
+    )
+    declared_tiers = {
+        tier
+        for phrase, tier in (
+            ("film now", "FILM_NOW"),
+            ("recommend", "RECOMMEND"),
+            ("consider", "CONSIDER"),
+        )
+        if re.search(rf"\b{re.escape(phrase)}\b", normalized_summary)
+    }
+    if declared_tiers and declared_tiers != {verdict}:
+        raise ValueError("synthesis executive summary contradicts the final verdict")
+    if verdict == "PASS" and any(
+        phrase in normalized_summary
+        for phrase in (
+            "acquire", "greenlight", "move forward", "film now",
+            "comprar", "luz verde", "seguir adelante", "producir ahora",
+        )
+    ):
+        raise ValueError("synthesis executive summary contradicts a PASS verdict")
+    report.update({
+        "weighted_score_adjusted": canonical["adjusted_score"],
+        "critical_failure_penalty_applied": canonical["penalty"],
+        "verdict_before_gates": canonical["verdict_before_gates"],
+        "verdict_adjustments": canonical["adjustments"],
+    })
     synthesis_schema = SYNTHESIS_TOOL["input_schema"]
     _validate_json_schema_value(
         {
@@ -4353,6 +7303,392 @@ def _canonical_genre_output(
     return primary, subgenres
 
 
+def _validate_claim_verification(
+    raw: Any,
+    targets: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise ValueError("claim verification output is not an object")
+    _validate_json_schema_value(
+        raw,
+        CLAIM_VERIFICATION_TOOL["input_schema"],
+        "claim_verification",
+    )
+    expected = {target["claim_id"]: target for target in targets}
+    results = raw.get("claims")
+    if not isinstance(results, list) or len(results) != len(expected):
+        raise ValueError("claim verification did not adjudicate every target")
+    seen = set()
+    sealed_results: Dict[str, Dict[str, Any]] = {}
+    factual_total = 0
+    factual_supported = 0
+    counts: Dict[str, int] = {}
+    for index, result in enumerate(results):
+        if not isinstance(result, dict):
+            raise ValueError("claim verification contains an invalid result")
+        claim_id = result.get("claim_id")
+        target = expected.get(claim_id)
+        if target is None or claim_id in seen:
+            raise ValueError("claim verification has invalid claim lineage")
+        seen.add(claim_id)
+        _validate_citation_block(f"claim verification {index}", result)
+        classification = result["classification"]
+        story_fact_classification = result["story_fact_classification"]
+        unsupported_story_facts = result["unsupported_story_facts"]
+        if (
+            story_fact_classification == "Partially supported"
+            and not unsupported_story_facts
+        ):
+            raise ValueError(
+                "partially supported story facts must identify the unsupported portion"
+            )
+        if (
+            story_fact_classification != "Partially supported"
+            and unsupported_story_facts
+        ):
+            raise ValueError("unsupported story facts contradict their classification")
+        if any(
+            fact["kind"] != "minor_detail"
+            for fact in unsupported_story_facts
+        ):
+            raise ValueError("a central story fact failed independent verification")
+        counts[classification] = counts.get(classification, 0) + 1
+        if (
+            target["story_fact_check_required"]
+            and story_fact_classification == "No concrete story fact"
+        ):
+            raise ValueError(
+                "a required story-fact check denied its factual content"
+            )
+        if (
+            target["story_fact_check_required"]
+            and story_fact_classification in {"Unsupported", "Contradicted"}
+        ):
+            raise ValueError("a factual screenplay claim failed independent verification")
+        if target["story_fact_check_required"]:
+            _validate_evidence_support(
+                f"claim verification {claim_id}",
+                target["claim"],
+                result,
+            )
+            factual_total += 1
+            if story_fact_classification in {"Supported", "Partially supported"}:
+                factual_supported += 1
+        if target["verdict_driving"] and classification in {
+            "Unsupported", "Contradicted",
+        }:
+            raise ValueError("a verdict-driving claim failed independent verification")
+        sealed_results[claim_id] = {
+            **{
+                key: copy.deepcopy(value)
+                for key, value in result.items()
+                if key not in {"claim", "claim_type", "explanation"}
+            },
+            "claim": target["claim"],
+            "claim_type": target["claim_type"],
+            "verdict_driving": target["verdict_driving"],
+            "story_fact_check_required": target[
+                "story_fact_check_required"
+            ],
+        }
+    if seen != set(expected):
+        raise ValueError("claim verification omitted a locked target")
+    factual_support_rate = (
+        factual_supported / factual_total if factual_total else 1.0
+    )
+    if factual_support_rate < 0.95:
+        raise ValueError("factual claim support fell below 95 percent")
+    return {
+        "status": "passed_independent_model_review",
+        "verification_scope": "semantic_support_against_full_physical_page_source",
+        "claim_count": len(results),
+        "factual_claim_count": factual_total,
+        "factual_supported_or_partial_count": factual_supported,
+        "factual_support_rate": round(factual_support_rate, 4),
+        "classification_counts": counts,
+        "locked_targets_sha256": _canonical_json_hash([
+            {
+                key: target[key]
+                for key in (
+                    "claim_id",
+                    "claim",
+                    "claim_type",
+                    "verdict_driving",
+                    "story_fact_check_required",
+                )
+            }
+            for target in targets
+        ]),
+        "claims": [sealed_results[target["claim_id"]] for target in targets],
+    }
+
+
+def run_claim_verification(
+    *,
+    text: str,
+    analysis: Dict[str, Any],
+    model_key: str,
+    proxy_url: Optional[str],
+    pipeline_pass: str,
+    boundary_run: int,
+    job_id: Optional[str] = None,
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Run bounded independent semantic adjudication after final selection."""
+    targets = claim_verification_targets(analysis)
+    if len(targets) < 10:
+        raise ClaimVerificationIncompleteError(
+            "Independent claim verification has fewer than ten locked targets.",
+            empty_usage(),
+            review_evidence={
+                "validation_reason": "fewer than ten locked claim targets",
+                "error_type": "ValueError",
+                "target_count": len(targets),
+                "rejected_responses": [],
+                "offending_claims": [],
+            },
+        )
+    batches = [
+        targets[index:index + CLAIM_VERIFICATION_BATCH_SIZE]
+        for index in range(0, len(targets), CLAIM_VERIFICATION_BATCH_SIZE)
+    ]
+    batch_records: List[Dict[str, Any]] = []
+    current_usage = empty_usage()
+    current_raw: Any = None
+    current_raw_response: Dict[str, Any] = {}
+    raw: Dict[str, Any] = {"claims": []}
+    try:
+        for batch_index, batch in enumerate(batches, start=1):
+            locked_batch = [
+                {
+                    key: target[key]
+                    for key in (
+                        "claim_id",
+                        "claim",
+                        "claim_type",
+                        "verdict_driving",
+                        "story_fact_check_required",
+                    )
+                }
+                for target in batch
+            ]
+            current_usage = empty_usage()
+            current_raw = None
+            current_raw_response = {}
+            current_raw, _text, current_usage = call_llm(
+                system_blocks=[{
+                    "type": "text",
+                    "text": (
+                        f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n"
+                        "You are an adversarial screenplay fact checker independent "
+                        "of the readers and synthesis."
+                    ),
+                }],
+                user_blocks=[
+                    _screenplay_user_block(text, cached=True),
+                    {
+                        "type": "text",
+                        "text": (
+                            "# INDEPENDENT CLAIM AUDIT\n"
+                            f"Batch {batch_index} of {len(batches)}. Adjudicate every "
+                            "locked claim below against the complete screenplay above. "
+                            "Do not trust prior analysis or supplied excerpts. Find the "
+                            "best physical-page evidence yourself. A central character, "
+                            "relationship, event, quotation, or outcome contradicted by "
+                            "the pages must be marked Contradicted. For mixed creative "
+                            "judgments, adjudicate every factual story assertion; do not "
+                            "use Not objectively verifiable to avoid checking facts. Do "
+                            "not treat shared names or words as semantic support.\n\n"
+                            "For every Partially supported story-fact result, list each "
+                            "unsupported portion and its kind. Use an empty list for every "
+                            "other classification. Return only IDs, classifications, "
+                            "unsupported portions, and physical-page evidence.\n\n"
+                            + json.dumps(
+                                locked_batch,
+                                ensure_ascii=False,
+                                separators=(",", ":"),
+                            )
+                        ),
+                    },
+                ],
+                model_key=model_key,
+                tool=_claim_verification_batch_tool(batch),
+                compact_json_envelope=True,
+                thinking_budget=THINKING_BUDGET_CLAIM_VERIFICATION,
+                max_tokens=OUTPUT_BUDGET_CLAIM_VERIFICATION,
+                proxy_url=proxy_url,
+                job_id=job_id,
+                stage="claim_verification",
+                pipeline_pass=pipeline_pass,
+                boundary_run=max(1, boundary_run),
+                reader_name=f"batch_{batch_index:03d}_of_{len(batches):03d}",
+                logical_retry=0,
+                raw_response_sink=current_raw_response,
+            )
+            if not isinstance(current_raw, dict):
+                raise ValueError("claim verification batch output is not an object")
+            batch_claims = current_raw.get("claims")
+            expected_ids = [target["claim_id"] for target in batch]
+            observed_ids = [
+                claim.get("claim_id") if isinstance(claim, dict) else None
+                for claim in batch_claims
+            ] if isinstance(batch_claims, list) else []
+            if observed_ids != expected_ids:
+                raise ValueError(
+                    "claim verification batch changed, duplicated, or omitted a locked target"
+                )
+            batch_records.append({
+                "targets": batch,
+                "raw": current_raw,
+                "raw_response": current_raw_response,
+                "usage": current_usage,
+            })
+            raw["claims"].extend(copy.deepcopy(current_raw.get("claims", [])))
+        verified = _validate_claim_verification(raw, targets)
+    except Exception as error:
+        error_usage = getattr(error, "usage", None)
+        if isinstance(error, LlmCallFailedError):
+            current_usage = failed_usage(error)
+        elif isinstance(error, LlmOutputContractError):
+            current_usage = error.usage
+            current_raw = (
+                current_raw_response.get("content")
+                if "content" in current_raw_response
+                else getattr(error, "rejected_output", current_raw)
+            )
+        elif isinstance(error_usage, dict):
+            current_usage = error_usage
+        if current_usage.get("calls") and not any(
+            record["usage"] is current_usage for record in batch_records
+        ):
+            batch_records.append({
+                "targets": [],
+                "raw": current_raw,
+                "raw_response": current_raw_response,
+                "usage": current_usage,
+            })
+        rejected_evidence: List[Dict[str, Any]] = []
+        discarded_usages: List[Dict[str, Any]] = []
+        for record in batch_records:
+            attempt_usage = record["usage"]
+            if not attempt_usage.get("calls"):
+                discarded_usages.append(attempt_usage)
+                continue
+            set_successful_call_disposition(attempt_usage, "discarded_unusable")
+            structural = (
+                isinstance(error, LlmOutputContractError)
+                and record is batch_records[-1]
+            )
+            _mark_call_validation(
+                attempt_usage,
+                result=(
+                    "failed_structural"
+                    if structural
+                    else "failed_application_validation"
+                ),
+                reason=str(error),
+            )
+            if structural:
+                attempt_usage["calls"][0]["failure_state"] = "output_contract_failed"
+            has_exact_content = "content" in record["raw_response"]
+            rejected_raw = (
+                record["raw_response"].get("content")
+                if has_exact_content
+                else getattr(error, "rejected_output", record["raw"])
+                if structural and record is batch_records[-1]
+                else record["raw"]
+            )
+            if has_exact_content or rejected_raw is not None:
+                rejected_evidence.append(_preserve_local_rejected_output(
+                    "claim_verification",
+                    rejected_raw,
+                    attempt_usage,
+                    str(error),
+                ))
+            discarded_usages.append(attempt_usage)
+        if not any(
+            record["usage"] is current_usage for record in batch_records
+        ):
+            discarded_usages.append(current_usage)
+        usage = merge_usage(*discarded_usages)
+        raise ClaimVerificationIncompleteError(
+            "Independent claim verification failed. No benchmark result was locked.",
+            usage,
+            review_evidence={
+                "validation_reason": str(error),
+                "error_type": type(error).__name__,
+                "target_count": len(targets),
+                "completed_batch_count": len(batch_records),
+                "rejected_responses": rejected_evidence,
+                "offending_claims": _rejected_claim_summary(raw),
+            },
+        ) from error
+    usage = merge_usage(*(record["usage"] for record in batch_records))
+    verified["response_ids"] = [
+        call["response_id"]
+        for call in usage.get("calls", [])
+        if isinstance(call, dict) and isinstance(call.get("response_id"), str)
+    ]
+    analysis_for_hash = copy.deepcopy(analysis)
+    analysis_for_hash.pop("_citation_quality", None)
+    analysis_for_hash.pop("_claim_verification", None)
+    verified["analysis_sha256"] = _canonical_json_hash(analysis_for_hash)
+    summary_fields = (
+        "claim_count",
+        "factual_claim_count",
+        "factual_supported_or_partial_count",
+        "factual_support_rate",
+        "classification_counts",
+        "locked_targets_sha256",
+    )
+    transformations = (
+        "bound_locked_claim_targets",
+        "recomputed_claim_verification_summary",
+        "bound_claim_verification_lineage",
+    )
+    sealed_by_id = {claim["claim_id"]: claim for claim in verified["claims"]}
+    for record in batch_records:
+        attempt_usage = record["usage"]
+        raw_batch_claims = record["raw"].get("claims")
+        sealed_batch = [
+            sealed_by_id[target["claim_id"]]
+            for target in record["targets"]
+        ]
+        transformation_evidence = (
+            _transformation_hash_evidence(
+                transformations[0], raw_batch_claims, sealed_batch,
+            ),
+            _transformation_hash_evidence(
+                transformations[1],
+                {"batch_claim_count": len(raw_batch_claims or [])},
+                {field: verified[field] for field in summary_fields},
+            ),
+            _transformation_hash_evidence(
+                transformations[2],
+                {"response_ids": None, "analysis_sha256": None},
+                {
+                    "response_ids": verified["response_ids"],
+                    "analysis_sha256": verified["analysis_sha256"],
+                },
+            ),
+        )
+        set_successful_call_disposition(attempt_usage, "used")
+        _mark_call_validation(
+            attempt_usage,
+            result="passed",
+            consumed=True,
+            transformations=transformations,
+            transformation_evidence=transformation_evidence,
+        )
+    usage = merge_usage(*(record["usage"] for record in batch_records))
+    verified["batch_count"] = len(batch_records)
+    verified["batch_size_limit"] = CLAIM_VERIFICATION_BATCH_SIZE
+    verified["batch_target_sha256"] = [
+        _canonical_json_hash([target["claim_id"] for target in record["targets"]])
+        for record in batch_records
+    ]
+    return verified, usage
+
+
 def run_v9_full(
     text: str,
     title: str,
@@ -4366,6 +7702,7 @@ def run_v9_full(
     pipeline_pass: Optional[str] = None,
     boundary_run: int = 1,
     usage_sink: Optional[Dict[str, Any]] = None,
+    page_content_signals: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Run the full 5-reader + synthesis V9 pipeline.
 
@@ -4379,11 +7716,12 @@ def run_v9_full(
 
     Returns (analysis_dict, total_usage).
     """
-    context_policy = build_context_policy(text, model_key)
+    context_policy = build_context_policy(text, model_key, model_ids=MODEL_IDS)
     runtime_page_evidence = build_page_evidence(
         text,
         page_count,
         "v9_runtime",
+        page_content_signals,
     )
     if not runtime_page_evidence["extraction_quality"]["publication_ready"]:
         raise SourceEvidenceError(
@@ -4431,7 +7769,7 @@ def run_v9_full(
              f"(confidence {_gd.get('confidence')})")
 
     log.info(
-        f"    Running 5 readers in parallel (model: {model_key}, "
+        f"    Running 5 readers sequentially (model: {model_key}, "
         "tool_use + caching + thinking)…"
     )
     reader_reports: Dict[str, Any] = {}
@@ -4455,6 +7793,11 @@ def run_v9_full(
 
         for report_attempt in range(1, MAX_READER_REPORT_ATTEMPTS + 1):
             attempt_usage = empty_usage()
+            application_transformations: List[str] = []
+            transformation_evidence: List[Dict[str, Any]] = []
+            transformation_warnings: List[str] = []
+            reader_before: Optional[Dict[str, Any]] = None
+            raw_response: Dict[str, Any] = {}
             try:
                 attempt_user_blocks = user_blocks
                 if failures:
@@ -4478,10 +7821,48 @@ def run_v9_full(
                     boundary_run=boundary_run,
                     reader_name=reader,
                     logical_retry=report_attempt - 1,
+                    raw_response_sink=raw_response,
                 )
                 if tool_input is None:
                     raise ValueError("no tool_use block")
+                reader_before = copy.deepcopy(tool_input)
+                original_pillar_score = tool_input.get("pillar_score")
+                original_story_vs_situation = copy.deepcopy(
+                    tool_input.get("story_vs_situation")
+                )
                 report = _validate_reader_report(reader, tool_input)
+                application_transformations.append("recomputed_pillar_score")
+                transformation_evidence.append({
+                    "name": "recomputed_pillar_score",
+                    "before": original_pillar_score,
+                    "after": report["pillar_score"],
+                    "changed": original_pillar_score != report["pillar_score"],
+                })
+                if original_pillar_score != report["pillar_score"]:
+                    transformation_warnings.append(
+                        "Model pillar score differed from the canonical sub-score calculation"
+                    )
+                if reader == "character":
+                    application_transformations.append(
+                        "recomputed_story_vs_situation"
+                    )
+                    transformation_evidence.append({
+                        "name": "recomputed_story_vs_situation",
+                        "before_sha256": _canonical_json_hash(
+                            original_story_vs_situation
+                        ),
+                        "after_sha256": _canonical_json_hash(
+                            report["story_vs_situation"]
+                        ),
+                        "changed": (
+                            original_story_vs_situation
+                            != report["story_vs_situation"]
+                        ),
+                    })
+                    if original_story_vs_situation != report["story_vs_situation"]:
+                        transformation_warnings.append(
+                            "Model story-vs-situation result differed from canonical evidence"
+                        )
                 citation_quality = validate_analysis_citations(
                     {"reader_reports": {reader: report}},
                     runtime_page_evidence["page_diagnostics"],
@@ -4521,6 +7902,39 @@ def run_v9_full(
                         attempt_usage,
                         "discarded_unusable",
                     )
+                if attempt_usage.get("calls"):
+                    structural = isinstance(error, LlmOutputContractError)
+                    _mark_call_validation(
+                        attempt_usage,
+                        result=(
+                            "failed_structural"
+                            if structural
+                            else "failed_application_validation"
+                        ),
+                        reason=str(error),
+                        transformations=application_transformations,
+                        transformation_evidence=transformation_evidence,
+                        warnings=transformation_warnings,
+                    )
+                    if structural:
+                        attempt_usage["calls"][0][
+                            "failure_state"
+                        ] = "output_contract_failed"
+                    has_exact_content = "content" in raw_response
+                    rejected_raw = (
+                        raw_response.get("content")
+                        if has_exact_content
+                        else getattr(error, "rejected_output", reader_before)
+                        if structural
+                        else reader_before
+                    )
+                    if has_exact_content or rejected_raw is not None:
+                        _preserve_local_rejected_output(
+                            "reader",
+                            rejected_raw,
+                            attempt_usage,
+                            str(error),
+                        )
                 combined_usage = merge_usage(combined_usage, attempt_usage)
                 failure = {
                     "attempt": report_attempt,
@@ -4539,7 +7953,7 @@ def run_v9_full(
                     log.warning(
                         f"      ⚠ {reader} report attempt "
                         f"{report_attempt}/{MAX_READER_REPORT_ATTEMPTS} "
-                        f"unusable: {error}. Retrying in {delay}s…"
+                        f"unusable: {type(error).__name__}; retrying in {delay}s…"
                     )
                     time.sleep(delay)
                     continue
@@ -4558,7 +7972,15 @@ def run_v9_full(
                     },
                 )
 
-            set_successful_call_disposition(attempt_usage, "used")
+            attempt_usage["calls"][0]["disposition"] = "validated_pending_panel"
+            _mark_call_validation(
+                attempt_usage,
+                result="passed",
+                consumed=False,
+                transformations=application_transformations,
+                transformation_evidence=transformation_evidence,
+                warnings=transformation_warnings,
+            )
             combined_usage = merge_usage(combined_usage, attempt_usage)
             return (
                 reader,
@@ -4573,52 +7995,66 @@ def run_v9_full(
 
         raise AssertionError("reader recovery loop ended unexpectedly")
 
+    def finalize_reader_consumption(complete_panel: bool) -> None:
+        for call in total_usage.get("calls", []):
+            if not isinstance(call, dict) or call.get("stage") != "reader":
+                continue
+            if call.get("disposition") != "validated_pending_panel":
+                continue
+            if complete_panel:
+                call["disposition"] = "used"
+                call["downstream_consumption"] = "consumed"
+            else:
+                call["disposition"] = "discarded_incomplete_panel"
+                call["downstream_consumption"] = "not_consumed"
+                call["failure_state"] = "reader_panel_incomplete"
+                call["warnings"].append(
+                    "Validated reader output was not consumed because the panel was incomplete"
+                )
+        checkpoint_benchmark_usage(total_usage)
+
     fatal_reader_error: Optional[BaseException] = None
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        futures = {pool.submit(run_reader, r): r for r in READER_WEIGHTS}
-        for fut in as_completed(futures):
-            reader = futures[fut]
-            try:
-                r_name, report, usage, recovery = fut.result()
-                _accumulate(usage)
-                reader_recovery[r_name] = recovery
-                if report is None:
-                    continue
-                reader_reports[r_name] = report
-                score = report.get("pillar_score", report.get("overall_score", "?"))
-                recovery_note = (
-                    f", recovered on attempt {recovery['attempts']}"
-                    if recovery["recovered"]
-                    else ""
-                )
-                log.info(
-                    f"      ✓ {r_name} (pillar_score: {score}{recovery_note})"
-                )
-            except (
-                DailyBudgetExceededError,
-                BenchmarkCapExceededError,
-                LlmAccountingError,
-                LlmCallFailedError,
-                LlmProvenanceError,
-                LlmRequestRejectedError,
-            ) as error:
-                _accumulate(getattr(error, "usage", empty_usage()))
-                if fatal_reader_error is None:
-                    fatal_reader_error = error
-            except Exception as e:
-                log.error(f"      ✗ {reader} reader failed: {e}")
-                reader_recovery[reader] = {
-                    "attempts": MAX_READER_REPORT_ATTEMPTS,
-                    "recovered": False,
-                    "failures": [{
-                        "attempt": MAX_READER_REPORT_ATTEMPTS,
-                        "error_type": type(e).__name__,
-                        "error": str(e)[:500],
-                        "response_ids": [],
-                    }],
-                }
+    for reader in READER_WEIGHTS:
+        try:
+            r_name, report, usage, recovery = run_reader(reader)
+            _accumulate(usage)
+            reader_recovery[r_name] = recovery
+            if report is None:
+                continue
+            reader_reports[r_name] = report
+            score = report.get("pillar_score", report.get("overall_score", "?"))
+            recovery_note = (
+                f", recovered on attempt {recovery['attempts']}"
+                if recovery["recovered"]
+                else ""
+            )
+            log.info(f"      ✓ {r_name} (pillar_score: {score}{recovery_note})")
+        except (
+            DailyBudgetExceededError,
+            BenchmarkCapExceededError,
+            LlmAccountingError,
+            LlmCallFailedError,
+            LlmProvenanceError,
+            LlmRequestRejectedError,
+        ) as error:
+            _accumulate(getattr(error, "usage", empty_usage()))
+            fatal_reader_error = error
+            break
+        except Exception as e:
+            log.error(f"      ✗ {reader} reader failed: {e}")
+            reader_recovery[reader] = {
+                "attempts": MAX_READER_REPORT_ATTEMPTS,
+                "recovered": False,
+                "failures": [{
+                    "attempt": MAX_READER_REPORT_ATTEMPTS,
+                    "error_type": type(e).__name__,
+                    "error": str(e)[:500],
+                    "response_ids": [],
+                }],
+            }
 
     if fatal_reader_error is not None:
+        finalize_reader_consumption(False)
         fatal_reader_error.usage = merge_usage(total_usage)
         raise fatal_reader_error
 
@@ -4643,6 +8079,7 @@ def run_v9_full(
         for name in failed_readers
     }
     if failed_readers:
+        finalize_reader_consumption(False)
         raise ReaderPanelIncompleteError(
             "Reader panel incomplete after recovery: "
             f"{len(reader_reports)}/5 completed; failed: "
@@ -4662,6 +8099,7 @@ def run_v9_full(
                 "reader_attempts": reader_recovery,
             },
         )
+    finalize_reader_consumption(True)
     log.info("    All 5 readers complete. Running synthesis…")
 
     # ── Synthesis (with retry) ──────────────────────────────────────────────
@@ -4677,8 +8115,14 @@ def run_v9_full(
 
     analysis: Optional[Dict[str, Any]] = None
     last_err: Optional[BaseException] = None
-    for attempt in range(1, 4):  # 3 attempts
+    for attempt in range(1, MAX_SYNTHESIS_ATTEMPTS + 1):
         syn_usage = empty_usage()
+        application_transformations: List[str] = []
+        transformation_evidence: List[Dict[str, Any]] = []
+        transformation_warnings: List[str] = []
+        synthesis_before: Optional[Dict[str, Any]] = None
+        tool_input: Optional[Dict[str, Any]] = None
+        raw_response: Dict[str, Any] = {}
         try:
             attempt_user_blocks = syn_user_blocks
             if last_err is not None:
@@ -4701,15 +8145,110 @@ def run_v9_full(
                 pipeline_pass=pass_name,
                 boundary_run=boundary_run,
                 logical_retry=attempt - 1,
+                raw_response_sink=raw_response,
             )
             if tool_input is None:
                 raise ValueError("synthesis returned no tool_use block")
+            synthesis_before = copy.deepcopy(tool_input)
             candidate = _validate_synthesis_report(
                 tool_input,
                 reader_reports,
                 title,
                 author_evidence["author"],
+                genre_detection,
             )
+            application_transformations.extend((
+                "bound_source_identity",
+                "bound_canonical_genre",
+                "recomputed_reader_and_pillar_scores",
+                "recomputed_weighted_score",
+                "recomputed_story_vs_situation",
+                "recomputed_false_positive_traps",
+                "recomputed_critical_failure_penalties",
+                "recomputed_verdict_before_adjustments",
+                "validated_and_derived_final_verdict",
+            ))
+            before_values = {
+                "bound_source_identity": {
+                    "title": synthesis_before.get("title"),
+                    "author": synthesis_before.get("author"),
+                },
+                "bound_canonical_genre": {
+                    "genre": synthesis_before.get("genre"),
+                    "subgenres": synthesis_before.get("subgenres"),
+                },
+                "recomputed_reader_and_pillar_scores": synthesis_before.get("pillar_scores"),
+                "recomputed_weighted_score": synthesis_before.get("weighted_score"),
+                "recomputed_story_vs_situation": synthesis_before.get("story_vs_situation"),
+                "recomputed_false_positive_traps": synthesis_before.get("false_positive_check"),
+                "recomputed_critical_failure_penalties": {
+                    "critical_failures": synthesis_before.get("critical_failures"),
+                    "total": synthesis_before.get("critical_failure_total_penalty"),
+                },
+                "recomputed_verdict_before_adjustments": synthesis_before.get(
+                    "verdict_before_adjustments"
+                ),
+                "validated_and_derived_final_verdict": {
+                    field: synthesis_before.get(field)
+                    for field in (
+                        "verdict", "weighted_score_adjusted",
+                        "critical_failure_penalty_applied", "verdict_before_gates",
+                        "verdict_adjustments",
+                    )
+                },
+            }
+            after_values = {
+                "bound_source_identity": {
+                    "title": candidate.get("title"),
+                    "author": candidate.get("author"),
+                },
+                "bound_canonical_genre": {
+                    "genre": candidate.get("genre"),
+                    "subgenres": candidate.get("subgenres"),
+                },
+                "recomputed_reader_and_pillar_scores": candidate.get("pillar_scores"),
+                "recomputed_weighted_score": candidate.get("weighted_score"),
+                "recomputed_story_vs_situation": candidate.get("story_vs_situation"),
+                "recomputed_false_positive_traps": candidate.get("false_positive_check"),
+                "recomputed_critical_failure_penalties": {
+                    "critical_failures": candidate.get("critical_failures"),
+                    "total": candidate.get("critical_failure_total_penalty"),
+                },
+                "recomputed_verdict_before_adjustments": candidate.get(
+                    "verdict_before_adjustments"
+                ),
+                "validated_and_derived_final_verdict": {
+                    field: candidate.get(field)
+                    for field in (
+                        "verdict", "weighted_score_adjusted",
+                        "critical_failure_penalty_applied", "verdict_before_gates",
+                        "verdict_adjustments",
+                    )
+                },
+            }
+            for transformation in application_transformations:
+                before_value = before_values[transformation]
+                after_value = after_values[transformation]
+                changed = before_value != after_value
+                if isinstance(before_value, (dict, list)):
+                    evidence = {
+                        "name": transformation,
+                        "before_sha256": _canonical_json_hash(before_value),
+                        "after_sha256": _canonical_json_hash(after_value),
+                        "changed": changed,
+                    }
+                else:
+                    evidence = {
+                        "name": transformation,
+                        "before": before_value,
+                        "after": after_value,
+                        "changed": changed,
+                    }
+                transformation_evidence.append(evidence)
+                if changed:
+                    transformation_warnings.append(
+                        f"Model {transformation} value differed from canonical computation"
+                    )
         except (
             DailyBudgetExceededError,
             BenchmarkCapExceededError,
@@ -4741,20 +8280,73 @@ def run_v9_full(
                     "discarded_unusable",
                 )
                 _accumulate(syn_usage)
-            log.warning(f"    Synthesis attempt {attempt}/3 failed: {e}")
+            if syn_usage.get("calls"):
+                if synthesis_before is not None and tool_input is not None:
+                    application_transformations.append(
+                        "partial_synthesis_normalization_before_rejection"
+                    )
+                    transformation_evidence.append({
+                        "name": "partial_synthesis_normalization_before_rejection",
+                        "before_sha256": _canonical_json_hash(synthesis_before),
+                        "after_sha256": _canonical_json_hash(tool_input),
+                        "changed": synthesis_before != tool_input,
+                    })
+                _mark_call_validation(
+                    syn_usage,
+                    result=(
+                        "failed_structural"
+                        if isinstance(e, LlmOutputContractError)
+                        else "failed_application_validation"
+                    ),
+                    reason=str(e),
+                    transformations=application_transformations,
+                    transformation_evidence=transformation_evidence,
+                    warnings=transformation_warnings,
+                )
+                if isinstance(e, LlmOutputContractError):
+                    syn_usage["calls"][0][
+                        "failure_state"
+                    ] = "output_contract_failed"
+                has_exact_content = "content" in raw_response
+                rejected_raw = (
+                    raw_response.get("content")
+                    if has_exact_content
+                    else getattr(e, "rejected_output", synthesis_before)
+                    if isinstance(e, LlmOutputContractError)
+                    else synthesis_before
+                )
+                if has_exact_content or rejected_raw is not None:
+                    _preserve_local_rejected_output(
+                        "synthesis",
+                        rejected_raw,
+                        syn_usage,
+                        str(e),
+                    )
+            log.warning(
+                f"    Synthesis attempt {attempt}/{MAX_SYNTHESIS_ATTEMPTS} "
+                f"failed: {e}"
+            )
         else:
             set_successful_call_disposition(syn_usage, "used")
+            _mark_call_validation(
+                syn_usage,
+                result="passed",
+                consumed=True,
+                transformations=application_transformations,
+                transformation_evidence=transformation_evidence,
+                warnings=transformation_warnings,
+            )
             _accumulate(syn_usage)
             analysis = candidate
             break
-        if attempt < 3:
+        if attempt < MAX_SYNTHESIS_ATTEMPTS:
             wait = 5 * attempt
             log.info(f"    Retrying synthesis in {wait}s…")
             time.sleep(wait)
 
     if analysis is None:
         raise SynthesisIncompleteError(
-            "Synthesis failed after 3 attempts. "
+            f"Synthesis failed after {MAX_SYNTHESIS_ATTEMPTS} attempts. "
             "No score or verdict was produced. "
             f"Last error: {last_err}",
             total_usage,
@@ -4766,7 +8358,7 @@ def run_v9_full(
                 "completed_reader_names": sorted(reader_reports),
                 "expected_readers": len(READER_WEIGHTS),
                 "failed_readers": [],
-                "synthesis_attempts": 3,
+                "synthesis_attempts": MAX_SYNTHESIS_ATTEMPTS,
                 "last_error": str(last_err)[:500],
             },
         ) from last_err
@@ -4876,10 +8468,7 @@ def run_v9_full(
         reader_reports,
     )
 
-    # Embed reader reports, genre detection, and lock version string.
-    analysis["genre"], analysis["subgenres"] = _canonical_genre_output(
-        genre_detection
-    )
+    # Embed reader reports, authoritative genre evidence, and lock version string.
     analysis["reader_reports"] = reader_reports
     analysis["analysis_quality"] = {
         "status": "complete",
@@ -4891,7 +8480,6 @@ def run_v9_full(
     analysis["genre_detection"] = genre_detection
     if sealed_cold_read is not None:
         analysis["_cold_read"] = copy.deepcopy(sealed_cold_read)
-    analysis["_total_usage"] = total_usage
     analysis["analysis_version"] = "v9_archaeology"  # Always override — source of truth.
     return analysis, total_usage
 
@@ -4995,27 +8583,20 @@ def select_stable_result(
 ) -> Dict[str, Any]:
     """Pick the final analysis from boundary re-runs.
 
-    The median-score run becomes the coverage document (its reader reports
-    and prose are internally consistent). The verdict is the majority verdict
-    across runs; with no majority, the median run's own verdict stands.
+    Keep one complete run intact. When a verdict has a majority, select the
+    majority-verdict run nearest the overall median score. Never graft a
+    verdict onto another run's prose or evidence.
     """
     ordered = sorted(runs, key=lambda r: r[0])
-    median_score, final = ordered[len(ordered) // 2]
+    median_score, _median_run = ordered[len(ordered) // 2]
 
-    verdicts = [str(a.get("verdict", "")) for _, a in runs]
-    counts: Dict[str, int] = {}
-    for v in verdicts:
-        counts[v] = counts.get(v, 0) + 1
-    top_verdict, top_count = max(counts.items(), key=lambda kv: kv[1])
-    final_verdict = top_verdict if top_count >= 2 else str(final.get("verdict", ""))
-
-    if str(final.get("verdict", "")) != final_verdict:
-        adjustments = final.setdefault("verdict_adjustments", [])
-        adjustments.append(
-            f"boundary re-run majority: {final.get('verdict')} → {final_verdict} "
-            f"(verdicts across runs: {verdicts})"
-        )
-        final["verdict"] = final_verdict
+    verdicts = [str(analysis.get("verdict", "")) for _, analysis in runs]
+    selected_index = select_boundary_run_index(
+        [score for score, _analysis in runs],
+        verdicts,
+    )
+    final = runs[selected_index][1]
+    final_verdict = str(final.get("verdict", ""))
 
     final["_boundary_reruns"] = {
         "triggered": True,
@@ -5042,6 +8623,7 @@ def run_v9_stable(
     calibration_prompt: Optional[str] = None,
     job_id: Optional[str] = None,
     pipeline_pass: Optional[str] = None,
+    page_content_signals: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """run_v9_full with boundary re-runs. Drop-in replacement.
 
@@ -5060,6 +8642,7 @@ def run_v9_stable(
             pipeline_pass=pass_name,
             boundary_run=1,
             usage_sink=initial_usage_sink,
+            page_content_signals=page_content_signals,
         )
     except (
         DailyBudgetExceededError,
@@ -5135,6 +8718,7 @@ def run_v9_stable(
                 pipeline_pass=pass_name,
                 boundary_run=i + 2,
                 usage_sink=extra_usage_sink,
+                page_content_signals=page_content_signals,
             )
         except (
             DailyBudgetExceededError,
@@ -5157,49 +8741,32 @@ def run_v9_stable(
                 e.usage if isinstance(e, V9RunError) else extra_usage_sink
             )
             combined = merge_usage(combined, failed_usage_record)
-            failed_runs.append({
+            failed_run = {
                 "run_number": i + 2,
                 "error_type": type(e).__name__,
-                "error_message": str(e)[:500],
+                "error_message": "Required boundary-stability pass failed",
                 "response_ids": _usage_response_ids(
                     failed_usage_record,
                     pipeline_pass=pass_name,
                     boundary_run=i + 2,
                 ),
                 "failed_calls": failed_usage_record.get("failed_calls", []),
-            })
-            log.warning(f"    Boundary re-run {i + 2} failed (continuing with {len(runs)} run(s)): {e}")
-            continue
+            }
+            failed_runs.append(failed_run)
+            raise BoundaryStabilityIncompleteError(
+                "A required boundary-stability pass failed. No score or "
+                "verdict was produced.",
+                combined,
+                review_evidence={
+                    "validation_reason": (
+                        "Every required near-boundary pass must complete"
+                    ),
+                    "failed_runs": failed_runs,
+                },
+            ) from e
         combined = merge_usage(combined, extra_usage)
         runs.append((_adjusted_score(extra), extra))
         run_records.append((i + 2, _adjusted_score(extra), extra, extra_usage))
-
-    if len(runs) == 1:
-        analysis["_boundary_reruns"] = {
-            "triggered": True,
-            "reason": "reruns_failed",
-            "boundary_window": BOUNDARY_WINDOW,
-            "attempted_runs": 1 + len(failed_runs),
-            "completed_runs": 1,
-            "failed_runs": failed_runs,
-            "runs": [{
-                "run_number": 1,
-                "adjusted_score": score,
-                "verdict": str(analysis.get("verdict", "")),
-                "verdict_model": str(analysis.get("verdict_model", "")),
-                "response_ids": _usage_response_ids(
-                    combined,
-                    pipeline_pass=pass_name,
-                    boundary_run=1,
-                ),
-                "analysis_evidence": _analysis_run_evidence(analysis),
-            }],
-            "selected_run_number": 1,
-            "median_adjusted_score": score,
-            "score_spread": 0.0,
-            "final_verdict": str(analysis.get("verdict", "")),
-        }
-        return analysis, combined
 
     stable_run_rows = [
         {
@@ -5247,6 +8814,7 @@ def run_v9_hybrid(
     cold_read: Optional[Dict[str, Any]] = None,
     calibration_prompt: Optional[str] = None,
     job_id: Optional[str] = None,
+    page_content_signals: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Smart two-pass: Sonnet first; if verdict is RECOMMEND or FILM_NOW,
     re-run on Opus for deeper analysis.
@@ -5272,6 +8840,7 @@ def run_v9_hybrid(
         calibration_prompt=calibration_prompt,
         job_id=job_id,
         pipeline_pass="sonnet",
+        page_content_signals=page_content_signals,
     )
 
     sonnet_verdict_raw = str(sonnet_analysis.get("verdict", ""))
@@ -5311,6 +8880,7 @@ def run_v9_hybrid(
             calibration_prompt=calibration_prompt,
             job_id=job_id,
             pipeline_pass="opus",
+            page_content_signals=page_content_signals,
         )
     except Exception as error:
         opus_failure_usage = getattr(error, "usage", empty_usage())
@@ -5348,7 +8918,7 @@ def run_v9_triage(
 
     Returns (analysis_dict, usage).
     """
-    context_policy = build_context_policy(text, model_key)
+    context_policy = build_context_policy(text, model_key, model_ids=MODEL_IDS)
     triage_prompt = (
         f"You are a script reader doing a QUICK ASSESSMENT of a screenplay.\n"
         f"Title: {title}\nPages: {page_count}\nWords: {word_count}\n\n"
@@ -5358,25 +8928,61 @@ def run_v9_triage(
         f"Set should_deep_analyze true if triage_score >= 6.\n"
         f"Return ONLY valid JSON."
     )
-    _tool_input, triage_text, usage = call_llm(
-        system_blocks=[{
-            "type": "text",
-            "text": (
-                f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n"
-                "You are an expert screenplay evaluator. Be direct and concise."
-            ),
-        }],
-        user_blocks=[{"type": "text", "text": triage_prompt}],
-        model_key=model_key,
-        max_tokens=500,
-        proxy_url=proxy_url,
-        job_id=job_id,
-        stage="triage",
-        pipeline_pass="triage",
-        boundary_run=1,
-    )
+    raw_response: Dict[str, Any] = {}
+    try:
+        _tool_input, triage_text, usage = call_llm(
+            system_blocks=[{
+                "type": "text",
+                "text": (
+                    f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n"
+                    "You are an expert screenplay evaluator. Be direct and concise."
+                ),
+            }],
+            user_blocks=[{"type": "text", "text": triage_prompt}],
+            model_key=model_key,
+            max_tokens=500,
+            proxy_url=proxy_url,
+            job_id=job_id,
+            stage="triage",
+            pipeline_pass="triage",
+            boundary_run=1,
+            raw_response_sink=raw_response,
+        )
+    except LlmOutputContractError as error:
+        usage = error.usage
+        set_successful_call_disposition(usage, "discarded_unusable")
+        _mark_call_validation(
+            usage,
+            result="failed_structural",
+            reason=str(error),
+        )
+        has_exact_content = "content" in raw_response
+        rejected_raw = (
+            raw_response.get("content")
+            if has_exact_content
+            else error.rejected_output
+        )
+        if has_exact_content or rejected_raw is not None:
+            _preserve_local_rejected_output(
+                "triage",
+                rejected_raw,
+                usage,
+                str(error),
+            )
+        raise V9RunError(
+            f"Triage response contract failed: {error}",
+            usage,
+        ) from error
+    triage_transformations: List[str] = []
+    triage_transformation_evidence: List[Dict[str, Any]] = []
     try:
         triage = extract_json(triage_text)
+        triage_transformations.append("parsed_free_form_json")
+        triage_transformation_evidence.append(_transformation_hash_evidence(
+            "parsed_free_form_json",
+            triage_text,
+            triage,
+        ))
         if not isinstance(triage, dict):
             raise ValueError("triage response must be a JSON object")
         raw_score = triage.get("triage_score")
@@ -5388,27 +8994,73 @@ def run_v9_triage(
         ):
             raise ValueError("triage_score must be a finite number from 0 to 10")
         score = float(raw_score)
+        triage_transformations.append("normalized_triage_score")
+        triage_transformation_evidence.append(_transformation_hash_evidence(
+            "normalized_triage_score",
+            raw_score,
+            score,
+        ))
         raw_verdict = triage.get("verdict")
         if not isinstance(raw_verdict, str) or not raw_verdict.strip():
             raise ValueError("verdict must be a declared tier")
         verdict = re.sub(r"[\s-]+", "_", raw_verdict.strip().lower())
+        triage_transformations.append("normalized_verdict")
+        triage_transformation_evidence.append(_transformation_hash_evidence(
+            "normalized_verdict",
+            raw_verdict,
+            verdict,
+        ))
         if verdict not in {"pass", "consider", "recommend", "film_now"}:
             raise ValueError("verdict must be PASS, CONSIDER, RECOMMEND, or FILM_NOW")
+        raw_text_fields = {field: triage.get(field) for field in ("genre", "logline")}
         for field in ("genre", "logline"):
             value = triage.get(field)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{field} must be a non-empty string")
             triage[field] = value.strip()
+        triage_transformations.append("trimmed_genre_and_logline")
+        triage_transformation_evidence.append(_transformation_hash_evidence(
+            "trimmed_genre_and_logline",
+            raw_text_fields,
+            {field: triage[field] for field in ("genre", "logline")},
+        ))
         if not isinstance(triage.get("should_deep_analyze"), bool):
             raise ValueError("should_deep_analyze must be a boolean")
+        raw_should_deep_analyze = triage["should_deep_analyze"]
         triage["should_deep_analyze"] = score >= 6.0
+        triage_transformations.append("derived_should_deep_analyze")
+        triage_transformation_evidence.append(_transformation_hash_evidence(
+            "derived_should_deep_analyze",
+            raw_should_deep_analyze,
+            triage["should_deep_analyze"],
+        ))
     except Exception as e:
         set_successful_call_disposition(usage, "discarded_unusable")
+        _mark_call_validation(
+            usage,
+            result="failed_application_validation",
+            reason=str(e),
+            transformations=triage_transformations,
+            transformation_evidence=triage_transformation_evidence,
+        )
+        _preserve_local_rejected_output(
+            "triage",
+            raw_response.get("content", triage_text),
+            usage,
+            str(e),
+        )
         raise V9RunError(
             f"Triage response normalization failed: {e}",
             usage,
         ) from e
     set_successful_call_disposition(usage, "used")
+    _mark_call_validation(
+        usage,
+        result="passed",
+        consumed=True,
+        transformations=triage_transformations,
+        transformation_evidence=triage_transformation_evidence,
+    )
 
     analysis = {
         "title": title,
@@ -5468,10 +9120,10 @@ def run_nonbinding_cold_read(
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Run one cheap impression that can inform, but never gate, the full panel."""
     try:
-        build_context_policy(text, "haiku")
+        build_context_policy(text, "haiku", model_ids=MODEL_IDS)
         cold_read_model = "haiku"
     except SourceEvidenceError:
-        build_context_policy(text, "sonnet")
+        build_context_policy(text, "sonnet", model_ids=MODEL_IDS)
         cold_read_model = "sonnet"
     triage_result, usage = run_v9_triage(
         text,
@@ -5555,6 +9207,8 @@ def build_raw_document(
             "extraction_quality": parser_metadata.get("extraction_quality"),
             "page_diagnostics": parser_metadata.get("page_diagnostics"),
             "page_evidence_sha256": parser_metadata.get("page_evidence_sha256"),
+            "page_content_signals": parser_metadata.get("page_content_signals"),
+            "scene_count_evidence": parser_metadata.get("scene_count_evidence"),
             "extraction_attempts": parser_metadata.get("extraction_attempts"),
             "native_cross_check": parser_metadata.get("native_cross_check"),
         },
@@ -5671,6 +9325,11 @@ def ingest_one(
         cost_est = estimate_cost(word_count, model_key, mode)
         log.info(f"  [DRY RUN] Would analyze {word_count:,} words — estimated cost: {cost_est}")
         return "ok"
+    if mode == "triage":
+        log.error(
+            "  ✗ Triage is non-binding and cannot be persisted as completed V9 coverage"
+        )
+        return "fail"
 
     project_id = to_doc_id(source_file)
     version_id = build_version_id(content_hash, queued_at_ms)
@@ -5728,6 +9387,9 @@ def ingest_one(
             analysis, usage = run_v9_stable(
                 text, title, page_count, word_count, model_key, proxy_url,
                 cold_read=cold_read,
+                page_content_signals=(parsed.get("metadata") or {}).get(
+                    "page_content_signals"
+                ),
             )
             if triage_usage is not None:
                 usage = merge_usage(triage_usage, usage)
@@ -5753,6 +9415,41 @@ def ingest_one(
         )
     except SourceEvidenceError as error:
         log.error(f"  ✗ Analysis evidence needs review: {error}")
+        return "fail"
+
+    effective_model_key = model_key
+    if model_key == "hybrid":
+        effective_model_key = str(
+            (analysis.get("_hybrid_mode") or {}).get("final_model", "sonnet")
+        )
+    boundary = analysis.get("_boundary_reruns")
+    boundary_run = (
+        boundary.get("selected_run_number", 1)
+        if isinstance(boundary, dict)
+        else 1
+    )
+    try:
+        claim_verification, claim_usage = run_claim_verification(
+            text=text,
+            analysis=analysis,
+            model_key=effective_model_key,
+            proxy_url=proxy_url,
+            pipeline_pass=effective_model_key,
+            boundary_run=boundary_run,
+        )
+        analysis["_claim_verification"] = claim_verification
+        usage = merge_usage(usage, claim_usage)
+        attach_verified_citation_quality(
+            analysis,
+            parsed.get("metadata") or {},
+            page_count,
+            parsed["text"],
+        )
+    except Exception as error:
+        log.error(
+            "  ✗ Independent claim verification failed; no analysis was persisted: "
+            f"{error}"
+        )
         return "fail"
 
     duration_ms = int((time.time() - start) * 1000)

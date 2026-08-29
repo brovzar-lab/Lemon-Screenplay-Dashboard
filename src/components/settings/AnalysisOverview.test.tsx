@@ -79,4 +79,34 @@ describe('AnalysisOverview localized issues', () => {
     expect(refetch).toHaveBeenCalledOnce();
     expect(screen.queryByText('No analyzed screenplays yet')).not.toBeInTheDocument();
   });
+
+  it('excludes unverified records from score, genre, and verdict decisions', () => {
+    vi.mocked(useScreenplays).mockReturnValue({
+      data: [
+        createTestScreenplay({
+          title: 'Verified comedy',
+          weightedScore: 8,
+          genre: 'Comedy',
+          recommendation: 'recommend',
+        }),
+        createTestScreenplay({
+          title: 'Unverified horror',
+          weightedScore: 1,
+          genre: 'Horror',
+          recommendation: 'pass',
+          producerProjection: undefined,
+        }),
+      ],
+    } as ReturnType<typeof useScreenplays>);
+
+    render(<AnalysisOverview />, { wrapper: MemoryRouter });
+
+    expect(
+      screen.getByText('Based on 1 verified analyses. 1 unverified records excluded.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('8.0')).toBeInTheDocument();
+    expect(screen.getByText('Comedy')).toBeInTheDocument();
+    expect(screen.queryByText('Horror')).not.toBeInTheDocument();
+    expect(screen.getByText('100%')).toBeInTheDocument();
+  });
 });

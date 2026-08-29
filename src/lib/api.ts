@@ -6,6 +6,7 @@ import {
 import { loadAllAnalyses, quarantineAnalysis } from './analysisStore';
 import { useToastStore } from '@/stores/toastStore';
 import i18n from '@/i18n';
+import { decisionReadyScreenplays } from '@/lib/producerProjection';
 
 const reportedQuarantineSources = new Set<string>();
 
@@ -100,15 +101,21 @@ export async function loadAllScreenplaysVite(): Promise<Screenplay[]> {
  */
 export function getScreenplayStats(screenplays: Screenplay[]) {
     const total = screenplays.length;
-    const filmNowCount = screenplays.filter((s) => s.isFilmNow).length;
-    const recommendCount = screenplays.filter((s) => s.recommendation === 'recommend').length;
-    const considerCount = screenplays.filter((s) => s.recommendation === 'consider').length;
-    const passCount = screenplays.filter((s) => s.recommendation === 'pass').length;
+    const decisionReady = decisionReadyScreenplays(screenplays);
+    const decisionReadyCount = decisionReady.length;
+    const filmNowCount = decisionReady.filter((s) => s.isFilmNow).length;
+    const recommendCount = decisionReady.filter((s) => s.recommendation === 'recommend').length;
+    const considerCount = decisionReady.filter((s) => s.recommendation === 'consider').length;
+    const passCount = decisionReady.filter((s) => s.recommendation === 'pass').length;
 
     const avgWeightedScore =
-        total > 0 ? screenplays.reduce((sum, s) => sum + s.weightedScore, 0) / total : 0;
+        decisionReadyCount > 0
+            ? decisionReady.reduce((sum, s) => sum + s.weightedScore, 0) / decisionReadyCount
+            : 0;
 
-    const avgCvs = total > 0 ? screenplays.reduce((sum, s) => sum + s.cvsTotal, 0) / total : 0;
+    const avgCvs = decisionReadyCount > 0
+        ? decisionReady.reduce((sum, s) => sum + s.cvsTotal, 0) / decisionReadyCount
+        : 0;
 
     // Unique genres
     const genres = [...new Set(screenplays.map((s) => s.genre))].sort();
@@ -128,6 +135,8 @@ export function getScreenplayStats(screenplays: Screenplay[]) {
 
     return {
         total,
+        decisionReadyCount,
+        omittedUnverifiedCount: total - decisionReadyCount,
         filmNowCount,
         recommendCount,
         considerCount,

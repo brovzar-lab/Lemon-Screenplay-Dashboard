@@ -6,12 +6,15 @@
  * The Firestore transaction makes the daily ceiling safe under concurrency.
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
 import {
   calculateActualCostMicrousd,
-  calculateReservationMicrousd,
+  calculateEstimatedCostNanousd,
+  calculateHighestAllowedReservationMicrousd,
   microusdToUsd,
+  nanousdToUsd,
+  PRICED_MODELS,
   type LlmTokenUsage,
 } from "./llmCost";
 import { INGEST_QUEUE_COLLECTION, SYSTEM_COLLECTION } from "./ingestQueue";
@@ -45,9 +48,71 @@ export interface LlmBudgetReservation extends ActiveReservation {
   budget_document_id: string;
 }
 
+export interface QueueLlmReservationMarker {
+  reservation_id: string;
+  budget_document_id: string;
+  model: string;
+  reserved_microusd: number;
+  reserved_at_ms: number;
+  state: "reserved_before_provider_dispatch";
+}
+
+export function buildQueueLlmReservationMarker(
+  reservationId: string,
+  budgetDocumentId: string,
+  reservation: ActiveReservation,
+  nowMs: number,
+): QueueLlmReservationMarker {
+  return {
+    reservation_id: reservationId,
+    budget_document_id: budgetDocumentId,
+    model: reservation.model,
+    reserved_microusd: reservation.reserved_microusd,
+    reserved_at_ms: nowMs,
+    state: "reserved_before_provider_dispatch",
+  };
+}
+
+function queueHasReservationMarker(value: unknown, reservationId: string): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const reservations = (value as Record<string, unknown>).llm_active_reservations;
+  return Boolean(
+    reservations
+    && typeof reservations === "object"
+    && !Array.isArray(reservations)
+    && Object.prototype.hasOwnProperty.call(reservations, reservationId),
+  );
+}
+
 export interface LlmBudgetSettlement {
   actual_cost_microusd: number;
   actual_cost_usd: number;
+  charged_cost_microusd: number;
+  estimated_cost_nanousd: number;
+  estimated_cost_usd: number;
+  rounding_variance_nanousd: number;
+  rounding_variance_usd: number;
+  rounding_reason: "ceil_to_microusd_for_atomic_budget" | null;
+}
+
+export type LlmUncertainBudgetSettlement = Pick<
+  LlmBudgetSettlement,
+  "actual_cost_microusd" | "actual_cost_usd"
+>;
+
+export type LlmAccountingReasonCode =
+  | "provider_transport_or_stream_failure"
+  | "provider_invalid_request_before_generation"
+  | "post_response_validation_or_settlement_failure";
+
+function accountingReasonEvidence(
+  reasonCode: LlmAccountingReasonCode,
+  detail: string,
+): { reason_code: LlmAccountingReasonCode; reason_sha256: string } {
+  return {
+    reason_code: reasonCode,
+    reason_sha256: createHash("sha256").update(detail).digest("hex"),
+  };
 }
 
 export class DailyBudgetExceededError extends Error {
@@ -72,6 +137,13 @@ function nonNegativeInteger(value: unknown): number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
 }
 
+function requiredNonNegativeInteger(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    throw new Error(`Stored daily budget ${field} must be a non-negative integer.`);
+  }
+  return value;
+}
+
 function emptyModelTotals(): ModelUsageTotals {
   return {
     call_count: 0,
@@ -84,37 +156,59 @@ function emptyModelTotals(): ModelUsageTotals {
 }
 
 function readModelTotals(value: unknown): ModelUsageTotals {
-  const record = value && typeof value === "object"
-    ? value as Record<string, unknown>
-    : {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Stored daily budget model totals must be an object.");
+  }
+  const record = value as Record<string, unknown>;
   return {
-    call_count: nonNegativeInteger(record.call_count),
-    input_tokens: nonNegativeInteger(record.input_tokens),
-    output_tokens: nonNegativeInteger(record.output_tokens),
-    cache_creation_input_tokens: nonNegativeInteger(record.cache_creation_input_tokens),
-    cache_read_input_tokens: nonNegativeInteger(record.cache_read_input_tokens),
-    actual_cost_microusd: nonNegativeInteger(record.actual_cost_microusd),
+    call_count: requiredNonNegativeInteger(record.call_count, "model call_count"),
+    input_tokens: requiredNonNegativeInteger(record.input_tokens, "model input_tokens"),
+    output_tokens: requiredNonNegativeInteger(record.output_tokens, "model output_tokens"),
+    cache_creation_input_tokens: requiredNonNegativeInteger(
+      record.cache_creation_input_tokens,
+      "model cache_creation_input_tokens",
+    ),
+    cache_read_input_tokens: requiredNonNegativeInteger(
+      record.cache_read_input_tokens,
+      "model cache_read_input_tokens",
+    ),
+    actual_cost_microusd: requiredNonNegativeInteger(
+      record.actual_cost_microusd,
+      "model actual_cost_microusd",
+    ),
   };
 }
 
 function readActiveReservations(value: unknown): Record<string, ActiveReservation> {
-  if (!value || typeof value !== "object") return {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Stored daily budget active_reservations must be an object.");
+  }
   const result: Record<string, ActiveReservation> = {};
   for (const [id, raw] of Object.entries(value as Record<string, unknown>)) {
-    if (!raw || typeof raw !== "object") continue;
-    const record = raw as Record<string, unknown>;
-    const reserved = nonNegativeInteger(record.reserved_microusd);
-    const expires = nonNegativeInteger(record.expires_at_ms);
-    const model = typeof record.model === "string" ? record.model : "";
-    const jobId = typeof record.job_id === "string" ? record.job_id : null;
-    if (reserved > 0 && expires > 0 && model) {
-      result[id] = {
-        reserved_microusd: reserved,
-        expires_at_ms: expires,
-        model,
-        job_id: jobId,
-      };
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      throw new Error(`Stored daily budget reservation ${id} must be an object.`);
     }
+    const record = raw as Record<string, unknown>;
+    const reserved = requiredNonNegativeInteger(
+      record.reserved_microusd,
+      `reservation ${id} reserved_microusd`,
+    );
+    const expires = requiredNonNegativeInteger(
+      record.expires_at_ms,
+      `reservation ${id} expires_at_ms`,
+    );
+    if (reserved <= 0 || expires <= 0 || typeof record.model !== "string" || !record.model) {
+      throw new Error(`Stored daily budget reservation ${id} is invalid.`);
+    }
+    if (record.job_id !== null && typeof record.job_id !== "string") {
+      throw new Error(`Stored daily budget reservation ${id} job_id is invalid.`);
+    }
+    result[id] = {
+      reserved_microusd: reserved,
+      expires_at_ms: expires,
+      model: record.model,
+      job_id: record.job_id as string | null,
+    };
   }
   return result;
 }
@@ -124,31 +218,70 @@ export function normalizeBudgetLedger(
   date: string,
   limitMicrousd: number,
 ): DailyBudgetLedger {
-  const record = value && typeof value === "object"
-    ? value as Record<string, unknown>
-    : {};
-  const rawModels = record.by_model && typeof record.by_model === "object"
-    ? record.by_model as Record<string, unknown>
-    : {};
+  if (value === undefined) {
+    return {
+      date,
+      limit_microusd: limitMicrousd,
+      spent_microusd: 0,
+      reserved_microusd: 0,
+      call_count: 0,
+      uncertain_call_count: 0,
+      uncertain_spend_microusd: 0,
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0,
+      by_model: {},
+      active_reservations: {},
+    };
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Stored daily budget ledger must be an object.");
+  }
+  const record = value as Record<string, unknown>;
+  if (!record.by_model || typeof record.by_model !== "object" || Array.isArray(record.by_model)) {
+    throw new Error("Stored daily budget by_model must be an object.");
+  }
+  const rawModels = record.by_model as Record<string, unknown>;
   const byModel: Record<string, ModelUsageTotals> = {};
   for (const [model, totals] of Object.entries(rawModels)) {
     byModel[model] = readModelTotals(totals);
   }
-  return {
+  const activeReservations = readActiveReservations(record.active_reservations);
+  const ledger = {
     date,
     limit_microusd: limitMicrousd,
-    spent_microusd: nonNegativeInteger(record.spent_microusd),
-    reserved_microusd: nonNegativeInteger(record.reserved_microusd),
-    call_count: nonNegativeInteger(record.call_count),
-    uncertain_call_count: nonNegativeInteger(record.uncertain_call_count),
-    uncertain_spend_microusd: nonNegativeInteger(record.uncertain_spend_microusd),
-    input_tokens: nonNegativeInteger(record.input_tokens),
-    output_tokens: nonNegativeInteger(record.output_tokens),
-    cache_creation_input_tokens: nonNegativeInteger(record.cache_creation_input_tokens),
-    cache_read_input_tokens: nonNegativeInteger(record.cache_read_input_tokens),
+    spent_microusd: requiredNonNegativeInteger(record.spent_microusd, "spent_microusd"),
+    reserved_microusd: requiredNonNegativeInteger(
+      record.reserved_microusd,
+      "reserved_microusd",
+    ),
+    call_count: requiredNonNegativeInteger(record.call_count, "call_count"),
+    uncertain_call_count: requiredNonNegativeInteger(
+      record.uncertain_call_count,
+      "uncertain_call_count",
+    ),
+    uncertain_spend_microusd: requiredNonNegativeInteger(
+      record.uncertain_spend_microusd,
+      "uncertain_spend_microusd",
+    ),
+    input_tokens: requiredNonNegativeInteger(record.input_tokens, "input_tokens"),
+    output_tokens: requiredNonNegativeInteger(record.output_tokens, "output_tokens"),
+    cache_creation_input_tokens: requiredNonNegativeInteger(
+      record.cache_creation_input_tokens,
+      "cache_creation_input_tokens",
+    ),
+    cache_read_input_tokens: requiredNonNegativeInteger(
+      record.cache_read_input_tokens,
+      "cache_read_input_tokens",
+    ),
     by_model: byModel,
-    active_reservations: readActiveReservations(record.active_reservations),
+    active_reservations: activeReservations,
   };
+  if (ledger.reserved_microusd !== sumReserved(activeReservations)) {
+    throw new Error("Stored daily budget reservations do not reconcile.");
+  }
+  return ledger;
 }
 
 function activeReservationsAt(
@@ -205,11 +338,30 @@ export function settleBudgetReservationInLedger(
   model: string,
   usage: LlmTokenUsage,
   actualCostMicrousd: number,
-  nowMs: number,
+  _nowMs: number,
 ): DailyBudgetLedger {
-  const active = activeReservationsAt(ledger.active_reservations, nowMs);
-  if (!active[reservationId]) {
+  const active = { ...ledger.active_reservations };
+  const held = active[reservationId];
+  if (!held) {
     throw new Error(`Budget reservation ${reservationId} is missing or expired.`);
+  }
+  if (actualCostMicrousd > held.reserved_microusd) {
+    throw new Error("Actual cost exceeded the conservative budget reservation.");
+  }
+  if (
+    ledger.spent_microusd
+      + sumReserved(active)
+      - held.reserved_microusd
+      + actualCostMicrousd
+      > ledger.limit_microusd
+  ) {
+    throw new DailyBudgetExceededError(
+      ledger.limit_microusd,
+      ledger.spent_microusd,
+      sumReserved(active),
+      actualCostMicrousd,
+      nextUtcReset(new Date(_nowMs)),
+    );
   }
   delete active[reservationId];
 
@@ -245,14 +397,18 @@ export function chargeUncertainBudgetReservationInLedger(
   ledger: DailyBudgetLedger,
   reservationId: string,
   reservedMicrousd: number,
-  nowMs: number,
+  _nowMs: number,
 ): DailyBudgetLedger {
   const chargedMicrousd = nonNegativeInteger(reservedMicrousd);
   if (chargedMicrousd <= 0) {
     throw new Error("Uncertain LLM spend must retain a positive reservation.");
   }
 
-  const active = activeReservationsAt(ledger.active_reservations, nowMs);
+  const active = { ...ledger.active_reservations };
+  const held = active[reservationId];
+  if (!held || held.reserved_microusd !== chargedMicrousd) {
+    throw new Error(`Budget reservation ${reservationId} is missing, expired, or changed.`);
+  }
   delete active[reservationId];
   return {
     ...ledger,
@@ -267,9 +423,9 @@ export function chargeUncertainBudgetReservationInLedger(
 export function releaseBudgetReservationInLedger(
   ledger: DailyBudgetLedger,
   reservationId: string,
-  nowMs: number,
+  _nowMs: number,
 ): DailyBudgetLedger {
-  const active = activeReservationsAt(ledger.active_reservations, nowMs);
+  const active = { ...ledger.active_reservations };
   if (!active[reservationId]) {
     throw new Error(`Budget reservation ${reservationId} is missing or expired.`);
   }
@@ -310,9 +466,12 @@ export async function reserveLlmBudget(params: {
   const reservationId = randomUUID();
   const budgetRef = db.collection(SYSTEM_COLLECTION).doc(budgetDocumentId);
   const reservationRef = budgetRef.collection("reservations").doc(reservationId);
+  const queueRef = params.jobId
+    ? db.collection(INGEST_QUEUE_COLLECTION).doc(params.jobId)
+    : null;
   const activeReservation: ActiveReservation = {
-    reserved_microusd: calculateReservationMicrousd(
-      params.model,
+    reserved_microusd: calculateHighestAllowedReservationMicrousd(
+      PRICED_MODELS,
       params.requestBytes,
       params.maxOutputTokens,
     ),
@@ -322,12 +481,19 @@ export async function reserveLlmBudget(params: {
   };
 
   await db.runTransaction(async (transaction) => {
-    const [reservationSnapshot, budgetSnapshot] = await Promise.all([
+    const [reservationSnapshot, budgetSnapshot, queueSnapshot] = await Promise.all([
       transaction.get(reservationRef),
       transaction.get(budgetRef),
+      queueRef ? transaction.get(queueRef) : Promise.resolve(null),
     ]);
     if (reservationSnapshot.exists) {
       throw new Error(`Duplicate budget reservation ${reservationId}.`);
+    }
+    if (
+      queueRef
+      && (queueSnapshot?.exists !== true || queueSnapshot.data()?.status !== "processing")
+    ) {
+      throw new Error(`Ingest queue job ${params.jobId} is not actively processing.`);
     }
     const ledger = normalizeBudgetLedger(
       budgetSnapshot.exists ? budgetSnapshot.data() : undefined,
@@ -349,7 +515,20 @@ export async function reserveLlmBudget(params: {
       status: "reserved",
       created_at: Timestamp.fromMillis(nowMs),
       expires_at: Timestamp.fromMillis(activeReservation.expires_at_ms),
+      queue_marker_written: Boolean(queueRef),
     });
+    if (queueRef) {
+      transaction.update(queueRef, {
+        [`llm_active_reservations.${reservationId}`]: buildQueueLlmReservationMarker(
+          reservationId,
+          budgetDocumentId,
+          activeReservation,
+          nowMs,
+        ),
+        llm_active_reservation_count: FieldValue.increment(1),
+        last_llm_reservation_at: FieldValue.serverTimestamp(),
+      });
+    }
   });
 
   return {
@@ -372,6 +551,19 @@ export async function settleLlmBudget(
     ? db.collection(INGEST_QUEUE_COLLECTION).doc(reservation.job_id)
     : null;
   const actualCostMicrousd = calculateActualCostMicrousd(returnedModel, usage);
+  const estimatedCostNanousd = calculateEstimatedCostNanousd(returnedModel, usage);
+  const roundingVarianceNanousd = actualCostMicrousd * 1_000 - estimatedCostNanousd;
+  const settlement: LlmBudgetSettlement = {
+    actual_cost_microusd: actualCostMicrousd,
+    actual_cost_usd: microusdToUsd(actualCostMicrousd),
+    charged_cost_microusd: actualCostMicrousd,
+    estimated_cost_nanousd: estimatedCostNanousd,
+    estimated_cost_usd: nanousdToUsd(estimatedCostNanousd),
+    rounding_variance_nanousd: roundingVarianceNanousd,
+    rounding_variance_usd: nanousdToUsd(roundingVarianceNanousd),
+    rounding_reason: roundingVarianceNanousd === 0
+      ? null : "ceil_to_microusd_for_atomic_budget",
+  };
 
   return db.runTransaction(async (transaction) => {
     const reservationSnapshot = await transaction.get(reservationRef);
@@ -383,9 +575,25 @@ export async function settleLlmBudget(
     const reservationData = reservationSnapshot.data() ?? {};
     if (reservationData.status === "settled") {
       const settledCost = nonNegativeInteger(reservationData.actual_cost_microusd);
+      const settledEstimate = nonNegativeInteger(
+        reservationData.estimated_cost_nanousd,
+      );
+      const settledVariance = nonNegativeInteger(
+        reservationData.rounding_variance_nanousd,
+      );
+      if (settledCost * 1_000 - settledEstimate !== settledVariance) {
+        throw new Error("Stored LLM settlement lacks exact cost evidence.");
+      }
       return {
         actual_cost_microusd: settledCost,
         actual_cost_usd: microusdToUsd(settledCost),
+        charged_cost_microusd: settledCost,
+        estimated_cost_nanousd: settledEstimate,
+        estimated_cost_usd: nanousdToUsd(settledEstimate),
+        rounding_variance_nanousd: settledVariance,
+        rounding_variance_usd: nanousdToUsd(settledVariance),
+        rounding_reason: settledVariance === 0
+          ? null : "ceil_to_microusd_for_atomic_budget",
       };
     }
     if (reservationData.status !== "reserved") {
@@ -421,12 +629,20 @@ export async function settleLlmBudget(
       requested_model: reservation.model,
       returned_model: returnedModel,
       actual_cost_microusd: actualCostMicrousd,
+      charged_cost_microusd: actualCostMicrousd,
+      estimated_cost_nanousd: estimatedCostNanousd,
+      rounding_variance_nanousd: roundingVarianceNanousd,
+      rounding_reason: settlement.rounding_reason,
       usage,
       settled_at: FieldValue.serverTimestamp(),
     });
 
     if (queueRef) {
       const modelPrefix = `llm_models.${returnedModel}`;
+      const clearMarker = queueHasReservationMarker(
+        queueSnapshot?.data(),
+        reservation.id,
+      );
       transaction.update(queueRef, {
         llm_call_count: FieldValue.increment(1),
         llm_input_tokens: FieldValue.increment(usage.input_tokens),
@@ -448,20 +664,22 @@ export async function settleLlmBudget(
         ),
         [`${modelPrefix}.actual_cost_microusd`]: FieldValue.increment(actualCostMicrousd),
         last_llm_call_at: FieldValue.serverTimestamp(),
+        ...(clearMarker ? {
+          [`llm_active_reservations.${reservation.id}`]: FieldValue.delete(),
+          llm_active_reservation_count: FieldValue.increment(-1),
+        } : {}),
       });
     }
 
-    return {
-      actual_cost_microusd: actualCostMicrousd,
-      actual_cost_usd: microusdToUsd(actualCostMicrousd),
-    };
+    return settlement;
   });
 }
 
 export async function settleUncertainLlmBudget(
   reservation: LlmBudgetReservation,
-  reason: string,
-): Promise<LlmBudgetSettlement> {
+  reasonCode: LlmAccountingReasonCode,
+  detail: string,
+): Promise<LlmUncertainBudgetSettlement> {
   const db = getFirestore();
   const nowMs = Date.now();
   const budgetRef = db.collection(SYSTEM_COLLECTION).doc(reservation.budget_document_id);
@@ -514,12 +732,16 @@ export async function settleUncertainLlmBudget(
     transaction.update(reservationRef, {
       status: "uncertain",
       charged_cost_microusd: chargedMicrousd,
-      uncertainty_reason: reason.slice(0, 500),
+      ...accountingReasonEvidence(reasonCode, detail),
       settled_at: FieldValue.serverTimestamp(),
     });
 
     if (queueRef && queueSnapshot?.exists) {
       const modelPrefix = `llm_models.${reservation.model}`;
+      const clearMarker = queueHasReservationMarker(
+        queueSnapshot.data(),
+        reservation.id,
+      );
       transaction.update(queueRef, {
         llm_uncertain_call_count: FieldValue.increment(1),
         uncertain_cost_microusd: FieldValue.increment(chargedMicrousd),
@@ -527,6 +749,10 @@ export async function settleUncertainLlmBudget(
         [`${modelPrefix}.uncertain_call_count`]: FieldValue.increment(1),
         [`${modelPrefix}.uncertain_cost_microusd`]: FieldValue.increment(chargedMicrousd),
         last_llm_call_at: FieldValue.serverTimestamp(),
+        ...(clearMarker ? {
+          [`llm_active_reservations.${reservation.id}`]: FieldValue.delete(),
+          llm_active_reservation_count: FieldValue.increment(-1),
+        } : {}),
       });
     }
 
@@ -539,17 +765,22 @@ export async function settleUncertainLlmBudget(
 
 export async function releaseLlmBudget(
   reservation: LlmBudgetReservation,
-  reason: string,
+  reasonCode: LlmAccountingReasonCode,
+  detail: string,
 ): Promise<void> {
   const db = getFirestore();
   const nowMs = Date.now();
   const budgetRef = db.collection(SYSTEM_COLLECTION).doc(reservation.budget_document_id);
   const reservationRef = budgetRef.collection("reservations").doc(reservation.id);
+  const queueRef = reservation.job_id
+    ? db.collection(INGEST_QUEUE_COLLECTION).doc(reservation.job_id)
+    : null;
 
   await db.runTransaction(async (transaction) => {
-    const [reservationSnapshot, budgetSnapshot] = await Promise.all([
+    const [reservationSnapshot, budgetSnapshot, queueSnapshot] = await Promise.all([
       transaction.get(reservationRef),
       transaction.get(budgetRef),
+      queueRef ? transaction.get(queueRef) : Promise.resolve(null),
     ]);
     if (!reservationSnapshot.exists) {
       throw new Error(`Budget reservation ${reservation.id} does not exist.`);
@@ -577,8 +808,21 @@ export async function releaseLlmBudget(
     });
     transaction.update(reservationRef, {
       status: "released",
-      release_reason: reason.slice(0, 500),
+      ...accountingReasonEvidence(reasonCode, detail),
       released_at: FieldValue.serverTimestamp(),
     });
+    if (queueRef && queueSnapshot?.exists) {
+      const clearMarker = queueHasReservationMarker(
+        queueSnapshot.data(),
+        reservation.id,
+      );
+      transaction.update(queueRef, {
+        ...(clearMarker ? {
+          [`llm_active_reservations.${reservation.id}`]: FieldValue.delete(),
+          llm_active_reservation_count: FieldValue.increment(-1),
+        } : {}),
+        last_llm_reservation_release_at: FieldValue.serverTimestamp(),
+      });
+    }
   });
 }

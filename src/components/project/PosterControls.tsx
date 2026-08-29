@@ -4,6 +4,7 @@ import { requestPoster, type PosterModelKey } from '@/lib/googleProxyClient';
 import { useIsAdmin } from '@/stores/authStore';
 import { useToastStore } from '@/stores/toastStore';
 import type { Screenplay } from '@/types';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 const OPTIONS: Array<{ value: PosterModelKey; label: string }> = [
   { value: 'economy', label: 'Economy · $0.034' },
@@ -27,6 +28,13 @@ export function PosterControls({ screenplay }: { screenplay: Screenplay }) {
   const busy = working || serverBusy;
 
   if (!isAdmin) return null;
+  if (!isDecisionReady(screenplay)) {
+    return (
+      <p className="screenplay-file__poster-note">
+        {t('Decision data unavailable until verification')}
+      </p>
+    );
+  }
   if (screenplay.recommendation === 'pass') {
     return (
       <p className="screenplay-file__poster-note">{t('Poster withheld for a Pass verdict')}</p>

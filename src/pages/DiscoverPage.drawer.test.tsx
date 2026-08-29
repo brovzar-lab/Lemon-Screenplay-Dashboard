@@ -30,6 +30,7 @@ vi.mock('@/lib/shareService', () => ({
   isScreenplaySynced: vi.fn().mockResolvedValue(true),
   createShareToken: vi.fn(),
   revokeShareToken: vi.fn(),
+  updateShareNotes: vi.fn(),
 }));
 
 import DiscoverPage from '@/pages/DiscoverPage';
@@ -108,7 +109,7 @@ describe('Discovery detail drawer', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open Atlas Fall details' }));
     let drawer = screen.getByRole('dialog', { name: 'Atlas Fall' });
-    expect(within(drawer).getByText('9.40')).toBeInTheDocument();
+    expect(within(drawer).getAllByText('9.40')).not.toHaveLength(0);
     expect(within(drawer).getByText('9.4/10')).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -116,7 +117,7 @@ describe('Discovery detail drawer', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open Bravo Room details' }));
     drawer = screen.getByRole('dialog', { name: 'Bravo Room' });
-    expect(within(drawer).getByText('8.25')).toBeInTheDocument();
+    expect(within(drawer).getAllByText('8.25')).not.toHaveLength(0);
 
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());

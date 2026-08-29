@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import type { Screenplay } from '@/types';
 import { getExistingShareToken, createShareToken } from '@/lib/shareService';
 import { useShareStore } from '@/stores/shareStore';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 type ShareRowStatus = 'pending' | 'generating' | 'done' | 'failed';
 
@@ -95,6 +96,10 @@ export function BulkShareModal({
   }
 
   async function runBulkShare(items: Screenplay[]) {
+    if (items.length === 0 || items.some((item) => !isDecisionReady(item))) {
+      setRows(Object.fromEntries(items.map((item) => [item.id, { status: 'failed' as const }])));
+      return;
+    }
     for (const sp of items) {
       await generateForScreenplay(sp);
     }

@@ -21,6 +21,7 @@ const hookState = vi.hoisted(() => ({
 const shareMocks = vi.hoisted(() => ({
   createShareToken: vi.fn(),
   revokeShareToken: vi.fn(),
+  updateShareNotes: vi.fn(),
   getExistingShareToken: vi.fn(),
   getAllSharedViews: vi.fn(),
   isScreenplaySynced: vi.fn(),

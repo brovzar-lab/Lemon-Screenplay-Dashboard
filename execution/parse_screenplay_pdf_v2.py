@@ -14,21 +14,34 @@ Usage:
 """
 
 import argparse
+import difflib
+import hashlib
 import json
 import logging
+import os
+import re
 import sys
 import tempfile
+import unicodedata
 from pathlib import Path
 from typing import Dict, Any, Tuple
 
 try:
     from execution.source_evidence import (
+        build_scene_count_evidence,
+        build_page_evidence,
+        join_marked_pages,
+        NATIVE_TEXT_SIMILARITY_MIN,
+        sha256_json,
+    )
+except ModuleNotFoundError:  # Direct script execution adds execution/ to sys.path.
+    from source_evidence import (
+        NATIVE_TEXT_SIMILARITY_MIN,
         build_page_evidence,
         join_marked_pages,
         sha256_json,
     )
-except ModuleNotFoundError:  # Direct script execution adds execution/ to sys.path.
-    from source_evidence import build_page_evidence, join_marked_pages, sha256_json
+    from source_evidence import build_scene_count_evidence
 
 # Standard PDF extraction
 import PyPDF2
@@ -49,15 +62,34 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
-# Configure logging
+try:
+    from execution.local_artifacts import secure_local_path
+except ImportError:
+    from local_artifacts import secure_local_path
+
+# Configure private local logging under the benchmark run when supplied.
+_RAW_PARSE_LOG_DIR = Path(os.getenv("LEMON_LOCAL_ARTIFACT_DIR", ".tmp"))
+_PARSE_LOG_ROOT = Path(os.getenv(
+    "LEMON_LOCAL_ARTIFACT_ROOT",
+    str(
+        Path.cwd()
+        if not _RAW_PARSE_LOG_DIR.is_absolute()
+        else _RAW_PARSE_LOG_DIR.parent
+    ),
+))
+_PARSE_LOG_DIR = secure_local_path(_RAW_PARSE_LOG_DIR, _PARSE_LOG_ROOT)
+_PARSE_LOG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+_PARSE_LOG_DIR.chmod(0o700)
+_PARSE_LOG_PATH = _PARSE_LOG_DIR / "parse_v2.log"
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('.tmp/parse_v2.log'),
+        logging.FileHandler(_PARSE_LOG_PATH),
         logging.StreamHandler(sys.stdout)
     ]
 )
+_PARSE_LOG_PATH.chmod(0o600)
 logger = logging.getLogger(__name__)
 
 # Minimum viable text length (words) to consider extraction successful
@@ -67,6 +99,83 @@ OCR_LANGUAGES = "eng+spa"
 MAX_OCR_PAGES = 200
 OCR_RENDER_TIMEOUT_SECONDS = 300
 OCR_PAGE_TIMEOUT_SECONDS = 45
+_PAGE_MARKER = re.compile(r"(?m)^\[PAGE ([1-9][0-9]*)\][ \t]*$")
+_NATIVE_METHODS = {"pdfplumber", "pymupdf", "PyPDF2"}
+
+
+def normalized_page_token_similarity(left: str, right: str) -> float:
+    """Compare extracted screenplay content, ignoring layout-only differences."""
+    def pages(value: str) -> Dict[int, list[str]]:
+        matches = list(_PAGE_MARKER.finditer(value))
+        result: Dict[int, list[str]] = {}
+        for index, match in enumerate(matches):
+            end = matches[index + 1].start() if index + 1 < len(matches) else len(value)
+            normalized = unicodedata.normalize(
+                "NFKC",
+                value[match.end():end],
+            ).casefold()
+            result[int(match.group(1))] = re.findall(r"\b\w+\b", normalized)
+        return result
+
+    left_pages = pages(left)
+    right_pages = pages(right)
+    page_numbers = sorted(set(left_pages) | set(right_pages))
+    weighted = 0.0
+    total_weight = 0
+    for page in page_numbers:
+        left_tokens = left_pages.get(page, [])
+        right_tokens = right_pages.get(page, [])
+        weight = max(1, len(left_tokens), len(right_tokens))
+        ratio = difflib.SequenceMatcher(
+            None,
+            left_tokens,
+            right_tokens,
+            autojunk=False,
+        ).ratio()
+        weighted += ratio * weight
+        total_weight += weight
+    return round(weighted / total_weight, 4) if total_weight else 1.0
+
+
+def marked_page_texts(text: str, page_count: int) -> list[str]:
+    matches = list(_PAGE_MARKER.finditer(text))
+    contents: Dict[int, str] = {}
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        contents[int(match.group(1))] = text[match.end():end].strip()
+    return [contents.get(page, "") for page in range(1, page_count + 1)]
+
+
+def pdf_page_content_signals(pdf_path: Path) -> list[Dict[str, Any]] | None:
+    """Detect pages whose PDF stream contains content that text extraction missed."""
+    try:
+        with open(pdf_path, "rb") as source:
+            reader = PyPDF2.PdfReader(source)
+            signals = []
+            for page in reader.pages:
+                contents = page.get_contents()
+                streams = contents if isinstance(contents, list) else [contents]
+                stream_bytes = 0
+                for stream in streams:
+                    if stream is None:
+                        continue
+                    try:
+                        stream_bytes += len(stream.get_data())
+                    except Exception:
+                        stream_bytes += 1
+                try:
+                    image_count = len(page.images)
+                except Exception:
+                    image_count = 0
+                signals.append({
+                    "content_stream_bytes": stream_bytes,
+                    "image_count": image_count,
+                    "content_bearing": stream_bytes > 0 or image_count > 0,
+                })
+            return signals
+    except Exception as error:
+        logger.warning(f"PDF page-content inspection failed: {type(error).__name__}")
+        return None
 
 
 def extract_text_pypdf2(pdf_path: Path) -> Tuple[str, str]:
@@ -253,6 +362,7 @@ def parse_screenplay(
     if page_count <= 0:
         raise ValueError(f"Could not determine the page count for {pdf_path.name}.")
 
+    page_signals = pdf_page_content_signals(pdf_path)
     text = ""
     method = ""
     evidence = None
@@ -276,6 +386,7 @@ def parse_screenplay(
             candidate_text,
             page_count,
             candidate_method,
+            page_signals,
         )
         quality = candidate_evidence["extraction_quality"]
         candidate_words = sum(
@@ -371,6 +482,48 @@ def parse_screenplay(
                     text = ocr_text
                     method = ocr_method
                     evidence = ocr_evidence
+                ocr_pages = marked_page_texts(ocr_text, page_count)
+                native_before_ocr = [
+                    candidate
+                    for candidate in candidates
+                    if candidate[2] in _NATIVE_METHODS
+                ]
+                for native_words, native_text, native_method, native_evidence in native_before_ocr:
+                    native_pages = marked_page_texts(native_text, page_count)
+                    replace_pages = {
+                        item["page"]
+                        for item in native_evidence["page_diagnostics"]
+                        if item["status"] in {"empty", "unreadable_content"}
+                    }
+                    if not replace_pages or len(replace_pages) == page_count:
+                        continue
+                    merged_pages = [
+                        ocr_pages[index] if index + 1 in replace_pages else page_text
+                        for index, page_text in enumerate(native_pages)
+                    ]
+                    merged_text = join_marked_pages(merged_pages)
+                    merged_method = f"{native_method}+OCR_sparse_pages"
+                    merged_words, merged_evidence = record_candidate(
+                        merged_text,
+                        merged_method,
+                    )
+                    if merged_evidence is not None:
+                        candidates.append((
+                            merged_words,
+                            merged_text,
+                            merged_method,
+                            merged_evidence,
+                        ))
+                        if (
+                            merged_words >= MIN_WORD_COUNT
+                            and merged_evidence["extraction_quality"]["publication_ready"]
+                        ):
+                            word_count, text, method, evidence = (
+                                merged_words,
+                                merged_text,
+                                merged_method,
+                                merged_evidence,
+                            )
 
     # Preserve the strongest incomplete result so the daemon can route it to
     # Needs Review with diagnostics instead of losing the evidence in an error.
@@ -407,20 +560,55 @@ def parse_screenplay(
     native_ready_attempts = [
         attempt
         for attempt in attempts
-        if attempt["method"] != "OCR"
+        if attempt["method"] in _NATIVE_METHODS
         and attempt["publication_ready"]
         and attempt["words"] >= MIN_WORD_COUNT
     ]
+    native_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate[2] in _NATIVE_METHODS
+        and candidate[0] >= MIN_WORD_COUNT
+        and candidate[3]["extraction_quality"]["publication_ready"]
+    ]
     native_word_counts = [attempt["words"] for attempt in native_ready_attempts]
-    if len(native_word_counts) >= 2:
-        native_agreement_ratio = round(
-            min(native_word_counts) / max(native_word_counts),
-            4,
+    native_pairwise: list[Dict[str, Any]] = []
+    if len(native_candidates) >= 2:
+        for left_index, left in enumerate(native_candidates):
+            for right in native_candidates[left_index + 1:]:
+                native_pairwise.append({
+                    "methods": [left[2], right[2]],
+                    "page_token_similarity_ratio": normalized_page_token_similarity(
+                        left[1],
+                        right[1],
+                    ),
+                })
+        native_agreement_ratio = min(
+            pair["page_token_similarity_ratio"]
+            for pair in native_pairwise
         )
         native_cross_check_status = (
             "corroborated"
-            if native_agreement_ratio >= 0.65
+            if native_agreement_ratio >= NATIVE_TEXT_SIMILARITY_MIN
             else "divergent"
+        )
+        consensus_scores = {
+            candidate[2]: sum(
+                pair["page_token_similarity_ratio"]
+                for pair in native_pairwise
+                if candidate[2] in pair["methods"]
+            ) / sum(
+                1 for pair in native_pairwise if candidate[2] in pair["methods"]
+            )
+            for candidate in native_candidates
+        }
+        word_count, text, method, evidence = max(
+            native_candidates,
+            key=lambda candidate: (
+                consensus_scores[candidate[2]],
+                candidate[3]["extraction_quality"]["coverage_ratio"],
+                candidate[0],
+            ),
         )
     elif len(native_word_counts) == 1:
         native_agreement_ratio = 1.0
@@ -437,25 +625,21 @@ def parse_screenplay(
             attempt["method"]: attempt["words"]
             for attempt in native_ready_attempts
         },
-        "word_count_agreement_ratio": native_agreement_ratio,
+        "word_count_agreement_ratio": (
+            round(min(native_word_counts) / max(native_word_counts), 4)
+            if len(native_word_counts) >= 2
+            else native_agreement_ratio
+        ),
+        "page_token_similarity_ratio": native_agreement_ratio,
+        "pairwise_page_token_similarity": native_pairwise,
+        "minimum_similarity_required": NATIVE_TEXT_SIMILARITY_MIN,
+        "selected_consensus_method": method,
     }
 
     if native_cross_check_status == "divergent":
         # Never let extractor order decide which contradictory screenplay text
         # receives a verdict. Preserve the fullest candidate for diagnosis, but
         # make the source terminally Needs Review before any paid model call.
-        native_candidates = [
-            candidate
-            for candidate in candidates
-            if candidate[2] != "OCR"
-            and candidate[0] >= MIN_WORD_COUNT
-            and candidate[3]["extraction_quality"]["publication_ready"]
-        ]
-        if native_candidates:
-            word_count, text, method, evidence = max(
-                native_candidates,
-                key=lambda candidate: candidate[0],
-            )
         quality = evidence["extraction_quality"]
         if "native_extraction_divergence" not in quality["issues"]:
             quality["issues"].append("native_extraction_divergence")
@@ -473,23 +657,39 @@ def parse_screenplay(
 
     # Basic content analysis
     line_count = len(text.split('\n'))
+    scene_count_evidence = build_scene_count_evidence(text)
 
     # Create structured output
+    stored_page_signals = (
+        [
+            {
+                **signal,
+                **({"ocr_corroborated": True} if "ocr" in method.casefold() else {}),
+            }
+            for signal in page_signals
+        ]
+        if page_signals is not None
+        else None
+    )
     result = {
         'filename': pdf_path.name,
         'file_size_bytes': file_size,
         'page_count': page_count,
         'word_count': word_count,
         'line_count': line_count,
+        'scene_count': scene_count_evidence['scene_heading_count'],
         'text': text,
         'metadata': {
             'extraction_method': method,
             'text_length': len(text),
-            'parser_version': 'v4-page-evidence',
+            'parser_version': 'v5-scene-content-evidence',
+            'source_content_sha256': hashlib.sha256(pdf_path.read_bytes()).hexdigest(),
             'page_evidence_version': evidence['page_evidence_version'],
             'extraction_quality': evidence['extraction_quality'],
             'page_diagnostics': evidence['page_diagnostics'],
             'page_evidence_sha256': evidence['evidence_sha256'],
+            'page_content_signals': stored_page_signals,
+            'scene_count_evidence': scene_count_evidence,
             'extraction_attempts': attempts,
             'native_cross_check': native_cross_check,
         }
@@ -507,10 +707,19 @@ def save_parsed_content(content: Dict[str, Any], output_path: Path) -> None:
         content: Parsed screenplay content
         output_path: Path to save JSON
     """
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    output_path.parent.chmod(0o700)
 
-    with open(output_path, 'w', encoding='utf-8') as f:
+    descriptor = os.open(
+        output_path,
+        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+        0o600,
+    )
+    with os.fdopen(descriptor, 'w', encoding='utf-8') as f:
         json.dump(content, f, indent=2, ensure_ascii=False)
+        f.flush()
+        os.fsync(f.fileno())
+    output_path.chmod(0o600)
 
     logger.info(f"Saved parsed content to {output_path}")
 

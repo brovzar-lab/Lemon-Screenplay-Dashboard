@@ -7,6 +7,7 @@ import type {
   Screenplay,
 } from '@/types';
 import type { TFunction } from 'i18next';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 export interface ProducerLookCandidate {
   screenplay: Screenplay;
@@ -255,6 +256,8 @@ export function evaluateDevelopmentOpportunity(
   screenplay: Screenplay,
   assessment?: ProducerAssessmentHead,
 ): DevelopmentOpportunity {
+  if (!isDecisionReady(screenplay)) return emptyOpportunity();
+
   const stored = normalizeStoredOpportunity(screenplay.developmentOpportunity);
   const override = producerOverride(screenplay, assessment);
 

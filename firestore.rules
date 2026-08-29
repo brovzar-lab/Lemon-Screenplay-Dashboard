@@ -85,6 +85,55 @@ service cloud.firestore {
           && (data[field] is string || data[field] is timestamp);
     }
 
+    function protectedAnalysisFields() {
+      return [
+        'analysis',
+        'analysis_model',
+        'analysis_provider',
+        'analysis_schema_version',
+        'analysis_version',
+        'actual_cost_microusd',
+        'actual_cost_usd',
+        'calibration_profile',
+        'content_hash',
+        'identity_status',
+        'lenses_enabled',
+        'latest_version_id',
+        'latest_source_file',
+        'metadata',
+        'model_provenance',
+        'parser_version',
+        'poster_cost_microusd',
+        'poster_generated_at',
+        'poster_last_error',
+        'poster_model',
+        'poster_request_id',
+        'poster_requested_at',
+        'poster_status',
+        'poster_url',
+        'poster_version_id',
+        'pipeline_model_tier',
+        'prompt_version',
+        'queued_at_ms',
+        'scoring_code_version',
+        'selection_request',
+        'storage_generation',
+        'storage_path',
+        '_storagePath',
+        'tmdb_status',
+        'triage',
+        'usage',
+        'v9_meta',
+        'version_count',
+        'version_id',
+        'project_id',
+        'trust_manifest',
+        'trust_manifest_version',
+        'server_trust_attestation',
+        '_trust_authority'
+      ];
+    }
+
     // ── uploaded_analyses ─────────────────────────────────────────────────
     // Screenplay analysis documents.
     //
@@ -103,11 +152,15 @@ service cloud.firestore {
       allow create: if isAdmin()
                     && 'source_file' in request.resource.data
                     && request.resource.data.source_file is string
-                    && request.resource.data.source_file.size() <= 500;
+                    && request.resource.data.source_file.size() <= 500
+                    && !request.resource.data.keys().hasAny(protectedAnalysisFields());
 
       // UPDATE: authenticated + source_file must stay valid if present.
       // This covers soft-delete (_deleted_at), field patches, and restores.
       allow update: if isAdmin()
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(protectedAnalysisFields())
+                    && request.resource.data.source_file == resource.data.source_file
                     && (
                          !('source_file' in request.resource.data)
                          || (request.resource.data.source_file is string
@@ -124,19 +177,14 @@ service cloud.firestore {
     match /uploaded_analyses/{docId}/versions/{versionId} {
       allow read: if isTeamMember();
 
-      allow create: if isAdmin()
-                    && request.resource.data.project_id == docId
-                    && request.resource.data.version_id == versionId
-                    && request.resource.data.source_file is string
-                    && request.resource.data.source_file.size() <= 500
-                    && request.resource.data.version_number is int
-                    && request.resource.data.version_number > 0
-                    && request.resource.data.created_at is timestamp
-                    && request.resource.data.identity_status == 'verified'
-                    && request.resource.data.content_hash is string
-                    && request.resource.data.content_hash.matches('^[a-f0-9]{64}$');
+      allow create, update, delete: if false;
+    }
 
-      allow update, delete: if false;
+    // Separate server-write authority receipts prevent historical browser-created
+    // version documents from self-promoting into trusted decision evidence.
+    match /uploaded_analyses/{docId}/version_authorities/{versionId} {
+      allow read: if isTeamMember();
+      allow create, update, delete: if false;
     }
 
     // ── screenplay_feedback ──────────────────────────────────────────────
@@ -193,30 +241,32 @@ service cloud.firestore {
     // Share tokens for partner access via capability URLs.
     //
     // SECURITY RATIONALE:
-    //   • GET is intentionally public. Partners who receive a share URL are
-    //     unauthenticated — the token IS the capability.
+    //   • Browser GET is denied. Partners resolve through shareManager, which
+    //     requires a paired server-only authority receipt.
     //   • LIST requires dashboard authentication so public callers cannot
     //     enumerate live capability tokens.
-    //   • CREATE: auth required (only dashboard users create share links).
-    //   • UPDATE: auth required (prevents token hijacking via overwrites).
-    //   • DELETE: auth required (revoke flow in shareService.ts).
-    //   • EXPIRY: reads are denied server-side once expiresAt is in the past,
-    //     so a leaked/forwarded link stops resolving even if the client check
-    //     is bypassed. Legacy docs without expiresAt remain readable.
+    //   • CREATE/UPDATE are Admin-SDK-only through shareManager.
+    //   • DELETE is Admin-SDK-only through shareManager.
+    //   • EXPIRY is enforced by shareManager before any analysis is returned.
     //   • Doc size implicitly limited by the analysis snapshot structure.
     match /shared_views/{tokenId} {
-      // Public single-document fetch — token is the capability — but not past expiry.
-      // expiresAtMillis is epoch millis (a number) so it compares cleanly with
-      // request.time.toMillis(). Legacy docs without it remain readable.
-      allow get: if !('expiresAtMillis' in resource.data)
-                 || resource.data.expiresAtMillis > request.time.toMillis();
+      // Public resolution goes through shareManager, which requires a separate
+      // Admin-only authority receipt and re-reads the canonical immutable version.
+      allow get: if false;
 
       // Collection enumeration is restricted to dashboard users. Public partner
       // links resolve by token ID and never need list access.
       allow list: if isTeamMember();
 
-      // Only authenticated dashboard users may create, update, or revoke.
-      allow create, update, delete: if isTeamMember();
+      // Snapshots are created only by the Admin SDK from a sealed immutable version.
+      allow create, update: if false;
+      allow delete: if false;
+    }
+
+    // Paired server-authority receipts were never client-writable. They prevent
+    // historical client-created share documents from impersonating sealed V9.
+    match /share_authorities/{tokenId} {
+      allow read, create, update, delete: if false;
     }
 
     // ── brain_verdicts ───────────────────────────────────────────────────

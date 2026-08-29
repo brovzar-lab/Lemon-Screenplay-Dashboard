@@ -11,6 +11,7 @@ import { FormatChart } from './FormatChart';
 import { useCountUp } from '../../hooks/useCountUp';
 import type { BudgetCategory, Screenplay, RecommendationTier } from '@/types';
 import { useTranslation } from 'react-i18next';
+import { decisionReadyScreenplays } from '@/lib/producerProjection';
 
 interface AnalyticsDashboardProps {
   screenplays: Screenplay[];
@@ -71,14 +72,16 @@ export function AnalyticsDashboard({
   }, [isExpanded]);
 
   const isFiltered = totalScreenplays && totalScreenplays.length !== screenplays.length;
+  const decisionScreenplays = decisionReadyScreenplays(screenplays);
+  const omittedUnverified = screenplays.length - decisionScreenplays.length;
 
   // Raw numeric values for count-up
   const avgScoreRaw =
-    screenplays.length > 0
-      ? screenplays.reduce((sum, sp) => sum + sp.weightedScore, 0) / screenplays.length
+    decisionScreenplays.length > 0
+      ? decisionScreenplays.reduce((sum, sp) => sum + sp.weightedScore, 0) / decisionScreenplays.length
       : 0;
-  const filmNowCount = screenplays.filter((sp) => sp.recommendation === 'film_now').length;
-  const recommendCount = screenplays.filter((sp) => sp.recommendation === 'recommend').length;
+  const filmNowCount = decisionScreenplays.filter((sp) => sp.recommendation === 'film_now').length;
+  const recommendCount = decisionScreenplays.filter((sp) => sp.recommendation === 'recommend').length;
 
   // Animated count-up values — only run once when panel is first expanded
   const animatedTotal = useCountUp(screenplays.length, 600, isExpanded);
@@ -91,19 +94,19 @@ export function AnalyticsDashboard({
     {
       title: t('Score Distribution'),
       hint: onFilterByScoreRange ? t('Click a bar to filter') : null,
-      content: <ScoreDistribution screenplays={screenplays} onBarClick={onFilterByScoreRange} />,
+      content: <ScoreDistribution screenplays={decisionScreenplays} onBarClick={onFilterByScoreRange} />,
     },
     {
       title: t('Recommendation Tiers'),
       hint: onFilterByTier ? t('Click to filter by tier') : null,
-      content: <TierBreakdown screenplays={screenplays} onTierClick={onFilterByTier} />,
+      content: <TierBreakdown screenplays={decisionScreenplays} onTierClick={onFilterByTier} />,
     },
     {
       title: t('Top Genres'),
       hint: onFilterByGenre ? t('Click to filter by genre') : null,
       content: (
         <GenreChart
-          screenplays={screenplays}
+          screenplays={decisionScreenplays}
           maxGenres={maxGenres}
           onGenreClick={onFilterByGenre}
         />
@@ -155,6 +158,11 @@ export function AnalyticsDashboard({
                 : ` ${t('screenplays')}`}
               {isFiltered && <span className="ml-1 text-gold-500">({t('filtered')})</span>}
             </span>
+            {omittedUnverified > 0 && (
+              <span className="text-amber-400">
+                {t('{{count}} unverified omitted', { count: omittedUnverified })}
+              </span>
+            )}
             <span aria-hidden="true">·</span>
             <span className="text-black-400">
               {t('Avg Score')}:{' '}

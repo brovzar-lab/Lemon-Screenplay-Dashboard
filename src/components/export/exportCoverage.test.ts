@@ -27,9 +27,10 @@ vi.mock('@/stores/notesStore', () => ({
 
 import { downloadCoveragePdf, sanitizeFilename } from './exportCoverage';
 import type { Screenplay } from '@/types';
+import { createTestScreenplay } from '@/test/factories';
 
 function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
-  return {
+  return createTestScreenplay({
     id: 'test-1',
     title: 'The Last Summer',
     author: 'Jane Smith',
@@ -87,7 +88,7 @@ function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
     producerMetrics: { marketPotential: 7, marketPotentialRationale: '', uspStrength: 'Strong', uspStrengthRationale: '' },
     tmdbStatus: null,
     ...overrides,
-  } as Screenplay;
+  });
 }
 
 describe('sanitizeFilename', () => {

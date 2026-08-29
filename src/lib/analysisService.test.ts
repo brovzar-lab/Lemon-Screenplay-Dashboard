@@ -43,7 +43,6 @@ vi.mock('./reanalysisQueue', () => ({
 import { analyzeScreenplay, reanalyzeFromStorage } from './analysisService';
 
 const CONTENT_HASH = 'ef'.repeat(32);
-const QUEUED_AT_MS = 1_784_588_800_123;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -109,83 +108,17 @@ beforeEach(() => {
 });
 
 describe('browser writer identity', () => {
-  it('binds a triage-only response to its exact stage, attempt, usage, and cost', async () => {
+  it('fails closed before parsing or inference because fresh comparison bypasses the trust pipeline', async () => {
     const file = new File([new Uint8Array([1, 2, 3])], 'Writer Parity.pdf', {
       type: 'application/pdf',
     });
 
-    const result = await analyzeScreenplay(file, 'LEMON', {
-      model: 'haiku',
-      v9Mode: 'triage',
-    });
-
-    expect(result.raw.model_provenance).toEqual([expect.objectContaining({
-      responseId: 'msg_triage',
-      stage: 'triage',
-      reader_name: null,
-      attempt: 1,
-      disposition: 'used',
-      usage: expect.objectContaining({
-        input_tokens: 10,
-        output_tokens: 5,
-        actual_cost_microusd: 25,
-      }),
-    })]);
-  });
-
-  it('adds the verified content identity to a full V9 analysis', async () => {
-    const now = vi.spyOn(Date, 'now').mockReturnValue(QUEUED_AT_MS);
-    const file = new File([new Uint8Array([1, 2, 3])], 'Writer Parity.pdf', {
-      type: 'application/pdf',
-    });
-
-    const result = await analyzeScreenplay(file, 'LEMON', { model: 'sonnet' });
-    now.mockRestore();
-
-    expect(mockComputeContentHash).toHaveBeenCalledWith(file);
-    expect(result.raw).toEqual(
-      expect.objectContaining({
-        content_hash: CONTENT_HASH,
-        identity_status: 'verified',
-        analysis_version: 'v9_archaeology',
-        analysis_model: 'claude-sonnet-4-6',
-        model_provenance: [expect.objectContaining({ responseId: 'msg_test' })],
-        queued_at_ms: QUEUED_AT_MS,
-      }),
-    );
-  });
-
-  it('rejects an unknown runtime model instead of silently using Sonnet', async () => {
-    const file = new File([new Uint8Array([1, 2, 3])], 'Writer Parity.pdf', {
-      type: 'application/pdf',
-    });
-
-    await expect(analyzeScreenplay(
-      file,
-      'LEMON',
-      { model: 'unknown-route' as 'sonnet' },
-    )).rejects.toThrow(/unknown analysis route/i);
-
+    await expect(analyzeScreenplay(file, 'LEMON', { model: 'sonnet' }))
+      .rejects.toThrow(/authoritative V9 trust pipeline/i);
+    expect(mockComputeContentHash).not.toHaveBeenCalled();
+    expect(mockParsePDF).not.toHaveBeenCalled();
     expect(mockAnalyzeV9).not.toHaveBeenCalled();
-  });
-
-  it('records Haiku as a composite selection while routing the full panel to Sonnet', async () => {
-    const file = new File([new Uint8Array([1, 2, 3])], 'Writer Parity.pdf', {
-      type: 'application/pdf',
-    });
-
-    const result = await analyzeScreenplay(file, 'LEMON', { model: 'haiku' });
-
-    expect(mockAnalyzeV9).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({ model: 'sonnet', mode: 'full' }),
-      expect.any(Function),
-    );
-    expect(result.raw).toMatchObject({
-      selection_request: 'haiku',
-      pipeline_model_tier: 'sonnet',
-      analysis_model: 'claude-sonnet-4-6',
-    });
+    expect(mockRunTriage).not.toHaveBeenCalled();
   });
 });
 

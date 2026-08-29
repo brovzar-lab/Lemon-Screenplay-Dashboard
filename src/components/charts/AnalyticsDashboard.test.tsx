@@ -18,7 +18,9 @@ vi.mock('./TierBreakdown', () => ({
 }));
 
 vi.mock('./GenreChart', () => ({
-  GenreChart: () => <div data-testid="genre-chart" />,
+  GenreChart: ({ screenplays }: { screenplays: Array<{ genre?: string }> }) => (
+    <div data-testid="genre-chart">{screenplays.map((screenplay) => screenplay.genre).join(',')}</div>
+  ),
 }));
 
 vi.mock('./BudgetChart', () => ({
@@ -161,5 +163,24 @@ describe('AnalyticsDashboard', () => {
 
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByTestId('score-distribution')).toBeInTheDocument();
+  });
+
+  it('omits unverified model genres from portfolio analytics', () => {
+    render(
+      <AnalyticsDashboard
+        screenplays={[
+          createTestScreenplay({ genre: 'Comedy' }),
+          createTestScreenplay({
+            id: 'unverified',
+            genre: 'Horror',
+            producerProjection: undefined,
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId('genre-chart')).toHaveTextContent('Comedy');
+    expect(screen.getByTestId('genre-chart')).not.toHaveTextContent('Horror');
+    expect(screen.getByText('1 unverified omitted')).toBeInTheDocument();
   });
 });

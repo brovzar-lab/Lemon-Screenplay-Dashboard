@@ -21,6 +21,10 @@ vi.mock('./modal/FeedbackSection', () => ({
     FeedbackSection: () => null,
 }));
 
+vi.mock('./modal/ShareButton', () => ({
+    ShareButton: () => <button type="button">Share</button>,
+}));
+
 // Mock the comparison store (used internally by ScreenplayCard rendered in modal)
 vi.mock('@/stores/comparisonStore', () => ({
     useComparisonStore: () => vi.fn(),

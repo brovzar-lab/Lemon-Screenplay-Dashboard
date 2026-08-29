@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { isDecisionReady } from '@/lib/producerProjection';
 
 import {
   EMPTY_PRODUCER_JUDGMENT,
@@ -53,6 +54,7 @@ function formatSavedAt(value: string | undefined): string {
 export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
   const { t } = useTranslation();
   const projectId = screenplay.projectId ?? screenplay.id;
+  const decisionReady = isDecisionReady(screenplay);
   const isLocalPreview = isLocalCalibrationPreviewMode();
   const [assessment, setAssessment] = useState<ProducerAssessment | null>(null);
   const [localDraft, setLocalDraft] = useState<LocalProducerTakeDraft | null>(null);
@@ -88,6 +90,11 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
       }
       setEditing(!isExactLocalVersion || isExactWorkingVersion);
     };
+    if (!decisionReady) {
+      applyLocalDraftOrNewTake();
+      setLoading(false);
+      return () => { active = false; };
+    }
     loadProducerAssessment(projectId)
       .then((loaded) => {
         if (!active) return;
@@ -138,6 +145,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     screenplay.recommendation,
     screenplay.weightedScore,
     t,
+    decisionReady,
   ]);
 
   useEffect(() => {
@@ -153,7 +161,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     () => judgment.producerScore - screenplay.weightedScore,
     [judgment.producerScore, screenplay.weightedScore],
   );
-  const exactVersionAvailable = Boolean(screenplay.latestVersionId);
+  const exactVersionAvailable = Boolean(screenplay.latestVersionId) && decisionReady;
   const isLegacyDraft = !exactVersionAvailable;
   const savedJudgment = assessment?.judgment ?? localDraft?.judgment ?? null;
   const hasSavedTake = savedJudgment !== null;
@@ -279,12 +287,18 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               {t('AI final')}
             </p>
             <div className="mt-2 flex items-end justify-between gap-3">
-              <strong className="text-4xl font-display tabular-nums text-black-100">
-                {screenplay.weightedScore.toFixed(1)}
-              </strong>
-              <span className="text-sm font-semibold text-black-300">
-                {t(verdictLabel(screenplay.recommendation))}
-              </span>
+              {decisionReady ? <>
+                <strong className="text-4xl font-display tabular-nums text-black-100">
+                  {screenplay.weightedScore.toFixed(1)}
+                </strong>
+                <span className="text-sm font-semibold text-black-300">
+                  {t(verdictLabel(screenplay.recommendation))}
+                </span>
+              </> : (
+                <strong className="text-sm font-semibold text-amber-200">
+                  {t('Not verified / not rankable')}
+                </strong>
+              )}
             </div>
           </div>
           <div className="border-t border-black-700 bg-[#3157d5]/8 p-4 sm:border-l sm:border-t-0">
@@ -299,10 +313,12 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 {t(verdictLabel(judgment.producerVerdict))}
               </span>
             </div>
-            <p className="mt-2 text-xs text-black-400">
-              {scoreDelta >= 0 ? '+' : ''}
-              {scoreDelta.toFixed(1)} {t('from AI')}
-            </p>
+            {decisionReady && (
+              <p className="mt-2 text-xs text-black-400">
+                {scoreDelta >= 0 ? '+' : ''}
+                {scoreDelta.toFixed(1)} {t('from AI')}
+              </p>
+            )}
           </div>
         </div>
 

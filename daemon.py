@@ -376,6 +376,50 @@ def recover_orphaned_job(reference, stale_cutoff: datetime) -> str:
         if data.get("worker_id") == WORKER_ID and is_active_job(reference.id):
             return "active"
 
+        paid_fields = (
+            "llm_call_count",
+            "llm_uncertain_call_count",
+            "actual_cost_microusd",
+            "uncertain_cost_microusd",
+        )
+        active_reservations = data.get("llm_active_reservations")
+        active_reservation_ids = (
+            sorted(active_reservations)
+            if isinstance(active_reservations, dict)
+            else []
+        )
+        active_reservation_count = data.get("llm_active_reservation_count", 0)
+        has_active_reservation = (
+            bool(active_reservation_ids)
+            or type(active_reservation_count) is int
+            and active_reservation_count > 0
+        )
+        if has_active_reservation or data.get("last_llm_call_at") is not None or any(
+            data.get(field) not in (None, 0) for field in paid_fields
+        ):
+            transaction.update(reference, {
+                "status": "needs_review",
+                "review_reason": (
+                    "A stale worker may have dispatched paid inference. "
+                    "Manual reconciliation is required before retrying."
+                ),
+                "failure_kind": "orphaned_after_model_activity",
+                "retryable": False,
+                "worker_id": None,
+                "last_heartbeat_at": None,
+                "processing_started_at": None,
+                "processing_completed_at": fb_firestore.SERVER_TIMESTAMP,
+                "review_evidence": {
+                    **{
+                        field: data.get(field)
+                        for field in (*paid_fields, "last_llm_call_at")
+                    },
+                    "active_reservation_count": active_reservation_count,
+                    "active_reservation_ids": active_reservation_ids,
+                },
+            })
+            return "needs_review"
+
         attempts = data.get("attempt_count", 0)
         if type(attempts) is not int or attempts < 0:
             attempts = 0
@@ -745,16 +789,40 @@ def verify_archived_pdf_version(
         )
 
 
-def is_already_complete(content_hash: str) -> bool:
-    """Return True if a job with this hash already completed successfully."""
+def is_already_complete(content_hash: str, validate_analysis) -> bool:
+    """Trust a duplicate only when its immutable result and PDF still validate."""
     existing = (
         _db.collection(QUEUE_COLLECTION)
         .where("content_hash", "==", content_hash)
         .where("status", "==", "complete")
-        .limit(1)
         .stream()
     )
-    return any(True for _ in existing)
+    for snapshot in existing:
+        data = snapshot.to_dict() or {}
+        project_id = data.get("screenplay_doc_id")
+        version_id = data.get("version_id")
+        if not isinstance(project_id, str) or not isinstance(version_id, str):
+            continue
+        try:
+            version = get_existing_version(project_id, version_id)
+            if version is None:
+                continue
+            validate_analysis(version)
+            verify_archived_pdf_version(
+                storage_path=version.get("storage_path"),
+                storage_generation=version.get("storage_generation"),
+                project_id=project_id,
+                version_id=version_id,
+                content_hash=content_hash,
+            )
+        except Exception as error:
+            log.warning(
+                "[duplicate] Ignoring stale completion evidence for "
+                f"{content_hash[:8]}… ({type(error).__name__})"
+            )
+            continue
+        return True
+    return False
 
 
 def get_existing_version(project_id: str, version_id: str) -> Optional[dict]:
@@ -764,16 +832,23 @@ def get_existing_version(project_id: str, version_id: str) -> Optional[dict]:
     if not version_id or "/" in version_id:
         raise TerminalJobError("version_id must be a Firestore document ID")
 
-    snapshot = (
-        _db.collection(OUTPUT_COLLECTION)
-        .document(project_id)
-        .collection("versions")
-        .document(version_id)
-        .get()
-    )
+    parent_ref = _db.collection(OUTPUT_COLLECTION).document(project_id)
+    snapshot = parent_ref.collection("versions").document(version_id).get()
     if snapshot.exists is not True:
         return None
-    return snapshot.to_dict() or {}
+    version = snapshot.to_dict() or {}
+    authority_snapshot = (
+        parent_ref.collection("version_authorities").document(version_id).get()
+    )
+    if authority_snapshot.exists is not True:
+        raise RuntimeError("Existing immutable version has no server authority receipt")
+    from execution.ingest_v9 import validate_version_authority_document
+
+    validate_version_authority_document(
+        version,
+        authority_snapshot.to_dict() or {},
+    )
+    return version
 
 
 def existing_version_completion_telemetry(
@@ -1038,6 +1113,26 @@ def _analysis_usage_evidence(usage: object) -> Optional[dict]:
         if isinstance(value, (str, dict, list)):
             evidence[key] = value
     return evidence
+
+
+def stop_if_paid_failure(job_id: str, error: Exception, usage: object) -> bool:
+    """Never requeue a whole analysis after any model call may have happened."""
+    evidence = _analysis_usage_evidence(usage)
+    if evidence is None or not (
+        int(evidence.get("call_count") or 0) > 0
+        or int(evidence.get("actual_cost_microusd") or 0) > 0
+        or bool(evidence.get("calls"))
+        or bool(evidence.get("failed_calls"))
+    ):
+        return False
+    error.usage = usage
+    mark_needs_review(
+        job_id,
+        "A post-model application failure stopped the run. Manual review is required before retrying.",
+        evidence={"usage": evidence},
+        failure_kind="post_model_application_failure",
+    )
+    return True
 
 
 def mark_waiting_for_budget(
@@ -1308,6 +1403,8 @@ def build_raw_document(
             "extraction_quality": parser_details.get("extraction_quality"),
             "page_diagnostics": parser_details.get("page_diagnostics"),
             "page_evidence_sha256": parser_details.get("page_evidence_sha256"),
+            "page_content_signals": parser_details.get("page_content_signals"),
+            "scene_count_evidence": parser_details.get("scene_count_evidence"),
             "extraction_attempts": parser_details.get("extraction_attempts"),
             "native_cross_check": parser_details.get("native_cross_check"),
         },
@@ -1382,11 +1479,6 @@ def process_job(job: dict) -> None:
             "content_hash": content_hash,
         })
 
-        if is_already_complete(content_hash) and not job.get("bypass_duplicate", False):
-            mark_skipped(job_id, "already_complete")
-            log.info(f"[job] {job_id} → Skipped (duplicate content hash: {content_hash[:8]}…)")
-            return
-
         # A renamed revision may only attach to a real existing project.
         target_project_id = resolve_target_project_id(job.get("target_project_id"))
 
@@ -1438,6 +1530,22 @@ def process_job(job: dict) -> None:
             )
             return
 
+        if (
+            target_project_id is None
+            and separate_project is not True
+            and not job.get("bypass_duplicate", False)
+            and is_already_complete(
+                content_hash,
+                ingest_v9.validate_permanent_analysis,
+            )
+        ):
+            mark_skipped(job_id, "already_complete")
+            log.info(
+                f"[job] {job_id} → Skipped (validated duplicate: "
+                f"{content_hash[:8]}…)"
+            )
+            return
+
         # Parse PDF
         parsed = ingest_v9.parse_pdf(local_pdf, content_hash=content_hash)
         if parsed is None:
@@ -1453,6 +1561,11 @@ def process_job(job: dict) -> None:
         text       = parsed.get("text", "")
         page_count = parsed.get("page_count", 0)
         word_count = parsed.get("word_count", 0)
+        parser_metadata = (
+            parsed.get("metadata")
+            if isinstance(parsed.get("metadata"), dict)
+            else {}
+        )
 
         # ── 4. Validate text before spending API call ─────────────────────
         is_valid, reason = validate_screenplay_text(text, filename)
@@ -1469,11 +1582,8 @@ def process_job(job: dict) -> None:
         try:
             validate_parsed_source(parsed)
         except SourceEvidenceError as error:
-            metadata = parsed.get("metadata")
             extraction_quality = (
-                metadata.get("extraction_quality")
-                if isinstance(metadata, dict)
-                else None
+                parser_metadata.get("extraction_quality")
             )
             mark_needs_review(
                 job_id,
@@ -1569,6 +1679,7 @@ def process_job(job: dict) -> None:
                         calibration_profile["prompt"] if calibration_profile else None
                     ),
                     job_id=job_id,
+                    page_content_signals=parser_metadata.get("page_content_signals"),
                 )
             else:
                 log.info(f"[analyze] Running V9 full analysis: '{title}' (model: {model_key})")
@@ -1584,12 +1695,19 @@ def process_job(job: dict) -> None:
                         calibration_profile["prompt"] if calibration_profile else None
                     ),
                     job_id=job_id,
+                    page_content_signals=parser_metadata.get("page_content_signals"),
                 )
             if cold_read_usage is not None:
                 usage = ingest_v9.merge_usage(cold_read_usage, usage)
             paid_usage = usage
         except ingest_v9.DailyBudgetExceededError as e:
             include_cold_read_usage(e)
+            if stop_if_paid_failure(job_id, e, getattr(e, "usage", None)):
+                log.error(
+                    "[budget] Daily cap was reached after paid work; "
+                    "manual review is required before retrying."
+                )
+                return
             mark_waiting_for_budget(job_id, e, attempt_count)
             log.warning(f"[budget] Pausing — {e}")
             return
@@ -1642,6 +1760,18 @@ def process_job(job: dict) -> None:
                 "any further paid analysis."
             )
             return
+        except ingest_v9.V9RunError as e:
+            include_cold_read_usage(e)
+            if route_analysis_review_error(job_id, e):
+                return
+            usage_evidence = _analysis_usage_evidence(e.usage)
+            mark_needs_review(
+                job_id,
+                str(e),
+                evidence={"usage": usage_evidence} if usage_evidence else None,
+                failure_kind="post_model_engine_failure",
+            )
+            return
         except SourceEvidenceError as e:
             mark_needs_review(job_id, str(e))
             return
@@ -1678,12 +1808,51 @@ def process_job(job: dict) -> None:
             )
             return
 
-        # ── 9. Build full document and write to Firestore ─────────────────
         final_model_key = model_key
         if model_key == "hybrid":
             hybrid_meta = analysis.get("_hybrid_mode") or {}
             final_model_key = hybrid_meta.get("final_model", "sonnet")
+        boundary = analysis.get("_boundary_reruns")
+        boundary_run = (
+            boundary.get("selected_run_number", 1)
+            if isinstance(boundary, dict)
+            else 1
+        )
+        try:
+            claim_verification, claim_usage = ingest_v9.run_claim_verification(
+                text=text,
+                analysis=analysis,
+                model_key=final_model_key,
+                proxy_url=proxy_url,
+                pipeline_pass=final_model_key,
+                boundary_run=boundary_run,
+                job_id=job_id,
+            )
+            analysis["_claim_verification"] = claim_verification
+            usage = ingest_v9.merge_usage(usage, claim_usage)
+            paid_usage = usage
+            attach_verified_citation_quality(
+                analysis,
+                parsed.get("metadata") or {},
+                page_count,
+                text,
+            )
+        except Exception as error:
+            error.usage = ingest_v9.merge_usage(
+                usage,
+                getattr(error, "usage", ingest_v9.empty_usage()),
+            )
+            if route_analysis_review_error(job_id, error):
+                return
+            mark_needs_review(
+                job_id,
+                "Independent claim verification did not complete; no analysis was published.",
+                evidence={"usage": _analysis_usage_evidence(error.usage)},
+                failure_kind="claim_verification_incomplete",
+            )
+            return
 
+        # ── 9. Build full document and write to Firestore ─────────────────
         raw_doc = build_raw_document(
             filename=filename,
             model_key=model_key,
@@ -1763,7 +1932,8 @@ def process_job(job: dict) -> None:
             e.usage = paid_usage
         log.error(f"[job] ❌ {filename} — {e}")
         log.debug(traceback.format_exc())
-        mark_failed(job_id, e, attempt_count)
+        if not stop_if_paid_failure(job_id, e, getattr(e, "usage", None)):
+            mark_failed(job_id, e, attempt_count)
 
     finally:
         heartbeat.stop()

@@ -32,6 +32,7 @@ import {
 } from '@/lib/developmentOpportunity';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { analysisIsEnglishFallback } from '@/lib/localizedAnalysis';
+import { isDecisionReady } from '@/lib/producerProjection';
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
@@ -204,8 +205,9 @@ function PanelIntro({ tab }: { tab: Exclude<ScreenplayFileTab, 'reader-room'> })
 function PosterPanel({ screenplay }: { screenplay: Screenplay }) {
   const { t } = useTranslation();
   const title = getScreenplayDisplayTitle(screenplay.title).title;
+  const isVerifiedPass = isDecisionReady(screenplay) && screenplay.recommendation === 'pass';
   const posterUrl =
-    screenplay.recommendation === 'pass' ? '/pass-poster-gallery-drape.jpg' : screenplay.posterUrl;
+    isVerifiedPass ? '/pass-poster-gallery-drape.jpg' : screenplay.posterUrl;
 
   return (
     <section className="screenplay-file__poster-panel" aria-label={t('Project poster')}>
@@ -216,7 +218,7 @@ function PosterPanel({ screenplay }: { screenplay: Screenplay }) {
             loading="lazy"
             decoding="async"
             alt={
-              screenplay.recommendation === 'pass'
+              isVerifiedPass
                 ? t('Poster withheld for a Pass verdict')
                 : t('{{title}} poster', { title })
             }
@@ -230,14 +232,14 @@ function PosterPanel({ screenplay }: { screenplay: Screenplay }) {
       <div className="screenplay-file__poster-workbench">
         <p className="screenplay-file__micro screenplay-file__micro--blue">{t('Poster artwork')}</p>
         <h3>
-          {screenplay.recommendation === 'pass'
+          {isVerifiedPass
             ? t('Archived for a Pass verdict')
             : posterUrl
               ? t('Current project poster')
               : t('Create the first poster')}
         </h3>
         <p>
-          {screenplay.recommendation === 'pass'
+          {isVerifiedPass
             ? t('Pass projects keep the screenplay cover and use the archive cloth here.')
             : t('Poster art stays separate from the screenplay cover shown in Discovery.')}
         </p>
@@ -257,6 +259,7 @@ function Overview({
   producerTakeVisible: boolean;
 }) {
   const { t } = useTranslation();
+  const decisionReady = isDecisionReady(screenplay);
   const strengths = screenplay.strengths.slice(0, 3);
   const watchPoints = [...screenplay.majorWeaknesses, ...screenplay.weaknesses].slice(0, 2);
   const executiveRead =
@@ -317,9 +320,11 @@ function Overview({
             {t('Executive read')}
           </p>
           <h3 id="screenplay-file-decision-heading">
-            {t('Why this landed at {{verdict}}', {
-              verdict: t(recommendationLabel(screenplay)),
-            })}
+            {decisionReady
+              ? t('Why this landed at {{verdict}}', {
+                  verdict: t(recommendationLabel(screenplay)),
+                })
+              : t('Decision data unavailable until verification')}
           </h3>
           <p className="screenplay-file__executive-copy">{formatProducerText(executiveRead)}</p>
         </section>
@@ -378,6 +383,7 @@ export function ScreenplayFileWorkspace({
   onBack,
 }: ScreenplayFileWorkspaceProps) {
   const { t, i18n } = useTranslation();
+  const decisionReady = isDecisionReady(screenplay);
   const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
   const analysisFallback = analysisIsEnglishFallback(screenplay, language);
   const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
@@ -541,10 +547,19 @@ export function ScreenplayFileWorkspace({
             </button>
           </div>
         </div>
-        <div className="screenplay-file__hero-score" data-verdict={screenplay.recommendation}>
+        <div
+          className="screenplay-file__hero-score"
+          data-verdict={decisionReady ? screenplay.recommendation : 'unverified'}
+        >
           <span>{t('AI verdict')}</span>
-          <strong>{finalScore(screenplay).toFixed(1)}</strong>
-          <b>{t(recommendationLabel(screenplay))}</b>
+          {decisionReady ? (
+            <>
+              <strong>{finalScore(screenplay).toFixed(1)}</strong>
+              <b>{t(recommendationLabel(screenplay))}</b>
+            </>
+          ) : (
+            <b>{t('Not verified / not rankable')}</b>
+          )}
         </div>
       </section>
 
