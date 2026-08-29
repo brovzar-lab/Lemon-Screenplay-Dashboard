@@ -2516,7 +2516,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE,
         )
 
-    def test_failed_claim_batch_records_a_page_reconciliation_before_rejection(self):
+    def test_claim_batch_keeps_surplus_fabrication_visible_after_reconciliation(self):
         targets = [{
             "claim_id": f"claim.{index}",
             "claim": f"Locked claim {index}.",
@@ -2544,10 +2544,17 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "page_citations": [2],
                 "citation_evidence": [{"page": 2, "excerpt": unique_excerpt}],
             })
-            claims[1]["citation_evidence"] = [{
-                "page": 1,
-                "excerpt": "A fabricated dragon destroys the ending.",
-            }]
+            claims[1]["page_citations"] = [1, 2]
+            claims[1]["citation_evidence"] = [
+                {
+                    "page": 1,
+                    "excerpt": FIXTURE_DECISION_EVIDENCE,
+                },
+                {
+                    "page": 2,
+                    "excerpt": "A fabricated dragon destroys the ending.",
+                },
+            ]
             usage = self._successful_call_usage(
                 "msg_mixed_claim_citations",
                 stage="claim_verification",
@@ -3001,6 +3008,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         prompt = plan["user_blocks"][-1]["text"]
         self.assertIn("TARGETED STRUCTURED OUTPUT CORRECTION", prompt)
         self.assertIn("previously valid field is immutable", prompt)
+        self.assertIn("application will ignore any rewrite", prompt)
         self.assertNotIn("SCREENPLAY-SENTINEL", prompt)
         self.assertNotIn("IGNORE", prompt)
 
@@ -3049,15 +3057,28 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         rewritten["score"] = 1
         malicious = copy.deepcopy(repairs)
         malicious["sub_scores.narrative_engine"] = json.dumps(rewritten)
-        with self.assertRaisesRegex(ValueError, "previously valid field"):
-            ingest_v9._apply_targeted_correction(
-                plan,
-                {
-                    "source_report_sha256": plan["source_report_sha256"],
-                    "repairs": malicious,
-                },
-                ingest_v9.READER_TOOLS["concept"]["input_schema"],
-            )
+        safely_repaired, malicious_evidence = ingest_v9._apply_targeted_correction(
+            plan,
+            {
+                "source_report_sha256": plan["source_report_sha256"],
+                "repairs": malicious,
+            },
+            ingest_v9.READER_TOOLS["concept"]["input_schema"],
+        )
+        self.assertEqual(safely_repaired, pristine)
+        self.assertEqual(
+            safely_repaired["sub_scores"]["narrative_engine"]["score"],
+            pristine["sub_scores"]["narrative_engine"]["score"],
+        )
+        self.assertGreater(
+            malicious_evidence["ignored_immutable_change_count"],
+            0,
+        )
+        self.assertRegex(
+            malicious_evidence["ignored_immutable_paths_sha256"],
+            r"^[a-f0-9]{64}$",
+        )
+        self.assertNotIn("ignored_immutable_paths", malicious_evidence)
 
         mismatched_source = copy.deepcopy(correction_source)
         mismatched_source["replay_report_sha256"] = "f" * 64
@@ -3073,6 +3094,63 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 page_count=100,
                 reader_name="concept",
             )
+
+    def test_recovered_report_does_not_repair_discarded_surplus_citations(self):
+        source_text = marked_screenplay()
+        page_evidence = build_page_evidence(source_text, 100, "test")
+        report = copy.deepcopy(
+            complete_analysis("Recovered report")["reader_reports"]["concept"]
+        )
+        hook = report["sub_scores"]["hook_clarity"]
+        hook["page_citations"].append(2)
+        hook["citation_evidence"].append({
+            "page": 2,
+            "excerpt": "This fabricated surplus excerpt is absent.",
+        })
+        report["sub_scores"]["narrative_engine"]["undeclared_note"] = (
+            "must not survive"
+        )
+        error = RuntimeError("structured report needs correction")
+
+        recovery = ingest_v9._attach_recovered_citation_details(
+            error,
+            report,
+            source_text,
+            page_evidence["page_diagnostics"],
+            100,
+            ingest_v9.READER_TOOLS["concept"]["input_schema"],
+        )
+
+        self.assertIsNotNone(recovery)
+        candidate = recovery["candidate"]
+        self.assertEqual(
+            candidate["sub_scores"]["hook_clarity"]["page_citations"],
+            [1],
+        )
+        self.assertEqual(
+            recovery["citation_subset"]["changed_object_count"],
+            1,
+        )
+        correction_source = {
+            "source_response_id": "msg_recovered",
+            "source_request_sha256": "a" * 64,
+            "source_attempt_number": 1,
+            "rejected_output_sha256": "b" * 64,
+            "rejected_artifact_sha256": None,
+            "replay_report_sha256": ingest_v9._canonical_json_hash(candidate),
+        }
+        plan = ingest_v9._targeted_correction_request(
+            [],
+            tool=ingest_v9.READER_TOOLS["concept"],
+            error=error,
+            rejected_report=candidate,
+            correction_source=correction_source,
+            source_text=source_text,
+            page_diagnostics=page_evidence["page_diagnostics"],
+            page_count=100,
+            reader_name="concept",
+        )
+        self.assertEqual(set(plan["targets"]), {"sub_scores.narrative_engine"})
 
     def test_undeclared_reader_field_is_deleted_without_duplicate_citation_noise(self):
         source_text = marked_screenplay()
@@ -3159,17 +3237,25 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             pristine["sub_scores"]["hook_clarity"]
         )
         rewritten_score["score"] = 1
-        with self.assertRaisesRegex(ValueError, "previously valid field"):
-            ingest_v9._apply_targeted_correction(
-                plan,
-                {
-                    "source_report_sha256": plan["source_report_sha256"],
-                    "repairs": {
-                        "sub_scores.hook_clarity": json.dumps(rewritten_score)
-                    },
+        repaired, evidence = ingest_v9._apply_targeted_correction(
+            plan,
+            {
+                "source_report_sha256": plan["source_report_sha256"],
+                "repairs": {
+                    "sub_scores.hook_clarity": json.dumps(rewritten_score)
                 },
-                ingest_v9.READER_TOOLS["concept"]["input_schema"],
-            )
+            },
+            ingest_v9.READER_TOOLS["concept"]["input_schema"],
+        )
+        self.assertEqual(
+            repaired["sub_scores"]["hook_clarity"]["score"],
+            pristine["sub_scores"]["hook_clarity"]["score"],
+        )
+        self.assertEqual(
+            repaired["sub_scores"]["hook_clarity"]["justification"],
+            pristine["sub_scores"]["hook_clarity"]["justification"],
+        )
+        self.assertEqual(evidence["ignored_immutable_change_count"], 1)
 
         invalid_score = copy.deepcopy(pristine)
         metric = invalid_score["sub_scores"]["hook_clarity"]
@@ -3187,19 +3273,34 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "page": 1,
             "excerpt": "A different but valid screenplay evidence excerpt.",
         }]
-        with self.assertRaisesRegex(ValueError, "previously valid field"):
-            ingest_v9._apply_targeted_correction(
-                plan,
-                {
-                    "source_report_sha256": plan["source_report_sha256"],
-                    "repairs": {
-                        "sub_scores.hook_clarity": json.dumps(
-                            rewritten_evidence
-                        )
-                    },
+        repaired, evidence = ingest_v9._apply_targeted_correction(
+            plan,
+            {
+                "source_report_sha256": plan["source_report_sha256"],
+                "repairs": {
+                    "sub_scores.hook_clarity": json.dumps(
+                        rewritten_evidence
+                    )
                 },
-                ingest_v9.READER_TOOLS["concept"]["input_schema"],
-            )
+            },
+            ingest_v9.READER_TOOLS["concept"]["input_schema"],
+        )
+        self.assertEqual(
+            repaired["sub_scores"]["hook_clarity"]["score"],
+            pristine["sub_scores"]["hook_clarity"]["score"],
+        )
+        self.assertEqual(
+            repaired["sub_scores"]["hook_clarity"]["justification"],
+            pristine["sub_scores"]["hook_clarity"]["justification"],
+        )
+        self.assertEqual(
+            repaired["sub_scores"]["hook_clarity"]["citation_evidence"],
+            pristine["sub_scores"]["hook_clarity"]["citation_evidence"],
+        )
+        self.assertGreaterEqual(
+            evidence["ignored_immutable_change_count"],
+            2,
+        )
 
     def test_correction_inventory_names_every_citation_path_without_raw_text(self):
         quality = {
