@@ -158,12 +158,21 @@ test('staging candidate workflow is WIF-only and deploys only the candidate', ()
   assert.doesNotMatch(workflow, /workload_identity_provider: \$\{\{ vars\./);
   assert.match(gate, /projects\/549848020392\/locations\/global\/workloadIdentityPools/);
   assert.equal((workflow.match(/google-github-actions\/auth@/g) ?? []).length, 3);
+  assert.equal((workflow.match(/google-github-actions\/setup-gcloud@/g) ?? []).length, 3);
   const productionAuth = workflow.indexOf('Authenticate as the production metadata auditor');
+  const productionGcloud = workflow.indexOf(
+    'Reconfigure pinned gcloud for the production auditor',
+  );
+  const productionIdentity = workflow.indexOf('Prove the production auditor is active');
   const productionProof = workflow.indexOf('Prove the runtime identity has no production write permission');
   const stagingReauth = workflow.indexOf('Restore the staging deployer identity');
+  const stagingGcloud = workflow.indexOf('Reconfigure pinned gcloud for the staging deployer');
+  const stagingIdentity = workflow.indexOf('Prove only the staging deployer is active');
   const deploy = workflow.indexOf('Deploy only the private candidate function');
-  assert.ok(productionAuth > 0 && productionAuth < productionProof);
-  assert.ok(productionProof < stagingReauth && stagingReauth < deploy);
+  assert.ok(productionAuth > 0 && productionAuth < productionGcloud);
+  assert.ok(productionGcloud < productionIdentity && productionIdentity < productionProof);
+  assert.ok(productionProof < stagingReauth && stagingReauth < stagingGcloud);
+  assert.ok(stagingGcloud < stagingIdentity && stagingIdentity < deploy);
   const predeployIdentity = workflow.indexOf('Write the complete predeployment staging identity proof');
   assert.ok(predeployIdentity > 0 && predeployIdentity < productionAuth);
   assert.equal((workflow.match(/--write-staging-identity-proof/g) ?? []).length, 2);
