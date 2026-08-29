@@ -30,6 +30,7 @@ from execution.trust_manifest import (
     LEGACY_PROMPT_CONTRACT_VERSION,
     LEGACY_TRUST_MANIFEST_VERSION,
     PRE_CITATION_PROMPT_CONTRACT_VERSION,
+    PRE_FULL_CORRECTION_PROMPT_CONTRACT_VERSION,
     PREVIOUS_PROMPT_CONTRACT_VERSION,
     PREVIOUS_ANALYSIS_SCHEMA_VERSION,
     PROMPT_CONTRACT_VERSION,
@@ -1066,6 +1067,17 @@ class TrustManifestTests(unittest.TestCase):
         )
         self.assertNotIn("score_alignment_required", old_reader_target)
         self.assertNotIn("scored criterion", old_reader_target["claim"])
+
+        pre_full_correction = claim_verification_targets(
+            complete_analysis(),
+            prompt_contract_version=PRE_FULL_CORRECTION_PROMPT_CONTRACT_VERSION,
+        )
+        score_bound_reader = next(
+            target for target in pre_full_correction
+            if target["claim_id"] == "reader.structure.first_ten_pages"
+        )
+        self.assertTrue(score_bound_reader["score_alignment_required"])
+        self.assertIn("scored criterion", score_bound_reader["claim"])
 
     def test_evidence_scope_contract_survives_a_future_prompt_version_bump(self):
         august_contract = PROMPT_CONTRACT_VERSION

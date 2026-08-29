@@ -2788,9 +2788,18 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             ),
             rejected_block,
         )
+        self.assertIn(
+            "including violations not named in the first error",
+            rejected_block,
+        )
+        self.assertNotIn(
+            "preserve every field that is unrelated to the stated validation failure",
+            rejected_block.casefold(),
+        )
         self.assertIn("Recheck every page_citations", citation)
         self.assertIn("exact cited [PAGE N]", citation)
         self.assertIn("replace every paraphrase", citation)
+        self.assertIn("repair every violation in this one response", citation)
         mismatched_source = copy.deepcopy(correction_source)
         mismatched_source["replay_report_sha256"] = "f" * 64
         with self.assertRaisesRegex(ValueError, "does not match the replayed report"):
@@ -2811,6 +2820,9 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )[-1]["text"]
         self.assertIn("named validation path", unexpected)
         self.assertIn("sibling metric", unexpected)
+        self.assertIn("audit the entire rejected report", unexpected)
+        self.assertIn("Recheck every required field", unexpected)
+        self.assertIn("replace every paraphrase", unexpected)
 
         missing = ingest_v9._corrective_retry_user_blocks(
             [],
@@ -2820,6 +2832,20 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             ),
         )[-1]["text"]
         self.assertIn("named required field", missing)
+        self.assertIn("audit the entire rejected report", missing)
+        self.assertIn("Recheck every required field", missing)
+        self.assertIn("replace every paraphrase", missing)
+
+        short_excerpt = ingest_v9._corrective_retry_user_blocks(
+            [],
+            tool_name="submit_structure_report",
+            error=RuntimeError(
+                "reader sub-score beginning_hook has an invalid evidence excerpt"
+            ),
+        )[-1]["text"]
+        self.assertIn("only the first one found", short_excerpt)
+        self.assertIn("Recheck every page_citations", short_excerpt)
+        self.assertIn("repair every violation in this one response", short_excerpt)
 
     def test_correction_failure_lineage_covers_dispatch_and_predispatch_states(self):
         candidate_release = {
@@ -3321,6 +3347,12 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         def missing_specialized_field(report):
             report["sub_scores"]["goosebumps_moments"].pop("moments")
 
+        def multiple_independent_defects(report):
+            unexpected_field(report)
+            report["sub_scores"]["narrative_engine"]["citation_evidence"][0][
+                "excerpt"
+            ] = "This paraphrase does not occur on the physical page."
+
         cases = (
             ("paraphrased_excerpt", "structure", paraphrased_excerpt),
             ("invalid_excerpt", "craft_scene", excerpt_failure),
@@ -3329,6 +3361,11 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "missing_specialized_field",
                 "emotional_resonance",
                 missing_specialized_field,
+            ),
+            (
+                "multiple_independent_defects",
+                "concept",
+                multiple_independent_defects,
             ),
         )
         genre_detection = ingest_v9.parse_detection({
@@ -3427,6 +3464,15 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                                 ),
                                 retry_text,
                             )
+                            self.assertIn(
+                                "audit the entire rejected report",
+                                retry_text,
+                            )
+                            self.assertNotIn(
+                                "preserve every field that is unrelated to the "
+                                "stated validation failure",
+                                retry_text.casefold(),
+                            )
                         return report, "", usage
                     self.assertEqual(stage, "synthesis")
                     return copy.deepcopy(fixture_analysis), "", usage
@@ -3506,6 +3552,190 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 self.assertEqual(recovered["logical_retry"], 1)
                 self.assertEqual(analysis["analysis_quality"]["status"], "complete")
                 self.assertEqual(analysis["analysis_quality"]["completed_readers"], 5)
+
+    def test_synthesis_multi_defect_retry_repairs_all_or_fails_unconsumed(self):
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+
+        for repair_all in (True, False):
+            with self.subTest(repair_all=repair_all):
+                title = f"Synthesis multi-defect {repair_all}"
+                fixture_analysis = complete_analysis(title)
+                synthesis_attempts = 0
+                retry_text = ""
+                first_rejected_report = None
+
+                def charged_usage(response_id, *, stage, reader_name, logical_retry):
+                    usage = self._successful_call_usage(
+                        response_id,
+                        stage=stage,
+                        reader_name=reader_name,
+                    )
+                    call = usage["calls"][0]
+                    call.update({
+                        "logical_retry": logical_retry,
+                        "attempt_number": logical_retry + 1,
+                        "total_retry_count": logical_retry,
+                        "independent_cost_microusd": 100,
+                        "independent_cost_usd": 0.0001,
+                        "independent_cost_nanousd": 100_000,
+                        "independent_estimated_cost_usd": 0.0001,
+                        "charged_cost_microusd": 100,
+                    })
+                    call["usage"].update({
+                        "actual_cost_microusd": 100,
+                        "actual_cost_usd": 0.0001,
+                        "charged_cost_microusd": 100,
+                        "estimated_cost_nanousd": 100_000,
+                        "estimated_cost_usd": 0.0001,
+                    })
+                    usage.update({
+                        "actual_cost_microusd": 100,
+                        "actual_cost_usd": 0.0001,
+                        "estimated_cost_nanousd": 100_000,
+                        "estimated_cost_usd": 0.0001,
+                    })
+                    usage["by_model"][MODEL_ID]["actual_cost_microusd"] = 100
+                    return usage
+
+                def fake_call_llm(**kwargs):
+                    nonlocal synthesis_attempts, retry_text, first_rejected_report
+                    stage = kwargs["stage"]
+                    reader_name = kwargs.get("reader_name")
+                    logical_retry = kwargs.get("logical_retry", 0)
+                    if stage == "reader":
+                        return (
+                            copy.deepcopy(
+                                fixture_analysis["reader_reports"][reader_name]
+                            ),
+                            "",
+                            charged_usage(
+                                f"msg_reader_{reader_name}_{repair_all}",
+                                stage=stage,
+                                reader_name=reader_name,
+                                logical_retry=logical_retry,
+                            ),
+                        )
+
+                    synthesis_attempts += 1
+                    usage = charged_usage(
+                        f"msg_synthesis_{repair_all}_{synthesis_attempts}",
+                        stage=stage,
+                        reader_name=None,
+                        logical_retry=logical_retry,
+                    )
+                    if synthesis_attempts == 1:
+                        report = copy.deepcopy(fixture_analysis)
+                        report.pop("analysis_version")
+                        report["material_claims"][0]["atomic_claims"][0][
+                            "citation_evidence"
+                        ][0]["excerpt"] = (
+                            "This paraphrase does not occur on the physical page."
+                        )
+                        first_rejected_report = copy.deepcopy(report)
+                        return report, "", usage
+
+                    retry_text = "\n".join(
+                        block.get("text", "")
+                        for block in kwargs["user_blocks"]
+                        if isinstance(block, dict)
+                    )
+                    if repair_all:
+                        report = copy.deepcopy(fixture_analysis)
+                    else:
+                        report = copy.deepcopy(first_rejected_report)
+                        report["analysis_version"] = "v9_archaeology"
+                    return report, "", usage
+
+                with patch.object(
+                    ingest_v9,
+                    "run_genre_detection",
+                    return_value=(genre_detection, ingest_v9.empty_usage()),
+                ), patch.object(
+                    ingest_v9,
+                    "call_llm",
+                    side_effect=fake_call_llm,
+                ), patch.object(ingest_v9.time, "sleep"):
+                    if repair_all:
+                        analysis, usage = ingest_v9.run_v9_full(
+                            text=marked_screenplay(),
+                            title=title,
+                            page_count=100,
+                            word_count=20_000,
+                            model_key="sonnet",
+                            proxy_url="https://proxy.test",
+                            pipeline_pass="sonnet",
+                        )
+                        self.assertEqual(
+                            analysis["analysis_quality"]["status"],
+                            "complete",
+                        )
+                    else:
+                        with self.assertRaises(
+                            ingest_v9.SynthesisIncompleteError
+                        ) as raised:
+                            ingest_v9.run_v9_full(
+                                text=marked_screenplay(),
+                                title=title,
+                                page_count=100,
+                                word_count=20_000,
+                                model_key="sonnet",
+                                proxy_url="https://proxy.test",
+                                pipeline_pass="sonnet",
+                            )
+                        usage = raised.exception.usage
+
+                self.assertEqual(synthesis_attempts, 2)
+                self.assertIn(
+                    "synthesis citation evidence needs review",
+                    retry_text,
+                )
+                self.assertNotIn(
+                    "synthesis is missing required fields",
+                    retry_text,
+                )
+                self.assertIn("audit the entire rejected report", retry_text)
+                synthesis_calls = [
+                    call for call in usage["calls"]
+                    if call["stage"] == "synthesis"
+                ]
+                self.assertEqual(len(synthesis_calls), 2)
+                rejected, correction = synthesis_calls
+                self.assertTrue(all(
+                    call["usage"]["actual_cost_microusd"] == 100
+                    for call in synthesis_calls
+                ))
+                self.assertEqual(rejected["disposition"], "discarded_unusable")
+                self.assertEqual(rejected["downstream_consumption"], "correction_only")
+                self.assertEqual(
+                    rejected["correction_replay"]["target_response_id"],
+                    correction["response_id"],
+                )
+                self.assertEqual(
+                    correction["correction_source"]["source_response_id"],
+                    rejected["response_id"],
+                )
+                if repair_all:
+                    self.assertEqual(correction["disposition"], "used")
+                    self.assertEqual(
+                        correction["downstream_consumption"],
+                        "consumed",
+                    )
+                else:
+                    self.assertEqual(
+                        correction["disposition"],
+                        "discarded_unusable",
+                    )
+                    self.assertEqual(
+                        correction["downstream_consumption"],
+                        "not_consumed",
+                    )
+                    self.assertFalse(any(
+                        call["downstream_consumption"] == "consumed"
+                        for call in synthesis_calls
+                    ))
 
     def test_reader_and_synthesis_recovery_produce_a_complete_manifest(self):
         synthesis_attempt = 0
