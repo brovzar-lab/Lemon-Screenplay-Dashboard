@@ -40,6 +40,7 @@ except ImportError:
 
 try:
     from .source_evidence import (
+        CITATION_MATCH_POLICY_VERSION,
         validate_stored_citation_quality,
         validate_stored_context_policy,
         validate_stored_page_evidence,
@@ -48,6 +49,7 @@ try:
     )
 except ImportError:
     from source_evidence import (
+        CITATION_MATCH_POLICY_VERSION,
         validate_stored_citation_quality,
         validate_stored_context_policy,
         validate_stored_page_evidence,
@@ -88,13 +90,17 @@ PRE_FULL_CORRECTION_PROMPT_CONTRACT_VERSION = (
 PRE_SOURCE_RECONCILIATION_PROMPT_CONTRACT_VERSION = (
     "v9-archaeology-prompts-2026-08-29-citation-v3"
 )
-PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-29-citation-v4"
+PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION = (
+    "v9-archaeology-prompts-2026-08-29-citation-v4"
+)
+PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-29-citation-v5"
 SUPPORTED_PROMPT_CONTRACT_VERSIONS = {
     LEGACY_PROMPT_CONTRACT_VERSION,
     PREVIOUS_PROMPT_CONTRACT_VERSION,
     PRE_CITATION_PROMPT_CONTRACT_VERSION,
     PRE_FULL_CORRECTION_PROMPT_CONTRACT_VERSION,
     PRE_SOURCE_RECONCILIATION_PROMPT_CONTRACT_VERSION,
+    PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION,
     PROMPT_CONTRACT_VERSION,
 }
 LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS = {
@@ -150,6 +156,12 @@ SUPPORTED_ANALYSIS_CONTRACTS = {
         TRUST_MANIFEST_VERSION,
         ANALYSIS_SCHEMA_VERSION,
         PRE_SOURCE_RECONCILIATION_PROMPT_CONTRACT_VERSION,
+        SCORING_CODE_VERSION,
+    ),
+    (
+        TRUST_MANIFEST_VERSION,
+        ANALYSIS_SCHEMA_VERSION,
+        PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION,
         SCORING_CODE_VERSION,
     ),
     (
@@ -1021,6 +1033,56 @@ def correction_release_lineage_matches(
     ) or source.get("release") == target_release
 
 
+def correction_call_lineage_matches(
+    source: Mapping[str, Any],
+    target: Mapping[str, Any],
+) -> bool:
+    """Keep correction routing fixed while requiring its call-specific schema."""
+    if any(
+        source.get(field) != target.get(field)
+        for field in (
+            "stage",
+            "pipeline_pass",
+            "boundary_run",
+            "reader_name",
+            "requested_model",
+            "prompt_contract_version",
+        )
+    ):
+        return False
+
+    if source.get("prompt_contract_version") != PROMPT_CONTRACT_VERSION:
+        return all(
+            source.get(field) == target.get(field)
+            for field in (
+                "schema_mode",
+                "schema_sha256",
+                "transport_schema_sha256",
+            )
+        )
+
+    source_schema = source.get("schema_sha256")
+    target_schema = target.get("schema_sha256")
+    return (
+        source.get("schema_mode") == "compact_strict_tool"
+        and target.get("schema_mode") == "strict_tool"
+        and isinstance(source_schema, str)
+        and isinstance(target_schema, str)
+        and source_schema != target_schema
+        and target.get("transport_schema_sha256") == target_schema
+        and source.get("prompt_sha256") != target.get("prompt_sha256")
+    )
+
+
+def uses_targeted_correction_schema(call: Mapping[str, Any]) -> bool:
+    """Identify current reader/synthesis correction calls before lineage binding."""
+    return (
+        call.get("prompt_contract_version") == PROMPT_CONTRACT_VERSION
+        and call.get("stage") in {"reader", "synthesis"}
+        and call.get("logical_retry") == 1
+    )
+
+
 def validate_correction_chronology(
     source: Mapping[str, Any],
     target: Mapping[str, Any],
@@ -1256,15 +1318,33 @@ def _canonical_transformation_evidence(raw_evidence: Any) -> List[Dict[str, Any]
         )
         if changed != (before_sha256 != after_sha256):
             raise ValueError("transformation evidence changed flag contradicts its hashes")
-        result.append({
-            "name": _require_nonempty_string(
-                evidence.get("name"),
-                "transformation evidence name",
-            ),
+        name = _require_nonempty_string(
+            evidence.get("name"),
+            "transformation evidence name",
+        )
+        record = {
+            "name": name,
             "changed": changed,
             "before_sha256": before_sha256,
             "after_sha256": after_sha256,
-        })
+        }
+        if name == "accepted_revision_safe_citation_equivalence":
+            match_count = evidence.get("match_count")
+            if (
+                evidence.get("policy") != CITATION_MATCH_POLICY_VERSION
+                or type(match_count) is not int
+                or match_count < 1
+            ):
+                raise ValueError(
+                    "revision-safe citation transformation evidence is invalid"
+                )
+            record.update({
+                "policy": CITATION_MATCH_POLICY_VERSION,
+                "match_count": match_count,
+            })
+        elif "policy" in evidence or "match_count" in evidence:
+            raise ValueError("unexpected transformation policy evidence")
+        result.append(record)
     return result
 
 
@@ -1737,9 +1817,14 @@ def _model_lineage(
                 raise ValueError(
                     f"usage.calls[{index}] genre detection must use a strict tool"
                 )
+            expected_scored_schema_mode = (
+                "strict_tool"
+                if uses_targeted_correction_schema(raw_call)
+                else "compact_strict_tool"
+            )
             if stage in {
                 "claim_verification", "reader", "synthesis",
-            } and schema_mode != "compact_strict_tool":
+            } and schema_mode != expected_scored_schema_mode:
                 raise ValueError(
                     f"usage.calls[{index}] scored stages must use compact strict tools"
                 )
@@ -1813,6 +1898,9 @@ def _model_lineage(
                         evidence.get("after_sha256"),
                         "transformation after hash",
                     )
+            canonical_transformation_evidence = (
+                _canonical_transformation_evidence(transformation_evidence)
+            )
             if not isinstance(warnings, list) or not all(
                 isinstance(value, str) and value for value in warnings
             ):
@@ -1879,6 +1967,35 @@ def _model_lineage(
             if correction_source is not None and stage not in {"reader", "synthesis"}:
                 raise ValueError(
                     f"usage.calls[{index}] correction source is invalid for its stage"
+                )
+            if uses_targeted_correction_schema(raw_call) and correction_source is None:
+                raise ValueError(
+                    f"usage.calls[{index}] targeted correction lacks its source"
+                )
+            targeted_correction_evidence = next(
+                (
+                    evidence
+                    for evidence in canonical_transformation_evidence
+                    if evidence["name"] == "merged_targeted_correction"
+                ),
+                None,
+            )
+            if uses_targeted_correction_schema(raw_call):
+                if disposition == "used" and targeted_correction_evidence is None:
+                    raise ValueError(
+                        f"usage.calls[{index}] used targeted correction lacks merge evidence"
+                    )
+                if targeted_correction_evidence is not None and (
+                    targeted_correction_evidence["changed"] is not True
+                    or targeted_correction_evidence["before_sha256"]
+                    != correction_source["replay_report_sha256"]
+                ):
+                    raise ValueError(
+                        f"usage.calls[{index}] targeted correction merge evidence is invalid"
+                    )
+            elif targeted_correction_evidence is not None:
+                raise ValueError(
+                    f"usage.calls[{index}] non-targeted call carries targeted correction evidence"
                 )
             if correction_replay is not None:
                 rejected_output_sha256 = _require_sha256(
@@ -2136,9 +2253,7 @@ def _model_lineage(
                 "validation_result": validation_result,
                 "validation_reason": validation_reason,
                 "transformations": copy.deepcopy(transformations),
-                "transformation_evidence": _canonical_transformation_evidence(
-                    transformation_evidence
-                ),
+                "transformation_evidence": canonical_transformation_evidence,
                 "failure_state": failure_state,
                 "warnings": copy.deepcopy(warnings),
                 "fallback_used": False,
@@ -2376,20 +2491,7 @@ def _model_lineage(
             != source_link["rejected_output_sha256"]
             or source.get("rejected_artifact_sha256")
             != source_link["rejected_artifact_sha256"]
-            or any(
-                source.get(field) != target.get(field)
-                for field in (
-                    "stage",
-                    "pipeline_pass",
-                    "boundary_run",
-                    "reader_name",
-                    "requested_model",
-                    "prompt_contract_version",
-                    "schema_mode",
-                    "schema_sha256",
-                    "transport_schema_sha256",
-                )
-            )
+            or not correction_call_lineage_matches(source, target)
             or not correction_release_lineage_matches(
                 source,
                 target,
@@ -2628,9 +2730,14 @@ def _model_lineage(
                 raise ValueError(f"usage.failed_calls[{index}] triage schema is invalid")
             if stage == "genre_detection" and schema_mode != "strict_tool":
                 raise ValueError(f"usage.failed_calls[{index}] genre schema is invalid")
+            expected_scored_schema_mode = (
+                "strict_tool"
+                if uses_targeted_correction_schema(raw_call)
+                else "compact_strict_tool"
+            )
             if stage in {
                 "claim_verification", "reader", "synthesis",
-            } and schema_mode != "compact_strict_tool":
+            } and schema_mode != expected_scored_schema_mode:
                 raise ValueError(f"usage.failed_calls[{index}] scored schema is invalid")
             if raw_call.get("pricing_sha256") != runtime_pricing_sha256():
                 raise ValueError(
@@ -2865,6 +2972,17 @@ def _model_lineage(
             elif raw_call.get("correction_delivery_state") is not None:
                 raise ValueError(
                     f"usage.failed_calls[{index}] correction delivery lacks a source"
+                )
+            if (
+                uses_targeted_correction_schema(raw_call)
+                and failed_correction_source is None
+                and correction_delivery_state_for_call(
+                    raw_call,
+                    successful=False,
+                ) is not None
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] targeted correction lacks its source"
                 )
             call_usage = raw_call.get("usage")
             if not isinstance(call_usage, dict):

@@ -23,6 +23,7 @@ SCENE_COUNT_VERSION = "lemon-scene-heading-count-v1"
 CONTEXT_POLICY_VERSION = "lemon-context-policy-v1"
 LEGACY_CITATION_EVIDENCE_VERSION = "lemon-citation-evidence-v1"
 CITATION_EVIDENCE_VERSION = "lemon-citation-evidence-v2"
+CITATION_MATCH_POLICY_VERSION = "lemon-citation-match-revision-safe-v1"
 TITLE_PAGE_AUTHOR_EVIDENCE_VERSION = "lemon-title-page-author-v1"
 AUTHOR_NOT_FOUND = "Not found on title page"
 NATIVE_TEXT_SIMILARITY_MIN = 0.80
@@ -753,15 +754,51 @@ def _normalized_evidence_text(value: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
 
 
+_TYPOGRAPHIC_QUOTE_TRANSLATION = str.maketrans({
+    "\u2018": "'",
+    "\u2019": "'",
+    "\u201b": "'",
+    "\u201c": '"',
+    "\u201d": '"',
+    "\u201e": '"',
+})
+_REVISION_MARGIN_MIN_COLUMN = 50
+
+
+def _has_trailing_revision_margin_mark(line: str) -> bool:
+    marker = re.search(r"[ \t]+\*[ \t]*$", line)
+    return marker is not None and line.rfind("*") >= _REVISION_MARGIN_MIN_COLUMN
+
+
+def _revision_safe_evidence_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKC", value).translate(
+        _TYPOGRAPHIC_QUOTE_TRANSLATION
+    )
+    lines = normalized.splitlines()
+    has_revision_layout = (
+        sum(line.strip() == "*" for line in lines) >= 2
+        and any(_has_trailing_revision_margin_mark(line) for line in lines)
+    )
+    if has_revision_layout:
+        lines = [
+            ""
+            if line.strip() == "*"
+            else re.sub(r"[ \t]+\*[ \t]*$", "", line)
+            if _has_trailing_revision_margin_mark(line)
+            else line
+            for line in lines
+        ]
+    return " ".join("\n".join(lines).casefold().split())
+
+
 def _evidence_words(value: str) -> List[str]:
     return re.findall(r"\w+", _normalized_evidence_text(value), flags=re.UNICODE)
 
 
-def _contains_evidence_excerpt(page_text: str, excerpt: str) -> bool:
-    if len(_evidence_words(excerpt)) < MIN_CITATION_EXCERPT_WORDS:
-        return False
-    normalized_page = _normalized_evidence_text(page_text)
-    normalized_excerpt = _normalized_evidence_text(excerpt)
+def _contains_normalized_excerpt(
+    normalized_page: str,
+    normalized_excerpt: str,
+) -> bool:
     start = 0
     while (index := normalized_page.find(normalized_excerpt, start)) >= 0:
         end = index + len(normalized_excerpt)
@@ -774,6 +811,29 @@ def _contains_evidence_excerpt(page_text: str, excerpt: str) -> bool:
             return True
         start = index + 1
     return False
+
+
+def _evidence_excerpt_match_kind(
+    page_text: str,
+    excerpt: str,
+) -> Optional[str]:
+    if len(_evidence_words(excerpt)) < MIN_CITATION_EXCERPT_WORDS:
+        return None
+    if _contains_normalized_excerpt(
+        _normalized_evidence_text(page_text),
+        _normalized_evidence_text(excerpt),
+    ):
+        return "exact"
+    if _contains_normalized_excerpt(
+        _revision_safe_evidence_text(page_text),
+        _revision_safe_evidence_text(excerpt),
+    ):
+        return "revision_safe"
+    return None
+
+
+def _contains_evidence_excerpt(page_text: str, excerpt: str) -> bool:
+    return _evidence_excerpt_match_kind(page_text, excerpt) is not None
 
 
 def reconcile_unique_citation_pages(
@@ -938,6 +998,7 @@ def validate_analysis_citations(
     missing_required: List[str] = []
     unsupported: List[Dict[str, Any]] = []
     verified_evidence: List[Dict[str, Any]] = []
+    normalized_matches: List[Dict[str, Any]] = []
     verified_pages: set[int] = set()
     total_citations = 0
     high_score_items = 0
@@ -1069,10 +1130,10 @@ def validate_analysis_citations(
                                     "reason": "missing_evidence_excerpt",
                                 })
                                 continue
-                            if not _contains_evidence_excerpt(
-                                page_contents.get(citation, ""),
-                                excerpt,
-                            ):
+                            match_kind = _evidence_excerpt_match_kind(
+                                page_contents.get(citation, ""), excerpt
+                            )
+                            if match_kind is None:
                                 unsupported.append({
                                     "path": path_text,
                                     "page": citation,
@@ -1083,6 +1144,15 @@ def validate_analysis_citations(
                             verified_evidence.append(
                                 _citation_seal(path_text, citation, excerpt)
                             )
+                            if match_kind == "revision_safe":
+                                normalized_matches.append({
+                                    **_citation_seal(
+                                        path_text,
+                                        citation,
+                                        excerpt,
+                                    ),
+                                    "policy": CITATION_MATCH_POLICY_VERSION,
+                                })
                         for evidence_page in sorted(evidence_by_page):
                             if evidence_page not in valid_page_citations:
                                 unsupported.append({
@@ -1118,7 +1188,11 @@ def validate_analysis_citations(
             else LEGACY_CITATION_EVIDENCE_VERSION
         ),
         "status": "verified" if not issues else "needs_review",
-        "verification_scope": "physical_page_and_exact_excerpt_location",
+        "verification_scope": (
+            "physical_page_and_revision_safe_excerpt_location"
+            if normalized_matches
+            else "physical_page_and_exact_excerpt_location"
+        ),
         "semantic_support_scope": (
             "independent_claim_verification_required_for_benchmark"
         ),
@@ -1131,6 +1205,16 @@ def validate_analysis_citations(
         ),
         "verified_page_numbers": sorted(verified_pages),
         "high_score_items": high_score_items,
+        "citation_match_policy_version": CITATION_MATCH_POLICY_VERSION,
+        "normalized_match_count": len(normalized_matches),
+        "normalized_matches": sorted(
+            normalized_matches,
+            key=lambda item: (
+                item["path"],
+                item["page"],
+                item["excerpt_sha256"],
+            ),
+        ),
         "malformed_reader_metrics": sorted(malformed_metrics),
         "missing_required_citations": sorted(missing_required),
         "invalid_citations": invalid,
