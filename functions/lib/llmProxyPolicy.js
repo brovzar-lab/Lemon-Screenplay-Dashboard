@@ -25,10 +25,10 @@ const MODEL_CAPABILITIES = {
         thinking: ["adaptive"], effort: true, sampling: false, maxOutputTokens: 128_000,
     },
     "claude-sonnet-5": {
-        thinking: ["adaptive"], effort: true, sampling: false, maxOutputTokens: 128_000,
+        thinking: ["adaptive", "disabled"], effort: true, sampling: false, maxOutputTokens: 128_000,
     },
     "claude-opus-5": {
-        thinking: ["adaptive"], effort: true, sampling: false, maxOutputTokens: 128_000,
+        thinking: ["adaptive", "disabled"], effort: true, sampling: false, maxOutputTokens: 128_000,
     },
     "claude-fable-5": {
         thinking: [], alwaysOnThinking: true, effort: true, sampling: false, maxOutputTokens: 128_000,
@@ -59,12 +59,15 @@ function approvedOutputConfig(value) {
     }
     return { effort };
 }
-function validateModelRequest(model, caller, request) {
+function validateModelRequest(model, caller, request, candidateBenchmarkControls = false) {
     if (!isApprovedProxyModel(model, caller))
         throw new Error("Model is not approved.");
     const capabilities = MODEL_CAPABILITIES[model];
     if (!capabilities)
         throw new Error("Model capabilities are not configured.");
+    if (request.thinking?.type === "disabled" && !candidateBenchmarkControls) {
+        throw new Error("Explicitly disabled thinking is restricted to the candidate benchmark.");
+    }
     if (request.thinking && !capabilities.thinking.includes(request.thinking.type)) {
         throw new Error(`${request.thinking.type} thinking is not supported for ${model}.`);
     }
@@ -99,8 +102,13 @@ function validateModelRequest(model, caller, request) {
             throw new Error("Manual extended thinking cannot use top_p or top_k.");
         }
     }
-    const thinkingActive = Boolean(request.thinking) || capabilities.alwaysOnThinking;
-    if (thinkingActive && request.tool_choice && request.tool_choice.type !== "auto") {
+    const thinkingActive = request.thinking?.type !== "disabled"
+        && (Boolean(request.thinking) || capabilities.alwaysOnThinking);
+    const adaptiveForcedTool = candidateBenchmarkControls
+        && BENCHMARK_CANDIDATE_MODELS.has(model)
+        && request.thinking?.type === "adaptive";
+    if (thinkingActive && request.tool_choice && request.tool_choice.type !== "auto"
+        && !adaptiveForcedTool) {
         throw new Error("Thinking requests cannot force tool choice.");
     }
     const outputConfig = approvedOutputConfig(request.output_config);

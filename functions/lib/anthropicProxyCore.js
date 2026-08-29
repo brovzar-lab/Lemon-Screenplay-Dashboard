@@ -76,7 +76,7 @@ function userAssistantMessages(body) {
         .filter((message) => message.role !== "system")
         .map((message) => ({ role: message.role, content: message.content }));
 }
-function buildAnthropicRequest(value, caller, operationalOutputCap, thinkingTokenCap, configuredInferenceGeo) {
+function buildAnthropicRequest(value, caller, operationalOutputCap, thinkingTokenCap, configuredInferenceGeo, candidateBenchmarkControls = false) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
         throw new ProxyRequestValidationError("Request body must be an object.");
     }
@@ -110,7 +110,7 @@ function buildAnthropicRequest(value, caller, operationalOutputCap, thinkingToke
             top_k: body.top_k,
             tool_choice: body.tool_choice,
             output_config: body.output_config,
-        });
+        }, candidateBenchmarkControls);
     }
     catch (error) {
         const message = error instanceof Error ? error.message : "Invalid model request.";

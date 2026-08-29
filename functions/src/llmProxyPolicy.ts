@@ -14,7 +14,7 @@ const BENCHMARK_CANDIDATE_MODELS = new Set([
 export type ProxyCallerKind = "user" | "service";
 export type ApprovedEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
-type ThinkingMode = "enabled" | "adaptive";
+type ThinkingMode = "enabled" | "adaptive" | "disabled";
 
 interface ModelCapabilities {
   thinking: readonly ThinkingMode[];
@@ -35,10 +35,10 @@ const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     thinking: ["adaptive"], effort: true, sampling: false, maxOutputTokens: 128_000,
   },
   "claude-sonnet-5": {
-    thinking: ["adaptive"], effort: true, sampling: false, maxOutputTokens: 128_000,
+    thinking: ["adaptive", "disabled"], effort: true, sampling: false, maxOutputTokens: 128_000,
   },
   "claude-opus-5": {
-    thinking: ["adaptive"], effort: true, sampling: false, maxOutputTokens: 128_000,
+    thinking: ["adaptive", "disabled"], effort: true, sampling: false, maxOutputTokens: 128_000,
   },
   "claude-fable-5": {
     thinking: [], alwaysOnThinking: true, effort: true, sampling: false, maxOutputTokens: 128_000,
@@ -48,7 +48,8 @@ const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
 export interface ModelRequestParameters {
   thinking?:
     | { type: "enabled"; budget_tokens: number }
-    | { type: "adaptive" };
+    | { type: "adaptive" }
+    | { type: "disabled" };
   temperature?: number;
   top_p?: number;
   top_k?: number;
@@ -86,11 +87,15 @@ export function validateModelRequest(
   model: string,
   caller: ProxyCallerKind,
   request: ModelRequestParameters,
+  candidateBenchmarkControls = false,
 ): { effort: ApprovedEffort } | undefined {
   if (!isApprovedProxyModel(model, caller)) throw new Error("Model is not approved.");
   const capabilities = MODEL_CAPABILITIES[model];
   if (!capabilities) throw new Error("Model capabilities are not configured.");
 
+  if (request.thinking?.type === "disabled" && !candidateBenchmarkControls) {
+    throw new Error("Explicitly disabled thinking is restricted to the candidate benchmark.");
+  }
   if (request.thinking && !capabilities.thinking.includes(request.thinking.type)) {
     throw new Error(`${request.thinking.type} thinking is not supported for ${model}.`);
   }
@@ -126,8 +131,13 @@ export function validateModelRequest(
     }
   }
 
-  const thinkingActive = Boolean(request.thinking) || capabilities.alwaysOnThinking;
-  if (thinkingActive && request.tool_choice && request.tool_choice.type !== "auto") {
+  const thinkingActive = request.thinking?.type !== "disabled"
+    && (Boolean(request.thinking) || capabilities.alwaysOnThinking);
+  const adaptiveForcedTool = candidateBenchmarkControls
+    && BENCHMARK_CANDIDATE_MODELS.has(model)
+    && request.thinking?.type === "adaptive";
+  if (thinkingActive && request.tool_choice && request.tool_choice.type !== "auto"
+      && !adaptiveForcedTool) {
     throw new Error("Thinking requests cannot force tool choice.");
   }
 

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.llmProxyCandidate = void 0;
+exports.llmProxyCandidate = exports.CANDIDATE_MAX_OUTPUT_TOKENS = void 0;
 exports.candidateSettlementFailure = candidateSettlementFailure;
 exports.providerRejectionFailure = providerRejectionFailure;
 exports.providerTransportFailure = providerTransportFailure;
@@ -38,7 +38,7 @@ const benchmarkStagingFirestoreProjectId = (0, params_1.defineString)("BENCHMARK
 const benchmarkProductionFirestoreProjectId = (0, params_1.defineString)("BENCHMARK_PRODUCTION_FIRESTORE_PROJECT_ID");
 const benchmarkStorageBucket = (0, params_1.defineString)("BENCHMARK_STORAGE_BUCKET");
 const benchmarkInferenceGeo = (0, params_1.defineString)("BENCHMARK_INFERENCE_GEO");
-const MAX_OUTPUT_TOKENS = 24_000;
+exports.CANDIDATE_MAX_OUTPUT_TOKENS = 32_000;
 const MAX_THINKING_TOKENS = 16_000;
 function candidateSettlementFailure(error, phase) {
     const message = error instanceof Error ? error.message : "";
@@ -394,7 +394,7 @@ exports.llmProxyCandidate = (0, https_1.onRequest)({
     let contract;
     try {
         (0, benchmarkCandidatePolicy_1.validateCandidateEnvelope)(req.body);
-        built = (0, anthropicProxyCore_1.buildAnthropicRequest)(req.body, "service", MAX_OUTPUT_TOKENS, MAX_THINKING_TOKENS, config.inferenceGeo);
+        built = (0, anthropicProxyCore_1.buildAnthropicRequest)(req.body, "service", exports.CANDIDATE_MAX_OUTPUT_TOKENS, MAX_THINKING_TOKENS, config.inferenceGeo, true);
         const body = req.body;
         const evidence = (0, benchmarkCandidatePolicy_1.deriveBenchmarkPayloadEvidence)(built.payload);
         contract = (0, benchmarkCandidatePolicy_1.validateBenchmarkContract)(body.benchmark, evidence, config.runId, built.body.model);
