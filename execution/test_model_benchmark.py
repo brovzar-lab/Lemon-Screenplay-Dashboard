@@ -416,6 +416,268 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
         ):
             _validate_local_rejected_artifacts(run, Path(self.temp_dir.name))
 
+    def test_orphan_correction_target_is_rejected_without_artifact_directory(self):
+        run = {
+            "usage": {
+                "calls": [{
+                    "response_id": "msg_orphan_target",
+                    "correction_source": {
+                        "source_response_id": "msg_missing_source",
+                    },
+                }],
+                "failed_calls": [],
+            },
+        }
+        with self.assertRaisesRegex(
+            BenchmarkSafetyError,
+            "not bound to one exact source and target call",
+        ):
+            _validate_local_rejected_artifacts(run, Path(self.temp_dir.name))
+
+        dangling_state = {
+            "usage": {
+                "calls": [{
+                    "response_id": "msg_dangling_state",
+                    "correction_delivery_state": "settled_after_dispatch",
+                }],
+                "failed_calls": [],
+            },
+        }
+        with self.assertRaisesRegex(
+            BenchmarkSafetyError,
+            "lacks its source lineage",
+        ):
+            _validate_local_rejected_artifacts(
+                dangling_state,
+                Path(self.temp_dir.name),
+            )
+
+    def test_correction_replay_is_hash_bound_to_source_artifact_and_target(self):
+        run_dir = Path(self.temp_dir.name)
+        artifact_dir = run_dir / "engine" / "rejected-responses"
+        artifact_dir.mkdir(parents=True, mode=0o700)
+        artifact_dir.chmod(0o700)
+        report = {"reader": "structure", "pillar_score": 7}
+        rejected_output = [{
+            "type": "tool_use",
+            "name": "submit_structure_report",
+            "input": {
+                "contract": "submit_structure_report",
+                "application_schema_sha256": "3" * 64,
+                "report_json": json.dumps(report),
+            },
+        }]
+        rejected_output_sha256 = _engine_output_sha256(rejected_output)
+        replay_report_sha256 = _engine_output_sha256(report)
+        artifact = {
+            "stage": "reader",
+            "attempt": 1,
+            "request_sha256": "1" * 64,
+            "prompt_sha256": "2" * 64,
+            "schema_sha256": "3" * 64,
+            "response_id": "msg_reader_1",
+            "requested_model": "claude-sonnet-5",
+            "returned_model": "claude-sonnet-5",
+            "validation_rule": "missing required field",
+            "disposition": "discarded_unusable",
+            "rejected_output_sha256": rejected_output_sha256,
+            "rejected_output": rejected_output,
+        }
+        encoded = (
+            json.dumps(
+                artifact,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8")
+        artifact_sha256 = hashlib.sha256(encoded).hexdigest()
+        artifact_path = artifact_dir / f"reader-{artifact_sha256}.json"
+        artifact_path.write_bytes(encoded)
+        artifact_path.chmod(0o600)
+        correction_source = {
+            "source_response_id": "msg_reader_1",
+            "source_request_sha256": "1" * 64,
+            "source_attempt_number": 1,
+            "rejected_output_sha256": rejected_output_sha256,
+            "rejected_artifact_sha256": artifact_sha256,
+            "replay_report_sha256": replay_report_sha256,
+        }
+        source = {
+            "call_id": "4" * 64,
+            "stage": "reader",
+            "reader_name": "structure",
+            "pipeline_pass": "sonnet",
+            "boundary_run": 1,
+            "logical_retry": 0,
+            "attempt_number": 1,
+            "response_id": "msg_reader_1",
+            "request_sha256": "1" * 64,
+            "prompt_sha256": "2" * 64,
+            "prompt_contract_version": "v9-test-prompt",
+            "schema_mode": "compact_strict_tool",
+            "schema_sha256": "3" * 64,
+            "transport_schema_sha256": "8" * 64,
+            "started_at": "2026-08-27T12:00:00Z",
+            "completed_at": "2026-08-27T12:00:01Z",
+            "requested_model": "claude-sonnet-5",
+            "returned_model": "claude-sonnet-5",
+            "validation_reason": "missing required field",
+            "disposition": "discarded_unusable",
+            "downstream_consumption": "correction_only",
+            "rejected_output_status": "available",
+            "rejected_output_sha256": rejected_output_sha256,
+            "rejected_artifact_sha256": artifact_sha256,
+            "rejected_artifact_path": str(artifact_path),
+            "correction_replay": {
+                "delivery_state": "settled_after_dispatch",
+                "target_call_id": "7" * 64,
+                "target_response_id": "msg_reader_2",
+                "target_response_id_status": "available",
+                "target_request_sha256": "5" * 64,
+                "target_prompt_sha256": "6" * 64,
+                "target_attempt_number": 2,
+                "replay_report_sha256": replay_report_sha256,
+            },
+        }
+        target = {
+            "call_id": "7" * 64,
+            "stage": "reader",
+            "reader_name": "structure",
+            "pipeline_pass": "sonnet",
+            "boundary_run": 1,
+            "logical_retry": 1,
+            "attempt_number": 2,
+            "response_id": "msg_reader_2",
+            "requested_model": "claude-sonnet-5",
+            "request_sha256": "5" * 64,
+            "prompt_sha256": "6" * 64,
+            "prompt_contract_version": "v9-test-prompt",
+            "schema_mode": "compact_strict_tool",
+            "schema_sha256": "3" * 64,
+            "transport_schema_sha256": "8" * 64,
+            "started_at": "2026-08-27T12:00:02Z",
+            "completed_at": "2026-08-27T12:00:03Z",
+            "disposition": "used",
+            "correction_source": correction_source,
+            "correction_delivery_state": "settled_after_dispatch",
+        }
+        run = {"usage": {"calls": [source, target], "failed_calls": []}}
+
+        _validate_local_rejected_artifacts(run, run_dir)
+
+        mislabeled_success = copy.deepcopy(run)
+        mislabeled_success["usage"]["calls"][0][
+            "downstream_consumption"
+        ] = "correction_attempted"
+        mislabeled_success["usage"]["calls"][0]["correction_replay"][
+            "delivery_state"
+        ] = "uncertain_after_dispatch"
+        mislabeled_success["usage"]["calls"][1][
+            "correction_delivery_state"
+        ] = "uncertain_after_dispatch"
+        with self.assertRaisesRegex(
+            BenchmarkSafetyError,
+            "not bound to one exact source and target call",
+        ):
+            _validate_local_rejected_artifacts(mislabeled_success, run_dir)
+
+        mislabeled_ambiguous = copy.deepcopy(run)
+        ambiguous_source, ambiguous_target = mislabeled_ambiguous["usage"]["calls"]
+        mislabeled_ambiguous["usage"]["calls"] = [ambiguous_source]
+        mislabeled_ambiguous["usage"]["failed_calls"] = [ambiguous_target]
+        ambiguous_target["response_id"] = None
+        ambiguous_target["uncertainty_status"] = "reservation_held"
+        ambiguous_source["correction_replay"].update({
+            "target_response_id": None,
+            "target_response_id_status": "unavailable",
+        })
+        with self.assertRaisesRegex(
+            BenchmarkSafetyError,
+            "not bound to one exact source and target call",
+        ):
+            _validate_local_rejected_artifacts(mislabeled_ambiguous, run_dir)
+
+        reversed_time = copy.deepcopy(run)
+        reversed_time["usage"]["calls"][1][
+            "started_at"
+        ] = "2026-08-27T11:59:59Z"
+        with self.assertRaisesRegex(
+            BenchmarkSafetyError,
+            "chronology is inconsistent",
+        ):
+            _validate_local_rejected_artifacts(reversed_time, run_dir)
+
+        schema_drift = copy.deepcopy(run)
+        schema_drift["usage"]["calls"][1]["schema_sha256"] = "0" * 64
+        with self.assertRaisesRegex(
+            BenchmarkSafetyError,
+            "not bound to one exact source and target call",
+        ):
+            _validate_local_rejected_artifacts(schema_drift, run_dir)
+
+        target["correction_source"]["replay_report_sha256"] = "8" * 64
+        with self.assertRaisesRegex(
+            BenchmarkSafetyError,
+            "not bound to one exact source and target call",
+        ):
+            _validate_local_rejected_artifacts(run, run_dir)
+
+        target["correction_source"]["replay_report_sha256"] = (
+            replay_report_sha256
+        )
+
+        def write_tampered_artifact(tampered_output):
+            tampered_output_sha256 = _engine_output_sha256(tampered_output)
+            tampered_artifact = {
+                **artifact,
+                "rejected_output_sha256": tampered_output_sha256,
+                "rejected_output": tampered_output,
+            }
+            tampered_encoded = (
+                json.dumps(
+                    tampered_artifact,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+                + "\n"
+            ).encode("utf-8")
+            artifact_path.write_bytes(tampered_encoded)
+            artifact_path.chmod(0o600)
+            tampered_artifact_sha256 = hashlib.sha256(tampered_encoded).hexdigest()
+            source["rejected_output_sha256"] = tampered_output_sha256
+            source["rejected_artifact_sha256"] = tampered_artifact_sha256
+            target["correction_source"][
+                "rejected_output_sha256"
+            ] = tampered_output_sha256
+            target["correction_source"][
+                "rejected_artifact_sha256"
+            ] = tampered_artifact_sha256
+
+        tamper_cases = {
+            "tool name": lambda output: output[0].update({
+                "name": "submit_concept_report",
+            }),
+            "contract": lambda output: output[0]["input"].update({
+                "contract": "submit_concept_report",
+            }),
+            "application schema": lambda output: output[0]["input"].update({
+                "application_schema_sha256": "9" * 64,
+            }),
+        }
+        for label, mutate in tamper_cases.items():
+            with self.subTest(tamper=label):
+                tampered_output = copy.deepcopy(rejected_output)
+                mutate(tampered_output)
+                write_tampered_artifact(tampered_output)
+                with self.assertRaisesRegex(
+                    BenchmarkSafetyError,
+                    "does not match its exact tool and schema",
+                ):
+                    _validate_local_rejected_artifacts(run, run_dir)
+
     def test_local_cap_records_each_conservative_preflight_and_settlement(self):
         cap = LocalCostCap(1.0, {
             "modelProfiles": {

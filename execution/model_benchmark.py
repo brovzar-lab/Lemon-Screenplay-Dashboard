@@ -32,6 +32,12 @@ from urllib.parse import urlparse
 import requests
 
 from execution.local_artifacts import secure_local_path
+from execution.trust_manifest import (
+    correction_delivery_state_for_call,
+    correction_release_lineage_matches,
+    validate_correction_chronology,
+)
+from execution.verdict_contract import READER_WEIGHTS
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACTS_ROOT = ROOT / "benchmark-artifacts"
@@ -2770,6 +2776,111 @@ def _validate_local_rejected_artifacts(
         return
     failed_calls = usage.get("failed_calls") if isinstance(usage, dict) else None
     failed_calls = failed_calls if isinstance(failed_calls, list) else []
+    all_call_records = [
+        call for call in [*calls, *failed_calls] if isinstance(call, dict)
+    ]
+    source_records = [
+        call for call in calls
+        if isinstance(call, dict) and call.get("correction_replay") is not None
+    ]
+    linked_source_response_ids = set()
+    for target in all_call_records:
+        source_link = target.get("correction_source")
+        if source_link is None:
+            if target.get("correction_delivery_state") is not None:
+                raise BenchmarkSafetyError(
+                    "Correction delivery state lacks its source lineage."
+                )
+            continue
+        if not isinstance(source_link, dict):
+            raise BenchmarkSafetyError("Correction target source lineage is invalid.")
+        matching_sources = [
+            call for call in calls
+            if isinstance(call, dict)
+            and call.get("response_id") == source_link.get("source_response_id")
+        ]
+        source = matching_sources[0] if len(matching_sources) == 1 else None
+        replay = source.get("correction_replay") if isinstance(source, dict) else None
+        successful_target = any(target is call for call in calls)
+        delivery_state = target.get("correction_delivery_state")
+        target_response_id = target.get("response_id")
+        response_id_status = (
+            "available" if target_response_id is not None else "unavailable"
+        )
+        expected_source = {
+            "source_response_id": source.get("response_id") if source else None,
+            "source_request_sha256": source.get("request_sha256") if source else None,
+            "source_attempt_number": source.get("attempt_number") if source else None,
+            "rejected_output_sha256": (
+                source.get("rejected_output_sha256") if source else None
+            ),
+            "rejected_artifact_sha256": (
+                source.get("rejected_artifact_sha256") if source else None
+            ),
+            "replay_report_sha256": (
+                replay.get("replay_report_sha256")
+                if isinstance(replay, dict)
+                else None
+            ),
+        }
+        if (
+            not isinstance(source, dict)
+            or source["response_id"] in linked_source_response_ids
+            or source_link != expected_source
+            or not isinstance(replay, dict)
+            or any(
+                source.get(field) != target.get(field)
+                for field in (
+                    "stage",
+                    "pipeline_pass",
+                    "boundary_run",
+                    "reader_name",
+                    "requested_model",
+                    "prompt_contract_version",
+                    "schema_mode",
+                    "schema_sha256",
+                    "transport_schema_sha256",
+                )
+            )
+            or not correction_release_lineage_matches(
+                source,
+                target,
+                successful=successful_target,
+            )
+            or delivery_state
+            != correction_delivery_state_for_call(
+                target,
+                successful=successful_target,
+            )
+            or source.get("downstream_consumption") != (
+                "correction_only"
+                if delivery_state == "settled_after_dispatch"
+                else "correction_attempted"
+            )
+            or replay.get("delivery_state") != delivery_state
+            or replay.get("target_call_id") != target.get("call_id")
+            or replay.get("target_response_id") != target_response_id
+            or replay.get("target_response_id_status") != response_id_status
+            or replay.get("target_request_sha256")
+            != target.get("request_sha256")
+            or replay.get("target_prompt_sha256") != target.get("prompt_sha256")
+            or replay.get("target_attempt_number") != target.get("attempt_number")
+        ):
+            raise BenchmarkSafetyError(
+                "Correction replay is not bound to one exact source and target call."
+            )
+        try:
+            validate_correction_chronology(source, target)
+        except ValueError as error:
+            raise BenchmarkSafetyError(str(error)) from error
+        linked_source_response_ids.add(source["response_id"])
+    replay_source_response_ids = {
+        call.get("response_id") for call in source_records
+    }
+    if linked_source_response_ids != replay_source_response_ids:
+        raise BenchmarkSafetyError(
+            "Correction replay source lacks one exact target call."
+        )
     discarded_calls = [
         call
         for call in [*calls, *failed_calls]
@@ -2881,6 +2992,100 @@ def _validate_local_rejected_artifacts(
         ):
             raise BenchmarkSafetyError(
                 "Rejected artifact is not bound to its exact failed call."
+            )
+        replay = call.get("correction_replay")
+        if replay is None:
+            if call.get("downstream_consumption") in {
+                "correction_attempted",
+                "correction_only",
+            }:
+                raise BenchmarkSafetyError(
+                    "Correction-only consumption lacks replay lineage."
+                )
+            continue
+        tool_uses = [
+            block
+            for block in rejected_output
+            if isinstance(block, dict) and block.get("type") == "tool_use"
+        ] if isinstance(rejected_output, list) else []
+        envelope = tool_uses[0].get("input") if len(tool_uses) == 1 else None
+        expected_tool_name = (
+            f"submit_{call.get('reader_name')}_report"
+            if call.get("stage") == "reader"
+            and call.get("reader_name") in READER_WEIGHTS
+            else "submit_synthesis_report"
+            if call.get("stage") == "synthesis"
+            else None
+        )
+        if (
+            expected_tool_name is None
+            or len(tool_uses) != 1
+            or tool_uses[0].get("name") != expected_tool_name
+            or not isinstance(envelope, dict)
+            or set(envelope) != {
+                "contract", "application_schema_sha256", "report_json"
+            }
+            or envelope.get("contract") != expected_tool_name
+            or envelope.get("application_schema_sha256")
+            != call.get("schema_sha256")
+        ):
+            raise BenchmarkSafetyError(
+                "Correction replay source does not match its exact tool and schema."
+            )
+        try:
+            replay_report = json.loads(envelope["report_json"])
+        except (KeyError, TypeError, json.JSONDecodeError) as error:
+            raise BenchmarkSafetyError(
+                "Correction replay report is not valid JSON."
+            ) from error
+        replay_report_sha256 = _engine_output_sha256(replay_report)
+        matching_targets = [
+            record
+            for record in all_call_records
+            if record.get("request_sha256")
+            == replay.get("target_request_sha256")
+            and record.get("call_id") == replay.get("target_call_id")
+        ]
+        target = matching_targets[0] if len(matching_targets) == 1 else None
+        expected_source = {
+            "source_response_id": call.get("response_id"),
+            "source_request_sha256": call.get("request_sha256"),
+            "source_attempt_number": call.get("attempt_number"),
+            "rejected_output_sha256": call.get("rejected_output_sha256"),
+            "rejected_artifact_sha256": call.get("rejected_artifact_sha256"),
+            "replay_report_sha256": replay_report_sha256,
+        }
+        delivery_state = replay.get("delivery_state")
+        expected_downstream = (
+            "correction_only"
+            if delivery_state == "settled_after_dispatch"
+            else "correction_attempted"
+        )
+        target_response_id = target.get("response_id") if isinstance(target, dict) else None
+        if (
+            delivery_state not in {
+                "settled_after_dispatch",
+                "uncertain_after_dispatch",
+            }
+            or call.get("downstream_consumption") != expected_downstream
+            or not isinstance(target, dict)
+            or target.get("correction_source") != expected_source
+            or target.get("correction_delivery_state") != delivery_state
+            or replay != {
+                "delivery_state": delivery_state,
+                "target_call_id": target.get("call_id"),
+                "target_response_id": target_response_id,
+                "target_response_id_status": (
+                    "available" if target_response_id is not None else "unavailable"
+                ),
+                "target_request_sha256": target.get("request_sha256"),
+                "target_prompt_sha256": target.get("prompt_sha256"),
+                "target_attempt_number": target.get("attempt_number"),
+                "replay_report_sha256": replay_report_sha256,
+            }
+        ):
+            raise BenchmarkSafetyError(
+                "Correction replay is not bound to its source and target calls."
             )
 
 

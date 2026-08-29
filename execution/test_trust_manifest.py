@@ -325,6 +325,18 @@ class TrustManifestTests(unittest.TestCase):
             }
             spent_microusd = spent_after_microusd
         git_sha = "a" * 40
+        candidate_release = {
+            "git_sha": git_sha,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-27T12:00:00Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00001-abc",
+        }
+        for call in usage["calls"]:
+            call["release"] = copy.deepcopy(candidate_release)
+            call["expected_release"] = copy.deepcopy(candidate_release)
         return {
             "analysis": analysis,
             "usage": usage,
@@ -344,15 +356,7 @@ class TrustManifestTests(unittest.TestCase):
             "effective_model_tier": "sonnet",
             "model_ids": TEST_MODEL_IDS,
             "contracts": {"prompt_sha256": "d" * 64},
-            "release": {
-                "git_sha": git_sha,
-                "source_clean": True,
-                "catalog_sha256": "b" * 64,
-                "pricing_sha256": runtime_pricing_sha256(),
-                "build_timestamp": "2026-08-27T12:00:00Z",
-                "deployment_config_sha256": "c" * 64,
-                "cloud_run_revision": "llmproxycandidate-00001-abc",
-            },
+            "release": candidate_release,
             "local_source_proof": {
                 phase: {"git_sha": git_sha, "clean": True}
                 for phase in ("before", "after")
@@ -443,6 +447,16 @@ class TrustManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "deployed Cloud Run"):
             build_benchmark_trust_seal(**inputs)
 
+        for field in ("release", "expected_release"):
+            inputs = self._benchmark_seal_inputs()
+            inputs["usage"]["calls"][0][field]["git_sha"] = "f" * 40
+            with self.subTest(call_release_field=field):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "exact candidate release",
+                ):
+                    build_benchmark_trust_seal(**inputs)
+
     def test_benchmark_seal_requires_exact_successful_call_budget_receipts(self):
         inputs = self._benchmark_seal_inputs()
         inputs["usage"]["calls"][0]["budget_check"][
@@ -504,6 +518,41 @@ class TrustManifestTests(unittest.TestCase):
         inputs = self._benchmark_seal_inputs()
         inputs["authorized_benchmark_cap_microusd"] = 39_000_000
         with self.assertRaisesRegex(ValueError, "authorized cap"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        call = inputs["usage"]["calls"][0]
+        call.update({
+            "logical_retry": 2,
+            "attempt_number": 3,
+            "total_retry_count": 2,
+        })
+        call["budget_check"]["logical_retry"] = 2
+        with self.assertRaisesRegex(ValueError, "logical retry limit"):
+            build_benchmark_trust_seal(**inputs)
+
+        inputs = self._benchmark_seal_inputs()
+        call = inputs["usage"]["calls"][0]
+        call.update({
+            "successful_attempt": 3,
+            "transport_attempt": 3,
+            "transport_retry_count": 2,
+            "retry_count": 2,
+            "total_retry_count": 2,
+            "retry_history": [
+                {
+                    "attempt": attempt,
+                    "outcome": "failed",
+                    "error_type": "LlmPreCallRetryableError",
+                }
+                for attempt in (1, 2)
+            ] + [{
+                "attempt": 3,
+                "outcome": "success",
+                "response_id": call["response_id"],
+            }],
+        })
+        with self.assertRaisesRegex(ValueError, "transport retry limit"):
             build_benchmark_trust_seal(**inputs)
 
     def test_benchmark_seal_rejects_unbound_transformations(self):
@@ -1734,7 +1783,7 @@ class TrustManifestTests(unittest.TestCase):
             "reader",
             "sonnet",
             reader_name="emotional_resonance",
-            attempts=3,
+            attempts=2,
         )]
         analysis["_boundary_reruns"]["runs"][0]["response_ids"].remove("msg_6")
         refresh_boundary_evidence(analysis)
@@ -1869,10 +1918,10 @@ class TrustManifestTests(unittest.TestCase):
                 origin_id="queue-job-1",
             )
 
-    def test_all_failed_attempts_are_sealed(self):
+    def test_failed_attempts_are_bounded_and_sealed(self):
         raw = raw_analysis()
         raw["usage"]["failed_calls"] = [failed_call_provenance(
-            MODEL_ID, "synthesis", "sonnet", attempts=3,
+            MODEL_ID, "synthesis", "sonnet", attempts=2,
         )]
 
         trusted = attach_trust_manifest(
@@ -1891,8 +1940,51 @@ class TrustManifestTests(unittest.TestCase):
                     "attempt_history"
                 ]
             ),
-            3,
+            2,
         )
+
+        excessive_transport = raw_analysis()
+        excessive_transport["usage"]["failed_calls"] = [
+            failed_call_provenance(
+                MODEL_ID,
+                "synthesis",
+                "sonnet",
+                attempts=3,
+            )
+        ]
+        with self.assertRaisesRegex(ValueError, "permitted retry limit"):
+            attach_trust_manifest(
+                excessive_transport,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-excessive-transport-retry",
+            )
+
+        excessive_logical = raw_analysis()
+        failed = failed_call_provenance(
+            MODEL_ID,
+            "synthesis",
+            "sonnet",
+        )
+        failed.update({
+            "logical_retry": 2,
+            "attempt_number": 3,
+            "total_retry_count": 2,
+        })
+        excessive_logical["usage"]["failed_calls"] = [failed]
+        with self.assertRaisesRegex(ValueError, "permitted retry limit"):
+            attach_trust_manifest(
+                excessive_logical,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-excessive-logical-retry",
+            )
 
         sparse = raw_analysis()
         sparse["usage"]["failed_calls"] = [{

@@ -805,6 +805,201 @@ def _require_nonempty_string(value: Any, label: str) -> str:
     return value.strip()
 
 
+def _canonical_correction_source(value: Any, label: str) -> Dict[str, Any]:
+    required = {
+        "source_response_id",
+        "source_request_sha256",
+        "source_attempt_number",
+        "rejected_output_sha256",
+        "rejected_artifact_sha256",
+        "replay_report_sha256",
+    }
+    if not isinstance(value, dict) or set(value) != required:
+        raise ValueError(f"{label} must be an exact correction source object")
+    source_attempt = value["source_attempt_number"]
+    if type(source_attempt) is not int or source_attempt < 1:
+        raise ValueError(f"{label}.source_attempt_number is invalid")
+    artifact_sha256 = value["rejected_artifact_sha256"]
+    if artifact_sha256 is not None:
+        artifact_sha256 = _require_sha256(
+            artifact_sha256,
+            f"{label}.rejected_artifact_sha256",
+        )
+    return {
+        "source_response_id": _require_nonempty_string(
+            value["source_response_id"],
+            f"{label}.source_response_id",
+        ),
+        "source_request_sha256": _require_sha256(
+            value["source_request_sha256"],
+            f"{label}.source_request_sha256",
+        ),
+        "source_attempt_number": source_attempt,
+        "rejected_output_sha256": _require_sha256(
+            value["rejected_output_sha256"],
+            f"{label}.rejected_output_sha256",
+        ),
+        "rejected_artifact_sha256": artifact_sha256,
+        "replay_report_sha256": _require_sha256(
+            value["replay_report_sha256"],
+            f"{label}.replay_report_sha256",
+        ),
+    }
+
+
+def _canonical_correction_replay(value: Any, label: str) -> Dict[str, Any]:
+    required = {
+        "delivery_state",
+        "target_call_id",
+        "target_response_id",
+        "target_response_id_status",
+        "target_request_sha256",
+        "target_prompt_sha256",
+        "target_attempt_number",
+        "replay_report_sha256",
+    }
+    if not isinstance(value, dict) or set(value) != required:
+        raise ValueError(f"{label} must be an exact correction replay object")
+    target_attempt = value["target_attempt_number"]
+    if type(target_attempt) is not int or target_attempt < 2:
+        raise ValueError(f"{label}.target_attempt_number is invalid")
+    delivery_state = value["delivery_state"]
+    if delivery_state not in {
+        "settled_after_dispatch",
+        "uncertain_after_dispatch",
+    }:
+        raise ValueError(f"{label}.delivery_state is invalid")
+    target_call_id = value["target_call_id"]
+    if target_call_id is not None:
+        target_call_id = _require_sha256(
+            target_call_id,
+            f"{label}.target_call_id",
+        )
+    target_response_id = value["target_response_id"]
+    response_id_status = value["target_response_id_status"]
+    if target_response_id is None:
+        if response_id_status != "unavailable":
+            raise ValueError(f"{label}.target_response_id_status is inconsistent")
+    else:
+        target_response_id = _require_nonempty_string(
+            target_response_id,
+            f"{label}.target_response_id",
+        )
+        if response_id_status != "available":
+            raise ValueError(f"{label}.target_response_id_status is inconsistent")
+    return {
+        "delivery_state": delivery_state,
+        "target_call_id": target_call_id,
+        "target_response_id": target_response_id,
+        "target_response_id_status": response_id_status,
+        "target_request_sha256": _require_sha256(
+            value["target_request_sha256"],
+            f"{label}.target_request_sha256",
+        ),
+        "target_prompt_sha256": _require_sha256(
+            value["target_prompt_sha256"],
+            f"{label}.target_prompt_sha256",
+        ),
+        "target_attempt_number": target_attempt,
+        "replay_report_sha256": _require_sha256(
+            value["replay_report_sha256"],
+            f"{label}.replay_report_sha256",
+        ),
+    }
+
+
+_CORRECTION_PREDISPATCH_FAILURE_STATES = {
+    "LlmPreCallRetryableError",
+    "benchmark_cap_exceeded",
+    "candidate_provider_configuration_unavailable",
+    "duplicate_call_blocked",
+    "pre_call_accounting_unavailable",
+}
+_CORRECTION_SETTLED_FAILURE_STATES = {
+    "candidate_call_id_mismatch",
+    "candidate_release_mismatch",
+    "cost_reconciliation_mismatch",
+    "missing_stop_reason",
+    "model_provenance_mismatch",
+    "provider_rejected_before_generation",
+}
+
+
+def correction_delivery_state_for_call(
+    call: Mapping[str, Any],
+    *,
+    successful: bool,
+) -> Optional[str]:
+    """Derive correction delivery from evidence, never from its claimed label."""
+    if successful:
+        return "settled_after_dispatch"
+    if (
+        call.get("uncertainty_status") == "proven_zero_spend_pre_generation"
+        or call.get("failure_state") in _CORRECTION_PREDISPATCH_FAILURE_STATES
+    ):
+        return None
+    if (
+        isinstance(call.get("response_id"), str)
+        and bool(call["response_id"].strip())
+    ) or (
+        call.get("rejected_output_status") == "available"
+        or call.get("uncertainty_status") == "settled_after_ambiguous_ack"
+        or call.get("failure_state") in _CORRECTION_SETTLED_FAILURE_STATES
+    ):
+        return "settled_after_dispatch"
+    return "uncertain_after_dispatch"
+
+
+def correction_release_lineage_matches(
+    source: Mapping[str, Any],
+    target: Mapping[str, Any],
+    *,
+    successful: bool,
+) -> bool:
+    """Allow an uncertain failed target to lack a returned release, never an expected one."""
+    if source.get("expected_release") != target.get("expected_release"):
+        return False
+    if target.get("failure_state") == "candidate_release_mismatch":
+        return True
+    target_release = target.get("release")
+    return (
+        not successful and target_release is None
+    ) or source.get("release") == target_release
+
+
+def validate_correction_chronology(
+    source: Mapping[str, Any],
+    target: Mapping[str, Any],
+) -> None:
+    """Reject correction links that run backward in time or paid-ledger order."""
+    try:
+        source_completed = datetime.fromisoformat(
+            str(source["completed_at"]).replace("Z", "+00:00")
+        )
+        target_started = datetime.fromisoformat(
+            str(target["started_at"]).replace("Z", "+00:00")
+        )
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError("correction replay timestamps are incomplete") from error
+    if (
+        source_completed.tzinfo is None
+        or target_started.tzinfo is None
+        or source_completed > target_started
+    ):
+        raise ValueError("correction replay chronology is inconsistent")
+    source_budget = source.get("budget_check")
+    target_budget = target.get("budget_check")
+    if isinstance(source_budget, dict) and isinstance(target_budget, dict):
+        source_sequence = source_budget.get("sequence")
+        target_sequence = target_budget.get("sequence")
+        if (
+            type(source_sequence) is int
+            and type(target_sequence) is int
+            and source_sequence >= target_sequence
+        ):
+            raise ValueError("correction replay budget sequence is inconsistent")
+
+
 def _validated_archive_pointer(
     storage_path: Any,
     storage_generation: Any,
@@ -1445,6 +1640,11 @@ def _model_lineage(
                 f"usage.calls[{index}] has an unresolved disposition"
             )
         call_provenance = None
+        correction_source = None
+        correction_replay = None
+        correction_delivery_state = None
+        rejected_output_sha256 = None
+        rejected_artifact_sha256 = None
         if (
             manifest_version == TRUST_MANIFEST_VERSION
             or raw_call.get("request_sha256") is not None
@@ -1569,12 +1769,81 @@ def _model_lineage(
                 raw_call.get("downstream_consumption"),
                 f"usage.calls[{index}].downstream_consumption",
             )
-            if downstream != (
-                "consumed" if disposition == "used" else "not_consumed"
-            ):
+            expected_downstream = (
+                {"consumed"}
+                if disposition == "used"
+                else {
+                    "not_consumed",
+                    "correction_attempted",
+                    "correction_only",
+                }
+            )
+            if downstream not in expected_downstream:
                 raise ValueError(
                     f"usage.calls[{index}] downstream state contradicts disposition"
                 )
+            if raw_call.get("correction_source") is not None:
+                correction_source = _canonical_correction_source(
+                    raw_call["correction_source"],
+                    f"usage.calls[{index}].correction_source",
+                )
+                correction_delivery_state = raw_call.get(
+                    "correction_delivery_state"
+                )
+                if correction_delivery_state != "settled_after_dispatch":
+                    raise ValueError(
+                        f"usage.calls[{index}] correction delivery state is invalid"
+                    )
+            elif raw_call.get("correction_delivery_state") is not None:
+                raise ValueError(
+                    f"usage.calls[{index}] correction delivery lacks a source"
+                )
+            if raw_call.get("correction_replay") is not None:
+                correction_replay = _canonical_correction_replay(
+                    raw_call["correction_replay"],
+                    f"usage.calls[{index}].correction_replay",
+                )
+            if downstream in {
+                "correction_attempted",
+                "correction_only",
+            } and correction_replay is None:
+                raise ValueError(
+                    f"usage.calls[{index}] correction-only consumption lacks replay lineage"
+                )
+            if downstream == "not_consumed" and correction_replay is not None:
+                raise ValueError(
+                    f"usage.calls[{index}] has replay lineage without correction-only consumption"
+                )
+            if correction_replay is not None and downstream != (
+                "correction_only"
+                if correction_replay["delivery_state"] == "settled_after_dispatch"
+                else "correction_attempted"
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] correction delivery contradicts downstream state"
+                )
+            if correction_source is not None and stage not in {"reader", "synthesis"}:
+                raise ValueError(
+                    f"usage.calls[{index}] correction source is invalid for its stage"
+                )
+            if correction_replay is not None:
+                rejected_output_sha256 = _require_sha256(
+                    raw_call.get("rejected_output_sha256"),
+                    f"usage.calls[{index}].rejected_output_sha256",
+                )
+                raw_artifact_sha256 = raw_call.get("rejected_artifact_sha256")
+                if raw_artifact_sha256 is not None:
+                    rejected_artifact_sha256 = _require_sha256(
+                        raw_artifact_sha256,
+                        f"usage.calls[{index}].rejected_artifact_sha256",
+                    )
+                if (
+                    isinstance(raw_call.get("call_id"), str)
+                    and rejected_artifact_sha256 is None
+                ):
+                    raise ValueError(
+                        f"usage.calls[{index}] benchmark correction lacks its local artifact hash"
+                    )
             failure_state = raw_call.get("failure_state")
             if disposition == "used" and failure_state is not None:
                 raise ValueError(f"usage.calls[{index}] used output has a failure state")
@@ -1632,12 +1901,42 @@ def _model_lineage(
                 )
             if type(logical_retry) is not int or logical_retry < 0:
                 raise ValueError(f"usage.calls[{index}].logical_retry must be non-negative")
+            if (
+                manifest_version == TRUST_MANIFEST_VERSION
+                and logical_retry > 1
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] exceeds the permitted logical retry limit"
+                )
             if attempt_number != logical_retry + 1:
                 raise ValueError(f"usage.calls[{index}].attempt_number is inconsistent")
+            if correction_source is not None and (
+                logical_retry < 1
+                or correction_source["source_attempt_number"] + 1
+                != attempt_number
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] correction source attempt is inconsistent"
+                )
+            if correction_replay is not None and (
+                disposition != "discarded_unusable"
+                or correction_replay["target_attempt_number"]
+                != attempt_number + 1
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] correction replay attempt is inconsistent"
+                )
             if transport_attempt != successful_attempt:
                 raise ValueError(f"usage.calls[{index}].transport_attempt is inconsistent")
             if transport_retry_count != successful_attempt - 1 or retry_count != transport_retry_count:
                 raise ValueError(f"usage.calls[{index}].retry_count is inconsistent")
+            if (
+                manifest_version == TRUST_MANIFEST_VERSION
+                and transport_retry_count > 1
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] exceeds the permitted transport retry limit"
+                )
             if total_retry_count != transport_retry_count + logical_retry:
                 raise ValueError(f"usage.calls[{index}].total_retry_count is inconsistent")
             independent_cost_microusd = raw_call.get("independent_cost_microusd")
@@ -1732,6 +2031,14 @@ def _model_lineage(
                 raise ValueError(
                     f"usage.calls[{index}] pricing fingerprint is not the runtime table"
                 )
+            canonical_release = _canonical_release_provenance(
+                raw_call.get("release"),
+                f"usage.calls[{index}].release",
+            )
+            canonical_expected_release = _canonical_release_provenance(
+                raw_call.get("expected_release"),
+                f"usage.calls[{index}].expected_release",
+            )
             call_provenance = {
                 "request_sha256": _require_sha256(
                     raw_call.get("request_sha256"),
@@ -1783,7 +2090,26 @@ def _model_lineage(
                 "fallback_used": False,
                 "truncated": raw_call["truncated"],
                 "downstream_consumption": downstream,
+                "release": canonical_release,
+                "expected_release": canonical_expected_release,
             }
+            raw_call_id = raw_call.get("call_id")
+            if raw_call_id is not None:
+                call_provenance["call_id"] = _require_sha256(
+                    raw_call_id,
+                    f"usage.calls[{index}].call_id",
+                )
+            if correction_source is not None:
+                call_provenance["correction_source"] = correction_source
+                call_provenance[
+                    "correction_delivery_state"
+                ] = correction_delivery_state
+            if correction_replay is not None:
+                call_provenance.update({
+                    "correction_replay": correction_replay,
+                    "rejected_output_sha256": rejected_output_sha256,
+                    "rejected_artifact_sha256": rejected_artifact_sha256,
+                })
         call_usage = None
         canonical_budget_check = None
         raw_call_usage = raw_call.get("usage")
@@ -1961,7 +2287,95 @@ def _model_lineage(
 
     if len(set(response_ids)) != len(response_ids):
         raise ValueError("usage.calls contains duplicate response_id values")
+    calls_by_response = {call["response_id"]: call for call in call_records}
+    replayed_source_ids = set()
 
+    def validate_correction_target(
+        target: Dict[str, Any],
+        *,
+        failed: bool,
+    ) -> None:
+        source_link = target.get("correction_source")
+        if source_link is None:
+            return
+        source_id = source_link["source_response_id"]
+        source = calls_by_response.get(source_id)
+        replay = source.get("correction_replay") if isinstance(source, dict) else None
+        target_response_id = target.get("response_id")
+        target_response_id_status = (
+            "available" if target_response_id is not None else "unavailable"
+        )
+        delivery_state = target.get("correction_delivery_state")
+        expected_delivery_state = correction_delivery_state_for_call(
+            target,
+            successful=not failed,
+        )
+        if (
+            not isinstance(source, dict)
+            or source_id in replayed_source_ids
+            or source.get("disposition") != "discarded_unusable"
+            or source.get("request_sha256")
+            != source_link["source_request_sha256"]
+            or source.get("attempt_number")
+            != source_link["source_attempt_number"]
+            or source.get("rejected_output_sha256")
+            != source_link["rejected_output_sha256"]
+            or source.get("rejected_artifact_sha256")
+            != source_link["rejected_artifact_sha256"]
+            or any(
+                source.get(field) != target.get(field)
+                for field in (
+                    "stage",
+                    "pipeline_pass",
+                    "boundary_run",
+                    "reader_name",
+                    "requested_model",
+                    "prompt_contract_version",
+                    "schema_mode",
+                    "schema_sha256",
+                    "transport_schema_sha256",
+                )
+            )
+            or not correction_release_lineage_matches(
+                source,
+                target,
+                successful=not failed,
+            )
+            or not isinstance(replay, dict)
+            or source.get("downstream_consumption") != (
+                "correction_only"
+                if replay.get("delivery_state") == "settled_after_dispatch"
+                else "correction_attempted"
+            )
+            or delivery_state != replay.get("delivery_state")
+            or delivery_state != expected_delivery_state
+            or replay.get("target_call_id") != target.get("call_id")
+            or replay.get("target_response_id") != target_response_id
+            or replay.get("target_response_id_status")
+            != target_response_id_status
+            or replay.get("target_request_sha256")
+            != target.get("request_sha256")
+            or replay.get("target_prompt_sha256")
+            != target.get("prompt_sha256")
+            or replay.get("target_attempt_number")
+            != target.get("attempt_number")
+            or replay.get("replay_report_sha256")
+            != source_link["replay_report_sha256"]
+        ):
+            raise ValueError("usage correction replay lineage is inconsistent")
+        if failed:
+            if (
+                target.get("disposition") != "discarded_unusable"
+                or target.get("downstream_consumption") != "not_consumed"
+            ):
+                raise ValueError(
+                    "usage.failed_calls correction delivery state is inconsistent"
+                )
+        validate_correction_chronology(source, target)
+        replayed_source_ids.add(source_id)
+
+    for target in call_records:
+        validate_correction_target(target, failed=False)
     usage_totals = {}
     for field in USAGE_COUNTER_FIELDS:
         value = usage.get(field)
@@ -2026,6 +2440,8 @@ def _model_lineage(
     for index, raw_call in enumerate(failed_calls):
         if not isinstance(raw_call, dict):
             raise ValueError(f"usage.failed_calls[{index}] must be an object")
+        failed_correction_source = None
+        failed_correction_delivery_state = None
         requested_model = _require_nonempty_string(
             raw_call.get("requested_model"),
             f"usage.failed_calls[{index}].requested_model",
@@ -2203,6 +2619,13 @@ def _model_lineage(
                 raise ValueError(
                     f"usage.failed_calls[{index}] attempt history is incomplete"
                 )
+            if (
+                raw_call["logical_retry"] > 1
+                or raw_call["transport_retry_count"] > 1
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] exceeds the permitted retry limit"
+                )
             if raw_call["attempt_number"] != raw_call["logical_retry"] + 1:
                 raise ValueError(
                     f"usage.failed_calls[{index}] logical attempt is inconsistent"
@@ -2361,6 +2784,34 @@ def _model_lineage(
                 raise ValueError(
                     f"usage.failed_calls[{index}] was consumed downstream"
                 )
+            if raw_call.get("correction_source") is not None:
+                failed_correction_source = _canonical_correction_source(
+                    raw_call["correction_source"],
+                    f"usage.failed_calls[{index}].correction_source",
+                )
+                failed_correction_delivery_state = raw_call.get(
+                    "correction_delivery_state"
+                )
+                if failed_correction_delivery_state not in {
+                    "settled_after_dispatch",
+                    "uncertain_after_dispatch",
+                }:
+                    raise ValueError(
+                        f"usage.failed_calls[{index}] correction delivery state is invalid"
+                    )
+                if (
+                    stage not in {"reader", "synthesis"}
+                    or raw_call["logical_retry"] < 1
+                    or failed_correction_source["source_attempt_number"] + 1
+                    != raw_call["attempt_number"]
+                ):
+                    raise ValueError(
+                        f"usage.failed_calls[{index}] correction source attempt is inconsistent"
+                    )
+            elif raw_call.get("correction_delivery_state") is not None:
+                raise ValueError(
+                    f"usage.failed_calls[{index}] correction delivery lacks a source"
+                )
             call_usage = raw_call.get("usage")
             if not isinstance(call_usage, dict):
                 raise ValueError(f"usage.failed_calls[{index}] usage is invalid")
@@ -2499,6 +2950,8 @@ def _model_lineage(
             "cap_cost_microusd",
             "cap_cost_usd",
             "budget_check",
+            "correction_source",
+            "correction_delivery_state",
         ):
             if field in raw_call:
                 if (
@@ -2526,6 +2979,16 @@ def _model_lineage(
                     failed_record[field] = canonical_expected_release
                 elif manifest_version == TRUST_MANIFEST_VERSION and field == "budget_check":
                     failed_record[field] = canonical_budget_check
+                elif (
+                    manifest_version == TRUST_MANIFEST_VERSION
+                    and field == "correction_source"
+                ):
+                    failed_record[field] = failed_correction_source
+                elif (
+                    manifest_version == TRUST_MANIFEST_VERSION
+                    and field == "correction_delivery_state"
+                ):
+                    failed_record[field] = failed_correction_delivery_state
                 elif field == "usage":
                     failed_record[field] = {
                         counter: raw_call[field][counter]
@@ -2534,6 +2997,16 @@ def _model_lineage(
                 else:
                     failed_record[field] = copy.deepcopy(raw_call[field])
         failed_call_records.append(failed_record)
+
+    for target in failed_call_records:
+        validate_correction_target(target, failed=True)
+    correction_replay_source_ids = {
+        call["response_id"]
+        for call in call_records
+        if call.get("correction_replay") is not None
+    }
+    if replayed_source_ids != correction_replay_source_ids:
+        raise ValueError("usage correction replay lacks one exact target call")
 
     if manifest_version == TRUST_MANIFEST_VERSION and has_per_call_usage:
         combined_usage_totals = {
@@ -4275,6 +4748,18 @@ def build_benchmark_trust_seal(
         for call in models["calls"]
     ):
         raise ValueError("benchmark calls and release pricing fingerprints differ")
+    canonical_candidate_release = _canonical_release_provenance(
+        release,
+        "benchmark candidate release",
+    )
+    if canonical_candidate_release is None or any(
+        call.get(field) != canonical_candidate_release
+        for call in models["calls"]
+        for field in ("release", "expected_release")
+    ):
+        raise ValueError(
+            "benchmark calls are not bound to the exact candidate release"
+        )
 
     seal: Dict[str, Any] = {
         "seal_version": BENCHMARK_TRUST_SEAL_VERSION,
