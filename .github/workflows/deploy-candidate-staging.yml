@@ -103,10 +103,32 @@ jobs:
 
       - name: Install dependencies without cloud authority
         run: |
-          test "$(node --version)" = "v${NODE_VERSION}"
-          test "$(npm --version)" = "${NPM_VERSION}"
-          test "$(python --version)" = "Python ${PYTHON_VERSION}"
-          java -version 2>&1 | grep -F "\"${JAVA_VERSION}\""
+          ACTUAL_NODE_VERSION="$(node --version)"
+          ACTUAL_NPM_VERSION="$(npm --version)"
+          ACTUAL_PYTHON_VERSION="$(python --version)"
+          ACTUAL_JAVA_OUTPUT="$(java -version 2>&1)"
+          ACTUAL_JAVA_VERSION="$(sed -nE 's/^(openjdk|java) version \"([^\"]+)\".*/\2/p' <<< "${ACTUAL_JAVA_OUTPUT}" | head -n 1)"
+          printf '%s\n' \
+            "Resolved Node ${ACTUAL_NODE_VERSION}" \
+            "Resolved npm ${ACTUAL_NPM_VERSION}" \
+            "Resolved ${ACTUAL_PYTHON_VERSION}" \
+            "Resolved Java ${ACTUAL_JAVA_VERSION}"
+          test "${ACTUAL_NODE_VERSION}" = "v${NODE_VERSION}" || {
+            echo "Node version mismatch: expected v${NODE_VERSION}, received ${ACTUAL_NODE_VERSION}." >&2
+            exit 1
+          }
+          test "${ACTUAL_NPM_VERSION}" = "${NPM_VERSION}" || {
+            echo "npm version mismatch: expected ${NPM_VERSION}, received ${ACTUAL_NPM_VERSION}." >&2
+            exit 1
+          }
+          test "${ACTUAL_PYTHON_VERSION}" = "Python ${PYTHON_VERSION}" || {
+            echo "Python version mismatch: expected Python ${PYTHON_VERSION}, received ${ACTUAL_PYTHON_VERSION}." >&2
+            exit 1
+          }
+          test "${ACTUAL_JAVA_VERSION}" = "${JAVA_VERSION}" || {
+            echo "Java version mismatch: expected ${JAVA_VERSION}, received ${ACTUAL_JAVA_VERSION}." >&2
+            exit 1
+          }
           npm ci
           npm ci --prefix functions
           npm install --global "firebase-tools@${FIREBASE_TOOLS_VERSION}"
