@@ -32,6 +32,7 @@ from execution.trust_manifest import (
     PRE_CITATION_PROMPT_CONTRACT_VERSION,
     PRE_FULL_CORRECTION_PROMPT_CONTRACT_VERSION,
     PRE_SOURCE_RECONCILIATION_PROMPT_CONTRACT_VERSION,
+    PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION,
     PREVIOUS_PROMPT_CONTRACT_VERSION,
     PREVIOUS_ANALYSIS_SCHEMA_VERSION,
     PROMPT_CONTRACT_VERSION,
@@ -52,6 +53,7 @@ from execution.trust_manifest import (
     _evidence_provenance,
 )
 from execution.source_evidence import (
+    CITATION_MATCH_POLICY_VERSION,
     attach_verified_citation_quality,
     build_context_policy_for_length,
 )
@@ -1321,6 +1323,35 @@ class TrustManifestTests(unittest.TestCase):
 
         validate_permanent_analysis(historical)
 
+    def test_pre_targeted_correction_contract_remains_readable(self):
+        historical = trusted_raw()
+        historical["prompt_version"] = (
+            PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION
+        )
+        manifest = historical["trust_manifest"]
+        manifest["engine"]["prompt_contract_version"] = (
+            PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION
+        )
+        for calls in (
+            historical["usage"]["calls"],
+            historical["usage"]["failed_calls"],
+            manifest["models"]["calls"],
+            manifest["models"]["failed_calls"],
+        ):
+            for call in calls:
+                call["prompt_contract_version"] = (
+                    PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION
+                )
+        manifest.pop("integrity_sha256")
+        manifest["integrity_sha256"] = hashlib.sha256(json.dumps(
+            manifest,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")).hexdigest()
+
+        validate_permanent_analysis(historical)
+
     def test_schema_prompt_and_scoring_contract_versions_cannot_be_crossed(self):
         cases = (
             ("analysis_schema_version", PREVIOUS_ANALYSIS_SCHEMA_VERSION),
@@ -2276,6 +2307,37 @@ class TrustManifestTests(unittest.TestCase):
             trusted["trust_manifest"]["readers"]["quality_status"],
             "complete",
         )
+
+    def test_revision_safe_citation_telemetry_keeps_policy_and_count(self):
+        evidence = {
+            "name": "accepted_revision_safe_citation_equivalence",
+            "changed": False,
+            "before": CITATION_MATCH_POLICY_VERSION,
+            "after": CITATION_MATCH_POLICY_VERSION,
+            "policy": CITATION_MATCH_POLICY_VERSION,
+            "match_count": 2,
+        }
+
+        sealed = trust_manifest_module._canonical_transformation_evidence([
+            evidence
+        ])[0]
+
+        self.assertEqual(sealed["policy"], CITATION_MATCH_POLICY_VERSION)
+        self.assertEqual(sealed["match_count"], 2)
+        for field, value in (
+            ("policy", "unrecognized-policy"),
+            ("match_count", 0),
+        ):
+            with self.subTest(field=field):
+                tampered = copy.deepcopy(evidence)
+                tampered[field] = value
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "revision-safe citation transformation evidence is invalid",
+                ):
+                    trust_manifest_module._canonical_transformation_evidence([
+                        tampered
+                    ])
 
     def test_manifest_telemetry_is_schema_closed(self):
         raw = raw_analysis()

@@ -10,6 +10,7 @@ import type {
 export const PAGE_EVIDENCE_VERSION = 'lemon-page-evidence-v1';
 export const CONTEXT_POLICY_VERSION = 'lemon-context-policy-v1';
 export const CITATION_EVIDENCE_VERSION = 'lemon-citation-evidence-v2';
+export const CITATION_MATCH_POLICY_VERSION = 'lemon-citation-match-revision-safe-v1';
 export const TITLE_PAGE_AUTHOR_EVIDENCE_VERSION = 'lemon-title-page-author-v1';
 export const AUTHOR_NOT_FOUND = 'Not found on title page';
 export const MIN_CITATION_EXCERPT_WORDS = 3;
@@ -145,14 +146,35 @@ function normalizeEvidenceText(value: string): string {
   return value.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+function normalizeRevisionSafeEvidenceText(value: string): string {
+  const lines = value.normalize('NFKC')
+    .replace(/[\u2018\u2019\u201b]/g, "'")
+    .replace(/[\u201c\u201d\u201e]/g, '"')
+    .split(/\r\n?|\n/);
+  const trailingRevisionMark = (line: string): boolean => (
+    line.lastIndexOf('*') >= 50 && /[ \t]+\*[ \t]*$/.test(line)
+  );
+  const hasRevisionLayout = (
+    lines.filter((line) => line.trim() === '*').length >= 2
+    && lines.some(trailingRevisionMark)
+  );
+  const normalized = hasRevisionLayout
+    ? lines.map((line) => (
+      line.trim() === '*'
+        ? ''
+        : trailingRevisionMark(line)
+          ? line.replace(/[ \t]+\*[ \t]*$/, '')
+          : line
+    ))
+    : lines;
+  return normalized.join('\n').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 function evidenceWords(value: string): string[] {
   return normalizeEvidenceText(value).match(/[\p{L}\p{N}_]+/gu) ?? [];
 }
 
-function containsEvidenceExcerpt(pageText: string, excerpt: string): boolean {
-  if (evidenceWords(excerpt).length < MIN_CITATION_EXCERPT_WORDS) return false;
-  const normalizedPage = normalizeEvidenceText(pageText);
-  const normalizedExcerpt = normalizeEvidenceText(excerpt);
+function containsNormalizedExcerpt(normalizedPage: string, normalizedExcerpt: string): boolean {
   const wordCharacter = /[\p{L}\p{N}_]/u;
   let start = 0;
   while (start <= normalizedPage.length - normalizedExcerpt.length) {
@@ -165,6 +187,22 @@ function containsEvidenceExcerpt(pageText: string, excerpt: string): boolean {
     start = index + 1;
   }
   return false;
+}
+
+function evidenceExcerptMatchKind(
+  pageText: string,
+  excerpt: string,
+): 'exact' | 'revision_safe' | null {
+  if (evidenceWords(excerpt).length < MIN_CITATION_EXCERPT_WORDS) return null;
+  if (containsNormalizedExcerpt(
+    normalizeEvidenceText(pageText),
+    normalizeEvidenceText(excerpt),
+  )) return 'exact';
+  if (containsNormalizedExcerpt(
+    normalizeRevisionSafeEvidenceText(pageText),
+    normalizeRevisionSafeEvidenceText(excerpt),
+  )) return 'revision_safe';
+  return null;
 }
 
 function markedPageContents(text: string): Map<number, string> {
@@ -269,6 +307,7 @@ export function validateBrowserAnalysisCitations(
   let totalCitations = 0;
   let highScoreItems = 0;
   let verifiedCitationCount = 0;
+  let normalizedMatchCount = 0;
 
   const walk = (value: unknown, path: string[]): void => {
     if (Array.isArray(value)) {
@@ -396,7 +435,11 @@ export function validateBrowserAnalysisCitations(
             });
             return;
           }
-            if (!containsEvidenceExcerpt(pageContents.get(page) ?? '', excerpt)) {
+          const matchKind = evidenceExcerptMatchKind(
+            pageContents.get(page) ?? '',
+            excerpt,
+          );
+          if (!matchKind) {
             unsupportedCitations.push({
               path: path.join('.'),
               page,
@@ -404,6 +447,7 @@ export function validateBrowserAnalysisCitations(
             });
             return;
           }
+          if (matchKind === 'revision_safe') normalizedMatchCount += 1;
           verifiedPages.add(page);
           verifiedCitationCount += 1;
         });
@@ -443,6 +487,8 @@ export function validateBrowserAnalysisCitations(
     valid_citations: verifiedCitationCount,
     verified_page_numbers: [...verifiedPages].sort((left, right) => left - right),
     high_score_items: highScoreItems,
+    citation_match_policy_version: CITATION_MATCH_POLICY_VERSION,
+    normalized_match_count: normalizedMatchCount,
     malformed_reader_metrics: [...malformedReaderMetrics].sort(),
     missing_required_citations: [...missingRequiredCitations].sort(),
     invalid_citations: invalidCitations,

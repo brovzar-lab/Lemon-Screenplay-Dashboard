@@ -163,6 +163,49 @@ describe('browser source evidence', () => {
       .toBe('needs_review');
   });
 
+  it('accepts revision marks and quote typography without stripping emphasis', () => {
+    const source = buildBrowserPageEvidence([
+      [
+        '*',
+        'ANA dice “Te quiero” antes de salir para siempre.       *',
+        '*',
+        'La familia espera noticias en silencio.                 *',
+      ].join('\n'),
+      'La familia espera noticias.',
+    ]);
+    const analysis = {
+      note: {
+        page_citations: [1],
+        citation_evidence: [{
+          page: 1,
+          excerpt: 'ANA dice "Te quiero" antes de salir para siempre.',
+        }],
+      },
+    };
+
+    const quality = validateBrowserAnalysisCitations(analysis, source);
+    expect(quality.status).toBe('verified');
+    expect(quality.normalized_match_count).toBe(1);
+
+    const emphasis = buildBrowserPageEvidence([
+      'ANA dice *nunca* me dejes sola esta noche.',
+      'La familia espera noticias.',
+    ]);
+    analysis.note.citation_evidence[0].excerpt = 'ANA dice nunca me dejes sola esta noche.';
+    expect(validateBrowserAnalysisCitations(analysis, emphasis).status)
+      .toBe('needs_review');
+
+    const operator = buildBrowserPageEvidence([
+      'ANA escribe dos * tres en la pizarra antes de salir.',
+      'La familia espera noticias.',
+    ]);
+    analysis.note.citation_evidence[0].excerpt = (
+      'ANA escribe dos tres en la pizarra antes de salir.'
+    );
+    expect(validateBrowserAnalysisCitations(analysis, operator).status)
+      .toBe('needs_review');
+  });
+
   it('blocks a fabricated central character even when its local shape is valid', () => {
     const source = buildBrowserPageEvidence([
       'TITLE PAGE screenplay by writer',

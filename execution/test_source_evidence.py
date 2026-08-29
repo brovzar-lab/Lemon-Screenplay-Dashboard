@@ -364,6 +364,72 @@ class TestCitationEvidence(unittest.TestCase):
         )
         self.assertEqual(quality["status"], "needs_review")
 
+    def test_revision_marks_and_typographic_quotes_are_safe_but_emphasis_is_not(self):
+        revision_text = join_marked_pages([
+            '\n'.join([
+                '*',
+                'ANA dice “Te quiero” antes de salir para siempre.       *',
+                '*',
+                'La familia espera noticias en silencio.                 *',
+            ]),
+            'La familia espera noticias.',
+        ])
+        revision = copy.deepcopy(self.analysis)
+        metric = revision["reader_reports"]["structure"]["sub_scores"]["midpoint"]
+        metric["page_citations"] = [1]
+        metric["citation_evidence"] = [{
+            "page": 1,
+            "excerpt": 'ANA dice "Te quiero" antes de salir para siempre.',
+        }]
+
+        quality = validate_analysis_citations(
+            revision,
+            build_page_evidence(revision_text, 2, "test")["page_diagnostics"],
+            2,
+            revision_text,
+        )
+
+        self.assertEqual(quality["status"], "verified")
+        self.assertEqual(quality["normalized_match_count"], 1)
+        self.assertEqual(
+            quality["verification_scope"],
+            "physical_page_and_revision_safe_excerpt_location",
+        )
+        self.assertEqual(
+            quality["citation_match_policy_version"],
+            "lemon-citation-match-revision-safe-v1",
+        )
+
+        emphasis_text = join_marked_pages([
+            "ANA dice *nunca* me dejes sola esta noche.",
+            "La familia espera noticias.",
+        ])
+        metric["citation_evidence"][0]["excerpt"] = (
+            "ANA dice nunca me dejes sola esta noche."
+        )
+        emphasis = validate_analysis_citations(
+            revision,
+            build_page_evidence(emphasis_text, 2, "test")["page_diagnostics"],
+            2,
+            emphasis_text,
+        )
+        self.assertEqual(emphasis["status"], "needs_review")
+
+        operator_text = join_marked_pages([
+            "ANA escribe dos * tres en la pizarra antes de salir.",
+            "La familia espera noticias.",
+        ])
+        metric["citation_evidence"][0]["excerpt"] = (
+            "ANA escribe dos tres en la pizarra antes de salir."
+        )
+        operator = validate_analysis_citations(
+            revision,
+            build_page_evidence(operator_text, 2, "test")["page_diagnostics"],
+            2,
+            operator_text,
+        )
+        self.assertEqual(operator["status"], "needs_review")
+
     def test_invented_excerpt_cannot_verify_a_real_page_number(self):
         metric = self.analysis["reader_reports"]["structure"]["sub_scores"]["midpoint"]
         metric["citation_evidence"][0]["excerpt"] = "A dragon destroys the house."

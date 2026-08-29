@@ -33,6 +33,7 @@ import requests
 
 from execution.local_artifacts import secure_local_path
 from execution.trust_manifest import (
+    correction_call_lineage_matches,
     correction_delivery_state_for_call,
     correction_release_lineage_matches,
     validate_correction_chronology,
@@ -2828,20 +2829,7 @@ def _validate_local_rejected_artifacts(
             or source["response_id"] in linked_source_response_ids
             or source_link != expected_source
             or not isinstance(replay, dict)
-            or any(
-                source.get(field) != target.get(field)
-                for field in (
-                    "stage",
-                    "pipeline_pass",
-                    "boundary_run",
-                    "reader_name",
-                    "requested_model",
-                    "prompt_contract_version",
-                    "schema_mode",
-                    "schema_sha256",
-                    "transport_schema_sha256",
-                )
-            )
+            or not correction_call_lineage_matches(source, target)
             or not correction_release_lineage_matches(
                 source,
                 target,

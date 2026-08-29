@@ -295,6 +295,8 @@ export interface RawCitationQuality {
   valid_citations: number;
   verified_page_numbers: number[];
   high_score_items: number;
+  citation_match_policy_version?: 'lemon-citation-match-revision-safe-v1';
+  normalized_match_count?: number;
   malformed_reader_metrics: string[];
   missing_required_citations: string[];
   invalid_citations: RawCitationIssue[];
