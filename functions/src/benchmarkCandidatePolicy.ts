@@ -213,6 +213,72 @@ function hasExactKeys(value: Record<string, unknown>, keys: string[]): boolean {
   return JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 }
 
+const CORRECTION_CITATION_EXCERPT_PATTERN =
+  "^[ \\t]*[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*" +
+  "[ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*" +
+  "[ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*" +
+  "([ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*)*" +
+  "[ \\t]*$";
+const SAFE_SCHEMA_FIELD = /^[a-z][a-z0-9_]*$/;
+const SAFE_REPAIR_TARGET = /^(?:\$|[a-z][a-z0-9_]*(?:\.(?:[a-z][a-z0-9_]*|[0-9]+))*)$/;
+
+function isPrimitiveEnum(values: unknown): boolean {
+  return Array.isArray(values)
+    && values.length > 0
+    && values.length <= 64
+    && values.every((value) =>
+      value === null
+      || typeof value === "string"
+      || typeof value === "number"
+      || typeof value === "boolean");
+}
+
+function isStrictCorrectionSchema(
+  value: unknown,
+  fieldName: string | null = null,
+  inCitationEvidence = false,
+  depth = 0,
+): boolean {
+  if (!isRecord(value) || depth > 16 || typeof value.type !== "string") return false;
+  const type = value.type;
+  if (type === "object") {
+    const properties = isRecord(value.properties) ? value.properties : null;
+    if (!hasExactKeys(value, ["type", "properties", "required", "additionalProperties"])
+        || value.additionalProperties !== false
+        || !properties
+        || !Array.isArray(value.required)) return false;
+    const propertyNames = Object.keys(properties);
+    if (propertyNames.some((name) => !SAFE_SCHEMA_FIELD.test(name))) return false;
+    const required = value.required;
+    if (JSON.stringify([...required].sort()) !== JSON.stringify(propertyNames.sort())) {
+      return false;
+    }
+    return propertyNames.every((name) => isStrictCorrectionSchema(
+      properties[name],
+      name,
+      inCitationEvidence || name === "citation_evidence",
+      depth + 1,
+    ));
+  }
+  if (type === "array") {
+    return hasExactKeys(value, ["type", "items"])
+      && isStrictCorrectionSchema(
+        value.items,
+        fieldName,
+        inCitationEvidence,
+        depth + 1,
+      );
+  }
+  if (!["string", "integer", "number", "boolean"].includes(type)) return false;
+  const allowedKeys = ["type"];
+  if (value.enum !== undefined) allowedKeys.push("enum");
+  const citationExcerpt = inCitationEvidence && fieldName === "excerpt";
+  if (citationExcerpt) allowedKeys.push("pattern");
+  if (!hasExactKeys(value, allowedKeys)) return false;
+  if (value.enum !== undefined && !isPrimitiveEnum(value.enum)) return false;
+  return !citationExcerpt || value.pattern === CORRECTION_CITATION_EXCERPT_PATTERN;
+}
+
 function isTargetedCorrectionPayload(
   payload: Record<string, unknown>,
   expectedToolName: string,
@@ -262,14 +328,11 @@ function isTargetedCorrectionPayload(
     && repairs.type === "object"
     && repairs.additionalProperties === false
     && repairKeys.length > 0
+    && repairKeys.length <= 24
+    && repairKeys.every((key) => SAFE_REPAIR_TARGET.test(key))
     && requiredRepairs.length === repairKeys.length
     && requiredRepairs.every((key, index) => key === repairKeys[index])
-    && repairKeys.every((key) => {
-      const repair = repairProperties?.[key];
-      return isRecord(repair)
-        && hasExactKeys(repair, ["type"])
-        && repair.type === "string";
-    })
+    && repairKeys.every((key) => isStrictCorrectionSchema(repairProperties?.[key]))
   );
 }
 

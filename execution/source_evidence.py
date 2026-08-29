@@ -836,6 +836,43 @@ def _contains_evidence_excerpt(page_text: str, excerpt: str) -> bool:
     return _evidence_excerpt_match_kind(page_text, excerpt) is not None
 
 
+def citation_excerpt_matches_single_source_line(
+    page_text: str,
+    excerpt: str,
+) -> bool:
+    """Require correction evidence to remain inside one extracted PDF line."""
+    if "\n" in excerpt or "\r" in excerpt:
+        return False
+    if len(_evidence_words(excerpt)) < MIN_CITATION_EXCERPT_WORDS:
+        return False
+    normalized_excerpt = _normalized_evidence_text(excerpt)
+    revision_excerpt = unicodedata.normalize("NFKC", excerpt).translate(
+        _TYPOGRAPHIC_QUOTE_TRANSLATION
+    ).casefold()
+    lines = page_text.splitlines()
+    has_revision_layout = (
+        sum(line.strip() == "*" for line in lines) >= 2
+        and any(_has_trailing_revision_margin_mark(line) for line in lines)
+    )
+    for line in lines:
+        if _contains_normalized_excerpt(
+            _normalized_evidence_text(line),
+            normalized_excerpt,
+        ):
+            return True
+        if has_revision_layout and _has_trailing_revision_margin_mark(line):
+            cleaned = re.sub(r"[ \t]+\*[ \t]*$", "", line)
+            normalized_line = unicodedata.normalize("NFKC", cleaned).translate(
+                _TYPOGRAPHIC_QUOTE_TRANSLATION
+            ).casefold()
+            if _contains_normalized_excerpt(
+                " ".join(normalized_line.split()),
+                " ".join(revision_excerpt.split()),
+            ):
+                return True
+    return False
+
+
 def reconcile_unique_citation_pages(
     analysis: Dict[str, Any],
     source_text: str,
