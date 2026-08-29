@@ -96,7 +96,10 @@ PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION = (
 PRE_VERIFIED_CITATION_SUBSET_PROMPT_CONTRACT_VERSION = (
     "v9-archaeology-prompts-2026-08-29-citation-v5"
 )
-PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-29-citation-v6"
+PRE_DIRECT_CORRECTION_PROMPT_CONTRACT_VERSION = (
+    "v9-archaeology-prompts-2026-08-29-citation-v6"
+)
+PROMPT_CONTRACT_VERSION = "v9-archaeology-prompts-2026-08-29-citation-v7"
 SUPPORTED_PROMPT_CONTRACT_VERSIONS = {
     LEGACY_PROMPT_CONTRACT_VERSION,
     PREVIOUS_PROMPT_CONTRACT_VERSION,
@@ -105,6 +108,12 @@ SUPPORTED_PROMPT_CONTRACT_VERSIONS = {
     PRE_SOURCE_RECONCILIATION_PROMPT_CONTRACT_VERSION,
     PRE_TARGETED_CORRECTION_PROMPT_CONTRACT_VERSION,
     PRE_VERIFIED_CITATION_SUBSET_PROMPT_CONTRACT_VERSION,
+    PRE_DIRECT_CORRECTION_PROMPT_CONTRACT_VERSION,
+    PROMPT_CONTRACT_VERSION,
+}
+TARGETED_CORRECTION_PROMPT_CONTRACT_VERSIONS = {
+    PRE_VERIFIED_CITATION_SUBSET_PROMPT_CONTRACT_VERSION,
+    PRE_DIRECT_CORRECTION_PROMPT_CONTRACT_VERSION,
     PROMPT_CONTRACT_VERSION,
 }
 LEGACY_CLAIM_TARGET_PROMPT_CONTRACT_VERSIONS = {
@@ -172,6 +181,12 @@ SUPPORTED_ANALYSIS_CONTRACTS = {
         TRUST_MANIFEST_VERSION,
         ANALYSIS_SCHEMA_VERSION,
         PRE_VERIFIED_CITATION_SUBSET_PROMPT_CONTRACT_VERSION,
+        SCORING_CODE_VERSION,
+    ),
+    (
+        TRUST_MANIFEST_VERSION,
+        ANALYSIS_SCHEMA_VERSION,
+        PRE_DIRECT_CORRECTION_PROMPT_CONTRACT_VERSION,
         SCORING_CODE_VERSION,
     ),
     (
@@ -1072,7 +1087,9 @@ def correction_call_lineage_matches(
     ):
         return False
 
-    if source.get("prompt_contract_version") != PROMPT_CONTRACT_VERSION:
+    if source.get("prompt_contract_version") not in (
+        TARGETED_CORRECTION_PROMPT_CONTRACT_VERSIONS
+    ):
         return all(
             source.get(field) == target.get(field)
             for field in (
@@ -1098,7 +1115,8 @@ def correction_call_lineage_matches(
 def uses_targeted_correction_schema(call: Mapping[str, Any]) -> bool:
     """Identify current reader/synthesis correction calls before lineage binding."""
     return (
-        call.get("prompt_contract_version") == PROMPT_CONTRACT_VERSION
+        call.get("prompt_contract_version")
+        in TARGETED_CORRECTION_PROMPT_CONTRACT_VERSIONS
         and call.get("stage") in {"reader", "synthesis"}
         and call.get("logical_retry") == 1
     )

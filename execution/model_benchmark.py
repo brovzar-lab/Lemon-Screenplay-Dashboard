@@ -3045,7 +3045,69 @@ def _validate_local_rejected_artifacts(
             raise BenchmarkSafetyError(
                 "Correction replay report is not valid JSON."
             ) from error
-        replay_report_sha256 = _engine_output_sha256(replay_report)
+        if not isinstance(replay_report, dict):
+            raise BenchmarkSafetyError(
+                "Correction replay report is not a JSON object."
+            )
+        from execution import ingest_v9
+        application_tool = (
+            ingest_v9.READER_TOOLS[call["reader_name"]]
+            if call.get("stage") == "reader"
+            and call.get("reader_name") in READER_WEIGHTS
+            else ingest_v9.SYNTHESIS_TOOL
+            if call.get("stage") == "synthesis"
+            else None
+        )
+        application_schema = (
+            application_tool.get("input_schema")
+            if isinstance(application_tool, dict)
+            else None
+        )
+        if (
+            not isinstance(application_schema, dict)
+            or _engine_output_sha256(application_schema)
+            != call.get("schema_sha256")
+        ):
+            raise BenchmarkSafetyError(
+                "Correction replay application schema does not match the run."
+            )
+        replay_report = ingest_v9._schema_projected_value(
+            replay_report,
+            application_schema,
+        )
+        projected_report_sha256 = _engine_output_sha256(replay_report)
+        replay_report_sha256 = artifact.get(
+            "correction_replay_report_sha256"
+        )
+        normalization_names = {
+            "reconciled_unique_citation_pages",
+            "removed_unverified_surplus_citations",
+        }
+        current_report_sha256 = projected_report_sha256
+        normalization_chain_valid = True
+        for item in call.get("transformation_evidence", []):
+            if (
+                not isinstance(item, dict)
+                or item.get("name") not in normalization_names
+            ):
+                continue
+            if (
+                item.get("changed") is not True
+                or not _is_lower_hex(item.get("before_sha256"), 64)
+                or not _is_lower_hex(item.get("after_sha256"), 64)
+                or item["before_sha256"] != current_report_sha256
+            ):
+                normalization_chain_valid = False
+                break
+            current_report_sha256 = item["after_sha256"]
+        if (
+            not _is_lower_hex(replay_report_sha256, 64)
+            or not normalization_chain_valid
+            or current_report_sha256 != replay_report_sha256
+        ):
+            raise BenchmarkSafetyError(
+                "Correction replay artifact does not bind its normalized report."
+            )
         matching_targets = [
             record
             for record in all_call_records

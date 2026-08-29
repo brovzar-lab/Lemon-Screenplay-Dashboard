@@ -453,28 +453,75 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
             )
 
     def test_correction_replay_is_hash_bound_to_source_artifact_and_target(self):
+        from execution import ingest_v9
+
         run_dir = Path(self.temp_dir.name)
         artifact_dir = run_dir / "engine" / "rejected-responses"
         artifact_dir.mkdir(parents=True, mode=0o700)
         artifact_dir.chmod(0o700)
-        report = {"reader": "structure", "pillar_score": 7}
+        application_schema = ingest_v9.READER_TOOLS[
+            "structure"
+        ]["input_schema"]
+        application_schema_sha256 = _engine_output_sha256(
+            application_schema
+        )
+        report = {
+            "reader": "structure",
+            "pillar_score": 7,
+            "sub_scores": {
+                "inciting_incident": {
+                    "score": 7,
+                    "reasoning": "The event is clear but the citation is wrong.",
+                    "page_citations": [1, 999],
+                    "citation_evidence": [
+                        {
+                            "page": 1,
+                            "excerpt": "This retained citation is valid evidence.",
+                        },
+                        {
+                            "page": 999,
+                            "excerpt": "This surplus citation is not on page 999.",
+                        },
+                    ],
+                },
+                "value_spectrum": {"undeclared": True},
+            },
+        }
+        projected_report = ingest_v9._schema_projected_value(
+            report,
+            application_schema,
+        )
+        reconciled_report = copy.deepcopy(projected_report)
+        reconciled_metric = reconciled_report["sub_scores"][
+            "inciting_incident"
+        ]
+        reconciled_metric["page_citations"][1] = 2
+        reconciled_metric["citation_evidence"][1]["page"] = 2
+        normalized_report = copy.deepcopy(reconciled_report)
+        normalized_metric = normalized_report["sub_scores"][
+            "inciting_incident"
+        ]
+        normalized_metric["page_citations"] = [1]
+        normalized_metric["citation_evidence"] = [
+            normalized_metric["citation_evidence"][0]
+        ]
         rejected_output = [{
             "type": "tool_use",
             "name": "submit_structure_report",
             "input": {
                 "contract": "submit_structure_report",
-                "application_schema_sha256": "3" * 64,
+                "application_schema_sha256": application_schema_sha256,
                 "report_json": json.dumps(report),
             },
         }]
         rejected_output_sha256 = _engine_output_sha256(rejected_output)
-        replay_report_sha256 = _engine_output_sha256(report)
+        replay_report_sha256 = _engine_output_sha256(normalized_report)
         artifact = {
             "stage": "reader",
             "attempt": 1,
             "request_sha256": "1" * 64,
             "prompt_sha256": "2" * 64,
-            "schema_sha256": "3" * 64,
+            "schema_sha256": application_schema_sha256,
             "response_id": "msg_reader_1",
             "requested_model": "claude-sonnet-5",
             "returned_model": "claude-sonnet-5",
@@ -482,6 +529,7 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
             "disposition": "discarded_unusable",
             "rejected_output_sha256": rejected_output_sha256,
             "rejected_output": rejected_output,
+            "correction_replay_report_sha256": replay_report_sha256,
         }
         encoded = (
             json.dumps(
@@ -517,7 +565,7 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
             "prompt_sha256": "2" * 64,
             "prompt_contract_version": "v9-test-prompt",
             "schema_mode": "compact_strict_tool",
-            "schema_sha256": "3" * 64,
+            "schema_sha256": application_schema_sha256,
             "transport_schema_sha256": "8" * 64,
             "started_at": "2026-08-27T12:00:00Z",
             "completed_at": "2026-08-27T12:00:01Z",
@@ -526,6 +574,24 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
             "validation_reason": "missing required field",
             "disposition": "discarded_unusable",
             "downstream_consumption": "correction_only",
+            "transformations": [
+                "reconciled_unique_citation_pages",
+                "removed_unverified_surplus_citations",
+            ],
+            "transformation_evidence": [
+                {
+                    "name": "reconciled_unique_citation_pages",
+                    "before_sha256": _engine_output_sha256(projected_report),
+                    "after_sha256": _engine_output_sha256(reconciled_report),
+                    "changed": True,
+                },
+                {
+                    "name": "removed_unverified_surplus_citations",
+                    "before_sha256": _engine_output_sha256(reconciled_report),
+                    "after_sha256": replay_report_sha256,
+                    "changed": True,
+                },
+            ],
             "rejected_output_status": "available",
             "rejected_output_sha256": rejected_output_sha256,
             "rejected_artifact_sha256": artifact_sha256,
@@ -555,7 +621,7 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
             "prompt_sha256": "6" * 64,
             "prompt_contract_version": "v9-test-prompt",
             "schema_mode": "compact_strict_tool",
-            "schema_sha256": "3" * 64,
+            "schema_sha256": application_schema_sha256,
             "transport_schema_sha256": "8" * 64,
             "started_at": "2026-08-27T12:00:02Z",
             "completed_at": "2026-08-27T12:00:03Z",
@@ -566,6 +632,37 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
         run = {"usage": {"calls": [source, target], "failed_calls": []}}
 
         _validate_local_rejected_artifacts(run, run_dir)
+
+        for label, mutate in {
+            "wrong first hash": lambda evidence: evidence[0].update({
+                "before_sha256": "0" * 64,
+            }),
+            "wrong final hash": lambda evidence: evidence[-1].update({
+                "after_sha256": "0" * 64,
+            }),
+            "out of order": lambda evidence: evidence.reverse(),
+            "unrelated evidence": lambda evidence: evidence.__setitem__(
+                slice(None),
+                [{
+                    "name": "recomputed_pillar_score",
+                    "before_sha256": _engine_output_sha256(projected_report),
+                    "after_sha256": replay_report_sha256,
+                    "changed": True,
+                }],
+            ),
+        }.items():
+            with self.subTest(normalization_chain=label):
+                invalid_chain = copy.deepcopy(run)
+                mutate(
+                    invalid_chain["usage"]["calls"][0][
+                        "transformation_evidence"
+                    ]
+                )
+                with self.assertRaisesRegex(
+                    BenchmarkSafetyError,
+                    "does not bind its normalized report",
+                ):
+                    _validate_local_rejected_artifacts(invalid_chain, run_dir)
 
         mislabeled_success = copy.deepcopy(run)
         mislabeled_success["usage"]["calls"][0][

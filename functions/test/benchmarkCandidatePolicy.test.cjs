@@ -10,6 +10,12 @@ const {
 } = require('../lib/benchmarkCandidatePolicy');
 
 const sha = (char) => char.repeat(64);
+const citationExcerptPattern =
+  '^[ \\t]*[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*' +
+  '[ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*' +
+  '[ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*' +
+  '([ \\t]+[^ \\t\\r\\n]*\\w[^ \\t\\r\\n]*)*' +
+  '[ \\t]*$';
 
 const schemaFreePayload = () => ({
   model: 'claude-sonnet-5',
@@ -61,8 +67,29 @@ const targetedCorrectionPayload = (name = 'repair_structure_report') => ({
         source_report_sha256: { type: 'string', enum: [sha('e')] },
         repairs: {
           type: 'object',
-          properties: { reader: { type: 'string' } },
-          required: ['reader'],
+          properties: {
+            'sub_scores.active_vs_passive': {
+              type: 'object',
+              properties: {
+                page_citations: { type: 'array', items: { type: 'integer' } },
+                citation_evidence: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      page: { type: 'integer' },
+                      excerpt: { type: 'string', pattern: citationExcerptPattern },
+                    },
+                    required: ['page', 'excerpt'],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ['page_citations', 'citation_evidence'],
+              additionalProperties: false,
+            },
+          },
+          required: ['sub_scores.active_vs_passive'],
           additionalProperties: false,
         },
       },
@@ -312,7 +339,30 @@ test('one reader or synthesis correction uses its exact targeted strict schema',
     })(),
     (() => {
       const value = targetedCorrectionPayload();
-      value.tools[0].input_schema.properties.repairs.properties.reader.type = 'object';
+      delete value.tools[0].input_schema.properties.repairs.properties[
+        'sub_scores.active_vs_passive'
+      ].properties.citation_evidence.items.properties.excerpt.pattern;
+      return value;
+    })(),
+    (() => {
+      const value = targetedCorrectionPayload();
+      value.tools[0].input_schema.properties.repairs.properties[
+        'sub_scores.active_vs_passive'
+      ].properties.page_citations.minItems = 2;
+      return value;
+    })(),
+    (() => {
+      const value = targetedCorrectionPayload();
+      value.tools[0].input_schema.properties.repairs.properties[
+        'sub_scores.active_vs_passive'
+      ].additionalProperties = true;
+      return value;
+    })(),
+    (() => {
+      const value = targetedCorrectionPayload();
+      value.tools[0].input_schema.properties.repairs.properties[
+        'sub_scores.active_vs_passive'
+      ].required = ['page_citations'];
       return value;
     })(),
   ];
@@ -322,6 +372,21 @@ test('one reader or synthesis correction uses its exact targeted strict schema',
       /call matrix/,
     );
   }
+
+  const tooMany = targetedCorrectionPayload();
+  const repairSchema = tooMany.tools[0].input_schema.properties.repairs;
+  const exemplar = repairSchema.properties['sub_scores.active_vs_passive'];
+  repairSchema.properties = Object.fromEntries(
+    Array.from({ length: 25 }, (_, index) => [
+      `sub_scores.metric_${index}`,
+      structuredClone(exemplar),
+    ]),
+  );
+  repairSchema.required = Object.keys(repairSchema.properties);
+  assert.throws(
+    () => validate(contract({ retry_number: 1 }, tooMany)),
+    /call matrix/,
+  );
 });
 
 test('schema-free calls cannot carry forged schema fingerprints', () => {

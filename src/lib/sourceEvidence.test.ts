@@ -186,6 +186,24 @@ describe('browser source evidence', () => {
     const quality = validateBrowserAnalysisCitations(analysis, source);
     expect(quality.status).toBe('verified');
     expect(quality.normalized_match_count).toBe(1);
+    expect(quality.citation_match_policy_version)
+      .toBe('lemon-citation-match-revision-safe-v1');
+
+    [2, 4, 8, 14].forEach((starCount) => {
+      const rows = ['First exact evidence words'];
+      for (let index = 0; index < starCount; index += 1) {
+        rows.push('*', 'continue with possible operator meaning');
+      }
+      const standaloneOnly = buildBrowserPageEvidence([
+        rows.join('\n'),
+        'La familia espera noticias.',
+      ]);
+      analysis.note.citation_evidence[0].excerpt = (
+        'First exact evidence words continue with possible operator meaning'
+      );
+      expect(validateBrowserAnalysisCitations(analysis, standaloneOnly).status)
+        .toBe('needs_review');
+    });
 
     const emphasis = buildBrowserPageEvidence([
       'ANA dice *nunca* me dejes sola esta noche.',

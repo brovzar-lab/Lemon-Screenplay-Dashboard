@@ -6,6 +6,7 @@ from execution.source_evidence import (
     attach_verified_citation_quality,
     build_context_policy,
     build_page_evidence,
+    citation_excerpt_matches_single_source_line,
     extract_title_page_author,
     join_marked_pages,
     reconcile_unique_citation_pages,
@@ -351,6 +352,70 @@ class TestCitationEvidence(unittest.TestCase):
         self.assertEqual(metric["page_citations"], [2])
         self.assertEqual(metric["citation_evidence"][0]["page"], 2)
         self.assertEqual(quality["status"], "verified")
+
+    def test_standalone_stars_never_erase_possible_operators(self):
+        for star_count in (2, 4, 8, 14):
+            rows = ["First exact evidence words"]
+            rows.extend(
+                item
+                for _ in range(star_count)
+                for item in ("*", "continue with possible operator meaning")
+            )
+            revision_text = join_marked_pages([
+                "\n".join(rows),
+                "A different ending appears here.",
+            ])
+            revision = copy.deepcopy(self.analysis)
+            metric = revision["reader_reports"]["structure"]["sub_scores"][
+                "midpoint"
+            ]
+            metric["page_citations"] = [2]
+            metric["citation_evidence"] = [{
+                "page": 2,
+                "excerpt": (
+                    "First exact evidence words continue with possible operator meaning"
+                ),
+            }]
+
+            reconciliation = reconcile_unique_citation_pages(
+                revision,
+                revision_text,
+            )
+            quality = validate_analysis_citations(
+                revision,
+                build_page_evidence(revision_text, 2, "test")["page_diagnostics"],
+                2,
+                revision_text,
+            )
+
+            self.assertEqual(reconciliation["changed_citation_count"], 0)
+            self.assertEqual(metric["page_citations"], [2])
+            self.assertEqual(quality["status"], "needs_review")
+            self.assertEqual(quality["normalized_match_count"], 0)
+
+    def test_correction_excerpt_cannot_join_distinct_source_lines(self):
+        page_text = "NO\nMARÍA SALE HACIA LA CALLE.\n*\nOTRA LÍNEA CONTINÚA."
+        self.assertFalse(citation_excerpt_matches_single_source_line(
+            page_text,
+            "NO MARÍA SALE",
+        ))
+        self.assertFalse(citation_excerpt_matches_single_source_line(
+            page_text,
+            "MARÍA\nSALE HACIA",
+        ))
+        self.assertTrue(citation_excerpt_matches_single_source_line(
+            page_text,
+            "MARÍA SALE HACIA",
+        ))
+        long_operator = 'ANA DICE “NO” ANTES DE SALIR'.ljust(52) + " *"
+        self.assertFalse(citation_excerpt_matches_single_source_line(
+            long_operator,
+            'ANA DICE "NO" ANTES DE SALIR',
+        ))
+        self.assertTrue(citation_excerpt_matches_single_source_line(
+            "*\n" + long_operator + "\n*",
+            'ANA DICE "NO" ANTES DE SALIR',
+        ))
 
     def test_ambiguous_or_invented_excerpt_is_never_relocated(self):
         ambiguous_text = join_marked_pages([
