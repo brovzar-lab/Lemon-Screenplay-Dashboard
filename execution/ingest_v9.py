@@ -1939,7 +1939,7 @@ def _strict_correction_schema_node(
     node: Dict[str, Any],
     allowed_paths: Sequence[Tuple[str, ...]],
 ) -> Dict[str, Any]:
-    """Project one repair to allowed fields and Anthropic's strict subset."""
+    """Project one repair to a compiler-safe Anthropic strict schema."""
     strict_node = _strict_schema_node(node)
 
     def project(value: Any, paths: Sequence[Tuple[str, ...]]) -> Any:
@@ -1986,40 +1986,7 @@ def _strict_correction_schema_node(
             )
         return projected
 
-    strict_node = project(strict_node, allowed_paths)
-
-    def add_excerpt_contract(
-        value: Any,
-        *,
-        field_name: Optional[str] = None,
-        in_citation_evidence: bool = False,
-    ) -> None:
-        if not isinstance(value, dict):
-            return
-        if (
-            value.get("type") == "string"
-            and field_name == "excerpt"
-            and in_citation_evidence
-        ):
-            value["pattern"] = CORRECTION_CITATION_EXCERPT_PATTERN
-        properties = value.get("properties")
-        if isinstance(properties, dict):
-            for name, child in properties.items():
-                add_excerpt_contract(
-                    child,
-                    field_name=name,
-                    in_citation_evidence=(
-                        in_citation_evidence or name == "citation_evidence"
-                    ),
-                )
-        add_excerpt_contract(
-            value.get("items"),
-            field_name=field_name,
-            in_citation_evidence=in_citation_evidence,
-        )
-
-    add_excerpt_contract(strict_node)
-    return strict_node
+    return project(strict_node, allowed_paths)
 
 
 def _strict_json_envelope_definition(
@@ -3217,6 +3184,14 @@ def _apply_targeted_correction(
                     excerpt = item.get("excerpt")
                     if type(page) is not int or not isinstance(excerpt, str):
                         continue
+                    if re.fullmatch(
+                        CORRECTION_CITATION_EXCERPT_PATTERN,
+                        excerpt,
+                    ) is None:
+                        raise ValueError(
+                            "targeted correction citation failed local "
+                            "evidence-token validation"
+                        )
                     matching_pages = [
                         page_number
                         for page_number, page_text in source_pages.items()

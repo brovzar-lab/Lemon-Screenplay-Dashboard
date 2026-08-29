@@ -3139,9 +3139,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         excerpt_schema = narrative_repair_schema["properties"][
             "citation_evidence"
         ]["items"]["properties"]["excerpt"]
-        self.assertEqual(
-            excerpt_schema["pattern"],
-            ingest_v9.CORRECTION_CITATION_EXCERPT_PATTERN,
+        self.assertEqual(excerpt_schema, {"type": "string"})
+        self.assertNotIn(
+            '"pattern"',
+            json.dumps(plan["tool"]["input_schema"], sort_keys=True),
         )
         self.assertNotIn(
             "minItems",
@@ -3210,7 +3211,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         too_short["sub_scores.narrative_engine"]["citation_evidence"][0][
             "excerpt"
         ] = "Two words"
-        with self.assertRaisesRegex(ValueError, "required pattern"):
+        with self.assertRaisesRegex(ValueError, "evidence-token validation"):
             ingest_v9._apply_targeted_correction(
                 plan,
                 {
@@ -3225,7 +3226,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         punctuation_only["sub_scores.narrative_engine"]["citation_evidence"][0][
             "excerpt"
         ] = "— — —"
-        with self.assertRaisesRegex(ValueError, "required pattern"):
+        with self.assertRaisesRegex(ValueError, "evidence-token validation"):
             ingest_v9._apply_targeted_correction(
                 plan,
                 {
