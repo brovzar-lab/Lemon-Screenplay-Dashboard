@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import test from 'node:test';
 import { cacheBustedReleaseUrl, validateReleaseMetadata } from './release-metadata.mjs';
@@ -76,6 +77,18 @@ test('staging candidate workflow is WIF-only and deploys only the candidate', ()
   assert.match(workflow, /PYTHON_VERSION: '3\.13\.13'/);
   assert.match(workflow, /JAVA_VERSION: '21\.0\.12'/);
   assert.match(workflow, /FIREBASE_TOOLS_VERSION: '15\.14\.0'/);
+  for (const tool of ['Node', 'npm', 'Python', 'Java']) {
+    assert.match(workflow, new RegExp(`${tool} version mismatch`));
+  }
+  const javaVersionPattern = workflow.match(/sed -nE '([^']+)' <<< "\$\{ACTUAL_JAVA_OUTPUT\}"/)?.[1];
+  assert.ok(javaVersionPattern);
+  const javaProbe = spawnSync('sed', ['-nE', javaVersionPattern], {
+    input: 'Picked up JAVA_TOOL_OPTIONS: canary="21.0.12"\nopenjdk version "17.0.12" 2025-07-15\n',
+    encoding: 'utf8',
+  });
+  assert.equal(javaProbe.status, 0);
+  assert.equal(javaProbe.stdout.trim(), '17.0.12');
+  assert.match(workflow, /test "\$\{ACTUAL_JAVA_VERSION\}" = "\$\{JAVA_VERSION\}"/);
   assert.match(workflow, /GCLOUD_VERSION: '574\.0\.0'/);
   assert.match(workflow, /gcloud functions deploy llmProxyCandidate/);
   for (const flag of ['--min-instances=0', '--cpu=0.3333']) {
