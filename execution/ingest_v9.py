@@ -235,11 +235,15 @@ MODEL_REQUEST_PROFILES: Dict[str, Dict[str, Any]] = {
         "thinking": "adaptive",
         "sampling": False,
         "effort": "high",
+        "disable_unbudgeted_thinking": True,
+        "force_tool_with_adaptive_thinking": True,
     },
     "claude-opus-5": {
         "thinking": "adaptive",
         "sampling": False,
         "effort": "high",
+        "disable_unbudgeted_thinking": True,
+        "force_tool_with_adaptive_thinking": True,
     },
 }
 
@@ -305,6 +309,9 @@ THINKING_BUDGET_CLAIM_VERIFICATION = 8_000
 OUTPUT_BUDGET_READER = 4_000
 OUTPUT_BUDGET_SYNTHESIS = 6_000
 OUTPUT_BUDGET_CLAIM_VERIFICATION = 16_000
+# Adaptive high-effort models can spend nearly the whole response budget on
+# reasoning. Keep enough total headroom to reach the required structured tool.
+ADAPTIVE_HIGH_MIN_MAX_TOKENS = 32_000
 
 # Q3 fail-closed output policy. One bounded corrective attempt may recover a
 # malformed paid response; a second failure stops visibly without a third call.
@@ -312,6 +319,26 @@ MAX_READER_REPORT_ATTEMPTS = 2
 MAX_SYNTHESIS_ATTEMPTS = 2
 READER_REPORT_RETRY_DELAYS = (5,)
 READER_RELIABILITY_CONTRACT_VERSION = "lemon-five-reader-panel-v1"
+
+
+def effective_max_tokens(
+    model_id: str,
+    thinking_budget: int,
+    max_tokens: int,
+) -> int:
+    profile = MODEL_REQUEST_PROFILES.get(model_id)
+    if not profile:
+        raise LlmRequestRejectedError(
+            f"No request profile is configured for exact model {model_id}"
+        )
+    total = max_tokens + (thinking_budget if thinking_budget > 0 else 0)
+    if (
+        thinking_budget > 0
+        and profile["thinking"] == "adaptive"
+        and profile["effort"] == "high"
+    ):
+        return max(total, ADAPTIVE_HIGH_MIN_MAX_TOKENS)
+    return total
 
 # ── Firebase Init ─────────────────────────────────────────────────────────────
 
@@ -3181,7 +3208,8 @@ def call_llm(
             the model's structured output is returned in the first return value.
       compact_json_envelope: compile a small strict transport envelope, then
             decode and locally validate the complete source report schema.
-      thinking_budget: extended-thinking budget in tokens. 0 = disabled.
+      thinking_budget: reasoning headroom signal. Candidate adaptive thinking
+            is explicitly disabled when this is 0.
       max_tokens: output tokens (not including thinking budget).
       temperature: sampling temperature (default 0.1).
       retries: transport retry count.
@@ -3210,7 +3238,11 @@ def call_llm(
         )
 
     # Combine thinking budget into total max_tokens.
-    total_max_tokens = max_tokens + (thinking_budget if thinking_budget > 0 else 0)
+    total_max_tokens = effective_max_tokens(
+        model_id,
+        thinking_budget,
+        max_tokens,
+    )
 
     request_user_blocks = user_blocks
     strict_tool: Optional[Dict[str, Any]] = None
@@ -3238,12 +3270,12 @@ def call_llm(
         payload["job_id"] = job_id
     if tool and strict_tool is not None:
         payload["tools"] = [strict_tool]
-        # Anthropic restriction: tool_choice cannot FORCE a specific tool when
-        # extended thinking is enabled (error: "Thinking may not be enabled
-        # when tool_choice forces tool use"). When thinking is on, use
-        # tool_choice="auto" and rely on the user-prompt instruction to call
-        # the tool. When thinking is off, force the tool to guarantee output.
-        if thinking_budget > 0:
+        # Manual extended thinking cannot force a tool. Candidate adaptive
+        # thinking can, so keep its one required strict tool deterministic.
+        if thinking_budget > 0 and not profile.get(
+            "force_tool_with_adaptive_thinking",
+            False,
+        ):
             payload["tool_choice"] = {"type": "auto"}
         else:
             payload["tool_choice"] = {
@@ -3258,6 +3290,8 @@ def call_llm(
         else:
             payload["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
             payload["temperature"] = 1.0
+    elif profile.get("disable_unbudgeted_thinking", False):
+        payload["thinking"] = {"type": "disabled"}
 
     prompt_sha256 = _canonical_json_hash({
         field: payload[field]

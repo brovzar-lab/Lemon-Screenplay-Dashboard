@@ -63,7 +63,8 @@ export interface ProxyRequestBody {
     | { type: "tool"; name: string };
   thinking?:
     | { type: "enabled"; budget_tokens: number }
-    | { type: "adaptive" };
+    | { type: "adaptive" }
+    | { type: "disabled" };
   output_config?: { effort?: ApprovedEffort };
 }
 
@@ -175,6 +176,7 @@ export function buildAnthropicRequest(
   operationalOutputCap: number,
   thinkingTokenCap: number,
   configuredInferenceGeo?: "global" | "us",
+  candidateBenchmarkControls = false,
 ): BuiltAnthropicRequest {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new ProxyRequestValidationError("Request body must be an object.");
@@ -212,7 +214,7 @@ export function buildAnthropicRequest(
       top_k: body.top_k,
       tool_choice: body.tool_choice,
       output_config: body.output_config,
-    });
+    }, candidateBenchmarkControls);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid model request.";
     throw new ProxyRequestValidationError(

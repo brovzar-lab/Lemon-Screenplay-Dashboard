@@ -78,7 +78,7 @@ const benchmarkProductionFirestoreProjectId = defineString(
 const benchmarkStorageBucket = defineString("BENCHMARK_STORAGE_BUCKET");
 const benchmarkInferenceGeo = defineString("BENCHMARK_INFERENCE_GEO");
 
-const MAX_OUTPUT_TOKENS = 24_000;
+export const CANDIDATE_MAX_OUTPUT_TOKENS = 32_000;
 const MAX_THINKING_TOKENS = 16_000;
 
 export function candidateSettlementFailure(
@@ -481,9 +481,10 @@ export const llmProxyCandidate = onRequest(
       built = buildAnthropicRequest(
         req.body,
         "service",
-        MAX_OUTPUT_TOKENS,
+        CANDIDATE_MAX_OUTPUT_TOKENS,
         MAX_THINKING_TOKENS,
         config.inferenceGeo,
+        true,
       );
       const body = req.body as Record<string, unknown>;
       const evidence = deriveBenchmarkPayloadEvidence(

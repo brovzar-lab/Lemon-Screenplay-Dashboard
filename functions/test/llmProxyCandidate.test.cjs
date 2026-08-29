@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  CANDIDATE_MAX_OUTPUT_TOKENS,
   benchmarkUncertainAccounting,
   benchmarkRequestFailureState,
   candidateSettlementFailure,
@@ -12,6 +13,110 @@ const {
   providerConfigurationFailure,
   providerTransportFailure,
 } = require('../lib/llmProxyCandidate');
+const { buildAnthropicRequest } = require('../lib/anthropicProxyCore');
+
+test('candidate-only controls accept the exact 32k adaptive strict-tool request', () => {
+  const request = {
+    model: 'claude-sonnet-5',
+    messages: [{ role: 'user', content: 'screenplay' }],
+    max_tokens: 32_000,
+    tools: [{
+      name: 'submit_report',
+      strict: true,
+      input_schema: {
+        type: 'object',
+        properties: { report_json: { type: 'string' } },
+        required: ['report_json'],
+        additionalProperties: false,
+      },
+    }],
+    tool_choice: { type: 'tool', name: 'submit_report' },
+    thinking: { type: 'adaptive' },
+    output_config: { effort: 'high' },
+  };
+  const built = buildAnthropicRequest(
+    request,
+    'service',
+    CANDIDATE_MAX_OUTPUT_TOKENS,
+    16_000,
+    'global',
+    true,
+  );
+  assert.equal(built.maxTokens, 32_000);
+  assert.deepEqual(built.payload.tool_choice, request.tool_choice);
+  assert.throws(
+    () => buildAnthropicRequest(
+      { ...request, max_tokens: 32_001 },
+      'service',
+      CANDIDATE_MAX_OUTPUT_TOKENS,
+      16_000,
+      'global',
+      true,
+    ),
+    /max_tokens must be an integer between 1 and 32000/,
+  );
+  assert.throws(
+    () => buildAnthropicRequest(
+      request,
+      'service',
+      CANDIDATE_MAX_OUTPUT_TOKENS,
+      16_000,
+      'global',
+    ),
+    /cannot force tool choice/,
+  );
+  assert.throws(
+    () => buildAnthropicRequest(
+      { ...request, model: 'claude-opus-4-7' },
+      'service',
+      CANDIDATE_MAX_OUTPUT_TOKENS,
+      16_000,
+      'global',
+      true,
+    ),
+    /cannot force tool choice/,
+  );
+});
+
+test('candidate-only controls explicitly disable default thinking for small calls', () => {
+  const request = {
+    model: 'claude-sonnet-5',
+    messages: [{ role: 'user', content: 'screenplay' }],
+    max_tokens: 400,
+    tools: [{
+      name: 'submit_genre',
+      strict: true,
+      input_schema: {
+        type: 'object',
+        properties: { external_genre: { type: 'string' } },
+        required: ['external_genre'],
+        additionalProperties: false,
+      },
+    }],
+    tool_choice: { type: 'tool', name: 'submit_genre' },
+    thinking: { type: 'disabled' },
+  };
+  const built = buildAnthropicRequest(
+    request,
+    'service',
+    CANDIDATE_MAX_OUTPUT_TOKENS,
+    16_000,
+    'global',
+    true,
+  );
+  assert.deepEqual(built.payload.thinking, { type: 'disabled' });
+  assert.deepEqual(built.payload.tool_choice, request.tool_choice);
+  assert.throws(
+    () => buildAnthropicRequest(
+      request,
+      'service',
+      CANDIDATE_MAX_OUTPUT_TOKENS,
+      16_000,
+      'global',
+    ),
+    /restricted to the candidate benchmark/,
+  );
+});
 
 test('online isolation probes recognize Firestore and Storage IAM denial codes', () => {
   assert.equal(isPermissionDenied({ code: 7 }), true);

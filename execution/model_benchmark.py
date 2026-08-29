@@ -1739,6 +1739,7 @@ class LocalCostCap:
         maximum_usd: float,
         catalog: Mapping[str, Any],
         pre_dispatch_check: Any = None,
+        output_token_ceiling: Any = None,
     ):
         if maximum_usd <= 0:
             raise BenchmarkSafetyError("Paid execution requires a positive --max-cost-usd.")
@@ -1751,6 +1752,7 @@ class LocalCostCap:
         self.reserved_microusd = 0
         self.checks: List[Dict[str, Any]] = []
         self.pre_dispatch_check = pre_dispatch_check
+        self.output_token_ceiling = output_token_ceiling
         self._lock = threading.Lock()
 
     @property
@@ -1775,8 +1777,12 @@ class LocalCostCap:
         ]).encode("utf-8"))
         request_bytes = request_content_bytes + LOCAL_REQUEST_ENVELOPE_OVERHEAD_BYTES
         input_tokens = request_bytes + 4_096
-        max_output_tokens = int(kwargs.get("max_tokens", 4_000)) + int(
-            kwargs.get("thinking_budget", 0)
+        max_tokens = int(kwargs.get("max_tokens", 4_000))
+        thinking_budget = int(kwargs.get("thinking_budget", 0))
+        max_output_tokens = (
+            self.output_token_ceiling(model_id, thinking_budget, max_tokens)
+            if self.output_token_ceiling is not None
+            else max_tokens + thinking_budget
         )
         profiles = list(self.catalog["modelProfiles"].values())
         ceiling_microusd = math.ceil(Decimal("1.1") * (
@@ -3829,6 +3835,7 @@ def build_manifest(args: argparse.Namespace) -> tuple[Path, Dict[str, Any]]:
                 args.expected_catalog_sha256,
                 deployment_receipt,
             ),
+            engine.effective_max_tokens,
         )
         checkpoint_lock = threading.Lock()
         if resume:

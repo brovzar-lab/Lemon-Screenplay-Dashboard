@@ -57,7 +57,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         body["content"] = content
         return response
 
-    def test_adaptive_model_without_thinking_forces_the_genre_tool(self):
+    def test_candidate_zero_budget_disables_thinking_and_forces_genre_tool(self):
         response = MagicMock(status_code=200)
         response.json.return_value = {
             "text": "",
@@ -80,6 +80,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     model_key="sonnet",
                     tool=ingest_v9.GENRE_DETECTION_TOOL,
                     thinking_budget=0,
+                    max_tokens=400,
                     proxy_url="https://proxy.test",
                 )
         finally:
@@ -90,7 +91,8 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "type": "tool",
             "name": ingest_v9.GENRE_DETECTION_TOOL["name"],
         })
-        self.assertNotIn("thinking", payload)
+        self.assertEqual(payload["thinking"], {"type": "disabled"})
+        self.assertEqual(payload["max_tokens"], 400)
 
     def test_pricing_table_and_fingerprint_are_identical_across_runtimes(self):
         root = Path(__file__).resolve().parents[1]
@@ -535,16 +537,19 @@ class ProxyCostTelemetryTests(unittest.TestCase):
 
                 self.assertEqual(post.call_count, 1)
 
-    def test_candidate_sonnet_and_opus_requests_use_adaptive_high_without_sampling(self):
+    def test_candidate_sonnet_and_opus_requests_leave_adaptive_high_headroom(self):
         for route, model_id in ingest_v9.CANDIDATE_MODEL_IDS.items():
             response = MagicMock()
             response.status_code = 200
             response.json.return_value = {
-                "text": "ok",
-                "tool_uses": [],
+                "text": "",
+                "tool_uses": [{
+                    "name": ingest_v9.GENRE_DETECTION_TOOL["name"],
+                    "input": self._genre_raw(),
+                }],
                 "response_id": f"msg_{route}_candidate",
                 "model": model_id,
-                "stop_reason": "end_turn",
+                "stop_reason": "tool_use",
                 "usage": self._proxy_usage(model_id=model_id),
             }
             with (
@@ -555,6 +560,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     system_blocks=[{"type": "text", "text": "system"}],
                     user_blocks=[{"type": "text", "text": "screenplay"}],
                     model_key=route,
+                    tool=ingest_v9.GENRE_DETECTION_TOOL,
                     thinking_budget=8_000,
                     max_tokens=4_000,
                     proxy_url="https://proxy.test",
@@ -564,10 +570,72 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             self.assertEqual(body["model"], model_id)
             self.assertEqual(body["thinking"], {"type": "adaptive"})
             self.assertEqual(body["output_config"], {"effort": "high"})
-            self.assertEqual(body["max_tokens"], 12_000)
+            self.assertEqual(body["max_tokens"], 32_000)
+            self.assertEqual(body["tool_choice"], {
+                "type": "tool",
+                "name": ingest_v9.GENRE_DETECTION_TOOL["name"],
+            })
             self.assertNotIn("temperature", body)
             self.assertNotIn("top_p", body)
             self.assertNotIn("top_k", body)
+
+    def test_candidate_zero_budget_disables_thinking_for_schema_free_triage(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "{}",
+            "tool_uses": [],
+            "response_id": "msg_candidate_triage",
+            "model": "claude-sonnet-5",
+            "stop_reason": "end_turn",
+            "usage": self._proxy_usage(model_id="claude-sonnet-5"),
+        }
+        with (
+            patch.dict(ingest_v9.MODEL_IDS, {"sonnet": "claude-sonnet-5"}),
+            patch.object(
+                ingest_v9.requests,
+                "post",
+                return_value=self._exact_response(response),
+            ) as post,
+        ):
+            ingest_v9.call_llm(
+                system_blocks=[],
+                user_blocks=[{"type": "text", "text": "screenplay"}],
+                model_key="sonnet",
+                thinking_budget=0,
+                max_tokens=500,
+                proxy_url="https://proxy.test",
+            )
+        body = post.call_args.kwargs["json"]
+        self.assertEqual(body["thinking"], {"type": "disabled"})
+        self.assertEqual(body["max_tokens"], 500)
+
+    def test_stable_adaptive_route_keeps_declared_token_budget(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "ok",
+            "tool_uses": [],
+            "response_id": "msg_opus_stable",
+            "model": "claude-opus-4-7",
+            "stop_reason": "end_turn",
+            "usage": self._proxy_usage(model_id="claude-opus-4-7"),
+        }
+        with patch.object(
+            ingest_v9.requests,
+            "post",
+            return_value=self._exact_response(response),
+        ) as post:
+            ingest_v9.call_llm(
+                system_blocks=[{"type": "text", "text": "system"}],
+                user_blocks=[{"type": "text", "text": "screenplay"}],
+                model_key="opus",
+                thinking_budget=8_000,
+                max_tokens=4_000,
+                proxy_url="https://proxy.test",
+                retries=1,
+            )
+        self.assertEqual(post.call_args.kwargs["json"]["max_tokens"], 12_000)
 
     def test_haiku_manual_thinking_does_not_inherit_candidate_rules(self):
         response = MagicMock()

@@ -449,6 +449,41 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
         self.assertEqual(check["settled_cost_usd"], 0.01)
         self.assertEqual(usage["calls"][0]["budget_check"], check)
 
+    def test_local_cap_reserves_the_effective_adaptive_high_ceiling(self):
+        from execution import ingest_v9
+
+        model_id = "claude-sonnet-5"
+        cap = LocalCostCap(
+            1.0,
+            {
+                "modelProfiles": {
+                    model_id: {
+                        "inputUsdPerMillion": 2,
+                        "outputUsdPerMillion": 10,
+                    },
+                },
+            },
+            output_token_ceiling=ingest_v9.effective_max_tokens,
+        )
+        usage = {
+            "actual_cost_microusd": 1,
+            "actual_cost_usd": 0.000001,
+            "calls": [{"response_id": "msg_adaptive_headroom"}],
+        }
+
+        cap.call(
+            lambda **_kwargs: (None, "ok", usage),
+            {"sonnet": model_id},
+            model_key="sonnet",
+            system_blocks=[],
+            user_blocks=[],
+            thinking_budget=8_000,
+            max_tokens=4_000,
+            stage="reader",
+        )
+
+        self.assertEqual(cap.checks[0]["output_tokens_upper_bound"], 32_000)
+
     def test_local_cap_never_assumes_an_ambiguous_failure_was_free(self):
         cap = LocalCostCap(1.0, {
             "modelProfiles": {
