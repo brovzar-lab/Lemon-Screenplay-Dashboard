@@ -31,6 +31,7 @@ from execution.trust_manifest import (
     LEGACY_TRUST_MANIFEST_VERSION,
     PRE_CITATION_PROMPT_CONTRACT_VERSION,
     PRE_FULL_CORRECTION_PROMPT_CONTRACT_VERSION,
+    PRE_SOURCE_RECONCILIATION_PROMPT_CONTRACT_VERSION,
     PREVIOUS_PROMPT_CONTRACT_VERSION,
     PREVIOUS_ANALYSIS_SCHEMA_VERSION,
     PROMPT_CONTRACT_VERSION,
@@ -1078,6 +1079,18 @@ class TrustManifestTests(unittest.TestCase):
         )
         self.assertTrue(score_bound_reader["score_alignment_required"])
         self.assertIn("scored criterion", score_bound_reader["claim"])
+
+        pre_source_reconciliation = claim_verification_targets(
+            complete_analysis(),
+            prompt_contract_version=(
+                PRE_SOURCE_RECONCILIATION_PROMPT_CONTRACT_VERSION
+            ),
+        )
+        self.assertIn("evidence_scope", pre_source_reconciliation[0])
+        self.assertIn(
+            PRE_SOURCE_RECONCILIATION_PROMPT_CONTRACT_VERSION,
+            trust_manifest_module.SUPPORTED_PROMPT_CONTRACT_VERSIONS,
+        )
 
     def test_evidence_scope_contract_survives_a_future_prompt_version_bump(self):
         august_contract = PROMPT_CONTRACT_VERSION

@@ -350,6 +350,12 @@ class TestCitationEvidence(unittest.TestCase):
             "page": 1,
             "excerpt": "No mata a Carlos",
         }]
+        self.assertEqual(
+            reconcile_unique_citation_pages(collision, punctuation_text)[
+                "changed_citation_count"
+            ],
+            0,
+        )
         quality = validate_analysis_citations(
             collision,
             build_page_evidence(punctuation_text, 2, "test")["page_diagnostics"],
