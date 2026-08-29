@@ -11,6 +11,7 @@ import {
   buildProductionIsolationProof,
   buildProductionStorageAclProof,
   buildStagingIdentityProof,
+  gcloudIamRoleDescribeArguments,
   PRODUCTION_AUDITOR_PERMISSIONS,
   REVIEWED_STAGING_STORAGE_BUCKETS,
   reviewedProductionProjectBindings,
@@ -20,6 +21,32 @@ import {
   stagingIdentityAuditExpected,
   validateCandidateGate,
 } from './candidate-staging-gate.mjs';
+
+test('IAM role scans use short custom role IDs with their exact parent flag', () => {
+  assert.deepEqual(gcloudIamRoleDescribeArguments('roles/viewer'), [
+    'iam', 'roles', 'describe', 'roles/viewer', '--format=json',
+  ]);
+  assert.deepEqual(
+    gcloudIamRoleDescribeArguments(
+      'projects/lemon-screenplay-staging/roles/v9StagingIdentityProofReader',
+    ),
+    [
+      'iam', 'roles', 'describe', 'v9StagingIdentityProofReader',
+      '--project=lemon-screenplay-staging', '--format=json',
+    ],
+  );
+  assert.deepEqual(
+    gcloudIamRoleDescribeArguments('organizations/123456789/roles/StudioAuditor'),
+    [
+      'iam', 'roles', 'describe', 'StudioAuditor',
+      '--organization=123456789', '--format=json',
+    ],
+  );
+  assert.throws(
+    () => gcloudIamRoleDescribeArguments('projects/lemon-screenplay-staging/roles/'),
+    /IAM role name is invalid/,
+  );
+});
 
 const sha = 'a'.repeat(40);
 const productionAuditor = (
