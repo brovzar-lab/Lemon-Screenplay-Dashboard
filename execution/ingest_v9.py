@@ -8486,13 +8486,6 @@ def _validate_synthesis_report(
     canonical_genre, canonical_subgenres = _canonical_genre_output(
         genre_detection
     )
-    if (
-        report.get("genre") != canonical_genre
-        or report.get("subgenres") != canonical_subgenres
-    ):
-        raise ValueError(
-            "synthesis genre lineage contradicts authoritative genre detection"
-        )
     report["genre"] = canonical_genre
     report["subgenres"] = canonical_subgenres
     for field in (

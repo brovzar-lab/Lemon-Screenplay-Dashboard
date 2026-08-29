@@ -1318,6 +1318,28 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertEqual(validated["title"], "Source Draft")
         self.assertEqual(validated["author"], "Fixture Writer")
 
+        candidate = complete_analysis("Authoritative Genre")
+        candidate["genre"] = "Love"
+        candidate["subgenres"] = [
+            "Maturation",
+            "Romantic Comedy",
+            "Family Drama",
+            "Holiday",
+        ]
+        validated = ingest_v9._validate_synthesis_report(
+            candidate,
+            candidate["reader_reports"],
+            "Source Draft",
+            "Fixture Writer",
+            ingest_v9.parse_detection({
+                "external_genre": "Love",
+                "internal_genre": "Maturation",
+                "confidence": "high",
+            }),
+        )
+        self.assertEqual(validated["genre"], "Love")
+        self.assertEqual(validated["subgenres"], ["Maturation"])
+
     def test_synthesis_validator_rejects_missing_decision_evidence(self):
         candidate = complete_analysis("Missing Genre")
         candidate.pop("genre")
