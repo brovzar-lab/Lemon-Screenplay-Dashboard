@@ -64,14 +64,20 @@ const targetedCorrectionPayload = (name = 'repair_structure_report') => ({
             'sub_scores.active_vs_passive': {
               type: 'object',
               properties: {
-                page_citations: { type: 'array', items: { type: 'integer' } },
+                page_citations: {
+                  type: 'array',
+                  items: { type: 'integer', enum: [42] },
+                },
                 citation_evidence: {
                   type: 'array',
                   items: {
                     type: 'object',
                     properties: {
-                      page: { type: 'integer' },
-                      excerpt: { type: 'string' },
+                      page: { type: 'integer', enum: [42] },
+                      excerpt: {
+                        type: 'string',
+                        enum: ['Exact screenplay source line.'],
+                      },
                     },
                     required: ['page', 'excerpt'],
                     additionalProperties: false,

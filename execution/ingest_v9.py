@@ -60,6 +60,7 @@ Optional env vars:
 
 import argparse
 import copy
+from difflib import SequenceMatcher
 import hashlib
 import json
 import math
@@ -1901,6 +1902,8 @@ CORRECTION_CITATION_EXCERPT_PATTERN = (
     r"[ \t]*$"
 )
 MAX_TARGETED_CORRECTION_REPAIRS = 24
+MAX_TARGETED_CORRECTION_LINE_OPTIONS = 12
+MAX_TARGETED_CORRECTION_LINE_CHARACTERS = 300
 
 
 def _strict_schema_node(node: Any) -> Any:
@@ -1987,6 +1990,175 @@ def _strict_correction_schema_node(
         return projected
 
     return project(strict_node, allowed_paths)
+
+
+def _physical_source_pages(source_text: str) -> Dict[int, str]:
+    page_matches = list(PAGE_MARKER_PATTERN.finditer(source_text))
+    return {
+        int(match.group(1)): source_text[
+            match.end():page_matches[index + 1].start()
+            if index + 1 < len(page_matches)
+            else len(source_text)
+        ]
+        for index, match in enumerate(page_matches)
+    }
+
+
+def _correction_source_line_options(
+    value: Any,
+    source_pages: Dict[int, str],
+) -> List[Dict[str, Any]]:
+    """Return a bounded set of exact physical lines for one citation repair."""
+    page_hints: set[int] = set()
+    text_hints: List[str] = []
+    evidence_hints: List[Tuple[int, str]] = []
+
+    def collect(node: Any, field: Optional[str] = None) -> None:
+        if isinstance(node, dict):
+            page = node.get("page")
+            excerpt = node.get("excerpt")
+            if type(page) is int and isinstance(excerpt, str):
+                page_hints.add(page)
+                text_hints.append(excerpt)
+                evidence_hints.append((page, excerpt))
+            for key, nested in node.items():
+                collect(nested, key)
+        elif isinstance(node, list):
+            if field == "page_citations":
+                page_hints.update(page for page in node if type(page) is int)
+            else:
+                for nested in node:
+                    collect(nested, field)
+        elif isinstance(node, str) and field != "excerpt":
+            text_hints.append(node)
+
+    collect(value)
+    pages = sorted(page for page in page_hints if page in source_pages)
+    if not pages:
+        return []
+
+    def normalize(raw: str) -> str:
+        return " ".join(unicodedata.normalize("NFKC", raw).casefold().split())
+
+    normalized_hints = [normalize(hint) for hint in text_hints if hint.strip()]
+    hint_words = [
+        set(re.findall(r"\w+", hint, flags=re.UNICODE))
+        for hint in normalized_hints
+    ]
+    anchor_lines: Dict[int, List[int]] = {}
+    for page, excerpt in evidence_hints:
+        normalized_excerpt = normalize(excerpt)
+        if page not in source_pages or not normalized_excerpt:
+            continue
+        for line_index, line in enumerate(source_pages[page].splitlines()):
+            normalized_line = normalize(line)
+            if (
+                normalized_excerpt in normalized_line
+                or normalized_line in normalized_excerpt
+            ):
+                anchor_lines.setdefault(page, []).append(line_index)
+
+    candidates: List[Tuple[Tuple[float, ...], int, int, str]] = []
+    for page in pages:
+        for line_index, raw_line in enumerate(source_pages[page].splitlines()):
+            excerpt = raw_line.strip()
+            if (
+                not excerpt
+                or excerpt == "*"
+                or len(excerpt) > MAX_TARGETED_CORRECTION_LINE_CHARACTERS
+                or re.fullmatch(
+                    CORRECTION_CITATION_EXCERPT_PATTERN,
+                    excerpt,
+                ) is None
+            ):
+                continue
+            normalized_line = normalize(excerpt)
+            line_words = set(re.findall(
+                r"\w+",
+                normalized_line,
+                flags=re.UNICODE,
+            ))
+            overlap = max(
+                (len(line_words & words) for words in hint_words),
+                default=0,
+            )
+            similarity = max(
+                (
+                    SequenceMatcher(None, normalized_line, hint).ratio()
+                    for hint in normalized_hints
+                ),
+                default=0.0,
+            )
+            contains_hint = float(any(
+                hint in normalized_line or normalized_line in hint
+                for hint in normalized_hints
+            ))
+            proximity = max(
+                (
+                    max(0, 5 - abs(line_index - anchor))
+                    for anchor in anchor_lines.get(page, [])
+                ),
+                default=0,
+            )
+            candidates.append((
+                (float(proximity), contains_hint, float(overlap), similarity),
+                page,
+                line_index,
+                excerpt,
+            ))
+    candidates.sort(key=lambda item: (
+        tuple(-score for score in item[0]),
+        item[1],
+        item[2],
+        item[3],
+    ))
+    return [
+        {"page": page, "excerpt": excerpt}
+        for _score, page, _line_index, excerpt in candidates[
+            :MAX_TARGETED_CORRECTION_LINE_OPTIONS
+        ]
+    ]
+
+
+def _bind_correction_source_line_options(
+    schema: Dict[str, Any],
+    options: Sequence[Dict[str, Any]],
+) -> int:
+    pages = sorted({option["page"] for option in options})
+    excerpts = list(dict.fromkeys(option["excerpt"] for option in options))
+    bound_fields = 0
+
+    def bind(node: Any) -> None:
+        nonlocal bound_fields
+        if not isinstance(node, dict):
+            return
+        properties = node.get("properties")
+        if isinstance(properties, dict):
+            page = properties.get("page")
+            excerpt = properties.get("excerpt")
+            if (
+                isinstance(page, dict)
+                and page.get("type") == "integer"
+                and isinstance(excerpt, dict)
+                and excerpt.get("type") == "string"
+            ):
+                page["enum"] = pages
+                excerpt["enum"] = excerpts
+                bound_fields += 2
+            page_citations = properties.get("page_citations")
+            if isinstance(page_citations, dict):
+                items = page_citations.get("items")
+                if isinstance(items, dict) and items.get("type") == "integer":
+                    items["enum"] = pages
+                    bound_fields += 1
+            for child in properties.values():
+                bind(child)
+        items = node.get("items")
+        if isinstance(items, dict):
+            bind(items)
+
+    bind(schema)
+    return bound_fields
 
 
 def _strict_json_envelope_definition(
@@ -3039,6 +3211,7 @@ def _targeted_correction_request(
     repair_properties: Dict[str, Dict[str, Any]] = {}
     target_plan: Dict[str, Dict[str, Any]] = {}
     prompt_targets: List[Dict[str, Any]] = []
+    source_pages = _physical_source_pages(source_text)
     for root in sorted(targets):
         target_id = ".".join(root) if root else "$"
         node = _schema_node_at_path(schema, root)
@@ -3046,17 +3219,46 @@ def _targeted_correction_request(
         parent = _value_at_path(rejected_report, root[:-1]) if root else None
         allowed = sorted(targets[root]["allowed"])
         relative_allowed = [path[len(root):] for path in allowed]
-        repair_properties[target_id] = _strict_correction_schema_node(
+        transport_schema = _strict_correction_schema_node(
             node,
             relative_allowed,
         )
+        citation_repair = any(
+            path and path[-1] in {"page_citations", "citation_evidence"}
+            for path in allowed
+        )
+        source_line_options: List[Dict[str, Any]] = []
+        if citation_repair:
+            option_source = parent if current is _MISSING_REPAIR_VALUE else current
+            source_line_options = _correction_source_line_options(
+                option_source,
+                source_pages,
+            )
+            if not source_line_options:
+                raise ValueError(
+                    "citation correction has no bounded exact source-line options"
+                )
+            if not _bind_correction_source_line_options(
+                transport_schema,
+                source_line_options,
+            ):
+                raise ValueError(
+                    "citation correction schema has no bindable evidence fields"
+                )
+        repair_properties[target_id] = transport_schema
         target_plan[target_id] = {
             "path": root,
             "schema": node,
-            "transport_schema": repair_properties[target_id],
+            "transport_schema": transport_schema,
             "allowed": allowed,
+            "source_line_option_count": len(source_line_options),
+            "source_line_options_sha256": (
+                _canonical_json_hash(source_line_options)
+                if source_line_options
+                else None
+            ),
         }
-        prompt_targets.append({
+        prompt_target = {
             "path": target_id,
             "reasons": sorted(targets[root]["reasons"]),
             "allowed_changes": [
@@ -3085,7 +3287,14 @@ def _targeted_correction_request(
                 and parent is not _MISSING_REPAIR_VALUE
                 else None
             ),
-        })
+        }
+        if source_line_options:
+            prompt_target["exact_source_line_options"] = source_line_options
+            prompt_target["citation_instruction"] = (
+                "Copy page and excerpt exactly from one listed option; "
+                "do not shorten, join, or paraphrase it."
+            )
+        prompt_targets.append(prompt_target)
 
     correction_tool = {
         "name": tool["name"].replace("submit_", "repair_", 1),
@@ -3163,15 +3372,7 @@ def _apply_targeted_correction(
     )
 
     candidate = copy.deepcopy(plan["rejected_report"])
-    page_matches = list(PAGE_MARKER_PATTERN.finditer(source_text))
-    source_pages = {
-        int(match.group(1)): source_text[
-            match.end():page_matches[index + 1].start()
-            if index + 1 < len(page_matches)
-            else len(source_text)
-        ]
-        for index, match in enumerate(page_matches)
-    }
+    source_pages = _physical_source_pages(source_text)
 
     def validate_repair_citations(value: Any) -> None:
         if isinstance(value, dict):
@@ -9760,18 +9961,6 @@ def run_v9_full(
     for reader in READER_WEIGHTS:
         try:
             r_name, report, usage, recovery = run_reader(reader)
-            _accumulate(usage)
-            reader_recovery[r_name] = recovery
-            if report is None:
-                continue
-            reader_reports[r_name] = report
-            score = report.get("pillar_score", report.get("overall_score", "?"))
-            recovery_note = (
-                f", recovered on attempt {recovery['attempts']}"
-                if recovery["recovered"]
-                else ""
-            )
-            log.info(f"      ✓ {r_name} (pillar_score: {score}{recovery_note})")
         except (
             DailyBudgetExceededError,
             BenchmarkCapExceededError,
@@ -9786,15 +9975,30 @@ def run_v9_full(
         except Exception as e:
             log.error(f"      ✗ {reader} reader failed: {e}")
             reader_recovery[reader] = {
-                "attempts": MAX_READER_REPORT_ATTEMPTS,
+                "attempts": 0,
                 "recovered": False,
+                "disposition": "predispatch_setup_failure",
                 "failures": [{
-                    "attempt": MAX_READER_REPORT_ATTEMPTS,
+                    "attempt": 0,
                     "error_type": type(e).__name__,
                     "error": str(e)[:500],
                     "response_ids": [],
+                    "dispatch_state": "not_dispatched",
                 }],
             }
+            break
+        _accumulate(usage)
+        reader_recovery[r_name] = recovery
+        if report is None:
+            break
+        reader_reports[r_name] = report
+        score = report.get("pillar_score", report.get("overall_score", "?"))
+        recovery_note = (
+            f", recovered on attempt {recovery['attempts']}"
+            if recovery["recovered"]
+            else ""
+        )
+        log.info(f"      ✓ {r_name} (pillar_score: {score}{recovery_note})")
 
     if fatal_reader_error is not None:
         finalize_reader_consumption(False)
@@ -9811,7 +10015,13 @@ def run_v9_full(
         f"Cache hit ratio: {cache_hit_ratio:.0%}."
     )
 
-    failed_readers = sorted(set(READER_WEIGHTS) - set(reader_reports))
+    missing_readers = sorted(set(READER_WEIGHTS) - set(reader_reports))
+    failed_readers = sorted(
+        name for name in missing_readers if name in reader_recovery
+    )
+    not_attempted_readers = sorted(
+        set(missing_readers) - set(failed_readers)
+    )
     reader_errors = {
         name: str(
             (reader_recovery.get(name, {}).get("failures") or [{}])[-1].get(
@@ -9827,6 +10037,8 @@ def run_v9_full(
             "Reader panel incomplete after recovery: "
             f"{len(reader_reports)}/5 completed; failed: "
             f"{', '.join(failed_readers)}. "
+            "Not attempted after terminal failure: "
+            f"{', '.join(not_attempted_readers) or 'none'}. "
             "No synthesis or verdict was produced.",
             total_usage,
             review_evidence={
@@ -9837,6 +10049,7 @@ def run_v9_full(
                 "completed_reader_names": sorted(reader_reports),
                 "expected_readers": len(READER_WEIGHTS),
                 "failed_readers": failed_readers,
+                "not_attempted_readers": not_attempted_readers,
                 "failed_reader_errors": reader_errors,
                 "max_attempts_per_reader": MAX_READER_REPORT_ATTEMPTS,
                 "reader_attempts": reader_recovery,
