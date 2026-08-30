@@ -163,10 +163,13 @@ const RETRY_LINEAGE_FIELDS = [
 function validateBenchmarkRetryLineage(contract, priorCalls) {
     if (contract.retry_number < 2)
         return;
+    const directStrictCorrection = contract.schema_mode === "strict_tool"
+        && contract.schema_sha256 === contract.transport_schema_sha256;
+    const compactStrictCorrection = contract.schema_mode === "compact_strict_tool"
+        && contract.schema_sha256 !== contract.transport_schema_sha256;
     if (contract.retry_number !== 2
         || !["reader", "synthesis"].includes(contract.pipeline_stage)
-        || contract.schema_mode !== "strict_tool"
-        || contract.schema_sha256 !== contract.transport_schema_sha256) {
+        || (!directStrictCorrection && !compactStrictCorrection)) {
         throw new BenchmarkRetryLineageError();
     }
     const lineage = priorCalls.filter((call) => RETRY_LINEAGE_FIELDS.every((field) => call[field] === contract[field]));

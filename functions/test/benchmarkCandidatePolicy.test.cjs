@@ -369,6 +369,16 @@ test('reader and synthesis recovery accepts one fresh retry and one targeted cor
     { pipeline_stage: 'synthesis', reader_name: null, retry_number: 2 },
     targetedCorrectionPayload('repair_synthesis_report'),
   )));
+  for (const retry_number of [1, 2]) {
+    assert.doesNotThrow(() => validate(contract(
+      { retry_number },
+      compactPayload('repair_structure_report'),
+    )));
+    assert.doesNotThrow(() => validate(contract(
+      { pipeline_stage: 'synthesis', reader_name: null, retry_number },
+      compactPayload('repair_synthesis_report'),
+    )));
+  }
   assert.throws(
     () => validate(contract({}, strictPayload())),
     /call matrix/,
