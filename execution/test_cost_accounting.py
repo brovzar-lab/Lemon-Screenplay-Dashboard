@@ -17,6 +17,7 @@ from execution.source_evidence import (
     build_page_evidence,
     build_scene_count_evidence,
     join_marked_pages,
+    sha256_json,
 )
 from execution.trust_manifest import (
     _model_lineage,
@@ -487,14 +488,31 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 )
             return value
 
+        def transport_value(target_id, value_schema):
+            value = value_at(target_id)
+            if (
+                target_id == "material_claims"
+                and value_schema.get("type") == "object"
+            ):
+                return {
+                    f"{claim['source_field']}_{claim['source_index']}": {
+                        f"atomic_{index}": copy.deepcopy(
+                            atomic["citation_evidence"][0]
+                        )
+                        for index, atomic in enumerate(claim["atomic_claims"])
+                    }
+                    for claim in value
+                }
+            return ingest_v9._schema_projected_value(value, value_schema)
+
         return {
             "source_report_sha256": schema["properties"][
                 "source_report_sha256"
             ]["enum"][0],
             "repairs": {
                 target_id: apply_transport_constraints(
-                    ingest_v9._schema_projected_value(
-                        value_at(target_id),
+                    transport_value(
+                        target_id,
                         schema["properties"]["repairs"]["properties"][target_id],
                     ),
                     schema["properties"]["repairs"]["properties"][target_id],
@@ -3597,8 +3615,12 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         prompt = plan["user_blocks"][-1]["text"]
         self.assertIn('"exact_material_claim_plan"', prompt)
         self.assertIn('"exact_source_line_options"', prompt)
-        self.assertIn("Copy source_field, source_index, claim", prompt)
+        self.assertIn(
+            "Do not return or rewrite source_field, source_index, claim",
+            prompt,
+        )
         strict_tool = ingest_v9._strict_tool_definition(plan["tool"])
+        self.assertNotIn(FIXTURE_DECISION_EVIDENCE, json.dumps(strict_tool))
         root = Path(__file__).resolve().parents[1]
         catalog = json.loads(
             (root / "src/config/anthropic-model-catalog.json").read_text(
@@ -3636,12 +3658,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         self.assertEqual(policy_check.stdout, "accepted")
 
-        repair_input = {
-            "source_report_sha256": plan["source_report_sha256"],
-            "repairs": {
-                "material_claims": copy.deepcopy(pristine["material_claims"]),
-            },
-        }
+        repair_input = self._targeted_repair_input(plan["tool"], pristine)
         repaired, evidence = ingest_v9._apply_targeted_correction(
             plan,
             repair_input,
@@ -3664,10 +3681,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
 
         invalid_repair = copy.deepcopy(repair_input)
-        invalid_repair["repairs"]["material_claims"][0]["atomic_claims"][0][
+        invalid_repair["repairs"]["material_claims"]["logline_0"][
             "claim"
         ] = "A second model-written paraphrase."
-        with self.assertRaisesRegex(ValueError, "atomic mapping"):
+        with self.assertRaisesRegex(ValueError, "unexpected field"):
             ingest_v9._apply_targeted_correction(
                 plan,
                 invalid_repair,
@@ -3676,11 +3693,9 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             )
 
         invalid_citation_repair = copy.deepcopy(repair_input)
-        invalid_citation_repair["repairs"]["material_claims"][0][
-            "atomic_claims"
-        ][0]["citation_evidence"][0]["excerpt"] = (
-            "A page-level excerpt that crosses physical source lines"
-        )
+        invalid_citation_repair["repairs"]["material_claims"]["logline_0"][
+            "atomic_0"
+        ] = 999
         with self.assertRaisesRegex(ValueError, "enum constraint"):
             ingest_v9._apply_targeted_correction(
                 plan,
@@ -3689,13 +3704,68 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 source_text,
             )
 
+    def test_santa_atomic_mapping_repair_cannot_truncate_to_one_empty_claim(self):
+        source_text = marked_screenplay()
+        page_evidence = build_page_evidence(source_text, 100, "test")
+        rejected = ingest_v9._schema_projected_value(
+            complete_analysis("Santa atomic mapping regression"),
+            ingest_v9.SYNTHESIS_TOOL["input_schema"],
+        )
+        rejected["material_claims"][0]["atomic_claims"][0]["claim"] = (
+            "Model-written evidence paraphrase."
+        )
+        error = ValueError("synthesis material claim atomic mapping is invalid")
+        plan = ingest_v9._targeted_correction_request(
+            [],
+            tool=ingest_v9.SYNTHESIS_TOOL,
+            error=error,
+            rejected_report=rejected,
+            correction_source={
+                "source_response_id": "msg_santa_synthesis_rejected",
+                "source_request_sha256": "a" * 64,
+                "source_attempt_number": 1,
+                "rejected_output_sha256": "b" * 64,
+                "rejected_artifact_sha256": "c" * 64,
+                "replay_report_sha256": ingest_v9._canonical_json_hash(
+                    rejected
+                ),
+            },
+            source_text=source_text,
+            page_diagnostics=page_evidence["page_diagnostics"],
+            page_count=100,
+        )
+
+        material_schema = plan["tool"]["input_schema"]["properties"][
+            "repairs"
+        ]["properties"]["material_claims"]
+        self.assertEqual(material_schema["type"], "object")
+        santa_response = {
+            "source_report_sha256": plan["source_report_sha256"],
+            "repairs": {
+                "material_claims": [{
+                    "source_field": "logline",
+                    "source_index": 0,
+                    "claim": "Only one truncated claim",
+                    "atomic_claims": [],
+                }],
+            },
+        }
+        with self.assertRaisesRegex(ValueError, "must be an object"):
+            ingest_v9._apply_targeted_correction(
+                plan,
+                santa_response,
+                ingest_v9.SYNTHESIS_TOOL["input_schema"],
+                source_text,
+            )
+
     def test_synthesis_atomic_mapping_retry_records_both_calls(self):
         title = "Atomic mapping retry"
         fixture = complete_analysis(title)
         synthesis_attempts = 0
+        first_synthesis_before = None
 
         def fake_call_llm(**kwargs):
-            nonlocal synthesis_attempts
+            nonlocal synthesis_attempts, first_synthesis_before
             stage = kwargs["stage"]
             reader_name = kwargs.get("reader_name")
             if stage == "reader":
@@ -3729,6 +3799,11 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 report["material_claims"][0]["atomic_claims"][0]["claim"] = (
                     "A model-written evidence paraphrase."
                 )
+                report["weighted_score"] = 6.0
+                atomic = report["material_claims"][0]["atomic_claims"][0]
+                atomic["page_citations"] = [2]
+                atomic["citation_evidence"][0]["page"] = 2
+                first_synthesis_before = copy.deepcopy(report)
                 return report, "", usage
 
             self._mark_targeted_correction_usage(usage, kwargs["tool"])
@@ -3741,14 +3816,11 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 fixture,
                 ingest_v9.SYNTHESIS_TOOL["input_schema"],
             )
-            return ({
-                "source_report_sha256": repair_schema["properties"][
-                    "source_report_sha256"
-                ]["enum"][0],
-                "repairs": {
-                    "material_claims": pristine["material_claims"],
-                },
-            }, "", usage)
+            return (
+                self._targeted_repair_input(kwargs["tool"], pristine),
+                "",
+                usage,
+            )
 
         genre_detection = ingest_v9.parse_detection({
             "external_genre": "Society",
@@ -3763,8 +3835,15 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "call_llm",
             side_effect=fake_call_llm,
         ), patch.object(ingest_v9.time, "sleep"):
+            source_text = join_marked_pages([
+                f"INT. HOUSE - DAY\n{FIXTURE_DECISION_EVIDENCE}",
+                *[
+                    f"INT. EMPTY ROOM - DAY\nUnrelated page {page}."
+                    for page in range(2, 101)
+                ],
+            ])
             analysis, usage = ingest_v9.run_v9_full(
-                text=marked_screenplay(),
+                text=source_text,
                 title=title,
                 page_count=100,
                 word_count=20_000,
@@ -3788,6 +3867,19 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertEqual(correction["disposition"], "used")
         self.assertEqual(correction["downstream_consumption"], "consumed")
         self.assertEqual(analysis["analysis_quality"]["status"], "complete")
+        citation_reconciliation = next(
+            evidence
+            for evidence in rejected["transformation_evidence"]
+            if evidence["name"] == "reconciled_unique_citation_pages"
+        )
+        self.assertEqual(
+            citation_reconciliation["before_sha256"],
+            ingest_v9._canonical_json_hash(first_synthesis_before),
+        )
+        self.assertNotEqual(
+            citation_reconciliation["before_sha256"],
+            sha256_json(first_synthesis_before),
+        )
 
     def test_targeted_correction_stops_before_a_twenty_fifth_repair(self):
         source_text = marked_screenplay()
