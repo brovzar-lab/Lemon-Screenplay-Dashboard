@@ -1705,6 +1705,54 @@ def _mark_call_validation(
     checkpoint_benchmark_usage(usage)
 
 
+def _record_terminal_call_transformations(
+    usage: Any,
+    *,
+    transformations: Sequence[str],
+    transformation_evidence: Sequence[Dict[str, Any]],
+    warnings: Sequence[str],
+) -> None:
+    """Preserve pre-dispatch choices when a call exits through an error."""
+    if not transformations or not isinstance(usage, dict):
+        return
+    records = [
+        call
+        for collection in (usage.get("calls"), usage.get("failed_calls"))
+        if isinstance(collection, list)
+        for call in collection
+        if isinstance(call, dict)
+    ]
+    if not records:
+        return
+    if len(records) != 1:
+        raise ValueError(
+            "One terminal model attempt must produce exactly one call record"
+        )
+    call = records[0]
+    applied = call.setdefault("transformations", [])
+    for transformation in transformations:
+        if transformation not in applied:
+            applied.append(transformation)
+    evidence = call.setdefault("transformation_evidence", [])
+    evidence.extend(copy.deepcopy(list(transformation_evidence)))
+    evidence_names = [
+        item.get("name") if isinstance(item, dict) else None
+        for item in evidence
+    ]
+    if (
+        len(evidence_names) != len(set(evidence_names))
+        or set(evidence_names) != set(applied)
+    ):
+        raise ValueError(
+            "Every recorded terminal transformation needs exactly one evidence record"
+        )
+    recorded_warnings = call.setdefault("warnings", [])
+    for warning in warnings:
+        if warning not in recorded_warnings:
+            recorded_warnings.append(warning)
+    checkpoint_benchmark_usage(usage)
+
+
 def _transformation_hash_evidence(
     name: str,
     before: Any,
@@ -1899,6 +1947,17 @@ _STRICT_SCHEMA_UNSUPPORTED_KEYWORDS = {
     "minItems",
     "maxItems",
 }
+
+# Anthropic documents explicit strict-schema ceilings for optional and union
+# parameters, plus an internal compiled-grammar limit with no public numeric
+# threshold. Keep large corrective schemas on the already validated compact
+# envelope path so a repair request cannot die before generation.
+STRICT_SCHEMA_MAX_OPTIONAL_PARAMETERS = 24
+STRICT_SCHEMA_MAX_UNION_PARAMETERS = 16
+# ponytail: conservative local guard calibrated to the rejected Santa schema;
+# raise only after provider-backed evidence proves a larger grammar is stable.
+STRICT_CORRECTION_MAX_PROPERTIES = 48
+STRICT_CORRECTION_MAX_DEPTH = 5
 
 CORRECTION_CITATION_EXCERPT_PATTERN = (
     r"^[ \t]*[^ \t\r\n]*\w[^ \t\r\n]*"
@@ -2116,6 +2175,98 @@ def _strict_tool_definition(tool: Dict[str, Any]) -> Dict[str, Any]:
         strict_tool["input_schema"]
     )
     return strict_tool
+
+
+def _strict_schema_complexity(schema: Dict[str, Any]) -> Dict[str, int]:
+    """Return content-free compiler-risk metrics for one strict schema."""
+    stats = {
+        "object_count": 0,
+        "property_count": 0,
+        "optional_parameter_count": 0,
+        "union_parameter_count": 0,
+        "maximum_depth": 0,
+    }
+
+    def walk(node: Any, depth: int = 0) -> None:
+        if not isinstance(node, dict):
+            return
+        stats["maximum_depth"] = max(stats["maximum_depth"], depth)
+        if "anyOf" in node or isinstance(node.get("type"), list):
+            stats["union_parameter_count"] += 1
+        if node.get("type") == "object":
+            stats["object_count"] += 1
+            properties = node.get("properties", {})
+            if isinstance(properties, dict):
+                required = set(node.get("required", []))
+                stats["property_count"] += len(properties)
+                stats["optional_parameter_count"] += len(
+                    set(properties) - required
+                )
+                for child in properties.values():
+                    walk(child, depth + 1)
+        elif node.get("type") == "array":
+            walk(node.get("items"), depth + 1)
+
+    walk(schema)
+    return stats
+
+
+def _correction_transport_decision(tool: Dict[str, Any]) -> Dict[str, Any]:
+    """Select a provider-safe transport without weakening local validation."""
+    strict_schema = _strict_tool_definition(tool)["input_schema"]
+    stats = _strict_schema_complexity(strict_schema)
+    reasons = []
+    if (
+        stats["optional_parameter_count"]
+        > STRICT_SCHEMA_MAX_OPTIONAL_PARAMETERS
+    ):
+        reasons.append("optional_parameter_limit")
+    if stats["union_parameter_count"] > STRICT_SCHEMA_MAX_UNION_PARAMETERS:
+        reasons.append("union_parameter_limit")
+    if stats["property_count"] > STRICT_CORRECTION_MAX_PROPERTIES:
+        reasons.append("conservative_property_limit")
+    if stats["maximum_depth"] > STRICT_CORRECTION_MAX_DEPTH:
+        reasons.append("conservative_depth_limit")
+    compact = bool(reasons)
+    return {
+        "compact_json_envelope": compact,
+        "reason_codes": reasons,
+        "complexity": stats,
+        "strict_transport_schema_sha256": _canonical_json_hash(strict_schema),
+        "selected_transport_schema_sha256": _canonical_json_hash(
+            _strict_json_envelope_definition(tool)["input_schema"]
+            if compact
+            else strict_schema
+        ),
+    }
+
+
+def _select_correction_transport(
+    tool: Dict[str, Any],
+    transformations: List[str],
+    transformation_evidence: List[Dict[str, Any]],
+    warnings: List[str],
+) -> bool:
+    """Record and return the bounded transport selected for one correction."""
+    decision = _correction_transport_decision(tool)
+    if not decision["compact_json_envelope"]:
+        return False
+    name = "selected_compact_correction_transport"
+    transformations.append(name)
+    transformation_evidence.append({
+        "name": name,
+        "changed": True,
+        "before_sha256": decision["strict_transport_schema_sha256"],
+        "after_sha256": decision["selected_transport_schema_sha256"],
+        "reason_codes": decision["reason_codes"],
+        **decision["complexity"],
+    })
+    warnings.append(
+        "Correction schema exceeded the conservative provider compiler budget; "
+        "a compact strict envelope was decoded and validated against the "
+        "complete application schema"
+    )
+    return True
 
 
 def _strict_correction_schema_node(
@@ -10835,12 +10986,20 @@ def run_v9_full(
                         raise ValueError(
                             "Reader failure has no hash-bound targeted correction source"
                         )
+                compact_json_envelope = correction_plan is None
+                if correction_plan is not None:
+                    compact_json_envelope = _select_correction_transport(
+                        attempt_tool,
+                        application_transformations,
+                        transformation_evidence,
+                        transformation_warnings,
+                    )
                 tool_input, _text, attempt_usage = call_llm(
                     system_blocks=system_blocks,
                     user_blocks=attempt_user_blocks,
                     model_key=model_key,
                     tool=attempt_tool,
-                    compact_json_envelope=correction_plan is None,
+                    compact_json_envelope=compact_json_envelope,
                     thinking_budget=THINKING_BUDGET_READER,
                     max_tokens=OUTPUT_BUDGET_READER,
                     proxy_url=proxy_url,
@@ -11032,6 +11191,12 @@ def run_v9_full(
                 LlmProvenanceError,
                 LlmRequestRejectedError,
             ) as error:
+                _record_terminal_call_transformations(
+                    getattr(error, "usage", None),
+                    transformations=application_transformations,
+                    transformation_evidence=transformation_evidence,
+                    warnings=transformation_warnings,
+                )
                 _bind_correction_replay(
                     previous_rejected_call,
                     getattr(error, "usage", None),
@@ -11055,6 +11220,12 @@ def run_v9_full(
                 )
                 if isinstance(error, LlmCallFailedError):
                     attempt_usage = failed_usage(error)
+                    _record_terminal_call_transformations(
+                        attempt_usage,
+                        transformations=application_transformations,
+                        transformation_evidence=transformation_evidence,
+                        warnings=transformation_warnings,
+                    )
                     _bind_correction_replay(
                         previous_rejected_call,
                         attempt_usage,
@@ -11446,12 +11617,20 @@ def run_v9_full(
                     raise ValueError(
                         "Synthesis failure has no hash-bound targeted correction source"
                     )
+            compact_json_envelope = correction_plan is None
+            if correction_plan is not None:
+                compact_json_envelope = _select_correction_transport(
+                    attempt_tool,
+                    application_transformations,
+                    transformation_evidence,
+                    transformation_warnings,
+                )
             tool_input, _text, syn_usage = call_llm(
                 system_blocks=syn_system_blocks,
                 user_blocks=attempt_user_blocks,
                 model_key=model_key,
                 tool=attempt_tool,
-                compact_json_envelope=correction_plan is None,
+                compact_json_envelope=compact_json_envelope,
                 thinking_budget=THINKING_BUDGET_SYNTHESIS,
                 max_tokens=OUTPUT_BUDGET_SYNTHESIS,
                 proxy_url=proxy_url,
@@ -11708,6 +11887,12 @@ def run_v9_full(
             LlmProvenanceError,
             LlmRequestRejectedError,
         ) as error:
+            _record_terminal_call_transformations(
+                getattr(error, "usage", None),
+                transformations=application_transformations,
+                transformation_evidence=transformation_evidence,
+                warnings=transformation_warnings,
+            )
             _bind_correction_replay(
                 previous_rejected_call,
                 getattr(error, "usage", None),
@@ -11732,6 +11917,12 @@ def run_v9_full(
             last_err = e
             if isinstance(e, LlmCallFailedError):
                 failed_attempt_usage = failed_usage(e)
+                _record_terminal_call_transformations(
+                    failed_attempt_usage,
+                    transformations=application_transformations,
+                    transformation_evidence=transformation_evidence,
+                    warnings=transformation_warnings,
+                )
                 _bind_correction_replay(
                     previous_rejected_call,
                     failed_attempt_usage,

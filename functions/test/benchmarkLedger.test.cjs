@@ -147,6 +147,19 @@ test('retry two requires exactly one settled compact structural replay lineage',
     transport_schema_sha256: '7'.repeat(64),
   };
   assert.doesNotThrow(() => validateBenchmarkRetryLineage(target, prior));
+  const compactTarget = {
+    ...target,
+    schema_mode: 'compact_strict_tool',
+    transport_schema_sha256: '8'.repeat(64),
+  };
+  assert.doesNotThrow(() => validateBenchmarkRetryLineage(compactTarget, prior));
+  assert.throws(
+    () => validateBenchmarkRetryLineage({
+      ...compactTarget,
+      transport_schema_sha256: compactTarget.schema_sha256,
+    }, prior),
+    BenchmarkRetryLineageError,
+  );
   assert.throws(
     () => validateBenchmarkRetryLineage(target, prior.slice(1)),
     BenchmarkRetryLineageError,

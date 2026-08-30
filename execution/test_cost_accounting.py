@@ -20,9 +20,11 @@ from execution.source_evidence import (
     sha256_json,
 )
 from execution.trust_manifest import (
+    _canonical_transformation_evidence,
     _model_lineage,
     attach_trust_manifest,
     runtime_pricing_sha256,
+    uses_targeted_correction_schema,
 )
 from execution.v9_test_fixtures import (
     FIXTURE_DECISION_EVIDENCE,
@@ -3393,6 +3395,11 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             '"pattern"',
             json.dumps(plan["tool"]["input_schema"], sort_keys=True),
         )
+        self.assertFalse(
+            ingest_v9._correction_transport_decision(plan["tool"])[
+                "compact_json_envelope"
+            ]
+        )
         self.assertNotIn(
             "minItems",
             narrative_repair_schema["properties"]["citation_evidence"],
@@ -3540,6 +3547,493 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 page_diagnostics=page_evidence["page_diagnostics"],
                 page_count=100,
                 reader_name="concept",
+            )
+
+    def test_santa_incomplete_concept_repair_uses_compact_strict_transport(self):
+        source_text = marked_screenplay()
+        page_evidence = build_page_evidence(source_text, 100, "test")
+        pristine = complete_analysis("Santa concept recovery")[
+            "reader_reports"
+        ]["concept"]
+        rejected_report = {
+            "reader": pristine["reader"],
+            "pillar_score": pristine["pillar_score"],
+            "sub_scores": {
+                "hook_clarity": copy.deepcopy(
+                    pristine["sub_scores"]["hook_clarity"]
+                ),
+            },
+            "red_flags": copy.deepcopy(pristine["red_flags"]),
+            "one_sentence_verdict": pristine["one_sentence_verdict"],
+        }
+        plan = ingest_v9._targeted_correction_request(
+            [],
+            tool=ingest_v9.READER_TOOLS["concept"],
+            error=RuntimeError(
+                "report.sub_scores is missing required field narrative_engine"
+            ),
+            rejected_report=rejected_report,
+            correction_source={
+                "source_response_id": "msg_santa_incomplete_concept",
+                "source_request_sha256": "a" * 64,
+                "source_attempt_number": 1,
+                "rejected_output_sha256": "b" * 64,
+                "rejected_artifact_sha256": None,
+                "replay_report_sha256": ingest_v9._canonical_json_hash(
+                    rejected_report
+                ),
+            },
+            source_text=source_text,
+            page_diagnostics=page_evidence["page_diagnostics"],
+            page_count=100,
+            reader_name="concept",
+        )
+
+        decision = ingest_v9._correction_transport_decision(plan["tool"])
+        self.assertTrue(decision["compact_json_envelope"])
+        self.assertGreater(
+            decision["complexity"]["property_count"],
+            ingest_v9.STRICT_CORRECTION_MAX_PROPERTIES,
+        )
+        self.assertIn(
+            "conservative_property_limit",
+            decision["reason_codes"],
+        )
+
+        repairs = {
+            target_id: ingest_v9._schema_projected_value(
+                ingest_v9._value_at_path(pristine, target["path"]),
+                target["transport_schema"],
+            )
+            for target_id, target in plan["targets"].items()
+        }
+        repair_payload = {
+            "source_report_sha256": plan["source_report_sha256"],
+            "repairs": repairs,
+        }
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "text": "",
+            "tool_uses": [{
+                "id": "toolu_santa_concept_repair",
+                "name": plan["tool"]["name"],
+                "input": {
+                    "contract": plan["tool"]["name"],
+                    "application_schema_sha256": (
+                        ingest_v9._canonical_json_hash(
+                            plan["tool"]["input_schema"]
+                        )
+                    ),
+                    "report_json": json.dumps(repair_payload),
+                },
+            }],
+            "response_id": "msg_santa_concept_repaired",
+            "model": "claude-opus-4-7",
+            "stop_reason": "tool_use",
+            "usage": self._proxy_usage(model_id="claude-opus-4-7"),
+        }
+
+        with patch.object(
+            ingest_v9.requests,
+            "post",
+            return_value=self._exact_response(response),
+        ) as post:
+            decoded, _text, usage = ingest_v9.call_llm(
+                system_blocks=[{"type": "text", "text": "system"}],
+                user_blocks=plan["user_blocks"],
+                model_key="opus",
+                tool=plan["tool"],
+                compact_json_envelope=decision["compact_json_envelope"],
+                proxy_url="https://proxy.test",
+                retries=1,
+            )
+
+        self.assertEqual(decoded, repair_payload)
+        sent_tool = post.call_args.kwargs["json"]["tools"][0]
+        self.assertLess(len(json.dumps(sent_tool)), 1_000)
+        self.assertNotIn("narrative_engine", json.dumps(sent_tool))
+        self.assertEqual(
+            usage["calls"][0]["schema_mode"],
+            "compact_strict_tool",
+        )
+        repaired, _evidence = ingest_v9._apply_targeted_correction(
+            plan,
+            decoded,
+            ingest_v9.READER_TOOLS["concept"]["input_schema"],
+            source_text,
+        )
+        self.assertEqual(repaired, pristine)
+
+    def test_santa_concept_recovery_uses_compact_live_orchestration(self):
+        title = "Santa concept orchestration"
+        fixture = complete_analysis(title)
+        pristine = fixture["reader_reports"]["concept"]
+        concept_attempts = 0
+        compact_flags = []
+        decisions = []
+
+        def fake_call_llm(**kwargs):
+            nonlocal concept_attempts
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            if stage == "reader":
+                usage = self._successful_call_usage(
+                    f"msg_{reader_name}_{concept_attempts + 1}",
+                    stage=stage,
+                    reader_name=reader_name,
+                )
+                logical_retry = kwargs.get("logical_retry", 0)
+                usage["calls"][0].update({
+                    "logical_retry": logical_retry,
+                    "attempt_number": logical_retry + 1,
+                    "total_retry_count": logical_retry,
+                })
+                if reader_name != "concept":
+                    return (
+                        copy.deepcopy(fixture["reader_reports"][reader_name]),
+                        "",
+                        usage,
+                    )
+
+                concept_attempts += 1
+                compact_flags.append(kwargs["compact_json_envelope"])
+                if concept_attempts == 1:
+                    return ({
+                        "reader": pristine["reader"],
+                        "pillar_score": pristine["pillar_score"],
+                        "sub_scores": {
+                            "hook_clarity": copy.deepcopy(
+                                pristine["sub_scores"]["hook_clarity"]
+                            ),
+                        },
+                        "red_flags": copy.deepcopy(pristine["red_flags"]),
+                        "one_sentence_verdict": pristine[
+                            "one_sentence_verdict"
+                        ],
+                    }, "", usage)
+
+                decision = ingest_v9._correction_transport_decision(
+                    kwargs["tool"]
+                )
+                decisions.append(decision)
+                self.assertTrue(decision["compact_json_envelope"])
+                repair = self._targeted_repair_input(
+                    kwargs["tool"],
+                    pristine,
+                )
+                call = usage["calls"][0]
+                call.update({
+                    "schema_mode": "compact_strict_tool",
+                    "schema_sha256": ingest_v9._canonical_json_hash(
+                        kwargs["tool"]["input_schema"]
+                    ),
+                    "transport_schema_sha256": decision[
+                        "selected_transport_schema_sha256"
+                    ],
+                    "transformations": ["decoded_compact_json_envelope"],
+                    "transformation_evidence": [
+                        ingest_v9._transformation_hash_evidence(
+                            "decoded_compact_json_envelope",
+                            {"report_json": "hash-bound test envelope"},
+                            repair,
+                        )
+                    ],
+                    "started_at": "2026-08-27T12:00:02Z",
+                    "completed_at": "2026-08-27T12:00:03Z",
+                })
+                return repair, "", usage
+
+            return (
+                copy.deepcopy(fixture),
+                "",
+                self._successful_call_usage(
+                    "msg_santa_synthesis",
+                    stage=stage,
+                ),
+            )
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(ingest_v9.time, "sleep"):
+            analysis, usage = ingest_v9.run_v9_full(
+                text=marked_screenplay(),
+                title=title,
+                page_count=100,
+                word_count=20_000,
+                model_key="sonnet",
+                proxy_url="https://proxy.test",
+                pipeline_pass="sonnet",
+            )
+
+        self.assertEqual(concept_attempts, 2)
+        self.assertEqual(compact_flags, [True, True])
+        self.assertEqual(analysis["reader_reports"]["concept"], pristine)
+        concept_calls = [
+            call for call in usage["calls"]
+            if call.get("reader_name") == "concept"
+        ]
+        self.assertEqual(len(concept_calls), 2)
+        correction = concept_calls[1]
+        self.assertEqual(correction["schema_mode"], "compact_strict_tool")
+        self.assertEqual(
+            correction["transport_schema_sha256"],
+            decisions[0]["selected_transport_schema_sha256"],
+        )
+        self.assertEqual(
+            correction["transformations"],
+            [
+                "decoded_compact_json_envelope",
+                "selected_compact_correction_transport",
+                "merged_targeted_correction",
+                "recomputed_pillar_score",
+            ],
+        )
+        selection = next(
+            evidence for evidence in correction["transformation_evidence"]
+            if evidence["name"] == "selected_compact_correction_transport"
+        )
+        self.assertEqual(
+            selection["before_sha256"],
+            decisions[0]["strict_transport_schema_sha256"],
+        )
+        self.assertEqual(
+            selection["after_sha256"],
+            decisions[0]["selected_transport_schema_sha256"],
+        )
+        sealed_selection = _canonical_transformation_evidence(
+            [selection]
+        )[0]
+        self.assertEqual(
+            sealed_selection["reason_codes"],
+            decisions[0]["reason_codes"],
+        )
+        self.assertEqual(sealed_selection["limits"]["property_count"], 48)
+        contradictory_selection = copy.deepcopy(selection)
+        contradictory_selection["reason_codes"] = []
+        with self.assertRaisesRegex(ValueError, "reasons contradict"):
+            _canonical_transformation_evidence([contradictory_selection])
+        self.assertTrue(uses_targeted_correction_schema(correction))
+        models = _model_lineage(
+            usage=usage,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+        )
+        sealed_correction = next(
+            call for call in models["calls"]
+            if call.get("reader_name") == "concept"
+            and call.get("logical_retry") == 1
+        )
+        self.assertEqual(
+            sealed_correction["schema_mode"],
+            "compact_strict_tool",
+        )
+        tampered_usage = copy.deepcopy(usage)
+        tampered_correction = next(
+            call for call in tampered_usage["calls"]
+            if call.get("reader_name") == "concept"
+            and call.get("logical_retry") == 1
+        )
+        next(
+            evidence
+            for evidence in tampered_correction["transformation_evidence"]
+            if evidence["name"] == "selected_compact_correction_transport"
+        )["before_sha256"] = "f" * 64
+        with self.assertRaisesRegex(
+            ValueError,
+            "compact correction selection is inconsistent",
+        ):
+            _model_lineage(
+                usage=tampered_usage,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+            )
+        missing_selection = copy.deepcopy(correction)
+        missing_selection["transformations"].remove(
+            "selected_compact_correction_transport"
+        )
+        self.assertFalse(uses_targeted_correction_schema(missing_selection))
+        self.assertEqual(correction["validation_result"], "passed")
+        self.assertEqual(correction["disposition"], "used")
+
+    def test_compact_correction_rejection_preserves_selection_telemetry(self):
+        fixture = complete_analysis("Santa compact rejection")
+        pristine = fixture["reader_reports"]["concept"]
+        concept_attempts = 0
+        selected = None
+
+        def fake_call_llm(**kwargs):
+            nonlocal concept_attempts, selected
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            usage = self._successful_call_usage(
+                f"msg_{reader_name or stage}_{concept_attempts + 1}",
+                stage=stage,
+                reader_name=reader_name,
+            )
+            if stage != "reader" or reader_name != "concept":
+                return (
+                    copy.deepcopy(
+                        fixture["reader_reports"][reader_name]
+                        if stage == "reader"
+                        else fixture
+                    ),
+                    "",
+                    usage,
+                )
+
+            concept_attempts += 1
+            if concept_attempts == 1:
+                return ({
+                    "reader": pristine["reader"],
+                    "pillar_score": pristine["pillar_score"],
+                    "sub_scores": {
+                        "hook_clarity": copy.deepcopy(
+                            pristine["sub_scores"]["hook_clarity"]
+                        ),
+                    },
+                    "red_flags": copy.deepcopy(pristine["red_flags"]),
+                    "one_sentence_verdict": pristine["one_sentence_verdict"],
+                }, "", usage)
+
+            self.assertTrue(kwargs["compact_json_envelope"])
+            selected = ingest_v9._correction_transport_decision(
+                kwargs["tool"]
+            )
+            failed_usage = ingest_v9.empty_usage()
+            failed_usage["failed_calls"] = [ingest_v9.canonical_failed_call({
+                "call_id": "f" * 64,
+                "requested_model": MODEL_ID,
+                "stage": "reader",
+                "pipeline_pass": "sonnet",
+                "boundary_run": 1,
+                "reader_name": "concept",
+                "request_sha256": "e" * 64,
+                "prompt_sha256": "d" * 64,
+                "schema_mode": "compact_strict_tool",
+                "schema_sha256": ingest_v9._canonical_json_hash(
+                    kwargs["tool"]["input_schema"]
+                ),
+                "transport_schema_sha256": selected[
+                    "selected_transport_schema_sha256"
+                ],
+                "logical_retry": 1,
+                "attempt_number": 2,
+                "validation_result": "failed_pre_generation",
+                "validation_reason": (
+                    "Anthropic rejected the request before model generation."
+                ),
+                "failure_state": "provider_rejected_before_generation",
+                "rejected_output_status": (
+                    "unavailable_before_complete_response"
+                ),
+                "transformations": [],
+                "transformation_evidence": [],
+                "warnings": [],
+            })]
+            rejection = ingest_v9.LlmRequestRejectedError(
+                "Anthropic rejected the request before model generation."
+            )
+            rejection.usage = failed_usage
+            raise rejection
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(ingest_v9.time, "sleep"):
+            with self.assertRaises(
+                ingest_v9.LlmRequestRejectedError
+            ) as raised:
+                ingest_v9.run_v9_full(
+                    text=marked_screenplay(),
+                    title="Santa compact rejection",
+                    page_count=100,
+                    word_count=20_000,
+                    model_key="sonnet",
+                    proxy_url="https://proxy.test",
+                    pipeline_pass="sonnet",
+                )
+
+        self.assertEqual(concept_attempts, 2)
+        failed = raised.exception.usage["failed_calls"][0]
+        self.assertEqual(
+            failed["transformations"],
+            ["selected_compact_correction_transport"],
+        )
+        evidence = failed["transformation_evidence"][0]
+        self.assertEqual(evidence["reason_codes"], selected["reason_codes"])
+        self.assertEqual(
+            evidence["before_sha256"],
+            selected["strict_transport_schema_sha256"],
+        )
+        self.assertEqual(
+            evidence["after_sha256"],
+            selected["selected_transport_schema_sha256"],
+        )
+        lineage_usage = copy.deepcopy(raised.exception.usage)
+        lineage_usage["calls"] = [
+            call for call in lineage_usage["calls"]
+            if call.get("reader_name") == "concept"
+        ]
+        model_totals = {
+            field: sum(
+                call["usage"][field]
+                for call in lineage_usage["calls"]
+            )
+            for field in ingest_v9.USAGE_COUNTER_FIELDS
+        }
+        lineage_usage["call_count"] = len(lineage_usage["calls"])
+        lineage_usage["by_model"] = {MODEL_ID: model_totals}
+        for field, value in model_totals.items():
+            lineage_usage[field] = value
+        models = _model_lineage(
+            usage=lineage_usage,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+        )
+        self.assertEqual(
+            models["failed_calls"][0]["schema_mode"],
+            "compact_strict_tool",
+        )
+        tampered_usage = copy.deepcopy(lineage_usage)
+        tampered_usage["failed_calls"][0]["transformation_evidence"][0][
+            "before_sha256"
+        ] = "f" * 64
+        with self.assertRaisesRegex(
+            ValueError,
+            "compact correction selection is inconsistent",
+        ):
+            _model_lineage(
+                usage=tampered_usage,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
             )
 
     def test_synthesis_correction_strips_transport_only_descriptions(self):

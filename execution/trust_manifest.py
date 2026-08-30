@@ -1152,25 +1152,56 @@ def correction_call_lineage_matches(
 
     source_schema = source.get("schema_sha256")
     target_schema = target.get("schema_sha256")
+    target_transport_schema = target.get("transport_schema_sha256")
+    target_uses_correction_transport = (
+        target.get("schema_mode") == "strict_tool"
+        and target_schema == target_transport_schema
+    ) or (
+        target.get("schema_mode") == "compact_strict_tool"
+        and isinstance(target_schema, str)
+        and isinstance(target_transport_schema, str)
+        and target_schema != target_transport_schema
+    )
     return (
         source.get("schema_mode") == "compact_strict_tool"
-        and target.get("schema_mode") == "strict_tool"
+        and target_uses_correction_transport
         and isinstance(source_schema, str)
         and isinstance(target_schema, str)
         and source_schema != target_schema
-        and target.get("transport_schema_sha256") == target_schema
         and source.get("prompt_sha256") != target.get("prompt_sha256")
     )
 
 
 def uses_targeted_correction_schema(call: Mapping[str, Any]) -> bool:
     """Identify current reader/synthesis correction calls before lineage binding."""
+    schema_mode = call.get("schema_mode")
+    application_schema = call.get("schema_sha256")
+    transport_schema = call.get("transport_schema_sha256")
+    transformations = call.get("transformations")
+    direct_strict = schema_mode == "strict_tool"
+    compact_strict = (
+        schema_mode == "compact_strict_tool"
+        and isinstance(application_schema, str)
+        and isinstance(transport_schema, str)
+        and application_schema != transport_schema
+        and isinstance(transformations, list)
+        and "selected_compact_correction_transport"
+        in transformations
+    )
     return (
         call.get("prompt_contract_version")
         in TARGETED_CORRECTION_PROMPT_CONTRACT_VERSIONS
         and call.get("stage") in {"reader", "synthesis"}
         and call.get("logical_retry") in {1, 2}
-        and call.get("schema_mode") == "strict_tool"
+        and (direct_strict or compact_strict)
+    )
+
+
+def scored_schema_mode_is_permitted(call: Mapping[str, Any]) -> bool:
+    """Permit full scored schemas plus source-bound targeted corrections."""
+    return (
+        call.get("schema_mode") == "compact_strict_tool"
+        or uses_targeted_correction_schema(call)
     )
 
 
@@ -1467,6 +1498,61 @@ def _canonical_transformation_evidence(raw_evidence: Any) -> List[Dict[str, Any]
             record.update({
                 "policy": CITATION_MATCH_POLICY_VERSION,
                 "match_count": match_count,
+            })
+        elif name == "selected_compact_correction_transport":
+            metric_limits = {
+                "optional_parameter_count": 24,
+                "union_parameter_count": 16,
+                "property_count": 48,
+                "maximum_depth": 5,
+            }
+            metrics = {
+                field: evidence.get(field)
+                for field in (
+                    "object_count",
+                    "property_count",
+                    "optional_parameter_count",
+                    "union_parameter_count",
+                    "maximum_depth",
+                )
+            }
+            if any(
+                type(value) is not int or value < 0
+                for value in metrics.values()
+            ):
+                raise ValueError(
+                    "compact correction transport metrics are invalid"
+                )
+            expected_reasons = [
+                reason
+                for field, reason in (
+                    (
+                        "optional_parameter_count",
+                        "optional_parameter_limit",
+                    ),
+                    (
+                        "union_parameter_count",
+                        "union_parameter_limit",
+                    ),
+                    (
+                        "property_count",
+                        "conservative_property_limit",
+                    ),
+                    (
+                        "maximum_depth",
+                        "conservative_depth_limit",
+                    ),
+                )
+                if metrics[field] > metric_limits[field]
+            ]
+            if evidence.get("reason_codes") != expected_reasons:
+                raise ValueError(
+                    "compact correction transport reasons contradict its metrics"
+                )
+            record.update({
+                **metrics,
+                "reason_codes": expected_reasons,
+                "limits": metric_limits,
             })
         elif "policy" in evidence or "match_count" in evidence:
             raise ValueError("unexpected transformation policy evidence")
@@ -1943,16 +2029,11 @@ def _model_lineage(
                 raise ValueError(
                     f"usage.calls[{index}] genre detection must use a strict tool"
                 )
-            expected_scored_schema_mode = (
-                "strict_tool"
-                if uses_targeted_correction_schema(raw_call)
-                else "compact_strict_tool"
-            )
             if stage in {
                 "claim_verification", "reader", "synthesis",
-            } and schema_mode != expected_scored_schema_mode:
+            } and not scored_schema_mode_is_permitted(raw_call):
                 raise ValueError(
-                    f"usage.calls[{index}] scored stages must use compact strict tools"
+                    f"usage.calls[{index}] scored stage schema mode is invalid"
                 )
 
             validation_result = _require_nonempty_string(
@@ -2094,9 +2175,35 @@ def _model_lineage(
                 raise ValueError(
                     f"usage.calls[{index}] correction source is invalid for its stage"
                 )
+            if (
+                correction_source is not None
+                and not uses_targeted_correction_schema(raw_call)
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] correction source lacks a targeted schema"
+                )
             if uses_targeted_correction_schema(raw_call) and correction_source is None:
                 raise ValueError(
                     f"usage.calls[{index}] targeted correction lacks its source"
+                )
+            compact_selection_evidence = next(
+                (
+                    evidence
+                    for evidence in canonical_transformation_evidence
+                    if evidence["name"]
+                    == "selected_compact_correction_transport"
+                ),
+                None,
+            )
+            if compact_selection_evidence is not None and (
+                schema_mode != "compact_strict_tool"
+                or compact_selection_evidence["before_sha256"]
+                != schema_sha256
+                or compact_selection_evidence["after_sha256"]
+                != transport_schema_sha256
+            ):
+                raise ValueError(
+                    f"usage.calls[{index}] compact correction selection is inconsistent"
                 )
             targeted_correction_evidence = next(
                 (
@@ -2955,39 +3062,38 @@ def _model_lineage(
                     f"usage.failed_calls[{index}] prompt contract is stale"
                 )
             schema_mode = raw_call.get("schema_mode")
+            schema_sha256 = raw_call.get("schema_sha256")
+            transport_schema_sha256 = raw_call.get(
+                "transport_schema_sha256"
+            )
             if schema_mode not in {
                 "schema_free", "strict_tool", "compact_strict_tool",
             }:
                 raise ValueError(f"usage.failed_calls[{index}] schema mode is invalid")
             if schema_mode == "schema_free":
                 if (
-                    raw_call.get("schema_sha256") is not None
-                    or raw_call.get("transport_schema_sha256") is not None
+                    schema_sha256 is not None
+                    or transport_schema_sha256 is not None
                 ):
                     raise ValueError(
                         f"usage.failed_calls[{index}] schema-free call has a schema hash"
                     )
             else:
                 _require_sha256(
-                    raw_call.get("schema_sha256"),
+                    schema_sha256,
                     f"usage.failed_calls[{index}].schema_sha256",
                 )
                 _require_sha256(
-                    raw_call.get("transport_schema_sha256"),
+                    transport_schema_sha256,
                     f"usage.failed_calls[{index}].transport_schema_sha256",
                 )
             if stage == "triage" and schema_mode != "schema_free":
                 raise ValueError(f"usage.failed_calls[{index}] triage schema is invalid")
             if stage == "genre_detection" and schema_mode != "strict_tool":
                 raise ValueError(f"usage.failed_calls[{index}] genre schema is invalid")
-            expected_scored_schema_mode = (
-                "strict_tool"
-                if uses_targeted_correction_schema(raw_call)
-                else "compact_strict_tool"
-            )
             if stage in {
                 "claim_verification", "reader", "synthesis",
-            } and schema_mode != expected_scored_schema_mode:
+            } and not scored_schema_mode_is_permitted(raw_call):
                 raise ValueError(f"usage.failed_calls[{index}] scored schema is invalid")
             if raw_call.get("pricing_sha256") != runtime_pricing_sha256():
                 raise ValueError(
@@ -3224,6 +3330,13 @@ def _model_lineage(
                     f"usage.failed_calls[{index}] correction delivery lacks a source"
                 )
             if (
+                failed_correction_source is not None
+                and not uses_targeted_correction_schema(raw_call)
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] correction source lacks a targeted schema"
+                )
+            if (
                 uses_targeted_correction_schema(raw_call)
                 and failed_correction_source is None
                 and correction_delivery_state_for_call(
@@ -3233,6 +3346,25 @@ def _model_lineage(
             ):
                 raise ValueError(
                     f"usage.failed_calls[{index}] targeted correction lacks its source"
+                )
+            compact_selection_evidence = next(
+                (
+                    evidence
+                    for evidence in canonical_transformation_evidence
+                    if evidence["name"]
+                    == "selected_compact_correction_transport"
+                ),
+                None,
+            )
+            if compact_selection_evidence is not None and (
+                schema_mode != "compact_strict_tool"
+                or compact_selection_evidence["before_sha256"]
+                != schema_sha256
+                or compact_selection_evidence["after_sha256"]
+                != transport_schema_sha256
+            ):
+                raise ValueError(
+                    f"usage.failed_calls[{index}] compact correction selection is inconsistent"
                 )
             call_usage = raw_call.get("usage")
             if not isinstance(call_usage, dict):

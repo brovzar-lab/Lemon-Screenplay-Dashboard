@@ -439,6 +439,8 @@ function validateBenchmarkContract(value, evidence, expectedRunId, requestModel,
     const oldThinkingToolChoice = contractWithoutCallId.generation === "old";
     const validCompactPayload = compactToolName !== null
         && isExactCompactPayload(payload, compactToolName, oldThinkingToolChoice);
+    const validCompactCorrectionPayload = ["reader", "synthesis"].includes(stage)
+        && isExactCompactPayload(payload, correctionToolName, oldThinkingToolChoice);
     const validStageContract = (((stage === "triage" || stage === "cold_read" || stage === "smoke")
         && contractWithoutCallId.reader_name === null
         && contractWithoutCallId.retry_number === 0
@@ -454,14 +456,20 @@ function validateBenchmarkContract(value, evidence, expectedRunId, requestModel,
                 && schemaMode === "compact_strict_tool" && validCompactPayload)
                 || ([1, 2].includes(contractWithoutCallId.retry_number)
                     && schemaMode === "strict_tool"
-                    && isTargetedCorrectionPayload(payload, correctionToolName, oldThinkingToolChoice))))
+                    && isTargetedCorrectionPayload(payload, correctionToolName, oldThinkingToolChoice))
+                || ([1, 2].includes(contractWithoutCallId.retry_number)
+                    && schemaMode === "compact_strict_tool"
+                    && validCompactCorrectionPayload)))
         || (stage === "synthesis"
             && contractWithoutCallId.reader_name === null
             && ((contractWithoutCallId.retry_number <= 1
                 && schemaMode === "compact_strict_tool" && validCompactPayload)
                 || ([1, 2].includes(contractWithoutCallId.retry_number)
                     && schemaMode === "strict_tool"
-                    && isTargetedCorrectionPayload(payload, correctionToolName, oldThinkingToolChoice))))
+                    && isTargetedCorrectionPayload(payload, correctionToolName, oldThinkingToolChoice))
+                || ([1, 2].includes(contractWithoutCallId.retry_number)
+                    && schemaMode === "compact_strict_tool"
+                    && validCompactCorrectionPayload)))
         || (stage === "claim_verification"
             && contractWithoutCallId.reader_name !== null
             && contractWithoutCallId.retry_number <= 1
