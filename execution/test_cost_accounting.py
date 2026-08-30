@@ -3532,6 +3532,240 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             self.assertEqual(set(node), {"type", "items"})
             self.assertNotIn("description", node)
 
+    def test_synthesis_atomic_mapping_gets_one_bounded_evidence_map_repair(self):
+        source_text = marked_screenplay()
+        page_evidence = build_page_evidence(source_text, 100, "test")
+        complete = complete_analysis("Atomic mapping repair")
+        pristine = ingest_v9._schema_projected_value(
+            complete,
+            ingest_v9.SYNTHESIS_TOOL["input_schema"],
+        )
+        rejected = copy.deepcopy(pristine)
+        for index, material_claim in enumerate(rejected["material_claims"]):
+            material_claim["atomic_claims"][0]["claim"] = (
+                f"Model-written evidence paraphrase {index}."
+            )
+
+        def validate(report):
+            return ingest_v9._validate_synthesis_report(
+                report,
+                complete["reader_reports"],
+                "Source Draft",
+                "Fixture Writer",
+                ingest_v9.parse_detection({
+                    "external_genre": "Society",
+                    "confidence": "high",
+                }),
+            )
+
+        with self.assertRaisesRegex(ValueError, "atomic mapping") as raised:
+            validate(rejected)
+
+        plan = ingest_v9._targeted_correction_request(
+            [],
+            tool=ingest_v9.SYNTHESIS_TOOL,
+            error=raised.exception,
+            rejected_report=rejected,
+            correction_source={
+                "source_response_id": "msg_santa_synthesis_rejected",
+                "source_request_sha256": "a" * 64,
+                "source_attempt_number": 1,
+                "rejected_output_sha256": "b" * 64,
+                "rejected_artifact_sha256": "c" * 64,
+                "replay_report_sha256": ingest_v9._canonical_json_hash(
+                    rejected
+                ),
+            },
+            source_text=source_text,
+            page_diagnostics=page_evidence["page_diagnostics"],
+            page_count=100,
+        )
+
+        self.assertEqual(set(plan["targets"]), {"material_claims"})
+        self.assertEqual(
+            plan["targets"]["material_claims"]["reasons"],
+            ["material_claim_mapping"],
+        )
+        prompt = plan["user_blocks"][-1]["text"]
+        self.assertIn('"exact_material_claim_plan"', prompt)
+        self.assertIn("Copy source_field, source_index, claim", prompt)
+        strict_tool = ingest_v9._strict_tool_definition(plan["tool"])
+        root = Path(__file__).resolve().parents[1]
+        catalog = json.loads(
+            (root / "src/config/anthropic-model-catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        payload = {
+            "model": catalog["candidateAnalysisRoutes"]["sonnet"]["modelId"],
+            "messages": [{"role": "user", "content": "hash-bound correction"}],
+            "max_tokens": 32_000,
+            "tools": [strict_tool],
+            "tool_choice": {"type": "tool", "name": strict_tool["name"]},
+        }
+        node_script = (
+            "const fs=require('node:fs');"
+            "const m=require('./functions/lib/benchmarkCandidatePolicy.js');"
+            "const p=JSON.parse(fs.readFileSync(0,'utf8'));"
+            "const e=m.deriveBenchmarkPayloadEvidence(p);"
+            "const b={run_id:'9'.repeat(64),screenplay_sha256:'a'.repeat(64),"
+            "route:'sonnet',generation:'candidate',pipeline_stage:'synthesis',"
+            "pipeline_pass:'sonnet',reader_name:null,retry_number:1,boundary_run:1,"
+            "prompt_bundle_sha256:'b'.repeat(64),schema_bundle_sha256:'c'.repeat(64),"
+            "...e,requested_model:p.model};"
+            "b.call_id=m.deriveBenchmarkCallId(b);"
+            "m.validateBenchmarkContract(b,e,b.run_id,b.requested_model,p);"
+            "process.stdout.write('accepted');"
+        )
+        policy_check = subprocess.run(
+            ["node", "-e", node_script],
+            cwd=root,
+            input=json.dumps(payload),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(policy_check.stdout, "accepted")
+
+        repair_input = {
+            "source_report_sha256": plan["source_report_sha256"],
+            "repairs": {
+                "material_claims": copy.deepcopy(pristine["material_claims"]),
+            },
+        }
+        repaired, evidence = ingest_v9._apply_targeted_correction(
+            plan,
+            repair_input,
+            ingest_v9.SYNTHESIS_TOOL["input_schema"],
+            source_text,
+        )
+
+        self.assertEqual(repaired["material_claims"], pristine["material_claims"])
+        immutable_repaired = copy.deepcopy(repaired)
+        immutable_rejected = copy.deepcopy(rejected)
+        immutable_repaired.pop("material_claims")
+        immutable_rejected.pop("material_claims")
+        self.assertEqual(immutable_repaired, immutable_rejected)
+        validate(repaired)
+        self.assertEqual(
+            evidence["expected_material_claim_plan_sha256"],
+            ingest_v9._canonical_json_hash(
+                ingest_v9._expected_material_claim_plan(pristine)
+            ),
+        )
+
+        invalid_repair = copy.deepcopy(repair_input)
+        invalid_repair["repairs"]["material_claims"][0]["atomic_claims"][0][
+            "claim"
+        ] = "A second model-written paraphrase."
+        with self.assertRaisesRegex(ValueError, "atomic mapping"):
+            ingest_v9._apply_targeted_correction(
+                plan,
+                invalid_repair,
+                ingest_v9.SYNTHESIS_TOOL["input_schema"],
+                source_text,
+            )
+
+    def test_synthesis_atomic_mapping_retry_records_both_calls(self):
+        title = "Atomic mapping retry"
+        fixture = complete_analysis(title)
+        synthesis_attempts = 0
+
+        def fake_call_llm(**kwargs):
+            nonlocal synthesis_attempts
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            if stage == "reader":
+                return (
+                    copy.deepcopy(fixture["reader_reports"][reader_name]),
+                    "",
+                    self._successful_call_usage(
+                        f"msg_reader_{reader_name}",
+                        stage=stage,
+                        reader_name=reader_name,
+                    ),
+                )
+
+            self.assertEqual(stage, "synthesis")
+            synthesis_attempts += 1
+            logical_retry = kwargs.get("logical_retry", 0)
+            usage = self._successful_call_usage(
+                f"msg_synthesis_atomic_{synthesis_attempts}",
+                stage=stage,
+            )
+            usage["calls"][0].update({
+                "logical_retry": logical_retry,
+                "attempt_number": logical_retry + 1,
+                "total_retry_count": logical_retry,
+            })
+            if synthesis_attempts == 1:
+                report = ingest_v9._schema_projected_value(
+                    fixture,
+                    ingest_v9.SYNTHESIS_TOOL["input_schema"],
+                )
+                report["material_claims"][0]["atomic_claims"][0]["claim"] = (
+                    "A model-written evidence paraphrase."
+                )
+                return report, "", usage
+
+            self._mark_targeted_correction_usage(usage, kwargs["tool"])
+            repair_schema = kwargs["tool"]["input_schema"]
+            self.assertEqual(
+                set(repair_schema["properties"]["repairs"]["properties"]),
+                {"material_claims"},
+            )
+            pristine = ingest_v9._schema_projected_value(
+                fixture,
+                ingest_v9.SYNTHESIS_TOOL["input_schema"],
+            )
+            return ({
+                "source_report_sha256": repair_schema["properties"][
+                    "source_report_sha256"
+                ]["enum"][0],
+                "repairs": {
+                    "material_claims": pristine["material_claims"],
+                },
+            }, "", usage)
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(ingest_v9.time, "sleep"):
+            analysis, usage = ingest_v9.run_v9_full(
+                text=marked_screenplay(),
+                title=title,
+                page_count=100,
+                word_count=20_000,
+                model_key="sonnet",
+                proxy_url="https://proxy.test",
+                pipeline_pass="sonnet",
+            )
+
+        synthesis_calls = [
+            call for call in usage["calls"]
+            if call["stage"] == "synthesis"
+        ]
+        self.assertEqual(synthesis_attempts, 2)
+        self.assertEqual(len(synthesis_calls), 2)
+        rejected, correction = synthesis_calls
+        self.assertEqual(rejected["validation_result"], "failed_application_validation")
+        self.assertEqual(rejected["disposition"], "discarded_unusable")
+        self.assertEqual(rejected["downstream_consumption"], "correction_only")
+        self.assertEqual(correction["validation_result"], "passed")
+        self.assertEqual(correction["logical_retry"], 1)
+        self.assertEqual(correction["disposition"], "used")
+        self.assertEqual(correction["downstream_consumption"], "consumed")
+        self.assertEqual(analysis["analysis_quality"]["status"], "complete")
+
     def test_targeted_correction_stops_before_a_twenty_fifth_repair(self):
         source_text = marked_screenplay()
         page_evidence = build_page_evidence(source_text, 100, "test")
