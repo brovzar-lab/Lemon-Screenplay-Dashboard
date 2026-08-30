@@ -4935,6 +4935,49 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         ingest_v9._validate_reader_report("emotional_resonance", repaired)
 
+    def test_verified_goosebumps_citation_page_is_authoritative(self):
+        report = copy.deepcopy(
+            complete_analysis("Santa page regression")["reader_reports"]
+            ["emotional_resonance"]
+        )
+        report["goosebumps_scenes"] = [{
+            "page": 102,
+            "description": "The family chooses truth over safety.",
+            "why_it_works": "The choice resolves the emotional conflict.",
+            "page_citations": [104],
+            "citation_evidence": [{
+                "page": 104,
+                "excerpt": FIXTURE_DECISION_EVIDENCE,
+            }],
+        }]
+
+        evidence = (
+            ingest_v9._derive_goosebumps_scene_pages_from_citations(
+                report
+            )
+        )
+
+        self.assertIsNotNone(evidence)
+        self.assertEqual(report["goosebumps_scenes"][0]["page"], 104)
+        self.assertEqual(
+            evidence["name"],
+            "derived_goosebumps_scene_pages_from_citations",
+        )
+        self.assertTrue(evidence["changed"])
+        ingest_v9._validate_reader_report("emotional_resonance", report)
+
+        report["goosebumps_scenes"][0].pop("page")
+        self.assertIsNone(
+            ingest_v9._derive_goosebumps_scene_pages_from_citations(
+                report
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "missing required field page"):
+            ingest_v9._validate_reader_report(
+                "emotional_resonance",
+                report,
+            )
+
     def test_targeted_correction_rejects_distinct_same_page_evidence(self):
         second_exact_excerpt = "Sergio feels his heart fall to the floor."
         source_text = join_marked_pages([
@@ -7039,16 +7082,12 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                         retry_text,
                     )
                     self.assertIn("source_response_id", retry_text)
-                    repair_schema = kwargs["tool"]["input_schema"][
+                    repair_properties = kwargs["tool"]["input_schema"][
                         "properties"
-                    ]["repairs"]["properties"]["goosebumps_scenes.0"]
-                    self.assertEqual(
-                        set(repair_schema["properties"]),
-                        {"page", "page_citations", "citation_evidence"},
-                    )
-                    self.assertEqual(
-                        repair_schema["properties"]["page"]["enum"],
-                        [52, 53],
+                    ]["repairs"]["properties"]
+                    self.assertNotIn(
+                        "goosebumps_scenes.0",
+                        repair_properties,
                     )
                     return (
                         self._targeted_repair_input(
@@ -7255,6 +7294,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         self.assertEqual(
             fresh_retry["prompt_sha256"],
             structural_source["prompt_sha256"],
+        )
+        self.assertIn(
+            "derived_goosebumps_scene_pages_from_citations",
+            fresh_retry["transformations"],
         )
         self.assertEqual(
             analysis["reader_reports"]["emotional_resonance"][

@@ -9568,6 +9568,35 @@ def _validate_reader_report(reader: str, report: Any) -> Dict[str, Any]:
     return report
 
 
+def _derive_goosebumps_scene_pages_from_citations(
+    report: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Make the single verified citation page authoritative for display."""
+    scenes = report.get("goosebumps_scenes")
+    if not isinstance(scenes, list):
+        return None
+    before = copy.deepcopy(scenes)
+    for scene in scenes:
+        if not isinstance(scene, dict):
+            continue
+        citations = scene.get("page_citations")
+        if (
+            type(scene.get("page")) is int
+            and isinstance(citations, list)
+            and len(citations) == 1
+            and type(citations[0]) is int
+        ):
+            scene["page"] = citations[0]
+    if scenes == before:
+        return None
+    return {
+        "name": "derived_goosebumps_scene_pages_from_citations",
+        "before_sha256": _canonical_json_hash(before),
+        "after_sha256": _canonical_json_hash(scenes),
+        "changed": True,
+    }
+
+
 def _validate_synthesis_report(
     report: Any,
     reader_reports: Optional[Dict[str, Any]],
@@ -11127,6 +11156,22 @@ def run_v9_full(
                         tool["input_schema"],
                         path_prefix=("reader_reports", reader),
                     )
+                if reader == "emotional_resonance":
+                    page_evidence = (
+                        _derive_goosebumps_scene_pages_from_citations(
+                            tool_input
+                        )
+                    )
+                    if page_evidence is not None:
+                        application_transformations.append(
+                            "derived_goosebumps_scene_pages_from_citations"
+                        )
+                        transformation_evidence.append(page_evidence)
+                        transformation_warnings.append(
+                            "Goosebumps scene display pages were derived from "
+                            "their verified citation pages"
+                        )
+                        reader_before = copy.deepcopy(tool_input)
                 if citation_quality.get("normalized_match_count", 0):
                     application_transformations.append(
                         "accepted_revision_safe_citation_equivalence"
