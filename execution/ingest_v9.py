@@ -4065,6 +4065,159 @@ def _settled_provenance_failure_usage(
     return usage
 
 
+_PROVIDER_ERROR_CLASSES = {
+    "APIConnectionTimeoutError", "APIConnectionError", "APIUserAbortError",
+    "BadRequestError", "AuthenticationError", "PermissionDeniedError",
+    "NotFoundError", "ConflictError", "UnprocessableEntityError",
+    "RateLimitError", "InternalServerError", "APIError", "AnthropicError",
+    "Error", "UnknownError",
+}
+_PROVIDER_ERROR_TYPES = {
+    "invalid_request_error", "authentication_error", "permission_error",
+    "not_found_error", "conflict_error", "request_too_large",
+    "rate_limit_error", "timeout_error",
+    "overloaded_error", "api_error", "billing_error", "connection_error",
+    "connection_timeout", "user_abort", "unknown_provider_error",
+}
+_PROVIDER_HTTP_ERROR_TYPES = {
+    "invalid_request_error", "authentication_error", "permission_error",
+    "not_found_error", "conflict_error", "request_too_large",
+    "rate_limit_error", "timeout_error",
+    "overloaded_error", "api_error", "billing_error",
+    "unknown_provider_error",
+}
+_PROVIDER_TRANSPORT_DETAILS = {
+    "request_timeout", "connection_reset", "stream_terminated",
+    "connection_refused", "dns_failure", "network_unreachable", "user_abort",
+    "provider_http_error", "unknown_connection_error",
+    "unknown_transport_error",
+}
+_PROVIDER_CONNECTION_DETAILS = {
+    "request_timeout", "connection_reset", "stream_terminated",
+    "connection_refused", "dns_failure", "network_unreachable",
+    "unknown_connection_error",
+}
+_PROVIDER_GENERIC_DETAILS = {
+    "request_timeout", "connection_reset", "stream_terminated",
+    "connection_refused", "dns_failure", "network_unreachable",
+    "unknown_transport_error",
+}
+
+
+def _validated_provider_failure_metadata(
+    data: Dict[str, Any],
+    *,
+    expected_rejection: bool = False,
+) -> Dict[str, Any]:
+    error_class = data.get("provider_error_class")
+    status = data.get("provider_http_status")
+    error_type = data.get("provider_error_type")
+    request_id = data.get("provider_request_id")
+    detail = data.get("provider_transport_detail")
+    if (
+        error_class not in _PROVIDER_ERROR_CLASSES
+        or (
+            status is not None
+            and (type(status) is not int or not 400 <= status <= 599)
+        )
+        or error_type not in _PROVIDER_ERROR_TYPES
+        or (
+            request_id is not None
+            and re.fullmatch(r"req_[A-Za-z0-9_-]{8,160}", str(request_id)) is None
+        )
+        or detail not in _PROVIDER_TRANSPORT_DETAILS
+    ):
+        raise LlmAccountingError(
+            "Candidate transport uncertainty omitted safe provider diagnostics"
+        )
+    fixed_http_status = {
+        "BadRequestError": 400,
+        "AuthenticationError": 401,
+        "PermissionDeniedError": 403,
+        "NotFoundError": 404,
+        "ConflictError": 409,
+        "UnprocessableEntityError": 422,
+        "RateLimitError": 429,
+    }
+    if error_class == "APIConnectionTimeoutError":
+        coherent = (
+            status is None
+            and error_type == "connection_timeout"
+            and detail == "request_timeout"
+        )
+    elif error_class == "APIConnectionError":
+        coherent = (
+            status is None
+            and error_type == "connection_error"
+            and detail in _PROVIDER_CONNECTION_DETAILS
+        )
+    elif error_class == "APIUserAbortError":
+        coherent = (
+            status is None
+            and error_type == "user_abort"
+            and detail == "user_abort"
+        )
+    elif error_class in fixed_http_status:
+        coherent = (
+            status == fixed_http_status[error_class]
+            and error_type in _PROVIDER_HTTP_ERROR_TYPES
+            and detail == "provider_http_error"
+        )
+    elif error_class == "InternalServerError":
+        coherent = (
+            type(status) is int
+            and 500 <= status <= 599
+            and error_type in _PROVIDER_HTTP_ERROR_TYPES
+            and detail == "provider_http_error"
+        )
+    elif error_class == "APIError":
+        coherent = (
+            type(status) is int
+            and 400 <= status <= 499
+            and status not in set(fixed_http_status.values())
+            and error_type in _PROVIDER_HTTP_ERROR_TYPES
+            and detail == "provider_http_error"
+        )
+    else:
+        coherent = (
+            error_class in {"AnthropicError", "Error", "UnknownError"}
+            and status is None
+            and error_type == "unknown_provider_error"
+            and detail in _PROVIDER_GENERIC_DETAILS
+        )
+    if not coherent:
+        raise LlmAccountingError(
+            "Candidate provider diagnostics are internally inconsistent"
+        )
+    if expected_rejection and (
+        error_class != "BadRequestError"
+        or status != 400
+        or error_type != "invalid_request_error"
+        or detail != "provider_http_error"
+    ):
+        raise LlmAccountingError(
+            "Candidate provider rejection diagnostics are inconsistent"
+        )
+    summary = (
+        f"Anthropic provider failure: class={error_class}; "
+        f"status={status if status is not None else 'none'}; "
+        f"type={error_type}; detail={detail}; "
+        f"request_id={request_id if request_id is not None else 'unavailable'}."
+    )
+    if data.get("provider_failure_summary") != summary:
+        raise LlmAccountingError(
+            "Candidate transport uncertainty omitted its exact sanitized reason"
+        )
+    return {
+        "provider_error_class": error_class,
+        "provider_http_status": status,
+        "provider_error_type": error_type,
+        "provider_request_id": request_id,
+        "provider_transport_detail": detail,
+        "provider_failure_summary": summary,
+    }
+
+
 def _benchmark_uncertain_failure_usage(
     data: Dict[str, Any],
     requested_model: str,
@@ -4137,15 +4290,23 @@ def _benchmark_uncertain_failure_usage(
     raw_provider_content_available = (
         rejected_output_status == "available" and "rejected_output" in data
     )
+    provider_failure_metadata: Dict[str, Any] = {}
     if failure_code == "PROVIDER_TRANSPORT_UNCERTAIN":
         if rejected_output_status != "unavailable_before_complete_response":
             raise LlmAccountingError(
                 "Candidate transport uncertainty omitted rejected-output availability"
             )
-    elif failure_code in {
-        "PROVIDER_REJECTION_RELEASE_UNCERTAIN",
-        "CANDIDATE_PROVIDER_CONFIGURATION_UNAVAILABLE",
-    }:
+        provider_failure_metadata = _validated_provider_failure_metadata(data)
+    elif failure_code == "PROVIDER_REJECTION_RELEASE_UNCERTAIN":
+        if rejected_output_status != "unavailable_before_complete_response":
+            raise LlmAccountingError(
+                "Candidate pre-generation rejection omitted rejected-output availability"
+            )
+        provider_failure_metadata = _validated_provider_failure_metadata(
+            data,
+            expected_rejection=True,
+        )
+    elif failure_code == "CANDIDATE_PROVIDER_CONFIGURATION_UNAVAILABLE":
         if rejected_output_status != "unavailable_before_complete_response":
             raise LlmAccountingError(
                 "Candidate pre-generation rejection omitted rejected-output availability"
@@ -4219,6 +4380,14 @@ def _benchmark_uncertain_failure_usage(
         raise LlmAccountingError(
             "Candidate uncertainty response did not reconcile its cap charge"
         )
+    if failure_code == "PROVIDER_TRANSPORT_UNCERTAIN":
+        has_settlement_hash = re.fullmatch(
+            r"[a-f0-9]{64}", str(settlement_error_sha256 or "")
+        ) is not None
+        if (uncertainty_status == "reservation_held") != has_settlement_hash:
+            raise LlmAccountingError(
+                "Candidate transport uncertainty did not bind its settlement failure"
+            )
     for micros_field, usd_field in (
         ("charged_cost_microusd", "charged_cost_usd"),
         ("reserved_cost_microusd", "reserved_cost_usd"),
@@ -4440,6 +4609,7 @@ def _benchmark_uncertain_failure_usage(
         "validation_reason": failure_reason,
         "validation_failure_code": failure_code,
         "provider_error_sha256": provider_error_sha256,
+        **provider_failure_metadata,
         "configuration_error_sha256": configuration_error_sha256,
         "settlement_error_sha256": settlement_error_sha256,
         "transformations": list(
@@ -4699,6 +4869,10 @@ def _benchmark_rejected_failure_usage(
         raise LlmAccountingError(
             "Candidate rejection omitted proof that no provider generation occurred"
         )
+    provider_failure_metadata = _validated_provider_failure_metadata(
+        rejection,
+        expected_rejection=True,
+    )
     completed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     response_release = data.get("release")
     release_matches = _benchmark_release_matches(
@@ -4754,6 +4928,7 @@ def _benchmark_rejected_failure_usage(
         "validation_failure_code": rejection.get("validation_failure_code"),
         "validation_failure_reason": rejection.get("validation_failure_reason"),
         "provider_error_sha256": rejection.get("provider_error_sha256"),
+        **provider_failure_metadata,
         "transformations": [],
         "transformation_evidence": [],
         "failure_state": failure_state,

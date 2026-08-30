@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const {
   CANDIDATE_MAX_OUTPUT_TOKENS,
@@ -249,25 +250,57 @@ test('candidate settlement failures retain finite privacy-safe validation causes
 
 test('provider rejection evidence hashes but never persists arbitrary provider text', () => {
   const secret = 'PRIVATE_SCREENPLAY_SENTINEL sk-ant-secret';
-  const evidence = providerRejectionFailure(secret);
+  const body = {
+    type: 'error',
+    error: { type: 'invalid_request_error', message: secret },
+    request_id: 'req_011CeYRejectedProof123',
+  };
+  const error = Anthropic.APIError.generate(
+    400,
+    body,
+    secret,
+    new Headers({ 'request-id': body.request_id }),
+  );
+  const evidence = providerRejectionFailure(secret, error);
   assert.match(evidence.provider_error_sha256, /^[a-f0-9]{64}$/);
   assert.equal(JSON.stringify(evidence).includes(secret), false);
   assert.equal(
     evidence.validation_failure_code,
     'PROVIDER_INVALID_REQUEST_BEFORE_GENERATION',
   );
+  assert.equal(evidence.provider_error_class, 'BadRequestError');
+  assert.equal(evidence.provider_http_status, 400);
+  assert.equal(evidence.provider_error_type, 'invalid_request_error');
+  assert.equal(evidence.provider_request_id, body.request_id);
+  assert.equal(evidence.provider_transport_detail, 'provider_http_error');
 });
 
 test('provider transport uncertainty is finite and hashes private error text', () => {
-  const evidence = providerTransportFailure('PRIVATE_SCREENPLAY_SENTINEL');
+  const cause = Object.assign(new Error('socket hang up PRIVATE_SCREENPLAY_SENTINEL'), {
+    code: 'ECONNRESET',
+  });
+  const error = new Anthropic.APIConnectionError({ cause });
+  const evidence = providerTransportFailure('PRIVATE_SCREENPLAY_SENTINEL', error);
   assert.equal(evidence.validation_failure_code, 'PROVIDER_TRANSPORT_UNCERTAIN');
   assert.match(evidence.provider_error_sha256, /^[a-f0-9]{64}$/);
+  assert.equal(evidence.provider_error_class, 'APIConnectionError');
+  assert.equal(evidence.provider_http_status, null);
+  assert.equal(evidence.provider_error_type, 'connection_error');
+  assert.equal(evidence.provider_request_id, null);
+  assert.equal(evidence.provider_transport_detail, 'connection_reset');
+  assert.match(evidence.provider_failure_summary, /detail=connection_reset/);
   assert.equal(JSON.stringify(evidence).includes('PRIVATE_SCREENPLAY_SENTINEL'), false);
 });
 
 test('failed zero-spend release keeps provider and settlement failures distinct', () => {
   const evidence = providerRejectionReleaseFailure(
     'PRIVATE_PROVIDER_REASON',
+    Anthropic.APIError.generate(
+      400,
+      { error: { type: 'invalid_request_error' } },
+      'PRIVATE_PROVIDER_REASON',
+      new Headers({ 'request-id': 'req_011CeYReleaseProof123' }),
+    ),
     new Error('PRIVATE_FIRESTORE_REASON'),
   );
   assert.equal(
@@ -277,6 +310,7 @@ test('failed zero-spend release keeps provider and settlement failures distinct'
   assert.match(evidence.provider_error_sha256, /^[a-f0-9]{64}$/);
   assert.match(evidence.settlement_error_sha256, /^[a-f0-9]{64}$/);
   assert.notEqual(evidence.provider_error_sha256, evidence.settlement_error_sha256);
+  assert.equal(evidence.provider_request_id, 'req_011CeYReleaseProof123');
   assert.equal(JSON.stringify(evidence).includes('PRIVATE_PROVIDER_REASON'), false);
   assert.equal(JSON.stringify(evidence).includes('PRIVATE_FIRESTORE_REASON'), false);
 });

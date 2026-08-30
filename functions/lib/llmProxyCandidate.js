@@ -128,29 +128,32 @@ function candidateSettlementFailure(error, phase) {
         settlement_error_sha256: (0, anthropicProxyCore_1.sha256CanonicalJson)({ phase, message }),
     };
 }
-function providerRejectionFailure(reason) {
+function providerRejectionFailure(reason, error, streamRequestId) {
     return {
         validation_failure_code: "PROVIDER_INVALID_REQUEST_BEFORE_GENERATION",
         validation_failure_reason: "Anthropic rejected the request before model generation.",
         provider_error_sha256: (0, anthropicProxyCore_1.sha256CanonicalJson)({ reason }),
+        ...(0, anthropicClient_1.safeAnthropicFailureMetadata)(error, streamRequestId),
     };
 }
-function providerTransportFailure(reason) {
+function providerTransportFailure(reason, error, streamRequestId) {
     return {
         validation_failure_code: "PROVIDER_TRANSPORT_UNCERTAIN",
         validation_failure_reason: "Provider transport failed after dispatch; generation and spend are uncertain.",
         provider_error_sha256: (0, anthropicProxyCore_1.sha256CanonicalJson)({ reason }),
+        ...(0, anthropicClient_1.safeAnthropicFailureMetadata)(error, streamRequestId),
         provider_usage: null,
         provider_usage_validation: "unavailable_transport",
     };
 }
-function providerRejectionReleaseFailure(providerReason, releaseError) {
+function providerRejectionReleaseFailure(providerReason, providerError, releaseError, streamRequestId) {
     const releaseReason = releaseError instanceof Error
         ? releaseError.message : String(releaseError);
     return {
         validation_failure_code: "PROVIDER_REJECTION_RELEASE_UNCERTAIN",
         validation_failure_reason: "Provider rejected before generation, but the zero-spend release did not settle.",
         provider_error_sha256: (0, anthropicProxyCore_1.sha256CanonicalJson)({ reason: providerReason }),
+        ...(0, anthropicClient_1.safeAnthropicFailureMetadata)(providerError, streamRequestId),
         settlement_error_sha256: (0, anthropicProxyCore_1.sha256CanonicalJson)({ reason: releaseReason }),
     };
 }
@@ -313,6 +316,8 @@ async function benchmarkLedgerSnapshot(config) {
         "rejection_kind", "uncertainty_reason", "provider_usage",
         "provider_usage_validation", "validation_failure_code",
         "validation_failure_reason", "provider_error_sha256",
+        "provider_error_class", "provider_http_status", "provider_error_type",
+        "provider_request_id", "provider_transport_detail", "provider_failure_summary",
         "settlement_error_sha256", "configuration_error_sha256",
         "actual_cost_microusd", "reserved_microusd", "reservation_ceiling_microusd",
         "charged_cost_microusd", "disposition", "downstream_consumption",
@@ -587,20 +592,40 @@ exports.llmProxyCandidate = (0, https_1.onRequest)({
     let uncertainSettlement;
     let rejectionFailure;
     let providerUncertainFailure;
+    let providerStreamRequestId;
     try {
         message = await (0, anthropicClient_1.finalMessageWithUncertainSpendProtection)(async () => {
             const stream = client.messages.stream(built.payload, built.requestOptions);
-            return stream.finalMessage();
-        }, async (reason) => {
-            providerUncertainFailure = providerTransportFailure(reason);
-            uncertainSettlement = await (0, benchmarkLedger_1.markBenchmarkCallUncertain)(db, immutableRun, reservation, "provider_error", providerUncertainFailure);
-        }, async (reason) => {
-            rejectionFailure = providerRejectionFailure(reason);
+            try {
+                return await stream.finalMessage();
+            }
+            finally {
+                providerStreamRequestId = stream.request_id;
+            }
+        }, async (reason, error) => {
+            providerUncertainFailure = providerTransportFailure(reason, error, providerStreamRequestId);
+            try {
+                uncertainSettlement = await (0, benchmarkLedger_1.markBenchmarkCallUncertain)(db, immutableRun, reservation, "provider_error", providerUncertainFailure);
+            }
+            catch (settlementError) {
+                const settlementReason = settlementError instanceof Error
+                    ? settlementError.message : String(settlementError);
+                providerUncertainFailure = {
+                    ...providerUncertainFailure,
+                    settlement_error_sha256: (0, anthropicProxyCore_1.sha256CanonicalJson)({
+                        phase: "uncertainty_settlement",
+                        message: settlementReason,
+                    }),
+                };
+                throw settlementError;
+            }
+        }, async (reason, providerError) => {
+            rejectionFailure = providerRejectionFailure(reason, providerError, providerStreamRequestId);
             try {
                 await (0, benchmarkLedger_1.rejectBenchmarkCallBeforeGeneration)(db, immutableRun, reservation, rejectionFailure);
             }
             catch (error) {
-                providerUncertainFailure = providerRejectionReleaseFailure(reason, error);
+                providerUncertainFailure = providerRejectionReleaseFailure(reason, providerError, error, providerStreamRequestId);
                 try {
                     uncertainSettlement = await (0, benchmarkLedger_1.markBenchmarkCallUncertain)(db, immutableRun, reservation, "settlement_error", providerUncertainFailure);
                 }

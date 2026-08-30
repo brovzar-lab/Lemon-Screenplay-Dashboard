@@ -8,6 +8,7 @@ import {
   createAnthropicClient,
   finalMessageWithUncertainSpendProtection,
   isDefiniteAnthropicRequestRejection,
+  safeAnthropicFailureMetadata,
 } from "./anthropicClient";
 import {
   buildAnthropicRequest,
@@ -171,19 +172,29 @@ export function candidateSettlementFailure(
   };
 }
 
-export function providerRejectionFailure(reason: string): BenchmarkFailureEvidence {
+export function providerRejectionFailure(
+  reason: string,
+  error: unknown,
+  streamRequestId?: string | null,
+): BenchmarkFailureEvidence {
   return {
     validation_failure_code: "PROVIDER_INVALID_REQUEST_BEFORE_GENERATION",
     validation_failure_reason: "Anthropic rejected the request before model generation.",
     provider_error_sha256: sha256CanonicalJson({ reason }),
+    ...safeAnthropicFailureMetadata(error, streamRequestId),
   };
 }
 
-export function providerTransportFailure(reason: string): BenchmarkUncertainEvidence {
+export function providerTransportFailure(
+  reason: string,
+  error: unknown,
+  streamRequestId?: string | null,
+): BenchmarkUncertainEvidence {
   return {
     validation_failure_code: "PROVIDER_TRANSPORT_UNCERTAIN",
     validation_failure_reason: "Provider transport failed after dispatch; generation and spend are uncertain.",
     provider_error_sha256: sha256CanonicalJson({ reason }),
+    ...safeAnthropicFailureMetadata(error, streamRequestId),
     provider_usage: null,
     provider_usage_validation: "unavailable_transport",
   };
@@ -191,7 +202,9 @@ export function providerTransportFailure(reason: string): BenchmarkUncertainEvid
 
 export function providerRejectionReleaseFailure(
   providerReason: string,
+  providerError: unknown,
   releaseError: unknown,
+  streamRequestId?: string | null,
 ): BenchmarkFailureEvidence {
   const releaseReason = releaseError instanceof Error
     ? releaseError.message : String(releaseError);
@@ -199,6 +212,7 @@ export function providerRejectionReleaseFailure(
     validation_failure_code: "PROVIDER_REJECTION_RELEASE_UNCERTAIN",
     validation_failure_reason: "Provider rejected before generation, but the zero-spend release did not settle.",
     provider_error_sha256: sha256CanonicalJson({ reason: providerReason }),
+    ...safeAnthropicFailureMetadata(providerError, streamRequestId),
     settlement_error_sha256: sha256CanonicalJson({ reason: releaseReason }),
   };
 }
@@ -397,6 +411,8 @@ async function benchmarkLedgerSnapshot(config: ReturnType<typeof runtimeConfig>)
     "rejection_kind", "uncertainty_reason", "provider_usage",
     "provider_usage_validation", "validation_failure_code",
     "validation_failure_reason", "provider_error_sha256",
+    "provider_error_class", "provider_http_status", "provider_error_type",
+    "provider_request_id", "provider_transport_detail", "provider_failure_summary",
     "settlement_error_sha256", "configuration_error_sha256",
     "actual_cost_microusd", "reserved_microusd", "reservation_ceiling_microusd",
     "charged_cost_microusd", "disposition", "downstream_consumption",
@@ -720,6 +736,7 @@ export const llmProxyCandidate = onRequest(
     let uncertainSettlement: BenchmarkSettlement | undefined;
     let rejectionFailure: BenchmarkFailureEvidence | undefined;
     let providerUncertainFailure: BenchmarkUncertainEvidence | undefined;
+    let providerStreamRequestId: string | null | undefined;
     try {
       message = await finalMessageWithUncertainSpendProtection(
         async () => {
@@ -727,20 +744,45 @@ export const llmProxyCandidate = onRequest(
             built.payload as Parameters<typeof client.messages.stream>[0],
             built.requestOptions,
           );
-          return stream.finalMessage();
+          try {
+            return await stream.finalMessage();
+          } finally {
+            providerStreamRequestId = stream.request_id;
+          }
         },
-        async (reason) => {
-          providerUncertainFailure = providerTransportFailure(reason);
-          uncertainSettlement = await markBenchmarkCallUncertain(
-            db,
-            immutableRun,
-            reservation,
-            "provider_error",
-            providerUncertainFailure,
+        async (reason, error) => {
+          providerUncertainFailure = providerTransportFailure(
+            reason,
+            error,
+            providerStreamRequestId,
           );
+          try {
+            uncertainSettlement = await markBenchmarkCallUncertain(
+              db,
+              immutableRun,
+              reservation,
+              "provider_error",
+              providerUncertainFailure,
+            );
+          } catch (settlementError) {
+            const settlementReason = settlementError instanceof Error
+              ? settlementError.message : String(settlementError);
+            providerUncertainFailure = {
+              ...providerUncertainFailure,
+              settlement_error_sha256: sha256CanonicalJson({
+                phase: "uncertainty_settlement",
+                message: settlementReason,
+              }),
+            };
+            throw settlementError;
+          }
         },
-        async (reason) => {
-          rejectionFailure = providerRejectionFailure(reason);
+        async (reason, providerError) => {
+          rejectionFailure = providerRejectionFailure(
+            reason,
+            providerError,
+            providerStreamRequestId,
+          );
           try {
             await rejectBenchmarkCallBeforeGeneration(
               db,
@@ -749,7 +791,12 @@ export const llmProxyCandidate = onRequest(
               rejectionFailure,
             );
           } catch (error) {
-            providerUncertainFailure = providerRejectionReleaseFailure(reason, error);
+            providerUncertainFailure = providerRejectionReleaseFailure(
+              reason,
+              providerError,
+              error,
+              providerStreamRequestId,
+            );
             try {
               uncertainSettlement = await markBenchmarkCallUncertain(
                 db,

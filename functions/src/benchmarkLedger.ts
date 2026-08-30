@@ -120,6 +120,12 @@ export interface BenchmarkFailureEvidence {
   validation_failure_code: string;
   validation_failure_reason: string;
   provider_error_sha256?: string;
+  provider_error_class?: string;
+  provider_http_status?: number | null;
+  provider_error_type?: string;
+  provider_request_id?: string | null;
+  provider_transport_detail?: string;
+  provider_failure_summary?: string;
   settlement_error_sha256?: string;
   configuration_error_sha256?: string;
 }
