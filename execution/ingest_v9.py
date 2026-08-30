@@ -2347,6 +2347,108 @@ def _bind_correction_source_line_options(
     return bound_fields
 
 
+MATERIAL_CLAIM_CORRECTION_CONTRACT_VERSION = (
+    "lemon-material-claim-evidence-repair-v2"
+)
+
+
+def _material_claim_repair_key(item: Dict[str, Any]) -> str:
+    return f"{item['source_field']}_{item['source_index']}"
+
+
+def _material_claim_correction_transport_schema(
+    material_claim_plan: Sequence[Dict[str, Any]],
+    source_line_option_count: int,
+) -> Dict[str, Any]:
+    """Require one bound source-option ID per deterministic atomic claim."""
+    if type(source_line_option_count) is not int or source_line_option_count < 1:
+        raise ValueError("material claim correction has no source options")
+    option_ids = list(range(source_line_option_count))
+
+    claim_properties: Dict[str, Any] = {}
+    for item in material_claim_plan:
+        claim_key = _material_claim_repair_key(item)
+        atomic_claims = item.get("atomic_claims")
+        if (
+            claim_key in claim_properties
+            or not isinstance(atomic_claims, list)
+            or not atomic_claims
+        ):
+            raise ValueError("material claim correction plan is invalid")
+        atomic_properties = {
+            f"atomic_{index}": {
+                "type": "integer",
+                "enum": option_ids,
+            }
+            for index, _claim in enumerate(atomic_claims)
+        }
+        claim_properties[claim_key] = {
+            "type": "object",
+            "properties": atomic_properties,
+            "required": list(atomic_properties),
+            "additionalProperties": False,
+        }
+    return {
+        "type": "object",
+        "properties": claim_properties,
+        "required": list(claim_properties),
+        "additionalProperties": False,
+    }
+
+
+def _material_claim_correction_prompt_plan(
+    material_claim_plan: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    return [
+        {
+            "repair_key": _material_claim_repair_key(item),
+            "source_field": item["source_field"],
+            "source_index": item["source_index"],
+            "claim": item["claim"],
+            "atomic_claims": [
+                {"repair_key": f"atomic_{index}", "claim": claim}
+                for index, claim in enumerate(item["atomic_claims"])
+            ],
+        }
+        for item in material_claim_plan
+    ]
+
+
+def _decode_material_claim_correction(
+    material_claim_plan: Sequence[Dict[str, Any]],
+    repair: Dict[str, Any],
+    source_line_options: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    return [
+        {
+            "source_field": item["source_field"],
+            "source_index": item["source_index"],
+            "claim": item["claim"],
+            "atomic_claims": [
+                {
+                    "claim": claim,
+                    "page_citations": [
+                        source_line_options[
+                            repair[_material_claim_repair_key(item)][
+                                f"atomic_{index}"
+                            ]
+                        ]["page"]
+                    ],
+                    "citation_evidence": [copy.deepcopy(
+                        source_line_options[
+                            repair[_material_claim_repair_key(item)][
+                                f"atomic_{index}"
+                            ]
+                        ]
+                    )],
+                }
+                for index, claim in enumerate(item["atomic_claims"])
+            ],
+        }
+        for item in material_claim_plan
+    ]
+
+
 def _strict_json_envelope_definition(
     tool: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -2889,8 +2991,20 @@ def _attach_recovered_citation_details(
         return None
     try:
         candidate = copy.deepcopy(rejected_report)
+        reconciliation_before = copy.deepcopy(candidate)
         reconciliation = reconcile_unique_citation_pages(candidate, source_text)
+        reconciliation_hash_evidence = _transformation_hash_evidence(
+            "reconciled_unique_citation_pages",
+            reconciliation_before,
+            candidate,
+        )
+        citation_subset_before = copy.deepcopy(candidate)
         citation_subset = retain_verified_citation_subset(candidate, source_text)
+        citation_subset_hash_evidence = _transformation_hash_evidence(
+            "removed_unverified_surplus_citations",
+            citation_subset_before,
+            candidate,
+        )
         quality = validate_analysis_citations(
             candidate,
             page_diagnostics,
@@ -2907,7 +3021,9 @@ def _attach_recovered_citation_details(
     return {
         "candidate": candidate,
         "reconciliation": reconciliation,
+        "reconciliation_hash_evidence": reconciliation_hash_evidence,
         "citation_subset": citation_subset,
+        "citation_subset_hash_evidence": citation_subset_hash_evidence,
         "quality": quality,
     }
 
@@ -2921,12 +3037,9 @@ def _record_recovered_citation_normalization(
     reconciliation = recovery["reconciliation"]
     if reconciliation["changed_citation_count"]:
         call["transformations"].append("reconciled_unique_citation_pages")
-        call["transformation_evidence"].append({
-            "name": "reconciled_unique_citation_pages",
-            "before_sha256": reconciliation["before_sha256"],
-            "after_sha256": reconciliation["after_sha256"],
-            "changed": True,
-        })
+        call["transformation_evidence"].append(
+            recovery["reconciliation_hash_evidence"]
+        )
         call["warnings"].append(
             "Model citation pages were corrected from unique exact excerpts"
         )
@@ -2936,9 +3049,7 @@ def _record_recovered_citation_normalization(
             "removed_unverified_surplus_citations"
         )
         call["transformation_evidence"].append({
-            "name": "removed_unverified_surplus_citations",
-            "before_sha256": citation_subset["before_sha256"],
-            "after_sha256": citation_subset["after_sha256"],
+            **recovery["citation_subset_hash_evidence"],
             "changed": True,
             "changed_object_count": citation_subset["changed_object_count"],
             "removed_page_count": citation_subset["removed_page_count"],
@@ -3448,10 +3559,6 @@ def _targeted_correction_request(
         parent = _value_at_path(rejected_report, root[:-1]) if root else None
         allowed = sorted(targets[root]["allowed"])
         relative_allowed = [path[len(root):] for path in allowed]
-        transport_schema = _strict_correction_schema_node(
-            node,
-            relative_allowed,
-        )
         material_claim_mapping = (
             root == ("material_claims",)
             and material_claim_plan is not None
@@ -3477,13 +3584,28 @@ def _targeted_correction_request(
                 raise ValueError(
                     "citation correction has no bounded exact source-line options"
                 )
-            if not _bind_correction_source_line_options(
+        transport_schema = (
+            _material_claim_correction_transport_schema(
+                material_claim_plan,
+                len(source_line_options),
+            )
+            if material_claim_mapping
+            else _strict_correction_schema_node(
+                node,
+                relative_allowed,
+            )
+        )
+        if (
+            source_line_options
+            and not material_claim_mapping
+            and not _bind_correction_source_line_options(
                 transport_schema,
                 source_line_options,
-            ):
-                raise ValueError(
-                    "citation correction schema has no bindable evidence fields"
-                )
+            )
+        ):
+            raise ValueError(
+                "citation correction schema has no bindable evidence fields"
+            )
         repair_properties[target_id] = transport_schema
         target_plan[target_id] = {
             "path": root,
@@ -3497,10 +3619,25 @@ def _targeted_correction_request(
                 if source_line_options
                 else None
             ),
+            "source_line_options": (
+                copy.deepcopy(source_line_options)
+                if material_claim_mapping
+                else None
+            ),
             "expected_material_claim_plan_sha256": (
                 _canonical_json_hash(material_claim_plan)
                 if root == ("material_claims",)
                 and material_claim_plan is not None
+                else None
+            ),
+            "expected_material_claim_plan": (
+                copy.deepcopy(material_claim_plan)
+                if material_claim_mapping
+                else None
+            ),
+            "material_claim_correction_contract_version": (
+                MATERIAL_CLAIM_CORRECTION_CONTRACT_VERSION
+                if material_claim_mapping
                 else None
             ),
         }
@@ -3518,7 +3655,7 @@ def _targeted_correction_request(
             "value_schema": repair_properties[target_id],
             "current_value": (
                 None
-                if current is _MISSING_REPAIR_VALUE
+                if current is _MISSING_REPAIR_VALUE or material_claim_mapping
                 else _schema_projected_value(
                     current,
                     repair_properties[target_id],
@@ -3538,24 +3675,48 @@ def _targeted_correction_request(
             node,
             relative_allowed,
         )
+        if material_claim_mapping:
+            application_constraints = {
+                "$": {
+                    "required_claim_key_count": len(material_claim_plan),
+                    "required_atomic_key_count": sum(
+                        len(item["atomic_claims"])
+                        for item in material_claim_plan
+                    ),
+                    "citations_per_atomic_claim": 1,
+                },
+            }
         if application_constraints:
             prompt_target["application_constraints"] = application_constraints
         if source_line_options:
-            prompt_target["exact_source_line_options"] = source_line_options
+            prompt_target["exact_source_line_options"] = [
+                {"option_id": index, **option}
+                for index, option in enumerate(source_line_options)
+            ]
             prompt_target["citation_instruction"] = (
-                "Copy page and excerpt exactly from one listed option; "
+                "Return only each selected option_id; the application copies "
+                "its exact page and excerpt without model rewriting."
+                if material_claim_mapping
+                else "Copy page and excerpt exactly from one listed option; "
                 "do not shorten, join, or paraphrase it."
             )
         if (
             root == ("material_claims",)
             and material_claim_plan is not None
         ):
-            prompt_target["exact_material_claim_plan"] = material_claim_plan
+            prompt_target["correction_contract_version"] = (
+                MATERIAL_CLAIM_CORRECTION_CONTRACT_VERSION
+            )
+            prompt_target["exact_material_claim_plan"] = (
+                _material_claim_correction_prompt_plan(material_claim_plan)
+            )
             prompt_target["material_claim_instruction"] = (
-                "Return exactly one evidence record for each listed plan item, "
-                "in the listed order. Copy source_field, source_index, claim, "
-                "and every atomic claim exactly. Preserve only citations that "
-                "support that exact atomic claim."
+                "Return every required repair_key exactly once. For each atomic "
+                "repair_key, return exactly one source option ID whose page and "
+                "verbatim excerpt support that exact "
+                "atomic claim. Do not return or rewrite source_field, "
+                "source_index, claim, or atomic-claim text; the application "
+                "reconstructs those deterministic fields from the bound plan."
             )
         prompt_targets.append(prompt_target)
 
@@ -3635,7 +3796,18 @@ def _apply_targeted_correction(
         plan["tool"]["input_schema"],
         "targeted_correction",
     )
-    normalized_repairs = copy.deepcopy(repairs)
+    normalized_repairs: Dict[str, Any] = {}
+    for target_id, target in plan["targets"].items():
+        material_claim_plan = target.get("expected_material_claim_plan")
+        normalized_repairs[target_id] = (
+            _decode_material_claim_correction(
+                material_claim_plan,
+                repairs[target_id],
+                target["source_line_options"],
+            )
+            if isinstance(material_claim_plan, list)
+            else copy.deepcopy(repairs[target_id])
+        )
     identical_citation_deduplication = (
         _deduplicate_identical_citation_evidence(normalized_repairs)
     )
@@ -3691,7 +3863,7 @@ def _apply_targeted_correction(
         replacement = normalized_repairs[target_id]
         try:
             _validate_json_schema_value(
-                replacement,
+                repairs[target_id],
                 target["transport_schema"],
                 f"repair.{target_id}",
             )
@@ -3807,6 +3979,12 @@ def _apply_targeted_correction(
     if material_claim_plan_hashes:
         evidence["expected_material_claim_plan_sha256"] = (
             material_claim_plan_hashes[0]
+        )
+        evidence["material_claim_correction_contract_version"] = (
+            MATERIAL_CLAIM_CORRECTION_CONTRACT_VERSION
+        )
+        evidence["material_claim_structure_source"] = (
+            "application_bound_plan"
         )
     return candidate, evidence
 
@@ -9774,10 +9952,17 @@ def run_claim_verification(
                 raise ValueError(
                     "claim verification batch changed, duplicated, or omitted a locked target"
                 )
+            citation_reconciliation_before = copy.deepcopy(current_raw)
             current_citation_reconciliation = reconcile_unique_citation_pages(
                 {"claim_verification": current_raw},
                 text,
             )
+            current_citation_reconciliation[
+                "canonical_before_sha256"
+            ] = _canonical_json_hash(citation_reconciliation_before)
+            current_citation_reconciliation[
+                "canonical_after_sha256"
+            ] = _canonical_json_hash(current_raw)
             current_citation_quality = validate_analysis_citations(
                 {"claim_verification": current_raw},
                 claim_page_evidence["page_diagnostics"],
@@ -9866,8 +10051,12 @@ def run_claim_verification(
                 )
                 transformation_evidence.append({
                     "name": "reconciled_unique_citation_pages",
-                    "before_sha256": citation_reconciliation["before_sha256"],
-                    "after_sha256": citation_reconciliation["after_sha256"],
+                    "before_sha256": citation_reconciliation[
+                        "canonical_before_sha256"
+                    ],
+                    "after_sha256": citation_reconciliation[
+                        "canonical_after_sha256"
+                    ],
                     "changed": True,
                 })
             citation_quality = record.get("citation_quality")
@@ -10005,8 +10194,12 @@ def run_claim_verification(
             )
             transformation_evidence.insert(0, {
                 "name": "reconciled_unique_citation_pages",
-                "before_sha256": citation_reconciliation["before_sha256"],
-                "after_sha256": citation_reconciliation["after_sha256"],
+                "before_sha256": citation_reconciliation[
+                    "canonical_before_sha256"
+                ],
+                "after_sha256": citation_reconciliation[
+                    "canonical_after_sha256"
+                ],
                 "changed": True,
             })
         citation_quality = record.get("citation_quality")
@@ -10890,6 +11083,7 @@ def run_v9_full(
                         "the application ignored them"
                     )
             synthesis_before = copy.deepcopy(tool_input)
+            citation_reconciliation_before = copy.deepcopy(tool_input)
             citation_reconciliation = reconcile_unique_citation_pages(
                 tool_input,
                 text,
@@ -10900,13 +11094,16 @@ def run_v9_full(
                 )
                 transformation_evidence.append({
                     "name": "reconciled_unique_citation_pages",
-                    "before_sha256": citation_reconciliation["before_sha256"],
-                    "after_sha256": citation_reconciliation["after_sha256"],
+                    "before_sha256": _canonical_json_hash(
+                        citation_reconciliation_before
+                    ),
+                    "after_sha256": _canonical_json_hash(tool_input),
                     "changed": True,
                 })
                 transformation_warnings.append(
                     "Model citation pages were corrected from unique exact excerpts"
                 )
+            citation_subset_before = copy.deepcopy(tool_input)
             citation_subset = retain_verified_citation_subset(
                 tool_input,
                 text,
@@ -10917,8 +11114,10 @@ def run_v9_full(
                 )
                 transformation_evidence.append({
                     "name": "removed_unverified_surplus_citations",
-                    "before_sha256": citation_subset["before_sha256"],
-                    "after_sha256": citation_subset["after_sha256"],
+                    "before_sha256": _canonical_json_hash(
+                        citation_subset_before
+                    ),
+                    "after_sha256": _canonical_json_hash(tool_input),
                     "changed": True,
                     "changed_object_count": citation_subset[
                         "changed_object_count"
