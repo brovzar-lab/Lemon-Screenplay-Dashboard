@@ -7904,6 +7904,16 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "Provider transport failed after dispatch; generation and spend are uncertain."
             ),
             "provider_error_sha256": "a" * 64,
+            "provider_error_class": "APIConnectionError",
+            "provider_http_status": None,
+            "provider_error_type": "connection_error",
+            "provider_request_id": None,
+            "provider_transport_detail": "connection_reset",
+            "provider_failure_summary": (
+                "Anthropic provider failure: class=APIConnectionError; "
+                "status=none; type=connection_error; detail=connection_reset; "
+                "request_id=unavailable."
+            ),
             "provider_usage": None,
             "provider_usage_validation": "unavailable_transport",
             "rejected_output_status": "unavailable_before_complete_response",
@@ -7965,6 +7975,183 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         self.assertEqual(failed["uncertainty_status"], "charged_reservation")
         self.assertEqual(failed["cap_cost_microusd"], 125_000)
+        self.assertEqual(failed["provider_error_class"], "APIConnectionError")
+        self.assertEqual(failed["provider_transport_detail"], "connection_reset")
+        self.assertNotIn("screenplay", failed["provider_failure_summary"].lower())
+
+        unsafe = copy.deepcopy(uncertain_body)
+        unsafe["provider_failure_summary"] += " PRIVATE_SCREENPLAY_SENTINEL"
+        with self.assertRaisesRegex(
+            ingest_v9.LlmAccountingError,
+            "exact sanitized reason",
+        ):
+            ingest_v9._validated_provider_failure_metadata(unsafe)
+
+        impossible = copy.deepcopy(uncertain_body)
+        impossible.update({
+            "provider_error_class": "APIUserAbortError",
+            "provider_http_status": 529,
+            "provider_error_type": "overloaded_error",
+            "provider_transport_detail": "provider_http_error",
+            "provider_failure_summary": (
+                "Anthropic provider failure: class=APIUserAbortError; "
+                "status=529; type=overloaded_error; "
+                "detail=provider_http_error; request_id=unavailable."
+            ),
+        })
+        with self.assertRaisesRegex(
+            ingest_v9.LlmAccountingError,
+            "internally inconsistent",
+        ):
+            ingest_v9._validated_provider_failure_metadata(impossible)
+
+    def test_held_transport_reservation_requires_settlement_failure_hash(self):
+        release = {
+            "git_sha": "a" * 40,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-29T16:46:30.000Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00024-wem",
+            "inference_geo": "global",
+        }
+        body = {
+            "validation_failure_code": "PROVIDER_TRANSPORT_UNCERTAIN",
+            "validation_failure_reason": (
+                "Provider transport failed after dispatch; generation and spend are uncertain."
+            ),
+            "provider_error_sha256": "a" * 64,
+            "provider_error_class": "APIConnectionError",
+            "provider_http_status": None,
+            "provider_error_type": "connection_error",
+            "provider_request_id": None,
+            "provider_transport_detail": "connection_reset",
+            "provider_failure_summary": (
+                "Anthropic provider failure: class=APIConnectionError; "
+                "status=none; type=connection_error; detail=connection_reset; "
+                "request_id=unavailable."
+            ),
+            "provider_usage": None,
+            "provider_usage_validation": "unavailable_transport",
+            "rejected_output_status": "unavailable_before_complete_response",
+            "benchmark_accounting": {
+                "call_id": "call-held",
+                "requested_model": MODEL_ID,
+                "uncertainty_status": "reservation_held",
+                "charged_cost_microusd": 0,
+                "charged_cost_usd": 0.0,
+                "reserved_cost_microusd": 125_000,
+                "reserved_cost_usd": 0.125,
+                "cap_cost_microusd": 125_000,
+                "cap_cost_usd": 0.125,
+            },
+            "release": release,
+        }
+        kwargs = {
+            "stage": "reader",
+            "pipeline_pass": "sonnet",
+            "boundary_run": 1,
+            "reader_name": "structure",
+            "request_sha256": "d" * 64,
+            "prompt_sha256": "e" * 64,
+            "schema_mode": "strict_tool",
+            "schema_sha256": "f" * 64,
+            "transport_schema_sha256": "1" * 64,
+            "logical_retry": 0,
+            "started_at": "2026-08-29T16:46:30Z",
+            "latency_ms": 110_000,
+            "expected_release": release,
+        }
+        with self.assertRaisesRegex(
+            ingest_v9.LlmAccountingError,
+            "bind its settlement failure",
+        ):
+            ingest_v9._benchmark_uncertain_failure_usage(
+                body,
+                MODEL_ID,
+                "call-held",
+                1,
+                [],
+                **kwargs,
+            )
+
+        body["settlement_error_sha256"] = "2" * 64
+        usage = ingest_v9._benchmark_uncertain_failure_usage(
+            body,
+            MODEL_ID,
+            "call-held",
+            1,
+            [],
+            **kwargs,
+        )
+        self.assertEqual(
+            usage["failed_calls"][0]["settlement_error_sha256"],
+            "2" * 64,
+        )
+
+    def test_provider_rejection_preserves_safe_typed_provenance(self):
+        release = {
+            "git_sha": "a" * 40,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-29T16:46:30.000Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00024-wem",
+            "inference_geo": "global",
+        }
+        summary = (
+            "Anthropic provider failure: class=BadRequestError; status=400; "
+            "type=invalid_request_error; detail=provider_http_error; "
+            "request_id=req_011CeYRejectedProof123."
+        )
+        usage = ingest_v9._benchmark_rejected_failure_usage(
+            {
+                "release": release,
+                "benchmark_rejection": {
+                    "call_id": "call-rejected",
+                    "requested_model": MODEL_ID,
+                    "disposition": "released_before_generation",
+                    "charged_cost_microusd": 0,
+                    "validation_failure_code": (
+                        "PROVIDER_INVALID_REQUEST_BEFORE_GENERATION"
+                    ),
+                    "validation_failure_reason": (
+                        "Anthropic rejected the request before model generation."
+                    ),
+                    "provider_error_sha256": "3" * 64,
+                    "provider_error_class": "BadRequestError",
+                    "provider_http_status": 400,
+                    "provider_error_type": "invalid_request_error",
+                    "provider_request_id": "req_011CeYRejectedProof123",
+                    "provider_transport_detail": "provider_http_error",
+                    "provider_failure_summary": summary,
+                },
+            },
+            requested_model=MODEL_ID,
+            expected_call_id="call-rejected",
+            stage="reader",
+            pipeline_pass="sonnet",
+            boundary_run=1,
+            reader_name="structure",
+            request_sha256="d" * 64,
+            prompt_sha256="e" * 64,
+            schema_mode="strict_tool",
+            schema_sha256="f" * 64,
+            transport_schema_sha256="1" * 64,
+            logical_retry=0,
+            started_at="2026-08-29T16:46:30Z",
+            latency_ms=12,
+            expected_release=release,
+        )
+        failed = usage["failed_calls"][0]
+        self.assertEqual(failed["provider_http_status"], 400)
+        self.assertEqual(
+            failed["provider_request_id"],
+            "req_011CeYRejectedProof123",
+        )
+        self.assertEqual(failed["provider_failure_summary"], summary)
 
 
 class HybridCostAggregationTests(unittest.TestCase):

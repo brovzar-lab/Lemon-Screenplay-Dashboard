@@ -3648,6 +3648,17 @@ def _validate_resume_ledger(
             != local.get("validation_failure_reason")
             or server.get("provider_error_sha256")
             != local.get("provider_error_sha256")
+            or any(
+                server.get(field) != local.get(field)
+                for field in (
+                    "provider_error_class",
+                    "provider_http_status",
+                    "provider_error_type",
+                    "provider_request_id",
+                    "provider_transport_detail",
+                    "provider_failure_summary",
+                )
+            )
             or server.get("configuration_error_sha256")
             != local.get("configuration_error_sha256")
             or server.get("settlement_error_sha256")
@@ -3684,6 +3695,17 @@ def _validate_resume_ledger(
             != local.get("validation_reason")
             or server.get("provider_error_sha256")
             != local.get("provider_error_sha256")
+            or any(
+                server.get(field) != local.get(field)
+                for field in (
+                    "provider_error_class",
+                    "provider_http_status",
+                    "provider_error_type",
+                    "provider_request_id",
+                    "provider_transport_detail",
+                    "provider_failure_summary",
+                )
+            )
             or server.get("settlement_error_sha256")
             != local.get("settlement_error_sha256")
         )
