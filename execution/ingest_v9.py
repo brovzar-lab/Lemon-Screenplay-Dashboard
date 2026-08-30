@@ -1917,6 +1917,25 @@ def _normalized_correction_excerpt(value: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
 
 
+def _text_contains_character_name(text: Any, name: Any) -> bool:
+    if not isinstance(text, str) or not isinstance(name, str):
+        return False
+    name_tokens = re.sub(
+        r"[^\w]+",
+        " ",
+        unicodedata.normalize("NFKC", name).casefold(),
+    ).split()
+    text_tokens = re.sub(
+        r"[^\w]+",
+        " ",
+        unicodedata.normalize("NFKC", text).casefold(),
+    ).split()
+    return bool(name_tokens) and any(
+        text_tokens[index:index + len(name_tokens)] == name_tokens
+        for index in range(len(text_tokens) - len(name_tokens) + 1)
+    )
+
+
 def _correction_application_constraints(
     schema: Dict[str, Any],
     allowed_paths: Sequence[Tuple[str, ...]],
@@ -2170,6 +2189,7 @@ def _correction_source_line_options(
     source_pages: Dict[int, str],
     *,
     limit: int = MAX_TARGETED_CORRECTION_LINE_OPTIONS,
+    required_character_name: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Return a bounded set of exact physical lines for one citation repair."""
     page_hints: set[int] = set()
@@ -2197,7 +2217,16 @@ def _correction_source_line_options(
             text_hints.append(node)
 
     collect(value)
-    pages = sorted(page for page in page_hints if page in source_pages)
+    pages = sorted(
+        page
+        for page, page_text in source_pages.items()
+        if any(
+            _text_contains_character_name(line, required_character_name)
+            for line in page_text.splitlines()
+        )
+    ) if required_character_name is not None else sorted(
+        page for page in page_hints if page in source_pages
+    )
     if not pages:
         return []
 
@@ -2214,6 +2243,13 @@ def _correction_source_line_options(
             and citation_excerpt_matches_single_source_line(
                 source_pages[page],
                 excerpt,
+            )
+            and (
+                required_character_name is None
+                or _text_contains_character_name(
+                    excerpt,
+                    required_character_name,
+                )
             )
             and option not in verified_existing
         ):
@@ -2249,6 +2285,13 @@ def _correction_source_line_options(
                 not excerpt
                 or excerpt == "*"
                 or len(excerpt) > MAX_TARGETED_CORRECTION_LINE_CHARACTERS
+                or (
+                    required_character_name is not None
+                    and not _text_contains_character_name(
+                        excerpt,
+                        required_character_name,
+                    )
+                )
                 or re.fullmatch(
                     CORRECTION_CITATION_EXCERPT_PATTERN,
                     excerpt,
@@ -2350,6 +2393,53 @@ def _bind_correction_source_line_options(
 MATERIAL_CLAIM_CORRECTION_CONTRACT_VERSION = (
     "lemon-material-claim-evidence-repair-v2"
 )
+CHARACTER_EVIDENCE_CORRECTION_CONTRACT_VERSION = (
+    "lemon-character-name-evidence-repair-v1"
+)
+
+
+def _character_evidence_correction_transport_schema(
+    source_line_option_count: int,
+    schema_repairs: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    if type(source_line_option_count) is not int or source_line_option_count < 1:
+        raise ValueError("character evidence correction has no source options")
+    properties = copy.deepcopy(
+        schema_repairs.get("properties", {})
+        if isinstance(schema_repairs, dict)
+        else {}
+    )
+    required = list(
+        schema_repairs.get("required", [])
+        if isinstance(schema_repairs, dict)
+        else []
+    )
+    properties["source_option_id"] = {
+        "type": "integer",
+        "enum": list(range(source_line_option_count)),
+    }
+    required.append("source_option_id")
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": required,
+        "additionalProperties": False,
+    }
+
+
+def _decode_character_evidence_correction(
+    repair: Dict[str, Any],
+    source_line_options: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    decoded = copy.deepcopy(repair)
+    option = copy.deepcopy(
+        source_line_options[decoded.pop("source_option_id")]
+    )
+    decoded.update({
+        "page_citations": [option["page"]],
+        "citation_evidence": [option],
+    })
+    return decoded
 
 
 def _material_claim_repair_key(item: Dict[str, Any]) -> str:
@@ -3354,20 +3444,24 @@ def _targeted_correction_request(
         root: Tuple[str, ...],
         allowed: Sequence[Tuple[str, ...]],
         reason: str,
-    ) -> None:
+        *,
+        merge_overlaps: bool = True,
+    ) -> Tuple[str, ...]:
         _schema_node_at_path(schema, root)
-        for existing_root, existing_target in targets.items():
-            if (
-                existing_root != root
-                and root[:len(existing_root)] == existing_root
-            ):
-                existing_target["allowed"].update(allowed)
-                existing_target["reasons"].add(reason)
-                return
+        if merge_overlaps:
+            for existing_root, existing_target in targets.items():
+                if (
+                    existing_root != root
+                    and root[:len(existing_root)] == existing_root
+                ):
+                    existing_target["allowed"].update(allowed)
+                    existing_target["reasons"].add(reason)
+                    return existing_root
         descendants = [
             existing_root
             for existing_root in targets
-            if existing_root != root
+            if merge_overlaps
+            and existing_root != root
             and existing_root[:len(root)] == root
         ]
         target = targets.setdefault(root, {"allowed": set(), "reasons": set()})
@@ -3377,6 +3471,7 @@ def _targeted_correction_request(
             target["reasons"].update(nested["reasons"])
         target["allowed"].update(allowed)
         target["reasons"].add(reason)
+        return root
 
     for violation in _schema_repair_violations(rejected_report, schema):
         bad_path = tuple(violation["path"])
@@ -3528,16 +3623,88 @@ def _targeted_correction_request(
                     "goosebumps_page_citation_mismatch",
                 )
 
-    if (
-        reader_name is None
-        and str(error) in _MATERIAL_CLAIM_MAPPING_ERRORS
-    ):
-        material_claim_plan = _expected_material_claim_plan(rejected_report)
-        add_target(
-            ("material_claims",),
-            [("material_claims",)],
-            "material_claim_mapping",
-        )
+    if reader_name is None:
+        try:
+            _validate_material_claim_mapping(rejected_report)
+        except ValueError as material_claim_error:
+            if str(material_claim_error) in _MATERIAL_CLAIM_MAPPING_ERRORS:
+                material_claim_plan = _expected_material_claim_plan(
+                    rejected_report
+                )
+                add_target(
+                    ("material_claims",),
+                    [("material_claims",)],
+                    "material_claim_mapping",
+                )
+
+    if reader_name is None:
+        characters = rejected_report.get("characters")
+
+        def add_character_name_target(
+            name: Any,
+            evidence: Any,
+            root: Tuple[str, ...],
+        ) -> None:
+            if (
+                not isinstance(name, str)
+                or not name.strip()
+                or not isinstance(evidence, dict)
+                or evidence.get("kind") != "person"
+            ):
+                return
+            citation_items = [
+                item
+                for item in evidence.get("citation_evidence", [])
+                if isinstance(item, dict)
+                and isinstance(item.get("excerpt"), str)
+            ]
+            if any(
+                _text_contains_character_name(item["excerpt"], name)
+                for item in citation_items
+            ):
+                return
+            properties = _schema_node_at_path(schema, root).get(
+                "properties", {}
+            )
+            allowed = [
+                (*root, field_name)
+                for field_name in ("page_citations", "citation_evidence")
+                if field_name in properties
+            ]
+            if len(allowed) != 2:
+                raise ValueError(
+                    "character evidence correction has no citation contract"
+                )
+            target_root = add_target(
+                root,
+                allowed,
+                "character_name_absent_from_evidence",
+                merge_overlaps=False,
+            )
+            targets[target_root]["required_character_name"] = name
+
+        if isinstance(characters, dict):
+            for field in ("protagonist", "antagonist"):
+                add_character_name_target(
+                    characters.get(field),
+                    characters.get(f"{field}_evidence"),
+                    ("characters", f"{field}_evidence"),
+                )
+            supporting = characters.get("supporting")
+            supporting_evidence = characters.get("supporting_evidence")
+            if isinstance(supporting, list) and isinstance(
+                supporting_evidence,
+                list,
+            ):
+                for index, (name, evidence) in enumerate(zip(
+                    supporting,
+                    supporting_evidence,
+                )):
+                    add_character_name_target(
+                        name,
+                        evidence,
+                        ("characters", "supporting_evidence", str(index)),
+                    )
 
     if not targets:
         raise ValueError(
@@ -3563,10 +3730,32 @@ def _targeted_correction_request(
             root == ("material_claims",)
             and material_claim_plan is not None
         )
-        citation_repair = material_claim_mapping or any(
+        required_character_name = targets[root].get(
+            "required_character_name"
+        )
+        character_evidence_mapping = isinstance(
+            required_character_name,
+            str,
+        )
+        character_expected_role = (
+            "supporting"
+            if character_evidence_mapping
+            and len(root) >= 2
+            and root[-2] == "supporting_evidence"
+            else root[-1].removesuffix("_evidence")
+            if character_evidence_mapping
+            and root
+            and root[-1] in {"protagonist_evidence", "antagonist_evidence"}
+            else None
+        )
+        citation_repair = (
+            material_claim_mapping
+            or character_evidence_mapping
+            or any(
             path
             and path[-1] in {"page", "page_citations", "citation_evidence"}
             for path in allowed
+            )
         )
         source_line_options: List[Dict[str, Any]] = []
         if citation_repair:
@@ -3579,25 +3768,58 @@ def _targeted_correction_request(
                     if material_claim_mapping
                     else MAX_TARGETED_CORRECTION_LINE_OPTIONS
                 ),
+                required_character_name=(
+                    required_character_name
+                    if character_evidence_mapping
+                    else None
+                ),
             )
             if not source_line_options:
                 raise ValueError(
                     "citation correction has no bounded exact source-line options"
                 )
-        transport_schema = (
-            _material_claim_correction_transport_schema(
+        if material_claim_mapping:
+            transport_schema = _material_claim_correction_transport_schema(
                 material_claim_plan,
                 len(source_line_options),
             )
-            if material_claim_mapping
-            else _strict_correction_schema_node(
+        elif character_evidence_mapping:
+            character_schema_repairs = None
+            character_schema_paths = [
+                path
+                for path in relative_allowed
+                if path
+                and path[-1] not in {"page_citations", "citation_evidence"}
+            ]
+            if character_schema_paths:
+                character_schema_repairs = _strict_correction_schema_node(
+                    node,
+                    character_schema_paths,
+                )
+                properties = character_schema_repairs.get("properties", {})
+                if "role" in properties and character_expected_role is not None:
+                    properties["role"] = {
+                        "type": "string",
+                        "enum": [character_expected_role],
+                    }
+                if "name" in properties:
+                    properties["name"] = {
+                        "type": "string",
+                        "enum": [required_character_name],
+                    }
+            transport_schema = _character_evidence_correction_transport_schema(
+                len(source_line_options),
+                character_schema_repairs,
+            )
+        else:
+            transport_schema = _strict_correction_schema_node(
                 node,
                 relative_allowed,
             )
-        )
         if (
             source_line_options
             and not material_claim_mapping
+            and not character_evidence_mapping
             and not _bind_correction_source_line_options(
                 transport_schema,
                 source_line_options,
@@ -3621,8 +3843,23 @@ def _targeted_correction_request(
             ),
             "source_line_options": (
                 copy.deepcopy(source_line_options)
-                if material_claim_mapping
+                if material_claim_mapping or character_evidence_mapping
                 else None
+            ),
+            "required_character_name": required_character_name,
+            "character_evidence_correction_contract_version": (
+                CHARACTER_EVIDENCE_CORRECTION_CONTRACT_VERSION
+                if character_evidence_mapping
+                else None
+            ),
+            "character_schema_repair_fields": (
+                sorted(
+                    field
+                    for field in transport_schema.get("required", [])
+                    if field != "source_option_id"
+                )
+                if character_evidence_mapping
+                else []
             ),
             "expected_material_claim_plan_sha256": (
                 _canonical_json_hash(material_claim_plan)
@@ -3655,7 +3892,8 @@ def _targeted_correction_request(
             "value_schema": repair_properties[target_id],
             "current_value": (
                 None
-                if current is _MISSING_REPAIR_VALUE or material_claim_mapping
+                if current is _MISSING_REPAIR_VALUE
+                or material_claim_mapping
                 else _schema_projected_value(
                     current,
                     repair_properties[target_id],
@@ -3686,6 +3924,13 @@ def _targeted_correction_request(
                     "citations_per_atomic_claim": 1,
                 },
             }
+        elif character_evidence_mapping:
+            application_constraints = {
+                "$": {
+                    "source_option_id_count": 1,
+                    "required_character_name": required_character_name,
+                },
+            }
         if application_constraints:
             prompt_target["application_constraints"] = application_constraints
         if source_line_options:
@@ -3696,7 +3941,7 @@ def _targeted_correction_request(
             prompt_target["citation_instruction"] = (
                 "Return only each selected option_id; the application copies "
                 "its exact page and excerpt without model rewriting."
-                if material_claim_mapping
+                if material_claim_mapping or character_evidence_mapping
                 else "Copy page and excerpt exactly from one listed option; "
                 "do not shorten, join, or paraphrase it."
             )
@@ -3717,6 +3962,24 @@ def _targeted_correction_request(
                 "atomic claim. Do not return or rewrite source_field, "
                 "source_index, claim, or atomic-claim text; the application "
                 "reconstructs those deterministic fields from the bound plan."
+            )
+        if character_evidence_mapping:
+            prompt_target["correction_contract_version"] = (
+                CHARACTER_EVIDENCE_CORRECTION_CONTRACT_VERSION
+            )
+            prompt_target["character_evidence_context"] = {
+                "name": required_character_name,
+                "role": character_expected_role,
+                "role_justification": (
+                    current.get("role_justification")
+                    if isinstance(current, dict)
+                    else None
+                ),
+            }
+            prompt_target["character_evidence_instruction"] = (
+                "Return exactly one source option ID whose exact line names "
+                "the character and best supports the stated role. The "
+                "application copies the citation without model rewriting."
             )
         prompt_targets.append(prompt_target)
 
@@ -3799,15 +4062,25 @@ def _apply_targeted_correction(
     normalized_repairs: Dict[str, Any] = {}
     for target_id, target in plan["targets"].items():
         material_claim_plan = target.get("expected_material_claim_plan")
-        normalized_repairs[target_id] = (
-            _decode_material_claim_correction(
+        if isinstance(material_claim_plan, list):
+            normalized_repairs[target_id] = _decode_material_claim_correction(
                 material_claim_plan,
                 repairs[target_id],
                 target["source_line_options"],
             )
-            if isinstance(material_claim_plan, list)
-            else copy.deepcopy(repairs[target_id])
-        )
+        elif target.get(
+            "character_evidence_correction_contract_version"
+        ) == CHARACTER_EVIDENCE_CORRECTION_CONTRACT_VERSION:
+            normalized_repairs[target_id] = (
+                _decode_character_evidence_correction(
+                    repairs[target_id],
+                    target["source_line_options"],
+                )
+            )
+        else:
+            normalized_repairs[target_id] = copy.deepcopy(
+                repairs[target_id]
+            )
     identical_citation_deduplication = (
         _deduplicate_identical_citation_evidence(normalized_repairs)
     )
@@ -3985,6 +4258,25 @@ def _apply_targeted_correction(
         )
         evidence["material_claim_structure_source"] = (
             "application_bound_plan"
+        )
+    character_evidence_targets = sorted(
+        target_id
+        for target_id, target in plan["targets"].items()
+        if target.get("character_evidence_correction_contract_version")
+        == CHARACTER_EVIDENCE_CORRECTION_CONTRACT_VERSION
+    )
+    if character_evidence_targets:
+        evidence["character_evidence_correction_contract_version"] = (
+            CHARACTER_EVIDENCE_CORRECTION_CONTRACT_VERSION
+        )
+        evidence["character_evidence_structure_source"] = (
+            "application_bound_source_option"
+        )
+        evidence["character_evidence_target_count"] = len(
+            character_evidence_targets
+        )
+        evidence["character_evidence_targets_sha256"] = (
+            _canonical_json_hash(character_evidence_targets)
         )
     return candidate, evidence
 
@@ -8902,21 +9194,10 @@ def _validate_character_evidence(
         raise ValueError(f"{label} character evidence has an invalid kind")
     _validate_citation_block(f"{label} character", evidence)
     if kind == "person":
-        normalized_name = unicodedata.normalize("NFKC", name).casefold()
-        name_tokens = re.sub(r"[^\w]+", " ", normalized_name).split()
-        excerpts = " ".join(
-            item["excerpt"]
+        if not any(
+            _text_contains_character_name(item["excerpt"], name)
             for item in evidence["citation_evidence"]
-        )
-        normalized_excerpts = unicodedata.normalize("NFKC", excerpts).casefold()
-        excerpt_tokens = re.sub(
-            r"[^\w]+", " ", normalized_excerpts
-        ).split()
-        name_present = bool(name_tokens) and any(
-            excerpt_tokens[index:index + len(name_tokens)] == name_tokens
-            for index in range(len(excerpt_tokens) - len(name_tokens) + 1)
-        )
-        if not name_present:
+        ):
             raise ValueError(f"{label} character name is absent from its evidence")
 
 
@@ -9735,6 +10016,105 @@ def _validate_claim_verification(
     }
 
 
+def _bind_independently_verified_character_evidence(
+    analysis: Dict[str, Any],
+    verified: Dict[str, Any],
+) -> Dict[str, Dict[str, Any]]:
+    """Make independently adjudicated role evidence the displayed evidence."""
+    characters = analysis.get("characters")
+    results = verified.get("claims")
+    if not isinstance(characters, dict):
+        return {}
+    if not isinstance(results, list):
+        raise ValueError("independent character evidence binding is incomplete")
+    by_id = {
+        result.get("claim_id"): result
+        for result in results
+        if isinstance(result, dict)
+        and isinstance(result.get("claim_id"), str)
+    }
+    bindings: Dict[str, Dict[str, Any]] = {}
+    staged: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
+
+    def bind(
+        claim_id: str,
+        name: Any,
+        evidence: Any,
+        expected_role: str,
+        target_path: str,
+    ) -> None:
+        if not isinstance(evidence, dict) or evidence.get("kind") != "person":
+            return
+        result = by_id.get(claim_id)
+        if (
+            not isinstance(result, dict)
+            or result.get("classification")
+            not in {"Supported", "Partially supported"}
+            or result.get("story_fact_classification")
+            not in {"Supported", "Partially supported"}
+        ):
+            raise ValueError(
+                "independent character role evidence was not supported"
+            )
+        replacement = copy.deepcopy(evidence)
+        replacement["page_citations"] = copy.deepcopy(
+            result.get("page_citations")
+        )
+        replacement["citation_evidence"] = copy.deepcopy(
+            result.get("citation_evidence")
+        )
+        _validate_character_evidence(
+            claim_id,
+            name,
+            replacement,
+            expected_role,
+        )
+        before = {
+            "page_citations": copy.deepcopy(evidence.get("page_citations")),
+            "citation_evidence": copy.deepcopy(
+                evidence.get("citation_evidence")
+            ),
+        }
+        after = {
+            "page_citations": replacement["page_citations"],
+            "citation_evidence": replacement["citation_evidence"],
+        }
+        staged.append((evidence, replacement))
+        bindings[claim_id] = {
+            "target_path": target_path,
+            "before_sha256": _canonical_json_hash(before),
+            "after_sha256": _canonical_json_hash(after),
+            "changed": before != after,
+        }
+
+    for role in ("protagonist", "antagonist"):
+        bind(
+            f"character.{role}",
+            characters.get(role),
+            characters.get(f"{role}_evidence"),
+            role,
+            f"characters.{role}_evidence",
+        )
+    supporting = characters.get("supporting")
+    supporting_evidence = characters.get("supporting_evidence")
+    if isinstance(supporting, list) and isinstance(supporting_evidence, list):
+        for index, (name, evidence) in enumerate(zip(
+            supporting,
+            supporting_evidence,
+        )):
+            bind(
+                f"character.supporting.{index}",
+                name,
+                evidence,
+                "supporting",
+                f"characters.supporting_evidence.{index}",
+            )
+    for evidence, replacement in staged:
+        evidence["page_citations"] = replacement["page_citations"]
+        evidence["citation_evidence"] = replacement["citation_evidence"]
+    return bindings
+
+
 def run_claim_verification(
     *,
     text: str,
@@ -9826,6 +10206,12 @@ def run_claim_verification(
                             "judgments, adjudicate every factual story assertion; do not "
                             "use Not objectively verifiable to avoid checking facts. Do "
                             "not treat shared names or words as semantic support.\n\n"
+                            "For every `character.protagonist`, "
+                            "`character.antagonist`, or `character.supporting` claim, "
+                            "the selected exact excerpt must contain that character's "
+                            "complete name and substantively support the stated role. "
+                            "If no such evidence exists, mark the claim Unsupported or "
+                            "Contradicted.\n\n"
                             "For every reader criterion target, adjudicate its criterion, "
                             "numeric score, and justification together. Scores run from "
                             "0 to 10, where 0 means absent or no demonstrated merit when "
@@ -9997,6 +10383,12 @@ def run_claim_verification(
                 "claim verification citation evidence needs review: "
                 + ", ".join(claim_citations["issues"])
             )
+        character_evidence_bindings = (
+            _bind_independently_verified_character_evidence(
+                analysis,
+                verified,
+            )
+        )
     except Exception as error:
         error_usage = getattr(error, "usage", None)
         if isinstance(error, LlmCallFailedError):
@@ -10183,6 +10575,40 @@ def run_claim_verification(
                 },
             ),
         ]
+        record_character_bindings = {
+            target["claim_id"]: character_evidence_bindings[
+                target["claim_id"]
+            ]
+            for target in record["targets"]
+            if target["claim_id"] in character_evidence_bindings
+        }
+        if record_character_bindings:
+            record_transformations.append(
+                "bound_character_evidence_from_independent_review"
+            )
+            transformation_evidence.append({
+                "name": "bound_character_evidence_from_independent_review",
+                "before_sha256": _canonical_json_hash({
+                    claim_id: binding["before_sha256"]
+                    for claim_id, binding in record_character_bindings.items()
+                }),
+                "after_sha256": _canonical_json_hash({
+                    claim_id: binding["after_sha256"]
+                    for claim_id, binding in record_character_bindings.items()
+                }),
+                "changed": any(
+                    binding["changed"]
+                    for binding in record_character_bindings.values()
+                ),
+                "target_count": len(record_character_bindings),
+                "target_ids_sha256": _canonical_json_hash(sorted(
+                    record_character_bindings
+                )),
+                "target_paths_sha256": _canonical_json_hash(sorted(
+                    binding["target_path"]
+                    for binding in record_character_bindings.values()
+                )),
+            })
         citation_reconciliation = record.get("citation_reconciliation")
         if (
             isinstance(citation_reconciliation, dict)
