@@ -3205,6 +3205,7 @@ def _targeted_correction_request(
     schema = tool["input_schema"]
     targets: Dict[Tuple[str, ...], Dict[str, Any]] = {}
     undeclared_deletion_paths: set[Tuple[str, ...]] = set()
+    material_claim_plan: Optional[List[Dict[str, Any]]] = None
 
     def add_target(
         root: Tuple[str, ...],
@@ -3384,6 +3385,17 @@ def _targeted_correction_request(
                     "goosebumps_page_citation_mismatch",
                 )
 
+    if (
+        reader_name is None
+        and str(error) in _MATERIAL_CLAIM_MAPPING_ERRORS
+    ):
+        material_claim_plan = _expected_material_claim_plan(rejected_report)
+        add_target(
+            ("material_claims",),
+            [("material_claims",)],
+            "material_claim_mapping",
+        )
+
     if not targets:
         raise ValueError(
             "No schema-approved targeted correction is available for this failure"
@@ -3437,10 +3449,17 @@ def _targeted_correction_request(
             "schema": node,
             "transport_schema": transport_schema,
             "allowed": allowed,
+            "reasons": sorted(targets[root]["reasons"]),
             "source_line_option_count": len(source_line_options),
             "source_line_options_sha256": (
                 _canonical_json_hash(source_line_options)
                 if source_line_options
+                else None
+            ),
+            "expected_material_claim_plan_sha256": (
+                _canonical_json_hash(material_claim_plan)
+                if root == ("material_claims",)
+                and material_claim_plan is not None
                 else None
             ),
         }
@@ -3485,6 +3504,17 @@ def _targeted_correction_request(
             prompt_target["citation_instruction"] = (
                 "Copy page and excerpt exactly from one listed option; "
                 "do not shorten, join, or paraphrase it."
+            )
+        if (
+            root == ("material_claims",)
+            and material_claim_plan is not None
+        ):
+            prompt_target["exact_material_claim_plan"] = material_claim_plan
+            prompt_target["material_claim_instruction"] = (
+                "Return exactly one evidence record for each listed plan item, "
+                "in the listed order. Copy source_field, source_index, claim, "
+                "and every atomic claim exactly. Preserve only citations that "
+                "support that exact atomic claim."
             )
         prompt_targets.append(prompt_target)
 
@@ -3660,6 +3690,11 @@ def _apply_targeted_correction(
 
     try:
         _validate_json_schema_value(candidate, original_schema)
+        if any(
+            "material_claim_mapping" in target.get("reasons", [])
+            for target in plan["targets"].values()
+        ):
+            _validate_material_claim_mapping(candidate)
     except Exception as error:
         _preserve_failed_correction_transformation(
             error,
@@ -3722,6 +3757,15 @@ def _apply_targeted_correction(
     if identical_citation_deduplication["changed"]:
         evidence["prevalidation_identical_citation_deduplication"] = (
             identical_citation_deduplication
+        )
+    material_claim_plan_hashes = sorted({
+        target["expected_material_claim_plan_sha256"]
+        for target in plan["targets"].values()
+        if target.get("expected_material_claim_plan_sha256")
+    })
+    if material_claim_plan_hashes:
+        evidence["expected_material_claim_plan_sha256"] = (
+            material_claim_plan_hashes[0]
         )
     return candidate, evidence
 
@@ -8351,6 +8395,92 @@ def _atomic_claims(value: str) -> List[str]:
     ]
 
 
+_MATERIAL_CLAIM_MAPPING_ERRORS = {
+    "synthesis material claim evidence is missing",
+    "synthesis material claim evidence is invalid",
+    "synthesis material claim mapping is invalid",
+    "synthesis material claim does not match display prose",
+    "synthesis material claim atomic mapping is invalid",
+    "synthesis material claims do not cover final decision prose",
+}
+
+
+def _expected_material_claim_plan(report: Dict[str, Any]) -> List[Dict[str, Any]]:
+    display_claims = [
+        ("logline", 0, report.get("logline")),
+        ("executive_summary", 0, report.get("executive_summary")),
+        *[
+            ("strength", index, claim)
+            for index, claim in enumerate(report.get("strengths", []))
+        ],
+        *[
+            ("weakness", index, claim)
+            for index, claim in enumerate(report.get("weaknesses", []))
+        ],
+    ]
+    if any(
+        not isinstance(claim, str) or not claim.strip()
+        for _field, _index, claim in display_claims
+    ):
+        raise ValueError(
+            "synthesis display prose is unavailable for material claim mapping"
+        )
+    return [
+        {
+            "source_field": field,
+            "source_index": index,
+            "claim": claim,
+            "atomic_claims": _atomic_claims(claim),
+        }
+        for field, index, claim in display_claims
+    ]
+
+
+def _validate_material_claim_mapping(
+    report: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    expected_plan = _expected_material_claim_plan(report)
+    expected_claims = {
+        (item["source_field"], item["source_index"]): item
+        for item in expected_plan
+    }
+    material_claims = report.get("material_claims")
+    if not isinstance(material_claims, list):
+        raise ValueError("synthesis material claim evidence is missing")
+    seen_claims = set()
+    for claim_evidence in material_claims:
+        if not isinstance(claim_evidence, dict):
+            raise ValueError("synthesis material claim evidence is invalid")
+        key = (
+            claim_evidence.get("source_field"),
+            claim_evidence.get("source_index"),
+        )
+        if key not in expected_claims or key in seen_claims:
+            raise ValueError("synthesis material claim mapping is invalid")
+        expected = expected_claims[key]
+        if claim_evidence.get("claim") != expected["claim"]:
+            raise ValueError(
+                "synthesis material claim does not match display prose"
+            )
+        atomic_evidence = claim_evidence.get("atomic_claims")
+        if (
+            not isinstance(atomic_evidence, list)
+            or [
+                item.get("claim") if isinstance(item, dict) else None
+                for item in atomic_evidence
+            ] != expected["atomic_claims"]
+        ):
+            raise ValueError(
+                "synthesis material claim atomic mapping is invalid"
+            )
+        seen_claims.add(key)
+    if seen_claims != set(expected_claims):
+        raise ValueError(
+            "synthesis material claims do not cover final decision prose"
+        )
+    return material_claims
+
+
 def _validate_character_evidence(
     label: str,
     name: Any,
@@ -8703,51 +8833,12 @@ def _validate_synthesis_report(
             or any(not isinstance(value, str) or not value.strip() for value in values)
         ):
             raise ValueError(f"synthesis {field} lacks material evidence")
-    expected_claims = {
-        ("logline", 0): report["logline"],
-        ("executive_summary", 0): report["executive_summary"],
-        **{
-            ("strength", index): claim
-            for index, claim in enumerate(report["strengths"])
-        },
-        **{
-            ("weakness", index): claim
-            for index, claim in enumerate(report["weaknesses"])
-        },
-    }
-    material_claims = report.get("material_claims")
-    if not isinstance(material_claims, list):
-        raise ValueError("synthesis material claim evidence is missing")
-    seen_claims = set()
+    material_claims = _validate_material_claim_mapping(report)
     for index, claim_evidence in enumerate(material_claims):
-        if not isinstance(claim_evidence, dict):
-            raise ValueError("synthesis material claim evidence is invalid")
-        key = (
-            claim_evidence.get("source_field"),
-            claim_evidence.get("source_index"),
-        )
-        if key not in expected_claims or key in seen_claims:
-            raise ValueError("synthesis material claim mapping is invalid")
-        if claim_evidence.get("claim") != expected_claims[key]:
-            raise ValueError("synthesis material claim does not match display prose")
         atomic_evidence = claim_evidence.get("atomic_claims")
-        expected_atomic_claims = _atomic_claims(expected_claims[key])
-        if (
-            not isinstance(atomic_evidence, list)
-            or [
-                item.get("claim") if isinstance(item, dict) else None
-                for item in atomic_evidence
-            ] != expected_atomic_claims
-        ):
-            raise ValueError(
-                "synthesis material claim atomic mapping is invalid"
-            )
         for atomic_index, atomic_claim in enumerate(atomic_evidence):
             label = f"synthesis material claim {index}.{atomic_index}"
             _validate_citation_block(label, atomic_claim)
-        seen_claims.add(key)
-    if seen_claims != set(expected_claims):
-        raise ValueError("synthesis material claims do not cover final decision prose")
     comparables = report.get("comparable_films")
     if not isinstance(comparables, dict):
         raise ValueError("synthesis comparable films are not an object")
