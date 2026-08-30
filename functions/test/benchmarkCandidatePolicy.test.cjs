@@ -19,26 +19,66 @@ const schemaFreePayload = () => ({
 const strictPayload = () => ({
   ...schemaFreePayload(),
   tools: [{
-    name: 'detect_genre',
-    strict: true,
-    input_schema: {
-      type: 'object',
-      properties: { external_genre: { type: 'string' } },
-      required: ['external_genre'],
-      additionalProperties: false,
-    },
-  }],
-});
-
-const compactPayload = () => ({
-  ...schemaFreePayload(),
-  tools: [{
-    name: 'submit_structure_report',
+    name: 'submit_story_grid_genre',
+    description: "Submit the screenplay's validated Story Grid genre classification.",
     strict: true,
     input_schema: {
       type: 'object',
       properties: {
-        contract: { type: 'string', enum: ['submit_structure_report'] },
+        external_genre: {
+          type: 'string',
+          enum: [
+            'Action', 'Horror', 'Crime', 'Thriller', 'Western', 'Eastern',
+            'War', 'Society', 'Love', 'Performance', 'Comedy',
+          ],
+        },
+        comedy_paired_genre: {
+          type: 'string',
+          enum: [
+            '', 'Action', 'Horror', 'Crime', 'Thriller', 'Western', 'Eastern',
+            'War', 'Society', 'Love', 'Performance',
+          ],
+        },
+        comedy_subgenre: {
+          type: 'string',
+          enum: [
+            '', 'Rom-Com', 'Buddy Comedy', 'Fish Out of Water',
+            'Satire / Dark Comedy', 'Farce / Slapstick',
+            'Coming-of-Age Comedy',
+          ],
+        },
+        comedic_tone: { type: 'boolean' },
+        internal_genre: {
+          type: 'string',
+          enum: [
+            'Education', 'Maturation', 'Revelation', 'Disillusionment',
+            'Punitive', 'Redemption', 'Testing', 'Pathetic', 'Sentimental',
+            'Tragic', 'Admiration',
+          ],
+        },
+        confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+        one_line_why: { type: 'string' },
+      },
+      required: [
+        'external_genre', 'comedy_paired_genre', 'comedy_subgenre',
+        'comedic_tone', 'internal_genre', 'confidence', 'one_line_why',
+      ],
+      additionalProperties: false,
+    },
+  }],
+  tool_choice: { type: 'tool', name: 'submit_story_grid_genre' },
+});
+
+const compactPayload = (name = 'submit_structure_report') => ({
+  ...schemaFreePayload(),
+  tools: [{
+    name,
+    description: 'Return the complete V9 report as one JSON string.',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        contract: { type: 'string', enum: [name] },
         application_schema_sha256: { type: 'string', enum: [sha('f')] },
         report_json: { type: 'string' },
       },
@@ -46,6 +86,7 @@ const compactPayload = () => ({
       additionalProperties: false,
     },
   }],
+  tool_choice: { type: 'tool', name },
 });
 
 const targetedCorrectionPayload = (name = 'repair_structure_report') => ({
@@ -241,7 +282,7 @@ test('stage, reader, retry, boundary, prompt, and schemas are derived and fail c
   )));
   assert.doesNotThrow(() => validate(contract({
     pipeline_stage: 'claim_verification', reader_name: 'batch_001_of_004',
-  })));
+  }, compactPayload('submit_claim_verification'))));
   assert.throws(
     () => validate(contract({ reader_name: 'batch_001_of_004' })),
     /reader_name/,
@@ -278,14 +319,11 @@ test('stage, reader, retry, boundary, prompt, and schemas are derived and fail c
       /call matrix/,
     );
   }
-  assert.throws(
-    () => validate(contract({
-      pipeline_stage: 'claim_verification',
-      reader_name: 'batch_001_of_004',
-      retry_number: 1,
-    })),
-    /call matrix/,
-  );
+  assert.doesNotThrow(() => validate(contract({
+    pipeline_stage: 'claim_verification',
+    reader_name: 'batch_001_of_004',
+    retry_number: 1,
+  }, compactPayload('submit_claim_verification'))));
   assert.throws(() => validate(contract({ boundary_run: 4 })), /between 1 and 3/);
   assert.throws(() => validate(contract({ pipeline_pass: 'Sonnet pass' })), /pipeline_pass/);
   assert.throws(() => validate(contract({ prompt_sha256: sha('1') })), /prompt_sha256/);
@@ -295,7 +333,7 @@ test('stage, reader, retry, boundary, prompt, and schemas are derived and fail c
   );
 });
 
-test('one reader or synthesis correction uses its exact targeted strict schema', () => {
+test('one reader or synthesis retry accepts only targeted or compact strict output', () => {
   assert.doesNotThrow(() => validate(contract(
     { retry_number: 1 },
     targetedCorrectionPayload(),
@@ -308,8 +346,20 @@ test('one reader or synthesis correction uses its exact targeted strict schema',
     () => validate(contract({}, strictPayload())),
     /call matrix/,
   );
+  assert.doesNotThrow(() => validate(contract(
+    { retry_number: 1 },
+    compactPayload(),
+  )));
+  assert.doesNotThrow(() => validate(contract(
+    { pipeline_stage: 'synthesis', reader_name: null, retry_number: 1 },
+    compactPayload('submit_synthesis_report'),
+  )));
   assert.throws(
-    () => validate(contract({ retry_number: 1 }, compactPayload())),
+    () => validate(contract({
+      pipeline_stage: 'claim_verification',
+      reader_name: 'batch_001_of_004',
+      retry_number: 1,
+    }, targetedCorrectionPayload())),
     /call matrix/,
   );
   const invalidPayloads = [
@@ -386,6 +436,103 @@ test('one reader or synthesis correction uses its exact targeted strict schema',
     () => validate(contract({ retry_number: 1 }, tooMany)),
     /call matrix/,
   );
+});
+
+test('compact report envelopes are exact and stage-bound', () => {
+  const mutations = [
+    (payload) => { delete payload.tool_choice; },
+    (payload) => { payload.tool_choice = { type: 'auto' }; },
+    (payload) => { payload.tool_choice.name = 'submit_character_report'; },
+    (payload) => {
+      payload.tools[0].name = 'submit_character_report';
+      payload.tools[0].input_schema.properties.contract.enum = [
+        'submit_character_report',
+      ];
+      payload.tool_choice.name = 'submit_character_report';
+    },
+    (payload) => {
+      payload.tools[0].input_schema.properties.contract.enum = [
+        'submit_character_report',
+      ];
+    },
+    (payload) => { payload.tools[0].input_schema.unexpected = true; },
+    (payload) => { payload.tools[0].input_schema.additionalProperties = true; },
+    (payload) => {
+      payload.tools[0].input_schema.properties.report_json = { type: 'number' };
+    },
+    (payload) => {
+      payload.tools[0].input_schema.properties.report_json.enum = ['{}'];
+    },
+  ];
+  for (const mutate of mutations) {
+    const payload = compactPayload();
+    mutate(payload);
+    assert.throws(
+      () => validate(contract({ retry_number: 1 }, payload)),
+      /call matrix/,
+    );
+  }
+
+  const malformedBinding = compactPayload();
+  malformedBinding.tools[0].input_schema.properties[
+    'application_schema_sha256'
+  ].enum.push(sha('e'));
+  assert.throws(
+    () => contract({ retry_number: 1 }, malformedBinding),
+    /bind one application schema fingerprint/,
+  );
+});
+
+test('genre uses only the committed schema and forced tool', () => {
+  const mutations = [
+    (payload) => { delete payload.tool_choice; },
+    (payload) => { payload.tool_choice = { type: 'auto' }; },
+    (payload) => { payload.tool_choice.name = 'different_tool'; },
+    (payload) => { payload.tools[0].name = 'different_tool'; },
+    (payload) => { payload.tools[0].description = 'Different contract.'; },
+    (payload) => {
+      payload.tools[0].input_schema.properties.confidence.enum = ['high'];
+    },
+    (payload) => { payload.tools[0].input_schema.additionalProperties = true; },
+  ];
+  for (const mutate of mutations) {
+    const payload = strictPayload();
+    mutate(payload);
+    assert.throws(
+      () => validate(contract({
+        pipeline_stage: 'genre_detection',
+        reader_name: null,
+      }, payload)),
+      /call matrix/,
+    );
+  }
+});
+
+test('old thinking routes require auto tool choice while candidate routes are forced', () => {
+  const oldCompact = compactPayload();
+  oldCompact.model = 'claude-sonnet-4-6';
+  oldCompact.tool_choice = { type: 'auto' };
+  assert.doesNotThrow(() => validate(contract({
+    generation: 'old',
+    requested_model: oldCompact.model,
+    retry_number: 1,
+  }, oldCompact)));
+
+  const oldCorrection = targetedCorrectionPayload();
+  oldCorrection.model = 'claude-sonnet-4-6';
+  oldCorrection.tool_choice = { type: 'auto' };
+  assert.doesNotThrow(() => validate(contract({
+    generation: 'old',
+    requested_model: oldCorrection.model,
+    retry_number: 1,
+  }, oldCorrection)));
+
+  const forcedOld = compactPayload();
+  forcedOld.model = 'claude-sonnet-4-6';
+  assert.throws(() => validate(contract({
+    generation: 'old',
+    requested_model: forcedOld.model,
+  }, forcedOld)), /call matrix/);
 });
 
 test('schema-free calls cannot carry forged schema fingerprints', () => {

@@ -211,6 +211,24 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             ),
         })
 
+    def test_genre_schema_fingerprint_matches_candidate_allowlist(self):
+        root = Path(__file__).resolve().parents[1]
+        policy = (root / "functions/src/benchmarkCandidatePolicy.ts").read_text(
+            encoding="utf-8"
+        )
+        match = re.search(
+            r'const GENRE_SCHEMA_SHA256 = \(\s*"([a-f0-9]{64})"\s*\);',
+            policy,
+        )
+        self.assertIsNotNone(match)
+        strict_genre = ingest_v9._strict_tool_definition(
+            ingest_v9.GENRE_DETECTION_TOOL
+        )
+        self.assertEqual(
+            match.group(1),
+            ingest_v9._canonical_json_hash(strict_genre["input_schema"]),
+        )
+
     @staticmethod
     def _genre_raw(external_genre="Society", **overrides):
         raw = {
@@ -2568,6 +2586,119 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             self.assertEqual(call["validation_result"], "passed")
             self.assertEqual(call["downstream_consumption"], "consumed")
 
+    def test_settled_unparseable_claim_batch_gets_one_fresh_bounded_retry(self):
+        targets = [{
+            "claim_id": f"claim.{index}",
+            "claim": f"Locked claim {index}.",
+            "claim_type": "factual",
+            "verdict_driving": True,
+            "story_fact_check_required": True,
+            "evidence_scope": "local",
+            "score_alignment_required": False,
+        } for index in range(ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE + 1)]
+        dispatches = 0
+
+        def respond(**kwargs):
+            nonlocal dispatches
+            dispatches += 1
+            logical_retry = kwargs["logical_retry"]
+            usage = self._successful_call_usage(
+                f"msg_claim_structural_retry_{dispatches}",
+                stage="claim_verification",
+                reader_name=kwargs["reader_name"],
+            )
+            cost = dispatches * 100
+            usage["actual_cost_microusd"] = cost
+            usage["actual_cost_usd"] = cost / 1_000_000
+            usage["by_model"][MODEL_ID]["actual_cost_microusd"] = cost
+            usage["calls"][0].update({
+                "request_sha256": hashlib.sha256(
+                    kwargs["reader_name"].encode("utf-8")
+                ).hexdigest(),
+                "prompt_sha256": hashlib.sha256(
+                    kwargs["reader_name"].encode("utf-8")
+                ).hexdigest(),
+                "logical_retry": logical_retry,
+                "attempt_number": logical_retry + 1,
+                "total_retry_count": logical_retry,
+            })
+            usage["calls"][0]["usage"]["actual_cost_microusd"] = cost
+            usage["calls"][0]["usage"]["actual_cost_usd"] = cost / 1_000_000
+            if dispatches == 1:
+                rejected = [{
+                    "type": "tool_use",
+                    "name": kwargs["tool"]["name"],
+                    "input": {
+                        "contract": kwargs["tool"]["name"],
+                        "application_schema_sha256": (
+                            ingest_v9._canonical_json_hash(
+                                kwargs["tool"]["input_schema"]
+                            )
+                        ),
+                        "report_json": "{not valid json",
+                    },
+                }]
+                kwargs["raw_response_sink"]["content"] = rejected
+                raise ingest_v9.LlmOutputContractError(
+                    "report_json is not valid JSON",
+                    usage,
+                    rejected,
+                )
+            batch_ids = kwargs["tool"]["input_schema"]["properties"][
+                "claims"
+            ]["items"]["properties"]["claim_id"]["enum"]
+            return {
+                "claims": [{
+                    "claim_id": claim_id,
+                    "classification": "Supported",
+                    "story_fact_classification": "Supported",
+                    "unsupported_story_facts": [],
+                    "page_citations": [1],
+                    "citation_evidence": [{
+                        "page": 1,
+                        "excerpt": FIXTURE_DECISION_EVIDENCE,
+                    }],
+                } for claim_id in batch_ids],
+            }, "", usage
+
+        with patch.object(
+            ingest_v9,
+            "claim_verification_targets",
+            return_value=targets,
+        ), patch.object(ingest_v9, "call_llm", side_effect=respond):
+            verified, recorded = ingest_v9.run_claim_verification(
+                text=marked_screenplay(2),
+                analysis={},
+                model_key="sonnet",
+                proxy_url="https://candidate.test",
+                pipeline_pass="sonnet",
+                boundary_run=1,
+            )
+
+        self.assertEqual(dispatches, 3)
+        self.assertEqual(recorded["call_count"], 3)
+        self.assertEqual(recorded["actual_cost_microusd"], 600)
+        first, retry, final_batch = recorded["calls"]
+        self.assertEqual(first["validation_result"], "failed_structural")
+        self.assertEqual(first["disposition"], "discarded_unusable")
+        self.assertEqual(first["downstream_consumption"], "not_consumed")
+        self.assertRegex(first["rejected_output_sha256"], r"^[a-f0-9]{64}$")
+        self.assertEqual(retry["logical_retry"], 1)
+        self.assertEqual(retry["disposition"], "used")
+        self.assertEqual(retry["downstream_consumption"], "consumed")
+        self.assertNotIn("correction_source", retry)
+        self.assertTrue(any(
+            "Fresh full-schema retry" in warning
+            for warning in retry["warnings"]
+        ))
+        self.assertEqual(final_batch["logical_retry"], 0)
+        self.assertEqual(verified["batch_count"], 2)
+        self.assertEqual(verified["response_ids"], [
+            retry["response_id"],
+            final_batch["response_id"],
+        ])
+        self.assertNotIn(first["response_id"], verified["response_ids"])
+
     def test_invalid_first_claim_batch_stops_before_a_second_paid_call(self):
         targets = [{
             "claim_id": f"claim.{index}",
@@ -4778,6 +4909,212 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                         for call in synthesis_calls
                     ))
 
+    def test_settled_unparseable_reader_gets_one_fresh_bounded_retry(self):
+        fixture_analysis = complete_analysis("Reader structural retry")
+        attempts = {}
+
+        def fake_call_llm(**kwargs):
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            key = (stage, reader_name)
+            attempts[key] = attempts.get(key, 0) + 1
+            logical_retry = kwargs.get("logical_retry", 0)
+            usage = self._successful_call_usage(
+                f"msg_{stage}_{reader_name}_{attempts[key]}",
+                stage=stage,
+                reader_name=reader_name,
+            )
+            usage["calls"][0].update({
+                "request_sha256": hashlib.sha256(
+                    f"{stage}:{reader_name}".encode("utf-8")
+                ).hexdigest(),
+                "prompt_sha256": hashlib.sha256(
+                    f"{stage}:{reader_name}".encode("utf-8")
+                ).hexdigest(),
+                "logical_retry": logical_retry,
+                "attempt_number": logical_retry + 1,
+                "total_retry_count": logical_retry,
+            })
+            if (
+                stage == "reader"
+                and reader_name == "emotional_resonance"
+                and attempts[key] == 1
+            ):
+                rejected = [{
+                    "type": "tool_use",
+                    "name": kwargs["tool"]["name"],
+                    "input": {
+                        "contract": kwargs["tool"]["name"],
+                        "application_schema_sha256": ingest_v9._canonical_json_hash(
+                            kwargs["tool"]["input_schema"]
+                        ),
+                        "report_json": "{not valid json",
+                    },
+                }]
+                kwargs["raw_response_sink"]["content"] = rejected
+                raise ingest_v9.LlmOutputContractError(
+                    "report_json is not valid JSON",
+                    usage,
+                    rejected,
+                )
+            if stage == "reader":
+                return (
+                    copy.deepcopy(fixture_analysis["reader_reports"][reader_name]),
+                    "",
+                    usage,
+                )
+            return (
+                ingest_v9._schema_projected_value(
+                    fixture_analysis,
+                    ingest_v9.SYNTHESIS_TOOL["input_schema"],
+                ),
+                "",
+                usage,
+            )
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(ingest_v9.time, "sleep"):
+            analysis, usage = ingest_v9.run_v9_full(
+                text=marked_screenplay(),
+                title="Reader structural retry",
+                page_count=100,
+                word_count=20_000,
+                model_key="sonnet",
+                proxy_url="https://proxy.test",
+                pipeline_pass="sonnet",
+            )
+
+        self.assertEqual(attempts[("reader", "emotional_resonance")], 2)
+        calls = [
+            call for call in usage["calls"]
+            if call.get("reader_name") == "emotional_resonance"
+        ]
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]["validation_result"], "failed_structural")
+        self.assertEqual(calls[0]["disposition"], "discarded_unusable")
+        self.assertEqual(calls[0]["downstream_consumption"], "not_consumed")
+        self.assertEqual(calls[1]["logical_retry"], 1)
+        self.assertEqual(calls[1]["disposition"], "used")
+        self.assertNotIn("correction_source", calls[1])
+        self.assertTrue(any(
+            "Fresh full-schema retry" in warning
+            for warning in calls[1]["warnings"]
+        ))
+        self.assertEqual(analysis["analysis_quality"]["status"], "complete")
+
+    def test_settled_unparseable_synthesis_gets_one_fresh_bounded_retry(self):
+        fixture_analysis = complete_analysis("Synthesis structural retry")
+        synthesis_attempts = 0
+
+        def fake_call_llm(**kwargs):
+            nonlocal synthesis_attempts
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            if stage == "reader":
+                return (
+                    copy.deepcopy(fixture_analysis["reader_reports"][reader_name]),
+                    "",
+                    self._successful_call_usage(
+                        f"msg_reader_{reader_name}",
+                        stage=stage,
+                        reader_name=reader_name,
+                    ),
+                )
+            synthesis_attempts += 1
+            logical_retry = kwargs.get("logical_retry", 0)
+            usage = self._successful_call_usage(
+                f"msg_synthesis_{synthesis_attempts}",
+                stage=stage,
+            )
+            usage["calls"][0].update({
+                "request_sha256": hashlib.sha256(
+                    stage.encode("utf-8")
+                ).hexdigest(),
+                "prompt_sha256": hashlib.sha256(
+                    stage.encode("utf-8")
+                ).hexdigest(),
+                "logical_retry": logical_retry,
+                "attempt_number": logical_retry + 1,
+                "total_retry_count": logical_retry,
+            })
+            if synthesis_attempts == 1:
+                rejected = [{
+                    "type": "tool_use",
+                    "name": kwargs["tool"]["name"],
+                    "input": {
+                        "contract": kwargs["tool"]["name"],
+                        "application_schema_sha256": ingest_v9._canonical_json_hash(
+                            kwargs["tool"]["input_schema"]
+                        ),
+                        "report_json": "{not valid json",
+                    },
+                }]
+                kwargs["raw_response_sink"]["content"] = rejected
+                raise ingest_v9.LlmOutputContractError(
+                    "report_json is not valid JSON",
+                    usage,
+                    rejected,
+                )
+            return (
+                ingest_v9._schema_projected_value(
+                    fixture_analysis,
+                    ingest_v9.SYNTHESIS_TOOL["input_schema"],
+                ),
+                "",
+                usage,
+            )
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(ingest_v9.time, "sleep"):
+            analysis, usage = ingest_v9.run_v9_full(
+                text=marked_screenplay(),
+                title="Synthesis structural retry",
+                page_count=100,
+                word_count=20_000,
+                model_key="sonnet",
+                proxy_url="https://proxy.test",
+                pipeline_pass="sonnet",
+            )
+
+        self.assertEqual(synthesis_attempts, 2)
+        calls = [
+            call for call in usage["calls"]
+            if call.get("stage") == "synthesis"
+        ]
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]["validation_result"], "failed_structural")
+        self.assertEqual(calls[0]["disposition"], "discarded_unusable")
+        self.assertEqual(calls[1]["logical_retry"], 1)
+        self.assertEqual(calls[1]["disposition"], "used")
+        self.assertNotIn("correction_source", calls[1])
+        self.assertTrue(any(
+            "Fresh full-schema retry" in warning
+            for warning in calls[1]["warnings"]
+        ))
+        self.assertEqual(analysis["analysis_quality"]["status"], "complete")
+
     def test_reader_and_synthesis_recovery_produce_a_complete_manifest(self):
         synthesis_attempt = 0
         reader_attempts = {}
@@ -5510,6 +5847,313 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 origin_kind="daemon_queue",
                 origin_id="queue-recovered-tampered",
             )
+
+    def test_genre_semantic_retry_survives_manifest_validation(self):
+        raw = raw_analysis()
+        usage = raw["usage"]
+        target_index = next(
+            index for index, call in enumerate(usage["calls"])
+            if call["stage"] == "genre_detection"
+        )
+        target = usage["calls"][target_index]
+        rejected = copy.deepcopy(target)
+        rejected.update({
+            "response_id": "msg_genre_rejected_semantic",
+            "retry_history": [{
+                "attempt": 1,
+                "outcome": "success",
+                "response_id": "msg_genre_rejected_semantic",
+            }],
+            "disposition": "discarded_unusable",
+            "call_id": "e1" * 32,
+            "validation_result": "failed_semantic",
+            "validation_reason": (
+                "non-comedy genres must not declare comedy pairing"
+            ),
+            "failure_state": "output_validation_failed",
+            "downstream_consumption": "not_consumed",
+            "rejected_output_sha256": "e2" * 32,
+            "rejected_artifact_sha256": "e3" * 32,
+        })
+        target.update({
+            "call_id": "e4" * 32,
+            "request_sha256": "e5" * 32,
+            "prompt_sha256": "e6" * 32,
+            "logical_retry": 1,
+            "attempt_number": 2,
+            "total_retry_count": 1,
+            "started_at": "2026-08-27T12:00:02Z",
+            "completed_at": "2026-08-27T12:00:03Z",
+        })
+        usage["calls"].insert(target_index, rejected)
+        usage["call_count"] += 1
+        usage["by_model"][HAIKU_MODEL_ID]["call_count"] += 1
+
+        trusted = attach_trust_manifest(
+            raw,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+            origin_kind="daemon_queue",
+            origin_id="queue-genre-semantic-retry",
+        )
+
+        sealed = trusted["trust_manifest"]["models"]["calls"]
+        sealed_source = next(
+            call for call in sealed
+            if call["response_id"] == rejected["response_id"]
+        )
+        self.assertEqual(
+            sealed_source["rejected_output_sha256"],
+            rejected["rejected_output_sha256"],
+        )
+        self.assertEqual(
+            sealed_source["rejected_artifact_sha256"],
+            rejected["rejected_artifact_sha256"],
+        )
+
+        for field in ("rejected_output_sha256", "rejected_artifact_sha256"):
+            with self.subTest(missing=field):
+                tampered = copy.deepcopy(raw)
+                tampered_source = next(
+                    call for call in tampered["usage"]["calls"]
+                    if call["response_id"] == rejected["response_id"]
+                )
+                tampered_source.pop(field)
+                expected_error = (
+                    field
+                    if field == "rejected_output_sha256"
+                    else "local artifact hash"
+                )
+                with self.assertRaisesRegex(ValueError, expected_error):
+                    attach_trust_manifest(
+                        tampered,
+                        selection_request="sonnet",
+                        pipeline_model_tier="sonnet",
+                        effective_model_tier="sonnet",
+                        model_ids=TEST_MODEL_IDS,
+                        origin_kind="daemon_queue",
+                        origin_id=f"queue-genre-missing-{field}",
+                    )
+
+        missing_source = copy.deepcopy(raw)
+        missing_source["usage"]["calls"] = [
+            call for call in missing_source["usage"]["calls"]
+            if call["response_id"] != rejected["response_id"]
+        ]
+        missing_source["usage"]["call_count"] -= 1
+        missing_source["usage"]["by_model"][HAIKU_MODEL_ID]["call_count"] -= 1
+        with self.assertRaisesRegex(
+            ValueError,
+            "genre semantic retry lineage is inconsistent",
+        ):
+            attach_trust_manifest(
+                missing_source,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-genre-missing-source",
+            )
+
+        unchanged_prompt = copy.deepcopy(raw)
+        unchanged_source = next(
+            call for call in unchanged_prompt["usage"]["calls"]
+            if call["response_id"] == rejected["response_id"]
+        )
+        unchanged_target = next(
+            call for call in unchanged_prompt["usage"]["calls"]
+            if call["response_id"] == target["response_id"]
+        )
+        unchanged_target["prompt_sha256"] = unchanged_source["prompt_sha256"]
+        with self.assertRaisesRegex(
+            ValueError,
+            "genre semantic correction prompt was not applied",
+        ):
+            attach_trust_manifest(
+                unchanged_prompt,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-genre-unchanged-prompt",
+            )
+
+    def test_fresh_compact_reader_retry_survives_manifest_validation(self):
+        raw = raw_analysis()
+        usage = raw["usage"]
+        target_index = next(
+            index for index, call in enumerate(usage["calls"])
+            if call["stage"] == "reader" and call["reader_name"] == "structure"
+        )
+        target = usage["calls"][target_index]
+        rejected = copy.deepcopy(target)
+        rejected.update({
+            "response_id": "msg_reader_structure_rejected_compact",
+            "retry_history": [{
+                "attempt": 1,
+                "outcome": "success",
+                "response_id": "msg_reader_structure_rejected_compact",
+            }],
+            "disposition": "discarded_unusable",
+            "call_id": "fa" * 32,
+            "validation_result": "failed_structural",
+            "validation_reason": "report_json is not valid JSON",
+            "transformations": [],
+            "transformation_evidence": [],
+            "failure_state": "output_contract_failed",
+            "warnings": [],
+            "downstream_consumption": "not_consumed",
+            "rejected_output_sha256": "fb" * 32,
+            "rejected_artifact_sha256": "fc" * 32,
+        })
+        rejected["usage"] = {
+            **{
+                field: 0
+                for field in (
+                    "input_tokens",
+                    "output_tokens",
+                    "cache_creation_input_tokens",
+                    "cache_read_input_tokens",
+                    "actual_cost_microusd",
+                    "actual_cost_usd",
+                    "charged_cost_microusd",
+                    "estimated_cost_nanousd",
+                    "estimated_cost_usd",
+                    "rounding_variance_nanousd",
+                    "rounding_variance_usd",
+                )
+            },
+            "call_count": 1,
+            "rounding_reason": None,
+        }
+        for field in (
+            "independent_cost_microusd",
+            "independent_cost_usd",
+            "independent_cost_nanousd",
+            "independent_estimated_cost_usd",
+            "charged_cost_microusd",
+            "rounding_variance_nanousd",
+            "rounding_variance_usd",
+            "cost_variance_microusd",
+        ):
+            rejected[field] = 0
+        target.update({
+            "call_id": "fd" * 32,
+            "logical_retry": 1,
+            "attempt_number": 2,
+            "total_retry_count": 1,
+            "started_at": "2026-08-27T12:00:02Z",
+            "completed_at": "2026-08-27T12:00:03Z",
+            "warnings": [
+                "Fresh full-schema retry after a settled structurally invalid "
+                "response; no rejected report was consumed"
+            ],
+        })
+        usage["calls"].insert(target_index, rejected)
+        usage["call_count"] += 1
+        usage["by_model"][MODEL_ID]["call_count"] += 1
+
+        trusted = attach_trust_manifest(
+            raw,
+            selection_request="sonnet",
+            pipeline_model_tier="sonnet",
+            effective_model_tier="sonnet",
+            model_ids=TEST_MODEL_IDS,
+            origin_kind="daemon_queue",
+            origin_id="queue-fresh-compact-retry",
+        )
+
+        sealed = trusted["trust_manifest"]["models"]["calls"]
+        sealed_target = next(
+            call for call in sealed if call["response_id"] == target["response_id"]
+        )
+        self.assertEqual(sealed_target["schema_mode"], "compact_strict_tool")
+        self.assertEqual(sealed_target["logical_retry"], 1)
+        self.assertNotIn("correction_source", sealed_target)
+        sealed_source = next(
+            call for call in sealed
+            if call["response_id"] == rejected["response_id"]
+        )
+        self.assertEqual(sealed_source["downstream_consumption"], "not_consumed")
+        self.assertEqual(
+            sealed_source["rejected_output_sha256"],
+            rejected["rejected_output_sha256"],
+        )
+        self.assertEqual(
+            sealed_source["rejected_artifact_sha256"],
+            rejected["rejected_artifact_sha256"],
+        )
+
+        for field in ("prompt_sha256", "schema_sha256"):
+            with self.subTest(drift=field):
+                tampered = copy.deepcopy(raw)
+                tampered_target = next(
+                    call for call in tampered["usage"]["calls"]
+                    if call["response_id"] == target["response_id"]
+                )
+                tampered_target[field] = "fe" * 32
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "fresh compact retry lineage is inconsistent",
+                ):
+                    attach_trust_manifest(
+                        tampered,
+                        selection_request="sonnet",
+                        pipeline_model_tier="sonnet",
+                        effective_model_tier="sonnet",
+                        model_ids=TEST_MODEL_IDS,
+                        origin_kind="daemon_queue",
+                        origin_id=f"queue-fresh-compact-{field}-drift",
+                    )
+
+        missing_source = copy.deepcopy(raw)
+        missing_source["usage"]["calls"] = [
+            call for call in missing_source["usage"]["calls"]
+            if call["response_id"] != rejected["response_id"]
+        ]
+        missing_source["usage"]["call_count"] -= 1
+        missing_source["usage"]["by_model"][MODEL_ID]["call_count"] -= 1
+        with self.assertRaisesRegex(
+            ValueError,
+            "fresh compact retry lineage is inconsistent",
+        ):
+            attach_trust_manifest(
+                missing_source,
+                selection_request="sonnet",
+                pipeline_model_tier="sonnet",
+                effective_model_tier="sonnet",
+                model_ids=TEST_MODEL_IDS,
+                origin_kind="daemon_queue",
+                origin_id="queue-fresh-compact-missing-source",
+            )
+
+        for field in ("rejected_output_sha256", "rejected_artifact_sha256"):
+            with self.subTest(missing=field):
+                tampered = copy.deepcopy(raw)
+                tampered_source = next(
+                    call for call in tampered["usage"]["calls"]
+                    if call["response_id"] == rejected["response_id"]
+                )
+                tampered_source.pop(field)
+                expected_error = (
+                    field
+                    if field == "rejected_output_sha256"
+                    else "local artifact hash"
+                )
+                with self.assertRaisesRegex(ValueError, expected_error):
+                    attach_trust_manifest(
+                        tampered,
+                        selection_request="sonnet",
+                        pipeline_model_tier="sonnet",
+                        effective_model_tier="sonnet",
+                        model_ids=TEST_MODEL_IDS,
+                        origin_kind="daemon_queue",
+                        origin_id=f"queue-fresh-compact-missing-{field}",
+                    )
 
     def test_missing_craft_identity_gets_a_corrective_retry_and_recovers(self):
         fixture_analysis = complete_analysis("Craft Recovery Draft")

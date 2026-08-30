@@ -1818,6 +1818,7 @@ class TrustManifestTests(unittest.TestCase):
             "boundary_run": 1,
             "reader_name": None,
             "disposition": "discarded_unusable",
+            "rejected_output_sha256": "d1" * 32,
             **call_provenance(
                 "msg_discarded_synthesis",
                 "synthesis",
@@ -1852,6 +1853,7 @@ class TrustManifestTests(unittest.TestCase):
 
         discarded = trusted["trust_manifest"]["models"]["calls"][-1]
         self.assertEqual(discarded["disposition"], "discarded_unusable")
+        self.assertEqual(discarded["rejected_output_sha256"], "d1" * 32)
         self.assertNotIn(
             discarded["response_id"],
             trusted["trust_manifest"]["score_lineage"]["boundary_reruns"][
@@ -2288,7 +2290,7 @@ class TrustManifestTests(unittest.TestCase):
                 origin_id="queue-job-1",
             )
 
-    def test_discarded_sonnet_cold_read_without_evidence_is_sealed(self):
+    def test_discarded_sonnet_cold_read_with_hash_evidence_is_sealed(self):
         raw = raw_analysis()
         usage = raw["usage"]
         usage["input_tokens"] += 1
@@ -2313,6 +2315,7 @@ class TrustManifestTests(unittest.TestCase):
             "boundary_run": 1,
             "reader_name": None,
             "disposition": "discarded_unusable",
+            "rejected_output_sha256": "d2" * 32,
             **call_provenance(
                 "msg_discarded_sonnet_cold_read",
                 "triage",
@@ -2349,6 +2352,12 @@ class TrustManifestTests(unittest.TestCase):
         self.assertEqual(
             trusted["trust_manifest"]["models"]["calls"][-1]["disposition"],
             "discarded_unusable",
+        )
+        self.assertEqual(
+            trusted["trust_manifest"]["models"]["calls"][-1][
+                "rejected_output_sha256"
+            ],
+            "d2" * 32,
         )
 
     def test_failed_sonnet_cold_read_without_evidence_is_sealed(self):

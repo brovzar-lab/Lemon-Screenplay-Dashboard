@@ -95,6 +95,13 @@ const READERS = new Set([
   "structure", "character", "craft_scene", "concept", "emotional_resonance",
 ]);
 const NON_BINDING_STAGES = new Set(["triage", "genre_detection", "cold_read", "smoke"]);
+const GENRE_TOOL_NAME = "submit_story_grid_genre";
+const GENRE_TOOL_DESCRIPTION = (
+  "Submit the screenplay's validated Story Grid genre classification."
+);
+const GENRE_SCHEMA_SHA256 = (
+  "bf44522ad93f51c292ee622422752a5e1fb0ad54276c17ba9e69d8e837ff7645"
+);
 
 export function isOpaqueBenchmarkRunId(value: unknown): value is string {
   return typeof value === "string" && OPAQUE_RUN_ID.test(value);
@@ -213,6 +220,95 @@ function hasExactKeys(value: Record<string, unknown>, keys: string[]): boolean {
   return JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 }
 
+function isExactToolChoice(
+  value: unknown,
+  expectedToolName: string,
+  allowAuto: boolean,
+): boolean {
+  if (!isRecord(value)) return false;
+  if (allowAuto) {
+    return hasExactKeys(value, ["type"]) && value.type === "auto";
+  }
+  return hasExactKeys(value, ["type", "name"])
+    && value.type === "tool"
+    && value.name === expectedToolName;
+}
+
+function isExactCompactPayload(
+  payload: Record<string, unknown>,
+  expectedToolName: string,
+  allowAutoToolChoice: boolean,
+): boolean {
+  const tools = payload.tools;
+  const tool = Array.isArray(tools) && tools.length === 1 && isRecord(tools[0])
+    ? tools[0] : null;
+  const schema = tool && isRecord(tool.input_schema) ? tool.input_schema : null;
+  const properties = schema && isRecord(schema.properties) ? schema.properties : null;
+  const contract = properties && isRecord(properties.contract)
+    ? properties.contract : null;
+  const binding = properties && isRecord(properties.application_schema_sha256)
+    ? properties.application_schema_sha256 : null;
+  const reportJson = properties && isRecord(properties.report_json)
+    ? properties.report_json : null;
+  return Boolean(
+    tool
+    && hasExactKeys(tool, ["name", "description", "strict", "input_schema"])
+    && tool.name === expectedToolName
+    && typeof tool.description === "string"
+    && tool.strict === true
+    && isExactToolChoice(
+      payload.tool_choice,
+      expectedToolName,
+      allowAutoToolChoice,
+    )
+    && schema
+    && hasExactKeys(schema, ["type", "properties", "required", "additionalProperties"])
+    && schema.type === "object"
+    && schema.additionalProperties === false
+    && Array.isArray(schema.required)
+    && JSON.stringify([...schema.required].sort()) === JSON.stringify([
+      "application_schema_sha256", "contract", "report_json",
+    ])
+    && properties
+    && hasExactKeys(properties, [
+      "application_schema_sha256", "contract", "report_json",
+    ])
+    && contract
+    && hasExactKeys(contract, ["type", "enum"])
+    && contract.type === "string"
+    && Array.isArray(contract.enum)
+    && contract.enum.length === 1
+    && contract.enum[0] === expectedToolName
+    && binding
+    && hasExactKeys(binding, ["type", "enum"])
+    && binding.type === "string"
+    && Array.isArray(binding.enum)
+    && binding.enum.length === 1
+    && typeof binding.enum[0] === "string"
+    && SHA256.test(binding.enum[0])
+    && reportJson
+    && hasExactKeys(reportJson, ["type"])
+    && reportJson.type === "string"
+  );
+}
+
+function isExactGenrePayload(payload: Record<string, unknown>): boolean {
+  const tools = payload.tools;
+  const tool = Array.isArray(tools) && tools.length === 1 && isRecord(tools[0])
+    ? tools[0] : null;
+  const schema = tool && isRecord(tool.input_schema) ? tool.input_schema : null;
+  return Boolean(
+    tool
+    && hasExactKeys(tool, ["name", "description", "strict", "input_schema"])
+    && tool.name === GENRE_TOOL_NAME
+    && tool.description === GENRE_TOOL_DESCRIPTION
+    && tool.strict === true
+    && schema
+    && sha256CanonicalJson(schema) === GENRE_SCHEMA_SHA256
+    && isExactToolChoice(payload.tool_choice, GENRE_TOOL_NAME, false)
+  );
+}
+
 const SAFE_SCHEMA_FIELD = /^[a-z][a-z0-9_]*$/;
 const SAFE_REPAIR_TARGET = /^(?:\$|[a-z][a-z0-9_]*(?:\.(?:[a-z][a-z0-9_]*|[0-9]+))*)$/;
 
@@ -262,11 +358,11 @@ function isStrictCorrectionSchema(
 function isTargetedCorrectionPayload(
   payload: Record<string, unknown>,
   expectedToolName: string,
+  allowAutoToolChoice: boolean,
 ): boolean {
   const tools = payload.tools;
   const tool = Array.isArray(tools) && tools.length === 1 && isRecord(tools[0])
     ? tools[0] : null;
-  const choice = isRecord(payload.tool_choice) ? payload.tool_choice : null;
   const schema = tool && isRecord(tool.input_schema) ? tool.input_schema : null;
   const properties = schema && isRecord(schema.properties) ? schema.properties : null;
   const sourceHash = properties && isRecord(properties.source_report_sha256)
@@ -283,10 +379,11 @@ function isTargetedCorrectionPayload(
     && tool.name === expectedToolName
     && typeof tool.description === "string"
     && tool.strict === true
-    && choice
-    && hasExactKeys(choice, ["type", "name"])
-    && choice.type === "tool"
-    && choice.name === expectedToolName
+    && isExactToolChoice(
+      payload.tool_choice,
+      expectedToolName,
+      allowAutoToolChoice,
+    )
     && schema
     && hasExactKeys(schema, ["type", "properties", "required", "additionalProperties"])
     && schema.type === "object"
@@ -429,6 +526,16 @@ export function validateBenchmarkContract(
   const correctionToolName = stage === "reader"
     ? `repair_${contractWithoutCallId.reader_name}_report`
     : "repair_synthesis_report";
+  const compactToolName = stage === "reader"
+    ? `submit_${contractWithoutCallId.reader_name}_report`
+    : stage === "synthesis"
+      ? "submit_synthesis_report"
+      : stage === "claim_verification"
+        ? "submit_claim_verification"
+        : null;
+  const oldThinkingToolChoice = contractWithoutCallId.generation === "old";
+  const validCompactPayload = compactToolName !== null
+    && isExactCompactPayload(payload, compactToolName, oldThinkingToolChoice);
   const validStageContract = (
     ((stage === "triage" || stage === "cold_read" || stage === "smoke")
       && contractWithoutCallId.reader_name === null
@@ -436,29 +543,32 @@ export function validateBenchmarkContract(
       && schemaMode === "schema_free")
     || (stage === "genre_detection"
       && contractWithoutCallId.reader_name === null
-      && schemaMode === "strict_tool")
+      && schemaMode === "strict_tool"
+      && isExactGenrePayload(payload))
     || (stage === "reader"
       && contractWithoutCallId.reader_name !== null
-      && schemaMode === (
-        contractWithoutCallId.retry_number === 0
-          ? "compact_strict_tool"
-          : "strict_tool"
-      )
-      && (contractWithoutCallId.retry_number === 0
-        || isTargetedCorrectionPayload(payload, correctionToolName)))
+      && ((schemaMode === "compact_strict_tool" && validCompactPayload)
+        || (contractWithoutCallId.retry_number === 1
+          && schemaMode === "strict_tool"
+          && isTargetedCorrectionPayload(
+            payload,
+            correctionToolName,
+            oldThinkingToolChoice,
+          ))))
     || (stage === "synthesis"
       && contractWithoutCallId.reader_name === null
-      && schemaMode === (
-        contractWithoutCallId.retry_number === 0
-          ? "compact_strict_tool"
-          : "strict_tool"
-      )
-      && (contractWithoutCallId.retry_number === 0
-        || isTargetedCorrectionPayload(payload, correctionToolName)))
+      && ((schemaMode === "compact_strict_tool" && validCompactPayload)
+        || (contractWithoutCallId.retry_number === 1
+          && schemaMode === "strict_tool"
+          && isTargetedCorrectionPayload(
+            payload,
+            correctionToolName,
+            oldThinkingToolChoice,
+          ))))
     || (stage === "claim_verification"
       && contractWithoutCallId.reader_name !== null
-      && contractWithoutCallId.retry_number === 0
-      && schemaMode === "compact_strict_tool")
+      && schemaMode === "compact_strict_tool"
+      && validCompactPayload)
   );
   if (!validStageContract) {
     throw new BenchmarkContractError(
