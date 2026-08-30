@@ -4978,6 +4978,74 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 report,
             )
 
+    def test_indexed_weakness_is_authoritative_for_critical_failure_copy(self):
+        candidate = complete_analysis("Santa synthesis regression")
+        candidate["critical_failures"][0]["description"] = (
+            "A paraphrase that does not exactly copy the indexed weakness."
+        )
+
+        evidence = (
+            ingest_v9
+            ._derive_critical_failure_descriptions_from_weaknesses(
+                candidate
+            )
+        )
+
+        self.assertIsNotNone(evidence)
+        self.assertEqual(
+            candidate["critical_failures"][0]["description"],
+            candidate["weaknesses"][0],
+        )
+        self.assertTrue(evidence["changed"])
+        self._validate_synthesis(candidate)
+
+        santa_shape = complete_analysis("Santa two-link synthesis regression")
+        santa_shape["critical_failures"][0]["description"] = "First paraphrase."
+        second_failure = copy.deepcopy(santa_shape["critical_failures"][0])
+        second_failure.update({
+            "description": "Second paraphrase.",
+            "weakness_index": 1,
+        })
+        santa_shape["critical_failures"].append(second_failure)
+        self.assertIsNotNone(
+            ingest_v9._derive_critical_failure_descriptions_from_weaknesses(
+                santa_shape
+            )
+        )
+        self.assertEqual(
+            [failure["description"] for failure in santa_shape["critical_failures"]],
+            santa_shape["weaknesses"],
+        )
+
+        invalid_base = copy.deepcopy(santa_shape)
+        invalid_base["critical_failures"][0]["description"] = "Would mutate."
+        invalid_cases = []
+        for label in ("missing", "non_integer", "out_of_range", "duplicate"):
+            invalid = copy.deepcopy(invalid_base)
+            if label == "missing":
+                invalid["critical_failures"][1].pop("description")
+            elif label == "non_integer":
+                invalid["critical_failures"][1]["weakness_index"] = True
+            elif label == "out_of_range":
+                invalid["critical_failures"][1]["weakness_index"] = 2
+            else:
+                invalid["critical_failures"][1]["weakness_index"] = 0
+            invalid_cases.append((label, invalid))
+        empty_weakness = copy.deepcopy(invalid_base)
+        empty_weakness["weaknesses"][1] = ""
+        invalid_cases.append(("empty_weakness", empty_weakness))
+
+        for label, invalid in invalid_cases:
+            with self.subTest(label=label):
+                before = copy.deepcopy(invalid)
+                self.assertIsNone(
+                    ingest_v9
+                    ._derive_critical_failure_descriptions_from_weaknesses(
+                        invalid
+                    )
+                )
+                self.assertEqual(invalid, before)
+
     def test_targeted_correction_rejects_distinct_same_page_evidence(self):
         second_exact_excerpt = "Sergio feels his heart fall to the floor."
         source_text = join_marked_pages([
@@ -7168,10 +7236,13 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     fixture_analysis,
                     ingest_v9.SYNTHESIS_TOOL["input_schema"],
                 )
+                report["critical_failures"][0]["description"] = (
+                    "A paraphrase that does not exactly copy the indexed weakness."
+                )
                 report["material_claims"][0]["atomic_claims"][0][
-                    "citation_evidence"
-                ][0]["excerpt"] = (
-                    "This paraphrase does not occur on the physical page."
+                    "claim"
+                ] = (
+                    "This atomic claim does not match the display prose."
                 )
                 return report, "", usage
             retry_text = "\n".join(
@@ -7181,6 +7252,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             )
             self.assertIn("TARGETED STRUCTURED OUTPUT CORRECTION", retry_text)
             self.assertIn("source_response_id", retry_text)
+            repair_properties = kwargs["tool"]["input_schema"][
+                "properties"
+            ]["repairs"]["properties"]
+            self.assertNotIn("critical_failures", repair_properties)
             repairs = self._targeted_repair_input(
                 kwargs["tool"],
                 ingest_v9._schema_projected_value(
@@ -7299,11 +7374,19 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "derived_goosebumps_scene_pages_from_citations",
             fresh_retry["transformations"],
         )
+        self.assertIn(
+            "derived_critical_failure_descriptions_from_weaknesses",
+            calls_by_id["msg_synthesis_1"]["transformations"],
+        )
         self.assertEqual(
             analysis["reader_reports"]["emotional_resonance"][
                 "goosebumps_scenes"
             ][0]["page"],
             52,
+        )
+        self.assertEqual(
+            analysis["critical_failures"][0]["description"],
+            analysis["weaknesses"][0],
         )
         self.assertEqual(
             analysis["material_claims"][0]["atomic_claims"][0][

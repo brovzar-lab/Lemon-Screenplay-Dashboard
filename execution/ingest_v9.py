@@ -9597,6 +9597,47 @@ def _derive_goosebumps_scene_pages_from_citations(
     }
 
 
+def _derive_critical_failure_descriptions_from_weaknesses(
+    report: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Make each valid indexed weakness authoritative for its display copy."""
+    failures = report.get("critical_failures")
+    weaknesses = report.get("weaknesses")
+    if not isinstance(failures, list) or not isinstance(weaknesses, list):
+        return None
+    links = []
+    seen_indexes = set()
+    for failure in failures:
+        if not isinstance(failure, dict):
+            return None
+        description = failure.get("description")
+        weakness_index = failure.get("weakness_index")
+        if (
+            not isinstance(description, str)
+            or not description.strip()
+            or type(weakness_index) is not int
+            or weakness_index < 0
+            or weakness_index >= len(weaknesses)
+            or weakness_index in seen_indexes
+            or not isinstance(weaknesses[weakness_index], str)
+            or not weaknesses[weakness_index].strip()
+        ):
+            return None
+        seen_indexes.add(weakness_index)
+        links.append((failure, weaknesses[weakness_index]))
+    before = copy.deepcopy(failures)
+    for failure, weakness in links:
+        failure["description"] = weakness
+    if failures == before:
+        return None
+    return {
+        "name": "derived_critical_failure_descriptions_from_weaknesses",
+        "before_sha256": _canonical_json_hash(before),
+        "after_sha256": _canonical_json_hash(failures),
+        "changed": True,
+    }
+
+
 def _validate_synthesis_report(
     report: Any,
     reader_reports: Optional[Dict[str, Any]],
@@ -11819,6 +11860,23 @@ def run_v9_full(
                     "Citation verification normalized proven revision-margin marks "
                     "or typographic quote variants"
                 )
+            critical_failure_evidence = (
+                _derive_critical_failure_descriptions_from_weaknesses(
+                    tool_input
+                )
+            )
+            if critical_failure_evidence is not None:
+                application_transformations.append(
+                    "derived_critical_failure_descriptions_from_weaknesses"
+                )
+                transformation_evidence.append(
+                    critical_failure_evidence
+                )
+                transformation_warnings.append(
+                    "Critical failure display descriptions were derived from "
+                    "their indexed synthesis weaknesses"
+                )
+                synthesis_before = copy.deepcopy(tool_input)
             candidate = _validate_synthesis_report(
                 tool_input,
                 reader_reports,
