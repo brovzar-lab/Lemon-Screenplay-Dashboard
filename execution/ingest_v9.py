@@ -1907,6 +1907,160 @@ MAX_TARGETED_CORRECTION_LINE_OPTIONS = 12
 MAX_TARGETED_CORRECTION_LINE_CHARACTERS = 300
 
 
+def _normalized_correction_excerpt(value: str) -> str:
+    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+
+
+def _correction_application_constraints(
+    schema: Dict[str, Any],
+    allowed_paths: Sequence[Tuple[str, ...]],
+) -> Dict[str, Dict[str, Any]]:
+    """Expose locally enforced bounds omitted from Anthropic's grammar."""
+    constraints: Dict[str, Dict[str, Any]] = {}
+
+    def relevant(path: Tuple[str, ...]) -> bool:
+        return any(
+            path[:len(allowed)] == allowed
+            or allowed[:len(path)] == path
+            for allowed in allowed_paths
+        )
+
+    def walk(node: Any, path: Tuple[str, ...]) -> None:
+        if not isinstance(node, dict) or not relevant(path):
+            return
+        local = {
+            key: node[key]
+            for key in sorted(_STRICT_SCHEMA_UNSUPPORTED_KEYWORDS)
+            if key in node
+        }
+        if local:
+            constraints[".".join(path) or "$"] = local
+        properties = node.get("properties")
+        if isinstance(properties, dict):
+            for field, child in properties.items():
+                walk(child, (*path, field))
+        if node.get("type") == "array":
+            walk(node.get("items"), (*path, "[]"))
+
+    walk(schema, ())
+    return constraints
+
+
+def _deduplicate_identical_citation_evidence(value: Any) -> Dict[str, Any]:
+    """Collapse only normalized-identical evidence and matching page repeats."""
+    before_sha256 = _canonical_json_hash(value)
+    changes: List[Dict[str, Any]] = []
+
+    def walk(node: Any, path: Tuple[str, ...]) -> None:
+        if isinstance(node, dict):
+            citations = node.get("page_citations")
+            evidence = node.get("citation_evidence")
+            if isinstance(citations, list) and isinstance(evidence, list):
+                retained_evidence: List[Any] = []
+                seen: set[Tuple[int, str]] = set()
+                duplicate_pages: set[int] = set()
+                removed_evidence_indexes: List[int] = []
+                duplicate_excerpt_hashes: List[str] = []
+                for index, item in enumerate(evidence):
+                    if (
+                        isinstance(item, dict)
+                        and type(item.get("page")) is int
+                        and isinstance(item.get("excerpt"), str)
+                    ):
+                        normalized = _normalized_correction_excerpt(
+                            item["excerpt"]
+                        )
+                        identity = (item["page"], normalized)
+                        if normalized and identity in seen:
+                            duplicate_pages.add(item["page"])
+                            removed_evidence_indexes.append(index)
+                            duplicate_excerpt_hashes.append(hashlib.sha256(
+                                normalized.encode("utf-8")
+                            ).hexdigest())
+                            continue
+                        seen.add(identity)
+                    retained_evidence.append(item)
+                if removed_evidence_indexes:
+                    retained_citations: List[Any] = []
+                    seen_duplicate_pages: set[int] = set()
+                    removed_citation_indexes: List[int] = []
+                    for index, page in enumerate(citations):
+                        if (
+                            type(page) is int
+                            and page in duplicate_pages
+                            and page in seen_duplicate_pages
+                        ):
+                            removed_citation_indexes.append(index)
+                            continue
+                        retained_citations.append(page)
+                        if type(page) is int and page in duplicate_pages:
+                            seen_duplicate_pages.add(page)
+                    node["citation_evidence"] = retained_evidence
+                    node["page_citations"] = retained_citations
+                    changes.append({
+                        "path": ".".join(path) or "$",
+                        "removed_evidence_indexes": removed_evidence_indexes,
+                        "removed_page_citation_indexes": (
+                            removed_citation_indexes
+                        ),
+                        "duplicate_excerpt_hashes": sorted(
+                            duplicate_excerpt_hashes
+                        ),
+                    })
+            for field, child in node.items():
+                if field != "_citation_quality":
+                    walk(child, (*path, str(field)))
+        elif isinstance(node, list):
+            for index, child in enumerate(node):
+                walk(child, (*path, str(index)))
+
+    walk(value, ())
+    after_sha256 = _canonical_json_hash(value)
+    return {
+        "name": "removed_identical_duplicate_citation_evidence",
+        "before_sha256": before_sha256,
+        "after_sha256": after_sha256,
+        "changed": bool(changes),
+        "changed_object_count": len(changes),
+        "removed_evidence_count": sum(
+            len(change["removed_evidence_indexes"])
+            for change in changes
+        ),
+        "removed_page_citation_count": sum(
+            len(change["removed_page_citation_indexes"])
+            for change in changes
+        ),
+        "changes_sha256": _canonical_json_hash(changes),
+    }
+
+
+def _preserve_failed_correction_transformation(
+    error: BaseException,
+    evidence: Dict[str, Any],
+) -> None:
+    if evidence.get("changed"):
+        error.targeted_correction_transformation_evidence = evidence
+
+
+def _record_identical_citation_deduplication(
+    evidence: Any,
+    transformations: List[str],
+    transformation_evidence: List[Dict[str, Any]],
+    warnings: List[str],
+) -> None:
+    if not isinstance(evidence, dict) or not evidence.get("changed"):
+        return
+    name = "removed_identical_duplicate_citation_evidence"
+    if name in transformations:
+        return
+    transformations.append(name)
+    transformation_evidence.append(evidence)
+    warnings.append(
+        "Normalized-identical duplicate citation evidence was removed before "
+        "application validation; distinct same-page excerpts remain invalid"
+    )
+
+
 def _strict_schema_node(node: Any) -> Any:
     """Return the Anthropic strict-output subset without weakening local checks.
 
@@ -2039,21 +2193,22 @@ def _correction_source_line_options(
     if not pages:
         return []
 
-    def normalize(raw: str) -> str:
-        return " ".join(unicodedata.normalize("NFKC", raw).casefold().split())
-
-    normalized_hints = [normalize(hint) for hint in text_hints if hint.strip()]
+    normalized_hints = [
+        _normalized_correction_excerpt(hint)
+        for hint in text_hints
+        if hint.strip()
+    ]
     hint_words = [
         set(re.findall(r"\w+", hint, flags=re.UNICODE))
         for hint in normalized_hints
     ]
     anchor_lines: Dict[int, List[int]] = {}
     for page, excerpt in evidence_hints:
-        normalized_excerpt = normalize(excerpt)
+        normalized_excerpt = _normalized_correction_excerpt(excerpt)
         if page not in source_pages or not normalized_excerpt:
             continue
         for line_index, line in enumerate(source_pages[page].splitlines()):
-            normalized_line = normalize(line)
+            normalized_line = _normalized_correction_excerpt(line)
             if (
                 normalized_excerpt in normalized_line
                 or normalized_line in normalized_excerpt
@@ -2074,7 +2229,7 @@ def _correction_source_line_options(
                 ) is None
             ):
                 continue
-            normalized_line = normalize(excerpt)
+            normalized_line = _normalized_correction_excerpt(excerpt)
             line_words = set(re.findall(
                 r"\w+",
                 normalized_line,
@@ -3319,6 +3474,12 @@ def _targeted_correction_request(
                 else None
             ),
         }
+        application_constraints = _correction_application_constraints(
+            node,
+            relative_allowed,
+        )
+        if application_constraints:
+            prompt_target["application_constraints"] = application_constraints
         if source_line_options:
             prompt_target["exact_source_line_options"] = source_line_options
             prompt_target["citation_instruction"] = (
@@ -3359,7 +3520,9 @@ def _targeted_correction_request(
             f"{str(error)[:500]}\n"
             f"Call `{correction_tool['name']}` exactly once. Return every repair "
             "key exactly once. Each value in `repairs` must directly match that "
-            "target's `value_schema`. Change "
+            "target's `value_schema` and every listed `application_constraints` "
+            "bound. Those bounds are enforced locally even when the provider's "
+            "transport grammar cannot express them. Change "
             "only the listed `allowed_changes`; every other previously valid "
             "field is immutable and the application will ignore any rewrite. "
             "For every citation excerpt, copy at least three consecutive words "
@@ -3400,6 +3563,10 @@ def _apply_targeted_correction(
         tool_input,
         plan["tool"]["input_schema"],
         "targeted_correction",
+    )
+    normalized_repairs = copy.deepcopy(repairs)
+    identical_citation_deduplication = (
+        _deduplicate_identical_citation_evidence(normalized_repairs)
     )
 
     candidate = copy.deepcopy(plan["rejected_report"])
@@ -3450,13 +3617,20 @@ def _apply_targeted_correction(
     ]
     proposed_differences: List[Tuple[str, ...]] = []
     for target_id, target in plan["targets"].items():
-        replacement = repairs[target_id]
-        _validate_json_schema_value(
-            replacement,
-            target["transport_schema"],
-            f"repair.{target_id}",
-        )
-        validate_repair_citations(replacement)
+        replacement = normalized_repairs[target_id]
+        try:
+            _validate_json_schema_value(
+                replacement,
+                target["transport_schema"],
+                f"repair.{target_id}",
+            )
+            validate_repair_citations(replacement)
+        except Exception as error:
+            _preserve_failed_correction_transformation(
+                error,
+                identical_citation_deduplication,
+            )
+            raise
         path = tuple(target["path"])
         for allowed_path in target["allowed"]:
             allowed_path = tuple(allowed_path)
@@ -3484,14 +3658,26 @@ def _apply_targeted_correction(
                     replacement_value,
                 )
 
-    _validate_json_schema_value(candidate, original_schema)
+    try:
+        _validate_json_schema_value(candidate, original_schema)
+    except Exception as error:
+        _preserve_failed_correction_transformation(
+            error,
+            identical_citation_deduplication,
+        )
+        raise
     actual_differences = _repair_diff_paths(
         plan["rejected_report"],
         candidate,
         (),
     )
     if not actual_differences:
-        raise ValueError("targeted correction made no approved correction")
+        error = ValueError("targeted correction made no approved correction")
+        _preserve_failed_correction_transformation(
+            error,
+            identical_citation_deduplication,
+        )
+        raise error
     if any(
         not any(
             difference[:len(allowed_path)] == allowed_path
@@ -3500,7 +3686,12 @@ def _apply_targeted_correction(
         )
         for difference in actual_differences
     ):
-        raise ValueError("targeted correction escaped its approved paths")
+        error = ValueError("targeted correction escaped its approved paths")
+        _preserve_failed_correction_transformation(
+            error,
+            identical_citation_deduplication,
+        )
+        raise error
     ignored_differences = sorted({
         difference
         for difference in proposed_differences
@@ -3513,7 +3704,7 @@ def _apply_targeted_correction(
     canonical_changed_paths = sorted({
         ".".join(difference) or "$" for difference in actual_differences
     })
-    return candidate, {
+    evidence = {
         "name": "merged_targeted_correction",
         "before_sha256": plan["source_report_sha256"],
         "after_sha256": _canonical_json_hash(candidate),
@@ -3528,6 +3719,11 @@ def _apply_targeted_correction(
             ".".join(path) or "$" for path in ignored_differences
         ]),
     }
+    if identical_citation_deduplication["changed"]:
+        evidence["prevalidation_identical_citation_deduplication"] = (
+            identical_citation_deduplication
+        )
+    return candidate, evidence
 
 
 def _validated_settled_usage(
@@ -9750,6 +9946,14 @@ def run_v9_full(
                         "merged_targeted_correction"
                     )
                     transformation_evidence.append(correction_evidence)
+                    _record_identical_citation_deduplication(
+                        correction_evidence.get(
+                            "prevalidation_identical_citation_deduplication"
+                        ),
+                        application_transformations,
+                        transformation_evidence,
+                        transformation_warnings,
+                    )
                     if correction_evidence[
                         "ignored_immutable_change_count"
                     ]:
@@ -9902,6 +10106,16 @@ def run_v9_full(
                 )
                 raise
             except Exception as error:
+                _record_identical_citation_deduplication(
+                    getattr(
+                        error,
+                        "targeted_correction_transformation_evidence",
+                        None,
+                    ),
+                    application_transformations,
+                    transformation_evidence,
+                    transformation_warnings,
+                )
                 if isinstance(error, LlmCallFailedError):
                     attempt_usage = failed_usage(error)
                     _bind_correction_replay(
@@ -10297,6 +10511,14 @@ def run_v9_full(
                     "merged_targeted_correction"
                 )
                 transformation_evidence.append(correction_evidence)
+                _record_identical_citation_deduplication(
+                    correction_evidence.get(
+                        "prevalidation_identical_citation_deduplication"
+                    ),
+                    application_transformations,
+                    transformation_evidence,
+                    transformation_warnings,
+                )
                 if correction_evidence[
                     "ignored_immutable_change_count"
                 ]:
@@ -10509,6 +10731,16 @@ def run_v9_full(
             )
             raise
         except Exception as e:
+            _record_identical_citation_deduplication(
+                getattr(
+                    e,
+                    "targeted_correction_transformation_evidence",
+                    None,
+                ),
+                application_transformations,
+                transformation_evidence,
+                transformation_warnings,
+            )
             last_err = e
             if isinstance(e, LlmCallFailedError):
                 failed_attempt_usage = failed_usage(e)

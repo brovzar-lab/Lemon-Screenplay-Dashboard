@@ -3575,6 +3575,149 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "24-repair staging limit"):
             plan_for(25)
 
+    def test_targeted_correction_normalizes_duplicate_same_page_evidence(self):
+        source_text = marked_screenplay()
+        page_evidence = build_page_evidence(source_text, 100, "test")
+        pristine = copy.deepcopy(
+            complete_analysis("Santa correction regression")["reader_reports"]
+            ["emotional_resonance"]
+        )
+        pristine["goosebumps_scenes"] = [{
+            "page": 1,
+            "description": "The family finally confronts the buried secret.",
+            "why_it_works": "The emotional choice resolves the central relationship.",
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": FIXTURE_DECISION_EVIDENCE,
+            }],
+        }]
+        rejected = copy.deepcopy(pristine)
+        rejected["goosebumps_scenes"][0]["citation_evidence"][0][
+            "excerpt"
+        ] = "This fabricated excerpt is absent from every page."
+        correction_source = {
+            "source_response_id": "msg_santa_emotional_rejected",
+            "source_request_sha256": "a" * 64,
+            "source_attempt_number": 1,
+            "rejected_output_sha256": "b" * 64,
+            "rejected_artifact_sha256": None,
+            "replay_report_sha256": ingest_v9._canonical_json_hash(rejected),
+        }
+        plan = ingest_v9._targeted_correction_request(
+            [],
+            tool=ingest_v9.READER_TOOLS["emotional_resonance"],
+            error=RuntimeError("goosebumps citation needs correction"),
+            rejected_report=rejected,
+            correction_source=correction_source,
+            source_text=source_text,
+            page_diagnostics=page_evidence["page_diagnostics"],
+            page_count=100,
+            reader_name="emotional_resonance",
+        )
+        self.assertIn('"maxItems":1', plan["user_blocks"][-1]["text"])
+        repair_input = self._targeted_repair_input(plan["tool"], pristine)
+        repaired_scene = repair_input["repairs"]["goosebumps_scenes.0"]
+        repaired_scene["citation_evidence"].append(copy.deepcopy(
+            repaired_scene["citation_evidence"][0]
+        ))
+
+        repaired, evidence = ingest_v9._apply_targeted_correction(
+            plan,
+            repair_input,
+            ingest_v9.READER_TOOLS["emotional_resonance"]["input_schema"],
+            source_text,
+        )
+
+        self.assertEqual(
+            len(repaired["goosebumps_scenes"][0]["citation_evidence"]),
+            1,
+        )
+        self.assertEqual(
+            evidence["prevalidation_identical_citation_deduplication"][
+                "removed_evidence_count"
+            ],
+            1,
+        )
+        ingest_v9._validate_reader_report("emotional_resonance", repaired)
+
+    def test_targeted_correction_rejects_distinct_same_page_evidence(self):
+        second_exact_excerpt = "Sergio feels his heart fall to the floor."
+        source_text = join_marked_pages([
+            f"INT. HOUSE - DAY\n{second_exact_excerpt}\n"
+            f"{FIXTURE_DECISION_EVIDENCE}"
+        ] * 100)
+        page_evidence = build_page_evidence(source_text, 100, "test")
+        pristine = copy.deepcopy(
+            complete_analysis("Santa correction regression")["reader_reports"]
+            ["emotional_resonance"]
+        )
+        pristine["goosebumps_scenes"] = [{
+            "page": 1,
+            "description": "The family finally confronts the buried secret.",
+            "why_it_works": "The emotional choice resolves the relationship.",
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": FIXTURE_DECISION_EVIDENCE,
+            }],
+        }]
+        rejected = copy.deepcopy(pristine)
+        rejected["goosebumps_scenes"][0]["citation_evidence"][0][
+            "excerpt"
+        ] = "This fabricated excerpt is absent from every page."
+        plan = ingest_v9._targeted_correction_request(
+            [],
+            tool=ingest_v9.READER_TOOLS["emotional_resonance"],
+            error=RuntimeError("goosebumps citation needs correction"),
+            rejected_report=rejected,
+            correction_source={
+                "source_response_id": "msg_santa_emotional_rejected",
+                "source_request_sha256": "a" * 64,
+                "source_attempt_number": 1,
+                "rejected_output_sha256": "b" * 64,
+                "rejected_artifact_sha256": None,
+                "replay_report_sha256": ingest_v9._canonical_json_hash(
+                    rejected
+                ),
+            },
+            source_text=source_text,
+            page_diagnostics=page_evidence["page_diagnostics"],
+            page_count=100,
+            reader_name="emotional_resonance",
+        )
+        repair_input = self._targeted_repair_input(plan["tool"], pristine)
+        repair_input["repairs"]["goosebumps_scenes.0"][
+            "citation_evidence"
+        ].append({"page": 1, "excerpt": second_exact_excerpt})
+
+        with self.assertRaisesRegex(ValueError, "at most 1 items"):
+            ingest_v9._apply_targeted_correction(
+                plan,
+                repair_input,
+                ingest_v9.READER_TOOLS["emotional_resonance"]["input_schema"],
+                source_text,
+            )
+
+        mixed_input = copy.deepcopy(repair_input)
+        mixed_evidence = mixed_input["repairs"]["goosebumps_scenes.0"][
+            "citation_evidence"
+        ]
+        mixed_evidence.insert(1, copy.deepcopy(mixed_evidence[0]))
+        with self.assertRaisesRegex(ValueError, "at most 1 items") as raised:
+            ingest_v9._apply_targeted_correction(
+                plan,
+                mixed_input,
+                ingest_v9.READER_TOOLS["emotional_resonance"]["input_schema"],
+                source_text,
+            )
+        partial = raised.exception.targeted_correction_transformation_evidence
+        self.assertEqual(
+            partial["name"],
+            "removed_identical_duplicate_citation_evidence",
+        )
+        self.assertEqual(partial["removed_evidence_count"], 1)
+
     def test_recovered_report_does_not_repair_discarded_surplus_citations(self):
         source_text = marked_screenplay()
         page_evidence = build_page_evidence(source_text, 100, "test")
@@ -4484,6 +4627,14 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "excerpt"
             ] = "This paraphrase does not occur on the physical page."
 
+        def duplicate_same_page_citation(report):
+            report["goosebumps_scenes"][0]["citation_evidence"][0][
+                "excerpt"
+            ] = "This paraphrase does not occur on the physical page."
+
+        def duplicate_plus_distinct_same_page_citation(report):
+            duplicate_same_page_citation(report)
+
         cases = (
             ("paraphrased_excerpt", "structure", paraphrased_excerpt),
             ("invalid_excerpt", "craft_scene", excerpt_failure),
@@ -4497,6 +4648,16 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 "concept",
                 multiple_independent_defects,
             ),
+            (
+                "duplicate_same_page_citation",
+                "emotional_resonance",
+                duplicate_same_page_citation,
+            ),
+            (
+                "duplicate_plus_distinct_same_page_citation",
+                "emotional_resonance",
+                duplicate_plus_distinct_same_page_citation,
+            ),
         )
         genre_detection = ingest_v9.parse_detection({
             "external_genre": "Society",
@@ -4506,6 +4667,22 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         for case_name, failing_reader, mutate in cases:
             with self.subTest(case=case_name):
                 fixture_analysis = complete_analysis(f"Santa {case_name}")
+                if case_name in {
+                    "duplicate_same_page_citation",
+                    "duplicate_plus_distinct_same_page_citation",
+                }:
+                    fixture_analysis["reader_reports"][
+                        "emotional_resonance"
+                    ]["goosebumps_scenes"] = [{
+                        "page": 1,
+                        "description": "The family confronts the buried secret.",
+                        "why_it_works": "The final choice resolves the relationship.",
+                        "page_citations": [1],
+                        "citation_evidence": [{
+                            "page": 1,
+                            "excerpt": FIXTURE_DECISION_EVIDENCE,
+                        }],
+                    }]
                 attempts = {}
                 first_rejected_report = None
 
@@ -4611,14 +4788,32 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                                     '"path":"sub_scores.goosebumps_moments"',
                                     retry_text,
                                 )
-                            return (
-                                self._targeted_repair_input(
-                                    kwargs["tool"],
-                                    fixture_analysis["reader_reports"][reader_name],
-                                ),
-                                "",
-                                usage,
+                            repair_input = self._targeted_repair_input(
+                                kwargs["tool"],
+                                fixture_analysis["reader_reports"][reader_name],
                             )
+                            if case_name in {
+                                "duplicate_same_page_citation",
+                                "duplicate_plus_distinct_same_page_citation",
+                            }:
+                                repaired_scene = repair_input["repairs"][
+                                    "goosebumps_scenes.0"
+                                ]
+                                repaired_scene["citation_evidence"].append(
+                                    copy.deepcopy(
+                                        repaired_scene["citation_evidence"][0]
+                                    )
+                                )
+                                if case_name == (
+                                    "duplicate_plus_distinct_same_page_citation"
+                                ):
+                                    repaired_scene["citation_evidence"].append({
+                                        "page": 1,
+                                        "excerpt": (
+                                            "Sergio feels his heart fall to the floor."
+                                        ),
+                                    })
+                            return repair_input, "", usage
                         return report, "", usage
                     self.assertEqual(stage, "synthesis")
                     return copy.deepcopy(fixture_analysis), "", usage
@@ -4632,24 +4827,53 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     "call_llm",
                     side_effect=fake_call_llm,
                 ), patch.object(ingest_v9.time, "sleep"):
-                    analysis, usage = ingest_v9.run_v9_full(
-                        text=marked_screenplay(),
-                        title=f"Santa {case_name}",
-                        page_count=100,
-                        word_count=20_000,
-                        model_key="sonnet",
-                        proxy_url="https://proxy.test",
-                        pipeline_pass="sonnet",
+                    source_text = marked_screenplay()
+                    should_recover = case_name != (
+                        "duplicate_plus_distinct_same_page_citation"
                     )
+                    if not should_recover:
+                        source_text = join_marked_pages([
+                            "INT. HOUSE - DAY\n"
+                            "Sergio feels his heart fall to the floor.\n"
+                            + FIXTURE_DECISION_EVIDENCE
+                        ] * 100)
+                    if should_recover:
+                        analysis, usage = ingest_v9.run_v9_full(
+                            text=source_text,
+                            title=f"Santa {case_name}",
+                            page_count=100,
+                            word_count=20_000,
+                            model_key="sonnet",
+                            proxy_url="https://proxy.test",
+                            pipeline_pass="sonnet",
+                        )
+                    else:
+                        with self.assertRaises(
+                            ingest_v9.ReaderPanelIncompleteError
+                        ) as raised:
+                            ingest_v9.run_v9_full(
+                                text=source_text,
+                                title=f"Santa {case_name}",
+                                page_count=100,
+                                word_count=20_000,
+                                model_key="sonnet",
+                                proxy_url="https://proxy.test",
+                                pipeline_pass="sonnet",
+                            )
+                        usage = raised.exception.usage
+                        analysis = None
 
                 self.assertEqual(attempts[failing_reader], 2)
                 self.assertTrue(all(
                     attempts[reader] == (2 if reader == failing_reader else 1)
                     for reader in ingest_v9.READER_WEIGHTS
                 ))
-                self.assertEqual(attempts["synthesis"], 1)
-                self.assertEqual(usage["call_count"], 7)
-                self.assertEqual(usage["actual_cost_microusd"], 700)
+                self.assertEqual(attempts.get("synthesis", 0), int(should_recover))
+                self.assertEqual(usage["call_count"], 7 if should_recover else 6)
+                self.assertEqual(
+                    usage["actual_cost_microusd"],
+                    700 if should_recover else 600,
+                )
                 failed, recovered = [
                     call for call in usage["calls"]
                     if call["reader_name"] == failing_reader
@@ -4692,12 +4916,45 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 )
                 self.assertEqual(failed["usage"]["actual_cost_microusd"], 100)
                 self.assertEqual(failed["logical_retry"], 0)
-                self.assertEqual(recovered["disposition"], "used")
-                self.assertEqual(recovered["downstream_consumption"], "consumed")
+                self.assertEqual(
+                    recovered["disposition"],
+                    "used" if should_recover else "discarded_unusable",
+                )
+                self.assertEqual(
+                    recovered["downstream_consumption"],
+                    "consumed" if should_recover else "not_consumed",
+                )
                 self.assertEqual(recovered["usage"]["actual_cost_microusd"], 100)
                 self.assertEqual(recovered["logical_retry"], 1)
-                self.assertEqual(analysis["analysis_quality"]["status"], "complete")
-                self.assertEqual(analysis["analysis_quality"]["completed_readers"], 5)
+                if case_name in {
+                    "duplicate_same_page_citation",
+                    "duplicate_plus_distinct_same_page_citation",
+                }:
+                    self.assertIn(
+                        "removed_identical_duplicate_citation_evidence",
+                        recovered["transformations"],
+                    )
+                    citation_subset = next(
+                        item for item in recovered["transformation_evidence"]
+                        if item["name"]
+                        == "removed_identical_duplicate_citation_evidence"
+                    )
+                    self.assertEqual(
+                        citation_subset["removed_evidence_count"],
+                        1,
+                    )
+                if should_recover:
+                    self.assertEqual(
+                        analysis["analysis_quality"]["status"],
+                        "complete",
+                    )
+                    self.assertEqual(
+                        analysis["analysis_quality"]["completed_readers"],
+                        5,
+                    )
+                else:
+                    self.assertIsNone(analysis)
+                    self.assertNotIn("synthesis", attempts)
 
     def test_synthesis_multi_defect_retry_repairs_all_or_fails_unconsumed(self):
         genre_detection = ingest_v9.parse_detection({
