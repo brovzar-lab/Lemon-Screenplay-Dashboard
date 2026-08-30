@@ -461,7 +461,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             if value_schema.get("type") == "object" and isinstance(value, dict):
                 return {
                     field: apply_transport_constraints(
-                        value[field],
+                        value.get(field),
                         value_schema["properties"][field],
                     )
                     for field in value_schema.get("required", [])
@@ -2508,6 +2508,17 @@ class ProxyCostTelemetryTests(unittest.TestCase):
 
     def test_claim_verification_records_every_application_transformation(self):
         analysis = complete_analysis()
+        analysis["characters"]["protagonist"] = "Lucía"
+        analysis["characters"]["protagonist_evidence"] = {
+            "kind": "person",
+            "role": "protagonist",
+            "role_justification": "Lucía drives the decisive choice.",
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": "Lucía enters the quiet family room.",
+            }],
+        }
         targets = ingest_v9.claim_verification_targets(analysis)
         prompts = []
         raw_claims = [{
@@ -2586,11 +2597,23 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             and "exact word overlap is not required" in prompt
             and "exact_provided_pages_required" in prompt
             and "never substitute an adjacent or different page" in prompt
+            and "complete name and substantively support the stated role" in prompt
             for prompt in prompts
         ))
         self.assertEqual(verified["claims"][0]["page_citations"], [1])
         for index, call in enumerate(recorded["calls"]):
             call_expected = set(expected)
+            batch_targets = targets[
+                index * ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE:
+                (index + 1) * ingest_v9.CLAIM_VERIFICATION_BATCH_SIZE
+            ]
+            if any(
+                target["claim_id"] == "character.protagonist"
+                for target in batch_targets
+            ):
+                call_expected.add(
+                    "bound_character_evidence_from_independent_review"
+                )
             if index == 0:
                 call_expected.update({
                     "accepted_revision_safe_citation_equivalence",
@@ -2603,6 +2626,17 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             )
             self.assertEqual(call["validation_result"], "passed")
             self.assertEqual(call["downstream_consumption"], "consumed")
+        protagonist_claim = next(
+            claim
+            for claim in raw_claims
+            if claim["claim_id"] == "character.protagonist"
+        )
+        self.assertEqual(
+            analysis["characters"]["protagonist_evidence"][
+                "citation_evidence"
+            ],
+            protagonist_claim["citation_evidence"],
+        )
 
     def test_settled_unparseable_claim_batch_gets_one_fresh_bounded_retry(self):
         targets = [{
@@ -3544,11 +3578,21 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         ]["properties"]
         self.assertEqual(
             set(repair_schemas),
-            {"critical_failures", "strengths", "weaknesses"},
+            {
+                "critical_failures",
+                "material_claims",
+                "strengths",
+                "weaknesses",
+            },
         )
-        for node in repair_schemas.values():
+        for field in ("critical_failures", "strengths", "weaknesses"):
+            node = repair_schemas[field]
             self.assertEqual(set(node), {"type", "items"})
             self.assertNotIn("description", node)
+        self.assertNotIn(
+            "description",
+            json.dumps(repair_schemas["material_claims"]),
+        )
 
     def test_synthesis_atomic_mapping_gets_one_bounded_evidence_map_repair(self):
         source_text = marked_screenplay()
@@ -3758,6 +3802,406 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 source_text,
             )
 
+    def test_synthesis_correction_collects_all_latent_character_name_evidence(self):
+        source_text = join_marked_pages([
+            "INT. HOUSE - DAY\n"
+            f"{FIXTURE_DECISION_EVIDENCE}\n"
+            "Lucía faces the family and chooses truth.\n"
+            "Leo challenges Lucía to tell the truth.\n"
+            "Pía pushes Lucía toward Sergio.",
+        ])
+        page_evidence = build_page_evidence(source_text, 1, "test")
+        rejected = ingest_v9._schema_projected_value(
+            complete_analysis("Latent character evidence repair"),
+            ingest_v9.SYNTHESIS_TOOL["input_schema"],
+        )
+        rejected["material_claims"][0]["atomic_claims"][0]["claim"] = (
+            "Model-written evidence paraphrase."
+        )
+        missing_name_evidence = {
+            "kind": "person",
+            "role_justification": "The cited character drives this decision.",
+            "page_citations": [1],
+            "citation_evidence": [{
+                "page": 1,
+                "excerpt": FIXTURE_DECISION_EVIDENCE,
+            }],
+        }
+        rejected["characters"] = {
+            "protagonist": "Lucía",
+            "protagonist_lie": "Secrecy protects the family.",
+            "protagonist_arc_type": "positive",
+            "protagonist_evidence": {
+                **copy.deepcopy(missing_name_evidence),
+                "role": "protagonist",
+            },
+            "antagonist": ingest_v9.CHARACTER_NOT_IDENTIFIED,
+            "antagonist_evidence": {
+                "kind": "not_identified",
+                "role": "antagonist",
+                "role_justification": "No antagonist is identified.",
+                "page_citations": [],
+                "citation_evidence": [],
+            },
+            "supporting": ["Leo", "Pía"],
+            "supporting_evidence": [
+                {
+                    **copy.deepcopy(missing_name_evidence),
+                    "name": name,
+                    "role": "supporting",
+                }
+                for name in ("Leo", "Pía")
+            ],
+        }
+        error = ValueError(
+            "protagonist character name is absent from its evidence"
+        )
+        plan = ingest_v9._targeted_correction_request(
+            [],
+            tool=ingest_v9.SYNTHESIS_TOOL,
+            error=error,
+            rejected_report=rejected,
+            correction_source={
+                "source_response_id": "msg_santa_latent_character_evidence",
+                "source_request_sha256": "a" * 64,
+                "source_attempt_number": 1,
+                "rejected_output_sha256": "b" * 64,
+                "rejected_artifact_sha256": "c" * 64,
+                "replay_report_sha256": ingest_v9._canonical_json_hash(
+                    rejected
+                ),
+            },
+            source_text=source_text,
+            page_diagnostics=page_evidence["page_diagnostics"],
+            page_count=1,
+        )
+
+        expected_character_targets = {
+            "characters.protagonist_evidence": "Lucía",
+            "characters.supporting_evidence.0": "Leo",
+            "characters.supporting_evidence.1": "Pía",
+        }
+        self.assertEqual(
+            set(plan["targets"]),
+            {"material_claims", *expected_character_targets},
+        )
+        for target_id, name in expected_character_targets.items():
+            target = plan["targets"][target_id]
+            self.assertEqual(
+                set(target["transport_schema"]["properties"]),
+                {"source_option_id"},
+            )
+            self.assertTrue(target["source_line_options"])
+            self.assertTrue(all(
+                name.casefold() in option["excerpt"].casefold()
+                for option in target["source_line_options"]
+            ))
+
+        repair_input = self._targeted_repair_input(plan["tool"], rejected)
+        repaired, evidence = ingest_v9._apply_targeted_correction(
+            plan,
+            repair_input,
+            ingest_v9.SYNTHESIS_TOOL["input_schema"],
+            source_text,
+        )
+        ingest_v9._validate_synthesis_report(
+            repaired,
+            complete_analysis()["reader_reports"],
+            "Latent character evidence repair",
+            "Fixture Writer",
+            ingest_v9.parse_detection({
+                "external_genre": "Society",
+                "confidence": "high",
+            }),
+        )
+        self.assertEqual(
+            evidence["character_evidence_correction_contract_version"],
+            ingest_v9.CHARACTER_EVIDENCE_CORRECTION_CONTRACT_VERSION,
+        )
+
+    def test_character_name_must_appear_inside_one_evidence_excerpt(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "character name is absent from its evidence",
+        ):
+            ingest_v9._validate_character_evidence(
+                "protagonist",
+                "Juan Pérez",
+                {
+                    "kind": "person",
+                    "role": "protagonist",
+                    "role_justification": "The character drives the decision.",
+                    "page_citations": [1, 2],
+                    "citation_evidence": [
+                        {"page": 1, "excerpt": "La familia sigue a Juan"},
+                        {"page": 2, "excerpt": "Pérez vuelve al hogar"},
+                    ],
+                },
+                "protagonist",
+            )
+
+    def test_character_correction_stays_separate_from_parent_schema_repair(self):
+        source_text = join_marked_pages([
+            "INT. HOUSE - DAY\n"
+            f"{FIXTURE_DECISION_EVIDENCE}\n"
+            "Lucía faces the family and chooses truth.",
+        ])
+        page_evidence = build_page_evidence(source_text, 1, "test")
+        rejected = ingest_v9._schema_projected_value(
+            complete_analysis("Overlapping repair roots"),
+            ingest_v9.SYNTHESIS_TOOL["input_schema"],
+        )
+        rejected["characters"] = {
+            "protagonist": "Lucía",
+            "protagonist_lie": "Secrecy protects the family.",
+            "protagonist_arc_type": "positive",
+            "protagonist_evidence": {
+                "kind": "person",
+                "role": "protagonist",
+                "role_justification": "Lucía drives the decision.",
+                "page_citations": [1],
+                "citation_evidence": [{
+                    "page": 1,
+                    "excerpt": FIXTURE_DECISION_EVIDENCE,
+                }],
+            },
+            "antagonist_evidence": {
+                "kind": "not_identified",
+                "role": "antagonist",
+                "role_justification": "No antagonist is identified.",
+                "page_citations": [],
+                "citation_evidence": [],
+            },
+            "supporting": [],
+            "supporting_evidence": [],
+        }
+        plan = ingest_v9._targeted_correction_request(
+            [],
+            tool=ingest_v9.SYNTHESIS_TOOL,
+            error=ValueError(
+                "protagonist character name is absent from its evidence"
+            ),
+            rejected_report=rejected,
+            correction_source={
+                "source_response_id": "msg_overlapping_repair_roots",
+                "source_request_sha256": "a" * 64,
+                "source_attempt_number": 1,
+                "rejected_output_sha256": "b" * 64,
+                "rejected_artifact_sha256": "c" * 64,
+                "replay_report_sha256": ingest_v9._canonical_json_hash(
+                    rejected
+                ),
+            },
+            source_text=source_text,
+            page_diagnostics=page_evidence["page_diagnostics"],
+            page_count=1,
+        )
+        self.assertIn("characters", plan["targets"])
+        self.assertIn(
+            "characters.protagonist_evidence",
+            plan["targets"],
+        )
+        repaired, _evidence = ingest_v9._apply_targeted_correction(
+            plan,
+            {
+                "source_report_sha256": plan["source_report_sha256"],
+                "repairs": {
+                    "characters": {
+                        "antagonist": ingest_v9.CHARACTER_NOT_IDENTIFIED,
+                    },
+                    "characters.protagonist_evidence": {
+                        "source_option_id": 0,
+                    },
+                },
+            },
+            ingest_v9.SYNTHESIS_TOOL["input_schema"],
+            source_text,
+        )
+        ingest_v9._validate_synthesis_report(
+            repaired,
+            complete_analysis()["reader_reports"],
+            "Overlapping repair roots",
+            "Fixture Writer",
+            ingest_v9.parse_detection({
+                "external_genre": "Society",
+                "confidence": "high",
+            }),
+        )
+
+    def test_independent_review_replaces_weak_character_role_evidence(self):
+        weak_excerpt = "Lucía enters the quiet family room."
+        strong_excerpt = "Lucía makes the decisive choice for everyone."
+        analysis = {
+            "characters": {
+                "protagonist": "Lucía",
+                "protagonist_evidence": {
+                    "kind": "person",
+                    "role": "protagonist",
+                    "role_justification": "Lucía drives the decisive choice.",
+                    "page_citations": [1],
+                    "citation_evidence": [{
+                        "page": 1,
+                        "excerpt": weak_excerpt,
+                    }],
+                },
+                "supporting": [],
+                "supporting_evidence": [],
+            },
+        }
+        verified = {
+            "claims": [{
+                "claim_id": "character.protagonist",
+                "classification": "Supported",
+                "story_fact_classification": "Supported",
+                "page_citations": [2],
+                "citation_evidence": [{
+                    "page": 2,
+                    "excerpt": strong_excerpt,
+                }],
+            }],
+        }
+        bindings = ingest_v9._bind_independently_verified_character_evidence(
+            analysis,
+            verified,
+        )
+        self.assertTrue(bindings["character.protagonist"]["changed"])
+        self.assertEqual(
+            analysis["characters"]["protagonist_evidence"][
+                "citation_evidence"
+            ][0]["excerpt"],
+            strong_excerpt,
+        )
+
+        rejected_analysis = copy.deepcopy(analysis)
+        rejected_analysis["characters"]["protagonist_evidence"].update({
+            "page_citations": [1],
+            "citation_evidence": [{"page": 1, "excerpt": weak_excerpt}],
+        })
+        rejected_analysis["characters"].update({
+            "antagonist": "Sergio",
+            "antagonist_evidence": {
+                "kind": "person",
+                "role": "antagonist",
+                "role_justification": "Sergio blocks Lucía's decisive choice.",
+                "page_citations": [1],
+                "citation_evidence": [{
+                    "page": 1,
+                    "excerpt": "Sergio enters the quiet family room.",
+                }],
+            },
+        })
+        rejected_verified = copy.deepcopy(verified)
+        rejected_verified["claims"].append({
+            "claim_id": "character.antagonist",
+            "classification": "Supported",
+            "story_fact_classification": "Supported",
+            "page_citations": [3],
+            "citation_evidence": [{
+                "page": 3,
+                "excerpt": "The family makes the decisive choice.",
+            }],
+        })
+        with self.assertRaisesRegex(
+            ValueError,
+            "character name is absent from its evidence",
+        ):
+            ingest_v9._bind_independently_verified_character_evidence(
+                rejected_analysis,
+                rejected_verified,
+            )
+        self.assertEqual(
+            rejected_analysis["characters"]["protagonist_evidence"][
+                "citation_evidence"
+            ][0]["excerpt"],
+            weak_excerpt,
+        )
+
+    def test_character_correction_combines_same_root_schema_and_citation_repairs(self):
+        source_text = join_marked_pages([
+            "INT. HOUSE - DAY\n"
+            f"{FIXTURE_DECISION_EVIDENCE}\n"
+            "Lucía faces the family and chooses truth.",
+        ])
+        page_evidence = build_page_evidence(source_text, 1, "test")
+        rejected = ingest_v9._schema_projected_value(
+            complete_analysis("Same-root character repair"),
+            ingest_v9.SYNTHESIS_TOOL["input_schema"],
+        )
+        rejected["characters"] = {
+            "protagonist": "Lucía",
+            "protagonist_lie": "Secrecy protects the family.",
+            "protagonist_arc_type": "positive",
+            "protagonist_evidence": {
+                "kind": "person",
+                "role_justification": "Lucía drives the decision.",
+                "page_citations": [1],
+                "citation_evidence": [{
+                    "page": 1,
+                    "excerpt": FIXTURE_DECISION_EVIDENCE,
+                }],
+            },
+            "antagonist": ingest_v9.CHARACTER_NOT_IDENTIFIED,
+            "antagonist_evidence": {
+                "kind": "not_identified",
+                "role": "antagonist",
+                "role_justification": "No antagonist is identified.",
+                "page_citations": [],
+                "citation_evidence": [],
+            },
+            "supporting": [],
+            "supporting_evidence": [],
+        }
+        plan = ingest_v9._targeted_correction_request(
+            [],
+            tool=ingest_v9.SYNTHESIS_TOOL,
+            error=ValueError(
+                "protagonist character name is absent from its evidence"
+            ),
+            rejected_report=rejected,
+            correction_source={
+                "source_response_id": "msg_same_root_character_repair",
+                "source_request_sha256": "a" * 64,
+                "source_attempt_number": 1,
+                "rejected_output_sha256": "b" * 64,
+                "rejected_artifact_sha256": "c" * 64,
+                "replay_report_sha256": ingest_v9._canonical_json_hash(
+                    rejected
+                ),
+            },
+            source_text=source_text,
+            page_diagnostics=page_evidence["page_diagnostics"],
+            page_count=1,
+        )
+        target = plan["targets"]["characters.protagonist_evidence"]
+        self.assertEqual(
+            set(target["transport_schema"]["properties"]),
+            {"role", "source_option_id"},
+        )
+        repaired, _evidence = ingest_v9._apply_targeted_correction(
+            plan,
+            {
+                "source_report_sha256": plan["source_report_sha256"],
+                "repairs": {
+                    "characters.protagonist_evidence": {
+                        "role": "protagonist",
+                        "source_option_id": 0,
+                    },
+                },
+            },
+            ingest_v9.SYNTHESIS_TOOL["input_schema"],
+            source_text,
+        )
+        ingest_v9._validate_synthesis_report(
+            repaired,
+            complete_analysis()["reader_reports"],
+            "Same-root character repair",
+            "Fixture Writer",
+            ingest_v9.parse_detection({
+                "external_genre": "Society",
+                "confidence": "high",
+            }),
+        )
+
     def test_synthesis_atomic_mapping_retry_records_both_calls(self):
         title = "Atomic mapping retry"
         fixture = complete_analysis(title)
@@ -3890,15 +4334,22 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 complete_analysis(f"Repair count {count}"),
                 ingest_v9.SYNTHESIS_TOOL["input_schema"],
             )
-            template = report["material_claims"][0]
-            report["material_claims"] = []
+            report["characters"]["supporting"] = []
+            report["characters"]["supporting_evidence"] = []
             for index in range(count):
-                claim = copy.deepcopy(template)
-                atomic = claim["atomic_claims"][0]
-                atomic["citation_evidence"][0]["excerpt"] = (
-                    f"Fabricated evidence claim {index}"
-                )
-                report["material_claims"].append(claim)
+                name = f"Force {index}"
+                report["characters"]["supporting"].append(name)
+                report["characters"]["supporting_evidence"].append({
+                    "name": name,
+                    "kind": "non_person_force",
+                    "role": "supporting",
+                    "role_justification": "A bounded repair fixture.",
+                    "page_citations": [1],
+                    "citation_evidence": [{
+                        "page": 1,
+                        "excerpt": f"Fabricated evidence claim {index}",
+                    }],
+                })
             return ingest_v9._targeted_correction_request(
                 [],
                 tool=ingest_v9.SYNTHESIS_TOOL,
