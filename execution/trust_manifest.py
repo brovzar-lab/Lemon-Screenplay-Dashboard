@@ -1170,6 +1170,26 @@ def uses_targeted_correction_schema(call: Mapping[str, Any]) -> bool:
         in TARGETED_CORRECTION_PROMPT_CONTRACT_VERSIONS
         and call.get("stage") in {"reader", "synthesis"}
         and call.get("logical_retry") == 1
+        and call.get("schema_mode") == "strict_tool"
+    )
+
+
+def uses_fresh_structural_retry(call: Mapping[str, Any]) -> bool:
+    """Identify one full-schema retry that must replay a rejected call exactly."""
+    return (
+        call.get("stage") in {"claim_verification", "reader", "synthesis"}
+        and call.get("logical_retry") == 1
+        and call.get("schema_mode") == "compact_strict_tool"
+        and call.get("correction_source") is None
+    )
+
+
+def uses_genre_semantic_retry(call: Mapping[str, Any]) -> bool:
+    """Identify the single bounded genre correction in a completed analysis."""
+    return (
+        call.get("stage") == "genre_detection"
+        and call.get("logical_retry") == 1
+        and call.get("schema_mode") == "strict_tool"
     )
 
 
@@ -2087,7 +2107,15 @@ def _model_lineage(
                 raise ValueError(
                     f"usage.calls[{index}] non-targeted call carries targeted correction evidence"
                 )
-            if correction_replay is not None:
+            failure_state = raw_call.get("failure_state")
+            requires_rejected_output_evidence = (
+                correction_replay is not None
+                or (
+                    manifest_version == TRUST_MANIFEST_VERSION
+                    and disposition == "discarded_unusable"
+                )
+            )
+            if requires_rejected_output_evidence:
                 rejected_output_sha256 = _require_sha256(
                     raw_call.get("rejected_output_sha256"),
                     f"usage.calls[{index}].rejected_output_sha256",
@@ -2103,9 +2131,8 @@ def _model_lineage(
                     and rejected_artifact_sha256 is None
                 ):
                     raise ValueError(
-                        f"usage.calls[{index}] benchmark correction lacks its local artifact hash"
+                        f"usage.calls[{index}] benchmark rejection lacks its local artifact hash"
                     )
-            failure_state = raw_call.get("failure_state")
             if disposition == "used" and failure_state is not None:
                 raise ValueError(f"usage.calls[{index}] used output has a failure state")
             if disposition == "discarded_unusable" and not isinstance(failure_state, str):
@@ -2364,8 +2391,9 @@ def _model_lineage(
                     "correction_delivery_state"
                 ] = correction_delivery_state
             if correction_replay is not None:
+                call_provenance["correction_replay"] = correction_replay
+            if rejected_output_sha256 is not None:
                 call_provenance.update({
-                    "correction_replay": correction_replay,
                     "rejected_output_sha256": rejected_output_sha256,
                     "rejected_artifact_sha256": rejected_artifact_sha256,
                 })
@@ -2547,6 +2575,115 @@ def _model_lineage(
     if len(set(response_ids)) != len(response_ids):
         raise ValueError("usage.calls contains duplicate response_id values")
     calls_by_response = {call["response_id"]: call for call in call_records}
+    if manifest_version == TRUST_MANIFEST_VERSION:
+        genre_retry_source_ids = set()
+        genre_replay_fields = (
+            "requested_model",
+            "returned_model",
+            "stage",
+            "pipeline_pass",
+            "boundary_run",
+            "reader_name",
+            "prompt_contract_version",
+            "schema_mode",
+            "schema_sha256",
+            "transport_schema_sha256",
+            "pricing_sha256",
+            "release",
+            "expected_release",
+        )
+        for target_index, target in enumerate(call_records):
+            if not uses_genre_semantic_retry(target):
+                continue
+            if (
+                target.get("disposition") != "used"
+                or target.get("validation_result") != "passed"
+                or target.get("downstream_consumption") != "consumed"
+            ):
+                raise ValueError("genre semantic retry target is invalid")
+            candidates = [
+                source
+                for source in call_records[:target_index]
+                if source.get("logical_retry") == 0
+                and source.get("attempt_number") == 1
+                and source.get("disposition") == "discarded_unusable"
+                and source.get("validation_result") == "failed_semantic"
+                and source.get("failure_state") == "output_validation_failed"
+                and source.get("downstream_consumption") == "not_consumed"
+                and all(
+                    source.get(field) == target.get(field)
+                    for field in genre_replay_fields
+                )
+            ]
+            if len(candidates) != 1:
+                raise ValueError("genre semantic retry lineage is inconsistent")
+            source = candidates[0]
+            source_id = source["response_id"]
+            if source_id in genre_retry_source_ids:
+                raise ValueError("genre semantic retry source was reused")
+            if (
+                source["request_sha256"] == target["request_sha256"]
+                or source["prompt_sha256"] == target["prompt_sha256"]
+            ):
+                raise ValueError("genre semantic correction prompt was not applied")
+            source_completed = datetime.fromisoformat(
+                source["completed_at"].replace("Z", "+00:00")
+            )
+            target_started = datetime.fromisoformat(
+                target["started_at"].replace("Z", "+00:00")
+            )
+            if target_started < source_completed:
+                raise ValueError("genre semantic retry chronology is inconsistent")
+            genre_retry_source_ids.add(source_id)
+
+        fresh_retry_source_ids = set()
+        replay_fields = (
+            "requested_model",
+            "returned_model",
+            "stage",
+            "pipeline_pass",
+            "boundary_run",
+            "reader_name",
+            "request_sha256",
+            "prompt_sha256",
+            "prompt_contract_version",
+            "schema_mode",
+            "schema_sha256",
+            "transport_schema_sha256",
+            "pricing_sha256",
+            "release",
+            "expected_release",
+        )
+        for target_index, target in enumerate(call_records):
+            if not uses_fresh_structural_retry(target):
+                continue
+            candidates = [
+                source
+                for source in call_records[:target_index]
+                if source.get("logical_retry") == 0
+                and source.get("attempt_number") == 1
+                and source.get("disposition") == "discarded_unusable"
+                and source.get("validation_result") == "failed_structural"
+                and source.get("failure_state") == "output_contract_failed"
+                and source.get("downstream_consumption") == "not_consumed"
+                and source.get("correction_replay") is None
+                and all(source.get(field) == target.get(field) for field in replay_fields)
+            ]
+            if len(candidates) != 1:
+                raise ValueError("fresh compact retry lineage is inconsistent")
+            source = candidates[0]
+            source_id = source["response_id"]
+            if source_id in fresh_retry_source_ids:
+                raise ValueError("fresh compact retry source was reused")
+            source_completed = datetime.fromisoformat(
+                source["completed_at"].replace("Z", "+00:00")
+            )
+            target_started = datetime.fromisoformat(
+                target["started_at"].replace("Z", "+00:00")
+            )
+            if target_started < source_completed:
+                raise ValueError("fresh compact retry chronology is inconsistent")
+            fresh_retry_source_ids.add(source_id)
     replayed_source_ids = set()
 
     def validate_correction_target(

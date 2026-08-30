@@ -9105,6 +9105,8 @@ def run_claim_verification(
         "claim_verification",
     )
     batch_records: List[Dict[str, Any]] = []
+    claim_attempt_usages: List[Dict[str, Any]] = []
+    structural_retry_evidence: List[Dict[str, Any]] = []
     current_usage = empty_usage()
     current_raw: Any = None
     current_raw_response: Dict[str, Any] = {}
@@ -9120,25 +9122,19 @@ def run_claim_verification(
                 }
                 for target in batch
             ]
-            current_usage = empty_usage()
-            current_raw = None
-            current_raw_response = {}
-            current_citation_reconciliation = None
-            current_citation_quality = None
-            current_raw, _text, current_usage = call_llm(
-                system_blocks=[{
+            system_blocks = [{
+                "type": "text",
+                "text": (
+                    f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n"
+                    "You are an adversarial screenplay fact checker independent "
+                    "of the readers and synthesis."
+                ),
+            }]
+            user_blocks = [
+                _screenplay_user_block(text, cached=True),
+                {
                     "type": "text",
                     "text": (
-                        f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n"
-                        "You are an adversarial screenplay fact checker independent "
-                        "of the readers and synthesis."
-                    ),
-                }],
-                user_blocks=[
-                    _screenplay_user_block(text, cached=True),
-                    {
-                        "type": "text",
-                        "text": (
                             "# INDEPENDENT CLAIM AUDIT\n"
                             f"Batch {batch_index} of {len(batches)}. Adjudicate every "
                             "locked claim below against the complete screenplay above. "
@@ -9182,28 +9178,87 @@ def run_claim_verification(
                             "`evaluative`, use `No concrete story fact`, judge the creative "
                             "conclusion in `classification`, and cite relevant pages. The "
                             "locked claim cannot be rewritten.\n\n"
-                            + json.dumps(
-                                locked_batch,
-                                ensure_ascii=False,
-                                separators=(",", ":"),
-                            )
+                        + json.dumps(
+                            locked_batch,
+                            ensure_ascii=False,
+                            separators=(",", ":"),
+                        )
+                    ),
+                },
+            ]
+            tool = _claim_verification_batch_tool(batch)
+            batch_had_structural_retry = False
+            for logical_retry in range(2):
+                current_usage = empty_usage()
+                current_raw = None
+                current_raw_response = {}
+                current_citation_reconciliation = None
+                current_citation_quality = None
+                try:
+                    current_raw, _text, current_usage = call_llm(
+                        system_blocks=system_blocks,
+                        user_blocks=user_blocks,
+                        model_key=model_key,
+                        tool=tool,
+                        compact_json_envelope=True,
+                        thinking_budget=THINKING_BUDGET_CLAIM_VERIFICATION,
+                        max_tokens=OUTPUT_BUDGET_CLAIM_VERIFICATION,
+                        proxy_url=proxy_url,
+                        job_id=job_id,
+                        stage="claim_verification",
+                        pipeline_pass=pipeline_pass,
+                        boundary_run=max(1, boundary_run),
+                        reader_name=(
+                            f"batch_{batch_index:03d}_of_{len(batches):03d}"
                         ),
-                    },
-                ],
-                model_key=model_key,
-                tool=_claim_verification_batch_tool(batch),
-                compact_json_envelope=True,
-                thinking_budget=THINKING_BUDGET_CLAIM_VERIFICATION,
-                max_tokens=OUTPUT_BUDGET_CLAIM_VERIFICATION,
-                proxy_url=proxy_url,
-                job_id=job_id,
-                stage="claim_verification",
-                pipeline_pass=pipeline_pass,
-                boundary_run=max(1, boundary_run),
-                reader_name=f"batch_{batch_index:03d}_of_{len(batches):03d}",
-                logical_retry=0,
-                raw_response_sink=current_raw_response,
-            )
+                        logical_retry=logical_retry,
+                        raw_response_sink=current_raw_response,
+                    )
+                    break
+                except LlmOutputContractError as error:
+                    current_usage = error.usage
+                    rejected_raw = (
+                        current_raw_response.get("content")
+                        if "content" in current_raw_response
+                        else error.rejected_output
+                    )
+                    calls = current_usage.get("calls")
+                    retryable = (
+                        logical_retry == 0
+                        and rejected_raw is not None
+                        and isinstance(calls, list)
+                        and len(calls) == 1
+                        and isinstance(calls[0], dict)
+                        and isinstance(calls[0].get("response_id"), str)
+                    )
+                    if not retryable:
+                        raise
+                    set_successful_call_disposition(
+                        current_usage,
+                        "discarded_unusable",
+                    )
+                    _mark_call_validation(
+                        current_usage,
+                        result="failed_structural",
+                        reason=str(error),
+                    )
+                    calls[0]["failure_state"] = "output_contract_failed"
+                    evidence = _preserve_local_rejected_output(
+                        "claim_verification",
+                        rejected_raw,
+                        current_usage,
+                        str(error),
+                    )
+                    if not re.fullmatch(
+                        r"[a-f0-9]{64}",
+                        str(evidence.get("rejected_output_sha256", "")),
+                    ):
+                        raise LlmProvenanceError(
+                            "Rejected claim response was not hash-bound"
+                        )
+                    claim_attempt_usages.append(current_usage)
+                    structural_retry_evidence.append(evidence)
+                    batch_had_structural_retry = True
             if not isinstance(current_raw, dict):
                 raise ValueError("claim verification batch output is not an object")
             batch_claims = current_raw.get("claims")
@@ -9238,7 +9293,9 @@ def run_claim_verification(
                 "usage": current_usage,
                 "citation_reconciliation": current_citation_reconciliation,
                 "citation_quality": current_citation_quality,
+                "fresh_structural_retry": batch_had_structural_retry,
             })
+            claim_attempt_usages.append(current_usage)
             raw["claims"].extend(copy.deepcopy(current_raw.get("claims", [])))
         verified = _validate_claim_verification(raw, targets)
         claim_citations = validate_analysis_citations(
@@ -9276,13 +9333,18 @@ def run_claim_verification(
                 "citation_reconciliation": current_citation_reconciliation,
                 "citation_quality": current_citation_quality,
             })
-        rejected_evidence: List[Dict[str, Any]] = []
-        discarded_usages: List[Dict[str, Any]] = []
+        if (
+            current_usage.get("calls") or current_usage.get("failed_calls")
+        ) and not any(
+            usage is current_usage for usage in claim_attempt_usages
+        ):
+            claim_attempt_usages.append(current_usage)
+        rejected_evidence = list(structural_retry_evidence)
+        discarded_usages = list(claim_attempt_usages)
         artifact_candidates: List[Tuple[Any, Dict[str, Any]]] = []
         for record in batch_records:
             attempt_usage = record["usage"]
             if not attempt_usage.get("calls"):
-                discarded_usages.append(attempt_usage)
                 continue
             set_successful_call_disposition(attempt_usage, "discarded_unusable")
             structural = (
@@ -9350,11 +9412,6 @@ def run_claim_verification(
             )
             if has_exact_content or rejected_raw is not None:
                 artifact_candidates.append((rejected_raw, attempt_usage))
-            discarded_usages.append(attempt_usage)
-        if not any(
-            record["usage"] is current_usage for record in batch_records
-        ):
-            discarded_usages.append(current_usage)
         for rejected_raw, attempt_usage in artifact_candidates:
             try:
                 evidence = _preserve_local_rejected_output(
@@ -9382,11 +9439,13 @@ def run_claim_verification(
                 "offending_claims": _rejected_claim_summary(raw),
             },
         ) from error
-    usage = merge_usage(*(record["usage"] for record in batch_records))
+    usage = merge_usage(*claim_attempt_usages)
     verified["response_ids"] = [
         call["response_id"]
-        for call in usage.get("calls", [])
-        if isinstance(call, dict) and isinstance(call.get("response_id"), str)
+        for record in batch_records
+        for call in record["usage"].get("calls", [])
+        if isinstance(call, dict)
+        and isinstance(call.get("response_id"), str)
     ]
     analysis_for_hash = copy.deepcopy(analysis)
     analysis_for_hash.pop("_citation_quality", None)
@@ -9449,6 +9508,11 @@ def run_claim_verification(
             })
         citation_quality = record.get("citation_quality")
         record_warnings: List[str] = []
+        if record.get("fresh_structural_retry"):
+            record_warnings.append(
+                "Fresh full-schema retry after a settled structurally invalid "
+                "response; no rejected report was consumed"
+            )
         if (
             isinstance(citation_quality, dict)
             and citation_quality.get("normalized_match_count", 0)
@@ -9478,7 +9542,7 @@ def run_claim_verification(
             transformation_evidence=transformation_evidence,
             warnings=record_warnings,
         )
-    usage = merge_usage(*(record["usage"] for record in batch_records))
+    usage = merge_usage(*claim_attempt_usages)
     verified["batch_count"] = len(batch_records)
     verified["batch_size_limit"] = CLAIM_VERIFICATION_BATCH_SIZE
     verified["batch_target_sha256"] = [
@@ -9593,6 +9657,7 @@ def run_v9_full(
         previous_rejected_call: Optional[Dict[str, Any]] = None
         previous_correction_source: Optional[Dict[str, Any]] = None
         previous_correction_error: Optional[BaseException] = None
+        fresh_structural_retry_allowed = False
 
         for report_attempt in range(1, MAX_READER_REPORT_ATTEMPTS + 1):
             attempt_usage = empty_usage()
@@ -9607,30 +9672,36 @@ def run_v9_full(
                 correction_plan: Optional[Dict[str, Any]] = None
                 if failures:
                     if (
-                        not isinstance(previous_rejected_report, dict)
-                        or previous_correction_source is None
+                        isinstance(previous_rejected_report, dict)
+                        and previous_correction_source is not None
                     ):
+                        correction_plan = _targeted_correction_request(
+                            user_blocks,
+                            tool=tool,
+                            error=(
+                                previous_correction_error
+                                or RuntimeError(failures[-1]["error"])
+                            ),
+                            rejected_report=previous_rejected_report,
+                            correction_source=previous_correction_source,
+                            source_text=text,
+                            page_diagnostics=(
+                                runtime_page_evidence["page_diagnostics"]
+                            ),
+                            page_count=page_count,
+                            reader_name=reader,
+                        )
+                        attempt_user_blocks = correction_plan["user_blocks"]
+                        attempt_tool = correction_plan["tool"]
+                    elif fresh_structural_retry_allowed:
+                        transformation_warnings.append(
+                            "Fresh full-schema retry after a settled structurally "
+                            "invalid response; no rejected report was consumed"
+                        )
+                    else:
                         raise ValueError(
                             "Reader failure has no hash-bound targeted correction source"
                         )
-                    correction_plan = _targeted_correction_request(
-                        user_blocks,
-                        tool=tool,
-                        error=(
-                            previous_correction_error
-                            or RuntimeError(failures[-1]["error"])
-                        ),
-                        rejected_report=previous_rejected_report,
-                        correction_source=previous_correction_source,
-                        source_text=text,
-                        page_diagnostics=(
-                            runtime_page_evidence["page_diagnostics"]
-                        ),
-                        page_count=page_count,
-                        reader_name=reader,
-                    )
-                    attempt_user_blocks = correction_plan["user_blocks"]
-                    attempt_tool = correction_plan["tool"]
                 tool_input, _text, attempt_usage = call_llm(
                     system_blocks=system_blocks,
                     user_blocks=attempt_user_blocks,
@@ -9930,6 +10001,17 @@ def run_v9_full(
                         if isinstance(rejected_report, dict)
                         else None
                     )
+                    fresh_structural_retry_allowed = bool(
+                        structural
+                        and previous_correction_source is None
+                        and isinstance(previous_rejected_call.get("response_id"), str)
+                        and re.fullmatch(
+                            r"[a-f0-9]{64}",
+                            str(previous_rejected_call.get(
+                                "rejected_output_sha256", ""
+                            )),
+                        )
+                    )
                     if previous_correction_source is None:
                         previous_rejected_report = None
                         previous_rejected_call = None
@@ -10129,6 +10211,7 @@ def run_v9_full(
     previous_rejected_report: Optional[Dict[str, Any]] = None
     previous_rejected_call: Optional[Dict[str, Any]] = None
     previous_correction_source: Optional[Dict[str, Any]] = None
+    fresh_structural_retry_allowed = False
     for attempt in range(1, MAX_SYNTHESIS_ATTEMPTS + 1):
         syn_usage = empty_usage()
         application_transformations: List[str] = []
@@ -10143,24 +10226,30 @@ def run_v9_full(
             correction_plan: Optional[Dict[str, Any]] = None
             if last_err is not None:
                 if (
-                    not isinstance(previous_rejected_report, dict)
-                    or previous_correction_source is None
+                    isinstance(previous_rejected_report, dict)
+                    and previous_correction_source is not None
                 ):
+                    correction_plan = _targeted_correction_request(
+                        syn_user_blocks,
+                        tool=SYNTHESIS_TOOL,
+                        error=last_err,
+                        rejected_report=previous_rejected_report,
+                        correction_source=previous_correction_source,
+                        source_text=text,
+                        page_diagnostics=runtime_page_evidence["page_diagnostics"],
+                        page_count=page_count,
+                    )
+                    attempt_user_blocks = correction_plan["user_blocks"]
+                    attempt_tool = correction_plan["tool"]
+                elif fresh_structural_retry_allowed:
+                    transformation_warnings.append(
+                        "Fresh full-schema retry after a settled structurally "
+                        "invalid response; no rejected report was consumed"
+                    )
+                else:
                     raise ValueError(
                         "Synthesis failure has no hash-bound targeted correction source"
                     )
-                correction_plan = _targeted_correction_request(
-                    syn_user_blocks,
-                    tool=SYNTHESIS_TOOL,
-                    error=last_err,
-                    rejected_report=previous_rejected_report,
-                    correction_source=previous_correction_source,
-                    source_text=text,
-                    page_diagnostics=runtime_page_evidence["page_diagnostics"],
-                    page_count=page_count,
-                )
-                attempt_user_blocks = correction_plan["user_blocks"]
-                attempt_tool = correction_plan["tool"]
             tool_input, _text, syn_usage = call_llm(
                 system_blocks=syn_system_blocks,
                 user_blocks=attempt_user_blocks,
@@ -10528,6 +10617,17 @@ def run_v9_full(
                     )
                     if isinstance(rejected_report, dict)
                     else None
+                )
+                fresh_structural_retry_allowed = bool(
+                    isinstance(e, LlmOutputContractError)
+                    and previous_correction_source is None
+                    and isinstance(previous_rejected_call.get("response_id"), str)
+                    and re.fullmatch(
+                        r"[a-f0-9]{64}",
+                        str(previous_rejected_call.get(
+                            "rejected_output_sha256", ""
+                        )),
+                    )
                 )
                 if previous_correction_source is None:
                     previous_rejected_report = None
