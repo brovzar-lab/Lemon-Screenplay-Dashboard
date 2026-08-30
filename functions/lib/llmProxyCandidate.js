@@ -464,6 +464,23 @@ exports.llmProxyCandidate = (0, https_1.onRequest)({
             });
             return;
         }
+        if (error instanceof benchmarkLedger_1.BenchmarkRetryLineageError) {
+            res.status(409).json({
+                error: error.message,
+                code: error.code,
+                isRetryable: false,
+                manualReviewRequired: true,
+                release: config.release,
+                benchmark_rejection: {
+                    call_id: contract.call_id,
+                    requested_model: contract.requested_model,
+                    request_sha256: contract.request_sha256,
+                    disposition: "no_new_dispatch",
+                    new_cost_microusd: 0,
+                },
+            });
+            return;
+        }
         if (error instanceof benchmarkLedger_1.BenchmarkDuplicateCallError
             || error instanceof benchmarkLedger_1.BenchmarkCallConflictError) {
             res.status(409).json({

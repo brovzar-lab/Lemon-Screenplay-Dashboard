@@ -5,6 +5,7 @@ const {
   BenchmarkCapExceededError,
   BenchmarkCallConflictError,
   BenchmarkDuplicateCallError,
+  BenchmarkRetryLineageError,
   PRIOR_AUDIT_SETTLED_CALL_COUNT,
   admitBenchmarkReservation,
   chargeUncertainBenchmarkReservation,
@@ -14,6 +15,7 @@ const {
   releaseBenchmarkReservation,
   releasedBeforeGenerationCallUpdate,
   settleBenchmarkReservation,
+  validateBenchmarkRetryLineage,
   validateStoredRun,
 } = require('../lib/benchmarkLedger');
 const { sha256CanonicalJson } = require('../lib/anthropicProxyCore');
@@ -103,6 +105,69 @@ test('duplicate call IDs never dispatch again and conflicting hashes are rejecte
   assert.throws(
     () => rejectExistingBenchmarkCall({ ...contract, request_sha256: 'd'.repeat(64) }, contract),
     BenchmarkCallConflictError,
+  );
+});
+
+test('retry two requires exactly one settled compact structural replay lineage', () => {
+  const base = {
+    run_id: 'run-1',
+    screenplay_sha256: 'a'.repeat(64),
+    route: 'sonnet',
+    generation: 'candidate',
+    pipeline_stage: 'reader',
+    pipeline_pass: 'sonnet',
+    reader_name: 'concept',
+    boundary_run: 1,
+    prompt_bundle_sha256: 'b'.repeat(64),
+    schema_bundle_sha256: 'c'.repeat(64),
+    requested_model: 'claude-sonnet-5',
+  };
+  const compact = {
+    ...base,
+    status: 'settled',
+    returned_model: base.requested_model,
+    request_sha256: 'd'.repeat(64),
+    prompt_sha256: 'e'.repeat(64),
+    schema_mode: 'compact_strict_tool',
+    schema_sha256: 'f'.repeat(64),
+    transport_schema_sha256: '1'.repeat(64),
+  };
+  const prior = [
+    { ...compact, call_id: '2'.repeat(64), response_id: 'msg_initial', retry_number: 0 },
+    { ...compact, call_id: '3'.repeat(64), response_id: 'msg_fresh', retry_number: 1 },
+  ];
+  const target = {
+    ...base,
+    call_id: '4'.repeat(64),
+    retry_number: 2,
+    request_sha256: '5'.repeat(64),
+    prompt_sha256: '6'.repeat(64),
+    schema_mode: 'strict_tool',
+    schema_sha256: '7'.repeat(64),
+    transport_schema_sha256: '7'.repeat(64),
+  };
+  assert.doesNotThrow(() => validateBenchmarkRetryLineage(target, prior));
+  assert.throws(
+    () => validateBenchmarkRetryLineage(target, prior.slice(1)),
+    BenchmarkRetryLineageError,
+  );
+  assert.throws(
+    () => validateBenchmarkRetryLineage(target, [
+      prior[0],
+      { ...prior[1], schema_mode: 'strict_tool' },
+    ]),
+    BenchmarkRetryLineageError,
+  );
+  assert.throws(
+    () => validateBenchmarkRetryLineage(target, [
+      ...prior,
+      { ...target, status: 'settled', response_id: 'msg_extra' },
+    ]),
+    BenchmarkRetryLineageError,
+  );
+  assert.throws(
+    () => validateBenchmarkRetryLineage({ ...target, retry_number: 3 }, prior),
+    BenchmarkRetryLineageError,
   );
 });
 

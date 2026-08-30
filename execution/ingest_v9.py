@@ -324,11 +324,16 @@ OUTPUT_BUDGET_CLAIM_VERIFICATION = 16_000
 # reasoning. Keep enough total headroom to reach the required structured tool.
 ADAPTIVE_HIGH_MIN_MAX_TOKENS = 32_000
 
-# Q3 fail-closed output policy. One bounded corrective attempt may recover a
-# malformed paid response; a second failure stops visibly without a third call.
-MAX_READER_REPORT_ATTEMPTS = 2
-MAX_SYNTHESIS_ATTEMPTS = 2
-READER_REPORT_RETRY_DELAYS = (5,)
+# Q3 fail-closed output policy. Structural recovery and semantic correction are
+# separate one-time allowances. A report can therefore dispatch at most three
+# paid calls: initial, one fresh full-schema retry, and one targeted correction.
+MAX_FRESH_STRUCTURAL_RETRIES = 1
+MAX_TARGETED_CORRECTIONS = 1
+MAX_READER_REPORT_ATTEMPTS = (
+    1 + MAX_FRESH_STRUCTURAL_RETRIES + MAX_TARGETED_CORRECTIONS
+)
+MAX_SYNTHESIS_ATTEMPTS = MAX_READER_REPORT_ATTEMPTS
+READER_REPORT_RETRY_DELAYS = (5, 10)
 READER_RELIABILITY_CONTRACT_VERSION = "lemon-five-reader-panel-v1"
 
 
@@ -9981,6 +9986,8 @@ def run_v9_full(
         previous_correction_source: Optional[Dict[str, Any]] = None
         previous_correction_error: Optional[BaseException] = None
         fresh_structural_retry_allowed = False
+        fresh_structural_retries_used = 0
+        targeted_corrections_used = 0
 
         for report_attempt in range(1, MAX_READER_REPORT_ATTEMPTS + 1):
             attempt_usage = empty_usage()
@@ -9997,7 +10004,10 @@ def run_v9_full(
                     if (
                         isinstance(previous_rejected_report, dict)
                         and previous_correction_source is not None
+                        and targeted_corrections_used
+                        < MAX_TARGETED_CORRECTIONS
                     ):
+                        targeted_corrections_used += 1
                         correction_plan = _targeted_correction_request(
                             user_blocks,
                             tool=tool,
@@ -10016,7 +10026,13 @@ def run_v9_full(
                         )
                         attempt_user_blocks = correction_plan["user_blocks"]
                         attempt_tool = correction_plan["tool"]
-                    elif fresh_structural_retry_allowed:
+                    elif (
+                        fresh_structural_retry_allowed
+                        and targeted_corrections_used == 0
+                        and fresh_structural_retries_used
+                        < MAX_FRESH_STRUCTURAL_RETRIES
+                    ):
+                        fresh_structural_retries_used += 1
                         transformation_warnings.append(
                             "Fresh full-schema retry after a settled structurally "
                             "invalid response; no rejected report was consumed"
@@ -10370,7 +10386,23 @@ def run_v9_full(
                     ],
                 }
                 failures.append(failure)
-                if report_attempt < MAX_READER_REPORT_ATTEMPTS:
+                can_retry = (
+                    report_attempt < MAX_READER_REPORT_ATTEMPTS
+                    and (
+                        (
+                            previous_correction_source is not None
+                            and targeted_corrections_used
+                            < MAX_TARGETED_CORRECTIONS
+                        )
+                        or (
+                            fresh_structural_retry_allowed
+                            and targeted_corrections_used == 0
+                            and fresh_structural_retries_used
+                            < MAX_FRESH_STRUCTURAL_RETRIES
+                        )
+                    )
+                )
+                if can_retry:
                     delay = READER_REPORT_RETRY_DELAYS[report_attempt - 1]
                     log.warning(
                         f"      ⚠ {reader} report attempt "
@@ -10380,8 +10412,8 @@ def run_v9_full(
                     time.sleep(delay)
                     continue
                 log.error(
-                    f"      ✗ {reader} exhausted "
-                    f"{MAX_READER_REPORT_ATTEMPTS} report attempts: {error}"
+                    f"      ✗ {reader} exhausted bounded recovery after "
+                    f"{report_attempt} report attempts: {error}"
                 )
                 return (
                     reader,
@@ -10390,6 +10422,10 @@ def run_v9_full(
                     {
                         "attempts": report_attempt,
                         "recovered": False,
+                        "fresh_structural_retries": (
+                            fresh_structural_retries_used
+                        ),
+                        "targeted_corrections": targeted_corrections_used,
                         "failures": failures,
                     },
                 )
@@ -10411,6 +10447,10 @@ def run_v9_full(
                 {
                     "attempts": report_attempt,
                     "recovered": report_attempt > 1,
+                    "fresh_structural_retries": (
+                        fresh_structural_retries_used
+                    ),
+                    "targeted_corrections": targeted_corrections_used,
                     "failures": failures,
                 },
             )
@@ -10455,6 +10495,8 @@ def run_v9_full(
             reader_recovery[reader] = {
                 "attempts": 0,
                 "recovered": False,
+                "fresh_structural_retries": 0,
+                "targeted_corrections": 0,
                 "disposition": "predispatch_setup_failure",
                 "failures": [{
                     "attempt": 0,
@@ -10530,6 +10572,12 @@ def run_v9_full(
                 "not_attempted_readers": not_attempted_readers,
                 "failed_reader_errors": reader_errors,
                 "max_attempts_per_reader": MAX_READER_REPORT_ATTEMPTS,
+                "max_fresh_structural_retries_per_reader": (
+                    MAX_FRESH_STRUCTURAL_RETRIES
+                ),
+                "max_targeted_corrections_per_reader": (
+                    MAX_TARGETED_CORRECTIONS
+                ),
                 "reader_attempts": reader_recovery,
             },
         )
@@ -10553,7 +10601,11 @@ def run_v9_full(
     previous_rejected_call: Optional[Dict[str, Any]] = None
     previous_correction_source: Optional[Dict[str, Any]] = None
     fresh_structural_retry_allowed = False
+    fresh_structural_retries_used = 0
+    targeted_corrections_used = 0
+    synthesis_attempts_used = 0
     for attempt in range(1, MAX_SYNTHESIS_ATTEMPTS + 1):
+        synthesis_attempts_used = attempt
         syn_usage = empty_usage()
         application_transformations: List[str] = []
         transformation_evidence: List[Dict[str, Any]] = []
@@ -10569,7 +10621,10 @@ def run_v9_full(
                 if (
                     isinstance(previous_rejected_report, dict)
                     and previous_correction_source is not None
+                    and targeted_corrections_used
+                    < MAX_TARGETED_CORRECTIONS
                 ):
+                    targeted_corrections_used += 1
                     correction_plan = _targeted_correction_request(
                         syn_user_blocks,
                         tool=SYNTHESIS_TOOL,
@@ -10582,7 +10637,13 @@ def run_v9_full(
                     )
                     attempt_user_blocks = correction_plan["user_blocks"]
                     attempt_tool = correction_plan["tool"]
-                elif fresh_structural_retry_allowed:
+                elif (
+                    fresh_structural_retry_allowed
+                    and targeted_corrections_used == 0
+                    and fresh_structural_retries_used
+                    < MAX_FRESH_STRUCTURAL_RETRIES
+                ):
+                    fresh_structural_retries_used += 1
                     transformation_warnings.append(
                         "Fresh full-schema retry after a settled structurally "
                         "invalid response; no rejected report was consumed"
@@ -11008,14 +11069,31 @@ def run_v9_full(
             _accumulate(syn_usage)
             analysis = candidate
             break
-        if attempt < MAX_SYNTHESIS_ATTEMPTS:
+        can_retry = (
+            attempt < MAX_SYNTHESIS_ATTEMPTS
+            and (
+                (
+                    previous_correction_source is not None
+                    and targeted_corrections_used < MAX_TARGETED_CORRECTIONS
+                )
+                or (
+                    fresh_structural_retry_allowed
+                    and targeted_corrections_used == 0
+                    and fresh_structural_retries_used
+                    < MAX_FRESH_STRUCTURAL_RETRIES
+                )
+            )
+        )
+        if can_retry:
             wait = 5 * attempt
             log.info(f"    Retrying synthesis in {wait}s…")
             time.sleep(wait)
+            continue
+        break
 
     if analysis is None:
         raise SynthesisIncompleteError(
-            f"Synthesis failed after {MAX_SYNTHESIS_ATTEMPTS} attempts. "
+            f"Synthesis failed after {synthesis_attempts_used} attempts. "
             "No score or verdict was produced. "
             f"Last error: {last_err}",
             total_usage,
@@ -11027,7 +11105,14 @@ def run_v9_full(
                 "completed_reader_names": sorted(reader_reports),
                 "expected_readers": len(READER_WEIGHTS),
                 "failed_readers": [],
-                "synthesis_attempts": MAX_SYNTHESIS_ATTEMPTS,
+                "synthesis_attempts": synthesis_attempts_used,
+                "max_synthesis_attempts": MAX_SYNTHESIS_ATTEMPTS,
+                "fresh_structural_retries": fresh_structural_retries_used,
+                "targeted_corrections": targeted_corrections_used,
+                "max_fresh_structural_retries": (
+                    MAX_FRESH_STRUCTURAL_RETRIES
+                ),
+                "max_targeted_corrections": MAX_TARGETED_CORRECTIONS,
                 "last_error": str(last_err)[:500],
             },
         ) from last_err
