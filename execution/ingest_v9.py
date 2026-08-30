@@ -3017,6 +3017,17 @@ def _bind_correction_replay(
     if source_call is None or correction_source is None:
         return False
     source = _validated_correction_source(correction_source)
+    if any(
+        source_call.get(call_field) != source[source_field]
+        for call_field, source_field in (
+            ("response_id", "source_response_id"),
+            ("request_sha256", "source_request_sha256"),
+            ("attempt_number", "source_attempt_number"),
+            ("rejected_output_sha256", "rejected_output_sha256"),
+            ("rejected_artifact_sha256", "rejected_artifact_sha256"),
+        )
+    ):
+        raise ValueError("correction source changed its rejected call provenance")
     if not isinstance(target_usage, dict):
         return False
     calls = target_usage.get("calls")
@@ -3084,6 +3095,142 @@ def _bind_correction_replay(
     checkpoint_benchmark_usage({"calls": [source_call]})
     checkpoint_benchmark_usage(target_usage)
     return True
+
+
+def _bind_correction_replay_or_fail(
+    source_call: Optional[Dict[str, Any]],
+    target_usage: Any,
+    correction_source: Optional[Dict[str, Any]],
+    *usage_to_preserve: Dict[str, Any],
+    cause: Optional[BaseException] = None,
+    stage: Optional[str] = None,
+    rejected_output: Any = None,
+) -> bool:
+    """Fail provenance without losing an already dispatched correction call."""
+    target_calls = (
+        target_usage.get("calls")
+        if isinstance(target_usage, dict)
+        and isinstance(target_usage.get("calls"), list)
+        else []
+    )
+    target_failed_calls = (
+        target_usage.get("failed_calls")
+        if isinstance(target_usage, dict)
+        and isinstance(target_usage.get("failed_calls"), list)
+        else []
+    )
+    records = [
+        record
+        for record in [*target_calls, *target_failed_calls]
+        if isinstance(record, dict)
+    ]
+    try:
+        bound = _bind_correction_replay(
+            source_call,
+            target_usage,
+            correction_source,
+        )
+        if bound or source_call is None or correction_source is None:
+            return bound
+        if not records and isinstance(cause, DailyBudgetExceededError):
+            return False
+        if len(records) == 1 and correction_delivery_state_for_call(
+            records[0],
+            successful=bool(target_calls),
+        ) is None:
+            return False
+        raise ValueError("correction replay lacks complete target provenance")
+    except ValueError as error:
+        reason = f"Correction replay provenance is invalid: {error}"
+        target = records[0] if len(records) == 1 else None
+        successful = target is not None and target in target_calls
+        delivery_state = (
+            correction_delivery_state_for_call(target, successful=successful)
+            if target is not None
+            else None
+        )
+        try:
+            failure_source = _validated_correction_source(correction_source)
+        except ValueError:
+            failure_source = {}
+        replay_report_sha256 = failure_source.get("replay_report_sha256")
+        rejected_output_sha256 = failure_source.get("rejected_output_sha256")
+        rejected_artifact_sha256 = failure_source.get(
+            "rejected_artifact_sha256"
+        )
+        if isinstance(source_call, dict):
+            source_call["correction_replay_failure"] = {
+                "status": "failed_provenance",
+                "delivery_state": delivery_state or "unresolved",
+                "target_call_id": target.get("call_id") if target else None,
+                "target_response_id": (
+                    target.get("response_id") if target else None
+                ),
+                "target_request_sha256": (
+                    target.get("request_sha256") if target else None
+                ),
+                "target_prompt_sha256": (
+                    target.get("prompt_sha256") if target else None
+                ),
+                "target_attempt_number": (
+                    target.get("attempt_number") if target else None
+                ),
+                "replay_report_sha256": replay_report_sha256,
+                "rejected_output_sha256": rejected_output_sha256,
+                "rejected_artifact_sha256": rejected_artifact_sha256,
+                "validation_reason": reason,
+            }
+            if delivery_state is not None:
+                source_call["downstream_consumption"] = "correction_attempted"
+            source_call.setdefault("warnings", []).append(reason)
+
+        artifact_failure: Optional[LlmProvenanceError] = None
+        if target is not None:
+            target["correction_source_failure"] = {
+                "status": "failed_provenance",
+                "source_response_id": failure_source.get(
+                    "source_response_id"
+                ),
+                "source_request_sha256": failure_source.get(
+                    "source_request_sha256"
+                ),
+                "source_attempt_number": failure_source.get(
+                    "source_attempt_number"
+                ),
+                "replay_report_sha256": replay_report_sha256,
+                "rejected_output_sha256": rejected_output_sha256,
+                "rejected_artifact_sha256": rejected_artifact_sha256,
+                "validation_reason": reason,
+            }
+            target.setdefault("warnings", []).append(reason)
+            if successful:
+                target.update({
+                    "disposition": "discarded_unusable",
+                    "validation_result": "failed_provenance",
+                    "validation_reason": reason,
+                    "failure_state": "correction_replay_provenance_failed",
+                    "failure_message": reason,
+                    "downstream_consumption": "not_consumed",
+                })
+                if rejected_output is not None:
+                    try:
+                        _preserve_local_rejected_output(
+                            str(target.get("stage") or stage or "correction"),
+                            rejected_output,
+                            target_usage,
+                            reason,
+                        )
+                    except LlmProvenanceError as artifact_error:
+                        artifact_failure = artifact_error
+        checkpoint_benchmark_usage({"calls": [source_call]})
+        checkpoint_benchmark_usage(target_usage)
+        failure = artifact_failure or LlmProvenanceError(reason)
+        failure.correction_replay_provenance_failure = True
+        failure.correction_replay_target_usage = target_usage
+        failure.usage = merge_usage(*usage_to_preserve)
+        if cause is not None:
+            raise failure from cause
+        raise failure from error
 
 
 _CITATION_CORRECTION_REASONS = {
@@ -4793,11 +4940,18 @@ def _validated_provider_failure_metadata(
         )
     elif error_class == "APIError":
         coherent = (
-            type(status) is int
-            and 400 <= status <= 499
-            and status not in set(fixed_http_status.values())
-            and error_type in _PROVIDER_HTTP_ERROR_TYPES
-            and detail == "provider_http_error"
+            (
+                type(status) is int
+                and 400 <= status <= 499
+                and status not in set(fixed_http_status.values())
+                and error_type in _PROVIDER_HTTP_ERROR_TYPES
+                and detail == "provider_http_error"
+            )
+            or (
+                status is None
+                and error_type in _PROVIDER_HTTP_ERROR_TYPES
+                and detail in _PROVIDER_GENERIC_DETAILS
+            )
         )
     else:
         coherent = (
@@ -11081,10 +11235,14 @@ def run_v9_full(
                     logical_retry=report_attempt - 1,
                     raw_response_sink=raw_response,
                 )
-                _bind_correction_replay(
+                _bind_correction_replay_or_fail(
                     previous_rejected_call,
                     attempt_usage,
                     previous_correction_source,
+                    combined_usage,
+                    attempt_usage,
+                    stage="reader",
+                    rejected_output=raw_response.get("content"),
                 )
                 if tool_input is None:
                     raise ValueError("no tool_use block")
@@ -11277,21 +11435,44 @@ def run_v9_full(
                 LlmProvenanceError,
                 LlmRequestRejectedError,
             ) as error:
+                if getattr(
+                    error,
+                    "correction_replay_provenance_failure",
+                    False,
+                ):
+                    _record_terminal_call_transformations(
+                        getattr(error, "correction_replay_target_usage", None),
+                        transformations=application_transformations,
+                        transformation_evidence=transformation_evidence,
+                        warnings=transformation_warnings,
+                    )
+                    error.usage = merge_usage(
+                        combined_usage,
+                        getattr(
+                            error,
+                            "correction_replay_target_usage",
+                            empty_usage(),
+                        ),
+                    )
+                    raise
                 _record_terminal_call_transformations(
                     getattr(error, "usage", None),
                     transformations=application_transformations,
                     transformation_evidence=transformation_evidence,
                     warnings=transformation_warnings,
                 )
-                _bind_correction_replay(
-                    previous_rejected_call,
-                    getattr(error, "usage", None),
-                    previous_correction_source,
-                )
-                error.usage = merge_usage(
+                terminal_usage = merge_usage(
                     combined_usage,
                     getattr(error, "usage", empty_usage()),
                 )
+                _bind_correction_replay_or_fail(
+                    previous_rejected_call,
+                    getattr(error, "usage", None),
+                    previous_correction_source,
+                    terminal_usage,
+                    cause=error,
+                )
+                error.usage = terminal_usage
                 raise
             except Exception as error:
                 _record_identical_citation_deduplication(
@@ -11312,12 +11493,15 @@ def run_v9_full(
                         transformation_evidence=transformation_evidence,
                         warnings=transformation_warnings,
                     )
-                    _bind_correction_replay(
+                    terminal_usage = merge_usage(combined_usage, attempt_usage)
+                    _bind_correction_replay_or_fail(
                         previous_rejected_call,
                         attempt_usage,
                         previous_correction_source,
+                        terminal_usage,
+                        cause=error,
                     )
-                    error.usage = merge_usage(combined_usage, attempt_usage)
+                    error.usage = terminal_usage
                     raise
                 elif isinstance(error, LlmOutputContractError):
                     attempt_usage = error.usage
@@ -11330,10 +11514,15 @@ def run_v9_full(
                         attempt_usage,
                         "discarded_unusable",
                     )
-                _bind_correction_replay(
+                _bind_correction_replay_or_fail(
                     previous_rejected_call,
                     attempt_usage,
                     previous_correction_source,
+                    combined_usage,
+                    attempt_usage,
+                    cause=error,
+                    stage="reader",
+                    rejected_output=raw_response.get("content"),
                 )
                 if attempt_usage.get("calls"):
                     structural = isinstance(error, LlmOutputContractError)
@@ -11727,10 +11916,14 @@ def run_v9_full(
                 logical_retry=attempt - 1,
                 raw_response_sink=raw_response,
             )
-            _bind_correction_replay(
+            _bind_correction_replay_or_fail(
                 previous_rejected_call,
                 syn_usage,
                 previous_correction_source,
+                total_usage,
+                syn_usage,
+                stage="synthesis",
+                rejected_output=raw_response.get("content"),
             )
             if tool_input is None:
                 raise ValueError("synthesis returned no tool_use block")
@@ -11990,21 +12183,44 @@ def run_v9_full(
             LlmProvenanceError,
             LlmRequestRejectedError,
         ) as error:
+            if getattr(
+                error,
+                "correction_replay_provenance_failure",
+                False,
+            ):
+                _record_terminal_call_transformations(
+                    getattr(error, "correction_replay_target_usage", None),
+                    transformations=application_transformations,
+                    transformation_evidence=transformation_evidence,
+                    warnings=transformation_warnings,
+                )
+                error.usage = merge_usage(
+                    total_usage,
+                    getattr(
+                        error,
+                        "correction_replay_target_usage",
+                        empty_usage(),
+                    ),
+                )
+                raise
             _record_terminal_call_transformations(
                 getattr(error, "usage", None),
                 transformations=application_transformations,
                 transformation_evidence=transformation_evidence,
                 warnings=transformation_warnings,
             )
-            _bind_correction_replay(
-                previous_rejected_call,
-                getattr(error, "usage", None),
-                previous_correction_source,
-            )
-            error.usage = merge_usage(
+            terminal_usage = merge_usage(
                 total_usage,
                 getattr(error, "usage", syn_usage),
             )
+            _bind_correction_replay_or_fail(
+                previous_rejected_call,
+                getattr(error, "usage", None),
+                previous_correction_source,
+                terminal_usage,
+                cause=error,
+            )
+            error.usage = terminal_usage
             raise
         except Exception as e:
             _record_identical_citation_deduplication(
@@ -12026,10 +12242,13 @@ def run_v9_full(
                     transformation_evidence=transformation_evidence,
                     warnings=transformation_warnings,
                 )
-                _bind_correction_replay(
+                terminal_usage = merge_usage(total_usage, failed_attempt_usage)
+                _bind_correction_replay_or_fail(
                     previous_rejected_call,
                     failed_attempt_usage,
                     previous_correction_source,
+                    terminal_usage,
+                    cause=e,
                 )
                 _accumulate(failed_attempt_usage)
                 e.usage = merge_usage(total_usage)
@@ -12047,10 +12266,14 @@ def run_v9_full(
                     "discarded_unusable",
                 )
                 _accumulate(syn_usage)
-            _bind_correction_replay(
+            _bind_correction_replay_or_fail(
                 previous_rejected_call,
                 syn_usage,
                 previous_correction_source,
+                total_usage,
+                cause=e,
+                stage="synthesis",
+                rejected_output=raw_response.get("content"),
             )
             if syn_usage.get("calls"):
                 if synthesis_before is not None and tool_input is not None:

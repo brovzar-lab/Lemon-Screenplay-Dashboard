@@ -5931,6 +5931,388 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             target["expected_release"],
         )
 
+    def test_uncertain_concept_correction_is_accounted_and_stops_the_panel(self):
+        fixture_analysis = complete_analysis("Santa uncertain correction")
+        candidate_release = {
+            "git_sha": "a" * 40,
+            "source_clean": True,
+            "catalog_sha256": "b" * 64,
+            "pricing_sha256": runtime_pricing_sha256(),
+            "build_timestamp": "2026-08-30T14:30:43.000Z",
+            "deployment_config_sha256": "c" * 64,
+            "cloud_run_revision": "llmproxycandidate-00031-piz",
+            "inference_geo": "global",
+        }
+        dispatches = []
+
+        def uncertain_concept_correction(**kwargs):
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            logical_retry = kwargs.get("logical_retry", 0)
+            dispatches.append((stage, reader_name, logical_retry))
+            self.assertEqual(stage, "reader")
+            if reader_name == "concept" and logical_retry == 1:
+                schema_sha256 = ingest_v9._canonical_json_hash(
+                    kwargs["tool"]["input_schema"]
+                )
+                error = ingest_v9.LlmAccountingError(
+                    "Provider transport failed after dispatch; generation and "
+                    "spend are uncertain."
+                )
+                error.usage = ingest_v9._benchmark_uncertain_failure_usage(
+                    {
+                        "validation_failure_code": "PROVIDER_TRANSPORT_UNCERTAIN",
+                        "validation_failure_reason": (
+                            "Provider transport failed after dispatch; generation "
+                            "and spend are uncertain."
+                        ),
+                        "provider_error_sha256": "9" * 64,
+                        "provider_error_class": "APIError",
+                        "provider_http_status": None,
+                        "provider_error_type": "api_error",
+                        "provider_request_id": "req_011CeZaB2n3mG9bT6vKGSUkU",
+                        "provider_transport_detail": "unknown_transport_error",
+                        "provider_failure_summary": (
+                            "Anthropic provider failure: class=APIError; "
+                            "status=none; type=api_error; "
+                            "detail=unknown_transport_error; "
+                            "request_id=req_011CeZaB2n3mG9bT6vKGSUkU."
+                        ),
+                        "provider_usage": None,
+                        "provider_usage_validation": "unavailable_transport",
+                        "rejected_output_status": (
+                            "unavailable_before_complete_response"
+                        ),
+                        "benchmark_accounting": {
+                            "call_id": (
+                                "13e56521a743f8393ea53bc73d58c4fd9269833a59216ee"
+                                "9808600602d4545a1"
+                            ),
+                            "requested_model": MODEL_ID,
+                            "uncertainty_status": "charged_reservation",
+                            "charged_cost_microusd": 4_922_016,
+                            "charged_cost_usd": 4.922016,
+                            "reserved_cost_microusd": 0,
+                            "reserved_cost_usd": 0.0,
+                            "cap_cost_microusd": 4_922_016,
+                            "cap_cost_usd": 4.922016,
+                        },
+                        "release": candidate_release,
+                    },
+                    MODEL_ID,
+                    (
+                        "13e56521a743f8393ea53bc73d58c4fd9269833a59216ee"
+                        "9808600602d4545a1"
+                    ),
+                    1,
+                    [],
+                    stage="reader",
+                    pipeline_pass="sonnet",
+                    boundary_run=1,
+                    reader_name="concept",
+                    request_sha256=(
+                        "25287e0e3eb95f6a3345a9b4970c3f70eea2e8859d8d88ac"
+                        "8e76f00c019397af"
+                    ),
+                    prompt_sha256=(
+                        "c1ae7657fde43ff3d5f43f8242b13bb0e30e9234b292a1312"
+                        "bf3d4095a221863"
+                    ),
+                    schema_mode="strict_tool",
+                    schema_sha256=schema_sha256,
+                    transport_schema_sha256=schema_sha256,
+                    logical_retry=1,
+                    started_at="2026-08-30T14:34:45Z",
+                    latency_ms=93_000,
+                    expected_release=candidate_release,
+                )
+                raise error
+
+            usage = self._successful_call_usage(
+                f"msg_reader_{reader_name}_{logical_retry + 1}",
+                stage=stage,
+                reader_name=reader_name,
+            )
+            usage["calls"][0].update({
+                "release": copy.deepcopy(candidate_release),
+                "expected_release": copy.deepcopy(candidate_release),
+                "logical_retry": logical_retry,
+                "attempt_number": logical_retry + 1,
+                "total_retry_count": logical_retry,
+            })
+            report = copy.deepcopy(
+                fixture_analysis["reader_reports"][reader_name]
+            )
+            if reader_name == "concept":
+                report["sub_scores"]["hook_clarity"]["citation_evidence"][0][
+                    "excerpt"
+                ] = "This paraphrase does not occur on the physical page."
+            return report, "", usage
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=uncertain_concept_correction,
+        ), patch.object(ingest_v9.time, "sleep"):
+            with self.assertRaises(ingest_v9.LlmAccountingError) as raised:
+                ingest_v9.run_v9_full(
+                    text=marked_screenplay(),
+                    title="Santa uncertain correction",
+                    page_count=100,
+                    word_count=20_000,
+                    model_key="sonnet",
+                    proxy_url="https://proxy.test",
+                    pipeline_pass="sonnet",
+                )
+
+        self.assertEqual(dispatches, [
+            ("reader", "structure", 0),
+            ("reader", "character", 0),
+            ("reader", "craft_scene", 0),
+            ("reader", "concept", 0),
+            ("reader", "concept", 1),
+        ])
+        self.assertNotIn("lineage", str(raised.exception).lower())
+        self.assertEqual(
+            raised.exception.usage["actual_cost_microusd"],
+            4_922_016,
+        )
+        source = next(
+            call for call in raised.exception.usage["calls"]
+            if call.get("reader_name") == "concept"
+        )
+        target = raised.exception.usage["failed_calls"][0]
+        self.assertEqual(source["downstream_consumption"], "correction_attempted")
+        self.assertEqual(
+            source["correction_replay"]["target_call_id"],
+            target["call_id"],
+        )
+        self.assertEqual(
+            target["correction_delivery_state"],
+            "uncertain_after_dispatch",
+        )
+        self.assertEqual(target["cap_cost_microusd"], 4_922_016)
+        self.assertEqual(target["provider_error_class"], "APIError")
+        self.assertNotIn(
+            "screenplay",
+            target["provider_failure_summary"].lower(),
+        )
+        self.assertFalse(any(
+            call["downstream_consumption"] == "consumed"
+            for call in raised.exception.usage["calls"]
+        ))
+        run = {"checkpointed_calls": []}
+        model_benchmark._record_run_failure(run, raised.exception)
+        self.assertEqual(run["status"], "failed")
+        self.assertEqual(run["usage"]["actual_cost_microusd"], 4_922_016)
+        self.assertEqual(
+            run["provenance"]["failed_calls"][0]["call_id"],
+            target["call_id"],
+        )
+
+        drift_source = copy.deepcopy(source)
+        drift_source.pop("correction_replay")
+        drift_source["downstream_consumption"] = "not_consumed"
+        drift_target = copy.deepcopy(target)
+        correction_source = drift_target.pop("correction_source")
+        drift_target.pop("correction_delivery_state")
+        drift_target["stage"] = "synthesis"
+        drift_usage = ingest_v9.empty_usage()
+        drift_usage["actual_cost_microusd"] = 4_922_016
+        drift_usage["actual_cost_usd"] = 4.922016
+        drift_usage["failed_calls"] = [drift_target]
+        source_usage = ingest_v9.empty_usage()
+        source_usage["call_count"] = 1
+        source_usage["calls"] = [drift_source]
+        original = ingest_v9.LlmAccountingError("original paid uncertainty")
+        with self.assertRaises(ingest_v9.LlmProvenanceError) as lineage:
+            ingest_v9._bind_correction_replay_or_fail(
+                drift_source,
+                drift_usage,
+                correction_source,
+                source_usage,
+                drift_usage,
+                cause=original,
+            )
+        self.assertIs(lineage.exception.__cause__, original)
+        self.assertEqual(
+            lineage.exception.usage["actual_cost_microusd"],
+            4_922_016,
+        )
+        self.assertEqual(
+            lineage.exception.usage["failed_calls"][0]["call_id"],
+            target["call_id"],
+        )
+        self.assertEqual(
+            drift_source["correction_replay_failure"]["target_call_id"],
+            target["call_id"],
+        )
+        self.assertEqual(
+            drift_source["downstream_consumption"],
+            "correction_attempted",
+        )
+        self.assertEqual(
+            drift_target["correction_source_failure"]["source_response_id"],
+            source["response_id"],
+        )
+        for field in (
+            "replay_report_sha256",
+            "rejected_output_sha256",
+            "rejected_artifact_sha256",
+        ):
+            self.assertEqual(
+                drift_source["correction_replay_failure"][field],
+                correction_source[field],
+            )
+            self.assertEqual(
+                drift_target["correction_source_failure"][field],
+                correction_source[field],
+            )
+
+        for field, invalid in (
+            ("response_id", "msg_drifted_source"),
+            ("request_sha256", "f" * 64),
+            ("attempt_number", source["attempt_number"] + 5),
+        ):
+            with self.subTest(source_identity_drift=field):
+                identity_source = copy.deepcopy(source)
+                identity_source.pop("correction_replay")
+                identity_source["downstream_consumption"] = "not_consumed"
+                identity_source[field] = invalid
+                identity_source_usage = ingest_v9.empty_usage()
+                identity_source_usage["call_count"] = 1
+                identity_source_usage["calls"] = [identity_source]
+                identity_target = copy.deepcopy(target)
+                identity_target.pop("correction_source")
+                identity_target.pop("correction_delivery_state")
+                identity_target_usage = ingest_v9.empty_usage()
+                identity_target_usage["actual_cost_microusd"] = 4_922_016
+                identity_target_usage["actual_cost_usd"] = 4.922016
+                identity_target_usage["failed_calls"] = [identity_target]
+                with self.assertRaises(
+                    ingest_v9.LlmProvenanceError
+                ) as identity_failure:
+                    ingest_v9._bind_correction_replay_or_fail(
+                        identity_source,
+                        identity_target_usage,
+                        correction_source,
+                        identity_source_usage,
+                        identity_target_usage,
+                        cause=original,
+                    )
+                self.assertIn(
+                    "rejected call provenance",
+                    str(identity_failure.exception),
+                )
+                for source_field in (
+                    "source_response_id",
+                    "source_request_sha256",
+                    "source_attempt_number",
+                    "replay_report_sha256",
+                    "rejected_output_sha256",
+                    "rejected_artifact_sha256",
+                ):
+                    self.assertEqual(
+                        identity_target["correction_source_failure"][
+                            source_field
+                        ],
+                        correction_source[source_field],
+                    )
+
+        settled_source = copy.deepcopy(source)
+        settled_source.pop("correction_replay")
+        settled_source["downstream_consumption"] = "not_consumed"
+        settled_source_usage = ingest_v9.empty_usage()
+        settled_source_usage["call_count"] = 1
+        settled_source_usage["calls"] = [settled_source]
+        settled_target_usage = self._successful_call_usage(
+            "msg_lineage_drift_target",
+            stage="synthesis",
+        )
+        settled_target = settled_target_usage["calls"][0]
+        settled_target.update({
+            "logical_retry": 1,
+            "attempt_number": 2,
+            "total_retry_count": 1,
+            "release": copy.deepcopy(candidate_release),
+            "expected_release": copy.deepcopy(candidate_release),
+        })
+        settled_target_usage["actual_cost_microusd"] = 125_000
+        settled_target_usage["actual_cost_usd"] = 0.125
+        settled_target["usage"].update({
+            "actual_cost_microusd": 125_000,
+            "actual_cost_usd": 0.125,
+            "charged_cost_microusd": 125_000,
+        })
+        settled_raw = [{"type": "tool_use", "input": {"safe": True}}]
+        with patch.object(
+            ingest_v9,
+            "_preserve_local_rejected_output",
+            wraps=ingest_v9._preserve_local_rejected_output,
+        ) as preserve:
+            with self.assertRaises(ingest_v9.LlmProvenanceError) as settled:
+                ingest_v9._bind_correction_replay_or_fail(
+                    settled_source,
+                    settled_target_usage,
+                    correction_source,
+                    settled_source_usage,
+                    settled_target_usage,
+                    rejected_output=settled_raw,
+                )
+        preserve.assert_called_once()
+        self.assertEqual(
+            settled.exception.usage["actual_cost_microusd"],
+            125_000,
+        )
+        self.assertEqual(settled_target["disposition"], "discarded_unusable")
+        self.assertEqual(
+            settled_target["failure_state"],
+            "correction_replay_provenance_failed",
+        )
+        self.assertEqual(settled_target["downstream_consumption"], "not_consumed")
+        self.assertIn("rejected_output_sha256", settled_target)
+        self.assertEqual(
+            settled_source["downstream_consumption"],
+            "correction_attempted",
+        )
+        for field in (
+            "replay_report_sha256",
+            "rejected_output_sha256",
+            "rejected_artifact_sha256",
+        ):
+            self.assertEqual(
+                settled_source["correction_replay_failure"][field],
+                correction_source[field],
+            )
+            self.assertEqual(
+                settled_target["correction_source_failure"][field],
+                correction_source[field],
+            )
+
+        budget_source = copy.deepcopy(source)
+        budget_source.pop("correction_replay")
+        budget_source["downstream_consumption"] = "not_consumed"
+        budget_source_usage = ingest_v9.empty_usage()
+        budget_source_usage["call_count"] = 1
+        budget_source_usage["calls"] = [budget_source]
+        budget_error = ingest_v9.DailyBudgetExceededError("daily cap")
+        self.assertFalse(ingest_v9._bind_correction_replay_or_fail(
+            budget_source,
+            ingest_v9.empty_usage(),
+            correction_source,
+            budget_source_usage,
+            cause=budget_error,
+        ))
+        self.assertNotIn("correction_replay_failure", budget_source)
+
     def test_compact_rejected_report_is_recovered_only_from_exact_contract(self):
         tool = ingest_v9.READER_TOOLS["emotional_resonance"]
         self.assertIsNone(
@@ -9167,6 +9549,67 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             "internally inconsistent",
         ):
             ingest_v9._validated_provider_failure_metadata(impossible)
+
+    def test_live_api_error_without_http_status_is_an_exact_finite_tuple(self):
+        live = {
+            "provider_error_class": "APIError",
+            "provider_http_status": None,
+            "provider_error_type": "api_error",
+            "provider_request_id": "req_011CeZaB2n3mG9bT6vKGSUkU",
+            "provider_transport_detail": "unknown_transport_error",
+            "provider_failure_summary": (
+                "Anthropic provider failure: class=APIError; status=none; "
+                "type=api_error; detail=unknown_transport_error; "
+                "request_id=req_011CeZaB2n3mG9bT6vKGSUkU."
+            ),
+        }
+
+        for error_type in ingest_v9._PROVIDER_HTTP_ERROR_TYPES:
+            with self.subTest(error_type=error_type):
+                candidate = copy.deepcopy(live)
+                candidate["provider_error_type"] = error_type
+                candidate["provider_failure_summary"] = (
+                    "Anthropic provider failure: class=APIError; status=none; "
+                    f"type={error_type}; detail=unknown_transport_error; "
+                    "request_id=req_011CeZaB2n3mG9bT6vKGSUkU."
+                )
+                self.assertEqual(
+                    ingest_v9._validated_provider_failure_metadata(candidate),
+                    candidate,
+                )
+        for detail in ingest_v9._PROVIDER_GENERIC_DETAILS:
+            with self.subTest(detail=detail):
+                candidate = copy.deepcopy(live)
+                candidate["provider_transport_detail"] = detail
+                candidate["provider_failure_summary"] = (
+                    "Anthropic provider failure: class=APIError; status=none; "
+                    f"type=api_error; detail={detail}; "
+                    "request_id=req_011CeZaB2n3mG9bT6vKGSUkU."
+                )
+                self.assertEqual(
+                    ingest_v9._validated_provider_failure_metadata(candidate),
+                    candidate,
+                )
+        for field, invalid in (
+            ("provider_error_type", "connection_error"),
+            ("provider_transport_detail", "provider_http_error"),
+            ("provider_http_status", 529),
+        ):
+            with self.subTest(field=field):
+                tampered = copy.deepcopy(live)
+                tampered[field] = invalid
+                tampered["provider_failure_summary"] = (
+                    "Anthropic provider failure: class=APIError; "
+                    f"status={tampered['provider_http_status'] if tampered['provider_http_status'] is not None else 'none'}; "
+                    f"type={tampered['provider_error_type']}; "
+                    f"detail={tampered['provider_transport_detail']}; "
+                    "request_id=req_011CeZaB2n3mG9bT6vKGSUkU."
+                )
+                with self.assertRaisesRegex(
+                    ingest_v9.LlmAccountingError,
+                    "internally inconsistent",
+                ):
+                    ingest_v9._validated_provider_failure_metadata(tampered)
 
     def test_held_transport_reservation_requires_settlement_failure_hash(self):
         release = {

@@ -103,6 +103,36 @@ test('provider HTTP failures retain status, type, and request ID without raw tex
   );
 });
 
+test('statusless SDK stream APIErrors retain each finite provider type', () => {
+  for (const [streamType, expectedType] of [
+    ['api_error', 'api_error'],
+    ['overloaded_error', 'overloaded_error'],
+    ['rate_limit_error', 'rate_limit_error'],
+    ['invalid_request_error', 'invalid_request_error'],
+    ['future_provider_error', 'unknown_provider_error'],
+  ]) {
+    const body = {
+      type: 'error',
+      error: { type: streamType, message: 'PRIVATE_PROVIDER_TEXT' },
+      request_id: 'req_011CeZaB2n3mG9bT6vKGSUkU',
+    };
+    const failure = new Anthropic.APIError(
+      undefined,
+      body,
+      undefined,
+      new Headers({ 'request-id': body.request_id }),
+    );
+    const metadata = safeAnthropicFailureMetadata(failure);
+
+    assert.equal(metadata.provider_error_class, 'APIError');
+    assert.equal(metadata.provider_http_status, null);
+    assert.equal(metadata.provider_error_type, expectedType);
+    assert.equal(metadata.provider_request_id, body.request_id);
+    assert.equal(metadata.provider_transport_detail, 'unknown_transport_error');
+    assert.equal(JSON.stringify(metadata).includes('PRIVATE_PROVIDER_TEXT'), false);
+  }
+});
+
 test('untyped errors cannot forge provider HTTP provenance', () => {
   const error = Object.assign(new Error('PRIVATE_PROVIDER_TEXT'), {
     status: 529,
