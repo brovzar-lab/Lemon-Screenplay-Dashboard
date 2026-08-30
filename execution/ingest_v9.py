@@ -1904,6 +1904,7 @@ CORRECTION_CITATION_EXCERPT_PATTERN = (
 )
 MAX_TARGETED_CORRECTION_REPAIRS = 24
 MAX_TARGETED_CORRECTION_LINE_OPTIONS = 12
+MAX_MATERIAL_CLAIM_CORRECTION_LINE_OPTIONS = 48
 MAX_TARGETED_CORRECTION_LINE_CHARACTERS = 300
 
 
@@ -2162,6 +2163,8 @@ def _physical_source_pages(source_text: str) -> Dict[int, str]:
 def _correction_source_line_options(
     value: Any,
     source_pages: Dict[int, str],
+    *,
+    limit: int = MAX_TARGETED_CORRECTION_LINE_OPTIONS,
 ) -> List[Dict[str, Any]]:
     """Return a bounded set of exact physical lines for one citation repair."""
     page_hints: set[int] = set()
@@ -2192,6 +2195,24 @@ def _correction_source_line_options(
     pages = sorted(page for page in page_hints if page in source_pages)
     if not pages:
         return []
+
+    verified_existing: List[Dict[str, Any]] = []
+    for page, excerpt in evidence_hints:
+        option = {"page": page, "excerpt": excerpt}
+        if (
+            page in source_pages
+            and len(excerpt) <= MAX_TARGETED_CORRECTION_LINE_CHARACTERS
+            and re.fullmatch(
+                CORRECTION_CITATION_EXCERPT_PATTERN,
+                excerpt,
+            ) is not None
+            and citation_excerpt_matches_single_source_line(
+                source_pages[page],
+                excerpt,
+            )
+            and option not in verified_existing
+        ):
+            verified_existing.append(option)
 
     normalized_hints = [
         _normalized_correction_excerpt(hint)
@@ -2269,11 +2290,17 @@ def _correction_source_line_options(
         item[2],
         item[3],
     ))
+    ranked_options = [
+        {"page": page, "excerpt": excerpt}
+        for _score, page, _line_index, excerpt in candidates
+    ]
+    unique_pairs = list(dict.fromkeys(
+        (option["page"], option["excerpt"])
+        for option in [*verified_existing, *ranked_options]
+    ))[:limit]
     return [
         {"page": page, "excerpt": excerpt}
-        for _score, page, _line_index, excerpt in candidates[
-            :MAX_TARGETED_CORRECTION_LINE_OPTIONS
-        ]
+        for page, excerpt in unique_pairs
     ]
 
 
@@ -3420,7 +3447,11 @@ def _targeted_correction_request(
             node,
             relative_allowed,
         )
-        citation_repair = any(
+        material_claim_mapping = (
+            root == ("material_claims",)
+            and material_claim_plan is not None
+        )
+        citation_repair = material_claim_mapping or any(
             path
             and path[-1] in {"page", "page_citations", "citation_evidence"}
             for path in allowed
@@ -3431,6 +3462,11 @@ def _targeted_correction_request(
             source_line_options = _correction_source_line_options(
                 option_source,
                 source_pages,
+                limit=(
+                    MAX_MATERIAL_CLAIM_CORRECTION_LINE_OPTIONS
+                    if material_claim_mapping
+                    else MAX_TARGETED_CORRECTION_LINE_OPTIONS
+                ),
             )
             if not source_line_options:
                 raise ValueError(
