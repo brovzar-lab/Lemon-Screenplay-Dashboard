@@ -1768,6 +1768,9 @@ def _transformation_hash_evidence(
     }
 
 
+CORRECTION_REPLAY_ARTIFACT_VERSION = "lemon-correction-replay-artifact-v2"
+
+
 def _preserve_local_rejected_output_unchecked(
     stage: str,
     raw: Any,
@@ -1808,9 +1811,18 @@ def _preserve_local_rejected_output_unchecked(
         "rejected_output": raw,
     }
     if replay_report is not None:
-        artifact["correction_replay_report_sha256"] = (
-            _canonical_json_hash(replay_report)
-        )
+        artifact.update({
+            "correction_replay_artifact_version": (
+                CORRECTION_REPLAY_ARTIFACT_VERSION
+            ),
+            "correction_replay_report_sha256": (
+                _canonical_json_hash(replay_report)
+            ),
+            "correction_replay_report": replay_report,
+            "correction_replay_transformation_evidence_sha256": (
+                _canonical_json_hash(call.get("transformation_evidence", []))
+            ),
+        })
     encoded = (
         json.dumps(
             artifact,

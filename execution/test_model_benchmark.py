@@ -817,6 +817,135 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
         self.assertEqual(check["settled_cost_usd"], 0.01)
         self.assertEqual(usage["calls"][0]["budget_check"], check)
 
+    def test_synthesis_replay_artifact_binds_the_exact_normalized_report(self):
+        from execution import ingest_v9
+
+        run_dir = Path(self.temp_dir.name)
+        transformation_evidence = [{
+            "name": "derived_critical_failure_descriptions_from_weaknesses",
+            "changed": True,
+            "normalized_score": 7.0,
+            "before_sha256": "a" * 64,
+            "after_sha256": "b" * 64,
+        }, {
+            "name": "partial_synthesis_normalization_before_rejection",
+            "changed": True,
+            "before_sha256": "c" * 64,
+            "after_sha256": "d" * 64,
+        }]
+        application_schema = ingest_v9.SYNTHESIS_TOOL["input_schema"]
+        schema_sha256 = _engine_output_sha256(application_schema)
+        raw_report = {"title": "Raw synthetic title"}
+        replay_report = {
+            "title": "Normalized synthetic title",
+            "weighted_score": 7.0,
+        }
+        rejected_output = [{
+            "type": "tool_use",
+            "name": "submit_synthesis_report",
+            "input": {
+                "contract": "submit_synthesis_report",
+                "application_schema_sha256": schema_sha256,
+                "report_json": json.dumps(raw_report),
+            },
+        }]
+        source = {
+            "call_id": "1" * 64,
+            "stage": "synthesis",
+            "reader_name": None,
+            "pipeline_pass": "sonnet",
+            "boundary_run": 1,
+            "logical_retry": 0,
+            "attempt_number": 1,
+            "response_id": "msg_synthesis_source",
+            "request_sha256": "2" * 64,
+            "prompt_sha256": "3" * 64,
+            "prompt_contract_version": "v9-test-prompt",
+            "schema_mode": "strict_tool",
+            "schema_sha256": schema_sha256,
+            "transport_schema_sha256": schema_sha256,
+            "started_at": "2026-08-30T12:00:00Z",
+            "completed_at": "2026-08-30T12:00:01Z",
+            "requested_model": "claude-sonnet-5",
+            "returned_model": "claude-sonnet-5",
+            "validation_reason": "synthetic synthesis correction",
+            "disposition": "discarded_unusable",
+            "transformation_evidence": transformation_evidence,
+        }
+        source_usage = {"calls": [source], "failed_calls": []}
+        with patch.object(
+            ingest_v9,
+            "LOG_DIR",
+            run_dir / "engine",
+        ), patch.object(
+            ingest_v9,
+            "_LOCAL_ARTIFACT_ROOT",
+            run_dir,
+        ):
+            ingest_v9.configure_benchmark_online_transport(
+                {"run_id": "synthesis-replay-artifact-test"},
+                lambda: "unused",
+            )
+            try:
+                ingest_v9._preserve_local_rejected_output(
+                    "synthesis",
+                    rejected_output,
+                    source_usage,
+                    source["validation_reason"],
+                    replay_report=replay_report,
+                )
+            finally:
+                ingest_v9.clear_benchmark_online_transport()
+
+        correction_source = ingest_v9._correction_source_from_call(
+            source,
+            replay_report,
+        )
+        target = {
+            "call_id": "4" * 64,
+            "stage": "synthesis",
+            "reader_name": None,
+            "pipeline_pass": "sonnet",
+            "boundary_run": 1,
+            "logical_retry": 1,
+            "attempt_number": 2,
+            "response_id": "msg_synthesis_target",
+            "request_sha256": "5" * 64,
+            "prompt_sha256": "6" * 64,
+            "prompt_contract_version": "v9-test-prompt",
+            "schema_mode": "strict_tool",
+            "schema_sha256": schema_sha256,
+            "transport_schema_sha256": schema_sha256,
+            "started_at": "2026-08-30T12:00:02Z",
+            "completed_at": "2026-08-30T12:00:03Z",
+            "requested_model": "claude-sonnet-5",
+            "returned_model": "claude-sonnet-5",
+            "disposition": "used",
+        }
+        target_usage = {"calls": [target], "failed_calls": []}
+        self.assertTrue(ingest_v9._bind_correction_replay(
+            source,
+            target_usage,
+            correction_source,
+        ))
+        run = {
+            "usage": {
+                "calls": [source, target],
+                "failed_calls": [],
+            },
+        }
+        _validate_local_rejected_artifacts(run, run_dir)
+
+        tampered = copy.deepcopy(run)
+        tampered["usage"]["calls"][0]["transformation_evidence"][0][
+            "after_sha256"
+        ] = "e" * 64
+        with self.assertRaisesRegex(
+            BenchmarkSafetyError,
+            "does not bind its normalized report",
+        ):
+            _validate_local_rejected_artifacts(tampered, run_dir)
+
     def test_local_cap_reserves_the_effective_adaptive_high_ceiling(self):
         from execution import ingest_v9
 

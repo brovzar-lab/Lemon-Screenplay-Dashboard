@@ -3043,6 +3043,20 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             artifact["correction_replay_report_sha256"],
             ingest_v9._canonical_json_hash(normalized),
         )
+        self.assertEqual(
+            artifact["correction_replay_artifact_version"],
+            ingest_v9.CORRECTION_REPLAY_ARTIFACT_VERSION,
+        )
+        self.assertEqual(
+            artifact["correction_replay_report"],
+            normalized,
+        )
+        self.assertEqual(
+            artifact[
+                "correction_replay_transformation_evidence_sha256"
+            ],
+            ingest_v9._canonical_json_hash([]),
+        )
 
     def test_semantically_empty_or_unknown_genre_fails_closed(self):
         for raw in ({}, {"external_genre": "interpretive dance"}):

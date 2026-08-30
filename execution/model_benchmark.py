@@ -3079,27 +3079,60 @@ def _validate_local_rejected_artifacts(
         replay_report_sha256 = artifact.get(
             "correction_replay_report_sha256"
         )
-        normalization_names = {
-            "reconciled_unique_citation_pages",
-            "removed_unverified_surplus_citations",
-        }
-        current_report_sha256 = projected_report_sha256
-        normalization_chain_valid = True
-        for item in call.get("transformation_evidence", []):
-            if (
-                not isinstance(item, dict)
-                or item.get("name") not in normalization_names
-            ):
-                continue
-            if (
-                item.get("changed") is not True
-                or not _is_lower_hex(item.get("before_sha256"), 64)
-                or not _is_lower_hex(item.get("after_sha256"), 64)
-                or item["before_sha256"] != current_report_sha256
-            ):
-                normalization_chain_valid = False
-                break
-            current_report_sha256 = item["after_sha256"]
+        replay_artifact_version = artifact.get(
+            "correction_replay_artifact_version"
+        )
+        if replay_artifact_version is None:
+            normalization_names = {
+                "reconciled_unique_citation_pages",
+                "removed_unverified_surplus_citations",
+            }
+            current_report_sha256 = projected_report_sha256
+            normalization_chain_valid = True
+            for item in call.get("transformation_evidence", []):
+                if (
+                    not isinstance(item, dict)
+                    or item.get("name") not in normalization_names
+                ):
+                    continue
+                if (
+                    item.get("changed") is not True
+                    or not _is_lower_hex(item.get("before_sha256"), 64)
+                    or not _is_lower_hex(item.get("after_sha256"), 64)
+                    or item["before_sha256"] != current_report_sha256
+                ):
+                    normalization_chain_valid = False
+                    break
+                current_report_sha256 = item["after_sha256"]
+        else:
+            stored_replay_report = artifact.get(
+                "correction_replay_report"
+            )
+            stored_transformation_sha256 = artifact.get(
+                "correction_replay_transformation_evidence_sha256"
+            )
+            projected_stored_replay = (
+                ingest_v9._schema_projected_value(
+                    stored_replay_report,
+                    application_schema,
+                )
+                if isinstance(stored_replay_report, dict)
+                else None
+            )
+            normalization_chain_valid = (
+                replay_artifact_version
+                == ingest_v9.CORRECTION_REPLAY_ARTIFACT_VERSION
+                and isinstance(stored_replay_report, dict)
+                and _engine_output_sha256(stored_replay_report)
+                == replay_report_sha256
+                and _engine_output_sha256(projected_stored_replay)
+                == replay_report_sha256
+                and stored_transformation_sha256
+                == _engine_output_sha256(
+                    call.get("transformation_evidence", [])
+                )
+            )
+            current_report_sha256 = replay_report_sha256
         if (
             not _is_lower_hex(replay_report_sha256, 64)
             or not normalization_chain_valid
