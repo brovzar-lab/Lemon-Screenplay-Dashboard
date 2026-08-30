@@ -3586,8 +3586,17 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             plan["targets"]["material_claims"]["reasons"],
             ["material_claim_mapping"],
         )
+        self.assertGreater(
+            plan["targets"]["material_claims"]["source_line_option_count"],
+            0,
+        )
+        self.assertLessEqual(
+            plan["targets"]["material_claims"]["source_line_option_count"],
+            ingest_v9.MAX_MATERIAL_CLAIM_CORRECTION_LINE_OPTIONS,
+        )
         prompt = plan["user_blocks"][-1]["text"]
         self.assertIn('"exact_material_claim_plan"', prompt)
+        self.assertIn('"exact_source_line_options"', prompt)
         self.assertIn("Copy source_field, source_index, claim", prompt)
         strict_tool = ingest_v9._strict_tool_definition(plan["tool"])
         root = Path(__file__).resolve().parents[1]
@@ -3662,6 +3671,20 @@ class ProxyCostTelemetryTests(unittest.TestCase):
             ingest_v9._apply_targeted_correction(
                 plan,
                 invalid_repair,
+                ingest_v9.SYNTHESIS_TOOL["input_schema"],
+                source_text,
+            )
+
+        invalid_citation_repair = copy.deepcopy(repair_input)
+        invalid_citation_repair["repairs"]["material_claims"][0][
+            "atomic_claims"
+        ][0]["citation_evidence"][0]["excerpt"] = (
+            "A page-level excerpt that crosses physical source lines"
+        )
+        with self.assertRaisesRegex(ValueError, "enum constraint"):
+            ingest_v9._apply_targeted_correction(
+                plan,
+                invalid_citation_repair,
                 ingest_v9.SYNTHESIS_TOOL["input_schema"],
                 source_text,
             )
