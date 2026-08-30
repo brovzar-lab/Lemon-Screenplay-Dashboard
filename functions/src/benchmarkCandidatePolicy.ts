@@ -1,10 +1,10 @@
 import { sha256CanonicalJson } from "./anthropicProxyCore";
 
 export const BENCHMARK_DATABASE_ID = "model-benchmarks";
-export const MAX_BENCHMARK_CAP_USD = 40;
+export const MAX_BENCHMARK_CAP_USD = 80;
 export const PRIOR_AUDIT_SPEND_MICROUSD = 106_425;
 export const BENCHMARK_AUDIT_ID = "v9-trust-remediation-20260827";
-export const BENCHMARK_AUDIT_LIMIT_MICROUSD = 40_000_000;
+export const BENCHMARK_AUDIT_LIMIT_MICROUSD = 80_000_000;
 export const BENCHMARK_MODELS = [
   "claude-haiku-4-5-20251001",
   "claude-sonnet-4-6",

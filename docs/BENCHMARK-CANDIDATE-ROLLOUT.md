@@ -9,7 +9,7 @@ This is an approval-gated runbook. Committing this file does not authorize proje
 - Candidate function: `llmProxyCandidate`, direct URL only, no Hosting rewrite, private invocation.
 - Runtime service account: access to only `projects/PROJECT_ID/databases/model-benchmarks`, the benchmark Anthropic secret, and sanitized logging. It receives no Storage role and no default-database grant.
 - Caller service account: Cloud Run invoker only. The local harness impersonates it for a short-lived identity token.
-- Server cap: one immutable run cap, default USD 8, plus the previously settled USD 0.106425, enforced atomically against the USD 40 audit ceiling. A new run ID cannot reset cumulative spend or uncertain holds.
+- Server cap: one immutable run cap, default USD 8, plus all previously settled and uncertain spend, enforced atomically against the authorized USD 80 audit ceiling. The one reviewed USD 40 to USD 80 ledger upgrade accepts only the exact audited idle snapshot (USD 37.511973 spent, 203 calls, two uncertain calls totaling USD 7.627776), preserves every counter, and rejects any drift or other limit change. A new run ID cannot reset cumulative spend or uncertain holds.
 - Provider secret: one enabled numeric secret version is resolved before deployment and bound into the platform receipt. `latest` is never deployed.
 - The candidate stores only run and call metadata under `model_benchmark_runs/{runId}/calls/{callId}`. Full inputs, prompts, and outputs stay local.
 
@@ -26,7 +26,7 @@ Cloud Asset Policy Analyzer and Policy Troubleshooter are not enabled in these p
 5. Before and after deployment, prove the Cloud Run resource policy contains exactly `serviceAccount:benchmark-caller@lemon-screenplay-staging.iam.gserviceaccount.com`, with no condition, public member, or unrelated direct member. Separately record the complete reviewed set of effective project-level administrators and service agents.
 6. Produce the production IAM/Firestore proof, production Storage ACL proof, and staging identity/resource proof. Any hierarchy, identity, role, database, bucket, secret, or resource-policy drift must stop the workflow.
 7. Run the authenticated no-spend preflight. It must report named database `allowed`, staging default database `denied`, production default database `denied`, and production Storage `denied`, with exact resource names.
-8. Run the authorized benchmark sequentially under the immutable server-side run cap and cumulative USD 40 audit cap.
+8. Run the authorized benchmark sequentially under the immutable server-side run cap and cumulative USD 80 audit cap.
 9. Stop before any Hosting deployment, production deployment, production model-route activation, IAM change outside the reviewed auditor contract below, API enablement, or teardown.
 
 ## Release proof

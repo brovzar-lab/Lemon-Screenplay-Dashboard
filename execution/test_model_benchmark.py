@@ -48,6 +48,7 @@ from execution.model_benchmark import (
     _validate_resume_manifest,
     _validate_resume_ledger,
     _validate_local_rejected_artifacts,
+    _validated_audit_budget,
     _smoke_route_configs,
     _validate_candidate_proxy,
     _validated_inputs,
@@ -366,6 +367,14 @@ def _deployment_receipt_fixture(
 
 
 class ModelBenchmarkSafetyTests(unittest.TestCase):
+    def test_paid_audit_budget_uses_the_authorized_eighty_dollar_ceiling(self):
+        self.assertEqual(
+            _validated_audit_budget(42.488027, 37.511973),
+            (42_488_027, 37_511_973),
+        )
+        with self.assertRaisesRegex(BenchmarkSafetyError, "authorized \\$80"):
+            _validated_audit_budget(42.488028, 37.511973)
+
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.pdf_path = Path(self.temp_dir.name) / "test.pdf"
@@ -2722,7 +2731,7 @@ class ModelBenchmarkSafetyTests(unittest.TestCase):
             "cap_microusd": 1_000_000,
             "prior_audit_spend_microusd": 106_425,
             "audit_id": "v9-trust-remediation-20260827",
-            "audit_limit_microusd": 40_000_000,
+            "audit_limit_microusd": 80_000_000,
             "database_id": "model-benchmarks",
             "runtime_project_id": "lemon-screenplay-staging",
             "inference_geo": "global",

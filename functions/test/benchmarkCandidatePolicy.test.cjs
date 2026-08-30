@@ -572,17 +572,23 @@ test('schema-free calls cannot carry forged schema fingerprints', () => {
 });
 
 test('candidate cap is server-side bounded to the authorized audit ceiling', () => {
-  assert.equal(parseBenchmarkCapUsd('39.893575'), 39.893575);
-  assertBenchmarkAuditBudget(39_893_575, 106_425);
+  assert.equal(parseBenchmarkCapUsd('80'), 80);
+  assert.equal(parseBenchmarkCapUsd('79.893575'), 79.893575);
+  assertBenchmarkAuditBudget(79_893_575, 106_425);
   assert.throws(
-    () => assertBenchmarkAuditBudget(39_893_576, 106_425),
+    () => assertBenchmarkAuditBudget(79_893_576, 106_425),
+    /authorized audit ceiling/,
+  );
+  assertBenchmarkAuditBudget(42_488_027, 37_511_973);
+  assert.throws(
+    () => assertBenchmarkAuditBudget(42_488_028, 37_511_973),
     /authorized audit ceiling/,
   );
   assert.throws(
     () => assertBenchmarkAuditBudget(1_000_000, 106_424),
     /settled pilot cost/,
   );
-  assert.throws(() => parseBenchmarkCapUsd('40.000001'), /between 0 and 40/);
-  assert.throws(() => parseBenchmarkCapUsd('1.0000001'), /between 0 and 40/);
-  assert.throws(() => parseBenchmarkCapUsd('not-money'), /between 0 and 40/);
+  assert.throws(() => parseBenchmarkCapUsd('80.000001'), /between 0 and 80/);
+  assert.throws(() => parseBenchmarkCapUsd('1.0000001'), /between 0 and 80/);
+  assert.throws(() => parseBenchmarkCapUsd('not-money'), /between 0 and 80/);
 });

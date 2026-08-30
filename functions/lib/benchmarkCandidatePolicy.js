@@ -10,10 +10,10 @@ exports.validateBenchmarkContract = validateBenchmarkContract;
 exports.validateCandidateEnvelope = validateCandidateEnvelope;
 const anthropicProxyCore_1 = require("./anthropicProxyCore");
 exports.BENCHMARK_DATABASE_ID = "model-benchmarks";
-exports.MAX_BENCHMARK_CAP_USD = 40;
+exports.MAX_BENCHMARK_CAP_USD = 80;
 exports.PRIOR_AUDIT_SPEND_MICROUSD = 106_425;
 exports.BENCHMARK_AUDIT_ID = "v9-trust-remediation-20260827";
-exports.BENCHMARK_AUDIT_LIMIT_MICROUSD = 40_000_000;
+exports.BENCHMARK_AUDIT_LIMIT_MICROUSD = 80_000_000;
 exports.BENCHMARK_MODELS = [
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-6",
