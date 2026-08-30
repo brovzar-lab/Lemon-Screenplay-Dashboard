@@ -266,6 +266,127 @@ test('the cumulative audit ledger cannot be reset by a new run ID', () => {
   );
 });
 
+test('the authorized audit ceiling upgrade preserves the exact cumulative ledger', () => {
+  const config = {
+    runId: 'run-after-authorized-ceiling-upgrade',
+    limitMicrousd: 12_000_000,
+    auditId: 'v9-trust-remediation-20260827',
+    auditLimitMicrousd: 80_000_000,
+    priorAuditSpendMicrousd: 37_511_973,
+    release: {},
+  };
+  const stored = {
+    audit_id: config.auditId,
+    limit_microusd: 40_000_000,
+    spent_microusd: config.priorAuditSpendMicrousd,
+    reserved_microusd: 0,
+    call_count: 203,
+    uncertain_call_count: 2,
+    uncertain_spend_microusd: 7_627_776,
+  };
+
+  assert.deepEqual(normalizeBenchmarkAuditLedger(stored, config, true), {
+    limit_microusd: 80_000_000,
+    spent_microusd: 37_511_973,
+    reserved_microusd: 0,
+    call_count: 203,
+    uncertain_call_count: 2,
+    uncertain_spend_microusd: 7_627_776,
+  });
+
+  for (const [label, value] of [
+    ['stale but internally matching spend', {
+      ...stored,
+      spent_microusd: 30_000_000,
+      call_count: 202,
+      uncertain_call_count: 1,
+      uncertain_spend_microusd: 3_000_000,
+    }],
+    ['one microusd less spent', { ...stored, spent_microusd: 37_511_972 }],
+    ['one microusd more spent', { ...stored, spent_microusd: 37_511_974 }],
+    ['one fewer call', { ...stored, call_count: 202 }],
+    ['one extra call', { ...stored, call_count: 204 }],
+    ['one fewer uncertain call', { ...stored, uncertain_call_count: 1 }],
+    ['one extra uncertain call', { ...stored, uncertain_call_count: 3 }],
+    ['one microusd less uncertain spend', {
+      ...stored,
+      uncertain_spend_microusd: 7_627_775,
+    }],
+    ['one microusd more uncertain spend', {
+      ...stored,
+      uncertain_spend_microusd: 7_627_777,
+    }],
+  ]) {
+    assert.throws(
+      () => normalizeBenchmarkAuditLedger(value, {
+        ...config,
+        priorAuditSpendMicrousd: value.spent_microusd,
+      }, true),
+      /exact authorized cumulative ledger/,
+      label,
+    );
+  }
+
+  for (const [label, value] of [
+    ['held reservation', { ...stored, reserved_microusd: 1 }],
+    ['declared spend mismatch', { ...stored, spent_microusd: 37_511_972 }],
+    ['unknown old ceiling', { ...stored, limit_microusd: 39_000_000 }],
+    ['invalid call count', { ...stored, call_count: 1 }],
+    ['impossible uncertainty', {
+      ...stored,
+      uncertain_call_count: 0,
+      uncertain_spend_microusd: 1,
+    }],
+  ]) {
+    assert.throws(
+      () => normalizeBenchmarkAuditLedger(value, config, true),
+      Error,
+      label,
+    );
+  }
+  assert.throws(
+    () => normalizeBenchmarkAuditLedger(stored, config, false),
+    /configuration does not match/,
+  );
+  assert.throws(
+    () => normalizeBenchmarkAuditLedger(stored, {
+      ...config,
+      priorAuditSpendMicrousd: 37_511_972,
+    }, true),
+    /exact cumulative settled/,
+  );
+  assert.throws(
+    () => normalizeBenchmarkAuditLedger({
+      ...stored,
+      spent_microusd: 40_000_001,
+    }, {
+      ...config,
+      priorAuditSpendMicrousd: 40_000_001,
+    }, true),
+    /exact authorized cumulative ledger/,
+  );
+  assert.throws(
+    () => normalizeBenchmarkAuditLedger({
+      ...stored,
+      audit_id: 'another-audit',
+    }, {
+      ...config,
+      auditId: 'another-audit',
+    }, true),
+    /configuration does not match/,
+  );
+  assert.throws(
+    () => normalizeBenchmarkAuditLedger({
+      ...stored,
+      limit_microusd: 80_000_000,
+    }, {
+      ...config,
+      auditLimitMicrousd: 40_000_000,
+    }, true),
+    /configuration does not match/,
+  );
+});
+
 test('prior uncertain spend remains charged against the next run admission', () => {
   const config = {
     runId: 'run-after-uncertainty',

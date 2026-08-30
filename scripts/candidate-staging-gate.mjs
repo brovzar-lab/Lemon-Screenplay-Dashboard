@@ -15,7 +15,7 @@ const SHA = /^[a-f0-9]{40}$/;
 const RUN_ID = /^(?:[a-f0-9]{64}|[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$/;
 const MONEY = /^(0|[1-9][0-9]*)(?:\.([0-9]{1,6}))?$/;
 const PILOT_MICROUSD = 106_425;
-const AUDIT_LIMIT_MICROUSD = 40_000_000;
+const AUDIT_LIMIT_MICROUSD = 80_000_000;
 const EXPECTED_INVOKER =
   'serviceAccount:benchmark-caller@lemon-screenplay-staging.iam.gserviceaccount.com';
 const EXPECTED_DEPLOYER = (

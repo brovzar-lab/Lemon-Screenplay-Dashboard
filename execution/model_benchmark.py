@@ -126,7 +126,7 @@ PRODUCTION_AUDITOR_PERMISSIONS = sorted([
     "storage.objects.getIamPolicy",
     "storage.objects.list",
 ])
-AUDIT_CEILING_MICROUSD = 40_000_000
+AUDIT_CEILING_MICROUSD = 80_000_000
 SETTLED_PRIOR_PILOT_MICROUSD = 106_425
 SETTLED_PRIOR_PILOT_CALL_COUNT = 2
 LOCAL_REQUEST_ENVELOPE_OVERHEAD_BYTES = 16_384
@@ -1735,7 +1735,7 @@ def _validated_audit_budget(
         )
     if cap_microusd + prior_microusd > AUDIT_CEILING_MICROUSD:
         raise BenchmarkSafetyError(
-            "Prior spend plus this run cap exceeds the authorized $40 audit ceiling."
+            "Prior spend plus this run cap exceeds the authorized $80 audit ceiling."
         )
     return cap_microusd, prior_microusd
 

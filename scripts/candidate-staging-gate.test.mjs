@@ -381,6 +381,14 @@ test('candidate gate accepts only the exact clean origin/main commit and bounded
     capMicrousd: 8_000_000,
     priorMicrousd: 106_425,
   });
+  assert.deepEqual(validateCandidateGate({
+    ...valid,
+    benchmarkCapUsd: '42.488027',
+    priorAuditSpendUsd: '37.511973',
+  }), {
+    capMicrousd: 42_488_027,
+    priorMicrousd: 37_511_973,
+  });
   for (const [field, value, message] of [
     ['headSha', 'b'.repeat(40), /identical/],
     ['originMainSha', 'b'.repeat(40), /identical/],
@@ -388,13 +396,18 @@ test('candidate gate accepts only the exact clean origin/main commit and bounded
     ['benchmarkCapUsd', '0', /positive/],
     ['benchmarkCapUsd', '1.0000001', /six decimal/],
     ['priorAuditSpendUsd', '0', /settled pilot/],
-    ['benchmarkCapUsd', '39.893576', /authorized ceiling/],
+    ['benchmarkCapUsd', '79.893576', /authorized ceiling/],
     ['approvedSourceSha', 'not-a-sha', /40-character/],
     ['inferenceGeo', 'automatic', /explicitly global or us/],
     ['runId', 'v9-santa-20260827', /opaque UUIDv4 or SHA-256/],
   ]) {
     assert.throws(() => validateCandidateGate({ ...valid, [field]: value }), message);
   }
+  assert.throws(() => validateCandidateGate({
+    ...valid,
+    benchmarkCapUsd: '42.488028',
+    priorAuditSpendUsd: '37.511973',
+  }), /authorized ceiling/);
 });
 
 test('candidate gate refuses another project or deployer identity', () => {

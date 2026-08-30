@@ -18,11 +18,19 @@ exports.markBenchmarkCallUncertain = markBenchmarkCallUncertain;
 exports.rejectBenchmarkCallBeforeGeneration = rejectBenchmarkCallBeforeGeneration;
 const firestore_1 = require("firebase-admin/firestore");
 const llmCost_1 = require("./llmCost");
+const benchmarkCandidatePolicy_1 = require("./benchmarkCandidatePolicy");
 const anthropicProxyCore_1 = require("./anthropicProxyCore");
 exports.PRIOR_AUDIT_SETTLED_CALL_COUNT = 2;
 exports.KNOWN_PILOT_RUN_ID = "v9-pilot-20260827-69906f09-santa";
 exports.KNOWN_PILOT_GIT_SHA = "69906f09ddfa617e6cc6b504b9db3aeb38e2b26c";
 exports.KNOWN_PILOT_SPEND_MICROUSD = 106_425;
+const AUTHORIZED_BENCHMARK_AUDIT_UPGRADE = {
+    previousLimitMicrousd: 40_000_000,
+    spentMicrousd: 37_511_973,
+    callCount: 203,
+    uncertainCallCount: 2,
+    uncertainSpendMicrousd: 7_627_776,
+};
 function storedTerminalSettlement(call) {
     if (call.status === "rejected") {
         return {
@@ -305,11 +313,26 @@ function normalizeBenchmarkAuditLedger(value, config, isNewRun, canBootstrap = i
         throw new Error("Stored benchmark audit ledger must be an object.");
     }
     const record = value;
+    const authorizedLimitUpgrade = (isNewRun
+        && record.audit_id === benchmarkCandidatePolicy_1.BENCHMARK_AUDIT_ID
+        && config.auditId === benchmarkCandidatePolicy_1.BENCHMARK_AUDIT_ID
+        && record.limit_microusd === AUTHORIZED_BENCHMARK_AUDIT_UPGRADE.previousLimitMicrousd
+        && config.auditLimitMicrousd === benchmarkCandidatePolicy_1.BENCHMARK_AUDIT_LIMIT_MICROUSD);
     if (record.audit_id !== config.auditId
-        || record.limit_microusd !== config.auditLimitMicrousd) {
+        || (record.limit_microusd !== config.auditLimitMicrousd
+            && !authorizedLimitUpgrade)) {
         throw new Error("Stored benchmark audit configuration does not match this deployment.");
     }
     const ledger = normalizeBenchmarkRunLedger(record, config.auditLimitMicrousd);
+    if (authorizedLimitUpgrade && (ledger.reserved_microusd !== 0
+        || ledger.spent_microusd !== AUTHORIZED_BENCHMARK_AUDIT_UPGRADE.spentMicrousd
+        || ledger.call_count !== AUTHORIZED_BENCHMARK_AUDIT_UPGRADE.callCount
+        || ledger.uncertain_call_count
+            !== AUTHORIZED_BENCHMARK_AUDIT_UPGRADE.uncertainCallCount
+        || ledger.uncertain_spend_microusd
+            !== AUTHORIZED_BENCHMARK_AUDIT_UPGRADE.uncertainSpendMicrousd)) {
+        throw new Error("Authorized benchmark audit ceiling upgrade requires the exact authorized cumulative ledger.");
+    }
     if (isNewRun && (ledger.reserved_microusd !== 0
         || ledger.spent_microusd !== config.priorAuditSpendMicrousd
         || ledger.call_count < exports.PRIOR_AUDIT_SETTLED_CALL_COUNT)) {
