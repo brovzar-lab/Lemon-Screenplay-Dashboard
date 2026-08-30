@@ -1169,8 +1169,24 @@ def uses_targeted_correction_schema(call: Mapping[str, Any]) -> bool:
         call.get("prompt_contract_version")
         in TARGETED_CORRECTION_PROMPT_CONTRACT_VERSIONS
         and call.get("stage") in {"reader", "synthesis"}
-        and call.get("logical_retry") == 1
+        and call.get("logical_retry") in {1, 2}
         and call.get("schema_mode") == "strict_tool"
+    )
+
+
+def logical_retry_is_permitted(call: Mapping[str, Any]) -> bool:
+    """Permit retry two only for one source-bound targeted correction."""
+    logical_retry = call.get("logical_retry")
+    if type(logical_retry) is not int or logical_retry < 0:
+        return False
+    if logical_retry <= 1:
+        return True
+    source = call.get("correction_source")
+    return (
+        logical_retry == 2
+        and uses_targeted_correction_schema(call)
+        and isinstance(source, dict)
+        and source.get("source_attempt_number") == 2
     )
 
 
@@ -2191,7 +2207,7 @@ def _model_lineage(
                 raise ValueError(f"usage.calls[{index}].logical_retry must be non-negative")
             if (
                 manifest_version == TRUST_MANIFEST_VERSION
-                and logical_retry > 1
+                and not logical_retry_is_permitted(raw_call)
             ):
                 raise ValueError(
                     f"usage.calls[{index}] exceeds the permitted logical retry limit"
@@ -2710,6 +2726,9 @@ def _model_lineage(
             not isinstance(source, dict)
             or source_id in replayed_source_ids
             or source.get("disposition") != "discarded_unusable"
+            or source.get("validation_result") != "failed_application_validation"
+            or source.get("failure_state") != "output_validation_failed"
+            or source.get("logical_retry") != target.get("logical_retry") - 1
             or source.get("request_sha256")
             != source_link["source_request_sha256"]
             or source.get("attempt_number")
@@ -2744,6 +2763,10 @@ def _model_lineage(
             != target.get("attempt_number")
             or replay.get("replay_report_sha256")
             != source_link["replay_report_sha256"]
+            or (
+                target.get("logical_retry") == 2
+                and not uses_fresh_structural_retry(source)
+            )
         ):
             raise ValueError("usage correction replay lineage is inconsistent")
         if failed:
@@ -3008,7 +3031,7 @@ def _model_lineage(
                     f"usage.failed_calls[{index}] attempt history is incomplete"
                 )
             if (
-                raw_call["logical_retry"] > 1
+                not logical_retry_is_permitted(raw_call)
                 or raw_call["transport_retry_count"] > 1
             ):
                 raise ValueError(

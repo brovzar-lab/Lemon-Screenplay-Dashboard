@@ -308,7 +308,21 @@ test('stage, reader, retry, boundary, prompt, and schemas are derived and fail c
     )),
     /call matrix/,
   );
-  assert.throws(() => validate(contract({ retry_number: 2 })), /0 or 1/);
+  assert.doesNotThrow(() => validate(contract(
+    { retry_number: 2 },
+    targetedCorrectionPayload(),
+  )));
+  assert.throws(
+    () => validate(contract({ retry_number: 2 }, compactPayload())),
+    /call matrix/,
+  );
+  assert.throws(() => validate(contract({
+    pipeline_stage: 'triage', reader_name: null, retry_number: 2,
+  }, schemaFreePayload())), /call matrix/);
+  assert.throws(() => validate(contract({
+    pipeline_stage: 'genre_detection', reader_name: null, retry_number: 2,
+  }, strictPayload())), /call matrix/);
+  assert.throws(() => validate(contract({ retry_number: 3 })), /0, 1, or 2/);
   for (const stage of ['triage', 'cold_read', 'smoke']) {
     assert.throws(
       () => validate(contract({
@@ -324,6 +338,11 @@ test('stage, reader, retry, boundary, prompt, and schemas are derived and fail c
     reader_name: 'batch_001_of_004',
     retry_number: 1,
   }, compactPayload('submit_claim_verification'))));
+  assert.throws(() => validate(contract({
+    pipeline_stage: 'claim_verification',
+    reader_name: 'batch_001_of_004',
+    retry_number: 2,
+  }, compactPayload('submit_claim_verification'))), /call matrix/);
   assert.throws(() => validate(contract({ boundary_run: 4 })), /between 1 and 3/);
   assert.throws(() => validate(contract({ pipeline_pass: 'Sonnet pass' })), /pipeline_pass/);
   assert.throws(() => validate(contract({ prompt_sha256: sha('1') })), /prompt_sha256/);
@@ -333,13 +352,21 @@ test('stage, reader, retry, boundary, prompt, and schemas are derived and fail c
   );
 });
 
-test('one reader or synthesis retry accepts only targeted or compact strict output', () => {
+test('reader and synthesis recovery accepts one fresh retry and one targeted correction', () => {
   assert.doesNotThrow(() => validate(contract(
     { retry_number: 1 },
     targetedCorrectionPayload(),
   )));
   assert.doesNotThrow(() => validate(contract(
     { pipeline_stage: 'synthesis', reader_name: null, retry_number: 1 },
+    targetedCorrectionPayload('repair_synthesis_report'),
+  )));
+  assert.doesNotThrow(() => validate(contract(
+    { retry_number: 2 },
+    targetedCorrectionPayload(),
+  )));
+  assert.doesNotThrow(() => validate(contract(
+    { pipeline_stage: 'synthesis', reader_name: null, retry_number: 2 },
     targetedCorrectionPayload('repair_synthesis_report'),
   )));
   assert.throws(

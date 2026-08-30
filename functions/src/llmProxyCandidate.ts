@@ -21,6 +21,7 @@ import {
   BenchmarkCapExceededError,
   BenchmarkCallConflictError,
   BenchmarkDuplicateCallError,
+  BenchmarkRetryLineageError,
   KNOWN_PILOT_RUN_ID,
   hasExactKnownPilotEvidence,
   markBenchmarkCallUncertain,
@@ -577,6 +578,23 @@ export const llmProxyCandidate = onRequest(
           code: error.code,
           isRetryable: false,
           release: config.release,
+        });
+        return;
+      }
+      if (error instanceof BenchmarkRetryLineageError) {
+        res.status(409).json({
+          error: error.message,
+          code: error.code,
+          isRetryable: false,
+          manualReviewRequired: true,
+          release: config.release,
+          benchmark_rejection: {
+            call_id: contract.call_id,
+            requested_model: contract.requested_model,
+            request_sha256: contract.request_sha256,
+            disposition: "no_new_dispatch",
+            new_cost_microusd: 0,
+          },
         });
         return;
       }

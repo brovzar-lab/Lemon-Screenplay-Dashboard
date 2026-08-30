@@ -191,6 +191,73 @@ export class BenchmarkCallConflictError extends Error {
   }
 }
 
+export class BenchmarkRetryLineageError extends Error {
+  readonly code = "BENCHMARK_RETRY_LINEAGE_INVALID";
+  constructor() {
+    super("The requested recovery call does not have one exact settled retry lineage.");
+    this.name = "BenchmarkRetryLineageError";
+  }
+}
+
+const RETRY_LINEAGE_FIELDS = [
+  "screenplay_sha256",
+  "route",
+  "generation",
+  "pipeline_stage",
+  "pipeline_pass",
+  "reader_name",
+  "boundary_run",
+  "prompt_bundle_sha256",
+  "schema_bundle_sha256",
+  "requested_model",
+] as const;
+
+export function validateBenchmarkRetryLineage(
+  contract: BenchmarkCallContract,
+  priorCalls: readonly Record<string, unknown>[],
+): void {
+  if (contract.retry_number < 2) return;
+  if (contract.retry_number !== 2
+      || !["reader", "synthesis"].includes(contract.pipeline_stage)
+      || contract.schema_mode !== "strict_tool"
+      || contract.schema_sha256 !== contract.transport_schema_sha256) {
+    throw new BenchmarkRetryLineageError();
+  }
+  const lineage = priorCalls.filter((call) => RETRY_LINEAGE_FIELDS.every(
+    (field) => call[field] === contract[field],
+  ));
+  const initial = lineage.filter((call) => call.retry_number === 0);
+  const freshRetry = lineage.filter((call) => call.retry_number === 1);
+  if (lineage.length !== 2 || initial.length !== 1 || freshRetry.length !== 1) {
+    throw new BenchmarkRetryLineageError();
+  }
+  const source = initial[0];
+  const retry = freshRetry[0];
+  const exactFreshReplayFields = [
+    "request_sha256",
+    "prompt_sha256",
+    "schema_mode",
+    "schema_sha256",
+    "transport_schema_sha256",
+  ] as const;
+  if (
+    source.status !== "settled"
+    || retry.status !== "settled"
+    || source.returned_model !== contract.requested_model
+    || retry.returned_model !== contract.requested_model
+    || typeof source.response_id !== "string"
+    || typeof retry.response_id !== "string"
+    || source.schema_mode !== "compact_strict_tool"
+    || retry.schema_mode !== "compact_strict_tool"
+    || !exactFreshReplayFields.every((field) => source[field] === retry[field])
+    || retry.request_sha256 === contract.request_sha256
+    || retry.prompt_sha256 === contract.prompt_sha256
+    || retry.schema_sha256 === contract.schema_sha256
+  ) {
+    throw new BenchmarkRetryLineageError();
+  }
+}
+
 export function rejectExistingBenchmarkCall(
   prior: Record<string, unknown>,
   contract: BenchmarkCallContract,
@@ -426,6 +493,9 @@ export async function reserveBenchmarkCall(
   const auditRef = db.collection("model_benchmark_audits").doc(config.auditId);
   const callRef = runRef.collection("calls").doc(contract.call_id);
   await db.runTransaction(async (transaction) => {
+    const lineageSnapshotPromise = contract.retry_number === 2
+      ? transaction.get(runRef.collection("calls"))
+      : Promise.resolve(undefined);
     const [
       runSnapshot,
       auditSnapshot,
@@ -433,6 +503,7 @@ export async function reserveBenchmarkCall(
       existingRunsSnapshot,
       pilotRunSnapshot,
       pilotCallsSnapshot,
+      lineageSnapshot,
     ] = await Promise.all([
       transaction.get(runRef),
       transaction.get(auditRef),
@@ -440,9 +511,16 @@ export async function reserveBenchmarkCall(
       transaction.get(existingRuns),
       transaction.get(pilotRunRef),
       transaction.get(pilotCalls),
+      lineageSnapshotPromise,
     ]);
     if (callSnapshot.exists) {
       rejectExistingBenchmarkCall(callSnapshot.data() ?? {}, contract);
+    }
+    if (lineageSnapshot) {
+      validateBenchmarkRetryLineage(
+        contract,
+        lineageSnapshot.docs.map((snapshot) => snapshot.data()),
+      );
     }
     const priorRun = runSnapshot.exists ? runSnapshot.data() ?? {} : undefined;
     if (runSnapshot.exists) validateStoredRun(priorRun ?? {}, config);

@@ -355,8 +355,8 @@ function validateBenchmarkContract(value, evidence, expectedRunId, requestModel,
     }
     if (!Number.isInteger(raw.retry_number)
         || Number(raw.retry_number) < 0
-        || Number(raw.retry_number) > 1) {
-        throw new BenchmarkContractError("retry_number must be 0 or 1.");
+        || Number(raw.retry_number) > 2) {
+        throw new BenchmarkContractError("retry_number must be 0, 1, or 2.");
     }
     if (!Number.isInteger(raw.boundary_run)
         || Number(raw.boundary_run) < 1
@@ -445,22 +445,26 @@ function validateBenchmarkContract(value, evidence, expectedRunId, requestModel,
         && schemaMode === "schema_free")
         || (stage === "genre_detection"
             && contractWithoutCallId.reader_name === null
+            && contractWithoutCallId.retry_number <= 1
             && schemaMode === "strict_tool"
             && isExactGenrePayload(payload))
         || (stage === "reader"
             && contractWithoutCallId.reader_name !== null
-            && ((schemaMode === "compact_strict_tool" && validCompactPayload)
-                || (contractWithoutCallId.retry_number === 1
+            && ((contractWithoutCallId.retry_number <= 1
+                && schemaMode === "compact_strict_tool" && validCompactPayload)
+                || ([1, 2].includes(contractWithoutCallId.retry_number)
                     && schemaMode === "strict_tool"
                     && isTargetedCorrectionPayload(payload, correctionToolName, oldThinkingToolChoice))))
         || (stage === "synthesis"
             && contractWithoutCallId.reader_name === null
-            && ((schemaMode === "compact_strict_tool" && validCompactPayload)
-                || (contractWithoutCallId.retry_number === 1
+            && ((contractWithoutCallId.retry_number <= 1
+                && schemaMode === "compact_strict_tool" && validCompactPayload)
+                || ([1, 2].includes(contractWithoutCallId.retry_number)
                     && schemaMode === "strict_tool"
                     && isTargetedCorrectionPayload(payload, correctionToolName, oldThinkingToolChoice))))
         || (stage === "claim_verification"
             && contractWithoutCallId.reader_name !== null
+            && contractWithoutCallId.retry_number <= 1
             && schemaMode === "compact_strict_tool"
             && validCompactPayload));
     if (!validStageContract) {

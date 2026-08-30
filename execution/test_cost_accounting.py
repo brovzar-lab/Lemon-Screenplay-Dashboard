@@ -5527,6 +5527,138 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         ))
         self.assertEqual(analysis["analysis_quality"]["status"], "complete")
 
+    def test_reader_structural_retry_can_receive_one_semantic_correction(self):
+        fixture_analysis = complete_analysis("Reader two-phase recovery")
+        attempts = {}
+
+        def fake_call_llm(**kwargs):
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            key = (stage, reader_name)
+            attempts[key] = attempts.get(key, 0) + 1
+            logical_retry = kwargs.get("logical_retry", 0)
+            usage = self._successful_call_usage(
+                f"msg_{stage}_{reader_name}_{attempts[key]}",
+                stage=stage,
+                reader_name=reader_name,
+            )
+            if logical_retry == 2:
+                self._mark_targeted_correction_usage(usage, kwargs["tool"])
+            usage["calls"][0].update({
+                "logical_retry": logical_retry,
+                "attempt_number": logical_retry + 1,
+                "total_retry_count": logical_retry,
+            })
+            if (
+                stage == "reader"
+                and reader_name == "emotional_resonance"
+                and attempts[key] == 1
+            ):
+                rejected = [{
+                    "type": "tool_use",
+                    "name": kwargs["tool"]["name"],
+                    "input": {
+                        "contract": kwargs["tool"]["name"],
+                        "application_schema_sha256": ingest_v9._canonical_json_hash(
+                            kwargs["tool"]["input_schema"]
+                        ),
+                        "report_json": "{not valid json",
+                    },
+                }]
+                kwargs["raw_response_sink"]["content"] = rejected
+                raise ingest_v9.LlmOutputContractError(
+                    "report_json is not valid JSON",
+                    usage,
+                    rejected,
+                )
+            if (
+                stage == "reader"
+                and reader_name == "emotional_resonance"
+                and attempts[key] == 2
+            ):
+                report = copy.deepcopy(
+                    fixture_analysis["reader_reports"][reader_name]
+                )
+                report["sub_scores"]["emotional_clarity"][
+                    "citation_evidence"
+                ][0]["excerpt"] = "This excerpt is absent from the screenplay."
+                return report, "", usage
+            if (
+                stage == "reader"
+                and reader_name == "emotional_resonance"
+                and attempts[key] == 3
+            ):
+                self.assertTrue(kwargs["tool"]["name"].startswith("repair_"))
+                return (
+                    self._targeted_repair_input(
+                        kwargs["tool"],
+                        fixture_analysis["reader_reports"][reader_name],
+                    ),
+                    "",
+                    usage,
+                )
+            if stage == "reader":
+                return (
+                    copy.deepcopy(fixture_analysis["reader_reports"][reader_name]),
+                    "",
+                    usage,
+                )
+            return (
+                ingest_v9._schema_projected_value(
+                    fixture_analysis,
+                    ingest_v9.SYNTHESIS_TOOL["input_schema"],
+                ),
+                "",
+                usage,
+            )
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(ingest_v9.time, "sleep"):
+            analysis, usage = ingest_v9.run_v9_full(
+                text=marked_screenplay(),
+                title="Reader two-phase recovery",
+                page_count=100,
+                word_count=20_000,
+                model_key="sonnet",
+                proxy_url="https://proxy.test",
+                pipeline_pass="sonnet",
+            )
+
+        self.assertEqual(attempts[("reader", "emotional_resonance")], 3)
+        calls = [
+            call for call in usage["calls"]
+            if call.get("reader_name") == "emotional_resonance"
+        ]
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(
+            [call["validation_result"] for call in calls],
+            ["failed_structural", "failed_application_validation", "passed"],
+        )
+        self.assertEqual(calls[0]["downstream_consumption"], "not_consumed")
+        self.assertEqual(calls[1]["downstream_consumption"], "correction_only")
+        self.assertEqual(
+            calls[1]["correction_replay"]["target_response_id"],
+            calls[2]["response_id"],
+        )
+        self.assertEqual(
+            calls[2]["correction_source"]["source_response_id"],
+            calls[1]["response_id"],
+        )
+        self.assertEqual(calls[2]["logical_retry"], 2)
+        self.assertEqual(calls[2]["disposition"], "used")
+        self.assertEqual(analysis["analysis_quality"]["status"], "complete")
+
     def test_settled_unparseable_synthesis_gets_one_fresh_bounded_retry(self):
         fixture_analysis = complete_analysis("Synthesis structural retry")
         synthesis_attempts = 0
@@ -5629,6 +5761,124 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         ))
         self.assertEqual(analysis["analysis_quality"]["status"], "complete")
 
+    def test_synthesis_structural_retry_can_receive_one_semantic_correction(self):
+        fixture_analysis = complete_analysis("Synthesis two-phase recovery")
+        synthesis_attempts = 0
+
+        def fake_call_llm(**kwargs):
+            nonlocal synthesis_attempts
+            stage = kwargs["stage"]
+            reader_name = kwargs.get("reader_name")
+            if stage == "reader":
+                return (
+                    copy.deepcopy(fixture_analysis["reader_reports"][reader_name]),
+                    "",
+                    self._successful_call_usage(
+                        f"msg_reader_{reader_name}",
+                        stage=stage,
+                        reader_name=reader_name,
+                    ),
+                )
+            synthesis_attempts += 1
+            logical_retry = kwargs.get("logical_retry", 0)
+            usage = self._successful_call_usage(
+                f"msg_synthesis_{synthesis_attempts}",
+                stage=stage,
+            )
+            if logical_retry == 2:
+                self._mark_targeted_correction_usage(usage, kwargs["tool"])
+            usage["calls"][0].update({
+                "logical_retry": logical_retry,
+                "attempt_number": logical_retry + 1,
+                "total_retry_count": logical_retry,
+            })
+            if synthesis_attempts == 1:
+                rejected = [{
+                    "type": "tool_use",
+                    "name": kwargs["tool"]["name"],
+                    "input": {
+                        "contract": kwargs["tool"]["name"],
+                        "application_schema_sha256": ingest_v9._canonical_json_hash(
+                            kwargs["tool"]["input_schema"]
+                        ),
+                        "report_json": "{not valid json",
+                    },
+                }]
+                kwargs["raw_response_sink"]["content"] = rejected
+                raise ingest_v9.LlmOutputContractError(
+                    "report_json is not valid JSON",
+                    usage,
+                    rejected,
+                )
+            if synthesis_attempts == 2:
+                report = ingest_v9._schema_projected_value(
+                    fixture_analysis,
+                    ingest_v9.SYNTHESIS_TOOL["input_schema"],
+                )
+                report["material_claims"][0]["atomic_claims"][0][
+                    "citation_evidence"
+                ][0]["excerpt"] = "This excerpt is absent from the screenplay."
+                return report, "", usage
+            self.assertTrue(kwargs["tool"]["name"].startswith("repair_"))
+            return (
+                self._targeted_repair_input(
+                    kwargs["tool"],
+                    ingest_v9._schema_projected_value(
+                        fixture_analysis,
+                        ingest_v9.SYNTHESIS_TOOL["input_schema"],
+                    ),
+                ),
+                "",
+                usage,
+            )
+
+        genre_detection = ingest_v9.parse_detection({
+            "external_genre": "Society",
+            "confidence": "high",
+        })
+        with patch.object(
+            ingest_v9,
+            "run_genre_detection",
+            return_value=(genre_detection, ingest_v9.empty_usage()),
+        ), patch.object(
+            ingest_v9,
+            "call_llm",
+            side_effect=fake_call_llm,
+        ), patch.object(ingest_v9.time, "sleep"):
+            analysis, usage = ingest_v9.run_v9_full(
+                text=marked_screenplay(),
+                title="Synthesis two-phase recovery",
+                page_count=100,
+                word_count=20_000,
+                model_key="sonnet",
+                proxy_url="https://proxy.test",
+                pipeline_pass="sonnet",
+            )
+
+        self.assertEqual(synthesis_attempts, 3)
+        calls = [
+            call for call in usage["calls"]
+            if call.get("stage") == "synthesis"
+        ]
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(
+            [call["validation_result"] for call in calls],
+            ["failed_structural", "failed_application_validation", "passed"],
+        )
+        self.assertEqual(calls[0]["downstream_consumption"], "not_consumed")
+        self.assertEqual(calls[1]["downstream_consumption"], "correction_only")
+        self.assertEqual(
+            calls[1]["correction_replay"]["target_response_id"],
+            calls[2]["response_id"],
+        )
+        self.assertEqual(
+            calls[2]["correction_source"]["source_response_id"],
+            calls[1]["response_id"],
+        )
+        self.assertEqual(calls[2]["logical_retry"], 2)
+        self.assertEqual(calls[2]["disposition"], "used")
+        self.assertEqual(analysis["analysis_quality"]["status"], "complete")
+
     def test_reader_and_synthesis_recovery_produce_a_complete_manifest(self):
         synthesis_attempt = 0
         reader_attempts = {}
@@ -5677,29 +5927,57 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     reader_name=reader_name,
                 )
                 logical_retry = kwargs.get("logical_retry", 0)
-                if logical_retry:
+                if logical_retry == 1:
+                    initial_fingerprint = hashlib.sha256(
+                        f"msg_reader_{reader_name}_1".encode("utf-8")
+                    ).hexdigest()
+                    usage["calls"][0].update({
+                        "request_sha256": initial_fingerprint,
+                        "prompt_sha256": initial_fingerprint,
+                    })
+                if logical_retry == 2:
                     self._mark_targeted_correction_usage(
                         usage,
                         kwargs["tool"],
                     )
+                started_at, completed_at = {
+                    0: ("2026-08-27T12:00:00Z", "2026-08-27T12:00:01Z"),
+                    1: ("2026-08-27T12:00:02Z", "2026-08-27T12:00:03Z"),
+                    2: ("2026-08-27T12:00:04Z", "2026-08-27T12:00:05Z"),
+                }[logical_retry]
                 usage["calls"][0].update({
                     "logical_retry": logical_retry,
                     "attempt_number": logical_retry + 1,
                     "total_retry_count": logical_retry,
-                    "started_at": (
-                        "2026-08-27T12:00:02Z"
-                        if logical_retry
-                        else "2026-08-27T12:00:00Z"
-                    ),
-                    "completed_at": (
-                        "2026-08-27T12:00:03Z"
-                        if logical_retry
-                        else "2026-08-27T12:00:01Z"
-                    ),
+                    "started_at": started_at,
+                    "completed_at": completed_at,
                 })
                 if (
                     reader_name == "emotional_resonance"
                     and reader_attempts[reader_name] == 1
+                ):
+                    rejected = [{
+                        "type": "tool_use",
+                        "name": kwargs["tool"]["name"],
+                        "input": {
+                            "contract": kwargs["tool"]["name"],
+                            "application_schema_sha256": (
+                                ingest_v9._canonical_json_hash(
+                                    kwargs["tool"]["input_schema"]
+                                )
+                            ),
+                            "report_json": "{not valid json",
+                        },
+                    }]
+                    kwargs["raw_response_sink"]["content"] = rejected
+                    raise ingest_v9.LlmOutputContractError(
+                        "report_json is not valid JSON",
+                        usage,
+                        rejected,
+                    )
+                if (
+                    reader_name == "emotional_resonance"
+                    and reader_attempts[reader_name] == 2
                 ):
                     report = copy.deepcopy(
                         fixture_analysis["reader_reports"][reader_name]
@@ -5712,7 +5990,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                     return report, "", usage
                 if (
                     reader_name == "emotional_resonance"
-                    and reader_attempts[reader_name] == 2
+                    and reader_attempts[reader_name] == 3
                 ):
                     retry_text = "\n".join(
                         block.get("text", "")
@@ -5911,6 +6189,10 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         self.assertEqual(
             dispositions["msg_reader_emotional_resonance_2"],
+            "discarded_unusable",
+        )
+        self.assertEqual(
+            dispositions["msg_reader_emotional_resonance_3"],
             "used",
         )
         self.assertEqual(
@@ -5921,6 +6203,22 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         calls_by_id = {
             call["response_id"]: call for call in usage["calls"]
         }
+        structural_source = calls_by_id["msg_reader_emotional_resonance_1"]
+        fresh_retry = calls_by_id["msg_reader_emotional_resonance_2"]
+        self.assertEqual(structural_source["validation_result"], "failed_structural")
+        self.assertEqual(
+            fresh_retry["validation_result"],
+            "failed_application_validation",
+        )
+        self.assertEqual(fresh_retry["logical_retry"], 1)
+        self.assertEqual(
+            fresh_retry["request_sha256"],
+            structural_source["request_sha256"],
+        )
+        self.assertEqual(
+            fresh_retry["prompt_sha256"],
+            structural_source["prompt_sha256"],
+        )
         self.assertEqual(
             analysis["reader_reports"]["emotional_resonance"][
                 "goosebumps_scenes"
@@ -5935,8 +6233,8 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         for source_id, target_id in (
             (
-                "msg_reader_emotional_resonance_1",
                 "msg_reader_emotional_resonance_2",
+                "msg_reader_emotional_resonance_3",
             ),
             ("msg_synthesis_1", "msg_synthesis_2"),
         ):
@@ -6097,8 +6395,8 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         }
         for source_id, target_id in (
             (
-                "msg_reader_emotional_resonance_1",
                 "msg_reader_emotional_resonance_2",
+                "msg_reader_emotional_resonance_3",
             ),
             ("msg_synthesis_1", "msg_synthesis_2"),
         ):
@@ -6119,7 +6417,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                 source_id,
             )
         for target_id in (
-            "msg_reader_emotional_resonance_2",
+            "msg_reader_emotional_resonance_3",
             "msg_synthesis_2",
         ):
             for field in ("schema_sha256", "transport_schema_sha256"):
@@ -6144,7 +6442,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
                             origin_id=f"queue-{target_id}-{field}",
                         )
 
-        targeted_response_id = "msg_reader_emotional_resonance_2"
+        targeted_response_id = "msg_reader_emotional_resonance_3"
         without_merge_evidence = copy.deepcopy(raw)
         targeted_call = next(
             call for call in without_merge_evidence["usage"]["calls"]
@@ -7310,7 +7608,7 @@ class ProxyCostTelemetryTests(unittest.TestCase):
         )
         self.assertEqual(
             raised.exception.review_evidence["synthesis_attempts"],
-            2,
+            1,
         )
 
     def test_full_engine_rejects_unlinked_cold_read_before_model_work(self):
