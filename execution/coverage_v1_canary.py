@@ -217,7 +217,11 @@ def run_canary(
             genre_hint=genre_hint,
             lenses=lenses,
             proxy_url=proxy_url,
-            job_id=f"canary-{_slug(title)}",
+            # The proxy's budget reservation refuses job_ids that are not
+            # live ingest-queue jobs in "processing" status (an anti-orphan
+            # spend guard). The canary is queue-free by design, so it must
+            # not pass one.
+            job_id=None,
             max_cost_usd=max_script_usd,
         )
 
