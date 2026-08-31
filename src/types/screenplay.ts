@@ -48,7 +48,14 @@ export type ProducerProjectionWarningCode =
   | 'reader_disagreement'
   | 'unsealed_current_analysis'
   | 'legacy_unverified'
-  | 'legacy_raw_score';
+  | 'legacy_raw_score'
+  // coverage_v1 (lean coverage engine) warning codes
+  | 'coverage_unscored'
+  | 'coverage_needs_review'
+  | 'human_review_recommended'
+  | 'film_now_nominated'
+  | 'coverage_evidence_audit'
+  | 'coverage_uncertainties';
 
 export interface ProducerProjectionWarning {
   code: ProducerProjectionWarningCode;
@@ -80,7 +87,7 @@ export interface ProducerProjection {
   rawScore: number;
   /** Canonical score used by every producer-facing surface and sort. */
   finalScore: number;
-  scoreSource: 'adjusted' | 'triage' | 'legacy_raw';
+  scoreSource: 'adjusted' | 'triage' | 'legacy_raw' | 'coverage_unscored';
   /** Positive deduction that was actually applied to the final score. */
   penaltyApplied: number;
   /** Penalty reported by older documents when application cannot prove it was applied. */
@@ -418,6 +425,19 @@ export interface FilmNowAssessment {
   disqualifyingFactors: string[];
 }
 
+// ============================================
+// COVERAGE V1 (lean coverage engine — optional, additive)
+// ============================================
+
+export type LensGradeValue = 'strong' | 'solid' | 'weak';
+
+/** One qualitative lens verdict from a coverage_v1 report. Never a score. */
+export interface LensGrade {
+  lens: string;
+  grade: LensGradeValue;
+  note: string;
+}
+
 export interface FileMetadata {
   filename: string;
   pageCount: number;
@@ -605,6 +625,17 @@ export interface Screenplay {
   verdictStatement: string;
   isFilmNow: boolean;
   filmNowAssessment: FilmNowAssessment | null;
+
+  // coverage_v1 (lean coverage engine) — optional, absent on V9 documents.
+  /** FILM_NOW arrived as a nomination on a RECOMMEND verdict; never the protected tier. */
+  filmNowNominated?: boolean;
+  humanReviewRecommended?: boolean;
+  reviewReasons?: string[];
+  uncertainties?: string[];
+  /** Qualitative lens grades, kept verbatim — never converted into scores. */
+  lensGrades?: LensGrade[];
+  /** Screenplay language reported by the coverage engine (e.g. "es-MX"). */
+  language?: string;
 
   // Detailed Scores
   dimensionScores: DimensionScores;
