@@ -1,0 +1,138 @@
+{
+  "version": "lemon-lenses-v1",
+  "description": "Methodology lens registry for the coverage_v1 engine. Cards are compact evaluation-only distillations of the full skills stored under skills/. The engine injects selected cards into the senior-coverage system prompt; stacks are selectable per job.",
+  "lenses": {
+    "lemon-coverage": {
+      "name": "Lemon Coverage (house method)",
+      "card": "cards/lemon-coverage.md",
+      "source_skill": "skills/lemon-coverage",
+      "applies_to": "both",
+      "role": "core",
+      "genres": ["all"]
+    },
+    "save-the-cat": {
+      "name": "Save the Cat (Snyder)",
+      "card": "cards/save-the-cat.md",
+      "source_skill": "skills/save-the-cat",
+      "applies_to": "feature",
+      "role": "structure",
+      "genres": ["all"]
+    },
+    "story-grid": {
+      "name": "Story Grid (Coyne)",
+      "card": "cards/story-grid.md",
+      "source_skill": "skills/story-grid-expert",
+      "applies_to": "both",
+      "role": "structure",
+      "genres": ["all"]
+    },
+    "truby": {
+      "name": "Truby Anatomy of Story",
+      "card": "cards/truby.md",
+      "source_skill": "skills/truby-expert",
+      "applies_to": "both",
+      "role": "structure",
+      "genres": ["all"]
+    },
+    "bmoc": {
+      "name": "BMOC Scene Craft",
+      "card": "cards/bmoc.md",
+      "source_skill": "skills/bmoc-beat-engineer",
+      "applies_to": "both",
+      "role": "scene_craft",
+      "genres": ["all"]
+    },
+    "grisanti-pilot": {
+      "name": "Grisanti Pilot Analysis",
+      "card": "cards/grisanti-pilot.md",
+      "source_skill": "skills/grisanti-pilot-analysis",
+      "applies_to": "tv_pilot",
+      "role": "core",
+      "genres": ["all"]
+    },
+    "grisanti-series": {
+      "name": "Grisanti Series Development",
+      "card": "cards/grisanti-series.md",
+      "source_skill": "skills/grisanti-series-development",
+      "applies_to": "tv_pilot",
+      "role": "structure",
+      "genres": ["all"]
+    },
+    "horror-contract": {
+      "name": "Horror Genre Contract",
+      "card": "cards/horror-contract.md",
+      "source_skill": "skills/horror-screenwriter",
+      "applies_to": "both",
+      "role": "genre_contract",
+      "genres": ["horror"]
+    },
+    "comedy-contract": {
+      "name": "Comedy Genre Contract",
+      "card": "cards/comedy-contract.md",
+      "source_skill": "skills/lemon-comedy-engine",
+      "applies_to": "both",
+      "role": "genre_contract",
+      "genres": ["comedy"]
+    },
+    "pluma-mexicana": {
+      "name": "Pluma Mexicana (Mexican voice audit)",
+      "card": "cards/pluma-mexicana.md",
+      "source_skill": "skills/pluma-mexicana",
+      "applies_to": "both",
+      "role": "audit",
+      "genres": ["all"]
+    },
+    "enneagram": {
+      "name": "Enneagram Character Analysis",
+      "card": "cards/enneagram.md",
+      "source_skill": "skills/enneagram-analyst",
+      "applies_to": "both",
+      "role": "character",
+      "genres": ["all"]
+    },
+    "story-stakes": {
+      "name": "Story Stakes",
+      "card": "cards/story-stakes.md",
+      "source_skill": "skills/story-stakes",
+      "applies_to": "both",
+      "role": "structure",
+      "genres": ["all"]
+    },
+    "arndt-endings": {
+      "name": "Arndt Insanely Great Endings",
+      "card": "cards/arndt-endings.md",
+      "source_skill": "skills/arndt-endings",
+      "applies_to": "both",
+      "role": "structure",
+      "genres": ["all"]
+    },
+    "km-weiland": {
+      "name": "Weiland Character Arcs",
+      "card": "cards/km-weiland.md",
+      "source_skill": "skills/km-weiland",
+      "applies_to": "both",
+      "role": "character",
+      "genres": ["all"]
+    },
+    "women-in-story": {
+      "name": "Women in Story Audit",
+      "card": "cards/women-in-story.md",
+      "source_skill": "skills/women-in-story-audit",
+      "applies_to": "both",
+      "role": "audit",
+      "genres": ["all"]
+    }
+  },
+  "stacks": {
+    "feature_default": ["lemon-coverage", "save-the-cat", "story-grid"],
+    "tv_pilot_default": ["grisanti-pilot", "grisanti-series", "lemon-coverage"],
+    "genre_contract": {
+      "horror": "horror-contract",
+      "comedy": "comedy-contract"
+    }
+  },
+  "budget": {
+    "max_lenses_per_run": 6,
+    "max_card_bytes": 4500
+  }
+}
