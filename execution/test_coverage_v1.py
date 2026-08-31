@@ -386,6 +386,25 @@ class TestHappyPath(unittest.TestCase):
         verified = report["coverage"]["strengths"][1]
         self.assertTrue(verified["citation_verified"])
 
+    def test_wrong_page_with_unique_verbatim_quote_is_relocated(self):
+        coverage = valid_coverage()
+        # Quote is verbatim from page 5, but the reader cited page 3.
+        coverage["strengths"][1]["page"] = 3
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (supported_audit(coverage), settled_usage()),
+            ]
+        )
+        report, _usage = run_engine(new_store(), transport)
+        summary = report["citation_verification"]
+        self.assertEqual(summary["unverified"], 0)
+        self.assertEqual(summary["relocated"], 1)
+        fixed = report["coverage"]["strengths"][1]
+        self.assertEqual(fixed["page"], 5)
+        self.assertEqual(fixed["cited_page"], 3)
+        self.assertTrue(fixed["citation_match_kind"].startswith("relocated_"))
+
     def test_cost_split_keeps_uncertain_separate(self):
         coverage = valid_coverage()
         transport = FakeTransport(
@@ -612,18 +631,60 @@ class TestFactAudit(unittest.TestCase):
         self.assertIn("spine.ending", report["fact_audit"]["central_failures"])
         self.assertEqual(cv.trust_labels(report)["story_spine"], "UNRESOLVED")
 
-    def test_incomplete_audit_fails_validation(self):
+    def test_incomplete_audit_retries_once_on_coverage_model(self):
         coverage = valid_coverage()
-        audit = supported_audit(coverage)
-        audit["verdicts"].pop()
+        bad_audit = supported_audit(coverage)
+        bad_audit["verdicts"].pop()
+        good_audit = supported_audit(coverage)
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
-                (audit, settled_usage()),
+                (bad_audit, settled_usage()),
+                (good_audit, settled_usage(120_000)),
+            ]
+        )
+        report, usage = run_engine(new_store(), transport)
+        self.assertEqual(len(transport.calls), 3)
+        # The retry runs on the coverage-tier model, not the cheap auditor.
+        self.assertEqual(transport.calls[1]["model_key"], "haiku")
+        self.assertEqual(transport.calls[2]["model_key"], "sonnet")
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(report["models"]["audit_effective"], "sonnet")
+        self.assertEqual(report["cost"]["repair_calls_used"], 1)
+        self.assertTrue(report["diagnostics"]["audit_first_pass_problems"])
+
+    def test_incomplete_audit_twice_fails_closed(self):
+        coverage = valid_coverage()
+        bad_audit = supported_audit(coverage)
+        bad_audit["verdicts"].pop()
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (bad_audit, settled_usage()),
+                (bad_audit, settled_usage()),
             ]
         )
         with self.assertRaises(cv.CoverageContractError):
             run_engine(new_store(), transport)
+        self.assertEqual(len(transport.calls), 3)
+
+    def test_no_audit_retry_when_repair_slot_already_spent(self):
+        broken = valid_coverage()
+        del broken["development_priorities"]
+        fixed = valid_coverage()
+        bad_audit = supported_audit(fixed)
+        bad_audit["verdicts"].pop()
+        transport = FakeTransport(
+            [
+                (broken, settled_usage()),
+                (fixed, settled_usage()),
+                (bad_audit, settled_usage()),
+            ]
+        )
+        with self.assertRaises(cv.CoverageContractError):
+            run_engine(new_store(), transport)
+        # coverage + coverage repair + audit = 3 calls; no fourth.
+        self.assertEqual(len(transport.calls), 3)
 
     def test_partially_supported_central_fact_recommends_review(self):
         coverage = valid_coverage()

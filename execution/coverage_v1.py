@@ -564,7 +564,9 @@ def build_coverage_user_blocks(
     title: str,
     page_count: int,
     fmt: str,
+    lens_stack: Sequence[str],
 ) -> List[Dict[str, Any]]:
+    lens_checklist = "\n".join(f"  - {lens_id}" for lens_id in lens_stack)
     return [
         _screenplay_block(text),
         {
@@ -574,7 +576,20 @@ def build_coverage_user_blocks(
                 f"Physical pages: {page_count}\n\n"
                 "Read the complete screenplay above, then submit exactly one "
                 "coverage report with the submit_coverage_v1 tool. Page "
-                "numbers refer to the [PAGE N] markers in the text."
+                "numbers refer to the [PAGE N] markers in the text.\n\n"
+                "HARD REQUIREMENTS (the report is rejected otherwise):\n"
+                "1. lens_notes must contain EXACTLY one entry per lens id "
+                "below, with the `lens` field set to the id string verbatim "
+                "(lowercase, hyphenated — never the display name):\n"
+                f"{lens_checklist}\n"
+                "2. Every excerpt field (lens_notes, strengths, concerns) "
+                "must be a VERBATIM copy of 3-12 consecutive words from the "
+                "cited [PAGE N] block — copy character-for-character from "
+                "the screenplay text above, including accents; never "
+                "paraphrase, translate, re-punctuate, or normalize.\n"
+                "3. strengths, concerns, and development_priorities need "
+                "exactly 3 entries each; each lens analysis needs at least "
+                "one full sentence of at least 40 characters."
             ),
         },
     ]
@@ -768,6 +783,7 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
     _pages, page_texts = _marked_page_contents(text)
     total = 0
     verified = 0
+    relocated = 0
     failures: List[Dict[str, Any]] = []
     for owner, item in _iter_citations(coverage):
         if not isinstance(item, dict):
@@ -775,13 +791,28 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
         total += 1
         page = item.get("page")
         excerpt = str(item.get("excerpt", ""))
-        page_text = page_texts.get(page, "")
         words = len(excerpt.split())
-        kind = (
-            _evidence_excerpt_match_kind(page_text, excerpt)
-            if page_text and words >= MIN_CITATION_EXCERPT_WORDS
-            else None
-        )
+        kind = None
+        if words >= MIN_CITATION_EXCERPT_WORDS:
+            kind = _evidence_excerpt_match_kind(
+                page_texts.get(page, ""), excerpt
+            )
+            if kind is None:
+                # V9-style rescue: a verbatim excerpt that exists on exactly
+                # one OTHER physical page is a wrong page number, not a
+                # fabricated quote. Relocate it and say so.
+                matches = [
+                    (candidate_page, match_kind)
+                    for candidate_page, candidate_text in page_texts.items()
+                    if (match_kind := _evidence_excerpt_match_kind(
+                        candidate_text, excerpt
+                    )) is not None
+                ]
+                if len(matches) == 1:
+                    item["cited_page"] = page
+                    item["page"] = matches[0][0]
+                    kind = f"relocated_{matches[0][1]}"
+                    relocated += 1
         item["citation_verified"] = kind is not None
         item["citation_match_kind"] = kind or "unverified"
         if kind is None:
@@ -793,6 +824,7 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
     return {
         "total": total,
         "verified": verified,
+        "relocated": relocated,
         "unverified": total - verified,
         "failures": failures[:20],
     }
@@ -1109,7 +1141,9 @@ def run_coverage_v1(
     )
 
     coverage_system = build_coverage_system_blocks(lens_cards_text)
-    coverage_user = build_coverage_user_blocks(text, title, page_count, fmt)
+    coverage_user = build_coverage_user_blocks(
+        text, title, page_count, fmt, lens_stack
+    )
     prompt_sha256 = canonical_json_hash(
         {
             "coverage_system": coverage_system,
@@ -1142,6 +1176,7 @@ def run_coverage_v1(
     )
     coverage_replayed = coverage_payload is not None
     citation_summary: Optional[Dict[str, Any]] = None
+    coverage_first_pass_problems: List[str] = []
 
     if coverage_payload is None:
         guard.check_before_call()
@@ -1162,6 +1197,7 @@ def run_coverage_v1(
         guard.charge(usage)
 
         problems = validate_coverage_payload(tool_input, lens_stack)
+        coverage_first_pass_problems = problems[:8]
         if problems and repair_calls_used < MAX_REPAIR_CALLS:
             repair_calls_used += 1
             tool_input, repair_usage = _repair_structure(
@@ -1193,12 +1229,16 @@ def run_coverage_v1(
                     "coverage": coverage_payload,
                     "citation_summary": citation_summary,
                     "repair_calls_used": repair_calls_used,
+                    "first_pass_problems": coverage_first_pass_problems,
                 },
             ),
         )
     else:
         citation_summary = coverage_payload.get("citation_summary")
         repair_calls_used = int(coverage_payload.get("repair_calls_used", 0))
+        coverage_first_pass_problems = list(
+            coverage_payload.get("first_pass_problems", [])
+        )
         coverage_payload = coverage_payload["coverage"]
 
     # ── Stage 2: fact audit ─────────────────────────────────────────────────
@@ -1214,37 +1254,70 @@ def run_coverage_v1(
     )
     audit_replayed = audit_payload is not None
 
+    audit_first_pass_problems: List[str] = []
+    audit_model_effective = audit_model_key
     if audit_payload is None:
-        guard.check_before_call()
-        tool_input, _text_out, usage = call(
-            system_blocks=[
-                {
-                    "type": "text",
-                    "text": f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n{AUDIT_CHARTER}",
-                }
-            ],
-            user_blocks=build_audit_user_blocks(text, title, claims),
-            model_key=audit_model_key,
-            tool=AUDIT_TOOL,
-            thinking_budget=AUDIT_THINKING_BUDGET,
-            max_tokens=AUDIT_MAX_TOKENS,
-            proxy_url=proxy_url,
-            job_id=job_id,
-            stage="coverage_v1.fact_audit",
-            pipeline_pass="coverage_v1",
-        )
-        usage_total = _merge_usage(usage_total, usage)
-        _note_usage(usage_sink, usage_total)
-        guard.charge(usage)
+        audit_system = [
+            {
+                "type": "text",
+                "text": f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n{AUDIT_CHARTER}",
+            }
+        ]
+        audit_user = build_audit_user_blocks(text, title, claims)
 
+        def _audit_call(route: str):
+            nonlocal usage_total
+            guard.check_before_call()
+            tool_input, _text_out, usage = call(
+                system_blocks=audit_system,
+                user_blocks=audit_user,
+                model_key=route,
+                tool=AUDIT_TOOL,
+                thinking_budget=AUDIT_THINKING_BUDGET,
+                max_tokens=AUDIT_MAX_TOKENS,
+                proxy_url=proxy_url,
+                job_id=job_id,
+                stage="coverage_v1.fact_audit",
+                pipeline_pass="coverage_v1",
+            )
+            usage_total = _merge_usage(usage_total, usage)
+            _note_usage(usage_sink, usage_total)
+            guard.charge(usage)
+            return tool_input
+
+        tool_input = _audit_call(audit_model_key)
         problems = validate_audit_payload(tool_input, claims)
+        if problems and repair_calls_used < MAX_REPAIR_CALLS:
+            # The shared repair slot: one retry of the audit on the safer
+            # coverage-tier model. Never a rerun of coverage itself.
+            audit_first_pass_problems = problems[:8]
+            repair_calls_used += 1
+            audit_model_effective = model_key
+            tool_input = _audit_call(model_key)
+            problems = validate_audit_payload(tool_input, claims)
         if problems:
             raise CoverageContractError(
                 "Fact audit failed validation: " + "; ".join(problems[:8])
             )
-        audit_payload = {"claims": claims, "verdicts": tool_input["verdicts"]}
+        audit_payload = {
+            "claims": claims,
+            "verdicts": tool_input["verdicts"],
+            "audit_model": audit_model_effective,
+            "first_pass_problems": audit_first_pass_problems,
+            "repair_calls_used": repair_calls_used,
+        }
         checkpoint_store.save(
             checkpoint_key, "audit", _sealed_record(binding, audit_payload)
+        )
+    else:
+        audit_model_effective = str(
+            audit_payload.get("audit_model", audit_model_key)
+        )
+        audit_first_pass_problems = list(
+            audit_payload.get("first_pass_problems", [])
+        )
+        repair_calls_used = max(
+            repair_calls_used, int(audit_payload.get("repair_calls_used", 0))
         )
 
     # ── Adjudication (pure code) ────────────────────────────────────────────
@@ -1327,7 +1400,15 @@ def run_coverage_v1(
         "prompt_sha256": prompt_sha256,
         "schema_sha256": schema_sha256,
         "checkpoint_key": checkpoint_key,
-        "models": {"coverage": model_key, "audit": audit_model_key},
+        "models": {
+            "coverage": model_key,
+            "audit": audit_model_key,
+            "audit_effective": audit_model_effective,
+        },
+        "diagnostics": {
+            "coverage_first_pass_problems": coverage_first_pass_problems,
+            "audit_first_pass_problems": audit_first_pass_problems,
+        },
         "coverage": coverage_payload,
         "citation_verification": citation_summary,
         "fact_audit": {
