@@ -3,7 +3,7 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-08-31
+**Last session:** 2026-08-31 (canary passed)
 
 **Reassessment and Coverage V1 (current focus):**
 - Billy froze paid V9 runs after repeated cost/failure problems. A full read-only
@@ -27,9 +27,20 @@
   reaction verdicts on surfaced winners (plus low-confidence-PASS sampling),
   per-lens grades instead of numeric dimension scores, Reader Chat retained
   on-demand, theatrical priorities = horror + comedy + high-concept.
-- **No paid model call has been made through Coverage V1.** Next step is the
-  canary — 5 scripts, $10 total cap — which requires Billy's explicit
-  authorization (procedure in `docs/COVERAGE-V1.md`).
+- **CANARY PASSED 2026-08-31** (two rounds, $5.02 of the authorized $10 —
+  full record in the `docs/COVERAGE-V1.md` status header): all 5 sealed,
+  human bars confirmed by Billy (spines/endings correct incl. Oro, notes
+  pay-worthy), zero fabricated citations, worst settled cost $0.53/script,
+  resume drill repaid nothing. Next gate: the **20-script benchmark**
+  (≤$25) — requires Billy's explicit authorization. The route is still
+  disabled by default; promotion into production is a separate decision
+  after the benchmark.
+- Deferred items: replace the placeholder `BENCHMARK_ANTHROPIC_API_KEY`
+  ('not-configured', Secret Manager) before any candidate-model benchmark;
+  Oro de Acapulco reads as a TV pilot per its own coverage — offer a
+  Grisanti-stack re-run (`format: "tv_pilot"`); no McKee skill was in the
+  zip (Billy can send one to become a lens card); Reader Chat per-turn cost
+  review.
 
 **V9 state:** still the default engine for any normally-queued job; sealed V9
 analyses remain the immutable record. The trust-remediation wave (PRs #41–#76,

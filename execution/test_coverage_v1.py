@@ -405,6 +405,60 @@ class TestHappyPath(unittest.TestCase):
         self.assertEqual(fixed["cited_page"], 3)
         self.assertTrue(fixed["citation_match_kind"].startswith("relocated_"))
 
+    def test_slash_marked_line_break_verifies_on_the_cited_page(self):
+        # Canary 2026-08-31 near-miss pattern 1: the model inserts " / " to
+        # mark a screenplay line break inside an otherwise verbatim quote.
+        coverage = valid_coverage()
+        coverage["strengths"][1]["excerpt"] = (
+            "su corazón no / soporta otro partido"
+        )
+        summary = cv.verify_citations(coverage, SCREENPLAY_TEXT)
+        self.assertEqual(summary["unverified"], 0)
+        item = coverage["strengths"][1]
+        self.assertTrue(item["citation_verified"])
+        self.assertIn("slash_normalized", item["citation_match_kind"])
+
+    def test_slash_marked_quote_on_wrong_page_is_relocated(self):
+        # Canary pattern 1 + 2 combined (the three Hermanos failures): a
+        # slashed line break AND an off-by-one page. The slash used to block
+        # the relocation rescue as well.
+        coverage = valid_coverage()
+        coverage["strengths"][1]["excerpt"] = (
+            "su corazón no / soporta otro partido"
+        )
+        coverage["strengths"][1]["page"] = 3
+        summary = cv.verify_citations(coverage, SCREENPLAY_TEXT)
+        self.assertEqual(summary["unverified"], 0)
+        self.assertEqual(summary["relocated"], 1)
+        item = coverage["strengths"][1]
+        self.assertEqual(item["page"], 5)
+        self.assertEqual(item["cited_page"], 3)
+        self.assertTrue(item["citation_match_kind"].startswith("relocated_"))
+        self.assertIn("slash_normalized", item["citation_match_kind"])
+
+    def test_single_wrong_leading_word_verifies_when_long_enough(self):
+        # Canary near-miss pattern 2 (the Slasher failure): the model
+        # normalizes one leading word ("El COQUERO" for "del...COQUERO");
+        # the remaining quote is long and verbatim.
+        coverage = valid_coverage()
+        coverage["strengths"][1]["excerpt"] = (
+            "Un médico le dice a Diego que su corazón no soporta"
+        )
+        summary = cv.verify_citations(coverage, SCREENPLAY_TEXT)
+        self.assertEqual(summary["unverified"], 0)
+        item = coverage["strengths"][1]
+        self.assertTrue(item["citation_verified"])
+        self.assertIn("lead_word_dropped", item["citation_match_kind"])
+
+    def test_lead_word_drop_never_rescues_short_excerpts(self):
+        # Dropping the leading word requires >= 5 remaining verbatim words,
+        # so short partly-wrong quotes stay flagged.
+        coverage = valid_coverage()
+        coverage["strengths"][1]["excerpt"] = "mal corazón no soporta"
+        summary = cv.verify_citations(coverage, SCREENPLAY_TEXT)
+        self.assertEqual(summary["unverified"], 1)
+        self.assertFalse(coverage["strengths"][1]["citation_verified"])
+
     def test_cost_split_keeps_uncertain_separate(self):
         coverage = valid_coverage()
         transport = FakeTransport(

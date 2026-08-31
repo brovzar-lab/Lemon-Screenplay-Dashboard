@@ -17,6 +17,7 @@ benchmark-artifacts/coverage-v1-canary-*/ directory.
 from __future__ import annotations
 
 import argparse
+import copy
 import difflib
 import json
 import sys
@@ -141,6 +142,16 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 verdict = "LIKELY FABRICATED (no close match anywhere)"
             print(f"  DIAGNOSIS: {verdict}")
+
+        recheck = coverage_v1.verify_citations(
+            copy.deepcopy(coverage), parsed["text"]
+        )
+        print(
+            f"  RECHECK with current verifier: "
+            f"{recheck['verified']}/{recheck['total']} verified, "
+            f"{recheck['relocated']} relocated, "
+            f"{recheck['unverified']} unverified"
+        )
 
     print(f"\nTotal unverified citations examined: {total_unverified}")
     return 0

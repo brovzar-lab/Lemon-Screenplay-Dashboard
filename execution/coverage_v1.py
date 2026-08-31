@@ -763,6 +763,46 @@ def _verified_payload(
 
 # ── Citation verification (local, deterministic) ────────────────────────────
 
+# A single leading word may be dropped from a long excerpt (a model sometimes
+# normalizes a leading article: "El COQUERO" for the text's "del...COQUERO").
+# Only excerpts that keep at least this many verbatim words qualify.
+_MIN_WORDS_AFTER_LEAD_DROP = 5
+
+
+def _excerpt_variants(excerpt: str) -> List[Tuple[str, str]]:
+    """Deterministic transcription-format variants of a model excerpt.
+
+    Yields (candidate_text, kind_suffix), most-verbatim first. Covers the two
+    near-miss patterns the 2026-08-31 canary produced (all four confirmed
+    real passages by the citation diagnostic): a "/" inserted to mark a
+    screenplay line break, and a single normalized leading word.
+    """
+    variants: List[Tuple[str, str]] = [(excerpt, "")]
+    if "/" in excerpt:
+        variants.append(
+            (re.sub(r"\s*/\s*", " ", excerpt), "_slash_normalized")
+        )
+    for text, suffix in list(variants):
+        words = text.split()
+        if len(words) - 1 >= _MIN_WORDS_AFTER_LEAD_DROP:
+            variants.append(
+                (" ".join(words[1:]), suffix + "_lead_word_dropped")
+            )
+    return variants
+
+
+def _lenient_excerpt_match_kind(
+    page_text: str,
+    excerpt: str,
+) -> Optional[str]:
+    """Verbatim match allowing known transcription-format artifacts."""
+    for candidate, suffix in _excerpt_variants(excerpt):
+        kind = _evidence_excerpt_match_kind(page_text, candidate)
+        if kind is not None:
+            return kind + suffix
+    return None
+
+
 def _iter_citations(coverage: Dict[str, Any]):
     """Yield (owner_path, owner_dict) for every object carrying page/excerpt."""
     for i, note in enumerate(coverage.get("lens_notes", [])):
@@ -794,7 +834,7 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
         words = len(excerpt.split())
         kind = None
         if words >= MIN_CITATION_EXCERPT_WORDS:
-            kind = _evidence_excerpt_match_kind(
+            kind = _lenient_excerpt_match_kind(
                 page_texts.get(page, ""), excerpt
             )
             if kind is None:
@@ -804,7 +844,7 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
                 matches = [
                     (candidate_page, match_kind)
                     for candidate_page, candidate_text in page_texts.items()
-                    if (match_kind := _evidence_excerpt_match_kind(
+                    if (match_kind := _lenient_excerpt_match_kind(
                         candidate_text, excerpt
                     )) is not None
                 ]
