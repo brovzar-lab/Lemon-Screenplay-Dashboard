@@ -1,6 +1,16 @@
 # Coverage V1 — the lean two-call coverage engine
 
-**Status: built and fully offline-tested. DISABLED by default. No paid call has been made through it.**
+**Status: canary round 1 run 2026-08-31 ($3.09 of the authorized $10).
+Human bars PASSED: Billy confirmed correct story spines/endings on all three
+known scripts (Matadero, Hermanos, Slasher) and rated the development notes
+pay-worthy. Matadero → RECOMMEND, Hermanos/Slasher → CONSIDER, and the
+corrupted scanned fixture was correctly diagnosed and PASSed instead of
+hallucinated. Three mechanical findings were fixed the same day (citation
+page-relocation ported from V9; lens-id/verbatim-quote prompt rules that
+eliminate the systematic first-pass repair; a Sonnet retry via the shared
+repair slot when the Haiku audit returns an incomplete classification, which
+failed-closed Oro de Acapulco in round 1). Round 2 — a clean re-run of all
+five — is in progress. The route remains DISABLED by default in production.**
 
 Coverage V1 is the replacement for V9's paid analysis machinery recommended by
 [`SCREENPLAY-DASHBOARD-REASSESSMENT.md`](SCREENPLAY-DASHBOARD-REASSESSMENT.md).
@@ -81,7 +91,7 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 | File | What |
 |---|---|
 | `execution/coverage_v1.py` | Engine: schemas, prompts, lens loader, checkpoints, two-call state machine, citation verification, cost split |
-| `execution/test_coverage_v1.py` | 27 offline tests (fake transport; no network) |
+| `execution/test_coverage_v1.py` | 30 offline tests (fake transport; no network) |
 | `execution/test_daemon_coverage_route.py` | 8 offline tests for the daemon route |
 | `execution/lenses/` | registry.json, cards/ (15 distilled), skills/ (30 imported sources) |
 | `daemon.py` → `run_coverage_v1_job` | The gated daemon branch |
