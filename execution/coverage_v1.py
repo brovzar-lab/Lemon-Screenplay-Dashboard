@@ -228,22 +228,18 @@ def canonical_json_hash(value: Any) -> str:
 
 # ── Structured-output schemas ────────────────────────────────────────────────
 
-_CITATION_SCHEMA: Dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "page": {"type": "integer", "minimum": 1},
-        "excerpt": {"type": "string"},
-    },
-    "required": ["page", "excerpt"],
-}
-
+# Citations are FLAT page/excerpt fields on their owning object. Anthropic's
+# grammar compiler rejected the earlier nested citations-array design even at
+# tiny input sizes; one verbatim quote per point keeps verification intact
+# with a much smaller compiled grammar.
 _CITED_POINT_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "properties": {
         "point": {"type": "string"},
-        "citations": {"type": "array", "items": _CITATION_SCHEMA, "maxItems": 2},
+        "page": {"type": "integer"},
+        "excerpt": {"type": "string"},
     },
-    "required": ["point", "citations"],
+    "required": ["point", "page", "excerpt"],
 }
 
 COVERAGE_TOOL: Dict[str, Any] = {
@@ -282,7 +278,7 @@ COVERAGE_TOOL: Dict[str, Any] = {
                             "type": "object",
                             "properties": {
                                 "turn": {"type": "string"},
-                                "page": {"type": "integer", "minimum": 1},
+                                "page": {"type": "integer"},
                             },
                             "required": ["turn", "page"],
                         },
@@ -306,13 +302,10 @@ COVERAGE_TOOL: Dict[str, Any] = {
                         "lens": {"type": "string"},
                         "grade": {"type": "string", "enum": list(GRADES)},
                         "analysis": {"type": "string"},
-                        "citations": {
-                            "type": "array",
-                            "items": _CITATION_SCHEMA,
-                            "maxItems": 3,
-                        },
+                        "page": {"type": "integer"},
+                        "excerpt": {"type": "string"},
                     },
-                    "required": ["lens", "grade", "analysis", "citations"],
+                    "required": ["lens", "grade", "analysis", "page", "excerpt"],
                 },
                 "minItems": 1,
                 "maxItems": 8,
@@ -370,13 +363,7 @@ COVERAGE_TOOL: Dict[str, Any] = {
                 "items": {"type": "string"},
                 "maxItems": 5,
             },
-            "commercial_hypothesis": {
-                "type": "string",
-                "description": (
-                    "Audience, comparable titles, and positioning, in prose. "
-                    "Always a hypothesis, never a verified fact."
-                ),
-            },
+            "commercial_hypothesis": {"type": "string"},
         },
         "required": [
             "language", "genre", "logline", "story_spine", "synopsis",
@@ -435,9 +422,12 @@ REPAIR_TOOL: Dict[str, Any] = {
                     "properties": {
                         "field_path": {"type": "string"},
                         "corrected_value_json": {"type": "string"},
-                        "citation": _CITATION_SCHEMA,
+                        "page": {"type": "integer"},
+                        "excerpt": {"type": "string"},
                     },
-                    "required": ["field_path", "corrected_value_json", "citation"],
+                    "required": [
+                        "field_path", "corrected_value_json", "page", "excerpt",
+                    ],
                 },
                 "minItems": 1,
                 "maxItems": 6,
@@ -766,16 +756,16 @@ def _verified_payload(
 
 # ── Citation verification (local, deterministic) ────────────────────────────
 
-def _iter_citation_lists(coverage: Dict[str, Any]):
-    """Yield (owner_path, citations_list) for every citation list."""
+def _iter_citations(coverage: Dict[str, Any]):
+    """Yield (owner_path, owner_dict) for every object carrying page/excerpt."""
     for i, note in enumerate(coverage.get("lens_notes", [])):
-        yield f"lens_notes[{i}]", note.get("citations", [])
+        yield f"lens_notes[{i}]", note
     for i, item in enumerate(coverage.get("strengths", [])):
-        yield f"strengths[{i}]", item.get("citations", [])
+        yield f"strengths[{i}]", item
     for i, item in enumerate(coverage.get("concerns", [])):
-        yield f"concerns[{i}]", item.get("citations", [])
+        yield f"concerns[{i}]", item
     for i, item in enumerate(coverage.get("genre_contract", {}).get("evidence", [])):
-        yield f"genre_contract.evidence[{i}]", item.get("citations", [])
+        yield f"genre_contract.evidence[{i}]", item
 
 
 def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
@@ -788,26 +778,27 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
     total = 0
     verified = 0
     failures: List[Dict[str, Any]] = []
-    for owner, citations in _iter_citation_lists(coverage):
-        for citation in citations:
-            total += 1
-            page = citation.get("page")
-            excerpt = str(citation.get("excerpt", ""))
-            page_text = page_texts.get(page, "")
-            words = len(excerpt.split())
-            kind = (
-                _evidence_excerpt_match_kind(page_text, excerpt)
-                if page_text and words >= MIN_CITATION_EXCERPT_WORDS
-                else None
+    for owner, item in _iter_citations(coverage):
+        if not isinstance(item, dict):
+            continue
+        total += 1
+        page = item.get("page")
+        excerpt = str(item.get("excerpt", ""))
+        page_text = page_texts.get(page, "")
+        words = len(excerpt.split())
+        kind = (
+            _evidence_excerpt_match_kind(page_text, excerpt)
+            if page_text and words >= MIN_CITATION_EXCERPT_WORDS
+            else None
+        )
+        item["citation_verified"] = kind is not None
+        item["citation_match_kind"] = kind or "unverified"
+        if kind is None:
+            failures.append(
+                {"owner": owner, "page": page, "excerpt": excerpt[:120]}
             )
-            citation["verified"] = kind is not None
-            citation["match_kind"] = kind or "unverified"
-            if kind is None:
-                failures.append(
-                    {"owner": owner, "page": page, "excerpt": excerpt[:120]}
-                )
-            else:
-                verified += 1
+        else:
+            verified += 1
     return {
         "total": total,
         "verified": verified,
@@ -884,6 +875,9 @@ def validate_coverage_payload(
             if note.get("grade") not in GRADES:
                 problems.append(f"lens_notes[{i}].grade invalid")
             require_text(f"lens_notes[{i}].analysis", note.get("analysis"), 40)
+            require_text(f"lens_notes[{i}].excerpt", note.get("excerpt"), 3)
+            if not isinstance(note.get("page"), int) or note["page"] < 1:
+                problems.append(f"lens_notes[{i}].page invalid")
 
     contract = payload.get("genre_contract")
     if not isinstance(contract, dict) or not isinstance(contract.get("met"), bool):
@@ -901,6 +895,9 @@ def validate_coverage_payload(
                 problems.append(f"{group}[{i}] malformed")
                 continue
             require_text(f"{group}[{i}].point", item.get("point"), 10)
+            require_text(f"{group}[{i}].excerpt", item.get("excerpt"), 3)
+            if not isinstance(item.get("page"), int) or item["page"] < 1:
+                problems.append(f"{group}[{i}].page invalid")
 
     priorities = payload.get("development_priorities")
     if not isinstance(priorities, list) or len(priorities) != 3:

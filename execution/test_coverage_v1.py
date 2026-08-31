@@ -148,9 +148,8 @@ def valid_coverage(lens_stack=FEATURE_STACK) -> dict:
                     "una progresión clara de complicaciones y un clímax ganado "
                     "en la cancha, aunque el segundo acto repite beats."
                 ),
-                "citations": [
-                    {"page": 2, "excerpt": "detiene el penal con una sola mano"}
-                ],
+                "page": 2,
+                "excerpt": "detiene el penal con una sola mano",
             }
             for lens in lens_stack
         ],
@@ -163,12 +162,8 @@ def valid_coverage(lens_stack=FEATURE_STACK) -> dict:
             "evidence": [
                 {
                     "point": "La final se gana en la cancha con costo físico real",
-                    "citations": [
-                        {
-                            "page": 6,
-                            "excerpt": "detiene el último penal y se desploma",
-                        }
-                    ],
+                    "page": 6,
+                    "excerpt": "detiene el último penal y se desploma",
                 }
             ],
             "failures": [],
@@ -176,41 +171,35 @@ def valid_coverage(lens_stack=FEATURE_STACK) -> dict:
         "strengths": [
             {
                 "point": "El desafío de Lucía en Tepito ancla la premisa con imagen y acción",
-                "citations": [
-                    {"page": 2, "excerpt": "lo reconoce y lo desafía a parar un penal"}
-                ],
+                "page": 2,
+                "excerpt": "lo reconoce y lo desafía a parar un penal",
             },
             {
                 "point": "El diagnóstico médico convierte la final en una decisión de vida o muerte",
-                "citations": [
-                    {"page": 5, "excerpt": "su corazón no soporta otro partido"}
-                ],
+                "page": 5,
+                "excerpt": "su corazón no soporta otro partido",
             },
             {
                 "point": "El clímax paga la promesa del deporte y del personaje a la vez",
-                "citations": [
-                    {"page": 6, "excerpt": "Lucía anota el gol del empate"}
-                ],
+                "page": 6,
+                "excerpt": "Lucía anota el gol del empate",
             },
         ],
         "concerns": [
             {
                 "point": "El antagonista Román Vega es funcional pero unidimensional",
-                "citations": [
-                    {"page": 4, "excerpt": "amenaza con quitar la cancha"}
-                ],
+                "page": 4,
+                "excerpt": "amenaza con quitar la cancha",
             },
             {
                 "point": "El montaje de entrenamiento comprime demasiado la derrota 5-0",
-                "citations": [
-                    {"page": 4, "excerpt": "pierde su primer partido"}
-                ],
+                "page": 4,
+                "excerpt": "pierde su primer partido",
             },
             {
                 "point": "La recuperación de Diego tras el desplome se resuelve sin costo",
-                "citations": [
-                    {"page": 6, "excerpt": "Diego sobrevive y se queda"}
-                ],
+                "page": 6,
+                "excerpt": "Diego sobrevive y se queda",
             },
         ],
         "development_priorities": [
@@ -241,11 +230,11 @@ def valid_coverage(lens_stack=FEATURE_STACK) -> dict:
             "una película completa"
         ),
         "uncertainties": ["La edad exacta del público objetivo no está clara"],
-        "commercial_hypothesis": {
-            "audience": "Familias mexicanas; público de fútbol",
-            "comps": ["Rudo y Cursi", "McFarland USA"],
-            "positioning": "Drama deportivo familiar de barrio para estreno teatral local",
-        },
+        "commercial_hypothesis": (
+            "Familias mexicanas y público de fútbol; comps Rudo y Cursi, "
+            "McFarland USA; drama deportivo familiar de barrio para estreno "
+            "teatral local"
+        ),
     }
 
 
@@ -390,7 +379,7 @@ class TestHappyPath(unittest.TestCase):
 
     def test_citation_verification_flags_fabricated_quotes(self):
         coverage = valid_coverage()
-        coverage["strengths"][0]["citations"][0]["excerpt"] = (
+        coverage["strengths"][0]["excerpt"] = (
             "esta cita no existe en ninguna página"
         )
         transport = FakeTransport(
@@ -402,10 +391,10 @@ class TestHappyPath(unittest.TestCase):
         report, _usage = run_engine(new_store(), transport)
         summary = report["citation_verification"]
         self.assertEqual(summary["unverified"], 1)
-        flagged = report["coverage"]["strengths"][0]["citations"][0]
-        self.assertFalse(flagged["verified"])
-        verified = report["coverage"]["strengths"][1]["citations"][0]
-        self.assertTrue(verified["verified"])
+        flagged = report["coverage"]["strengths"][0]
+        self.assertFalse(flagged["citation_verified"])
+        verified = report["coverage"]["strengths"][1]
+        self.assertTrue(verified["citation_verified"])
 
     def test_cost_split_keeps_uncertain_separate(self):
         coverage = valid_coverage()
