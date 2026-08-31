@@ -103,10 +103,8 @@ def uncertain_usage(cost_microusd: int = 90_000) -> dict:
 
 def valid_coverage(lens_stack=FEATURE_STACK) -> dict:
     return {
-        "language": "es-MX",
         "genre": {
             "primary": "sports drama",
-            "secondary": "family",
             "tone": "warm, redemptive",
         },
         "logline": (
@@ -119,7 +117,6 @@ def valid_coverage(lens_stack=FEATURE_STACK) -> dict:
             "need": "Volver a creer que su vida sirve para algo fuera de la cancha",
             "opposition": "Román Vega, el patrocinador que amenaza con quitar la cancha",
             "stakes": "El barrio pierde su cancha y Diego arriesga su corazón enfermo",
-            "setting": "Tepito, Ciudad de México, en el presente",
             "major_turns": [
                 {"turn": "Lucía desafía a Diego y él detiene el penal", "page": 2},
                 {"turn": "El médico le prohíbe jugar; Diego decide jugar la final", "page": 5},
@@ -159,13 +156,6 @@ def valid_coverage(lens_stack=FEATURE_STACK) -> dict:
                 "emocional real en la cancha"
             ),
             "met": True,
-            "evidence": [
-                {
-                    "point": "La final se gana en la cancha con costo físico real",
-                    "page": 6,
-                    "excerpt": "detiene el último penal y se desploma",
-                }
-            ],
             "failures": [],
         },
         "strengths": [

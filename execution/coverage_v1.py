@@ -80,17 +80,17 @@ AUDIT_CLASSIFICATIONS = (
     "contradicted",
 )
 
-# Compiler-safety budget for our strict schemas. V9's reader/synthesis
-# schemas (hundreds of properties, deep nesting, wide enums) were rejected by
-# Anthropic's grammar compiler and forced the JSON-string envelope; that
-# workaround is deliberately unavailable here. These ceilings keep coverage_v1
-# an order of magnitude smaller than what failed: zero unions, near-zero
-# optionals, bounded depth. The first canary call validates real compilation.
+# Compiler-safety budget for our strict schemas, MEASURED EMPIRICALLY via
+# execution/coverage_v1_probe.py on 2026-08-31 against claude-sonnet-4-6:
+# a 51-property/10-object strict schema was rejected before generation;
+# a 45-property/9-object variant compiled. Keep every tool at or under the
+# accepted shape — the V9 JSON-string-envelope workaround is deliberately
+# unavailable here.
 STRICT_BUDGET = {
-    "property_count": 60,
+    "property_count": 46,
     "optional_parameter_count": 8,
     "union_parameter_count": 0,
-    "maximum_depth": 6,
+    "maximum_depth": 5,
 }
 
 LENSES_ROOT = Path(__file__).parent / "lenses"
@@ -252,15 +252,13 @@ COVERAGE_TOOL: Dict[str, Any] = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "language": {"type": "string"},
             "genre": {
                 "type": "object",
                 "properties": {
                     "primary": {"type": "string"},
-                    "secondary": {"type": "string"},
                     "tone": {"type": "string"},
                 },
-                "required": ["primary", "secondary", "tone"],
+                "required": ["primary", "tone"],
             },
             "logline": {"type": "string"},
             "story_spine": {
@@ -271,7 +269,6 @@ COVERAGE_TOOL: Dict[str, Any] = {
                     "need": {"type": "string"},
                     "opposition": {"type": "string"},
                     "stakes": {"type": "string"},
-                    "setting": {"type": "string"},
                     "major_turns": {
                         "type": "array",
                         "items": {
@@ -290,7 +287,7 @@ COVERAGE_TOOL: Dict[str, Any] = {
                 },
                 "required": [
                     "protagonist", "want", "need", "opposition", "stakes",
-                    "setting", "major_turns", "climax", "ending",
+                    "major_turns", "climax", "ending",
                 ],
             },
             "synopsis": {"type": "string"},
@@ -315,18 +312,13 @@ COVERAGE_TOOL: Dict[str, Any] = {
                 "properties": {
                     "contract": {"type": "string"},
                     "met": {"type": "boolean"},
-                    "evidence": {
-                        "type": "array",
-                        "items": _CITED_POINT_SCHEMA,
-                        "maxItems": 5,
-                    },
                     "failures": {
                         "type": "array",
                         "items": {"type": "string"},
                         "maxItems": 5,
                     },
                 },
-                "required": ["contract", "met", "evidence", "failures"],
+                "required": ["contract", "met", "failures"],
             },
             "strengths": {
                 "type": "array",
@@ -366,7 +358,7 @@ COVERAGE_TOOL: Dict[str, Any] = {
             "commercial_hypothesis": {"type": "string"},
         },
         "required": [
-            "language", "genre", "logline", "story_spine", "synopsis",
+            "genre", "logline", "story_spine", "synopsis",
             "lens_notes", "genre_contract", "strengths", "concerns",
             "development_priorities", "verdict", "confidence",
             "champion_reason", "pass_reason", "uncertainties",
@@ -764,8 +756,7 @@ def _iter_citations(coverage: Dict[str, Any]):
         yield f"strengths[{i}]", item
     for i, item in enumerate(coverage.get("concerns", [])):
         yield f"concerns[{i}]", item
-    for i, item in enumerate(coverage.get("genre_contract", {}).get("evidence", [])):
-        yield f"genre_contract.evidence[{i}]", item
+
 
 
 def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
@@ -838,7 +829,7 @@ def validate_coverage_payload(
     else:
         for field in (
             "protagonist", "want", "need", "opposition", "stakes",
-            "setting", "climax", "ending",
+            "climax", "ending",
         ):
             require_text(f"story_spine.{field}", spine.get(field), 3)
         turns = spine.get("major_turns")
@@ -936,7 +927,6 @@ def build_audit_claims(coverage: Dict[str, Any]) -> List[Dict[str, str]]:
     add("spine.want", f"The protagonist's external goal is: {spine.get('want', '')}")
     add("spine.opposition", f"The main opposition is: {spine.get('opposition', '')}")
     add("spine.stakes", f"The stakes are: {spine.get('stakes', '')}")
-    add("spine.setting", f"The setting is: {spine.get('setting', '')}")
     for i, turn in enumerate(spine.get("major_turns", [])):
         if isinstance(turn, dict):
             add(
