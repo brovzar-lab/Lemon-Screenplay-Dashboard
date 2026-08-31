@@ -531,3 +531,38 @@ User-visible: coverage_v1 is the default for new uploads; shortlist view fed by 
 **History:** V9 birth `4009584` (2026-06-06, via GitHub API — shallow clone grafts at 2026-08-17); remediation wave `295ad63..c18d35a` = 73 commits / 36 PRs / +46,465 lines in ~46h; `ingest_v9.py` growth 4,737→13,759 lines (08-17→08-30); add-revert loop `cc17ae4`→`f88a56f` (40 minutes); assertion reversal `2481750`→`e97d9ea`.
 
 **Studies:** variance `docs/audits/2026-07-02-variance-results.md` (spreads 0.74/0.78/0.80; 3/3 verdict flips; ~$12); pipeline audit T1–T10 `docs/audits/2026-07-01-analysis-pipeline-audit.md`; development-exec review `docs/audits/2026-07-01-reiner-review.md`; trust-hardening arc `docs/trust-hardening/Q0–Q5` (Q5: "Nothing in this contract is deployed or active yet").
+
+---
+
+## 22. Addendum — Billy's decisions (2026-08-31)
+
+Billy answered the three open questions after reviewing this report. These decisions refine §11–§19 and are now the plan of record.
+
+### 22.1 Calibration by reaction, not pre-labeled scripts
+
+Billy will not pre-label a benchmark set. Instead: the engine judges first on objective craft — structure, genre conventions, screenplay best practices — and Billy reads and records **agree/disagree verdicts on scripts the engine surfaces as RECOMMEND or FILM NOW**. This matches the existing Q5 producer-assessment design (machine output locked first, producer verdict recorded after) and the variance evidence that craft ranking is stable even where decimal scores are noisy.
+
+**Blind-spot guard (required):** reviewing only winners can never detect a falsely rejected gem. The review queue must therefore also include every **low-confidence PASS** and a **~5% random sample of ordinary PASSes**. Disagreements are recorded, versioned, and only then folded into prompt updates (never recalibrated from one example).
+
+Consequence for §16: the initial benchmark measures factual accuracy, citation integrity, cost, and completion — the taste-agreement metrics accrue progressively from Billy's reaction verdicts rather than from a pre-labeled set.
+
+### 22.2 Coverage format confirmed; methodology grounding
+
+Verdict + confidence + story spine + strengths + concerns + development notes confirmed. Numeric per-dimension scores are **dropped** in favor of **per-lens grades (strong / solid / weak)** used for sorting and filtering; decimals return only if reaction-verdict history later proves a calibrated score predicts Billy's decisions.
+
+Methodology grounding: **Story Grid is already embedded** (`execution/story_grid.py` + `story_grid.json` genre cards feed reader prompts today — VERIFIED) and carries forward into the coverage prompt. **Save the Cat and McKee are not in the repo**; they will be distilled into compact prompt cards in the same style as `story_grid.json` (BS2 beats; McKee principles) as a one-time authoring task in Phase 2. Session-level skills cannot be invoked by the production daemon; only repo-committed prompt assets count.
+
+### 22.3 Interaction with scripts is retained
+
+Billy wants to keep talking to whoever read the script. Decision: **Private Reader Chat survives unchanged in concept** — it is on-demand (cost only when used), which fits the depth-on-request principle. The five reader personas remain available as *prompt framing* grounded in the sealed coverage + full screenplay text; they do not require five separate paid analyses to exist.
+
+Cost fix flagged for a follow-up: current chat defaults to Opus 5 with Fable 5 escalation at high effort and re-sends the entire PDF every turn (`functions/src/modelRegistry.ts:9-21`, `readerChat.ts:661-672`). Recommended: Sonnet 5 default, per-conversation prompt caching (a stable prefix within one conversation *can* cache, unlike the V9 reader fan-out), escalation only on explicit request — an estimated 5–10× per-turn reduction.
+
+### 22.4 Genre priorities and the genre-contract section
+
+Theatrical priorities: **horror and comedy, high-concept**. Streaming TV: any genre. Minimum bars: horror must be genuinely scary; comedy must be genuinely funny — *on the page*.
+
+Consequences:
+- The §13 coverage contract gains a hard **genre-contract section**: for horror — dread escalation and scares located by scene, cited; for comedy — laughs on the page, set pieces, escalation, cited. Structurally competent scripts that fail their genre's minimum bar are capped at CONSIDER with the failure stated as the reason. This closes the "no comedy signal" gap (reiner review's "single largest methodology gap for Lemon").
+- §16 benchmark and §19 canary composition become horror/comedy-heavy.
+- **TV pilots are a separate, later contract** (series engine, goal/dilemma framing); the current parsing/engine stack is feature-oriented (`story_grid.py` TV layer deliberately unwired). Features first.
