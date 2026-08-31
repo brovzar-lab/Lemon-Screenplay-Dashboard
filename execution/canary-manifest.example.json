@@ -1,0 +1,30 @@
+[
+  {
+    "pdf": "/opt/lemon-ingest/canary/Matadero.pdf",
+    "title": "Matadero",
+    "format": "feature",
+    "genre_hint": "horror"
+  },
+  {
+    "pdf": "/opt/lemon-ingest/canary/Oro_de_Acapulco.pdf",
+    "title": "Oro de Acapulco",
+    "format": "feature",
+    "genre_hint": "comedy"
+  },
+  {
+    "pdf": "/opt/lemon-ingest/canary/Hermanos_Marquez_Castillo.pdf",
+    "title": "Hermanos Márquez Castillo",
+    "format": "feature"
+  },
+  {
+    "pdf": "execution/fixtures/scanned_screenplay_fixture.pdf",
+    "title": "Scanned OCR Fixture",
+    "format": "feature"
+  },
+  {
+    "pdf": "/opt/lemon-ingest/canary/Comedia_en_espanol.pdf",
+    "title": "Comedia en español (elige una que conozcas)",
+    "format": "feature",
+    "genre_hint": "comedy"
+  }
+]

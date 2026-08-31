@@ -105,14 +105,43 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 - Schemas stay within a strict compiler budget (60 properties, no unions) —
   the JSON-string envelope workaround is structurally unavailable.
 
-## Next step: the canary (requires Billy's explicit authorization)
+## The canary (authorized by Billy 2026-08-31, $10 total)
 
 Five screenplays, sequential, `max_cost_usd` $1.50 hard cap each, **$10 total**:
 Matadero, Oro de Acapulco, Hermanos (known scripts with sealed V9 reports for
-direct comparison), one scanned/OCR PDF, one Spanish-language comedy. One
-induced mid-run kill must prove resume repays nothing. Continue only if:
-5/5 correct protagonist/relationships/ending, zero verbatim-citation failures,
-development notes rated actionable on ≥3 of 5, settled cost ≤$0.60/script.
-The first coverage call also validates that the schema compiles natively —
-if the provider rejects it, trim the contract; never re-adopt the string
-envelope.
+direct comparison), one scanned/OCR PDF, one Spanish-language comedy. An
+induced mid-run kill on script #2 proves resume repays nothing. Continue only
+if: 5/5 correct protagonist/relationships/ending, zero verbatim-citation
+failures, development notes rated actionable on ≥3 of 5, settled cost
+≤$0.60/script. The first coverage call also validates that the schema
+compiles natively — if the provider rejects it, trim the contract; never
+re-adopt the string envelope.
+
+### How to run it
+
+The runner is `execution/coverage_v1_canary.py`. It needs two things this
+repo does not carry: the five PDFs on local disk and `PROXY_SERVICE_KEY`
+(the daemon's key for llmProxy) — so run it **on the VPS** (or any machine
+with both). It makes NO Firestore writes; artifacts go to the gitignored
+`benchmark-artifacts/coverage-v1-canary-<timestamp>/`.
+
+```bash
+ssh root@<vps>
+cd /opt/lemon-ingest && git pull origin main   # or check out the branch
+mkdir -p canary   # put the five PDFs here
+cp execution/canary-manifest.example.json canary.json   # edit the pdf paths
+
+# 1. Free dry run — hashes, parses, lens stacks, cost plan; zero calls:
+python3 -m execution.coverage_v1_canary --manifest canary.json
+
+# 2. The paid run (double-gated; $10 batch cap and $1.50/script enforced):
+PROXY_SERVICE_KEY=$LEMON_PROXY_KEY \
+python3 -m execution.coverage_v1_canary --manifest canary.json \
+  --execute --i-authorize-paid-inference
+```
+
+The scorecard prints the automated bars (batch/script caps, ≤3 calls,
+zero unverified citations, resume-repaid-nothing, ≤$0.60 settled) and the
+human checklist (spine facts correct, development notes actionable, at
+least as useful as the V9 report). Send `scorecard.json` and the five
+`reports/*.json` back for adjudication.
