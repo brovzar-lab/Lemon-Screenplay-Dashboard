@@ -8,6 +8,7 @@ import { PosterControls } from '@/components/project/PosterControls';
 import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import { CoverageReportPanel } from '@/components/project/CoverageReportPanel';
+import { CoverageOverview } from '@/components/project/CoverageOverview';
 import { ReaderRoom } from '@/components/project/ReaderRoom';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
@@ -33,7 +34,7 @@ import {
 } from '@/lib/developmentOpportunity';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { analysisIsEnglishFallback } from '@/lib/localizedAnalysis';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
@@ -49,11 +50,6 @@ export type ScreenplayFileTab =
   | 'poster'
   | 'producer-take'
   | 'notes-files';
-
-/** Coverage V1 documents are unscored by design; V9-shaped tabs don't apply. */
-export function isCoverageV1Screenplay(screenplay: Screenplay): boolean {
-  return screenplay.producerProjection?.scoreSource === 'coverage_unscored';
-}
 
 const V9_ONLY_TABS: ScreenplayFileTab[] = ['scores', 'reader-room', 'story-x-ray', 'poster'];
 
@@ -443,6 +439,7 @@ export function ScreenplayFileWorkspace({
   const renderPanel = () => {
     if (
       analysisFallback &&
+      !isCoverage &&
       ['overview', 'scores', 'reader-room', 'story-x-ray'].includes(activeTab)
     ) {
       return null;
@@ -475,7 +472,9 @@ export function ScreenplayFileWorkspace({
           />
         </div>
       );
-    return (
+    return isCoverage ? (
+      <CoverageOverview screenplay={screenplay} onOpenCoverage={() => onSelectTab('coverage')} />
+    ) : (
       <Overview
         screenplay={screenplay}
         producerAssessment={producerAssessment}
@@ -574,7 +573,7 @@ export function ScreenplayFileWorkspace({
         </div>
         <div
           className="screenplay-file__hero-score"
-          data-verdict={decisionReady ? screenplay.recommendation : 'unverified'}
+          data-verdict={decisionReady || isCoverage ? screenplay.recommendation : 'unverified'}
         >
           <span>{t('AI verdict')}</span>
           {decisionReady ? (

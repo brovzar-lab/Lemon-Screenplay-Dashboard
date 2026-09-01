@@ -21,6 +21,7 @@ import { useSortStore } from '@/stores/sortStore';
 import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
 import '@/components/discover/hybrid/hybrid-discovery.css';
 import { useTranslation } from 'react-i18next';
+import { isCoverageV1Screenplay } from '@/lib/producerProjection';
 
 function HybridLoading() {
   const { t } = useTranslation();
@@ -155,6 +156,8 @@ export function HybridDiscoverShell({
   const reviewOnlyScreenplays = screenplays.filter(
     (screenplay) => screenplay.producerProjection?.rankable === false,
   );
+  const coverageOnly =
+    reviewOnlyScreenplays.length > 0 && reviewOnlyScreenplays.every(isCoverageV1Screenplay);
   const [featured, ...remaining] = rankableScreenplays;
   const topMatches = remaining.slice(0, 4);
   const promotedIds = new Set(
@@ -227,16 +230,26 @@ export function HybridDiscoverShell({
         ) : !featured ? (
           <>
             <EmptyDiscovery
-              title={t('These analyses cannot be ranked yet')}
-              message={t('Their screenplay evidence or specialist reader panel is incomplete. They remain available for review without being promoted as the strongest project.')}
+              title={t(coverageOnly
+                ? 'Coverage reports are unscored by design'
+                : 'These analyses cannot be ranked yet')}
+              message={t(coverageOnly
+                ? 'Their verdicts and full qualitative reports remain available below. Discovery does not rank them against scored V9 analyses.'
+                : 'Their screenplay evidence or specialist reader panel is incomplete. They remain available for review without being promoted as the strongest project.')}
             />
             <section className="hybrid-slate-section" aria-labelledby="hybrid-review-title">
               <header className="hybrid-slate-heading">
                 <div>
-                  <p className="hybrid-eyebrow">{t('Review required')}</p>
-                  <h2 id="hybrid-review-title">{t('Needs review')}</h2>
+                  <p className="hybrid-eyebrow">{t(coverageOnly ? 'Coverage' : 'Review required')}</p>
+                  <h2 id="hybrid-review-title">
+                    {t(coverageOnly ? 'Coverage reports' : 'Needs review')}
+                  </h2>
                 </div>
-                <span>{t('{{count}} unranked', { count: reviewOnlyScreenplays.length })}</span>
+                <span>
+                  {t(coverageOnly ? '{{count}} coverage report' : '{{count}} unranked', {
+                    count: reviewOnlyScreenplays.length,
+                  })}
+                </span>
               </header>
               <HybridSlateGrid
                 screenplays={reviewOnlyScreenplays}

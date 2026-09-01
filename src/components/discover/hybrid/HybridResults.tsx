@@ -9,6 +9,7 @@ import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import { isCoverageV1Screenplay } from '@/lib/producerProjection';
 import type { PercentileRank } from '@/lib/percentileRanking';
 import type { ProducerAssessmentHead, Screenplay, SortField } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -335,6 +336,7 @@ export function HybridSlateGrid({
       {screenplays.map((screenplay, index) => {
         const percentile = percentileFor(percentiles, screenplay);
         const isRankable = screenplay.producerProjection?.rankable !== false;
+        const isCoverage = isCoverageV1Screenplay(screenplay);
         const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
         const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
         return (
@@ -366,8 +368,14 @@ export function HybridSlateGrid({
                     {displayAuthor && <small>{t(displayAuthor)}</small>}
                   </span>
                   <span className="hybrid-slate-card__score">
-                    <b>{screenplay.weightedScore.toFixed(1)}</b>
-                    <small>{percentile ? t('{{ordinal}} percentile', { ordinal: i18n.language === 'es' ? percentile.overall : ordinal(percentile.overall) }) : ''}</small>
+                    <b>{isCoverage ? t('Coverage') : screenplay.weightedScore.toFixed(1)}</b>
+                    <small>
+                      {isCoverage
+                        ? t('Unscored by design')
+                        : percentile
+                          ? t('{{ordinal}} percentile', { ordinal: i18n.language === 'es' ? percentile.overall : ordinal(percentile.overall) })
+                          : ''}
+                    </small>
                   </span>
                 </span>
 
@@ -375,9 +383,19 @@ export function HybridSlateGrid({
 
                 <span className="hybrid-slate-card__status">
                   <span>
-                    {isRankable ? t(trustLabel(screenplay)) : t('Review · #{{rank}}', { rank: rankOffset + index + 6 })}
+                    {isCoverage
+                      ? t('Coverage · unscored by design')
+                      : isRankable
+                        ? t(trustLabel(screenplay))
+                        : t('Review · #{{rank}}', { rank: rankOffset + index + 6 })}
                   </span>
-                  <span>{screenplay.analysisQuality ? `${screenplay.analysisQuality.completedReaders}/${screenplay.analysisQuality.expectedReaders}` : t('Legacy')}</span>
+                  <span>
+                    {isCoverage
+                      ? `${t('Confidence')}: ${t(screenplay.coverage?.confidence ?? 'unknown')}`
+                      : screenplay.analysisQuality
+                        ? `${screenplay.analysisQuality.completedReaders}/${screenplay.analysisQuality.expectedReaders}`
+                        : t('Legacy')}
+                  </span>
                 </span>
 
                 <span className="hybrid-slate-card__footer">
@@ -389,7 +407,7 @@ export function HybridSlateGrid({
                     compact
                   />
                   <span>
-                    <AnalysisTrustBadge screenplay={screenplay} />
+                    {!isCoverage && <AnalysisTrustBadge screenplay={screenplay} />}
                     <DiscoveryShareStatus screenplay={screenplay} />
                     <ProducerScoreBadge
                       assessment={assessmentFor(producerAssessments, screenplay)}

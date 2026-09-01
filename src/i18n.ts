@@ -23,6 +23,8 @@ const english = {
     'Analysis needs review: {{completed}} of {{expected}} readers completed. No score or verdict was produced. Missing: {{missing}}.',
   '{{count}} reader report incomplete_one': '{{count}} reader report incomplete',
   '{{count}} reader report incomplete_other': '{{count}} reader reports incomplete',
+  '{{count}} coverage report_one': '{{count}} coverage report',
+  '{{count}} coverage report_other': '{{count}} coverage reports',
   'auth.error.account_disabled': 'This account is disabled. Contact an administrator.',
   'auth.error.generic': 'Sign-in failed. Please try again.',
   'auth.error.lemon_account_required': 'Use your @lemonfilms.com Google account.',
@@ -734,6 +736,20 @@ const spanish = {
   'Not verified / not rankable': 'No verificado / no se puede clasificar',
   'Unscored by design': 'Sin puntaje por diseño',
   'Coverage · unscored by design': 'Cobertura · sin puntaje por diseño',
+  'Coverage Producer Take': 'Opinión de productor sobre la cobertura',
+  'Coverage verdict': 'Veredicto de cobertura',
+  'Producer verdict · no personal score': 'Veredicto del productor · sin puntaje personal',
+  'Your judgment stays beside the Coverage report. It never replaces it.':
+    'Tu criterio permanece junto al reporte de cobertura. Nunca lo reemplaza.',
+  'This verdict-only take stays on this Mac and never enters score calibration.':
+    'Esta opinión, solo con veredicto, permanece en esta Mac y nunca entra a la calibración de puntajes.',
+  'Confidence describes how settled your local Coverage take feels.':
+    'La confianza indica qué tan firme sientes esta opinión local sobre la cobertura.',
+  'Your Coverage take is stored only on this Mac. It cannot change the report or enter calibration.':
+    'Tu opinión sobre la cobertura se guarda solo en esta Mac. No puede cambiar el reporte ni entrar a calibración.',
+  'Local Coverage take': 'Opinión local sobre la cobertura',
+  'Coverage report': 'Reporte de cobertura',
+  'Save local take': 'Guardar opinión local',
   'Citations verified': 'Citas verificadas',
   'Fact-audit support': 'Respaldo del fact-audit',
   'Human review recommended': 'Se recomienda revisión humana',
@@ -751,7 +767,10 @@ const spanish = {
   'The case against': 'El caso en contra',
   'Commercial hypothesis': 'Hipótesis comercial',
   'confidence': 'confianza',
+  strong: 'fuerte',
+  solid: 'sólido',
   'not_applicable': 'no aplica',
+  'Reader-stated uncertainties': 'Incertidumbres señaladas por el lector',
   'Unverified omitted': 'Sin verificar omitidos',
   'This shared analysis is not server-verified and cannot be used for a screenplay decision.':
     'Este análisis compartido no está verificado por el servidor y no puede usarse para tomar una decisión sobre el guion.',
@@ -2618,6 +2637,13 @@ const spanish = {
   'Try a broader search or clear the active filters to reopen the full slate.':
     'Amplía la búsqueda o limpia los filtros para abrir toda la selección.',
   'These analyses cannot be ranked yet': 'Estos análisis aún no se pueden clasificar',
+  'Coverage reports are unscored by design':
+    'Los reportes de cobertura no tienen puntaje por diseño',
+  'Coverage reports': 'Reportes de cobertura',
+  '{{count}} coverage report_one': '{{count}} reporte de cobertura',
+  '{{count}} coverage report_other': '{{count}} reportes de cobertura',
+  'Their verdicts and full qualitative reports remain available below. Discovery does not rank them against scored V9 analyses.':
+    'Sus veredictos y reportes cualitativos completos siguen disponibles abajo. Descubrimiento no los clasifica junto con los análisis V9 que sí tienen puntaje.',
   'Their screenplay evidence or specialist reader panel is incomplete. They remain available below for diagnosis, but Discovery will not promote one as the best script.':
     'La evidencia del guion o el grupo de lectores especializados está incompleto. Los proyectos siguen disponibles abajo para revisión, pero Descubrimiento no elegirá uno como el mejor guion.',
   'Needs review': 'Necesita revisión',

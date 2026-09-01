@@ -30,9 +30,9 @@ export interface LocalProducerTakeDraft {
   projectId: string;
   versionId: string;
   title: string;
-  aiFinalScore: number;
+  aiFinalScore?: number;
   aiVerdict: RecommendationTier;
-  judgment: ProducerJudgment;
+  judgment: LocalProducerJudgment;
   revision: number;
   savedAt: string;
 }
@@ -41,9 +41,13 @@ export interface LocalProducerWorkingDraft {
   schemaVersion: 'lemon-local-producer-working-draft-v1';
   projectId: string;
   versionId: string;
-  judgment: ProducerJudgment;
+  judgment: LocalProducerJudgment;
   savedAt: string;
 }
+
+export type LocalProducerJudgment = Omit<ProducerJudgment, 'producerScore'> & {
+  producerScore?: number;
+};
 
 export const TASTE_SIGNAL_LABELS = {
   reading_pleasure: 'Reading pleasure',
@@ -133,7 +137,7 @@ export function loadLocalProducerWorkingDraft(
 export function saveLocalProducerWorkingDraft(input: {
   projectId: string;
   versionId: string;
-  judgment: ProducerJudgment;
+  judgment: LocalProducerJudgment;
 }): LocalProducerWorkingDraft {
   if (typeof window === 'undefined') {
     throw new Error('Producer Take drafts require a browser session.');
@@ -179,9 +183,9 @@ export function saveLocalProducerTakeDraft(input: {
   projectId: string;
   versionId: string;
   title: string;
-  aiFinalScore: number;
+  aiFinalScore?: number;
   aiVerdict: RecommendationTier;
-  judgment: ProducerJudgment;
+  judgment: LocalProducerJudgment;
 }): LocalProducerTakeDraft {
   if (typeof window === 'undefined') {
     throw new Error('Local Producer Take drafts require a browser session.');
@@ -195,9 +199,9 @@ export function saveLocalProducerTakeDraft(input: {
     projectId,
     versionId: requireDocumentId(input.versionId, 'Analysis version'),
     title: input.title.trim() || 'Untitled screenplay',
-    aiFinalScore: input.aiFinalScore,
+    ...(input.aiFinalScore !== undefined && { aiFinalScore: input.aiFinalScore }),
     aiVerdict: input.aiVerdict,
-    judgment: validateProducerJudgment(input.judgment),
+    judgment: validateLocalProducerJudgment(input.judgment),
     revision: (previous?.revision ?? 0) + 1,
     savedAt: new Date().toISOString(),
   };
@@ -211,7 +215,7 @@ export function saveLocalProducerTakeDraft(input: {
 export function loadLocalProducerAssessmentHeads(): ProducerAssessmentHead[] {
   if (!isLocalCalibrationPreviewMode()) return [];
   return Object.values(readLocalProducerTakes())
-    .map((draft) => ({
+    .flatMap((draft) => draft.aiFinalScore === undefined || draft.judgment.producerScore === undefined ? [] : [{
       producerUid: 'local-preview',
       projectId: draft.projectId,
       latestAssessmentId: `local-preview__${draft.projectId}`,
@@ -225,7 +229,7 @@ export function loadLocalProducerAssessmentHeads(): ProducerAssessmentHead[] {
       pursuit: draft.judgment.pursuit,
       includeInCalibration: draft.judgment.includeInCalibration,
       updatedAt: draft.savedAt,
-    }))
+    }])
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
@@ -250,10 +254,20 @@ export function producerAssessmentHeadId(
 export function validateProducerJudgment(
   judgment: ProducerJudgment,
 ): ProducerJudgment {
+  if (judgment.producerScore === undefined) {
+    throw new Error('Producer score must be between 1 and 10.');
+  }
+  return validateLocalProducerJudgment(judgment) as ProducerJudgment;
+}
+
+function validateLocalProducerJudgment(
+  judgment: LocalProducerJudgment,
+): LocalProducerJudgment {
   if (
-    !Number.isFinite(judgment.producerScore) ||
-    judgment.producerScore < 1 ||
-    judgment.producerScore > 10
+    judgment.producerScore !== undefined &&
+    (!Number.isFinite(judgment.producerScore) ||
+      judgment.producerScore < 1 ||
+      judgment.producerScore > 10)
   ) {
     throw new Error('Producer score must be between 1 and 10.');
   }
@@ -264,7 +278,9 @@ export function validateProducerJudgment(
   }
   return {
     ...judgment,
-    producerScore: Math.round(judgment.producerScore * 10) / 10,
+    ...(judgment.producerScore !== undefined && {
+      producerScore: Math.round(judgment.producerScore * 10) / 10,
+    }),
     tasteSignals: [...new Set(judgment.tasteSignals)].slice(0, 11),
     aiMissed: judgment.aiMissed.trim().slice(0, 5_000),
     aiGotRight: judgment.aiGotRight.trim().slice(0, 5_000),

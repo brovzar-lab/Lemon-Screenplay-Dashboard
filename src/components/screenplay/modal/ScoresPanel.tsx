@@ -10,8 +10,9 @@ import { getScoreColorClass } from '@/lib/calculations';
 import { getDimensionDisplay, hasPillarScores } from '@/lib/dimensionDisplay';
 import { toNumber } from '@/lib/utils';
 import { formatProducerHeading, formatProducerText } from '@/lib/producerDisplay';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import { ScoreBar } from '@/components/ui/ScoreBar';
+import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { SectionHeader } from './SectionHeader';
 import { CVSFactor } from './CVSFactor';
 
@@ -155,6 +156,7 @@ export function ScoresPanel({ screenplay, presentation = 'default', onOpenReader
     const isWorkspace = presentation === 'workspace';
     const projection = screenplay.producerProjection;
     const decisionReady = isDecisionReady(screenplay);
+    const isCoverage = isCoverageV1Screenplay(screenplay);
     const scoreLabel = projection?.scoreSource === 'adjusted'
         ? 'Final adjusted score'
         : projection?.scoreSource === 'triage'
@@ -163,6 +165,25 @@ export function ScoresPanel({ screenplay, presentation = 'default', onOpenReader
     const rawScoreLabel = projection?.scoreSource === 'triage'
         ? 'Raw triage score'
         : 'Raw five-pillar score';
+
+    if (isCoverage) {
+        return (
+            <section className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-5" aria-label={t('Coverage')}>
+                <div className="flex flex-wrap items-center gap-3">
+                    <RecommendationBadge tier={screenplay.recommendation} />
+                    <strong className="text-lg text-black-100">{screenplay.coverage?.verdict}</strong>
+                </div>
+                <p className="mt-3 text-sm font-semibold text-sky-200">
+                    {t('Coverage · unscored by design')}
+                </p>
+                {screenplay.coverage?.confidence && (
+                    <p className="mt-2 text-sm text-black-300">
+                        {t('Confidence')}: <strong>{t(screenplay.coverage.confidence)}</strong>
+                    </p>
+                )}
+            </section>
+        );
+    }
 
     if (isWorkspace) {
         return <DevelopmentSignalMap screenplay={screenplay} onOpenReaderRoom={onOpenReaderRoom} />;

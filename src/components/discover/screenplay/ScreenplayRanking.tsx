@@ -10,7 +10,7 @@ import {
   getScreenplayFormatInfo,
 } from '@/lib/screenplayDisplay';
 import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import type { FeaturedSelectionReason, ProducerAssessmentHead, Screenplay } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -44,6 +44,7 @@ export function ScreenplayRanking({
   const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
   const localized = localizedScreenplayPreview(screenplay, language);
   const decisionReady = isDecisionReady(screenplay);
+  const isCoverage = isCoverageV1Screenplay(screenplay);
   const metadata = [
     format.format && t(format.format),
     genre && t(genre),
@@ -51,6 +52,10 @@ export function ScreenplayRanking({
   ].filter(Boolean);
   const narrativeFallback = language === 'es' && !localized;
   const featuredDetail = (() => {
+    if (isCoverage) {
+      if (narrativeFallback) return t('Analysis available in English');
+      return screenplay.coverage?.championReason || screenplay.logline;
+    }
     if (!decisionReady) {
       return t('Decision data unavailable until verification');
     }
@@ -100,7 +105,7 @@ export function ScreenplayRanking({
       className="screenplay-ranking screenplay-featured"
       data-testid="screenplay-discovery-ranking"
       aria-labelledby="screenplay-ranking-title"
-      data-verdict={decisionReady ? screenplay.recommendation : 'unverified'}
+      data-verdict={decisionReady || isCoverage ? screenplay.recommendation : 'unverified'}
     >
       <header className="screenplay-ranking__heading">
         <div>
@@ -113,7 +118,7 @@ export function ScreenplayRanking({
         className="screenplay-featured__layout"
         data-testid="screenplay-featured-project"
         data-screenplay-id={screenplay.id}
-        data-verdict={decisionReady ? screenplay.recommendation : 'unverified'}
+        data-verdict={decisionReady || isCoverage ? screenplay.recommendation : 'unverified'}
       >
         <button
           type="button"
@@ -141,6 +146,8 @@ export function ScreenplayRanking({
               <strong>
                 {decisionReady
                   ? t(reason.headline)
+                  : isCoverage
+                    ? t('Coverage · unscored by design')
                   : t('Decision data unavailable until verification')}
               </strong>
               <small>{featuredDetail}</small>
@@ -156,12 +163,17 @@ export function ScreenplayRanking({
           {decisionReady ? <>
             <strong>{score.toFixed(1)}</strong>
             <RecommendationBadge tier={screenplay.recommendation} />
+          </> : isCoverage ? <>
+            <RecommendationBadge tier={screenplay.recommendation} />
+            <strong>{t('Coverage · unscored by design')}</strong>
           </> : <strong>{t('Not verified / not rankable')}</strong>}
           <dl>
-            {confidence && (
+            {(isCoverage ? screenplay.coverage?.confidence : confidence) && (
               <div>
                 <dt>{t('Confidence')}</dt>
-                <dd>{confidence.replaceAll('_', ' ')}</dd>
+                <dd>
+                  {(isCoverage ? screenplay.coverage?.confidence : confidence)?.replaceAll('_', ' ')}
+                </dd>
               </div>
             )}
           </dl>

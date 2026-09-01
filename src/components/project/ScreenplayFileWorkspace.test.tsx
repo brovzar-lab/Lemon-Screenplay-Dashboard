@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createTestScreenplay } from '@/test/factories';
+import { createCoverageTestScreenplay, createTestScreenplay } from '@/test/factories';
 import i18n from '@/i18n';
 import type { Screenplay } from '@/types';
 
@@ -224,6 +224,70 @@ describe('ScreenplayFileWorkspace', () => {
     const executiveCopy = screen.getByText(/Atlas Fall is a contained survival drama/);
     expect(executiveCopy.tagName).toBe('P');
     expect(executiveCopy).toHaveClass('screenplay-file__executive-copy');
+  });
+
+  it('gives Coverage documents a score-free overview and hides V9-dependent tabs', async () => {
+    const user = userEvent.setup();
+    const onSelectTab = vi.fn();
+    const coverage = createCoverageTestScreenplay();
+
+    const { rerender } = renderWorkspace(
+      <ScreenplayFileWorkspace
+        screenplay={coverage}
+        activeTab="overview"
+        onSelectTab={onSelectTab}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('Coverage · unscored by design').length).toBeGreaterThan(0);
+    expect(screen.getByText('high')).toBeInTheDocument();
+    expect(screen.getAllByText(coverage.logline)).toHaveLength(2);
+    expect(screen.getByText('A specific, cinematic world.')).toBeInTheDocument();
+    expect(screen.getByText('The middle repeats the same threat.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Confirm the birth-order contradiction before development.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Decision data unavailable until verification')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Scores' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Reader Room' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Story X-Ray' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Poster' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Coverage/ }));
+    expect(onSelectTab).toHaveBeenCalledWith('coverage');
+
+    onSelectTab.mockClear();
+    rerender(
+      <MemoryRouter>
+        <ScreenplayFileWorkspace
+          screenplay={coverage}
+          activeTab="poster"
+          onSelectTab={onSelectTab}
+          onBack={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+    expect(onSelectTab).toHaveBeenCalledWith('coverage');
+  });
+
+  it('keeps the Coverage overview visible with Spanish interface labels', async () => {
+    await i18n.changeLanguage('es');
+    renderWorkspace(
+      <ScreenplayFileWorkspace
+        screenplay={createCoverageTestScreenplay()}
+        activeTab="overview"
+        onSelectTab={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('Cobertura · sin puntaje por diseño')).not.toHaveLength(0);
+    expect(screen.getByText('Confianza')).toBeInTheDocument();
+    expect(screen.getByText('A specific, cinematic world.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Confirm the birth-order contradiction before development.'),
+    ).toBeInTheDocument();
   });
 
   it('keeps content in separate deep-linkable tabs and hides admin work from readers', async () => {

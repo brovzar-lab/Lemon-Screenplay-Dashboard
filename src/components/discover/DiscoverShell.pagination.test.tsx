@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createTestScreenplay } from '@/test/factories';
+import { createCoverageTestScreenplay, createTestScreenplay } from '@/test/factories';
 import type { Screenplay } from '@/types';
 
 vi.mock('@/stores/authStore', () => ({ useIsAdmin: () => true }));
@@ -73,6 +73,17 @@ function props(screenplays: Screenplay[]) {
 }
 
 describe('Discover archive pagination', () => {
+  it('explains an all-Coverage slate without calling its evidence incomplete', () => {
+    const coverage = createCoverageTestScreenplay();
+    render(<DiscoverShell {...props([coverage])} />);
+
+    expect(screen.getByRole('heading', { name: 'Coverage reports are unscored by design' }))
+      .toBeInTheDocument();
+    expect(screen.getByText('1 coverage report')).toBeInTheDocument();
+    expect(screen.queryByText(/specialist reader panel is incomplete/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Needs review')).not.toBeInTheDocument();
+  });
+
   it('keeps the browse grid to 50 projects and moves through the remaining page', async () => {
     const user = userEvent.setup();
     render(<DiscoverShell {...props(scripts(60))} />);

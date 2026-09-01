@@ -44,6 +44,7 @@ import { CoverageDocument } from './CoverageDocument';
 import { __coverageDocStyles, __scoreGapStyle } from './coverage';
 import type { Screenplay } from '@/types';
 import type { Note } from '@/types/filters';
+import { createCoverageTestScreenplay } from '@/test/factories';
 
 function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
   return {
@@ -138,6 +139,37 @@ function createMockNote(overrides: Partial<Note> = {}): Note {
 }
 
 describe('CoverageDocument', () => {
+  it('renders Coverage V1 as qualitative coverage without V9 scores', () => {
+    const { container } = render(
+      <CoverageDocument screenplay={createCoverageTestScreenplay()} notes={[]} />,
+    );
+
+    expect(container.textContent).toContain('Coverage · unscored by design');
+    expect(container.textContent).toContain('Story spine');
+    expect(container.textContent).toContain('Methodology lenses');
+    expect(container.textContent).toContain('Development priorities');
+    expect(container.textContent).toContain('The case for');
+    expect(container.textContent).toContain('The case against');
+    expect(container.textContent).toContain('RECOMMEND');
+    expect(container.textContent).not.toContain('Detailed Scores');
+    expect(container.textContent).not.toContain('0.0');
+  });
+
+  it('translates Coverage grades and uncertainties in a Spanish PDF', () => {
+    const { container } = render(
+      <CoverageDocument
+        screenplay={createCoverageTestScreenplay()}
+        notes={[]}
+        language="es"
+      />,
+    );
+
+    expect(container.textContent).toContain('fuerte');
+    expect(container.textContent).toContain('sólido');
+    expect(container.textContent).toContain('Incertidumbres señaladas por el lector');
+    expect(container.textContent).not.toContain('Reader-stated uncertainties');
+  });
+
   it('renders without crashing given a valid Screenplay and empty notes', () => {
     const screenplay = createMockScreenplay();
     const { container } = render(<CoverageDocument screenplay={screenplay} notes={[]} />);

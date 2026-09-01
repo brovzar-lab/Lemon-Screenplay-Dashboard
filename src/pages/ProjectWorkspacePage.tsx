@@ -146,6 +146,7 @@ function isScreenplayFileTab(value: string | undefined): value is ScreenplayFile
 
 function isProjectWorkspaceTab(value: string | undefined): value is ProjectWorkspaceTab {
   return value === 'overview'
+    || value === 'coverage'
     || value === 'reader-room'
     || value === 'story-x-ray'
     || value === 'producer-take'

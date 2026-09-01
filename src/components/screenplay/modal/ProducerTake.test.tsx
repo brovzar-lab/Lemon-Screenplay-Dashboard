@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createTestScreenplay } from '@/test/factories';
+import { createCoverageTestScreenplay, createTestScreenplay } from '@/test/factories';
 import type { LocalProducerTakeDraft } from '@/lib/producerCalibration';
 import type { ProducerAssessment } from '@/types';
 import { ProducerTake } from './ProducerTake';
@@ -102,6 +102,39 @@ describe('ProducerTake', () => {
     mocks.isLocalCalibrationPreviewMode.mockReturnValue(false);
     mocks.loadLocalProducerTakeDraft.mockReturnValue(null);
     mocks.loadLocalProducerWorkingDraft.mockReturnValue(null);
+  });
+
+  it('shows and saves a Coverage take without turning the normalized zero into an AI score', async () => {
+    const user = userEvent.setup();
+    mocks.saveLocalProducerTakeDraft.mockImplementation((input) => ({
+      schemaVersion: 'lemon-local-producer-take-v1',
+      ...input,
+      revision: 1,
+      savedAt: '2026-09-01T00:00:00.000Z',
+    }));
+    render(<ProducerTake screenplay={createCoverageTestScreenplay()} />, { wrapper });
+
+    expect(await screen.findByText('Coverage · unscored by design')).toBeInTheDocument();
+    expect(screen.getAllByText('Recommend')).not.toHaveLength(0);
+    expect(screen.getByRole('heading', { name: 'Coverage Producer Take' })).toBeInTheDocument();
+    expect(screen.getByText('Producer verdict · no personal score')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Legacy Producer Draft' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Your score')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /calibration evidence/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Not verified / not rankable')).not.toBeInTheDocument();
+    expect(screen.queryByText('0.0')).not.toBeInTheDocument();
+    expect(screen.queryByText('5.0')).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('What did the AI miss?'), 'The atmosphere plays strongly.');
+    await user.click(screen.getByRole('button', { name: 'Save local take' }));
+    expect(mocks.saveLocalProducerTakeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        judgment: expect.not.objectContaining({ producerScore: expect.any(Number) }),
+      }),
+    );
+    expect(mocks.saveLocalProducerTakeDraft).toHaveBeenCalledWith(
+      expect.not.objectContaining({ aiFinalScore: expect.any(Number) }),
+    );
   });
 
   it('shows the producer judgment beside the unchanged AI final', async () => {

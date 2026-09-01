@@ -12,7 +12,9 @@ import {
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
 import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
+import { CoverageReportPanel } from '@/components/project/CoverageReportPanel';
 import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
+import { isCoverageV1Screenplay } from '@/lib/producerProjection';
 import type { Screenplay } from '@/types';
 import { useIsAdmin } from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +32,7 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
   const language = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
   const displayedScreenplay = localizedScreenplay(screenplay, language);
   const analysisFallback = analysisIsEnglishFallback(screenplay, language);
+  const isCoverage = isCoverageV1Screenplay(screenplay);
   const isAdmin = useIsAdmin();
   const drawerRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -117,9 +120,19 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
 
         <div className="dsc-drawer-body relative z-10 min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-5 lg:p-6">
-            <AnalysisWarnings screenplay={screenplay} />
-            <AnalysisLanguageNotice screenplay={screenplay} />
-            {!analysisFallback && <section className="dsc-card p-5 sm:p-6" aria-labelledby="drawer-executive-read">
+            {isCoverage ? (
+              <section
+                data-testid="discovery-coverage-report"
+                className="rounded-xl bg-white p-5"
+                aria-label={t('Coverage')}
+              >
+                <CoverageReportPanel screenplay={displayedScreenplay} />
+              </section>
+            ) : (
+              <>
+                <AnalysisWarnings screenplay={screenplay} />
+                <AnalysisLanguageNotice screenplay={screenplay} />
+                {!analysisFallback && <section className="dsc-card p-5 sm:p-6" aria-labelledby="drawer-executive-read">
               <p className="dsc-kicker">{t('The read')}</p>
               <h3 id="drawer-executive-read" className="dsc-display mt-2 text-3xl">
                 {t('Executive read')}
@@ -190,26 +203,28 @@ export function DiscoverDrawer({ screenplay, onClose }: DiscoverDrawerProps) {
                   </div>
                 </div>
               </div>
-            </section>}
+                </section>}
 
-            {!analysisFallback && <section
-              data-testid="discovery-scores-panel"
-              className="dsc-card p-4 sm:p-5"
-              aria-label={t('Screenplay scores')}
-            >
-              <ScoresPanel screenplay={displayedScreenplay} />
-            </section>}
+                {!analysisFallback && <section
+                  data-testid="discovery-scores-panel"
+                  className="dsc-card p-4 sm:p-5"
+                  aria-label={t('Screenplay scores')}
+                >
+                  <ScoresPanel screenplay={displayedScreenplay} />
+                </section>}
+                {!analysisFallback && <section
+                  data-testid="discovery-content-details"
+                  className="dsc-card space-y-7 p-4 sm:p-5"
+                  aria-label={t('Screenplay details')}
+                >
+                  <ContentDetails screenplay={displayedScreenplay} />
+                </section>}
+                {!analysisFallback && <section className="dsc-card p-4 sm:p-5" aria-label={t('Specialist reader evidence')}>
+                  <DeferredReaderEvidence screenplay={displayedScreenplay} />
+                </section>}
+              </>
+            )}
             {isAdmin && <ProducerTake screenplay={screenplay} />}
-            {!analysisFallback && <section
-              data-testid="discovery-content-details"
-              className="dsc-card space-y-7 p-4 sm:p-5"
-              aria-label={t('Screenplay details')}
-            >
-              <ContentDetails screenplay={displayedScreenplay} />
-            </section>}
-            {!analysisFallback && <section className="dsc-card p-4 sm:p-5" aria-label={t('Specialist reader evidence')}>
-              <DeferredReaderEvidence screenplay={displayedScreenplay} />
-            </section>}
             <section
               data-testid="discovery-notes-panel"
               className="dsc-card p-4 sm:p-5"

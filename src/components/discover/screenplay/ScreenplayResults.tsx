@@ -13,7 +13,7 @@ import {
   getScreenplayFormatInfo,
 } from '@/lib/screenplayDisplay';
 import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import type { ProducerAssessmentHead } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -42,8 +42,7 @@ export function ScreenplayGrid({
         const decisionReady = isDecisionReady(screenplay);
         // Coverage V1 documents are unscored BY DESIGN (never rankable) —
         // show their verdict honestly instead of the V9 "Not verified" label.
-        const isCoverage =
-          screenplay.producerProjection?.scoreSource === 'coverage_unscored';
+        const isCoverage = isCoverageV1Screenplay(screenplay);
         return (
           <li
             key={screenplay.id}

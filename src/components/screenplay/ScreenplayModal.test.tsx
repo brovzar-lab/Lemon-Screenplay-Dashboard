@@ -10,7 +10,7 @@ import { render, screen, fireEvent, act, type RenderOptions } from '@testing-lib
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { ScreenplayModal } from './ScreenplayModal';
-import { createTestScreenplay } from '@/test/factories';
+import { createCoverageTestScreenplay, createTestScreenplay } from '@/test/factories';
 
 // Shell tests do not exercise admin-only writes or the feedback editor's async load.
 vi.mock('@/stores/authStore', () => ({
@@ -102,6 +102,24 @@ describe('ScreenplayModal', () => {
             );
             expect(screen.getByRole('dialog')).toBeInTheDocument();
             expect(screen.getByText('Visible Movie')).toBeInTheDocument();
+        });
+
+        it('renders Coverage report content without V9 verification or scores', () => {
+            renderWithClient(
+                <ScreenplayModal
+                    screenplay={createCoverageTestScreenplay()}
+                    isOpen
+                    onClose={mockOnClose}
+                />
+            );
+
+            expect(screen.getAllByText('Coverage · unscored by design')).not.toHaveLength(0);
+            expect(screen.getByText('Story spine')).toBeInTheDocument();
+            expect(screen.getByText('Methodology lenses')).toBeInTheDocument();
+            expect(screen.queryByText('Not verified / not rankable')).not.toBeInTheDocument();
+            expect(screen.queryByText('Decision data unavailable until verification')).not.toBeInTheDocument();
+            expect(screen.queryByText('Five-Pillar Reader Evidence')).not.toBeInTheDocument();
+            expect(screen.queryByText('0.0')).not.toBeInTheDocument();
         });
 
         it('shows exact overall and genre field position', () => {

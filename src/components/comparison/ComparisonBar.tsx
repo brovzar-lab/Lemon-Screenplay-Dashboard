@@ -7,6 +7,7 @@ import { useComparisonStore, useIsComparisonFull } from '@/stores/comparisonStor
 import { useScreenplays } from '@/hooks/useScreenplays';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { isCoverageV1Screenplay } from '@/lib/producerProjection';
 
 export function ComparisonBar() {
   const { t } = useTranslation();
@@ -52,7 +53,9 @@ export function ComparisonBar() {
                       {sp.title}
                     </span>
                     <span className="text-xs text-gold-400">
-                      {sp.weightedScore.toFixed(1)}
+                      {isCoverageV1Screenplay(sp)
+                        ? t('Coverage · unscored by design')
+                        : sp.weightedScore.toFixed(1)}
                     </span>
                     <button
                       onClick={() => removeFromComparison(sp.id)}

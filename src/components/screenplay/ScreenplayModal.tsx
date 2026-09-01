@@ -26,7 +26,8 @@ import {
 import { useIsAdmin } from '@/stores/authStore';
 import type { PercentileRank } from '@/lib/percentileRanking';
 import { useTranslation } from 'react-i18next';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import { CoverageReportPanel } from '@/components/project/CoverageReportPanel';
 
 interface ScreenplayModalProps {
   screenplay: Screenplay | null;
@@ -109,6 +110,7 @@ export function ScreenplayModal({
 
   if (!isOpen || !screenplay) return null;
   const decisionReady = isDecisionReady(screenplay);
+  const isCoverage = isCoverageV1Screenplay(screenplay);
 
   return (
     <div
@@ -167,10 +169,18 @@ export function ScreenplayModal({
               <p className="text-black-300 leading-relaxed">{screenplay.logline}</p>
             </div>
 
-            <ScoresPanel screenplay={screenplay} />
-            {decisionReady && <ProducerMetricsPanel screenplay={screenplay} />}
-            <ContentDetails screenplay={screenplay} />
-            <DeferredReaderEvidence screenplay={screenplay} />
+            {isCoverage ? (
+              <div className="rounded-xl bg-white p-5">
+                <CoverageReportPanel screenplay={screenplay} />
+              </div>
+            ) : (
+              <>
+                <ScoresPanel screenplay={screenplay} />
+                {decisionReady && <ProducerMetricsPanel screenplay={screenplay} />}
+                <ContentDetails screenplay={screenplay} />
+                <DeferredReaderEvidence screenplay={screenplay} />
+              </>
+            )}
             {decisionReady && onSelectScreenplay && (
               <SimilarProjects
                 screenplay={screenplay}
