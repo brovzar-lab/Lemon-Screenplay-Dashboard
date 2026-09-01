@@ -152,6 +152,50 @@ class PaidBatchTests(unittest.TestCase):
         self.assertEqual(first["analysis_version"], "coverage_v1")
         self.assertEqual(len(first["coverage"]["development_priorities"]), 3)
 
+    def test_checkpoints_survive_across_canary_invocations(self):
+        # Live failure 2026-09-01: the store lived INSIDE the per-run
+        # artifacts dir, so a failed run's paid coverage was re-bought by
+        # the next invocation. The store is now shared across runs.
+        root = Path(tempfile.mkdtemp())
+        entries = make_pdfs(root, 1)
+        coverage = valid_coverage()
+        broken_audit = supported_audit(coverage)
+        broken_audit["verdicts"] = [
+            {"claim_id": "nope", "classification": "supported", "note": "x"}
+        ]
+        first = FakeTransport(
+            [
+                (coverage, settled_usage(200_000)),
+                (broken_audit, settled_usage()),
+                (broken_audit, settled_usage()),
+            ]
+        )
+        scorecard1 = canary.run_canary(
+            entries,
+            out_dir=root / "run-1",
+            execute=True,
+            transport=first,
+            parse_fn=fake_parse,
+            parser_version="test-parser",
+            resume_drill_index=99,
+        )
+        self.assertEqual(scorecard1["scripts"][0]["status"], "failed_closed")
+
+        # Second invocation, different out_dir: coverage must replay free —
+        # the transport only carries the audit response.
+        second = FakeTransport([(supported_audit(coverage), settled_usage())])
+        scorecard2 = canary.run_canary(
+            entries,
+            out_dir=root / "run-2",
+            execute=True,
+            transport=second,
+            parse_fn=fake_parse,
+            parser_version="test-parser",
+            resume_drill_index=99,
+        )
+        self.assertEqual(scorecard2["scripts"][0]["status"], "sealed")
+        self.assertEqual(len(second.calls), 1)
+
     def test_batch_cap_refuses_scripts_it_cannot_cover(self):
         # $0.28 per script; cap the batch so the third script is refused.
         scorecard, transport, _root = self.run_batch(

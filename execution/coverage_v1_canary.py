@@ -126,7 +126,14 @@ def run_canary(
     coverage_v1.assert_schemas_compiler_safe()
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "reports").mkdir(exist_ok=True)
-    checkpoints = coverage_v1.LocalCheckpointStore(out_dir / "checkpoints")
+    # The checkpoint store is SHARED across canary invocations (it lives
+    # beside the per-run artifact dirs, not inside one), so a failed run's
+    # validated coverage is never re-bought by the next attempt. Binding
+    # hashes (content, prompts, schemas, models, engine version) already
+    # guarantee stale work is never reused.
+    checkpoints = coverage_v1.LocalCheckpointStore(
+        out_dir.parent / "coverage-v1-checkpoints"
+    )
     parse = parse_fn or _default_parse
     parser_ver = parser_version or _parser_version()
 

@@ -60,7 +60,11 @@ DEFAULT_MAX_COST_USD = 1.00
 DEFAULT_COVERAGE_MODEL = "sonnet"
 DEFAULT_AUDIT_MODEL = "haiku"
 
-COVERAGE_MAX_TOKENS = 8_000
+# 16k: v1.1 reports are materially longer (multi-stage climaxes, 6 turns,
+# continuity flags with double quotes, ledgered lens analyses) and the
+# structure-repair call re-emits the WHOLE report — an 8k ceiling truncated
+# a live repair on 2026-09-01. Unused headroom costs nothing.
+COVERAGE_MAX_TOKENS = 16_000
 COVERAGE_THINKING_BUDGET = 8_000
 AUDIT_MAX_TOKENS = 6_000
 AUDIT_THINKING_BUDGET = 4_000
