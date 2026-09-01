@@ -67,6 +67,18 @@
   contradiction unflagged in the spine. Cost with audit teeth ≈
   $0.70/script (old $0.60 target predates the teeth). Per-verdict
   reactions suffice from here; next calibration input is the benchmark.
+- **Dashboard preview live:** the four sealed canary reports are staged in
+  `coverage_v1_reports` (uploader: `execution/upload_coverage_reports.py`;
+  rules allow team read, clients never write). The dashboard merges that
+  staging feed beside `uploaded_analyses` (lean listener, no trust
+  machinery), the wall card shows "Coverage / Unscored by design" +
+  verdict badge, and the project workspace has a coverage-native Coverage
+  tab (`CoverageReportPanel`: spine, lens grades, dev priorities,
+  continuity flags, champion/pass cases, audit trail) with V9-only tabs
+  hidden for coverage docs. Vite is strictPort:3000 now (a fallback 3001
+  server can never sign in). Remaining UI polish handed to Codex (see the
+  handoff in the session log): coverage-aware Overview, classic-modal
+  labels, PDF export check, Slate Insights chip.
 - Deferred items: replace the placeholder `BENCHMARK_ANTHROPIC_API_KEY`
   ('not-configured', Secret Manager) before any candidate-model benchmark;
   Oro de Acapulco reads as a TV pilot per its own coverage — offer a
