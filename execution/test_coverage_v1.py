@@ -639,6 +639,16 @@ class TestHappyPath(unittest.TestCase):
             )
         )
 
+    def test_audit_instruction_states_exact_claim_count(self):
+        # Haiku drops the last claim on long lists (Hermanos and Slasher
+        # runs both lost 'pass_reason', spending the repair slot on a
+        # Sonnet retry) — the instruction now pins the exact count.
+        claims = cv.build_audit_claims(valid_coverage())
+        blocks = cv.build_audit_user_blocks("texto", "Título", claims)
+        instruction = blocks[-1]["text"]
+        self.assertIn(f"exactly {len(claims)} claims", instruction)
+        self.assertIn("the last one included", instruction)
+
     def test_audit_claims_cover_concerns_and_pass_reason(self):
         claims = cv.build_audit_claims(valid_coverage())
         ids = {claim["claim_id"] for claim in claims}

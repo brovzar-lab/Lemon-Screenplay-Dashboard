@@ -709,8 +709,11 @@ def build_audit_user_blocks(
             "type": "text",
             "text": (
                 f"# CLAIMS TO CHECK — {title}\n\n{claim_lines}\n\n"
-                "Classify every claim id exactly once with the "
-                "submit_fact_audit_v1 tool. Page numbers refer to the "
+                f"There are exactly {len(claims)} claims. Your verdicts "
+                f"array must contain exactly {len(claims)} entries — one per "
+                "claim id above, the last one included; a missing id fails "
+                "the whole audit. Classify every claim id exactly once with "
+                "the submit_fact_audit_v1 tool. Page numbers refer to the "
                 "[PAGE N] markers in the screenplay text."
             ),
         },
