@@ -62,7 +62,7 @@ DEFAULT_AUDIT_MODEL = "haiku"
 
 COVERAGE_MAX_TOKENS = 8_000
 COVERAGE_THINKING_BUDGET = 8_000
-AUDIT_MAX_TOKENS = 4_000
+AUDIT_MAX_TOKENS = 6_000
 AUDIT_THINKING_BUDGET = 4_000
 REPAIR_MAX_TOKENS = 4_000
 REPAIR_THINKING_BUDGET = 2_000
@@ -1383,13 +1383,54 @@ def validate_audit_payload(
     return problems
 
 
+def _synthesize_missing_verdicts(
+    tool_input: Dict[str, Any],
+    claims: Sequence[Dict[str, str]],
+    problems: Sequence[str],
+) -> Tuple[Dict[str, Any], List[str], List[str]]:
+    """When the ONLY audit defect is missing claims, mark them 'unclassified'.
+
+    A model that returns 15 of 16 honest verdicts must not destroy a paid
+    run: the missing ids get an explicit, clearly labeled non-verdict that
+    the adjudication treats as untrusted (excluded from support_rate,
+    review-flagged, and seal-blocking when central). Never a fabricated
+    classification. Returns (tool_input, unclassified_ids,
+    remaining_problems); any problem other than missing ids is returned
+    untouched for the caller to fail on.
+    """
+    if not problems or not all(
+        p.startswith("audit did not classify") for p in problems
+    ):
+        return tool_input, [], list(problems)
+    seen = {
+        str(v.get("claim_id"))
+        for v in tool_input.get("verdicts", [])
+        if isinstance(v, dict)
+    }
+    missing = sorted(
+        c["claim_id"] for c in claims if c["claim_id"] not in seen
+    )
+    verdicts = list(tool_input["verdicts"]) + [
+        {
+            "claim_id": claim_id,
+            "classification": "unclassified",
+            "note": "The auditor did not return a verdict for this claim.",
+        }
+        for claim_id in missing
+    ]
+    return dict(tool_input, verdicts=verdicts), missing, []
+
+
 def _adjudicate_verdicts(
     verdicts: Sequence[Dict[str, Any]],
-) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[str], float]:
-    """(by_claim, central_failures, central_partials, weighted support_rate).
+) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[str], List[str], float]:
+    """(by_claim, central_failures, central_partials, unclassified,
+    weighted support_rate).
 
     Brief #3, defect 7: a partially supported claim weighs 0.5, so a report
-    the system itself flagged can never read as a perfect 1.0.
+    the system itself flagged can never read as a perfect 1.0. Synthesized
+    'unclassified' rows are excluded from the rate entirely — an auditor
+    no-show is neither support nor refutation.
     """
     by_claim = {v["claim_id"]: v for v in verdicts}
     central_failures = sorted(
@@ -1404,14 +1445,20 @@ def _adjudicate_verdicts(
         if is_central_claim(claim_id)
         and verdict["classification"] == "partially_supported"
     )
+    unclassified = sorted(
+        claim_id
+        for claim_id, verdict in by_claim.items()
+        if verdict["classification"] == "unclassified"
+    )
     score = 0.0
     for verdict in by_claim.values():
         if verdict["classification"] == "supported":
             score += 1.0
         elif verdict["classification"] == "partially_supported":
             score += 0.5
-    support_rate = round(score / max(1, len(by_claim)), 4)
-    return by_claim, central_failures, central_partials, support_rate
+    rated = len(by_claim) - len(unclassified)
+    support_rate = round(score / max(1, rated), 4)
+    return by_claim, central_failures, central_partials, unclassified, support_rate
 
 
 def _apply_fact_corrections(
@@ -1743,6 +1790,13 @@ def run_coverage_v1(
             tool_input = _audit_call(model_key)
             problems = validate_audit_payload(tool_input, claims)
         if problems:
+            # A stubbornly missing verdict must not destroy the paid run:
+            # missing ids become explicit 'unclassified' rows (review-flagged
+            # downstream, seal-blocking when central). Anything else fails.
+            tool_input, _unclassified, problems = _synthesize_missing_verdicts(
+                tool_input, claims, problems
+            )
+        if problems:
             raise CoverageContractError(
                 "Fact audit failed validation: " + "; ".join(problems[:8])
             )
@@ -1768,7 +1822,7 @@ def run_coverage_v1(
         )
 
     # ── Adjudication (pure code) ────────────────────────────────────────────
-    by_claim, central_failures, central_partials, support_rate = (
+    by_claim, central_failures, central_partials, unclassified, support_rate = (
         _adjudicate_verdicts(audit_payload["verdicts"])
     )
 
@@ -1792,9 +1846,13 @@ def run_coverage_v1(
                 audit_payload, claims=claims, verdicts=stage3["verdicts"]
             )
             fact_repair_info = dict(stage3.get("info", {}), replayed=True)
-            by_claim, central_failures, central_partials, support_rate = (
-                _adjudicate_verdicts(audit_payload["verdicts"])
-            )
+            (
+                by_claim,
+                central_failures,
+                central_partials,
+                unclassified,
+                support_rate,
+            ) = _adjudicate_verdicts(audit_payload["verdicts"])
         else:
             fact_repair_info = {
                 "attempted": True,
@@ -1882,6 +1940,12 @@ def run_coverage_v1(
                 reaudit_problems = validate_audit_payload(
                     reaudit_input, new_claims
                 )
+                if reaudit_problems:
+                    reaudit_input, _unclassified2, reaudit_problems = (
+                        _synthesize_missing_verdicts(
+                            reaudit_input, new_claims, reaudit_problems
+                        )
+                    )
                 if not reaudit_problems:
                     coverage_payload = corrected_coverage
                     claims = new_claims
@@ -1896,6 +1960,7 @@ def run_coverage_v1(
                         by_claim,
                         central_failures,
                         central_partials,
+                        unclassified,
                         support_rate,
                     ) = _adjudicate_verdicts(audit_payload["verdicts"])
                     checkpoint_store.save(
@@ -1938,6 +2003,16 @@ def run_coverage_v1(
         )
         if repair_calls_used >= MAX_REPAIR_CALLS:
             review_reasons.append("repair budget already spent")
+    central_unclassified = [
+        claim_id for claim_id in unclassified if is_central_claim(claim_id)
+    ]
+    if central_unclassified:
+        # A central fact the auditor never ruled on cannot seal as trusted.
+        status = "needs_review"
+        review_reasons.append(
+            "audit left central claims unclassified: "
+            + ", ".join(central_unclassified)
+        )
 
     # ── Verdict post-processing (pure code) ─────────────────────────────────
     verdict = str(coverage_payload["verdict"])
@@ -1971,11 +2046,18 @@ def run_coverage_v1(
     # present itself as fully trusted.
     unverified_citations = int((citation_summary or {}).get("unverified", 0))
 
+    noncentral_unclassified = [
+        claim_id
+        for claim_id in unclassified
+        if not is_central_claim(claim_id)
+    ]
+
     human_review_recommended = (
         status == "needs_review"
         or coverage_payload["confidence"] == "low"
         or bool(central_partials)
         or bool(noncentral_contradicted)
+        or bool(noncentral_unclassified)
         or unverified_citations > 0
     )
     if coverage_payload["confidence"] == "low":
@@ -1989,6 +2071,11 @@ def run_coverage_v1(
         review_reasons.append(
             "audited claims contradicted by the text: "
             + ", ".join(sorted(noncentral_contradicted))
+        )
+    if noncentral_unclassified:
+        review_reasons.append(
+            "audit left claims unclassified: "
+            + ", ".join(noncentral_unclassified)
         )
     if unverified_citations > 0:
         review_reasons.append(

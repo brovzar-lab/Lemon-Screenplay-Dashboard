@@ -945,10 +945,14 @@ class TestFactAudit(unittest.TestCase):
         self.assertEqual(report["cost"]["repair_calls_used"], 1)
         self.assertTrue(report["diagnostics"]["audit_first_pass_problems"])
 
-    def test_incomplete_audit_twice_fails_closed(self):
+    def test_persistently_missing_noncentral_verdict_seals_unclassified(self):
+        # Live failure 2026-09-01: the auditor skipped one non-central claim
+        # twice and destroyed a $0.73 run. Now the missing id becomes an
+        # explicit 'unclassified' verdict: sealed, review-flagged, excluded
+        # from support_rate — never a fabricated classification.
         coverage = valid_coverage()
         bad_audit = supported_audit(coverage)
-        bad_audit["verdicts"].pop()
+        bad_audit["verdicts"].pop()  # last claim: pass_reason (non-central)
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
@@ -956,9 +960,43 @@ class TestFactAudit(unittest.TestCase):
                 (bad_audit, settled_usage()),
             ]
         )
-        with self.assertRaises(cv.CoverageContractError):
-            run_engine(new_store(), transport)
+        report, _usage = run_engine(new_store(), transport)
         self.assertEqual(len(transport.calls), 3)
+        self.assertEqual(report["status"], "sealed")
+        self.assertTrue(report["human_review_recommended"])
+        self.assertTrue(
+            any("unclassified" in r for r in report["review_reasons"])
+        )
+        rows = {
+            v["claim_id"]: v["classification"]
+            for v in report["fact_audit"]["verdicts"]
+        }
+        self.assertEqual(rows["pass_reason"], "unclassified")
+        self.assertEqual(report["fact_audit"]["support_rate"], 1.0)
+
+    def test_persistently_missing_central_verdict_blocks_seal(self):
+        coverage = valid_coverage()
+        bad_audit = supported_audit(coverage)
+        bad_audit["verdicts"] = [
+            v
+            for v in bad_audit["verdicts"]
+            if v["claim_id"] != "spine.ending"
+        ]
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (bad_audit, settled_usage()),
+                (bad_audit, settled_usage()),
+            ]
+        )
+        report, _usage = run_engine(new_store(), transport)
+        self.assertEqual(report["status"], "needs_review")
+        self.assertTrue(
+            any(
+                "central claims unclassified" in r
+                for r in report["review_reasons"]
+            )
+        )
 
     def test_no_audit_retry_when_repair_slot_already_spent(self):
         broken = valid_coverage()
@@ -973,10 +1011,12 @@ class TestFactAudit(unittest.TestCase):
                 (bad_audit, settled_usage()),
             ]
         )
-        with self.assertRaises(cv.CoverageContractError):
-            run_engine(new_store(), transport)
-        # coverage + coverage repair + audit = 3 calls; no fourth.
+        # coverage + coverage repair + audit = 3 calls, no retry; the
+        # missing non-central verdict seals as unclassified with a flag.
+        report, _usage = run_engine(new_store(), transport)
         self.assertEqual(len(transport.calls), 3)
+        self.assertEqual(report["status"], "sealed")
+        self.assertTrue(report["human_review_recommended"])
 
     def test_central_partial_is_fact_repaired_and_reaudited(self):
         # Brief #3, defect 6: an audit-identified factual imprecision in a
