@@ -510,6 +510,40 @@ export async function loadAllAnalyses(): Promise<Record<string, unknown>[]> {
  *
  * Returns an Unsubscribe function — call it on cleanup.
  */
+/**
+ * Subscribe to the coverage_v1_reports STAGING collection (read-only for
+ * clients; only the VPS writes it via the Admin SDK).
+ *
+ * Deliberately lean compared to subscribeToAnalyses: no localStorage cache,
+ * no version-authority binding — a coverage_v1 report carries its own trust
+ * surface (citation verification, fact audit, review flags) which the
+ * normalizer renders honestly, and these documents never participate in
+ * rankings (rankable stays false). If the collection is unreadable (e.g.
+ * rules not yet deployed), the subscription reports an error and the rest
+ * of the dashboard is unaffected.
+ */
+export function subscribeToCoverageV1Reports(
+  onChange: (reports: Record<string, unknown>[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  if (isLocalE2E()) return () => {};
+
+  return onSnapshot(
+    query(collection(db, 'coverage_v1_reports')),
+    (snapshot) => {
+      const reports = snapshot.docs
+        .map((d) => d.data() as Record<string, unknown>)
+        .filter((d) => !d._deleted_at);
+      console.log(`[Lemon] Coverage V1 staging: ${reports.length} report(s)`);
+      onChange(reports);
+    },
+    (error) => {
+      console.warn('[Lemon] Coverage V1 staging listener error:', error);
+      onError?.(error instanceof Error ? error : new Error(String(error)));
+    },
+  );
+}
+
 export function subscribeToAnalyses(
   onChange: (analyses: Record<string, unknown>[]) => void,
   onError?: (error: Error) => void,

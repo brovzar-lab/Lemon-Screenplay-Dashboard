@@ -31,6 +31,7 @@ vi.mock('@/lib/analysisStore', () => ({
     liveMocks.onError = onError;
     return vi.fn();
   }),
+  subscribeToCoverageV1Reports: vi.fn(() => vi.fn()),
 }));
 
 vi.mock('@/lib/shareService', () => ({

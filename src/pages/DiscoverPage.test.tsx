@@ -135,7 +135,9 @@ describe('DiscoverPage', () => {
     immutableRecords.clear();
     mockUnsubscribe.mockReset();
     mockOnSnapshot.mockReset().mockImplementation((_query, onChange) => {
-      emitSnapshot = onChange;
+      // Two listeners register: uploaded_analyses first (the one this test
+      // drives), then the coverage_v1_reports staging feed.
+      if (!emitSnapshot) emitSnapshot = onChange;
       return mockUnsubscribe;
     });
     mockGetDocFromServer.mockReset().mockImplementation(async (reference: unknown[]) => {
@@ -161,7 +163,7 @@ describe('DiscoverPage', () => {
     renderPage();
 
     expect(await screen.findByRole('heading', { name: 'Cactus Season' })).toBeInTheDocument();
-    expect(mockOnSnapshot).toHaveBeenCalledOnce();
+    expect(mockOnSnapshot).toHaveBeenCalledTimes(2);
 
     act(() => {
       emitSnapshot?.({

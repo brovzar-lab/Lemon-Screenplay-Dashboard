@@ -134,6 +134,16 @@ service cloud.firestore {
       ];
     }
 
+    // ── coverage_v1_reports (STAGING, read-only for clients) ─────────────
+    // Coverage V1 engine output. Written ONLY by the VPS via the Admin SDK
+    // (execution/upload_coverage_reports.py or the gated daemon route);
+    // browser clients may read, never write. Kept separate from the
+    // immutable uploaded_analyses record on purpose.
+    match /coverage_v1_reports/{docId} {
+      allow read: if isTeamMember();
+      allow create, update, delete: if false;
+    }
+
     // ── uploaded_analyses ─────────────────────────────────────────────────
     // Screenplay analysis documents.
     //
