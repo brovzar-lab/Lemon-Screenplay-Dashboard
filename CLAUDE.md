@@ -44,9 +44,15 @@
   required `continuity_flags` field + concerns/pass_reason audited with an
   absence-claim search rule + nonzero unverified citations force
   human_review_recommended + printed-page renumbering detected from page
-  headers in code. Both briefs' fixes validate in the pending
-  Matadero+Hermanos re-run (~$1.10 of the ~$5 canary authorization left);
-  after that, per-verdict reactions suffice.
+  headers in code. **Re-run 2026-09-01 VALIDATED both briefs** ($1.43,
+  cumulative $6.46 of the $10): corrected Matadero ending/climax, Hermanos
+  loophole note replaced by the real scoring incoherence, not_applicable
+  contracts, printed pages, continuity sweep caught 4 real errors incl. a
+  previously unknown scoring discrepancy, audit knocked down 3 overstated
+  concerns, seal review-flags honestly. Known residual: Fausto birth-order
+  contradiction unflagged in the spine. Cost with audit teeth ≈
+  $0.70/script (old $0.60 target predates the teeth). Per-verdict
+  reactions suffice from here; next calibration input is the benchmark.
 - Deferred items: replace the placeholder `BENCHMARK_ANTHROPIC_API_KEY`
   ('not-configured', Secret Manager) before any candidate-model benchmark;
   Oro de Acapulco reads as a TV pilot per its own coverage — offer a

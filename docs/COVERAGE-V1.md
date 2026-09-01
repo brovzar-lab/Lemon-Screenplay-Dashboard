@@ -15,9 +15,28 @@ citations verified. The 4 unverified were each proven real passages by
 `coverage_v1_citation_diag` (zero fabrications); both near-miss patterns
 (a "/" marking a screenplay line break; one normalized leading word) are now
 matched deterministically by the verifier, so the citation bar is met as
-*zero fabricated citations*. Next gate: the 20-script benchmark (≤$25,
-requires Billy's authorization). The route remains DISABLED by default in
-production.**
+*zero fabricated citations*.
+Calibration re-run 2026-09-01 (Matadero + Hermanos, $1.43, both sealed,
+verdicts unchanged): both briefs' fixes validated on the page — Matadero's
+ending carries the cut to the living Carnicero, the climax is multi-stage
+with the HERMANA freeze, the photo note reframed to "sharpen the existing
+plant"; Hermanos' false loophole claim replaced by the real scoring-rules
+incoherence; genre-contract lenses grade not_applicable across genres;
+printed-page numbering detected from headers on both; the continuity sweep
+caught the Rosa/Esperanza name overlap, the rules contradiction, a
+previously unknown 2-vs-3-point scoring error, and Matadero's Supervisor
+age jump; the audit contradicted three overstated Matadero concerns
+(including a free-written page count) and the seal review-flagged both
+reports honestly. Two unverified citations were near-misses (edge
+punctuation — now normalized; a quote stitched across a dialogue
+interruption — correctly stays flagged). Known residual: Fausto's
+birth-order contradiction (p.13 "tercer hermano" vs p.121 "el mayor")
+propagated into the spine unflagged; watch in the benchmark. Costs rose to
+$0.68/$0.75 per script — one repair each (major_turns count now stated in
+the prompt; the Sonnet audit retry working as designed) plus the 16-claim
+audit; the $0.60 target predates the audit teeth and the working cap is
+now ~$0.75. Next gate: the 20-script benchmark (≤$25, requires Billy's
+authorization). The route remains DISABLED by default in production.**
 
 Coverage V1 is the replacement for V9's paid analysis machinery recommended by
 [`SCREENPLAY-DASHBOARD-REASSESSMENT.md`](SCREENPLAY-DASHBOARD-REASSESSMENT.md).

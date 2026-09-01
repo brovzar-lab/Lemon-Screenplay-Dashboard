@@ -88,6 +88,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         if parsed is None:
             print(f"\n=== {entry['title']}: PARSE FAILED ({pdf_path}) ===")
             continue
+        # Mirror the engine's printed-page renumbering so page references in
+        # renumbered reports resolve to the same pages here.
+        text = parsed["text"]
+        offset_info = coverage_v1._detect_printed_page_offset(text)
+        if offset_info is not None and offset_info["offset"] != 0:
+            text = coverage_v1._renumber_page_markers(
+                text, offset_info["offset"]
+            )
         content_sha = ingest_v9.compute_content_hash(pdf_path)
         report_path = _find_report(reports_dir, content_sha)
         if report_path is None:
@@ -97,7 +105,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             report_path.read_text(encoding="utf-8")
         )
         coverage = report.get("coverage") or {}
-        _pages, page_texts = coverage_v1._marked_page_contents(parsed["text"])
+        _pages, page_texts = coverage_v1._marked_page_contents(text)
 
         failures = [
             (owner, item)
@@ -144,7 +152,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"  DIAGNOSIS: {verdict}")
 
         recheck = coverage_v1.verify_citations(
-            copy.deepcopy(coverage), parsed["text"]
+            copy.deepcopy(coverage), text
         )
         print(
             f"  RECHECK with current verifier: "

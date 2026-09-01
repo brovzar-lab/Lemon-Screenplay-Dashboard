@@ -515,6 +515,26 @@ class TestHappyPath(unittest.TestCase):
         self.assertTrue(item["citation_verified"])
         self.assertIn("lead_word_dropped", item["citation_match_kind"])
 
+    def test_wrong_edge_punctuation_verifies(self):
+        # Re-canary 2026-09-01: the model wrote '¡Quién...' for the text's
+        # '¿Quién...' — edge punctuation must not fail a verbatim quote.
+        kind = cv._lenient_excerpt_match_kind(
+            "JAIME grita al micrófono: ¿Quién. Es. Más. Macho? Nadie sabe.",
+            "¡Quién. Es. Más. Macho?",
+        )
+        self.assertIsNotNone(kind)
+        self.assertIn("edge_punct_stripped", kind)
+
+    def test_quote_stitched_across_speakers_stays_flagged(self):
+        # Policy: a sentence assembled from two characters' half-lines is not
+        # a verbatim quote — it must remain unverified (and flag review).
+        kind = cv._lenient_excerpt_match_kind(
+            "IKER Solo un retrasado mental. ABEL ...Dedicaría su día a "
+            "escuchar las vidas de completos extraños.",
+            "Solo un retrasado mental dedicaría su día a escuchar",
+        )
+        self.assertIsNone(kind)
+
     def test_lead_word_drop_never_rescues_short_excerpts(self):
         # Dropping the leading word requires >= 5 remaining verbatim words,
         # so short partly-wrong quotes stay flagged.

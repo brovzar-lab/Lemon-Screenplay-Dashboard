@@ -686,7 +686,10 @@ def build_coverage_user_blocks(
                 "paraphrase, translate, re-punctuate, or normalize.\n"
                 "3. strengths, concerns, and development_priorities need "
                 "exactly 3 entries each; each lens analysis needs at least "
-                "one full sentence of at least 40 characters."
+                "one full sentence of at least 40 characters.\n"
+                "4. story_spine.major_turns needs 3 to 6 entries — pick the "
+                "structurally decisive turns, never more than 6; "
+                "uncertainties at most 5; continuity_flags at most 6."
             ),
         },
     ]
@@ -939,6 +942,13 @@ def _excerpt_variants(excerpt: str) -> List[Tuple[str, str]]:
         variants.append(
             (re.sub(r"\s*/\s*", " ", excerpt), "_slash_normalized")
         )
+    # Wrong edge punctuation ("¡Quién...?" for the text's "¿Quién...?",
+    # 2026-09-01 re-canary): strip leading/trailing non-word characters —
+    # the page keeps its own punctuation as a word boundary either way.
+    for text, suffix in list(variants):
+        trimmed = re.sub(r"^\W+|\W+$", "", text, flags=re.UNICODE)
+        if trimmed and trimmed != text:
+            variants.append((trimmed, suffix + "_edge_punct_stripped"))
     for text, suffix in list(variants):
         words = text.split()
         if len(words) - 1 >= _MIN_WORDS_AFTER_LEAD_DROP:
