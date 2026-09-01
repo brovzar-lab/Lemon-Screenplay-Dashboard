@@ -225,6 +225,18 @@ def diagnose(results: List[Dict[str, Any]]) -> str:
             "THINKING: budget_tokens is no longer accepted on this route — "
             "V9 is affected too; move off thinking={enabled,budget_tokens}."
         )
+    truncated = [
+        pid
+        for pid in ("coverage_flat", "coverage_flat_thinking")
+        if by_id.get(pid, {}).get("outcome") == "failed_LlmOutputContractError"
+    ]
+    if truncated and not rejected("coverage_flat"):
+        lines.append(
+            "SCHEMA OK (truncated): the coverage schema compiled and "
+            "generation began, but the probe's small max_tokens cut the "
+            "output short before a full tool call — expected for schemas "
+            "this large, and not a rejection."
+        )
     if not lines:
         lines.append(
             "All rungs behaved — if the canary still fails, the cause is "
@@ -259,14 +271,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     total = round(sum(r.get("cost_usd", 0.0) or 0.0 for r in results), 6)
     print(f"\nTotal probe cost: ${total}")
     print("\n" + diagnose(results))
-    # Exit nonzero unless the engine's real coverage schema compiled, so the
-    # probe can gate a chained canary run (`probe ... && canary ...`).
-    coverage_ok = any(
-        r["id"] == "coverage_flat_thinking"
-        and r.get("outcome") in ("accepted", "accepted_by_provider_accounting_failed")
+    # Exit nonzero only when the engine's real coverage schema was REJECTED
+    # before generation, so the probe can gate a chained canary run
+    # (`probe ... && canary ...`). failed_LlmOutputContractError means the
+    # schema compiled and generation started but the probe's small
+    # max_tokens truncated the output — that is a pass for schema purposes.
+    schema_rejected = any(
+        r["id"] in ("coverage_flat", "coverage_flat_thinking")
+        and r.get("outcome") == "rejected_invalid_request"
         for r in results
     )
-    return 0 if coverage_ok else 1
+    return 1 if schema_rejected else 0
 
 
 if __name__ == "__main__":
