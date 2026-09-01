@@ -31,8 +31,10 @@
   full record in the `docs/COVERAGE-V1.md` status header): all 5 sealed,
   human bars confirmed by Billy (spines/endings correct incl. Oro, notes
   pay-worthy), zero fabricated citations, worst settled cost $0.53/script,
-  resume drill repaid nothing. Next gate: the **20-script benchmark**
-  (≤$25) — requires Billy's explicit authorization. The route is still
+  resume drill repaid nothing. **Billy authorized $25 for the 20-script
+  benchmark on 2026-09-01** (separate grant; canary grant ~$7.98/$10 spent,
+  Slasher v1.1 resume ~$0.30 in flight). Benchmark runs once the resume
+  seals and Billy provides/approves the 20 titles. The route is still
   disabled by default; promotion into production is a separate decision
   after the benchmark.
 - **Calibration loop live:** Billy's line-by-line audit briefs live verbatim

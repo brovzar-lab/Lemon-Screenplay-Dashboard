@@ -35,8 +35,10 @@ propagated into the spine unflagged; watch in the benchmark. Costs rose to
 $0.68/$0.75 per script — one repair each (major_turns count now stated in
 the prompt; the Sonnet audit retry working as designed) plus the 16-claim
 audit; the $0.60 target predates the audit teeth and the working cap is
-now ~$0.75. Next gate: the 20-script benchmark (≤$25, requires Billy's
-authorization). The route remains DISABLED by default in production.**
+now ~$0.75. **BENCHMARK AUTHORIZED 2026-09-01: Billy approved $25 for the
+20-script benchmark** (its own grant, separate from the canary's $10 of
+which ~$7.98 is spent; a ~$0.30 Slasher resume under the old grant is in
+flight). The route remains DISABLED by default in production.**
 
 Coverage V1 is the replacement for V9's paid analysis machinery recommended by
 [`SCREENPLAY-DASHBOARD-REASSESSMENT.md`](SCREENPLAY-DASHBOARD-REASSESSMENT.md).
