@@ -459,6 +459,53 @@ class TestHappyPath(unittest.TestCase):
         self.assertEqual(summary["unverified"], 1)
         self.assertFalse(coverage["strengths"][1]["citation_verified"])
 
+    def test_not_applicable_lens_grade_seals_without_verdict_penalty(self):
+        # Calibration rule 8 (Matadero brief): a lens that does not apply
+        # grades "not_applicable" and never counts against the script.
+        coverage = valid_coverage()
+        coverage["lens_notes"][0]["grade"] = "not_applicable"
+        coverage["genre_contract"]["met"] = True
+        coverage["verdict"] = "RECOMMEND"
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (supported_audit(coverage), settled_usage()),
+            ]
+        )
+        report, _usage = run_engine(new_store(), transport)
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(report["verdict"], "RECOMMEND")
+        self.assertEqual(report["cost"]["repair_calls_used"], 0)
+        self.assertEqual(
+            report["coverage"]["lens_notes"][0]["grade"], "not_applicable"
+        )
+
+    def test_calibration_rules_reach_the_prompts(self):
+        # The Matadero calibration brief's distilled rules must actually be
+        # in the text the model sees, and the report must state its page
+        # convention (rule 9).
+        system_text = cv.build_coverage_system_blocks("LENSES")[0]["text"]
+        for sentinel in (
+            "not_applicable",
+            "NOT LOCATED:",
+            "ledger",
+            "dialogue",
+            "reversal in the middle",
+            "sharpen the existing setup",
+            "[PAGE N]",
+        ):
+            self.assertIn(sentinel, system_text, sentinel)
+        self.assertIn("staging", cv.AUDIT_CHARTER)
+        coverage = valid_coverage()
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (supported_audit(coverage), settled_usage()),
+            ]
+        )
+        report, _usage = run_engine(new_store(), transport)
+        self.assertIn("[PAGE N]", report["page_convention"])
+
     def test_cost_split_keeps_uncertain_separate(self):
         coverage = valid_coverage()
         transport = FakeTransport(

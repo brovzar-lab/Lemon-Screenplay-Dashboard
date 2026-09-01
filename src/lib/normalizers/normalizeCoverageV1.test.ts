@@ -283,6 +283,32 @@ describe('normalizeCoverageV1Screenplay', () => {
     ]);
   });
 
+  it('keeps not_applicable lens grades and drops unknown ones', () => {
+    const coverage = coveragePayload();
+    coverage.lens_notes = [
+      {
+        lens: 'comedy-contract',
+        grade: 'not_applicable',
+        analysis: 'Horror directo; el contrato de comedia no aplica a este guion.',
+        citations: [],
+      },
+      {
+        lens: 'structure',
+        grade: 'excellent',
+        analysis: 'Grado inventado que debe descartarse.',
+        citations: [],
+      },
+    ];
+    const result = normalizeCoverageV1Screenplay(coverageV1Report({ coverage }), 'Analysis');
+    expect(result.lensGrades).toEqual([
+      {
+        lens: 'comedy-contract',
+        grade: 'not_applicable',
+        note: expect.stringContaining('no aplica'),
+      },
+    ]);
+  });
+
   it('surfaces needs_review as a blocking warning with the review reasons', () => {
     const result = normalizeCoverageV1Screenplay(
       coverageV1Report({

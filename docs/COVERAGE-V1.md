@@ -59,6 +59,27 @@ PDF → [existing] parse + page markers + hashes + dedupe + immutable archive   
   checkpoints. The existing server-side $100/day gate still applies to every
   call.
 
+## Calibration briefs
+
+Billy's line-by-line human audits of sealed coverage against the actual
+screenplay are the engine's calibration mechanism. Each brief is stored
+verbatim under `docs/calibration/` and distilled into permanent HOUSE
+READING RULES in `COVERAGE_CHARTER` (`execution/coverage_v1.py`); the
+verbatim brief is the source of record. Absorbed so far:
+
+- **2026-08-31 Matadero** (`docs/calibration/2026-08-31-matadero-calibration-brief.md`):
+  ten reading rules — dialogue is a claim, never collapse a multi-stage
+  climax, never invent a structural beat ("NOT LOCATED:" instead), search
+  for the plant before prescribing one, classify violence by function,
+  count from a ledger, reconcile fields before sealing, `not_applicable`
+  lens grades (schema + dashboard support added), one page-number
+  convention stated per report (`page_convention`), and supporting-cast
+  theme tells. The audit charter also gained the dialogue-vs-staging rule.
+
+Note: a distilled prompt change alters `prompt_sha256`, which deliberately
+invalidates existing checkpoints — the next run of any script re-pays both
+calls under the new rules.
+
 ## Methodology lenses
 
 Billy's 30 screenwriting skills are imported verbatim under

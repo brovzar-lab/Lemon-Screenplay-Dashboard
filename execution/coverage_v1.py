@@ -68,7 +68,7 @@ REPAIR_THINKING_BUDGET = 2_000
 
 VERDICTS = ("PASS", "CONSIDER", "RECOMMEND", "FILM_NOW")
 CONFIDENCES = ("high", "medium", "low")
-GRADES = ("strong", "solid", "weak")
+GRADES = ("strong", "solid", "weak", "not_applicable")
 FORMATS = ("feature", "tv_pilot")
 
 MAX_AUDIT_CLAIMS = 25
@@ -512,6 +512,54 @@ Ground rules:
 - Never inflate. `champion_reason` is the strongest honest case for the
   script; `pass_reason` is the strongest honest case against it. Both are
   always required, whatever the verdict.
+
+HOUSE READING RULES (from line-by-line human audits of past coverage; these
+are permanent and non-negotiable):
+1. Dialogue is a character's CLAIM, never a fact. Before reporting any story
+   fact sourced from a spoken line, check whether staging elsewhere confirms
+   or contradicts it. When staging contradicts dialogue, the staging is the
+   truth and the contradiction is usually the scene's point — report the
+   irony, not the line. (Example failure: reporting "the killer was found"
+   because a character says so, when the next cut shows him alive.)
+2. The last scene is not the last line, and a climax is not one action. Walk
+   the climax beat by beat and look for a reversal in the middle: if the
+   antagonist survives the protagonist's first decisive action, that
+   survival and whatever breaks the deadlock are the most important content
+   of the sequence and MUST appear in story_spine.climax. Never collapse a
+   multi-stage climax into its final image.
+3. Never invent a beat to fill a structural slot. If a lens's required beat
+   (All Is Lost, Break into Two, an obligatory scene) cannot be located on a
+   specific page with a quotable line of action, write "NOT LOCATED:" plus
+   what you looked for. A missing beat is a legitimate, often valuable
+   finding; a fabricated one is the most damaging output possible.
+4. Before any note of the form "this is unprepared" or "add a setup", run a
+   backward search for the payoff's key nouns, objects, and lines — check
+   INSERT and ANGLE headings specifically, writers plant there. If the setup
+   exists, the note becomes "sharpen the existing setup at p.X", citing the
+   page. Prescribing something already built destroys the credibility of
+   every other note.
+5. Classify each violent beat by FUNCTION before intensity: who performs it,
+   to whom, what it reveals or sets up. Self-directed violence, ritual, and
+   disposal are character and theme material, not kill inventory. Only beats
+   where a character dies count as kills.
+6. Count from a ledger, never from memory. Before writing prose, build an
+   explicit internal ledger of deaths, injuries, and major reveals with page
+   numbers; derive every count, ratio, and page-range claim from it. Never
+   free-write a number.
+7. Reconcile your own fields before submitting. The ending, the climax,
+   every character death, and any image called "final image" must tell ONE
+   story across story_spine, synopsis, and every lens note. If two of your
+   readings disagree, resolve against the page.
+8. A lens that does not apply does not grade. Declare applicability first;
+   if a lens does not fit this script (e.g. a comedy contract on a straight
+   horror), set its grade to "not_applicable" with one sentence of genre-fit
+   explanation, and never let it count against the script.
+9. Every page reference is the number in the [PAGE N] markers of the text
+   provided — never a printed page-header number from inside the document.
+10. For every significant supporting character, ask what theme they carry
+   and what physical or verbal tell tracks their state (a stutter that
+   fades, a pill bottle, a repeated phrase). Name the tell and cite it —
+   these observations are what make coverage read like a person wrote it.
 """
 
 AUDIT_CHARTER = """\
@@ -526,6 +574,11 @@ claim, decide only whether the claim is literally what happens on the page:
 
 You do NOT judge quality, craft, scores, or whether the screenplay is good.
 Keep every note to one factual sentence. Classify every claim exactly once.
+
+Dialogue is a character's claim, not a fact. If a claim's only support is a
+spoken line, check whether the staging (action lines, cuts, final images)
+confirms or contradicts it; staging that contradicts the dialogue makes the
+claim contradicted, even when the line is quoted accurately.
 """
 
 
@@ -546,9 +599,15 @@ def build_coverage_system_blocks(lens_cards_text: str) -> List[Dict[str, Any]]:
                 "# METHODOLOGY LENSES\n\n"
                 "Read the screenplay through every lens below. Each lens must "
                 "appear exactly once in `lens_notes` (use its `id` as the "
-                "`lens` value) with a grade and page-cited analysis. Apply "
+                "`lens` value) with a grade and page-cited analysis. Declare "
+                "each lens's applicability first: a lens that does not fit "
+                "this script grades \"not_applicable\" with one sentence of "
+                "genre-fit explanation and never counts against the script. "
+                "Apply "
                 "any genre-contract lens that matches the script's actual "
-                "genre; report the result in `genre_contract`. If no "
+                "genre; report the result in `genre_contract`; a "
+                "genre-contract lens for a DIFFERENT genre grades "
+                "\"not_applicable\". If no "
                 "genre-contract lens matches the script's genre, state the "
                 "genre's own core promise in `genre_contract.contract` and "
                 "judge against that.\n\n"
@@ -1432,6 +1491,11 @@ def run_coverage_v1(
         "title": title,
         "format": fmt,
         "page_count": page_count,
+        "page_convention": (
+            "All page references are physical PDF pages ([PAGE N] parser "
+            "markers). Printed page-header numbers inside the document may "
+            "be offset by front matter such as a title page."
+        ),
         "word_count": word_count,
         "content_sha256": content_sha256,
         "parser_version": parser_version,

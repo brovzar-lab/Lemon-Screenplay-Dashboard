@@ -429,7 +429,7 @@ export interface FilmNowAssessment {
 // COVERAGE V1 (lean coverage engine — optional, additive)
 // ============================================
 
-export type LensGradeValue = 'strong' | 'solid' | 'weak';
+export type LensGradeValue = 'strong' | 'solid' | 'weak' | 'not_applicable';
 
 /** One qualitative lens verdict from a coverage_v1 report. Never a score. */
 export interface LensGrade {

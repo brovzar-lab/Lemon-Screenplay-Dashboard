@@ -292,7 +292,14 @@ export function normalizeCoverageV1Screenplay(
         const record = asRecord(item);
         const lens = asString(record?.lens).trim();
         const grade = asString(record?.grade);
-        if (!lens || (grade !== 'strong' && grade !== 'solid' && grade !== 'weak')) return [];
+        if (
+          !lens ||
+          (grade !== 'strong' &&
+            grade !== 'solid' &&
+            grade !== 'weak' &&
+            grade !== 'not_applicable')
+        )
+          return [];
         return [{ lens, grade, note: asString(record?.analysis) }];
       })
     : [];
