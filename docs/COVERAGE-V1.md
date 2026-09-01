@@ -94,6 +94,17 @@ verbatim brief is the source of record. Absorbed so far:
   lens grades (schema + dashboard support added), one page-number
   convention stated per report (`page_convention`), and supporting-cast
   theme tells. The audit charter also gained the dialogue-vs-staging rule.
+- **2026-09-01 Slasher** (`docs/calibration/2026-09-01-slasher-calibration-brief.md`,
+  the generalization test — a fresh run on a script that contributed no
+  rules): Part Zero confirmed the brief #1/#2 fixes all landed. New, as
+  **engine coverage-v1.1**: a code-generated CHARACTER PAGE INDEX in both
+  prompts kills the now-proven-systematic false-absence bias at the source;
+  house rules 14–16 (relationship graph, behavior ledger, scene function
+  before condemnation); a **fact-repair stage** — central claims the audit
+  marks partially supported are rewritten per the auditor's notes and
+  re-audited before sealing (call ceiling 3 → 5, contradictions still go
+  straight to human review); and `support_rate` weighted so partials count
+  0.5 (a review-flagged report can no longer read 1.0).
 - **2026-09-01 Hermanos** (`docs/calibration/2026-09-01-hermanos-calibration-brief.md`):
   three new reading rules (unseeded/deus-ex-machina claims require an
   exact-string backward search; read to the sequence end plus one page for

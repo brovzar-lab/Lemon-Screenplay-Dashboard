@@ -583,6 +583,11 @@ class TestHappyPath(unittest.TestCase):
             "continuity_flags",
             "one page past",
             "no turn",
+            # Slasher brief #3 rules:
+            "HIGH-RISK ASSERTIONS",
+            "relationship graph",
+            "behavior ledger",
+            "function-free",
         ):
             self.assertIn(sentinel, system_text, sentinel)
         self.assertIn("staging", cv.AUDIT_CHARTER)
@@ -638,6 +643,25 @@ class TestHappyPath(unittest.TestCase):
                 for r in report["review_reasons"]
             )
         )
+
+    def test_character_page_index_is_authoritative_and_in_both_prompts(self):
+        # Brief #3, part one: absence claims failed three scripts in a row —
+        # both models now receive a code-generated character page index.
+        index = cv.build_character_page_index(SCREENPLAY_TEXT)
+        self.assertIn("DIEGO", index)
+        self.assertNotIn("INT", index.split(":")[0])
+        coverage_blocks = cv.build_coverage_user_blocks(
+            SCREENPLAY_TEXT, "El Último Portero", 6, "feature", FEATURE_STACK
+        )
+        audit_blocks = cv.build_audit_user_blocks(
+            SCREENPLAY_TEXT,
+            "El Último Portero",
+            cv.build_audit_claims(valid_coverage()),
+        )
+        for blocks in (coverage_blocks, audit_blocks):
+            joined = "\n".join(str(b.get("text", "")) for b in blocks)
+            self.assertIn("CHARACTER PAGE INDEX", joined)
+            self.assertIn("AUTHORITATIVE", joined)
 
     def test_audit_instruction_states_exact_claim_count(self):
         # Haiku drops the last claim on long lists (Hermanos and Slasher
@@ -954,10 +978,111 @@ class TestFactAudit(unittest.TestCase):
         # coverage + coverage repair + audit = 3 calls; no fourth.
         self.assertEqual(len(transport.calls), 3)
 
-    def test_partially_supported_central_fact_recommends_review(self):
+    def test_central_partial_is_fact_repaired_and_reaudited(self):
+        # Brief #3, defect 6: an audit-identified factual imprecision in a
+        # central claim is rewritten per the note and re-audited before
+        # sealing — never sealed with the error and its proof both intact.
         coverage = valid_coverage()
         audit = supported_audit(coverage)
         audit["verdicts"][0]["classification"] = "partially_supported"
+        audit["verdicts"][0]["note"] = (
+            "Diego tiene 58 años pero el guion nunca lo llama 'legendario'."
+        )
+        corrections = {
+            "corrections": [
+                {
+                    "claim_id": "spine.protagonist",
+                    "corrected_text": (
+                        "Diego Salas, un portero retirado de 58 años"
+                    ),
+                }
+            ]
+        }
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["protagonist"] = (
+            "Diego Salas, un portero retirado de 58 años"
+        )
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (corrections, settled_usage()),
+                (supported_audit(corrected), settled_usage()),
+            ]
+        )
+        report, usage = run_engine(new_store(), transport)
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(len(transport.calls), 4)
+        self.assertEqual(
+            report["coverage"]["story_spine"]["protagonist"],
+            "Diego Salas, un portero retirado de 58 años",
+        )
+        self.assertEqual(report["fact_audit"]["support_rate"], 1.0)
+        self.assertFalse(report["human_review_recommended"])
+        info = report["diagnostics"]["fact_repair"]
+        self.assertTrue(info["attempted"])
+        self.assertEqual(info["applied"], ["spine.protagonist"])
+        self.assertTrue(info["reaudited"])
+        # The fact-repair call never resends the screenplay.
+        fact_call = transport.calls[2]
+        blocks = fact_call["user_blocks"]
+        self.assertFalse(
+            any("Tepito" in str(b.get("text", "")) for b in blocks)
+        )
+
+    def test_partial_surviving_reaudit_seals_with_review_flag(self):
+        # An interpretive partial that survives the rewrite seals honestly:
+        # review flag on, support_rate below 1.0 (defect 7).
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["verdicts"][0]["classification"] = "partially_supported"
+        corrections = {
+            "corrections": [
+                {"claim_id": "spine.protagonist", "corrected_text": "Diego Salas, portero retirado, 58"}
+            ]
+        }
+        still_partial = supported_audit(coverage)
+        still_partial["verdicts"][0]["classification"] = "partially_supported"
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (corrections, settled_usage()),
+                (still_partial, settled_usage()),
+            ]
+        )
+        report, _usage = run_engine(new_store(), transport)
+        self.assertEqual(report["status"], "sealed")
+        self.assertTrue(report["human_review_recommended"])
+        self.assertLess(report["fact_audit"]["support_rate"], 1.0)
+
+    def test_contradiction_after_fact_repair_blocks_the_seal(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["verdicts"][0]["classification"] = "partially_supported"
+        corrections = {
+            "corrections": [
+                {"claim_id": "spine.protagonist", "corrected_text": "Un protagonista completamente distinto"}
+            ]
+        }
+        contradicted = supported_audit(coverage)
+        contradicted["verdicts"][0]["classification"] = "contradicted"
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (corrections, settled_usage()),
+                (contradicted, settled_usage()),
+            ]
+        )
+        report, _usage = run_engine(new_store(), transport)
+        self.assertEqual(report["status"], "needs_review")
+
+    def test_contradicted_central_fact_never_triggers_fact_repair(self):
+        # A fundamentally wrong read goes to human review, not a patch.
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["verdicts"][0]["classification"] = "contradicted"
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
@@ -965,8 +1090,8 @@ class TestFactAudit(unittest.TestCase):
             ]
         )
         report, _usage = run_engine(new_store(), transport)
-        self.assertEqual(report["status"], "sealed")
-        self.assertTrue(report["human_review_recommended"])
+        self.assertEqual(report["status"], "needs_review")
+        self.assertEqual(len(transport.calls), 2)
 
 
 class TestBudget(unittest.TestCase):

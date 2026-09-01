@@ -44,7 +44,15 @@
   required `continuity_flags` field + concerns/pass_reason audited with an
   absence-claim search rule + nonzero unverified citations force
   human_review_recommended + printed-page renumbering detected from page
-  headers in code. **Re-run 2026-09-01 VALIDATED both briefs** ($1.43,
+  headers in code. Brief #3 (Slasher fresh run, 2026-09-01, ~$7.25 of $10
+  spent) confirmed briefs #1-#2 landed and exposed the false-absence bias
+  as systematic → absorbed as **engine coverage-v1.1**: code-generated
+  CHARACTER PAGE INDEX in both prompts, rules 14-16 (relationship graph,
+  behavior ledger, scene function), a fact-repair stage (audit-flagged
+  central partials rewritten per audit notes + re-audited before sealing;
+  call ceiling 3→5), weighted support_rate (partials 0.5). All old
+  checkpoints invalidated by design. **Re-run 2026-09-01 VALIDATED briefs
+  #1-#2** ($1.43,
   cumulative $6.46 of the $10): corrected Matadero ending/climax, Hermanos
   loophole note replaced by the real scoring incoherence, not_applicable
   contracts, printed pages, continuity sweep caught 4 real errors incl. a

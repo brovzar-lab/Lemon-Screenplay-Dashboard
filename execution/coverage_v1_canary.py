@@ -259,9 +259,11 @@ def run_canary(
                     "coverage_replayed"
                 ]
                 drill["resume_run_call_count"] = int(usage.get("call_count", 0))
+                # Resume may legitimately run audit + audit retry + fact
+                # repair + re-audit (4 calls); repaying coverage would be 5+.
                 drill["repaid_nothing"] = (
                     drill["resumed_coverage_replayed"]
-                    and drill["resume_run_call_count"] <= 2
+                    and drill["resume_run_call_count"] <= 4
                 )
                 scorecard["resume_drill"] = {**drill, "script": title}
                 if not drill["repaid_nothing"]:
@@ -339,8 +341,10 @@ def run_canary(
         bars["every_script_within_cap"] = all(
             s["cost"]["charged_usd"] <= max_script_usd + 1e-9 for s in completed
         )
-        bars["max_three_calls_per_script"] = all(
-            s["cost"]["call_count"] <= 3 for s in completed
+        # 2 base calls + 1 structure/audit repair + fact repair + re-audit
+        # (engine v1.1, calibration brief #3 governance stage).
+        bars["max_five_calls_per_script"] = all(
+            s["cost"]["call_count"] <= 5 for s in completed
         )
         bars["zero_unverified_citations"] = all(
             (s.get("citations_unverified") or 0) == 0 for s in completed

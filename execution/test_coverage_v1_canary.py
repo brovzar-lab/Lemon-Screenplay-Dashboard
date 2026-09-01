@@ -140,7 +140,7 @@ class PaidBatchTests(unittest.TestCase):
         bars = scorecard["automated_bars"]
         self.assertTrue(bars["batch_within_authorization"])
         self.assertTrue(bars["every_script_within_cap"])
-        self.assertTrue(bars["max_three_calls_per_script"])
+        self.assertTrue(bars["max_five_calls_per_script"])
         self.assertTrue(bars["zero_unverified_citations"])
         self.assertTrue(bars["resume_repaid_nothing"])
         self.assertTrue(bars["settled_cost_target_060"])

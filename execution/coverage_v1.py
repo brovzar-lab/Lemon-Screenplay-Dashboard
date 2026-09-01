@@ -52,7 +52,7 @@ from source_evidence import (  # noqa: E402
     _marked_page_contents,
 )
 
-ENGINE_VERSION = "coverage-v1.0"
+ENGINE_VERSION = "coverage-v1.1"
 ENGINE_NAME = "coverage_v1"
 
 MAX_REPAIR_CALLS = 1
@@ -441,6 +441,34 @@ REPAIR_TOOL: Dict[str, Any] = {
 }
 
 
+FACT_REPAIR_TOOL: Dict[str, Any] = {
+    "name": "submit_fact_corrections_v1",
+    "description": (
+        "Rewrite exactly the named coverage claims so they are factually "
+        "precise per the auditor's notes. Change nothing else."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "corrections": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "claim_id": {"type": "string"},
+                        "corrected_text": {"type": "string"},
+                    },
+                    "required": ["claim_id", "corrected_text"],
+                },
+                "minItems": 1,
+                "maxItems": 12,
+            },
+        },
+        "required": ["corrections"],
+    },
+}
+
+
 def strict_schema_complexity(schema: Dict[str, Any]) -> Dict[str, int]:
     """Content-free compiler-risk metrics (same walk as ingest_v9)."""
     stats = {
@@ -477,7 +505,7 @@ def strict_schema_complexity(schema: Dict[str, Any]) -> Dict[str, int]:
 
 def assert_schemas_compiler_safe() -> None:
     """Refuse to run with schemas that risk the V9 string-envelope trap."""
-    for tool in (COVERAGE_TOOL, AUDIT_TOOL, REPAIR_TOOL):
+    for tool in (COVERAGE_TOOL, AUDIT_TOOL, REPAIR_TOOL, FACT_REPAIR_TOOL):
         stats = strict_schema_complexity(tool["input_schema"])
         for metric, ceiling in STRICT_BUDGET.items():
             if stats[metric] > ceiling:
@@ -543,16 +571,20 @@ are permanent and non-negotiable):
    specific page with a quotable line of action, write "NOT LOCATED:" plus
    what you looked for. A missing beat is a legitimate, often valuable
    finding; a fabricated one is the most damaging output possible.
-4. Before any note of the form "this is unprepared" or "add a setup", run a
-   backward search for the payoff's key nouns, objects, and lines — check
-   INSERT and ANGLE headings specifically, writers plant there. If the
-   payoff quotes a document, a rule, or a line of dialogue, search for that
-   exact string FIRST. Any "unseeded / deus ex machina / convenient" claim
-   must state what you searched for and what the search returned. If the
-   setup exists, the note becomes "convert the existing mention on p.X into
-   a played scene" or "sharpen the existing setup at p.X", citing the page.
-   Prescribing something already built destroys the credibility of every
-   other note — this failure has now been caught twice in human audits.
+4. HIGH-RISK ASSERTIONS: any sentence containing "unresolved", "unprepared",
+   "unseeded", "never established", "never mentioned again", "disappears",
+   "abandoned", "no runway", "deus ex machina", or "convenient" may not be
+   written until a disconfirming full-text search has been run, and the
+   sentence must state what was searched and what the search returned. This
+   bias has now been caught in THREE consecutive human audits. Before any
+   "add a setup" note, run a backward search for the payoff's key nouns,
+   objects, and lines — check INSERT and ANGLE headings specifically. If
+   the payoff quotes a document, rule, or line, search that exact string
+   FIRST. A claim that a character is never mentioned again after page N
+   requires checking the CHARACTER PAGE INDEX for that name; any later page
+   listed refutes the claim. If the setup or mention exists, the note
+   becomes "convert the existing mention on p.X into a played scene" or
+   "sharpen the existing setup at p.X", citing the page.
 5. Classify each violent beat by FUNCTION before intensity: who performs it,
    to whom, what it reveals or sets up. Self-directed violence, ritual, and
    disposal are character and theme material, not kill inventory. Only beats
@@ -590,8 +622,27 @@ are permanent and non-negotiable):
 13. A pacing note may say a sequence is long, or that its escalation is
    quantitative rather than qualitative. It may NOT say a sequence has "no
    variation" or "no turn" without first checking the sequence's final
-   beat. Every reference to a given sequence must use one and the same page
-   range everywhere in the report.
+   beat. Every reference to a given scene or sequence — in the spine, the
+   lenses, continuity_flags, anywhere — must resolve to one and the same
+   page or page range; reconcile before submitting.
+14. Build a relationship graph before writing any prose: for every named
+   character, establish their relation to every other named character from
+   an explicit page and quote. Never infer a relationship from proximity,
+   shared surname, or who owns a location. Where characters are
+   step-siblings, know which parent is whose. (Caught failure: calling a
+   protagonist's own father "another character's stepfather" and inverting
+   an entire blended family.)
+15. Before asserting that a character's turn is unearned or lacks runway,
+   build a behavior ledger for that character: every choice they make under
+   pressure, with page. If the ledger holds two or more prior beats
+   consistent with the turn, the claim must be reframed as "the runway is
+   present but thin — sharpen the beats at p.X and p.Y", citing them.
+16. Before judging a scene gratuitous, exploitative, or function-free, list
+   what it sets up, pays off, and changes about who each character is. A
+   scene that resolves a planted rule or stages a character's decisive
+   moral choice is never function-free, whatever its content — raise
+   content and rating concerns as classification and staging notes, not as
+   genre-contract failures.
 """
 
 AUDIT_CHARTER = """\
@@ -613,11 +664,96 @@ confirms or contradicts it; staging that contradicts the dialogue makes the
 claim contradicted, even when the line is quoted accurately.
 
 A claim asserting ABSENCE — that something is never set up, never hinted,
-never established, unprepared, or comes out of nowhere — requires searching
-the ENTIRE screenplay for the referenced language, object, or rule before
-classifying. If you find the setup the claim says does not exist, the claim
-is contradicted; quote the page where it exists in your note.
+never established, never mentioned again, unresolved, unprepared, or comes
+out of nowhere — requires searching the ENTIRE screenplay for the referenced
+language, object, character, or rule before classifying, and checking the
+CHARACTER PAGE INDEX when the claim concerns a character. If you find the
+setup or mention the claim says does not exist, the claim is contradicted;
+quote the page where it exists in your note.
 """
+
+FACT_REPAIR_CHARTER = """\
+You correct factual imprecision in screenplay-coverage claims using ONLY the
+auditor's notes provided. For each named claim, rewrite its text so it is
+factually precise per the note — keep everything the note does not dispute,
+remove or fix exactly what it does, and never introduce new facts, new
+interpretation, or new praise or criticism. Return one correction per named
+claim id with the submit_fact_corrections_v1 tool.
+"""
+
+
+# ── Character page index (local, deterministic) ─────────────────────────────
+# Brief #3: for three consecutive scripts the central criticism was a false
+# absence claim ("never mentioned again", "unprepared", "unresolved") whose
+# refutation was on the page — and the audit missed it too. Searching is what
+# code is for: both models receive an authoritative, code-generated index of
+# every page each character name appears on.
+
+_SCREENPLAY_FORMAT_WORDS = frozenset(
+    """
+    INT EXT DIA DÍA NOCHE TARDE MAÑANA AMANECER ATARDECER MADRUGADA
+    CONTINUOUS CONT CUT FADE CORTE MONTAJE INICIA TERMINA FIN INSERT ANGLE
+    POV SUPER FLASHBACK INTERCUT TITULO TÍTULO CRÉDITOS CREDITOS PAGE
+    THE AND END LOS LAS DEL CON QUE UNA UNO SUS POR PARA CASA PLAYA
+    """.split()
+)
+
+
+def _compress_page_list(pages: List[int]) -> str:
+    runs: List[str] = []
+    start = prev = pages[0]
+    for page in pages[1:] + [None]:  # type: ignore[list-item]
+        if page is not None and page == prev + 1:
+            prev = page
+            continue
+        runs.append(str(start) if start == prev else f"{start}-{prev}")
+        if page is not None:
+            start = prev = page
+    return ", ".join(runs)
+
+
+def build_character_page_index(text: str, max_names: int = 25) -> str:
+    """Pages on which each character name appears, by exact uppercase match."""
+    _numbers, pages = _marked_page_contents(text)
+    mentions: Dict[str, set] = {}
+    for page, content in pages.items():
+        for token in set(
+            re.findall(r"\b[A-ZÁÉÍÓÚÜÑ]{3,}\b", content, flags=re.UNICODE)
+        ):
+            if token in _SCREENPLAY_FORMAT_WORDS:
+                continue
+            mentions.setdefault(token, set()).add(page)
+    ranked = sorted(
+        (
+            (name, sorted(page_set))
+            for name, page_set in mentions.items()
+            if len(page_set) >= 2
+        ),
+        key=lambda item: (-len(item[1]), item[0]),
+    )
+    lines = [
+        f"{name}: {_compress_page_list(page_list)}"
+        for name, page_list in ranked[:max_names]
+    ]
+    return "\n".join(lines)
+
+
+def _character_index_block(text: str) -> Dict[str, Any]:
+    index = build_character_page_index(text)
+    return {
+        "type": "text",
+        "text": (
+            "# CHARACTER PAGE INDEX (code-generated by exact text search; "
+            "AUTHORITATIVE)\n\n"
+            "Every page on which each name appears in the screenplay text:\n\n"
+            f"{index}\n\n"
+            "Before writing or classifying ANY claim that a character is "
+            "never mentioned again, disappears, is unresolved, or is absent "
+            "after page N, check this index first — a later page listed here "
+            "refutes the claim. The index is mechanical and complete for "
+            "these names; it outranks memory."
+        ),
+    }
 
 
 def _screenplay_block(text: str) -> Dict[str, Any]:
@@ -666,6 +802,7 @@ def build_coverage_user_blocks(
     lens_checklist = "\n".join(f"  - {lens_id}" for lens_id in lens_stack)
     return [
         _screenplay_block(text),
+        _character_index_block(text),
         {
             "type": "text",
             "text": (
@@ -705,6 +842,7 @@ def build_audit_user_blocks(
     )
     return [
         _screenplay_block(text),
+        _character_index_block(text),
         {
             "type": "text",
             "text": (
@@ -1245,6 +1383,69 @@ def validate_audit_payload(
     return problems
 
 
+def _adjudicate_verdicts(
+    verdicts: Sequence[Dict[str, Any]],
+) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[str], float]:
+    """(by_claim, central_failures, central_partials, weighted support_rate).
+
+    Brief #3, defect 7: a partially supported claim weighs 0.5, so a report
+    the system itself flagged can never read as a perfect 1.0.
+    """
+    by_claim = {v["claim_id"]: v for v in verdicts}
+    central_failures = sorted(
+        claim_id
+        for claim_id, verdict in by_claim.items()
+        if is_central_claim(claim_id)
+        and verdict["classification"] in ("unsupported", "contradicted")
+    )
+    central_partials = sorted(
+        claim_id
+        for claim_id, verdict in by_claim.items()
+        if is_central_claim(claim_id)
+        and verdict["classification"] == "partially_supported"
+    )
+    score = 0.0
+    for verdict in by_claim.values():
+        if verdict["classification"] == "supported":
+            score += 1.0
+        elif verdict["classification"] == "partially_supported":
+            score += 0.5
+    support_rate = round(score / max(1, len(by_claim)), 4)
+    return by_claim, central_failures, central_partials, support_rate
+
+
+def _apply_fact_corrections(
+    coverage: Dict[str, Any],
+    corrections: Sequence[Dict[str, Any]],
+) -> Tuple[Dict[str, Any], List[str]]:
+    """Apply audit-note corrections to the spine fields the claims map to."""
+    fixed = copy.deepcopy(coverage)
+    spine = fixed.get("story_spine", {})
+    applied: List[str] = []
+    for correction in corrections:
+        if not isinstance(correction, dict):
+            continue
+        claim_id = str(correction.get("claim_id", ""))
+        corrected = str(correction.get("corrected_text", "")).strip()
+        if not corrected or not claim_id.startswith("spine."):
+            continue
+        if claim_id.startswith("spine.turn_"):
+            try:
+                index = int(claim_id.rsplit("_", 1)[1])
+            except ValueError:
+                continue
+            turns = spine.get("major_turns", [])
+            if isinstance(turns, list) and 0 <= index < len(turns):
+                turns[index]["turn"] = corrected
+                applied.append(claim_id)
+        else:
+            field = claim_id.split(".", 1)[1]
+            if field in spine:
+                spine[field] = corrected
+                applied.append(claim_id)
+    return fixed, applied
+
+
 # ── Cost accounting ──────────────────────────────────────────────────────────
 
 def _usage_cost_split(usage: Dict[str, Any]) -> Dict[str, Any]:
@@ -1401,6 +1602,7 @@ def run_coverage_v1(
             "coverage": COVERAGE_TOOL["input_schema"],
             "audit": AUDIT_TOOL["input_schema"],
             "repair": REPAIR_TOOL["input_schema"],
+            "fact_repair": FACT_REPAIR_TOOL["input_schema"],
         }
     )
     binding = checkpoint_binding(
@@ -1501,13 +1703,13 @@ def run_coverage_v1(
 
     audit_first_pass_problems: List[str] = []
     audit_model_effective = audit_model_key
+    audit_system = [
+        {
+            "type": "text",
+            "text": f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n{AUDIT_CHARTER}",
+        }
+    ]
     if audit_payload is None:
-        audit_system = [
-            {
-                "type": "text",
-                "text": f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n{AUDIT_CHARTER}",
-            }
-        ]
         audit_user = build_audit_user_blocks(text, title, claims)
 
         def _audit_call(route: str):
@@ -1566,24 +1768,164 @@ def run_coverage_v1(
         )
 
     # ── Adjudication (pure code) ────────────────────────────────────────────
-    by_claim = {v["claim_id"]: v for v in audit_payload["verdicts"]}
-    central_failures = [
-        claim_id
-        for claim_id, verdict in by_claim.items()
-        if is_central_claim(claim_id)
-        and verdict["classification"] in ("unsupported", "contradicted")
-    ]
-    central_partials = [
-        claim_id
-        for claim_id, verdict in by_claim.items()
-        if is_central_claim(claim_id)
-        and verdict["classification"] == "partially_supported"
-    ]
-    supported = sum(
-        1 for v in by_claim.values()
-        if v["classification"] in ("supported", "partially_supported")
+    by_claim, central_failures, central_partials, support_rate = (
+        _adjudicate_verdicts(audit_payload["verdicts"])
     )
-    support_rate = round(supported / max(1, len(by_claim)), 4)
+
+    # ── Stage 3: fact repair (brief #3, defect 6) ───────────────────────────
+    # The audit detects factual imprecision in central claims; a document
+    # sealing with both the error and its proof intact is worse than the
+    # error alone. Central partials get rewritten per the audit notes and
+    # re-audited, once. Contradicted central facts still go straight to
+    # human review — a fundamentally wrong read is never patched in place.
+    fact_repair_info: Dict[str, Any] = {"attempted": False}
+    if central_partials and not central_failures:
+        stage3 = _verified_payload(
+            checkpoint_store.load(checkpoint_key, "fact_repair"),
+            binding,
+            "fact_repair",
+        )
+        if stage3 is not None:
+            coverage_payload = stage3["coverage"]
+            claims = stage3["claims"]
+            audit_payload = dict(
+                audit_payload, claims=claims, verdicts=stage3["verdicts"]
+            )
+            fact_repair_info = dict(stage3.get("info", {}), replayed=True)
+            by_claim, central_failures, central_partials, support_rate = (
+                _adjudicate_verdicts(audit_payload["verdicts"])
+            )
+        else:
+            fact_repair_info = {
+                "attempted": True,
+                "target_claims": list(central_partials),
+                "applied": [],
+                "reaudited": False,
+                "outcome": "",
+            }
+            statements = {c["claim_id"]: c["statement"] for c in claims}
+            target_lines = "\n\n".join(
+                f"claim_id: {claim_id}\n"
+                f"current claim: {statements.get(claim_id, '')}\n"
+                f"auditor's note: {by_claim[claim_id].get('note', '')}"
+                for claim_id in central_partials
+            )
+            guard.check_before_call()
+            corrections_input, _text_out, usage = call(
+                system_blocks=[
+                    {"type": "text", "text": FACT_REPAIR_CHARTER}
+                ],
+                user_blocks=[
+                    {
+                        "type": "text",
+                        "text": (
+                            "# CURRENT STORY SPINE (JSON)\n\n"
+                            + json.dumps(
+                                coverage_payload.get("story_spine", {}),
+                                ensure_ascii=False,
+                                indent=1,
+                            )
+                            + "\n\n# CLAIMS TO CORRECT (with the auditor's "
+                            "findings)\n\n"
+                            f"{target_lines}\n\n"
+                            "Rewrite each named claim's field text so it is "
+                            "factually precise per the auditor's note. One "
+                            "correction per claim_id, nothing else changed."
+                        ),
+                    }
+                ],
+                model_key=model_key,
+                tool=FACT_REPAIR_TOOL,
+                thinking_budget=0,
+                max_tokens=AUDIT_MAX_TOKENS,
+                proxy_url=proxy_url,
+                job_id=job_id,
+                stage="coverage_v1.fact_repair",
+                pipeline_pass="coverage_v1",
+            )
+            usage_total = _merge_usage(usage_total, usage)
+            _note_usage(usage_sink, usage_total)
+            guard.charge(usage)
+
+            corrections = (
+                corrections_input.get("corrections", [])
+                if isinstance(corrections_input, dict)
+                else []
+            )
+            corrected_coverage, applied = _apply_fact_corrections(
+                coverage_payload, corrections
+            )
+            fact_repair_info["applied"] = applied
+            structural_problems = validate_coverage_payload(
+                corrected_coverage, lens_stack
+            )
+            if applied and not structural_problems:
+                new_claims = build_audit_claims(corrected_coverage)
+                guard.check_before_call()
+                reaudit_input, _text_out, usage = call(
+                    system_blocks=audit_system,
+                    user_blocks=build_audit_user_blocks(
+                        text, title, new_claims
+                    ),
+                    model_key=audit_model_key,
+                    tool=AUDIT_TOOL,
+                    thinking_budget=AUDIT_THINKING_BUDGET,
+                    max_tokens=AUDIT_MAX_TOKENS,
+                    proxy_url=proxy_url,
+                    job_id=job_id,
+                    stage="coverage_v1.fact_reaudit",
+                    pipeline_pass="coverage_v1",
+                )
+                usage_total = _merge_usage(usage_total, usage)
+                _note_usage(usage_sink, usage_total)
+                guard.charge(usage)
+                reaudit_problems = validate_audit_payload(
+                    reaudit_input, new_claims
+                )
+                if not reaudit_problems:
+                    coverage_payload = corrected_coverage
+                    claims = new_claims
+                    audit_payload = dict(
+                        audit_payload,
+                        claims=new_claims,
+                        verdicts=reaudit_input["verdicts"],
+                    )
+                    fact_repair_info["reaudited"] = True
+                    fact_repair_info["outcome"] = "corrections re-audited"
+                    (
+                        by_claim,
+                        central_failures,
+                        central_partials,
+                        support_rate,
+                    ) = _adjudicate_verdicts(audit_payload["verdicts"])
+                    checkpoint_store.save(
+                        checkpoint_key,
+                        "fact_repair",
+                        _sealed_record(
+                            binding,
+                            {
+                                "coverage": coverage_payload,
+                                "claims": claims,
+                                "verdicts": audit_payload["verdicts"],
+                                "info": fact_repair_info,
+                            },
+                        ),
+                    )
+                else:
+                    fact_repair_info["outcome"] = (
+                        "re-audit failed validation; original audit kept: "
+                        + "; ".join(reaudit_problems[:3])
+                    )
+            else:
+                fact_repair_info["outcome"] = (
+                    "corrections not applied ("
+                    + (
+                        "; ".join(structural_problems[:3])
+                        if structural_problems
+                        else "no applicable corrections returned"
+                    )
+                    + "); original audit kept"
+                )
 
     status = "sealed"
     review_reasons: List[str] = []
@@ -1697,6 +2039,7 @@ def run_coverage_v1(
         "diagnostics": {
             "coverage_first_pass_problems": coverage_first_pass_problems,
             "audit_first_pass_problems": audit_first_pass_problems,
+            "fact_repair": fact_repair_info,
         },
         "coverage": coverage_payload,
         "citation_verification": citation_summary,
