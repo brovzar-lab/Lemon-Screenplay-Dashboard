@@ -35,10 +35,24 @@ propagated into the spine unflagged; watch in the benchmark. Costs rose to
 $0.68/$0.75 per script — one repair each (major_turns count now stated in
 the prompt; the Sonnet audit retry working as designed) plus the 16-claim
 audit; the $0.60 target predates the audit teeth and the working cap is
-now ~$0.75. **BENCHMARK AUTHORIZED 2026-09-01: Billy approved $25 for the
-20-script benchmark** (its own grant, separate from the canary's $10 of
-which ~$7.98 is spent; a ~$0.30 Slasher resume under the old grant is in
-flight). The route remains DISABLED by default in production.**
+now ~$0.75. **Engine v1.1 VALIDATED LIVE 2026-09-01** (Slasher, sealed,
+$0.599 settled — under the original $0.60 target with the governance
+stage): the fact-repair stage fired for the first time (coverage + audit +
+fact repair + re-audit, 4 calls), rewrote the audit-flagged central claims
+and re-audited them, sealing with one honest interpretive partial and a
+weighted support_rate of 0.8889; the CHARACTER PAGE INDEX is cited by name
+in the development notes (Emiliano note reframed per rule 15), no absence
+claims, no family inversion, 11/11 citations verified. Two live failures
+on the way were absorbed into the infrastructure: a persistently missing
+audit verdict now seals as an explicit 'unclassified' with review teeth
+instead of destroying the run; the canary checkpoint store is shared
+across invocations (a per-run store had silently re-bought paid coverage);
+the structure-repair output ceiling is 16k; and any exception becomes a
+failed_closed scorecard row instead of aborting the batch. Canary grant
+closed at ~$9.20 of $10.
+**BENCHMARK AUTHORIZED 2026-09-01: Billy approved $25 for the 20-script
+benchmark** (its own grant). The route remains DISABLED by default in
+production.**
 
 Coverage V1 is the replacement for V9's paid analysis machinery recommended by
 [`SCREENPLAY-DASHBOARD-REASSESSMENT.md`](SCREENPLAY-DASHBOARD-REASSESSMENT.md).

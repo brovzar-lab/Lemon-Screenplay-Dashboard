@@ -32,9 +32,13 @@
   human bars confirmed by Billy (spines/endings correct incl. Oro, notes
   pay-worthy), zero fabricated citations, worst settled cost $0.53/script,
   resume drill repaid nothing. **Billy authorized $25 for the 20-script
-  benchmark on 2026-09-01** (separate grant; canary grant ~$7.98/$10 spent,
-  Slasher v1.1 resume ~$0.30 in flight). Benchmark runs once the resume
-  seals and Billy provides/approves the 20 titles. The route is still
+  benchmark on 2026-09-01** (separate grant; canary grant closed at
+  ~$9.20/$10 — engine v1.1 validated live on Slasher: fact-repair stage
+  fired and worked, $0.599 settled, support_rate honest at 0.8889, index
+  cited in the notes; two live failures hardened the infra: unclassified
+  audit verdicts, shared cross-run checkpoint store, 16k repair ceiling,
+  exception-proof batch loop). Benchmark runs once Billy
+  provides/approves the 20 titles. The route is still
   disabled by default; promotion into production is a separate decision
   after the benchmark.
 - **Calibration loop live:** Billy's line-by-line audit briefs live verbatim
