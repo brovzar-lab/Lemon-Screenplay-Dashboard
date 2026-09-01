@@ -1,6 +1,8 @@
 import type { Screenplay, Collection } from '@/types';
 import {
     isArchaeologyAnalysis,
+    isCoverageV1Analysis,
+    normalizeCoverageV1Screenplay,
     normalizeV9Screenplay,
 } from './normalize';
 import { loadAllAnalyses, quarantineAnalysis } from './analysisStore';
@@ -24,6 +26,11 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
                 const sp = normalizeV9Screenplay(raw, collection || 'Analysis');
                 screenplays.push(sp);
                 loadedCount++;
+            } else if (isCoverageV1Analysis(raw)) {
+                const collection = (raw.collection_id ?? raw.collection) as Collection | undefined;
+                const sp = normalizeCoverageV1Screenplay(raw, collection || 'Analysis');
+                screenplays.push(sp);
+                loadedCount++;
             } else {
                 const sourceFile = raw.source_file as string | undefined;
                 console.warn('[Lemon] Quarantining unknown format analysis:', sourceFile);
@@ -33,7 +40,7 @@ export async function normalizeAnalyses(rawList: Record<string, unknown>[]): Pro
                     newlyQuarantinedCount++;
                 }
                 try {
-                    await quarantineAnalysis(raw, 'unrecognized analysis_version (not a V9/V8 archaeology document)');
+                    await quarantineAnalysis(raw, 'unrecognized analysis_version (not a V9/V8 archaeology or coverage_v1 document)');
                 } catch {
                     /* ignore */
                 }

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createTestScreenplay } from '@/test/factories';
+import { createCoverageTestScreenplay, createTestScreenplay } from '@/test/factories';
 import i18n from '@/i18n';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 
@@ -180,6 +180,35 @@ describe('ProjectWorkspace', () => {
     expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /reanalyze/i })).not.toBeInTheDocument();
     expect(screen.getByTestId('project-tab-overview')).toBeInTheDocument();
+  });
+
+  it('presents Coverage as an unscored report instead of an unverified V9 analysis', async () => {
+    const user = userEvent.setup();
+    const onSelectTab = vi.fn();
+
+    render(
+      <ProjectWorkspace
+        screenplay={createCoverageTestScreenplay()}
+        stats={stats}
+        activeTab="overview"
+        onSelectTab={onSelectTab}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('Coverage · unscored by design').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('high')).not.toHaveLength(0);
+    expect(screen.getByText('A specific, cinematic world.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Confirm the birth-order contradiction before development.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Not verified / not rankable')).not.toBeInTheDocument();
+    expect(screen.queryByText('Decision data unavailable until verification')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reader Room' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Story X-Ray' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Coverage →' }));
+    expect(onSelectTab).toHaveBeenCalledWith('coverage');
   });
 
   it('keeps Producer Take admin-only while preserving the analysis for readers', () => {

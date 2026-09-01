@@ -7,6 +7,8 @@ import { BlueSpineScript } from '@/components/discover/screenplay/BlueSpineScrip
 import { PosterControls } from '@/components/project/PosterControls';
 import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
+import { CoverageReportPanel } from '@/components/project/CoverageReportPanel';
+import { CoverageOverview } from '@/components/project/CoverageOverview';
 import { ReaderRoom } from '@/components/project/ReaderRoom';
 import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
@@ -32,7 +34,7 @@ import {
 } from '@/lib/developmentOpportunity';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { analysisIsEnglishFallback } from '@/lib/localizedAnalysis';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
@@ -41,12 +43,15 @@ import { useTranslation } from 'react-i18next';
 
 export type ScreenplayFileTab =
   | 'overview'
+  | 'coverage'
   | 'scores'
   | 'reader-room'
   | 'story-x-ray'
   | 'poster'
   | 'producer-take'
   | 'notes-files';
+
+const V9_ONLY_TABS: ScreenplayFileTab[] = ['scores', 'reader-room', 'story-x-ray', 'poster'];
 
 interface ScreenplayFileWorkspaceProps {
   screenplay: Screenplay;
@@ -57,6 +62,7 @@ interface ScreenplayFileWorkspaceProps {
 
 const TABS: Array<{ key: ScreenplayFileTab; label: string; adminOnly?: boolean }> = [
   { key: 'overview', label: 'Overview' },
+  { key: 'coverage', label: 'Coverage' },
   { key: 'scores', label: 'Scores' },
   { key: 'reader-room', label: 'Reader Room' },
   { key: 'story-x-ray', label: 'Story X-Ray' },
@@ -72,6 +78,11 @@ const TAB_INTROS: Record<
   overview: {
     title: 'Overview',
     description: 'The decision, the strongest signals, and the evidence that needs attention.',
+  },
+  coverage: {
+    title: 'Coverage',
+    description:
+      'The sealed Coverage V1 report: verdict, story spine, methodology lenses, development priorities, and the audit trail. Unscored by design.',
   },
   scores: {
     title: 'Scores',
@@ -417,13 +428,24 @@ export function ScreenplayFileWorkspace({
     if (!isAdmin && activeTab === 'producer-take') onSelectTab('overview');
   }, [activeTab, isAdmin, onSelectTab]);
 
+  const isCoverage = isCoverageV1Screenplay(screenplay);
+  useEffect(() => {
+    // Coverage documents have no V9-shaped tabs; V9 documents have no
+    // coverage report. Land on the tab that actually exists.
+    if (isCoverage && V9_ONLY_TABS.includes(activeTab)) onSelectTab('coverage');
+    if (!isCoverage && activeTab === 'coverage') onSelectTab('overview');
+  }, [activeTab, isCoverage, onSelectTab]);
+
   const renderPanel = () => {
     if (
       analysisFallback &&
+      !isCoverage &&
       ['overview', 'scores', 'reader-room', 'story-x-ray'].includes(activeTab)
     ) {
       return null;
     }
+    if (activeTab === 'coverage')
+      return isCoverage ? <CoverageReportPanel screenplay={screenplay} /> : null;
     if (activeTab === 'scores')
       return (
         <ScoresPanel
@@ -450,7 +472,9 @@ export function ScreenplayFileWorkspace({
           />
         </div>
       );
-    return (
+    return isCoverage ? (
+      <CoverageOverview screenplay={screenplay} onOpenCoverage={() => onSelectTab('coverage')} />
+    ) : (
       <Overview
         screenplay={screenplay}
         producerAssessment={producerAssessment}
@@ -549,13 +573,18 @@ export function ScreenplayFileWorkspace({
         </div>
         <div
           className="screenplay-file__hero-score"
-          data-verdict={decisionReady ? screenplay.recommendation : 'unverified'}
+          data-verdict={decisionReady || isCoverage ? screenplay.recommendation : 'unverified'}
         >
           <span>{t('AI verdict')}</span>
           {decisionReady ? (
             <>
               <strong>{finalScore(screenplay).toFixed(1)}</strong>
               <b>{t(recommendationLabel(screenplay))}</b>
+            </>
+          ) : isCoverage ? (
+            <>
+              <strong>{t(recommendationLabel(screenplay))}</strong>
+              <b>{t('Coverage · unscored by design')}</b>
             </>
           ) : (
             <b>{t('Not verified / not rankable')}</b>
@@ -568,7 +597,13 @@ export function ScreenplayFileWorkspace({
         <div className="screenplay-file__binder">
           <div className="screenplay-file__toolbar">
             <nav aria-label={t('Screenplay file sections')} role="tablist">
-              {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => (
+              {TABS.filter((tab) => !tab.adminOnly || isAdmin)
+                .filter((tab) =>
+                  isCoverage
+                    ? !V9_ONLY_TABS.includes(tab.key)
+                    : tab.key !== 'coverage',
+                )
+                .map((tab) => (
                 <button
                   key={tab.key}
                   id={`screenplay-file-tab-${tab.key}`}

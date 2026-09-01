@@ -114,4 +114,28 @@ describe('producerCalibration client contract', () => {
       }),
     ]);
   });
+
+  it('stores verdict-only Coverage takes without inventing a producer score', () => {
+    saveLocalProducerTakeDraft({
+      projectId: 'coverage-matadero',
+      versionId: 'coverage-v1.1',
+      title: 'Matadero',
+      aiVerdict: 'recommend',
+      judgment: {
+        producerVerdict: 'recommend',
+        pursuit: 'yes',
+        fixability: 'medium',
+        confidence: 'high',
+        tasteSignals: [],
+        aiMissed: 'The middle can move faster.',
+        aiGotRight: '',
+        pillarOverrides: {},
+        includeInCalibration: false,
+      },
+    });
+
+    expect(loadLocalProducerTakeDraft('coverage-matadero')?.judgment)
+      .not.toHaveProperty('producerScore');
+    expect(loadLocalProducerAssessmentHeads()).toEqual([]);
+  });
 });

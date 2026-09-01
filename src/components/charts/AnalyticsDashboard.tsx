@@ -11,7 +11,7 @@ import { FormatChart } from './FormatChart';
 import { useCountUp } from '../../hooks/useCountUp';
 import type { BudgetCategory, Screenplay, RecommendationTier } from '@/types';
 import { useTranslation } from 'react-i18next';
-import { decisionReadyScreenplays } from '@/lib/producerProjection';
+import { decisionReadyScreenplays, isCoverageV1Screenplay } from '@/lib/producerProjection';
 
 interface AnalyticsDashboardProps {
   screenplays: Screenplay[];
@@ -73,13 +73,15 @@ export function AnalyticsDashboard({
 
   const isFiltered = totalScreenplays && totalScreenplays.length !== screenplays.length;
   const decisionScreenplays = decisionReadyScreenplays(screenplays);
-  const omittedUnverified = screenplays.length - decisionScreenplays.length;
+  const coverageCount = screenplays.filter(isCoverageV1Screenplay).length;
+  const omittedUnverified = screenplays.length - decisionScreenplays.length - coverageCount;
 
   // Raw numeric values for count-up
   const avgScoreRaw =
     decisionScreenplays.length > 0
       ? decisionScreenplays.reduce((sum, sp) => sum + sp.weightedScore, 0) / decisionScreenplays.length
       : 0;
+  const hasScoredAnalyses = decisionScreenplays.length > 0;
   const filmNowCount = decisionScreenplays.filter((sp) => sp.recommendation === 'film_now').length;
   const recommendCount = decisionScreenplays.filter((sp) => sp.recommendation === 'recommend').length;
 
@@ -163,11 +165,20 @@ export function AnalyticsDashboard({
                 {t('{{count}} unverified omitted', { count: omittedUnverified })}
               </span>
             )}
+            {coverageCount > 0 && (
+              <span className="text-sky-400">
+                {coverageCount} {t('coverage')}
+              </span>
+            )}
             <span aria-hidden="true">·</span>
             <span className="text-black-400">
               {t('Avg Score')}:{' '}
               <span className="text-emerald-400">
-                {isExpanded ? animatedAvg.toFixed(1) : avgScoreRaw.toFixed(1)}
+                {hasScoredAnalyses
+                  ? isExpanded
+                    ? animatedAvg.toFixed(1)
+                    : avgScoreRaw.toFixed(1)
+                  : t('N/A')}
               </span>
             </span>
             <span aria-hidden="true">·</span>

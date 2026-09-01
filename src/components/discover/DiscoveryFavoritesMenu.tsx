@@ -4,7 +4,8 @@ import { clsx } from 'clsx';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import type { Screenplay } from '@/types';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { useTranslation } from 'react-i18next';
 
 interface DiscoveryFavoritesMenuProps {
@@ -209,11 +210,20 @@ export function DiscoveryFavoritesMenu({ screenplays, onOpen }: DiscoveryFavorit
                                 </span>
                               )}
                             </span>
-                            <span className="dsc-num shrink-0 text-sm font-semibold">
-                              {isDecisionReady(screenplay)
-                                ? screenplay.weightedScore.toFixed(1)
-                                : t('Not verified')}
-                            </span>
+                            {isCoverageV1Screenplay(screenplay) ? (
+                              <span className="flex shrink-0 flex-col items-end gap-1">
+                                <RecommendationBadge tier={screenplay.recommendation} size="sm" />
+                                <small className="text-[0.65rem] font-semibold text-[var(--dsc-ink-3)]">
+                                  {t('Coverage · unscored by design')}
+                                </small>
+                              </span>
+                            ) : (
+                              <span className="dsc-num shrink-0 text-sm font-semibold">
+                                {isDecisionReady(screenplay)
+                                  ? screenplay.weightedScore.toFixed(1)
+                                  : t('Not verified')}
+                              </span>
+                            )}
                           </button>
                         </li>
                       );

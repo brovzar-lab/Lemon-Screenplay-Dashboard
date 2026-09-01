@@ -225,6 +225,11 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    // Port 3000 is load-bearing: Firebase auth and the local-review sign-in
+    // endpoint only work there. Never silently fall back to 3001 (a second
+    // `npm run dev` used to do exactly that and sign-in always failed on
+    // it) — refuse to start instead, so the stale server gets noticed.
+    strictPort: true,
     fs: {
       // Scope to only the .tmp data directory (for @data alias) + project root.
       // Previously `['..']` allowed the full parent directory to be served.

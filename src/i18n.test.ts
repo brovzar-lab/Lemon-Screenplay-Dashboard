@@ -18,4 +18,18 @@ describe('language preference', () => {
     setLanguageUser('billy');
     expect(i18n.language).toBe('es');
   });
+
+  it('translates Coverage V1 grades and qualitative-only states', async () => {
+    await i18n.changeLanguage('es');
+
+    expect(i18n.t('strong')).toBe('fuerte');
+    expect(i18n.t('solid')).toBe('sólido');
+    expect(i18n.t('weak')).toBe('débil');
+    expect(i18n.t('Reader-stated uncertainties')).toBe(
+      'Incertidumbres señaladas por el lector',
+    );
+    expect(i18n.t('Coverage reports are unscored by design')).toBe(
+      'Los reportes de cobertura no tienen puntaje por diseño',
+    );
+  });
 });

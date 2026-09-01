@@ -19,7 +19,7 @@ import { useShareStore } from '@/stores/shareStore';
 import { useNotesStore } from '@/stores/notesStore';
 import { useToastStore } from '@/stores/toastStore';
 import { useTranslation } from 'react-i18next';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 
 interface ShareButtonProps {
     screenplay: Screenplay;
@@ -46,6 +46,7 @@ export function ShareButton({
     const isDiscovery = presentation === 'discovery';
     const screenplayId = screenplay.sourceFile;
     const decisionReady = isDecisionReady(screenplay);
+    const isCoverage = isCoverageV1Screenplay(screenplay);
 
     const [showPopover, setShowPopover] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -176,7 +177,9 @@ export function ShareButton({
     const handleClick = () => {
         if (!decisionReady && !cachedToken) {
             useToastStore.getState().addToast(
-                t('Decision data unavailable until verification'),
+                t(isCoverage
+                    ? 'Coverage · unscored by design'
+                    : 'Decision data unavailable until verification'),
                 'warning',
             );
             return;
@@ -256,7 +259,9 @@ export function ShareButton({
                 }`}
                 title={
                     !decisionReady && !cachedToken
-                        ? t('Decision data unavailable until verification')
+                        ? t(isCoverage
+                            ? 'Coverage · unscored by design'
+                            : 'Decision data unavailable until verification')
                         : synced === false
                         ? t('Sync pending -- wait for Firestore sync before sharing')
                         : !existingLookupReady

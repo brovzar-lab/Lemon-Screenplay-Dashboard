@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 
 import { ApplicationHeader } from '@/components/layout/ApplicationHeader';
 import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
+import { CoverageOverview } from '@/components/project/CoverageOverview';
+import { CoverageReportPanel } from '@/components/project/CoverageReportPanel';
 import { DiscoveryExportActions } from '@/components/discover/DiscoveryExportActions';
 import { DiscoveryShareStatus } from '@/components/discover/DiscoveryShareStatus';
 import { ScriptCover } from '@/components/discover/ScriptCover';
@@ -29,11 +31,12 @@ import {
 import { useIsAdmin } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { analysisIsEnglishFallback } from '@/lib/localizedAnalysis';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 
 export type ProjectWorkspaceTab =
   | 'overview'
+  | 'coverage'
   | 'reader-room'
   | 'story-x-ray'
   | 'producer-take'
@@ -55,6 +58,7 @@ interface ProjectWorkspaceProps {
 
 const TABS: Array<{ key: ProjectWorkspaceTab; label: string; adminOnly?: boolean }> = [
   { key: 'overview', label: 'Overview' },
+  { key: 'coverage', label: 'Coverage' },
   { key: 'reader-room', label: 'Reader Room' },
   { key: 'story-x-ray', label: 'Story X-Ray' },
   { key: 'producer-take', label: 'Producer Take', adminOnly: true },
@@ -87,8 +91,17 @@ function trustLabel(screenplay: Screenplay): string {
   }
 }
 
-function ExecutiveRead({ screenplay }: { screenplay: Screenplay }) {
+function ExecutiveRead({
+  screenplay,
+  onOpenCoverage,
+}: {
+  screenplay: Screenplay;
+  onOpenCoverage: () => void;
+}) {
   const { t } = useTranslation();
+  if (isCoverageV1Screenplay(screenplay)) {
+    return <CoverageOverview screenplay={screenplay} onOpenCoverage={onOpenCoverage} />;
+  }
   const decisionReady = isDecisionReady(screenplay);
   return (
     <div className="space-y-6">
@@ -169,6 +182,7 @@ function ProjectHeader({
   const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
   const displayGenre = getScreenplayDisplayGenre(screenplay.genre);
   const decisionReady = isDecisionReady(screenplay);
+  const isCoverage = isCoverageV1Screenplay(screenplay);
 
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--dsc-line)] bg-[var(--dsc-surface)] shadow-2xl">
@@ -185,7 +199,11 @@ function ProjectHeader({
         <div className="p-5 sm:p-7">
           <div className="flex flex-wrap items-center gap-3">
             <span className="dsc-kicker">{t('Project workspace')}</span>
-            <AnalysisTrustBadge screenplay={screenplay} />
+            {isCoverage ? (
+              <span className="dsc-label">{t('Coverage · unscored by design')}</span>
+            ) : (
+              <AnalysisTrustBadge screenplay={screenplay} />
+            )}
             <DiscoveryShareStatus screenplay={screenplay} />
             <ProducerScoreBadge assessment={producerAssessment} />
           </div>
@@ -240,28 +258,44 @@ function ProjectHeader({
               <div className="mt-4">
                 <RecommendationBadge tier={screenplay.recommendation} size="lg" />
               </div>
-            </> : (
+            </> : isCoverage ? (
+              <>
+                <RecommendationBadge tier={screenplay.recommendation} size="lg" />
+                <strong className="mt-3 block text-sm text-sky-200">
+                  {t('Coverage · unscored by design')}
+                </strong>
+              </>
+            ) : (
               <strong className="text-base text-amber-200">
                 {t('Not verified / not rankable')}
               </strong>
             )}
           </div>
           <dl className="min-w-[13rem] space-y-2 border-l border-[#2a3b54] pl-6 text-xs xl:mt-7 xl:border-l-0 xl:border-t xl:pl-0 xl:pt-5">
-            <div className="flex justify-between gap-4">
-              <dt className="text-[#8290a5]">{t('Evidence')}</dt>
-              <dd>{t(trustLabel(screenplay))}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-[#8290a5]">{t('Readers')}</dt>
-              <dd>
-                {screenplay.analysisQuality
-                  ? t('{{completed}}/{{expected}} readers complete', {
-                      completed: screenplay.analysisQuality.completedReaders,
-                      expected: screenplay.analysisQuality.expectedReaders,
-                    })
-                  : t('Legacy analysis')}
-              </dd>
-            </div>
+            {isCoverage ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#8290a5]">{t('Confidence')}</dt>
+                <dd>{t(screenplay.coverage?.confidence ?? 'unknown')}</dd>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#8290a5]">{t('Evidence')}</dt>
+                  <dd>{t(trustLabel(screenplay))}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#8290a5]">{t('Readers')}</dt>
+                  <dd>
+                    {screenplay.analysisQuality
+                      ? t('{{completed}}/{{expected}} readers complete', {
+                          completed: screenplay.analysisQuality.completedReaders,
+                          expected: screenplay.analysisQuality.expectedReaders,
+                        })
+                      : t('Legacy analysis')}
+                  </dd>
+                </div>
+              </>
+            )}
             <div className="flex justify-between gap-4">
               <dt className="text-[#8290a5]">{t('Analysis')}</dt>
               <dd>{screenplay.analysisVersion}</dd>
@@ -289,17 +323,31 @@ export function ProjectWorkspace({
     () => exactProducerAssessment(assessmentHeads, screenplay),
     [assessmentHeads, screenplay],
   );
+  const isCoverage = isCoverageV1Screenplay(screenplay);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     window.requestAnimationFrame(() => panelRef.current?.focus({ preventScroll: true }));
   }, [activeTab, screenplay.id]);
 
+  useEffect(() => {
+    if (isCoverage && ['reader-room', 'story-x-ray'].includes(activeTab)) {
+      onSelectTab('coverage');
+    }
+    if (!isCoverage && activeTab === 'coverage') onSelectTab('overview');
+  }, [activeTab, isCoverage, onSelectTab]);
+
   const renderActiveTab = () => {
-    if (analysisFallback && ['overview', 'reader-room', 'story-x-ray'].includes(activeTab)) {
+    if (
+      analysisFallback &&
+      !isCoverage &&
+      ['overview', 'reader-room', 'story-x-ray'].includes(activeTab)
+    ) {
       return null;
     }
     switch (activeTab) {
+      case 'coverage':
+        return isCoverage ? <CoverageReportPanel screenplay={screenplay} /> : null;
       case 'reader-room':
         return <ReaderRoom screenplay={screenplay} />;
       case 'story-x-ray':
@@ -318,7 +366,10 @@ export function ProjectWorkspace({
         return isAdmin ? (
           <ProducerTake screenplay={screenplay} />
         ) : (
-          <ExecutiveRead screenplay={screenplay} />
+          <ExecutiveRead
+            screenplay={screenplay}
+            onOpenCoverage={() => onSelectTab('coverage')}
+          />
         );
       case 'notes-files':
         return (
@@ -349,7 +400,12 @@ export function ProjectWorkspace({
         );
       case 'overview':
       default:
-        return <ExecutiveRead screenplay={screenplay} />;
+        return (
+          <ExecutiveRead
+            screenplay={screenplay}
+            onOpenCoverage={() => onSelectTab('coverage')}
+          />
+        );
     }
   };
 
@@ -367,7 +423,13 @@ export function ProjectWorkspace({
           </button>
           <ProjectHeader screenplay={screenplay} producerAssessment={producerAssessment} />
           <nav aria-label={t('Project workspace')} className="project-tabs mt-4">
-            {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => (
+            {TABS.filter((tab) => !tab.adminOnly || isAdmin)
+              .filter((tab) =>
+                isCoverage
+                  ? !['reader-room', 'story-x-ray'].includes(tab.key)
+                  : tab.key !== 'coverage',
+              )
+              .map((tab) => (
               <button
                 key={tab.key}
                 type="button"
@@ -377,7 +439,7 @@ export function ProjectWorkspace({
               >
                 {t(tab.label)}
               </button>
-            ))}
+              ))}
           </nav>
           <div
             ref={panelRef}

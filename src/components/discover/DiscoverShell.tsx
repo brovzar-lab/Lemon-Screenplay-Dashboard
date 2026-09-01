@@ -19,6 +19,7 @@ import { useProducerAssessmentHeads } from '@/hooks/useProducerAssessments';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 import '@/components/discover/discovery.css';
 import { useTranslation } from 'react-i18next';
+import { isCoverageV1Screenplay } from '@/lib/producerProjection';
 
 interface DiscoverStats {
   total: number;
@@ -163,6 +164,8 @@ export function DiscoverShell({
   const reviewOnlyScreenplays = screenplays.filter(
     (screenplay) => screenplay.producerProjection?.rankable === false,
   );
+  const coverageOnly =
+    reviewOnlyScreenplays.length > 0 && reviewOnlyScreenplays.every(isCoverageV1Screenplay);
   const [featured, ...remaining] = rankableScreenplays;
   const topMatches = remaining.slice(0, 4);
   const grid = [...remaining.slice(4), ...reviewOnlyScreenplays];
@@ -256,18 +259,28 @@ export function DiscoverShell({
               ) : !featured ? (
                 <>
                   <section className="dsc-card border-amber-500/30 p-8 text-center sm:p-10">
-                    <p className="dsc-kicker">{t('Review required')}</p>
+                    <p className="dsc-kicker">{t(coverageOnly ? 'Coverage' : 'Review required')}</p>
                     <h2 className="dsc-display mt-3 text-3xl">
-                      {t('These analyses cannot be ranked yet')}
+                      {t(coverageOnly
+                        ? 'Coverage reports are unscored by design'
+                        : 'These analyses cannot be ranked yet')}
                     </h2>
                     <p className="mx-auto mt-3 max-w-xl text-[var(--dsc-ink-2)]">
-                      {t('Their screenplay evidence or specialist reader panel is incomplete. They remain available below for diagnosis, but Discovery will not promote one as the best script.')}
+                      {t(coverageOnly
+                        ? 'Their verdicts and full qualitative reports remain available below. Discovery does not rank them against scored V9 analyses.'
+                        : 'Their screenplay evidence or specialist reader panel is incomplete. They remain available below for diagnosis, but Discovery will not promote one as the best script.')}
                     </p>
                   </section>
                   <section aria-labelledby="discovery-review-only" className="cinema-shelf">
                     <div className="cinema-shelf-head">
-                      <h2 id="discovery-review-only">{t('Needs review')}</h2>
-                      <span>{t('{{count}} unranked', { count: reviewOnlyScreenplays.length })}</span>
+                      <h2 id="discovery-review-only">
+                        {t(coverageOnly ? 'Coverage reports' : 'Needs review')}
+                      </h2>
+                      <span>
+                        {t(coverageOnly ? '{{count}} coverage report' : '{{count}} unranked', {
+                          count: reviewOnlyScreenplays.length,
+                        })}
+                      </span>
                     </div>
                     <DiscoverGrid
                       screenplays={reviewOnlyScreenplays}

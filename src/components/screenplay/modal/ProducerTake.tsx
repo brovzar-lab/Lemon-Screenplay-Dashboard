@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clsx } from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 
 import {
   EMPTY_PRODUCER_JUDGMENT,
@@ -15,6 +15,7 @@ import {
   saveLocalProducerTakeDraft,
   saveLocalProducerWorkingDraft,
   submitProducerAssessment,
+  type LocalProducerJudgment,
   type LocalProducerTakeDraft,
 } from '@/lib/producerCalibration';
 import type {
@@ -33,14 +34,22 @@ function verdictLabel(value: RecommendationTier): string {
 }
 
 function judgmentFromAi(
-  producerScore: number,
+  producerScore: number | undefined,
   producerVerdict: RecommendationTier,
-): ProducerJudgment {
-  return {
+): LocalProducerJudgment {
+  const judgment: LocalProducerJudgment = {
     ...EMPTY_PRODUCER_JUDGMENT,
-    producerScore,
     producerVerdict,
   };
+  if (producerScore === undefined) delete judgment.producerScore;
+  else judgment.producerScore = producerScore;
+  return judgment;
+}
+
+function withoutProducerScore(judgment: LocalProducerJudgment): LocalProducerJudgment {
+  const localJudgment = { ...judgment };
+  delete localJudgment.producerScore;
+  return localJudgment;
 }
 
 function formatSavedAt(value: string | undefined): string {
@@ -55,18 +64,22 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
   const { t } = useTranslation();
   const projectId = screenplay.projectId ?? screenplay.id;
   const decisionReady = isDecisionReady(screenplay);
+  const isCoverage = isCoverageV1Screenplay(screenplay);
+  const initialProducerScore = isCoverage ? undefined : screenplay.weightedScore;
   const isLocalPreview = isLocalCalibrationPreviewMode();
   const [assessment, setAssessment] = useState<ProducerAssessment | null>(null);
   const [localDraft, setLocalDraft] = useState<LocalProducerTakeDraft | null>(null);
-  const [judgment, setJudgment] = useState<ProducerJudgment>(() =>
-    judgmentFromAi(screenplay.weightedScore, screenplay.recommendation),
+  const [judgment, setJudgment] = useState<LocalProducerJudgment>(() =>
+    judgmentFromAi(initialProducerScore, screenplay.recommendation),
   );
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [workingDraftRestored, setWorkingDraftRestored] = useState(false);
-  const producerVersionId = screenplay.latestVersionId ?? 'legacy-unverified';
+  const producerVersionId = isCoverage
+    ? `coverage-${screenplay.coverage?.engineVersion ?? 'v1'}`
+    : screenplay.latestVersionId ?? 'legacy-unverified';
 
   useEffect(() => {
     let active = true;
@@ -85,7 +98,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
         setJudgment(workingDraft.judgment);
         setWorkingDraftRestored(true);
       } else {
-        setJudgment(judgmentFromAi(screenplay.weightedScore, screenplay.recommendation));
+        setJudgment(judgmentFromAi(initialProducerScore, screenplay.recommendation));
         setWorkingDraftRestored(false);
       }
       setEditing(!isExactLocalVersion || isExactWorkingVersion);
@@ -112,7 +125,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
             setJudgment(workingDraft.judgment);
             setWorkingDraftRestored(true);
           } else {
-            setJudgment(judgmentFromAi(screenplay.weightedScore, screenplay.recommendation));
+            setJudgment(judgmentFromAi(initialProducerScore, screenplay.recommendation));
             setWorkingDraftRestored(false);
           }
           setEditing(true);
@@ -143,7 +156,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     screenplay.latestVersionId,
     producerVersionId,
     screenplay.recommendation,
-    screenplay.weightedScore,
+    initialProducerScore,
     t,
     decisionReady,
   ]);
@@ -153,23 +166,26 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     saveLocalProducerWorkingDraft({
       projectId,
       versionId: producerVersionId,
-      judgment,
+      judgment: isCoverage ? withoutProducerScore(judgment) : judgment,
     });
-  }, [editing, judgment, loading, producerVersionId, projectId]);
+  }, [editing, isCoverage, judgment, loading, producerVersionId, projectId]);
 
   const scoreDelta = useMemo(
-    () => judgment.producerScore - screenplay.weightedScore,
+    () => (judgment.producerScore ?? screenplay.weightedScore) - screenplay.weightedScore,
     [judgment.producerScore, screenplay.weightedScore],
   );
   const exactVersionAvailable = Boolean(screenplay.latestVersionId) && decisionReady;
-  const isLegacyDraft = !exactVersionAvailable;
+  const isLegacyDraft = !isCoverage && !exactVersionAvailable;
   const savedJudgment = assessment?.judgment ?? localDraft?.judgment ?? null;
   const hasSavedTake = savedJudgment !== null;
   const savedVersionId = assessment?.analysis.versionId ?? localDraft?.versionId ?? null;
   const isPriorVersion = savedVersionId !== null && savedVersionId !== producerVersionId;
   const savedAt = assessment?.publishedAt ?? localDraft?.savedAt;
 
-  const update = <K extends keyof ProducerJudgment>(key: K, value: ProducerJudgment[K]) =>
+  const update = <K extends keyof LocalProducerJudgment>(
+    key: K,
+    value: LocalProducerJudgment[K],
+  ) =>
     setJudgment((current) => ({
       ...current,
       [key]: value,
@@ -189,15 +205,17 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
     setSaving(true);
     setError('');
     try {
-      if (isLocalPreview || isLegacyDraft) {
-        const localJudgment = isLegacyDraft
-          ? { ...judgment, includeInCalibration: false }
+      if (isCoverage || isLocalPreview || isLegacyDraft) {
+        const localJudgment = isCoverage
+          ? { ...withoutProducerScore(judgment), includeInCalibration: false }
+          : isLegacyDraft
+            ? { ...judgment, includeInCalibration: false }
           : judgment;
         const savedDraft = saveLocalProducerTakeDraft({
           projectId,
           versionId: producerVersionId,
           title: screenplay.title,
-          aiFinalScore: screenplay.weightedScore,
+          ...(!isCoverage && { aiFinalScore: screenplay.weightedScore }),
           aiVerdict: screenplay.recommendation,
           judgment: localJudgment,
         });
@@ -210,10 +228,13 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
         window.dispatchEvent(new Event(PRODUCER_ASSESSMENT_UPDATED_EVENT));
         return;
       }
+      if (judgment.producerScore === undefined) {
+        throw new Error('A producer score is required before publishing calibration evidence.');
+      }
       const saved = await submitProducerAssessment({
         projectId,
         versionId: producerVersionId,
-        judgment,
+        judgment: { ...judgment, producerScore: judgment.producerScore },
       });
       setAssessment(saved);
       setLocalDraft(null);
@@ -264,10 +285,16 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               id={`producer-take-${screenplay.id}`}
               className="mt-1 text-xl font-display text-black-100"
             >
-              {isLegacyDraft ? t('Legacy Producer Draft') : t('Producer Take')}
+              {isCoverage
+                ? t('Coverage Producer Take')
+                : isLegacyDraft
+                  ? t('Legacy Producer Draft')
+                  : t('Producer Take')}
             </h3>
             <p className="mt-1 text-sm text-black-400">
-              {t('Your judgment stays beside the AI result. It never replaces it.')}
+              {t(isCoverage
+                ? 'Your judgment stays beside the Coverage report. It never replaces it.'
+                : 'Your judgment stays beside the AI result. It never replaces it.')}
             </p>
           </div>
           {hasSavedTake && !editing && (
@@ -284,7 +311,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
         <div className="mt-5 grid overflow-hidden rounded-lg border border-black-700 sm:grid-cols-2">
           <div className="bg-black-950/30 p-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-black-500">
-              {t('AI final')}
+              {t(isCoverage ? 'Coverage verdict' : 'AI final')}
             </p>
             <div className="mt-2 flex items-end justify-between gap-3">
               {decisionReady ? <>
@@ -294,7 +321,16 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 <span className="text-sm font-semibold text-black-300">
                   {t(verdictLabel(screenplay.recommendation))}
                 </span>
-              </> : (
+              </> : isCoverage ? (
+                <div>
+                  <span className="block text-sm font-semibold text-black-100">
+                    {t(verdictLabel(screenplay.recommendation))}
+                  </span>
+                  <strong className="mt-1 block text-xs font-semibold text-sky-200">
+                    {t('Coverage · unscored by design')}
+                  </strong>
+                </div>
+              ) : (
                 <strong className="text-sm font-semibold text-amber-200">
                   {t('Not verified / not rankable')}
                 </strong>
@@ -305,15 +341,26 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#3157d5]">
               Billy
             </p>
-            <div className="mt-2 flex items-end justify-between gap-3">
-              <strong className="text-4xl font-display tabular-nums text-[#3157d5]">
-                {judgment.producerScore.toFixed(1)}
-              </strong>
-              <span className="text-sm font-semibold text-black-200">
-                {t(verdictLabel(judgment.producerVerdict))}
-              </span>
-            </div>
-            {decisionReady && (
+            {isCoverage ? (
+              <div className="mt-2">
+                <strong className="block text-sm font-semibold text-black-100">
+                  {t(verdictLabel(judgment.producerVerdict))}
+                </strong>
+                <span className="mt-1 block text-xs text-black-400">
+                  {t('Producer verdict · no personal score')}
+                </span>
+              </div>
+            ) : (
+              <div className="mt-2 flex items-end justify-between gap-3">
+                <strong className="text-4xl font-display tabular-nums text-[#3157d5]">
+                  {(judgment.producerScore ?? screenplay.weightedScore).toFixed(1)}
+                </strong>
+                <span className="text-sm font-semibold text-black-200">
+                  {t(verdictLabel(judgment.producerVerdict))}
+                </span>
+              </div>
+            )}
+            {decisionReady && !isCoverage && (
               <p className="mt-2 text-xs text-black-400">
                 {scoreDelta >= 0 ? '+' : ''}
                 {scoreDelta.toFixed(1)} {t('from AI')}
@@ -347,7 +394,9 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 </strong>
                 <p className="mt-1 text-xs leading-5 text-black-400">
                   {localDraft
-                    ? t('Your review is safely stored on this Mac. It has not changed the AI score, published a production record, or activated calibration.')
+                    ? isCoverage
+                      ? t('Your Coverage take is stored only on this Mac. It cannot change the report or enter calibration.')
+                      : t('Your review is safely stored on this Mac. It has not changed the AI score, published a production record, or activated calibration.')
                     : t('Your review is now part of the evidence set. It has not changed the AI score or activated a calibration profile.')}
                   {savedAt ? ` ${t('Saved {{date}}.', { date: formatSavedAt(savedAt) })}` : ''}
                 </p>
@@ -375,9 +424,15 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               </p>
             </div>
             <p className="text-xs text-black-500 sm:col-span-2">
-              {localDraft ? t('Local preview') : t('Published')} · {t('Revision')}{' '}
+              {localDraft
+                ? t(isCoverage ? 'Local Coverage take' : 'Local preview')
+                : t('Published')} · {t('Revision')}{' '}
               {assessment?.revision ?? localDraft?.revision} ·{' '}
-              {isLegacyDraft ? t('Legacy analysis snapshot') : t('Current sealed analysis')} ·{' '}
+              {isCoverage
+                ? t('Coverage report')
+                : isLegacyDraft
+                  ? t('Legacy analysis snapshot')
+                  : t('Current sealed analysis')} ·{' '}
               {localDraft && savedJudgment.includeInCalibration
                 ? t('Marked for calibration if published')
                 : savedJudgment.includeInCalibration
@@ -391,7 +446,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                   ? t('Medium')
                   : t('High')}
             </p>
-            <div className="sm:col-span-2">
+            {!isCoverage && <div className="sm:col-span-2">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black-500">
                 {t('What happens next')}
               </p>
@@ -458,14 +513,20 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                   {t('View in Calibration')}
                 </a>
               </div>
-            </div>
+            </div>}
           </div>
         ) : (
           <div className="mt-5 space-y-5">
-            {isLocalPreview && (
+            {isLocalPreview && !isCoverage && (
               <div className="rounded-lg border border-[#3157d5]/30 bg-[#3157d5]/8 p-3 text-sm leading-6 text-black-300">
                 <strong className="block text-black-100">{t('Local review mode')}</strong>
                 {t('This take will be saved only on this Mac. No production record or calibration profile changes during local review.')}
+              </div>
+            )}
+            {isCoverage && (
+              <div className="rounded-lg border border-sky-500/30 bg-sky-500/8 p-3 text-sm leading-6 text-black-300">
+                <strong className="block text-black-100">{t('Coverage Producer Take')}</strong>
+                {t('This verdict-only take stays on this Mac and never enters score calibration.')}
               </div>
             )}
             {isLegacyDraft && (
@@ -479,7 +540,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 {t('Unpublished draft restored. Your unfinished writing was preserved on this Mac.')}
               </p>
             )}
-            <div>
+            {!isCoverage && <div>
               <div className="flex items-center justify-between gap-4">
                 <label
                   htmlFor={`producer-score-${screenplay.id}`}
@@ -488,7 +549,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                   {t('Your score')}
                 </label>
                 <strong className="text-2xl tabular-nums text-[#3157d5]">
-                  {judgment.producerScore.toFixed(1)}
+                  {(judgment.producerScore ?? screenplay.weightedScore).toFixed(1)}
                 </strong>
               </div>
               <input
@@ -497,11 +558,11 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 min="1"
                 max="10"
                 step="0.1"
-                value={judgment.producerScore}
+                value={judgment.producerScore ?? screenplay.weightedScore}
                 onChange={(event) => update('producerScore', Number(event.target.value))}
                 className="mt-2 w-full accent-[#3157d5]"
               />
-            </div>
+            </div>}
 
             <fieldset>
               <legend className="text-xs font-semibold uppercase tracking-wider text-black-400">
@@ -556,7 +617,9 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               <p className="mt-2 text-xs leading-5 text-black-500">
                 {judgment.confidence === 'low'
                   ? t('Tentative takes are always held out of calibration evidence.')
-                  : t('Only include this take in calibration when your judgment feels settled.')}
+                  : t(isCoverage
+                    ? 'Confidence describes how settled your local Coverage take feels.'
+                    : 'Only include this take in calibration when your judgment feels settled.')}
               </p>
             </fieldset>
 
@@ -641,7 +704,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               </label>
             </div>
 
-            <label className="flex items-start gap-3 rounded-lg border border-black-700 p-3 text-sm text-black-300">
+            {!isCoverage && <label className="flex items-start gap-3 rounded-lg border border-black-700 p-3 text-sm text-black-300">
               <input
                 type="checkbox"
                 aria-label={t('Use this as calibration evidence')}
@@ -654,7 +717,7 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
                 <strong className="block text-black-100">{t('Use this as calibration evidence')}</strong>
                 {t('Leave this off when your opinion is tentative or the analysis version is not representative.')}
               </span>
-            </label>
+            </label>}
 
             {error && (
               <p role="alert" className="text-sm text-red-400">
@@ -686,15 +749,17 @@ export function ProducerTake({ screenplay }: { screenplay: Screenplay }) {
               >
                 {saving
                   ? t('Saving…')
-                  : isLegacyDraft
-                    ? t('Save Producer Draft')
-                  : isLocalPreview && hasSavedTake
-                    ? t('Save local revision')
-                    : isLocalPreview
-                      ? t('Save local preview')
-                      : assessment
-                        ? t('Publish new revision')
-                        : t('Publish Producer Take')}
+                  : isCoverage
+                    ? t('Save local take')
+                    : isLegacyDraft
+                      ? t('Save Producer Draft')
+                      : isLocalPreview && hasSavedTake
+                        ? t('Save local revision')
+                        : isLocalPreview
+                          ? t('Save local preview')
+                          : assessment
+                            ? t('Publish new revision')
+                            : t('Publish Producer Take')}
               </button>
             </div>
           </div>

@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ScreenplayCard } from './ScreenplayCard';
-import { createTestScreenplay } from '@/test/factories';
+import { createCoverageTestScreenplay, createTestScreenplay } from '@/test/factories';
 
 // Mock the selection store
 const mockUseIsSelected = vi.fn(() => false);
@@ -53,6 +53,16 @@ describe('ScreenplayCard', () => {
     render(<ScreenplayCard screenplay={screenplay} />);
 
     expect(screen.getByText('RECOMMEND')).toBeInTheDocument();
+  });
+
+  it('renders Coverage verdict and confidence without exposing a score', () => {
+    render(<ScreenplayCard screenplay={createCoverageTestScreenplay()} />);
+
+    expect(screen.getByText('RECOMMEND')).toBeInTheDocument();
+    expect(screen.getByText('Coverage · unscored by design')).toBeInTheDocument();
+    expect(screen.getByText('Confidence: high')).toBeInTheDocument();
+    expect(screen.queryByText('Decision data unavailable until verification')).not.toBeInTheDocument();
+    expect(screen.queryByText('0.0')).not.toBeInTheDocument();
   });
 
   it('renders FILM NOW badge with special styling', () => {

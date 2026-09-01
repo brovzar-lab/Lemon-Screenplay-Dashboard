@@ -8,6 +8,7 @@ import { ProducerScoreBadge } from '@/components/screenplay/ProducerScoreBadge';
 import { getDimensionDisplay } from '@/lib/dimensionDisplay';
 import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
+import { isCoverageV1Screenplay } from '@/lib/producerProjection';
 import type { ProducerAssessmentHead, Screenplay } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -29,6 +30,14 @@ function assessmentFor(
 
 function Score({ screenplay, large = false }: { screenplay: Screenplay; large?: boolean }) {
   const { t } = useTranslation();
+  if (isCoverageV1Screenplay(screenplay)) {
+    return (
+      <div className={large ? 'cinema-score-lockup' : 'cinema-card-score'}>
+        <RecommendationBadge tier={screenplay.recommendation} />
+        <span className="dsc-label mt-2 block">{t('Coverage · unscored by design')}</span>
+      </div>
+    );
+  }
   return (
     <div className={large ? 'cinema-score-lockup' : 'cinema-card-score'}>
       {large && <span className="dsc-label dsc-label-faint block">{t('Final score')}</span>}
@@ -334,6 +343,7 @@ export function DiscoverGrid({
     <ul className="cinema-archive-rail">
       {screenplays.map((screenplay, index) => {
         const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
+        const isCoverage = isCoverageV1Screenplay(screenplay);
         return (
           <li
             key={screenplay.id}
@@ -357,16 +367,23 @@ export function DiscoverGrid({
                 className="cinema-poster-cover"
               />
               <span className="cinema-rank">
-                {screenplay.producerProjection?.rankable === false
+                {isCoverage
+                  ? t('Coverage')
+                  : screenplay.producerProjection?.rankable === false
                   ? t('Review')
                   : `#${rankOffset + index + 6}`}
               </span>
-              <span className="cinema-score-chip">{screenplay.weightedScore.toFixed(1)}</span>
+              <span className="cinema-score-chip">
+                {isCoverage ? t('Unscored by design') : screenplay.weightedScore.toFixed(1)}
+              </span>
               <span className="cinema-poster-meta">
                 <span className="flex items-center justify-between gap-2">
                   <RecommendationBadge tier={screenplay.recommendation} />
+                  {isCoverage && (
+                    <small className="dsc-label">{t('Coverage · unscored by design')}</small>
+                  )}
                   <span className="flex items-center gap-1.5">
-                    <AnalysisTrustBadge screenplay={screenplay} />
+                    {!isCoverage && <AnalysisTrustBadge screenplay={screenplay} />}
                     <DiscoveryShareStatus screenplay={screenplay} />
                     <ProducerScoreBadge
                       assessment={assessmentFor(producerAssessments, screenplay)}

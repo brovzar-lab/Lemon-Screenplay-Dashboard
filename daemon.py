@@ -1047,6 +1047,152 @@ def check_tmdb_for_job(title_hint: str) -> tuple[bool, str, dict | None]:
 
 # ── Job status updates ────────────────────────────────────────────────────────
 
+COVERAGE_V1_REPORTS_COLLECTION = "coverage_v1_reports"
+
+
+def run_coverage_v1_job(
+    *,
+    job: dict,
+    job_id: str,
+    title: str,
+    text: str,
+    page_count: int,
+    word_count: int,
+    content_hash: str,
+    parser_version: str,
+    screenplay_doc_id: str,
+    version_id: str,
+    model_key: str,
+    proxy_url: Optional[str],
+    attempt_count: int,
+    start_time: float,
+    archive_storage_path: str,
+    archive_storage_generation: Optional[int],
+) -> None:
+    """Run the lean coverage_v1 engine for one job and persist to staging.
+
+    Writes ONLY to coverage_v1_reports / coverage_v1_checkpoints — never to
+    the immutable uploaded_analyses store. Marks the job itself complete,
+    waiting_for_budget, needs_review, or failed. Checkpoints make any retry
+    resume-safe: validated stages are never repaid.
+    """
+    import coverage_v1  # execution/ is on sys.path by the time jobs run
+    import ingest_v9
+
+    # coverage_v1 has no hybrid promotion; a hybrid request runs as sonnet.
+    coverage_model = "sonnet" if model_key in ("hybrid", "auto") else model_key
+    fmt = "tv_pilot" if str(job.get("format", "")).strip().lower() == "tv_pilot" else "feature"
+    genre_hint = job.get("genre_hint") or None
+    requested_lenses = job.get("lenses") or None
+    try:
+        max_cost_usd = float(job.get("max_cost_usd", coverage_v1.DEFAULT_MAX_COST_USD))
+    except (TypeError, ValueError):
+        max_cost_usd = coverage_v1.DEFAULT_MAX_COST_USD
+
+    usage_sink: dict = {}
+    try:
+        report, usage = coverage_v1.run_coverage_v1(
+            text=text,
+            title=title,
+            page_count=page_count,
+            word_count=word_count,
+            content_sha256=content_hash,
+            parser_version=parser_version,
+            checkpoint_store=coverage_v1.FirestoreCheckpointStore(_db),
+            fmt=fmt,
+            genre_hint=genre_hint,
+            lenses=requested_lenses,
+            model_key=coverage_model,
+            proxy_url=proxy_url,
+            job_id=job_id,
+            max_cost_usd=max_cost_usd,
+            usage_sink=usage_sink,
+        )
+    except ingest_v9.DailyBudgetExceededError as e:
+        if stop_if_paid_failure(job_id, e, getattr(e, "usage", None) or usage_sink):
+            log.error("[coverage_v1] Daily cap reached after paid work; manual review required.")
+            return
+        mark_waiting_for_budget(job_id, e, attempt_count)
+        log.warning(f"[coverage_v1] Pausing for budget — {e}")
+        return
+    except (
+        coverage_v1.CoverageBudgetExceededError,
+        coverage_v1.CoverageContractError,
+        coverage_v1.CheckpointTamperedError,
+        coverage_v1.LensConfigurationError,
+    ) as e:
+        # Fail closed, never auto-retry a paid contract failure. Validated
+        # checkpoints are preserved for a manually approved resume.
+        mark_needs_review(
+            job_id,
+            f"coverage_v1: {e}",
+            evidence={"usage": _analysis_usage_evidence(usage_sink)},
+            failure_kind="coverage_v1_" + type(e).__name__,
+        )
+        return
+    except Exception as e:
+        usage_evidence = getattr(e, "usage", None) or usage_sink
+        if stop_if_paid_failure(job_id, e, usage_evidence):
+            return
+        # No evidence of paid work — a retry is safe, and checkpoints make it
+        # free through any stage that already validated.
+        if not hasattr(e, "usage") and usage_sink:
+            try:
+                e.usage = usage_sink
+            except Exception:
+                pass
+        mark_failed(job_id, e, attempt_count)
+        return
+
+    report_doc_id = f"{screenplay_doc_id}__{version_id}"
+    report_ref = _db.collection(COVERAGE_V1_REPORTS_COLLECTION).document(report_doc_id)
+    if not report_ref.get().exists:
+        report_ref.create({
+            "report_json": json.dumps(report, ensure_ascii=False, sort_keys=True),
+            "report_sha256": coverage_v1.canonical_json_hash(report),
+            "project_id": screenplay_doc_id,
+            "version_id": version_id,
+            "job_id": job_id,
+            "title": title,
+            "status": report["status"],
+            "verdict": report["verdict"],
+            "confidence": report["confidence"],
+            "film_now_nominated": report["film_now_nominated"],
+            "human_review_recommended": report["human_review_recommended"],
+            "content_hash": content_hash,
+            "engine_version": report["engine_version"],
+            "lens_stack": report["lens_stack"],
+            "archived_storage_path": archive_storage_path,
+            "archived_storage_generation": archive_storage_generation,
+            "cost_settled_usd": report["cost"]["settled_usd"],
+            "cost_uncertain_usd": report["cost"]["uncertain_usd"],
+            "cost_charged_usd": report["cost"]["charged_usd"],
+            "created_at": fb_firestore.SERVER_TIMESTAMP,
+        })
+
+    duration = round(time.time() - start_time)
+    mark_complete(job_id, screenplay_doc_id, {
+        "duration_seconds": duration,
+        "input_tokens": usage.get("input_tokens", 0),
+        "output_tokens": usage.get("output_tokens", 0),
+        "analysis_llm_call_count": int(usage.get("call_count", 0)),
+        "analysis_actual_cost_microusd": int(usage.get("actual_cost_microusd", 0)),
+        "analysis_actual_cost_usd": int(usage.get("actual_cost_microusd", 0)) / 1_000_000,
+        "estimated_cost_usd": int(usage.get("actual_cost_microusd", 0)) / 1_000_000,
+        "analysis_version": "coverage_v1",
+        "engine": "coverage_v1",
+        "coverage_v1_report_id": report_doc_id,
+        "coverage_v1_status": report["status"],
+        "archived_storage_path": archive_storage_path,
+        "archived_storage_generation": archive_storage_generation,
+    })
+    log.info(
+        f"[coverage_v1] {title!r} → {report['verdict']} "
+        f"({report['status']}, {report['cost']['charged_usd']:.2f} USD charged, "
+        f"{int(usage.get('call_count', 0))} calls)"
+    )
+
+
 def mark_complete(job_id: str, screenplay_doc_id: str, telemetry: dict) -> None:
     _db.collection(QUEUE_COLLECTION).document(job_id).update({
         "status": "complete",
@@ -1637,6 +1783,38 @@ def process_job(job: dict) -> None:
 
         # ── 7. Run V9 Archaeology Engine analysis ─────────────────────────
         proxy_url = os.getenv("LLM_PROXY_URL")  # None = production proxy URL
+
+        # ── Coverage V1 (lean two-call engine) — disabled by default ──────
+        # Double opt-in: the daemon env flag AND the job's engine field must
+        # both select it. Results go to a separate staging collection; the
+        # immutable V9 store is never written by this route.
+        if str(job.get("engine", "")).strip().lower() == "coverage_v1":
+            if os.getenv("LEMON_ENGINE_COVERAGE_V1", "0") != "1":
+                mark_skipped(
+                    job_id,
+                    "coverage_v1 was requested but is not enabled on this "
+                    "daemon (set LEMON_ENGINE_COVERAGE_V1=1)",
+                )
+                return
+            run_coverage_v1_job(
+                job=job,
+                job_id=job_id,
+                title=title,
+                text=text,
+                page_count=page_count,
+                word_count=word_count,
+                content_hash=content_hash,
+                parser_version=ingest_v9.PARSER_VERSION,
+                screenplay_doc_id=screenplay_doc_id,
+                version_id=version_id,
+                model_key=model_key,
+                proxy_url=proxy_url,
+                attempt_count=attempt_count,
+                start_time=start_time,
+                archive_storage_path=archive_storage_path,
+                archive_storage_generation=archive_storage_generation,
+            )
+            return
 
         cold_read = None
         cold_read_usage = None

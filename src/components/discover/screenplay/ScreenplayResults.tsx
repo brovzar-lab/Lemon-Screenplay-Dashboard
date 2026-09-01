@@ -13,7 +13,7 @@ import {
   getScreenplayFormatInfo,
 } from '@/lib/screenplayDisplay';
 import { localizedScreenplayPreview } from '@/lib/localizedAnalysis';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import type { ProducerAssessmentHead } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -40,13 +40,18 @@ export function ScreenplayGrid({
         const localized = localizedScreenplayPreview(screenplay, language);
         const finalScore = screenplay.producerProjection?.finalScore ?? screenplay.weightedScore;
         const decisionReady = isDecisionReady(screenplay);
+        // Coverage V1 documents are unscored BY DESIGN (never rankable) —
+        // show their verdict honestly instead of the V9 "Not verified" label.
+        const isCoverage = isCoverageV1Screenplay(screenplay);
         return (
           <li
             key={screenplay.id}
             className="screenplay-wall__item"
             data-testid="screenplay-discovery-result"
             data-screenplay-id={screenplay.id}
-            data-verdict={decisionReady ? screenplay.recommendation : 'unverified'}
+            data-verdict={
+              decisionReady || isCoverage ? screenplay.recommendation : 'unverified'
+            }
           >
             <DiscoverySelectionCheckbox screenplay={screenplay} />
             <button
@@ -69,6 +74,12 @@ export function ScreenplayGrid({
                   <span className="screenplay-wall__score">
                     <strong>{finalScore.toFixed(1)}</strong>
                     <small>{t('Lemon score')}</small>
+                  </span>
+                  <RecommendationBadge tier={screenplay.recommendation} />
+                  </> : isCoverage ? <>
+                  <span className="screenplay-wall__score">
+                    <strong>{t('Coverage')}</strong>
+                    <small>{t('Unscored by design')}</small>
                   </span>
                   <RecommendationBadge tier={screenplay.recommendation} />
                   </> : (

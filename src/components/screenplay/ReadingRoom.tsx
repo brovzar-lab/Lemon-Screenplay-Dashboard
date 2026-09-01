@@ -16,7 +16,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { analysisIsEnglishFallback, localizedScreenplay } from '@/lib/localizedAnalysis';
 import { AnalysisLanguageNotice } from '@/components/project/AnalysisLanguageNotice';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import { CoverageReportPanel } from '@/components/project/CoverageReportPanel';
 
 interface ReadingRoomProps {
   screenplays: Screenplay[];
@@ -102,6 +103,7 @@ export function ReadingRoom({
   if (!screenplay) return null;
   const displayTitle = getScreenplayDisplayTitle(screenplay.title).title;
   const displayAuthor = getScreenplayDisplayAuthor(screenplay.author);
+  const isCoverage = isCoverageV1Screenplay(screenplay);
 
   return (
     <div
@@ -119,6 +121,13 @@ export function ReadingRoom({
             </span>
             {isDecisionReady(screenplay) ? (
               <RecommendationBadge tier={screenplay.recommendation} />
+            ) : isCoverage ? (
+              <span className="flex flex-wrap items-center gap-2">
+                <RecommendationBadge tier={screenplay.recommendation} />
+                <span className="text-xs font-semibold text-sky-300">
+                  {t('Coverage · unscored by design')}
+                </span>
+              </span>
             ) : (
               <span className="text-xs font-semibold text-amber-300">
                 {t('Decision data unavailable until verification')}
@@ -191,7 +200,7 @@ export function ReadingRoom({
               <AnalysisLanguageNotice screenplay={originalScreenplay} />
             )}
             <AlertBanners screenplay={screenplay} />
-            <FieldPositionPanel rank={percentileRanks.get(screenplay.id)} />
+            {!isCoverage && <FieldPositionPanel rank={percentileRanks.get(screenplay.id)} />}
 
             <section aria-labelledby="reading-room-logline">
               <h2 id="reading-room-logline" className="text-lg font-display text-gold-200 mb-3">
@@ -200,8 +209,16 @@ export function ReadingRoom({
               <p className="text-lg text-black-200 leading-relaxed">{screenplay.logline}</p>
             </section>
 
-            <ScoresPanel screenplay={screenplay} />
-            <ContentDetails screenplay={screenplay} />
+            {isCoverage ? (
+              <div className="rounded-xl bg-white p-5">
+                <CoverageReportPanel screenplay={screenplay} />
+              </div>
+            ) : (
+              <>
+                <ScoresPanel screenplay={screenplay} />
+                <ContentDetails screenplay={screenplay} />
+              </>
+            )}
           </main>
 
           <aside className="px-5 md:px-6 py-7 space-y-8 bg-black-900/40">

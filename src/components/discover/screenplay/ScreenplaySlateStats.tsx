@@ -1,6 +1,6 @@
 import type { Screenplay } from '@/types';
 import { useTranslation } from 'react-i18next';
-import { decisionReadyScreenplays } from '@/lib/producerProjection';
+import { decisionReadyScreenplays, isCoverageV1Screenplay } from '@/lib/producerProjection';
 
 interface ScreenplaySlateStatsProps {
   screenplays: Screenplay[];
@@ -17,11 +17,13 @@ export function ScreenplaySlateStats({
 }: ScreenplaySlateStatsProps) {
   const { t } = useTranslation();
   const decisionReady = decisionReadyScreenplays(screenplays);
+  const coverageCount = screenplays.filter(isCoverageV1Screenplay).length;
+  const unverifiedCount = screenplays.length - decisionReady.length - coverageCount;
   const average =
     decisionReady.length > 0
       ? decisionReady.reduce((sum, screenplay) => sum + screenplay.weightedScore, 0) /
         decisionReady.length
-      : 0;
+      : null;
   const priorityCount = decisionReady.filter(
     (screenplay) =>
       screenplay.recommendation === 'film_now' || screenplay.recommendation === 'recommend',
@@ -48,16 +50,22 @@ export function ScreenplaySlateStats({
             <small>{t('Visible')}</small>
           </span>
           <span>
-            <strong>{average.toFixed(1)}</strong>
+            <strong>{average === null ? t('N/A') : average.toFixed(1)}</strong>
             <small>{t('Average score')}</small>
           </span>
           <span>
             <strong>{priorityCount}</strong>
             <small>{t('Film Now + Recommend')}</small>
           </span>
-          {decisionReady.length !== screenplays.length && (
+          {coverageCount > 0 && (
             <span>
-              <strong>{screenplays.length - decisionReady.length}</strong>
+              <strong>{coverageCount}</strong>
+              <small>{t('coverage')}</small>
+            </span>
+          )}
+          {unverifiedCount > 0 && (
+            <span>
+              <strong>{unverifiedCount}</strong>
               <small>{t('Unverified omitted')}</small>
             </span>
           )}

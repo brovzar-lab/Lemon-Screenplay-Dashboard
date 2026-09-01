@@ -1,10 +1,21 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { createTestScreenplay } from '@/test/factories';
+import { createCoverageTestScreenplay, createTestScreenplay } from '@/test/factories';
 import { ScoresPanel } from '@/components/screenplay/modal/ScoresPanel';
 
 describe('ScoresPanel producer projection', () => {
+  it('renders Coverage as a verdict without exposing normalized zero scores', () => {
+    render(<ScoresPanel screenplay={createCoverageTestScreenplay()} />);
+
+    expect(screen.getByText('Coverage · unscored by design')).toBeInTheDocument();
+    expect(screen.getAllByText('RECOMMEND')).not.toHaveLength(0);
+    expect(screen.getByText(/Confidence:/)).toHaveTextContent('high');
+    expect(screen.queryByText('Decision data unavailable until verification')).not.toBeInTheDocument();
+    expect(screen.queryByText('Five-Pillar Reader Evidence')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('score-lineage')).not.toBeInTheDocument();
+  });
+
   it('shows the real V9 pillars and transparent adjusted-score lineage', () => {
     const screenplay = createTestScreenplay({
       analysisVersion: 'v9_archaeology',

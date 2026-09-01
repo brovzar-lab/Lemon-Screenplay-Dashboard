@@ -26,7 +26,7 @@ import { AnalysisTrustBadge } from '@/components/screenplay/AnalysisTrustBadge';
 import type { PercentileRank } from '@/lib/percentileRanking';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
 import { useTranslation } from 'react-i18next';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 
 interface ScreenplayCardProps {
   screenplay: Screenplay;
@@ -50,6 +50,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
   const decisionReady = isDecisionReady(screenplay);
+  const isCoverage = isCoverageV1Screenplay(screenplay);
 
   // Hover peek: swap logline ↔ top-3 dimension pills (card height stays locked)
   const [isPeeking, setIsPeeking] = useState(false);
@@ -88,7 +89,7 @@ export const ScreenplayCard = memo(function ScreenplayCard({
 
   // Tier highlight class
   const tierClass = (() => {
-    if (!decisionReady) return '';
+    if (!decisionReady && !isCoverage) return '';
     const rec = screenplay.recommendation;
     if (rec === 'film_now') return 'card-film-now';
     if (rec === 'recommend') return 'card-recommend';
@@ -207,9 +208,9 @@ export const ScreenplayCard = memo(function ScreenplayCard({
         {/* ── HEADER: badge + title ───────────────────────────────────────── */}
         <div className="pl-8 pr-8 mb-2 flex-shrink-0">
           <div className="mb-2 flex items-center gap-2 min-w-0">
-            {decisionReady && <RecommendationBadge tier={screenplay.recommendation} />}
+            {(decisionReady || isCoverage) && <RecommendationBadge tier={screenplay.recommendation} />}
             {decisionReady && <PercentileBadge rank={percentileRank} showAll />}
-            <AnalysisTrustBadge screenplay={screenplay} />
+            {!isCoverage && <AnalysisTrustBadge screenplay={screenplay} />}
           </div>
           {/* Title: always 1 line, truncated */}
           <h3
@@ -293,7 +294,12 @@ export const ScreenplayCard = memo(function ScreenplayCard({
                 >
                   {weightedScore}
                 </span>
-              </div> : (
+              </div> : isCoverage ? (
+                <span className="flex flex-col gap-1 text-xs text-[var(--sp-text-3)]">
+                  <strong>{t('Coverage · unscored by design')}</strong>
+                  <span>{t('Confidence')}: {t(screenplay.coverage?.confidence ?? 'unknown')}</span>
+                </span>
+              ) : (
                 <span className="text-xs" style={{ color: 'var(--sp-text-3)' }}>
                   {t('Decision data unavailable until verification')}
                 </span>

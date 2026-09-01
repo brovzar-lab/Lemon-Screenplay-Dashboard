@@ -47,6 +47,12 @@ export function isDecisionReady(
     && screenplay.producerProjection.trustStatus === 'verified';
 }
 
+export function isCoverageV1Screenplay(
+  screenplay: { producerProjection?: { scoreSource?: string } },
+): boolean {
+  return screenplay.producerProjection?.scoreSource === 'coverage_unscored';
+}
+
 export function decisionReadyScreenplays<T extends {
   producerProjection?: { rankable?: boolean; trustStatus?: string };
 }>(screenplays: T[]): T[] {

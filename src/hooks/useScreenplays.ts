@@ -11,6 +11,7 @@ import {
   getDeletedAnalyses,
   restoreAnalysis,
   subscribeToAnalyses,
+  subscribeToCoverageV1Reports,
   flushPendingWrites,
 } from '@/lib/analysisStore';
 import { getExistingShareToken, revokeShareToken } from '@/lib/shareService';
@@ -63,35 +64,48 @@ export function useLiveScreenplaySync(): void {
   useEffect(() => {
     let active = true;
     let unsubscribe = () => {};
+    let unsubscribeStaging = () => {};
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let snapshotVersion = 0;
     let hasReportedError = false;
+
+    // Two independent feeds merged into one normalized list: the immutable
+    // uploaded_analyses record (V9) and the coverage_v1_reports staging
+    // collection. Either feed updating republishes the merged list; a
+    // staging failure (e.g. rules not deployed) never disturbs V9 data.
+    let latestPrimary: Record<string, unknown>[] = [];
+    let latestStaging: Record<string, unknown>[] = [];
+
+    const publishMerged = () => {
+      const version = ++snapshotVersion;
+      void normalizeAnalyses([...latestPrimary, ...latestStaging])
+        .then((screenplays) => {
+          if (active && version === snapshotVersion) {
+            queryClient.setQueryData(SCREENPLAYS_QUERY_KEY, screenplays);
+            useSyncStatusStore.getState().setLiveConnected(true);
+            hasReportedError = false;
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('[Lemon] Failed to process live screenplay snapshot:', error);
+          if (active && !hasReportedError) {
+            useToastStore
+              .getState()
+              .addToast(
+                i18n.t('Live screenplay update failed — keeping the last good data'),
+                'warning',
+              );
+            hasReportedError = true;
+          }
+        });
+    };
 
     const connect = () => {
       unsubscribe();
       unsubscribe = subscribeToAnalyses(
         (rawAnalyses) => {
-          const version = ++snapshotVersion;
-          void normalizeAnalyses(rawAnalyses)
-            .then((screenplays) => {
-              if (active && version === snapshotVersion) {
-                queryClient.setQueryData(SCREENPLAYS_QUERY_KEY, screenplays);
-                useSyncStatusStore.getState().setLiveConnected(true);
-                hasReportedError = false;
-              }
-            })
-            .catch((error: unknown) => {
-              console.error('[Lemon] Failed to process live screenplay snapshot:', error);
-              if (active && !hasReportedError) {
-                useToastStore
-                  .getState()
-                  .addToast(
-                    i18n.t('Live screenplay update failed — keeping the last good data'),
-                    'warning',
-                  );
-                hasReportedError = true;
-              }
-            });
+          latestPrimary = rawAnalyses;
+          publishMerged();
         },
         () => {
           if (!active) return;
@@ -110,11 +124,22 @@ export function useLiveScreenplaySync(): void {
 
     void flushPendingWrites();
     connect();
+    unsubscribeStaging = subscribeToCoverageV1Reports(
+      (reports) => {
+        latestStaging = reports;
+        publishMerged();
+      },
+      () => {
+        // Non-fatal: staging is optional. Keep whatever staging data we
+        // last saw; V9 data continues to flow through the primary feed.
+      },
+    );
 
     return () => {
       active = false;
       if (retryTimer) clearTimeout(retryTimer);
       unsubscribe();
+      unsubscribeStaging();
     };
   }, [queryClient]);
 }

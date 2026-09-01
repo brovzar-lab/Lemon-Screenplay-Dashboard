@@ -6,7 +6,7 @@ import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
-import { createTestScreenplay } from '@/test/factories';
+import { createCoverageTestScreenplay, createTestScreenplay } from '@/test/factories';
 
 // Mock Recharts sub-components to avoid SVG rendering issues in jsdom
 vi.mock('./ScoreDistribution', () => ({
@@ -165,11 +165,12 @@ describe('AnalyticsDashboard', () => {
     expect(screen.getByTestId('score-distribution')).toBeInTheDocument();
   });
 
-  it('omits unverified model genres from portfolio analytics', () => {
+  it('counts Coverage separately while omitting unverified model genres from portfolio analytics', () => {
     render(
       <AnalyticsDashboard
         screenplays={[
           createTestScreenplay({ genre: 'Comedy' }),
+          createCoverageTestScreenplay({ id: 'coverage', genre: 'Drama' }),
           createTestScreenplay({
             id: 'unverified',
             genre: 'Horror',
@@ -181,6 +182,15 @@ describe('AnalyticsDashboard', () => {
 
     expect(screen.getByTestId('genre-chart')).toHaveTextContent('Comedy');
     expect(screen.getByTestId('genre-chart')).not.toHaveTextContent('Horror');
+    expect(screen.getByTestId('genre-chart')).not.toHaveTextContent('Drama');
     expect(screen.getByText('1 unverified omitted')).toBeInTheDocument();
+    expect(screen.getByText('1 coverage')).toBeInTheDocument();
+  });
+
+  it('shows no average instead of zero when the slate has no scored analyses', () => {
+    render(<AnalyticsDashboard screenplays={[createCoverageTestScreenplay()]} />);
+
+    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(screen.queryByText('0.0')).not.toBeInTheDocument();
   });
 });

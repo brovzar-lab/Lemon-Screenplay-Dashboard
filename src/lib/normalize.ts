@@ -21,6 +21,13 @@ export {
   isArchaeologyAnalysis,
   normalizeV9Screenplay,
 } from './normalizers/normalizeV9';
+
+// ── coverage_v1 lean coverage engine ───────────────────────
+export {
+  isCoverageV1Analysis,
+  normalizeCoverageV1Screenplay,
+  resolveCoverageV1Report,
+} from './normalizers/normalizeCoverageV1';
 export type {
   PillarScore,
   GoosebumpsMoment,

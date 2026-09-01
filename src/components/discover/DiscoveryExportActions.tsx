@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { DiscoveryPitchDeckModal } from '@/components/discover/DiscoveryPitchDeckModal';
 import { useToastStore } from '@/stores/toastStore';
 import type { Screenplay } from '@/types';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 
 type CoverageState = 'idle' | 'loading' | 'error';
 
@@ -14,6 +14,8 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
   const [showPitchDeckModal, setShowPitchDeckModal] = useState(false);
   const pitchDeckButtonRef = useRef<HTMLButtonElement>(null);
   const decisionReady = isDecisionReady(screenplay);
+  const isCoverage = isCoverageV1Screenplay(screenplay);
+  const coverageAllowed = decisionReady || isCoverage;
 
   const closePitchDeck = () => {
     setShowPitchDeckModal(false);
@@ -21,7 +23,7 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
   };
 
   const downloadCoverage = async () => {
-    if (coverageState === 'loading' || !decisionReady) return;
+    if (coverageState === 'loading' || !coverageAllowed) return;
 
     setCoverageState('loading');
     try {
@@ -43,7 +45,7 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
             ref={pitchDeckButtonRef}
             type="button"
             onClick={downloadCoverage}
-            disabled={coverageState === 'loading' || !decisionReady}
+            disabled={coverageState === 'loading' || !coverageAllowed}
             aria-label={
               coverageState === 'loading'
                 ? t('Generating coverage PDF')
@@ -83,7 +85,9 @@ export function DiscoveryExportActions({ screenplay }: { screenplay: Screenplay 
         )}
         {!decisionReady && (
           <span role="status" className="text-xs text-amber-300">
-            {t('Decision data unavailable until verification')}
+            {t(isCoverage
+              ? 'Coverage · unscored by design'
+              : 'Decision data unavailable until verification')}
           </span>
         )}
       </div>

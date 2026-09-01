@@ -5,7 +5,8 @@ import { DiscoveryPitchDeckModal } from '@/components/discover/DiscoveryPitchDec
 import { useHasSelection, useSelectionCount, useSelectionStore } from '@/stores/selectionStore';
 import type { Screenplay } from '@/types';
 import { getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
+import { RecommendationBadge } from '@/components/ui/RecommendationBadge';
 import { useTranslation } from 'react-i18next';
 
 interface DiscoverySelectionBarProps {
@@ -41,6 +42,10 @@ export function DiscoverySelectionBar({
   );
   const decisionOutputAllowed =
     selectedScreenplays.length > 0 && selectedScreenplays.every(isDecisionReady);
+  const hasCoverageSelection = selectedScreenplays.some(isCoverageV1Screenplay);
+  const hasUnverifiedSelection = selectedScreenplays.some(
+    (screenplay) => !isDecisionReady(screenplay) && !isCoverageV1Screenplay(screenplay),
+  );
 
   useEffect(() => {
     if (!escapeEnabled || !selectionMode) return;
@@ -115,11 +120,20 @@ export function DiscoverySelectionBar({
                 <span className="truncate text-sm font-semibold text-[var(--dsc-ink)]">
                   {getScreenplayDisplayTitle(screenplay.title).title}
                 </span>
-                <span className="dsc-num shrink-0 text-lg font-semibold">
-                  {isDecisionReady(screenplay)
-                    ? screenplay.weightedScore.toFixed(1)
-                    : t('Not verified')}
-                </span>
+                {isCoverageV1Screenplay(screenplay) ? (
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <RecommendationBadge tier={screenplay.recommendation} size="sm" />
+                    <small className="text-[0.6rem] font-semibold text-[var(--dsc-ink-3)]">
+                      {t('Coverage · unscored by design')}
+                    </small>
+                  </span>
+                ) : (
+                  <span className="dsc-num shrink-0 text-lg font-semibold">
+                    {isDecisionReady(screenplay)
+                      ? screenplay.weightedScore.toFixed(1)
+                      : t('Not verified')}
+                  </span>
+                )}
               </div>
             ))}
             {count > 3 && (
@@ -157,7 +171,11 @@ export function DiscoverySelectionBar({
             </button>
             {!decisionOutputAllowed && (
               <span role="status" className="col-span-2 text-xs text-amber-300">
-                {t('Decision data unavailable until verification')}
+                {hasUnverifiedSelection
+                  ? t('Decision data unavailable until verification')
+                  : hasCoverageSelection
+                    ? t('Coverage · unscored by design')
+                    : null}
               </span>
             )}
           </div>

@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { ReactElement } from 'react';
 
 vi.mock('@react-pdf/renderer', () => ({
   pdf: vi.fn(() => ({
@@ -27,7 +28,8 @@ vi.mock('@/stores/notesStore', () => ({
 
 import { downloadCoveragePdf, sanitizeFilename } from './exportCoverage';
 import type { Screenplay } from '@/types';
-import { createTestScreenplay } from '@/test/factories';
+import { createCoverageTestScreenplay, createTestScreenplay } from '@/test/factories';
+import i18n from '@/i18n';
 
 function createMockScreenplay(overrides: Partial<Screenplay> = {}): Screenplay {
   return createTestScreenplay({
@@ -130,8 +132,9 @@ describe('downloadCoveragePdf', () => {
     revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
+    await i18n.changeLanguage('en');
   });
 
   it('calls pdf().toBlob() and triggers anchor click download', async () => {
@@ -146,6 +149,26 @@ describe('downloadCoveragePdf', () => {
     expect(mockLink.click).toHaveBeenCalled();
     expect(removeChildSpy).toHaveBeenCalled();
     expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:test-url');
+  });
+
+  it('exports an unscored Coverage V1 report without opening the ranking gate', async () => {
+    await downloadCoveragePdf(createCoverageTestScreenplay());
+
+    expect(mockLink.click).toHaveBeenCalledOnce();
+    expect(mockLink.download).toBe('Matadero-Coverage.pdf');
+  });
+
+  it('keeps Coverage V1 content in a Spanish PDF instead of treating it as English fallback', async () => {
+    const { pdf } = await import('@react-pdf/renderer');
+    await i18n.changeLanguage('es');
+    await downloadCoveragePdf(createCoverageTestScreenplay());
+
+    const document = vi.mocked(pdf).mock.calls.at(-1)?.[0] as ReactElement<{
+      language: string;
+      showEnglishAnalysisNotice: boolean;
+    }>;
+    expect(document.props.language).toBe('es');
+    expect(document.props.showEnglishAnalysisNotice).toBe(false);
   });
 
   it('sanitizes the filename to {Title}-Coverage.pdf', async () => {

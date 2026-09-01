@@ -3,68 +3,100 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-08-11
+**Last session:** 2026-08-31 (canary passed)
 
-**Production and delivery state:**
-- [PR #6](https://github.com/brovzar-lab/Lemon-Screenplay-Dashboard/pull/6) is
-  **merged**. The One Lemon release shipped: `main` reached `a79343a` and Firebase
-  Hosting deployed it at 2026-08-11 14:00:56 UTC. Production serves that build
-  (verified by comparing the deployed `DiscoverPage` chunk against a local build).
-- Cloud Functions and the VPS daemon were **not** redeployed in that release.
-- [PR #7](https://github.com/brovzar-lab/Lemon-Screenplay-Dashboard/pull/7) is
-  merged; `main` is now `92a2e51`. Production deploys are gated (see below).
+**Reassessment and Coverage V1 (current focus):**
+- Billy froze paid V9 runs after repeated cost/failure problems. A full read-only
+  reassessment lives at `docs/SCREENPLAY-DASHBOARD-REASSESSMENT.md` (verdict:
+  keep V9's reliability infrastructure and sealed history; retire its paid
+  analysis machinery — broken prompt cache, boundary reruns, hybrid Opus
+  promotion, subjective scores audited as facts, no mid-run checkpoints).
+- The replacement, **Coverage V1**, is built and fully offline-tested but
+  **disabled by default** — see `docs/COVERAGE-V1.md`. Two calls per script
+  (senior coverage + fact-only audit), one repair slot, durable checkpoints,
+  $1/script local cap, verdict caps in code, development notes populated.
+  Double-gated: `LEMON_ENGINE_COVERAGE_V1=1` on the daemon AND
+  `engine: "coverage_v1"` on the job. Writes only to `coverage_v1_reports` /
+  `coverage_v1_checkpoints` staging collections; `uploaded_analyses` untouched.
+- Billy's 30 screenwriting skills are imported at `execution/lenses/skills/`;
+  15 distilled evaluation lens cards + registry at `execution/lenses/`.
+  Default stacks: feature → lemon-coverage/save-the-cat/story-grid;
+  TV pilot → Grisanti. Genre contracts are hard bars: horror must be scary,
+  comedy must be hilarious, on the page, or verdict caps at CONSIDER.
+- Billy's decisions (recorded in the reassessment §22): calibration by
+  reaction verdicts on surfaced winners (plus low-confidence-PASS sampling),
+  per-lens grades instead of numeric dimension scores, Reader Chat retained
+  on-demand, theatrical priorities = horror + comedy + high-concept.
+- **CANARY PASSED 2026-08-31** (two rounds, $5.02 of the authorized $10 —
+  full record in the `docs/COVERAGE-V1.md` status header): all 5 sealed,
+  human bars confirmed by Billy (spines/endings correct incl. Oro, notes
+  pay-worthy), zero fabricated citations, worst settled cost $0.53/script,
+  resume drill repaid nothing. **Billy authorized $25 for the 20-script
+  benchmark on 2026-09-01** (separate grant; canary grant closed at
+  ~$9.20/$10 — engine v1.1 validated live on Slasher: fact-repair stage
+  fired and worked, $0.599 settled, support_rate honest at 0.8889, index
+  cited in the notes; two live failures hardened the infra: unclassified
+  audit verdicts, shared cross-run checkpoint store, 16k repair ceiling,
+  exception-proof batch loop). Benchmark runs once Billy
+  provides/approves the 20 titles. The route is still
+  disabled by default; promotion into production is a separate decision
+  after the benchmark.
+- **Calibration loop live:** Billy's line-by-line audit briefs live verbatim
+  in `docs/calibration/` and are distilled into the HOUSE READING RULES of
+  `COVERAGE_CHARTER`. Brief #1 (Matadero, 2026-08-31) absorbed: 10 reading
+  rules + `not_applicable` lens grades + per-report `page_convention` +
+  audit dialogue-vs-staging rule. Brief #2 (Hermanos, 2026-09-01) absorbed:
+  rules 11-13 (continuity sweep, sequence buttons, pacing-claim limits) +
+  required `continuity_flags` field + concerns/pass_reason audited with an
+  absence-claim search rule + nonzero unverified citations force
+  human_review_recommended + printed-page renumbering detected from page
+  headers in code. Brief #3 (Slasher fresh run, 2026-09-01, ~$7.25 of $10
+  spent) confirmed briefs #1-#2 landed and exposed the false-absence bias
+  as systematic → absorbed as **engine coverage-v1.1**: code-generated
+  CHARACTER PAGE INDEX in both prompts, rules 14-16 (relationship graph,
+  behavior ledger, scene function), a fact-repair stage (audit-flagged
+  central partials rewritten per audit notes + re-audited before sealing;
+  call ceiling 3→5), weighted support_rate (partials 0.5). All old
+  checkpoints invalidated by design. **Re-run 2026-09-01 VALIDATED briefs
+  #1-#2** ($1.43,
+  cumulative $6.46 of the $10): corrected Matadero ending/climax, Hermanos
+  loophole note replaced by the real scoring incoherence, not_applicable
+  contracts, printed pages, continuity sweep caught 4 real errors incl. a
+  previously unknown scoring discrepancy, audit knocked down 3 overstated
+  concerns, seal review-flags honestly. Known residual: Fausto birth-order
+  contradiction unflagged in the spine. Cost with audit teeth ≈
+  $0.70/script (old $0.60 target predates the teeth). Per-verdict
+  reactions suffice from here; next calibration input is the benchmark.
+- **Dashboard preview live:** the four sealed canary reports are staged in
+  `coverage_v1_reports` (uploader: `execution/upload_coverage_reports.py`;
+  rules allow team read, clients never write). The dashboard merges that
+  staging feed beside `uploaded_analyses` (lean listener, no trust
+  machinery), the wall card shows "Coverage / Unscored by design" +
+  verdict badge, and the project workspace has a coverage-native Coverage
+  tab (`CoverageReportPanel`: spine, lens grades, dev priorities,
+  continuity flags, champion/pass cases, audit trail) with V9-only tabs
+  hidden for coverage docs. Vite is strictPort:3000 now (a fallback 3001
+  server can never sign in). Remaining UI polish handed to Codex (see the
+  handoff in the session log): coverage-aware Overview, classic-modal
+  labels, PDF export check, Slate Insights chip.
+- Deferred items: replace the placeholder `BENCHMARK_ANTHROPIC_API_KEY`
+  ('not-configured', Secret Manager) before any candidate-model benchmark;
+  Oro de Acapulco reads as a TV pilot per its own coverage — offer a
+  Grisanti-stack re-run (`format: "tv_pilot"`); no McKee skill was in the
+  zip (Billy can send one to become a lens card); Reader Chat per-turn cost
+  review.
 
-**Production deploys now require explicit approval:**
-- `.github/workflows/deploy.yml` was split into a `verify` job (lint, build, 889
-  unit tests, Playwright — automatic on every push to `main`) and a `deploy` job
-  bound to the protected `production` GitHub Environment.
-- Merging to `main` no longer releases. The deploy job waits for a human to
-  approve it under Actions → the waiting run → Review deployments.
-- The tested `dist/` is passed to the deploy job as an artifact, so Firebase
-  receives exactly the build that passed verification.
-- A `Protect main` ruleset is active: PR required, status checks required, force
-  pushes and deletions blocked. Direct pushes to `main` are refused.
-- Known ceiling: the environment's approver is `brovzar-lab`, the same identity
-  the agents authenticate as. The gate stops accidental deploys, not a determined
-  agent holding that token. A separate agent identity is the real fix.
+**V9 state:** still the default engine for any normally-queued job; sealed V9
+analyses remain the immutable record. The trust-remediation wave (PRs #41–#76,
+2026-08-28/30) tripled `execution/ingest_v9.py` to ~13.8k lines; do not extend
+that pipeline — new analysis work goes through Coverage V1.
 
-**Paperclip branch contamination (resolved):**
-- Two unrelated branches, `master` and `lemon-virtual-studios`, had been pushed
-  into this repo by a Paperclip agent (35 commits, no common ancestor with `main`).
-  They never merged, never ran Actions, and never reached production.
-- Both were archived to a verified, restore-tested git bundle at
-  `~/CODE/_paperclip-branch-archive/paperclip-strays-2026-08-11.bundle`, then
-  deleted from GitHub. `brovzar-lab/paperclip` was never modified.
-- Root cause is unfixed and is not a code issue: `brovzar-lab` is a personal
-  account owning 72 repos, and the agent credentials can write to all of them.
-  Scoping that token is the outstanding remediation.
-
-**V9 reanalysis (3 screenplays, production data):**
-- Matadero, Oro de Acapulco, and Hermanos Márquez Castillo were re-run through
-  the current V9 engine. No verdict changed; all three held CONSIDER.
-- Raw weighted scores moved +0.06 / +0.07 / 0.00. Adjusted scores moved
-  +0.36 / +0.57 / 0.00 because two stale critical-failure penalties cleared.
-- Hermanos cost nothing: its content hash matched an existing immutable version,
-  so the engine reused it and repeated no paid work. Total new spend $6.92.
-- All three now carry five sealed, publication-ready reader reports, which is
-  what unlocks Private Reader Chat. Sealed reports live in the `versions`
-  subcollection, not on the top-level `analysis` object.
-- Regression found and corrected: the engine derived Matadero's title from its
-  filename (`Matadero (5ta Version 24052026)`). The display title was restored to
-  `Matadero` on the top-level doc; the sealed version keeps the engine's raw value.
-
-**Open risks:**
-- `VITE_TMDB_API_KEY` in `.env` is inlined into the client bundle at build time.
-  Production is clean because CI has no such variable, but a local `npm run deploy`
-  would publish that key. Route TMDB server-side like the other providers.
-- The Playwright suite asserts against live production Firestore data, so editing
-  one screenplay's title broke CI. Fixture-backed data would remove that coupling.
-- 24 repeated chart-resize console warnings on Discovery. No visible failure.
-
-**Next up:**
-1. Scope the Paperclip agent credential to `brovzar-lab/paperclip` only.
-2. Rotate the Firebase service-account key afterwards, as a precaution.
-3. Decide on a separate agent identity so deploy approval is not self-approvable.
+**Open risks (carried over, status unverified this session):**
+- `VITE_TMDB_API_KEY` inlined into local builds — never `npm run deploy` from
+  a laptop; CI is the clean path.
+- Playwright asserts against live production Firestore data.
+- Paperclip agent credential still scoped to all 72 repos; Firebase
+  service-account rotation and a separate deploy-approver identity pending.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.

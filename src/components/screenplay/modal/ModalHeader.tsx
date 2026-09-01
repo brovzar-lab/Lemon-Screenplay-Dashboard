@@ -18,7 +18,7 @@ import { useIsAdmin } from '@/stores/authStore';
 import type { ReactNode, RefObject } from 'react';
 import { ScreenplayPdfButton } from './ScreenplayPdfButton';
 import { getScreenplayDisplayAuthor, getScreenplayDisplayTitle } from '@/lib/screenplayDisplay';
-import { isDecisionReady } from '@/lib/producerProjection';
+import { isCoverageV1Screenplay, isDecisionReady } from '@/lib/producerProjection';
 import { useTranslation } from 'react-i18next';
 
 interface ModalHeaderProps {
@@ -52,6 +52,7 @@ export function ModalHeader({
   const isAdmin = useIsAdmin();
   const budgetInfo = BUDGET_TIERS[screenplay.budgetCategory];
   const decisionReady = isDecisionReady(screenplay);
+  const isCoverage = isCoverageV1Screenplay(screenplay);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteScreenplays();
 
@@ -99,6 +100,13 @@ export function ModalHeader({
         <div className="flex items-start justify-between mb-3">
           {decisionReady ? (
             <RecommendationBadge tier={screenplay.recommendation} size="lg" />
+          ) : isCoverage ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <RecommendationBadge tier={screenplay.recommendation} size="lg" />
+              <span className="text-sm font-semibold text-sky-200">
+                {t('Coverage · unscored by design')}
+              </span>
+            </div>
           ) : (
             <span className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-200">
               {t('Not verified / not rankable')}

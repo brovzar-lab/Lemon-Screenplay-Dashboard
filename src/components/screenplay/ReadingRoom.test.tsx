@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { createTestScreenplay } from '@/test/factories';
+import { createCoverageTestScreenplay, createTestScreenplay } from '@/test/factories';
 import i18n from '@/i18n';
 import { ReadingRoom } from './ReadingRoom';
 
@@ -68,6 +68,23 @@ describe('ReadingRoom', () => {
 
     expect(screen.getByText('Decision data unavailable until verification')).toBeInTheDocument();
     expect(screen.queryByText('FILM NOW')).not.toBeInTheDocument();
+  });
+
+  it('reads Coverage as an unscored report without V9 score or character panels', () => {
+    render(
+      <ReadingRoom
+        screenplays={[createCoverageTestScreenplay()]}
+        percentileRanks={new Map()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Coverage · unscored by design')).toBeInTheDocument();
+    expect(screen.getAllByText('RECOMMEND')).not.toHaveLength(0);
+    expect(screen.getByText('Story spine')).toBeInTheDocument();
+    expect(screen.queryByText('Scores Matadero')).not.toBeInTheDocument();
+    expect(screen.queryByText('Details Matadero')).not.toBeInTheDocument();
+    expect(screen.queryByText('Decision data unavailable until verification')).not.toBeInTheDocument();
   });
 
   it('moves through screenplays with controls and arrow keys', () => {
