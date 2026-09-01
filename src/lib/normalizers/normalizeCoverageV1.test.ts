@@ -203,6 +203,27 @@ describe('isCoverageV1Analysis', () => {
 });
 
 describe('resolveCoverageV1Report', () => {
+  it('resolves the wrapped report when the wrapper carries coverage_v1 metadata too', () => {
+    // The exact shape execution/upload_coverage_reports.py writes: top-level
+    // analysis_version/title/verdict metadata AND the full report in
+    // report_json. The metadata must never shadow the wrapped report.
+    const report = coverageV1Report();
+    const stagingDoc = {
+      analysis_version: 'coverage_v1',
+      title: 'La Cancha',
+      verdict: 'CONSIDER',
+      engine_version: 'coverage-v1.1',
+      source_file: 'coverage-v1/La Cancha',
+      report_json: JSON.stringify(report),
+    };
+    const resolved = resolveCoverageV1Report(stagingDoc);
+    expect(resolved?.coverage).toBeTruthy();
+    expect(isCoverageV1Analysis(stagingDoc)).toBe(true);
+    const normalized = normalizeCoverageV1Screenplay(stagingDoc, 'Analysis');
+    expect(normalized.title).toBe('La Cancha');
+    expect(normalized.lensGrades?.length).toBeGreaterThan(0);
+  });
+
   it('returns the inner report for a staging doc', () => {
     const report = coverageV1Report();
     const resolved = resolveCoverageV1Report({ report_json: JSON.stringify(report) });

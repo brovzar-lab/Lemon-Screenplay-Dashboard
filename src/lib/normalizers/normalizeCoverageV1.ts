@@ -89,24 +89,31 @@ export function resolveCoverageV1Report(raw: unknown): UnknownRecord | undefined
   const record = asRecord(raw);
   if (!record) return undefined;
 
-  let report: UnknownRecord | undefined;
-  if (record.analysis_version === 'coverage_v1') {
-    report = record;
-  } else if (typeof record.report_json === 'string') {
+  // A staging wrapper may carry BOTH coverage_v1 metadata at the top level
+  // AND the full report under report_json (the upload_coverage_reports.py
+  // shape) — try each candidate and accept the first structurally valid
+  // report, so wrapper metadata never shadows the wrapped report.
+  const candidates: UnknownRecord[] = [];
+  if (record.analysis_version === 'coverage_v1') candidates.push(record);
+  if (typeof record.report_json === 'string') {
     try {
       const parsed: unknown = JSON.parse(record.report_json);
       const parsedRecord = asRecord(parsed);
-      if (parsedRecord?.analysis_version === 'coverage_v1') report = parsedRecord;
+      if (parsedRecord?.analysis_version === 'coverage_v1') {
+        candidates.push(parsedRecord);
+      }
     } catch {
-      return undefined;
+      // Unparseable report_json: the top-level candidate may still be valid.
     }
   }
-  if (!report) return undefined;
 
-  if (asString(report.title).trim().length === 0) return undefined;
-  if (asString(report.verdict).trim().length === 0) return undefined;
-  if (!asRecord(report.coverage)) return undefined;
-  return report;
+  for (const report of candidates) {
+    if (asString(report.title).trim().length === 0) continue;
+    if (asString(report.verdict).trim().length === 0) continue;
+    if (!asRecord(report.coverage)) continue;
+    return report;
+  }
+  return undefined;
 }
 
 /** Type guard used by the normalization dispatch in api.ts. */
