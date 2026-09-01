@@ -229,8 +229,40 @@ python3 -m execution.coverage_v1_canary --manifest canary.json \
   --execute --i-authorize-paid-inference
 ```
 
-The scorecard prints the automated bars (batch/script caps, ≤3 calls,
-zero unverified citations, resume-repaid-nothing, ≤$0.60 settled) and the
+The scorecard prints the automated bars (batch/script caps, ≤5 calls,
+zero unverified citations, resume-repaid-nothing, settled cost) and the
 human checklist (spine facts correct, development notes actionable, at
-least as useful as the V9 report). Send `scorecard.json` and the five
+least as useful as the V9 report). Send `scorecard.json` and the
 `reports/*.json` back for adjudication.
+
+## The 20-script benchmark (authorized by Billy 2026-09-01, $25 total)
+
+Runs on the same runner with a 20-entry manifest once Billy provides or
+approves the titles:
+
+```bash
+venv/bin/python -m execution.coverage_v1_canary --manifest benchmark.json \
+  --execute --i-authorize-paid-inference --max-total-usd 25
+```
+
+Slate design (what makes the result informative): scripts Billy knows well
+enough to react to every verdict — roughly 5 strong / 10 middling / 5 weak
+by his own prior judgment, spread across horror, comedy, and high-concept,
+plus 2–3 TV pilots with `"format": "tv_pilot"` to exercise the Grisanti
+stack for the first time. Expected cost ≈ $0.60–0.90/script under engine
+v1.1 (fact repair fires only when the audit finds central imprecision).
+
+What the benchmark establishes that the canary could not:
+1. **Verdict calibration** — Billy reacts agree/disagree to every verdict;
+   the distribution against his prior strong/middling/weak ranking is the
+   headline metric (RECOMMEND should surface his strong picks; PASS/
+   CONSIDER should not swallow one).
+2. **Genre contracts at scale** — do horror/comedy bars cap the right
+   scripts and never the wrong ones.
+3. **Rule generalization rates** — frequency of review flags, fact-repair
+   firings, continuity findings, unverified citations, and any recurrence
+   of the calibrated-away failure modes across 20 unseen-by-the-rules
+   scripts.
+
+Promotion into production (enabling the daemon route + dashboard read)
+remains a separate decision after Billy reviews the benchmark results.
