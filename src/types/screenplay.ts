@@ -634,6 +634,8 @@ export interface Screenplay {
   uncertainties?: string[];
   /** Qualitative lens grades, kept verbatim — never converted into scores. */
   lensGrades?: LensGrade[];
+  /** Script-internal contradictions found by the continuity sweep (both pages quoted). */
+  continuityFlags?: string[];
   /** Screenplay language reported by the coverage engine (e.g. "es-MX"). */
   language?: string;
 

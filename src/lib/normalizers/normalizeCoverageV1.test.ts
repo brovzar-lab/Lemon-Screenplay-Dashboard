@@ -283,6 +283,16 @@ describe('normalizeCoverageV1Screenplay', () => {
     ]);
   });
 
+  it('passes continuity flags through verbatim', () => {
+    const coverage = coveragePayload();
+    coverage.continuity_flags = [
+      'p.1 la madre es "Esperanza Blanco" pero p.2 dice "Rosa también murió" — misma mujer, dos nombres',
+    ];
+    const result = normalizeCoverageV1Screenplay(coverageV1Report({ coverage }), 'Analysis');
+    expect(result.continuityFlags).toHaveLength(1);
+    expect(result.continuityFlags?.[0]).toContain('dos nombres');
+  });
+
   it('keeps not_applicable lens grades and drops unknown ones', () => {
     const coverage = coveragePayload();
     coverage.lens_notes = [

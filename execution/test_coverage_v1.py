@@ -220,6 +220,7 @@ def valid_coverage(lens_stack=FEATURE_STACK) -> dict:
             "una película completa"
         ),
         "uncertainties": ["La edad exacta del público objetivo no está clara"],
+        "continuity_flags": [],
         "commercial_hypothesis": (
             "Familias mexicanas y público de fútbol; comps Rudo y Cursi, "
             "McFarland USA; drama deportivo familiar de barrio para estreno "
@@ -279,6 +280,21 @@ def run_engine(store, transport, **overrides):
 
 def new_store():
     return cv.LocalCheckpointStore(Path(tempfile.mkdtemp()) / "cv1")
+
+
+def screenplay_with_printed_headers() -> str:
+    """The fixture screenplay re-laid-out like a real PDF with a title page:
+    physical page N+1 carries printed header number N, so printed = physical - 1.
+    Fixture content lands on the same PRINTED page it occupied before, and
+    filler pages push header detections past the confidence minimum."""
+    _numbers, pages = cv._marked_page_contents(SCREENPLAY_TEXT)
+    parts = ["[PAGE 1]", "EL ÚLTIMO PORTERO", "escrito por Ana Márquez", ""]
+    for printed in range(1, 13):
+        content = pages.get(
+            printed, "Página de relleno sin citas relevantes en la trama."
+        )
+        parts += [f"[PAGE {printed + 1}]", f"{printed}.", content, ""]
+    return "\n".join(parts)
 
 
 # ── Tests ────────────────────────────────────────────────────────────────────
@@ -342,6 +358,56 @@ class TestLensRegistry(unittest.TestCase):
             self.assertLessEqual(
                 card.stat().st_size, cv.MAX_LENS_CARD_BYTES, lens_id
             )
+
+
+class TestPrintedPageNumbering(unittest.TestCase):
+    # Hermanos brief, recurring 2: one deterministic page convention,
+    # detected in code, never the model's guess.
+
+    def test_offset_detected_and_markers_renumbered(self):
+        text = screenplay_with_printed_headers()
+        info = cv._detect_printed_page_offset(text)
+        self.assertIsNotNone(info)
+        self.assertEqual(info["offset"], -1)
+        renumbered = cv._renumber_page_markers(text, -1)
+        self.assertIn("[UNNUMBERED FRONT MATTER]", renumbered)
+        _numbers, pages = cv._marked_page_contents(renumbered)
+        self.assertEqual(min(pages), 1)
+        # Content is addressable by its PRINTED page after renumbering.
+        self.assertIn("su corazón no soporta otro partido", pages[5])
+
+    def test_report_cites_printed_pages_end_to_end(self):
+        coverage = valid_coverage()
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (supported_audit(coverage), settled_usage()),
+            ]
+        )
+        report, _usage = run_engine(
+            new_store(), transport, text=screenplay_with_printed_headers()
+        )
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(report["page_numbering"]["mode"], "printed")
+        self.assertEqual(report["page_numbering"]["offset"], -1)
+        self.assertIn("PRINTED", report["page_convention"])
+        # The fixture's printed-page citations verify against the
+        # renumbered text with zero relocations needed.
+        self.assertEqual(report["citation_verification"]["unverified"], 0)
+        self.assertFalse(report["human_review_recommended"])
+
+    def test_unnumbered_document_falls_back_to_physical(self):
+        self.assertIsNone(cv._detect_printed_page_offset(SCREENPLAY_TEXT))
+        coverage = valid_coverage()
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (supported_audit(coverage), settled_usage()),
+            ]
+        )
+        report, _usage = run_engine(new_store(), transport)
+        self.assertEqual(report["page_numbering"]["mode"], "physical")
+        self.assertIn("physical", report["page_convention"])
 
 
 class TestHappyPath(unittest.TestCase):
@@ -493,9 +559,15 @@ class TestHappyPath(unittest.TestCase):
             "reversal in the middle",
             "sharpen the existing setup",
             "[PAGE N]",
+            # Hermanos brief #2 rules:
+            "deus ex machina",
+            "continuity_flags",
+            "one page past",
+            "no turn",
         ):
             self.assertIn(sentinel, system_text, sentinel)
         self.assertIn("staging", cv.AUDIT_CHARTER)
+        self.assertIn("ABSENCE", cv.AUDIT_CHARTER)
         coverage = valid_coverage()
         transport = FakeTransport(
             [
@@ -505,6 +577,72 @@ class TestHappyPath(unittest.TestCase):
         )
         report, _usage = run_engine(new_store(), transport)
         self.assertIn("[PAGE N]", report["page_convention"])
+
+    def test_unverified_citation_forces_human_review(self):
+        # Hermanos brief, recurring 3: a report carrying broken citations
+        # can no longer seal as fully trusted with no review flag.
+        coverage = valid_coverage()
+        coverage["strengths"][0]["excerpt"] = (
+            "esta cita no existe en ninguna página"
+        )
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (supported_audit(coverage), settled_usage()),
+            ]
+        )
+        report, _usage = run_engine(new_store(), transport)
+        self.assertEqual(report["status"], "sealed")
+        self.assertTrue(report["human_review_recommended"])
+        self.assertTrue(
+            any("verified verbatim" in r for r in report["review_reasons"])
+        )
+
+    def test_contradicted_concern_flags_review_without_blocking_seal(self):
+        # Hermanos brief, defect 1: concerns and the pass case are audited;
+        # a contradicted one (e.g. a false "unseeded" claim) flags review.
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        for verdict_row in audit["verdicts"]:
+            if verdict_row["claim_id"] == "concerns.point_0":
+                verdict_row["classification"] = "contradicted"
+                verdict_row["note"] = "La preparación existe en la página 3."
+        transport = FakeTransport(
+            [(coverage, settled_usage()), (audit, settled_usage())]
+        )
+        report, _usage = run_engine(new_store(), transport)
+        self.assertEqual(report["status"], "sealed")
+        self.assertTrue(report["human_review_recommended"])
+        self.assertTrue(
+            any(
+                "contradicted" in r and "concerns.point_0" in r
+                for r in report["review_reasons"]
+            )
+        )
+
+    def test_audit_claims_cover_concerns_and_pass_reason(self):
+        claims = cv.build_audit_claims(valid_coverage())
+        ids = {claim["claim_id"] for claim in claims}
+        self.assertIn("concerns.point_0", ids)
+        self.assertIn("concerns.point_2", ids)
+        self.assertIn("pass_reason", ids)
+        self.assertLessEqual(len(claims), cv.MAX_AUDIT_CLAIMS)
+
+    def test_continuity_flags_are_validated_and_preserved(self):
+        coverage = valid_coverage()
+        coverage["continuity_flags"] = [
+            'p.1 la madre se llama "Esperanza Blanco" pero p.2 la narración '
+            'dice "Rosa también murió" — misma mujer, dos nombres',
+        ]
+        self.assertEqual(cv.validate_coverage_payload(coverage, FEATURE_STACK), [])
+        broken = valid_coverage()
+        broken["continuity_flags"] = "ninguna"
+        self.assertTrue(
+            any(
+                "continuity_flags" in problem
+                for problem in cv.validate_coverage_payload(broken, FEATURE_STACK)
+            )
+        )
 
     def test_cost_split_keeps_uncertain_separate(self):
         coverage = valid_coverage()

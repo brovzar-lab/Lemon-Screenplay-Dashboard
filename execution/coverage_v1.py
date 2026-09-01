@@ -47,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from source_evidence import (  # noqa: E402
     MIN_CITATION_EXCERPT_WORDS,
+    PAGE_MARKER_PATTERN,
     _evidence_excerpt_match_kind,
     _marked_page_contents,
 )
@@ -355,6 +356,11 @@ COVERAGE_TOOL: Dict[str, Any] = {
                 "items": {"type": "string"},
                 "maxItems": 5,
             },
+            "continuity_flags": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 6,
+            },
             "commercial_hypothesis": {"type": "string"},
         },
         "required": [
@@ -362,7 +368,7 @@ COVERAGE_TOOL: Dict[str, Any] = {
             "lens_notes", "genre_contract", "strengths", "concerns",
             "development_priorities", "verdict", "confidence",
             "champion_reason", "pass_reason", "uncertainties",
-            "commercial_hypothesis",
+            "continuity_flags", "commercial_hypothesis",
         ],
     },
 }
@@ -534,10 +540,14 @@ are permanent and non-negotiable):
    finding; a fabricated one is the most damaging output possible.
 4. Before any note of the form "this is unprepared" or "add a setup", run a
    backward search for the payoff's key nouns, objects, and lines — check
-   INSERT and ANGLE headings specifically, writers plant there. If the setup
-   exists, the note becomes "sharpen the existing setup at p.X", citing the
-   page. Prescribing something already built destroys the credibility of
-   every other note.
+   INSERT and ANGLE headings specifically, writers plant there. If the
+   payoff quotes a document, a rule, or a line of dialogue, search for that
+   exact string FIRST. Any "unseeded / deus ex machina / convenient" claim
+   must state what you searched for and what the search returned. If the
+   setup exists, the note becomes "convert the existing mention on p.X into
+   a played scene" or "sharpen the existing setup at p.X", citing the page.
+   Prescribing something already built destroys the credibility of every
+   other note — this failure has now been caught twice in human audits.
 5. Classify each violent beat by FUNCTION before intensity: who performs it,
    to whom, what it reveals or sets up. Self-directed violence, ritual, and
    disposal are character and theme material, not kill inventory. Only beats
@@ -560,6 +570,23 @@ are permanent and non-negotiable):
    and what physical or verbal tell tracks their state (a stutter that
    fades, a pill bottle, a repeated phrase). Name the tell and cite it —
    these observations are what make coverage read like a person wrote it.
+11. Run a continuity sweep and report findings in `continuity_flags`: the
+   same character under two names, two characters sharing a name,
+   contradictory ages, birth order, or relationships, and contradictory
+   statements of any in-world rule or contest. Each flag names both pages
+   and quotes both passages. An empty list means the sweep found nothing —
+   never that it was skipped. These are among the most immediately useful
+   notes a producer receives.
+12. Before judging any scene flat, repetitive, or noise, read to the end of
+   the sequence AND one page past it. Check specifically whether a third
+   party (a host, a narrator, an onlooker) supplies a button or reframe
+   after the scene ends — a repetition sequence that ends on a reframe is a
+   structure, not a plateau, and is often a disguised setup.
+13. A pacing note may say a sequence is long, or that its escalation is
+   quantitative rather than qualitative. It may NOT say a sequence has "no
+   variation" or "no turn" without first checking the sequence's final
+   beat. Every reference to a given sequence must use one and the same page
+   range everywhere in the report.
 """
 
 AUDIT_CHARTER = """\
@@ -579,6 +606,12 @@ Dialogue is a character's claim, not a fact. If a claim's only support is a
 spoken line, check whether the staging (action lines, cuts, final images)
 confirms or contradicts it; staging that contradicts the dialogue makes the
 claim contradicted, even when the line is quoted accurately.
+
+A claim asserting ABSENCE — that something is never set up, never hinted,
+never established, unprepared, or comes out of nowhere — requires searching
+the ENTIRE screenplay for the referenced language, object, or rule before
+classifying. If you find the setup the claim says does not exist, the claim
+is contradicted; quote the page where it exists in your note.
 """
 
 
@@ -820,6 +853,66 @@ def _verified_payload(
     return payload
 
 
+# ── Printed page numbering (local, deterministic) ───────────────────────────
+# Hermanos brief, recurring 2: a writer opens the script to the printed page
+# in the header, so the coverage must cite printed pages — and the numbering
+# must be ONE deterministic convention, never the model's guess. The offset
+# between physical PDF pages and printed header numbers is detected once in
+# code and the [PAGE N] markers are renumbered BEFORE the text reaches the
+# model, so prompts, citations, verification, and relocation all share the
+# printed convention natively.
+
+_PRINTED_PAGE_LINE = re.compile(r"^\s*(\d{1,3})\s*\.?\s*$")
+_MAX_PAGE_HEADER_OFFSET = 3
+_MIN_OFFSET_DETECTIONS = 8
+_MIN_OFFSET_AGREEMENT = 0.8
+
+
+def _detect_printed_page_offset(text: str) -> Optional[Dict[str, int]]:
+    """Detect printed_page - physical_page from standalone header numbers.
+
+    Returns {"offset", "detections", "pages"} when a large, strongly agreeing
+    majority of pages carry a plausible printed number; None otherwise
+    (scans, unnumbered scripts, ambiguous layouts fall back to physical).
+    """
+    _numbers, contents = _marked_page_contents(text)
+    votes: Dict[int, int] = {}
+    for physical, content in contents.items():
+        lines = content.splitlines()
+        for line in lines[:3] + lines[-3:]:
+            match = _PRINTED_PAGE_LINE.match(line)
+            if not match:
+                continue
+            printed = int(match.group(1))
+            offset = printed - physical
+            if printed >= 1 and abs(offset) <= _MAX_PAGE_HEADER_OFFSET:
+                votes[offset] = votes.get(offset, 0) + 1
+                break
+    total = sum(votes.values())
+    if not votes or total < max(_MIN_OFFSET_DETECTIONS, len(contents) // 3):
+        return None
+    offset, count = max(votes.items(), key=lambda item: item[1])
+    if count / total < _MIN_OFFSET_AGREEMENT:
+        return None
+    return {"offset": offset, "detections": count, "pages": len(contents)}
+
+
+def _renumber_page_markers(text: str, offset: int) -> str:
+    """Rewrite [PAGE N] markers from physical to printed numbering.
+
+    Pages whose printed number would be < 1 (front matter such as a title
+    page) become [UNNUMBERED FRONT MATTER]: their content stays visible to
+    the model but is never a citable page.
+    """
+    def replace(match: "re.Match[str]") -> str:
+        printed = int(match.group(1)) + offset
+        if printed < 1:
+            return "[UNNUMBERED FRONT MATTER]"
+        return f"[PAGE {printed}]"
+
+    return PAGE_MARKER_PATTERN.sub(replace, text)
+
+
 # ── Citation verification (local, deterministic) ────────────────────────────
 
 # A single leading word may be dropped from a long excerpt (a model sometimes
@@ -1021,6 +1114,15 @@ def validate_coverage_payload(
             if not isinstance(item.get("page"), int) or item["page"] < 1:
                 problems.append(f"{group}[{i}].page invalid")
 
+    flags = payload.get("continuity_flags")
+    if not isinstance(flags, list) or any(
+        not isinstance(flag, str) or len(flag.strip()) < 10 for flag in flags
+    ):
+        problems.append(
+            "continuity_flags must be a list of substantive strings "
+            "(empty list allowed after a clean sweep)"
+        )
+
     priorities = payload.get("development_priorities")
     if not isinstance(priorities, list) or len(priorities) != 3:
         problems.append("development_priorities must have exactly 3 entries")
@@ -1043,8 +1145,10 @@ def validate_coverage_payload(
 def build_audit_claims(coverage: Dict[str, Any]) -> List[Dict[str, str]]:
     """Deterministically derive the factual claims worth an audit.
 
-    Only the story spine and the genre-contract met/failed premise — never
-    scores, grades, or interpretation. Bounded to MAX_AUDIT_CLAIMS.
+    The story spine and genre-contract failures (central — a failure blocks
+    the seal), plus concern points and the pass case (non-central — a
+    contradiction flags human review). Never scores, grades, or taste.
+    Bounded to MAX_AUDIT_CLAIMS.
     """
     spine = coverage.get("story_spine", {})
     claims: List[Dict[str, str]] = []
@@ -1071,6 +1175,17 @@ def build_audit_claims(coverage: Dict[str, Any]) -> List[Dict[str, str]]:
     if isinstance(contract, dict) and contract.get("failures"):
         for i, failure in enumerate(contract["failures"][:3]):
             add(f"genre_contract.failure_{i}", str(failure))
+
+    # Concerns and the pass case make factual assertions too — including the
+    # dangerous "this is never set up" kind (Hermanos brief, defect 1). The
+    # audit's absence-claim rule checks those against the whole script.
+    for i, item in enumerate(coverage.get("concerns", [])):
+        if isinstance(item, dict):
+            add(f"concerns.point_{i}", f"Concern asserts: {item.get('point', '')}")
+    add(
+        "pass_reason",
+        f"The case against the script asserts: {coverage.get('pass_reason', '')}",
+    )
     return claims
 
 
@@ -1232,6 +1347,18 @@ def run_coverage_v1(
     usage_total = _empty_usage()
     repair_calls_used = 0
 
+    # Renumber [PAGE N] markers to printed header numbers when the offset is
+    # confidently detectable, so every downstream page reference (prompt,
+    # citations, verification, relocation, audit) is a printed page.
+    offset_info = _detect_printed_page_offset(text)
+    if offset_info is not None and offset_info["offset"] != 0:
+        text = _renumber_page_markers(text, offset_info["offset"])
+    page_numbering: Dict[str, Any] = {
+        "mode": "printed" if offset_info is not None else "physical",
+        "offset": offset_info["offset"] if offset_info is not None else 0,
+        "detections": offset_info["detections"] if offset_info is not None else 0,
+    }
+
     registry = load_lens_registry(lenses_root)
     lens_stack = resolve_lens_stack(registry, fmt, genre_hint, lenses)
     lens_cards_text = load_lens_cards(registry, lens_stack, lenses_root)
@@ -1248,6 +1375,7 @@ def run_coverage_v1(
             "coverage_system": coverage_system,
             "coverage_instruction": coverage_user[-1],
             "audit_charter": AUDIT_CHARTER,
+            "page_numbering": page_numbering,
         }
     )
     schema_sha256 = canonical_json_hash(
@@ -1467,10 +1595,28 @@ def run_coverage_v1(
             "genre contract not met: verdict capped at CONSIDER"
         )
 
+    # Non-central claims (concern points, the pass case) that the audit
+    # contradicted don't block the seal, but they must never pass silently:
+    # a contradicted concern can be the false rationale behind the verdict
+    # (Hermanos brief, defect 1).
+    noncentral_contradicted = [
+        claim_id
+        for claim_id, verdict_row in by_claim.items()
+        if not is_central_claim(claim_id)
+        and verdict_row["classification"] == "contradicted"
+    ]
+
+    # The seal has teeth on citations too (Hermanos brief, recurring 3): a
+    # report carrying citations that failed verbatim verification cannot
+    # present itself as fully trusted.
+    unverified_citations = int((citation_summary or {}).get("unverified", 0))
+
     human_review_recommended = (
         status == "needs_review"
         or coverage_payload["confidence"] == "low"
         or bool(central_partials)
+        or bool(noncentral_contradicted)
+        or unverified_citations > 0
     )
     if coverage_payload["confidence"] == "low":
         review_reasons.append("reader confidence is low")
@@ -1478,6 +1624,16 @@ def run_coverage_v1(
         review_reasons.append(
             "central facts only partially supported: "
             + ", ".join(sorted(central_partials))
+        )
+    if noncentral_contradicted:
+        review_reasons.append(
+            "audited claims contradicted by the text: "
+            + ", ".join(sorted(noncentral_contradicted))
+        )
+    if unverified_citations > 0:
+        review_reasons.append(
+            f"{unverified_citations} citation(s) could not be verified "
+            "verbatim against the cited pages"
         )
 
     cost = _usage_cost_split(usage_total)
@@ -1492,10 +1648,21 @@ def run_coverage_v1(
         "format": fmt,
         "page_count": page_count,
         "page_convention": (
-            "All page references are physical PDF pages ([PAGE N] parser "
-            "markers). Printed page-header numbers inside the document may "
-            "be offset by front matter such as a title page."
+            (
+                "All page references are PRINTED page numbers as they appear "
+                "in the document's page headers (physical PDF page = printed "
+                f"page {'+' if -page_numbering['offset'] >= 0 else '-'} "
+                f"{abs(page_numbering['offset'])}; offset detected from "
+                f"{page_numbering['detections']} page headers)."
+            )
+            if page_numbering["mode"] == "printed"
+            else (
+                "All page references are physical PDF pages ([PAGE N] parser "
+                "markers); no printed page-header numbering could be "
+                "confidently detected in this document."
+            )
         ),
+        "page_numbering": page_numbering,
         "word_count": word_count,
         "content_sha256": content_sha256,
         "parser_version": parser_version,

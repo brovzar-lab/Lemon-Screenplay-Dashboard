@@ -75,6 +75,19 @@ verbatim brief is the source of record. Absorbed so far:
   lens grades (schema + dashboard support added), one page-number
   convention stated per report (`page_convention`), and supporting-cast
   theme tells. The audit charter also gained the dialogue-vs-staging rule.
+- **2026-09-01 Hermanos** (`docs/calibration/2026-09-01-hermanos-calibration-brief.md`):
+  three new reading rules (unseeded/deus-ex-machina claims require an
+  exact-string backward search; read to the sequence end plus one page for
+  third-party buttons; pacing-claim limits with one page range per
+  sequence) plus four structural changes — a required `continuity_flags`
+  field (the continuity sweep), concerns and `pass_reason` added to the
+  audited claims with an absence-claim search rule (a contradicted one
+  flags human review), any nonzero unverified-citation count now forces
+  `human_review_recommended`, and printed-page numbering: the physical→
+  printed offset is detected from page headers in code and the [PAGE N]
+  markers are renumbered before the model reads the text, so every page
+  reference in the report is a printed page (fallback to physical, stated,
+  when no headers are detectable).
 
 Note: a distilled prompt change alters `prompt_sha256`, which deliberately
 invalidates existing checkpoints — the next run of any script re-pays both

@@ -39,9 +39,14 @@
   in `docs/calibration/` and are distilled into the HOUSE READING RULES of
   `COVERAGE_CHARTER`. Brief #1 (Matadero, 2026-08-31) absorbed: 10 reading
   rules + `not_applicable` lens grades + per-report `page_convention` +
-  audit dialogue-vs-staging rule. A second brief on a comedy (Hermanos)
-  would cover the other genre contract; after that, per-verdict reactions
-  suffice.
+  audit dialogue-vs-staging rule. Brief #2 (Hermanos, 2026-09-01) absorbed:
+  rules 11-13 (continuity sweep, sequence buttons, pacing-claim limits) +
+  required `continuity_flags` field + concerns/pass_reason audited with an
+  absence-claim search rule + nonzero unverified citations force
+  human_review_recommended + printed-page renumbering detected from page
+  headers in code. Both briefs' fixes validate in the pending
+  Matadero+Hermanos re-run (~$1.10 of the ~$5 canary authorization left);
+  after that, per-verdict reactions suffice.
 - Deferred items: replace the placeholder `BENCHMARK_ANTHROPIC_API_KEY`
   ('not-configured', Secret Manager) before any candidate-model benchmark;
   Oro de Acapulco reads as a TV pilot per its own coverage — offer a

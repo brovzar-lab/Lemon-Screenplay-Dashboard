@@ -310,6 +310,7 @@ export function normalizeCoverageV1Screenplay(
   const humanReviewRecommended = report.human_review_recommended === true;
   const reviewReasons = asStringArray(report.review_reasons);
   const uncertainties = asStringArray(coverage.uncertainties);
+  const continuityFlags = asStringArray(coverage.continuity_flags);
   const verdictAdjustments = asStringArray(report.verdict_adjustments);
   const citationVerification = asRecord(report.citation_verification) ?? {};
   const factAudit = asRecord(report.fact_audit) ?? {};
@@ -431,6 +432,7 @@ export function normalizeCoverageV1Screenplay(
     reviewReasons,
     uncertainties,
     lensGrades,
+    continuityFlags,
     language: asString(coverage.language) || undefined,
     dimensionScores,
     dimensionJustifications,
