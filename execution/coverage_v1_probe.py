@@ -259,7 +259,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     total = round(sum(r.get("cost_usd", 0.0) or 0.0 for r in results), 6)
     print(f"\nTotal probe cost: ${total}")
     print("\n" + diagnose(results))
-    return 0
+    # Exit nonzero unless the engine's real coverage schema compiled, so the
+    # probe can gate a chained canary run (`probe ... && canary ...`).
+    coverage_ok = any(
+        r["id"] == "coverage_flat_thinking"
+        and r.get("outcome") in ("accepted", "accepted_by_provider_accounting_failed")
+        for r in results
+    )
+    return 0 if coverage_ok else 1
 
 
 if __name__ == "__main__":

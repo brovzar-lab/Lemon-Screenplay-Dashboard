@@ -105,7 +105,6 @@ def valid_coverage(lens_stack=FEATURE_STACK) -> dict:
     return {
         "genre": {
             "primary": "sports drama",
-            "tone": "warm, redemptive",
         },
         "logline": (
             "Un portero retirado y enfermo entrena al equipo infantil de "

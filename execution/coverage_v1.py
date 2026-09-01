@@ -82,13 +82,15 @@ AUDIT_CLASSIFICATIONS = (
 )
 
 # Compiler-safety budget for our strict schemas, MEASURED EMPIRICALLY via
-# execution/coverage_v1_probe.py on 2026-08-31 against claude-sonnet-4-6:
-# a 51-property/10-object strict schema was rejected before generation;
-# a 45-property/9-object variant compiled. Keep every tool at or under the
-# accepted shape — the V9 JSON-string-envelope workaround is deliberately
-# unavailable here.
+# execution/coverage_v1_probe.py on 2026-08-31 against claude-sonnet-4-6
+# (51 properties/10 objects rejected; a 45/9 synthetic variant compiled) and
+# TIGHTENED 2026-09-01 after the live coverage tool was rejected before
+# generation at 45 properties: the synthetic ladder's 45 is not transferable
+# to this tool's real shape, and 44 is its proven ceiling. Keep every tool
+# at or under the shapes that actually ran — the V9 JSON-string-envelope
+# workaround is deliberately unavailable here.
 STRICT_BUDGET = {
-    "property_count": 46,
+    "property_count": 44,
     "optional_parameter_count": 8,
     "union_parameter_count": 0,
     "maximum_depth": 5,
@@ -253,13 +255,16 @@ COVERAGE_TOOL: Dict[str, Any] = {
     "input_schema": {
         "type": "object",
         "properties": {
+            # genre.tone was dropped 2026-09-01 to pay for continuity_flags:
+            # the live compiler rejected the schema at 45 properties (44 is
+            # the empirically proven ceiling for this shape), and tone always
+            # surfaces in the coverage prose anyway.
             "genre": {
                 "type": "object",
                 "properties": {
                     "primary": {"type": "string"},
-                    "tone": {"type": "string"},
                 },
-                "required": ["primary", "tone"],
+                "required": ["primary"],
             },
             "logline": {"type": "string"},
             "story_spine": {
