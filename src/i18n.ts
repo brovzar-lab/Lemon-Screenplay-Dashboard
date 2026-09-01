@@ -732,6 +732,7 @@ const spanish = {
   '{{count}} unverified omitted': '{{count}} sin verificar omitidos',
   'Not verified': 'No verificado',
   'Not verified / not rankable': 'No verificado / no se puede clasificar',
+  'Unscored by design': 'Sin puntaje por diseño',
   'Unverified omitted': 'Sin verificar omitidos',
   'This shared analysis is not server-verified and cannot be used for a screenplay decision.':
     'Este análisis compartido no está verificado por el servidor y no puede usarse para tomar una decisión sobre el guion.',
