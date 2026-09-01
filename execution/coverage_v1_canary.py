@@ -281,15 +281,18 @@ def run_canary(
                 report, usage = coverage_v1.run_coverage_v1(
                     transport=transport, usage_sink=run_sink, **run_kwargs
                 )
-        except coverage_v1.CoverageV1Error as error:
-            # Money spent before the failure still counts against the batch.
+        except Exception as error:  # noqa: BLE001 — one bad script must
+            # never abort the batch or lose the spend record (a live
+            # LlmOutputContractError killed a run scorecard-less on
+            # 2026-09-01). Engine errors and transport errors alike become
+            # a failed_closed row; money spent still counts.
             failed_charge = kill_run_charged + _charged_usd(run_sink)
             charged_total += failed_charge
             scorecard["totals"]["charged_usd"] = round(
                 scorecard["totals"]["charged_usd"] + failed_charge, 6
             )
             row["status"] = "failed_closed"
-            row["error"] = str(error)
+            row["error"] = f"{type(error).__name__}: {error}"
             row["charged_usd_before_failure"] = round(failed_charge, 6)
             scorecard["hard_failures"].append(f"#{index} {title}: {error}")
             continue
