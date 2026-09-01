@@ -431,6 +431,27 @@ export interface FilmNowAssessment {
 
 export type LensGradeValue = 'strong' | 'solid' | 'weak' | 'not_applicable';
 
+/** Full Coverage V1 report detail preserved for the coverage panel. */
+export interface CoverageDetails {
+  verdict: string;
+  confidence: string;
+  engineVersion: string;
+  synopsis: string;
+  want: string;
+  need: string;
+  stakes: string;
+  climax: string;
+  ending: string;
+  majorTurns: Array<{ turn: string; page?: number }>;
+  championReason: string;
+  passReason: string;
+  commercialHypothesis: string;
+  supportRate?: number;
+  citationsVerified?: number;
+  citationsTotal?: number;
+  pageConvention?: string;
+}
+
 /** One qualitative lens verdict from a coverage_v1 report. Never a score. */
 export interface LensGrade {
   lens: string;
@@ -636,6 +657,8 @@ export interface Screenplay {
   lensGrades?: LensGrade[];
   /** Script-internal contradictions found by the continuity sweep (both pages quoted). */
   continuityFlags?: string[];
+  /** Full Coverage V1 report detail (spine, cases, audit trail) for the coverage panel. */
+  coverage?: CoverageDetails;
   /** Screenplay language reported by the coverage engine (e.g. "es-MX"). */
   language?: string;
 

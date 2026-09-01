@@ -440,6 +440,30 @@ export function normalizeCoverageV1Screenplay(
     uncertainties,
     lensGrades,
     continuityFlags,
+    coverage: {
+      verdict: asString(report.verdict ?? coverage.verdict),
+      confidence: asString(report.confidence ?? coverage.confidence),
+      engineVersion: asString(report.engine_version),
+      synopsis,
+      want: asString(spine.want),
+      need: asString(spine.need),
+      stakes: asString(spine.stakes),
+      climax: asString(spine.climax),
+      ending: asString(spine.ending),
+      majorTurns: majorTurns.flatMap((item) => {
+        const record = asRecord(item);
+        const turn = asString(record?.turn).trim();
+        if (!turn) return [];
+        return [{ turn, page: asFiniteNumber(record?.page) }];
+      }),
+      championReason,
+      passReason,
+      commercialHypothesis: asString(coverage.commercial_hypothesis),
+      supportRate: asFiniteNumber(factAudit.support_rate),
+      citationsVerified: asFiniteNumber(citationVerification.verified),
+      citationsTotal: asFiniteNumber(citationVerification.total),
+      pageConvention: asString(report.page_convention) || undefined,
+    },
     language: asString(coverage.language) || undefined,
     dimensionScores,
     dimensionJustifications,
