@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "verifiedAt": "2026-08-21",
+  "verifiedAt": "2026-09-01",
   "sources": [
     "https://platform.claude.com/docs/en/about-claude/models/overview",
     "https://platform.claude.com/docs/en/about-claude/models/migration-guide",
@@ -29,7 +29,10 @@
   "activeHybridRoute": {
     "sonnetModelId": "claude-sonnet-4-6",
     "opusModelId": "claude-opus-4-7",
-    "promotionVerdicts": ["RECOMMEND", "FILM_NOW"],
+    "promotionVerdicts": [
+      "RECOMMEND",
+      "FILM_NOW"
+    ],
     "status": "active"
   },
   "candidateAnalysisRoutes": {
@@ -46,7 +49,10 @@
     "hybrid": {
       "sonnetModelId": "claude-sonnet-5",
       "opusModelId": "claude-opus-5",
-      "promotionVerdicts": ["RECOMMEND", "FILM_NOW"],
+      "promotionVerdicts": [
+        "RECOMMEND",
+        "FILM_NOW"
+      ],
       "status": "awaiting_benchmark"
     }
   },
@@ -157,6 +163,6 @@
     "haiku": "claude-haiku-4-5-20251001",
     "sonnet": "claude-sonnet-5",
     "opus": "claude-opus-5",
-    "fable": "claude-fable-5"
+    "fable": "claude-fable-5-1"
   }
 }
