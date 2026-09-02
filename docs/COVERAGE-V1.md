@@ -9,14 +9,21 @@ returned every required fact, ending, evidence, and citation slot, but the
 report correctly stopped as `needs_review`: 9/10 citations verified, one
 invented word in a p.73 excerpt, and the approved-audit comparison found that
 known count, existing-evidence, climax-order, and draft-artifact errors remain.
-The no-spend follow-up patch now rejects descending ending pages, routes
-material counts through required detail checks, retains late exact-evidence
-terms such as the p.98 `video`, normalizes the one-extra-word citation while
-preserving its original wording, and explicitly audits reveal provenance,
-staged state transitions, and leftover writer directives. Against the saved
-real canary files, citation integrity now rechecks at 10/10 and the old
-p.97-to-p.96 ledger is rejected. This is local proof only, not a new paid
-coverage result.
+The no-spend follow-up patch now rejects descending ending pages, requires a
+source-grounded instance ledger for exact material counts, retains late
+exact-evidence terms such as the p.98 `video`, and explicitly audits reveal
+provenance and staged state transitions. Deterministic source scanning surfaces
+the real Cosquillitas draft notes on printed pp.82/85 and prevents sealing if
+they cannot be reported. An independent gauntlet
+critic caught and blocked an unsafe implementation that deleted an invented
+trailing word. Semantic additions such as `escondida` or `falsa` now stay
+unverified. The existing bounded repair call instead receives only the cited
+source pages and must return a genuinely verbatim replacement or correct the
+attached point. Against the saved real canary files, the honest result remains
+9/10 and the old p.97-to-p.96 ledger is rejected. This is local proof only, not
+a new paid coverage result. The completed no-spend proof is 83 focused Coverage
+V1.2 tests, all 514 Python execution tests, all 1,085 frontend tests, and the
+production build. The independent critic's final verdict is clear.
 That canary used four settled calls and cost exactly $0.889668 with zero
 uncertain spend. Cumulative V1.2 work is 12 settled calls, $2.646144 exact,
 zero uncertain, leaving $17.353856 under the temporary $20 operation cap. One
@@ -39,10 +46,10 @@ Oro/Hermanos/Slasher CONSIDER (Oro's spine/ending Billy-confirmed), fixture
 PASS — with zero repairs on real scripts, worst settled cost $0.53/script
 (bar: $0.60), the resume drill recorded `repaid_nothing: true`, and 51/55
 citations verified. The 4 unverified were each proven real passages by
-`coverage_v1_citation_diag` (zero fabrications); both near-miss patterns
-(a "/" marking a screenplay line break; one normalized leading word) are now
-matched deterministically by the verifier, so the citation bar is met as
-*zero fabricated citations*.
+`coverage_v1_citation_diag` (zero fabrications). A "/" marking a screenplay
+line break is matched deterministically. Leading or trailing word differences
+remain unverified and enter the bounded source-grounded repair path, so an
+invented word can never be certified by dropping it.
 Calibration re-run 2026-09-01 (Matadero + Hermanos, $1.43, both sealed,
 verdicts unchanged): both briefs' fixes validated on the page — Matadero's
 ending carries the cut to the living Carnicero, the climax is multi-stage
@@ -334,11 +341,10 @@ least as useful as the V9 report). Send `scorecard.json` and the
 
 ## Next gate
 
-The V1.1 benchmark and its 20 human-approved audits are complete. The paid V1.2
-rerun remains paused after the split-contract Cosquillitas canary failed safely.
-The no-spend Cosquillitas patch and regressions are complete. Do not run the
-other 19 reports. A second paid Cosquillitas canary requires separate
-authorization. Only a sealed canary whose approved-audit comparison clears all
-five P0 contracts can reopen the 20-PDF run. Production promotion, daemon
-activation, and production-data writes remain separate decisions after that
-result.
+The V1.1 benchmark and its 20 human-approved audits are complete. The first
+split-contract Cosquillitas canary failed safely, and its no-spend patch and
+regressions are complete. Billy authorized the second paid Cosquillitas canary
+and the review/fix loop on 2026-09-02. Do not run the other 19 reports until a
+sealed canary clears a fresh comparison against the approved audit across all
+five P0 contracts. Production promotion, daemon activation, and production-data
+writes remain separate decisions after that result.

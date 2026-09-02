@@ -657,7 +657,8 @@ def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
 def decode_detail_audit_payload(
     payload: Any,
     rows: Sequence[Dict[str, Any]],
-) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
+    source_text: str = "",
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
     """Decode required slots back to the report's canonical field identifiers."""
     results = payload.get("results") if isinstance(payload, dict) else None
     expected = [str(row["slot"]) for row in rows]
@@ -665,11 +666,22 @@ def decode_detail_audit_payload(
         raise CoverageContractError(
             "Detailed audit did not return every required unique slot"
         )
-    evidence: List[Dict[str, str]] = []
+    evidence: List[Dict[str, Any]] = []
     citations: List[Dict[str, str]] = []
     for row in rows:
         slot = str(row["slot"])
         value = results.get(slot)
+        subject = row.get("subject", {})
+        if (
+            row.get("kind") == "existing_evidence"
+            and isinstance(subject, dict)
+            and subject.get("trigger") == "counting_claim"
+        ):
+            evidence.append({
+                "field_path": str(row["identifier"]),
+                **_decode_count_audit_result(value, subject, source_text),
+            })
+            continue
         classification, separator, note = (
             value.partition(":") if isinstance(value, str) else ("", "", "")
         )
@@ -692,6 +704,88 @@ def decode_detail_audit_payload(
         else:
             citations.append({"owner": identifier, **decoded})
     return evidence, citations
+
+
+def _decode_count_audit_result(
+    value: Any,
+    subject: Dict[str, Any],
+    source_text: str,
+) -> Dict[str, Any]:
+    """Require a source-backed instance ledger before a count can pass."""
+
+    def invalid(reason: str) -> Dict[str, Any]:
+        return {
+            "classification": "unsupported",
+            "note": "COUNT_LEDGER_INVALID: " + reason,
+            "count_ledger": {"valid": False, "reason": reason},
+        }
+
+    if not isinstance(value, str):
+        return invalid("the detailed auditor returned no JSON ledger")
+    try:
+        decoded = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return invalid("the detailed auditor returned no JSON ledger")
+    if not isinstance(decoded, dict) or set(decoded) != {
+        "classification", "claimed_total", "observed_total", "instances", "note"
+    }:
+        return invalid("the ledger fields are incomplete")
+
+    classification = decoded.get("classification")
+    claimed_total = decoded.get("claimed_total")
+    observed_total = decoded.get("observed_total")
+    instances = decoded.get("instances")
+    note = " ".join(str(decoded.get("note", "")).split())
+    expected_total = _material_count_claimed_total(
+        str(subject.get("claim", ""))
+    )
+    if classification not in AUDIT_CLASSIFICATIONS or not note:
+        return invalid("classification or note is invalid")
+    if type(claimed_total) is not int or claimed_total != expected_total:
+        return invalid("claimed_total does not match the coverage claim")
+    if type(observed_total) is not int or observed_total < 0:
+        return invalid("observed_total is invalid")
+    if not isinstance(instances, list) or len(instances) != observed_total:
+        return invalid("observed_total does not match the instance list")
+    if classification == "supported" and observed_total != claimed_total:
+        return invalid("a mismatched observed total cannot be supported")
+
+    _numbers, pages = _marked_page_contents(source_text)
+    labels: set[str] = set()
+    normalized_instances: List[Dict[str, Any]] = []
+    for index, instance in enumerate(instances):
+        if not isinstance(instance, dict) or set(instance) != {
+            "label", "page", "excerpt"
+        }:
+            return invalid(f"instance {index + 1} fields are incomplete")
+        label = " ".join(str(instance.get("label", "")).split())
+        page = instance.get("page")
+        excerpt = " ".join(str(instance.get("excerpt", "")).split())
+        if not label or label.casefold() in labels:
+            return invalid(f"instance {index + 1} label is empty or duplicated")
+        labels.add(label.casefold())
+        if type(page) is not int or page not in pages:
+            return invalid(f"instance {index + 1} page is invalid")
+        if not MIN_CITATION_EXCERPT_WORDS <= len(excerpt.split()) <= 12:
+            return invalid(f"instance {index + 1} excerpt must be 3-12 words")
+        if _lenient_excerpt_match_kind(pages[page], excerpt) is None:
+            return invalid(f"instance {index + 1} excerpt is not on its page")
+        normalized_instances.append({
+            "label": label,
+            "page": page,
+            "excerpt": excerpt,
+        })
+
+    return {
+        "classification": classification,
+        "note": note,
+        "count_ledger": {
+            "valid": True,
+            "claimed_total": claimed_total,
+            "observed_total": observed_total,
+            "instances": normalized_instances,
+        },
+    }
 
 
 # ── Prompts ──────────────────────────────────────────────────────────────────
@@ -877,6 +971,10 @@ The five `guard.*` claims are mandatory whole-report gates:
 - Citations: decide separately whether the quoted words exist, whether the
   final citable page is correct, and whether those words actually support the
   attached claim. Mere text existence is not relevance.
+- Draft artifacts: compare the code-generated continuity flags with the source.
+  A literal TODO, FIXME, "Juntar esta parte", or short standalone "Meter..."
+  instruction is a writer note, not story action, and must remain flagged with
+  its citable page.
 
 For every numerical or counting claim, enumerate every on-page instance with
 its page before classifying the total; never approve a number from gist. For
@@ -975,6 +1073,57 @@ def _character_index_block(text: str) -> Dict[str, Any]:
     }
 
 
+def find_writer_directives(text: str) -> List[Dict[str, Any]]:
+    """Find conservative, literal draft notes without treating dialogue as notes."""
+    _numbers, pages = _marked_page_contents(text)
+    findings: List[Dict[str, Any]] = []
+    for page, content in pages.items():
+        for raw_line in content.splitlines():
+            line = " ".join(raw_line.split())
+            if not line:
+                continue
+            kind = ""
+            if re.match(r"^(?:TODO|FIXME)\b", line):
+                kind = "explicit_marker"
+            elif re.match(r"^juntar\s+(?:esta|este)\s+parte\b", line, re.I):
+                kind = "join_note"
+            elif re.fullmatch(
+                r"meter(?:\s+[^\W\d_]+){1,4}[.!?]?",
+                line,
+                flags=re.IGNORECASE | re.UNICODE,
+            ):
+                kind = "insert_note"
+            if kind:
+                findings.append({"page": page, "excerpt": line, "kind": kind})
+    return findings
+
+
+def ensure_writer_directive_flags(
+    coverage: Dict[str, Any],
+    text: str,
+) -> Dict[str, Any]:
+    """Add one deterministic continuity flag for literal draft directives."""
+    findings = find_writer_directives(text)
+    flags = coverage.get("continuity_flags")
+    if not isinstance(flags, list):
+        return {"found": findings, "added": [], "unreported": findings}
+    flag_text = " ".join(str(flag).casefold() for flag in flags)
+    missing = [
+        finding for finding in findings
+        if finding["excerpt"].casefold() not in flag_text
+    ]
+    added: List[Dict[str, Any]] = []
+    if missing and len(flags) < 6:
+        details = "; ".join(
+            f'p.{finding["page"]} "{finding["excerpt"]}"'
+            for finding in missing
+        )
+        flags.append("DRAFT ARTIFACTS: leftover writer directives at " + details)
+        added = missing
+        missing = []
+    return {"found": findings, "added": added, "unreported": missing}
+
+
 _ABSOLUTE_NEGATIVE = re.compile(
     r"\b(?:no|never|nothing|entirely|only|first|unstaged|unresolved|"
     r"unprepared|unseeded|missing|absent|nunca|nada|solamente|s[oó]lo|"
@@ -982,16 +1131,65 @@ _ABSOLUTE_NEGATIVE = re.compile(
     r"falta|ausente|irresuelto)\b",
     re.IGNORECASE,
 )
-_COUNT_TOKEN = (
-    r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|"
-    r"uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)"
-)
-_MATERIAL_COUNT_ASSERTION = re.compile(
-    rf"\b{_COUNT_TOKEN}\s+(?:(?:of|de)\s+{_COUNT_TOKEN}\b|"
-    r"(?:judges?|jueces?|deaths?|muertes?|kills?|victims?|v[ií]ctimas?|"
-    r"characters?|personajes?|reveals?|revelaciones?)\b)",
+_COUNT_VALUES = {
+    "one": 1, "uno": 1, "una": 1,
+    "two": 2, "dos": 2, "both": 2, "ambos": 2, "ambas": 2,
+    "pair": 2, "couple": 2, "pareja": 2,
+    "three": 3, "tres": 3, "trio": 3, "trío": 3,
+    "four": 4, "cuatro": 4, "quartet": 4, "cuarteto": 4,
+    "five": 5, "cinco": 5,
+    "six": 6, "seis": 6,
+    "seven": 7, "siete": 7,
+    "eight": 8, "ocho": 8,
+    "nine": 9, "nueve": 9,
+    "ten": 10, "diez": 10, "dozen": 12, "docena": 12,
+}
+_COUNT_TOKEN_PATTERN = r"(?:\d+|" + "|".join(_COUNT_VALUES) + r")"
+_MATERIAL_COUNT_RATIO = re.compile(
+    rf"\b(?P<count>{_COUNT_TOKEN_PATTERN})\s*(?:"
+    rf"(?:out\s+of|of|de)\s+(?:(?:the|los|las|a|un|una)\s+)?"
+    rf"(?:total\s+(?:of|de)\s+)?|/)\s*{_COUNT_TOKEN_PATTERN}\b",
     re.IGNORECASE,
 )
+_MATERIAL_COUNT_ENTITIES = frozenset(
+    """
+    ammunition balas bullets characters deaths disparos events eventos
+    instances intentos items judges jueces kills members miembros muertes
+    municiones panel panelists personajes reveals revelaciones rituals rituales
+    rounds tiros victims víctimas
+    """.split()
+)
+
+
+def _count_token_value(token: str) -> Optional[int]:
+    token = token.casefold()
+    return int(token) if token.isdigit() else _COUNT_VALUES.get(token)
+
+
+def _material_count_claimed_total(claim: str) -> Optional[int]:
+    ratio = _MATERIAL_COUNT_RATIO.search(claim)
+    if ratio is not None:
+        return _count_token_value(ratio.group("count"))
+
+    without_page_references = _PROSE_PAGE_REFERENCE.sub(" ", claim)
+    tokens = re.findall(
+        r"[^\W_]+", without_page_references.casefold(), flags=re.UNICODE
+    )
+    entity_indexes = [
+        index for index, token in enumerate(tokens)
+        if token in _MATERIAL_COUNT_ENTITIES
+    ]
+    candidates: List[Tuple[int, int, int]] = []
+    for index, token in enumerate(tokens):
+        count = _count_token_value(token)
+        if count is None:
+            continue
+        distances = [abs(entity_index - index) for entity_index in entity_indexes]
+        if distances and min(distances) <= 6:
+            candidates.append((min(distances), index, count))
+    return min(candidates)[2] if candidates else None
+
+
 _EVIDENCE_STOPWORDS = frozenset(
     """
     agregar antes como con donde ella ellos esta este esto para pero porque
@@ -1046,7 +1244,7 @@ def build_existing_evidence_checks(
         trigger = None
         if _ABSOLUTE_NEGATIVE.search(value):
             trigger = "absolute_negative"
-        elif _MATERIAL_COUNT_ASSERTION.search(value):
+        elif _material_count_claimed_total(value) is not None:
             trigger = "counting_claim"
         if trigger is not None:
             candidates.append((path, value, trigger))
@@ -1376,8 +1574,14 @@ def build_detail_audit_user_blocks(
                 "staging, payoff, and aftermath before deciding. For citation "
                 "rows, decide whether the quoted excerpt actually supports its "
                 "attached point, separately from whether the text merely exists. "
-                "For a counting claim, enumerate every on-page instance with its "
-                "page before accepting the total. For reveal provenance, inspect "
+                "For every `counting_claim` row, its result value must instead be "
+                "a JSON object encoded as a string with exactly these fields: "
+                "classification, claimed_total, observed_total, instances, note. "
+                "Each instance must contain exactly label, page, and a verbatim "
+                "3-12-word excerpt from that page. The instance list length must "
+                "equal observed_total; use an empty list only when zero instances "
+                "exist. A wrong total for a real event is partially_supported, "
+                "never supported. For reveal provenance, inspect "
                 "the reveal, the next page, and the aftermath for who captured or "
                 "supplied it."
             ),
@@ -1671,20 +1875,14 @@ def build_page_reference_map(
 
 # ── Citation verification (local, deterministic) ────────────────────────────
 
-# A single leading word may be dropped from a long excerpt (a model sometimes
-# normalizes a leading article: "El COQUERO" for the text's "del...COQUERO").
-# Only excerpts that keep at least this many verbatim words qualify.
-_MIN_WORDS_AFTER_LEAD_DROP = 5
-_MIN_WORDS_AFTER_SINGLE_WORD_DROP = 4
-
-
 def _excerpt_variants(excerpt: str) -> List[Tuple[str, str]]:
     """Deterministic transcription-format variants of a model excerpt.
 
     Yields (candidate_text, kind_suffix), most-verbatim first. Covers the two
-    near-miss patterns the 2026-08-31 canary produced (all four confirmed
-    real passages by the citation diagnostic): a "/" inserted to mark a
-    screenplay line break, and a single normalized leading word.
+    formatting artifacts the 2026-08-31 canary produced: a "/" inserted to
+    mark a screenplay line break and harmless edge-punctuation differences.
+    Words are never added or removed here; non-verbatim wording must use the
+    bounded source-grounded repair path.
     """
     variants: List[Tuple[str, str]] = [(excerpt, "")]
     if "/" in excerpt:
@@ -1698,29 +1896,18 @@ def _excerpt_variants(excerpt: str) -> List[Tuple[str, str]]:
         trimmed = re.sub(r"^\W+|\W+$", "", text, flags=re.UNICODE)
         if trimmed and trimmed != text:
             variants.append((trimmed, suffix + "_edge_punct_stripped"))
-    transcription_variants = list(variants)
-    for text, suffix in transcription_variants:
-        words = text.split()
-        if len(words) - 1 >= _MIN_WORDS_AFTER_LEAD_DROP:
-            variants.append(
-                (" ".join(words[1:]), suffix + "_lead_word_dropped")
-            )
-        if len(words) - 1 >= _MIN_WORDS_AFTER_SINGLE_WORD_DROP:
-            variants.append(
-                (" ".join(words[:-1]), suffix + "_single_word_dropped")
-            )
     return variants
 
 
-def _lenient_excerpt_match(
+def _lenient_excerpt_match_kind(
     page_text: str,
     excerpt: str,
-) -> Optional[Tuple[str, str]]:
+) -> Optional[str]:
     """Verbatim match allowing known transcription-format artifacts."""
     for candidate, suffix in _excerpt_variants(excerpt):
         kind = _evidence_excerpt_match_kind(page_text, candidate)
         if kind is not None:
-            return kind + suffix, candidate
+            return kind + suffix
         # PDF extraction can split a word at a line ending and leave revision
         # stars between the two halves. This fallback only removes those
         # layout artifacts; the resulting words still have to match verbatim.
@@ -1739,17 +1926,8 @@ def _lenient_excerpt_match(
             normalized_candidate,
         )
         if kind is not None:
-            return kind + suffix + "_layout_normalized", candidate
+            return kind + suffix + "_layout_normalized"
     return None
-
-
-def _lenient_excerpt_match_kind(
-    page_text: str,
-    excerpt: str,
-) -> Optional[str]:
-    """Return only the match kind for callers that do not need normalization."""
-    match = _lenient_excerpt_match(page_text, excerpt)
-    return match[0] if match is not None else None
 
 
 def _iter_citations(coverage: Dict[str, Any]):
@@ -1784,15 +1962,13 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
         excerpt = str(item.get("excerpt", ""))
         words = len(excerpt.split())
         kind = None
-        normalized_excerpt = excerpt
         text_exists = False
         page_matches = False
         if words >= MIN_CITATION_EXCERPT_WORDS:
-            match = _lenient_excerpt_match(
+            kind = _lenient_excerpt_match_kind(
                 page_texts.get(page, ""), excerpt
             )
-            if match is not None:
-                kind, normalized_excerpt = match
+            if kind is not None:
                 text_exists = True
                 page_matches = True
             else:
@@ -1800,9 +1976,9 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
                 # one OTHER printed page is a wrong page number, not a
                 # fabricated quote. Relocate it and say so.
                 matches = [
-                    (candidate_page, candidate_match)
+                    (candidate_page, match_kind)
                     for candidate_page, candidate_text in page_texts.items()
-                    if (candidate_match := _lenient_excerpt_match(
+                    if (match_kind := _lenient_excerpt_match_kind(
                         candidate_text, excerpt
                     )) is not None
                 ]
@@ -1810,13 +1986,9 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
                 if len(matches) == 1:
                     item["cited_page"] = page
                     item["page"] = matches[0][0]
-                    matched_kind, normalized_excerpt = matches[0][1]
-                    kind = f"relocated_{matched_kind}"
+                    kind = f"relocated_{matches[0][1]}"
                     page_matches = True
                     relocated += 1
-        if kind is not None and "single_word_dropped" in kind:
-            item["cited_excerpt"] = excerpt
-            item["excerpt"] = normalized_excerpt
         item["citation_text_verified"] = text_exists
         item["citation_page_verified"] = page_matches
         item["citation_verified"] = text_exists and page_matches
@@ -2611,9 +2783,19 @@ def run_coverage_v1(
         _note_usage(usage_sink, usage_total)
         guard.charge(usage)
 
-        problems = validate_coverage_payload(
+        structural_problems = validate_coverage_payload(
             tool_input, lens_stack, page_reference_map
         )
+        citation_failures: List[Dict[str, Any]] = []
+        if isinstance(tool_input, dict):
+            citation_probe = verify_citations(copy.deepcopy(tool_input), text)
+            citation_failures = list(citation_probe["failures"])
+        citation_problems = [
+            f"{failure['owner']}.excerpt is not verbatim on cited page "
+            f"{failure['page']}"
+            for failure in citation_failures
+        ]
+        problems = structural_problems + citation_problems
         coverage_first_pass_problems = problems[:8]
         if problems and repair_calls_used < MAX_REPAIR_CALLS:
             repair_calls_used += 1
@@ -2621,6 +2803,8 @@ def run_coverage_v1(
                 call=call,
                 broken_payload=tool_input,
                 problems=problems,
+                source_text=text,
+                citation_failures=citation_failures,
                 model_key=model_key,
                 proxy_url=proxy_url,
                 job_id=job_id,
@@ -2628,13 +2812,13 @@ def run_coverage_v1(
             )
             usage_total = _merge_usage(usage_total, repair_usage)
             _note_usage(usage_sink, usage_total)
-            problems = validate_coverage_payload(
+            structural_problems = validate_coverage_payload(
                 tool_input, lens_stack, page_reference_map
             )
-        if problems:
+        if structural_problems:
             raise CoverageContractError(
                 "Coverage failed validation after the repair budget: "
-                + "; ".join(problems[:8])
+                + "; ".join(structural_problems[:8])
             )
 
         coverage_payload = tool_input
@@ -2659,6 +2843,10 @@ def run_coverage_v1(
             coverage_payload.get("first_pass_problems", [])
         )
         coverage_payload = coverage_payload["coverage"]
+
+    writer_directive_summary = ensure_writer_directive_flags(
+        coverage_payload, text
+    )
 
     # ── Stage 2: fact audit ─────────────────────────────────────────────────
     claims = build_audit_claims(coverage_payload)
@@ -2734,7 +2922,7 @@ def run_coverage_v1(
             _note_usage(usage_sink, usage_total)
             guard.charge(usage)
             decoded_evidence, decoded_citations = (
-                decode_detail_audit_payload(detail_input, batch)
+                decode_detail_audit_payload(detail_input, batch, text)
             )
             evidence_rows.extend(decoded_evidence)
             citation_rows.extend(decoded_citations)
@@ -3164,6 +3352,16 @@ def run_coverage_v1(
                     + "); original audit kept"
                 )
 
+    post_repair_directives = ensure_writer_directive_flags(
+        coverage_payload, text
+    )
+    writer_directive_summary["found"] = post_repair_directives["found"]
+    writer_directive_summary["unreported"] = post_repair_directives["unreported"]
+    writer_directive_summary["added"] = [
+        *writer_directive_summary["added"],
+        *post_repair_directives["added"],
+    ]
+
     status = "sealed"
     review_reasons: List[str] = []
     if central_failures:
@@ -3200,6 +3398,15 @@ def run_coverage_v1(
         )
     if central_partials:
         status = "needs_review"
+    if writer_directive_summary["unreported"]:
+        status = "needs_review"
+        review_reasons.append(
+            "writer directives could not fit in continuity_flags: "
+            + ", ".join(
+                f"p.{finding['page']}"
+                for finding in writer_directive_summary["unreported"]
+            )
+        )
 
     # ── Verdict post-processing (pure code) ─────────────────────────────────
     verdict = str(coverage_payload["verdict"])
@@ -3251,6 +3458,8 @@ def run_coverage_v1(
             row.get("classification", "unclassified")
         )
         check["audit_note"] = str(row.get("note", ""))
+        if isinstance(row.get("count_ledger"), dict):
+            check["count_ledger"] = copy.deepcopy(row["count_ledger"])
 
     citation_relevance = by_claim.get("guard.citation_relevance", {})
     if citation_summary is not None:
@@ -3378,6 +3587,7 @@ def run_coverage_v1(
             "fact_repair": fact_repair_info,
             "canonical_fact_registry": canonical_fact_registry,
             "existing_evidence_checks": existing_evidence_checks,
+            "writer_directives": writer_directive_summary,
             "sequence_review": {
                 "opening_pages": sequence_focus["opening_pages"],
                 "ending_pages": sequence_focus["ending_pages"],
@@ -3423,14 +3633,37 @@ def _repair_structure(
     call: Callable[..., Tuple[Optional[Dict[str, Any]], str, Dict[str, Any]]],
     broken_payload: Any,
     problems: Sequence[str],
+    source_text: Optional[str] = None,
+    citation_failures: Sequence[Dict[str, Any]] = (),
     model_key: str,
     proxy_url: Optional[str],
     job_id: Optional[str],
     guard: "_CostGuard",
 ) -> Tuple[Any, Dict[str, Any]]:
-    """One structural repair: re-emit the full coverage, no screenplay resend."""
+    """One bounded repair, with cited pages only when quotes failed."""
     guard.check_before_call()
     broken_json = json.dumps(broken_payload, ensure_ascii=False)
+    citation_context = ""
+    if source_text and citation_failures:
+        _page_numbers, page_texts = _marked_page_contents(source_text)
+        cited_pages = sorted({
+            page
+            for failure in citation_failures
+            if type(page := failure.get("page")) is int and page in page_texts
+        })
+        if cited_pages:
+            citation_context = (
+                "\n\n# CITED SOURCE PAGES\n\n"
+                + "\n\n".join(
+                    f"[PAGE {page}]\n{page_texts[page].strip()}"
+                    for page in cited_pages
+                )
+                + "\n\nFor each citation problem, copy a genuinely verbatim "
+                "3-12-word excerpt from its cited source page. Never delete "
+                "or hide an invented word merely to pass verification. If "
+                "the source does not support the attached point, correct the "
+                "point as well."
+            )
     tool_input, _text_out, usage = call(
         system_blocks=[
             {
@@ -3452,6 +3685,7 @@ def _repair_structure(
                     + "\n".join(f"- {p}" for p in problems)
                     + "\n\n# YOUR PREVIOUS REPORT (JSON)\n"
                     + broken_json
+                    + citation_context
                 ),
             }
         ],

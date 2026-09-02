@@ -642,6 +642,7 @@ class TestHappyPath(unittest.TestCase):
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
+                (coverage, settled_usage()),
                 (supported_audit(coverage), settled_usage()),
             ]
         )
@@ -703,43 +704,46 @@ class TestHappyPath(unittest.TestCase):
         self.assertTrue(item["citation_match_kind"].startswith("relocated_"))
         self.assertIn("slash_normalized", item["citation_match_kind"])
 
-    def test_single_wrong_leading_word_verifies_when_long_enough(self):
-        # Canary near-miss pattern 2 (the Slasher failure): the model
-        # normalizes one leading word ("El COQUERO" for "del...COQUERO");
-        # the remaining quote is long and verbatim.
-        coverage = valid_coverage()
-        coverage["strengths"][1]["excerpt"] = (
-            "Un médico le dice a Diego que su corazón no soporta"
-        )
-        summary = cv.verify_citations(coverage, SCREENPLAY_TEXT)
-        self.assertEqual(summary["unverified"], 0)
-        item = coverage["strengths"][1]
-        self.assertTrue(item["citation_verified"])
-        self.assertIn("lead_word_dropped", item["citation_match_kind"])
+    def test_invented_leading_word_stays_unverified_when_long(self):
+        for invented_word in ("Un", "Falsa"):
+            with self.subTest(invented_word=invented_word):
+                coverage = valid_coverage()
+                excerpt = (
+                    f"{invented_word} médico le dice a Diego que su corazón "
+                    "no soporta"
+                )
+                coverage["strengths"][1]["excerpt"] = excerpt
 
-    def test_cosquillitas_single_extra_citation_word_is_normalized(self):
-        coverage = {
-            "lens_notes": [],
-            "strengths": [
-                {
-                    "point": "La cámara prepara el video del final",
-                    "page": 73,
-                    "excerpt": "vemos una pequeña cámara escondida",
-                }
-            ],
-            "concerns": [],
-        }
+                summary = cv.verify_citations(coverage, SCREENPLAY_TEXT)
+
+                self.assertEqual(summary["unverified"], 1)
+                item = coverage["strengths"][1]
+                self.assertFalse(item["citation_verified"])
+                self.assertEqual(item["excerpt"], excerpt)
+
+    def test_cosquillitas_invented_trailing_word_stays_unverified(self):
         screenplay = "[PAGE 73]\nVemos una pequeña cámara.\n"
+        for invented_word in ("escondida", "falsa"):
+            with self.subTest(invented_word=invented_word):
+                excerpt = f"vemos una pequeña cámara {invented_word}"
+                coverage = {
+                    "lens_notes": [],
+                    "strengths": [
+                        {
+                            "point": "La cámara prepara el video del final",
+                            "page": 73,
+                            "excerpt": excerpt,
+                        }
+                    ],
+                    "concerns": [],
+                }
 
-        summary = cv.verify_citations(coverage, screenplay)
+                summary = cv.verify_citations(coverage, screenplay)
 
-        self.assertEqual(summary["unverified"], 0)
-        citation = coverage["strengths"][0]
-        self.assertEqual(citation["cited_excerpt"], (
-            "vemos una pequeña cámara escondida"
-        ))
-        self.assertEqual(citation["excerpt"], "vemos una pequeña cámara")
-        self.assertIn("single_word_dropped", citation["citation_match_kind"])
+                self.assertEqual(summary["unverified"], 1)
+                citation = coverage["strengths"][0]
+                self.assertEqual(citation["excerpt"], excerpt)
+                self.assertNotIn("cited_excerpt", citation)
 
     def test_wrong_edge_punctuation_verifies(self):
         # Re-canary 2026-09-01: the model wrote '¡Quién...' for the text's
@@ -769,9 +773,7 @@ class TestHappyPath(unittest.TestCase):
         )
         self.assertIsNone(kind)
 
-    def test_lead_word_drop_never_rescues_short_excerpts(self):
-        # Dropping the leading word requires >= 5 remaining verbatim words,
-        # so short partly-wrong quotes stay flagged.
+    def test_invented_leading_word_stays_unverified_when_short(self):
         coverage = valid_coverage()
         coverage["strengths"][1]["excerpt"] = "mal corazón no soporta"
         summary = cv.verify_citations(coverage, SCREENPLAY_TEXT)
@@ -940,6 +942,7 @@ La puerta permanece cerrada.
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
+                (coverage, settled_usage()),
                 (supported_audit(coverage), settled_usage()),
             ]
         )
@@ -1079,18 +1082,33 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
         self.assertLessEqual(len(priority["search_terms"]), 24)
 
     def test_cosquillitas_material_counts_receive_a_detailed_check(self):
-        coverage = valid_coverage()
-        coverage["story_spine"]["opposition"] = (
-            "Tony bribes three of four contest judges"
+        claims = (
+            "Tony bribes three of four contest judges",
+            "Tony bribes three of the four contest judges",
+            "Tony bribes three out of four contest judges",
+            "Tony soborna a tres de los cuatro jueces",
+            "Tony bribes 3/4 judges",
+            "Tony bribes three corrupt contest judges",
+            "Tony bribes three of a four-judge panel",
+            "On p.87, Tony bribes three judges",
+            "Tony bribes a trio of judges",
+            "Tony soborna a un trío de jueces",
         )
+        for claim in claims:
+            with self.subTest(claim=claim):
+                coverage = valid_coverage()
+                coverage["story_spine"]["opposition"] = claim
 
-        checks = cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT)
-        count_check = next(
-            check for check in checks
-            if check["field_path"] == "story_spine.opposition"
-        )
+                checks = cv.build_existing_evidence_checks(
+                    coverage, SCREENPLAY_TEXT
+                )
+                count_check = next(
+                    check for check in checks
+                    if check["field_path"] == "story_spine.opposition"
+                )
 
-        self.assertEqual(count_check["trigger"], "counting_claim")
+                self.assertEqual(count_check["trigger"], "counting_claim")
+                self.assertEqual(cv._material_count_claimed_total(claim), 3)
 
     def test_cosquillitas_reliability_rules_reach_both_readers(self):
         self.assertIn("leftover writer directives", cv.COVERAGE_CHARTER)
@@ -1106,8 +1124,40 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
             [],
         )[-1]["text"]
-        self.assertIn("enumerate every on-page instance", detail_text)
+        self.assertIn("verbatim 3-12-word excerpt", detail_text)
         self.assertIn("reveal provenance", detail_text)
+
+    def test_cosquillitas_writer_directives_are_deterministically_flagged(self):
+        screenplay = SCREENPLAY_TEXT.replace(
+            "[PAGE 5]",
+            "[PAGE 5]\nJuntar esta parte con la del cementerio.\n",
+        ).replace(
+            "[PAGE 6]",
+            "[PAGE 6]\nMeter amando\nhan escuchado absolutamente TODO.\n",
+        )
+        coverage = valid_coverage()
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (supported_audit(coverage), settled_usage()),
+            ]
+        )
+
+        report, _usage = run_engine(
+            new_store(), transport, text=screenplay
+        )
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(len(report["coverage"]["continuity_flags"]), 1)
+        flag = report["coverage"]["continuity_flags"][0]
+        self.assertIn("p.5", flag)
+        self.assertIn("Juntar esta parte", flag)
+        self.assertIn("p.6", flag)
+        self.assertIn("Meter amando", flag)
+        directive_summary = report["diagnostics"]["writer_directives"]
+        self.assertEqual(len(directive_summary["found"]), 2)
+        self.assertEqual(len(directive_summary["added"]), 2)
+        self.assertEqual(directive_summary["unreported"], [])
 
     def test_literal_ending_focus_keeps_opening_and_last_scene(self):
         focus = cv.build_sequence_focus(SCREENPLAY_TEXT)
@@ -1395,6 +1445,45 @@ class TestRepairBudget(unittest.TestCase):
         binding_key_probe = transport.calls[0]
         self.assertIsNotNone(binding_key_probe)
 
+    def test_unverified_citation_uses_one_source_grounded_repair(self):
+        broken = valid_coverage()
+        broken["strengths"][0]["excerpt"] = (
+            "detiene el penal con una sola mano falsa"
+        )
+        fixed = valid_coverage()
+        transport = FakeTransport(
+            [
+                (broken, settled_usage()),
+                (fixed, settled_usage(40_000)),
+                (supported_audit(fixed), settled_usage()),
+            ]
+        )
+
+        report, usage = run_engine(new_store(), transport)
+
+        self.assertEqual(len(transport.calls), 3)
+        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(report["citation_verification"]["unverified"], 0)
+        self.assertEqual(report["cost"]["repair_calls_used"], 1)
+        self.assertEqual(usage["call_count"], 3)
+        repair_call = transport.calls[1]
+        self.assertEqual(repair_call["stage"], "coverage_v1.repair")
+        repair_text = "\n".join(
+            str(block.get("text", ""))
+            for block in repair_call["user_blocks"]
+        )
+        self.assertIn("# CITED SOURCE PAGES", repair_text)
+        self.assertIn("detiene el penal con una sola mano", repair_text)
+        self.assertNotIn("# SCREENPLAY TEXT", repair_text)
+        self.assertTrue(
+            any(
+                "strengths[0].excerpt is not verbatim on cited page 2" in problem
+                for problem in report["diagnostics"][
+                    "coverage_first_pass_problems"
+                ]
+            )
+        )
+
 
 class TestCheckpointsAndResume(unittest.TestCase):
     def test_audit_failure_preserves_coverage_and_resume_repays_nothing(self):
@@ -1548,6 +1637,80 @@ class TestFactAudit(unittest.TestCase):
         self.assertTrue(
             any("guard.existing_evidence disagrees" in p for p in problems)
         )
+
+    def test_cosquillitas_generic_count_audit_cannot_seal(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["opposition"] = (
+            "Tony bribes a trio of judges"
+        )
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (provider_audit_core(coverage), settled_usage()),
+                (supported_detail_payload(coverage), settled_usage()),
+            ]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertIn(
+            "guard.existing_evidence",
+            report["fact_audit"]["central_failures"],
+        )
+        count_row = next(
+            row for row in report["fact_audit"]["existing_evidence_verdicts"]
+            if row["field_path"] == "story_spine.opposition"
+        )
+        self.assertEqual(count_row["classification"], "unsupported")
+        self.assertFalse(count_row["count_ledger"]["valid"])
+
+    def test_cosquillitas_count_ledger_requires_verbatim_instances(self):
+        source = (
+            "[PAGE 97]\nTony entrega dinero al primer juez y regala un reloj "
+            "al segundo juez.\n"
+        )
+        rows = [{
+            "slot": "row_001",
+            "kind": "existing_evidence",
+            "identifier": "story_spine.opposition",
+            "subject": {
+                "field_path": "story_spine.opposition",
+                "trigger": "counting_claim",
+                "claim": "Tony bribes three of the four contest judges",
+            },
+        }]
+        payload = {
+            "results": {
+                "row_001": json.dumps({
+                    "classification": "partially_supported",
+                    "claimed_total": 3,
+                    "observed_total": 2,
+                    "instances": [
+                        {
+                            "label": "first judge",
+                            "page": 97,
+                            "excerpt": "entrega dinero al primer juez",
+                        },
+                        {
+                            "label": "second judge",
+                            "page": 97,
+                            "excerpt": "regala un reloj al segundo juez",
+                        },
+                    ],
+                    "note": "Two bribed judges are shown on page 97, not three.",
+                })
+            }
+        }
+
+        evidence, citations = cv.decode_detail_audit_payload(
+            payload, rows, source
+        )
+
+        self.assertEqual(citations, [])
+        self.assertEqual(evidence[0]["classification"], "partially_supported")
+        self.assertTrue(evidence[0]["count_ledger"]["valid"])
+        self.assertEqual(evidence[0]["count_ledger"]["observed_total"], 2)
 
     def test_will_sequence_ledger_rejects_nonliteral_order_metadata(self):
         coverage = valid_coverage()
