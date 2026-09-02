@@ -81,6 +81,7 @@ FORMATS = ("feature", "tv_pilot")
 
 MAX_AUDIT_CLAIMS = 25
 MIN_AUDIT_CLAIMS = 6
+MAX_DETAIL_AUDIT_ROWS = 40
 AUDIT_CLASSIFICATIONS = (
     "supported",
     "partially_supported",
@@ -598,6 +599,111 @@ def build_audit_tool(
     )
     bind("citation_relevance", "owner", citation_owners)
     return tool
+
+
+def build_detail_audit_rows(
+    coverage: Dict[str, Any],
+    evidence_checks: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Give every detailed audit target one provider-enforceable unique slot."""
+    rows: List[Dict[str, Any]] = []
+    for check in evidence_checks:
+        rows.append({
+            "kind": "existing_evidence",
+            "identifier": str(check["field_path"]),
+            "subject": copy.deepcopy(check),
+        })
+    for owner, item in _iter_citations(coverage):
+        rows.append({
+            "kind": "citation_relevance",
+            "identifier": owner,
+            "subject": copy.deepcopy(item),
+        })
+    for index, row in enumerate(rows, start=1):
+        row["slot"] = f"row_{index:03d}"
+    return rows
+
+
+def build_detail_audit_tool(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """Build a strict map: required object keys cannot be omitted or repeated."""
+    if not rows or len(rows) > MAX_DETAIL_AUDIT_ROWS:
+        raise CoverageContractError(
+            "Detailed audit batch must contain 1-"
+            f"{MAX_DETAIL_AUDIT_ROWS} rows"
+        )
+    slots = [str(row.get("slot", "")) for row in rows]
+    if any(not slot for slot in slots) or len(slots) != len(set(slots)):
+        raise CoverageContractError(
+            "Detailed audit slots must be unique and non-empty"
+        )
+    tool = {
+        "name": "submit_detail_audit_v1_2",
+        "description": (
+            "Classify every named evidence and citation check exactly once."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "object",
+                    "properties": {
+                        slot: {"type": "string"}
+                        for slot in slots
+                    },
+                    "required": slots,
+                },
+            },
+            "required": ["results"],
+        },
+    }
+    stats = strict_schema_complexity(tool["input_schema"])
+    for metric, ceiling in STRICT_BUDGET.items():
+        if stats[metric] > ceiling:
+            raise CoverageContractError(
+                f"{tool['name']} exceeds strict budget: "
+                f"{metric}={stats[metric]} > {ceiling}"
+            )
+    return tool
+
+
+def decode_detail_audit_payload(
+    payload: Any,
+    rows: Sequence[Dict[str, Any]],
+) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
+    """Decode required slots back to the report's canonical field identifiers."""
+    results = payload.get("results") if isinstance(payload, dict) else None
+    expected = [str(row["slot"]) for row in rows]
+    if not isinstance(results, dict) or set(results) != set(expected):
+        raise CoverageContractError(
+            "Detailed audit did not return every required unique slot"
+        )
+    evidence: List[Dict[str, str]] = []
+    citations: List[Dict[str, str]] = []
+    for row in rows:
+        slot = str(row["slot"])
+        value = results.get(slot)
+        classification, separator, note = (
+            value.partition(":") if isinstance(value, str) else ("", "", "")
+        )
+        note = " ".join(note.split())
+        if (
+            not separator
+            or classification not in AUDIT_CLASSIFICATIONS
+            or not note
+        ):
+            raise CoverageContractError(
+                f"Detailed audit returned a malformed result for {slot}"
+            )
+        decoded = {
+            "classification": classification,
+            "note": note,
+        }
+        identifier = str(row["identifier"])
+        if row["kind"] == "existing_evidence":
+            evidence.append({"field_path": identifier, **decoded})
+        else:
+            citations.append({"owner": identifier, **decoded})
+    return evidence, citations
 
 
 # ── Prompts ──────────────────────────────────────────────────────────────────
@@ -1196,6 +1302,49 @@ def build_audit_user_blocks(
                 "`citation_relevance`, and the complete ordered climax/ending "
                 "pass in `sequence_ledger`. Use explicit NOT PRESENT entries "
                 "for a missing tag or aftermath; never invent one."
+            ),
+        },
+    ]
+
+
+def build_detail_audit_user_blocks(
+    text: str,
+    title: str,
+    coverage: Dict[str, Any],
+    page_reference_map: PageReferenceMap,
+    rows: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Targeted fallback for detailed rows a combined audit omitted/repeated."""
+    return [
+        _screenplay_block(text),
+        _character_index_block(text),
+        {
+            "type": "text",
+            "text": (
+                "# PAGE REFERENCE MAP (code-generated; AUTHORITATIVE)\n\n"
+                + json.dumps(page_reference_map, ensure_ascii=False, indent=1)
+            ),
+        },
+        {
+            "type": "text",
+            "text": (
+                "# COMPLETE COVERAGE REPORT TO CHECK\n\n"
+                + json.dumps(coverage, ensure_ascii=False, indent=1)
+            ),
+        },
+        {
+            "type": "text",
+            "text": (
+                f"# REQUIRED DETAIL ROWS — {title}\n\n"
+                + json.dumps(list(rows), ensure_ascii=False, indent=1)
+                + "\n\nReturn every slot exactly once in `results`. Each value "
+                "must be `classification: note`, where classification is "
+                "supported, partially_supported, unsupported, or contradicted "
+                "and note is one factual sentence. For existing-evidence rows, "
+                "search the COMPLETE screenplay for setup, synonyms, physical "
+                "staging, payoff, and aftermath before deciding. For citation "
+                "rows, decide whether the quoted excerpt actually supports its "
+                "attached point, separately from whether the text merely exists."
             ),
         },
     ]
@@ -2061,6 +2210,65 @@ def validate_audit_payload(
     return problems
 
 
+def _audit_problems_are_detail_only(problems: Sequence[str]) -> bool:
+    prefixes = (
+        "existing_evidence_verdicts",
+        "citation_relevance",
+        "audit existing_evidence_verdicts",
+        "audit citation_relevance",
+        "guard.existing_evidence disagrees",
+        "guard.citation_relevance disagrees",
+    )
+    return bool(problems) and all(
+        problem.startswith(prefixes) for problem in problems
+    )
+
+
+def _replace_audit_details(
+    payload: Dict[str, Any],
+    evidence_rows: Sequence[Dict[str, str]],
+    citation_rows: Sequence[Dict[str, str]],
+) -> Dict[str, Any]:
+    """Replace incomplete detail arrays and derive their aggregate guards."""
+    updated = copy.deepcopy(payload)
+    updated["existing_evidence_verdicts"] = list(evidence_rows)
+    updated["citation_relevance"] = list(citation_rows)
+    verdicts = {
+        str(row.get("claim_id", "")): row
+        for row in updated.get("verdicts", [])
+        if isinstance(row, dict)
+    }
+    rank = {
+        "supported": 0,
+        "partially_supported": 1,
+        "unsupported": 2,
+        "contradicted": 3,
+    }
+    for rows, guard_id, id_field in (
+        (evidence_rows, "guard.existing_evidence", "field_path"),
+        (citation_rows, "guard.citation_relevance", "owner"),
+    ):
+        worst = max(
+            (str(row["classification"]) for row in rows),
+            key=lambda classification: rank[classification],
+            default="supported",
+        )
+        failures = [
+            str(row[id_field])
+            for row in rows
+            if row["classification"] != "supported"
+        ]
+        guard = verdicts.get(guard_id)
+        if guard is not None:
+            guard["classification"] = worst
+            guard["note"] = (
+                "Every detailed check passed."
+                if not failures
+                else "Detailed checks failed for: " + ", ".join(failures)
+            )
+    return updated
+
+
 def _synthesize_missing_verdicts(
     tool_input: Dict[str, Any],
     claims: Sequence[Dict[str, str]],
@@ -2420,6 +2628,51 @@ def run_coverage_v1(
             "text": f"{UNTRUSTED_SCREENPLAY_INSTRUCTION}\n\n{AUDIT_CHARTER}",
         }
     ]
+
+    def _complete_audit_details(
+        candidate: Dict[str, Any],
+        candidate_coverage: Dict[str, Any],
+        candidate_evidence: Sequence[Dict[str, Any]],
+        stage: str,
+    ) -> Dict[str, Any]:
+        nonlocal usage_total
+        rows = build_detail_audit_rows(candidate_coverage, candidate_evidence)
+        evidence_rows: List[Dict[str, str]] = []
+        citation_rows: List[Dict[str, str]] = []
+        for start in range(0, len(rows), MAX_DETAIL_AUDIT_ROWS):
+            batch = rows[start:start + MAX_DETAIL_AUDIT_ROWS]
+            tool = build_detail_audit_tool(batch)
+            guard.check_before_call()
+            detail_input, _text_out, usage = call(
+                system_blocks=audit_system,
+                user_blocks=build_detail_audit_user_blocks(
+                    text,
+                    title,
+                    candidate_coverage,
+                    page_reference_map,
+                    batch,
+                ),
+                model_key=audit_model_key,
+                tool=tool,
+                thinking_budget=AUDIT_THINKING_BUDGET,
+                max_tokens=AUDIT_MAX_TOKENS,
+                proxy_url=proxy_url,
+                job_id=job_id,
+                stage=stage,
+                pipeline_pass="coverage_v1",
+            )
+            usage_total = _merge_usage(usage_total, usage)
+            _note_usage(usage_sink, usage_total)
+            guard.charge(usage)
+            decoded_evidence, decoded_citations = (
+                decode_detail_audit_payload(detail_input, batch)
+            )
+            evidence_rows.extend(decoded_evidence)
+            citation_rows.extend(decoded_citations)
+        return _replace_audit_details(
+            candidate, evidence_rows, citation_rows
+        )
+
     if audit_payload is None:
         audit_user = build_audit_user_blocks(
             text,
@@ -2459,6 +2712,21 @@ def run_coverage_v1(
             page_reference_map,
             existing_evidence_checks,
         )
+        if _audit_problems_are_detail_only(problems):
+            audit_first_pass_problems = problems[:8]
+            tool_input = _complete_audit_details(
+                tool_input,
+                coverage_payload,
+                existing_evidence_checks,
+                "coverage_v1.fact_audit_details",
+            )
+            problems = validate_audit_payload(
+                tool_input,
+                claims,
+                coverage_payload,
+                page_reference_map,
+                existing_evidence_checks,
+            )
         if problems and repair_calls_used < MAX_REPAIR_CALLS:
             # The shared repair slot: one retry of the audit on the safer
             # coverage-tier model. Never a rerun of coverage itself.
@@ -2473,6 +2741,20 @@ def run_coverage_v1(
                 page_reference_map,
                 existing_evidence_checks,
             )
+            if _audit_problems_are_detail_only(problems):
+                tool_input = _complete_audit_details(
+                    tool_input,
+                    coverage_payload,
+                    existing_evidence_checks,
+                    "coverage_v1.fact_audit_details",
+                )
+                problems = validate_audit_payload(
+                    tool_input,
+                    claims,
+                    coverage_payload,
+                    page_reference_map,
+                    existing_evidence_checks,
+                )
         if problems:
             # A stubbornly missing verdict must not destroy the paid run:
             # missing ids become explicit 'unclassified' rows (review-flagged
@@ -2690,6 +2972,20 @@ def run_coverage_v1(
                     page_reference_map,
                     corrected_evidence_checks,
                 )
+                if _audit_problems_are_detail_only(reaudit_problems):
+                    reaudit_input = _complete_audit_details(
+                        reaudit_input,
+                        corrected_coverage,
+                        corrected_evidence_checks,
+                        "coverage_v1.fact_reaudit_details",
+                    )
+                    reaudit_problems = validate_audit_payload(
+                        reaudit_input,
+                        new_claims,
+                        corrected_coverage,
+                        page_reference_map,
+                        corrected_evidence_checks,
+                    )
                 if reaudit_problems:
                     reaudit_input, _unclassified2, reaudit_problems = (
                         _synthesize_missing_verdicts(

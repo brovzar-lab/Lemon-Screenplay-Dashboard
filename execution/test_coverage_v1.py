@@ -1111,6 +1111,62 @@ Los asesinos preparan el campamento y luego mueven el cuerpo.
             citation_owners,
         )
 
+    def test_incomplete_audit_details_use_required_unique_slots(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["existing_evidence_verdicts"] = audit[
+            "existing_evidence_verdicts"
+        ][:-1]
+        audit["citation_relevance"][-1] = copy.deepcopy(
+            audit["citation_relevance"][0]
+        )
+        evidence = cv.build_existing_evidence_checks(
+            coverage, SCREENPLAY_TEXT
+        )
+        rows = cv.build_detail_audit_rows(coverage, evidence)
+        detail_payload = {
+            "results": {
+                row["slot"]: "supported: Confirmed against the screenplay."
+                for row in rows
+            }
+        }
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (detail_payload, settled_usage()),
+            ]
+        )
+
+        report, usage = run_engine(new_store(), transport)
+
+        self.assertEqual(len(transport.calls), 3)
+        detail_tool = transport.calls[2]["tool"]
+        self.assertEqual(detail_tool["name"], "submit_detail_audit_v1_2")
+        result_schema = detail_tool["input_schema"]["properties"]["results"]
+        slots = [row["slot"] for row in rows]
+        self.assertEqual(result_schema["required"], slots)
+        self.assertEqual(set(result_schema["properties"]), set(slots))
+        self.assertLessEqual(
+            cv.strict_schema_complexity(detail_tool["input_schema"])[
+                "property_count"
+            ],
+            cv.STRICT_BUDGET["property_count"],
+        )
+        self.assertEqual(
+            [row["field_path"] for row in report["fact_audit"][
+                "existing_evidence_verdicts"
+            ]],
+            [check["field_path"] for check in evidence],
+        )
+        self.assertEqual(
+            [row["owner"] for row in report["fact_audit"][
+                "citation_relevance"
+            ]],
+            [owner for owner, _item in cv._iter_citations(coverage)],
+        )
+        self.assertEqual(usage["call_count"], 3)
+
     def test_continuity_flags_are_validated_and_preserved(self):
         coverage = valid_coverage()
         coverage["continuity_flags"] = [
