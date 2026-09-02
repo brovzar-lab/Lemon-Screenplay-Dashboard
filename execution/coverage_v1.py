@@ -9,11 +9,11 @@ Normal path per screenplay:
        screenplay through a configurable stack of methodology lenses
        (execution/lenses/) and returns one structured coverage report.
     2. FACT AUDIT       — one call. A separate, skeptical pass classifies
-       only the FACTUAL story-spine claims (protagonist, relationships,
-       turns, climax, ending). It never "verifies" taste or scores.
-    3. REPAIR (optional) — at most ONE shared repair call per screenplay,
-       used either for a structurally invalid coverage response or for one
-       contradicted central fact. Never a full rerun.
+       factual claims plus typed page, existing-evidence, cross-field,
+       climax-order, and citation-relevance gates. It never verifies taste.
+    3. REPAIR (optional) — a central partial can re-emit the complete report
+       so one corrected fact propagates everywhere, followed by re-audit.
+       A contradiction stops for human review. Never a full rerun.
 
 Reliability rules (the reversal of V9's failure modes):
     - Every validated stage output is durably checkpointed BEFORE the next
@@ -25,6 +25,7 @@ Reliability rules (the reversal of V9's failure modes):
       labeled for human review instead of being re-bought.
     - Verdict caps (genre contract, FILM NOW nomination) are applied in
       code, never trusted from the model.
+    - Coverage remains qualitative, unscored, and unrankable by contract.
     - A hard local dollar cap per screenplay fails closed while keeping
       already-checkpointed work.
 
@@ -39,7 +40,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypedDict
 
 import sys
 
@@ -48,11 +49,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 from source_evidence import (  # noqa: E402
     MIN_CITATION_EXCERPT_WORDS,
     PAGE_MARKER_PATTERN,
+    SCENE_HEADING_PATTERN,
     _evidence_excerpt_match_kind,
     _marked_page_contents,
+    _revision_safe_evidence_text,
 )
 
-ENGINE_VERSION = "coverage-v1.1"
+ENGINE_VERSION = "coverage-v1.2"
 ENGINE_NAME = "coverage_v1"
 
 MAX_REPAIR_CALLS = 1
@@ -408,8 +411,73 @@ AUDIT_TOOL: Dict[str, Any] = {
                 "minItems": 1,
                 "maxItems": MAX_AUDIT_CLAIMS,
             },
+            "existing_evidence_verdicts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "field_path": {"type": "string"},
+                        "classification": {
+                            "type": "string",
+                            "enum": list(AUDIT_CLASSIFICATIONS),
+                        },
+                        "note": {"type": "string"},
+                    },
+                    "required": ["field_path", "classification", "note"],
+                },
+                "minItems": 1,
+                "maxItems": 64,
+            },
+            "sequence_ledger": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "order": {"type": "integer"},
+                        "phase": {
+                            "type": "string",
+                            "enum": [
+                                "climax", "ending", "final_scene", "tag",
+                                "aftermath",
+                            ],
+                        },
+                        "actor": {"type": "string"},
+                        "action": {"type": "string"},
+                        "result": {"type": "string"},
+                        "character_knowledge": {"type": "string"},
+                        "audience_knowledge": {"type": "string"},
+                        "page": {"type": "integer"},
+                    },
+                    "required": [
+                        "order", "phase", "actor", "action", "result",
+                        "character_knowledge", "audience_knowledge", "page",
+                    ],
+                },
+                "minItems": 5,
+                "maxItems": 24,
+            },
+            "citation_relevance": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "owner": {"type": "string"},
+                        "classification": {
+                            "type": "string",
+                            "enum": list(AUDIT_CLASSIFICATIONS),
+                        },
+                        "note": {"type": "string"},
+                    },
+                    "required": ["owner", "classification", "note"],
+                },
+                "minItems": 1,
+                "maxItems": 20,
+            },
         },
-        "required": ["verdicts"],
+        "required": [
+            "verdicts", "existing_evidence_verdicts", "sequence_ledger",
+            "citation_relevance",
+        ],
     },
 }
 
@@ -446,30 +514,13 @@ REPAIR_TOOL: Dict[str, Any] = {
 
 
 FACT_REPAIR_TOOL: Dict[str, Any] = {
-    "name": "submit_fact_corrections_v1",
+    "name": "submit_fact_corrections_v1_2",
     "description": (
-        "Rewrite exactly the named coverage claims so they are factually "
-        "precise per the auditor's notes. Change nothing else."
+        "Return the complete corrected coverage report. Propagate every named "
+        "factual correction through every downstream section while preserving "
+        "all undisputed analysis."
     ),
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "corrections": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "claim_id": {"type": "string"},
-                        "corrected_text": {"type": "string"},
-                    },
-                    "required": ["claim_id", "corrected_text"],
-                },
-                "minItems": 1,
-                "maxItems": 12,
-            },
-        },
-        "required": ["corrections"],
-    },
+    "input_schema": copy.deepcopy(COVERAGE_TOOL["input_schema"]),
 }
 
 
@@ -661,6 +712,8 @@ claim, decide only whether the claim is literally what happens on the page:
 
 You do NOT judge quality, craft, scores, or whether the screenplay is good.
 Keep every note to one factual sentence. Classify every claim exactly once.
+The detailed evidence rows test only whether a factual premise and its cited
+support hold; keep human taste about the usefulness of a note out of them.
 
 Dialogue is a character's claim, not a fact. If a claim's only support is a
 spoken line, check whether the staging (action lines, cuts, final images)
@@ -674,15 +727,40 @@ language, object, character, or rule before classifying, and checking the
 CHARACTER PAGE INDEX when the claim concerns a character. If you find the
 setup or mention the claim says does not exist, the claim is contradicted;
 quote the page where it exists in your note.
+
+The five `guard.*` claims are mandatory whole-report gates:
+- Page references: use the typed PAGE REFERENCE MAP. In printed mode, never
+  substitute a PDF index; a scene number is never a page in either mode. Any
+  reference outside `valid_citation_pages` contradicts the page-integrity
+  guard.
+- Existing evidence: inspect every code-generated check against the COMPLETE
+  screenplay, including synonyms, parentheticals, INSERT and ANGLE headings,
+  physical action, setup, payoff, and aftermath. If relevant evidence already
+  exists, a recommendation may ask to sharpen or relocate it but may not call
+  it absent or ask for the same beat as new.
+- Canonical facts: compare the registry against the synopsis, every lens,
+  genre failures, concerns, priorities, uncertainties, champion case, and pass
+  case. Opposite accounts of the same material fact fail the guard.
+- Sequence: privately list the literal climax and ending beats in order. For
+  each, track actor, action, result, character knowledge, audience knowledge,
+  citable page, full final scene, tag, and aftermath. Preserve every material
+  stage and compare the opening literally when the ending mirrors it.
+- Citations: decide separately whether the quoted words exist, whether the
+  final citable page is correct, and whether those words actually support the
+  attached claim. Mere text existence is not relevance.
 """
 
 FACT_REPAIR_CHARTER = """\
-You correct factual imprecision in screenplay-coverage claims using ONLY the
-auditor's notes provided. For each named claim, rewrite its text so it is
-factually precise per the note — keep everything the note does not dispute,
-remove or fix exactly what it does, and never introduce new facts, new
-interpretation, or new praise or criticism. Return one correction per named
-claim id with the submit_fact_corrections_v1 tool.
+You correct factual imprecision in a complete screenplay-coverage report using
+ONLY the auditor's notes provided. Return the complete corrected report with
+the submit_fact_corrections_v1_2 tool. Keep everything the notes do not dispute
+and never introduce new facts, interpretation, praise, or criticism.
+
+The story spine is the canonical fact registry. Propagate each correction
+through every place that repeats or depends on it: synopsis, lens analyses,
+genre failures, strengths, concerns, development priorities, uncertainties,
+champion_reason, pass_reason, and commercial_hypothesis. Remove the obsolete
+wording; do not preserve two incompatible versions or duplicate field prefixes.
 """
 
 
@@ -760,6 +838,140 @@ def _character_index_block(text: str) -> Dict[str, Any]:
     }
 
 
+_ABSOLUTE_NEGATIVE = re.compile(
+    r"\b(?:no|never|nothing|entirely|only|first|unstaged|unresolved|"
+    r"unprepared|unseeded|missing|absent|nunca|nada|solamente|s[oó]lo|"
+    r"primera?|sin|carece|"
+    r"falta|ausente|irresuelto)\b",
+    re.IGNORECASE,
+)
+_EVIDENCE_STOPWORDS = frozenset(
+    """
+    agregar antes como con donde ella ellos esta este esto para pero porque
+    primera que una unas uno unos nueva nuevo escena escenas nunca nada solo sólo
+    solamente carece falta ausente irresuelto screenplay script add before
+    does entirely first from into never nothing only missing absent unresolved
+    setup the this through with without
+    """.split()
+)
+
+
+def _evidence_search_terms(value: str) -> List[str]:
+    terms: List[str] = []
+    for term in re.findall(r"\b[^\W\d_]{4,}\b", value.casefold()):
+        if term not in _EVIDENCE_STOPWORDS and term not in terms:
+            terms.append(term)
+    return terms[:12]
+
+
+def build_existing_evidence_checks(
+    coverage: Dict[str, Any],
+    text: str,
+) -> List[Dict[str, Any]]:
+    """Create full-script search leads for risky claims and every priority.
+
+    Exact hits are leads for the auditor, not semantic proof. The audit model
+    still has to inspect staging, synonyms, setup, payoff, and aftermath.
+    """
+    _numbers, pages = _marked_page_contents(text)
+    candidates: List[Tuple[str, str, str]] = []
+    for index, priority in enumerate(coverage.get("development_priorities", [])):
+        if isinstance(priority, dict):
+            combined = " ".join(
+                str(priority.get(field, ""))
+                for field in ("priority", "why", "how")
+            )
+            candidates.append(
+                (f"development_priorities[{index}]", combined, "recommendation")
+            )
+    for path, value in _iter_coverage_text_fields(coverage):
+        if path.startswith("development_priorities["):
+            continue
+        if path.endswith(
+            (
+                ".excerpt", ".lens", ".grade", ".citation_match_kind",
+                ".citation_relevance_classification",
+                ".citation_relevance_note",
+            )
+        ):
+            continue
+        if _ABSOLUTE_NEGATIVE.search(value):
+            candidates.append((path, value, "absolute_negative"))
+
+    checks: List[Dict[str, Any]] = []
+    for path, claim, trigger in candidates:
+        terms = _evidence_search_terms(claim)
+        hits: Dict[str, List[int]] = {}
+        for term in terms:
+            pattern = re.compile(rf"(?<!\w){re.escape(term)}(?!\w)")
+            term_pages = sorted(
+                page
+                for page, content in pages.items()
+                if pattern.search(content.casefold())
+            )
+            if term_pages:
+                hits[term] = term_pages
+        checks.append(
+            {
+                "field_path": path,
+                "trigger": trigger,
+                "claim": " ".join(claim.split()),
+                "search_terms": terms,
+                "exact_term_hits": hits,
+                "matched_pages": sorted(
+                    {page for term_pages in hits.values() for page in term_pages}
+                ),
+                "full_screenplay_searched": True,
+            }
+        )
+    return checks
+
+
+def build_canonical_fact_registry(coverage: Dict[str, Any]) -> Dict[str, Any]:
+    """Material story facts that every downstream coverage field must follow."""
+    spine = coverage.get("story_spine", {})
+    registry = {
+        "registry_version": "coverage-v1.2",
+        "protagonist": str(spine.get("protagonist", "")),
+        "want": str(spine.get("want", "")),
+        "need": str(spine.get("need", "")),
+        "opposition": str(spine.get("opposition", "")),
+        "stakes": str(spine.get("stakes", "")),
+        "major_turns": copy.deepcopy(spine.get("major_turns", [])),
+        "climax": str(spine.get("climax", "")),
+        "ending": str(spine.get("ending", "")),
+        "material_causal_claims": [
+            {
+                "field_path": "logline",
+                "statement": str(coverage.get("logline", "")),
+            }
+        ],
+    }
+    registry["registry_sha256"] = canonical_json_hash(registry)
+    return registry
+
+
+def build_sequence_focus(text: str) -> Dict[str, Any]:
+    """Duplicate the opening and complete ending for literal order review."""
+    _numbers, pages = _marked_page_contents(text)
+    page_numbers = sorted(pages)
+    opening_pages = page_numbers[:3]
+    ending_pages = page_numbers[-12:]
+    selected = sorted(set(opening_pages + ending_pages))
+    focus_text = "\n\n".join(
+        f"[PAGE {page}]\n{pages[page].strip()}" for page in selected
+    )
+    return {
+        "opening_pages": opening_pages,
+        "ending_pages": ending_pages,
+        "text": focus_text,
+        "focus_sha256": canonical_json_hash(
+            {"opening_pages": opening_pages, "ending_pages": ending_pages,
+             "text": focus_text}
+        ),
+    }
+
+
 def _screenplay_block(text: str) -> Dict[str, Any]:
     return {
         "type": "text",
@@ -802,17 +1014,42 @@ def build_coverage_user_blocks(
     page_count: int,
     fmt: str,
     lens_stack: Sequence[str],
+    page_reference_map: Optional[PageReferenceMap] = None,
 ) -> List[Dict[str, Any]]:
     lens_checklist = "\n".join(f"  - {lens_id}" for lens_id in lens_stack)
+    citable_page_note = (
+        "Citable page count: "
+        f"{page_reference_map['citation_page_count']}\n\n"
+        if page_reference_map is not None
+        else "\n"
+    )
+    reference_block: List[Dict[str, Any]] = []
+    if page_reference_map is not None:
+        reference_block.append(
+            {
+                "type": "text",
+                "text": (
+                    "# PAGE REFERENCE MAP (code-generated; AUTHORITATIVE)\n\n"
+                    + json.dumps(page_reference_map, ensure_ascii=False, indent=1)
+                    + "\n\nThe three identities are separate: `pdf_page` is the "
+                    "physical PDF index, `printed_page` is the document's "
+                    "header label when one exists, `citation_page` is the only "
+                    "number allowed in coverage page fields, and "
+                    "`scene_numbers` are scene labels, never pages."
+                ),
+            }
+        )
     return [
         _screenplay_block(text),
         _character_index_block(text),
+        *reference_block,
         {
             "type": "text",
             "text": (
                 f"# TASK\n\nTitle: {title}\nFormat: {fmt}\n"
-                f"Physical pages: {page_count}\n\n"
-                "Read the complete screenplay above, then submit exactly one "
+                f"Physical PDF pages: {page_count}\n"
+                + citable_page_note
+                + "Read the complete screenplay above, then submit exactly one "
                 "coverage report with the submit_coverage_v1 tool. Page "
                 "numbers refer to the [PAGE N] markers in the text.\n\n"
                 "HARD REQUIREMENTS (the report is rejected otherwise):\n"
@@ -840,13 +1077,77 @@ def build_audit_user_blocks(
     text: str,
     title: str,
     claims: Sequence[Dict[str, str]],
+    *,
+    coverage: Optional[Dict[str, Any]] = None,
+    page_reference_map: Optional[PageReferenceMap] = None,
+    evidence_checks: Optional[Sequence[Dict[str, Any]]] = None,
+    sequence_focus: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     claim_lines = "\n".join(
         f"- {claim['claim_id']}: {claim['statement']}" for claim in claims
     )
+    evidence_blocks: List[Dict[str, Any]] = []
+    if page_reference_map is not None:
+        evidence_blocks.append(
+            {
+                "type": "text",
+                "text": (
+                    "# PAGE REFERENCE MAP (code-generated; AUTHORITATIVE)\n\n"
+                    + json.dumps(page_reference_map, ensure_ascii=False, indent=1)
+                ),
+            }
+        )
+    if coverage is not None:
+        registry = build_canonical_fact_registry(coverage)
+        evidence_blocks.extend(
+            [
+                {
+                    "type": "text",
+                    "text": (
+                        "# CANONICAL FACT REGISTRY\n\n"
+                        + json.dumps(registry, ensure_ascii=False, indent=1)
+                    ),
+                },
+                {
+                    "type": "text",
+                    "text": (
+                        "# COMPLETE COVERAGE REPORT TO RECONCILE\n\n"
+                        + json.dumps(coverage, ensure_ascii=False, indent=1)
+                    ),
+                },
+            ]
+        )
+    if evidence_checks is not None:
+        evidence_blocks.append(
+            {
+                "type": "text",
+                "text": (
+                    "# EXISTING-EVIDENCE CHECKS (code-generated search leads)\n\n"
+                    + json.dumps(list(evidence_checks), ensure_ascii=False, indent=1)
+                    + "\n\nExact-term hits are leads, not proof of meaning. Inspect "
+                    "the complete screenplay for synonyms, physical staging, "
+                    "setup, payoff, and aftermath before ruling on absence."
+                ),
+            }
+        )
+    if sequence_focus is not None:
+        evidence_blocks.append(
+            {
+                "type": "text",
+                "text": (
+                    "# CLIMAX AND ENDING FOCUS\n\n"
+                    + str(sequence_focus.get("text", ""))
+                    + "\n\nBuild a private literal ordered ledger before judging: "
+                    "actor, action, sequence, result, character knowledge, "
+                    "audience knowledge, final scene, tag, and aftermath. "
+                    "Compare the opening literally if the ending mirrors it."
+                ),
+            }
+        )
     return [
         _screenplay_block(text),
         _character_index_block(text),
+        *evidence_blocks,
         {
             "type": "text",
             "text": (
@@ -856,7 +1157,15 @@ def build_audit_user_blocks(
                 "claim id above, the last one included; a missing id fails "
                 "the whole audit. Classify every claim id exactly once with "
                 "the submit_fact_audit_v1 tool. Page numbers refer to the "
-                "[PAGE N] markers in the screenplay text."
+                "[PAGE N] markers in the screenplay text. A guard is "
+                "supported only when every item it covers passes. If one "
+                "material item fails, classify the guard partially_supported, "
+                "unsupported, or contradicted and name the exact field and "
+                "citable page in the note. Return every supplied evidence "
+                "check in `existing_evidence_verdicts`, every cited owner in "
+                "`citation_relevance`, and the complete ordered climax/ending "
+                "pass in `sequence_ledger`. Use explicit NOT PRESENT entries "
+                "for a missing tag or aftermath; never invent one."
             ),
         },
     ]
@@ -1021,6 +1330,26 @@ _MIN_OFFSET_DETECTIONS = 8
 _MIN_OFFSET_AGREEMENT = 0.8
 
 
+class PageReference(TypedDict):
+    pdf_page: int
+    printed_page: Optional[int]
+    citation_page: Optional[int]
+    scene_numbers: List[str]
+
+
+class PageReferenceMap(TypedDict):
+    mode: str
+    physical_page_count: int
+    printed_page_count: int
+    citation_page_count: int
+    last_printed_page: Optional[int]
+    last_citation_page: int
+    valid_printed_pages: List[int]
+    valid_citation_pages: List[int]
+    unnumbered_pdf_pages: List[int]
+    pages: List[PageReference]
+
+
 def _detect_printed_page_offset(text: str) -> Optional[Dict[str, int]]:
     """Detect printed_page - physical_page from standalone header numbers.
 
@@ -1064,6 +1393,66 @@ def _renumber_page_markers(text: str, offset: int) -> str:
         return f"[PAGE {printed}]"
 
     return PAGE_MARKER_PATTERN.sub(replace, text)
+
+
+def build_page_reference_map(
+    text: str,
+    physical_page_count: int,
+    offset_info: Optional[Dict[str, int]],
+) -> PageReferenceMap:
+    """Keep PDF pages, printed pages, and numbered scenes distinct."""
+    marker_numbers, contents = _marked_page_contents(text)
+    if marker_numbers != list(range(1, physical_page_count + 1)):
+        raise CoverageContractError(
+            "Physical page markers do not match the declared PDF page count"
+        )
+
+    offset = offset_info["offset"] if offset_info is not None else 0
+    pages: List[PageReference] = []
+    valid_printed_pages: List[int] = []
+    valid_citation_pages: List[int] = []
+    unnumbered_pdf_pages: List[int] = []
+    for pdf_page in marker_numbers:
+        candidate = pdf_page + offset
+        printed_page = (
+            candidate
+            if offset_info is not None and candidate >= 1
+            else None
+        )
+        citation_page = printed_page if offset_info is not None else pdf_page
+        if citation_page is None:
+            unnumbered_pdf_pages.append(pdf_page)
+        else:
+            valid_citation_pages.append(citation_page)
+        if printed_page is not None:
+            valid_printed_pages.append(printed_page)
+
+        scene_numbers: List[str] = []
+        for line in contents[pdf_page].splitlines():
+            match = SCENE_HEADING_PATTERN.match(line)
+            if match is not None and match.group("number"):
+                scene_numbers.append(match.group("number"))
+        pages.append(
+            {
+                "pdf_page": pdf_page,
+                "printed_page": printed_page,
+                "citation_page": citation_page,
+                "scene_numbers": scene_numbers,
+            }
+        )
+
+    return {
+        "mode": "printed" if offset_info is not None else "physical",
+        "physical_page_count": physical_page_count,
+        "printed_page_count": len(valid_printed_pages),
+        "citation_page_count": len(valid_citation_pages),
+        "last_printed_page": max(valid_printed_pages, default=None),
+        "last_citation_page": max(valid_citation_pages, default=0),
+        "valid_printed_pages": valid_printed_pages,
+        "valid_citation_pages": valid_citation_pages,
+        "unnumbered_pdf_pages": unnumbered_pdf_pages,
+        "pages": pages,
+    }
 
 
 # ── Citation verification (local, deterministic) ────────────────────────────
@@ -1112,6 +1501,25 @@ def _lenient_excerpt_match_kind(
         kind = _evidence_excerpt_match_kind(page_text, candidate)
         if kind is not None:
             return kind + suffix
+        # PDF extraction can split a word at a line ending and leave revision
+        # stars between the two halves. This fallback only removes those
+        # layout artifacts; the resulting words still have to match verbatim.
+        normalized_page = re.sub(
+            r"(?<=\w)-\s+(?=\w)",
+            "",
+            _revision_safe_evidence_text(page_text).replace("*", ""),
+        )
+        normalized_candidate = re.sub(
+            r"(?<=\w)-\s+(?=\w)",
+            "",
+            _revision_safe_evidence_text(candidate).replace("*", ""),
+        )
+        kind = _evidence_excerpt_match_kind(
+            normalized_page,
+            normalized_candidate,
+        )
+        if kind is not None:
+            return kind + suffix + "_layout_normalized"
     return None
 
 
@@ -1127,14 +1535,16 @@ def _iter_citations(coverage: Dict[str, Any]):
 
 
 def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
-    """Verify every citation excerpt verbatim against its physical page.
+    """Verify citation text existence separately from printed-page accuracy.
 
-    Marks each citation with `verified` and `match_kind`; never hard-fails
-    the run (fuzzy + flag, per the house review doctrine). Returns a summary.
+    A unique verbatim match on another page is deterministically relocated.
+    Repeated text found only off-page proves existence, but not the cited page.
     """
     _pages, page_texts = _marked_page_contents(text)
     total = 0
     verified = 0
+    text_verified = 0
+    page_verified = 0
     relocated = 0
     failures: List[Dict[str, Any]] = []
     for owner, item in _iter_citations(coverage):
@@ -1145,13 +1555,18 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
         excerpt = str(item.get("excerpt", ""))
         words = len(excerpt.split())
         kind = None
+        text_exists = False
+        page_matches = False
         if words >= MIN_CITATION_EXCERPT_WORDS:
             kind = _lenient_excerpt_match_kind(
                 page_texts.get(page, ""), excerpt
             )
-            if kind is None:
+            if kind is not None:
+                text_exists = True
+                page_matches = True
+            else:
                 # V9-style rescue: a verbatim excerpt that exists on exactly
-                # one OTHER physical page is a wrong page number, not a
+                # one OTHER printed page is a wrong page number, not a
                 # fabricated quote. Relocate it and say so.
                 matches = [
                     (candidate_page, match_kind)
@@ -1160,22 +1575,38 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
                         candidate_text, excerpt
                     )) is not None
                 ]
+                text_exists = bool(matches)
                 if len(matches) == 1:
                     item["cited_page"] = page
                     item["page"] = matches[0][0]
                     kind = f"relocated_{matches[0][1]}"
+                    page_matches = True
                     relocated += 1
-        item["citation_verified"] = kind is not None
+        item["citation_text_verified"] = text_exists
+        item["citation_page_verified"] = page_matches
+        item["citation_verified"] = text_exists and page_matches
         item["citation_match_kind"] = kind or "unverified"
-        if kind is None:
+        if text_exists:
+            text_verified += 1
+        if page_matches:
+            page_verified += 1
+        if not item["citation_verified"]:
             failures.append(
-                {"owner": owner, "page": page, "excerpt": excerpt[:120]}
+                {
+                    "owner": owner,
+                    "page": page,
+                    "excerpt": excerpt[:120],
+                    "text_verified": text_exists,
+                    "page_verified": page_matches,
+                }
             )
         else:
             verified += 1
     return {
         "total": total,
         "verified": verified,
+        "text_verified": text_verified,
+        "page_verified": page_verified,
         "relocated": relocated,
         "unverified": total - verified,
         "failures": failures[:20],
@@ -1184,9 +1615,40 @@ def verify_citations(coverage: Dict[str, Any], text: str) -> Dict[str, Any]:
 
 # ── Local validation ─────────────────────────────────────────────────────────
 
+_PROSE_PAGE_REFERENCE = re.compile(
+    r"\b(?:p{1,2}\.?|pages?|p[aá]g(?:ina)?s?\.?)\s*"
+    r"(?P<values>\d{1,3}(?:\s*(?:[-–—,/&]|to|and|y|a)\s*\d{1,3})*)",
+    re.IGNORECASE,
+)
+
+
+def _iter_coverage_text_fields(
+    value: Any,
+    path: str = "",
+):
+    if isinstance(value, dict):
+        for key, child in value.items():
+            child_path = f"{path}.{key}" if path else str(key)
+            yield from _iter_coverage_text_fields(child, child_path)
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            yield from _iter_coverage_text_fields(child, f"{path}[{index}]")
+    elif isinstance(value, str):
+        yield path, value
+
+
+def _prose_page_numbers(text: str) -> List[int]:
+    pages: List[int] = []
+    for match in _PROSE_PAGE_REFERENCE.finditer(text):
+        pages.extend(
+            int(value) for value in re.findall(r"\d{1,3}", match.group("values"))
+        )
+    return pages
+
 def validate_coverage_payload(
     payload: Any,
     lens_stack: Sequence[str],
+    page_reference_map: Optional[PageReferenceMap] = None,
 ) -> List[str]:
     """Deterministic structural validation. Returns a list of problems."""
     problems: List[str] = []
@@ -1196,6 +1658,46 @@ def validate_coverage_payload(
     def require_text(path: str, value: Any, minimum: int = 1) -> None:
         if not isinstance(value, str) or len(value.strip()) < minimum:
             problems.append(f"{path} is missing or empty")
+
+    valid_pages = set(
+        page_reference_map["valid_citation_pages"]
+        if page_reference_map is not None
+        else []
+    )
+    scene_numbers = {
+        scene_number
+        for page in (page_reference_map or {}).get("pages", [])
+        for scene_number in page.get("scene_numbers", [])
+    }
+
+    def invalid_page_problem(path: str, page: int) -> str:
+        page_kind = (
+            "printed page"
+            if (page_reference_map or {}).get("mode") == "printed"
+            else "physical page"
+        )
+        scene_hint = (
+            f"; value matches scene number {page}, not a citable page"
+            if str(page) in scene_numbers
+            else ""
+        )
+        return (
+            f"{path} cites {page_kind} {page}, outside the valid "
+            f"citation-page map{scene_hint}"
+        )
+
+    def require_page(path: str, value: Any) -> None:
+        if type(value) is not int or value < 1:
+            problems.append(f"{path} invalid")
+        elif valid_pages and value not in valid_pages:
+            problems.append(invalid_page_problem(path, value))
+
+    def require_excerpt(path: str, value: Any) -> None:
+        require_text(path, value, 3)
+        if isinstance(value, str):
+            word_count = len(re.findall(r"\w+", value, flags=re.UNICODE))
+            if not 3 <= word_count <= 12:
+                problems.append(f"{path} must contain 3-12 words")
 
     require_text("logline", payload.get("logline"), 10)
     require_text("synopsis", payload.get("synopsis"), 100)
@@ -1227,10 +1729,9 @@ def validate_coverage_payload(
                 require_text(
                     f"story_spine.major_turns[{i}].turn", turn.get("turn"), 5
                 )
-                if not isinstance(turn.get("page"), int) or turn["page"] < 1:
-                    problems.append(
-                        f"story_spine.major_turns[{i}].page invalid"
-                    )
+                require_page(
+                    f"story_spine.major_turns[{i}].page", turn.get("page")
+                )
 
     notes = payload.get("lens_notes")
     if not isinstance(notes, list) or not notes:
@@ -1250,9 +1751,8 @@ def validate_coverage_payload(
             if note.get("grade") not in GRADES:
                 problems.append(f"lens_notes[{i}].grade invalid")
             require_text(f"lens_notes[{i}].analysis", note.get("analysis"), 40)
-            require_text(f"lens_notes[{i}].excerpt", note.get("excerpt"), 3)
-            if not isinstance(note.get("page"), int) or note["page"] < 1:
-                problems.append(f"lens_notes[{i}].page invalid")
+            require_excerpt(f"lens_notes[{i}].excerpt", note.get("excerpt"))
+            require_page(f"lens_notes[{i}].page", note.get("page"))
 
     contract = payload.get("genre_contract")
     if not isinstance(contract, dict) or not isinstance(contract.get("met"), bool):
@@ -1270,9 +1770,8 @@ def validate_coverage_payload(
                 problems.append(f"{group}[{i}] malformed")
                 continue
             require_text(f"{group}[{i}].point", item.get("point"), 10)
-            require_text(f"{group}[{i}].excerpt", item.get("excerpt"), 3)
-            if not isinstance(item.get("page"), int) or item["page"] < 1:
-                problems.append(f"{group}[{i}].page invalid")
+            require_excerpt(f"{group}[{i}].excerpt", item.get("excerpt"))
+            require_page(f"{group}[{i}].page", item.get("page"))
 
     flags = payload.get("continuity_flags")
     if not isinstance(flags, list) or any(
@@ -1297,6 +1796,14 @@ def validate_coverage_payload(
             require_text(f"development_priorities[{i}].why", item.get("why"), 10)
             require_text(f"development_priorities[{i}].how", item.get("how"), 10)
 
+    if valid_pages:
+        for path, text_value in _iter_coverage_text_fields(payload):
+            if path.endswith(".excerpt"):
+                continue
+            for page in _prose_page_numbers(text_value):
+                if page not in valid_pages:
+                    problems.append(invalid_page_problem(path, page))
+
     return problems
 
 
@@ -1305,12 +1812,11 @@ def validate_coverage_payload(
 def build_audit_claims(coverage: Dict[str, Any]) -> List[Dict[str, str]]:
     """Deterministically derive the factual claims worth an audit.
 
-    The story spine and genre-contract failures (central — a failure blocks
-    the seal), plus concern points and the pass case (non-central — a
-    contradiction flags human review). Never scores, grades, or taste.
-    Bounded to MAX_AUDIT_CLAIMS.
+    Includes canonical story facts, factual assertions in the case against,
+    and five whole-report reliability guards. Never scores, grades, or taste.
+    Bounded to MAX_AUDIT_CLAIMS without displacing the mandatory guards.
     """
-    spine = coverage.get("story_spine", {})
+    spine = build_canonical_fact_registry(coverage)
     claims: List[Dict[str, str]] = []
 
     def add(claim_id: str, statement: str) -> None:
@@ -1346,10 +1852,38 @@ def build_audit_claims(coverage: Dict[str, Any]) -> List[Dict[str, str]]:
         "pass_reason",
         f"The case against the script asserts: {coverage.get('pass_reason', '')}",
     )
+    add(
+        "guard.page_reference_integrity",
+        "Every page citation and prose page reference uses the valid citable "
+        "coordinate, never a scene number or mixed PDF/printed convention.",
+    )
+    add(
+        "guard.existing_evidence",
+        "Every absolute negative claim and development recommendation accounts "
+        "for relevant setup, action, payoff, aftermath, and physical staging "
+        "already present anywhere in the screenplay.",
+    )
+    add(
+        "guard.cross_field_consistency",
+        "The spine, synopsis, lenses, concerns, priorities, uncertainties, "
+        "champion case, and pass case all agree with the canonical material "
+        "facts, especially the climax and ending.",
+    )
+    add(
+        "guard.sequence_integrity",
+        "The climax and ending preserve the literal actor, action, order, "
+        "character knowledge, final scene, tag, and aftermath, including every "
+        "material stage and any opening-ending mirror.",
+    )
+    add(
+        "guard.citation_relevance",
+        "Every cited excerpt exists on its final citable page and actually "
+        "supports the point or analysis attached to it.",
+    )
     return claims
 
 
-CENTRAL_CLAIM_PREFIXES = ("spine.",)
+CENTRAL_CLAIM_PREFIXES = ("spine.", "guard.")
 
 
 def is_central_claim(claim_id: str) -> bool:
@@ -1359,6 +1893,9 @@ def is_central_claim(claim_id: str) -> bool:
 def validate_audit_payload(
     payload: Any,
     claims: Sequence[Dict[str, str]],
+    coverage: Optional[Dict[str, Any]] = None,
+    page_reference_map: Optional[PageReferenceMap] = None,
+    evidence_checks: Optional[Sequence[Dict[str, Any]]] = None,
 ) -> List[str]:
     problems: List[str] = []
     if not isinstance(payload, dict):
@@ -1384,6 +1921,113 @@ def validate_audit_payload(
     duplicated = {claim_id for claim_id in seen if seen.count(claim_id) > 1}
     if duplicated:
         problems.append(f"audit classified twice: {sorted(duplicated)}")
+
+    def validate_rows(
+        field: str,
+        id_field: str,
+        expected_ids: Sequence[str],
+    ) -> List[Dict[str, Any]]:
+        rows = payload.get(field)
+        if not isinstance(rows, list):
+            problems.append(f"audit {field} missing")
+            return []
+        row_ids: List[str] = []
+        valid_rows: List[Dict[str, Any]] = []
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                problems.append(f"{field}[{index}] malformed")
+                continue
+            row_id = str(row.get(id_field, ""))
+            row_ids.append(row_id)
+            valid_rows.append(row)
+            if row_id not in expected_ids:
+                problems.append(
+                    f"{field}[{index}] names unknown {id_field} {row_id!r}"
+                )
+            if row.get("classification") not in AUDIT_CLASSIFICATIONS:
+                problems.append(f"{field}[{index}].classification invalid")
+        missing_ids = [item for item in expected_ids if item not in row_ids]
+        if missing_ids:
+            problems.append(f"{field} did not classify: {missing_ids}")
+        duplicate_ids = {item for item in row_ids if row_ids.count(item) > 1}
+        if duplicate_ids:
+            problems.append(f"{field} classified twice: {sorted(duplicate_ids)}")
+        return valid_rows
+
+    expected_evidence = [
+        str(check.get("field_path", "")) for check in (evidence_checks or [])
+    ]
+    evidence_rows = validate_rows(
+        "existing_evidence_verdicts", "field_path", expected_evidence
+    )
+    expected_citations = [
+        owner for owner, _item in _iter_citations(coverage or {})
+    ]
+    citation_rows = validate_rows(
+        "citation_relevance", "owner", expected_citations
+    )
+
+    ledger = payload.get("sequence_ledger")
+    if not isinstance(ledger, list):
+        problems.append("audit sequence_ledger missing")
+    else:
+        orders: List[int] = []
+        phases: List[str] = []
+        valid_pages = set(
+            (page_reference_map or {}).get("valid_citation_pages", [])
+        )
+        for index, beat in enumerate(ledger):
+            if not isinstance(beat, dict):
+                problems.append(f"sequence_ledger[{index}] malformed")
+                continue
+            order = beat.get("order")
+            phase = str(beat.get("phase", ""))
+            if type(order) is not int:
+                problems.append(f"sequence_ledger[{index}].order invalid")
+            else:
+                orders.append(order)
+            phases.append(phase)
+            if phase not in {"climax", "ending", "final_scene", "tag", "aftermath"}:
+                problems.append(f"sequence_ledger[{index}].phase invalid")
+            for field in (
+                "actor", "action", "result", "character_knowledge",
+                "audience_knowledge",
+            ):
+                if not str(beat.get(field, "")).strip():
+                    problems.append(f"sequence_ledger[{index}].{field} missing")
+            page = beat.get("page")
+            if type(page) is not int or page < 1 or (
+                valid_pages and page not in valid_pages
+            ):
+                problems.append(f"sequence_ledger[{index}].page invalid")
+        if orders != list(range(1, len(ledger) + 1)):
+            problems.append("sequence_ledger order must be consecutive from 1")
+        for required_phase in (
+            "climax", "ending", "final_scene", "tag", "aftermath"
+        ):
+            if required_phase not in phases:
+                problems.append(
+                    f"sequence_ledger missing {required_phase} phase"
+                )
+
+    verdict_by_id = {
+        str(row.get("claim_id", "")): row
+        for row in verdicts
+        if isinstance(row, dict)
+    }
+    for rows, guard_id in (
+        (evidence_rows, "guard.existing_evidence"),
+        (citation_rows, "guard.citation_relevance"),
+    ):
+        detailed_failure = any(
+            row.get("classification") != "supported" for row in rows
+        )
+        guard_row = verdict_by_id.get(guard_id, {})
+        guard_supported = guard_row.get("classification") == "supported"
+        if detailed_failure == guard_supported:
+            problems.append(
+                f"{guard_id} disagrees with its detailed check results"
+            )
     return problems
 
 
@@ -1463,38 +2107,6 @@ def _adjudicate_verdicts(
     rated = len(by_claim) - len(unclassified)
     support_rate = round(score / max(1, rated), 4)
     return by_claim, central_failures, central_partials, unclassified, support_rate
-
-
-def _apply_fact_corrections(
-    coverage: Dict[str, Any],
-    corrections: Sequence[Dict[str, Any]],
-) -> Tuple[Dict[str, Any], List[str]]:
-    """Apply audit-note corrections to the spine fields the claims map to."""
-    fixed = copy.deepcopy(coverage)
-    spine = fixed.get("story_spine", {})
-    applied: List[str] = []
-    for correction in corrections:
-        if not isinstance(correction, dict):
-            continue
-        claim_id = str(correction.get("claim_id", ""))
-        corrected = str(correction.get("corrected_text", "")).strip()
-        if not corrected or not claim_id.startswith("spine."):
-            continue
-        if claim_id.startswith("spine.turn_"):
-            try:
-                index = int(claim_id.rsplit("_", 1)[1])
-            except ValueError:
-                continue
-            turns = spine.get("major_turns", [])
-            if isinstance(turns, list) and 0 <= index < len(turns):
-                turns[index]["turn"] = corrected
-                applied.append(claim_id)
-        else:
-            field = claim_id.split(".", 1)[1]
-            if field in spine:
-                spine[field] = corrected
-                applied.append(claim_id)
-    return fixed, applied
 
 
 # ── Cost accounting ──────────────────────────────────────────────────────────
@@ -1621,12 +2233,16 @@ def run_coverage_v1(
     # confidently detectable, so every downstream page reference (prompt,
     # citations, verification, relocation, audit) is a printed page.
     offset_info = _detect_printed_page_offset(text)
+    page_reference_map = build_page_reference_map(
+        text, page_count, offset_info
+    )
     if offset_info is not None and offset_info["offset"] != 0:
         text = _renumber_page_markers(text, offset_info["offset"])
     page_numbering: Dict[str, Any] = {
-        "mode": "printed" if offset_info is not None else "physical",
+        "mode": page_reference_map["mode"],
         "offset": offset_info["offset"] if offset_info is not None else 0,
         "detections": offset_info["detections"] if offset_info is not None else 0,
+        "page_map_sha256": canonical_json_hash(page_reference_map),
     }
 
     registry = load_lens_registry(lenses_root)
@@ -1638,7 +2254,7 @@ def run_coverage_v1(
 
     coverage_system = build_coverage_system_blocks(lens_cards_text)
     coverage_user = build_coverage_user_blocks(
-        text, title, page_count, fmt, lens_stack
+        text, title, page_count, fmt, lens_stack, page_reference_map
     )
     prompt_sha256 = canonical_json_hash(
         {
@@ -1694,7 +2310,9 @@ def run_coverage_v1(
         _note_usage(usage_sink, usage_total)
         guard.charge(usage)
 
-        problems = validate_coverage_payload(tool_input, lens_stack)
+        problems = validate_coverage_payload(
+            tool_input, lens_stack, page_reference_map
+        )
         coverage_first_pass_problems = problems[:8]
         if problems and repair_calls_used < MAX_REPAIR_CALLS:
             repair_calls_used += 1
@@ -1709,7 +2327,9 @@ def run_coverage_v1(
             )
             usage_total = _merge_usage(usage_total, repair_usage)
             _note_usage(usage_sink, usage_total)
-            problems = validate_coverage_payload(tool_input, lens_stack)
+            problems = validate_coverage_payload(
+                tool_input, lens_stack, page_reference_map
+            )
         if problems:
             raise CoverageContractError(
                 "Coverage failed validation after the repair budget: "
@@ -1754,6 +2374,11 @@ def run_coverage_v1(
 
     audit_first_pass_problems: List[str] = []
     audit_model_effective = audit_model_key
+    canonical_fact_registry = build_canonical_fact_registry(coverage_payload)
+    existing_evidence_checks = build_existing_evidence_checks(
+        coverage_payload, text
+    )
+    sequence_focus = build_sequence_focus(text)
     audit_system = [
         {
             "type": "text",
@@ -1761,7 +2386,15 @@ def run_coverage_v1(
         }
     ]
     if audit_payload is None:
-        audit_user = build_audit_user_blocks(text, title, claims)
+        audit_user = build_audit_user_blocks(
+            text,
+            title,
+            claims,
+            coverage=coverage_payload,
+            page_reference_map=page_reference_map,
+            evidence_checks=existing_evidence_checks,
+            sequence_focus=sequence_focus,
+        )
 
         def _audit_call(route: str):
             nonlocal usage_total
@@ -1784,7 +2417,13 @@ def run_coverage_v1(
             return tool_input
 
         tool_input = _audit_call(audit_model_key)
-        problems = validate_audit_payload(tool_input, claims)
+        problems = validate_audit_payload(
+            tool_input,
+            claims,
+            coverage_payload,
+            page_reference_map,
+            existing_evidence_checks,
+        )
         if problems and repair_calls_used < MAX_REPAIR_CALLS:
             # The shared repair slot: one retry of the audit on the safer
             # coverage-tier model. Never a rerun of coverage itself.
@@ -1792,7 +2431,13 @@ def run_coverage_v1(
             repair_calls_used += 1
             audit_model_effective = model_key
             tool_input = _audit_call(model_key)
-            problems = validate_audit_payload(tool_input, claims)
+            problems = validate_audit_payload(
+                tool_input,
+                claims,
+                coverage_payload,
+                page_reference_map,
+                existing_evidence_checks,
+            )
         if problems:
             # A stubbornly missing verdict must not destroy the paid run:
             # missing ids become explicit 'unclassified' rows (review-flagged
@@ -1807,6 +2452,11 @@ def run_coverage_v1(
         audit_payload = {
             "claims": claims,
             "verdicts": tool_input["verdicts"],
+            "existing_evidence_verdicts": tool_input[
+                "existing_evidence_verdicts"
+            ],
+            "sequence_ledger": tool_input["sequence_ledger"],
+            "citation_relevance": tool_input["citation_relevance"],
             "audit_model": audit_model_effective,
             "first_pass_problems": audit_first_pass_problems,
             "repair_calls_used": repair_calls_used,
@@ -1845,9 +2495,23 @@ def run_coverage_v1(
         )
         if stage3 is not None:
             coverage_payload = stage3["coverage"]
+            citation_summary = stage3["citation_summary"]
             claims = stage3["claims"]
+            canonical_fact_registry = build_canonical_fact_registry(
+                coverage_payload
+            )
+            existing_evidence_checks = build_existing_evidence_checks(
+                coverage_payload, text
+            )
             audit_payload = dict(
-                audit_payload, claims=claims, verdicts=stage3["verdicts"]
+                audit_payload,
+                claims=claims,
+                verdicts=stage3["verdicts"],
+                existing_evidence_verdicts=stage3[
+                    "existing_evidence_verdicts"
+                ],
+                sequence_ledger=stage3["sequence_ledger"],
+                citation_relevance=stage3["citation_relevance"],
             )
             fact_repair_info = dict(stage3.get("info", {}), replayed=True)
             (
@@ -1881,25 +2545,47 @@ def run_coverage_v1(
                     {
                         "type": "text",
                         "text": (
-                            "# CURRENT STORY SPINE (JSON)\n\n"
+                            "# CURRENT COMPLETE COVERAGE REPORT (JSON)\n\n"
                             + json.dumps(
-                                coverage_payload.get("story_spine", {}),
+                                coverage_payload,
+                                ensure_ascii=False,
+                                indent=1,
+                            )
+                            + "\n\n# CANONICAL FACT REGISTRY (JSON)\n\n"
+                            + json.dumps(
+                                canonical_fact_registry,
+                                ensure_ascii=False,
+                                indent=1,
+                            )
+                            + "\n\n# AUDITOR RELIABILITY EVIDENCE (JSON)\n\n"
+                            + json.dumps(
+                                {
+                                    "existing_evidence_verdicts": audit_payload[
+                                        "existing_evidence_verdicts"
+                                    ],
+                                    "sequence_ledger": audit_payload[
+                                        "sequence_ledger"
+                                    ],
+                                    "citation_relevance": audit_payload[
+                                        "citation_relevance"
+                                    ],
+                                },
                                 ensure_ascii=False,
                                 indent=1,
                             )
                             + "\n\n# CLAIMS TO CORRECT (with the auditor's "
                             "findings)\n\n"
                             f"{target_lines}\n\n"
-                            "Rewrite each named claim's field text so it is "
-                            "factually precise per the auditor's note. One "
-                            "correction per claim_id, nothing else changed."
+                            "Return the complete coverage report. Correct each "
+                            "named claim, then propagate that same canonical "
+                            "fact through every dependent field."
                         ),
                     }
                 ],
                 model_key=model_key,
                 tool=FACT_REPAIR_TOOL,
                 thinking_budget=0,
-                max_tokens=AUDIT_MAX_TOKENS,
+                max_tokens=COVERAGE_MAX_TOKENS,
                 proxy_url=proxy_url,
                 job_id=job_id,
                 stage="coverage_v1.fact_repair",
@@ -1909,25 +2595,36 @@ def run_coverage_v1(
             _note_usage(usage_sink, usage_total)
             guard.charge(usage)
 
-            corrections = (
-                corrections_input.get("corrections", [])
-                if isinstance(corrections_input, dict)
+            corrected_coverage = corrections_input
+            applied = (
+                list(central_partials)
+                if isinstance(corrected_coverage, dict)
+                and corrected_coverage != coverage_payload
                 else []
-            )
-            corrected_coverage, applied = _apply_fact_corrections(
-                coverage_payload, corrections
             )
             fact_repair_info["applied"] = applied
             structural_problems = validate_coverage_payload(
-                corrected_coverage, lens_stack
+                corrected_coverage, lens_stack, page_reference_map
             )
             if applied and not structural_problems:
+                corrected_citation_summary = verify_citations(
+                    corrected_coverage, text
+                )
                 new_claims = build_audit_claims(corrected_coverage)
+                corrected_evidence_checks = build_existing_evidence_checks(
+                    corrected_coverage, text
+                )
                 guard.check_before_call()
                 reaudit_input, _text_out, usage = call(
                     system_blocks=audit_system,
                     user_blocks=build_audit_user_blocks(
-                        text, title, new_claims
+                        text,
+                        title,
+                        new_claims,
+                        coverage=corrected_coverage,
+                        page_reference_map=page_reference_map,
+                        evidence_checks=corrected_evidence_checks,
+                        sequence_focus=sequence_focus,
                     ),
                     model_key=audit_model_key,
                     tool=AUDIT_TOOL,
@@ -1942,7 +2639,11 @@ def run_coverage_v1(
                 _note_usage(usage_sink, usage_total)
                 guard.charge(usage)
                 reaudit_problems = validate_audit_payload(
-                    reaudit_input, new_claims
+                    reaudit_input,
+                    new_claims,
+                    corrected_coverage,
+                    page_reference_map,
+                    corrected_evidence_checks,
                 )
                 if reaudit_problems:
                     reaudit_input, _unclassified2, reaudit_problems = (
@@ -1952,11 +2653,23 @@ def run_coverage_v1(
                     )
                 if not reaudit_problems:
                     coverage_payload = corrected_coverage
+                    citation_summary = corrected_citation_summary
                     claims = new_claims
+                    canonical_fact_registry = build_canonical_fact_registry(
+                        coverage_payload
+                    )
+                    existing_evidence_checks = corrected_evidence_checks
                     audit_payload = dict(
                         audit_payload,
                         claims=new_claims,
                         verdicts=reaudit_input["verdicts"],
+                        existing_evidence_verdicts=reaudit_input[
+                            "existing_evidence_verdicts"
+                        ],
+                        sequence_ledger=reaudit_input["sequence_ledger"],
+                        citation_relevance=reaudit_input[
+                            "citation_relevance"
+                        ],
                     )
                     fact_repair_info["reaudited"] = True
                     fact_repair_info["outcome"] = "corrections re-audited"
@@ -1974,8 +2687,18 @@ def run_coverage_v1(
                             binding,
                             {
                                 "coverage": coverage_payload,
+                                "citation_summary": citation_summary,
                                 "claims": claims,
                                 "verdicts": audit_payload["verdicts"],
+                                "existing_evidence_verdicts": audit_payload[
+                                    "existing_evidence_verdicts"
+                                ],
+                                "sequence_ledger": audit_payload[
+                                    "sequence_ledger"
+                                ],
+                                "citation_relevance": audit_payload[
+                                    "citation_relevance"
+                                ],
                                 "info": fact_repair_info,
                             },
                         ),
@@ -2002,9 +2725,22 @@ def run_coverage_v1(
         # One repair slot for the whole screenplay: if structure repair
         # already spent it, this goes straight to human review.
         status = "needs_review"
-        review_reasons.append(
-            "central facts not supported: " + ", ".join(sorted(central_failures))
-        )
+        spine_failures = [
+            claim_id for claim_id in central_failures
+            if claim_id.startswith("spine.")
+        ]
+        guard_failures = [
+            claim_id for claim_id in central_failures
+            if claim_id.startswith("guard.")
+        ]
+        if spine_failures:
+            review_reasons.append(
+                "central facts not supported: " + ", ".join(spine_failures)
+            )
+        if guard_failures:
+            review_reasons.append(
+                "reliability guards failed: " + ", ".join(guard_failures)
+            )
         if repair_calls_used >= MAX_REPAIR_CALLS:
             review_reasons.append("repair budget already spent")
     central_unclassified = [
@@ -2017,6 +2753,8 @@ def run_coverage_v1(
             "audit left central claims unclassified: "
             + ", ".join(central_unclassified)
         )
+    if central_partials:
+        status = "needs_review"
 
     # ── Verdict post-processing (pure code) ─────────────────────────────────
     verdict = str(coverage_payload["verdict"])
@@ -2034,10 +2772,8 @@ def run_coverage_v1(
             "genre contract not met: verdict capped at CONSIDER"
         )
 
-    # Non-central claims (concern points, the pass case) that the audit
-    # contradicted don't block the seal, but they must never pass silently:
-    # a contradicted concern can be the false rationale behind the verdict
-    # (Hermanos brief, defect 1).
+    # A contradicted concern can be the false rationale behind the verdict.
+    # Preserve the report for review, but do not seal it as trusted.
     noncentral_contradicted = [
         claim_id
         for claim_id, verdict_row in by_claim.items()
@@ -2056,6 +2792,65 @@ def run_coverage_v1(
         if not is_central_claim(claim_id)
     ]
 
+    if noncentral_contradicted or noncentral_unclassified or unverified_citations:
+        status = "needs_review"
+
+    evidence_verdicts = {
+        str(row.get("field_path", "")): row
+        for row in audit_payload.get("existing_evidence_verdicts", [])
+        if isinstance(row, dict)
+    }
+    for check in existing_evidence_checks:
+        row = evidence_verdicts.get(str(check.get("field_path", "")), {})
+        check["audit_classification"] = str(
+            row.get("classification", "unclassified")
+        )
+        check["audit_note"] = str(row.get("note", ""))
+
+    citation_relevance = by_claim.get("guard.citation_relevance", {})
+    if citation_summary is not None:
+        relevance_by_owner = {
+            str(row.get("owner", "")): row
+            for row in audit_payload.get("citation_relevance", [])
+            if isinstance(row, dict)
+        }
+        relevance_failures: List[Dict[str, Any]] = []
+        relevance_verified = 0
+        for owner, item in _iter_citations(coverage_payload):
+            row = relevance_by_owner.get(owner, {})
+            classification = str(
+                row.get("classification", "unclassified")
+            )
+            note = str(row.get("note", ""))
+            item["citation_relevance_verified"] = (
+                classification == "supported"
+            )
+            item["citation_relevance_classification"] = classification
+            item["citation_relevance_note"] = note
+            if item["citation_relevance_verified"]:
+                relevance_verified += 1
+            else:
+                relevance_failures.append(
+                    {"owner": owner, "classification": classification,
+                     "note": note}
+                )
+        citation_summary["relevance_status"] = str(
+            citation_relevance.get("classification", "unclassified")
+        )
+        citation_summary["relevance_verified"] = relevance_verified
+        citation_summary["relevance_unverified"] = (
+            int(citation_summary.get("total", 0)) - relevance_verified
+        )
+        citation_summary["relevance_failures"] = relevance_failures
+        citation_summary["relevance_note"] = str(
+            citation_relevance.get("note", "")
+        )
+        citation_summary["integrity_verified"] = (
+            int(citation_summary.get("unverified", 0)) == 0
+            and citation_summary["relevance_unverified"] == 0
+            and citation_summary["relevance_status"] == "supported"
+        )
+
     human_review_recommended = (
         status == "needs_review"
         or coverage_payload["confidence"] == "low"
@@ -2068,7 +2863,7 @@ def run_coverage_v1(
         review_reasons.append("reader confidence is low")
     if central_partials:
         review_reasons.append(
-            "central facts only partially supported: "
+            "blocking audit claims only partially supported: "
             + ", ".join(sorted(central_partials))
         )
     if noncentral_contradicted:
@@ -2097,7 +2892,12 @@ def run_coverage_v1(
         "status": status,
         "title": title,
         "format": fmt,
-        "page_count": page_count,
+        "page_count": page_reference_map["last_citation_page"],
+        "physical_page_count": page_reference_map["physical_page_count"],
+        "printed_page_count": page_reference_map["printed_page_count"],
+        "citation_page_count": page_reference_map["citation_page_count"],
+        "last_printed_page": page_reference_map["last_printed_page"],
+        "page_reference_map": page_reference_map["pages"],
         "page_convention": (
             (
                 "All page references are PRINTED page numbers as they appear "
@@ -2131,6 +2931,17 @@ def run_coverage_v1(
             "coverage_first_pass_problems": coverage_first_pass_problems,
             "audit_first_pass_problems": audit_first_pass_problems,
             "fact_repair": fact_repair_info,
+            "canonical_fact_registry": canonical_fact_registry,
+            "existing_evidence_checks": existing_evidence_checks,
+            "sequence_review": {
+                "opening_pages": sequence_focus["opening_pages"],
+                "ending_pages": sequence_focus["ending_pages"],
+                "focus_sha256": sequence_focus["focus_sha256"],
+                "ledger_sha256": canonical_json_hash(
+                    audit_payload.get("sequence_ledger", [])
+                ),
+                "guard": by_claim.get("guard.sequence_integrity"),
+            },
         },
         "coverage": coverage_payload,
         "citation_verification": citation_summary,
@@ -2140,6 +2951,11 @@ def run_coverage_v1(
             "support_rate": support_rate,
             "central_failures": sorted(central_failures),
             "central_partials": sorted(central_partials),
+            "existing_evidence_verdicts": audit_payload[
+                "existing_evidence_verdicts"
+            ],
+            "sequence_ledger": audit_payload["sequence_ledger"],
+            "citation_relevance": audit_payload["citation_relevance"],
         },
         "verdict": verdict,
         "verdict_adjustments": adjustments,
@@ -2220,10 +3036,24 @@ def trust_labels(report: Dict[str, Any]) -> Dict[str, str]:
         "commercial_hypothesis": "JUDGMENT",
     }
     summary = report.get("citation_verification") or {}
-    if summary.get("total") and summary.get("total") == summary.get("verified"):
+    if (
+        summary.get("total")
+        and summary.get("total") == summary.get("verified")
+        and summary.get("total") == summary.get("relevance_verified")
+        and summary.get("relevance_status") == "supported"
+    ):
         labels["citations"] = "VERIFIED_QUOTE"
     else:
         labels["citations"] = "PARTIALLY_VERIFIED_QUOTES"
-    if report.get("fact_audit", {}).get("central_failures"):
+    spine_blocking_claims = {
+        "guard.cross_field_consistency",
+        "guard.sequence_integrity",
+    }
+    if any(
+        str(claim_id).startswith("spine.") or claim_id in spine_blocking_claims
+        for claim_id in report.get("fact_audit", {}).get(
+            "central_failures", []
+        )
+    ):
         labels["story_spine"] = "UNRESOLVED"
     return labels

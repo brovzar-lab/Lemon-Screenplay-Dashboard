@@ -1,6 +1,20 @@
-# Coverage V1 — the lean two-call coverage engine
+# Coverage V1.2 — qualitative screenplay coverage
 
-**Status: CANARY PASSED 2026-08-31 — two rounds, $5.02 of the authorized
+**Current status, 2026-09-02:** Coverage V1.2 P0 reliability changes are
+implemented locally and covered by no-spend tests. The implementation is based
+on Billy's approved audits of all 20 V1.1 benchmark reports, preserved under
+`benchmark-artifacts/coverage-v1-audit-packages/`. The audit upheld all 20
+qualitative verdicts, rated 19 reports mostly proper with corrections, and
+found El Arbol Negro materially unreliable because its ending mechanics were
+misread. V1.2 has not been run against the 20 PDFs, promoted, deployed, or used
+to write production data. V9 remains the production analyzer. Reports remain
+qualitative and unrankable with `analysis_version: "coverage_v1"` and
+`scoreSource: "coverage_unscored"` at the frontend normalization boundary.
+No-spend verification passed on 2026-09-02: 71 focused V1.2 engine tests, 502
+Python execution tests, 1,085 frontend tests across 146 files, and the full
+TypeScript/Vite production build.
+
+**Historical V1.1 canary: PASSED 2026-08-31 — two rounds, $5.02 of the authorized
 $10.** Round 1 ($3.09): human bars passed — Billy confirmed correct story
 spines/endings and rated the development notes pay-worthy; the corrupted
 scanned fixture was diagnosed and PASSed instead of hallucinated; three
@@ -50,27 +64,27 @@ across invocations (a per-run store had silently re-bought paid coverage);
 the structure-repair output ceiling is 16k; and any exception becomes a
 failed_closed scorecard row instead of aborting the batch. Canary grant
 closed at ~$9.20 of $10.
-**BENCHMARK AUTHORIZED 2026-09-01: Billy approved $25 for the 20-script
-benchmark** (its own grant). The route remains DISABLED by default in
-production.**
+The V1.1 20-script run and its human audit are now complete. That prior spending
+authorization does not authorize a V1.2 rerun. The route remains disabled by
+default in production.
 
 Coverage V1 is the replacement for V9's paid analysis machinery recommended by
 [`SCREENPLAY-DASHBOARD-REASSESSMENT.md`](SCREENPLAY-DASHBOARD-REASSESSMENT.md).
 V9 remains untouched as the forensic record of already-sealed analyses and as
-the default engine until the canary passes and the route is deliberately
-promoted.
+the default engine until Coverage is deliberately promoted.
 
 ## What it does
 
-Two paid calls per screenplay, one optional repair, hard $1 cap:
+The normal path is two paid calls per screenplay, with bounded repair calls and
+a hard local cost cap:
 
 ```
-PDF → [existing] parse + page markers + hashes + dedupe + immutable archive   ($0)
-    → SENIOR COVERAGE   one Sonnet call, methodology lenses, native schema    (call 1)
-    → [code] validate + verify citations verbatim + durable CHECKPOINT       ($0)
-    → FACT AUDIT        one Haiku call, story-spine facts only                (call 2)
-    → [code] adjudicate + verdict caps + labels + optional 1 repair          (0–1 call)
-    → coverage_v1_reports staging collection                                  ($0)
+PDF → [code] parse + typed PDF/printed-page/scene map + hashes                 ($0)
+    → SENIOR COVERAGE   methodology lenses, qualitative native schema          (call 1)
+    → [code] validate + normalize citations + build evidence checks/registry   ($0)
+    → FACT AUDIT        claims + five reliability guards + ordered ending pass (call 2)
+    → [code] adjudicate + bounded repair/re-audit when eligible                (bounded)
+    → coverage_v1_reports staging collection, only when separately enabled     ($0)
 ```
 
 - **No boundary reruns. No hybrid Opus promotion. No verification of taste.**
@@ -89,6 +103,25 @@ PDF → [existing] parse + page markers + hashes + dedupe + immutable archive   
   must be funny on the page, with cited scenes either way.
 - **Development priorities are mandatory** — three ranked moves with why/how,
   normalized into the dashboard (the field V9 always left empty).
+- **Page identities stay separate**: each physical PDF page records an optional
+  printed-page label, the one valid citation coordinate, and any scene numbers.
+  Impossible pages and scene numbers masquerading as pages are rejected.
+- **Existing evidence is checked before absence claims**: every development
+  priority and every high-risk absolute claim gets a complete-script search
+  record. The auditor must inspect setup, action, payoff, and aftermath before
+  accepting it.
+- **Central facts have one registry**: protagonist, want, need, opposition,
+  stakes, turns, climax, ending, and material causal claims are reconciled
+  across the synopsis, lenses, concerns, priorities, uncertainties, and verdict
+  cases. An eligible repair returns and re-audits the complete report.
+- **Climax and ending order is explicit**: the audit records actor, action,
+  result, character knowledge, audience knowledge, page, final scene, tag, and
+  aftermath. Missing tags remain `NOT PRESENT`; multi-stage climaxes stay
+  multi-stage.
+- **Citation checks are independent**: text existence, page correctness, and
+  relevance to the attached claim must all pass. Normalization handles layout
+  line breaks, line-end hyphens, revision marks, whitespace, curly quotes,
+  punctuation, and ellipses without accepting a wrong page.
 - **Cost is reported as settled / uncertain / charged, never conflated**, and
   a local per-screenplay cap (default $1.00) fails closed while keeping
   checkpoints. The existing server-side $100/day gate still applies to every
@@ -139,6 +172,25 @@ Note: a distilled prompt change alters `prompt_sha256`, which deliberately
 invalidates existing checkpoints — the next run of any script re-pays both
 calls under the new rules.
 
+## V1.1 human-audit benchmark
+
+Billy personally approved an independent full-screenplay audit for each of the
+20 V1.1 reports. The immutable source set is:
+
+- `benchmark-artifacts/coverage-v1-audit-packages/00-CALIBRATION-SYNTHESIS/Coverage-V1.1-Human-Audit-Synthesis.md`
+- `benchmark-artifacts/coverage-v1-audit-packages/00-CALIBRATION-SYNTHESIS/Coverage-V1.1-Human-Audit-Ledger.json`
+- each screenplay package's `DROP-BILLY-APPROVED-AUDIT-HERE/Billy_Audit.md`
+
+The verdicts were directionally strong: all 20 were upheld. Reliability was
+not yet sufficient to promote the engine: 19 reports were mostly proper with
+corrections and El Arbol Negro was materially unreliable. The two critical
+reading failures were W.I.L.L., where the decisive climax order and Angela's
+agency were reversed, and El Arbol Negro, where the final sacrifice mechanism
+was misdescribed. Recurring P0 failures affected existing-evidence handling
+(18 reports), citation verification (14), cross-field propagation (12), page
+identity (11), and literal climax/ending reconstruction (5). Those five
+patterns define the V1.2 implementation and regression suite.
+
 ## Methodology lenses
 
 Billy's 30 screenwriting skills are imported verbatim under
@@ -168,7 +220,7 @@ Anything else runs V9 exactly as before. When enabled, results are written to
 the **staging collections** `coverage_v1_reports` / `coverage_v1_checkpoints`;
 the immutable `uploaded_analyses` store is never written by this route.
 Promotion into the main store is a separate, later decision (after the
-canary), on purpose.
+V1.2 benchmark and human review), on purpose.
 
 Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 `lenses: [ids]`, `max_cost_usd` (≤ the $1 default unless raised deliberately).
@@ -177,8 +229,8 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 
 | File | What |
 |---|---|
-| `execution/coverage_v1.py` | Engine: schemas, prompts, lens loader, checkpoints, two-call state machine, citation verification, cost split |
-| `execution/test_coverage_v1.py` | 34 offline tests (fake transport; no network) |
+| `execution/coverage_v1.py` | Engine: schemas, prompts, page map, evidence gates, canonical facts, sequence audit, checkpoints, citation verification, cost split |
+| `execution/test_coverage_v1.py` | 71 offline engine tests (fake transport; no network) |
 | `execution/coverage_v1_citation_diag.py` | Offline near-miss vs fabrication diagnostic for unverified citations ($0) |
 | `execution/test_daemon_coverage_route.py` | 8 offline tests for the daemon route |
 | `execution/lenses/` | registry.json, cards/ (15 distilled), skills/ (30 imported sources) |
@@ -187,18 +239,31 @@ Optional job fields: `format: "tv_pilot"`, `genre_hint: "horror"|"comedy"`,
 
 ## Offline guarantees proven by tests
 
-- Normal completion = exactly 2 calls; at most 1 repair; repair never resends
-  the screenplay.
+- Normal completion is exactly 2 calls. Structural correction uses at most one
+  shared retry and never resends the screenplay; an eligible factual repair
+  must return the complete report and pass a fresh audit.
 - Invalid coverage cannot seal; incomplete audits cannot seal.
 - A failure after coverage resumes at the audit **without repaying coverage**;
   a full replay makes **zero** calls.
 - Prompt/schema/model/lens/source drift invalidates checkpoints; tampered
   checkpoints are rejected.
 - Fabricated quotations are flagged by verbatim page verification (models
-  cannot invent citations that pass). Known transcription-format artifacts —
-  a "/" marking a screenplay line break, one normalized leading word on a
-  long quote — verify deterministically instead of false-flagging, and a
-  verbatim quote on exactly one other page is relocated, not rejected.
+  cannot invent citations that pass). Text, page, and claim relevance are
+  verified separately. Known transcription artifacts are normalized, and a
+  verbatim quote on exactly one other page is relocated rather than accepted
+  at the wrong location.
+- PDF indexes, printed-page labels, citation coordinates, and scene numbers
+  are typed separately. Structured and prose page references outside the
+  citable set fail validation.
+- Every development priority and high-risk absolute claim produces a complete-
+  screenplay evidence check; the audit cannot pass a conflicting aggregate
+  guard over failed detail rows.
+- The canonical fact registry is checked across the complete report. Eligible
+  repairs return the full coverage and are re-audited, preventing a corrected
+  spine from coexisting with stale synopsis or lens claims.
+- The ordered sequence ledger must cover climax, final scene, tag, and
+  aftermath with consecutive steps, knowledge state, and valid pages. W.I.L.L.
+  beat reversal and El Arbol Negro ending inconsistency fixtures cannot seal.
 - Contradicted central facts (wrong ending/protagonist) → `needs_review`,
   never an automatic rerun.
 - Budget cap fails closed and preserves paid, validated work.
@@ -249,34 +314,10 @@ human checklist (spine facts correct, development notes actionable, at
 least as useful as the V9 report). Send `scorecard.json` and the
 `reports/*.json` back for adjudication.
 
-## The 20-script benchmark (authorized by Billy 2026-09-01, $25 total)
+## Next gate
 
-Runs on the same runner with a 20-entry manifest once Billy provides or
-approves the titles:
-
-```bash
-venv/bin/python -m execution.coverage_v1_canary --manifest benchmark.json \
-  --execute --i-authorize-paid-inference --max-total-usd 25
-```
-
-Slate design (what makes the result informative): scripts Billy knows well
-enough to react to every verdict — roughly 5 strong / 10 middling / 5 weak
-by his own prior judgment, spread across horror, comedy, and high-concept,
-plus 2–3 TV pilots with `"format": "tv_pilot"` to exercise the Grisanti
-stack for the first time. Expected cost ≈ $0.60–0.90/script under engine
-v1.1 (fact repair fires only when the audit finds central imprecision).
-
-What the benchmark establishes that the canary could not:
-1. **Verdict calibration** — Billy reacts agree/disagree to every verdict;
-   the distribution against his prior strong/middling/weak ranking is the
-   headline metric (RECOMMEND should surface his strong picks; PASS/
-   CONSIDER should not swallow one).
-2. **Genre contracts at scale** — do horror/comedy bars cap the right
-   scripts and never the wrong ones.
-3. **Rule generalization rates** — frequency of review flags, fact-repair
-   firings, continuity findings, unverified citations, and any recurrence
-   of the calibrated-away failure modes across 20 unseen-by-the-rules
-   scripts.
-
-Promotion into production (enabling the daemon route + dashboard read)
-remains a separate decision after Billy reviews the benchmark results.
+The V1.1 benchmark and its 20 human-approved audits are complete. V1.2 is only
+implemented and tested locally. The next meaningful experiment is a separately
+authorized paid V1.2 rerun of the same 20 PDFs, followed by a blind comparison
+against the approved audit ledger. Production promotion, daemon activation,
+and production-data writes remain separate decisions after that result.

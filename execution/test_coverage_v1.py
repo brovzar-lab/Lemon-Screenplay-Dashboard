@@ -230,6 +230,10 @@ def valid_coverage(lens_stack=FEATURE_STACK) -> dict:
 
 def supported_audit(coverage: dict) -> dict:
     claims = cv.build_audit_claims(coverage)
+    last_page = max(
+        turn["page"]
+        for turn in coverage["story_spine"]["major_turns"]
+    )
     return {
         "verdicts": [
             {
@@ -238,7 +242,77 @@ def supported_audit(coverage: dict) -> dict:
                 "note": "Confirmado en el texto.",
             }
             for claim in claims
-        ]
+        ],
+        "existing_evidence_verdicts": [
+            {
+                "field_path": check["field_path"],
+                "classification": "supported",
+                "note": "The full-screenplay check found no contradiction.",
+            }
+            for check in cv.build_existing_evidence_checks(
+                coverage, SCREENPLAY_TEXT
+            )
+        ],
+        "sequence_ledger": [
+            {
+                "order": 1,
+                "phase": "climax",
+                "actor": "Diego",
+                "action": coverage["story_spine"]["climax"],
+                "result": "The decisive action completes.",
+                "character_knowledge": "Diego understands the physical risk.",
+                "audience_knowledge": "The audience knows the medical stakes.",
+                "page": last_page,
+            },
+            {
+                "order": 2,
+                "phase": "ending",
+                "actor": "Diego and the children",
+                "action": coverage["story_spine"]["ending"],
+                "result": "The ending begins after the decisive action.",
+                "character_knowledge": "The characters know the result.",
+                "audience_knowledge": "The audience sees the new state.",
+                "page": last_page,
+            },
+            {
+                "order": 3,
+                "phase": "final_scene",
+                "actor": "Diego and the children",
+                "action": coverage["story_spine"]["ending"],
+                "result": "The story reaches its literal final state.",
+                "character_knowledge": "The characters know the result.",
+                "audience_knowledge": "The audience sees the aftermath.",
+                "page": last_page,
+            },
+            {
+                "order": 4,
+                "phase": "tag",
+                "actor": "N/A",
+                "action": "NOT PRESENT",
+                "result": "No separate tag follows the final scene.",
+                "character_knowledge": "N/A",
+                "audience_knowledge": "No additional information is revealed.",
+                "page": last_page,
+            },
+            {
+                "order": 5,
+                "phase": "aftermath",
+                "actor": "Diego and the children",
+                "action": coverage["story_spine"]["ending"],
+                "result": "The consequences are shown in the final scene.",
+                "character_knowledge": "The characters know the result.",
+                "audience_knowledge": "The audience sees the consequences.",
+                "page": last_page,
+            },
+        ],
+        "citation_relevance": [
+            {
+                "owner": owner,
+                "classification": "supported",
+                "note": "The excerpt directly supports its attached claim.",
+            }
+            for owner, _item in cv._iter_citations(coverage)
+        ],
     }
 
 
@@ -384,7 +458,10 @@ class TestPrintedPageNumbering(unittest.TestCase):
             ]
         )
         report, _usage = run_engine(
-            new_store(), transport, text=screenplay_with_printed_headers()
+            new_store(),
+            transport,
+            text=screenplay_with_printed_headers(),
+            page_count=13,
         )
         self.assertEqual(report["status"], "sealed")
         self.assertEqual(report["page_numbering"]["mode"], "printed")
@@ -394,6 +471,98 @@ class TestPrintedPageNumbering(unittest.TestCase):
         # renumbered text with zero relocations needed.
         self.assertEqual(report["citation_verification"]["unverified"], 0)
         self.assertFalse(report["human_review_recommended"])
+
+    def test_typed_page_reference_mapping_preserves_each_identity(self):
+        coverage = valid_coverage()
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (supported_audit(coverage), settled_usage()),
+            ]
+        )
+        report, _usage = run_engine(
+            new_store(),
+            transport,
+            text=screenplay_with_printed_headers(),
+            page_count=13,
+        )
+
+        self.assertEqual(report["physical_page_count"], 13)
+        self.assertEqual(report["printed_page_count"], 12)
+        self.assertEqual(report["page_count"], 12)
+        first_body_page = report["page_reference_map"][1]
+        self.assertEqual(first_body_page["pdf_page"], 2)
+        self.assertEqual(first_body_page["printed_page"], 1)
+        self.assertEqual(first_body_page["citation_page"], 1)
+        self.assertEqual(first_body_page["scene_numbers"], [])
+        page_two = report["page_reference_map"][2]
+        self.assertEqual(page_two["pdf_page"], 3)
+        self.assertEqual(page_two["printed_page"], 2)
+        self.assertIn("page_map_sha256", report["page_numbering"])
+
+    def test_terapia_impossible_page_is_rejected_before_audit(self):
+        impossible = valid_coverage()
+        impossible["story_spine"]["major_turns"][1]["page"] = 109
+        fixed = valid_coverage()
+        numbered_text = SCREENPLAY_TEXT.replace(
+            "INT. HOSPITAL - NOCHE",
+            "109. INT. HOSPITAL - NOCHE",
+        )
+        transport = FakeTransport(
+            [
+                (impossible, settled_usage()),
+                (fixed, settled_usage()),
+                (supported_audit(fixed), settled_usage()),
+            ]
+        )
+
+        report, _usage = run_engine(
+            new_store(), transport, text=numbered_text
+        )
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertIn("109", report["page_reference_map"][4]["scene_numbers"])
+        self.assertTrue(
+            any(
+                "story_spine.major_turns[1].page" in problem
+                and "scene number 109" in problem
+                for problem in report["diagnostics"][
+                    "coverage_first_pass_problems"
+                ]
+            )
+        )
+
+    def test_terapia_impossible_page_in_prose_is_rejected(self):
+        coverage = valid_coverage()
+        coverage["lens_notes"][0]["analysis"] += (
+            " La decisión queda confirmada en las páginas 104-109."
+        )
+        page_map = cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None)
+
+        problems = cv.validate_coverage_payload(
+            coverage, FEATURE_STACK, page_map
+        )
+
+        self.assertTrue(
+            any(
+                "lens_notes[0].analysis" in problem
+                and "page 104" in problem
+                for problem in problems
+            )
+        )
+
+    def test_terapia_impossible_page_in_page_list_is_rejected(self):
+        coverage = valid_coverage()
+        coverage["lens_notes"][0]["analysis"] += (
+            " Los hechos aparecen en las páginas 2, 109 y 5."
+        )
+        page_map = cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None)
+
+        problems = cv.validate_coverage_payload(
+            coverage, FEATURE_STACK, page_map
+        )
+
+        self.assertTrue(any("page 109" in problem for problem in problems))
 
     def test_unnumbered_document_falls_back_to_physical(self):
         self.assertIsNone(cv._detect_printed_page_offset(SCREENPLAY_TEXT))
@@ -407,6 +576,10 @@ class TestPrintedPageNumbering(unittest.TestCase):
         report, _usage = run_engine(new_store(), transport)
         self.assertEqual(report["page_numbering"]["mode"], "physical")
         self.assertIn("physical", report["page_convention"])
+        self.assertIsNone(report["page_reference_map"][0]["printed_page"])
+        self.assertEqual(report["page_reference_map"][0]["citation_page"], 1)
+        self.assertEqual(report["printed_page_count"], 0)
+        self.assertEqual(report["page_count"], 6)
 
 
 class TestHappyPath(unittest.TestCase):
@@ -525,6 +698,14 @@ class TestHappyPath(unittest.TestCase):
         self.assertIsNotNone(kind)
         self.assertIn("edge_punct_stripped", kind)
 
+    def test_curly_quotes_unicode_ellipsis_and_whitespace_normalize(self):
+        kind = cv._lenient_excerpt_match_kind(
+            'MIMO dice: “No… abras\n  todavía esa puerta.”',
+            '"No... abras todavía esa puerta."',
+        )
+        self.assertIsNotNone(kind)
+        self.assertIn("revision_safe", kind)
+
     def test_quote_stitched_across_speakers_stays_flagged(self):
         # Policy: a sentence assembled from two characters' half-lines is not
         # a verbatim quote — it must remain unverified (and flag review).
@@ -543,6 +724,100 @@ class TestHappyPath(unittest.TestCase):
         summary = cv.verify_citations(coverage, SCREENPLAY_TEXT)
         self.assertEqual(summary["unverified"], 1)
         self.assertFalse(coverage["strengths"][1]["citation_verified"])
+
+    def test_diablo_revision_marks_and_line_end_hyphen_verify(self):
+        coverage = {
+            "lens_notes": [],
+            "strengths": [
+                {
+                    "point": "La deuda del personaje está planteada",
+                    "page": 1,
+                    "excerpt": "Porque ellas no son las adictas al juego",
+                }
+            ],
+            "concerns": [],
+        }
+        revised_page = """\
+[PAGE 1]
+Porque ellas no son las adic-                              *
+*
+tas al juego.
+"""
+
+        summary = cv.verify_citations(coverage, revised_page)
+
+        self.assertEqual(summary["unverified"], 0)
+        self.assertEqual(summary["text_verified"], 1)
+        self.assertEqual(summary["page_verified"], 1)
+        citation = coverage["strengths"][0]
+        self.assertTrue(citation["citation_text_verified"])
+        self.assertTrue(citation["citation_page_verified"])
+        self.assertIn("layout_normalized", citation["citation_match_kind"])
+
+    def test_repeated_quote_proves_text_but_not_wrong_page(self):
+        coverage = {
+            "lens_notes": [],
+            "strengths": [
+                {
+                    "point": "A repeated warning is used twice",
+                    "page": 3,
+                    "excerpt": "No abras esa puerta todavía",
+                }
+            ],
+            "concerns": [],
+        }
+        screenplay = """\
+[PAGE 1]
+No abras esa puerta todavía.
+[PAGE 2]
+No abras esa puerta todavía.
+[PAGE 3]
+La puerta permanece cerrada.
+"""
+
+        summary = cv.verify_citations(coverage, screenplay)
+
+        citation = coverage["strengths"][0]
+        self.assertEqual(summary["text_verified"], 1)
+        self.assertEqual(summary["page_verified"], 0)
+        self.assertEqual(summary["unverified"], 1)
+        self.assertTrue(citation["citation_text_verified"])
+        self.assertFalse(citation["citation_page_verified"])
+        self.assertNotIn("cited_page", citation)
+
+    def test_citation_relevance_is_a_separate_seal_gate(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        for row in audit["verdicts"]:
+            if row["claim_id"] == "guard.citation_relevance":
+                row["classification"] = "contradicted"
+                row["note"] = "The quote exists but does not support concern 2."
+        audit["citation_relevance"][0]["classification"] = "contradicted"
+        audit["citation_relevance"][0]["note"] = (
+            "The quote exists but does not support its attached claim."
+        )
+        transport = FakeTransport(
+            [(coverage, settled_usage()), (audit, settled_usage())]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertLess(
+            report["citation_verification"]["relevance_verified"],
+            report["citation_verification"]["total"],
+        )
+        self.assertEqual(
+            report["citation_verification"]["relevance_status"],
+            "contradicted",
+        )
+        self.assertEqual(
+            cv.trust_labels(report)["citations"],
+            "PARTIALLY_VERIFIED_QUOTES",
+        )
+        self.assertEqual(
+            cv.trust_labels(report)["story_spine"], "FACT_AUDITED"
+        )
 
     def test_not_applicable_lens_grade_seals_without_verdict_penalty(self):
         # Calibration rule 8 (Matadero brief): a lens that does not apply
@@ -616,13 +891,13 @@ class TestHappyPath(unittest.TestCase):
             ]
         )
         report, _usage = run_engine(new_store(), transport)
-        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(report["status"], "needs_review")
         self.assertTrue(report["human_review_recommended"])
         self.assertTrue(
             any("verified verbatim" in r for r in report["review_reasons"])
         )
 
-    def test_contradicted_concern_flags_review_without_blocking_seal(self):
+    def test_contradicted_concern_blocks_seal_for_review(self):
         # Hermanos brief, defect 1: concerns and the pass case are audited;
         # a contradicted one (e.g. a false "unseeded" claim) flags review.
         coverage = valid_coverage()
@@ -635,7 +910,7 @@ class TestHappyPath(unittest.TestCase):
             [(coverage, settled_usage()), (audit, settled_usage())]
         )
         report, _usage = run_engine(new_store(), transport)
-        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(report["status"], "needs_review")
         self.assertTrue(report["human_review_recommended"])
         self.assertTrue(
             any(
@@ -681,6 +956,119 @@ class TestHappyPath(unittest.TestCase):
         self.assertIn("pass_reason", ids)
         self.assertLessEqual(len(claims), cv.MAX_AUDIT_CLAIMS)
 
+    def test_v12_guard_claims_cover_all_p0_reliability_gates(self):
+        claims = cv.build_audit_claims(valid_coverage())
+        ids = {claim["claim_id"] for claim in claims}
+        expected = {
+            "guard.page_reference_integrity",
+            "guard.existing_evidence",
+            "guard.cross_field_consistency",
+            "guard.sequence_integrity",
+            "guard.citation_relevance",
+        }
+        self.assertTrue(expected.issubset(ids))
+        self.assertTrue(all(cv.is_central_claim(claim_id) for claim_id in expected))
+        self.assertLessEqual(len(claims), cv.MAX_AUDIT_CLAIMS)
+
+    def test_la_ciguena_and_sola_existing_evidence_reaches_audit(self):
+        coverage = valid_coverage()
+        coverage["concerns"][0]["point"] = (
+            "La cigüeña nunca tiene contacto sustantivo antes del midpoint"
+        )
+        coverage["development_priorities"][0] = {
+            "priority": "Agregar una primera preparación del campamento",
+            "why": "La logística del campamento no existe antes de la trampa",
+            "how": "Plantar una escena nueva donde preparan el campamento",
+        }
+        screenplay = """\
+[PAGE 1]
+La pesadilla muestra una CIGÜEÑA que toca la ventana.
+[PAGE 2]
+Los asesinos preparan el campamento y luego mueven el cuerpo.
+"""
+
+        checks = cv.build_existing_evidence_checks(coverage, screenplay)
+        by_path = {check["field_path"]: check for check in checks}
+
+        self.assertIn("concerns[0].point", by_path)
+        self.assertIn("development_priorities[0]", by_path)
+        self.assertEqual(by_path["concerns[0].point"]["matched_pages"], [1])
+        self.assertIn(2, by_path["development_priorities[0]"]["matched_pages"])
+        self.assertTrue(
+            all(check["full_screenplay_searched"] for check in checks)
+        )
+
+    def test_literal_ending_focus_keeps_opening_and_last_scene(self):
+        focus = cv.build_sequence_focus(SCREENPLAY_TEXT)
+        self.assertEqual(focus["opening_pages"], [1, 2, 3])
+        self.assertIn(6, focus["ending_pages"])
+        self.assertIn("[PAGE 1]", focus["text"])
+        self.assertIn("[PAGE 6]", focus["text"])
+
+    def test_canonical_fact_registry_has_one_climax_and_ending(self):
+        registry = cv.build_canonical_fact_registry(valid_coverage())
+        self.assertEqual(
+            registry["climax"],
+            valid_coverage()["story_spine"]["climax"],
+        )
+        self.assertEqual(
+            registry["ending"],
+            valid_coverage()["story_spine"]["ending"],
+        )
+        self.assertEqual(len(registry["major_turns"]), 3)
+        self.assertIn("registry_sha256", registry)
+
+    def test_v12_evidence_material_reaches_the_fact_auditor(self):
+        coverage = valid_coverage()
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (supported_audit(coverage), settled_usage()),
+            ]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        audit_text = "\n".join(
+            str(block.get("text", ""))
+            for block in transport.calls[1]["user_blocks"]
+        )
+        for heading in (
+            "PAGE REFERENCE MAP",
+            "CANONICAL FACT REGISTRY",
+            "EXISTING-EVIDENCE CHECKS",
+            "CLIMAX AND ENDING FOCUS",
+            "COMPLETE COVERAGE REPORT",
+        ):
+            self.assertIn(heading, audit_text)
+        for instruction in (
+            "actor",
+            "action",
+            "character knowledge",
+            "final scene",
+            "tag",
+            "aftermath",
+        ):
+            self.assertIn(instruction, audit_text)
+        self.assertEqual(
+            report["citation_verification"]["relevance_status"],
+            "supported",
+        )
+        self.assertEqual(
+            report["citation_verification"]["relevance_verified"],
+            report["citation_verification"]["total"],
+        )
+        self.assertEqual(
+            {row["phase"] for row in report["fact_audit"]["sequence_ledger"]},
+            {"climax", "ending", "final_scene", "tag", "aftermath"},
+        )
+        self.assertTrue(
+            all(
+                check["audit_classification"] == "supported"
+                for check in report["diagnostics"]["existing_evidence_checks"]
+            )
+        )
+
     def test_continuity_flags_are_validated_and_preserved(self):
         coverage = valid_coverage()
         coverage["continuity_flags"] = [
@@ -695,6 +1083,22 @@ class TestHappyPath(unittest.TestCase):
                 "continuity_flags" in problem
                 for problem in cv.validate_coverage_payload(broken, FEATURE_STACK)
             )
+        )
+
+    def test_citation_excerpt_contract_rejects_under_and_over_length(self):
+        coverage = valid_coverage()
+        coverage["lens_notes"][0]["excerpt"] = "dos palabras"
+        coverage["strengths"][0]["excerpt"] = (
+            "uno dos tres cuatro cinco seis siete ocho nueve diez once doce trece"
+        )
+
+        problems = cv.validate_coverage_payload(coverage, FEATURE_STACK)
+
+        self.assertTrue(
+            any("lens_notes[0].excerpt must contain 3-12" in p for p in problems)
+        )
+        self.assertTrue(
+            any("strengths[0].excerpt must contain 3-12" in p for p in problems)
         )
 
     def test_cost_split_keeps_uncertain_separate(self):
@@ -903,6 +1307,68 @@ class TestFactAudit(unittest.TestCase):
         self.assertNotIn("/10", joined)
         self.assertTrue(all(c["claim_id"] for c in claims))
 
+    def test_detailed_evidence_result_cannot_disagree_with_guard(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["existing_evidence_verdicts"][0]["classification"] = (
+            "contradicted"
+        )
+        checks = cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT)
+        page_map = cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None)
+
+        problems = cv.validate_audit_payload(
+            audit,
+            cv.build_audit_claims(coverage),
+            coverage,
+            page_map,
+            checks,
+        )
+
+        self.assertTrue(
+            any("guard.existing_evidence disagrees" in p for p in problems)
+        )
+
+    def test_will_sequence_ledger_rejects_nonliteral_order_metadata(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["sequence_ledger"][0]["order"] = 2
+        audit["sequence_ledger"][1]["order"] = 1
+        checks = cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT)
+        page_map = cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None)
+
+        problems = cv.validate_audit_payload(
+            audit,
+            cv.build_audit_claims(coverage),
+            coverage,
+            page_map,
+            checks,
+        )
+
+        self.assertIn(
+            "sequence_ledger order must be consecutive from 1",
+            problems,
+        )
+
+    def test_sequence_ledger_requires_an_explicit_ending_phase(self):
+        coverage = valid_coverage()
+        audit = supported_audit(coverage)
+        audit["sequence_ledger"] = [
+            row for row in audit["sequence_ledger"]
+            if row["phase"] != "ending"
+        ]
+        for order, row in enumerate(audit["sequence_ledger"], start=1):
+            row["order"] = order
+
+        problems = cv.validate_audit_payload(
+            audit,
+            cv.build_audit_claims(coverage),
+            coverage,
+            cv.build_page_reference_map(SCREENPLAY_TEXT, 6, None),
+            cv.build_existing_evidence_checks(coverage, SCREENPLAY_TEXT),
+        )
+
+        self.assertIn("sequence_ledger missing ending phase", problems)
+
     def test_contradicted_central_fact_needs_review_not_rerun(self):
         coverage = valid_coverage()
         audit = supported_audit(coverage)
@@ -922,6 +1388,119 @@ class TestFactAudit(unittest.TestCase):
         self.assertTrue(report["human_review_recommended"])
         self.assertIn("spine.ending", report["fact_audit"]["central_failures"])
         self.assertEqual(cv.trust_labels(report)["story_spine"], "UNRESOLVED")
+
+    def test_will_reversed_climax_order_cannot_seal(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["climax"] = (
+            "God stops Eric, then Angela is freed and chooses Will"
+        )
+        audit = supported_audit(coverage)
+        for row in audit["verdicts"]:
+            if row["claim_id"] == "guard.sequence_integrity":
+                row["classification"] = "contradicted"
+                row["note"] = (
+                    "Angela says yes under active puppeting before God's order."
+                )
+        transport = FakeTransport(
+            [(coverage, settled_usage()), (audit, settled_usage())]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertIn(
+            "guard.sequence_integrity",
+            report["fact_audit"]["central_failures"],
+        )
+
+    def test_el_arbol_inconsistent_ending_cannot_seal(self):
+        coverage = valid_coverage()
+        coverage["story_spine"]["ending"] = (
+            "The boxes hold photographs instead of living followers"
+        )
+        coverage["synopsis"] = coverage["synopsis"] + (
+            " Living followers are burned inside the boxes to heal loved ones."
+        )
+        audit = supported_audit(coverage)
+        for row in audit["verdicts"]:
+            if row["claim_id"] == "guard.cross_field_consistency":
+                row["classification"] = "contradicted"
+                row["note"] = "The ending and synopsis describe opposite victims."
+        transport = FakeTransport(
+            [(coverage, settled_usage()), (audit, settled_usage())]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "needs_review")
+        self.assertIn(
+            "guard.cross_field_consistency",
+            report["fact_audit"]["central_failures"],
+        )
+
+    def test_will_fact_repair_propagates_one_climax_to_every_section(self):
+        coverage = valid_coverage()
+        wrong = "God frees Angela before she says yes"
+        corrected_fact = "Angela says yes under puppeting before God's order"
+        coverage["story_spine"]["climax"] = wrong
+        coverage["synopsis"] += " " + wrong + "."
+        coverage["lens_notes"][0]["analysis"] = (
+            "The climax appears externally resolved because " + wrong + ", "
+            "which weakens the character decision despite the strong setup."
+        )
+        coverage["concerns"][0]["point"] = wrong + " and removes her agency"
+        coverage["development_priorities"][0]["how"] = (
+            "Reverse the order so Angela chooses before divine intervention"
+        )
+        coverage["uncertainties"] = [wrong]
+        coverage["champion_reason"] = wrong + ", but the romance still lands"
+        coverage["pass_reason"] = wrong + ", so the climax feels unearned"
+        audit = supported_audit(coverage)
+        for row in audit["verdicts"]:
+            if row["claim_id"] == "guard.cross_field_consistency":
+                row["classification"] = "partially_supported"
+                row["note"] = "The report reverses Angela's decisive action."
+
+        corrected = copy.deepcopy(coverage)
+        for path in (
+            ("story_spine", "climax"),
+            ("synopsis",),
+            ("champion_reason",),
+            ("pass_reason",),
+        ):
+            target = corrected
+            for segment in path[:-1]:
+                target = target[segment]
+            target[path[-1]] = str(target[path[-1]]).replace(wrong, corrected_fact)
+        corrected["lens_notes"][0]["analysis"] = corrected_fact + (
+            ", preserving her agency while the later order stops the kill threat."
+        )
+        corrected["concerns"][0]["point"] = (
+            "God's later order resolves the separate kill threat externally"
+        )
+        corrected["development_priorities"][0]["how"] = (
+            "Clarify that Angela chooses before the later divine order"
+        )
+        corrected["uncertainties"] = [
+            "Whether the later rescue from the kill threat feels external"
+        ]
+        transport = FakeTransport(
+            [
+                (coverage, settled_usage()),
+                (audit, settled_usage()),
+                (corrected, settled_usage()),
+                (supported_audit(corrected), settled_usage()),
+            ]
+        )
+
+        report, _usage = run_engine(new_store(), transport)
+
+        self.assertEqual(report["status"], "sealed")
+        self.assertNotIn(wrong, json.dumps(report["coverage"]))
+        self.assertEqual(
+            report["diagnostics"]["canonical_fact_registry"]["climax"],
+            corrected_fact,
+        )
 
     def test_incomplete_audit_retries_once_on_coverage_model(self):
         coverage = valid_coverage()
@@ -945,14 +1524,18 @@ class TestFactAudit(unittest.TestCase):
         self.assertEqual(report["cost"]["repair_calls_used"], 1)
         self.assertTrue(report["diagnostics"]["audit_first_pass_problems"])
 
-    def test_persistently_missing_noncentral_verdict_seals_unclassified(self):
+    def test_persistently_missing_noncentral_verdict_needs_review(self):
         # Live failure 2026-09-01: the auditor skipped one non-central claim
         # twice and destroyed a $0.73 run. Now the missing id becomes an
         # explicit 'unclassified' verdict: sealed, review-flagged, excluded
         # from support_rate — never a fabricated classification.
         coverage = valid_coverage()
         bad_audit = supported_audit(coverage)
-        bad_audit["verdicts"].pop()  # last claim: pass_reason (non-central)
+        bad_audit["verdicts"] = [
+            row
+            for row in bad_audit["verdicts"]
+            if row["claim_id"] != "pass_reason"
+        ]
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
@@ -962,7 +1545,7 @@ class TestFactAudit(unittest.TestCase):
         )
         report, _usage = run_engine(new_store(), transport)
         self.assertEqual(len(transport.calls), 3)
-        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(report["status"], "needs_review")
         self.assertTrue(report["human_review_recommended"])
         self.assertTrue(
             any("unclassified" in r for r in report["review_reasons"])
@@ -1003,7 +1586,11 @@ class TestFactAudit(unittest.TestCase):
         del broken["development_priorities"]
         fixed = valid_coverage()
         bad_audit = supported_audit(fixed)
-        bad_audit["verdicts"].pop()
+        bad_audit["verdicts"] = [
+            row
+            for row in bad_audit["verdicts"]
+            if row["claim_id"] != "pass_reason"
+        ]
         transport = FakeTransport(
             [
                 (broken, settled_usage()),
@@ -1012,10 +1599,10 @@ class TestFactAudit(unittest.TestCase):
             ]
         )
         # coverage + coverage repair + audit = 3 calls, no retry; the
-        # missing non-central verdict seals as unclassified with a flag.
+        # missing non-central verdict is preserved as unclassified for review.
         report, _usage = run_engine(new_store(), transport)
         self.assertEqual(len(transport.calls), 3)
-        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(report["status"], "needs_review")
         self.assertTrue(report["human_review_recommended"])
 
     def test_central_partial_is_fact_repaired_and_reaudited(self):
@@ -1028,25 +1615,23 @@ class TestFactAudit(unittest.TestCase):
         audit["verdicts"][0]["note"] = (
             "Diego tiene 58 años pero el guion nunca lo llama 'legendario'."
         )
-        corrections = {
-            "corrections": [
-                {
-                    "claim_id": "spine.protagonist",
-                    "corrected_text": (
-                        "Diego Salas, un portero retirado de 58 años"
-                    ),
-                }
-            ]
-        }
         corrected = copy.deepcopy(coverage)
         corrected["story_spine"]["protagonist"] = (
             "Diego Salas, un portero retirado de 58 años"
+        )
+        corrected["synopsis"] = corrected["synopsis"].replace(
+            "portero legendario venido a menos",
+            "portero retirado venido a menos",
+        )
+        corrected["lens_notes"][0]["analysis"] = (
+            "Bajo esta lente, Diego funciona como portero retirado de 58 años; "
+            "la progresión dramática culmina con una decisión física bien ganada."
         )
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
                 (audit, settled_usage()),
-                (corrections, settled_usage()),
+                (corrected, settled_usage()),
                 (supported_audit(corrected), settled_usage()),
             ]
         )
@@ -1057,42 +1642,43 @@ class TestFactAudit(unittest.TestCase):
             report["coverage"]["story_spine"]["protagonist"],
             "Diego Salas, un portero retirado de 58 años",
         )
+        self.assertIn("portero retirado venido a menos", report["coverage"]["synopsis"])
+        self.assertIn("portero retirado", report["coverage"]["lens_notes"][0]["analysis"])
         self.assertEqual(report["fact_audit"]["support_rate"], 1.0)
         self.assertFalse(report["human_review_recommended"])
         info = report["diagnostics"]["fact_repair"]
         self.assertTrue(info["attempted"])
         self.assertEqual(info["applied"], ["spine.protagonist"])
         self.assertTrue(info["reaudited"])
-        # The fact-repair call never resends the screenplay.
+        # The fact-repair call receives the complete report for propagation,
+        # but never resends the screenplay itself.
         fact_call = transport.calls[2]
         blocks = fact_call["user_blocks"]
         self.assertFalse(
-            any("Tepito" in str(b.get("text", "")) for b in blocks)
+            any("SCREENPLAY TEXT" in str(b.get("text", "")) for b in blocks)
         )
 
-    def test_partial_surviving_reaudit_seals_with_review_flag(self):
-        # An interpretive partial that survives the rewrite seals honestly:
-        # review flag on, support_rate below 1.0 (defect 7).
+    def test_partial_surviving_reaudit_needs_review(self):
+        # A central factual partial that survives repair cannot seal trusted.
         coverage = valid_coverage()
         audit = supported_audit(coverage)
         audit["verdicts"][0]["classification"] = "partially_supported"
-        corrections = {
-            "corrections": [
-                {"claim_id": "spine.protagonist", "corrected_text": "Diego Salas, portero retirado, 58"}
-            ]
-        }
-        still_partial = supported_audit(coverage)
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["protagonist"] = (
+            "Diego Salas, portero retirado, 58"
+        )
+        still_partial = supported_audit(corrected)
         still_partial["verdicts"][0]["classification"] = "partially_supported"
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
                 (audit, settled_usage()),
-                (corrections, settled_usage()),
+                (corrected, settled_usage()),
                 (still_partial, settled_usage()),
             ]
         )
         report, _usage = run_engine(new_store(), transport)
-        self.assertEqual(report["status"], "sealed")
+        self.assertEqual(report["status"], "needs_review")
         self.assertTrue(report["human_review_recommended"])
         self.assertLess(report["fact_audit"]["support_rate"], 1.0)
 
@@ -1100,18 +1686,17 @@ class TestFactAudit(unittest.TestCase):
         coverage = valid_coverage()
         audit = supported_audit(coverage)
         audit["verdicts"][0]["classification"] = "partially_supported"
-        corrections = {
-            "corrections": [
-                {"claim_id": "spine.protagonist", "corrected_text": "Un protagonista completamente distinto"}
-            ]
-        }
-        contradicted = supported_audit(coverage)
+        corrected = copy.deepcopy(coverage)
+        corrected["story_spine"]["protagonist"] = (
+            "Un protagonista completamente distinto"
+        )
+        contradicted = supported_audit(corrected)
         contradicted["verdicts"][0]["classification"] = "contradicted"
         transport = FakeTransport(
             [
                 (coverage, settled_usage()),
                 (audit, settled_usage()),
-                (corrections, settled_usage()),
+                (corrected, settled_usage()),
                 (contradicted, settled_usage()),
             ]
         )
@@ -1169,6 +1754,7 @@ class TestLabels(unittest.TestCase):
         self.assertEqual(labels["verdict"], "JUDGMENT")
         self.assertEqual(labels["development_priorities"], "JUDGMENT")
         self.assertEqual(labels["citations"], "VERIFIED_QUOTE")
+        self.assertTrue(report["citation_verification"]["integrity_verified"])
 
 
 if __name__ == "__main__":

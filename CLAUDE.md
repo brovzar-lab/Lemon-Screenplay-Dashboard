@@ -3,100 +3,46 @@
 ## Where Were We (WWW)
 <!-- Single source of truth for session continuity. OVERWRITE this whole section on "save" / "wrap up" / end of session — it reflects CURRENT state, not a log. On "www" / "where were we", read this back and summarize. -->
 
-**Last session:** 2026-08-31 (canary passed)
+**Last session:** 2026-09-02 (Coverage V1.2 P0 implemented locally)
 
-**Reassessment and Coverage V1 (current focus):**
-- Billy froze paid V9 runs after repeated cost/failure problems. A full read-only
-  reassessment lives at `docs/SCREENPLAY-DASHBOARD-REASSESSMENT.md` (verdict:
-  keep V9's reliability infrastructure and sealed history; retire its paid
-  analysis machinery — broken prompt cache, boundary reruns, hybrid Opus
-  promotion, subjective scores audited as facts, no mid-run checkpoints).
-- The replacement, **Coverage V1**, is built and fully offline-tested but
-  **disabled by default** — see `docs/COVERAGE-V1.md`. Two calls per script
-  (senior coverage + fact-only audit), one repair slot, durable checkpoints,
-  $1/script local cap, verdict caps in code, development notes populated.
-  Double-gated: `LEMON_ENGINE_COVERAGE_V1=1` on the daemon AND
-  `engine: "coverage_v1"` on the job. Writes only to `coverage_v1_reports` /
-  `coverage_v1_checkpoints` staging collections; `uploaded_analyses` untouched.
-- Billy's 30 screenwriting skills are imported at `execution/lenses/skills/`;
-  15 distilled evaluation lens cards + registry at `execution/lenses/`.
-  Default stacks: feature → lemon-coverage/save-the-cat/story-grid;
-  TV pilot → Grisanti. Genre contracts are hard bars: horror must be scary,
-  comedy must be hilarious, on the page, or verdict caps at CONSIDER.
-- Billy's decisions (recorded in the reassessment §22): calibration by
-  reaction verdicts on surfaced winners (plus low-confidence-PASS sampling),
-  per-lens grades instead of numeric dimension scores, Reader Chat retained
-  on-demand, theatrical priorities = horror + comedy + high-concept.
-- **CANARY PASSED 2026-08-31** (two rounds, $5.02 of the authorized $10 —
-  full record in the `docs/COVERAGE-V1.md` status header): all 5 sealed,
-  human bars confirmed by Billy (spines/endings correct incl. Oro, notes
-  pay-worthy), zero fabricated citations, worst settled cost $0.53/script,
-  resume drill repaid nothing. **Billy authorized $25 for the 20-script
-  benchmark on 2026-09-01** (separate grant; canary grant closed at
-  ~$9.20/$10 — engine v1.1 validated live on Slasher: fact-repair stage
-  fired and worked, $0.599 settled, support_rate honest at 0.8889, index
-  cited in the notes; two live failures hardened the infra: unclassified
-  audit verdicts, shared cross-run checkpoint store, 16k repair ceiling,
-  exception-proof batch loop). Benchmark runs once Billy
-  provides/approves the 20 titles. The route is still
-  disabled by default; promotion into production is a separate decision
-  after the benchmark.
-- **Calibration loop live:** Billy's line-by-line audit briefs live verbatim
-  in `docs/calibration/` and are distilled into the HOUSE READING RULES of
-  `COVERAGE_CHARTER`. Brief #1 (Matadero, 2026-08-31) absorbed: 10 reading
-  rules + `not_applicable` lens grades + per-report `page_convention` +
-  audit dialogue-vs-staging rule. Brief #2 (Hermanos, 2026-09-01) absorbed:
-  rules 11-13 (continuity sweep, sequence buttons, pacing-claim limits) +
-  required `continuity_flags` field + concerns/pass_reason audited with an
-  absence-claim search rule + nonzero unverified citations force
-  human_review_recommended + printed-page renumbering detected from page
-  headers in code. Brief #3 (Slasher fresh run, 2026-09-01, ~$7.25 of $10
-  spent) confirmed briefs #1-#2 landed and exposed the false-absence bias
-  as systematic → absorbed as **engine coverage-v1.1**: code-generated
-  CHARACTER PAGE INDEX in both prompts, rules 14-16 (relationship graph,
-  behavior ledger, scene function), a fact-repair stage (audit-flagged
-  central partials rewritten per audit notes + re-audited before sealing;
-  call ceiling 3→5), weighted support_rate (partials 0.5). All old
-  checkpoints invalidated by design. **Re-run 2026-09-01 VALIDATED briefs
-  #1-#2** ($1.43,
-  cumulative $6.46 of the $10): corrected Matadero ending/climax, Hermanos
-  loophole note replaced by the real scoring incoherence, not_applicable
-  contracts, printed pages, continuity sweep caught 4 real errors incl. a
-  previously unknown scoring discrepancy, audit knocked down 3 overstated
-  concerns, seal review-flags honestly. Known residual: Fausto birth-order
-  contradiction unflagged in the spine. Cost with audit teeth ≈
-  $0.70/script (old $0.60 target predates the teeth). Per-verdict
-  reactions suffice from here; next calibration input is the benchmark.
-- **Dashboard preview live:** the four sealed canary reports are staged in
-  `coverage_v1_reports` (uploader: `execution/upload_coverage_reports.py`;
-  rules allow team read, clients never write). The dashboard merges that
-  staging feed beside `uploaded_analyses` (lean listener, no trust
-  machinery), the wall card shows "Coverage / Unscored by design" +
-  verdict badge, and the project workspace has a coverage-native Coverage
-  tab (`CoverageReportPanel`: spine, lens grades, dev priorities,
-  continuity flags, champion/pass cases, audit trail) with V9-only tabs
-  hidden for coverage docs. Vite is strictPort:3000 now (a fallback 3001
-  server can never sign in). Remaining UI polish handed to Codex (see the
-  handoff in the session log): coverage-aware Overview, classic-modal
-  labels, PDF export check, Slate Insights chip.
-- Deferred items: replace the placeholder `BENCHMARK_ANTHROPIC_API_KEY`
-  ('not-configured', Secret Manager) before any candidate-model benchmark;
-  Oro de Acapulco reads as a TV pilot per its own coverage — offer a
-  Grisanti-stack re-run (`format: "tv_pilot"`); no McKee skill was in the
-  zip (Billy can send one to become a lens card); Reader Chat per-turn cost
-  review.
+**Current state:**
+- Work is on `claude/lemon-dashboard-v9-review-w3nuz0`. Coverage V1.2 changes
+  are limited to `execution/coverage_v1.py`, its offline tests, and this
+  documentation. No paid inference, production-data write, deployment, daemon
+  activation, or V1.2 promotion was performed.
+- The source of truth is Billy's approved audit of all 20 V1.1 benchmark
+  reports under `benchmark-artifacts/coverage-v1-audit-packages/`, especially
+  `00-CALIBRATION-SYNTHESIS/Coverage-V1.1-Human-Audit-Synthesis.md` and the
+  matching ledger JSON. All 20 verdicts were upheld; 19 reports were mostly
+  proper with corrections; El Arbol Negro was materially unreliable. The two
+  critical reading failures were the reversed climax order in W.I.L.L. and the
+  misread sacrifice mechanism in El Arbol Negro.
+- Engine version `coverage-v1.2` implements the five audited P0 safeguards:
+  typed PDF/printed/citation-page/scene identities; complete-script evidence
+  checks before absolute-negative claims or development priorities; one
+  canonical fact registry with complete-report repair and re-audit; an ordered
+  climax/ending ledger through final scene, tag, and aftermath; and separate
+  citation text, page, and relevance verification with layout normalization.
+- Regression fixtures cover W.I.L.L., El Arbol Negro, Terapia, La Ciguena,
+  Sola, and Diablo. No-spend verification passed: 71 focused V1.2 tests, all
+  502 Python execution tests, 1,085 frontend tests across 146 files, and the
+  full TypeScript/Vite production build.
+- The qualitative contract is unchanged: no screenplay scores, no rankability,
+  frontend `scoreSource` remains `coverage_unscored`, irrelevant lenses remain
+  `not_applicable`, multi-stage climaxes are preserved, and factual audit is
+  kept separate from human taste.
+- Coverage remains double-gated and off by default. V9 is still the production
+  analyzer and the immutable record for sealed historical analyses. The next
+  gate is a separately authorized paid V1.2 rerun of the same 20 PDFs, then
+  human comparison against the approved audit ledger. Do not infer permission
+  to run it from the earlier V1.1 benchmark authorization.
 
-**V9 state:** still the default engine for any normally-queued job; sealed V9
-analyses remain the immutable record. The trust-remediation wave (PRs #41–#76,
-2026-08-28/30) tripled `execution/ingest_v9.py` to ~13.8k lines; do not extend
-that pipeline — new analysis work goes through Coverage V1.
-
-**Open risks (carried over, status unverified this session):**
-- `VITE_TMDB_API_KEY` inlined into local builds — never `npm run deploy` from
-  a laptop; CI is the clean path.
+**Open risks (carried over, not reverified this session):**
+- `VITE_TMDB_API_KEY` may be inlined into local builds. Never run
+  `npm run deploy` from a laptop; CI is the clean path.
 - Playwright asserts against live production Firestore data.
-- Paperclip agent credential still scoped to all 72 repos; Firebase
-  service-account rotation and a separate deploy-approver identity pending.
+- Paperclip agent credential remains broadly scoped; Firebase service-account
+  rotation and a separate deploy-approver identity are pending.
 
 ## Project
 Internal screenplay-analysis dashboard for Lemon Studios. Ingests AI-generated coverage JSONs (V9 format), stores them in Firestore, and provides filtering, scoring, comparison, analytics charts, PDF export, and shareable links. Used to triage 500+ screenplays for producer review and partner sharing.
